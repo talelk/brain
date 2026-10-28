@@ -8,6 +8,7 @@ import type {
 } from "@brain/contracts";
 import { useApp } from "../ui/app-context";
 import { createScopedRead } from "../data/screens";
+import { governor } from "../data/client";
 import {
   approvalQuery, approvalsQuery, auditQuery, boardQuery, bridgeQuery, configExplainQuery, decisionsQuery,
   deliveryQuery, healthQuery, incidentQuery, incidentsQuery, jobExplainQuery, jobQuery, jobsQuery,
@@ -100,7 +101,8 @@ function WorkspaceOverviewPage(): JSX.Element {
     <Show when={actionMessage()}><p role="status" class="text-base text-ink-gray-7">{actionMessage()}</p></Show>
     <WorkspaceOverview workspaceId={app.workspaceId()} context={context.state().data}      workflows={workflows.state().data ?? []} canDispatch={app.canDispatch()}
       state={context.state()} onRefresh={() => void context.refresh({ force: true })}
-      blockedReason={context.state().canMutate ? undefined : "The workspace view is not fresh; re-read before dispatching an effect."}
+      blockedReason={context.state().canMutate ? undefined
+        : context.state().error ?? "The workspace view is not fresh; re-read before dispatching an effect."}
       onDispatch={async (workflowId, input) => {
         try {
           const release = context.state().data?.release;
@@ -165,6 +167,7 @@ function DecisionsPage(): JSX.Element {
     load: (scope, signal) => boardQuery(scope.workspaceId, signal),
   });
   return <DecisionsScreen decisions={decisions.state().data ?? []} state={decisions.state()} cardIds={(board.state().data?.cards ?? []).map((c) => c.cardId)}
+    viewerId={app.identity()?.actor.actorId} viewerName={app.identity()?.displayName}
     onRefresh={() => void decisions.refresh({ force: true })}
     onRecord={async (cardId, decision, note) => {
       const card = board.state().data?.cards.find((c) => c.cardId === cardId);
@@ -228,7 +231,7 @@ function ApprovalDetailPage(): JSX.Element {
           await approval.refresh({ force: true });
         } catch (e) { setMessage(e instanceof Error ? e.message : "Revocation failed."); }
       }}
-      verifyIdentity={app.verifyIdentity} submitDecision={app.submitDecision} checkDecision={app.checkDecision} />;
+      verifyIdentity={app.verifyIdentity} submitDecision={app.submitDecision} checkDecision={app.checkDecision} />
   </div>;
 }
 
@@ -273,7 +276,7 @@ function JobDetailPage(): JSX.Element {
         const result = await app.run("job.reconcile", { jobId: jobId(), reason }, { expectedVersion: current.version });
         setMessage(result.detail);
         await job.refresh({ force: true });
-      }} />;
+      }} />
   </div>;
 }
 
@@ -333,7 +336,7 @@ function RunnerDetailPage(): JSX.Element {
     <RunnerDetailScreen runner={runner.state().data} state={runner.state()}
       onRefresh={() => void runner.refresh({ force: true })} onBack={() => void navigate("/runners")}
       onDrain={(reason) => operate("runner.drain", reason)} onQuarantine={(reason) => operate("runner.quarantine", reason)}
-      canOperate={app.canOperate()} />;
+      canOperate={app.canOperate()} />
   </div>;
 }
 
@@ -352,14 +355,18 @@ function SessionDetailPage(): JSX.Element {
     <SessionFeed sessionId={sessionId()} session={session.state().data} state={session.state()}
       onRefresh={() => void session.refresh({ force: true })}
       onSteer={async (messageText) => {
-        const result = await app.run("session.steer", { sessionId: sessionId(), message: messageText });
-        setMessage(result.detail);
+        try {
+          const result = await app.run("session.steer", { sessionId: sessionId(), message: messageText });
+          setMessage(result.detail);
+        } catch (e) { setMessage(e instanceof Error ? e.message : "Steering was refused."); }
       }}
       onStop={async (reason) => {
-        const result = await app.run("session.stop", { sessionId: sessionId(), reason });
-        setMessage(result.detail);
-        await session.refresh({ force: true });
-      }} />;
+        try {
+          const result = await app.run("session.stop", { sessionId: sessionId(), reason });
+          setMessage(result.detail);
+          await session.refresh({ force: true });
+        } catch (e) { setMessage(e instanceof Error ? e.message : "Stop was refused."); }
+      }} />
   </div>;
 }
 
@@ -468,7 +475,7 @@ function DeliveryPage(): JSX.Element {
         const card = board.state().data?.cards.find((c) => c.cardId === cardId);
         const result = await app.run("decision.record", { cardId, decision: "go", note }, { expectedVersion: card?.version ?? 0 });
         setMessage(result.detail);
-      }} />;
+      }} />
   </div>;
 }
 
@@ -499,7 +506,7 @@ function KnowledgePage(): JSX.Element {
   return <div class="flex flex-col gap-field-gap">
     <Show when={message()}><p role="status" class="text-base text-ink-gray-7">{message()}</p></Show>
     <KnowledgeScreen workspaceId={app.workspaceId()} tools={knowledge.state().data?.tools ?? []}
-      state={knowledge.state()} onRefresh={() => void knowledge.refresh({ force: true })}
+      state={knowledge.state()} searched={searchText().trim().length > 0} onRefresh={() => void knowledge.refresh({ force: true })}
       onSearch={(text) => { setSearchText(text); void knowledge.refresh({ force: true }); }}
       onPublish={async (publication: MemoryPublicationInput) => {
         try {
@@ -515,7 +522,7 @@ function KnowledgePage(): JSX.Element {
           await knowledge.refresh({ force: true });
         } catch (e) { setMessage(e instanceof Error ? e.message : "Revocation failed."); }
       }}
-      canPublish={app.canPublish()} />;
+      canPublish={app.canPublish()} />
   </div>;
 }
 
@@ -548,7 +555,7 @@ function ToolsPage(): JSX.Element {
           setMessage(result.detail);
           await tools.refresh({ force: true });
         } catch (e) { setMessage(e instanceof Error ? e.message : "Publish failed."); }
-      }} />;
+      }} />
   </div>;
 }
 
@@ -601,7 +608,17 @@ function SettingsPage(): JSX.Element {
         setMessage(result.detail);
         await Promise.all([settings.refresh({ force: true }), context.refresh({ force: true })]);
       }}
-      activeConfigDigest={context.state().data?.release.configDigest} />;
+      onStageRelease={async (documents, sourceRevision) => {
+        // Releases stage through the setup endpoint, not a command envelope.
+        // With no revision given, the staged content itself is the revision.
+        const material = documents.map((d) => `${d.path}\n${d.text}`).join("\n");
+        const digestBuf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(material));
+        const contentRevision = `sha256:${[...new Uint8Array(digestBuf)].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+        await governor(`/v1/setup/config`, { documents, sourceRevision: sourceRevision || contentRevision, activate: true });
+        await Promise.all([settings.refresh({ force: true }), context.refresh({ force: true }), explanation.refresh({ force: true })]);
+      }}
+      activeConfigDigest={context.state().data?.release.configDigest}
+      viewerId={app.identity()?.actor.actorId} viewerName={app.identity()?.displayName} />;
   </div>;
 }
 /** Kiosk boards: redacted aggregates, read-only, no app shell. */

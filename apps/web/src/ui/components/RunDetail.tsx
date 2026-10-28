@@ -17,6 +17,18 @@ const TABS = [
   { value: "placement", label: "Placement" },
 ];
 
+const REASON_LABEL: Record<string, string> = {
+  READY: "ready for a runner",
+  WAITING_FOR_RUNNER: "waiting for a capable runner",
+  BLOCKED_BY_POLICY: "blocked by policy",
+  WAITING_FOR_APPROVAL: "waiting for an approval",
+  INSUFFICIENT_CAPACITY: "runner capacity exhausted",
+  WAITING_FOR_RESOURCE: "waiting for a resource",
+  BUDGET_EXHAUSTED: "budget exhausted",
+  FAIRNESS_DELAY: "fairness delay",
+  RUNNER_OFFLINE: "runner offline",
+};
+
 /**
  * The one run composition, shared by the Runs list and every deep link
  * (`/jobs/:id`). It exposes cancel and the unknown-outcome reconcile path, and
@@ -77,7 +89,7 @@ export function RunDetail(props: {
           <div class="grid gap-field-gap sm:grid-cols-2">
             <KeyValue label="State" value={<Badge label={job()?.state ?? "—"} />} />
             <KeyValue label="Created" value={<DateText value={job()?.createdAt} />} />
-            <KeyValue label="Queue reasons" value={(job()?.queueReasons ?? []).join(", ") || "none"} />
+            <KeyValue label="Queue reasons" value={(job()?.queueReasons ?? []).map((r) => REASON_LABEL[r] ?? r).join(", ") || "none"} />
             <KeyValue label="Workspace" value={job()?.workspaceId ?? "—"} />
           </div>
         </Section>

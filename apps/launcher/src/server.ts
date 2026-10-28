@@ -60,6 +60,15 @@ async function reconcileRegistry(): Promise<void> {
 export async function startLauncher(): Promise<void> {
   const socket = process.env["BRAIN_LAUNCHER_SOCKET"] ?? "/tmp/brain-launcher/launcher.sock";
   const expectedToken = loadOrCreateToken(socket, process.env["BRAIN_LAUNCHER_TOKEN"]);
+  // Image digest pins (T21): "name=sha256:...,name=sha256:..." — when a pin is
+  // configured for an allowlisted image, the local image must carry exactly
+  // that RepoDigest before any container is created from it. A tag that
+  // silently points at different bytes can never run.
+  const imagePins = new Map<string, string>();
+  for (const pair of (process.env["BRAIN_LAUNCHER_IMAGE_DIGESTS"] ?? "").split(",").map((s) => s.trim()).filter(Boolean)) {
+    const eq = pair.indexOf("=");
+    if (eq > 0) imagePins.set(pair.slice(0, eq), pair.slice(eq + 1));
+  }
   mkdirSync(dirname(socket), { recursive: true });
   if (existsSync(socket)) unlinkSync(socket);
   const server = createServer(async (req, res) => {
@@ -68,7 +77,7 @@ export async function startLauncher(): Promise<void> {
       if (req.method === "GET" && url === "/v1/health") {
         let docker = false;
         try { const r = await execa("docker", ["version", "--format", "{{.Server.Version}}"], { timeout: 5000 }); docker = r.exitCode === 0; } catch { docker = false; }
-        json(res, 200, { docker, profiles: [...PROFILES], images: [...IMAGES] });
+        json(res, 200, { docker, profiles: [...PROFILES], images: [...IMAGES], pinnedImages: [...imagePins.keys()] });
         return;
       }
       const auth = req.headers.authorization ?? "";
@@ -84,6 +93,16 @@ export async function startLauncher(): Promise<void> {
         // one permitted mount and is always read-only at /tools inside.
         for (const k of Object.keys(b)) {
           if (!["profile", "image", "requestId", "worktreeId", "cpuMillicores", "memoryMb", "network", "toolsDir"].includes(k)) { json(res, 422, { error: `field ${k} forbidden` }); return; }
+        }
+        const pin = imagePins.get(image);
+        if (pin) {
+          const inspect = await execa("docker", ["image", "inspect", image, "--format", "{{json .RepoDigests}}"], { timeout: 15_000, reject: false });
+          let digests: string[] = [];
+          try { digests = JSON.parse(String(inspect.stdout)) as string[]; } catch { digests = []; }
+          if (inspect.exitCode !== 0 || !digests.some((d) => d.endsWith(pin))) {
+            json(res, 409, { error: `image ${image} does not match pinned ${pin}; refusing to run unpinned bytes` });
+            return;
+          }
         }
         const prior = [...sandboxes.values()].find((s) => s.requestHash === requestId);
         if (prior) { json(res, 200, { sandboxId: prior.id, containerId: prior.containerId, profile: prior.profile, state: "running", terminationConfirmed: false, cleanupConfirmed: false }); return; }

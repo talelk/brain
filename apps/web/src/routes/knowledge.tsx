@@ -7,6 +7,7 @@ import type { Classification, MemoryResult, MemoryScope, ToolCatalogEntry } from
 import { ScreenRegion } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
 import { DateText } from "../ui/screen-region";
+import { count, shortDigest } from "../ui/format";
 
 /** The exact reviewed publication the Governor validates (T39). */
 export interface MemoryPublicationInput {
@@ -29,6 +30,8 @@ export function KnowledgeScreen(props: {
   workspaceId: string;
   tools: ToolCatalogEntry[];
   state: ScreenState<{ results: MemoryResult[]; degraded: boolean; tools: ToolCatalogEntry[] }>;
+  /** True once a search was submitted; before that, "no matches" is a lie. */
+  searched: boolean;
   onRefresh: () => void;
   onSearch: (text: string) => void;
   onPublish: (publication: MemoryPublicationInput) => Promise<void>;
@@ -65,9 +68,13 @@ export function KnowledgeScreen(props: {
           <Alert theme="amber" variant="outline" title="Memory is running in degraded mode"
             description="Results come from the local scoped store. Publish or revoke actions are blocked until the knowledge service is healthy." />
         </Show>
-        <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No memory matches"
-          emptyDescription="Try a narrower query, or publish a reviewed candidate so it becomes searchable."
-          emptyAction={<Button onClick={props.onRefresh}>Run search again</Button>} onRetry={props.onRefresh}>
+        <ScreenRegion state={props.state} skeleton="rows"
+          emptyTitle={props.searched ? "No memory matches" : "Nothing searched yet"}
+          emptyDescription={props.searched
+            ? "Try a narrower query, or publish a reviewed candidate so it becomes searchable."
+            : "Search above to find scoped facts for this workspace; unverified rows stay labelled."}
+          emptyAction={props.searched ? <Button onClick={props.onRefresh}>Run search again</Button> : undefined}
+          onRetry={props.onRefresh}>
           <For each={results()}>{(result) => (
             <article class="flex flex-col gap-control-gap border-b border-outline-gray-1 py-3 last:border-b-0">
               <div class="flex flex-wrap items-center gap-control-gap">
@@ -130,13 +137,13 @@ export function KnowledgeScreen(props: {
 
       <Section title="Trusted tool catalog" description="Declared in the active release. Effects, not descriptions, decide trust." surface="card">
         <DataTable title="Tools" selectable={false} rows={props.tools.map((tool) => ({
-          id: tool.id, name: tool.id, status: tool.status, effect: tool.effectClass, release: tool.release.digest.slice(0, 16),
+          id: tool.id, name: tool.id, status: tool.status, effect: tool.effectClass, release: shortDigest(tool.release.digest),
         }))} columns={[
           { id: "name", header: "Tool", accessorKey: "name" },
           { id: "status", header: "Status", accessorKey: "status" },
           { id: "effect", header: "Effect class", accessorKey: "effect" },
           { id: "release", header: "Release digest", accessorKey: "release" },
-        ]} caption={`${props.tools.length} declared tools`} />
+        ]} caption={count(props.tools.length, "declared tool")} />
       </Section>
     </div>
   );
@@ -180,13 +187,13 @@ export function ToolsScreen(props: {
           emptyAction={props.canPublish ? <Button onClick={() => setProposeOpen(true)}>Propose tool</Button> : undefined}
           onRetry={props.onRefresh}>
           <DataTable title="Tools" selectable={false} rows={props.tools.map((tool) => ({
-            id: tool.id, name: tool.id, status: tool.status, effect: tool.effectClass, release: `${tool.release.id}@${tool.release.digest.slice(0, 12)}`,
+            id: tool.id, name: tool.release.id, status: tool.status, effect: tool.effectClass, release: shortDigest(tool.release.digest),
           }))} columns={[
             { id: "name", header: "Tool", accessorKey: "name" },
             { id: "status", header: "Status", accessorKey: "status" },
             { id: "effect", header: "Effect class", accessorKey: "effect" },
-            { id: "release", header: "Release", accessorKey: "release" },
-          ]} caption={`${props.tools.length} tools`} />
+            { id: "release", header: "Release digest", accessorKey: "release" },
+          ]} caption={count(props.tools.length, "tool")} />
         </ScreenRegion>
       </Section>
 

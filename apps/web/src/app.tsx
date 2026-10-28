@@ -1,13 +1,14 @@
-import { lazy, Show, onMount } from "solid-js";
+import { lazy, Show, onMount, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { Navigate, Route, Router, useLocation, useNavigate, useParams } from "@solidjs/router";
 import type { RouteSectionProps } from "@solidjs/router";
 import { createMediaQuery } from "@talelk/newui-atoms";
-import { Button } from "@talelk/newui-atoms";
+import { Button, TextInput } from "@talelk/newui-atoms";
 import { Dropdown, Select } from "@talelk/newui-molecules";
 import { AppShell } from "@talelk/newui-templates";
 import type { AppSidebarGroup } from "@talelk/newui-organisms";
 import { AppProvider, useApp } from "./ui/app-context";
+import { governor } from "./data/client";
 import { Authentication, AuthenticatorEnrollment } from "./ui/components/Authentication";
 import { ThemeToggle } from "./ui/components/ThemeToggle";
 import { PRIMARY_NAVIGATION, ROUTES } from "./routes/index.gen";
@@ -71,6 +72,10 @@ function PrimaryNav(): AppSidebarGroup[] {
   return [
     { items: PRIMARY_NAVIGATION.map((entry) => item(entry.label, entry.route)) },
     {
+      label: "Today",
+      items: [item("Bridge", "/bridge")],
+    },
+    {
       label: "Workspace",
       items: [
         item("Overview", "/w/:id/overview"),
@@ -126,11 +131,38 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
     <Show when={!app.identity()?.totpEnrolled}>
       <AuthenticatorEnrollment recoveryRequired={app.identity()?.recoveryRequired ?? false} onEnrolled={() => app.reloadIdentity()} />
     </Show>
-    <Show when={app.workspaceId()} fallback={
-      <p>No workspaces are assigned to this account. Ask an organization administrator to grant workspace access.</p>}>
+    <Show when={app.workspaceId()} fallback={<NoWorkspaceCard />}>
       {props.children}
     </Show>
   </AppShell>;
+}
+
+/** First-run path: an authenticated account with no workspace can create one. */
+function NoWorkspaceCard(): JSX.Element {
+  const app = useApp();
+  const [workspaceId, setWorkspaceId] = createSignal("");
+  const [slug, setSlug] = createSignal("");
+  const [busy, setBusy] = createSignal(false);
+  const [error, setError] = createSignal("");
+  const valid = () => /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u.test(workspaceId()) && slug().trim().length > 0;
+  async function create() {
+    if (!valid() || busy()) return;
+    setBusy(true); setError("");
+    try {
+      await governor("/v1/setup/workspace", { workspaceId: workspaceId(), slug: slug().trim() });
+      await app.reloadIdentity();
+      app.selectWorkspace(workspaceId());
+    } catch (e) { setError(e instanceof Error ? e.message : "Workspace creation failed."); } finally { setBusy(false); }
+  }
+  return <section aria-label="Create your first workspace" class="mx-auto mt-8 flex max-w-md flex-col gap-3 rounded-card border border-outline-gray-2 p-6">
+    <h2 class="text-heading">Create your first workspace</h2>
+    <p class="text-base text-ink-gray-7">This account can read no workspace yet. Create one to start dispatching work.</p>
+    <TextInput label="Workspace ID" value={workspaceId()} onInput={(e) => setWorkspaceId(e.currentTarget.value)}
+      description="Letters, digits, dash and underscore; up to 64 characters." required disabled={busy()} />
+    <TextInput label="Display name" value={slug()} onInput={(e) => setSlug(e.currentTarget.value)} required disabled={busy()} />
+    <Show when={error()}><p role="alert" class="text-base text-ink-red-8">{error()}</p></Show>
+    <Button class="min-h-11" disabled={!valid() || busy()} loading={busy()} onClick={() => void create()}>Create workspace</Button>
+  </section>;
 }
 
 function RootLayout(props: RouteSectionProps): JSX.Element {

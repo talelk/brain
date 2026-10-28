@@ -39,7 +39,7 @@ export function ScreenRegion<T>(props: {
       action={state().status === "empty-authorized" ? props.emptyAction : undefined}
       error={
         state().status === "ready" || state().status === "stale" ? undefined
-          : state().status === "no-access" ? <>This content is no longer available to your account. Cached private details were cleared, so <strong>Back</strong> cannot reveal them.</>
+          : state().status === "no-access" ? <>Your account no longer has access to this content, so it was cleared from this view. Ask a workspace lead if you need it restored.</>
             : state().status === "offline" ? <>Governor is unreachable while you are offline. {state().error ?? ""}</>
               : state().status === "retry" ? <>Governor could not complete this read. {state().error ?? ""}</>
                 : <span/>

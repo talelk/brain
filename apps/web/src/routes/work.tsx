@@ -10,6 +10,7 @@ import type {
 import { ScreenRegion, DateText } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
 import { EvidenceList } from "../ui/components/EvidenceList";
+import { count } from "../ui/format";
 
 const BOARD_STATES = [
   { id: "to-decide", name: "To decide", theme: "gray" }, { id: "todo", name: "Todo", theme: "gray" },
@@ -127,29 +128,44 @@ export function DecisionsScreen(props: {
   onRefresh: () => void;
   onRecord: (cardId: string, decision: Decision, note: string) => Promise<void>;
   cardIds: string[];
+  /** The signed-in principal, so "decided by" names people instead of ids. */
+  viewerId?: string;
+  viewerName?: string;
 }): JSX.Element {
   const [cardId, setCardId] = createSignal("");
-  const [decision, setDecision] = createSignal<Decision>("go");
+  const [decision, setDecision] = createSignal<Decision | "">("");
   const [note, setNote] = createSignal("");
+  const actorName = (actorId: string) => (actorId === props.viewerId ? props.viewerName ?? actorId : actorId);
+  async function record() {
+    if (!cardId().trim() || !note().trim() || !decision()) return;
+    await props.onRecord(cardId().trim(), decision() as Decision, note().trim());
+    // The record is verbatim and one-shot: clear the form so a second submit
+    // cannot re-record the same decision against a different card by accident.
+    setCardId(""); setDecision(""); setNote("");
+  }
   return (
     <Section title="Recorded decisions" surface="card">
-      <div class="flex flex-wrap items-end gap-control-gap pb-field">
-        <div class="min-w-64"><TextInput label="Card id" value={cardId()} onInput={(e) => setCardId(e.currentTarget.value)} description={props.cardIds.length ? `Known cards: ${props.cardIds.slice(0, 4).join(", ")}` : undefined} /></div>
-        <div class="min-w-40"><TabButtons label="Decision" options={[{ value: "go", label: "Go" }, { value: "no", label: "No" }, { value: "not-now", label: "Not now" }, { value: "need-more-data", label: "Need more data" }]} value={decision()} onValueChange={(v) => setDecision(v as Decision)} /></div>
-        <div class="min-w-64 flex-1"><Textarea label="Note" value={note()} onInput={(e) => setNote(e.currentTarget.value)} /></div>
-        <Button disabled={!cardId().trim() || !note().trim()} onClick={() => void props.onRecord(cardId().trim(), decision(), note().trim())} class="min-h-11">Record decision</Button>
+      <div class="flex flex-col gap-field-gap pb-field">
+        <div class="flex flex-wrap items-end gap-control-gap">
+          <div class="min-w-64 flex-1"><TextInput label="Card id" value={cardId()} onInput={(e) => setCardId(e.currentTarget.value)} description={props.cardIds.length ? `Known cards: ${props.cardIds.slice(0, 4).join(", ")}` : undefined} /></div>
+          <TabButtons label="Decision" options={[{ value: "go", label: "Go" }, { value: "no", label: "No" }, { value: "not-now", label: "Not now" }, { value: "need-more-data", label: "Need more data" }]} value={decision()} onValueChange={(v) => setDecision(v as Decision | "")} />
+        </div>
+        <Textarea label="Note" value={note()} onInput={(e) => setNote(e.currentTarget.value)} />
+        <div>
+          <Button disabled={!cardId().trim() || !note().trim() || !decision()} onClick={() => void record()} class="min-h-11">Record decision</Button>
+        </div>
       </div>
       <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No recorded decisions yet"
         emptyDescription="Record the go/no-go decision for a card when you make it." onRetry={props.onRefresh}>
         <DataTable title="Decisions" selectable={false} hideSearch rows={props.decisions.map((d) => ({
-          id: d.id, actor: d.actorId, decision: d.decision, note: d.note, at: new Date(d.createdAt).toLocaleString(), card: d.cardId,
+          id: d.id, actor: actorName(d.actorId), decision: d.decision, note: d.note, at: new Date(d.createdAt).toLocaleString(), card: d.cardId,
         }))} columns={[
           { id: "card", header: "Card", accessorKey: "card" },
           { id: "actor", header: "Decided by", accessorKey: "actor" },
           { id: "decision", header: "Decision", accessorKey: "decision" },
           { id: "note", header: "Note", accessorKey: "note" },
           { id: "at", header: "At", accessorKey: "at" },
-        ]} caption={`${props.decisions.length} decisions`} />
+        ]} caption={count(props.decisions.length, "decision")} />
       </ScreenRegion>
     </Section>
   );
@@ -175,9 +191,9 @@ export function SupportScreen(props: {
           { label: "Samples", value: String(props.sla!.sampleCount) },
         ]} />
       </Show>
-      <Section title="Support tickets" description="A visible publication needs a reviewed draft plus an approval; nothing is sent from here directly." surface="card"
+      <Section title="Support tickets" description="Replies are drafted and reviewed here; a reply reaches the customer only after an approval — nothing is sent from this screen directly." surface="card"
         actions={props.canDispatch ? <Button onClick={props.onDispatch} class="min-h-11">Run support workflow</Button> : undefined}>
-        <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No support tickets."
+        <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No support tickets"
           emptyDescription="Connect the ticket connector and sync to see the queue." onRetry={props.onRefresh}>
         <DataTable title="Tickets" selectable hideSearch rows={props.tickets.map((t) => ({
           id: t.id, title: t.title, state: t.state, priority: t.priority, evidence: t.evidenceReady ? "ready" : "not yet", at: new Date(t.updatedAt).toLocaleString(),
@@ -187,7 +203,7 @@ export function SupportScreen(props: {
           { id: "priority", header: "Priority", accessorKey: "priority" },
           { id: "evidence", header: "Draft evidence", accessorKey: "evidence" },
           { id: "at", header: "Updated", accessorKey: "at" },
-        ]} caption={`${props.tickets.length} tickets`} actionLabel="Details" onRowsAction={(ids) => props.onOpenTicket(ids[0] ?? "")} />
+        ]} caption={count(props.tickets.length, "ticket")} actionLabel="Details" onRowsAction={(ids) => props.onOpenTicket(ids[0] ?? "")} />
         </ScreenRegion>
       </Section>
     </div>
@@ -205,9 +221,9 @@ export function SreScreen(props: {
 }): JSX.Element {
   const now = Date.now();
   return (
-    <Section title="Incidents" description="A remediation proposal stays inert until an approved approval gates its tool path." surface="card"
+    <Section title="Incidents" description="A remediation proposal stays inert until an approval gates its tool path." surface="card"
       actions={props.canDispatch ? <Button onClick={props.onDispatch} class="min-h-11">Run SRE workflow</Button> : undefined}>
-      <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No incidents."
+      <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No incidents"
         emptyDescription="Open incidents appear when a monitored target breaches a declared threshold." onRetry={props.onRefresh}>
         <For each={props.incidents}>{(incident) => (
           <article class="flex flex-wrap items-center justify-between gap-control-gap border-b border-outline-gray-1 py-3 last:border-b-0">
@@ -239,7 +255,7 @@ export function DeliveryScreen(props: {
 }): JSX.Element {
   return (
     <Section title="Delivery dossiers" description="Criteria pass only against accepted evidence; inconclusive stays inconclusive." surface="card">
-      <ScreenRegion state={props.state} skeleton="cards" emptyTitle="No delivery dossiers."
+      <ScreenRegion state={props.state} skeleton="cards" emptyTitle="No delivery dossiers"
         emptyDescription="Dossiers are created when a delivery release declares its rubric." onRetry={props.onRefresh}>
         <For each={props.dossiers}>{(dossier) => {
           const passed = () => dossier.criteria.filter((c) => c.status === "passed").length;

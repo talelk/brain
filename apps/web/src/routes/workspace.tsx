@@ -27,53 +27,57 @@ export function WorkspaceOverview(props: {
   const ctx = () => props.context;
 
   return (
-    <div class="flex flex-col gap-field-gap">
-      <StatGrid columns={4} loading={!ctx()} stats={[
-        { label: "Active jobs", value: String(ctx()?.workspace.activeJobs ?? 0) },
-        { label: "Awaiting approval", value: String(ctx()?.workspace.pendingApprovals ?? 0) },
-        { label: "Blocked", value: String(ctx()?.workspace.blockedJobs ?? 0) },
-        { label: "Spend today", value: `${(ctx()?.workspace.dailyMicroUsd ?? 0) / 1_000_000} USD` },
-      ]} />
-      <Section title="Active release" surface="card"
-        actions={props.canDispatch ? <Button onClick={() => setDispatchOpen(true)} class="min-h-11">Dispatch workflow</Button> : undefined}>
-        <div class="grid gap-field-gap sm:grid-cols-2">
-          <KeyValue label="Source revision" value={ctx()?.release.sourceRevision ?? "—"} />
-          <KeyValue label="Config digest" value={<code class="break-all">{ctx()?.release.configDigest ?? "—"}</code>} orientation="vertical" />
-          <KeyValue label="Assets" value={`${ctx()?.release.assets.length ?? 0} declared`} />
-          <KeyValue label="Health" value={<Badge theme={ctx()?.workspace.health === "healthy" ? "green" : "amber"} label={ctx()?.workspace.health ?? "unknown"} />} />
-        </div>
-        <Show when={props.blockedReason}>
-          <Alert theme="amber" variant="outline" title="Dispatch is unavailable" description={props.blockedReason} />
-        </Show>
-      </Section>
-
-      <Dialog.Root open={dispatchOpen()} onOpenChange={setDispatchOpen}>
-        <Dialog.Content size="md">
-          <Dialog.Header>
-            <Dialog.Title>Dispatch a declared workflow</Dialog.Title>
-            <Dialog.Description>Only workflows in the active release are offered; the run stays pinned to that release.</Dialog.Description>
-          </Dialog.Header>
-          <Show when={props.workflows.length} fallback={<Alert theme="gray" variant="outline" title="No workflows declared" description="Publish a configuration release that declares at least one workflow." />}>
-            <div class="flex flex-col gap-field-gap">
-              <For each={props.workflows}>{(id) => (
-                <button type="button" class="flex items-center justify-between rounded-card border border-outline-gray-2 p-3 text-start hover:bg-surface-gray-1"
-                  onClick={() => setWorkflow(id)}>
-                  <span class="text-base-medium">{id}</span>
-                  <Badge theme={workflow() === id ? "blue" : "gray"} label={workflow() === id ? "selected" : "declare"} />
-                </button>
-              )}</For>
-              <TextInput label="Input message" value={message()} onInput={(e) => setMessage(e.currentTarget.value)} />
-            </div>
+    <ScreenRegion state={props.state} skeleton="cards" emptyTitle="Workspace unavailable"
+      emptyDescription={props.state.error ?? "This workspace could not be read. It may not have an active release yet."}
+      emptyAction={<Button onClick={props.onRefresh}>Reload</Button>} onRetry={props.onRefresh}>
+      <div class="flex flex-col gap-field-gap">
+        <StatGrid columns={4} loading={!ctx()} stats={[
+          { label: "Active jobs", value: String(ctx()?.workspace.activeJobs ?? 0) },
+          { label: "Awaiting approval", value: String(ctx()?.workspace.pendingApprovals ?? 0) },
+          { label: "Blocked", value: String(ctx()?.workspace.blockedJobs ?? 0) },
+          { label: "Spend today", value: `${(ctx()?.workspace.dailyMicroUsd ?? 0) / 1_000_000} USD` },
+        ]} />
+        <Section title="Active release" surface="card"
+          actions={props.canDispatch ? <Button onClick={() => setDispatchOpen(true)} class="min-h-11">Dispatch workflow</Button> : undefined}>
+          <div class="grid gap-field-gap sm:grid-cols-2">
+            <KeyValue label="Source revision" value={<code class="break-all">{ctx()?.release.sourceRevision ?? "—"}</code>} orientation="vertical" />
+            <KeyValue label="Config digest" value={<code class="break-all">{ctx()?.release.configDigest ?? "—"}</code>} orientation="vertical" />
+            <KeyValue label="Assets" value={`${ctx()?.release.assets.length ?? 0} declared`} />
+            <KeyValue label="Health" value={<Badge theme={ctx()?.workspace.health === "healthy" ? "green" : "amber"} label={ctx()?.workspace.health ?? "unknown"} />} />
+          </div>
+          <Show when={props.blockedReason}>
+            <Alert theme="amber" variant="outline" title="Dispatch is unavailable" description={props.blockedReason} />
           </Show>
-          <Dialog.Footer class="justify-end">
-            <Button variant="outline" onClick={() => setDispatchOpen(false)}>Back</Button>
-            <Button disabled={!workflow()} onClick={() => { void props.onDispatch(workflow(), { message: message().trim() }); setDispatchOpen(false); }}>
-              Dispatch
-            </Button>
-          </Dialog.Footer>
-        </Dialog.Content>
-      </Dialog.Root>
-    </div>
+        </Section>
+
+        <Dialog.Root open={dispatchOpen()} onOpenChange={setDispatchOpen}>
+          <Dialog.Content size="md">
+            <Dialog.Header>
+              <Dialog.Title>Dispatch a declared workflow</Dialog.Title>
+              <Dialog.Description>Only workflows in the active release are offered; the run stays pinned to that release.</Dialog.Description>
+            </Dialog.Header>
+            <Show when={props.workflows.length} fallback={<Alert theme="gray" variant="outline" title="No workflows declared" description="Publish a configuration release that declares at least one workflow." />}>
+              <div class="flex flex-col gap-field-gap">
+                <For each={props.workflows}>{(id) => (
+                  <button type="button" class="flex items-center justify-between rounded-card border border-outline-gray-2 p-3 text-start hover:bg-surface-gray-1"
+                    onClick={() => setWorkflow(id)}>
+                    <span class="text-base-medium">{id}</span>
+                    <Badge theme={workflow() === id ? "blue" : "gray"} label={workflow() === id ? "selected" : "declare"} />
+                  </button>
+                )}</For>
+                <TextInput label="Input message" value={message()} onInput={(e) => setMessage(e.currentTarget.value)} />
+              </div>
+            </Show>
+            <Dialog.Footer class="justify-end">
+              <Button variant="outline" onClick={() => setDispatchOpen(false)}>Back</Button>
+              <Button disabled={!workflow()} onClick={() => { void props.onDispatch(workflow(), { message: message().trim() }); setDispatchOpen(false); }}>
+                Dispatch
+              </Button>
+            </Dialog.Footer>
+          </Dialog.Content>
+        </Dialog.Root>
+      </div>
+    </ScreenRegion>
   );
 }
 
@@ -108,9 +112,9 @@ export function RunnerDetailScreen(props: {
 
       <Section title="Capacity and reservations" surface="card">
         <div class="flex flex-col gap-field-gap">
-          <KeyValue label="Capacity" value={`${runner()?.capacity.cpuMillicores ?? 0}m cpu · ${runner()?.capacity.memoryMb ?? 0} MB · ${runner()?.capacity.diskMb ?? 0} MB · ${runner()?.capacity.slots ?? 0} slots`} />
-          <KeyValue label="Reserved" value={`${runner()?.reserved.cpuMillicores ?? 0}m cpu · ${runner()?.reserved.memoryMb ?? 0} MB · ${runner()?.reserved.slots ?? 0} slots`} />
-          <KeyValue label="Observed free" value={`${runner()?.observedFree.cpuMillicores ?? 0}m cpu · ${runner()?.observedFree.memoryMb ?? 0} MB · ${runner()?.observedFree.slots ?? 0} slots`} />
+          <KeyValue label="Capacity" value={`${runner()?.capacity.cpuMillicores ?? 0}m cpu · ${runner()?.capacity.memoryMb ?? 0} MB memory · ${runner()?.capacity.diskMb ?? 0} MB disk · ${runner()?.capacity.slots ?? 0} slots`} />
+          <KeyValue label="Reserved" value={`${runner()?.reserved.cpuMillicores ?? 0}m cpu · ${runner()?.reserved.memoryMb ?? 0} MB memory · ${runner()?.reserved.slots ?? 0} slots`} />
+          <KeyValue label="Observed free" value={`${runner()?.observedFree.cpuMillicores ?? 0}m cpu · ${runner()?.observedFree.memoryMb ?? 0} MB memory · ${runner()?.observedFree.slots ?? 0} slots`} />
           <Progress label="Slots in use" value={((runner()?.capacity.slots ?? 0) - (runner()?.observedFree.slots ?? 0)) / Math.max(1, runner()?.capacity.slots ?? 1) * 100} hint />
         </div>
       </Section>

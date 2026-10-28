@@ -179,6 +179,12 @@ CREATE TABLE wake_intents (
   state TEXT NOT NULL CHECK(state IN ('pending','resuming','acknowledged','parked')),
   next_attempt_at_ms INTEGER NOT NULL, UNIQUE(workflow_run_id,wait_generation,wake_event_id)
 ) STRICT;
+CREATE TABLE release_files (
+  release_digest TEXT NOT NULL, tool_id TEXT NOT NULL, entrypoint TEXT NOT NULL,
+  digest TEXT NOT NULL, bytes INTEGER NOT NULL, created_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(release_digest, tool_id)
+) STRICT;
+CREATE INDEX release_files_digest ON release_files(digest);
 CREATE TABLE schedule_fires (
   schedule_id TEXT NOT NULL, release_digest TEXT NOT NULL, scheduled_at_ms INTEGER NOT NULL,
   dispatch_id TEXT NOT NULL, PRIMARY KEY(schedule_id,release_digest,scheduled_at_ms)

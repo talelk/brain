@@ -6,6 +6,7 @@ import type { EvaluationAssignment, JsonValue, VerificationVerdict } from "@brai
 import { executeToolPayload, normalizeFixtureEvaluation } from "./tools/invoke";
 import { DurableEventSpool } from "./spool-durable";
 import { LauncherClient } from "./launcher-client";
+import { runAgentExecution, selectEngine } from "./engines/run";
 
 export interface RunnerConfig {
   readonly governorUrl: string;
@@ -102,7 +103,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string): Promise<
   const claim = await req(cfg, sessionToken, "/runner/v1/claim", { requestId: `claim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
   if (claim.status === 204) return false;
   if (claim.status !== 200) throw new Error(`claim failed ${claim.status}: ${JSON.stringify(claim.json)}`);
-  const offer = claim.json as { attemptId: string; jobId: string; workspaceId: string; leaseId: string; jobFence: number; execution: { kind: string; artifact: { artifactId: string; digest: string; bytes: number } } };
+  const offer = claim.json as { attemptId: string; jobId: string; workspaceId: string; leaseId: string; jobFence: number; configDigest: string; toolPins?: Record<string, string>; execution: { kind: string; artifact: { artifactId: string; digest: string; bytes: number } } };
   const ack = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/ack`, { leaseId: offer.leaseId, jobFence: offer.jobFence });
   if (ack.status !== 200) throw new Error(`ack failed ${ack.status}`);
   // Execution input travels as a digest-pinned CAS artifact, never inline.
@@ -183,11 +184,56 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string): Promise<
         invocationId: `inv-${offer.attemptId}`, subjectDigest, resourceKeys,
       });
       if (permitRes.status !== 200) throw new Error(`effect permit refused ${permitRes.status}: ${JSON.stringify(permitRes.json)}`);
-      const body = permitRes.json as { token: string; permitId: string };
-      permit = { token: body.token, permitId: body.permitId };
+      const body = permitRes.json as { token: string; permitId: string; invocationId?: string };
+      permit = { token: body.token, permitId: body.invocationId ?? `inv-${offer.attemptId}` };
+      (payload as { invocationId?: string }).invocationId = body.invocationId ?? `inv-${offer.attemptId}`;
+    }
+    // T24: agent-kind executions run through the configured engine adapter;
+    // tool/eval/merge kinds run the governed tool path.
+    const engineConfigured = process.env["BRAIN_RUNNER_ENGINE"];
+    if (offer.execution.kind === "agent") {
+      const engine = selectEngine(engineConfigured);
+      if (!engine) {
+        const failed = { ok: false, output: { error: `no engine installed on this runner (BRAIN_RUNNER_ENGINE=${engineConfigured ?? "unset"}); agent execution refused` } as unknown as JsonValue };
+        const doneFailed = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/complete`, {
+          result: "failed", output: failed.output, jobFence: offer.jobFence, cleanupConfirmed: true,
+        });
+        if (doneFailed.status !== 200) throw new Error(`complete failed ${doneFailed.status}`);
+        return true;
+      }
+      const agentResult = await runAgentExecution({
+        engine, attemptId: offer.attemptId, jobFence: offer.jobFence, leaseId: offer.leaseId,
+        runnerId: cfg.runnerId, organizationId: (offer as { organizationId?: string }).organizationId ?? "", workspaceId: offer.workspaceId,
+        jobId: offer.jobId, configDigest: offer.configDigest,
+        task: String((payload.step as { task?: string } | undefined)?.task ?? (payload.input as { message?: string } | undefined)?.message ?? "agent run"),
+        modelId: engineConfigured, timeoutMs: 300_000,
+        emit, signal: controller.signal,
+      });
+      const doneAgent = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/complete`, {
+        result: leaseLost || abortReason !== undefined ? "unknown-outcome" : agentResult.ok ? "succeeded" : "failed",
+        output: agentResult.output, jobFence: offer.jobFence, cleanupConfirmed: true,
+      });
+      if (doneAgent.status !== 200) throw new Error(`complete failed ${doneAgent.status}`);
+      spool.discard();
+      return true;
     }
     const launcher = LauncherClient.configured() ? LauncherClient.fromEnv() : undefined;
-    const result = await executeToolPayload({ offer: { payload, execution: offer.execution, workspaceId: offer.workspaceId }, cfg, signal: controller.signal, launcher, permit });
+    const toolPins = (offer as { toolPins?: Record<string, string> }).toolPins;
+    const result = await executeToolPayload({
+      offer: { payload, execution: offer.execution, workspaceId: offer.workspaceId },
+      cfg, signal: controller.signal, launcher, permit, toolPins,
+      validatePermit: async (token, invocationId) => {
+        const r = await req(cfg, sessionToken, "/runner/v1/permits/validate", { token, invocationId });
+        return r.status === 200 && (r.json as { valid?: boolean }).valid === true;
+      },
+      fetchPinnedTool: async (toolId, digest) => {
+        const res = await req(cfg, sessionToken, `/runner/v1/releases/${encodeURIComponent(offer.configDigest)}/tools/${encodeURIComponent(toolId)}`);
+        if (res.status !== 200) throw new Error(`tool script fetch failed ${res.status}: ${JSON.stringify(res.json)}`);
+        const body = res.json as { entrypoint: string; entrypointDigest: string; bytesBase64: string };
+        if (body.entrypointDigest !== digest) throw new Error("release tool digest disagrees with the offer pin");
+        return { entrypoint: body.entrypoint, bytes: new Uint8Array(Buffer.from(body.bytesBase64, "base64")) };
+      },
+    });
     const assignment = payload.evaluation;
     await emit("progress", { phase: "executed", ok: result.ok });
     const output = result.ok && assignment ? normalizeFixtureEvaluation(result.output,assignment) : result.output;

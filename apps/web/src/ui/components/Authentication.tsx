@@ -45,7 +45,7 @@ export function Authentication(props: { setupRequired: boolean; onAuthenticated:
         <Show when={props.setupRequired && !needsCode()}>
           <TextInput label="Setup credential" type="password" autocomplete="off" value={credential()} onInput={(e) => setCredential(e.currentTarget.value)} required disabled={busy()} />
           <TextInput label="Organization name" value={name()} onInput={(e) => setName(e.currentTarget.value)} required maxlength={100} disabled={busy()} />
-          <TextInput label="Organization ID" value={organizationId()} onInput={(e) => setOrganizationId(e.currentTarget.value)} required pattern="[A-Za-z0-9][A-Za-z0-9_-]{0,63}" disabled={busy()} />
+          <TextInput label="Organization ID" value={organizationId()} onInput={(e) => setOrganizationId(e.currentTarget.value)} required pattern="[A-Za-z0-9][A-Za-z0-9\-_]{0,63}" disabled={busy()} />
         </Show>
         <Show when={!needsCode()} fallback={<>
           <Show when={recovery()} fallback={<TextInput label="Authenticator code" value={code()} onInput={(e) => setCode(e.currentTarget.value)} autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{6}" maxlength={6} required disabled={busy()} />}>

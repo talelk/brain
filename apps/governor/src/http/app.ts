@@ -433,6 +433,24 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       return c.json(brain.issuePermit(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
     } catch (e) { return fail(c as never, e); }
   });
+  app.post("/runner/v1/permits/validate", async (c) => {
+    try {
+      brain.authRunner(c.req.raw.headers);
+      const body = (await readJson(c)) as { token?: string; invocationId?: string };
+      const valid = brain.validatePermit(String(body.token ?? ""), String(body.invocationId ?? ""));
+      return c.json({ valid });
+    } catch (e) { return fail(c as never, e); }
+  });
+  app.get("/runner/v1/releases/:digest/tools/:toolId", (c) => {
+    try {
+      const runner = brain.authRunner(c.req.raw.headers);
+      const tool = brain.readReleaseTool(runner, c.req.param("digest"), c.req.param("toolId"));
+      return c.json({
+        entrypoint: tool.entrypoint, entrypointDigest: tool.entrypointDigest,
+        bytesBase64: Buffer.from(tool.bytes).toString("base64"),
+      });
+    } catch (e) { return fail(c as never, e); }
+  });
   app.post("/runner/v1/attempts/:id/artifacts", async (c) => {
     try {
       const runner = brain.authRunner(c.req.raw.headers);

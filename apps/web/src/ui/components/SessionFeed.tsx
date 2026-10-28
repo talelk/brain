@@ -6,6 +6,7 @@ import { VirtualList } from "@talelk/newui-organisms";
 import type { SessionView } from "@brain/contracts";
 import type { ScreenState } from "../../data/screens";
 import { createEventStream } from "../../data/screens";
+import { ScreenRegion } from "../screen-region";
 
 interface FeedRow { id: string; kind: "tool" | "state" | "message"; title: string; detail: string; at: string; }
 
@@ -66,51 +67,55 @@ export function SessionFeed(props: {
   const terminal = () => props.session?.state === "stopped" || props.session?.state === "failed";
 
   return (
-    <div class="flex flex-col gap-field-gap">
-      <div class="flex flex-wrap items-center justify-between gap-control-gap">
-        <div class="flex items-center gap-control-gap">
-          <Badge theme={stream.connected() ? "green" : "amber"} label={stream.connected() ? "live" : "reconnecting"} />
-          <Badge label={props.session?.state ?? "unknown"} />
-          <span class="text-caption text-ink-gray-7">{stream.lastSequence()} events · {props.session?.usedTokens ?? 0} tokens · {(props.session?.usedMicroUsd ?? 0) / 1_000_000} USD</span>
-        </div>
-        <div class="flex items-center gap-control-gap">
-          <Show when={!follow()}>
-            <Button onClick={() => { setFollow(true); setNewCount(0); }}>
-              Jump to newest{newCount() > 0 ? ` (${newCount()})` : ""}
+    <ScreenRegion state={props.state} skeleton="rows" emptyTitle="Session not found"
+      emptyDescription="It may have been closed and archived, or the link belongs to another workspace."
+      emptyAction={<Button onClick={props.onRefresh}>Reload</Button>} onRetry={props.onRefresh}>
+      <div class="flex flex-col gap-field-gap">
+        <div class="flex flex-wrap items-center justify-between gap-control-gap">
+          <div class="flex items-center gap-control-gap">
+            <Badge theme={stream.connected() ? "green" : "amber"} label={stream.connected() ? "live" : "reconnecting"} />
+            <Badge label={props.session?.state ?? "unknown"} />
+            <span class="text-caption text-ink-gray-7">{stream.lastSequence()} events · {props.session?.usedTokens ?? 0} tokens · {(props.session?.usedMicroUsd ?? 0) / 1_000_000} USD</span>
+          </div>
+          <div class="flex items-center gap-control-gap">
+            <Show when={!follow()}>
+              <Button onClick={() => { setFollow(true); setNewCount(0); }}>
+                Jump to newest{newCount() > 0 ? ` (${newCount()})` : ""}
+              </Button>
+            </Show>
+            <Button variant={follow() ? "solid" : "outline"} onClick={() => setFollow((f) => !f)}>
+              {follow() ? "Following" : "Follow"}
             </Button>
-          </Show>
-          <Button variant={follow() ? "solid" : "outline"} onClick={() => setFollow((f) => !f)}>
-            {follow() ? "Following" : "Follow"}
-          </Button>
+          </div>
         </div>
-      </div>
 
-      <VirtualList items={rows()} label={`Live events for session ${props.sessionId}`} itemSize={64} height="28rem"
-        loading={props.state.status === "loading"} emptyTitle="No events yet"
-        emptyDescription="Tool and state events stream in while this session runs.">
-        {(row) => (
-          <div class="flex h-full items-start gap-2 border-b border-outline-gray-1 py-2">
-            <Badge theme={row.kind === "tool" ? "blue" : row.kind === "state" ? "green" : "gray"} label={row.kind} />
-            <div class="min-w-0">
-              <p class="truncate text-base-medium text-ink-gray-9">{row.title}</p>
-              <p class="truncate text-caption text-ink-gray-7">{row.detail} · {new Date(row.at).toLocaleTimeString()}</p>
+        <VirtualList items={rows()} label={`Live events for session ${props.sessionId}`} itemSize={64} height="28rem"
+          loading={props.state.status === "loading"} emptyTitle="No events yet"
+          emptyDescription="Tool and state events stream in while this session runs.">
+          {(row) => (
+            <div class="flex h-full items-start gap-2 border-b border-outline-gray-1 py-2">
+              <Badge theme={row.kind === "tool" ? "blue" : row.kind === "state" ? "green" : "gray"} label={row.kind} />
+              <div class="min-w-0">
+                <p class="truncate text-base-medium text-ink-gray-9">{row.title}</p>
+                <p class="truncate text-caption text-ink-gray-7">{row.detail} · {new Date(row.at).toLocaleTimeString()}</p>
+              </div>
+            </div>
+          )}
+        </VirtualList>
+
+        <Show when={!terminal()} fallback={
+          <Alert theme="gray" variant="outline" title={`Session ${props.session?.state ?? "closed"}`} description="Steering and stopping are unavailable once the session is terminal." />
+        }>
+          <div class="flex flex-col gap-field-gap rounded-card border border-outline-gray-2 p-card-pad">
+            <Textarea label="Steer this session" value={message()} description="An authoritative steering message is recorded for the exact session." onInput={(e) => setMessage(e.currentTarget.value)} />
+            <div class="flex flex-wrap gap-control-gap">
+              <Button onClick={() => void props.onSteer(message().trim())} disabled={message().trim().length === 0}>Send steering</Button>
+              <Textarea label="Stop reason" value={stopReason()} onInput={(e) => setStopReason(e.currentTarget.value)} />
+              <Button variant="outline" theme="red" onClick={() => void props.onStop(stopReason().trim())} disabled={stopReason().trim().length === 0}>Stop session</Button>
             </div>
           </div>
-        )}
-      </VirtualList>
-
-      <Show when={!terminal()} fallback={
-        <Alert theme="gray" variant="outline" title={`Session ${props.session?.state ?? "closed"}`} description="Steering and stopping are unavailable once the session is terminal." />
-      }>
-        <div class="flex flex-col gap-field-gap rounded-card border border-outline-gray-2 p-card-pad">
-          <Textarea label="Steer this session" value={message()} description="An authoritative steering message is recorded for the exact session." onInput={(e) => setMessage(e.currentTarget.value)} />
-          <div class="flex flex-wrap gap-control-gap">
-            <Button onClick={() => void props.onSteer(message().trim())} disabled={message().trim().length === 0}>Send steering</Button>
-            <Textarea label="Stop reason" value={stopReason()} onInput={(e) => setStopReason(e.currentTarget.value)} />
-            <Button variant="outline" theme="red" onClick={() => void props.onStop(stopReason().trim())} disabled={stopReason().trim().length === 0}>Stop session</Button>
-          </div>
-        </div>
-      </Show>
-    </div>
+        </Show>
+      </div>
+    </ScreenRegion>
   );
 }

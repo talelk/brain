@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { execa } from "execa";
 import type { CheckResult, EvaluationAssignment, JsonValue } from "@brain/contracts";
@@ -52,6 +52,14 @@ export interface ToolExecution {
    * launcher to present it to) the invocation is refused, never run unbounded.
    */
   permit?: { token: string; permitId: string } | undefined;
+  /** Pinned tool digests from the job offer (T22); empty in unpinned worlds. */
+  toolPins?: Record<string, string> | undefined;
+  /** Fetches and verifies the pinned script bytes for one tool. */
+  fetchPinnedTool?: ((toolId: string, digest: string) => Promise<{ entrypoint: string; bytes: Uint8Array }>) | undefined;
+  /** Content-addressed cache root for verified tool scripts. */
+  toolCacheDir?: string | undefined;
+  /** Tool-broker boundary: re-validate the permit immediately before exec. */
+  validatePermit?: ((token: string, invocationId: string) => Promise<boolean>) | undefined;
 }
 
 export async function executeToolPayload(
@@ -87,18 +95,49 @@ export async function executeToolPayload(
   if (!rel) {
     return { ok: false, output: { error: `unsupported tool ${toolId}` } as unknown as JsonValue };
   }
-  const script = join(toolsRoot(cfg), rel);
+  // T22: in a pinned world the tool executes only bytes fetched from the
+  // release and verified against the offer's digest; an unpinned tool is
+  // refused under the launcher. Dev worlds without pins keep the local dir.
+  let script = join(toolsRoot(cfg), rel);
+  let sandboxToolsDir: string | undefined;
+  if (tool.toolPins && Object.keys(tool.toolPins).length > 0 && tool.fetchPinnedTool) {
+    const pin = tool.toolPins[toolId];
+    if (!pin) {
+      return { ok: false, output: { error: `tool ${toolId} is not pinned in the job's release; execution refused` } as unknown as JsonValue };
+    }
+    const cacheDir = join(tool.toolCacheDir ?? join(cfg.stateDir, "tool-cache"), pin.slice(7, 19));
+    script = join(cacheDir, "run.sh");
+    if (!existsSync(script)) {
+      const fetched = await tool.fetchPinnedTool(toolId, pin);
+      const digest = (await import("node:crypto")).createHash("sha256").update(fetched.bytes).digest("hex");
+      if (`sha256:${digest}` !== pin) {
+        return { ok: false, output: { error: `pinned tool ${toolId} bytes do not match the offer digest; refusing` } as unknown as JsonValue };
+      }
+      mkdirSync(cacheDir, { recursive: true });
+      writeFileSync(script, fetched.bytes, { mode: 0o755 });
+    }
+    sandboxToolsDir = cacheDir;
+  }
   if (!existsSync(script)) return { ok: false, output: { error: `tool script missing ${rel}` } as unknown as JsonValue };
   const stdin = JSON.stringify(toolInput);
   if (Buffer.byteLength(stdin, "utf8") > 64 * 1024) return { ok: false, output: { error: "tool input too large" } as unknown as JsonValue };
   // Sandbox path: the launcher executes the pinned script inside an ephemeral
   // read-only container with the tools root mounted read-only at /tools.
   if (launcher) {
+    // Tool-broker boundary (T23): the permit is validated against *current*
+    // Governor authority immediately before the sandboxed invocation — a
+    // permit captured earlier may already be expired, fenced or revoked.
+    if (effectClass !== "read" && permit && tool.validatePermit) {
+      const valid = await tool.validatePermit(permit.token, permit.permitId === "" ? "" : (offer.payload as { invocationId?: string }).invocationId ?? permit.permitId);
+      if (!valid) {
+        return { ok: false, output: { error: "effect permit is no longer current at the broker boundary; invocation refused" } as unknown as JsonValue };
+      }
+    }
     const profile = effectClass === "privileged" ? "privileged-tool" as const : offer.execution.kind === "eval" ? "evaluator" as const : "agent" as const;
     try {
-      const { sandboxId } = await launcher.createSandbox({ profile, requestId: `exec-${offer.execution.kind}-${Math.random().toString(36).slice(2, 10)}`, toolsDir: toolsRoot(cfg), network: "none" });
+      const { sandboxId } = await launcher.createSandbox({ profile, requestId: `exec-${offer.execution.kind}-${Math.random().toString(36).slice(2, 10)}`, toolsDir: sandboxToolsDir ?? toolsRoot(cfg), network: "none" });
       try {
-        const inContainer = join("/tools", rel);
+        const inContainer = sandboxToolsDir ? join("/tools", "run.sh") : join("/tools", rel);
         const result = await launcher.exec(sandboxId, inContainer, stdin, 60_000);
         if (result.exitCode !== 0) return { ok: false, output: { error: `tool exit ${result.exitCode}`, stderr: scrubSecrets(result.stderr, secrets.resolved.values).slice(0, 2000) } as unknown as JsonValue };
         const stdout = scrubSecrets(result.stdout, secrets.resolved.values);

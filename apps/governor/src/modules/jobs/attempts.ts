@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { JsonValue } from "@brain/contracts";
 import { domainDigest, sha256Digest } from "@brain/contracts";
+import { releaseToolPins } from "../configuration/index";
 import { BrainDomainError } from "../../domain/errors";
 import { evaluateRunner, type RunnerView } from "../../domain/placement";
 import { iso } from "../../domain/clock";
@@ -177,6 +178,7 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
   const kind = payloadRow?.kind === "eval" ? "eval"
     : payloadRow?.kind === "merge" ? "merge"
     : parsedPayload.step?.uses?.type === "agent" ? "agent" : "tool";
+  const toolPins = releaseToolPins(s, String(row["config_digest"]));
   return {
     contractVersion: "brain.job-offer/v1", jobId: String(row["job_id"]), attemptId,
     runnerId: String(row["runner_id"]), runnerEpoch: Number(row["runner_epoch"]), leaseId: String(row["lease_id"]),
@@ -185,6 +187,7 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
     configDigest: String(row["config_digest"]), workflowDigest,
     placement: JSON.parse(String(row["placement_json"])),
     execution: { kind, artifact: { artifactId: artifact.artifactId, digest: artifact.digest, bytes: artifact.bytes, mediaType: "application/json", classification: "internal" } },
+    toolPins,
     grantRef: `grant-${attemptId}`,
   } as unknown as JsonValue;
 }

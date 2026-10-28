@@ -7,6 +7,21 @@ import type { JobSnapshot, RunnerSnapshot, SessionView } from "@brain/contracts"
 import { ScreenRegion } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
 import { DateText } from "../ui/screen-region";
+import { count } from "../ui/format";
+
+/** Queue reasons are authoritative enums; the column shows what they mean. */
+const REASON_LABEL: Record<string, string> = {
+  READY: "ready for a runner",
+  WAITING_FOR_RUNNER: "waiting for a capable runner",
+  BLOCKED_BY_POLICY: "blocked by policy",
+  WAITING_FOR_APPROVAL: "waiting for an approval",
+  INSUFFICIENT_CAPACITY: "runner capacity exhausted",
+  WAITING_FOR_RESOURCE: "waiting for a resource",
+  BUDGET_EXHAUSTED: "budget exhausted",
+  FAIRNESS_DELAY: "fairness delay",
+  RUNNER_OFFLINE: "runner offline",
+};
+const reasonLabel = (reasons: readonly string[]) => reasons.map((r) => REASON_LABEL[r] ?? r).join(", ") || "none";
 
 /**
  * The Runs area (document 21): one list per authority — runs, sessions,
@@ -67,7 +82,7 @@ export function RunsScreen(props: {
             <DataTable rows={shown().map((job) => ({
               id: job.jobId, jobId: job.jobId, state: job.state, run: job.workflowRunId,
               attempts: String(job.attempts.length), created: new Date(job.createdAt).toLocaleString(),
-              reasons: job.queueReasons.join(", ") || "none",
+              reasons: reasonLabel(job.queueReasons),
             }))} columns={[
               { id: "jobId", header: "Job", accessorKey: "jobId" },
               { id: "state", header: "State", accessorKey: "state" },
@@ -75,7 +90,7 @@ export function RunsScreen(props: {
               { id: "attempts", header: "Attempts", accessorKey: "attempts" },
               { id: "reasons", header: "Why waiting", accessorKey: "reasons" },
               { id: "created", header: "Created", accessorKey: "created" },
-            ]} title="Runs" hideSearch caption={`${shown().length} runs`}
+            ]} title="Runs" hideSearch caption={count(shown().length, "run")}
             onRowsAction={(ids) => props.onOpenJob(ids[0] ?? "")} actionLabel="Open" />
           </ScreenRegion>
         </Section>

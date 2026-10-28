@@ -88,10 +88,17 @@ export function createScopedRead<T>(input: {
       });
     } catch (e) {
       if (controller?.signal.aborted || current !== generation) return;
-      if (e instanceof GovernorError && (e.status === 401 || e.status === 403 || e.status === 404)) {
+      if (e instanceof GovernorError && (e.status === 401 || e.status === 403)) {
         // Clearing is the point: a revoked principal must not keep private text.
         lastGood = undefined;
         setState({ status: "no-access", clearedProtected: true, canMutate: false, error: e.message });
+        return;
+      }
+      if (e instanceof GovernorError && e.status === 404) {
+        // An authorized read that found nothing: the record does not exist (or
+        // belongs elsewhere). That is a "not found" empty state, not a denial.
+        lastGood = undefined;
+        setState({ status: "empty-authorized", clearedProtected: false, canMutate: false, error: e.message });
         return;
       }
       const offline = e instanceof TypeError; // fetch rejection = no network

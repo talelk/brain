@@ -201,12 +201,15 @@ export function assertSchemaSafety(value: unknown, path: string, depth = 0): voi
   }
 }
 
-export function compileRelease(docs: readonly SourceDoc[], sourceRevision: string): CompiledRelease {
+/** A pinned tool entrypoint script staged alongside the release documents. */
+export interface ToolScript { readonly toolId: string; readonly entrypoint: string; readonly bytesBase64: string }
+
+export function compileRelease(docs: readonly SourceDoc[], sourceRevision: string, scripts?: readonly ToolScript[]): CompiledRelease {
   assertConfinedDocPaths(docs);
   const workflows: Record<string, Workflow> = {};
   const evaluators: Record<string, Evaluator> = {};
   const entries: { kind: string; id: string; digest: string; bytes: number; path: string }[] = [];
-  const tools: { id: string; digest: string; effectClass: string; inputSchemaRef: string; outputSchemaRef: string }[] = [];
+  const tools: { id: string; digest: string; effectClass: string; inputSchemaRef: string; outputSchemaRef: string; entrypoint?: string; entrypointDigest?: string }[] = [];
   const seenIds = new Set<string>();
   const policies: { name: string; spec: Record<string, unknown> }[] = [];
   let brainConfigUi: Record<string, unknown> | undefined;
@@ -256,7 +259,13 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
       const inputSchemaRef = String(spec?.["inputSchemaRef"] ?? "");
       const outputSchemaRef = String(spec?.["outputSchemaRef"] ?? "");
       if (!effectClass || !inputSchemaRef || !outputSchemaRef) throw new BrainDomainError("INVALID_CONTRACT", `${path}: Tool spec.effectClass/inputSchemaRef/outputSchemaRef required`);
-      tools.push({ id, digest: docDigest, effectClass, inputSchemaRef, outputSchemaRef });
+      // T22: when entrypoint scripts are staged with the release, each tool is
+      // pinned to the exact script bytes (sha256 of the decoded file).
+      const script = scripts?.find((s) => s.toolId === id);
+      const pin = script
+        ? { entrypoint: script.entrypoint, entrypointDigest: sha256Digest(new Uint8Array(Buffer.from(script.bytesBase64, "base64"))) }
+        : undefined;
+      tools.push({ id, digest: docDigest, effectClass, inputSchemaRef, outputSchemaRef, ...(pin ?? {}) });
     }
     entries.push({ kind, id, digest: docDigest, bytes: Buffer.byteLength(text, "utf8"), path });
   }

@@ -2633,7 +2633,11 @@
             "kind",
             "artifact"
           ],
-          "additionalProperties": false
+        "additionalProperties": false
+        },
+        "toolPins": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/Digest" }
         },
         "grantRef": {
           "$ref": "#/$defs/Id"

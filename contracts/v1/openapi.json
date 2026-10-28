@@ -3279,6 +3279,96 @@
     },
     "summary": "Pin attempt output bytes into the organization CAS under the live attempt"
    }
+  },
+  "/runner/v1/permits/validate": {
+   "post": {
+    "operationId": "post_runner_v1_attempts_id_permit",
+    "security": [
+     {
+      "runnerSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Validation verdict",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "valid": {
+           "type": "boolean"
+          }
+         }
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 128
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "token",
+         "invocationId"
+        ],
+        "properties": {
+         "token": {
+          "type": "string"
+         },
+         "invocationId": {
+          "type": "string"
+         }
+        }
+       }
+      }
+     }
+    },
+    "summary": "Validate an effect permit against current Governor authority (tool-broker boundary)"
+   }
+  },
+  "/runner/v1/releases/{digest}/tools/{toolId}": {
+   "get": {
+    "summary": "Fetch the release-pinned entrypoint script for one tool",
+    "responses": {
+     "200": {
+      "description": "Pinned tool script",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "entrypoint": {
+           "type": "string"
+          },
+          "entrypointDigest": {
+           "type": "string"
+          },
+          "bytesBase64": {
+           "type": "string"
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
   }
  },
  "components": {
