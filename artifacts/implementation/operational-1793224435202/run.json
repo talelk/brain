@@ -1,0 +1,3074 @@
+{
+  "startedAt": "2026-10-28T21:53:55.201Z",
+  "finishedAt": "2026-10-28T21:55:08.802Z",
+  "engine": "pi",
+  "modelId": "qwen3.8-flash-next-a5b",
+  "head": "fe9c0008ab76bc9a5e3e7e307fff33160051964e",
+  "sourceFingerprint": "88708550ac502c3213367edbf4eaa203c1c6f064fe89c47e5dfb34cb17c65e03",
+  "finalSourceFingerprint": "88708550ac502c3213367edbf4eaa203c1c6f064fe89c47e5dfb34cb17c65e03",
+  "sourceStable": true,
+  "sources": [
+    {
+      "path": "Dockerfile",
+      "sha256": "038ac87f164fc1ab5f50139bb3a7d7e0d7d44c2b055bcd9034e55449b8a54834"
+    },
+    {
+      "path": "README.md",
+      "sha256": "8d6b10d7e612b80ee6cf7902b51e34b6b79c90b464a210de721979d928d0249b"
+    },
+    {
+      "path": "apps/cli/package.json",
+      "sha256": "647ae081de470e44c438efd3e19c3c6e2285cbc25ddeaae18742216e8ef054d4"
+    },
+    {
+      "path": "apps/cli/src/client.ts",
+      "sha256": "cf9581adf0aaad12c0d681e29c7066207546cde5f416b3e7d11634c003aa7393"
+    },
+    {
+      "path": "apps/cli/src/credentials.ts",
+      "sha256": "3d4720e15dc865bdeafe91d6a76ffdd624649c44ad263170c331620b51f6ef17"
+    },
+    {
+      "path": "apps/cli/src/main.ts",
+      "sha256": "8ebbe73b3576cecc2a1f0314a424ad05ae4cb9a3ac3e904a7772de21c6af1c24"
+    },
+    {
+      "path": "apps/cli/src/prompt.ts",
+      "sha256": "95485b15ef189e2c6d6a173f544023de3ff95a595abec800f5a7f9632089220b"
+    },
+    {
+      "path": "apps/cli/src/release.ts",
+      "sha256": "5ed9c09272cf9f9fc417bc384b48981db31be9b6e242209d887133cdf49e5970"
+    },
+    {
+      "path": "apps/cli/tsconfig.json",
+      "sha256": "fdf05e5602560d128de8c532e39ec90eb0bced6cbab67b995df68cccb77c15d8"
+    },
+    {
+      "path": "apps/governor/package.json",
+      "sha256": "1c1f75035e732e591a3d7f912ad64cbd2d518dcd5b6f70767972e638c2bba3b5"
+    },
+    {
+      "path": "apps/governor/schema/auth.sql",
+      "sha256": "3ffe1d51e18b41da297d6ae4de1b36dbeb9d86ebf27b1c1f59a231ff7848abb6"
+    },
+    {
+      "path": "apps/governor/schema/control.sql",
+      "sha256": "e57caa826243391308e62af667fab127598548bf290a3a80bb945edcae0e7f83"
+    },
+    {
+      "path": "apps/governor/schema/workspace.sql",
+      "sha256": "ffe50e334984a24a1dcc4d72653c9d99b1e3305c705295ba1ef47ff1ba1bebad"
+    },
+    {
+      "path": "apps/governor/scripts/generate-auth-schema.ts",
+      "sha256": "371ce9f8e9e70ac78e7abab4044d48c4daa0c228b9820e5b7dab24f4aee53281"
+    },
+    {
+      "path": "apps/governor/src/application/authz.ts",
+      "sha256": "9d195532c3d48b8b85d9cf0a3c68ae9b786e06fff675227b1a5bef1e3244d595"
+    },
+    {
+      "path": "apps/governor/src/application/brain.ts",
+      "sha256": "86af8dad7034d5753fd4266e890381294c4412e5aa960142cd202d6b511d6be0"
+    },
+    {
+      "path": "apps/governor/src/application/store.ts",
+      "sha256": "a11b80f311578fc91533e5b84716ae3fbe59a517a47ceabc71d6e2d76266ddf6"
+    },
+    {
+      "path": "apps/governor/src/container.ts",
+      "sha256": "2a68b5f228437608952c7443efcb6a5f1774c4ee3dbe5740eab2ae1f7846daff"
+    },
+    {
+      "path": "apps/governor/src/domain/budget.ts",
+      "sha256": "e91d992390a05f8c5c22aa4c3ba8deb14b4bbcc3e7e7902e682aaf671c840c06"
+    },
+    {
+      "path": "apps/governor/src/domain/clock.ts",
+      "sha256": "33614b51284ab4ebacbf5ab31436a203ae1993a19d1f3859d499862b6e61fc37"
+    },
+    {
+      "path": "apps/governor/src/domain/errors.ts",
+      "sha256": "ba6b94df7b728f3d53a40a78b7264c8c0231c0bfb0595b7481f0186e19bfca14"
+    },
+    {
+      "path": "apps/governor/src/domain/placement.ts",
+      "sha256": "37dde27e2daee131e9e8e0125b1c79a2fa191593a4a198ded8beab2326381567"
+    },
+    {
+      "path": "apps/governor/src/domain/states.ts",
+      "sha256": "a03cba06482c27db42aea1ff40fe1b879796357f87e0bd5fe006327d066c83f1"
+    },
+    {
+      "path": "apps/governor/src/http/app.ts",
+      "sha256": "a20b0ca998b3deb2de3e706a0767258e48758882b461640a277cb3086a0b0549"
+    },
+    {
+      "path": "apps/governor/src/http/body.ts",
+      "sha256": "6db171aa801f6c51ab21ec90c9e51fcad6d571f20033901a77f7a36447dc7792"
+    },
+    {
+      "path": "apps/governor/src/http/tls.ts",
+      "sha256": "d2744e45f77ceb668cb5563b93d67af165f0d6705c38d8a96bf401310c6903c2"
+    },
+    {
+      "path": "apps/governor/src/infrastructure/persistence/directory.ts",
+      "sha256": "523ed54a613b7f20a0f38002f0afb0bf3912f106ba1f1174cacf88a99c57297d"
+    },
+    {
+      "path": "apps/governor/src/infrastructure/persistence/open.ts",
+      "sha256": "4dc45cc5190ed7259db847447d3f660a44dfd1fb950c1b6e81230317943577b8"
+    },
+    {
+      "path": "apps/governor/src/main.ts",
+      "sha256": "b92aef486978f6dc22093a10f29558829b12b51b5733f29f73f0c5276ee5f16b"
+    },
+    {
+      "path": "apps/governor/src/maintenance.ts",
+      "sha256": "dbd8779ad9a7b808cb43142b97657ce0e299ed816bee37555b33c57739b45780"
+    },
+    {
+      "path": "apps/governor/src/modules/board/index.ts",
+      "sha256": "0ab6408827da78707491fe244e989d7228bbf3c24dbe67076e4a3280d1e525d2"
+    },
+    {
+      "path": "apps/governor/src/modules/configuration/compiler.ts",
+      "sha256": "90ccf3305c6243f4df05d7ac871e8675865465eeaddf54a01121ad1b4220140c"
+    },
+    {
+      "path": "apps/governor/src/modules/configuration/index.ts",
+      "sha256": "d98e4feda7c3d54157298255afe9e2b4a747262f8d6117b9f9f69f5f7b0241b3"
+    },
+    {
+      "path": "apps/governor/src/modules/configuration/loader.ts",
+      "sha256": "29f46e35e463120a6c53f0dd9926b8ec4a766a500f5e04ef4f974c97aa84d8bf"
+    },
+    {
+      "path": "apps/governor/src/modules/configuration/policy-floor.ts",
+      "sha256": "7e7fb28a628703a3d89d82528214a4f0c1821c32d55f8e5ea29b391bdb4fb198"
+    },
+    {
+      "path": "apps/governor/src/modules/configuration/tools.ts",
+      "sha256": "22c7882ed3ca2a792e067d7daa550e4f7229493253c438c9ade00b9e16a34ebf"
+    },
+    {
+      "path": "apps/governor/src/modules/evidence/artifacts.ts",
+      "sha256": "6a724bed8a8f6647d2c668a8888db50f647705942f81112a6011380ab05fcf5c"
+    },
+    {
+      "path": "apps/governor/src/modules/evidence/author-claims.ts",
+      "sha256": "d88a147bcef76075361ba115b43d8818c2d0473ae62af063b980124d5f5aaa8d"
+    },
+    {
+      "path": "apps/governor/src/modules/evidence/index.ts",
+      "sha256": "77a90232a70fabbd88a663447276b9c803357de2301216cf181aeaf0e2b5d818"
+    },
+    {
+      "path": "apps/governor/src/modules/evidence/service.ts",
+      "sha256": "e2206a0e081745522c50df0dd05ae17949f06331b4fa6bcd8fd3ca31a485ac4f"
+    },
+    {
+      "path": "apps/governor/src/modules/governance/approval-authority.ts",
+      "sha256": "73a7e13e11102aab25d5eb3b41e374a70e572d5912cc54f4acfd247428d5d489"
+    },
+    {
+      "path": "apps/governor/src/modules/governance/index.ts",
+      "sha256": "c1689584de6b086ec282175ee283adaa71f7d28b3fb7eec3e8e8166dde216a58"
+    },
+    {
+      "path": "apps/governor/src/modules/governance/permits.ts",
+      "sha256": "70c5dbc11fc87a2f7370197e60c3d25eb2cb08b45c4d4b80e4c003237f6c40f9"
+    },
+    {
+      "path": "apps/governor/src/modules/governance/step-up.ts",
+      "sha256": "780679d0f22d076eb848adcf42162984caa5a33d6f48301cfc68b95f76f2b458"
+    },
+    {
+      "path": "apps/governor/src/modules/governance/trust.ts",
+      "sha256": "58c4b94a33fba7f6361c42eed6e66072bbf9585140cc491f98229c5ec2be7700"
+    },
+    {
+      "path": "apps/governor/src/modules/identity/auth.ts",
+      "sha256": "a0de2732eb0e9bda60407ecc9f72cc3212fc92f5fdd6810ecc84fc528f99a96a"
+    },
+    {
+      "path": "apps/governor/src/modules/identity/bootstrap.ts",
+      "sha256": "16aa67436e175c7328153d40bd5004e209a2cc022257eb4e4e766e77a65a08a3"
+    },
+    {
+      "path": "apps/governor/src/modules/identity/index.ts",
+      "sha256": "d77353aab78139a45bb3cde0292410f3db8b743a8a4784fa912a88f1052f02ed"
+    },
+    {
+      "path": "apps/governor/src/modules/identity/oidc.ts",
+      "sha256": "e531a3b772efb8ae00e7c6545929edd7170a151c3adaa2d76867ac2892414908"
+    },
+    {
+      "path": "apps/governor/src/modules/identity/options.ts",
+      "sha256": "e8f653197653dfd0a9d52f8e054cbe0da1957d0d0657215687344ce2f8361321"
+    },
+    {
+      "path": "apps/governor/src/modules/identity/security.ts",
+      "sha256": "067942714ec07bda6fe055170c5c5f9787651eceaee7fbe75f4d75302e212577"
+    },
+    {
+      "path": "apps/governor/src/modules/jobs/attempts.ts",
+      "sha256": "667a585bc7b09815828396586f650c04ab5f10e94f73f63b5832ed3c52eb7d1c"
+    },
+    {
+      "path": "apps/governor/src/modules/jobs/index.ts",
+      "sha256": "1a14f198cb9340c7a920a8d4d4984ff1b1c283bfb0763fc39fffe06f30185fac"
+    },
+    {
+      "path": "apps/governor/src/modules/jobs/protocol.ts",
+      "sha256": "ff03137dc3610b789560bc5b324e978624dc65b81628caf73e94ebb4bc43fd5a"
+    },
+    {
+      "path": "apps/governor/src/modules/jobs/scheduler.ts",
+      "sha256": "93fcbf28474fbfc02b54458dcd6f813607e742d4a13fb19651cd42e7f160f179"
+    },
+    {
+      "path": "apps/governor/src/modules/knowledge/index.ts",
+      "sha256": "cb1fdeed70f7f636609c4d3b51639ef1f4dd5d19de7d9dddcb02ab2b7af618a0"
+    },
+    {
+      "path": "apps/governor/src/modules/knowledge/memory.ts",
+      "sha256": "abb5b5690aa479b60eaad852545f391648a77f1c272d5e8401274401f9b13d64"
+    },
+    {
+      "path": "apps/governor/src/modules/knowledge/tencentdb/client.ts",
+      "sha256": "2f1108a1b5f86c1a911ecddeebdf376d9c46d68fb41c71c1ed73101fa501f054"
+    },
+    {
+      "path": "apps/governor/src/modules/operations/backup.ts",
+      "sha256": "fc013c08f2dfd6ca36d22868132cfdf4508108d596134e34c89d90577deeacb2"
+    },
+    {
+      "path": "apps/governor/src/modules/operations/index.ts",
+      "sha256": "f7f271fefe12ad0d40900de9da252f45730d2e3b02c7f2e6b5b07b31d956190b"
+    },
+    {
+      "path": "apps/governor/src/modules/operations/push.ts",
+      "sha256": "9a3ac2fbd6e08e4a73c3b285b8f2d85ccb23498157409161779473277f297307"
+    },
+    {
+      "path": "apps/governor/src/modules/operations/readiness.ts",
+      "sha256": "f4b46a496c0bbca41f4af41a2ba47fa7c617960079a3ab2909b28d40dd03716b"
+    },
+    {
+      "path": "apps/governor/src/modules/operations/restore.ts",
+      "sha256": "a419e5e35ebd2e9e0ee1e4ebc6fbc0811308ab166eced85928253400a04d5f36"
+    },
+    {
+      "path": "apps/governor/src/modules/packs/gitlab.ts",
+      "sha256": "418eaa0f653904a9cad40445491357da727aee584c771f6d52d6788773a17d42"
+    },
+    {
+      "path": "apps/governor/src/modules/packs/index.ts",
+      "sha256": "c8529c90c05beb381e778b96e68d2c9d79d8a335f0a2da150b5ee9de9b56ef41"
+    },
+    {
+      "path": "apps/governor/src/modules/packs/judge.ts",
+      "sha256": "6b5bd32ab4ad1667cb197c75e234625b0fd4cdc862b170c4a8a4d1161b330269"
+    },
+    {
+      "path": "apps/governor/src/modules/packs/sla.ts",
+      "sha256": "d2a6e57c20d4b99d3866bc67a6dee2d4c3d46951f8f8ef966c1ab11dd042ce2e"
+    },
+    {
+      "path": "apps/governor/src/modules/workflows/cron.ts",
+      "sha256": "f8245d9cf96df60597423a7540c330fecacec7c9b16f41db398e5db011189b60"
+    },
+    {
+      "path": "apps/governor/src/modules/workflows/engine-port.ts",
+      "sha256": "65edeceda229d1f77e2a6ceeb0996cd51c6af7b6ec6499288db883bdb362f9bd"
+    },
+    {
+      "path": "apps/governor/src/modules/workflows/index.ts",
+      "sha256": "7a1dc90333cfa864a687508c81e2e13dabead2fc59f2defe748c58eebb87f3c4"
+    },
+    {
+      "path": "apps/governor/src/modules/workflows/mastra/engine.ts",
+      "sha256": "6dac9a9b502d11129deb99393be9adf3a4e222c702d98e16f4cbc59f4ce7f8a1"
+    },
+    {
+      "path": "apps/governor/src/runtime-config.ts",
+      "sha256": "fea84a15dea1917d0f9d0422d139d66e65ee94f5006dbde9babd487ed1996dc3"
+    },
+    {
+      "path": "apps/governor/tsconfig.json",
+      "sha256": "d4582b435ee105b1288cc6888f9f94b44cee5f1dd9d78d618516794573ef4181"
+    },
+    {
+      "path": "apps/launcher/package.json",
+      "sha256": "46c3df01b87ca092c9b7bf42a2324777c87bc78f7156a97a7eabe2169751c8cc"
+    },
+    {
+      "path": "apps/launcher/proxy/allowlist_proxy.py",
+      "sha256": "1aaebc6b191f25319d0de1cb27d7d4979687d964b97d63f554a27acc90ffd7de"
+    },
+    {
+      "path": "apps/launcher/src/main.ts",
+      "sha256": "12b2436c2746c3d86339fe3a30f07a2121154e25b6112a00788c863616a53c53"
+    },
+    {
+      "path": "apps/launcher/src/server.ts",
+      "sha256": "759809100297fafdcc559c9131cd9d9444c48095767a6d22fe781f029d260e2c"
+    },
+    {
+      "path": "apps/launcher/tsconfig.json",
+      "sha256": "fdf05e5602560d128de8c532e39ec90eb0bced6cbab67b995df68cccb77c15d8"
+    },
+    {
+      "path": "apps/runner/package.json",
+      "sha256": "b42a943b8024b92dd8966ec86baf5c357936b9fa89f8954721c67d9aa712fca2"
+    },
+    {
+      "path": "apps/runner/src/engines/acp.ts",
+      "sha256": "a629f3ee4dd5996c7386605cc55f16f11583c5a88c476b1cc0edefa689af64d3"
+    },
+    {
+      "path": "apps/runner/src/engines/claude.ts",
+      "sha256": "95d7e388b9bfd19a763eebbfc2a085d969df5be4a646860a4551d10a7be3f541"
+    },
+    {
+      "path": "apps/runner/src/engines/event-stream.ts",
+      "sha256": "1a66989472b78d94a1d50b2a5b9600629494b2c83c864173446f6d2f10d5ed89"
+    },
+    {
+      "path": "apps/runner/src/engines/fixture.ts",
+      "sha256": "78de4c36de35283d8b16ad7ea3bc680d037f2af924ecbebb634c06594f7a6cd8"
+    },
+    {
+      "path": "apps/runner/src/engines/pi.ts",
+      "sha256": "2330cc2a4afee89e2faf138a242f99946c35dde9812a01325281808ea3f18906"
+    },
+    {
+      "path": "apps/runner/src/engines/run.ts",
+      "sha256": "ae47a1f96afe4faf9620f553a65d7df043ece839aa1872a4f8dc68678fa3d952"
+    },
+    {
+      "path": "apps/runner/src/launcher-client.ts",
+      "sha256": "d149c367a979acfe52f35be69815c2263d9fed6fe6c9e2320a61e76b3c26cbde"
+    },
+    {
+      "path": "apps/runner/src/main.ts",
+      "sha256": "cf421ef0b2a26d2d7b6006a5d840fba2c6dac9ba87ed539f940f4e8787278e6a"
+    },
+    {
+      "path": "apps/runner/src/spool-durable.ts",
+      "sha256": "639749f1c9e59d3c1fa84f8361a78763c0c42d8619ab650a58eee45e2b17fce1"
+    },
+    {
+      "path": "apps/runner/src/spool.ts",
+      "sha256": "415e735b83117e8bb4f5394ce5f220eddf35dc15ba4aa316d732ee7aa9348b7b"
+    },
+    {
+      "path": "apps/runner/src/supervisor.ts",
+      "sha256": "8b7b2ea64bc115b9961162dd6279e6a151530df7cd2bfba4d38d57047f8ca5bc"
+    },
+    {
+      "path": "apps/runner/src/tools/invoke.ts",
+      "sha256": "5c5b8c6f85975da8a4284ec6b28d2eafc5c20ca44322302eb8da681ee3ff4330"
+    },
+    {
+      "path": "apps/runner/src/tools/secrets.ts",
+      "sha256": "0b9df7e9d150e4e6a652a9a438dde32c1dbeb0471f90890b25ed0cfb26f75e46"
+    },
+    {
+      "path": "apps/runner/tsconfig.json",
+      "sha256": "fdf05e5602560d128de8c532e39ec90eb0bced6cbab67b995df68cccb77c15d8"
+    },
+    {
+      "path": "apps/web/index.html",
+      "sha256": "76c14decee7d34ade8b970f2a69564b46be04ada72d3675c77131d7e468cdc14"
+    },
+    {
+      "path": "apps/web/package.json",
+      "sha256": "09c88cc49b9cd0b45ae7eeccd045834b8d7d25ab04e1ebba3d78737de7678ef4"
+    },
+    {
+      "path": "apps/web/public/manifest.webmanifest",
+      "sha256": "e017e0e019fee628773ef9c045132a2be40d1aa9de3e34bbc48d27011a7f91a1"
+    },
+    {
+      "path": "apps/web/public/sw.js",
+      "sha256": "8c8de1f709d289c60a6a83aee6f0ae94de65eac2d9ffd33141e0299b20ccecf0"
+    },
+    {
+      "path": "apps/web/src/app.tsx",
+      "sha256": "95c08127981258e9056e1acd397c556699d101c56883340833318ba52bece617"
+    },
+    {
+      "path": "apps/web/src/data/client.ts",
+      "sha256": "de61d597334d01ce9aaf8ecc3c402f47f8ac187c93562f93f3bbe87587a7ca20"
+    },
+    {
+      "path": "apps/web/src/data/commands.ts",
+      "sha256": "0a27241eb116083281e24d6c8c86d0eeba3a1459b3fdb715d2ccd0a02e02bae3"
+    },
+    {
+      "path": "apps/web/src/data/governor.ts",
+      "sha256": "4b2b1f24ecd1bd1c0b118996339ae71450ccd9cced61b1b251e403f9ec8aa392"
+    },
+    {
+      "path": "apps/web/src/data/screens.ts",
+      "sha256": "2b001382f727b01ba234f938151776a01574cf5ced9e1f537e86609b67290731"
+    },
+    {
+      "path": "apps/web/src/index.css",
+      "sha256": "caca4ecf904b474cfc79ea03ba5ccd84ccaa825ee493218709c6fa70530a84dc"
+    },
+    {
+      "path": "apps/web/src/main.tsx",
+      "sha256": "c916ae84a8a8b7f6f890b2e707a26299aab6baf98e7651bfe45a31a378557390"
+    },
+    {
+      "path": "apps/web/src/routes/approvals.tsx",
+      "sha256": "2f7182a79ef316a8a4937eab2d0a0dc5247c6d76f2cdcaa375fe61fd5a0539c2"
+    },
+    {
+      "path": "apps/web/src/routes/catalog.tsx",
+      "sha256": "2063ed6c6f0c44ef47cf3ee55eb658173736cc55b7def0869b8eca02c18d5b48"
+    },
+    {
+      "path": "apps/web/src/routes/index.gen.ts",
+      "sha256": "38ed238246860dae53a68d5ab3b8bdd4b43bbaedfafd8e175c0f271f825d11d7"
+    },
+    {
+      "path": "apps/web/src/routes/knowledge.tsx",
+      "sha256": "71704403541f2d632ea5cb2a219e66e3e224a6d9128bcb6f3efdbbb202e40407"
+    },
+    {
+      "path": "apps/web/src/routes/pages/ApprovalDetailPage.tsx",
+      "sha256": "303d0916ec906205a6ea1d8f75cd12e60e3adb54cf4e8620fdb5a2892fd5b1a1"
+    },
+    {
+      "path": "apps/web/src/routes/pages/ApprovalsPage.tsx",
+      "sha256": "7c01b0fd2cdca3d0abdcfc6cd1669f0ce891e3b89cca6dd18b47af93da63a024"
+    },
+    {
+      "path": "apps/web/src/routes/pages/BoardPage.tsx",
+      "sha256": "509d8788ae7db82aa77ec837efc5fce7e56d88f89ac5ec86dfc60f97758782cd"
+    },
+    {
+      "path": "apps/web/src/routes/pages/BridgePage.tsx",
+      "sha256": "0f8b4809ad825bfecf73ef866b9bff6d3e1d6b5be06c0a8db572af478ffcacf5"
+    },
+    {
+      "path": "apps/web/src/routes/pages/DecisionsPage.tsx",
+      "sha256": "bddad7e5d9936948c74b4bc22ec38bda03bc24daf3cd606f269f0c8d3c87f06e"
+    },
+    {
+      "path": "apps/web/src/routes/pages/DeliveryPage.tsx",
+      "sha256": "edfac9a26be5520e5e966cb7eab70782b2205083401df8d25821cc7bc0104ea3"
+    },
+    {
+      "path": "apps/web/src/routes/pages/IncidentDetailPage.tsx",
+      "sha256": "7762d43bce00f0f000e426b31edf6735b536470061c0059a6c23fc105d13cf35"
+    },
+    {
+      "path": "apps/web/src/routes/pages/JobDetailPage.tsx",
+      "sha256": "b650ef8b4933f806f4a5062d5ad86da1cf3f983f3f35fe11092bd4d462ec78f0"
+    },
+    {
+      "path": "apps/web/src/routes/pages/KnowledgePage.tsx",
+      "sha256": "6b247782f77dd5ebb50fc26c850b5376d800f92ce023f243cd54d29fe17eed98"
+    },
+    {
+      "path": "apps/web/src/routes/pages/RunnerDetailPage.tsx",
+      "sha256": "b64a8f69bb7ac95d3a8550b58ce598a0a0f0d8ab1a48c2d75b38c23e6f8793ef"
+    },
+    {
+      "path": "apps/web/src/routes/pages/RunnersPage.tsx",
+      "sha256": "d70cf9825519e67f69ec1320fa7a4bc4db201dc2ae3f20faedd579e57b62c78f"
+    },
+    {
+      "path": "apps/web/src/routes/pages/RunsPage.tsx",
+      "sha256": "c5369013f6ac84440f680e3807de25021406a9277e9f62b4308c954946f3c853"
+    },
+    {
+      "path": "apps/web/src/routes/pages/SessionDetailPage.tsx",
+      "sha256": "26dfd784254f902e911b6a6ce64527cec07b94d97b1b76afc13b71a5d63c92ff"
+    },
+    {
+      "path": "apps/web/src/routes/pages/SettingsPage.tsx",
+      "sha256": "122fdbf1e9cb152787c51fc79b3218194d99b0e9ca6486e1fdf7ffffff081230"
+    },
+    {
+      "path": "apps/web/src/routes/pages/SrePage.tsx",
+      "sha256": "79f243d72bfcd3f82fcc8eec9bf4ec8fe8f7f5fd49bba390cab1874b0a520ea4"
+    },
+    {
+      "path": "apps/web/src/routes/pages/SupportPage.tsx",
+      "sha256": "691172a907d0ca832d6203a92f66a56dee107b6761f50f75995b80047579992a"
+    },
+    {
+      "path": "apps/web/src/routes/pages/TicketDetailPage.tsx",
+      "sha256": "cfad95b4652e114f03afe5dc7bde14f7610e385851e0ca719213f729349cc7f8"
+    },
+    {
+      "path": "apps/web/src/routes/pages/TodayPage.tsx",
+      "sha256": "e58f19a27cf1da6fe60540de4d8127cd809d5360e105d0fe67eca6ee06b73f4f"
+    },
+    {
+      "path": "apps/web/src/routes/pages/ToolsPage.tsx",
+      "sha256": "05c2bf6ffebe63809a8a0cf7bf1275999cde2fdd7604dd83e562e361b181babd"
+    },
+    {
+      "path": "apps/web/src/routes/pages/TvSrePage.tsx",
+      "sha256": "a08d073a884f7569f400bc4963b1111de2bda0a2c850153fa4e964e771d41397"
+    },
+    {
+      "path": "apps/web/src/routes/pages/TvSupportPage.tsx",
+      "sha256": "80eb25a6230a011b3a554199be5aaa69482e4475df78a3bd7650c9c60232e9c3"
+    },
+    {
+      "path": "apps/web/src/routes/pages/WorkspaceOverviewPage.tsx",
+      "sha256": "95ee287027484256bf73ca4e3e74d543779996e2d27325289b315f48351f7c38"
+    },
+    {
+      "path": "apps/web/src/routes/pages/helpers.tsx",
+      "sha256": "76cc458cb45fae6464629ee81c8baf4e36b3e11ce762f60f694897a70f84cf9f"
+    },
+    {
+      "path": "apps/web/src/routes/runs.tsx",
+      "sha256": "701cf8e5dbc951f1106d572281e876a8d5909ea9d2cba7ecc5e4671406602ff0"
+    },
+    {
+      "path": "apps/web/src/routes/settings.tsx",
+      "sha256": "7124bb731fdacacba107125ca1ded72fdb53e2cd88d227bba5b5dce8ba706309"
+    },
+    {
+      "path": "apps/web/src/routes/today.tsx",
+      "sha256": "7919cb9d3c2dbb2b7e5aa6d48e2cf2cd89911f602a6a1fdb7f903b40e6bdad8c"
+    },
+    {
+      "path": "apps/web/src/routes/work.tsx",
+      "sha256": "2a4d0ad7bfdee03ad30dd2661c0ccae88065eb5b227553f8665e9e3a84cf2539"
+    },
+    {
+      "path": "apps/web/src/routes/workspace.tsx",
+      "sha256": "db13072a720d8015fef8686ddb1b8d60ad15518935c93556bc422b5db4096099"
+    },
+    {
+      "path": "apps/web/src/ui/app-context.tsx",
+      "sha256": "d38fb8cd07f3316c31184dfe7065f22204d257c42412573553cdddc9c09dd257"
+    },
+    {
+      "path": "apps/web/src/ui/approval-controller.ts",
+      "sha256": "8d068429fe142859945066e0479bd4b51a93a88c24b2fe94a7bc6b8b2fe9a312"
+    },
+    {
+      "path": "apps/web/src/ui/components/ApprovalReview.tsx",
+      "sha256": "e689225183f45ad8f6566f6ff295a3f13815e04fc8679ca4736d7c0bd7700810"
+    },
+    {
+      "path": "apps/web/src/ui/components/ArtifactSelectors.tsx",
+      "sha256": "3ca72f176c2ed1c055bb58e2529a265bc1b9e81ca314892e0b302fb5c03fa641"
+    },
+    {
+      "path": "apps/web/src/ui/components/Authentication.tsx",
+      "sha256": "0e0a1974e92f75287647cda7f6800178cdd949801e582fcca971e62f2e9bcc6e"
+    },
+    {
+      "path": "apps/web/src/ui/components/EvidenceList.tsx",
+      "sha256": "e65c57eb6247631f07d242b31e51c77538708fc86df017ca07cccd6821ea5aac"
+    },
+    {
+      "path": "apps/web/src/ui/components/PlacementPanel.tsx",
+      "sha256": "c9cba66748bc4064f8d7d57ea3153a8e7362b242125a67a91bab923b327fad3a"
+    },
+    {
+      "path": "apps/web/src/ui/components/RunDetail.tsx",
+      "sha256": "d903fc72beaa2412a125996a2a89b6f70df656c09540e663cf17e8e1a8395f7c"
+    },
+    {
+      "path": "apps/web/src/ui/components/SessionFeed.tsx",
+      "sha256": "305a49c48484a2960d28fbb0a8b87ae50c362f25bcd99093f3f81c6cadd8689d"
+    },
+    {
+      "path": "apps/web/src/ui/components/ThemeToggle.tsx",
+      "sha256": "3b7353d42c6c41f41b1c05c2bf6695a3844ea20dd5799120dab1119ffc88f8ef"
+    },
+    {
+      "path": "apps/web/src/ui/format.ts",
+      "sha256": "7d8ab82ec80f34ec5773f43c5042757ee6105bfe2d8af29bc1a47dd1af6ce8fa"
+    },
+    {
+      "path": "apps/web/src/ui/screen-region.tsx",
+      "sha256": "87800b43d6a7eb2ce4e7d5bcb3ac79e44cf46151c3cf068130a16f3f3f02c87b"
+    },
+    {
+      "path": "apps/web/src/ui/theme.ts",
+      "sha256": "bc5955dc6fc56a25c375c1eeeed0c33a80a02554a78f9e1d2d56363d2b2a3a80"
+    },
+    {
+      "path": "apps/web/tsconfig.json",
+      "sha256": "862dcdb6f3533f8bc599db9e271d03824f9097409a9867c52954156a3ce95773"
+    },
+    {
+      "path": "apps/web/vite.config.ts",
+      "sha256": "fea977cb028688bb0a46a90809e30edd24b78d1c04b64c3ff3fac77ffb9a5926"
+    },
+    {
+      "path": "contracts/tsconfig.json",
+      "sha256": "36e6f9eb74f2c752a77185d7dd4c0ad973b6cca7c1f0afbc7e0725c976fe5c8a"
+    },
+    {
+      "path": "contracts/v1/acceptance-oracles.json",
+      "sha256": "2e9346b6e196987803c1c01d39f472ee36b9173bcc3842154f24a07ac6c91705"
+    },
+    {
+      "path": "contracts/v1/architecture.json",
+      "sha256": "31859b3cd6f90025bf6cc7045bcd62a43a7731db605d658246b393eb2574b874"
+    },
+    {
+      "path": "contracts/v1/authorization-matrix.json",
+      "sha256": "650f48775353881e98ecdb5c30010976b9c256289c3fd9ea973611b4cf700225"
+    },
+    {
+      "path": "contracts/v1/brain.generated.ts",
+      "sha256": "e3498f54a471786154e45d90cc7b55cd7fad5275229aced39a37ae2079e12824"
+    },
+    {
+      "path": "contracts/v1/brain.schema.json",
+      "sha256": "39f096305c385081cceca1ada1ebebeadee86364fea5abc3f4a8a0ef73d0a9d1"
+    },
+    {
+      "path": "contracts/v1/crypto-vectors.json",
+      "sha256": "6431fbc2c22d00d5dd30738f749a06678bcbb75fb10ec874dbc5de53bfa1b629"
+    },
+    {
+      "path": "contracts/v1/dependency-baseline.json",
+      "sha256": "25da9fd2e460a7dc69425bae8e493cbb7221085c21a651fab2abef2e771a784f"
+    },
+    {
+      "path": "contracts/v1/execution-plan.json",
+      "sha256": "77eed5176f63b0247061746ab9d1d79a38427b059de211ded30b1cba64b76edc"
+    },
+    {
+      "path": "contracts/v1/implementation-policy.json",
+      "sha256": "6199e7e07edcc6fd4b1fae74fe1894a887b736115a4ce17b7ef59ae72f7ef816"
+    },
+    {
+      "path": "contracts/v1/library-register.json",
+      "sha256": "2591242801aceb60177f934893bd0fa63e87a9f1b17f561b8dda2019cba29014"
+    },
+    {
+      "path": "contracts/v1/module-layout.json",
+      "sha256": "48d0db14d97ba80936cbf88d72ba972b2cac5923acf41b633f917e3c27f35063"
+    },
+    {
+      "path": "contracts/v1/openapi.json",
+      "sha256": "ee671c1667a402bbe4ad0075c6e877afd96fab7690d7e4aac558aa999a465bb2"
+    },
+    {
+      "path": "contracts/v1/ports.ts",
+      "sha256": "1e90d00b88b21c2a1a39561d56fc2bca4d13192cd548fb6f4605923ffe325bd8"
+    },
+    {
+      "path": "contracts/v1/readiness.json",
+      "sha256": "cca5c46725c28f346390391cb263bd9ed25a745da54f9d0d035ef9d286a7012c"
+    },
+    {
+      "path": "contracts/v1/registry.json",
+      "sha256": "060f58510cf304fed9d905f7320242f04a28000aaf1feb2a6fa885fb4a331d65"
+    },
+    {
+      "path": "contracts/v1/scenario-catalog.json",
+      "sha256": "e1ce372aa0ba6f6f5a6bf815d939abc150d8d7cc26943b4fbe6a1026bc6038ed"
+    },
+    {
+      "path": "contracts/v1/source-inputs.json",
+      "sha256": "f0adc2e798a267978313c46fdb4bc2d5c816ab51345db843b4286eaf00b64aca"
+    },
+    {
+      "path": "contracts/v1/state-machines.json",
+      "sha256": "cd7197a8ab07413ce527d9598d938c962453dab5f6417a767ebf815f53ac730e"
+    },
+    {
+      "path": "contracts/v1/task-packets.json",
+      "sha256": "165cce0179a9626ef87b07af054897f001060e0c4247d630bb9e678679fd1284"
+    },
+    {
+      "path": "contracts/v1/ui-foundation.json",
+      "sha256": "7c9ee4843884efea3e849170434503d20e63633caa0f4394bb784d0eaf4ad598"
+    },
+    {
+      "path": "contracts/v1/ui-screen-contracts.json",
+      "sha256": "899ffc74bd3545e22f0051454447d86736f7b2982be5b7838960331db9e14125"
+    },
+    {
+      "path": "contracts/v1/work-plan.json",
+      "sha256": "f14a863c0b7a73d5289ee20c46cd918f63c0eca4182001e8c858a6d0fff59757"
+    },
+    {
+      "path": "deploy/reference/README.md",
+      "sha256": "91c7daf6604525c67bada928a79165a6806c6f92c5d7c0237ccda79c783dd467"
+    },
+    {
+      "path": "deploy/reference/compose.core.yaml",
+      "sha256": "ded628d8a789226590e52fcc43dd0f9835c778c8052284eaca35270d5ae1b85e"
+    },
+    {
+      "path": "deploy/reference/compose.runner.yaml",
+      "sha256": "726ffa932536f461784bab6e6f84c30fb1b3f0837ecd13e103d1adf0b3d21932"
+    },
+    {
+      "path": "deploy/sandbox.Dockerfile",
+      "sha256": "80e01f75c74b594d33a0efb7d18f2315c2b1bc57aac16ddc1f70f526d7c65425"
+    },
+    {
+      "path": "docker-compose.yml",
+      "sha256": "742ce28e54854f2416e6290391950679462cc1deaa35e8e7d88206bbea9cf062"
+    },
+    {
+      "path": "examples/v1/README.md",
+      "sha256": "12ebbe55f3ecd4c7a229f27718b6971726516035104f12d86eccb837524e7e1c"
+    },
+    {
+      "path": "examples/v1/commands/approval.request.json",
+      "sha256": "6279b707a4cd8f00c4fea282fce8f032bf080ce505aad7199f5570ae834d4f37"
+    },
+    {
+      "path": "examples/v1/commands/approval.revoke.json",
+      "sha256": "caf963fdd503460f600a7c1fa1ecf92c8a830edb8355ee238d1a6492e949f154"
+    },
+    {
+      "path": "examples/v1/commands/board.comment.json",
+      "sha256": "6dc30c6180273a1047c6114b8b5621c77774e06fb89059bf948decbc7648c652"
+    },
+    {
+      "path": "examples/v1/commands/board.create.json",
+      "sha256": "6aa658844bdc2ea7814c093d8ea442ab8818046d882dcbd400211260f71f9ba0"
+    },
+    {
+      "path": "examples/v1/commands/board.move.json",
+      "sha256": "9488c2e78d21d915523431d387f3ef600659287892c817608cdcfa2d3cb003be"
+    },
+    {
+      "path": "examples/v1/commands/config.activate.json",
+      "sha256": "3e8627ef4943a07370933a6671cc590c36d918ee6c8e9aa0e225f7e7cb13a507"
+    },
+    {
+      "path": "examples/v1/commands/decision.record.json",
+      "sha256": "e0af772b67205e90bce3f8cdb0a65e7ee30934fb1ff2f4459d8ab34b313ac932"
+    },
+    {
+      "path": "examples/v1/commands/job.reconcile.json",
+      "sha256": "eaa9969d376a42991c4984d58399808fa516ba120c3960036e516fa1e02960c3"
+    },
+    {
+      "path": "examples/v1/commands/member.grant.json",
+      "sha256": "c30144b75d2e0a2e35d2e060a6b37389dd4f70273af1139c98c28821b637c919"
+    },
+    {
+      "path": "examples/v1/commands/member.revoke.json",
+      "sha256": "cd7cd13266ee59b8b5766bc98bd46bab96320bbba6d0117c833efb230c811469"
+    },
+    {
+      "path": "examples/v1/commands/memory.publish.json",
+      "sha256": "69e6e117a20f87c1bdc49f83ca76a5c4a84fcf89e6e4f5895a8fd05b6a47056c"
+    },
+    {
+      "path": "examples/v1/commands/memory.revoke.json",
+      "sha256": "f0cbaa08881914fe97b56dbb9168a89cfb47195a6a2bb5d26f80e539c6d75c08"
+    },
+    {
+      "path": "examples/v1/commands/runner.drain.json",
+      "sha256": "7d7a4fa744c3101d7a8f955b41a70d7c810ea802994b7ff69984ac97d13252f7"
+    },
+    {
+      "path": "examples/v1/commands/runner.quarantine.json",
+      "sha256": "c61aee57aeade9ee5417bb1b860c021daecd6c5821246dcc4124d639e5ff2b11"
+    },
+    {
+      "path": "examples/v1/commands/session.steer.json",
+      "sha256": "5c5209fc275de91f50c07cfc6e2b57a49d37290ef09e83f6161d2c77a20bfaf2"
+    },
+    {
+      "path": "examples/v1/commands/session.stop.json",
+      "sha256": "61a2d7af7957647dc45cb9a3d60d16e741905b395d47cd879e8da375aadbe36f"
+    },
+    {
+      "path": "examples/v1/commands/tool.propose.json",
+      "sha256": "8ae1a73131906a17fbf25924aff8b12bb40dc65298e33aaed0f70bd23863d4e3"
+    },
+    {
+      "path": "examples/v1/commands/tool.publish.json",
+      "sha256": "5ab6b7c764c0d2032dac64a06f87f709108fa04fa64722b6247262ae502c08e4"
+    },
+    {
+      "path": "examples/v1/commands/workflow.cancel.json",
+      "sha256": "1fb287f57508f29aa6a233238a5f2ea2d351e8e7f82bd22c30a1abd224cc718a"
+    },
+    {
+      "path": "examples/v1/commands/workflow.dispatch.json",
+      "sha256": "e54ff2f3583d247033bbf61b1d785c8e1df656bafc63f2c3e3521ebae05eb7e5"
+    },
+    {
+      "path": "examples/v1/commands/workspace.export.json",
+      "sha256": "09b86513814ad8ed1c928b3ac227a2cfcc937783bd358598190cee0f0d95ad4d"
+    },
+    {
+      "path": "examples/v1/commands/workspace.import.json",
+      "sha256": "4d7228fd08d4318852672cd43c1068d08a811f00b56b78abb5547895c724805d"
+    },
+    {
+      "path": "examples/v1/commands/workspace.suspend.json",
+      "sha256": "7f260b7e72cac6ef2d3ee6827530e338bba3d2f7373796d8d53b19942c64f3b0"
+    },
+    {
+      "path": "examples/v1/config/agent.yaml",
+      "sha256": "2ab0028f9e884bdadf42a10055894bde0762d7efb7bec7dc391a0f35a741efd9"
+    },
+    {
+      "path": "examples/v1/config/all-primitives-fixture.yaml",
+      "sha256": "511d7af8c35127f992611065d57f95ebc6916b1337d97fc22c7d80a3e9e061c6"
+    },
+    {
+      "path": "examples/v1/config/brainconfig.yaml",
+      "sha256": "84a7155530ffc8891b8adc2547a5fec73712131dc145e14097b0337ac013c95a"
+    },
+    {
+      "path": "examples/v1/config/connector.yaml",
+      "sha256": "5509dc144dbf2337d459cb3129e3c8e14cc63796ab0ec91489200d4206bdff03"
+    },
+    {
+      "path": "examples/v1/config/evaluator.yaml",
+      "sha256": "eb409abc000765f9f59f5392d0caf216f6424a44695857dc3ce176caff163dc8"
+    },
+    {
+      "path": "examples/v1/config/pack.yaml",
+      "sha256": "b6400b20c76e3c9aca0cb55b8f6da9640679bd8a37b4e27da9f579cb142e429d"
+    },
+    {
+      "path": "examples/v1/config/policy.yaml",
+      "sha256": "7d047b0cd41766da5d3981e3be3fba4d6a9525bedd639e2a5b2b58f72286c87a"
+    },
+    {
+      "path": "examples/v1/config/runnergroup.yaml",
+      "sha256": "8dd7b600041dbe887ac9bafea91d227c9f9c40aa25a096e7fd2256f3cf36fd65"
+    },
+    {
+      "path": "examples/v1/config/schedule.yaml",
+      "sha256": "d8eb90b7f36d9bb132eca15f4d58212082d56161ce6c23e5dbee3f60944d4947"
+    },
+    {
+      "path": "examples/v1/config/support-investigate.yaml",
+      "sha256": "2ebda883534b23511b479d36a993f64252f7cec5f934fd92b85840dcce4e7525"
+    },
+    {
+      "path": "examples/v1/config/tool.yaml",
+      "sha256": "66c88b3962fb8925d851e798e92a353ee0a983c891fd5b109aaed440b6b876e7"
+    },
+    {
+      "path": "examples/v1/config/web-build.json",
+      "sha256": "1955517c83589b3694130280acc6b628da66de7f67b40a13a48d30ac9e9772e0"
+    },
+    {
+      "path": "examples/v1/config/workspace.yaml",
+      "sha256": "69b0eed05232b3bd84a119ab5f8eee49ef5d838536e4cffa45fe915d2cd1572f"
+    },
+    {
+      "path": "examples/v1/config/workspacetype.yaml",
+      "sha256": "f48025accfc5d147d9892531e02641b83cb29cb4b110263f3b7c709c024b78d4"
+    },
+    {
+      "path": "examples/v1/execution/ApprovalDecisionStatus.json",
+      "sha256": "2e6f0bdfa44e2266c2cd433d0b8a9d9c3b50453ac6a83921834b381f802a035a"
+    },
+    {
+      "path": "examples/v1/execution/QueryCursorPayload.json",
+      "sha256": "8eb06e4fb4694e2c05e697f927a32a13cddb2f95d7258bbeb23b2314978afcef"
+    },
+    {
+      "path": "examples/v1/execution/RunnerChallenge.json",
+      "sha256": "98618936cc8e36ebc6c408395192ff26c75b915803cb31b4d431ec01264d22b6"
+    },
+    {
+      "path": "examples/v1/execution/StepUpChallenge.json",
+      "sha256": "fd2b1ebfc40016220656922e4f88173c3f093061985174615898d1d2d8f08ca0"
+    },
+    {
+      "path": "examples/v1/execution/StepUpEvidence.json",
+      "sha256": "7f3015b9ac169752e3eba74dc1259069c31852c7abf0bc1014eaabf825a7e69a"
+    },
+    {
+      "path": "examples/v1/execution/StepUpVerify.json",
+      "sha256": "d994491c9b7b1bf2b7f635900ab311ec5e0e50e47dccad395931c2d9b46ccdb8"
+    },
+    {
+      "path": "examples/v1/execution/authorization-cases.json",
+      "sha256": "5d106a7552520304c782e4d3b8eafdcd3f7c0ba6f80e8cfe9bb78446817595d8"
+    },
+    {
+      "path": "examples/v1/execution/checkpoint.json",
+      "sha256": "9e942333805557c877a2c86f2410b553e763ee12a809e596cc89a55fec45af7b"
+    },
+    {
+      "path": "examples/v1/execution/engine-artifact.json",
+      "sha256": "70faaa634a639de9f1e9cb6fd1218464bcf8e999c62399bd58a5b0695c877522"
+    },
+    {
+      "path": "examples/v1/execution/engine-error.json",
+      "sha256": "6ef6583c27d251cba9095aeb22c849ad04c306afc73853cddf7b329fa82e3b7d"
+    },
+    {
+      "path": "examples/v1/execution/engine-human-input-requested.json",
+      "sha256": "599d2c4fc8158ab039b29b0d520c097826451293f77771f15de6938a514c8ce8"
+    },
+    {
+      "path": "examples/v1/execution/engine-session-stopped.json",
+      "sha256": "92750cd7f17e96c5a3ecaccfc30861f0b83b75af1c3a374dcfd595be7078776a"
+    },
+    {
+      "path": "examples/v1/execution/engine-text.json",
+      "sha256": "df314c99d729168f96e64fdad605693ba6eda3b3738e3227c5bf31becb025dee"
+    },
+    {
+      "path": "examples/v1/execution/engine-tool-proposed.json",
+      "sha256": "9451eb6615fdd028531c65e5219c092e657c2da6791166acbc6a33eab20075c8"
+    },
+    {
+      "path": "examples/v1/execution/engine-tool-result.json",
+      "sha256": "ee590a9abd8f69556ab8c8264ca4b7c21f620a353ef07a71193bca854d96cdd8"
+    },
+    {
+      "path": "examples/v1/execution/engine-usage.json",
+      "sha256": "992c14a0c687febb99b2839fc7827c80a9ed409d53a44a33c6c0427f40e580ec"
+    },
+    {
+      "path": "examples/v1/execution/ledger.json",
+      "sha256": "3e1bbcfa9e2dd0d03198d48eb009da8b61e50778528ca8ed785ea985218fac5a"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture-brain.yaml",
+      "sha256": "01282da0684d9ebfac774c83dba34febee332256921d6153fb3df265796f1014"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture-evaluator.yaml",
+      "sha256": "2424854b14c4a5c0a350487e694286d295c6c495360035dadf1778bcb46a1e1a"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture-evaluators.yaml",
+      "sha256": "3f8cc2e561526b622fd94312c92351d230e3c4d665a3b05cc904fb4d15670d1e"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture-policy.yaml",
+      "sha256": "c133abc1311620367c84b58d65f457ac1e44bfc56e9a0a277f19bb9427f9efa8"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture-tools.yaml",
+      "sha256": "598bdd6f2a6259bc9143b9a62e2a54a6ad891212161cfd98272b1b21fb66fd7a"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture-type.yaml",
+      "sha256": "6b29f83d433b6f8a3f1984752d8f6a21c324245414715085b6cb630641b870c7"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture-workflow.yaml",
+      "sha256": "5766c9749f2094fb488c2fe28371512e7695781b5f88080d66e5f59ffaf28d07"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture-workspace.yaml",
+      "sha256": "3ce901e69e7840f9187ee55dcec814128090538181a55372a5b12e19ffb1b342"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture.echo.yaml",
+      "sha256": "ba102196c8289dc6873461cebb3dc56e15c6c5e525d5b7c1a20506e3757ccbe9"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture.verify.yaml",
+      "sha256": "755cd2c471aca9209841adc3e7af545e7d773aaae497f1b94f9254961813edf4"
+    },
+    {
+      "path": "examples/v1/golden-release/manifest.json",
+      "sha256": "b41a894f7fbd324c2f9d577558214ef3b3cb0735781a544d9cb626d34234336d"
+    },
+    {
+      "path": "examples/v1/golden-release/schemas/check.json",
+      "sha256": "e3490b6e889f52aebe7fc73950730b82e775c03aaa60a7b646c2f95e685619f6"
+    },
+    {
+      "path": "examples/v1/golden-release/schemas/echo-input.json",
+      "sha256": "92c59d473e2a959dc18a29d516304fbfbb4d3457b327696f0c7fb7b5c000a1d9"
+    },
+    {
+      "path": "examples/v1/golden-release/schemas/echo-output.json",
+      "sha256": "c442ac6d5ca971089a5a5e10d6b876f68fe3a2729e0541dd19dfecf02eacdb0c"
+    },
+    {
+      "path": "examples/v1/golden-release/schemas/eval-input.json",
+      "sha256": "dbda6101cbda20d1b1e6894b575253b3e99b5072fe6790c67cca54cee7627571"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.echo/TOOL.md",
+      "sha256": "e65134a3e7f860008cd183817b92935a0431bf02874996d1e3cfb00557124ea9"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.echo/package-index.json",
+      "sha256": "48838fcf3e665191f460fec97b0b247146721f3816edb8b81ba22e972e92a6ed"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.echo/run.sh",
+      "sha256": "cbb4254db76698a6c9b722850ab66a347eabbd356af0c2333c3301f4ebb9f12b"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.echo/schemas/echo-input.json",
+      "sha256": "92c59d473e2a959dc18a29d516304fbfbb4d3457b327696f0c7fb7b5c000a1d9"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.echo/schemas/echo-output.json",
+      "sha256": "c442ac6d5ca971089a5a5e10d6b876f68fe3a2729e0541dd19dfecf02eacdb0c"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.echo/test.sh",
+      "sha256": "e19bc9c0591cfc29fbfb5751b88296226e7f30f3b1b12624ce0cad6cd8c35843"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.verify/TOOL.md",
+      "sha256": "7c335573c4e598cc3a42b047122c0a22f8901808306ceadc980373a3ac903198"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.verify/package-index.json",
+      "sha256": "a3a89ba26a54592fef66bc58049f65ec1707fbffd531f2b46742b0a50030be7c"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.verify/run.sh",
+      "sha256": "771590aecd6a268ab3623626b9770c01084c8b8c67526fa22700b748c09a03d3"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.verify/schemas/check.json",
+      "sha256": "e3490b6e889f52aebe7fc73950730b82e775c03aaa60a7b646c2f95e685619f6"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.verify/schemas/eval-input.json",
+      "sha256": "dbda6101cbda20d1b1e6894b575253b3e99b5072fe6790c67cca54cee7627571"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.verify/test.sh",
+      "sha256": "de371055a99d208c693c442a9bd2b510cc94f65aa52f44341900c38469cc3535"
+    },
+    {
+      "path": "examples/v1/golden-release/ui-foundation.json",
+      "sha256": "7c9ee4843884efea3e849170434503d20e63633caa0f4394bb784d0eaf4ad598"
+    },
+    {
+      "path": "examples/v1/invalid/approval-without-subject.json",
+      "sha256": "dfa5be4423dadb3b0e3c1d49dd6ddb2d114b4efd9df0963f91df6d3b90f46f23"
+    },
+    {
+      "path": "examples/v1/invalid/browser-runner-proxy.json",
+      "sha256": "15cb2caaaf08895e3f0fc7c511939a1ca95e1866393c7ab60c5adb0290fdca5e"
+    },
+    {
+      "path": "examples/v1/invalid/client-human-actor.json",
+      "sha256": "3841d881fc8ee7c2e50c6bbd6669cc70baa2106dd53b46a4e33732dc7836b293"
+    },
+    {
+      "path": "examples/v1/invalid/complete-backup-with-omissions.json",
+      "sha256": "9495877f9b0e3dd19a30797602ee3a71a1261ad5faf687e2a8aeea12cbb91f32"
+    },
+    {
+      "path": "examples/v1/invalid/contradictory-command-receipt.json",
+      "sha256": "35ccdac321736993a4943aa778db56752c9d87aeb629a7ed52ec3e509746ac01"
+    },
+    {
+      "path": "examples/v1/invalid/duplicate-ui-channel.json",
+      "sha256": "3abdbb3ae2ca88b3867664fade2a829fd7a246e08b7bba4bf8fe0963784e4149"
+    },
+    {
+      "path": "examples/v1/invalid/empty-anyof.json",
+      "sha256": "31212caa3e65c93c6bc65abdf4cee4b7997e20df31084dc7c0cdb5e4f5981287"
+    },
+    {
+      "path": "examples/v1/invalid/empty-evidence-checks.json",
+      "sha256": "cb006895ee9dde53a2aae0e8c70c98480e5de6ae2b1fd73c68b0dd6968f269ca"
+    },
+    {
+      "path": "examples/v1/invalid/missing-ui-foundation.json",
+      "sha256": "f69a8ef8d0d7859db6765c3651d1e5bb2442a8ad5206b2b8f1a145575cab6c44"
+    },
+    {
+      "path": "examples/v1/invalid/negative-capacity.json",
+      "sha256": "cfef0c6fae4ce8b48b8e6078784376adfaec4205cdb6c52659e7eedc5a034e58"
+    },
+    {
+      "path": "examples/v1/invalid/old-root-jobs.json",
+      "sha256": "4643634f544286d5615c43e9125e54fa7561ee898cf4d3b9eed64b03cbfbc546"
+    },
+    {
+      "path": "examples/v1/invalid/portable-backup-without-workspace.json",
+      "sha256": "cf238563edacbb0286b39ab11dc13795c58b5d6ae3698bfefd963e144fe7dd76"
+    },
+    {
+      "path": "examples/v1/invalid/runner-bound-gate.json",
+      "sha256": "97f1854dfa31fa388b090a208dc7a64f64d3a2121a640405884f355e4df0575d"
+    },
+    {
+      "path": "examples/v1/invalid/runtime-ui-download.json",
+      "sha256": "122446ad2dc210a17b40d6e808dedddd2917056fd7299375ae1cad248a545365"
+    },
+    {
+      "path": "examples/v1/invalid/short-digest.json",
+      "sha256": "5a84b96c3c410bb0ad88477df7f4d03003443fc964dc5ccb1ca3b4a8d732244b"
+    },
+    {
+      "path": "examples/v1/invalid/ui-default-locale-unavailable.json",
+      "sha256": "a15fed09dfd569981022face6540005fab535921b042ba4b0ddc09fa7042f7bd"
+    },
+    {
+      "path": "examples/v1/invalid/ui-foundation-drift.json",
+      "sha256": "dc95eb2d8bf7a95e345bf111a7d0dacd201f20016931fb6d32597d7d30b615ee"
+    },
+    {
+      "path": "examples/v1/invalid/ui-palette-override.json",
+      "sha256": "a48fb82424f010c040303c6d6e494da27b4978b31a2173a1bc8742825fec6932"
+    },
+    {
+      "path": "examples/v1/invalid/unknown-command.json",
+      "sha256": "22b7370b3c2ffd90e6736c74f1092dd7238cdd160a95fad628bf552a849179c1"
+    },
+    {
+      "path": "examples/v1/invalid/unknown-query.json",
+      "sha256": "9dd009993995728e8aede7f591482872dd2461123fd52488fd08a61e02cb9414"
+    },
+    {
+      "path": "examples/v1/invalid/unsafe-counter.json",
+      "sha256": "4f8ffdcb7686c23bcf0e48e7935fb458e6bfc759082aab587695fef570e349dd"
+    },
+    {
+      "path": "examples/v1/invalid/unscoped-workspace-memory.json",
+      "sha256": "b7c08204ceff8f1843e15fa6c1427e9f2cbb35f9789f869a031251e25e21f462"
+    },
+    {
+      "path": "examples/v1/invalid/unsupported-ui-foundation.json",
+      "sha256": "67bc0cc6b2250263842becc78fc9a2bb0c9f9e99138c660ffc119ca10229780d"
+    },
+    {
+      "path": "examples/v1/invalid/untyped-engine-event.json",
+      "sha256": "85c04b0b33296045b3862abe686d27625969c1098f3e6a8e085abfe69093a4e3"
+    },
+    {
+      "path": "examples/v1/invalid/zero-fence.json",
+      "sha256": "7e84a996aef78b03d73ded806efefb4d4ff14d336a5a10797badd0799021453d"
+    },
+    {
+      "path": "examples/v1/manifest.json",
+      "sha256": "056ce8ca9af97b504fb74bf180f572793d2714ee4d859bfe19cb1cdee45e9a69"
+    },
+    {
+      "path": "examples/v1/pnpm-workspace.yaml",
+      "sha256": "4e15df7443aad67f1b1407be6f77a08e11c6d98d1431a227b0554a14c3fc389f"
+    },
+    {
+      "path": "examples/v1/schemas/approval.json",
+      "sha256": "6689b5fe7f4b9712720b2e806d0caf88a4e0205e7805f27e372c68b85b80fe64"
+    },
+    {
+      "path": "examples/v1/schemas/check.json",
+      "sha256": "35a3d5a548c2eeb1e1edb883ba958e9bdf92e5904866b50bd0825cec5176d54f"
+    },
+    {
+      "path": "examples/v1/schemas/echo-input.json",
+      "sha256": "92c59d473e2a959dc18a29d516304fbfbb4d3457b327696f0c7fb7b5c000a1d9"
+    },
+    {
+      "path": "examples/v1/schemas/echo-output.json",
+      "sha256": "c442ac6d5ca971089a5a5e10d6b876f68fe3a2729e0541dd19dfecf02eacdb0c"
+    },
+    {
+      "path": "examples/v1/schemas/report.json",
+      "sha256": "1a8611150f18d05e6f6e83e4d66901e5f1635e9c9669fe264667e1b96f88a5f8"
+    },
+    {
+      "path": "examples/v1/schemas/ticket-input.json",
+      "sha256": "2ca2013c5a02a678a45e9d17f81afe5d1d1f1af798dc473812f5412c2125af3f"
+    },
+    {
+      "path": "examples/v1/starter-release/README.md",
+      "sha256": "24611b4cdd1b042b1afd31916c7b804971e10f09fecb4aef9d5ecf0798a79d04"
+    },
+    {
+      "path": "examples/v1/starter-release/agents/diagnostic.md",
+      "sha256": "5324f24e49ffd7858554c230d9128d160476c22436d23747bc6c1d13fc6bec0b"
+    },
+    {
+      "path": "examples/v1/starter-release/agents/operations-assistant.md",
+      "sha256": "ba3f2dd73ea85e20874b7330c791c3312379a0b72bedd8d83bb37f4497388226"
+    },
+    {
+      "path": "examples/v1/starter-release/agents/support-analyst.md",
+      "sha256": "66f522d02f9e5631e93d408427bbb91f2c5adbb61393b5f056024781fcaeb8c7"
+    },
+    {
+      "path": "examples/v1/starter-release/config/agent-smoke.yaml",
+      "sha256": "424742dc3830a4d87a7a17a0af9a91c275031befa92d6315d59dac268fdba219"
+    },
+    {
+      "path": "examples/v1/starter-release/config/agents.yaml",
+      "sha256": "bcbc92211b061149b9133c26f225c5dad137e23d1071b6b74a0cfd966086fb40"
+    },
+    {
+      "path": "examples/v1/starter-release/config/diagnostic.yaml",
+      "sha256": "35a266b009b4ad079d89e79b6a387041fd6c58f192f1c3d98aa354181cddd2e8"
+    },
+    {
+      "path": "examples/v1/starter-release/config/evaluators.yaml",
+      "sha256": "0ffd4e210e784e3615e1d67e49705820e44c71963922c337e16ba7376e999e23"
+    },
+    {
+      "path": "examples/v1/starter-release/config/operations-assistant.yaml",
+      "sha256": "50ad0891a57eab836239f37a116acc81c5357e1d5d0bb65b92d96fa05abc9415"
+    },
+    {
+      "path": "examples/v1/starter-release/config/operations-policy.yaml",
+      "sha256": "bbd7fe7098a681fcedeb4b6308bf1d6eeb4ff52bc57dd77418638807f0008baa"
+    },
+    {
+      "path": "examples/v1/starter-release/config/operations-triage.yaml",
+      "sha256": "d5642402bb57aa6f0c20a9a1452fb76f4062c9f9f4be6ce19de4bd918e76cecf"
+    },
+    {
+      "path": "examples/v1/starter-release/config/operations-type.yaml",
+      "sha256": "9fdc87accd1d0a5626d7fa936b96c66a155ac830c9f74b81377c8a4e06c9ee32"
+    },
+    {
+      "path": "examples/v1/starter-release/config/operations-validator.yaml",
+      "sha256": "874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f"
+    },
+    {
+      "path": "examples/v1/starter-release/config/operations.validate.yaml",
+      "sha256": "68cdd50093346745e560e7f688a7773866c1075e0b1d653e66067c27c6efeeee"
+    },
+    {
+      "path": "examples/v1/starter-release/config/operations.yaml",
+      "sha256": "0bcda9feeeed4eff4f7d1ee31c92f3b6a5e07f0cac49e9e27370c4a0ec98e99f"
+    },
+    {
+      "path": "examples/v1/starter-release/config/support-analyst.yaml",
+      "sha256": "7f9909b668353a9baa1406f40974fb186ce2b7821e4a0e73de1ed50ed35f0abe"
+    },
+    {
+      "path": "examples/v1/starter-release/config/support-draft.yaml",
+      "sha256": "e418c1e17a16849e80ce10356e43ad06eb9c3704edc8a92d051beabaa5d6dff7"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/operations-input.json",
+      "sha256": "e3aad2008b345c91b19d3065dbe59080567eda71652131e71ebd6c8a025cc8aa"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/operations-output.json",
+      "sha256": "9b2b4b3d7a10966f3d60b16fd67b74584cee8fb226257a0ea23b26c51eb20b36"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/smoke-input.json",
+      "sha256": "c58af53052babb5e13c6c5e79d317994a879f505c15979a4321c8e8941f7b74d"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/smoke-output.json",
+      "sha256": "0f48e3365174b3b283b6781fb66aa02e9a5329374c72766318cf0e306e5f56e6"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/support-input.json",
+      "sha256": "886537cbd643a8dda84f53aa95719561bddcd08dd32aa8563791d27f0bcc839f"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/support-output.json",
+      "sha256": "38e697e1592358250515c59024ae50dd667d8affc03d6d2999672d1fdc3e3829"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/validation-input.json",
+      "sha256": "f1e58754f133ae69a1dcb7cc6e90bcb571db0fda9e427e5b9709cbe93ae99431"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/validation-output.json",
+      "sha256": "ee68539497ed977d5f1fdf606a1a73a6494fd4503196debbe319d15b834ad1d4"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/workflow-output.json",
+      "sha256": "1cf77e5ee48dae2a97cbb85a5b6b6288c760e72ab7008d306d6dd0651594f3f6"
+    },
+    {
+      "path": "examples/v1/starter-release/tools/operations.validate/run.sh",
+      "sha256": "833d168af882f6bead910654d2359a76d0c2c03e986cd95169893464f31fa271"
+    },
+    {
+      "path": "examples/v1/starter-release/tools/operations.validate/test.sh",
+      "sha256": "dabddb39a6b2de663450c868b6227782789c1b61644cd6ce52f8c2bd3b753e4c"
+    },
+    {
+      "path": "examples/v1/tool/TOOL.md",
+      "sha256": "390426e5c2c404d55be40bc3d18816195b31dc7619c50083aed5f2363d4d0eb1"
+    },
+    {
+      "path": "examples/v1/tool/run.sh",
+      "sha256": "cbb4254db76698a6c9b722850ab66a347eabbd356af0c2333c3301f4ebb9f12b"
+    },
+    {
+      "path": "examples/v1/tool/test.sh",
+      "sha256": "e19bc9c0591cfc29fbfb5751b88296226e7f30f3b1b12624ce0cad6cd8c35843"
+    },
+    {
+      "path": "examples/v1/transport/ActorContext.json",
+      "sha256": "42712a172e74f13910b2999dc26a617c5c5de071254bed8455079c96fd1b9918"
+    },
+    {
+      "path": "examples/v1/transport/ApprovalRequest.json",
+      "sha256": "334ce1019fbda69e6170bcbc7657e41d5861f9669c1bccd5d8694e448242c51d"
+    },
+    {
+      "path": "examples/v1/transport/AttemptAck.json",
+      "sha256": "84e0a45b2e81b3c3c410395229c84633bcfbfdd5903e1424d9ebbaa918dddd67"
+    },
+    {
+      "path": "examples/v1/transport/AttemptEventAck.json",
+      "sha256": "20dac99050f11cba3214d9d36754b72d59a7300d4fe0fb999e18be939ad66fa8"
+    },
+    {
+      "path": "examples/v1/transport/AttemptEventBatch.json",
+      "sha256": "89f1e19a61cdff69f71a71a732806362099259657d8b37272721b4e5328b5961"
+    },
+    {
+      "path": "examples/v1/transport/AttemptLease.json",
+      "sha256": "750178df6db1061e4b8629ea9e11f5e3f4ec69a25df91d8e2e3c09d5a2dc8a07"
+    },
+    {
+      "path": "examples/v1/transport/AttemptRelease.json",
+      "sha256": "2690c179e3132e36ac631e152660a53b2f3d265fdab6b1a54c5eff66887c910b"
+    },
+    {
+      "path": "examples/v1/transport/AttemptRenew.json",
+      "sha256": "5c6fa907ae83f866074f23d36da1777ff3cb5f6f40dd33ceda0c8d512317595e"
+    },
+    {
+      "path": "examples/v1/transport/BackupManifest.json",
+      "sha256": "2a1f3e1d961b8dd5b6c3ad961417c5c54265b061a410e95f25985830c25a048c"
+    },
+    {
+      "path": "examples/v1/transport/BrainError.json",
+      "sha256": "d6b7a3c83e6c844262ec56efc29769244dea156abb00c90771c4fd3d52fffa37"
+    },
+    {
+      "path": "examples/v1/transport/Checkpoint.json",
+      "sha256": "7be74499e2d4d8920890a4c0af9b295700e00db7d1e8fff2bc2433b804010a8c"
+    },
+    {
+      "path": "examples/v1/transport/ClaimRequest.json",
+      "sha256": "b772a7d9b7fcab5fc375002f381d1596f877cca34a856003e23a74af762395de"
+    },
+    {
+      "path": "examples/v1/transport/CommandReceipt.json",
+      "sha256": "d400ab646221a319f9e5604fb6b643b41dd5dd034088a79c091405f5dee14469"
+    },
+    {
+      "path": "examples/v1/transport/ConfigRelease.json",
+      "sha256": "248c22082b499430aa59dfb6a3ae2f88d051b7940ec7f10493ee6a9932679130"
+    },
+    {
+      "path": "examples/v1/transport/EffectPermitRequest.json",
+      "sha256": "5f3f3974cc2c7a04f1a634d82fd7393fae79fde860dc31a0089c53f5229ccf3f"
+    },
+    {
+      "path": "examples/v1/transport/EngineEvent.json",
+      "sha256": "54e8dbb312e28eeee0b75f2a2925161848bf0e26359b04a6e1953f738d529c00"
+    },
+    {
+      "path": "examples/v1/transport/EngineSessionSpec.json",
+      "sha256": "4a00c000733f700c75ea6e4350f8c95fbf5423bc3f3a72c68f44d3e8f715b787"
+    },
+    {
+      "path": "examples/v1/transport/EvaluationAssignment.json",
+      "sha256": "e00d7bbf90882426ab4b2d6f7bd5d8edf10c5d94372ba93a2a2993f920cae507"
+    },
+    {
+      "path": "examples/v1/transport/EventEnvelope.json",
+      "sha256": "9baf79880babca4bef93da5eac170311111daf0c9821564cba0cf7a5de2de612"
+    },
+    {
+      "path": "examples/v1/transport/EvidenceBundle.json",
+      "sha256": "c954549d0794f52e058ef8663a736234f3603108622a54d18339380253aaf5b0"
+    },
+    {
+      "path": "examples/v1/transport/ExecutionGrant.json",
+      "sha256": "ae71da6e1dd639b8c21e638bd941b326c8c6aded0b6d19a39c05abea3605673a"
+    },
+    {
+      "path": "examples/v1/transport/HumanApprovalDecision.json",
+      "sha256": "59b20d1fdfa9d76d05586cab8bad172c2eab05442f6f6e602f05a27f11ab4356"
+    },
+    {
+      "path": "examples/v1/transport/JobOffer.json",
+      "sha256": "32cb940563a4e4f6318ec59f5b3e8922ef527d664f3ee577667051c3880e9050"
+    },
+    {
+      "path": "examples/v1/transport/JobReceipt.json",
+      "sha256": "225e3b275b6f08e4eda0b315896beda92abe31d821ef5cf33e087d0aef0c3f07"
+    },
+    {
+      "path": "examples/v1/transport/MemoryPublication.json",
+      "sha256": "4cc8c9ca33f7cc1e39c7216cef768154fce13eabc038e0e994c42795c8baa892"
+    },
+    {
+      "path": "examples/v1/transport/MemoryQuery.json",
+      "sha256": "510051ea9864f87bdb0fc1ec54046448f9f08c1ca0b130b7c872ad4200d45df0"
+    },
+    {
+      "path": "examples/v1/transport/MemoryResult.json",
+      "sha256": "48010dc85c9e598f1b5d85ba48d3c2cd46e9a9656355b5beb4b18c190119d4e9"
+    },
+    {
+      "path": "examples/v1/transport/PlacementExplanation.json",
+      "sha256": "efccd3f20e455789604efc75dd1f26e5ec206ea4c53baf62d78871ecdd92125f"
+    },
+    {
+      "path": "examples/v1/transport/QueryRequest.json",
+      "sha256": "9549dea51e20a950ab0be3c6a6961392b33c9e9bc900605d32932eae14ac38d8"
+    },
+    {
+      "path": "examples/v1/transport/QueryResponse.json",
+      "sha256": "26e944c76c34d594eacfaa8e3ba78b37596fa0031371f4050366cabff2a67c89"
+    },
+    {
+      "path": "examples/v1/transport/ReceiptAck.json",
+      "sha256": "9a475f3b5d8ae3e772d1805914831d5fc42a963f057591c61b311c631d69e4ff"
+    },
+    {
+      "path": "examples/v1/transport/RunnerCredential.json",
+      "sha256": "ece13e3b1c9f72fcdca706c911509a3156dbf164d3f5c2a3f12a5cb0237d4918"
+    },
+    {
+      "path": "examples/v1/transport/RunnerEnrollRequest.json",
+      "sha256": "ff33d9314bc02f52eff84f4d6984c3e8ac1d728a9a9885d576210fb609c9513b"
+    },
+    {
+      "path": "examples/v1/transport/RunnerHeartbeat.json",
+      "sha256": "bfd9108ecd38279886e2eeecced1e5ba1c5d3520fbe42369d96981f92965b494"
+    },
+    {
+      "path": "examples/v1/transport/RunnerHeartbeatAck.json",
+      "sha256": "4e1ba3c45feff2f0c1b03356c55208358895a505fa410fdb79cdc64539d8a94d"
+    },
+    {
+      "path": "examples/v1/transport/RunnerHello.json",
+      "sha256": "c528e6fce273dafc4bd2172fdcc2b078e67726fadc3e30bc157ead89c695ace1"
+    },
+    {
+      "path": "examples/v1/transport/RunnerSession.json",
+      "sha256": "9684a79347e7916c6104b2854cd8c3247e16c7fd9605ab2b1b380fff614cf0ee"
+    },
+    {
+      "path": "examples/v1/transport/RunnerVerdictRequest.json",
+      "sha256": "9f4f3a2733325ac7a1d74293cc04ea19eb894d41b2a5db7941feba554f8d1774"
+    },
+    {
+      "path": "examples/v1/transport/ToolInvocation.json",
+      "sha256": "8ec7eca4e7af2db4d9ea9f57d818da98c2f77c8711873b975871504aad50b1f8"
+    },
+    {
+      "path": "examples/v1/transport/ToolReceipt.json",
+      "sha256": "aaa6c6f17b57fa8d3fcddb5e690160148a6d9070933e9f9a29a2ef55e6e44fde"
+    },
+    {
+      "path": "examples/v1/transport/UploadInit.json",
+      "sha256": "5b0476c5cb00026fcb392691e6003d148ad01df8ffefcbc326aace6bb27431fc"
+    },
+    {
+      "path": "examples/v1/transport/UploadSession.json",
+      "sha256": "c3fdc07930bcfccde37705348e98777fd17e406a9cb50b7ea03e65d9c401af2d"
+    },
+    {
+      "path": "examples/v1/transport/VerificationVerdict.json",
+      "sha256": "16459050363fba0ebee9988a1e56e94a0a4055282dab74afe920289dada3e99a"
+    },
+    {
+      "path": "examples/v1/transport/WorkflowIR.json",
+      "sha256": "b06133082ec110c9ffcc9256c00de165d97234c2f70a9932d54f78ef27e5329a"
+    },
+    {
+      "path": "examples/v1/transport/WorkspaceContext.json",
+      "sha256": "38a4c6fdbb45241cf069943ec084a1d6271f1b7e445b8e3c46f8e2d714e90782"
+    },
+    {
+      "path": "examples/v1/web/BrainRecipes.tsx",
+      "sha256": "d79e63d91c25bf8ff635bdf143fee10cd088a4b0f56d67db0aabb0a2d0c7c2ef"
+    },
+    {
+      "path": "examples/v1/web/README.md",
+      "sha256": "6ea69af37b8119b4804a02f84302fa045ae2f7e58d43dbef40043c4d916790a0"
+    },
+    {
+      "path": "examples/v1/web/approval-controller.ts",
+      "sha256": "1261f000be3be968f3691bbf558194e153c2dc90b2acc59acb58db8cd51345fd"
+    },
+    {
+      "path": "examples/v1/web/index.css",
+      "sha256": "3fff5586c61b424cf349270db0abcd0b22cbd0bf1aec14f524fd4a725bd7326b"
+    },
+    {
+      "path": "examples/v1/web/vite.config.ts",
+      "sha256": "234e73a6018e1759bf847e27d08d46d90ab48eb28ba7cc45d1f3371b36094da1"
+    },
+    {
+      "path": "package.json",
+      "sha256": "f3e01f8975b2a8a5bf66dc379fe25ffc869432397b86530d014263aabf9f7eab"
+    },
+    {
+      "path": "packages/contracts/package.json",
+      "sha256": "d011acd2ee5f8ce1e85f04c2ae77b700a76906c70a27eec57c9214b5e6a17173"
+    },
+    {
+      "path": "packages/contracts/src/authorization-matrix.json",
+      "sha256": "650f48775353881e98ecdb5c30010976b9c256289c3fd9ea973611b4cf700225"
+    },
+    {
+      "path": "packages/contracts/src/brain.generated.ts",
+      "sha256": "e3498f54a471786154e45d90cc7b55cd7fad5275229aced39a37ae2079e12824"
+    },
+    {
+      "path": "packages/contracts/src/brain.schema.json",
+      "sha256": "39f096305c385081cceca1ada1ebebeadee86364fea5abc3f4a8a0ef73d0a9d1"
+    },
+    {
+      "path": "packages/contracts/src/catalogs.ts",
+      "sha256": "a1d50e7d5c493897fc3a78c5f03b0d9645899be935d699b277f15ef07e190205"
+    },
+    {
+      "path": "packages/contracts/src/hash.ts",
+      "sha256": "533307049dd4d6779af9b88c7db9340880c999acf2d7ab6056272e1960703b60"
+    },
+    {
+      "path": "packages/contracts/src/index.ts",
+      "sha256": "b7937ee711d5983389eafb921a5b888aca61bf10fcf1d39078f2f2da9029f88e"
+    },
+    {
+      "path": "packages/contracts/src/ports.ts",
+      "sha256": "1e90d00b88b21c2a1a39561d56fc2bca4d13192cd548fb6f4605923ffe325bd8"
+    },
+    {
+      "path": "packages/contracts/src/registry.json",
+      "sha256": "060f58510cf304fed9d905f7320242f04a28000aaf1feb2a6fa885fb4a331d65"
+    },
+    {
+      "path": "packages/contracts/src/state-machines.json",
+      "sha256": "cd7197a8ab07413ce527d9598d938c962453dab5f6417a767ebf815f53ac730e"
+    },
+    {
+      "path": "packages/contracts/src/validate.ts",
+      "sha256": "0c9716cf152f522b2feec8de22328c12868e45ade75e231ee328801613fc783d"
+    },
+    {
+      "path": "packages/contracts/tsconfig.json",
+      "sha256": "fdf05e5602560d128de8c532e39ec90eb0bced6cbab67b995df68cccb77c15d8"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "726836477d3242e3016c16379c526cacb3610bb9a699ca7c323f5051c0bafce8"
+    },
+    {
+      "path": "scripts/build-sandbox-images.sh",
+      "sha256": "27c3108e6e575dcfe6b4570019e4aff2c437fb6288064d5a359a0c25cd606d12"
+    },
+    {
+      "path": "scripts/build_golden_release.py",
+      "sha256": "9dd76f81278cdde46d47d84bb7eb089bfe2e1f9fabf54edd91d5b14913e7751b"
+    },
+    {
+      "path": "scripts/build_implementation_pack.py",
+      "sha256": "92ce1ea432cbd186562a5c0c4ff9f2ac43e6dbea64a146c48bea0ce9a803eb93"
+    },
+    {
+      "path": "scripts/certify.ts",
+      "sha256": "1cae3c5e028f2286d6c21d6c51c4a36517a9a745162d720816561b3cb450f261"
+    },
+    {
+      "path": "scripts/check-boundaries.mjs",
+      "sha256": "114a6527fc41de4db05136ff08a59c38fea09ad7c9851f757f0966965a0f97a7"
+    },
+    {
+      "path": "scripts/check_approval_controller.mjs",
+      "sha256": "b56439d954e9e9e946d55d35d7ad3e5633feab70fc92f4121bfaa30031786171"
+    },
+    {
+      "path": "scripts/check_crypto_vectors.mjs",
+      "sha256": "cc66f92c5a947cb919d328c21eb476aaa496f3c758dafce36bfde61a96e215d0"
+    },
+    {
+      "path": "scripts/check_opencode_profile.py",
+      "sha256": "6a5a096d2d09670c4953649e8d6622acaea5612fb64821c0bf7d6790b7fca4e6"
+    },
+    {
+      "path": "scripts/down.sh",
+      "sha256": "ac3b6e439df255bcf2294ccf1fcec0dd9d0813c53d7c5140979b4e69b4149b88"
+    },
+    {
+      "path": "scripts/enroll-local-runners.ts",
+      "sha256": "5021459a016a2b128dc506644e1db16f1fcfb590253751bddfa9909332e56c9e"
+    },
+    {
+      "path": "scripts/generate_contract_types.py",
+      "sha256": "d84b5886542be6f2a9efcd6c7891070d3e6da93357ab8acb77cb62f19c22313f"
+    },
+    {
+      "path": "scripts/generate_implementation_indexes.py",
+      "sha256": "56d52ad7be82bfd098a1b92764c86fdfb2d9c313df70e7fc7aa2634a76fdb9d0"
+    },
+    {
+      "path": "scripts/generate_sbom.mjs",
+      "sha256": "442bdfcd7df25bc9e0995b79ac338b15b6619642dc118cd44b015aaaf58485af"
+    },
+    {
+      "path": "scripts/generate_ui_routes.py",
+      "sha256": "f04c39bf5fd16501cd5fa17ca04ea5dcab3dda15f625b9674647691739fb7f44"
+    },
+    {
+      "path": "scripts/implementation_context.py",
+      "sha256": "8105e779dc9035c59f2b97b9618d9a739417f2697899f4490296b6f22b6645bd"
+    },
+    {
+      "path": "scripts/pack_inputs.py",
+      "sha256": "a2bc9581612d8e2127c32c9a3e77a16da6d9ce1c43c8664023e20a4174fa592d"
+    },
+    {
+      "path": "scripts/probe-engine.ts",
+      "sha256": "fdd486859c7e32ce9e5369c1e61dbd90b318764ccac619e4b62a0062ed9fa139"
+    },
+    {
+      "path": "scripts/resolve_dependency_baseline.py",
+      "sha256": "9d2beeb9dad8131bb5b8d113d41898bce0d89a51a3fe1a5b1a205985336098ca"
+    },
+    {
+      "path": "scripts/run_verification_gates.ts",
+      "sha256": "7a0404f0b97babb5b94923a9e120166de6255b97c40d06bd7491c9f957a8359b"
+    },
+    {
+      "path": "scripts/up.sh",
+      "sha256": "a9bd04295be806e6dae71408011d0468eb49a4b753a41d1636235d28787905de"
+    },
+    {
+      "path": "scripts/verify-operational.sh",
+      "sha256": "27291a47327b80a188244c5561433048fd2db726d97832f1a17fc9289d6a534e"
+    },
+    {
+      "path": "scripts/verify-operational.ts",
+      "sha256": "9c12926b4febb28f0484fb97442e3ab0da3d923f630f7a5e41cdfc866da05592"
+    },
+    {
+      "path": "scripts/verify_implementation_pack.py",
+      "sha256": "d73e20870b9ef078fd8e2e52fdde91a75105cdbfbdfdf9e69dc8e859f6552900"
+    },
+    {
+      "path": "scripts/verify_readiness_additions.py",
+      "sha256": "2a2dbc30edf492d4e17289b9fda951c49e785e9d86e5e1334176257c703941b7"
+    },
+    {
+      "path": "scripts/verify_runtime_evidence.py",
+      "sha256": "2190b77c74e560fc8cd91d0868f3fd1e905b187ae050397f293fb979c33d65cf"
+    },
+    {
+      "path": "tests/browser/approval-expiry.spec.ts",
+      "sha256": "1d8d3ce547e8301253d80919222e9b4432ed0ca72afdc70a473960250ba4ba7c"
+    },
+    {
+      "path": "tests/browser/approval-recovery.spec.ts",
+      "sha256": "e9261e8d4feee118ebfc02bf304e26ef8910018323802e907f583df727d7e131"
+    },
+    {
+      "path": "tests/browser/approval.spec.ts",
+      "sha256": "43b54624021c73e25d9160e59a041426d8faa6912418a1986631b1e8e5a4782a"
+    },
+    {
+      "path": "tests/browser/authentication.spec.ts",
+      "sha256": "0961cf0749633d7e1e7003c2ca8b9ab0e77e03496e3a52043fa342b653b7b7d3"
+    },
+    {
+      "path": "tests/browser/board.spec.ts",
+      "sha256": "ed79b37df3e2c02a953c83737961e841b97c285b93613d618a0f5b9512f0fa06"
+    },
+    {
+      "path": "tests/browser/fixtures.ts",
+      "sha256": "f3d3093ce0b7c97dd7a874b7834e84b0c7a72f276acce718423d5a25b0c5da6e"
+    },
+    {
+      "path": "tests/browser/kiosk.spec.ts",
+      "sha256": "c4a7c62728f9b1718e696ace86f665facf6dbcc9d8f7d4ae78e15bb82d60f0b9"
+    },
+    {
+      "path": "tests/browser/navigation.spec.ts",
+      "sha256": "379b073801f2c6b0088c84b8144f4deeeaac3f8ba8783dd9291034162884378e"
+    },
+    {
+      "path": "tests/browser/offline.spec.ts",
+      "sha256": "439e84fb35c51e1cb58f6d84bf0a7b3dfe044abac60e3e728f94c42baee98bfe"
+    },
+    {
+      "path": "tests/browser/operational.spec.ts",
+      "sha256": "65cf952ada693d90e7932fda2dc321b3522c2cc7c2b6d15ac115d4b9c76cc012"
+    },
+    {
+      "path": "tests/browser/operations.spec.ts",
+      "sha256": "02ba0404727a49dfaff914bb05406a6b81ef12ebede6e3fb362424e7d98f5210"
+    },
+    {
+      "path": "tests/browser/primitives.spec.ts",
+      "sha256": "5d1ca4f17fcd101f13362c6352e8b1a11afc19435e7775681a94d87562d7e221"
+    },
+    {
+      "path": "tests/browser/sse-logviewer.spec.ts",
+      "sha256": "1e21f2aacd0fdaa022443c2460b6b480b145ba98edd00838d907e68491da49c3"
+    },
+    {
+      "path": "tests/browser/vitals.spec.ts",
+      "sha256": "31c6c818e4f2a8a0e5854ebb143e46ca871f5326dffefdd13333da499f1d68bd"
+    },
+    {
+      "path": "tests/browser/work.spec.ts",
+      "sha256": "9527b2f4d5008124402322d3aa094b66a3e3cdac10f99928278c21083f5e8e4d"
+    },
+    {
+      "path": "tests/certification/coverage.json",
+      "sha256": "ecf06fdfb7e420691c8c7d90d535e81c1b019f1fd333c6a6d467b0415313151f"
+    },
+    {
+      "path": "tests/certification/matrix.test.ts",
+      "sha256": "a34af641449ffd6bca400a9e56ae5dfe26aca57f3a27c132a0a633104cd28c2b"
+    },
+    {
+      "path": "tests/chaos/backup.test.ts",
+      "sha256": "c8b492e9cde2a8774b37e12097eb97216f224883d747cd6de9301ad5e083f1a8"
+    },
+    {
+      "path": "tests/chaos/gates100.test.ts",
+      "sha256": "ed43689c8fd47cfe199b8c7141e901dd608ad4213883411ad7f42723b77a66b4"
+    },
+    {
+      "path": "tests/chaos/kill9.test.ts",
+      "sha256": "12b1c1e7be5ce448aed1319760b408909f0e07c992afdafdf1f6ce5ef3811eae"
+    },
+    {
+      "path": "tests/chaos/leases.test.ts",
+      "sha256": "e2f6cb20a441709e52133441798b0c57818b65158d0af98fc7a9d4435e8416ff"
+    },
+    {
+      "path": "tests/chaos/projections.test.ts",
+      "sha256": "b4f4b24ab83a78b04b83869cdb2419492e7b404a6359de7354cd10b34373092f"
+    },
+    {
+      "path": "tests/chaos/reconciler.test.ts",
+      "sha256": "54cefa7f217549da6632e24d0160274d3082bfdee75b0bac8660202bed51c580"
+    },
+    {
+      "path": "tests/chaos/recovery.test.ts",
+      "sha256": "3e820b52805b5459c3c6f48c1b07233a5092cec9117c282ea312139bbe0bb601"
+    },
+    {
+      "path": "tests/chaos/restore.test.ts",
+      "sha256": "9ba1e93b55c77aa3294e53e4fa39dbd282eb7d09b2df9b57bd20a70112d2a339"
+    },
+    {
+      "path": "tests/chaos/runner-spool.test.ts",
+      "sha256": "a7c9dc781b5f198d96a5a7778333e00d2394781171ffc667a45764796a298f42"
+    },
+    {
+      "path": "tests/chaos/runner.test.ts",
+      "sha256": "e1e54edf83059983a602ecde2eb25710cf6dc7ce78fb3878782f95d554dce983"
+    },
+    {
+      "path": "tests/contracts/contracts.test.ts",
+      "sha256": "28536097179b07bced25113badc5c0df7f7899b479bace5ca151c190653ba51b"
+    },
+    {
+      "path": "tests/domain/config-resolution.test.ts",
+      "sha256": "5cf5187fab2ae2a6f48783acdb78bbedc19179a0833f54d29de330af6e061314"
+    },
+    {
+      "path": "tests/domain/placement.test.ts",
+      "sha256": "b961016bfe8a72da728be9126d9f34a1e696388174e18d623ebdee6314356b66"
+    },
+    {
+      "path": "tests/domain/schedule.test.ts",
+      "sha256": "ff84438eebd5289c7f7b3c5a9fa52582da42e80df3691534c29b533e035710e1"
+    },
+    {
+      "path": "tests/domain/states.test.ts",
+      "sha256": "c042d2800651345c2052ac91c3eb5f36bf303fdf4fca2b8a5f2364141f4931c2"
+    },
+    {
+      "path": "tests/domain/web-units.test.ts",
+      "sha256": "e4f8f3b7e9b68d3db9222fcc18d37997a5e246f9dad5fc39dc6ee0b120f47586"
+    },
+    {
+      "path": "tests/domain/workflow-compiler.test.ts",
+      "sha256": "c75b6b4fb8d5a2e45793ebbf7c78704bebcdff1ee0939255f33bb2858fc2913c"
+    },
+    {
+      "path": "tests/helpers.ts",
+      "sha256": "46efc7f48de88e5ec9368977bbac89c12bfce5242970fd1bc18ad56b0b190818"
+    },
+    {
+      "path": "tests/integration/agent-dispatch.test.ts",
+      "sha256": "9aec1f1f18b09bfd1b818e1dc3a7e536c0c7b856079e844022b1125ded51444a"
+    },
+    {
+      "path": "tests/integration/agent-engine.test.ts",
+      "sha256": "d548e107efefb6649932aa67ecd9a81ba3e4cd013f95b2c30b6fa7053a657d04"
+    },
+    {
+      "path": "tests/integration/artifacts.test.ts",
+      "sha256": "4466d70d94584e652e9e192fcaedce0d4f22be892c07366ce2237f27c6c9d2fc"
+    },
+    {
+      "path": "tests/integration/author-claims.test.ts",
+      "sha256": "a1011c9d01d38c2616f4c7b640f76d1c741a510bd5b8d84110ac4c6eed31898e"
+    },
+    {
+      "path": "tests/integration/board.test.ts",
+      "sha256": "e099ee3c3e0aae6bb83e38777f21f8bffabb64d40b3918140447db6cb9d62789"
+    },
+    {
+      "path": "tests/integration/channels.test.ts",
+      "sha256": "40ef37e06d64d676fef3624f71c8095cb3aa041f7d82a0b7449b2672f0decbed"
+    },
+    {
+      "path": "tests/integration/claim.test.ts",
+      "sha256": "4ec820b0669e83fb4365200e0dda7d7e30d9f68d09ac592638bd42d458d352b3"
+    },
+    {
+      "path": "tests/integration/claude-engine.test.ts",
+      "sha256": "92f232ca57c80fed50c43ee4ea659fdc159252afbebf8a8d24c8e800048bfb49"
+    },
+    {
+      "path": "tests/integration/cli.test.ts",
+      "sha256": "1ec7a0f1c044528847d92a7cf382fb68a1a57f19aeab6101f5dfe7c12fc91c4e"
+    },
+    {
+      "path": "tests/integration/config-release.test.ts",
+      "sha256": "d32e8bd7e790316b73a2b64cea5687eac604ba1985105096acfffc446e2537ca"
+    },
+    {
+      "path": "tests/integration/core.test.ts",
+      "sha256": "deb9b7673a006a26c4a2d91428939c83c6f62b63e737a1c618ded4c5d86282a5"
+    },
+    {
+      "path": "tests/integration/delivery.test.ts",
+      "sha256": "ae67256f7028c7998f8bc66cf7b471ad93ad0abfe69e181f5df7c471541a082a"
+    },
+    {
+      "path": "tests/integration/deploy.test.ts",
+      "sha256": "50b09b9a01e2c7bb5edad3ef25e81f39e4b147269a39871e6e0242de6718febe"
+    },
+    {
+      "path": "tests/integration/evidence.test.ts",
+      "sha256": "10283bcafa0660b1f509bd30625b1898aee6ecba2987ccf30ae949765a337478"
+    },
+    {
+      "path": "tests/integration/gitlab.test.ts",
+      "sha256": "6d6f9c4c8dd87e7dd430b5474639c760b1da17e7d58f439158bfe6ef94b48065"
+    },
+    {
+      "path": "tests/integration/golden.test.ts",
+      "sha256": "1979b828af288d0084741d0c2497c52df8ddcdc3de7a61f29550931905465760"
+    },
+    {
+      "path": "tests/integration/judge.test.ts",
+      "sha256": "40fc8a599e5cc422d26737f1c68e43e7be4547dc056fa5dcc1275dae2d6051e2"
+    },
+    {
+      "path": "tests/integration/mastra-conformance.test.ts",
+      "sha256": "104ee99f21a513cba25fde89752df1414341e412fcf183b3d9f86d1cafc59ade"
+    },
+    {
+      "path": "tests/integration/memory.test.ts",
+      "sha256": "df2878770a320a808dc5f9b8bbe7b98626bdf5bbb122a72588e85ec27f421717"
+    },
+    {
+      "path": "tests/integration/offers.test.ts",
+      "sha256": "abe79726893c38b9ece54efac886d1d97ac63731d5cbcb2b54d860d9622b4ea0"
+    },
+    {
+      "path": "tests/integration/onboarding.test.ts",
+      "sha256": "0ad25ad51f955b0e8e8a88049ceeccc7ca410a4db05db62cbe3a58f2a7bba904"
+    },
+    {
+      "path": "tests/integration/permits.test.ts",
+      "sha256": "61b507123e4b6f63aab4f5950352e8b60d12e9c14452468c7fdb575c00bfb751"
+    },
+    {
+      "path": "tests/integration/push.test.ts",
+      "sha256": "92b50a14e9c6b6c3d77205819c497232f2de396c9580230517ac0ef5e48ef023"
+    },
+    {
+      "path": "tests/integration/responses.test.ts",
+      "sha256": "df622f3b4dc06f58e4ac44e6b3be4f2712f9f78870217c6075e5be8fbd70ca7a"
+    },
+    {
+      "path": "tests/integration/scenarios.test.ts",
+      "sha256": "9796a48cdf231d1d161156e15dfd4a6de2372a652fee855eeb2f1acbb71ffffe"
+    },
+    {
+      "path": "tests/integration/scenarios2.test.ts",
+      "sha256": "90a5dcc0994327529b44ea8b3e29d699266f5e49da013584d6e10090c5b8efea"
+    },
+    {
+      "path": "tests/integration/scenarios3.test.ts",
+      "sha256": "116c84aa93407028e171f866b7f2b6050584df11dd93ccd5385e8037566b7ac7"
+    },
+    {
+      "path": "tests/integration/scheduler.test.ts",
+      "sha256": "37d38933c7393d9052c499c373f858de2b2876067f6ea369af32faa1728bb251"
+    },
+    {
+      "path": "tests/integration/secrets.test.ts",
+      "sha256": "7604b5e994a36111bf0dc1d0040084426ba1f7d5e0f9d5a495a0fe2a717cf274"
+    },
+    {
+      "path": "tests/integration/sre.test.ts",
+      "sha256": "2e496d49c1b7aa7fd94a5550d0929d47a73f7f354cee133f73112da03115e9a0"
+    },
+    {
+      "path": "tests/integration/sse.test.ts",
+      "sha256": "d17d4050b262d44e366d878d48fcedafe2fdb892ae7674ca826134a59a4c8253"
+    },
+    {
+      "path": "tests/integration/storage.test.ts",
+      "sha256": "8e059a8cdbd32c4163ceb53511ea915677c3cf405a7b8db28da828c4dc3812a3"
+    },
+    {
+      "path": "tests/integration/support.test.ts",
+      "sha256": "575c0bf6a3638606470d3e75406e0108a8e5765471e941826ec47e9cf8503396"
+    },
+    {
+      "path": "tests/integration/tls.test.ts",
+      "sha256": "abdf66da1a773c4cd5fe6bbf452047016773b80bee49b8653c1d5b1add6d6d51"
+    },
+    {
+      "path": "tests/integration/tools.test.ts",
+      "sha256": "0f4409cb5e87bfb8b5986441388f232abc604ecab077773c7b8860fe61f56ca1"
+    },
+    {
+      "path": "tests/probes/dependencies/better-auth.test.ts",
+      "sha256": "0eef754437262552d587aa99ed6b48c55657d1f7afb26d3b30bac2cbb18ad452"
+    },
+    {
+      "path": "tests/probes/deployment/image.test.ts",
+      "sha256": "ba76b9f48103db030f96cc80e8016b73d3acaa794fb5f532458ac935a8af5a27"
+    },
+    {
+      "path": "tests/probes/harnesses/claude.test.ts",
+      "sha256": "394b800805f80b490fa2a11df407a6d8d24594dcfc521194ccca1be91fded441"
+    },
+    {
+      "path": "tests/probes/harnesses/conformance.test.ts",
+      "sha256": "24502e13ecd27cd374aaafe859c77fe0a0c5bb24c2408d0dea123841204687a2"
+    },
+    {
+      "path": "tests/probes/harnesses/judge.test.ts",
+      "sha256": "d459ab61e0296f048fd89c9c87c6d4d6a021d715a1efee8b8def9d886a635b3f"
+    },
+    {
+      "path": "tests/probes/harnesses/pi-checkpoint.test.ts",
+      "sha256": "7828dc59067ad149ad5a4eb974239e4d22f03670a062a4a1d3d238ef3576ee28"
+    },
+    {
+      "path": "tests/probes/harnesses/pi.test.ts",
+      "sha256": "152401a3abd606f1b97d86be706311791caa1abb9a1dba0d10afb1c6d57ed09b"
+    },
+    {
+      "path": "tests/probes/mastra/durable.test.ts",
+      "sha256": "359a6af5f5f789a9bdd2cf6caeac4617e5f4f7bd00bb6931bdb1883e613ee8b6"
+    },
+    {
+      "path": "tests/probes/mastra/dynamic.test.ts",
+      "sha256": "c9cd5896328a737d11d06496efece6ed665a7f44766210efbbec0ade4b81ed60"
+    },
+    {
+      "path": "tests/probes/mastra/probe.test.ts",
+      "sha256": "2345baffe9a4a3ca5fe62fb1e97ee419f63e063463b86120a0f81eac450f9a11"
+    },
+    {
+      "path": "tests/probes/mastra/suspend.test.ts",
+      "sha256": "626f5809b9f550abe92300c9567d42de202492e4571ed504aefe91a7e1a29c66"
+    },
+    {
+      "path": "tests/probes/sandbox/egress.test.ts",
+      "sha256": "ffbf49e8bdfa3d9be1e455b88621c852d9ea3bda9146dd86d0e1bfc710013977"
+    },
+    {
+      "path": "tests/probes/sandbox/launcher-exec.test.ts",
+      "sha256": "aa195d61686ba7e1d13364841fc5cfd73b771c41f80fd668cceb92f17869a793"
+    },
+    {
+      "path": "tests/probes/sandbox/launcher.test.ts",
+      "sha256": "6a826a4b8311132802293ff122d8293b0444f98b654758d22fc899e71169c821"
+    },
+    {
+      "path": "tests/probes/tencentdb/client.test.ts",
+      "sha256": "6b647f45d86bf486fc5e231b8a5514478b7dc611463d56c76717748e5868e4ae"
+    },
+    {
+      "path": "tests/security/approvals.test.ts",
+      "sha256": "d421075746f2628c11c20a2d33d60774c2fea20344a4caa413c5813b3d98e97f"
+    },
+    {
+      "path": "tests/security/auth-matrix.test.ts",
+      "sha256": "11c09085551022cb0d50bce2ee69b78668bf5f147e7897192a9591581e082cd2"
+    },
+    {
+      "path": "tests/security/authz.test.ts",
+      "sha256": "c6a78f7460c2fa8437fa895dab79ae8b08764389ab143ad0d5513078a12d8ba6"
+    },
+    {
+      "path": "tests/security/body.test.ts",
+      "sha256": "e794a078ce49c4a35dec229c2bffc47eda639eba4e2211f1a243b15abe81dacd"
+    },
+    {
+      "path": "tests/security/claude-endpoint.test.ts",
+      "sha256": "cc788c66ea0b61a0f63a3d79d7b59a20ce2dcff23763d2c939a1d593335af87a"
+    },
+    {
+      "path": "tests/security/config-loader.test.ts",
+      "sha256": "d5abec1e1c7df17f88485840557e5cfc2b4f031a2b5305cd72a2386f1edcc075"
+    },
+    {
+      "path": "tests/security/csrf.test.ts",
+      "sha256": "aad937fc6afc96fd63a0c47016c9aa82ba76ffac27d27802e5646136ab3cdcab"
+    },
+    {
+      "path": "tests/security/evidence.test.ts",
+      "sha256": "fd5a2d403d8b6c5c56757bd2ee67df6ef50cf98e88d4b1c65e787c20810f7493"
+    },
+    {
+      "path": "tests/security/identity.test.ts",
+      "sha256": "91a640bddde2b4c230b7ca4e277926638095eeb4b9af18ff1a1c93d6390d8a78"
+    },
+    {
+      "path": "tests/security/memory-acl.test.ts",
+      "sha256": "7280aac453c86d6e2031029da477b25d4b59d8ac982c3062f4fe9fb58e3abdcc"
+    },
+    {
+      "path": "tests/security/oidc-gate.test.ts",
+      "sha256": "f7036f6af10b398b5dfb7ddf30809fd077fa87264df162153da6537721301d91"
+    },
+    {
+      "path": "tests/security/optional-two-factor.test.ts",
+      "sha256": "165b837950ce01b888fc96e9aa8de02977e2bd5ffdce9858c65e8ac3fb2b9b12"
+    },
+    {
+      "path": "tests/security/policy.test.ts",
+      "sha256": "76f41c7ee5f5206e94757e99d8cfa9ccb980fdbcb9dce9a299c233169b452240"
+    },
+    {
+      "path": "tests/security/runners.test.ts",
+      "sha256": "eef5da14008d6326aec6b47f9ed6b9520b51a85392fee07db0ad6f4f4d2be267"
+    },
+    {
+      "path": "tests/security/sandbox.test.ts",
+      "sha256": "ee84347cd5b548c582225e75f66fe1164a7c9063a2fb177ef349741cd6719641"
+    },
+    {
+      "path": "tests/security/setup.test.ts",
+      "sha256": "e01dd627629b9a082df7937b35d8d3932c037e8cd862b89b7e3c6f8b901f9472"
+    },
+    {
+      "path": "tests/security/trust.test.ts",
+      "sha256": "7c706768a2e0d1006b3184f38646358cd2dd2cd1d1ca8cc3e883eb8828d4fb06"
+    },
+    {
+      "path": "tests/support/claim-once.ts",
+      "sha256": "05e9b35dbe81a8f6f05ecb7bc227b826f4e610ad956d106f5fdcb96327e8826d"
+    },
+    {
+      "path": "tests/support/evidence.ts",
+      "sha256": "2c2dcc2c2f5f73f536af09f26f36e1203887e3310b6536b3699520e7bd805ed4"
+    },
+    {
+      "path": "tests/support/starter.ts",
+      "sha256": "2dd5589e80c7c45298c5726d4fd39dd4a71be451c3920199afc94c9d226d7905"
+    },
+    {
+      "path": "tests/support/totp.ts",
+      "sha256": "9096af1bd31c06890ab11c6223f0dc7fce494b05e2d8e0068f7d60cefe5083e4"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "brain",
+        "setup",
+        "--local",
+        "--org",
+        "org-local",
+        "--name",
+        "Operational proof",
+        "--setup-token-file",
+        "<disposable>/data/setup.token"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "workspace",
+        "create",
+        "operations",
+        "--slug",
+        "operations"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "config",
+        "compile",
+        "examples/v1/starter-release"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "config",
+        "inspect",
+        "sha256:93bf0082392cf775642c59d76a8a919f6e34fd245bb8c829beee7f2716d0aa32"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "config",
+        "activate",
+        "sha256:93bf0082392cf775642c59d76a8a919f6e34fd245bb8c829beee7f2716d0aa32"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "workflow",
+        "list",
+        "--workspace",
+        "operations"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "runner",
+        "token",
+        "create",
+        "--group",
+        "agents"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "runner",
+        "token",
+        "create",
+        "--group",
+        "evaluators"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "workflow",
+        "run",
+        "agent-smoke",
+        "--workspace",
+        "operations",
+        "--input",
+        "{\"message\":\"BRAIN_OK\"}"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "workflow",
+        "run",
+        "operations-triage",
+        "--workspace",
+        "operations",
+        "--input",
+        "{\"situation\":\"After a deployment, error rates rose. No rollback has been attempted. Outline read-only checks and missing information.\"}"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "workflow",
+        "run",
+        "support-draft",
+        "--workspace",
+        "operations",
+        "--input",
+        "{\"title\":\"Unable to sign in\",\"body\":\"I see an expired session error. Draft a response asking for useful diagnostic details. Do not send it.\"}"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "runs": [
+    {
+      "workflowId": "agent-smoke",
+      "runId": "run-mvsnj5cm-8-net215fj",
+      "bundleDigest": "sha256:7bb12bf731e5aa0a17201d9ea31cbadf71e1d24db8fb7d83e7d996d97c92f9d0",
+      "jobId": "job-mvsnj5cq-9-pvakss8e",
+      "attemptId": "att-mvsnj7h8-b-xv2s6baw",
+      "artifacts": [
+        {
+          "artifactId": "att-att-mvsnj7h8-b-xv2s6baw-88da8a24121e64f083f714d2",
+          "digest": "sha256:69d613a3e11cbc66866f73c02e52e80fc7e08083bfb926c5ef98a01fb8f348c8",
+          "bytes": 10,
+          "mediaType": "application/json",
+          "classification": "internal"
+        }
+      ],
+      "verdict": {
+        "outcome": "verified",
+        "evaluator_attempt_id": "att-mvsnj9ea-g-zh7emvbj"
+      },
+      "output": "BRAIN_OK",
+      "engineEvents": [
+        {
+          "event_json": "{\"sequence\":1,\"kind\":\"progress\",\"payload\":{\"phase\":\"started\",\"artifactId\":\"exec-job-mvsnj5cq-9-pvakss8e\"}}"
+        },
+        {
+          "event_json": "{\"sequence\":2,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-1\",\"sessionId\":\"01a18481-848e-71a9-9c47-b835348dff2d\",\"attemptId\":\"att-mvsnj7h8-b-xv2s6baw\",\"sequence\":1,\"occurredAt\":\"2026-10-28T21:54:03.077Z\",\"kind\":\"session.started\",\"payload\":{\"engine\":{\"id\":\"pi\",\"version\":\"1.4.0\",\"adapterDigest\":\"sha256:2330cc2a4afee89e2faf138a242f99946c35dde9812a01325281808ea3f18906\",\"features\":[\"sessions\",\"checkpoint\"]}}}}"
+        },
+        {
+          "event_json": "{\"sequence\":3,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-2\",\"sessionId\":\"01a18481-848e-71a9-9c47-b835348dff2d\",\"attemptId\":\"att-mvsnj7h8-b-xv2s6baw\",\"sequence\":2,\"occurredAt\":\"2026-10-28T21:54:04.983Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\n\\n\\\"BRAIN\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":4,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-3\",\"sessionId\":\"01a18481-848e-71a9-9c47-b835348dff2d\",\"attemptId\":\"att-mvsnj7h8-b-xv2s6baw\",\"sequence\":3,\"occurredAt\":\"2026-10-28T21:54:05.183Z\",\"kind\":\"text\",\"payload\":{\"text\":\"_OK\\\"\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":5,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-4\",\"sessionId\":\"01a18481-848e-71a9-9c47-b835348dff2d\",\"attemptId\":\"att-mvsnj7h8-b-xv2s6baw\",\"sequence\":4,\"occurredAt\":\"2026-10-28T21:54:05.188Z\",\"kind\":\"usage\",\"payload\":{\"usageId\":\"pi-usage-att-mvsnj7h8-b-xv2s6baw\",\"inputTokens\":130,\"outputTokens\":35,\"cachedInputTokens\":0,\"microUsd\":0,\"accounting\":\"final-total\",\"estimated\":false}}}"
+        },
+        {
+          "event_json": "{\"sequence\":6,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-5\",\"sessionId\":\"01a18481-848e-71a9-9c47-b835348dff2d\",\"attemptId\":\"att-mvsnj7h8-b-xv2s6baw\",\"sequence\":5,\"occurredAt\":\"2026-10-28T21:54:05.188Z\",\"kind\":\"artifact\",\"payload\":{\"artifact\":{\"artifactId\":\"pi-output-att-mvsnj7h8-b-xv2s6baw\",\"digest\":\"sha256:37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493\",\"bytes\":12,\"mediaType\":\"text/plain\",\"classification\":\"internal\"},\"purpose\":\"output\"}}}"
+        },
+        {
+          "event_json": "{\"sequence\":7,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-6\",\"sessionId\":\"01a18481-848e-71a9-9c47-b835348dff2d\",\"attemptId\":\"att-mvsnj7h8-b-xv2s6baw\",\"sequence\":6,\"occurredAt\":\"2026-10-28T21:54:05.188Z\",\"kind\":\"session.stopped\",\"payload\":{\"reason\":\"completed\",\"terminationConfirmed\":true,\"output\":{\"artifactId\":\"pi-output-att-mvsnj7h8-b-xv2s6baw\",\"digest\":\"sha256:37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493\",\"bytes\":12,\"mediaType\":\"text/plain\",\"classification\":\"internal\"}}}}"
+        },
+        {
+          "event_json": "{\"sequence\":8,\"kind\":\"effect\",\"payload\":{\"phase\":\"output-pinned\",\"artifact\":{\"artifactId\":\"att-att-mvsnj7h8-b-xv2s6baw-7db6127f1b8c2cd562eb7803\",\"digest\":\"sha256:37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493\",\"bytes\":12}}}"
+        },
+        {
+          "event_json": "{\"sequence\":9,\"kind\":\"progress\",\"payload\":{\"phase\":\"executed\",\"ok\":true}}"
+        },
+        {
+          "event_json": "{\"sequence\":10,\"kind\":\"effect\",\"payload\":{\"phase\":\"output-pinned\",\"artifact\":{\"artifactId\":\"att-att-mvsnj7h8-b-xv2s6baw-88da8a24121e64f083f714d2\",\"digest\":\"sha256:69d613a3e11cbc66866f73c02e52e80fc7e08083bfb926c5ef98a01fb8f348c8\",\"bytes\":10}}}"
+        },
+        {
+          "event_json": "{\"sequence\":11,\"kind\":\"effect\",\"payload\":{\"phase\":\"author-bundle-submitted\",\"bundleId\":\"bundle-att-mvsnj7h8-b-xv2s6baw\",\"digest\":\"sha256:7bb12bf731e5aa0a17201d9ea31cbadf71e1d24db8fb7d83e7d996d97c92f9d0\"}}"
+        }
+      ]
+    },
+    {
+      "workflowId": "operations-triage",
+      "runId": "run-mvsnjcfz-l-dnrltzxx",
+      "bundleDigest": "sha256:d5e3a056b6a890cf1b6ba124d31981fb25ef4dfbbf9298e2425d5a85d818559f",
+      "jobId": "job-mvsnjcg1-m-i18n7iy7",
+      "attemptId": "att-mvsnjcgd-o-81o2fxt7",
+      "artifacts": [
+        {
+          "artifactId": "att-att-mvsnjcgd-o-81o2fxt7-8e80ae19fbdbddf489a0e8ed",
+          "digest": "sha256:10631f68923c0f4fe82544d82c6fd597802aee4dbcda826e5568807debc67b8e",
+          "bytes": 1786,
+          "mediaType": "application/json",
+          "classification": "internal"
+        }
+      ],
+      "verdict": {
+        "outcome": "verified",
+        "evaluator_attempt_id": "att-mvsnjthz-t-4qpm4rss"
+      },
+      "output": {
+        "summary": "Error rates increased following a deployment. No rollback has been attempted. The causal link between the deployment and the error spike is assumed but not yet confirmed through diagnostics. The deployment's scope, timing relative to error onset, and affected services are not specified.",
+        "blockers": [
+          "Which service or component was deployed",
+          "What specific error codes or exception types increased",
+          "Whether errors are isolated to a single instance, region, or distributed across the fleet",
+          "The exact deployment timestamp versus the error rate inflection point",
+          "Whether the deployment included database schema changes or feature flags",
+          "Current traffic volume and whether it changed independently",
+          "Whether any downstream dependencies had concurrent changes",
+          "The error rate baseline before deployment for comparison",
+          "Whether alerts fired or were manually detected",
+          "The deployment method used (rolling, blue-green, canary, etc.)"
+        ],
+        "nextActions": [
+          "Compare error rate dashboards before and after the deployment timestamp to establish correlation",
+          "Inspect application logs on affected instances for new exception types or stack traces",
+          "Check if errors are concentrated on specific pods, nodes, or availability zones",
+          "Review the deployment manifest or changelog for the specific commit or configuration diff",
+          "Verify database connection pools and query performance metrics for anomalies",
+          "Check downstream service health and latency metrics for cascading effects",
+          "Examine resource utilization (CPU, memory, file descriptors) on affected instances",
+          "Review feature flag states to see if new code paths are active",
+          "Confirm whether the error spike predates or postdates the deployment window",
+          "Check deployment pipeline logs for partial failures or incomplete rollouts"
+        ]
+      },
+      "engineEvents": [
+        {
+          "event_json": "{\"sequence\":1,\"kind\":\"progress\",\"payload\":{\"phase\":\"started\",\"artifactId\":\"exec-job-mvsnjcg1-m-i18n7iy7\"}}"
+        },
+        {
+          "event_json": "{\"sequence\":2,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-1\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":1,\"occurredAt\":\"2026-10-28T21:54:09.409Z\",\"kind\":\"session.started\",\"payload\":{\"engine\":{\"id\":\"pi\",\"version\":\"1.4.0\",\"adapterDigest\":\"sha256:2330cc2a4afee89e2faf138a242f99946c35dde9812a01325281808ea3f18906\",\"features\":[\"sessions\",\"checkpoint\"]}}}}"
+        },
+        {
+          "event_json": "{\"sequence\":3,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-2\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":2,\"occurredAt\":\"2026-10-28T21:54:14.480Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\n\\n{\\\"summary\\\":\\\"\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":4,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-3\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":3,\"occurredAt\":\"2026-10-28T21:54:14.629Z\",\"kind\":\"text\",\"payload\":{\"text\":\"Error\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":5,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-4\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":4,\"occurredAt\":\"2026-10-28T21:54:14.786Z\",\"kind\":\"text\",\"payload\":{\"text\":\" rates increased\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":6,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-5\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":5,\"occurredAt\":\"2026-10-28T21:54:14.929Z\",\"kind\":\"text\",\"payload\":{\"text\":\" following\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":7,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-6\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":6,\"occurredAt\":\"2026-10-28T21:54:15.078Z\",\"kind\":\"text\",\"payload\":{\"text\":\" a deployment. No rollback has\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":8,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-7\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":7,\"occurredAt\":\"2026-10-28T21:54:15.226Z\",\"kind\":\"text\",\"payload\":{\"text\":\" been attempted. The causal\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":9,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-8\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":8,\"occurredAt\":\"2026-10-28T21:54:15.378Z\",\"kind\":\"text\",\"payload\":{\"text\":\" link between the deployment and the\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":10,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-9\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":9,\"occurredAt\":\"2026-10-28T21:54:15.532Z\",\"kind\":\"text\",\"payload\":{\"text\":\" error spike is assumed\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":11,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-10\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":10,\"occurredAt\":\"2026-10-28T21:54:15.693Z\",\"kind\":\"text\",\"payload\":{\"text\":\" but not yet confirmed through\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":12,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-11\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":11,\"occurredAt\":\"2026-10-28T21:54:15.843Z\",\"kind\":\"text\",\"payload\":{\"text\":\" diagnostics. The deployment\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":13,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-12\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":12,\"occurredAt\":\"2026-10-28T21:54:15.984Z\",\"kind\":\"text\",\"payload\":{\"text\":\"'s\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":14,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-13\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":13,\"occurredAt\":\"2026-10-28T21:54:16.128Z\",\"kind\":\"text\",\"payload\":{\"text\":\" scope, timing relative\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":15,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-14\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":14,\"occurredAt\":\"2026-10-28T21:54:16.259Z\",\"kind\":\"text\",\"payload\":{\"text\":\" to error\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":16,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-15\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":15,\"occurredAt\":\"2026-10-28T21:54:16.398Z\",\"kind\":\"text\",\"payload\":{\"text\":\" onset, and affected\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":17,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-16\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":16,\"occurredAt\":\"2026-10-28T21:54:16.541Z\",\"kind\":\"text\",\"payload\":{\"text\":\" services are not\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":18,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-17\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":17,\"occurredAt\":\"2026-10-28T21:54:16.691Z\",\"kind\":\"text\",\"payload\":{\"text\":\" specified\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":19,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-18\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":18,\"occurredAt\":\"2026-10-28T21:54:16.827Z\",\"kind\":\"text\",\"payload\":{\"text\":\".\\\",\\\"\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":20,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-19\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":19,\"occurredAt\":\"2026-10-28T21:54:16.961Z\",\"kind\":\"text\",\"payload\":{\"text\":\"blockers\\\":[\\\"Which\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":21,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-20\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":20,\"occurredAt\":\"2026-10-28T21:54:17.105Z\",\"kind\":\"text\",\"payload\":{\"text\":\" service\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":22,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-21\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":21,\"occurredAt\":\"2026-10-28T21:54:17.250Z\",\"kind\":\"text\",\"payload\":{\"text\":\" or component\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":23,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-22\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":22,\"occurredAt\":\"2026-10-28T21:54:17.389Z\",\"kind\":\"text\",\"payload\":{\"text\":\" was deployed\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":24,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-23\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":23,\"occurredAt\":\"2026-10-28T21:54:17.532Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\\",\\\"\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":25,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-24\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":24,\"occurredAt\":\"2026-10-28T21:54:17.671Z\",\"kind\":\"text\",\"payload\":{\"text\":\"What\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":26,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-25\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":25,\"occurredAt\":\"2026-10-28T21:54:17.814Z\",\"kind\":\"text\",\"payload\":{\"text\":\" specific\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":27,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-26\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":26,\"occurredAt\":\"2026-10-28T21:54:17.951Z\",\"kind\":\"text\",\"payload\":{\"text\":\" error\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":28,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-27\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":27,\"occurredAt\":\"2026-10-28T21:54:18.094Z\",\"kind\":\"text\",\"payload\":{\"text\":\" codes\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":29,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-28\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":28,\"occurredAt\":\"2026-10-28T21:54:18.231Z\",\"kind\":\"text\",\"payload\":{\"text\":\" or exception\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":30,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-29\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":29,\"occurredAt\":\"2026-10-28T21:54:18.377Z\",\"kind\":\"text\",\"payload\":{\"text\":\" types increased\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":31,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-30\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":30,\"occurredAt\":\"2026-10-28T21:54:18.512Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\\",\\\"Whether\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":32,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-31\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":31,\"occurredAt\":\"2026-10-28T21:54:18.662Z\",\"kind\":\"text\",\"payload\":{\"text\":\" errors\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":33,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-32\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":32,\"occurredAt\":\"2026-10-28T21:54:18.787Z\",\"kind\":\"text\",\"payload\":{\"text\":\" are isolated\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":34,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-33\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":33,\"occurredAt\":\"2026-10-28T21:54:18.932Z\",\"kind\":\"text\",\"payload\":{\"text\":\" to a\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":35,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-34\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":34,\"occurredAt\":\"2026-10-28T21:54:19.074Z\",\"kind\":\"text\",\"payload\":{\"text\":\" single instance\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":36,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-35\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":35,\"occurredAt\":\"2026-10-28T21:54:19.208Z\",\"kind\":\"text\",\"payload\":{\"text\":\",\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":37,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-36\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":36,\"occurredAt\":\"2026-10-28T21:54:19.357Z\",\"kind\":\"text\",\"payload\":{\"text\":\" region\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":38,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-37\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":37,\"occurredAt\":\"2026-10-28T21:54:19.491Z\",\"kind\":\"text\",\"payload\":{\"text\":\", or distributed\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":39,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-38\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":38,\"occurredAt\":\"2026-10-28T21:54:19.629Z\",\"kind\":\"text\",\"payload\":{\"text\":\" across the\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":40,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-39\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":39,\"occurredAt\":\"2026-10-28T21:54:19.771Z\",\"kind\":\"text\",\"payload\":{\"text\":\" fleet\\\",\\\"The\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":41,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-40\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":40,\"occurredAt\":\"2026-10-28T21:54:19.912Z\",\"kind\":\"text\",\"payload\":{\"text\":\" exact deployment\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":42,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-41\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":41,\"occurredAt\":\"2026-10-28T21:54:20.051Z\",\"kind\":\"text\",\"payload\":{\"text\":\" timestamp versus\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":43,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-42\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":42,\"occurredAt\":\"2026-10-28T21:54:20.186Z\",\"kind\":\"text\",\"payload\":{\"text\":\" the error\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":44,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-43\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":43,\"occurredAt\":\"2026-10-28T21:54:20.331Z\",\"kind\":\"text\",\"payload\":{\"text\":\" rate\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":45,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-44\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":44,\"occurredAt\":\"2026-10-28T21:54:20.464Z\",\"kind\":\"text\",\"payload\":{\"text\":\" inf\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":46,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-45\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":45,\"occurredAt\":\"2026-10-28T21:54:20.620Z\",\"kind\":\"text\",\"payload\":{\"text\":\"lection point\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":47,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-46\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":46,\"occurredAt\":\"2026-10-28T21:54:20.748Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\\",\\\"Whether the deployment\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":48,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-47\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":47,\"occurredAt\":\"2026-10-28T21:54:20.888Z\",\"kind\":\"text\",\"payload\":{\"text\":\" included\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":49,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-48\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":48,\"occurredAt\":\"2026-10-28T21:54:21.031Z\",\"kind\":\"text\",\"payload\":{\"text\":\" database\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":50,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-49\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":49,\"occurredAt\":\"2026-10-28T21:54:21.159Z\",\"kind\":\"text\",\"payload\":{\"text\":\" schema\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":51,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-50\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":50,\"occurredAt\":\"2026-10-28T21:54:21.298Z\",\"kind\":\"text\",\"payload\":{\"text\":\" changes or\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":52,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-51\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":51,\"occurredAt\":\"2026-10-28T21:54:21.435Z\",\"kind\":\"text\",\"payload\":{\"text\":\" feature flags\\\",\\\"Current traffic\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":53,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-52\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":52,\"occurredAt\":\"2026-10-28T21:54:21.576Z\",\"kind\":\"text\",\"payload\":{\"text\":\" volume and\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":54,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-53\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":53,\"occurredAt\":\"2026-10-28T21:54:21.720Z\",\"kind\":\"text\",\"payload\":{\"text\":\" whether it\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":55,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-54\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":54,\"occurredAt\":\"2026-10-28T21:54:21.858Z\",\"kind\":\"text\",\"payload\":{\"text\":\" changed\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":56,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-55\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":55,\"occurredAt\":\"2026-10-28T21:54:22.000Z\",\"kind\":\"text\",\"payload\":{\"text\":\" independently\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":57,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-56\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":56,\"occurredAt\":\"2026-10-28T21:54:22.139Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\\",\\\"Whether any\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":58,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-57\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":57,\"occurredAt\":\"2026-10-28T21:54:22.281Z\",\"kind\":\"text\",\"payload\":{\"text\":\" downstream dependencies\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":59,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-58\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":58,\"occurredAt\":\"2026-10-28T21:54:22.418Z\",\"kind\":\"text\",\"payload\":{\"text\":\" had\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":60,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-59\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":59,\"occurredAt\":\"2026-10-28T21:54:22.556Z\",\"kind\":\"text\",\"payload\":{\"text\":\" concurrent changes\\\",\\\"The\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":61,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-60\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":60,\"occurredAt\":\"2026-10-28T21:54:22.704Z\",\"kind\":\"text\",\"payload\":{\"text\":\" error\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":62,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-61\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":61,\"occurredAt\":\"2026-10-28T21:54:22.837Z\",\"kind\":\"text\",\"payload\":{\"text\":\" rate baseline\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":63,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-62\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":62,\"occurredAt\":\"2026-10-28T21:54:22.979Z\",\"kind\":\"text\",\"payload\":{\"text\":\" before deployment\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":64,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-63\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":63,\"occurredAt\":\"2026-10-28T21:54:23.122Z\",\"kind\":\"text\",\"payload\":{\"text\":\" for\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":65,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-64\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":64,\"occurredAt\":\"2026-10-28T21:54:23.268Z\",\"kind\":\"text\",\"payload\":{\"text\":\" comparison\\\",\\\"Whether alerts\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":66,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-65\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":65,\"occurredAt\":\"2026-10-28T21:54:23.404Z\",\"kind\":\"text\",\"payload\":{\"text\":\" fired\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":67,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-66\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":66,\"occurredAt\":\"2026-10-28T21:54:23.520Z\",\"kind\":\"text\",\"payload\":{\"text\":\" or were manually\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":68,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-67\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":67,\"occurredAt\":\"2026-10-28T21:54:23.638Z\",\"kind\":\"text\",\"payload\":{\"text\":\" detected\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":69,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-68\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":68,\"occurredAt\":\"2026-10-28T21:54:23.758Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\\",\\\"\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":70,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-69\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":69,\"occurredAt\":\"2026-10-28T21:54:23.901Z\",\"kind\":\"text\",\"payload\":{\"text\":\"The\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":71,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-70\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":70,\"occurredAt\":\"2026-10-28T21:54:24.061Z\",\"kind\":\"text\",\"payload\":{\"text\":\" deployment\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":72,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-71\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":71,\"occurredAt\":\"2026-10-28T21:54:24.110Z\",\"kind\":\"text\",\"payload\":{\"text\":\" method\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":73,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-72\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":72,\"occurredAt\":\"2026-10-28T21:54:24.228Z\",\"kind\":\"text\",\"payload\":{\"text\":\" used\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":74,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-73\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":73,\"occurredAt\":\"2026-10-28T21:54:24.381Z\",\"kind\":\"text\",\"payload\":{\"text\":\" (rolling,\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":75,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-74\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":74,\"occurredAt\":\"2026-10-28T21:54:24.461Z\",\"kind\":\"text\",\"payload\":{\"text\":\" blue-green, canary,\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":76,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-75\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":75,\"occurredAt\":\"2026-10-28T21:54:24.586Z\",\"kind\":\"text\",\"payload\":{\"text\":\" etc.)\\\"],\\\"nextActions\\\":[\\\"\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":77,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-76\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":76,\"occurredAt\":\"2026-10-28T21:54:24.702Z\",\"kind\":\"text\",\"payload\":{\"text\":\"Compare\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":78,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-77\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":77,\"occurredAt\":\"2026-10-28T21:54:24.822Z\",\"kind\":\"text\",\"payload\":{\"text\":\" error rate\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":79,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-78\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":78,\"occurredAt\":\"2026-10-28T21:54:24.933Z\",\"kind\":\"text\",\"payload\":{\"text\":\" dashboards before and after the\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":80,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-79\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":79,\"occurredAt\":\"2026-10-28T21:54:25.180Z\",\"kind\":\"text\",\"payload\":{\"text\":\" deployment timestamp to establish\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":81,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-80\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":80,\"occurredAt\":\"2026-10-28T21:54:25.182Z\",\"kind\":\"text\",\"payload\":{\"text\":\" correlation\\\",\\\"Inspect\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":82,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-81\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":81,\"occurredAt\":\"2026-10-28T21:54:25.252Z\",\"kind\":\"text\",\"payload\":{\"text\":\" application\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":83,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-82\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":82,\"occurredAt\":\"2026-10-28T21:54:25.353Z\",\"kind\":\"text\",\"payload\":{\"text\":\" logs on\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":84,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-83\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":83,\"occurredAt\":\"2026-10-28T21:54:25.500Z\",\"kind\":\"text\",\"payload\":{\"text\":\" affected\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":85,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-84\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":84,\"occurredAt\":\"2026-10-28T21:54:25.561Z\",\"kind\":\"text\",\"payload\":{\"text\":\" instances for new\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":86,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-85\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":85,\"occurredAt\":\"2026-10-28T21:54:25.662Z\",\"kind\":\"text\",\"payload\":{\"text\":\" exception\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":87,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-86\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":86,\"occurredAt\":\"2026-10-28T21:54:25.765Z\",\"kind\":\"text\",\"payload\":{\"text\":\" types or stack traces\\\",\\\"Check\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":88,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-87\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":87,\"occurredAt\":\"2026-10-28T21:54:25.872Z\",\"kind\":\"text\",\"payload\":{\"text\":\" if\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":89,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-88\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":88,\"occurredAt\":\"2026-10-28T21:54:25.980Z\",\"kind\":\"text\",\"payload\":{\"text\":\" errors\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":90,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-89\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":89,\"occurredAt\":\"2026-10-28T21:54:26.081Z\",\"kind\":\"text\",\"payload\":{\"text\":\" are concentrated on\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":91,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-90\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":90,\"occurredAt\":\"2026-10-28T21:54:26.300Z\",\"kind\":\"text\",\"payload\":{\"text\":\" specific pods\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":92,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-91\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":91,\"occurredAt\":\"2026-10-28T21:54:26.302Z\",\"kind\":\"text\",\"payload\":{\"text\":\", nodes\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":93,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-92\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":92,\"occurredAt\":\"2026-10-28T21:54:26.461Z\",\"kind\":\"text\",\"payload\":{\"text\":\", or availability\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":94,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-93\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":93,\"occurredAt\":\"2026-10-28T21:54:26.500Z\",\"kind\":\"text\",\"payload\":{\"text\":\" zones\\\",\\\"Review the\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":95,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-94\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":94,\"occurredAt\":\"2026-10-28T21:54:26.610Z\",\"kind\":\"text\",\"payload\":{\"text\":\" deployment manifest or\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":96,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-95\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":95,\"occurredAt\":\"2026-10-28T21:54:26.780Z\",\"kind\":\"text\",\"payload\":{\"text\":\" changelog for\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":97,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-96\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":96,\"occurredAt\":\"2026-10-28T21:54:26.816Z\",\"kind\":\"text\",\"payload\":{\"text\":\" the\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":98,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-97\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":97,\"occurredAt\":\"2026-10-28T21:54:26.941Z\",\"kind\":\"text\",\"payload\":{\"text\":\" specific commit\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":99,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-98\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":98,\"occurredAt\":\"2026-10-28T21:54:27.031Z\",\"kind\":\"text\",\"payload\":{\"text\":\" or\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":100,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-99\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":99,\"occurredAt\":\"2026-10-28T21:54:27.261Z\",\"kind\":\"text\",\"payload\":{\"text\":\" configuration\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":101,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-100\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":100,\"occurredAt\":\"2026-10-28T21:54:27.262Z\",\"kind\":\"text\",\"payload\":{\"text\":\" diff\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":102,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-101\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":101,\"occurredAt\":\"2026-10-28T21:54:27.341Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\\",\\\"Verify database\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":103,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-102\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":102,\"occurredAt\":\"2026-10-28T21:54:27.443Z\",\"kind\":\"text\",\"payload\":{\"text\":\" connection\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":104,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-103\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":103,\"occurredAt\":\"2026-10-28T21:54:27.545Z\",\"kind\":\"text\",\"payload\":{\"text\":\" pools\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":105,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-104\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":104,\"occurredAt\":\"2026-10-28T21:54:27.740Z\",\"kind\":\"text\",\"payload\":{\"text\":\" and query\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":106,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-105\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":105,\"occurredAt\":\"2026-10-28T21:54:27.756Z\",\"kind\":\"text\",\"payload\":{\"text\":\" performance\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":107,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-106\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":106,\"occurredAt\":\"2026-10-28T21:54:27.900Z\",\"kind\":\"text\",\"payload\":{\"text\":\" metrics for anomalies\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":108,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-107\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":107,\"occurredAt\":\"2026-10-28T21:54:27.961Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\\",\\\"Check downstream\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":109,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-108\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":108,\"occurredAt\":\"2026-10-28T21:54:28.065Z\",\"kind\":\"text\",\"payload\":{\"text\":\" service health and\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":110,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-109\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":109,\"occurredAt\":\"2026-10-28T21:54:28.170Z\",\"kind\":\"text\",\"payload\":{\"text\":\" latency\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":111,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-110\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":110,\"occurredAt\":\"2026-10-28T21:54:28.274Z\",\"kind\":\"text\",\"payload\":{\"text\":\" metrics\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":112,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-111\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":111,\"occurredAt\":\"2026-10-28T21:54:28.380Z\",\"kind\":\"text\",\"payload\":{\"text\":\" for\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":113,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-112\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":112,\"occurredAt\":\"2026-10-28T21:54:28.482Z\",\"kind\":\"text\",\"payload\":{\"text\":\" casc\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":114,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-113\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":113,\"occurredAt\":\"2026-10-28T21:54:28.701Z\",\"kind\":\"text\",\"payload\":{\"text\":\"ading effects\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":115,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-114\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":114,\"occurredAt\":\"2026-10-28T21:54:28.703Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\\",\\\"Ex\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":116,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-115\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":115,\"occurredAt\":\"2026-10-28T21:54:28.860Z\",\"kind\":\"text\",\"payload\":{\"text\":\"amine resource\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":117,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-116\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":116,\"occurredAt\":\"2026-10-28T21:54:28.910Z\",\"kind\":\"text\",\"payload\":{\"text\":\" utilization (\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":118,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-117\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":117,\"occurredAt\":\"2026-10-28T21:54:29.000Z\",\"kind\":\"text\",\"payload\":{\"text\":\"CPU, memory, file\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":119,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-118\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":118,\"occurredAt\":\"2026-10-28T21:54:29.111Z\",\"kind\":\"text\",\"payload\":{\"text\":\" descriptors) on\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":120,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-119\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":119,\"occurredAt\":\"2026-10-28T21:54:29.211Z\",\"kind\":\"text\",\"payload\":{\"text\":\" affected instances\\\",\\\"Review feature\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":121,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-120\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":120,\"occurredAt\":\"2026-10-28T21:54:29.340Z\",\"kind\":\"text\",\"payload\":{\"text\":\" flag states\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":122,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-121\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":121,\"occurredAt\":\"2026-10-28T21:54:29.421Z\",\"kind\":\"text\",\"payload\":{\"text\":\" to\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":123,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-122\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":122,\"occurredAt\":\"2026-10-28T21:54:29.531Z\",\"kind\":\"text\",\"payload\":{\"text\":\" see\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":124,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-123\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":123,\"occurredAt\":\"2026-10-28T21:54:29.660Z\",\"kind\":\"text\",\"payload\":{\"text\":\" if new\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":125,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-124\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":124,\"occurredAt\":\"2026-10-28T21:54:29.736Z\",\"kind\":\"text\",\"payload\":{\"text\":\" code paths are\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":126,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-125\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":125,\"occurredAt\":\"2026-10-28T21:54:29.843Z\",\"kind\":\"text\",\"payload\":{\"text\":\" active\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":127,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-126\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":126,\"occurredAt\":\"2026-10-28T21:54:29.946Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\\",\\\"Confirm\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":128,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-127\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":127,\"occurredAt\":\"2026-10-28T21:54:30.051Z\",\"kind\":\"text\",\"payload\":{\"text\":\" whether the error spike\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":129,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-128\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":128,\"occurredAt\":\"2026-10-28T21:54:30.152Z\",\"kind\":\"text\",\"payload\":{\"text\":\" pred\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":130,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-129\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":129,\"occurredAt\":\"2026-10-28T21:54:30.258Z\",\"kind\":\"text\",\"payload\":{\"text\":\"ates or\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":131,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-130\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":130,\"occurredAt\":\"2026-10-28T21:54:30.360Z\",\"kind\":\"text\",\"payload\":{\"text\":\" post\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":132,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-131\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":131,\"occurredAt\":\"2026-10-28T21:54:30.467Z\",\"kind\":\"text\",\"payload\":{\"text\":\"dates the deployment window\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":133,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-132\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":132,\"occurredAt\":\"2026-10-28T21:54:30.572Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\\",\\\"Check deployment\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":134,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-133\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":133,\"occurredAt\":\"2026-10-28T21:54:30.676Z\",\"kind\":\"text\",\"payload\":{\"text\":\" pipeline\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":135,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-134\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":134,\"occurredAt\":\"2026-10-28T21:54:30.780Z\",\"kind\":\"text\",\"payload\":{\"text\":\" logs\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":136,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-135\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":135,\"occurredAt\":\"2026-10-28T21:54:30.940Z\",\"kind\":\"text\",\"payload\":{\"text\":\" for partial\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":137,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-136\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":136,\"occurredAt\":\"2026-10-28T21:54:30.987Z\",\"kind\":\"text\",\"payload\":{\"text\":\" failures or incomplete\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":138,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-137\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":137,\"occurredAt\":\"2026-10-28T21:54:31.096Z\",\"kind\":\"text\",\"payload\":{\"text\":\" roll\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":139,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-138\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":138,\"occurredAt\":\"2026-10-28T21:54:31.262Z\",\"kind\":\"text\",\"payload\":{\"text\":\"outs\\\"]}\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":140,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-139\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":139,\"occurredAt\":\"2026-10-28T21:54:31.264Z\",\"kind\":\"usage\",\"payload\":{\"usageId\":\"pi-usage-att-mvsnjcgd-o-81o2fxt7\",\"inputTokens\":328,\"outputTokens\":428,\"cachedInputTokens\":0,\"microUsd\":0,\"accounting\":\"final-total\",\"estimated\":false}}}"
+        },
+        {
+          "event_json": "{\"sequence\":141,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-140\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":140,\"occurredAt\":\"2026-10-28T21:54:31.264Z\",\"kind\":\"artifact\",\"payload\":{\"artifact\":{\"artifactId\":\"pi-output-att-mvsnjcgd-o-81o2fxt7\",\"digest\":\"sha256:80f8544af4dcb51b02d6228dccb09285cab38b6cd8449e2b007cd69154c9df91\",\"bytes\":1788,\"mediaType\":\"text/plain\",\"classification\":\"internal\"},\"purpose\":\"output\"}}}"
+        },
+        {
+          "event_json": "{\"sequence\":142,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-141\",\"sessionId\":\"01a18481-9d6a-71a9-9c47-b837cc816659\",\"attemptId\":\"att-mvsnjcgd-o-81o2fxt7\",\"sequence\":141,\"occurredAt\":\"2026-10-28T21:54:31.265Z\",\"kind\":\"session.stopped\",\"payload\":{\"reason\":\"completed\",\"terminationConfirmed\":true,\"output\":{\"artifactId\":\"pi-output-att-mvsnjcgd-o-81o2fxt7\",\"digest\":\"sha256:80f8544af4dcb51b02d6228dccb09285cab38b6cd8449e2b007cd69154c9df91\",\"bytes\":1788,\"mediaType\":\"text/plain\",\"classification\":\"internal\"}}}}"
+        },
+        {
+          "event_json": "{\"sequence\":143,\"kind\":\"effect\",\"payload\":{\"phase\":\"output-pinned\",\"artifact\":{\"artifactId\":\"att-att-mvsnjcgd-o-81o2fxt7-44da5b63f3041e3915897257\",\"digest\":\"sha256:80f8544af4dcb51b02d6228dccb09285cab38b6cd8449e2b007cd69154c9df91\",\"bytes\":1788}}}"
+        },
+        {
+          "event_json": "{\"sequence\":144,\"kind\":\"progress\",\"payload\":{\"phase\":\"executed\",\"ok\":true}}"
+        },
+        {
+          "event_json": "{\"sequence\":145,\"kind\":\"effect\",\"payload\":{\"phase\":\"output-pinned\",\"artifact\":{\"artifactId\":\"att-att-mvsnjcgd-o-81o2fxt7-8e80ae19fbdbddf489a0e8ed\",\"digest\":\"sha256:10631f68923c0f4fe82544d82c6fd597802aee4dbcda826e5568807debc67b8e\",\"bytes\":1786}}}"
+        },
+        {
+          "event_json": "{\"sequence\":146,\"kind\":\"effect\",\"payload\":{\"phase\":\"author-bundle-submitted\",\"bundleId\":\"bundle-att-mvsnjcgd-o-81o2fxt7\",\"digest\":\"sha256:d5e3a056b6a890cf1b6ba124d31981fb25ef4dfbbf9298e2425d5a85d818559f\"}}"
+        }
+      ]
+    },
+    {
+      "workflowId": "support-draft",
+      "runId": "run-mvsnjwis-y-d8ii6k5w",
+      "bundleDigest": "sha256:feb48d2db492432917a5bdba3ac4ca8d7f6c572faa077ddb364cac2f9512f02b",
+      "jobId": "job-mvsnjwiu-z-r26bwfrh",
+      "attemptId": "att-mvsnjwj6-11-0sw4b0n0",
+      "artifacts": [
+        {
+          "artifactId": "att-att-mvsnjwj6-11-0sw4b0n0-d7b494e82de1e7f66639c0ec",
+          "digest": "sha256:a53ed39f91d5d654924a3a91203d000801058998936fd12361162f3c2e56aa82",
+          "bytes": 1438,
+          "mediaType": "application/json",
+          "classification": "internal"
+        }
+      ],
+      "verdict": {
+        "outcome": "verified",
+        "evaluator_attempt_id": "att-mvsnkjf6-16-kupqfs2z"
+      },
+      "output": {
+        "summary": "User reports being unable to sign in due to an expired session error.",
+        "missingInformation": [
+          "Which application or platform they are trying to sign into",
+          "Browser and version being used",
+          "Whether the issue is reproducible or intermittent",
+          "When the problem first started",
+          "Whether they have cleared cookies and cache",
+          "Any specific error code or message text beyond 'expired session'",
+          "Whether they are using a VPN, corporate proxy, or restricted network",
+          "Whether other users or team members are experiencing the same issue"
+        ],
+        "risk": "low",
+        "proposedReply": "Hi, thank you for reaching out. I'm sorry you're encountering an expired session error when trying to sign in. To help us investigate and resolve this quickly, could you please provide the following details:\n\n1. Which application or platform are you trying to access?\n2. What browser and version are you using?\n3. Does the error happen every time you attempt to sign in, or is it intermittent?\n4. When did you first notice the issue?\n5. Have you tried clearing your browser cookies and cache, or using an incognito/private window?\n6. Are you on a corporate network, VPN, or behind a proxy?\n7. Are any colleagues or other users reporting the same problem?\n8. Can you share the exact error message text or any error code displayed?\n\nOnce we have this information, we'll be able to narrow down the cause and get you back on track. Thank you for your patience."
+      },
+      "engineEvents": [
+        {
+          "event_json": "{\"sequence\":1,\"kind\":\"progress\",\"payload\":{\"phase\":\"started\",\"artifactId\":\"exec-job-mvsnjwiu-z-r26bwfrh\"}}"
+        },
+        {
+          "event_json": "{\"sequence\":2,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-1\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":1,\"occurredAt\":\"2026-10-28T21:54:35.455Z\",\"kind\":\"session.started\",\"payload\":{\"engine\":{\"id\":\"pi\",\"version\":\"1.4.0\",\"adapterDigest\":\"sha256:2330cc2a4afee89e2faf138a242f99946c35dde9812a01325281808ea3f18906\",\"features\":[\"sessions\",\"checkpoint\"]}}}}"
+        },
+        {
+          "event_json": "{\"sequence\":3,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-2\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":2,\"occurredAt\":\"2026-10-28T21:54:51.096Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\n\\n{\\\"summary\\\":\\\"\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":4,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-3\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":3,\"occurredAt\":\"2026-10-28T21:54:51.260Z\",\"kind\":\"text\",\"payload\":{\"text\":\"User reports being\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":5,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-4\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":4,\"occurredAt\":\"2026-10-28T21:54:51.432Z\",\"kind\":\"text\",\"payload\":{\"text\":\" unable to sign in due to\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":6,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-5\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":5,\"occurredAt\":\"2026-10-28T21:54:51.594Z\",\"kind\":\"text\",\"payload\":{\"text\":\" an expired session error.\\\",\\\"missing\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":7,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-6\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":6,\"occurredAt\":\"2026-10-28T21:54:51.758Z\",\"kind\":\"text\",\"payload\":{\"text\":\"Information\\\":[\\\"Which\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":8,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-7\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":7,\"occurredAt\":\"2026-10-28T21:54:51.928Z\",\"kind\":\"text\",\"payload\":{\"text\":\" application or platform they\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":9,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-8\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":8,\"occurredAt\":\"2026-10-28T21:54:52.220Z\",\"kind\":\"text\",\"payload\":{\"text\":\" are trying to sign into\\\",\\\"\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":10,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-9\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":9,\"occurredAt\":\"2026-10-28T21:54:52.270Z\",\"kind\":\"text\",\"payload\":{\"text\":\"Browser and version being used\\\",\\\"\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":11,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-10\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":10,\"occurredAt\":\"2026-10-28T21:54:52.542Z\",\"kind\":\"text\",\"payload\":{\"text\":\"Whether the\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":12,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-11\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":11,\"occurredAt\":\"2026-10-28T21:54:52.611Z\",\"kind\":\"text\",\"payload\":{\"text\":\" issue is\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":13,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-12\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":12,\"occurredAt\":\"2026-10-28T21:54:52.781Z\",\"kind\":\"text\",\"payload\":{\"text\":\" repro\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":14,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-13\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":13,\"occurredAt\":\"2026-10-28T21:54:52.949Z\",\"kind\":\"text\",\"payload\":{\"text\":\"ducible or intermittent\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":15,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-14\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":14,\"occurredAt\":\"2026-10-28T21:54:53.180Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\\",\\\"When\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":16,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-15\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":15,\"occurredAt\":\"2026-10-28T21:54:53.295Z\",\"kind\":\"text\",\"payload\":{\"text\":\" the problem\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":17,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-16\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":16,\"occurredAt\":\"2026-10-28T21:54:53.500Z\",\"kind\":\"text\",\"payload\":{\"text\":\" first\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":18,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-17\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":17,\"occurredAt\":\"2026-10-28T21:54:53.625Z\",\"kind\":\"text\",\"payload\":{\"text\":\" started\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":19,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-18\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":18,\"occurredAt\":\"2026-10-28T21:54:53.820Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\\",\\\"Whether they have cleared cookies\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":20,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-19\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":19,\"occurredAt\":\"2026-10-28T21:54:53.980Z\",\"kind\":\"text\",\"payload\":{\"text\":\" and cache\\\",\\\"Any\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":21,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-20\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":20,\"occurredAt\":\"2026-10-28T21:54:54.117Z\",\"kind\":\"text\",\"payload\":{\"text\":\" specific error code or message text\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":22,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-21\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":21,\"occurredAt\":\"2026-10-28T21:54:54.286Z\",\"kind\":\"text\",\"payload\":{\"text\":\" beyond '\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":23,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-22\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":22,\"occurredAt\":\"2026-10-28T21:54:54.460Z\",\"kind\":\"text\",\"payload\":{\"text\":\"expired session'\\\",\\\"Whether they\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":24,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-23\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":23,\"occurredAt\":\"2026-10-28T21:54:54.630Z\",\"kind\":\"text\",\"payload\":{\"text\":\" are using a VPN\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":25,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-24\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":24,\"occurredAt\":\"2026-10-28T21:54:54.798Z\",\"kind\":\"text\",\"payload\":{\"text\":\", corporate proxy, or restricted\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":26,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-25\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":25,\"occurredAt\":\"2026-10-28T21:54:55.101Z\",\"kind\":\"text\",\"payload\":{\"text\":\" network\\\",\\\"Whether\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":27,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-26\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":26,\"occurredAt\":\"2026-10-28T21:54:55.138Z\",\"kind\":\"text\",\"payload\":{\"text\":\" other users or\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":28,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-27\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":27,\"occurredAt\":\"2026-10-28T21:54:55.307Z\",\"kind\":\"text\",\"payload\":{\"text\":\" team\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":29,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-28\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":28,\"occurredAt\":\"2026-10-28T21:54:55.580Z\",\"kind\":\"text\",\"payload\":{\"text\":\" members are experiencing the same issue\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":30,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-29\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":29,\"occurredAt\":\"2026-10-28T21:54:55.652Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\\"],\\\"risk\\\":\\\"low\\\",\\\"pro\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":31,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-30\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":30,\"occurredAt\":\"2026-10-28T21:54:55.900Z\",\"kind\":\"text\",\"payload\":{\"text\":\"posedReply\\\":\\\"Hi\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":32,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-31\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":31,\"occurredAt\":\"2026-10-28T21:54:55.978Z\",\"kind\":\"text\",\"payload\":{\"text\":\", thank you for reaching out\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":33,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-32\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":32,\"occurredAt\":\"2026-10-28T21:54:56.221Z\",\"kind\":\"text\",\"payload\":{\"text\":\". I'm\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":34,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-33\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":33,\"occurredAt\":\"2026-10-28T21:54:56.379Z\",\"kind\":\"text\",\"payload\":{\"text\":\" sorry you\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":35,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-34\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":34,\"occurredAt\":\"2026-10-28T21:54:56.480Z\",\"kind\":\"text\",\"payload\":{\"text\":\"'re encountering\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":36,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-35\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":35,\"occurredAt\":\"2026-10-28T21:54:56.700Z\",\"kind\":\"text\",\"payload\":{\"text\":\" an expired session error when\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":37,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-36\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":36,\"occurredAt\":\"2026-10-28T21:54:56.812Z\",\"kind\":\"text\",\"payload\":{\"text\":\" trying\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":38,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-37\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":37,\"occurredAt\":\"2026-10-28T21:54:56.981Z\",\"kind\":\"text\",\"payload\":{\"text\":\" to sign in. To\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":39,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-38\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":38,\"occurredAt\":\"2026-10-28T21:54:57.180Z\",\"kind\":\"text\",\"payload\":{\"text\":\" help us investigate\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":40,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-39\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":39,\"occurredAt\":\"2026-10-28T21:54:57.335Z\",\"kind\":\"text\",\"payload\":{\"text\":\" and resolve this quickly\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":41,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-40\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":40,\"occurredAt\":\"2026-10-28T21:54:57.502Z\",\"kind\":\"text\",\"payload\":{\"text\":\", could you please provide\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":42,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-41\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":41,\"occurredAt\":\"2026-10-28T21:54:57.820Z\",\"kind\":\"text\",\"payload\":{\"text\":\" the following details:\\\\n\\\\n\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":43,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-42\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":42,\"occurredAt\":\"2026-10-28T21:54:57.838Z\",\"kind\":\"text\",\"payload\":{\"text\":\"1. Which application or platform\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":44,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-43\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":43,\"occurredAt\":\"2026-10-28T21:54:58.140Z\",\"kind\":\"text\",\"payload\":{\"text\":\" are you trying to access\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":45,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-44\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":44,\"occurredAt\":\"2026-10-28T21:54:58.178Z\",\"kind\":\"text\",\"payload\":{\"text\":\"?\\\\n2. What\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":46,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-45\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":45,\"occurredAt\":\"2026-10-28T21:54:58.460Z\",\"kind\":\"text\",\"payload\":{\"text\":\" browser and version are you using\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":47,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-46\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":46,\"occurredAt\":\"2026-10-28T21:54:58.517Z\",\"kind\":\"text\",\"payload\":{\"text\":\"?\\\\n3. Does\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":48,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-47\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":47,\"occurredAt\":\"2026-10-28T21:54:58.780Z\",\"kind\":\"text\",\"payload\":{\"text\":\" the error\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":49,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-48\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":48,\"occurredAt\":\"2026-10-28T21:54:58.860Z\",\"kind\":\"text\",\"payload\":{\"text\":\" happen\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":50,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-49\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":49,\"occurredAt\":\"2026-10-28T21:54:59.100Z\",\"kind\":\"text\",\"payload\":{\"text\":\" every\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":51,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-50\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":50,\"occurredAt\":\"2026-10-28T21:54:59.198Z\",\"kind\":\"text\",\"payload\":{\"text\":\" time you attempt\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":52,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-51\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":51,\"occurredAt\":\"2026-10-28T21:54:59.420Z\",\"kind\":\"text\",\"payload\":{\"text\":\" to sign in, or is\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":53,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-52\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":52,\"occurredAt\":\"2026-10-28T21:54:59.533Z\",\"kind\":\"text\",\"payload\":{\"text\":\" it intermittent?\\\\n4.\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":54,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-53\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":53,\"occurredAt\":\"2026-10-28T21:54:59.740Z\",\"kind\":\"text\",\"payload\":{\"text\":\" When did you\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":55,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-54\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":54,\"occurredAt\":\"2026-10-28T21:54:59.875Z\",\"kind\":\"text\",\"payload\":{\"text\":\" first notice the issue?\\\\n\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":56,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-55\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":55,\"occurredAt\":\"2026-10-28T21:55:00.059Z\",\"kind\":\"text\",\"payload\":{\"text\":\"5. Have you tried\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":57,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-56\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":56,\"occurredAt\":\"2026-10-28T21:55:00.220Z\",\"kind\":\"text\",\"payload\":{\"text\":\" clearing your browser cookies\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":58,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-57\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":57,\"occurredAt\":\"2026-10-28T21:55:00.379Z\",\"kind\":\"text\",\"payload\":{\"text\":\" and cache, or using\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":59,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-58\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":58,\"occurredAt\":\"2026-10-28T21:55:00.548Z\",\"kind\":\"text\",\"payload\":{\"text\":\" an\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":60,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-59\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":59,\"occurredAt\":\"2026-10-28T21:55:00.860Z\",\"kind\":\"text\",\"payload\":{\"text\":\" incognito/private\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":61,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-60\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":60,\"occurredAt\":\"2026-10-28T21:55:00.895Z\",\"kind\":\"text\",\"payload\":{\"text\":\" window?\\\\n6. Are\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":62,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-61\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":61,\"occurredAt\":\"2026-10-28T21:55:01.067Z\",\"kind\":\"text\",\"payload\":{\"text\":\" you on\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":63,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-62\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":62,\"occurredAt\":\"2026-10-28T21:55:01.237Z\",\"kind\":\"text\",\"payload\":{\"text\":\" a corporate\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":64,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-63\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":63,\"occurredAt\":\"2026-10-28T21:55:01.409Z\",\"kind\":\"text\",\"payload\":{\"text\":\" network, VPN, or behind\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":65,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-64\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":64,\"occurredAt\":\"2026-10-28T21:55:01.666Z\",\"kind\":\"text\",\"payload\":{\"text\":\" a proxy?\\\\n7.\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":66,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-65\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":65,\"occurredAt\":\"2026-10-28T21:55:01.750Z\",\"kind\":\"text\",\"payload\":{\"text\":\" Are any colleagues\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":67,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-66\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":66,\"occurredAt\":\"2026-10-28T21:55:01.923Z\",\"kind\":\"text\",\"payload\":{\"text\":\" or other\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":68,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-67\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":67,\"occurredAt\":\"2026-10-28T21:55:02.140Z\",\"kind\":\"text\",\"payload\":{\"text\":\" users reporting\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":69,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-68\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":68,\"occurredAt\":\"2026-10-28T21:55:02.266Z\",\"kind\":\"text\",\"payload\":{\"text\":\" the same problem\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":70,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-69\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":69,\"occurredAt\":\"2026-10-28T21:55:02.460Z\",\"kind\":\"text\",\"payload\":{\"text\":\"?\\\\n8\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":71,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-70\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":70,\"occurredAt\":\"2026-10-28T21:55:02.620Z\",\"kind\":\"text\",\"payload\":{\"text\":\". Can\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":72,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-71\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":71,\"occurredAt\":\"2026-10-28T21:55:02.784Z\",\"kind\":\"text\",\"payload\":{\"text\":\" you share the\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":73,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-72\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":72,\"occurredAt\":\"2026-10-28T21:55:02.959Z\",\"kind\":\"text\",\"payload\":{\"text\":\" exact error message\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":74,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-73\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":73,\"occurredAt\":\"2026-10-28T21:55:03.130Z\",\"kind\":\"text\",\"payload\":{\"text\":\" text\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":75,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-74\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":74,\"occurredAt\":\"2026-10-28T21:55:03.422Z\",\"kind\":\"text\",\"payload\":{\"text\":\" or any error\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":76,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-75\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":75,\"occurredAt\":\"2026-10-28T21:55:03.479Z\",\"kind\":\"text\",\"payload\":{\"text\":\" code displayed\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":77,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-76\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":76,\"occurredAt\":\"2026-10-28T21:55:03.740Z\",\"kind\":\"text\",\"payload\":{\"text\":\"?\\\\n\\\\nOnce we\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":78,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-77\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":77,\"occurredAt\":\"2026-10-28T21:55:03.818Z\",\"kind\":\"text\",\"payload\":{\"text\":\" have this information, we'll\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":79,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-78\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":78,\"occurredAt\":\"2026-10-28T21:55:04.060Z\",\"kind\":\"text\",\"payload\":{\"text\":\" be able to narrow\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":80,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-79\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":79,\"occurredAt\":\"2026-10-28T21:55:04.220Z\",\"kind\":\"text\",\"payload\":{\"text\":\" down the cause and get\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":81,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-80\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":80,\"occurredAt\":\"2026-10-28T21:55:04.379Z\",\"kind\":\"text\",\"payload\":{\"text\":\" you back on\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":82,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-81\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":81,\"occurredAt\":\"2026-10-28T21:55:04.541Z\",\"kind\":\"text\",\"payload\":{\"text\":\" track. Thank\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":83,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-82\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":82,\"occurredAt\":\"2026-10-28T21:55:04.700Z\",\"kind\":\"text\",\"payload\":{\"text\":\" you for your patience.\\\"}\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":84,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-83\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":83,\"occurredAt\":\"2026-10-28T21:55:04.862Z\",\"kind\":\"usage\",\"payload\":{\"usageId\":\"pi-usage-att-mvsnjwj6-11-0sw4b0n0\",\"inputTokens\":337,\"outputTokens\":550,\"cachedInputTokens\":0,\"microUsd\":0,\"accounting\":\"final-total\",\"estimated\":false}}}"
+        },
+        {
+          "event_json": "{\"sequence\":85,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-84\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":84,\"occurredAt\":\"2026-10-28T21:55:04.862Z\",\"kind\":\"artifact\",\"payload\":{\"artifact\":{\"artifactId\":\"pi-output-att-mvsnjwj6-11-0sw4b0n0\",\"digest\":\"sha256:5e029c283cd72f4cfb3a685db6dfe3c7618f0a35e5b3d442410d27566f8e0026\",\"bytes\":1440,\"mediaType\":\"text/plain\",\"classification\":\"internal\"},\"purpose\":\"output\"}}}"
+        },
+        {
+          "event_json": "{\"sequence\":86,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-85\",\"sessionId\":\"01a18482-0326-71a9-9c47-b838f800b449\",\"attemptId\":\"att-mvsnjwj6-11-0sw4b0n0\",\"sequence\":85,\"occurredAt\":\"2026-10-28T21:55:04.862Z\",\"kind\":\"session.stopped\",\"payload\":{\"reason\":\"completed\",\"terminationConfirmed\":true,\"output\":{\"artifactId\":\"pi-output-att-mvsnjwj6-11-0sw4b0n0\",\"digest\":\"sha256:5e029c283cd72f4cfb3a685db6dfe3c7618f0a35e5b3d442410d27566f8e0026\",\"bytes\":1440,\"mediaType\":\"text/plain\",\"classification\":\"internal\"}}}}"
+        },
+        {
+          "event_json": "{\"sequence\":87,\"kind\":\"effect\",\"payload\":{\"phase\":\"output-pinned\",\"artifact\":{\"artifactId\":\"att-att-mvsnjwj6-11-0sw4b0n0-8405d1decbec46ea178a74f2\",\"digest\":\"sha256:5e029c283cd72f4cfb3a685db6dfe3c7618f0a35e5b3d442410d27566f8e0026\",\"bytes\":1440}}}"
+        },
+        {
+          "event_json": "{\"sequence\":88,\"kind\":\"progress\",\"payload\":{\"phase\":\"executed\",\"ok\":true}}"
+        },
+        {
+          "event_json": "{\"sequence\":89,\"kind\":\"effect\",\"payload\":{\"phase\":\"output-pinned\",\"artifact\":{\"artifactId\":\"att-att-mvsnjwj6-11-0sw4b0n0-d7b494e82de1e7f66639c0ec\",\"digest\":\"sha256:a53ed39f91d5d654924a3a91203d000801058998936fd12361162f3c2e56aa82\",\"bytes\":1438}}}"
+        },
+        {
+          "event_json": "{\"sequence\":90,\"kind\":\"effect\",\"payload\":{\"phase\":\"author-bundle-submitted\",\"bundleId\":\"bundle-att-mvsnjwj6-11-0sw4b0n0\",\"digest\":\"sha256:feb48d2db492432917a5bdba3ac4ca8d7f6c572faa077ddb364cac2f9512f02b\"}}"
+        }
+      ]
+    }
+  ],
+  "passed": true
+}

@@ -83,6 +83,11 @@
    "result": "pass",
    "tests": 2,
    "notes": "fixed probe to authenticate with the launcher token; E065 TERM-ignoring daemonized child killed with the sandbox"
+  },
+  {
+   "command": "pnpm exec tsx scripts/verify-operational.ts",
+   "result": "pass",
+   "notes": "end-to-end operational proof against head fe9c000: CLI setup -> workspace -> config compile/inspect/activate -> runner tokens -> agent-smoke, operations-triage and support-draft runs through the real pi engine with the live local model; all verdicts 'verified' with evaluator attempts and uploaded artifacts; evidence: artifacts/implementation/operational-1793224435202/run.json"
   }
  ],
  "notRun": [

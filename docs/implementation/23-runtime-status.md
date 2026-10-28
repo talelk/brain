@@ -85,7 +85,7 @@ Current local evidence is in `artifacts/implementation/identity-20261027/`: FAST
 
 ## Finalization continuation — 28 October (late)
 
-Executed evidence: `artifacts/implementation/verification-20261028/run-record.json` (full vitest 305/305, browser matrix 16/16 at 1440-light, launcher probes, steady trials, model qualification) and `artifacts/implementation/scenario-audit-20261028.json` (100/100 scenarios observed-pass against actual observations).
+Executed evidence: `artifacts/implementation/verification-20261028/run-record.json` (full vitest 305/305, browser matrix 16/16 at 1440-light, launcher probes, steady trials, model qualification) and `artifacts/implementation/scenario-audit-20261028.json` (100/100 scenarios observed-pass against actual observations). `scripts/verify-operational.ts` additionally ran the whole product end-to-end against head `fe9c000` (CLI setup → workspace → config activation → runner tokens → agent-smoke / operations-triage / support-draft through the real pi engine with the live model; all verdicts verified with evaluator attempts) — evidence: `artifacts/implementation/operational-1793224435202/run.json`.
 
 Closed since the morning pass:
 
