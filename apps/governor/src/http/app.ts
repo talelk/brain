@@ -543,7 +543,11 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       const stop = () => { server?.close(); brain.close(); process.exit(0); };
       process.on("SIGTERM", stop);
       process.on("SIGINT", stop);
-      setInterval(() => { try { brain.expireLeases(); brain.projectOutbox(); } catch { /* timers never authorize */ } }, 5000).unref();
+      setInterval(() => {
+    try { brain.expireLeases(); brain.projectOutbox(); } catch { /* timers never authorize */ }
+    // Cron dispatch runs on its own cadence; a pass is idempotent and cheap.
+    try { brain.runScheduledDispatch(); } catch { /* a bad release must not break expiry */ }
+  }, 5000).unref();
     },
     async close() {
       server?.close();

@@ -1,7 +1,7 @@
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["node_modules/**", "**/dist/**", "contracts/**", "scripts/*.py", "packages/contracts/src/brain.generated.ts", "packages/contracts/src/ports.ts", "review.browser.mjs", "review.phase2.mjs", "review.phase3.mjs"] },
+  { ignores: ["node_modules/**", "**/dist/**", "contracts/**", "scripts/*.py", "packages/contracts/src/brain.generated.ts", "packages/contracts/src/ports.ts", "review.browser.mjs", "review.phase2.mjs", "review.phase3.mjs", "review.*.mjs"] },
   ...tseslint.configs.recommended,
   {
     files: ["**/*.ts", "**/*.tsx"],

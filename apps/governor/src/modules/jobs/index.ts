@@ -7,3 +7,6 @@ export {
   completeAttempt, releaseAttempt, releaseReservation, expireLeases, runnerView,
   readExecutionArtifact, ensureExecutionArtifact, casPathOf,
 } from "./attempts";
+export { runScheduledDispatch } from "./scheduler";
+export {
+} from "./attempts";

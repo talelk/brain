@@ -25,6 +25,7 @@ import {
   completeAttempt as jobsCompleteAttempt, enrollRunner, expireLeases as jobsExpireLeases, heartbeat,
   issueEnrollment, readExecutionArtifact as jobsReadExecutionArtifact, releaseAttempt as jobsReleaseAttempt,
   releaseReservation as jobsReleaseReservation, renewAttempt as jobsRenewAttempt, runnerChallenge,
+  runScheduledDispatch,
   runnerHello, runnerView as jobsRunnerView,
 } from "../modules/jobs/index";
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
@@ -704,6 +705,16 @@ export class Brain {
 
   expireLeases(): number {
     return jobsExpireLeases(this.store);
+  }
+
+  // Declared Schedule documents in the active release, fired once per due
+  // minute; the maintenance loop calls this alongside lease expiry.
+  runScheduledDispatch(): { dispatched: number; skipped: number } {
+    return runScheduledDispatch(this.store, {
+      activeRelease: (organizationId) => this.activeRelease(organizationId),
+      resolveWorkflow: (organizationId, workflowId) => this.workflowFromRelease(organizationId, workflowId),
+      startRun: (input) => this.workflows.startRun(input as Parameters<WorkflowEnginePort["startRun"]>[0]),
+    });
   }
 
   // --- CAS artifacts ---
