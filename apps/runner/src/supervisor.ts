@@ -103,7 +103,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string): Promise<
   const claim = await req(cfg, sessionToken, "/runner/v1/claim", { requestId: `claim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
   if (claim.status === 204) return false;
   if (claim.status !== 200) throw new Error(`claim failed ${claim.status}: ${JSON.stringify(claim.json)}`);
-  const offer = claim.json as { attemptId: string; jobId: string; workspaceId: string; leaseId: string; jobFence: number; configDigest: string; toolPins?: Record<string, string>; execution: { kind: string; artifact: { artifactId: string; digest: string; bytes: number } } };
+  const offer = claim.json as { attemptId: string; jobId: string; workspaceId: string; organizationId?: string; workflowRunId?: string; attemptNumber?: number; sourceRevision?: string; leaseId: string; jobFence: number; configDigest: string; toolPins?: Record<string, string>; authorEvidence?: { toolReleases: { id: string; digest: string }[]; claimedChecks: unknown[] }; execution: { kind: string; artifact: { artifactId: string; digest: string; bytes: number } } };
   const ack = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/ack`, { leaseId: offer.leaseId, jobFence: offer.jobFence });
   if (ack.status !== 200) throw new Error(`ack failed ${ack.status}`);
   // Execution input travels as a digest-pinned CAS artifact, never inline.
@@ -248,6 +248,46 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string): Promise<
         if (r.status !== 201) throw new Error(`attempt artifact upload failed ${r.status}: ${JSON.stringify(r.json)}`);
         return emit("effect", { phase: "output-pinned", artifact: r.json });
       }).catch((e: unknown) => { void emit("error", { phase: "output-pin-failed", detail: e instanceof Error ? e.message : "upload failed" }); });
+    }
+    // T27: the author's evidence bundle is produced by the runner from the
+    // offer's Governor-computed claim structure plus its own uploaded
+    // artifact, and submitted before completion so the job can be admitted to
+    // its independent evaluator while the author stays `verifying`.
+    if (result.ok && !assignment && offer.authorEvidence && offer.authorEvidence.claimedChecks.length > 0 && offer.workflowRunId) {
+      try {
+        const upload = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/artifacts`, {
+          digest: sha256Digest(new TextEncoder().encode(JSON.stringify(output))),
+          mediaType: "application/json",
+          bytesBase64: Buffer.from(new TextEncoder().encode(JSON.stringify(output))).toString("base64"),
+        });
+        if (upload.status !== 201) throw new Error(`artifact upload failed ${upload.status}`);
+        const artifact = upload.json as { artifactId: string; digest: string; bytes: number };
+        const bundle = {
+          contractVersion: "brain.evidence/v1",
+          bundleId: `bundle-${offer.attemptId}`,
+          organizationId: offer.organizationId ?? "",
+          workspaceId: offer.workspaceId,
+          workflowRunId: offer.workflowRunId,
+          jobId: offer.jobId,
+          attemptId: offer.attemptId,
+          jobFence: offer.jobFence,
+          sourceRevision: offer.sourceRevision ?? "",
+          configDigest: offer.configDigest,
+          workflowDigest: (offer as { workflowDigest?: string }).workflowDigest ?? offer.configDigest,
+          primitiveVersions: (offer as { primitiveVersions?: Record<string, string> }).primitiveVersions ?? {},
+          toolReleases: offer.authorEvidence.toolReleases,
+          artifacts: [{ ...artifact, mediaType: "application/json", classification: "internal" }],
+          checks: offer.authorEvidence.claimedChecks,
+          approvalIds: [],
+          effects: [],
+          createdAt: new Date().toISOString(),
+        };
+        const submitted = await req(cfg, sessionToken, "/runner/v1/evidence", bundle);
+        if (submitted.status !== 200) throw new Error(`evidence submit failed ${submitted.status}: ${JSON.stringify(submitted.json)}`);
+        await emit("effect", { phase: "author-bundle-submitted", bundleId: bundle.bundleId, digest: (submitted.json as { digest?: string }).digest });
+      } catch (e) {
+        await emit("error", { phase: "author-bundle-failed", detail: e instanceof Error ? e.message : "bundle submission failed" });
+      }
     }
     // A lost lease or a fired deadline means the effect may have happened
     // without authority to report it: never claim success, surface

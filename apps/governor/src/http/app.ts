@@ -433,6 +433,21 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       return c.json(brain.issuePermit(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
     } catch (e) { return fail(c as never, e); }
   });
+  app.post("/v1/runners/:id/trust", async (c) => {
+    try {
+      const { actor } = await actorFor(c);
+      const body = (await readJson(c)) as { domain?: string; reason?: string };
+      return c.json(brain.verifyTrustDomain(actor, { runnerId: c.req.param("id"), domain: String(body.domain ?? ""), reason: String(body.reason ?? "") }) as never);
+    } catch (e) { return fail(c as never, e); }
+  });
+  app.delete("/v1/runners/:id/trust", async (c) => {
+    try {
+      const { actor } = await actorFor(c);
+      const body = (await readJson(c)) as { domain?: string; reason?: string };
+      brain.revokeTrustDomain(actor, { runnerId: c.req.param("id"), domain: String(body.domain ?? ""), reason: String(body.reason ?? "") });
+      return new Response(null, { status: 204 });
+    } catch (e) { return fail(c as never, e); }
+  });
   app.post("/runner/v1/permits/validate", async (c) => {
     try {
       brain.authRunner(c.req.raw.headers);

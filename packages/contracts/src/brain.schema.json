@@ -2633,14 +2633,47 @@
             "kind",
             "artifact"
           ],
-        "additionalProperties": false
+          "additionalProperties": false
         },
         "toolPins": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/Digest" }
+          "additionalProperties": {
+            "$ref": "#/$defs/Digest"
+          }
         },
         "grantRef": {
           "$ref": "#/$defs/Id"
+        },
+        "sourceRevision": {
+          "type": "string"
+        },
+        "primitiveVersions": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/Digest"
+          }
+        },
+        "authorEvidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "toolReleases",
+            "claimedChecks"
+          ],
+          "properties": {
+            "toolReleases": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ReleaseRef"
+              }
+            },
+            "claimedChecks": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CheckResult"
+              }
+            }
+          }
         }
       },
       "required": [
@@ -5009,52 +5042,98 @@
       "properties": {
         "bundleDigests": {
           "type": "array",
-          "items": { "$ref": "#/$defs/Digest" },
+          "items": {
+            "$ref": "#/$defs/Digest"
+          },
           "minItems": 1,
           "maxItems": 100,
           "uniqueItems": true
         },
-        "evaluatorRelease": { "$ref": "#/$defs/ReleaseRef" },
+        "evaluatorRelease": {
+          "$ref": "#/$defs/ReleaseRef"
+        },
         "requiredChecks": {
           "type": "array",
-          "items": { "$ref": "#/$defs/ConfigId" },
+          "items": {
+            "$ref": "#/$defs/ConfigId"
+          },
           "minItems": 1,
           "maxItems": 100,
           "uniqueItems": true
         },
         "criteria": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/ConfigId" },
+          "additionalProperties": {
+            "$ref": "#/$defs/ConfigId"
+          },
           "minProperties": 1,
           "maxProperties": 100
         },
-        "independence": { "type": "string", "enum": ["L1", "L2", "L3"] }
+        "independence": {
+          "type": "string",
+          "enum": [
+            "L1",
+            "L2",
+            "L3"
+          ]
+        }
       },
-      "required": ["bundleDigests", "evaluatorRelease", "requiredChecks", "criteria", "independence"],
+      "required": [
+        "bundleDigests",
+        "evaluatorRelease",
+        "requiredChecks",
+        "criteria",
+        "independence"
+      ],
       "additionalProperties": false
     },
     "RunnerVerdictRequest": {
       "type": "object",
       "properties": {
-        "workspaceId": { "$ref": "#/$defs/Id" },
-        "verdict": { "$ref": "#/$defs/VerificationVerdict" }
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "verdict": {
+          "$ref": "#/$defs/VerificationVerdict"
+        }
       },
-      "required": ["workspaceId", "verdict"],
+      "required": [
+        "workspaceId",
+        "verdict"
+      ],
       "additionalProperties": false
     },
     "EvidenceSubmissionResult": {
       "type": "object",
-      "properties": { "digest": { "$ref": "#/$defs/Digest" } },
-      "required": ["digest"],
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "digest"
+      ],
       "additionalProperties": false
     },
     "VerificationReceipt": {
       "type": "object",
       "properties": {
-        "verdictId": { "$ref": "#/$defs/Id" },
-        "outcome": { "type": "string", "enum": ["verified", "rejected", "incomplete"] }
+        "verdictId": {
+          "$ref": "#/$defs/Id"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "rejected",
+            "incomplete"
+          ]
+        }
       },
-      "required": ["verdictId", "outcome"],
+      "required": [
+        "verdictId",
+        "outcome"
+      ],
       "additionalProperties": false
     },
     "EvidenceBundle": {

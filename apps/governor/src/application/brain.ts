@@ -30,6 +30,7 @@ import {
   runnerHello, runnerView as jobsRunnerView,
 } from "../modules/jobs/index";
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
+import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
 // releaseReservation is used by reconcileJob above via the jobs module index.
 
 export class Brain {
@@ -760,6 +761,14 @@ export class Brain {
 
   readReleaseTool(runner: { runnerId: string; epoch: number; organizationId: string }, releaseDigest: string, toolId: string): { entrypoint: string; entrypointDigest: string; bytes: Uint8Array } {
     return readReleaseToolScript(this.store, runner.organizationId, releaseDigest, toolId);
+  }
+
+  verifyTrustDomain(actor: ActorContext, input: { runnerId: string; domain: string; reason: string }): { capability: string; expiresAtMs: number } {
+    return governanceVerifyTrustDomain(this.store, actor, input);
+  }
+
+  revokeTrustDomain(actor: ActorContext, input: { runnerId: string; domain: string; reason: string }): void {
+    revokeTrustDomain(this.store, actor, input);
   }
 
   expireLeases(): number {

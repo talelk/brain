@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { JsonValue } from "@brain/contracts";
 import { domainDigest, sha256Digest } from "@brain/contracts";
 import { releaseToolPins } from "../configuration/index";
+import { authorEvidenceFor } from "../evidence/index";
 import { BrainDomainError } from "../../domain/errors";
 import { evaluateRunner, type RunnerView } from "../../domain/placement";
 import { iso } from "../../domain/clock";
@@ -179,6 +180,7 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
     : payloadRow?.kind === "merge" ? "merge"
     : parsedPayload.step?.uses?.type === "agent" ? "agent" : "tool";
   const toolPins = releaseToolPins(s, String(row["config_digest"]));
+  const authorEvidence = authorEvidenceFor(s, String(row["organization_id"]), String(row["workspace_id"]), String(row["workflow_run_id"]), String(row["config_digest"]));
   return {
     contractVersion: "brain.job-offer/v1", jobId: String(row["job_id"]), attemptId,
     runnerId: String(row["runner_id"]), runnerEpoch: Number(row["runner_epoch"]), leaseId: String(row["lease_id"]),
@@ -188,6 +190,9 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
     placement: JSON.parse(String(row["placement_json"])),
     execution: { kind, artifact: { artifactId: artifact.artifactId, digest: artifact.digest, bytes: artifact.bytes, mediaType: "application/json", classification: "internal" } },
     toolPins,
+    sourceRevision: authorEvidence.sourceRevision,
+    primitiveVersions: authorEvidence.primitiveVersions,
+    authorEvidence: { toolReleases: authorEvidence.toolReleases, claimedChecks: authorEvidence.claimedChecks },
     grantRef: `grant-${attemptId}`,
   } as unknown as JsonValue;
 }

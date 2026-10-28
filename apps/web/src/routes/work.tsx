@@ -135,13 +135,17 @@ export function DecisionsScreen(props: {
   const [cardId, setCardId] = createSignal("");
   const [decision, setDecision] = createSignal<Decision | "">("");
   const [note, setNote] = createSignal("");
+  const [error, setError] = createSignal("");
   const actorName = (actorId: string) => (actorId === props.viewerId ? props.viewerName ?? actorId : actorId);
   async function record() {
     if (!cardId().trim() || !note().trim() || !decision()) return;
-    await props.onRecord(cardId().trim(), decision() as Decision, note().trim());
-    // The record is verbatim and one-shot: clear the form so a second submit
-    // cannot re-record the same decision against a different card by accident.
-    setCardId(""); setDecision(""); setNote("");
+    setError("");
+    try {
+      await props.onRecord(cardId().trim(), decision() as Decision, note().trim());
+      // The record is verbatim and one-shot: clear the form so a second submit
+      // cannot re-record the same decision against a different card by accident.
+      setCardId(""); setDecision(""); setNote("");
+    } catch (e) { setError(e instanceof Error ? e.message : "The decision was refused."); }
   }
   return (
     <Section title="Recorded decisions" surface="card">
@@ -151,6 +155,7 @@ export function DecisionsScreen(props: {
           <TabButtons label="Decision" options={[{ value: "go", label: "Go" }, { value: "no", label: "No" }, { value: "not-now", label: "Not now" }, { value: "need-more-data", label: "Need more data" }]} value={decision()} onValueChange={(v) => setDecision(v as Decision | "")} />
         </div>
         <Textarea label="Note" value={note()} onInput={(e) => setNote(e.currentTarget.value)} />
+        <Show when={error()}><p role="alert" class="text-base text-ink-red-8">{error()}</p></Show>
         <div>
           <Button disabled={!cardId().trim() || !note().trim() || !decision()} onClick={() => void record()} class="min-h-11">Record decision</Button>
         </div>
