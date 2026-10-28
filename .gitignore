@@ -16,14 +16,15 @@ playwright-report/
 *.pem
 *.key
 
-# Runtime data (SQLite, WAL, spools, artifacts)
+# Runtime data (SQLite, WAL, spools, artifacts) — anchored so source trees
+# like apps/web/src/data/ are never swallowed.
+/data/
+/state/
+/spool/
+/tmp/
 *.db
 *.db-shm
 *.db-wal
-data/
-state/
-spool/
-tmp/
 artifacts/runtime/**/raw/
 
 # Local agent/test state (session logs, checkpoints, caches)
@@ -36,3 +37,4 @@ artifacts/runtime/**/raw/
 .vscode/
 __pycache__/
 *.pyc
+.zcode/

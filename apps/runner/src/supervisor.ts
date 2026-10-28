@@ -50,16 +50,8 @@ export function loadOrCreateKeys(stateDir: string): { publicKeyPem: string; priv
   return { publicKeyPem, privateKeyPem };
 }
 
-export async function enrollAndHello(cfg: RunnerConfig, enrollToken: string): Promise<{ sessionToken: string; epoch: number; credential: string }> {
+async function challengeHello(cfg: RunnerConfig, credential: string): Promise<{ sessionToken: string; epoch: number }> {
   const keys = loadOrCreateKeys(cfg.stateDir);
-  const credPath = join(cfg.stateDir, "credential.txt");
-  let credential = existsSync(credPath) ? readFileSync(credPath, "utf8").trim() : "";
-  if (!credential) {
-    const enrolled = await req(cfg, undefined, "/runner/v1/enroll", { token: enrollToken, publicKey: keys.publicKeyPem, runnerId: cfg.runnerId });
-    if (enrolled.status !== 201) throw new Error(`enroll failed ${enrolled.status}: ${JSON.stringify(enrolled.json)}`);
-    credential = (enrolled.json as { credential: string }).credential;
-    writeFileSync(credPath, credential, { mode: 0o600 });
-  }
   const chal = await req(cfg, undefined, "/runner/v1/challenges", { runnerId: cfg.runnerId, credential });
   if (chal.status !== 201) throw new Error(`challenge failed ${chal.status}`);
   const { challengeId, nonce } = chal.json as { challengeId: string; nonce: string };
@@ -78,7 +70,31 @@ export async function enrollAndHello(cfg: RunnerConfig, enrollToken: string): Pr
   const hello = await req(cfg, undefined, "/runner/v1/hello", { ...helloBody, proof: { challengeId, signatureBase64url: signature } });
   if (hello.status !== 200) throw new Error(`hello failed ${hello.status}: ${JSON.stringify(hello.json)}`);
   const { sessionToken, epoch } = hello.json as { sessionToken: string; epoch: number };
+  return { sessionToken, epoch };
+}
+
+export async function enrollAndHello(cfg: RunnerConfig, enrollToken: string): Promise<{ sessionToken: string; epoch: number; credential: string }> {
+  const keys = loadOrCreateKeys(cfg.stateDir);
+  const credPath = join(cfg.stateDir, "credential.txt");
+  let credential = existsSync(credPath) ? readFileSync(credPath, "utf8").trim() : "";
+  if (!credential) {
+    const enrolled = await req(cfg, undefined, "/runner/v1/enroll", { token: enrollToken, publicKey: keys.publicKeyPem, runnerId: cfg.runnerId });
+    if (enrolled.status !== 201) throw new Error(`enroll failed ${enrolled.status}: ${JSON.stringify(enrolled.json)}`);
+    credential = (enrolled.json as { credential: string }).credential;
+    writeFileSync(credPath, credential, { mode: 0o600 });
+  }
+  const { sessionToken, epoch } = await challengeHello(cfg, credential);
   return { sessionToken, epoch, credential };
+}
+
+// Runner sessions expire after 15 minutes (Governor-issued); a long-lived
+// supervisor must re-hello with its stored credential to stay authorized.
+// Re-hello also refreshes the 5-minute capability observations.
+export async function refreshSession(cfg: RunnerConfig): Promise<{ sessionToken: string; epoch: number }> {
+  const credPath = join(cfg.stateDir, "credential.txt");
+  const credential = existsSync(credPath) ? readFileSync(credPath, "utf8").trim() : "";
+  if (!credential) throw new Error("runner credential missing; cannot refresh session");
+  return challengeHello(cfg, credential);
 }
 
 export async function runOnce(cfg: RunnerConfig, sessionToken: string): Promise<boolean> {
@@ -155,16 +171,38 @@ export async function startSupervisor(): Promise<void> {
     capabilities: (process.env["BRAIN_RUNNER_CAPABILITIES"] ?? "os:linux,arch:amd64,tool:fixture.echo,tool:fixture.verify,engine:fixture,isolation:ephemeral-container").split(","),
   };
   const enrollToken = process.env["BRAIN_RUNNER_ENROLL_TOKEN"] ?? "";
-  const { sessionToken } = await enrollAndHello(cfg, enrollToken);
+  const initial = await enrollAndHello(cfg, enrollToken);
   console.log(`Brain runner ${cfg.runnerId} connected`);
+  // Session TTL is 15 minutes; refresh proactively at 10 and on any 401.
+  // Refresh happens only between runOnce calls so an in-flight attempt's
+  // token is never revoked mid-flight; the heartbeat just flags staleness.
+  const session = { token: initial.sessionToken, sinceMs: Date.now(), stale: false };
+  const refresh = async (): Promise<void> => {
+    const next = await refreshSession(cfg);
+    session.token = next.sessionToken;
+    session.sinceMs = Date.now();
+    session.stale = false;
+    console.log(`Brain runner ${cfg.runnerId} session refreshed (epoch ${next.epoch})`);
+  };
   let seq = 0;
-  setInterval(() => { seq += 1; void req(cfg, sessionToken, "/runner/v1/heartbeat", { sequence: seq }); }, 15_000).unref();
+  setInterval(() => {
+    seq += 1;
+    void req(cfg, session.token, "/runner/v1/heartbeat", { sequence: seq }).then((r) => {
+      if (r.status === 401) session.stale = true;
+    }, () => { /* transient; claim loop surfaces errors */ });
+  }, 15_000).unref();
   for (;;) {
     try {
-      const worked = await runOnce(cfg, sessionToken);
+      if (session.stale || Date.now() - session.sinceMs > 10 * 60_000) await refresh();
+      const worked = await runOnce(cfg, session.token);
       if (!worked) await new Promise((r) => setTimeout(r, 2000));
     } catch (e) {
-      console.error("runner loop error", e instanceof Error ? e.message : e);
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/\b401\b/.test(msg) && !session.stale) {
+        session.stale = true;
+        try { await refresh(); continue; } catch { /* fall through to backoff */ }
+      }
+      console.error("runner loop error", msg);
       await new Promise((r) => setTimeout(r, 3000));
     }
   }
