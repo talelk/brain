@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes, verify } from "node:crypto";
+import { createHash } from "node:crypto";
 import { createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type {
@@ -15,10 +15,19 @@ import { authorizeCommand, hasWorkspaceMembership, resolveActor, requireWorkspac
 import { compileRelease, type SourceDoc } from "../modules/configuration/index";
 import { MastraWorkflowEngine, type WorkflowEnginePort } from "../modules/workflows/index";
 import { MemoryStore, TencentDbClient } from "../modules/knowledge/index";
-import { approvalCurrentlyUsable, StepUpService } from "../modules/governance/index";
+import { StepUpService } from "../modules/governance/index";
 import { createBrainAuth, bootstrapIdentity, assertHumanIdentity, type BootstrapResult, type BrainAuth } from "../modules/identity/index";
 import { quarantineRestoredAuthority, loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscription, type VapidKeys } from "../modules/operations/index";
 import { EvidenceService } from "../modules/evidence/index";
+import {
+  ackAttempt as jobsAckAttempt, attemptEvents as jobsAttemptEvents, authRunner, claim as jobsClaim,
+  completeAttempt as jobsCompleteAttempt, enrollRunner, expireLeases as jobsExpireLeases, heartbeat,
+  issueEnrollment, readExecutionArtifact as jobsReadExecutionArtifact, releaseAttempt as jobsReleaseAttempt,
+  releaseReservation as jobsReleaseReservation, renewAttempt as jobsRenewAttempt, runnerChallenge,
+  runnerHello, runnerView as jobsRunnerView,
+} from "../modules/jobs/index";
+import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
+// releaseReservation is used by reconcileJob above via the jobs module index.
 
 export class Brain {
   readonly store: Store;
@@ -623,582 +632,73 @@ export class Brain {
     return { status: "confirmed", approvalId, decisionId: saved.decisionId ?? "", subjectDigest: row.subject_digest, state: row.state } as unknown as JsonValue;
   }
 
-  // --- runner protocol ---
+  // --- runner protocol (delegates to modules/jobs) ---
   issueEnrollment(actor: ActorContext, groupId: string): { token: string; expiresAt: string } {
-    if (!actor.scopes.includes("runner:admin")) throw new BrainDomainError("FORBIDDEN", "runner enrollment requires runner:admin");
-    const token = randomBytes(32).toString("base64url");
-    const expires = this.store.now() + 10 * 60_000;
-    this.store.control.prepare("INSERT INTO enrollment_tokens(token_digest, organization_id, group_id, expires_at_ms, created_by) VALUES (?,?,?,?,?)")
-      .run(this.store.tokenDigest("enroll", token), actor.organizationId, groupId, expires, actor.actorId);
-    return { token, expiresAt: iso(expires) };
+    return issueEnrollment(this.store, actor, groupId);
   }
 
   enrollRunner(input: { token: string; publicKeyPem: string; runnerId: string }): { credential: string } {
-    const s = this.store;
-    if (!input.publicKeyPem.includes("BEGIN PUBLIC KEY")) throw new BrainDomainError("INVALID_ARGUMENT", "Ed25519 SPKI PEM required");
-    const credential = randomBytes(32).toString("base64url");
-    s.inTx(s.control, () => {
-      const row = s.control.prepare("SELECT organization_id, group_id, expires_at_ms, consumed_at_ms FROM enrollment_tokens WHERE token_digest=?")
-        .get(s.tokenDigest("enroll", input.token)) as { organization_id: string; group_id: string; expires_at_ms: number; consumed_at_ms: number | null } | undefined;
-      if (!row || row.consumed_at_ms || row.expires_at_ms <= s.now()) throw new BrainDomainError("FORBIDDEN", "enrollment token invalid, expired, or replayed");
-      s.control.prepare(`INSERT INTO runners(id, organization_id, group_id, identity_key_digest, admin_state, health, config_digest, cpu_capacity, memory_capacity, disk_capacity, slot_capacity)
-        VALUES (?,?,?,?,'enabled','healthy','sha256:${"0".repeat(64)}',0,0,0,1)`)
-        .run(input.runnerId, row.organization_id, row.group_id, s.tokenDigest("pubkey", input.publicKeyPem));
-      s.control.prepare("INSERT INTO runner_identity_credentials(runner_id, public_key_spki_pem, credential_digest, expires_at_ms) VALUES (?,?,?,?)")
-        .run(input.runnerId, input.publicKeyPem, s.tokenDigest("runner-cred", credential), s.now() + 365 * 24 * 3600_000);
-      s.control.prepare("UPDATE enrollment_tokens SET consumed_at_ms=?, runner_id=? WHERE token_digest=?").run(s.now(), input.runnerId, s.tokenDigest("enroll", input.token));
-    });
-    return { credential };
+    return enrollRunner(this.store, input);
   }
 
   runnerChallenge(runnerId: string, credential: string): { challengeId: string; nonce: string; expiresAt: string } {
-    const s = this.store;
-    const row = s.control.prepare("SELECT credential_digest, expires_at_ms, revoked_at_ms FROM runner_identity_credentials WHERE runner_id=?").get(runnerId) as
-      | { credential_digest: string; expires_at_ms: number; revoked_at_ms: number | null } | undefined;
-    if (!row || row.revoked_at_ms || row.expires_at_ms <= s.now() || row.credential_digest !== s.tokenDigest("runner-cred", credential)) {
-      throw new BrainDomainError("UNAUTHENTICATED", "runner credential invalid");
-    }
-    const challengeId = s.id("chal");
-    const nonce = randomBytes(32).toString("base64url");
-    const expires = s.now() + 60_000;
-    s.control.prepare("INSERT INTO runner_challenges(id, runner_id, nonce, expires_at_ms) VALUES (?,?,?,?)").run(challengeId, runnerId, nonce, expires);
-    return { challengeId, nonce, expiresAt: iso(expires) };
+    return runnerChallenge(this.store, runnerId, credential);
   }
 
   runnerHello(hello: Record<string, unknown>): { sessionToken: string; epoch: number; serverTime: string } {
-    const s = this.store;
-    // E100: mismatched runner protocol is refused with diagnostics; no
-    // cross-version normalization or upgrade path is attempted.
-    if (hello["contractVersion"] !== "brain.runner/v1") {
-      throw new BrainDomainError("UNSUPPORTED_PROTOCOL", `runner contract ${String(hello["contractVersion"] ?? "absent")} unsupported; expected brain.runner/v1`);
-    }
-    const runnerId = String(hello["runnerId"]);
-    const proof = hello["proof"] as { challengeId: string; signatureBase64url: string };
-    let epoch = 0;
-    let sessionToken = "";
-    s.inTx(s.control, () => {
-      const cred = s.control.prepare("SELECT public_key_spki_pem FROM runner_identity_credentials WHERE runner_id=? AND revoked_at_ms IS NULL").get(runnerId) as { public_key_spki_pem: string } | undefined;
-      if (!cred) throw new BrainDomainError("UNAUTHENTICATED", "runner not enrolled");
-      const chal = s.control.prepare("SELECT nonce, expires_at_ms, consumed_at_ms FROM runner_challenges WHERE id=? AND runner_id=?").get(proof.challengeId, runnerId) as
-        | { nonce: string; expires_at_ms: number; consumed_at_ms: number | null } | undefined;
-      if (!chal || chal.consumed_at_ms || chal.expires_at_ms <= s.now()) throw new BrainDomainError("UNAUTHENTICATED", "challenge invalid or replayed");
-      const rest = Object.fromEntries(Object.entries(hello).filter(([k]) => k !== "proof"));
-      const helloDigest = domainDigest("brain:runner-hello:v1", rest as unknown as JsonValue);
-      const signed = JSON.stringify({ challengeId: proof.challengeId, nonce: chal.nonce, runnerId, bootNonce: hello["bootNonce"], helloDigest });
-      let ok = false;
-      try {
-        ok = verify(null, Buffer.from(signed, "utf8"), cred.public_key_spki_pem, Buffer.from(proof.signatureBase64url, "base64url"));
-      } catch { ok = false; }
-      if (!ok) throw new BrainDomainError("UNAUTHENTICATED", "hello proof verification failed");
-      s.control.prepare("UPDATE runner_challenges SET consumed_at_ms=? WHERE id=?").run(s.now(), proof.challengeId);
-      const runner = s.control.prepare("SELECT session_epoch, boot_nonce, admin_state FROM runners WHERE id=?").get(runnerId) as { session_epoch: number; boot_nonce: string | null; admin_state: string } | undefined;
-      if (!runner) throw new BrainDomainError("UNAUTHENTICATED", "runner missing");
-      if (runner.admin_state === "quarantined" || runner.admin_state === "disabled") throw new BrainDomainError("FORBIDDEN", "runner is quarantined/disabled");
-      if (runner.boot_nonce === String(hello["bootNonce"]) && runner.session_epoch > 0) {
-        epoch = runner.session_epoch;
-      } else {
-        epoch = runner.session_epoch + 1;
-        s.control.prepare("UPDATE runner_sessions SET revoked_at_ms=? WHERE runner_id=? AND revoked_at_ms IS NULL").run(s.now(), runnerId);
-      }
-      const capacity = hello["capacity"] as { cpuMillicores: number; memoryMb: number; diskMb: number; slots: number };
-      s.control.prepare(`UPDATE runners SET session_epoch=?, boot_nonce=?, last_heartbeat_ms=?, heartbeat_seq=0, config_digest=?,
-        cpu_capacity=?, memory_capacity=?, disk_capacity=?, slot_capacity=? WHERE id=?`)
-        .run(epoch, String(hello["bootNonce"]), s.now(), String(hello["configDigest"]), capacity?.cpuMillicores ?? 0, capacity?.memoryMb ?? 0, capacity?.diskMb ?? 0, Math.max(1, capacity?.slots ?? 1), runnerId);
-      s.control.prepare("DELETE FROM runner_capabilities WHERE runner_id=?").run(runnerId);
-      for (const cap of (hello["capabilities"] as Array<Record<string, unknown>> | undefined) ?? []) {
-        const capability = String(cap["capability"]);
-        // E033: a hello can never elevate registered trust. Privileged/target
-        // capabilities are stored unverified regardless of self-assertion;
-        // only a Governor-side verifier may mark them verified. The runner's
-        // group likewise comes from enrollment, never from the hello body.
-        const privilegedClaim = /^(privileged|admin|target|group|trust):/i.test(capability);
-        s.control.prepare("INSERT OR REPLACE INTO runner_capabilities(runner_id, capability, verified, source, observed_at_ms, expires_at_ms) VALUES (?,?,?,?,?,?)")
-          .run(runnerId, capability, privilegedClaim ? 0 : cap["verified"] ? 1 : 0, String(cap["source"] ?? "hello"), s.now(), s.now() + 5 * 60_000);
-      }
-      sessionToken = randomBytes(32).toString("base64url");
-      s.control.prepare("INSERT INTO runner_sessions(token_digest, runner_id, runner_epoch, expires_at_ms, created_at_ms) VALUES (?,?,?,?,?) ON CONFLICT(runner_id, runner_epoch) DO UPDATE SET token_digest=excluded.token_digest, expires_at_ms=excluded.expires_at_ms, revoked_at_ms=NULL")
-        .run(s.tokenDigest("runner-session", sessionToken), runnerId, epoch, s.now() + 15 * 60_000, s.now());
-    });
-    return { sessionToken, epoch, serverTime: s.nowIso() };
+    return runnerHello(this.store, hello);
   }
 
   authRunner(headers: Headers): { runnerId: string; epoch: number; organizationId: string } {
-    const s = this.store;
-    if (headers.has("cookie")) throw new BrainDomainError("UNAUTHENTICATED", "browser cookies rejected on runner endpoints");
-    const auth = headers.get("authorization") ?? "";
-    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-    if (!token) throw new BrainDomainError("UNAUTHENTICATED", "runner session required");
-    const row = s.control.prepare(`SELECT rs.runner_id, rs.runner_epoch, rs.expires_at_ms, rs.revoked_at_ms, r.organization_id, r.session_epoch
-      FROM runner_sessions rs JOIN runners r ON r.id=rs.runner_id WHERE rs.token_digest=?`).get(s.tokenDigest("runner-session", token)) as
-      | { runner_id: string; runner_epoch: number; expires_at_ms: number; revoked_at_ms: number | null; organization_id: string; session_epoch: number } | undefined;
-    if (!row || row.revoked_at_ms || row.expires_at_ms <= s.now() || row.runner_epoch !== row.session_epoch) {
-      throw new BrainDomainError("UNAUTHENTICATED", "runner session stale or revoked");
-    }
-    return { runnerId: row.runner_id, epoch: row.runner_epoch, organizationId: row.organization_id };
+    return authRunner(this.store, headers);
   }
 
   heartbeat(runner: { runnerId: string; epoch: number }, body: Record<string, unknown>): { acceptedSequence: number } {
-    const s = this.store;
-    const seq = Number(body["sequence"] ?? 0);
-    const digest = domainDigest("brain:heartbeat:v1", body as unknown as JsonValue);
-    s.inTx(s.control, () => {
-      const row = s.control.prepare("SELECT session_epoch, heartbeat_seq, heartbeat_digest FROM runners WHERE id=?").get(runner.runnerId) as
-        | { session_epoch: number; heartbeat_seq: number; heartbeat_digest: string | null } | undefined;
-      if (!row || row.session_epoch !== runner.epoch) throw new BrainDomainError("LEASE_LOST", "runner epoch fenced");
-      if (seq === row.heartbeat_seq && row.heartbeat_digest === digest) return;
-      if (seq <= row.heartbeat_seq) throw new BrainDomainError("CONFLICT", "heartbeat sequence regression or changed payload");
-      s.control.prepare("UPDATE runners SET heartbeat_seq=?, heartbeat_digest=?, last_heartbeat_ms=? WHERE id=?").run(seq, digest, s.now(), runner.runnerId);
-    });
-    return { acceptedSequence: seq };
+    return heartbeat(this.store, runner, body);
   }
 
   private runnerView(runnerId: string): RunnerView | undefined {
-    const s = this.store;
-    const r = s.control.prepare(`SELECT id, group_id, admin_state, health, last_heartbeat_ms, cpu_capacity, memory_capacity, disk_capacity, slot_capacity,
-      cpu_reserved, memory_reserved, disk_reserved, slots_reserved FROM runners WHERE id=?`).get(runnerId) as Record<string, unknown> | undefined;
-    if (!r) return undefined;
-    const caps = new Map<string, { verified: boolean; expiresAtMs: number }>();
-    for (const c of s.control.prepare("SELECT capability, verified, expires_at_ms FROM runner_capabilities WHERE runner_id=?").all(runnerId) as Array<Record<string, unknown>>) {
-      caps.set(String(c["capability"]), { verified: Number(c["verified"]) === 1, expiresAtMs: Number(c["expires_at_ms"]) });
-    }
-    const engines = (s.control.prepare("SELECT capability FROM runner_capabilities WHERE runner_id=? AND capability LIKE 'engine:%'").all(runnerId) as Array<{ capability: string }>)
-      .map((e) => e.capability.slice("engine:".length));
-    return {
-      id: runnerId, groupId: String(r["group_id"]), adminState: String(r["admin_state"]), health: String(r["health"]),
-      online: Number(r["last_heartbeat_ms"] ?? 0) > s.now() - 45_000,
-      capabilities: caps,
-      capacity: { cpuMillicores: Number(r["cpu_capacity"]), memoryMb: Number(r["memory_capacity"]), diskMb: Number(r["disk_capacity"]), slots: Number(r["slot_capacity"]) },
-      reserved: { cpuMillicores: Number(r["cpu_reserved"]), memoryMb: Number(r["memory_reserved"]), diskMb: Number(r["disk_reserved"]), slots: Number(r["slots_reserved"]) },
-      reserve: { cpuMillicores: 500, memoryMb: 1024, diskMb: 0, slots: 0 },
-      isolation: caps.has("isolation:ephemeral-container") ? "ephemeral-container" : "ephemeral-container",
-      engines,
-    };
+    return jobsRunnerView(this.store, runnerId);
   }
 
   claim(runner: { runnerId: string; epoch: number; organizationId: string }, requestId: string): JsonValue | null {
-    const s = this.store;
-    let offer: JsonValue | null = null;
-    s.inTx(s.control, () => {
-      const priorClaim = s.control.prepare("SELECT attempt_id FROM runner_claim_requests WHERE runner_id=? AND runner_epoch=? AND request_id=?").get(runner.runnerId, runner.epoch, requestId) as { attempt_id: string | null } | undefined;
-      if (priorClaim?.attempt_id) {
-        offer = this.offerJson(priorClaim.attempt_id);
-        return;
-      }
-      const view = this.runnerView(runner.runnerId);
-      if (!view) throw new BrainDomainError("UNAUTHENTICATED", "runner missing");
-      // Fair paging (E047/E048/E049): scan beyond the first 100-row page with a
-      // keyset cursor so an eligible job is eventually found, cap effective
-      // priority, and prefer the workspace with the fewest in-flight attempts
-      // so one workspace cannot starve the others by inflating priority.
-      const eligible: Array<Record<string, unknown>> = [];
-      let afterPriority: number | null = null;
-      let afterCreated: number | null = null;
-      let afterId: string | null = null;
-      for (let page = 0; page < 10; page++) {
-        const rows = (afterPriority === null
-          ? s.control.prepare(`SELECT id, workspace_id, placement_json, version, workflow_run_id, step_id, config_digest, effect_class, priority, created_at_ms
-              FROM jobs WHERE organization_id=? AND state='queued' AND deadline_ms>? AND EXISTS (SELECT 1 FROM workspaces w WHERE w.id=jobs.workspace_id AND w.organization_id=jobs.organization_id AND w.status='active') ORDER BY priority DESC, created_at_ms ASC, id ASC LIMIT 100`)
-              .all(runner.organizationId, s.now())
-          : s.control.prepare(`SELECT id, workspace_id, placement_json, version, workflow_run_id, step_id, config_digest, effect_class, priority, created_at_ms
-              FROM jobs WHERE organization_id=? AND state='queued' AND deadline_ms>? AND EXISTS (SELECT 1 FROM workspaces w WHERE w.id=jobs.workspace_id AND w.organization_id=jobs.organization_id AND w.status='active')
-              AND (priority < ? OR (priority = ? AND created_at_ms > ?) OR (priority = ? AND created_at_ms = ? AND id > ?))
-              ORDER BY priority DESC, created_at_ms ASC, id ASC LIMIT 100`)
-              .all(runner.organizationId, s.now(), afterPriority, afterPriority, afterCreated, afterPriority, afterCreated, afterId)) as Array<Record<string, unknown>>;
-        if (rows.length === 0) break;
-        for (const job of rows) {
-          const placement = JSON.parse(String(job["placement_json"])) as import("@brain/contracts").Placement;
-          const demand = placement.resources ?? { cpuMillicores: 500, memoryMb: 512, diskMb: 512, slots: 1 };
-          if (evaluateRunner(placement, demand, view, s.now()).eligible && this.evidence.evaluatorEligible(runner.runnerId,String(job["id"]))) eligible.push(job);
-        }
-        const last = rows[rows.length - 1]!;
-        afterPriority = Number(last["priority"] ?? 0);
-        afterCreated = Number(last["created_at_ms"] ?? 0);
-        afterId = String(last["id"]);
-        if (eligible.length > 0 && page > 0) break;
-        if (rows.length < 100) break;
-      }
-      const inFlight = new Map<string, number>();
-      for (const row of s.control.prepare(`SELECT j.workspace_id AS ws, COUNT(*) AS n FROM job_attempts a JOIN jobs j ON j.id=a.job_id
-        WHERE a.state IN ('offered','running') GROUP BY j.workspace_id`).all() as Array<{ ws: string; n: number }>) {
-        inFlight.set(row.ws, row.n);
-      }
-      eligible.sort((a, b) => {
-        const fa = inFlight.get(String(a["workspace_id"])) ?? 0;
-        const fb = inFlight.get(String(b["workspace_id"])) ?? 0;
-        if (fa !== fb) return fa - fb;
-        const pa = Math.min(Number(a["priority"] ?? 0), 100);
-        const pb = Math.min(Number(b["priority"] ?? 0), 100);
-        if (pb !== pa) return pb - pa;
-        const ca = Number(a["created_at_ms"] ?? 0) - Number(b["created_at_ms"] ?? 0);
-        return ca !== 0 ? ca : String(a["id"]).localeCompare(String(b["id"]));
-      });
-      for (const job of eligible) {
-        const placement = JSON.parse(String(job["placement_json"])) as import("@brain/contracts").Placement;
-        const demand = placement.resources ?? { cpuMillicores: 500, memoryMb: 512, diskMb: 512, slots: 1 };
-        const attemptId = s.id("att");
-        const leaseId = s.id("lease");
-        const upd = s.control.prepare(`UPDATE runners SET cpu_reserved=cpu_reserved+?, memory_reserved=memory_reserved+?, disk_reserved=disk_reserved+?, slots_reserved=slots_reserved+?
-          WHERE id=? AND cpu_capacity-500-cpu_reserved>=? AND memory_capacity-1024-memory_reserved>=? AND disk_capacity-disk_reserved>=? AND slot_capacity-slots_reserved>=?`)
-          .run(demand.cpuMillicores, demand.memoryMb, demand.diskMb, demand.slots, runner.runnerId, demand.cpuMillicores, demand.memoryMb, demand.diskMb, demand.slots);
-        if (upd.changes !== 1) continue;
-        const jobUpd = s.control.prepare("UPDATE jobs SET state='offered', attempt_counter=attempt_counter+1, job_fence=job_fence+1, version=version+1 WHERE id=? AND state='queued' AND version=?")
-          .run(String(job["id"]), Number(job["version"]));
-        if (jobUpd.changes !== 1) throw new BrainDomainError("CONFLICT", "job claim race lost; transaction rolled back");
-        const fresh = s.control.prepare("SELECT attempt_counter, job_fence FROM jobs WHERE id=?").get(String(job["id"])) as { attempt_counter: number; job_fence: number };
-        s.control.prepare(`INSERT INTO job_attempts(id, job_id, runner_id, runner_epoch, attempt_no, lease_id, job_fence, state, offer_expires_at_ms, lease_expires_at_ms)
-          VALUES (?,?,?,?,?,?,?,'offered',?,?)`).run(attemptId, String(job["id"]), runner.runnerId, runner.epoch, fresh.attempt_counter, leaseId, fresh.job_fence, s.now() + 10_000, s.now() + 10_000);
-        s.control.prepare("INSERT INTO capacity_reservations(attempt_id, runner_id, cpu, memory, disk, slots) VALUES (?,?,?,?,?,?)")
-          .run(attemptId, runner.runnerId, Math.max(1, demand.cpuMillicores), Math.max(1, demand.memoryMb), Math.max(1, demand.diskMb), Math.max(1, demand.slots));
-        s.control.prepare("INSERT INTO runner_claim_requests(runner_id, runner_epoch, request_id, attempt_id, request_digest, created_at_ms) VALUES (?,?,?,?,?,?)")
-          .run(runner.runnerId, runner.epoch, requestId, attemptId, requestId, s.now());
-        offer = this.offerJson(attemptId);
-        return;
-      }
-      s.control.prepare("INSERT OR IGNORE INTO runner_claim_requests(runner_id, runner_epoch, request_id, attempt_id, request_digest, created_at_ms) VALUES (?,?,?,NULL,?,?)")
-        .run(runner.runnerId, runner.epoch, requestId, requestId, s.now());
-    });
-    return offer;
-  }
-
-  // Materializes a job's execution payload as a scoped CAS artifact so the
-  // JobOffer references durable bytes instead of inlining the payload (T02).
-  private ensureExecutionArtifact(jobId: string, organizationId: string, workspaceId: string, payloadText: string): { artifactId: string; digest: string; bytes: number } {
-    const s = this.store;
-    const artifactId = `exec-${jobId}`;
-    const bytes = new TextEncoder().encode(payloadText);
-    const digest = sha256Digest(bytes);
-    const existing = s.control.prepare("SELECT digest FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(artifactId, organizationId) as { digest: string } | undefined;
-    if (existing) {
-      if (existing.digest !== digest) throw new BrainDomainError("CONFLICT", "job execution artifact already pinned to different bytes");
-      return { artifactId, digest, bytes: bytes.length };
-    }
-    const path = this.casPath(digest);
-    mkdirSync(join(path, ".."), { recursive: true });
-    if (!existsSync(path)) writeFileSync(path, bytes);
-    s.control.prepare(`INSERT OR IGNORE INTO artifact_associations(artifact_id, organization_id, workspace_id, digest, owner_kind, owner_id, classification, verified_at_ms)
-      VALUES (?,?,?,?,'job',?,'internal',?)`).run(artifactId, organizationId, workspaceId, digest, jobId, s.now());
-    const ws = s.workspaceDb(workspaceId, organizationId);
-    ws.prepare("INSERT OR IGNORE INTO artifacts(id, digest, bytes, media_type, classification, state, created_at_ms) VALUES (?,?,?, 'application/json','internal','verified',?)")
-      .run(artifactId, digest, bytes.length, s.now());
-    return { artifactId, digest, bytes: bytes.length };
+    return jobsClaim(this.store, { isEvaluatorEligible: (runnerId, jobId) => this.evidence.evaluatorEligible(runnerId, jobId) }, runner, requestId);
   }
 
   readExecutionArtifact(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string): Uint8Array {
-    const s = this.store;
-    const row = this.loadAttempt(attemptId);
-    if (String(row["organization_id"]) !== runner.organizationId) throw new BrainDomainError("NOT_FOUND", "attempt not found");
-    this.assertAttemptLive(runner, row);
-    const artifactId = `exec-${String(row["job_id"])}`;
-    const assoc = s.control.prepare("SELECT digest FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(artifactId, runner.organizationId) as { digest: string } | undefined;
-    if (!assoc) throw new BrainDomainError("EVIDENCE_MISSING", "execution artifact not materialized");
-    const path = this.casPath(assoc.digest);
-    if (!existsSync(path)) throw new BrainDomainError("EVIDENCE_MISSING", "execution artifact bytes missing");
-    const bytes = readFileSync(path);
-    if (sha256Digest(bytes) !== assoc.digest) throw new BrainDomainError("EVIDENCE_MISSING", "execution artifact bytes corrupted");
-    return bytes;
-  }
-
-  private offerJson(attemptId: string): JsonValue {
-    const s = this.store;
-    const row = s.control.prepare(`SELECT a.id AS attempt_id, a.job_id, a.runner_id, a.runner_epoch, a.lease_id, a.job_fence, a.attempt_no, a.offer_expires_at_ms,
-      j.organization_id, j.workspace_id, j.config_digest, j.placement_json, j.workflow_run_id, j.step_id
-      FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE a.id=?`).get(attemptId) as Record<string, unknown> | undefined;
-    if (!row) throw new BrainDomainError("NOT_FOUND", "attempt not found");
-    const payloadRow = s.control.prepare("SELECT kind, payload_json FROM job_payloads WHERE job_id=?").get(String(row["job_id"])) as { kind: string; payload_json: string } | undefined;
-    const artifactText = payloadRow?.payload_json ?? "{}";
-    const artifact = this.ensureExecutionArtifact(String(row["job_id"]), String(row["organization_id"]), String(row["workspace_id"]), artifactText);
-    let workflowDigest = String(row["config_digest"]);
-    try {
-      const ws = s.workspaceDb(String(row["workspace_id"]), String(row["organization_id"]));
-      const runRow = ws.prepare("SELECT workflow_digest FROM workflow_runs WHERE id=?").get(String(row["workflow_run_id"])) as { workflow_digest: string } | undefined;
-      if (runRow) workflowDigest = runRow.workflow_digest;
-    } catch { /* direct jobs without a run keep the config digest */ }
-    const parsedPayload = JSON.parse(artifactText) as { step?: { uses?: { type?: string } } };
-    const kind = payloadRow?.kind === "eval" ? "eval"
-      : payloadRow?.kind === "merge" ? "merge"
-      : parsedPayload.step?.uses?.type === "agent" ? "agent" : "tool";
-    return {
-      contractVersion: "brain.job-offer/v1", jobId: String(row["job_id"]), attemptId,
-      runnerId: String(row["runner_id"]), runnerEpoch: Number(row["runner_epoch"]), leaseId: String(row["lease_id"]),
-      jobFence: Number(row["job_fence"]), organizationId: String(row["organization_id"]), workspaceId: String(row["workspace_id"]),
-      attemptNumber: Number(row["attempt_no"]), offerExpiresAt: iso(Number(row["offer_expires_at_ms"])),
-      configDigest: String(row["config_digest"]), workflowDigest,
-      placement: JSON.parse(String(row["placement_json"])),
-      execution: { kind, artifact: { artifactId: artifact.artifactId, digest: artifact.digest, bytes: artifact.bytes, mediaType: "application/json", classification: "internal" } },
-      grantRef: `grant-${attemptId}`,
-    } as unknown as JsonValue;
-  }
-
-  private loadAttempt(attemptId: string): Record<string, unknown> {
-    const row = this.store.control.prepare(`SELECT a.*, j.organization_id, j.workspace_id, j.workflow_run_id, j.step_id, j.job_fence AS current_job_fence,j.state AS job_state, j.version AS job_version
-      FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE a.id=?`).get(attemptId) as Record<string, unknown> | undefined;
-    if (!row) throw new BrainDomainError("NOT_FOUND", "attempt not found");
-    return row;
-  }
-
-  private assertAttemptLive(runner: { runnerId: string; epoch: number }, row: Record<string, unknown>, leaseId?: string, jobFence?: number): void {
-    const s = this.store;
-    if (String(row["runner_id"]) !== runner.runnerId) throw new BrainDomainError("FORBIDDEN", "attempt belongs to another runner");
-    if (Number(row["runner_epoch"]) !== runner.epoch) throw new BrainDomainError("LEASE_LOST", "runner epoch fenced");
-    const currentRunner = s.control.prepare("SELECT session_epoch,admin_state FROM runners WHERE id=?").get(runner.runnerId) as { session_epoch: number; admin_state: string } | undefined;
-    if (!currentRunner || currentRunner.session_epoch !== runner.epoch || ["quarantined","disabled"].includes(currentRunner.admin_state) || row["job_fence"] !== row["current_job_fence"]) throw new BrainDomainError("LEASE_LOST", "runner or job is fenced");
-    if (leaseId && String(row["lease_id"]) !== leaseId) throw new BrainDomainError("LEASE_LOST", "lease mismatch");
-    if (jobFence !== undefined && Number(row["job_fence"]) !== jobFence) throw new BrainDomainError("LEASE_LOST", "job fence stale");
-    if (Number(row["lease_expires_at_ms"]) <= s.now() && String(row["state"]) === "running") throw new BrainDomainError("LEASE_LOST", "lease expired");
-    s.assertWorkspaceActive(String(row["workspace_id"]), String(row["organization_id"]));
+    return jobsReadExecutionArtifact(this.store, runner, attemptId);
   }
 
   ackAttempt(runner: { runnerId: string; epoch: number }, attemptId: string, body: Record<string, unknown>): JsonValue {
-    const s = this.store;
-    let result: JsonValue = null;
-    s.inTx(s.control, () => {
-      const row = this.loadAttempt(attemptId);
-      this.assertAttemptLive(runner, row, String(body["leaseId"] ?? ""), Number(body["jobFence"] ?? row["job_fence"]));
-      if (String(row["state"]) === "running") { result = { attemptId, leaseExpiresAt: iso(Number(row["lease_expires_at_ms"])) } as unknown as JsonValue; return; }
-      if (String(row["state"]) !== "offered") throw new BrainDomainError("CONFLICT", "attempt not offered");
-      if (Number(row["offer_expires_at_ms"]) <= s.now()) throw new BrainDomainError("LEASE_LOST", "offer expired");
-      const expires = s.now() + 60_000;
-      s.control.prepare("UPDATE job_attempts SET state='running', lease_expires_at_ms=? WHERE id=?").run(expires, attemptId);
-      s.control.prepare("UPDATE jobs SET state='running', version=version+1 WHERE id=?").run(String(row["job_id"]));
-      result = { attemptId, leaseId: String(row["lease_id"]), jobFence: Number(row["job_fence"]), leaseExpiresAt: iso(expires) } as unknown as JsonValue;
-    });
-    return result;
+    return jobsAckAttempt(this.store, runner, attemptId, body);
   }
 
   renewAttempt(runner: { runnerId: string; epoch: number }, attemptId: string, body: Record<string, unknown>): JsonValue {
-    const s = this.store;
-    let expires = 0;
-    s.inTx(s.control, () => {
-      const row = this.loadAttempt(attemptId);
-      this.assertAttemptLive(runner, row, String(body["leaseId"] ?? ""), Number(body["jobFence"] ?? row["job_fence"]));
-      if (String(row["state"]) !== "running") throw new BrainDomainError("CONFLICT", "attempt not running");
-      expires = s.now() + 60_000;
-      s.control.prepare("UPDATE job_attempts SET lease_expires_at_ms=? WHERE id=?").run(expires, attemptId);
-    });
-    return { attemptId, leaseExpiresAt: iso(expires) } as unknown as JsonValue;
+    return jobsRenewAttempt(this.store, runner, attemptId, body);
   }
 
   attemptEvents(runner: { runnerId: string; epoch: number }, attemptId: string, body: Record<string, unknown>): JsonValue {
-    const s = this.store;
-    const events = (body["events"] as Array<Record<string, unknown>> | undefined) ?? [];
-    if (events.length > 128) throw new BrainDomainError("PAYLOAD_TOO_LARGE", "event batch exceeds 128");
-    // E063: malformed stream items are contained — rejected with diagnostics
-    // before any sequence advance, never coerced (NaN would poison lastSeq).
-    for (const ev of events) {
-      if (!ev || typeof ev !== "object" || Array.isArray(ev)) {
-        throw new BrainDomainError("INVALID_CONTRACT", "attempt event must be an object");
-      }
-      const seqRaw = (ev as { sequence?: unknown }).sequence;
-      if (seqRaw !== undefined && (!Number.isSafeInteger(seqRaw) || (seqRaw as number) < 1)) {
-        throw new BrainDomainError("INVALID_CONTRACT", "attempt event sequence must be a positive safe integer");
-      }
-      if (JSON.stringify(ev).length > 64 * 1024) throw new BrainDomainError("PAYLOAD_TOO_LARGE", "attempt event exceeds 64 KiB");
-    }
-    let lastSeq = 0;
-    s.inTx(s.control, () => {
-      const row = this.loadAttempt(attemptId);
-      this.assertAttemptLive(runner, row, String(body["leaseId"] ?? row["lease_id"]), Number(body["jobFence"] ?? row["job_fence"]));
-      lastSeq = Number(row["last_event_seq"]);
-      s.control.exec("CREATE TABLE IF NOT EXISTS attempt_events(attempt_id TEXT NOT NULL, seq INTEGER NOT NULL, event_json TEXT NOT NULL, PRIMARY KEY(attempt_id, seq)) STRICT");
-      for (const ev of events) {
-        const seq = Number((ev as { sequence?: number }).sequence ?? (lastSeq + 1));
-        if (seq <= lastSeq) continue;
-        s.control.prepare("INSERT OR IGNORE INTO attempt_events(attempt_id, seq, event_json) VALUES (?,?,?)").run(attemptId, seq, JSON.stringify(ev));
-        lastSeq = seq;
-      }
-      s.control.prepare("UPDATE job_attempts SET last_event_seq=? WHERE id=?").run(lastSeq, attemptId);
-    });
-    return { attemptId, lastCommittedSequence: lastSeq } as unknown as JsonValue;
+    return jobsAttemptEvents(this.store, runner, attemptId, body);
   }
 
   issuePermit(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, body: Record<string, unknown>): JsonValue {
-    const s = this.store;
-    const invocationId = String(body["invocationId"] ?? "");
-    const subjectDigest = String(body["subjectDigest"] ?? "");
-    const approvalId = body["approvalId"] ? String(body["approvalId"]) : undefined;
-    // E059: canonical conflict identity — differently-cased or slash-suffixed
-    // aliases of one physical target collapse to the same resource key.
-    const resourceKeys = [...new Set(((body["resourceKeys"] as string[] | undefined) ?? [])
-      .map((k) => k.trim().toLowerCase().replace(/\/+$/u, "")))].sort();
-    if (!invocationId || !subjectDigest) throw new BrainDomainError("INVALID_ARGUMENT", "invocationId and subjectDigest required");
-    let out: JsonValue = null;
-    s.inTx(s.control, () => {
-      const prior = s.control.prepare("SELECT id, subject_digest, expires_at_ms, state FROM effect_permits WHERE invocation_id=?").get(invocationId) as
-        | { id: string; subject_digest: string; expires_at_ms: number; state: string } | undefined;
-      if (prior) {
-        if (prior.subject_digest !== subjectDigest) throw new BrainDomainError("IDEMPOTENCY_CONFLICT", "invocation reused with different subject");
-        const cred = s.control.prepare("SELECT token_nonce, key_id FROM permit_credentials WHERE permit_id=?").get(prior.id) as { token_nonce: string; key_id: string } | undefined;
-        const token = cred ? createHmac("sha256", s.pepper).update(`${prior.id}\n${cred.token_nonce}`).digest("base64url") : "";
-        const owner = s.control.prepare("SELECT attempt_id FROM effect_permits WHERE id=?").get(prior.id) as { attempt_id: string };
-        if (owner.attempt_id !== attemptId) throw new BrainDomainError("FORBIDDEN", "permit belongs to a different attempt");
-        this.assertAttemptLive(runner,this.loadAttempt(attemptId));
-        if (!this.validatePermit(token,invocationId)) throw new BrainDomainError("APPROVAL_REQUIRED", "permit is no longer current; re-authorize before effect");
-        out = { permitId: prior.id, invocationId, token, expiresAt: iso(prior.expires_at_ms), state: prior.state } as unknown as JsonValue;
-        return;
-      }
-      const row = this.loadAttempt(attemptId);
-      this.assertAttemptLive(runner, row);
-      if (String(row["state"]) !== "running") throw new BrainDomainError("CONFLICT", "attempt not running");
-      // E046: a quarantined/disabled runner can never mint fresh effect authority.
-      const runnerRow = s.control.prepare("SELECT admin_state FROM runners WHERE id=?").get(runner.runnerId) as { admin_state: string } | undefined;
-      if (!runnerRow || runnerRow.admin_state === "quarantined" || runnerRow.admin_state === "disabled") {
-        throw new BrainDomainError("FORBIDDEN", "runner is quarantined/disabled; permits denied");
-      }
-      const org = s.control.prepare("SELECT revocation_generation FROM organizations WHERE id=?").get(runner.organizationId) as { revocation_generation: number };
-      let consumedApproval: string | undefined;
-      if (approvalId) {
-        const ap = s.control.prepare("SELECT subject_digest, state, expires_at_ms FROM approval_requests WHERE id=? AND organization_id=?").get(approvalId, runner.organizationId) as
-          | { subject_digest: string; state: string; expires_at_ms: number } | undefined;
-        if (!ap) throw new BrainDomainError("NOT_FOUND", "approval not found");
-        if (ap.subject_digest !== subjectDigest) throw new BrainDomainError("CONFLICT", "approval subject mismatch; new approval required");
-        if (ap.state !== "approved") throw new BrainDomainError("APPROVAL_REQUIRED", "approval not approved");
-        if (ap.expires_at_ms <= s.now()) throw new BrainDomainError("APPROVAL_EXPIRED", "approval expired before effect");
-        if (!approvalCurrentlyUsable(s,this.auth,{approvalId,organizationId:runner.organizationId,workspaceId:String(row["workspace_id"]),subjectDigest})) throw new BrainDomainError("APPROVAL_REQUIRED", "approval reviewer authority, session or step-up changed; re-authorize before effect");
-        const used = s.control.prepare("SELECT approval_id FROM approval_consumptions WHERE approval_id=?").get(approvalId);
-        if (used) throw new BrainDomainError("CONFLICT", "approval already consumed");
-        consumedApproval = approvalId;
-      }
-      for (const key of resourceKeys) {
-        const lease = s.control.prepare("SELECT expires_at_ms, unresolved_effect FROM resource_leases WHERE resource_key=?").get(key) as
-          | { expires_at_ms: number; unresolved_effect: number } | undefined;
-        if (lease && (lease.unresolved_effect === 1 || lease.expires_at_ms > s.now())) {
-          throw new BrainDomainError("CONFLICT", `resource ${key} is guarded by a live or unresolved effect`);
-        }
-        s.control.prepare("INSERT INTO resource_fences(resource_key, organization_id, counter) VALUES (?,?,1) ON CONFLICT(resource_key) DO UPDATE SET counter=counter+1")
-          .run(key, runner.organizationId);
-        const fence = s.control.prepare("SELECT counter FROM resource_fences WHERE resource_key=?").get(key) as { counter: number };
-        if (!Number.isSafeInteger(fence.counter)) throw new BrainDomainError("INTERNAL_ERROR", "resource fence exhausted");
-        s.control.prepare("INSERT OR REPLACE INTO resource_leases(resource_key, attempt_id, invocation_id, fence, expires_at_ms, unresolved_effect) VALUES (?,?,?,?,?,1)")
-          .run(key, attemptId, invocationId, fence.counter, s.now() + 60_000);
-      }
-      const permitId = s.id("permit");
-      const expires = s.now() + 15_000;
-      s.control.prepare(`INSERT INTO effect_permits(id, invocation_id, attempt_id, subject_digest, approval_id, state, revocation_generation, expires_at_ms, created_at_ms)
-        VALUES (?,?,?,?,?,'issued',?,?,?)`).run(permitId, invocationId, attemptId, subjectDigest, consumedApproval ?? null, org.revocation_generation, expires, s.now());
-      if (consumedApproval) {
-        s.control.prepare("INSERT INTO approval_consumptions(approval_id, invocation_id, attempt_id, subject_digest, consumed_at_ms) VALUES (?,?,?,?,?)")
-          .run(consumedApproval, invocationId, attemptId, subjectDigest, s.now());
-      }
-      const nonce = randomBytes(16).toString("base64url");
-      const token = createHmac("sha256", s.pepper).update(`${permitId}\n${nonce}`).digest("base64url");
-      s.control.prepare("INSERT INTO permit_credentials(permit_id, token_digest, token_nonce, key_id, audience, request_digest) VALUES (?,?,?,'key-1','tool-broker',?)")
-        .run(permitId, s.tokenDigest("permit", token), nonce, subjectDigest);
-      out = { permitId, invocationId, token, expiresAt: iso(expires), state: "issued" } as unknown as JsonValue;
-    });
-    return out;
+    return governanceIssuePermit(this.store, { auth: this.auth }, runner, attemptId, body);
   }
 
   validatePermit(token: string, invocationId: string): boolean {
-    const s = this.store;
-    // E046/E055: validation is against *current* authority — a revocation
-    // generation bump (quarantine, membership revocation, restore) or a
-    // quarantined runner invalidates every previously issued permit.
-    const row = s.control.prepare(`SELECT p.expires_at_ms, p.state, p.revocation_generation, p.approval_id,p.subject_digest,c.revoked_at_ms,
-        j.organization_id,j.workspace_id,o.revocation_generation AS org_generation, r.admin_state AS runner_state
-      FROM permit_credentials c JOIN effect_permits p ON p.id=c.permit_id
-      JOIN job_attempts a ON a.id=p.attempt_id
-      JOIN runners r ON r.id=a.runner_id
-      JOIN jobs j ON j.id=a.job_id AND j.job_fence=a.job_fence AND j.organization_id=r.organization_id
-      JOIN workspaces w ON w.id=j.workspace_id AND w.organization_id=j.organization_id AND w.status='active'
-      JOIN organizations o ON o.id=r.organization_id
-      WHERE c.token_digest=? AND p.invocation_id=? AND a.runner_epoch=r.session_epoch AND a.state='running' AND j.state='running' AND a.lease_expires_at_ms>?`).get(s.tokenDigest("permit", token), invocationId,s.now()) as
-      | { expires_at_ms: number; state: string; revocation_generation: number; approval_id: string | null; subject_digest: string; organization_id: string; workspace_id: string; revoked_at_ms: number | null; org_generation: number; runner_state: string } | undefined;
-    return !!row && !row.revoked_at_ms && row.state === "issued" && row.expires_at_ms > s.now()
-      && row.revocation_generation === row.org_generation
-      && row.runner_state !== "quarantined" && row.runner_state !== "disabled"
-      && (!row.approval_id || approvalCurrentlyUsable(s,this.auth,{approvalId:row.approval_id,organizationId:row.organization_id,workspaceId:row.workspace_id,subjectDigest:row.subject_digest}));
+    return governanceValidatePermit(this.store, { auth: this.auth }, token, invocationId);
   }
 
   completeAttempt(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, body: Record<string, unknown>): JsonValue {
-    const s = this.store;
-    const result = String(body["result"] ?? "failed");
-    if (!["succeeded","failed","unknown-outcome"].includes(result) || !Number.isSafeInteger(body["jobFence"]) || typeof body["cleanupConfirmed"] !== "boolean") throw new BrainDomainError("INVALID_CONTRACT", "completion requires a valid result, fence and cleanup status");
-    const output = (body["output"] ?? null) as JsonValue;
-    let jobState = "";
-    let runId = ""; let stepId = ""; let workspaceId = ""; let jobId = "";
-    s.inTx(s.control, () => {
-      const row = this.loadAttempt(attemptId);
-      runId = String(row["workflow_run_id"]); stepId = String(row["step_id"]); workspaceId = String(row["workspace_id"]); jobId = String(row["job_id"]);
-      const receiptDigest = domainDigest("brain:receipt:v1", body as unknown as JsonValue);
-      this.assertAttemptLive(runner,row,undefined,Number(body["jobFence"]));
-      if (row["organization_id"] !== runner.organizationId) throw new BrainDomainError("FORBIDDEN", "attempt tenant mismatch");
-      if (row["receipt_digest"] === receiptDigest) { jobState=String(row["job_state"]); return; }
-      if (row["receipt_digest"] && String(row["receipt_digest"]) !== receiptDigest && ["verifying", "succeeded"].includes(String(row["state"]))) {
-        throw new BrainDomainError("IDEMPOTENCY_CONFLICT", "different receipt for completed attempt");
-      }
-      if (row["state"] !== "running" || row["job_state"] !== "running") throw new BrainDomainError("CONFLICT", "attempt cannot accept a new completion receipt");
-      const cleanup = body["cleanupConfirmed"] === true ? 1 : 0;
-      if (result === "unknown-outcome" || result === "unknown") {
-        s.control.prepare("UPDATE job_attempts SET state='outcome_unknown', receipt_digest=?, cleanup_confirmed=? WHERE id=?").run(receiptDigest, cleanup, attemptId);
-        s.control.prepare("UPDATE jobs SET state='outcome_unknown', version=version+1 WHERE id=?").run(String(row["job_id"]));
-        jobState = "outcome_unknown";
-      } else if (result === "succeeded") {
-        s.control.prepare("UPDATE job_attempts SET state='verifying', receipt_digest=?, cleanup_confirmed=? WHERE id=?").run(receiptDigest, cleanup, attemptId);
-        s.control.prepare("UPDATE jobs SET state='verifying', version=version+1 WHERE id=?").run(String(row["job_id"]));
-        s.control.exec("CREATE TABLE IF NOT EXISTS job_outputs(job_id TEXT PRIMARY KEY, output_json TEXT NOT NULL) STRICT");
-        s.control.prepare("INSERT OR REPLACE INTO job_outputs(job_id, output_json) VALUES (?,?)").run(String(row["job_id"]), JSON.stringify(output));
-        jobState = "verifying";
-      } else {
-        s.control.prepare("UPDATE job_attempts SET state='failed', receipt_digest=?, cleanup_confirmed=? WHERE id=?").run(receiptDigest, cleanup, attemptId);
-        s.control.prepare("UPDATE jobs SET state='failed', version=version+1 WHERE id=?").run(String(row["job_id"]));
-        jobState = "failed";
-      }
-      if (cleanup === 1) this.releaseReservation(attemptId);
-      for (const keyRow of s.control.prepare("SELECT resource_key FROM resource_leases WHERE attempt_id=?").all(attemptId) as Array<{ resource_key: string }>) {
-        void keyRow; // unresolved guards persist until reconciled; compute release is separate
-      }
-    });
-    s.emit(s.control, { organizationId: runner.organizationId, workspaceId, aggregateType: "job", aggregateId: jobId, eventType: "job.updated", payload: { attemptId, jobState }, destinations: [`workspace:${workspaceId}`] });
-    if (jobState === "failed") this.workflows.completeStep(runner.organizationId, workspaceId, runId, stepId, output, false);
-    return { attemptId, jobState, acceptedForVerification: jobState === "verifying" } as unknown as JsonValue;
-  }
-
-  private releaseReservation(attemptId: string): void {
-    const s = this.store;
-    const res = s.control.prepare("SELECT runner_id, cpu, memory, disk, slots, released_at_ms FROM capacity_reservations WHERE attempt_id=?").get(attemptId) as
-      | { runner_id: string; cpu: number; memory: number; disk: number; slots: number; released_at_ms: number | null } | undefined;
-    if (!res || res.released_at_ms) return;
-    s.control.prepare("UPDATE runners SET cpu_reserved=MAX(0,cpu_reserved-?), memory_reserved=MAX(0,memory_reserved-?), disk_reserved=MAX(0,disk_reserved-?), slots_reserved=MAX(0,slots_reserved-?) WHERE id=?")
-      .run(res.cpu, res.memory, res.disk, res.slots, res.runner_id);
-    s.control.prepare("UPDATE capacity_reservations SET released_at_ms=? WHERE attempt_id=?").run(s.now(), attemptId);
+    return jobsCompleteAttempt(this.store, { completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.workflows.completeStep(organizationId, workspaceId, runId, stepId, output, ok) }, runner, attemptId, body);
   }
 
   releaseAttempt(runner: { runnerId: string; epoch: number }, attemptId: string, body: Record<string, unknown>): JsonValue {
-    const s = this.store;
-    s.inTx(s.control, () => {
-      const row = this.loadAttempt(attemptId);
-      this.assertAttemptLive(runner,row,body["leaseId"] === undefined ? undefined : String(body["leaseId"]),body["jobFence"] === undefined ? undefined : Number(body["jobFence"]));
-      const cleanup = body["cleanupConfirmed"] === true;
-      if (cleanup) s.control.prepare("UPDATE job_attempts SET cleanup_confirmed=1 WHERE id=?").run(attemptId);
-      if (cleanup) this.releaseReservation(attemptId);
-      if (String(row["state"]) === "offered") {
-        s.control.prepare("UPDATE job_attempts SET state='declined' WHERE id=?").run(attemptId);
-        s.control.prepare("UPDATE jobs SET state='queued', version=version+1 WHERE id=?").run(String(row["job_id"]));
-        this.releaseReservation(attemptId);
-      }
-    });
-    return { attemptId, released: true } as unknown as JsonValue;
+    return jobsReleaseAttempt(this.store, runner, attemptId, body);
   }
 
   expireLeases(): number {
-    const s = this.store;
-    let count = 0;
-    s.inTx(s.control, () => {
-      const offered = s.control.prepare("SELECT id, job_id FROM job_attempts WHERE state='offered' AND offer_expires_at_ms<=?").all(s.now()) as Array<{ id: string; job_id: string }>;
-      for (const a of offered) {
-        s.control.prepare("UPDATE job_attempts SET state='expired' WHERE id=?").run(a.id);
-        s.control.prepare("UPDATE jobs SET state='queued', queue_reason='WAITING_FOR_RUNNER', version=version+1 WHERE id=? AND state='offered'").run(a.job_id);
-        this.releaseReservation(a.id);
-        count++;
-      }
-      const running = s.control.prepare("SELECT id, job_id FROM job_attempts WHERE state='running' AND lease_expires_at_ms<=?").all(s.now()) as Array<{ id: string; job_id: string }>;
-      for (const a of running) {
-        s.control.prepare("UPDATE job_attempts SET state='outcome_unknown' WHERE id=?").run(a.id);
-        s.control.prepare("UPDATE jobs SET state='outcome_unknown', version=version+1 WHERE id=? AND state='running'").run(a.job_id);
-        count++;
-      }
-    });
-    return count;
+    return jobsExpireLeases(this.store);
   }
 
   // --- CAS artifacts ---
@@ -1376,7 +876,7 @@ export class Brain {
         const stale = s.control.prepare("SELECT id FROM job_attempts WHERE job_id=? AND state='outcome_unknown'").all(input.jobId) as Array<{ id: string }>;
         s.control.prepare("UPDATE jobs SET state='queued', version=version+1 WHERE id=? AND state='outcome_unknown'").run(input.jobId);
         s.control.prepare("UPDATE job_attempts SET state='failed' WHERE job_id=? AND state='outcome_unknown'").run(input.jobId);
-        for (const a of stale) this.releaseReservation(a.id);
+        for (const a of stale) jobsReleaseReservation(this.store, a.id);
         s.control.prepare("UPDATE resource_leases SET unresolved_effect=0, expires_at_ms=? WHERE attempt_id IN (SELECT id FROM job_attempts WHERE job_id=?)").run(s.now(), input.jobId);
       }
       // conflicting/unknown: guard remains, job stays outcome_unknown
