@@ -360,7 +360,7 @@
     "artifacts/implementation/operational-verification-20261028/full-run.json",
     "artifacts/implementation/operational-verification-20261028/report.json"
    ],
-   "nextAction": "The current route authority has 24 screens. Agents/Workflows catalogs, schema-driven dispatch, guided artifact selection, operational checklist, structured output/evidence and per-route chunks are implemented. The full six-project browser matrix passed on stable final source; two pre-existing 390px pointer-drag cases remain skipped. E092 slow-SSE scroll preservation remains partial."
+   "nextAction": "The current route authority has 24 screens. Agents/Workflows catalogs, schema-driven dispatch, guided artifact selection, operational checklist, structured output/evidence and per-route chunks are implemented. The full six-project browser matrix passed with 94 tests; two pre-existing 390px pointer-drag cases remain skipped. E092 bounded DOM, scroll and selection preservation passed all six projects."
   },
   {
    "id": "T35",
@@ -511,7 +511,7 @@
     "artifacts/implementation/operational-verification-20261028/full-run.json",
     "artifacts/implementation/operational-verification-20261028/report.json"
    ],
-   "nextAction": "Root README, real-agent/fixture startup profiles, private native-session runner enrollment, preflight and Bash/Python sandbox image are implemented. Disposable detached startup/CLI/Docker walkthrough passed all three starter workflows on stable final source. This does not recertify production deployment or external memory restore. Final operational evidence: real Pi, actual launcher/Docker evaluation and separate detached README startup accepted all three workflows; checkpoint/resume passed. Final verify:full passed (286 non-browser tests, 88 browser cases, 2 existing skips); these are repository self-verification."
+   "nextAction": "Root README, real-agent/fixture startup profiles, private native-session runner enrollment, preflight and Bash/Python sandbox image are implemented. Disposable detached startup/CLI/Docker walkthrough passed all three starter workflows. Current real Pi, launcher/Docker evaluation and checkpoint/resume evidence is artifacts/implementation/operational-1793224435202/run.json. Final verify:full passed 286 non-browser and 94 browser tests, with 2 existing skips; these are repository self-verification, not production deployment, external-memory restore or independent certification."
   },
   {
    "id": "T49",

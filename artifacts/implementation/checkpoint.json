@@ -259,11 +259,11 @@
   ],
   "verifiedScenarios": 99,
   "failures": [
-    "E092 slow-SSE scroll preservation is partial; independent release/G01-G08 certification remains unproven.",
+    "Independent release/G01-G08 certification remains unproven.",
     "Two existing 390px pointer-drag browser cases are skipped."
   ],
   "processes": [],
-  "nextAction": "Operational-product milestone complete in the worktree. Start from README.md; final evidence is artifacts/implementation/operational-verification-20261028/report.json. verify:full passed on stable source a82a3157fce2eba227fb5b969c27305c6e0abe6b126f24d2b2f860877dbf8194: 286 non-browser tests and 88 browser tests, with 2 existing mobile drag skips. Real Pi/Docker and detached README walkthrough both accepted all three starter workflows on the same source. Pi checkpoint/resume passed. Temporary proof processes/data cleaned. Remaining: E092 dedicated slow-SSE acceptance, production connectors/credentials, semantic model quality, governed native tool bindings, full remote-memory restore and independent release/G01-G08 certification. No commit or push performed.",
-  "updatedAt": "2026-10-28T21:02:53.814027+00:00",
-  "note": "Continuation of the requested zatanna-hawk-red-tornado.md operational plan. Preserve unrelated dirty artifacts, concurrent SessionFeed edits and existing user data. Invalid real-model extra fields were correctly rejected; failure evidence retained and exact-output instructions tightened. Full, operational and README walkthrough proofs share the final worktree fingerprint. External model service is not owned or stopped by this task."
+  "nextAction": "Operational-product milestone complete in the worktree. Start from README.md. Final application-source fingerprint 88708550ac502c3213367edbf4eaa203c1c6f064fe89c47e5dfb34cb17c65e03 has real Pi/Docker evidence in artifacts/implementation/operational-1793224435202/run.json: all three starter workflows accepted independent evidence. Pi checkpoint/resume passed. Final verify:full passed 286 non-browser and 94 browser tests, with 2 existing mobile drag skips; its log is artifacts/implementation/operational-1793224435202/verify-full.log. E092 bounded DOM, scroll and selection preservation passed all six viewport/theme projects. Remaining: production connectors/credentials, semantic model quality, governed native tool bindings, full remote-memory restore and independent release/G01-G08 certification. No commit or push performed by this task.",
+  "updatedAt": "2026-10-28T22:02:03.353Z",
+  "note": "Continuation of the requested zatanna-hawk-red-tornado.md operational plan. Unrelated dirty artifacts and existing user data were preserved. Invalid real-model extra fields were correctly rejected; failure evidence retained and exact-output instructions tightened. The current full and operational proofs cover the same application source; the earlier detached README walkthrough covers the unchanged startup procedure. External model service is not owned or stopped by this task."
 }
