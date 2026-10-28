@@ -12,7 +12,7 @@
     "canonicalize": "5.1.0",
     "execa": "10.2.1",
     "pino": "10.4.0",
-    "zod": "4.1.12"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "tsx": "4.20.6"
