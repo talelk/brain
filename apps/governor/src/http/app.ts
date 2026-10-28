@@ -433,6 +433,12 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       return c.json(brain.issuePermit(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
     } catch (e) { return fail(c as never, e); }
   });
+  app.post("/runner/v1/attempts/:id/artifacts", async (c) => {
+    try {
+      const runner = brain.authRunner(c.req.raw.headers);
+      return c.json(brain.acceptAttemptArtifact(runner, c.req.param("id"), (await readJson(c)) as { digest: string; bytesBase64: string; mediaType?: string }) as never, 201);
+    } catch (e) { return fail(c as never, e); }
+  });
   app.post("/runner/v1/attempts/:id/complete", async (c) => {
     try {
       const runner = brain.authRunner(c.req.raw.headers);

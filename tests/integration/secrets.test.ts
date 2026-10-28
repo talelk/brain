@@ -1,13 +1,17 @@
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { executeToolPayload } from "../../apps/runner/src/tools/invoke";
 import type { RunnerConfig } from "../../apps/runner/src/supervisor";
+import type { LauncherClient } from "../../apps/runner/src/launcher-client";
 
 // T14: scoped secret delivery. Values live only in runner-local protected
 // files; workflow input carries references. Privileged slots only, scoped
 // per workspace, scrubbed from every returned stream, fail-closed otherwise.
+// Privileged execution itself is sandbox-only: without a constrained launcher
+// the invocation is refused before any secret is resolved.
 const SECRET_VALUE = "t0p-secret-value-9f27";
 let root = "";
 let toolsDir = "";
@@ -43,18 +47,51 @@ function offer(input: Record<string, unknown>, effectClass = "privileged", works
   };
 }
 
+/**
+ * Test double for the constrained launcher: it executes the same script the
+ * container would, with the secret env a correctly provisioned sandbox
+ * receives, so the delivery/scrub contract is exercised through the real
+ * executeToolPayload path (refusal, resolution, sandbox dispatch, scrub).
+ */
+function stubLauncher(): LauncherClient {
+  return {
+    createSandbox: async () => ({ sandboxId: "sb-test" }),
+    exec: async (_sandboxId: string, script: string) => {
+      const result = spawnSync("/bin/bash", [script.replace(/^\/tools/, toolsDir)], {
+        input: "", encoding: "utf8", timeout: 30_000,
+        env: { PATH: "/usr/local/bin:/usr/bin:/bin", HOME: "/tmp", TARGET_TOKEN: SECRET_VALUE },
+      });
+      return { exitCode: result.status ?? 1, stdout: result.stdout ?? "", stderr: result.stderr ?? "", timedOut: result.error !== undefined };
+    },
+    stop: async () => ({ terminationConfirmed: true }),
+  } as unknown as LauncherClient;
+}
+
+const permit = { token: "test-permit-token", permitId: "permit-test" };
+
 describe("scoped secret delivery (T14)", () => {
-  it("delivers a workspace-scoped secret to a privileged tool by reference only", async () => {
+  it("refuses privileged execution without the constrained launcher, before resolving any secret", async () => {
     const cfg = setup(false);
-    const res = await executeToolPayload(offer({ secretRefs: { TARGET_TOKEN: "target-token" } }), cfg);
+    const res = await executeToolPayload({ offer: offer({ secretRefs: { TARGET_TOKEN: "target-token" } }), cfg });
+    expect(res.ok).toBe(false);
+    expect(JSON.stringify(res.output)).toContain("constrained launcher");
+    // A permit alone does not unlock unsandboxed privileged execution.
+    const withPermit = await executeToolPayload({ offer: offer({ secretRefs: { TARGET_TOKEN: "target-token" } }), cfg, permit });
+    expect(withPermit.ok).toBe(false);
+    expect(JSON.stringify(withPermit.output)).toContain("constrained launcher");
+  });
+
+  it("delivers a workspace-scoped secret to a sandboxed privileged tool by reference only", async () => {
+    const cfg = setup(false);
+    const res = await executeToolPayload({ offer: offer({ secretRefs: { TARGET_TOKEN: "target-token" } }), cfg, launcher: stubLauncher(), permit });
     expect(res.ok).toBe(true);
     expect(res.output).toEqual({ present: true });
     expect(JSON.stringify(res.output)).not.toContain(SECRET_VALUE);
   });
 
-  it("scrubs a leaked secret value from tool output", async () => {
+  it("scrubs a leaked secret value from sandboxed tool output", async () => {
     const cfg = setup(true);
-    const res = await executeToolPayload(offer({ secretRefs: { TARGET_TOKEN: "target-token" } }), cfg);
+    const res = await executeToolPayload({ offer: offer({ secretRefs: { TARGET_TOKEN: "target-token" } }), cfg, launcher: stubLauncher(), permit });
     expect(res.ok).toBe(true);
     expect(JSON.stringify(res.output)).not.toContain(SECRET_VALUE);
     expect(JSON.stringify(res.output)).toContain("[redacted]");
@@ -62,21 +99,22 @@ describe("scoped secret delivery (T14)", () => {
 
   it("fails closed: non-privileged slot, wrong workspace, missing secret, traversal, alternate spelling", async () => {
     const cfg = setup(false);
-    const read = await executeToolPayload(offer({ secretRefs: { TARGET_TOKEN: "target-token" } }, "read"), cfg);
+    const launcher = stubLauncher();
+    const read = await executeToolPayload({ offer: offer({ secretRefs: { TARGET_TOKEN: "target-token" } }, "read"), cfg });
     expect(read.ok).toBe(false);
-    const wrongWs = await executeToolPayload(offer({ secretRefs: { TARGET_TOKEN: "target-token" } }, "privileged", "ws-b"), cfg);
+    const wrongWs = await executeToolPayload({ offer: offer({ secretRefs: { TARGET_TOKEN: "target-token" } }, "privileged", "ws-b"), cfg, launcher, permit });
     expect(wrongWs.ok).toBe(false);
-    const missing = await executeToolPayload(offer({ secretRefs: { TARGET_TOKEN: "nope" } }), cfg);
+    const missing = await executeToolPayload({ offer: offer({ secretRefs: { TARGET_TOKEN: "nope" } }), cfg, launcher, permit });
     expect(missing.ok).toBe(false);
-    const traversal = await executeToolPayload(offer({ secretRefs: { TARGET_TOKEN: "../ws-a/target-token" } }), cfg);
+    const traversal = await executeToolPayload({ offer: offer({ secretRefs: { TARGET_TOKEN: "../ws-a/target-token" } }), cfg, launcher, permit });
     expect(traversal.ok).toBe(false);
     // Alternate spelling of the protected channel must not pass through.
-    const alias = await executeToolPayload(offer({ secret_refs: { TARGET_TOKEN: "target-token" } }), cfg);
+    const alias = await executeToolPayload({ offer: offer({ secret_refs: { TARGET_TOKEN: "target-token" } }), cfg, launcher, permit });
     expect(alias.ok).toBe(false);
     expect(JSON.stringify(alias.output)).toContain("unrecognized secret channel");
     // Open-permission secret files are refused.
     chmodSync(join(secretsDir, "ws-a", "target-token"), 0o644);
-    const openPerms = await executeToolPayload(offer({ secretRefs: { TARGET_TOKEN: "target-token" } }), cfg);
+    const openPerms = await executeToolPayload({ offer: offer({ secretRefs: { TARGET_TOKEN: "target-token" } }), cfg, launcher, permit });
     expect(openPerms.ok).toBe(false);
   });
 });

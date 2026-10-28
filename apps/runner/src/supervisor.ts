@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { domainDigest, sha256Digest } from "@brain/contracts";
 import type { EvaluationAssignment, JsonValue, VerificationVerdict } from "@brain/contracts";
 import { executeToolPayload, normalizeFixtureEvaluation } from "./tools/invoke";
-import { EventSpool } from "./spool";
+import { DurableEventSpool } from "./spool-durable";
+import { LauncherClient } from "./launcher-client";
 
 export interface RunnerConfig {
   readonly governorUrl: string;
@@ -111,17 +112,37 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string): Promise<
     throw new Error("execution artifact digest/size mismatch; refusing to run");
   }
   const payload = JSON.parse(new TextDecoder().decode(artifactRes.bytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment };
-  const deadline = Date.now() + 55_000;
+  // The execution deadline is the lease: a monotonic clock (performance.now)
+  // is armed from the ack's server lease expiry and refreshed by every
+  // successful renewal, so wall-clock adjustments cannot extend the window.
+  let leaseExpiresAt = "";
+  {
+    const ackBody = ack.json as { leaseExpiresAt?: string };
+    leaseExpiresAt = ackBody.leaseExpiresAt ?? "";
+  }
+  let monoDeadline = 0;
+  const armDeadline = (expiresAt: string): void => {
+    const remaining = Date.parse(expiresAt) - Date.now();
+    if (Number.isFinite(remaining) && remaining > 0) monoDeadline = performance.now() + remaining - 5_000;
+  };
+  armDeadline(leaseExpiresAt);
+
   let leaseLost = false;
-  const spool = new EventSpool();
-  let eventSeq = 0;
+  let abortReason: "lease" | "deadline" | undefined;
+  const controller = new AbortController();
+  const spool = DurableEventSpool.load(join(cfg.stateDir, "spool", `${offer.attemptId}.jsonl`));
+  let eventSeq = spool.stats().lastSequence;
+  // A failed events POST leaves the journal untouched: the same batch replays
+  // on the next flush, in order, after the Governor acknowledges the batch.
   const flushEvents = async (): Promise<void> => {
-    const batch = spool.drain(128);
+    const batch = spool.peek(128);
     if (batch.length === 0) return;
-    await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/events`, {
+    const sent = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/events`, {
       leaseId: offer.leaseId, jobFence: offer.jobFence,
       events: batch.map((e) => ({ sequence: e.sequence, kind: e.kind, payload: e.payload })),
     });
+    if (sent.status === 200) spool.commit(batch.map((e) => e.sequence));
+    else if (sent.status === 409 || sent.status === 410) spool.discard(); // attempt fenced server-side: journal is dead
   };
   const emit = async (kind: string, eventPayload: unknown): Promise<void> => {
     eventSeq += 1;
@@ -131,23 +152,66 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string): Promise<
   };
   const renew = setInterval(() => {
     void req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/renew`, { leaseId: offer.leaseId, jobFence: offer.jobFence })
-      .then((r) => { if (r.status !== 200) leaseLost = true; })
+      .then((r) => {
+        if (r.status !== 200) leaseLost = true;
+        else {
+          const body = r.json as { leaseExpiresAt?: string };
+          if (body.leaseExpiresAt) armDeadline(body.leaseExpiresAt);
+        }
+      })
       .catch(() => { leaseLost = true; });
   }, 15_000);
+  const watchdog = setInterval(() => {
+    if (abortReason) return;
+    if (leaseLost) { abortReason = "lease"; controller.abort(new Error("lease lost")); return; }
+    if (monoDeadline && performance.now() >= monoDeadline) {
+      abortReason = "deadline";
+      controller.abort(new Error("lease deadline approached"));
+    }
+  }, 250);
   try {
     await emit("progress", { phase: "started", artifactId: offer.execution.artifact.artifactId });
-    const result = await executeToolPayload({ payload, execution: offer.execution, workspaceId: offer.workspaceId } as unknown as { payload: { input?: Record<string, unknown>; step?: Record<string, unknown> }; execution: { kind: string }; workspaceId: string }, cfg);
+    // Effect-class tools carry exact, current authority: the supervisor
+    // acquires the attempt-scoped permit before the invocation runs.
+    const effectClass = typeof (payload.step ?? {})["effectClass"] === "string" ? String((payload.step ?? {})["effectClass"]) : "read";
+    let permit: { token: string; permitId: string } | undefined;
+    if (effectClass !== "read") {
+      const step = (payload.step ?? {}) as { target?: { targetId?: string } };
+      const subjectDigest = sha256Digest(artifactRes.bytes);
+      const resourceKeys = [step.target?.targetId ? `target:${step.target.targetId}` : `ws:${offer.workspaceId}`];
+      const permitRes = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/permit`, {
+        invocationId: `inv-${offer.attemptId}`, subjectDigest, resourceKeys,
+      });
+      if (permitRes.status !== 200) throw new Error(`effect permit refused ${permitRes.status}: ${JSON.stringify(permitRes.json)}`);
+      const body = permitRes.json as { token: string; permitId: string };
+      permit = { token: body.token, permitId: body.permitId };
+    }
+    const launcher = LauncherClient.configured() ? LauncherClient.fromEnv() : undefined;
+    const result = await executeToolPayload({ offer: { payload, execution: offer.execution, workspaceId: offer.workspaceId }, cfg, signal: controller.signal, launcher, permit });
     const assignment = payload.evaluation;
     await emit("progress", { phase: "executed", ok: result.ok });
     const output = result.ok && assignment ? normalizeFixtureEvaluation(result.output,assignment) : result.output;
-    void deadline;
-    // A lost lease means the effect may have happened without authority to
-    // report it: never claim success, surface outcome_unknown instead.
+    // Durable output trail: the exact result bytes are pinned in the CAS and
+    // bound to the attempt, independent of the inline completion body.
+    if (result.ok) {
+      const outputBytes = new TextEncoder().encode(JSON.stringify(output));
+      await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/artifacts`, {
+        digest: sha256Digest(outputBytes), mediaType: "application/json",
+        bytesBase64: Buffer.from(outputBytes).toString("base64"),
+      }).then((r) => {
+        if (r.status !== 201) throw new Error(`attempt artifact upload failed ${r.status}: ${JSON.stringify(r.json)}`);
+        return emit("effect", { phase: "output-pinned", artifact: r.json });
+      }).catch((e: unknown) => { void emit("error", { phase: "output-pin-failed", detail: e instanceof Error ? e.message : "upload failed" }); });
+    }
+    // A lost lease or a fired deadline means the effect may have happened
+    // without authority to report it: never claim success, surface
+    // outcome_unknown instead.
+    const outcomeUnknown = leaseLost || abortReason !== undefined;
     const done = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/complete`, {
-      result: leaseLost ? "unknown-outcome" : result.ok ? "succeeded" : "failed", output, jobFence: offer.jobFence, cleanupConfirmed: true,
+      result: outcomeUnknown ? "unknown-outcome" : result.ok ? "succeeded" : "failed", output, jobFence: offer.jobFence, cleanupConfirmed: true,
     });
     if (done.status !== 200) throw new Error(`complete failed ${done.status}: ${JSON.stringify(done.json)}`);
-    if (result.ok && assignment) {
+    if (result.ok && assignment && !outcomeUnknown) {
       const checks = (output as unknown as { checks: VerificationVerdict["checks"] }).checks;
       const outcome = checks.some((c) => c.status === "failed") ? "rejected" : checks.every((c) => c.status === "passed") ? "verified" : "incomplete";
       for (const bundleDigest of assignment.bundleDigests) {
@@ -157,9 +221,11 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string): Promise<
         if (accepted.status !== 200) throw new Error(`verdict not accepted ${accepted.status}: ${JSON.stringify(accepted.json)}`);
       }
     }
+    spool.discard();
     return true;
   } finally {
     clearInterval(renew);
+    clearInterval(watchdog);
   }
 }
 

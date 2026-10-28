@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { execa } from "execa";
 import type { CheckResult, EvaluationAssignment, JsonValue } from "@brain/contracts";
 import type { RunnerConfig } from "../supervisor";
+import type { LauncherClient } from "../launcher-client";
 import { resolveSecretRefs, scrubSecrets } from "./secrets";
 
 const TOOL_SCRIPTS: Record<string, string> = {
@@ -39,10 +40,24 @@ function toolsRoot(cfg: RunnerConfig): string {
   return candidates[0] ?? "examples/v1/golden-release/tools";
 }
 
+export interface ToolExecution {
+  offer: { payload: { input?: Record<string, unknown>; step?: Record<string, unknown> }; execution: { kind: string }; workspaceId?: string };
+  cfg: RunnerConfig;
+  /** Aborted at the monotonic deadline or on a lost lease; kills the child. */
+  signal?: AbortSignal | undefined;
+  /** The constrained launcher, when this runner is configured with one. */
+  launcher?: LauncherClient | undefined;
+  /**
+   * Effect authority for non-read tool classes: without a permit (or a
+   * launcher to present it to) the invocation is refused, never run unbounded.
+   */
+  permit?: { token: string; permitId: string } | undefined;
+}
+
 export async function executeToolPayload(
-  offer: { payload: { input?: Record<string, unknown>; step?: Record<string, unknown> }; execution: { kind: string }; workspaceId?: string },
-  cfg: RunnerConfig,
+  tool: ToolExecution,
 ): Promise<{ ok: boolean; output: JsonValue }> {
+  const { offer, cfg, signal, launcher, permit } = tool;
   const step = offer.payload.step ?? {};
   const input = (offer.payload.input ?? {}) as Record<string, unknown>;
   // Secret references move only through the exact `secretRefs` channel. Any
@@ -54,6 +69,13 @@ export async function executeToolPayload(
     }
   }
   const effectClass = typeof step["effectClass"] === "string" ? String(step["effectClass"]) : "read";
+  if (effectClass !== "read" && !launcher) {
+    // Fail closed: an effect-class tool never runs as unsandboxed host bash.
+    return { ok: false, output: { error: "effect-class tool requires the constrained launcher (BRAIN_LAUNCHER_SOCKET); execution refused" } as unknown as JsonValue };
+  }
+  if (effectClass !== "read" && !permit) {
+    return { ok: false, output: { error: `effect-class tool ${effectClass} executed without an effect permit; invocation refused` } as unknown as JsonValue };
+  }
   const secrets = resolveSecretRefs(input["secretRefs"], offer.workspaceId, effectClass);
   if (!secrets.ok) return { ok: false, output: { error: secrets.error } as unknown as JsonValue };
   const toolInput: Record<string, unknown> = { ...input };
@@ -69,6 +91,26 @@ export async function executeToolPayload(
   if (!existsSync(script)) return { ok: false, output: { error: `tool script missing ${rel}` } as unknown as JsonValue };
   const stdin = JSON.stringify(toolInput);
   if (Buffer.byteLength(stdin, "utf8") > 64 * 1024) return { ok: false, output: { error: "tool input too large" } as unknown as JsonValue };
+  // Sandbox path: the launcher executes the pinned script inside an ephemeral
+  // read-only container with the tools root mounted read-only at /tools.
+  if (launcher) {
+    const profile = effectClass === "privileged" ? "privileged-tool" as const : offer.execution.kind === "eval" ? "evaluator" as const : "agent" as const;
+    try {
+      const { sandboxId } = await launcher.createSandbox({ profile, requestId: `exec-${offer.execution.kind}-${Math.random().toString(36).slice(2, 10)}`, toolsDir: toolsRoot(cfg), network: "none" });
+      try {
+        const inContainer = join("/tools", rel);
+        const result = await launcher.exec(sandboxId, inContainer, stdin, 60_000);
+        if (result.exitCode !== 0) return { ok: false, output: { error: `tool exit ${result.exitCode}`, stderr: scrubSecrets(result.stderr, secrets.resolved.values).slice(0, 2000) } as unknown as JsonValue };
+        const stdout = scrubSecrets(result.stdout, secrets.resolved.values);
+        if (Buffer.byteLength(stdout, "utf8") > 1024 * 1024) return { ok: false, output: { error: "tool output too large" } as unknown as JsonValue };
+        return { ok: true, output: JSON.parse(stdout) as JsonValue };
+      } finally {
+        await launcher.stop(sandboxId).catch(() => undefined);
+      }
+    } catch (e) {
+      return { ok: false, output: { error: `sandboxed execution failed: ${e instanceof Error ? e.message : "launcher error"}` } as unknown as JsonValue };
+    }
+  }
   try {
     const result = await execa("/bin/bash", [script], {
       input: stdin, timeout: 60_000, maxBuffer: 1024 * 1024,
@@ -77,6 +119,7 @@ export async function executeToolPayload(
       extendEnv: false,
       env: { PATH: "/usr/local/bin:/usr/bin:/bin", HOME: "/tmp", TMPDIR: "/tmp", LANG: "C.UTF-8", ...secrets.resolved.env },
       shell: false, reject: false,
+      ...(signal ? { cancelSignal: signal } : {}),
     });
     if (result.exitCode !== 0) return { ok: false, output: { error: `tool exit ${result.exitCode}`, stderr: scrubSecrets(String(result.stderr), secrets.resolved.values).slice(0, 2000) } as unknown as JsonValue };
     const stdout = scrubSecrets(String(result.stdout), secrets.resolved.values);

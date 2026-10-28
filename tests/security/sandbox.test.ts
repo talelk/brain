@@ -1,5 +1,6 @@
 import { request } from "node:http";
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { startLauncher } from "../../apps/launcher/src/server";
 
 // T21 packet acceptance (validation boundary): the trusted launcher accepts
@@ -7,10 +8,10 @@ import { startLauncher } from "../../apps/launcher/src/server";
 // smuggled docker surface (privileged, mounts, env, argv, caller-named
 // networks) is rejected before any docker call. Full create/stop/egress
 // behavior is proven in tests/probes/sandbox with a live daemon.
-function unixJson(socket: string, method: string, path: string, body?: unknown): Promise<{ status: number; json: Record<string, unknown> }> {
+function unixJson(socket: string, method: string, path: string, body?: unknown, token?: string): Promise<{ status: number; json: Record<string, unknown> }> {
   return new Promise((resolve, reject) => {
     const payload = body === undefined ? "" : JSON.stringify(body);
-    const req = request({ socketPath: socket, method, path, headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload) } }, (res) => {
+    const req = request({ socketPath: socket, method, path, headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload), ...(token ? { authorization: `Bearer ${token}` } : {}) } }, (res) => {
       const chunks: Buffer[] = [];
       res.on("data", (c: Buffer) => chunks.push(c));
       res.on("end", () => {
@@ -28,7 +29,7 @@ describe("launcher validation boundary (T21)", () => {
     const socket = `/tmp/brain-launcher-sec-${Date.now()}/launcher.sock`;
     process.env["BRAIN_LAUNCHER_SOCKET"] = socket;
     await startLauncher();
-    const health = await unixJson(socket, "GET", "/v1/health");
+    const health = await unixJson(socket, "GET", "/v1/health", undefined, readFileSync(`${socket}.token`, "utf8").trim());
     expect(health.status).toBe(200);
     expect(health.json["profiles"]).toEqual(["agent", "privileged-tool", "evaluator"]);
     expect(health.json["images"]).toEqual(["brain-sandbox-agent", "brain-sandbox-tool", "brain-sandbox-evaluator"]);
@@ -38,6 +39,7 @@ describe("launcher validation boundary (T21)", () => {
     const socket = `/tmp/brain-launcher-sec2-${Date.now()}/launcher.sock`;
     process.env["BRAIN_LAUNCHER_SOCKET"] = socket;
     await startLauncher();
+    const token = readFileSync(`${socket}.token`, "utf8").trim();
     const base = { profile: "agent", image: "brain-sandbox-agent", requestId: "sec-1" };
     for (const smuggled of [
       { ...base, privileged: true },
@@ -47,15 +49,15 @@ describe("launcher validation boundary (T21)", () => {
       { ...base, devices: ["/dev/kvm"] },
       { ...base, capAdd: ["SYS_ADMIN"] },
     ]) {
-      const res = await unixJson(socket, "POST", "/v1/sandboxes", smuggled);
+      const res = await unixJson(socket, "POST", "/v1/sandboxes", smuggled, token);
       expect(res.status, JSON.stringify(smuggled)).toBe(422);
       expect(String(res.json["error"])).toMatch(/forbidden/);
     }
-    expect((await unixJson(socket, "POST", "/v1/sandboxes", { ...base, profile: "root-shell" })).status).toBe(422);
-    expect((await unixJson(socket, "POST", "/v1/sandboxes", { ...base, image: "alpine:latest" })).status).toBe(422);
-    expect((await unixJson(socket, "POST", "/v1/sandboxes", { ...base, image: "brain-sandbox-agent:pwned" })).status).toBe(422);
+    expect((await unixJson(socket, "POST", "/v1/sandboxes", { ...base, profile: "root-shell" }, token)).status).toBe(422);
+    expect((await unixJson(socket, "POST", "/v1/sandboxes", { ...base, image: "alpine:latest" }, token)).status).toBe(422);
+    expect((await unixJson(socket, "POST", "/v1/sandboxes", { ...base, image: "brain-sandbox-agent:pwned" }, token)).status).toBe(422);
     // Unknown sandbox stop is a clean 404, not a docker error leak.
-    const stop = await unixJson(socket, "POST", "/v1/sandboxes/nope/stop", { graceMs: 1 });
+    const stop = await unixJson(socket, "POST", "/v1/sandboxes/nope/stop", { graceMs: 1 }, token);
     expect(stop.status).toBe(404);
   }, 60_000);
 });

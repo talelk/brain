@@ -1,3141 +1,3312 @@
 {
-  "openapi": "3.1.0",
-  "info": {
-    "title": "Keyrus Brain baseline transport",
-    "version": "1.0.0",
-    "description": "Current target transport. Better Auth and MCP own their protocol routes; Governor verifies current identity, scope and effects."
-  },
-  "servers": [
-    {
-      "url": "https://brain.example.invalid"
-    }
-  ],
-  "paths": {
-    "/v1/commands": {
-      "post": {
-        "operationId": "post_v1_commands",
-        "security": [
-          {
-            "bearer": []
-          },
-          {
-            "humanSession": []
-          }
-        ],
-        "responses": {
-          "202": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/CommandReceipt"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/CommandReceipt"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/CommandEnvelope"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/query": {
-      "post": {
-        "operationId": "post_v1_query",
-        "security": [
-          {
-            "bearer": []
-          },
-          {
-            "humanSession": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/QueryResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/QueryRequest"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/approvals/{id}/decision": {
-      "post": {
-        "operationId": "post_v1_approvals_id_decision",
-        "security": [
-          {
-            "humanSession": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/ApprovalRequest"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/HumanApprovalDecision"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/runner/v1/enroll": {
-      "post": {
-        "operationId": "post_runner_v1_enroll",
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/RunnerCredential"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/RunnerEnrollRequest"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/runner/v1/hello": {
-      "post": {
-        "operationId": "post_runner_v1_hello",
-        "security": [
-          {
-            "runnerCredential": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/RunnerSession"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/RunnerHello"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/runner/v1/heartbeat": {
-      "post": {
-        "operationId": "post_runner_v1_heartbeat",
-        "security": [
-          {
-            "runnerCredential": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/RunnerHeartbeatAck"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/RunnerHeartbeat"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/runner/v1/claim": {
-      "post": {
-        "operationId": "post_runner_v1_claim",
-        "security": [
-          {
-            "runnerCredential": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/JobOffer"
-                }
-              }
-            }
-          },
-          "204": {
-            "description": "No eligible work before poll timeout"
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/ClaimRequest"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/runner/v1/attempts/{id}/ack": {
-      "post": {
-        "operationId": "post_runner_v1_attempts_id_ack",
-        "security": [
-          {
-            "runnerSession": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/AttemptLease"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/AttemptAck"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/runner/v1/attempts/{id}/renew": {
-      "post": {
-        "operationId": "post_runner_v1_attempts_id_renew",
-        "security": [
-          {
-            "runnerSession": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/AttemptLease"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/AttemptRenew"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/runner/v1/attempts/{id}/events": {
-      "post": {
-        "operationId": "post_runner_v1_attempts_id_events",
-        "security": [
-          {
-            "runnerSession": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/AttemptEventAck"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/AttemptEventBatch"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/runner/v1/attempts/{id}/permit": {
-      "post": {
-        "operationId": "post_runner_v1_attempts_id_permit",
-        "security": [
-          {
-            "runnerSession": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/ExecutionGrant"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/EffectPermitRequest"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/runner/v1/attempts/{id}/complete": {
-      "post": {
-        "operationId": "post_runner_v1_attempts_id_complete",
-        "security": [
-          {
-            "runnerSession": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/ReceiptAck"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/JobReceipt"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/runner/v1/attempts/{id}/release": {
-      "post": {
-        "operationId": "post_runner_v1_attempts_id_release",
-        "security": [
-          {
-            "runnerSession": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/Ack"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/AttemptRelease"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/artifacts/init": {
-      "post": {
-        "operationId": "post_v1_artifacts_init",
-        "security": [
-          {
-            "bearer": []
-          },
-          {
-            "humanSession": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/UploadSession"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/UploadInit"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/artifacts/{id}/content": {
-      "put": {
-        "operationId": "put_v1_artifacts_id_content",
-        "security": [
-          {
-            "bearer": []
-          },
-          {
-            "humanSession": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/ArtifactRef"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/octet-stream": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "operationId": "get_v1_artifacts_id_content",
-        "security": [
-          {
-            "bearer": []
-          },
-          {
-            "humanSession": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Authorized byte stream",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            }
-          }
-        ]
-      }
-    },
-    "/v1/events": {
-      "get": {
-        "operationId": "get_v1_events",
-        "security": [
-          {
-            "bearer": []
-          },
-          {
-            "humanSession": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Authorized durable event replay and live stream",
-            "content": {
-              "text/event-stream": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "Last-Event-ID",
-            "in": "header",
-            "schema": {
-              "type": "string",
-              "maxLength": 2048
-            }
-          }
-        ]
-      }
-    },
-    "/runner/v1/challenges": {
-      "post": {
-        "operationId": "post_runner_v1_challenges",
-        "security": [
-          {
-            "runnerCredential": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/RunnerChallenge"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/RunnerChallengeRequest"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/step-up/challenges": {
-      "post": {
-        "operationId": "post_v1_step_up_challenges",
-        "security": [
-          {
-            "humanSession": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/StepUpChallenge"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/StepUpChallengeRequest"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/step-up/verify": {
-      "post": {
-        "operationId": "post_v1_step_up_verify",
-        "security": [
-          {
-            "humanSession": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/StepUpEvidence"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/StepUpVerify"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/approvals/{id}/decision-status": {
-      "post": {
-        "operationId": "post_v1_approvals_id_decision_status",
-        "security": [
-          {
-            "humanSession": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/ApprovalDecisionStatus"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/ApprovalDecisionStatusRequest"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/setup": {
-      "post": {
-        "operationId": "post_v1_setup",
-        "security": [
-          {
-            "localSetup": []
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BootstrapResponse"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/BootstrapRequest"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/setup/status": {
-      "get": {
-        "operationId": "get_v1_setup_status",
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/SetupStatus"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/identity": {
-      "get": {
-        "operationId": "get_v1_identity",
-        "security": [
-          {
-            "bearer": []
-          },
-          {
-            "humanSession": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/IdentityView"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/runner/v1/evidence": {
-      "post": {
-        "operationId": "post_runner_v1_evidence",
-        "security": [
-          {
-            "runnerSession": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/EvidenceBundle"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Accepted immutable evidence",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/EvidenceSubmissionResult"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/runner/v1/verdicts": {
-      "post": {
-        "operationId": "post_runner_v1_verdicts",
-        "security": [
-          {
-            "runnerSession": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./brain.schema.json#/$defs/RunnerVerdictRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Accepted immutable evidence",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/VerificationReceipt"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Structured error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./brain.schema.json#/$defs/BrainError"
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "components": {
-    "securitySchemes": {
-      "bearer": {
-        "type": "http",
-        "scheme": "bearer"
-      },
-      "humanSession": {
-        "type": "apiKey",
-        "in": "cookie",
-        "name": "__Secure-better-auth.session_token",
-        "description": "Better Auth cookie name/prefix is set by the pinned production configuration; HTTPS may use its secure-prefixed cookie name. Ingress reads the vendor session API, not a manually parsed cookie."
-      },
-      "runnerCredential": {
-        "type": "http",
-        "scheme": "bearer"
-      },
-      "runnerSession": {
-        "type": "http",
-        "scheme": "bearer"
-      },
-      "localSetup": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "Authorization",
-        "description": "Setup <one-use credential from the private Governor setup.token file>; never a public default."
-      }
-    }
+ "openapi": "3.1.0",
+ "info": {
+  "title": "Keyrus Brain baseline transport",
+  "version": "1.0.0",
+  "description": "Current target transport. Better Auth and MCP own their protocol routes; Governor verifies current identity, scope and effects."
+ },
+ "servers": [
+  {
+   "url": "https://brain.example.invalid"
   }
+ ],
+ "paths": {
+  "/v1/commands": {
+   "post": {
+    "operationId": "post_v1_commands",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "202": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/CommandReceipt"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/CommandReceipt"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/CommandEnvelope"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/query": {
+   "post": {
+    "operationId": "post_v1_query",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/QueryResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/QueryRequest"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/approvals/{id}/decision": {
+   "post": {
+    "operationId": "post_v1_approvals_id_decision",
+    "security": [
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/ApprovalRequest"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 128
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/HumanApprovalDecision"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/runner/v1/enroll": {
+   "post": {
+    "operationId": "post_runner_v1_enroll",
+    "security": [],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/RunnerCredential"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/RunnerEnrollRequest"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/runner/v1/hello": {
+   "post": {
+    "operationId": "post_runner_v1_hello",
+    "security": [
+     {
+      "runnerCredential": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/RunnerSession"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/RunnerHello"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/runner/v1/heartbeat": {
+   "post": {
+    "operationId": "post_runner_v1_heartbeat",
+    "security": [
+     {
+      "runnerCredential": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/RunnerHeartbeatAck"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/RunnerHeartbeat"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/runner/v1/claim": {
+   "post": {
+    "operationId": "post_runner_v1_claim",
+    "security": [
+     {
+      "runnerCredential": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/JobOffer"
+        }
+       }
+      }
+     },
+     "204": {
+      "description": "No eligible work before poll timeout"
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/ClaimRequest"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/runner/v1/attempts/{id}/ack": {
+   "post": {
+    "operationId": "post_runner_v1_attempts_id_ack",
+    "security": [
+     {
+      "runnerSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/AttemptLease"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 128
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/AttemptAck"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/runner/v1/attempts/{id}/renew": {
+   "post": {
+    "operationId": "post_runner_v1_attempts_id_renew",
+    "security": [
+     {
+      "runnerSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/AttemptLease"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 128
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/AttemptRenew"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/runner/v1/attempts/{id}/events": {
+   "post": {
+    "operationId": "post_runner_v1_attempts_id_events",
+    "security": [
+     {
+      "runnerSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/AttemptEventAck"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 128
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/AttemptEventBatch"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/runner/v1/attempts/{id}/permit": {
+   "post": {
+    "operationId": "post_runner_v1_attempts_id_permit",
+    "security": [
+     {
+      "runnerSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/ExecutionGrant"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 128
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/EffectPermitRequest"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/runner/v1/attempts/{id}/complete": {
+   "post": {
+    "operationId": "post_runner_v1_attempts_id_complete",
+    "security": [
+     {
+      "runnerSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/ReceiptAck"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 128
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/JobReceipt"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/runner/v1/attempts/{id}/release": {
+   "post": {
+    "operationId": "post_runner_v1_attempts_id_release",
+    "security": [
+     {
+      "runnerSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/Ack"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 128
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/AttemptRelease"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/artifacts/init": {
+   "post": {
+    "operationId": "post_v1_artifacts_init",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/UploadSession"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/UploadInit"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/artifacts/{id}/content": {
+   "put": {
+    "operationId": "put_v1_artifacts_id_content",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/ArtifactRef"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 128
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/octet-stream": {
+       "schema": {
+        "type": "string",
+        "format": "binary"
+       }
+      }
+     }
+    }
+   },
+   "get": {
+    "operationId": "get_v1_artifacts_id_content",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Authorized byte stream",
+      "content": {
+       "application/octet-stream": {
+        "schema": {
+         "type": "string",
+         "format": "binary"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 128
+      }
+     }
+    ]
+   }
+  },
+  "/v1/events": {
+   "get": {
+    "operationId": "get_v1_events",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Authorized durable event replay and live stream",
+      "content": {
+       "text/event-stream": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "Last-Event-ID",
+      "in": "header",
+      "schema": {
+       "type": "string",
+       "maxLength": 2048
+      }
+     }
+    ]
+   }
+  },
+  "/runner/v1/challenges": {
+   "post": {
+    "operationId": "post_runner_v1_challenges",
+    "security": [
+     {
+      "runnerCredential": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/RunnerChallenge"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/RunnerChallengeRequest"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/step-up/challenges": {
+   "post": {
+    "operationId": "post_v1_step_up_challenges",
+    "security": [
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/StepUpChallenge"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/StepUpChallengeRequest"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/step-up/verify": {
+   "post": {
+    "operationId": "post_v1_step_up_verify",
+    "security": [
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/StepUpEvidence"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/StepUpVerify"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/approvals/{id}/decision-status": {
+   "post": {
+    "operationId": "post_v1_approvals_id_decision_status",
+    "security": [
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/ApprovalDecisionStatus"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 128
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/ApprovalDecisionStatusRequest"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/setup": {
+   "post": {
+    "operationId": "post_v1_setup",
+    "security": [
+     {
+      "localSetup": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BootstrapResponse"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/BootstrapRequest"
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/setup/status": {
+   "get": {
+    "operationId": "get_v1_setup_status",
+    "security": [],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/SetupStatus"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/identity": {
+   "get": {
+    "operationId": "get_v1_identity",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Success",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/IdentityView"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/runner/v1/evidence": {
+   "post": {
+    "operationId": "post_runner_v1_evidence",
+    "security": [
+     {
+      "runnerSession": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/EvidenceBundle"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Accepted immutable evidence",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/EvidenceSubmissionResult"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/runner/v1/verdicts": {
+   "post": {
+    "operationId": "post_runner_v1_verdicts",
+    "security": [
+     {
+      "runnerSession": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/RunnerVerdictRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Accepted immutable evidence",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/VerificationReceipt"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/runner/v1/attempts/{id}/artifacts": {
+   "post": {
+    "operationId": "post_runner_v1_attempts_id_permit",
+    "security": [
+     {
+      "runnerSession": []
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Artifact pinned",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "artifactId": {
+           "type": "string"
+          },
+          "digest": {
+           "type": "string"
+          },
+          "bytes": {
+           "type": "integer"
+          }
+         }
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "413": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 128
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "digest",
+         "bytesBase64"
+        ],
+        "properties": {
+         "digest": {
+          "type": "string"
+         },
+         "bytesBase64": {
+          "type": "string"
+         },
+         "mediaType": {
+          "type": "string"
+         }
+        }
+       }
+      }
+     }
+    },
+    "summary": "Pin attempt output bytes into the organization CAS under the live attempt"
+   }
+  }
+ },
+ "components": {
+  "securitySchemes": {
+   "bearer": {
+    "type": "http",
+    "scheme": "bearer"
+   },
+   "humanSession": {
+    "type": "apiKey",
+    "in": "cookie",
+    "name": "__Secure-better-auth.session_token",
+    "description": "Better Auth cookie name/prefix is set by the pinned production configuration; HTTPS may use its secure-prefixed cookie name. Ingress reads the vendor session API, not a manually parsed cookie."
+   },
+   "runnerCredential": {
+    "type": "http",
+    "scheme": "bearer"
+   },
+   "runnerSession": {
+    "type": "http",
+    "scheme": "bearer"
+   },
+   "localSetup": {
+    "type": "apiKey",
+    "in": "header",
+    "name": "Authorization",
+    "description": "Setup <one-use credential from the private Governor setup.token file>; never a public default."
+   }
+  }
+ }
 }

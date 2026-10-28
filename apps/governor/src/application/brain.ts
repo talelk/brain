@@ -19,6 +19,7 @@ import { StepUpService } from "../modules/governance/index";
 import { createBrainAuth, bootstrapIdentity, assertHumanIdentity, type BootstrapResult, type BrainAuth } from "../modules/identity/index";
 import { quarantineRestoredAuthority, loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscription, type VapidKeys } from "../modules/operations/index";
 import { EvidenceService } from "../modules/evidence/index";
+import { acceptAttemptArtifact } from "../modules/evidence/index";
 import {
   ackAttempt as jobsAckAttempt, attemptEvents as jobsAttemptEvents, authRunner, claim as jobsClaim,
   completeAttempt as jobsCompleteAttempt, enrollRunner, expireLeases as jobsExpireLeases, heartbeat,
@@ -695,6 +696,10 @@ export class Brain {
 
   releaseAttempt(runner: { runnerId: string; epoch: number }, attemptId: string, body: Record<string, unknown>): JsonValue {
     return jobsReleaseAttempt(this.store, runner, attemptId, body);
+  }
+
+  acceptAttemptArtifact(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, input: { digest: string; bytesBase64: string; mediaType?: string }): { artifactId: string; digest: string; bytes: number } {
+    return acceptAttemptArtifact(this.store, runner, attemptId, input);
   }
 
   expireLeases(): number {

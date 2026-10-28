@@ -12,6 +12,7 @@ import { FixtureEngine } from "../../apps/runner/src/engines/fixture";
 import type { RunnerConfig } from "../../apps/runner/src/supervisor";
 
 const cfgFor = (dir: string): RunnerConfig => ({ groupToolsDir: dir } as unknown as RunnerConfig);
+const tool = (offer: ReturnType<typeof echoOffer>, dir: string) => ({ offer, cfg: cfgFor(dir) });
 const echoOffer = (input: Record<string, unknown>) => ({
   payload: { step: { uses: { release: { id: "fixture.echo" } } }, input },
   execution: { kind: "tool" },
@@ -42,14 +43,12 @@ describe("scenario gaps (T50 batch 3: connectors, tools, storage)", () => {
   it("tool input cannot inject shell commands; unknown tool ids never resolve paths (E066)", async () => {
     const marker = join("/tmp", `bp-${Date.now()}`);
     const res = await executeToolPayload(
-      echoOffer({ message: `$(touch ${marker})` }),
-      cfgFor(join(process.cwd(), "examples/v1/golden-release/tools")),
+      tool(echoOffer({ message: `$(touch ${marker})` }), join(process.cwd(), "examples/v1/golden-release/tools")),
     );
     expect(res.ok).toBe(true);
     expect(existsSync(marker)).toBe(false);
     const traversal = await executeToolPayload(
-      { payload: { step: { uses: { release: { id: "../../etc/passwd" } } }, input: {} }, execution: { kind: "tool" } },
-      cfgFor("/tmp"),
+      tool({ payload: { step: { uses: { release: { id: "../../etc/passwd" } } }, input: {} }, execution: { kind: "tool" } }, "/tmp"),
     );
     expect(traversal.ok).toBe(false);
   });
@@ -59,10 +58,10 @@ describe("scenario gaps (T50 batch 3: connectors, tools, storage)", () => {
     const tools = join(w.dir, "tools");
     mkdirSync(join(tools, "fixture.echo"), { recursive: true });
     writeFileSync(join(tools, "fixture.echo", "run.sh"), "#!/bin/bash\necho 'not json at all'\n", { mode: 0o755 });
-    const bad = await executeToolPayload(echoOffer({ message: "x" }), cfgFor(tools));
+    const bad = await executeToolPayload(tool(echoOffer({ message: "x" }), tools));
     expect(bad.ok).toBe(false);
     writeFileSync(join(tools, "fixture.echo", "run.sh"), "#!/bin/bash\nhead -c 3000000 /dev/zero | tr '\\0' 'a'\n", { mode: 0o755 });
-    const big = await executeToolPayload(echoOffer({ message: "x" }), cfgFor(tools));
+    const big = await executeToolPayload(tool(echoOffer({ message: "x" }), tools));
     expect(big.ok).toBe(false);
     w.brain.close();
   });
@@ -73,7 +72,7 @@ describe("scenario gaps (T50 batch 3: connectors, tools, storage)", () => {
     mkdirSync(join(tools, "fixture.echo"), { recursive: true });
     const sideEffect = join(w.dir, "mutated.txt");
     writeFileSync(join(tools, "fixture.echo", "run.sh"), `#!/bin/bash\necho mutated > ${sideEffect}\necho '{"partial":true}'\nexit 3\n`, { mode: 0o755 });
-    const res = await executeToolPayload(echoOffer({ message: "x" }), cfgFor(tools));
+    const res = await executeToolPayload({ offer: echoOffer({ message: "x" }), cfg: cfgFor(tools) });
     expect(existsSync(sideEffect)).toBe(true); // mutation happened
     expect(res.ok).toBe(false); // yet the step is not successful: caller maps this to unknown-outcome
     expect(JSON.stringify(res.output)).toContain("tool exit 3");
