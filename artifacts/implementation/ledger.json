@@ -3,7 +3,7 @@
   "sessionId": "01a17c54-5ef0-7fa0-9a11-f39579a3def8",
   "inputFingerprint": "sha256:abb7ef68836d772bc439fda8a0a47b7e3b44bd1062d3b8c45d8cab86e2daad46",
   "policyDigest": "sha256:6199e7e07edcc6fd4b1fae74fe1894a887b736115a4ce17b7ef59ae72f7ef816",
-  "updatedAt": "2026-10-28T04:02:48.960210Z",
+  "updatedAt": "2026-10-28T12:30:00Z",
   "tasks": [
     {
       "id": "T01",
@@ -189,46 +189,46 @@
     },
     {
       "id": "T20",
-      "status": "passed",
+      "status": "active",
       "evidencePaths": [
         "tests/",
         "artifacts/runtime/G01/manifest.json"
       ],
-      "nextAction": "Bounded runner event spool: duplicate-sequence refusal, telemetry backpressure, effect-event priority, byte+count caps (tests/chaos/runner.test.ts); outbound polling/deadlines proven in supervisor suites."
+      "nextAction": "DEMOTED to active 2026-10-28: the event spool is in-memory only (no disk durability, no replay after a failed events POST \u2014 drain() splices before the POST) and the supervisor computes a wall-clock deadline then discards it (void deadline). Remaining: disk-backed append/fsync spool with replay-on-reconnect, drain-after-ack, monotonic deadline derived from lease expiry that aborts the in-flight job."
     },
     {
       "id": "T21",
-      "status": "passed",
+      "status": "active",
       "evidencePaths": [
         "tests/",
         "artifacts/runtime/G01/manifest.json"
       ],
-      "nextAction": "Fixed profiles/preinstalled images only; smuggled docker surface rejected pre-daemon (tests/security/sandbox.test.ts) with live create/stop/egress proofs in probes (G06)."
+      "nextAction": "DEMOTED to active 2026-10-28: the constrained launcher is real but isolated \u2014 the runner never routes job execution through it (tools run via direct host bash of two fixture scripts), the launcher has no exec path (containers sleep infinity) and no socket peer-credential auth or sandbox-registry reconcile after restart. Remaining: launcher exec path + worktree mounts, supervisor\u2192launcher integration, registry persistence."
     },
     {
       "id": "T22",
-      "status": "passed",
+      "status": "active",
       "evidencePaths": [
         "tests/",
         "artifacts/runtime/G01/manifest.json"
       ],
-      "nextAction": "Pinned tool map, stdin/stdout bounds, fixed argv and scrubbed environment proven (tests/integration/tools.test.ts); found and fixed execa extendEnv leaking the runner environment into tools."
+      "nextAction": "DEMOTED to active 2026-10-28: governed tool execution is not on the job path \u2014 hello hardcodes the fixture engine and tools/invoke.ts executes fixture scripts directly. Remaining: digest-pinned tool execution through the launcher profile, stdin/stdout bounds on real jobs."
     },
     {
       "id": "T23",
-      "status": "passed",
+      "status": "active",
       "evidencePaths": [
         "apps/runner/src/engines/pi.ts",
         "tests/probes/harnesses/pi.test.ts",
         "artifacts/implementation/verification-run.json"
       ],
-      "nextAction": "Mastra is the default engine and DAG admission delegation is removed: admission, completion, gate wake, cancel and eval admission are implemented in the Mastra engine; WorkflowRunner remains only as the opt-in brain engine behind the port."
+      "nextAction": "DEMOTED to active 2026-10-28: /runner/v1/attempts/:id/permit exists and is tested Governor-side but the runner never requests or presents a permit (no tool-broker consumer). Remaining: effect-class tools acquire and present the exact permit before privileged effects."
     },
     {
       "id": "T24",
-      "status": "passed",
+      "status": "active",
       "evidencePaths": [],
-      "nextAction": "Pi checkpoint/resume implemented over the durable session file: digest-pinned checkpoint artifact, fresh-instance resume with context recall, tamper refusal (tests/probes/harnesses/pi-checkpoint.test.ts)."
+      "nextAction": "DEMOTED to active 2026-10-28: EngineAdapter implementations (pi/claude/acp) are dead code on the job path \u2014 the supervisor never instantiates an engine. Remaining: engine selection from claim/config, harness sessions with events/cancel/checkpoints through the real adapters."
     },
     {
       "id": "T25",
@@ -252,25 +252,25 @@
     },
     {
       "id": "T27",
-      "status": "passed",
+      "status": "active",
       "evidencePaths": [
         "apps/governor/src/modules/evidence/service.ts",
         "tests/integration/evidence.test.ts",
         "tests/integration/artifacts.test.ts",
         "tests/integration/offers.test.ts"
       ],
-      "nextAction": "Passed: streamed digest-bound uploads with mid-stream oversize abort, initiator-bound completion, attempt-bound execution artifact reads (tests/integration/artifacts.test.ts, offers.test.ts)."
+      "nextAction": "DEMOTED to active 2026-10-28: runner uploads no artifacts (results are inline JSON in the complete call); author evidence bundles are assembled by tests from stored facts, not produced by the runner. Remaining: streaming artifact upload from the supervisor, upload-ownership binding, automatic author-bundle capture, executable provenance."
     },
     {
       "id": "T28",
-      "status": "passed",
+      "status": "active",
       "evidencePaths": [
         "tests/integration/evidence.test.ts",
         "tests/integration/scenarios2.test.ts",
         "docs/implementation/25-evaluator-authority.md",
         "tests/security/evidence.test.ts"
       ],
-      "nextAction": "Passed: evidence admission negatives (invented fence, foreign attempt, self/unknown verdict) plus deep evaluator admission suite (tests/security/evidence.test.ts, tests/integration/evidence.test.ts)."
+      "nextAction": "DEMOTED to active 2026-10-28: L2 evaluator independence is unreachable \u2014 no production trust-domain verifier exists (runner_capabilities.verified is never set to 1 outside tests), and L3 is refused. Remaining: Governor-side step-up-gated trust-domain provisioning, revision/incomplete resubmission policy, explicit run/criterion bindings beyond the board path."
     },
     {
       "id": "T29",
@@ -320,7 +320,7 @@
         "tests/",
         "artifacts/runtime/G01/manifest.json"
       ],
-      "nextAction": "Exact NewUI primitives/tokens render across 390/768/1440 in both schemes with visible focus and live theme switching (tests/browser/primitives.spec.ts)."
+      "nextAction": "Exact NewUI primitives/tokens render across 390/768/1440 in both schemes with visible focus and live theme switching (tests/browser/primitives.spec.ts). | 2026-10-28: all 22 contract routes rewired onto the generated route index with the shared screen compositions (ScreenRegion 8-state, RunDetail, SessionFeed, EvidenceList, PlacementPanel); full Playwright matrix (390/768/1440 \u00d7 light/dark) passes against a real Governor."
     },
     {
       "id": "T34",
@@ -330,7 +330,7 @@
         "docs/implementation/24-native-identity.md",
         "artifacts/implementation/verification-run.json"
       ],
-      "nextAction": "All areas + Work + detail screens composed with NewUI PaneLayout (compact-safe close control), TV kiosk, deep links; push surface shipped under T45."
+      "nextAction": "All areas + Work + detail screens composed with NewUI PaneLayout (compact-safe close control), TV kiosk, deep links; push surface shipped under T45. | 2026-10-28: all 22 contract routes rewired onto the generated route index with the shared screen compositions (ScreenRegion 8-state, RunDetail, SessionFeed, EvidenceList, PlacementPanel); full Playwright matrix (390/768/1440 \u00d7 light/dark) passes against a real Governor."
     },
     {
       "id": "T35",
@@ -341,7 +341,7 @@
         "tests/browser/approval.spec.ts",
         "artifacts/implementation/verification-run.json"
       ],
-      "nextAction": "Approval decision flows proven in browser: exact review + TOTP step-up, committed-but-timed-out recovery via decision-status (single decision), and session-expiry mid-review failing closed with no decision recorded."
+      "nextAction": "Approval decision flows proven in browser: exact review + TOTP step-up, committed-but-timed-out recovery via decision-status (single decision), and session-expiry mid-review failing closed with no decision recorded. | 2026-10-28: all 22 contract routes rewired onto the generated route index with the shared screen compositions (ScreenRegion 8-state, RunDetail, SessionFeed, EvidenceList, PlacementPanel); full Playwright matrix (390/768/1440 \u00d7 light/dark) passes against a real Governor."
     },
     {
       "id": "T36",
@@ -350,7 +350,7 @@
         "tests/",
         "artifacts/runtime/G01/manifest.json"
       ],
-      "nextAction": "Explain blockers (job.explain in Runs detail), drain/quarantine with recorded reason from Settings, grouped live state via SSE/kiosk \u2014 browser-proven end-to-end (tests/browser/operations.spec.ts)."
+      "nextAction": "Explain blockers (job.explain in Runs detail), drain/quarantine with recorded reason from Settings, grouped live state via SSE/kiosk \u2014 browser-proven end-to-end (tests/browser/operations.spec.ts). | 2026-10-28: all 22 contract routes rewired onto the generated route index with the shared screen compositions (ScreenRegion 8-state, RunDetail, SessionFeed, EvidenceList, PlacementPanel); full Playwright matrix (390/768/1440 \u00d7 light/dark) passes against a real Governor."
     },
     {
       "id": "T37",
@@ -361,7 +361,7 @@
         "tests/browser/board.spec.ts",
         "apps/web/src/ui/components/ApprovalReview.tsx"
       ],
-      "nextAction": "KanbanBoard with screen-reader move controls on every viewport, pointer drag where columns are side-by-side, and Done-with-bound-verified-evidence through the real UI (tests/browser/board.spec.ts)."
+      "nextAction": "KanbanBoard with screen-reader move controls on every viewport, pointer drag where columns are side-by-side, and Done-with-bound-verified-evidence through the real UI (tests/browser/board.spec.ts). | 2026-10-28: all 22 contract routes rewired onto the generated route index with the shared screen compositions (ScreenRegion 8-state, RunDetail, SessionFeed, EvidenceList, PlacementPanel); full Playwright matrix (390/768/1440 \u00d7 light/dark) passes against a real Governor."
     },
     {
       "id": "T38",
@@ -439,7 +439,7 @@
         "tests/",
         "artifacts/runtime/G01/manifest.json"
       ],
-      "nextAction": "Static-only PWA cache + TV principal + full Web Push: VAPID (RFC 8292) and aes128gcm (RFC 8291) delivery proven against a mock push service with independent decryption and JWT verification; subscriptions encrypted at rest (tests/integration/push.test.ts)."
+      "nextAction": "Static-only PWA cache + TV principal + full Web Push: VAPID (RFC 8292) and aes128gcm (RFC 8291) delivery proven against a mock push service with independent decryption and JWT verification; subscriptions encrypted at rest (tests/integration/push.test.ts). | 2026-10-28: all 22 contract routes rewired onto the generated route index with the shared screen compositions (ScreenRegion 8-state, RunDetail, SessionFeed, EvidenceList, PlacementPanel); full Playwright matrix (390/768/1440 \u00d7 light/dark) passes against a real Governor."
     },
     {
       "id": "T46",
@@ -452,7 +452,7 @@
     },
     {
       "id": "T47",
-      "status": "passed",
+      "status": "active",
       "evidencePaths": [
         "tests/chaos/backup.test.ts",
         "tests/chaos/restore.test.ts",
@@ -461,7 +461,7 @@
         "apps/governor/src/http/app.ts",
         "artifacts/implementation/verification-run.json"
       ],
-      "nextAction": "Consistency cuts/online snapshots/manifest completeness and suspended-import quarantine proven (tests/chaos/restore.test.ts, backup.test.ts)."
+      "nextAction": "DEMOTED to active 2026-10-28: local archives are intentionally partial \u2014 knowledge/TencentDB adapter inventory, Mastra snapshot export and authority watermarks are missing from scoped exports. Remaining: complete scoped export inventory, restore verification of waits/immutable references/external-effect reconciliation, second-restore test."
     },
     {
       "id": "T48",
@@ -499,84 +499,84 @@
     },
     {
       "id": "G01",
-      "status": "passed",
+      "status": "active",
       "evidencePaths": [
         "artifacts/implementation/runtime-readiness.json",
         "docs/implementation/23-runtime-status.md",
         "artifacts/runtime/G01/manifest.json"
       ],
-      "nextAction": "Passed: manifest assertions green; probe suites re-run this session (tests/probes + tests/chaos, 35 tests) with no failures."
+      "nextAction": "DEMOTED to active 2026-10-28: no executed VerificationRun records back this gate \u2014 manifests are self-asserted. Additionally the sandbox previously misreported browser/localhost/Docker as permanently blocked; the browser matrix now runs (76 passed, 2026-10-28) and remaining suites (golden wire, docker/launcher, workload trials, model qualification) must be re-executed and recorded with raw logs + source/lock fingerprints before this gate may return to passed."
     },
     {
       "id": "G02",
-      "status": "passed",
+      "status": "active",
       "evidencePaths": [
         "artifacts/implementation/runtime-readiness.json",
         "docs/implementation/23-runtime-status.md",
         "artifacts/runtime/G02/manifest.json"
       ],
-      "nextAction": "Passed: manifest assertions green; probe suites re-run this session (tests/probes + tests/chaos, 35 tests) with no failures."
+      "nextAction": "DEMOTED to active 2026-10-28: no executed VerificationRun records back this gate \u2014 manifests are self-asserted. Additionally the sandbox previously misreported browser/localhost/Docker as permanently blocked; the browser matrix now runs (76 passed, 2026-10-28) and remaining suites (golden wire, docker/launcher, workload trials, model qualification) must be re-executed and recorded with raw logs + source/lock fingerprints before this gate may return to passed."
     },
     {
       "id": "G03",
-      "status": "passed",
+      "status": "active",
       "evidencePaths": [
         "artifacts/implementation/runtime-readiness.json",
         "docs/implementation/23-runtime-status.md",
         "artifacts/runtime/G03/manifest.json"
       ],
-      "nextAction": "Passed: manifest assertions green; probe suites re-run this session (tests/probes + tests/chaos, 35 tests) with no failures."
+      "nextAction": "DEMOTED to active 2026-10-28: no executed VerificationRun records back this gate \u2014 manifests are self-asserted. Additionally the sandbox previously misreported browser/localhost/Docker as permanently blocked; the browser matrix now runs (76 passed, 2026-10-28) and remaining suites (golden wire, docker/launcher, workload trials, model qualification) must be re-executed and recorded with raw logs + source/lock fingerprints before this gate may return to passed."
     },
     {
       "id": "G04",
-      "status": "passed",
+      "status": "active",
       "evidencePaths": [
         "artifacts/implementation/runtime-readiness.json",
         "docs/implementation/23-runtime-status.md",
         "artifacts/runtime/G04/manifest.json"
       ],
-      "nextAction": "Passed: manifest assertions green; probe suites re-run this session (tests/probes + tests/chaos, 35 tests) with no failures."
+      "nextAction": "DEMOTED to active 2026-10-28: no executed VerificationRun records back this gate \u2014 manifests are self-asserted. Additionally the sandbox previously misreported browser/localhost/Docker as permanently blocked; the browser matrix now runs (76 passed, 2026-10-28) and remaining suites (golden wire, docker/launcher, workload trials, model qualification) must be re-executed and recorded with raw logs + source/lock fingerprints before this gate may return to passed."
     },
     {
       "id": "G05",
-      "status": "passed",
+      "status": "active",
       "evidencePaths": [
         "artifacts/implementation/runtime-readiness.json",
         "docs/implementation/23-runtime-status.md",
         "artifacts/runtime/G05/manifest.json"
       ],
-      "nextAction": "Passed: manifest assertions green; probe suites re-run this session (tests/probes + tests/chaos, 35 tests) with no failures."
+      "nextAction": "DEMOTED to active 2026-10-28: no executed VerificationRun records back this gate \u2014 manifests are self-asserted. Additionally the sandbox previously misreported browser/localhost/Docker as permanently blocked; the browser matrix now runs (76 passed, 2026-10-28) and remaining suites (golden wire, docker/launcher, workload trials, model qualification) must be re-executed and recorded with raw logs + source/lock fingerprints before this gate may return to passed."
     },
     {
       "id": "G06",
-      "status": "passed",
+      "status": "active",
       "evidencePaths": [
         "artifacts/implementation/runtime-readiness.json",
         "docs/implementation/23-runtime-status.md",
         "artifacts/runtime/G06/manifest.json"
       ],
-      "nextAction": "Passed: manifest assertions green; probe suites re-run this session (tests/probes + tests/chaos, 35 tests) with no failures."
+      "nextAction": "DEMOTED to active 2026-10-28: no executed VerificationRun records back this gate \u2014 manifests are self-asserted. Additionally the sandbox previously misreported browser/localhost/Docker as permanently blocked; the browser matrix now runs (76 passed, 2026-10-28) and remaining suites (golden wire, docker/launcher, workload trials, model qualification) must be re-executed and recorded with raw logs + source/lock fingerprints before this gate may return to passed."
     },
     {
       "id": "G07",
-      "status": "passed",
+      "status": "active",
       "evidencePaths": [
         "artifacts/runtime/G07/manifest.json",
         "tests/chaos/restore.test.ts",
         "tests/chaos/backup.test.ts"
       ],
-      "nextAction": "Passed: hash-verified restore, suspended history preserved, restored authority quarantined on first open; completeness honestly partial (TencentDB Wiki/CodeGraph + Mastra snapshot export named missing)."
+      "nextAction": "DEMOTED to active 2026-10-28: no executed VerificationRun records back this gate \u2014 manifests are self-asserted. Additionally the sandbox previously misreported browser/localhost/Docker as permanently blocked; the browser matrix now runs (76 passed, 2026-10-28) and remaining suites (golden wire, docker/launcher, workload trials, model qualification) must be re-executed and recorded with raw logs + source/lock fingerprints before this gate may return to passed."
     },
     {
       "id": "G08",
-      "status": "passed",
+      "status": "active",
       "evidencePaths": [
         "artifacts/runtime/G08/manifest.json",
         "artifacts/runtime/G08/bench-steady.json",
         "benchmarks/steady.ts",
         "tests/browser/vitals.spec.ts"
       ],
-      "nextAction": "Passed: doc-10 protocol 3x10min steady-state trials all budgets green; 10x history repeat; fault-load fanout; browser vitals spec asserts LCP/INP/JS budgets."
+      "nextAction": "DEMOTED to active 2026-10-28: no executed VerificationRun records back this gate \u2014 manifests are self-asserted. Additionally the sandbox previously misreported browser/localhost/Docker as permanently blocked; the browser matrix now runs (76 passed, 2026-10-28) and remaining suites (golden wire, docker/launcher, workload trials, model qualification) must be re-executed and recorded with raw logs + source/lock fingerprints before this gate may return to passed."
     }
   ]
 }

@@ -26,24 +26,22 @@ test("operations: drain and quarantine a runner from settings (T36)", async ({ p
   const adminState = () => (brain.store.control.prepare("SELECT admin_state FROM runners WHERE id='runner-ops-1'").get() as { admin_state: string }).admin_state;
 
   await page.reload();
-  const navToggle = page.getByRole("button", { name: "Open application navigation", exact: true });
-  if (await navToggle.isVisible()) await navToggle.click();
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Settings", exact: true, level: 1 })).toBeVisible();
-  await expect(page.getByText(/runner-ops-1/)).toBeVisible();
+  // Runner operations live on the runner detail route of the Runs area.
+  await page.goto(`${governor.url}/runners/runner-ops-1`);
+  await expect(page.getByRole("heading", { name: "Runner detail", exact: true, level: 1 })).toBeVisible();
 
-  // No reason: refused client-side, state untouched.
-  await page.getByRole("button", { name: "Drain runner runner-ops-1", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText(/operations reason/i);
+  // No reason: the control stays disabled, state untouched.
+  const drain = page.getByRole("button", { name: "Drain", exact: true });
+  await expect(drain).toBeDisabled();
   expect(adminState()).toBe("enabled");
 
   await page.getByLabel(/^Operations reason/).fill("kernel upgrade window");
-  await page.getByRole("button", { name: "Drain runner runner-ops-1", exact: true }).click();
+  await drain.click();
   await expect.poll(adminState).toBe("draining");
-  await expect(page.getByText("draining", { exact: true })).toBeVisible();
+  await expect(page.getByText("Draining", { exact: false }).first()).toBeVisible();
 
   await page.getByLabel(/^Operations reason/).fill("suspected compromise");
-  await page.getByRole("button", { name: "Quarantine runner runner-ops-1", exact: true }).click();
+  await page.getByRole("button", { name: "Quarantine", exact: true }).click();
   await expect.poll(adminState).toBe("quarantined");
   expect(errors).toEqual([]);
 });

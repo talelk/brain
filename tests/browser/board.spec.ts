@@ -56,7 +56,7 @@ test("board: cards render by state, move applies, Done without evidence is refus
   await page.getByRole("button", { name: "Board", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Board", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByText("Ship the fixture", { exact: true })).toBeVisible();
-  expect(page.url()).toContain("#/board");
+  expect(new URL(page.url()).pathname).toBe("/w/ws-board/board");
 
   await page.getByRole("button", { name: "Move Ship the fixture to In progress", exact: true }).click();
   await expect.poll(() => (ws.prepare("SELECT state FROM cards WHERE id='card-ui-1'").get() as { state: string }).state).toBe("in-progress");

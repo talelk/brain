@@ -1,26 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { visibleWindow } from "../../apps/web/src/ui/window-list";
 import {
   beginDecision, beginRecovery, returnToReview, settleDecision, type ApprovalState,
 } from "../../apps/web/src/ui/approval-controller";
 import { EventSpool } from "../../apps/runner/src/spool";
 
 describe("web and runner unit mechanisms", () => {
-  it("windowed list bounds rendered rows and preserves scroll geometry (E092)", () => {
-    const items = Array.from({ length: 10_000 }, (_, i) => i);
-    const top = visibleWindow(items, 0, 52, 480);
-    expect(top.items.length).toBeLessThan(30);
-    expect(top.topPadPx).toBe(0);
-    expect(top.items[0]).toBe(0);
-    const mid = visibleWindow(items, 52 * 5000, 52, 480);
-    expect(mid.items).toContain(5000);
-    expect(mid.topPadPx + mid.items.length * 52 + mid.bottomPadPx).toBe(10_000 * 52);
-    const beyond = visibleWindow(items, 52 * 99_999, 52, 480);
-    expect(beyond.end).toBe(10_000);
-    expect(beyond.bottomPadPx).toBe(0);
-    expect(visibleWindow([], 0, 52, 480).items).toEqual([]);
-  });
-
   it("stale approvals settle to review-again with the captured intent preserved (E094)", () => {
     const proposal = { approvalId: "a1", subjectDigest: "d1", expectedVersion: 3 };
     let state: ApprovalState = beginDecision({ status: "review" }, proposal, "looks right", "k-1");

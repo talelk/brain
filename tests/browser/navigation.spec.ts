@@ -38,7 +38,7 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
   const reviewButton = page.getByRole("button", { name: "Review action", exact: true });
   await reviewButton.click({ timeout: 5000 });
   await expect(page.getByRole("dialog")).toBeVisible();
-  await expect(page.getByRole("dialog").getByText(/fixture\.publish/)).toBeVisible();
+  await expect(page.getByRole("dialog").getByText(/fixture\.publish/).first()).toBeVisible();
   // The dialog must be pointer-operable: the Back button is the top element
   // at its own center point (no overlay or page root intercepting clicks).
   const hit = await page.getByRole("button", { name: "Back", exact: true }).evaluate((el) => {

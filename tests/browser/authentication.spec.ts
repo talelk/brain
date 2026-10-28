@@ -23,9 +23,11 @@ test("native setup, enrollment and second-factor sign-in (E093/E094 partial)",as
   const identity=await governor.app.brain.resolveActor(new Headers({cookie:cookies.map((c)=>`${c.name}=${c.value}`).join("; ")}));
   expect(identity.humanSession?.factorDigest).toBeTruthy();
   expect(await page.evaluate(()=>JSON.stringify({local:{...localStorage},session:{...sessionStorage}}))).not.toContain(secret);
-  const open=page.getByRole("button",{name:"Open application navigation",exact:true});
-  if(await open.isVisible())await open.click();
-  await page.getByRole("button",{name:"Sign out",exact:true}).click();
+  // The account menu sits in the header bar below the shell's desktop
+  // breakpoint and in the sidebar above it; one test id covers both.
+  const account = page.getByTestId("account-menu").getByRole("button");
+  await account.click();
+  await page.getByRole("menuitem", { name: "Sign out", exact: true }).click();
   await expect(page.getByRole("heading",{name:"Sign in to Keyrus Brain",exact:true})).toBeVisible();
   await page.getByLabel(/^Email/).fill("browser@example.test");
   await page.getByLabel(/^Password/).fill("browser-password-1234");

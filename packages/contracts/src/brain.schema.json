@@ -5870,6 +5870,7 @@
     "QueueReason": {
       "type": "string",
       "enum": [
+        "READY",
         "WAITING_FOR_RUNNER",
         "BLOCKED_BY_POLICY",
         "WAITING_FOR_APPROVAL",

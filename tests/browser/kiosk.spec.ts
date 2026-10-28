@@ -25,23 +25,21 @@ test("tv kiosk renders read-only board; ticket detail opens exact record (T34)",
     .run(DIGEST_A, Date.now());
 
   await page.reload();
-  const navToggle = page.getByRole("button", { name: "Open application navigation", exact: true });
-  if (await navToggle.isVisible()) await navToggle.click();
-  await page.getByRole("button", { name: "Work", exact: true }).click();
+  // The support list and its exact detail route.
+  await page.goto(`${governor.url}/w/ws-kiosk/support`);
   await expect(page.getByText("Printer on fire")).toBeVisible();
-  await page.getByRole("button", { name: "Details for ticket Printer on fire", exact: true }).click();
-  const detail = page.getByRole("region", { name: "Detail", exact: true });
+  await page.getByRole("checkbox", { name: "Select tkt-1" }).check();
+  await page.getByRole("button", { name: /Details \(/ }).click();
+  await expect(page).toHaveURL(/\/tickets\/tkt-1$/);
+  const detail = page.getByRole("heading", { name: "Printer on fire", exact: true });
   await expect(detail).toBeVisible();
-  await expect(detail).toContainText("tkt-1");
-  await expect(detail).toContainText("Printer on fire");
-  await expect(detail).toContainText("sourceVersion");
-  await page.getByRole("button", { name: "Close detail", exact: true }).click();
-  await expect(detail).toHaveCount(0);
+  await expect(page.getByText("tkt-1")).toBeVisible();
 
-  await page.goto(`${governor.url}/?tv=1`);
+  // The TV kiosk is a dedicated read-only entry, not a query flag.
+  await page.goto(`${governor.url}/tv/support`);
   await expect(page.getByTestId("tv-kiosk")).toBeVisible();
-  await expect(page.getByRole("heading", { name: /operations board/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sign out", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: /Support board/ })).toBeVisible();
+  await expect(page.getByTestId("account-menu")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Refresh", exact: true })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
