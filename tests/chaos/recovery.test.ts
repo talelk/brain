@@ -27,7 +27,9 @@ describe("chaos / recovery", () => {
     w.brain.close();
     const backupDir = mkdtempSync(join(tmpdir(), "brain-backup-"));
     const manifest = await createBackup(w.dir, backupDir);
-    expect(manifest.completeness).toBe("partial");
+    // Local mode archives everything (memory in control.db, Mastra LibSQL,
+    // authority watermarks); only a configured remote TencentDB stays out.
+    expect(manifest.completeness).toBe(process.env["BRAIN_TENCENTDB_URL"] ? "partial" : "complete");
     expect(verifyBackup(backupDir).files.length).toBeGreaterThan(0);
     const into = mkdtempSync(join(tmpdir(), "brain-restore-"));
     restoreBackup(backupDir, into);

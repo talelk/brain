@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -55,8 +55,13 @@ describe("G07 restore: hash-verified backup, suspended history, dead authority (
 
     const backupDir = mkdtempSync(join(tmpdir(), "brain-backup-"));
     const manifest = await createBackup(dataDir, backupDir);
-    expect(manifest.completeness).toBe("partial");
-    expect(manifest.missing).toContain("tencentdb-wiki");
+    // Local mode: memory (control.db memory_assets), the Mastra LibSQL
+    // snapshot and the authority watermarks are all inside the archive; only
+    // a configured remote TencentDB would be missing.
+    expect(manifest.completeness).toBe(process.env["BRAIN_TENCENTDB_URL"] ? "partial" : "complete");
+    expect(manifest.authority?.organizations.length ?? 0).toBeGreaterThanOrEqual(1);
+    expect(manifest.authority?.mastraLibsqlSnapshot).toBe(true);
+    expect(manifest.authority?.memoryMode).toBe(process.env["BRAIN_TENCENTDB_URL"] ? "tencentdb" : "local");
     expect(manifest.files.length).toBeGreaterThan(0);
     expect(verifyBackup(backupDir).files.length).toBe(manifest.files.length);
 
@@ -102,5 +107,49 @@ describe("G07 restore: hash-verified backup, suspended history, dead authority (
       try { restored.close(); } catch { /* already closed */ }
       throw e;
     }
+  });
+
+  it("restores twice from the same archive and refuses mixed archive parts (T47)", async () => {
+    const w = await setupWorld();
+    const dataDir = w.dir;
+    w.brain.close();
+    const backupDir = mkdtempSync(join(tmpdir(), "brain-backup2-"));
+    const manifest = await createBackup(dataDir, backupDir);
+    const watermarks = manifest.authority?.organizations ?? [];
+    expect(watermarks.length).toBeGreaterThanOrEqual(1);
+
+    // Second restore of previously restored data: a restored directory can be
+    // re-restored from the same archive deterministically.
+    const first = join(mkdtempSync(join(tmpdir(), "brain-restored-a-")), "data");
+    restoreBackup(backupDir, first);
+    const second = join(mkdtempSync(join(tmpdir(), "brain-restored-b-")), "data");
+    restoreBackup(backupDir, second);
+    const markerOf = (dir: string) => JSON.parse(readFileSync(join(dir, "RESTORED-SUSPENDED.json"), "utf8")) as { authorityWatermarks?: Array<{ id: string; revocationGeneration: number }> };
+    expect(markerOf(second).authorityWatermarks).toEqual(markerOf(first).authorityWatermarks);
+    expect(markerOf(second).authorityWatermarks?.length ?? 0).toBeGreaterThanOrEqual(1);
+    // Both restores boot and carry the archived authority generation.
+    for (const dir of [first, second]) {
+      const b = new Brain({ dataDir: dir, allowTestActor: true });
+      try {
+        const gen = (b.store.control.prepare("SELECT revocation_generation AS g FROM organizations WHERE id=?").get(w.org) as { g: number } | undefined)?.g;
+        // Startup quarantine bumps the generation; it must never be behind
+        // the archived watermark.
+        expect(gen ?? 0).toBeGreaterThanOrEqual(watermarks.find((x) => x.id === w.org)?.revocationGeneration ?? 0);
+      } finally { b.close(); }
+    }
+
+    // Mixed archive parts: a marker claiming a HIGHER authority generation
+    // than the restored control.db carries is refused at startup quarantine.
+    const tampered = join(mkdtempSync(join(tmpdir(), "brain-restored-c-")), "data");
+    restoreBackup(backupDir, tampered);
+    const markerPath = join(tampered, "RESTORED-SUSPENDED.json");
+    const marker = JSON.parse(readFileSync(markerPath, "utf8")) as { authorityWatermarks?: Array<{ id: string; revocationGeneration: number }> };
+    marker.authorityWatermarks = (marker.authorityWatermarks ?? []).map((x) => ({ ...x, revocationGeneration: x.revocationGeneration + 5 }));
+    writeFileSync(markerPath, JSON.stringify(marker));
+    let refused = false;
+    try { new Brain({ dataDir: tampered, allowTestActor: true }); }
+    catch (e) { refused = /behind the archive|inconsistent/u.test(String((e as Error).message)); }
+    finally { rmSync(tampered, { recursive: true, force: true }); }
+    expect(refused).toBe(true);
   });
 });

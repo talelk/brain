@@ -14,8 +14,20 @@ const manifestSchema = z.object({
   backupId: z.uuid(),
   createdAt: z.iso.datetime(),
   files: z.array(z.object({ path: z.string().min(1).max(1024), digest: z.string().regex(/^sha256:[a-f0-9]{64}$/u), bytes: z.number().int().min(0).max(10 * 1024 ** 3) }).strict()).min(1).max(100_000),
-  completeness: z.literal("partial"),
-  missing: z.array(z.string().min(1).max(256)).min(1).max(100),
+  completeness: z.enum(["partial", "complete"]),
+  missing: z.array(z.string().min(1).max(256)).max(100),
+  // T47: authority watermarks and the pinned adapter/config inventory ride in
+  // the archive so a restore can prove what authority generation it carries.
+  authority: z.object({
+    organizations: z.array(z.object({
+      id: z.string().min(1).max(256),
+      revocationGeneration: z.number().int().min(1),
+      activeReleaseDigest: z.string().regex(/^sha256:[a-f0-9]{64}$/u).nullable(),
+      primitiveVersions: z.number().int().min(0),
+    })).max(10_000),
+    mastraLibsqlSnapshot: z.boolean(),
+    memoryMode: z.enum(["local", "tencentdb"]),
+  }).strict().optional(),
 }).strict();
 export type LocalBackupManifest = z.infer<typeof manifestSchema>;
 const reserved = new Set(["manifest.json", "RESTORED-SUSPENDED.json", "RESTORED-APPLIED.json", OWNER_FILE, `${OWNER_FILE}-journal`]);
@@ -154,9 +166,42 @@ export async function createBackup(dataDir: string, outDir: string): Promise<Loc
       const info = path.endsWith(".db") ? copyVerified(stage, path) : copyVerified(source, path, undefined, dest);
       files.push({ path, ...info });
     }
+    // T47 inventory: local memory lives in control.db (memory_assets) and the
+    // Mastra durable progression snapshot is the LibSQL storage under
+    // dataDir/mastra — both are collected files above. Only a *configured
+    // remote* TencentDB is outside the archive. Authority watermarks come
+    // straight from the control snapshot.
+    let authority: LocalBackupManifest["authority"];
+    {
+      const control = new Database(join(stage, "control.db"), { readonly: true, fileMustExist: true });
+      try {
+        const orgs = control.prepare("SELECT id, revocation_generation FROM organizations ORDER BY id").all() as Array<{ id: string; revocation_generation: number }>;
+        const active = control.prepare("SELECT organization_id, release_digest FROM active_config").all() as Array<{ organization_id: string; release_digest: string }>;
+        const activeByOrg = new Map(active.map((r) => [r.organization_id, r.release_digest]));
+        authority = {
+          organizations: orgs.map((o) => {
+            let primitiveVersions = 0;
+            const releaseDigest = activeByOrg.get(o.id) ?? null;
+            if (releaseDigest) {
+              const rel = control.prepare("SELECT manifest_json FROM config_releases WHERE digest=?").get(releaseDigest) as { manifest_json: string } | undefined;
+              try {
+                const parsed = JSON.parse(rel?.manifest_json ?? "{}") as { manifest?: { primitiveVersions?: Record<string, string> } };
+                primitiveVersions = Object.keys(parsed.manifest?.primitiveVersions ?? {}).length;
+              } catch { primitiveVersions = 0; }
+            }
+            return { id: o.id, revocationGeneration: o.revocation_generation, activeReleaseDigest: releaseDigest, primitiveVersions };
+          }),
+          mastraLibsqlSnapshot: existsSync(join(stage, "mastra")),
+          memoryMode: process.env["BRAIN_TENCENTDB_URL"] ? "tencentdb" : "local",
+        };
+      } finally { control.close(); }
+    }
+    const missing: string[] = [];
+    if (authority.memoryMode === "tencentdb") missing.push("tencentdb-memory", "tencentdb-wiki", "tencentdb-codegraph");
     const manifest: LocalBackupManifest = manifestSchema.parse({
       format: "brain.local-backup/v1", backupId: randomUUID(), createdAt: new Date().toISOString(), files,
-      completeness: "partial", missing: ["tencentdb-memory", "tencentdb-wiki", "tencentdb-codegraph", "mastra-export", "authority-watermarks-and-adapter-releases"],
+      completeness: missing.length === 0 ? "complete" : "partial", missing,
+      authority,
     });
     durableWrite(join(stage, "manifest.json"), JSON.stringify(manifest, null, 2));
     output.publish();
@@ -202,6 +247,7 @@ export function restoreBackup(backupDir: string, intoDir: string): void {
     durableWrite(join(output.stage, "RESTORED-SUSPENDED.json"), JSON.stringify({
       format: "brain.restore/v1", restoreId: randomUUID(), backupId: manifest.backupId,
       manifestDigest: sha256Digest(readFileSync(join(root, "manifest.json"))), restoredAt: new Date().toISOString(),
+      authorityWatermarks: manifest.authority?.organizations ?? [],
     }, null, 2));
     output.publish();
   } finally { if (existsSync(output.stage)) rmSync(output.stage, { recursive: true, force: true }); }

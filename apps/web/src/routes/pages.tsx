@@ -618,7 +618,7 @@ function SettingsPage(): JSX.Element {
         await Promise.all([settings.refresh({ force: true }), context.refresh({ force: true }), explanation.refresh({ force: true })]);
       }}
       activeConfigDigest={context.state().data?.release.configDigest}
-      viewerId={app.identity()?.actor.actorId} viewerName={app.identity()?.displayName} />;
+      viewerId={app.identity()?.actor.actorId} viewerName={app.identity()?.displayName} />
   </div>;
 }
 /** Kiosk boards: redacted aggregates, read-only, no app shell. */

@@ -10,6 +10,12 @@ import type { BrainAuth } from "../identity/index";
 const markerSchema = z.object({
   format: z.literal("brain.restore/v1"), restoreId: z.uuid(), backupId: z.uuid(),
   manifestDigest: z.string().regex(/^sha256:[a-f0-9]{64}$/u), restoredAt: z.iso.datetime(),
+  authorityWatermarks: z.array(z.object({
+    id: z.string().min(1).max(256),
+    revocationGeneration: z.number().int().min(1),
+    activeReleaseDigest: z.string().regex(/^sha256:[a-f0-9]{64}$/u).nullable(),
+    primitiveVersions: z.number().int().min(0),
+  }).strict()).max(10_000).optional(),
 }).strict();
 
 export function quarantineRestoredAuthority(s: Store, auth: Pick<BrainAuth, "revokeAllSessions">): void {
@@ -27,6 +33,16 @@ export function quarantineRestoredAuthority(s: Store, auth: Pick<BrainAuth, "rev
       return;
     }
     const now = s.now();
+    if (marker.authorityWatermarks) {
+      // A restored control.db whose authority generation is behind the
+      // archive marker means mixed archive parts — refuse before quarantine.
+      for (const watermark of marker.authorityWatermarks) {
+        const row = s.control.prepare("SELECT revocation_generation FROM organizations WHERE id=?").get(watermark.id) as { revocation_generation: number } | undefined;
+        if (!row || row.revocation_generation < watermark.revocationGeneration) {
+          throw new BrainDomainError("CONFLICT", `restored authority watermark for ${watermark.id} is behind the archive; archive parts are inconsistent`);
+        }
+      }
+    }
     auth.revokeAllSessions();
     for (const table of ["machine_sessions", "runner_sessions", "runner_identity_credentials", "delegated_grants", "step_up_evidence", "permit_credentials"]) {
       s.control.prepare(`UPDATE ${table} SET revoked_at_ms=? WHERE revoked_at_ms IS NULL`).run(now);
