@@ -1,0 +1,28 @@
+{
+  "profile": "seeded-light: 25 workspaces, 1000 cards (doc-10 full: 25ws/5000 jobs/100k events)",
+  "seedMs": 388,
+  "cards": 1000,
+  "jobsListP50MedianMs": 0.1287729999999101,
+  "jobsListP95MedianMs": 0.29064699999980803,
+  "jobsListP99MedianMs": 0.40917100000001483,
+  "runs": {
+    "run1": {
+      "p50": 0.2630770000000666,
+      "p95": 0.3485099999998056,
+      "p99": 42.5791999999999
+    },
+    "run2": {
+      "p50": 0.1162059999999201,
+      "p95": 0.29064699999980803,
+      "p99": 0.3538770000000113
+    },
+    "run3": {
+      "p50": 0.1287729999999101,
+      "p95": 0.15304900000000998,
+      "p99": 0.40917100000001483
+    }
+  },
+  "rssMb": 273,
+  "budgetNote": "doc-10 p95 targets: filtered lists <150ms, commands <250ms (in-process, loopback excluded)",
+  "at": "2026-10-27T10:16:22.513Z"
+}

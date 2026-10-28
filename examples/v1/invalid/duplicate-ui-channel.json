@@ -1,0 +1,33 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "BrainConfig",
+  "metadata": {
+    "id": "example-brainconfig",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "defaultPolicy": {
+      "id": "strict-default",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "maxConcurrentJobs": 12,
+    "leaseSeconds": 60,
+    "heartbeatSeconds": 15,
+    "memoryRequired": false,
+    "ui": {
+      "foundation": "newui",
+      "foundationManifestDigest": "sha256:7c9ee4843884efea3e849170434503d20e63633caa0f4394bb784d0eaf4ad598",
+      "defaultTheme": "system",
+      "density": "compact",
+      "supportedLocales": [
+        "en",
+        "fr"
+      ],
+      "defaultLocale": "en",
+      "enabledChannels": [
+        "web",
+        "web"
+      ]
+    }
+  }
+}

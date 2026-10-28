@@ -1,0 +1,19 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_tool.propose",
+  "commandType": "tool.propose",
+  "idempotencyKey": "idem_tool.propose",
+  "payload": {
+    "package": {
+      "artifactId": "fixture",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 0,
+      "mediaType": "fixture",
+      "classification": "public"
+    },
+    "evidence": [
+      "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ]
+  },
+  "workspaceId": "fixture"
+}

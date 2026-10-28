@@ -1,0 +1,9 @@
+{
+  "runnerId": "fixture",
+  "runnerEpoch": 1,
+  "sessionToken": "fixture",
+  "serverTime": "2026-10-27T12:00:00Z",
+  "heartbeatSeconds": 5,
+  "leaseSeconds": 30,
+  "sessionExpiresAt": "2026-10-27T12:00:00Z"
+}

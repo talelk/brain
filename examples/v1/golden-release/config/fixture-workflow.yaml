@@ -1,0 +1,76 @@
+apiVersion: brain.keyrus/v1
+kind: Workflow
+metadata:
+  id: fixture-workflow
+  version: 1.0.0
+spec:
+  inputSchemaRef: schemas/echo-input.json
+  outputSchemaRef: schemas/check.json
+  jobs:
+    echo:
+      kind: dispatch
+      needs: []
+      input:
+        message:
+          source: input
+          pointer: /message
+      outputSchemaRef: schemas/echo-output.json
+      timeoutSeconds: 30
+      uses:
+        type: tool
+        release:
+          id: fixture.echo
+          digest: sha256:a3fe6a4caae9923fc7b88b98a9bb83234540741512decc87707dd2e97e03d6f0
+      runsOn:
+        group: fixture-tools
+        all:
+        - os:linux
+        - tool:bash
+        - tool:python3
+        - isolation:ephemeral-container
+        resources:
+          cpuMillicores: 500
+          memoryMb: 256
+          diskMb: 256
+          slots: 1
+        isolation: ephemeral-container
+      effectClass: read
+    verify:
+      kind: eval
+      needs:
+      - echo
+      input:
+        report:
+          source: job
+          jobId: echo
+          pointer: ''
+      outputSchemaRef: schemas/check.json
+      timeoutSeconds: 30
+      evaluator:
+        id: fixture-evaluator
+        digest: sha256:2424854b14c4a5c0a350487e694286d295c6c495360035dadf1778bcb46a1e1a
+      runsOn:
+        group: fixture-evaluators
+        all:
+        - os:linux
+        - tool:bash
+        - tool:python3
+        - isolation:ephemeral-container
+        resources:
+          cpuMillicores: 500
+          memoryMb: 256
+          diskMb: 256
+          slots: 1
+        isolation: ephemeral-container
+      independence: L2
+  outputs:
+    passed:
+      source: job
+      jobId: verify
+      pointer: /passed
+    checks:
+      source: job
+      jobId: verify
+      pointer: /checks
+  failFast: true
+  deadlineSeconds: 120

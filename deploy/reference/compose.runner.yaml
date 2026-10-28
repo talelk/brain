@@ -1,0 +1,31 @@
+# Deploy on an execution host, separately from Governor. No central DB volume.
+name: brain-runner
+services:
+  supervisor:
+    image: ${BRAIN_RUNNER_IMAGE:?exact-image-digest-required}
+    user: '10002:10002'
+    init: true
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 512m
+    cpus: 1
+    pids_limit: 128
+    environment:
+      BRAIN_GOVERNOR_URL: ${BRAIN_GOVERNOR_URL:?https-url-required}
+      BRAIN_RUNNER_CREDENTIAL_FILE: /run/secrets/runner_credential
+      BRAIN_LAUNCHER_SOCKET: /launcher/launcher.sock
+      BRAIN_SLOT_LIMIT: '1'
+    secrets: [runner_credential]
+    volumes:
+      - runner_state:/state
+      - ${BRAIN_LAUNCHER_SOCKET_DIR:?constrained-launcher-socket-directory-required}:/launcher
+    tmpfs: ['/tmp:size=64m,mode=1770,uid=10002,gid=10002']
+    # Launcher is a separately managed trusted host service. Its constrained API
+    # validates every mount/image/resource/egress profile. This is NOT docker.sock.
+volumes:
+  runner_state: {}
+secrets:
+  runner_credential:
+    file: ${BRAIN_RUNNER_CREDENTIAL_PATH:?host-secret-file-required}

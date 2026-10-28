@@ -1,0 +1,47 @@
+{
+  "contractVersion": "brain.evidence/v1",
+  "bundleId": "bundle_demo",
+  "organizationId": "org_demo",
+  "workspaceId": "ws_demo",
+  "workflowRunId": "wf_demo",
+  "jobId": "job_demo",
+  "attemptId": "att_demo",
+  "jobFence": 1,
+  "sourceRevision": "sha1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "configDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "workflowDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "primitiveVersions": {
+    "brain.dispatch": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "toolReleases": [],
+  "artifacts": [
+    {
+      "artifactId": "art_demo",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 123,
+      "mediaType": "application/json",
+      "classification": "internal"
+    }
+  ],
+  "checks": [
+    {
+      "criterionId": "draft-valid",
+      "checkId": "draft-schema",
+      "status": "passed",
+      "oracleDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifacts": [
+        {
+          "artifactId": "art_demo",
+          "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bytes": 123,
+          "mediaType": "application/json",
+          "classification": "internal"
+        }
+      ],
+      "detail": "Synthetic fixture only."
+    }
+  ],
+  "approvalIds": [],
+  "effects": [],
+  "createdAt": "2026-10-27T12:00:00Z"
+}

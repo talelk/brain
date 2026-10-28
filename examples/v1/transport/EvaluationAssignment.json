@@ -1,0 +1,16 @@
+{
+  "bundleDigests": [
+    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "evaluatorRelease": {
+    "id": "support-draft",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "requiredChecks": [
+    "draft-schema"
+  ],
+  "criteria": {
+    "draft-schema": "draft-valid"
+  },
+  "independence": "L2"
+}

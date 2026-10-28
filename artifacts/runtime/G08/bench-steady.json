@@ -1,0 +1,183 @@
+{
+  "profile": "doc-10 G08 steady-state protocol (in-process Governor core; loopback HTTP excluded, noted)",
+  "environment": {
+    "platform": "linux 7.0.9-x64v3-xanmod1",
+    "cpus": 14,
+    "cpuModel": "Intel(R) Core(TM) Ultra 7 165U",
+    "node": "v24.12.0"
+  },
+  "dataset": {
+    "workspaces": 25,
+    "runners": 50,
+    "historyRows": 100000,
+    "pendingApprovals": 1000,
+    "history10xRows": 1000000
+  },
+  "coldStartMs": 1115,
+  "trialMs": 600000,
+  "trialsCount": 3,
+  "medians": {
+    "queryP95": 1.716,
+    "queryP99": 2.098,
+    "commandP95": 2.305,
+    "commandP99": 2.877,
+    "eventLoopP99": 12.263,
+    "rssMaxMb": 331,
+    "throughputPerSec": 25.07
+  },
+  "budgets": {
+    "queryP95Ms": 150,
+    "queryP99Ms": 400,
+    "commandP95Ms": 200,
+    "commandP99Ms": 500,
+    "eventLoopP99Ms": 50,
+    "rssMb": 1024
+  },
+  "trials": [
+    {
+      "label": "t1",
+      "durationMs": 600000,
+      "ops": 15041,
+      "errors": 0,
+      "throughputPerSec": 25.07,
+      "query": {
+        "p50": 0.76,
+        "p95": 1.628,
+        "p99": 2.017,
+        "max": 58.656,
+        "n": 10028
+      },
+      "command": {
+        "p50": 1.322,
+        "p95": 2.351,
+        "p99": 2.916,
+        "max": 60.794,
+        "n": 5013
+      },
+      "eventLoopDelayMs": {
+        "p50": 10.117,
+        "p99": 12.354,
+        "max": 69.992
+      },
+      "cpuMs": {
+        "user": 16308,
+        "system": 3506
+      },
+      "rssMb": {
+        "p50": 321,
+        "max": 326
+      },
+      "walBytes": 42790352
+    },
+    {
+      "label": "t2",
+      "durationMs": 600000,
+      "ops": 15042,
+      "errors": 0,
+      "throughputPerSec": 25.07,
+      "query": {
+        "p50": 0.691,
+        "p95": 1.716,
+        "p99": 2.098,
+        "max": 5.262,
+        "n": 10028
+      },
+      "command": {
+        "p50": 1.293,
+        "p95": 2.193,
+        "p99": 2.741,
+        "max": 6.652,
+        "n": 5014
+      },
+      "eventLoopDelayMs": {
+        "p50": 10.125,
+        "p99": 12.263,
+        "max": 38.306
+      },
+      "cpuMs": {
+        "user": 15391,
+        "system": 3275
+      },
+      "rssMb": {
+        "p50": 330,
+        "max": 331
+      },
+      "walBytes": 42790352
+    },
+    {
+      "label": "t3",
+      "durationMs": 600000,
+      "ops": 15059,
+      "errors": 0,
+      "throughputPerSec": 25.1,
+      "query": {
+        "p50": 0.712,
+        "p95": 1.763,
+        "p99": 2.11,
+        "max": 4.397,
+        "n": 10040
+      },
+      "command": {
+        "p50": 1.326,
+        "p95": 2.305,
+        "p99": 2.877,
+        "max": 5.748,
+        "n": 5019
+      },
+      "eventLoopDelayMs": {
+        "p50": 10.109,
+        "p99": 12.206,
+        "max": 56.754
+      },
+      "cpuMs": {
+        "user": 15570,
+        "system": 3370
+      },
+      "rssMb": {
+        "p50": 331,
+        "max": 332
+      },
+      "walBytes": 42790352
+    }
+  ],
+  "trial10x": {
+    "label": "x10",
+    "durationMs": 30000,
+    "ops": 604,
+    "errors": 0,
+    "throughputPerSec": 20.13,
+    "query": {
+      "p50": 0.976,
+      "p95": 1.982,
+      "p99": 2.298,
+      "max": 3.303,
+      "n": 403
+    },
+    "command": {
+      "p50": 1.71,
+      "p95": 2.624,
+      "p99": 4.033,
+      "max": 5.552,
+      "n": 201
+    },
+    "eventLoopDelayMs": {
+      "p50": 10.093,
+      "p99": 11.977,
+      "max": 42.107
+    },
+    "cpuMs": {
+      "user": 783,
+      "system": 151
+    },
+    "rssMb": {
+      "p50": 378,
+      "max": 378
+    },
+    "walBytes": 410698112
+  },
+  "faultLoad": {
+    "approvalWakeFanout100Ms": 42,
+    "errors": 0
+  },
+  "at": "2026-10-28T04:35:08.966Z"
+}

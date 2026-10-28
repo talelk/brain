@@ -1,0 +1,53 @@
+{
+  "scope": "evidence-record-integrity-only",
+  "productFingerprint": "sha256:4aeb410a4140c386ae1a13857e77b6028c3d281b121c4a5b07c09ec6928c7c74",
+  "gates": {
+    "G01": {
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "ValidationError"
+    },
+    "G02": {
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "ValidationError"
+    },
+    "G03": {
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "ValidationError"
+    },
+    "G04": {
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "ValidationError"
+    },
+    "G05": {
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "ValidationError"
+    },
+    "G06": {
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "ValidationError"
+    },
+    "G07": {
+      "status": "failed",
+      "reason": "recorded-run-status"
+    },
+    "G08": {
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "ValidationError"
+    }
+  },
+  "allRuntimeGatesPassed": false,
+  "modelQualification": {
+    "status": "not-run",
+    "reason": "evidence-missing"
+  },
+  "modelQualified": false,
+  "independentReleaseCertification": "separate-required-evidence",
+  "note": "Missing evidence stays not-run. Artifact hashes bind records to bytes; trusted test runners and independent review establish that the recorded tests actually ran."
+}

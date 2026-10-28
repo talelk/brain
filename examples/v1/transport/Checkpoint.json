@@ -1,0 +1,23 @@
+{
+  "contractVersion": "brain.checkpoint/v1",
+  "attemptId": "att_demo",
+  "sourceRevision": "sha1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "diff": {
+    "artifactId": "art_demo",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 123,
+    "mediaType": "application/json",
+    "classification": "internal"
+  },
+  "completedCriteria": [
+    "draft-valid"
+  ],
+  "failures": [],
+  "worktreeId": "tree_demo",
+  "eventSequence": 2,
+  "ownedResources": [
+    "worktree/tree_demo"
+  ],
+  "nextAction": "Run the independent fixture evaluator.",
+  "createdAt": "2026-10-27T12:00:00Z"
+}

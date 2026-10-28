@@ -1,0 +1,6 @@
+{
+  "runnerId": "runner_fixture",
+  "challengeId": "challenge_fixture",
+  "nonce": "fixture-not-a-real-challenge",
+  "expiresAt": "2026-10-27T12:01:00Z"
+}

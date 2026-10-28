@@ -1,0 +1,51 @@
+{
+  "contractVersion": "brain.job-offer/v1",
+  "jobId": "job_demo",
+  "attemptId": "att_demo",
+  "runnerId": "run_demo",
+  "runnerEpoch": 1,
+  "leaseId": "lease_demo",
+  "jobFence": 0,
+  "organizationId": "org_demo",
+  "workspaceId": "ws_demo",
+  "attemptNumber": 1,
+  "offerExpiresAt": "2026-10-27T13:00:00Z",
+  "configDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "workflowDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "placement": {
+    "group": "agents",
+    "all": [
+      "os:linux",
+      "isolation:ephemeral-container"
+    ],
+    "resources": {
+      "cpuMillicores": 1000,
+      "memoryMb": 1024,
+      "diskMb": 2048,
+      "slots": 1
+    },
+    "isolation": "ephemeral-container",
+    "engine": {
+      "anyOf": [
+        "pi",
+        "claude"
+      ],
+      "features": [
+        "start",
+        "events",
+        "cancel"
+      ]
+    }
+  },
+  "execution": {
+    "kind": "agent",
+    "artifact": {
+      "artifactId": "art_demo",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 123,
+      "mediaType": "application/json",
+      "classification": "internal"
+    }
+  },
+  "grantRef": "grant_demo"
+}

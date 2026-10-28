@@ -1,0 +1,74 @@
+{
+  "contractVersion": "brain.verification-run/v1",
+  "gateId": "G03",
+  "status": "passed",
+  "productFingerprint": "sha256:2369b7e108abdd4a36d3b4534ace880a4b6e6cb83dfb9b6485f1fd7a905754ea",
+  "lockDigest": "sha256:1d784f4bbcec55eb5d00c2f85d78393a9e8aac76426ea58236b59c7fe1fb2daa",
+  "startedAt": "2026-10-28T04:03:12.283Z",
+  "finishedAt": "2026-10-28T04:03:17.829Z",
+  "commands": [
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/integration/mastra-conformance.test.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 2270
+    },
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/chaos/gates100.test.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 3266
+    }
+  ],
+  "checks": [
+    {
+      "id": "six-primitives",
+      "passed": true
+    },
+    {
+      "id": "restart-100-waits",
+      "passed": true
+    },
+    {
+      "id": "early-duplicate-wakes",
+      "passed": true
+    },
+    {
+      "id": "cancel-persistence-faults",
+      "passed": true
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "artifacts/runtime/G03/mastra-six-primitives.log",
+      "digest": "sha256:5082bd01024fa596126c382fe30979d4ce7959b7876e8dd8cfeeb9f773cd9dd8"
+    },
+    {
+      "path": "artifacts/runtime/G03/gates-restart-wakes.log",
+      "digest": "sha256:072cdb864de109a3015458395e6370a2f6edcfa0843413d4e065c1c977f67450"
+    }
+  ],
+  "selectedScenarios": [
+    "E022",
+    "E023",
+    "E024",
+    "E025"
+  ],
+  "executedScenarios": [
+    "E022",
+    "E023",
+    "E024",
+    "E025"
+  ],
+  "skippedScenarios": []
+}

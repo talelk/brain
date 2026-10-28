@@ -1,0 +1,19 @@
+{
+  "contractVersion": "brain.event/v1",
+  "eventId": "event_demo",
+  "eventType": "approval.decided",
+  "organizationId": "org_demo",
+  "workspaceId": "ws_demo",
+  "aggregateType": "job",
+  "aggregateId": "job_demo",
+  "sequence": 1,
+  "correlationId": "corr_demo",
+  "causationId": "cmd_demo",
+  "occurredAt": "2026-10-27T12:00:00Z",
+  "actorRef": "actor_demo",
+  "payload": {
+    "resourceId": "job_demo",
+    "version": 1,
+    "state": "queued"
+  }
+}

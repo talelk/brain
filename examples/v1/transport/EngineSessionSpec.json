@@ -1,0 +1,40 @@
+{
+  "contractVersion": "brain.engine/v1",
+  "organizationId": "org_demo",
+  "workspaceId": "ws_demo",
+  "dispatchId": "dispatch_demo",
+  "jobId": "job_demo",
+  "attemptId": "att_demo",
+  "runnerId": "run_demo",
+  "runnerEpoch": 1,
+  "leaseId": "lease_demo",
+  "jobFence": 1,
+  "engine": {
+    "id": "pi",
+    "version": "fixture-1",
+    "adapterDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "features": [
+      "start",
+      "events",
+      "cancel"
+    ]
+  },
+  "modelId": "fixture-model",
+  "sourceRevision": "sha1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "worktreeId": "tree_demo",
+  "configDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "allowedTools": [],
+  "context": {
+    "artifactId": "art_demo",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 123,
+    "mediaType": "application/json",
+    "classification": "internal"
+  },
+  "limits": {
+    "timeoutMs": 60000,
+    "maxTokens": 1000,
+    "maxMicroUsd": 100000,
+    "maxTurns": 12
+  }
+}

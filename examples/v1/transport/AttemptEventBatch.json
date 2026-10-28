@@ -1,0 +1,27 @@
+{
+  "jobId": "fixture",
+  "attemptId": "fixture",
+  "runnerId": "fixture",
+  "runnerEpoch": 1,
+  "leaseId": "fixture",
+  "jobFence": 1,
+  "events": [
+    {
+      "contractVersion": "brain.event/v1",
+      "eventId": "fixture",
+      "eventType": "config.compiled",
+      "organizationId": "fixture",
+      "aggregateType": "fixture",
+      "aggregateId": "fixture",
+      "sequence": 1,
+      "correlationId": "fixture",
+      "causationId": "fixture",
+      "occurredAt": "2026-10-27T12:00:00Z",
+      "actorRef": "fixture",
+      "payload": {
+        "resourceId": "fixture",
+        "version": 1
+      }
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+# Brain monorepo ignores — secrets and runtime state never enter Git
+node_modules/
+dist/
+build/
+coverage/
+test-results/
+playwright-report/
+.turbo/
+*.tsbuildinfo
+
+# Secrets
+.env
+.env.*
+!.env.example
+**/secrets/
+*.pem
+*.key
+
+# Runtime data (SQLite, WAL, spools, artifacts)
+*.db
+*.db-shm
+*.db-wal
+data/
+state/
+spool/
+tmp/
+artifacts/runtime/**/raw/
+
+# Local agent/test state (session logs, checkpoints, caches)
+.pi-agent/
+.vitest/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+__pycache__/
+*.pyc

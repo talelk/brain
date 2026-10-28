@@ -1,0 +1,13 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_decision.record",
+  "commandType": "decision.record",
+  "idempotencyKey": "idem_decision.record",
+  "payload": {
+    "cardId": "fixture",
+    "decision": "go",
+    "note": "fixture"
+  },
+  "workspaceId": "fixture",
+  "expectedVersion": 1
+}

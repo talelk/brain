@@ -1,0 +1,143 @@
+{
+  "status": "passed",
+  "scope": "documentation-contract-pack-only",
+  "inputFingerprint": "c912bb848662b67d0fbb1650561d3f6670d4e8ad6966c81b656cb1c6d91fa91b",
+  "checkedAt": "2026-10-28T04:41:06.593489+00:00",
+  "checks": [
+    {
+      "name": "schema-meta",
+      "status": "passed",
+      "detail": 185
+    },
+    {
+      "name": "schema-local-references",
+      "status": "passed",
+      "detail": "all references resolve offline"
+    },
+    {
+      "name": "schema-fixtures",
+      "status": "passed",
+      "detail": "98 valid; 23 correctly rejected"
+    },
+    {
+      "name": "generated-types-fresh",
+      "status": "passed",
+      "detail": "current"
+    },
+    {
+      "name": "example-workflow-semantics",
+      "status": "passed",
+      "detail": "13 example jobs; dependency/binding/gate/path checks (not a production compiler)"
+    },
+    {
+      "name": "example-output-schema-meta",
+      "status": "passed",
+      "detail": 6
+    },
+    {
+      "name": "restricted-yaml-and-tool-metadata",
+      "status": "passed",
+      "detail": "four unsafe YAML cases rejected; canonical TOOL.md frontmatter matches"
+    },
+    {
+      "name": "registry-parity",
+      "status": "passed",
+      "detail": "23 commands, 61 typed lifecycle events"
+    },
+    {
+      "name": "openapi-structure-and-refs",
+      "status": "passed",
+      "detail": "26 operations; structural/reference checks (not full OpenAPI certification)"
+    },
+    {
+      "name": "state-machine-parity",
+      "status": "passed",
+      "detail": 5
+    },
+    {
+      "name": "reference-sql-and-invariants",
+      "status": "passed",
+      "detail": "8 selected reference invariants, including two-connection claim race; not production handler tests"
+    },
+    {
+      "name": "bash-example-syntax-and-behavior",
+      "status": "passed",
+      "detail": "fixture tool: 4 valid and 6 invalid cases passed"
+    },
+    {
+      "name": "source-input-fingerprints",
+      "status": "passed",
+      "detail": "original inputs unchanged"
+    },
+    {
+      "name": "documentation-inventory",
+      "status": "passed",
+      "detail": "52 dependency decisions; 100 scenarios; 50 work cards"
+    },
+    {
+      "name": "implementation-policy-and-prompt",
+      "status": "passed",
+      "detail": "direct-target policy, persistent workspace instructions and packaged prompt agree; target safety/recovery retained"
+    },
+    {
+      "name": "newui-integration-contract",
+      "status": "passed",
+      "detail": "12 source package observations and UI documentation consistent; installed/browser compatibility remains pending"
+    },
+    {
+      "name": "configuration-and-architecture-parity",
+      "status": "passed",
+      "detail": "7 boundaries, three planes, matching config/build/image references and 2 semantic rejections; consumer build not run"
+    },
+    {
+      "name": "implementation-readiness-contracts-and-fixtures",
+      "status": "passed",
+      "detail": "50 generated task packets; 100 scenarios; 15 traces; crypto/golden fixtures; 22 screens in five areas; monolith/auth/recovery/evidence checks"
+    },
+    {
+      "name": "generated-implementation-indexes-fresh",
+      "status": "passed",
+      "detail": "layout, task table/packets, scenario catalog and routes match canonical sources"
+    },
+    {
+      "name": "deployment-reference-structure",
+      "status": "passed",
+      "detail": "2 topology references; YAML/security structure only, Docker render not run"
+    },
+    {
+      "name": "documentation-local-links",
+      "status": "passed",
+      "detail": 101
+    },
+    {
+      "name": "typescript-strict-typecheck",
+      "status": "passed",
+      "detail": "Version 5.9.3"
+    }
+  ],
+  "versions": {
+    "python": "3.14.4",
+    "sqliteForReferenceChecks": "3.46.1",
+    "PyYAML": "6.0.3",
+    "jsonschema": "4.19.2"
+  },
+  "runtimeIntegrationGates": {
+    "G01": "passed",
+    "G02": "passed",
+    "G03": "passed",
+    "G04": "passed",
+    "G05": "passed",
+    "G06": "passed",
+    "G07": "passed",
+    "G08": "passed"
+  },
+  "runtimeScenarios": "Use runtime evidence for execution status; pack checks validate inventory/fixtures only",
+  "limitations": [
+    "Documentation checks do not execute vendor services or performance workloads",
+    "Candidate metadata is distinct from the installed/frozen cohort checked by G01",
+    "Current reference SQL is separate from vendor initial schema generation and actual application handlers",
+    "OpenAPI checked structurally, not with external full validator",
+    "NewUI browser/API acceptance needs actual installed artifacts; approval controller has independent reference checks",
+    "Runtime and model readiness derive from current evidence, not hard-coded planning flags"
+  ]
+}

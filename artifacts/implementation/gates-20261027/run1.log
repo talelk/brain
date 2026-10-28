@@ -1,0 +1,6 @@
+G01: passed (1/1 scenarios, 4 commands)
+G03: passed (4/4 scenarios, 2 commands)
+G04: failed (3/3 scenarios, 3 commands)
+G05: passed (3/3 scenarios, 5 commands)
+G06: passed (3/3 scenarios, 3 commands)
+G07: passed (3/3 scenarios, 4 commands)

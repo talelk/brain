@@ -1,0 +1,12 @@
+@import "@talelk/newui-tailwind/style.css";
+
+@source "../index.html";
+@source "./**/*.{ts,tsx}";
+@source "../node_modules/@talelk/newui-atoms/src/**/*.{ts,tsx}";
+@source not "../node_modules/@talelk/newui-atoms/src/**/*.test.{ts,tsx}";
+@source "../node_modules/@talelk/newui-molecules/src/**/*.{ts,tsx}";
+@source not "../node_modules/@talelk/newui-molecules/src/**/*.test.{ts,tsx}";
+@source "../node_modules/@talelk/newui-organisms/src/**/*.{ts,tsx}";
+@source not "../node_modules/@talelk/newui-organisms/src/**/*.test.{ts,tsx}";
+@source "../node_modules/@talelk/newui-templates/src/**/*.{ts,tsx}";
+@source not "../node_modules/@talelk/newui-templates/src/**/*.test.{ts,tsx}";

@@ -1,0 +1,11 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_session.stop",
+  "commandType": "session.stop",
+  "idempotencyKey": "idem_session.stop",
+  "payload": {
+    "sessionId": "fixture",
+    "reason": "fixture"
+  },
+  "workspaceId": "fixture"
+}

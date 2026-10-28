@@ -1,0 +1,97 @@
+{
+  "contractVersion": "brain.verification-run/v1",
+  "kind": "in-repo-self-verification",
+  "independent": false,
+  "note": "Executed by the implementation repository itself. Independent certification still requires a trusted external VerificationRun; this record is evidence input, not third-party attestation.",
+  "generatedAt": "2026-10-28T04:41:06.618Z",
+  "status": "passed",
+  "checks": [
+    {
+      "id": "typecheck",
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "startedAt": "2026-10-28T04:37:32.456Z",
+      "durationMs": 4737,
+      "outputDigest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tail": ""
+    },
+    {
+      "id": "lint",
+      "command": "pnpm lint",
+      "exitCode": 0,
+      "startedAt": "2026-10-28T04:37:37.194Z",
+      "durationMs": 2016,
+      "outputDigest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tail": ""
+    },
+    {
+      "id": "verify-full",
+      "command": "pnpm verify:full",
+      "exitCode": 0,
+      "startedAt": "2026-10-28T04:37:39.210Z",
+      "durationMs": 149462,
+      "outputDigest": "sha256:ee77b011ddc80b6d5a393ceaff5d0c656e4f523a940bdce211eba0c895a373d5",
+      "tail": "c.ts:4:1 › native setup, enrollment and second-factor sign-in (E093/E094 partial) (878ms)\n  ✓  75 [1440-dark] › tests/browser/board.spec.ts:33:1 › board: cards render by state, move applies, Done without evidence is refused in UI (T37) (828ms)\n  ✓  76 [1440-dark] › tests/browser/board.spec.ts:70:1 › board: Done succeeds with explicitly bound verified evidence (T37) (653ms)\n  ✓  77 [1440-dark] › tests/browser/board.spec.ts:95:1 › board: pointer drag moves a card across columns (T37) (1.3s)\n  ✓  78 [1440-dark] › tests/browser/kiosk.spec.ts:6:1 › tv kiosk renders read-only board; ticket detail opens exact record (T34) (711ms)\n  ✓  79 [1440-dark] › tests/browser/navigation.spec.ts:3:1 › AppShell navigation: list to detail to decision dialog and Back with focus restoration (E093) (726ms)\n  ✓  80 [1440-dark] › tests/browser/offline.spec.ts:3:1 › offline PWA: cached shell loads, API actions fail visibly, no offline approval (E096) (374ms)\n  ✓  81 [1440-dark] › tests/browser/operations.spec.ts:6:1 › operations: drain and quarantine a runner from settings (T36) (673ms)\n  ✓  82 [1440-dark] › tests/browser/primitives.spec.ts:7:1 › primitives and tokens render across widths and themes (T33) (482ms)\n  ✓  83 [1440-dark] › tests/browser/vitals.spec.ts:3:1 › web vitals: shell LCP, interaction latency, JS budget (E099 browser) (909ms)\n  ✓  84 [1440-dark] › tests/browser/work.spec.ts:4:1 › work area shows decisions, tickets, incidents and delivery (T34) (603ms)\n\n  2 skipped\n  82 passed (1.2m)\n"
+    },
+    {
+      "id": "probes",
+      "command": "pnpm exec vitest run tests/probes",
+      "exitCode": 0,
+      "startedAt": "2026-10-28T04:40:08.672Z",
+      "durationMs": 53239,
+      "outputDigest": "sha256:d7bb4f6b40732ad8650f37b38f65626bca982797756f0dedefde687ce1d8d968",
+      "tail": "matrix, unsupported ops explicit (E061)\u001b[2m > \u001b[22m\u001b[2macp: probe/start/prompt/cancel over opencode acp\n\u001b[22m\u001b[39macp {\n  probe: \u001b[32m'pass'\u001b[39m,\n  start: \u001b[32m'pass'\u001b[39m,\n  prompt: \u001b[32m'pass'\u001b[39m,\n  events: \u001b[32m'pass'\u001b[39m,\n  checkpoint: \u001b[32m'explicit-unsupported'\u001b[39m,\n  cancel: \u001b[32m'pass'\u001b[39m,\n  dispose: \u001b[32m'pass'\u001b[39m\n}\n\n \u001b[32m✓\u001b[39m tests/probes/harnesses/conformance.test.ts \u001b[2m(\u001b[22m\u001b[2m4 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[33m 40759\u001b[2mms\u001b[22m\u001b[39m\n   \u001b[32m✓\u001b[39m G05 harness conformance matrix, unsupported ops explicit (E061) \u001b[2m(4)\u001b[22m\n     \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m pi: probe/start/prompt/cancel against local model\u001b[33m 7870\u001b[2mms\u001b[22m\u001b[39m\n     \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m acp: probe/start/prompt/cancel over opencode acp\u001b[33m 32650\u001b[2mms\u001b[22m\u001b[39m\n\u001b[90mstdout\u001b[2m | tests/probes/harnesses/judge.test.ts\u001b[2m > \u001b[22m\u001b[2mlocal judge calibration (T44)\u001b[2m > \u001b[22m\u001b[2magrees with obvious calibration fixtures when the model is reachable\n\u001b[22m\u001b[39mjudge-calibration agreement: 4/4\n\n \u001b[32m✓\u001b[39m tests/probes/harnesses/judge.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[33m 52614\u001b[2mms\u001b[22m\u001b[39m\n   \u001b[32m✓\u001b[39m local judge calibration (T44) \u001b[2m(1)\u001b[22m\n     \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m agrees with obvious calibration fixtures when the model is reachable\u001b[33m 52611\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m14 passed\u001b[39m\u001b[22m\u001b[90m (14)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m18 passed\u001b[39m\u001b[22m\u001b[90m (18)\u001b[39m\n\u001b[2m   Start at \u001b[22m 05:40:09\n\u001b[2m   Duration \u001b[22m 52.85s\u001b[2m (tests 98%, import 2%)\u001b[22m\n\n"
+    },
+    {
+      "id": "pack",
+      "command": "python3 scripts/verify_implementation_pack.py",
+      "exitCode": 0,
+      "startedAt": "2026-10-28T04:41:01.911Z",
+      "durationMs": 4707,
+      "outputDigest": "sha256:cf46d975ed9cab8dd043c8072f13d5f09c51548839d06e2dfad2efdd071961be",
+      "tail": "ral/reference checks (not full OpenAPI certification)\nPASS state-machine-parity 5\nPASS reference-sql-and-invariants 8 selected reference invariants, including two-connection claim race; not production handler tests\nPASS bash-example-syntax-and-behavior fixture tool: 4 valid and 6 invalid cases passed\nPASS source-input-fingerprints original inputs unchanged\nPASS documentation-inventory 52 dependency decisions; 100 scenarios; 50 work cards\nPASS implementation-policy-and-prompt direct-target policy, persistent workspace instructions and packaged prompt agree; target safety/recovery retained\nPASS newui-integration-contract 12 source package observations and UI documentation consistent; installed/browser compatibility remains pending\nPASS configuration-and-architecture-parity 7 boundaries, three planes, matching config/build/image references and 2 semantic rejections; consumer build not run\nPASS implementation-readiness-contracts-and-fixtures 50 generated task packets; 100 scenarios; 15 traces; crypto/golden fixtures; 22 screens in five areas; monolith/auth/recovery/evidence checks\nPASS generated-implementation-indexes-fresh layout, task table/packets, scenario catalog and routes match canonical sources\nPASS deployment-reference-structure 2 topology references; YAML/security structure only, Docker render not run\nPASS documentation-local-links 101\nPASS typescript-strict-typecheck Version 5.9.3\nAll pack checks passed. Runtime status is recorded separately in runtime-readiness.json.\n"
+    }
+  ],
+  "artifacts": {
+    "coverage": {
+      "path": "tests/certification/coverage.json",
+      "digest": "sha256:0cb3567914773fa57d3c12fdbea64526ab598d9dfeec9078052aba8b86916cf0",
+      "scenarios": null
+    },
+    "ledger": "sha256:886e4ae8b8c16837bc5837439fd3dd6bdf3ec7e72f49e682b96b945e91a19080",
+    "gates": [
+      {
+        "gate": "G01",
+        "digest": "sha256:7fbb75a1fb6fb2be3056dcc1dd506432b6dafc734aed6afbcf5c396d5fd35431"
+      },
+      {
+        "gate": "G02",
+        "digest": "sha256:7466601c8ca210ee52c34eab4693b527dbab039b12653276645619b8af9927f8"
+      },
+      {
+        "gate": "G03",
+        "digest": "sha256:9ed26263d524840178cabc8f2a002a48d59de2d6c6b5a38e2fcc46e9f29a197d"
+      },
+      {
+        "gate": "G04",
+        "digest": "sha256:1990c56ab04e018c46891092d54b1637b41d89a89fef053220f988bce2e5f92b"
+      },
+      {
+        "gate": "G05",
+        "digest": "sha256:f5cfbd29ebbbe9e5e5a21dc83c4f2e51f3945a5e664511cda67169a99caac03d"
+      },
+      {
+        "gate": "G06",
+        "digest": "sha256:f00bc13b36d9bc15255c0b08d3a64586d59bc47f2e41107662fb83eb033cd3c8"
+      },
+      {
+        "gate": "G07",
+        "digest": "sha256:665053ef803ea8db267d5636a807ad9bc63582a54704ba810fc9bcc2213bc7f9"
+      },
+      {
+        "gate": "G08",
+        "digest": "sha256:53fdb163a43c1ca719a9df0decc12d569b9123d1e5edf1f6378b709ec9bf00de"
+      }
+    ]
+  }
+}

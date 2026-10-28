@@ -1,0 +1,506 @@
+{
+ "contractVersion": "brain.certification-matrix/v1",
+ "note": "T50 certification matrix. covered = a passing suite names the scenario; partial = mechanism implemented, dedicated scenario test pending. Independent certification requires every row covered with trusted VerificationRun evidence.",
+ "scenarios": [
+  {
+   "id": "E001",
+   "status": "covered",
+   "evidence": "tests/security/authz.test.ts"
+  },
+  {
+   "id": "E002",
+   "status": "covered",
+   "evidence": "tests/integration/core.test.ts"
+  },
+  {
+   "id": "E003",
+   "status": "covered",
+   "evidence": "tests/security/authz.test.ts"
+  },
+  {
+   "id": "E004",
+   "status": "covered",
+   "evidence": "tests/integration/core.test.ts"
+  },
+  {
+   "id": "E005",
+   "status": "covered",
+   "evidence": "tests/security/csrf.test.ts"
+  },
+  {
+   "id": "E006",
+   "status": "covered",
+   "evidence": "tests/integration/core.test.ts"
+  },
+  {
+   "id": "E007",
+   "status": "covered",
+   "evidence": "tests/integration/core.test.ts"
+  },
+  {
+   "id": "E008",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios.test.ts"
+  },
+  {
+   "id": "E009",
+   "status": "covered",
+   "evidence": "tests/integration/core.test.ts"
+  },
+  {
+   "id": "E010",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios.test.ts"
+  },
+  {
+   "id": "E011",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios.test.ts"
+  },
+  {
+   "id": "E012",
+   "status": "covered",
+   "evidence": "tests/domain/config-resolution.test.ts"
+  },
+  {
+   "id": "E013",
+   "status": "covered",
+   "evidence": "tests/domain/config-resolution.test.ts"
+  },
+  {
+   "id": "E014",
+   "status": "covered",
+   "evidence": "tests/contracts/contracts.test.ts"
+  },
+  {
+   "id": "E015",
+   "status": "covered",
+   "evidence": "tests/domain/config-resolution.test.ts"
+  },
+  {
+   "id": "E016",
+   "status": "covered",
+   "evidence": "tests/domain/states.test.ts"
+  },
+  {
+   "id": "E017",
+   "status": "covered",
+   "evidence": "tests/domain/config-resolution.test.ts"
+  },
+  {
+   "id": "E018",
+   "status": "covered",
+   "evidence": "tests/domain/config-resolution.test.ts"
+  },
+  {
+   "id": "E019",
+   "status": "covered",
+   "evidence": "tests/domain/config-resolution.test.ts"
+  },
+  {
+   "id": "E020",
+   "status": "covered",
+   "evidence": "tests/domain/states.test.ts"
+  },
+  {
+   "id": "E021",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios.test.ts"
+  },
+  {
+   "id": "E022",
+   "status": "covered",
+   "evidence": "tests/chaos/gates100.test.ts"
+  },
+  {
+   "id": "E023",
+   "status": "covered",
+   "evidence": "tests/chaos/gates100.test.ts"
+  },
+  {
+   "id": "E024",
+   "status": "covered",
+   "evidence": "tests/chaos/gates100.test.ts"
+  },
+  {
+   "id": "E025",
+   "status": "covered",
+   "evidence": "tests/integration/mastra-conformance.test.ts"
+  },
+  {
+   "id": "E026",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E027",
+   "status": "covered",
+   "evidence": "tests/domain/config-resolution.test.ts"
+  },
+  {
+   "id": "E028",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E029",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E030",
+   "status": "covered",
+   "evidence": "tests/domain/config-resolution.test.ts"
+  },
+  {
+   "id": "E031",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios.test.ts"
+  },
+  {
+   "id": "E032",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E033",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E034",
+   "status": "covered",
+   "evidence": "tests/domain/states.test.ts"
+  },
+  {
+   "id": "E035",
+   "status": "covered",
+   "evidence": "tests/domain/states.test.ts"
+  },
+  {
+   "id": "E036",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios.test.ts"
+  },
+  {
+   "id": "E037",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios.test.ts"
+  },
+  {
+   "id": "E038",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E039",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios.test.ts"
+  },
+  {
+   "id": "E040",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E041",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E042",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios.test.ts"
+  },
+  {
+   "id": "E043",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E044",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E045",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E046",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E047",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E048",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E049",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E050",
+   "status": "covered",
+   "evidence": "tests/domain/config-resolution.test.ts"
+  },
+  {
+   "id": "E051",
+   "status": "covered",
+   "evidence": "tests/integration/core.test.ts"
+  },
+  {
+   "id": "E052",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E053",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios.test.ts"
+  },
+  {
+   "id": "E054",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios.test.ts"
+  },
+  {
+   "id": "E055",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E056",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E057",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios3.test.ts"
+  },
+  {
+   "id": "E058",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E059",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E060",
+   "status": "covered",
+   "evidence": "tests/integration/core.test.ts"
+  },
+  {
+   "id": "E061",
+   "status": "covered",
+   "evidence": "tests/probes/harnesses/conformance.test.ts"
+  },
+  {
+   "id": "E062",
+   "status": "covered",
+   "evidence": "tests/probes/harnesses/pi.test.ts"
+  },
+  {
+   "id": "E063",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E064",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios3.test.ts"
+  },
+  {
+   "id": "E065",
+   "status": "covered",
+   "evidence": "tests/probes/sandbox/launcher.test.ts"
+  },
+  {
+   "id": "E066",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios3.test.ts"
+  },
+  {
+   "id": "E067",
+   "status": "covered",
+   "evidence": "tests/probes/sandbox/egress.test.ts"
+  },
+  {
+   "id": "E068",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios3.test.ts"
+  },
+  {
+   "id": "E069",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios3.test.ts"
+  },
+  {
+   "id": "E070",
+   "status": "covered",
+   "evidence": "tests/domain/config-resolution.test.ts"
+  },
+  {
+   "id": "E071",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios3.test.ts"
+  },
+  {
+   "id": "E072",
+   "status": "covered",
+   "evidence": "tests/domain/web-units.test.ts"
+  },
+  {
+   "id": "E073",
+   "status": "covered",
+   "evidence": "tests/integration/evidence.test.ts"
+  },
+  {
+   "id": "E074",
+   "status": "covered",
+   "evidence": "tests/integration/evidence.test.ts"
+  },
+  {
+   "id": "E075",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E076",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E077",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E078",
+   "status": "covered",
+   "evidence": "tests/security/authz.test.ts"
+  },
+  {
+   "id": "E079",
+   "status": "covered",
+   "evidence": "tests/probes/tencentdb/client.test.ts"
+  },
+  {
+   "id": "E080",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E081",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E082",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E083",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E084",
+   "status": "covered",
+   "evidence": "tests/domain/config-resolution.test.ts"
+  },
+  {
+   "id": "E085",
+   "status": "covered",
+   "evidence": "tests/chaos/recovery.test.ts"
+  },
+  {
+   "id": "E086",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E087",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios3.test.ts"
+  },
+  {
+   "id": "E088",
+   "status": "covered",
+   "evidence": "tests/chaos/recovery.test.ts"
+  },
+  {
+   "id": "E089",
+   "status": "covered",
+   "evidence": "tests/chaos/restore.test.ts"
+  },
+  {
+   "id": "E090",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios3.test.ts"
+  },
+  {
+   "id": "E091",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios2.test.ts"
+  },
+  {
+   "id": "E092",
+   "status": "covered",
+   "evidence": "tests/domain/web-units.test.ts"
+  },
+  {
+   "id": "E093",
+   "status": "covered",
+   "evidence": "tests/browser/navigation.spec.ts"
+  },
+  {
+   "id": "E094",
+   "status": "covered",
+   "evidence": "tests/domain/web-units.test.ts"
+  },
+  {
+   "id": "E095",
+   "status": "covered",
+   "evidence": "tests/integration/core.test.ts"
+  },
+  {
+   "id": "E096",
+   "status": "covered",
+   "evidence": "tests/browser/offline.spec.ts"
+  },
+  {
+   "id": "E097",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios.test.ts"
+  },
+  {
+   "id": "E098",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios.test.ts"
+  },
+  {
+   "id": "E099",
+   "status": "covered",
+   "evidence": "tests/browser/vitals.spec.ts"
+  },
+  {
+   "id": "E100",
+   "status": "covered",
+   "evidence": "tests/integration/scenarios3.test.ts"
+  }
+ ]
+}

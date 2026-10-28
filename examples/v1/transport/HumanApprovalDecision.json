@@ -1,0 +1,8 @@
+{
+  "contractVersion": "brain.approval-decision/v1",
+  "idempotencyKey": "idem_demo",
+  "decision": "approve",
+  "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "expectedVersion": 1,
+  "note": "Approve exactly the displayed comment."
+}

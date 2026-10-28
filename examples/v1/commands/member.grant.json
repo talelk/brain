@@ -1,0 +1,13 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_member.grant",
+  "commandType": "member.grant",
+  "workspaceId": "ws_demo",
+  "idempotencyKey": "key_member.grant",
+  "expectedVersion": 1,
+  "payload": {
+    "principalId": "human_demo",
+    "role": "operator",
+    "reason": "Explicit workspace access decision"
+  }
+}

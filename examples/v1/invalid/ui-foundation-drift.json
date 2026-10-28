@@ -1,0 +1,14 @@
+{
+  "foundation": "newui",
+  "foundationManifestDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "defaultTheme": "system",
+  "density": "compact",
+  "supportedLocales": [
+    "en",
+    "fr"
+  ],
+  "defaultLocale": "en",
+  "enabledChannels": [
+    "web"
+  ]
+}

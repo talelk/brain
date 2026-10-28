@@ -1,0 +1,8 @@
+$ pnpm install --frozen-lockfile
+(cwd=/home/talel/dev/rd2026/brain)
+Scope: all 7 workspace projects
+Agent skills awaiting approval: @talelk/newui-atoms, @talelk/newui-molecules, @talelk/newui-organisms, @talelk/newui-templates.
+Run "pnpm approve" to review them.
+✓ Lockfile passes supply-chain policies (verified 19h ago)
+Lockfile is up to date, resolution step is skipped
+Done in 50ms using pnpm v12.11.2

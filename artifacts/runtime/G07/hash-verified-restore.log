@@ -1,0 +1,17 @@
+$ pnpm exec vitest run tests/chaos/restore.test.ts
+(cwd=/home/talel/dev/rd2026/brain)
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.5 [39m[90m/home/talel/dev/rd2026/brain[39m
+
+ [32m✓[39m tests/chaos/restore.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 908[2mms[22m[39m
+   [32m✓[39m G07 restore: hash-verified backup, suspended history, dead authority (E089/E081) [2m(1)[22m
+     [33m[2m✓[22m[39m restores history but no restored session, approval, lease, or permit can execute[33m 907[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m   Start at [22m 05:04:16
+[2m   Duration [22m 1.47s[2m (tests 66%, import 31%, transform 3%)[22m
+
+[90mstderr[2m | tests/chaos/restore.test.ts
+[22m[39m[2m2026-10-28T04:04:17.776Z[0m [31mERROR[0m [1m[Better Auth]:[0m Could not validate the database schema. Check your database connection.
+

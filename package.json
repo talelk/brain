@@ -1,0 +1,50 @@
+{
+  "name": "brain-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=12 <13"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit --pretty false -p tsconfig.typecheck.json",
+    "typecheck:web": "pnpm --filter @brain/web typecheck",
+    "typecheck:browser": "tsc --noEmit --pretty false -p tsconfig.browser.json",
+    "lint": "eslint . --max-warnings 0",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "test:contracts": "vitest run tests/contracts",
+    "test:domain": "vitest run tests/domain",
+    "test:integration": "vitest run tests/integration",
+    "test:security": "vitest run tests/security",
+    "test:chaos": "vitest run tests/chaos",
+    "test:browser": "pnpm build && playwright test --forbid-only --update-snapshots=none",
+    "bench": "tsx benchmarks/run.ts",
+    "verify:fast": "pnpm typecheck && pnpm typecheck:web && pnpm typecheck:browser && pnpm check:boundaries && pnpm --filter @brain/governor auth:schema --check && pnpm test:contracts && pnpm test:domain",
+    "verify:change": "pnpm verify:fast && pnpm test:integration && pnpm test:security",
+    "verify:full": "pnpm verify:change && pnpm test:chaos && pnpm test:certification && pnpm test:browser",
+    "verify:release": "pnpm verify:full && pnpm bench",
+    "build": "pnpm typecheck && pnpm typecheck:web && pnpm --filter @brain/web build",
+    "test:certification": "vitest run tests/certification"
+  },
+  "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.311",
+    "@earendil-works/pi-coding-agent": "1.4.0",
+    "@hono/node-server": "2.1.5",
+    "@mastra/core": "1.79.0",
+    "@mastra/libsql": "1.27.0",
+    "@playwright/test": "1.64.1",
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "24.10.1",
+    "better-sqlite3": "13.0.3",
+    "eslint": "10.13.0",
+    "hono": "4.13.14",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.1",
+    "undici-types": "8.12.3",
+    "vitest": "5.0.5",
+    "zod": "4.1.12"
+  }
+}

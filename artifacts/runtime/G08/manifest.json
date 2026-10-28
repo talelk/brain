@@ -1,0 +1,101 @@
+{
+  "contractVersion": "brain.verification-run/v1",
+  "gateId": "G08",
+  "status": "passed",
+  "productFingerprint": "sha256:2369b7e108abdd4a36d3b4534ace880a4b6e6cb83dfb9b6485f1fd7a905754ea",
+  "lockDigest": "sha256:1d784f4bbcec55eb5d00c2f85d78393a9e8aac76426ea58236b59c7fe1fb2daa",
+  "startedAt": "2026-10-28T04:04:22.450Z",
+  "finishedAt": "2026-10-28T04:35:29.585Z",
+  "commands": [
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "tsx",
+        "benchmarks/steady.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 1846574
+    },
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/integration/scenarios2.test.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 3911
+    },
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/integration/scenarios2.test.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 3499
+    },
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "playwright",
+        "test",
+        "tests/browser/vitals.spec.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 13143
+    }
+  ],
+  "checks": [
+    {
+      "id": "three-comparable-runs",
+      "passed": true
+    },
+    {
+      "id": "latency-percentiles",
+      "passed": true
+    },
+    {
+      "id": "cpu-rss-wal",
+      "passed": true
+    },
+    {
+      "id": "fault-load",
+      "passed": true
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "artifacts/runtime/G08/steady-trials-and-fault-load.log",
+      "digest": "sha256:4f5c1091bd5a5a3bb7f499eeea0dce4a05237e2545eabff09f8f022eea781a0f"
+    },
+    {
+      "path": "artifacts/runtime/G08/scenario-E047.log",
+      "digest": "sha256:0e2d575c6a4d24cf67cab45fd30d0c915d2474ef63c2c99eeadfb0baa118899c"
+    },
+    {
+      "path": "artifacts/runtime/G08/scenario-E049.log",
+      "digest": "sha256:5c4f44da9f94bef414652e2ab9936711ed520eba0798fe37f2edb95654dd092f"
+    },
+    {
+      "path": "artifacts/runtime/G08/scenario-E099.log",
+      "digest": "sha256:02cad4f1a9bb33040a69038854f782b5b437b2d784371a6816b0fdd733045437"
+    }
+  ],
+  "selectedScenarios": [
+    "E047",
+    "E049",
+    "E099"
+  ],
+  "executedScenarios": [
+    "E047",
+    "E049",
+    "E099"
+  ],
+  "skippedScenarios": []
+}

@@ -1,0 +1,21 @@
+apiVersion: brain.keyrus/v1
+kind: Agent
+metadata:
+  id: example-agent
+  version: 1.0.0
+spec:
+  instructionsPath: agents/support-analyst.md
+  tools:
+  - id: tickets.get
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  engine:
+    anyOf:
+    - pi
+    - claude
+    features:
+    - start
+    - events
+    - cancel
+  maxTurns: 12
+  maxChildren: 2
+  maxDepth: 1

@@ -1,0 +1,24 @@
+$ pnpm typecheck && pnpm check:boundaries && pnpm test:contracts && pnpm test:domain
+$ tsc --noEmit --pretty false -p tsconfig.typecheck.json
+$ node scripts/check-boundaries.mjs
+boundaries OK
+$ vitest run tests/contracts
+
+ RUN  v5.0.5 /home/talel/dev/rd2026/brain
+
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  12:35:26
+   Duration  407ms (tests 47%, import 44%, transform 8%, worker 1%)
+
+$ vitest run tests/domain
+
+ RUN  v5.0.5 /home/talel/dev/rd2026/brain
+
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+   Start at  12:35:27
+   Duration  1.96s (tests 54%, import 42%, transform 3%)
+

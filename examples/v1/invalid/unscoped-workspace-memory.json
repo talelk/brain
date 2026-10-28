@@ -1,0 +1,15 @@
+{
+  "contractVersion": "brain.memory/v1",
+  "queryId": "query_demo",
+  "scope": {
+    "organizationId": "org_demo",
+    "visibility": "workspace"
+  },
+  "query": "Ticket diagnosis checklist",
+  "sourceTypes": [
+    "skill",
+    "wiki"
+  ],
+  "limit": 8,
+  "maxChars": 12000
+}

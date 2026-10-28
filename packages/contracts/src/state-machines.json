@@ -1,0 +1,170 @@
+{
+  "contractVersion": "brain.states/v1",
+  "machines": {
+    "job": {
+      "queued": [
+        "offered",
+        "blocked",
+        "cancelled"
+      ],
+      "offered": [
+        "queued",
+        "running",
+        "cancelled",
+        "blocked"
+      ],
+      "running": [
+        "verifying",
+        "failed",
+        "cancelled",
+        "partial",
+        "outcome_unknown",
+        "queued"
+      ],
+      "verifying": [
+        "succeeded",
+        "failed",
+        "partial",
+        "blocked",
+        "outcome_unknown"
+      ],
+      "blocked": [
+        "queued",
+        "cancelled"
+      ],
+      "outcome_unknown": [
+        "succeeded",
+        "failed",
+        "partial",
+        "cancelled"
+      ],
+      "succeeded": [],
+      "failed": [],
+      "partial": [],
+      "cancelled": []
+    },
+    "attempt": {
+      "offered": [
+        "running",
+        "declined",
+        "expired"
+      ],
+      "running": [
+        "uploading",
+        "cancelling",
+        "failed",
+        "outcome_unknown"
+      ],
+      "uploading": [
+        "verifying",
+        "cancelling",
+        "failed",
+        "outcome_unknown"
+      ],
+      "verifying": [
+        "succeeded",
+        "failed",
+        "partial",
+        "outcome_unknown"
+      ],
+      "cancelling": [
+        "cancelled",
+        "succeeded",
+        "failed",
+        "outcome_unknown"
+      ],
+      "outcome_unknown": [
+        "succeeded",
+        "failed",
+        "partial",
+        "cancelled"
+      ],
+      "declined": [],
+      "expired": [],
+      "succeeded": [],
+      "failed": [],
+      "partial": [],
+      "cancelled": []
+    },
+    "approval": {
+      "pending": [
+        "approved",
+        "rejected",
+        "expired",
+        "revoked"
+      ],
+      "approved": [
+        "expired",
+        "revoked"
+      ],
+      "rejected": [],
+      "expired": [],
+      "revoked": []
+    },
+    "evidence": {
+      "assembling": [
+        "submitted"
+      ],
+      "submitted": [
+        "verified",
+        "rejected",
+        "incomplete"
+      ],
+      "verified": [],
+      "rejected": [],
+      "incomplete": []
+    },
+    "workflow": {
+      "created": [
+        "validated",
+        "failed",
+        "cancelled"
+      ],
+      "validated": [
+        "ready",
+        "failed",
+        "cancelled"
+      ],
+      "ready": [
+        "running",
+        "cancelled"
+      ],
+      "running": [
+        "suspended",
+        "succeeded",
+        "partial",
+        "failed",
+        "cancelled",
+        "blocked"
+      ],
+      "suspended": [
+        "running",
+        "cancelled",
+        "blocked"
+      ],
+      "blocked": [
+        "running",
+        "cancelled",
+        "failed"
+      ],
+      "succeeded": [],
+      "partial": [],
+      "failed": [],
+      "cancelled": []
+    }
+  },
+  "rules": [
+    "Every transition checks expected version and emits audit/outbox atomically.",
+    "Approval consumption is a separate immutable ledger entry, not a resettable approval state.",
+    "Unknown outcome resolution requires reconciler evidence and authorized decision.",
+    "Retry creates a new attempt; no terminal attempt returns to running.",
+    "Runner admin/connectivity/allocation/health are independent axes."
+  ],
+  "transitionGuards": {
+    "job.running->queued": "Only a classified retryable failed attempt with no unresolved effect, bounded attempts/deadline, backoff and fresh admission; never reverse a terminal attempt.",
+    "job.blocked->queued": "Explicit recovery reason; all effect guards reconciled and policy allows reexecution; otherwise resume verification instead of rerunning effects.",
+    "job.outcome_unknown->terminal": "Target-specific reconciliation evidence plus accepted verifier/authorized resolution; no generic retry.",
+    "approval.pending->approved": "Current authenticated human/step-up, exact displayed digest, separation of duties and unexpired current version.",
+    "evidence.submitted->verified": "Pinned independent evaluator, immutable bytes, all required criteria and external effects accepted."
+  }
+}

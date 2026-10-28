@@ -1,0 +1,15 @@
+$ pnpm typecheck && pnpm --filter @brain/web build
+$ tsc --noEmit --pretty false -p tsconfig.typecheck.json
+$ vite build
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 693 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                0.39 kB │ gzip:  0.26 kB
+dist/assets/Inter.var-C9xDBOS3.woff2         264.23 kB
+dist/assets/Inter-Italic.var-BGHziHgI.woff2  297.26 kB
+dist/assets/index-CTfgWsdY.css               150.34 kB │ gzip: 26.25 kB
+dist/assets/index-BaIbpfVt.js                197.75 kB │ gzip: 63.80 kB
+
+✓ built in 1.35s

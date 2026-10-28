@@ -1,0 +1,10 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_workspace.export",
+  "commandType": "workspace.export",
+  "idempotencyKey": "idem_workspace.export",
+  "payload": {
+    "includeMemory": false
+  },
+  "workspaceId": "fixture"
+}

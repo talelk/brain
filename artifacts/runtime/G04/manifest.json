@@ -1,0 +1,87 @@
+{
+  "contractVersion": "brain.verification-run/v1",
+  "gateId": "G04",
+  "status": "passed",
+  "productFingerprint": "sha256:2369b7e108abdd4a36d3b4534ace880a4b6e6cb83dfb9b6485f1fd7a905754ea",
+  "lockDigest": "sha256:1d784f4bbcec55eb5d00c2f85d78393a9e8aac76426ea58236b59c7fe1fb2daa",
+  "startedAt": "2026-10-28T04:03:17.829Z",
+  "finishedAt": "2026-10-28T04:03:22.892Z",
+  "commands": [
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/probes/tencentdb/client.test.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 484
+    },
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/security/authz.test.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 1194
+    },
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/integration/scenarios2.test.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 3374
+    }
+  ],
+  "checks": [
+    {
+      "id": "negative-tenant-acls",
+      "passed": true
+    },
+    {
+      "id": "revocation",
+      "passed": true
+    },
+    {
+      "id": "memory-wiki-codegraph-export",
+      "passed": true
+    },
+    {
+      "id": "service-footprint",
+      "passed": true
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "artifacts/runtime/G04/memory-tenant-gateway.log",
+      "digest": "sha256:30e2d9f19e497f62456211392a1d7fc16ead0178ac5bd38d3616d56b2e511f80"
+    },
+    {
+      "path": "artifacts/runtime/G04/tenant-acls-revocation.log",
+      "digest": "sha256:d366f9e9756d32ed05124103562bd32e17d62cd91cc460c64dfe23c6ce934f0e"
+    },
+    {
+      "path": "artifacts/runtime/G04/service-footprint.log",
+      "digest": "sha256:8c3cd119139669e0dc9efd2ca7aa9af5add6b863d95e75849e777a11071db56f"
+    }
+  ],
+  "selectedScenarios": [
+    "E078",
+    "E079",
+    "E081"
+  ],
+  "executedScenarios": [
+    "E078",
+    "E079",
+    "E081"
+  ],
+  "skippedScenarios": []
+}

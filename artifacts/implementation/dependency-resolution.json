@@ -1,0 +1,795 @@
+{
+  "status": "resolved-not-installed",
+  "checkedAt": "2026-10-27T08:01:48.934237+00:00",
+  "baselineDigest": "sha256:25da9fd2e460a7dc69425bae8e493cbb7221085c21a651fab2abef2e771a784f",
+  "node": {
+    "version": "v24.22.1",
+    "url": "https://nodejs.org/dist/v24.22.1/node-v24.22.1-linux-x64.tar.xz",
+    "sha256": "6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6",
+    "installationVerified": false,
+    "metadataVerification": "HTTPS official manifest; verify release signatures and artifact bytes before use"
+  },
+  "packages": [
+    {
+      "name": "@anthropic-ai/claude-agent-sdk",
+      "version": "0.3.311",
+      "tarball": "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-0.3.311.tgz",
+      "integrity": "sha512-8aKYcHGB3LsYP79e2EHNdwbpIvRJkMLd19qSx4u9+J9yDDAK7w9uy1GyvFUz8xa1A+xIEtTW1k/r419uE/Kbsw==",
+      "engines": {
+        "node": ">=18.14.0"
+      },
+      "peerDependencies": {
+        "zod": "^4.0.0",
+        "@anthropic-ai/sdk": ">=0.93.0",
+        "@modelcontextprotocol/sdk": "^1.29.0"
+      },
+      "license": "SEE LICENSE IN README.md",
+      "repository": {
+        "url": "git+https://github.com/anthropics/claude-agent-sdk-typescript.git",
+        "type": "git"
+      },
+      "metadataSha256": "6b6e4a4f48718ef985b34e82915ffd0fa0d04460f46159398cd20ab9bce7097b",
+      "source": "https://registry.npmjs.org/%40anthropic-ai%2Fclaude-agent-sdk/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "@better-auth/api-key",
+      "version": "1.7.14",
+      "tarball": "https://registry.npmjs.org/@better-auth/api-key/-/api-key-1.7.14.tgz",
+      "integrity": "sha512-4eKtRgzsHdti+w47nEMaSKm6Hu3fIFlnge6ha6wfKx3Go4uKQoVhhg2PRqUR9/+bPcRKKzPwsfvDIhCKCTaO6g==",
+      "engines": {},
+      "peerDependencies": {
+        "better-auth": "^1.7.14",
+        "better-call": "1.4.4",
+        "@better-auth/core": "^1.7.14",
+        "@better-auth/utils": "^0.4.2 || ^0.5.0"
+      },
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/better-auth/better-auth.git",
+        "type": "git",
+        "directory": "packages/api-key"
+      },
+      "metadataSha256": "e945a240fff6b24ee0bbf1e53e3790ce486fab7561e741c10ac7d65f9974b01f",
+      "source": "https://registry.npmjs.org/%40better-auth%2Fapi-key/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "@earendil-works/pi-coding-agent",
+      "version": "1.4.0",
+      "tarball": "https://registry.npmjs.org/@earendil-works/pi-coding-agent/-/pi-coding-agent-1.4.0.tgz",
+      "integrity": "sha512-Z41LpZ3yYHSC/UUps6Mr39UMFPwH8elhJBG9DY1P7kuzsE5qSK/6eMj2EHzO5evJRQWLbKSqUMw+4nCNtIyiQg==",
+      "engines": {
+        "node": ">=22.19.0"
+      },
+      "peerDependencies": {},
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/earendil-works/pi.git",
+        "type": "git",
+        "directory": "packages/coding-agent"
+      },
+      "metadataSha256": "929626e983f16fc0e6e4497d61a3a90a931364cc1b7dab4f5cdd202cfa9c7834",
+      "source": "https://registry.npmjs.org/%40earendil-works%2Fpi-coding-agent/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "@hono/node-server",
+      "version": "2.1.5",
+      "tarball": "https://registry.npmjs.org/@hono/node-server/-/node-server-2.1.5.tgz",
+      "integrity": "sha512-MgP/I06GdvsilDspMk/qmRzpk8LOUStP6jFAbSRi40W09DhoyUn+Mj7eyKICPqeYKybOjVFLVIAQzvu1bfIa7Q==",
+      "engines": {
+        "node": ">=20"
+      },
+      "peerDependencies": {
+        "hono": "^4 || ^5.0.0-0"
+      },
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/honojs/node-server.git",
+        "type": "git"
+      },
+      "metadataSha256": "379b59d54319e5ccc7276e3bb263832797be396962e12f1a1aeeb53803ea575c",
+      "source": "https://registry.npmjs.org/%40hono%2Fnode-server/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "@mastra/core",
+      "version": "1.79.0",
+      "tarball": "https://registry.npmjs.org/@mastra/core/-/core-1.79.0.tgz",
+      "integrity": "sha512-8E3+Ct9RihoIc+Q5FPzGVs5uZOdubIZs78EXiK3VvPSESEc5dhBTJmfO1DSU23Qmv8qoe2Gh5QKaztjKeF2mwQ==",
+      "engines": {
+        "node": ">=22.13.0"
+      },
+      "peerDependencies": {
+        "zod": "^3.25.0 || ^4.0.0"
+      },
+      "license": "Apache-2.0",
+      "repository": {
+        "url": "git+https://github.com/mastra-ai/mastra.git",
+        "type": "git",
+        "directory": "packages/core"
+      },
+      "metadataSha256": "c4da3454149ffce20e001aee7b10d49a3dcd86ae4081791591ecdf5f2cd01bad",
+      "source": "https://registry.npmjs.org/%40mastra%2Fcore/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "@mastra/libsql",
+      "version": "1.27.0",
+      "tarball": "https://registry.npmjs.org/@mastra/libsql/-/libsql-1.27.0.tgz",
+      "integrity": "sha512-SU/FiOocqmpz8oRkq2xGFVIC5iuWO5XMN4yx5B2bAI5U1w1UdQdLg/txzGEyZIzfiZUOXAjRL6krtP+H/IeNJA==",
+      "engines": {
+        "node": ">=22.13.0"
+      },
+      "peerDependencies": {
+        "@mastra/core": ">=1.76.0-0 <2.0.0-0"
+      },
+      "license": "Apache-2.0",
+      "repository": {
+        "url": "git+https://github.com/mastra-ai/mastra.git",
+        "type": "git",
+        "directory": "stores/libsql"
+      },
+      "metadataSha256": "4aee680acd1299d79e96a3f36b78afcff8d8acfc99895bc6150c5cd8785066a4",
+      "source": "https://registry.npmjs.org/%40mastra%2Flibsql/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "@modelcontextprotocol/server",
+      "version": "2.4.0",
+      "tarball": "https://registry.npmjs.org/@modelcontextprotocol/server/-/server-2.4.0.tgz",
+      "integrity": "sha512-rgR9yxSaAJ+bcsi/XroT/S2AfPiIWloXAnrdfYSCms9ivVju0ishu/wW0J21Ho6+ZOR1r7RyeRbjiRuF87ix5Q==",
+      "engines": {
+        "node": ">=20"
+      },
+      "peerDependencies": {},
+      "license": "Apache-2.0",
+      "repository": {
+        "url": "git+https://github.com/modelcontextprotocol/typescript-sdk.git",
+        "type": "git"
+      },
+      "metadataSha256": "916410c72115be4e39bc2aa00ad4b0e4fce91b15addce2031bb94bb01e625ab1",
+      "source": "https://registry.npmjs.org/%40modelcontextprotocol%2Fserver/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "@playwright/test",
+      "version": "1.64.1",
+      "tarball": "https://registry.npmjs.org/@playwright/test/-/test-1.64.1.tgz",
+      "integrity": "sha512-IaYGml/nSOiZWROfPtuIL7neuu9qDOZ3TNvNljUIrhDMxiGTgPjzj/g9p9RxpS2tSepPDRY+UwAaEeiKtUvIAg==",
+      "engines": {
+        "node": ">=20"
+      },
+      "peerDependencies": {},
+      "license": "Apache-2.0",
+      "repository": {
+        "url": "git+https://github.com/microsoft/playwright.git",
+        "type": "git"
+      },
+      "metadataSha256": "c25ebb098c5a7c88dc09e3e82ca58cdaa1d7ab217e1de99ff8c2b5537777fa24",
+      "source": "https://registry.npmjs.org/%40playwright%2Ftest/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "@solidjs/router",
+      "version": "1.0.0",
+      "tarball": "https://registry.npmjs.org/@solidjs/router/-/router-1.0.0.tgz",
+      "integrity": "sha512-cCSk1hvgCowiMa9bzzYWHiLu1U4E22+DfJe6/rOwAyECKrxc3jrd5QnoW3sDDJtW+e077cz/M67bPl3DqOBw1Q==",
+      "engines": {},
+      "peerDependencies": {
+        "solid-js": "^1.8.6"
+      },
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/solidjs/solid-router.git",
+        "type": "git"
+      },
+      "metadataSha256": "f975a3edbffe7c4d2e8bc085194cc974b1fe7d11971f244bad3b5245b23a82c2",
+      "source": "https://registry.npmjs.org/%40solidjs%2Frouter/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "@tailwindcss/vite",
+      "version": "4.3.3",
+      "tarball": "https://registry.npmjs.org/@tailwindcss/vite/-/vite-4.3.3.tgz",
+      "integrity": "sha512-yYU8cogLeSh/ms2jh8Fj7jaba/EWa7Ja6GoUqYZaraEuCI5YS6ms6ObZgjjedm+jm6XZjdNRWBpPP6Z86oOxcw==",
+      "engines": {},
+      "peerDependencies": {
+        "vite": "^5.2.0 || ^6 || ^7 || ^8"
+      },
+      "license": "MIT",
+      "repository": {
+        "url": "https://github.com/tailwindlabs/tailwindcss.git",
+        "type": "git",
+        "directory": "packages/@tailwindcss-vite"
+      },
+      "metadataSha256": "e62a537db95e220ceab347609a618dc3bad6c717c35cce95f36f3e660630a33d",
+      "source": "https://registry.npmjs.org/%40tailwindcss%2Fvite/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "@talelk/newui-atoms",
+      "version": "1.2.0",
+      "tarball": "https://registry.npmjs.org/@talelk/newui-atoms/-/newui-atoms-1.2.0.tgz",
+      "integrity": "sha512-lTgl+4D6jbvPWNsWwFQXnG6KQSs7OYulQ4EHy/GAEuzfL8IguCxXMhOT/eWPoxdpPuqr3NwoRMN6gIsRIHlygw==",
+      "engines": {},
+      "peerDependencies": {
+        "solid-js": "^1.9.0"
+      },
+      "license": "Apache-2.0",
+      "repository": {
+        "url": "git+https://github.com/talelk/newui.git",
+        "type": "git",
+        "directory": "packages/atoms"
+      },
+      "metadataSha256": "0043e8788fe1528978e4dcdcda3098b37580ee1270c2c3f225bd9ac7933bfcfa",
+      "source": "https://registry.npmjs.org/%40talelk%2Fnewui-atoms/1.2.0",
+      "installationVerified": false
+    },
+    {
+      "name": "@talelk/newui-molecules",
+      "version": "2.2.0",
+      "tarball": "https://registry.npmjs.org/@talelk/newui-molecules/-/newui-molecules-2.2.0.tgz",
+      "integrity": "sha512-2me714uMlIRw84LKuMU8vzBmQst7Zr8wQEyCR8w4kw5kbh554Oe4mhDTo/SuLuH7ny3nkp2I8yNWwapAor2PkQ==",
+      "engines": {},
+      "peerDependencies": {
+        "solid-js": "^1.9.0"
+      },
+      "license": "Apache-2.0",
+      "repository": {
+        "url": "git+https://github.com/talelk/newui.git",
+        "type": "git",
+        "directory": "packages/molecules"
+      },
+      "metadataSha256": "43f4ff10fcb9ef4177043294bf7cd456596be735cbe49ff85bfffd7735ebbd88",
+      "source": "https://registry.npmjs.org/%40talelk%2Fnewui-molecules/2.2.0",
+      "installationVerified": false
+    },
+    {
+      "name": "@talelk/newui-organisms",
+      "version": "2.1.1",
+      "tarball": "https://registry.npmjs.org/@talelk/newui-organisms/-/newui-organisms-2.1.1.tgz",
+      "integrity": "sha512-+LqKSOagI46Q/mYVqQ7UmOKx/86ebMNTSBxLc0o4p/bGiIlrEiJH8mnfp2khDyxj4y3/aGM6YiU78gHrCi5tCQ==",
+      "engines": {},
+      "peerDependencies": {
+        "solid-js": "^1.9.0"
+      },
+      "license": "Apache-2.0",
+      "repository": {
+        "url": "git+https://github.com/talelk/newui.git",
+        "type": "git",
+        "directory": "packages/organisms"
+      },
+      "metadataSha256": "6cad1c766e83ef37de84b0f31463e18350b3e90ff4a5ab18a1613552f687e8ee",
+      "source": "https://registry.npmjs.org/%40talelk%2Fnewui-organisms/2.1.1",
+      "installationVerified": false
+    },
+    {
+      "name": "@talelk/newui-tailwind",
+      "version": "1.0.0",
+      "tarball": "https://registry.npmjs.org/@talelk/newui-tailwind/-/newui-tailwind-1.0.0.tgz",
+      "integrity": "sha512-4WprBYT8EZHc9x/6nIH28mF3HXn26lM3l+MzZwADljMRXmOqWETp058Z8MahCwUA5gw8VXfp9lbMSOu1SAuehw==",
+      "engines": {},
+      "peerDependencies": {
+        "tailwindcss": "^4.0.0"
+      },
+      "license": "Apache-2.0",
+      "repository": {
+        "url": "git+https://github.com/talelk/newui.git",
+        "type": "git",
+        "directory": "packages/tailwind"
+      },
+      "metadataSha256": "6a6dc0d04ad0690d71bbad6fe6065f47036a36227eef83b8cf75bc212435a493",
+      "source": "https://registry.npmjs.org/%40talelk%2Fnewui-tailwind/1.0.0",
+      "installationVerified": false
+    },
+    {
+      "name": "@talelk/newui-templates",
+      "version": "1.1.2",
+      "tarball": "https://registry.npmjs.org/@talelk/newui-templates/-/newui-templates-1.1.2.tgz",
+      "integrity": "sha512-whQF6lYb9DZehfbEjKdF56OgZPQ122iWfH9m0V32/6tlJ+y9GQbNJI1WAvnIzGvzil1YZtSCp61rCV5xM0aqQQ==",
+      "engines": {},
+      "peerDependencies": {
+        "solid-js": "^1.9.0"
+      },
+      "license": "Apache-2.0",
+      "repository": {
+        "url": "git+https://github.com/talelk/newui.git",
+        "type": "git",
+        "directory": "packages/templates"
+      },
+      "metadataSha256": "b7acdb560b8f096e9faddcbaaf9fdf6ad5af9d4d87e03e3f7f44995900b420b8",
+      "source": "https://registry.npmjs.org/%40talelk%2Fnewui-templates/1.1.2",
+      "installationVerified": false
+    },
+    {
+      "name": "@types/better-sqlite3",
+      "version": "9.6.0",
+      "tarball": "https://registry.npmjs.org/@types/better-sqlite3/-/better-sqlite3-9.6.0.tgz",
+      "integrity": "sha512-ZEEwBSgMu7GYJOynoagg5X9JbxfL6dTJDsgViJIqh67jV44kyOr9RXfmFjLK5rzC4MWssP06t9hu/JwGDnUbCg==",
+      "engines": {},
+      "peerDependencies": {},
+      "license": "MIT",
+      "repository": {
+        "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+        "type": "git",
+        "directory": "types/better-sqlite3"
+      },
+      "metadataSha256": "bf9ddc93746d25f69518a4322719459bbe3dd917a3512a0e0b86ad191e56129d",
+      "source": "https://registry.npmjs.org/%40types%2Fbetter-sqlite3/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "@types/node",
+      "version": "26.6.5",
+      "tarball": "https://registry.npmjs.org/@types/node/-/node-26.6.5.tgz",
+      "integrity": "sha512-uMzsv9stDdofIZBx4UGh4Z9ZgXnGC9seRDscilBcTHAeOFk67MZg/k9bWVfO+bk4qZmG+l52hRnLwUiH2LnJTg==",
+      "engines": {},
+      "peerDependencies": {},
+      "license": "MIT",
+      "repository": {
+        "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+        "type": "git",
+        "directory": "types/node"
+      },
+      "metadataSha256": "c7b04c1f31c47dc6589284644d790ded395526d47fc08c9732885e9818a7b9c4",
+      "source": "https://registry.npmjs.org/%40types%2Fnode/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "ajv",
+      "version": "8.20.0",
+      "tarball": "https://registry.npmjs.org/ajv/-/ajv-8.20.0.tgz",
+      "integrity": "sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==",
+      "engines": {},
+      "peerDependencies": {},
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/ajv-validator/ajv.git",
+        "type": "git"
+      },
+      "metadataSha256": "da1e811c437dcaed32870e5023e0a1fc6e672027023a0648fddfbc122fb84c58",
+      "source": "https://registry.npmjs.org/ajv/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "ajv-formats",
+      "version": "3.0.1",
+      "tarball": "https://registry.npmjs.org/ajv-formats/-/ajv-formats-3.0.1.tgz",
+      "integrity": "sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==",
+      "engines": {},
+      "peerDependencies": {
+        "ajv": "^8.0.0"
+      },
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/ajv-validator/ajv-formats.git",
+        "type": "git"
+      },
+      "metadataSha256": "4285e5c887c98572f0aef6736cc2908e68c0f7a4656292b3004d3ddb6b8420d1",
+      "source": "https://registry.npmjs.org/ajv-formats/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "better-auth",
+      "version": "1.7.14",
+      "tarball": "https://registry.npmjs.org/better-auth/-/better-auth-1.7.14.tgz",
+      "integrity": "sha512-QxDCI0pOCCHDYmruisKhKyrvOJ6Icv9xg0RA6ZUysfKFXENYwhNNpwUlkE/NmViH2nDMgkKcymmLr55pnpR9vw==",
+      "engines": {},
+      "peerDependencies": {
+        "pg": "^8.0.0",
+        "vue": "^3.0.0",
+        "next": "^14.0.0 || ^15.0.0 || ^16.0.0",
+        "react": "^18.0.0 || ^19.0.0",
+        "mysql2": "^3.0.0",
+        "prisma": "^5.0.0 || ^6.0.0 || ^7.0.0",
+        "svelte": "^4.0.0 || ^5.0.0",
+        "vitest": "^2.0.0 || ^3.0.0 || ^4.0.0 || ^5.0.0",
+        "mongodb": "^6.0.0 || ^7.0.0",
+        "solid-js": "^1.0.0",
+        "react-dom": "^18.0.0 || ^19.0.0",
+        "drizzle-kit": ">=0.31.4 || >=1.0.0-beta.1",
+        "drizzle-orm": "^0.45.2 || >=1.0.0-rc.1 <2.0.0",
+        "@sveltejs/kit": "^2.0.0 || ^3.0.0",
+        "@lynx-js/react": "*",
+        "@prisma/client": "^5.0.0 || ^6.0.0 || ^7.0.0",
+        "@tanstack/react-start": "^1.0.0",
+        "@tanstack/solid-start": "^1.0.0"
+      },
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/better-auth/better-auth.git",
+        "type": "git",
+        "directory": "packages/better-auth"
+      },
+      "metadataSha256": "72589faa600ac20ae5eeb44b5f13bd611aea7f7fc21eba59f5b19574705408a8",
+      "source": "https://registry.npmjs.org/better-auth/1.7.14",
+      "installationVerified": false
+    },
+    {
+      "name": "better-sqlite3",
+      "version": "13.0.3",
+      "tarball": "https://registry.npmjs.org/better-sqlite3/-/better-sqlite3-13.0.3.tgz",
+      "integrity": "sha512-RbOBxmLBG8uvFUc15X9+9SFemKcQ0WBuISBVkpuiaUB2qblC8UWlHEjdWVoZ8AdhSwmoEgsiXKfopX0CQxaACQ==",
+      "engines": {
+        "node": ">=22"
+      },
+      "peerDependencies": {},
+      "license": "MIT",
+      "repository": {
+        "url": "git://github.com/WiseLibs/better-sqlite3.git",
+        "type": "git"
+      },
+      "metadataSha256": "8730045f9578bcb32c9e84eebebaca59c7373f8e1b47d56a40aa4c743ce0b95b",
+      "source": "https://registry.npmjs.org/better-sqlite3/13.0.3",
+      "installationVerified": false
+    },
+    {
+      "name": "canonicalize",
+      "version": "5.1.0",
+      "tarball": "https://registry.npmjs.org/canonicalize/-/canonicalize-5.1.0.tgz",
+      "integrity": "sha512-bab9+WefZljqQ8jT0qRwVmTyzAUU63K97QIQD3agynIBrb6sa5M2eAy8Hv8K3p4V9+ONVYZKtGYl4Dg+/5Gumw==",
+      "engines": {
+        "node": ">=22"
+      },
+      "peerDependencies": {},
+      "license": "Apache-2.0",
+      "repository": {
+        "url": "git+https://github.com/erdtman/canonicalize.git",
+        "type": "git"
+      },
+      "metadataSha256": "4b666dcd3571edac1ee1db182b5e523703879d99023204c1869640df48a95d14",
+      "source": "https://registry.npmjs.org/canonicalize/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "cron-parser",
+      "version": "5.10.2",
+      "tarball": "https://registry.npmjs.org/cron-parser/-/cron-parser-5.10.2.tgz",
+      "integrity": "sha512-JfAYMY0LZaWQTuict8PhtF/ksSnq8xefSDmQUnnoqvkPYkU/y3UP0DTWzJKFBz0P1IXsDG8q0vY3zHkoFZOhvw==",
+      "engines": {
+        "node": ">=18"
+      },
+      "peerDependencies": {},
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/harrisiirak/cron-parser.git",
+        "type": "git"
+      },
+      "metadataSha256": "83e72dc3e2b167536c47c2b873248f2da833661cc6299af1562c59f791db5a7e",
+      "source": "https://registry.npmjs.org/cron-parser/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "drizzle-kit",
+      "version": "0.31.11",
+      "tarball": "https://registry.npmjs.org/drizzle-kit/-/drizzle-kit-0.31.11.tgz",
+      "integrity": "sha512-YCYqxTLIB2OCqf6w9/Vef13baBVbwQIPcbT4Y56AfO6B9ajZhDhD8Jkveg/hJvT/iuMloKD/IYYkyMMNhr7Kqg==",
+      "engines": {},
+      "peerDependencies": {},
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/drizzle-team/drizzle-orm.git",
+        "type": "git"
+      },
+      "metadataSha256": "73690af6b33e596e3ab789edadb7c54fd711374e9d8b9fcc4992befc298368e6",
+      "source": "https://registry.npmjs.org/drizzle-kit/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "drizzle-orm",
+      "version": "0.45.4",
+      "tarball": "https://registry.npmjs.org/drizzle-orm/-/drizzle-orm-0.45.4.tgz",
+      "integrity": "sha512-NiM1YZpJ2UxyeE67DpDDZ+Tsw4YLX3trSlkNT7Tm9eKoUNb1LvaAaQzXgYQsWs+AQ9TUmmwMmBOCXuqqxUWKKQ==",
+      "engines": {},
+      "peerDependencies": {
+        "pg": ">=8",
+        "gel": ">=2",
+        "knex": "*",
+        "kysely": "*",
+        "mysql2": ">=2",
+        "sql.js": ">=1",
+        "sqlite3": ">=5",
+        "postgres": ">=3",
+        "@types/pg": "*",
+        "bun-types": "*",
+        "@netlify/db": ">=0.4.0",
+        "expo-sqlite": ">=14.0.0",
+        "@types/sql.js": "*",
+        "@libsql/client": ">=0.10.0",
+        "@prisma/client": "*",
+        "@upstash/redis": ">=1.34.7",
+        "better-sqlite3": ">=7",
+        "@xata.io/client": "*",
+        "@vercel/postgres": ">=0.8.0",
+        "@opentelemetry/api": "^1.4.1",
+        "@libsql/client-wasm": ">=0.10.0",
+        "@electric-sql/pglite": ">=0.2.0",
+        "@planetscale/database": ">=1.13",
+        "@tidbcloud/serverless": "*",
+        "@types/better-sqlite3": "*",
+        "@aws-sdk/client-rds-data": ">=3",
+        "@neondatabase/serverless": ">=0.10.0",
+        "@cloudflare/workers-types": ">=4",
+        "@op-engineering/op-sqlite": ">=2"
+      },
+      "license": "Apache-2.0",
+      "repository": {
+        "url": "git+https://github.com/drizzle-team/drizzle-orm.git",
+        "type": "git"
+      },
+      "metadataSha256": "516d3f7794bccc29e6edfbd339828fa534e26f3be22dd35a9f21fe95ed975b44",
+      "source": "https://registry.npmjs.org/drizzle-orm/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "eslint",
+      "version": "10.13.0",
+      "tarball": "https://registry.npmjs.org/eslint/-/eslint-10.13.0.tgz",
+      "integrity": "sha512-UohDjD4zSzEwhf58M3O7vc/ycc8O1I7dNlhtD0WxE8Px8EHNJKtUwzBqrzeGhisRuv2ag4sAYswszCJRgKXYUg==",
+      "engines": {
+        "node": "^20.19.0 || ^22.13.0 || >=24"
+      },
+      "peerDependencies": {
+        "jiti": "*"
+      },
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/eslint/eslint.git",
+        "type": "git"
+      },
+      "metadataSha256": "1c53c5fad93e009f1315838f82bfb41e2bbf9c6da7ed8b90a5570d58c47e3f99",
+      "source": "https://registry.npmjs.org/eslint/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "execa",
+      "version": "10.2.1",
+      "tarball": "https://registry.npmjs.org/execa/-/execa-10.2.1.tgz",
+      "integrity": "sha512-/Bofl3ZBh2Q4/PG0W63qFzP5vDAypi8Zc90UWTBzaDNIYiX7apPOd0N6L8hG8CojUdq4V51adu8BObP+iVsSTw==",
+      "engines": {
+        "node": ">=22"
+      },
+      "peerDependencies": {},
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/sindresorhus/execa.git",
+        "type": "git"
+      },
+      "metadataSha256": "5d7433435a2966069fd20653cc34cbdfb7fef74471210224226bf9e3a5151e8e",
+      "source": "https://registry.npmjs.org/execa/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "hono",
+      "version": "4.13.14",
+      "tarball": "https://registry.npmjs.org/hono/-/hono-4.13.14.tgz",
+      "integrity": "sha512-yhRLQ21U6qa9Hsu2N7Qcbh8tE+WKEcoErjIo56LeSGiGXGp9sA7UpE86Ui9uexb61KakiGwuHMn2QdV7w6i6kQ==",
+      "engines": {
+        "node": ">=16.9.0"
+      },
+      "peerDependencies": {},
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/honojs/hono.git",
+        "type": "git"
+      },
+      "metadataSha256": "779fe49626a2fdbc60282a33ec56d9b4f7e38c8605279b4dba46f2945c1bb0f4",
+      "source": "https://registry.npmjs.org/hono/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "pino",
+      "version": "10.4.0",
+      "tarball": "https://registry.npmjs.org/pino/-/pino-10.4.0.tgz",
+      "integrity": "sha512-bk1ZMTwG/Vymx+zPoa28MhNzucFvXJWp3csrSuxuHPSMeUettaCoQ5Jvg07mtC4JGNpcfTwz41oVCnNgBK9+vA==",
+      "engines": {},
+      "peerDependencies": {},
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/pinojs/pino.git",
+        "type": "git"
+      },
+      "metadataSha256": "f5839fcf51169b776d67adb59c017bba3021efe8a3f5109853921859f17ecb62",
+      "source": "https://registry.npmjs.org/pino/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "pnpm",
+      "version": "12.15.0",
+      "tarball": "https://registry.npmjs.org/pnpm/-/pnpm-12.15.0.tgz",
+      "integrity": "sha512-s5UdbW/0qfE9x89WzSjSuOs328ycaOUuHhGRhz6p+CoBcoerULqtxczElPA2xnwOR+sTYIwvo29HcRth6hKOYQ==",
+      "engines": {
+        "node": ">=18"
+      },
+      "peerDependencies": {},
+      "license": "MIT",
+      "repository": {
+        "url": "https://github.com/pnpm/pnpm",
+        "type": "git",
+        "directory": "pnpm/npm/pnpm"
+      },
+      "metadataSha256": "f3355080120bced66e104cd941997af285b73cd7570f3499c85205c6a482e600",
+      "source": "https://registry.npmjs.org/pnpm/12.15.0",
+      "installationVerified": false
+    },
+    {
+      "name": "solid-js",
+      "version": "1.9.17",
+      "tarball": "https://registry.npmjs.org/solid-js/-/solid-js-1.9.17.tgz",
+      "integrity": "sha512-4GAmLOWPfNV8H9Jfn2LSFTpNEG6jiOKPiwd5lnLGQtehHaX6l3TOLzJqQ7mqwB/3k1Yy3zyumFVopmc/tm34ow==",
+      "engines": {},
+      "peerDependencies": {},
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/solidjs/solid.git",
+        "type": "git"
+      },
+      "metadataSha256": "a01e34f97f60616d956dea7a78e46b331338c9d4b475d853d5eaf6cb6e11c81c",
+      "source": "https://registry.npmjs.org/solid-js/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "tailwindcss",
+      "version": "4.3.3",
+      "tarball": "https://registry.npmjs.org/tailwindcss/-/tailwindcss-4.3.3.tgz",
+      "integrity": "sha512-gOhV3P7ufE62QDGg1zVaTgCR+EtPv92k2nIhVcVKcLmxT1sUBsQGhnZj175j+MqRt4zLF7ic+sCYjfhxMxj7YQ==",
+      "engines": {},
+      "peerDependencies": {},
+      "license": "MIT",
+      "repository": {
+        "url": "https://github.com/tailwindlabs/tailwindcss.git",
+        "type": "git",
+        "directory": "packages/tailwindcss"
+      },
+      "metadataSha256": "e15224dd87d06dc360946ad675dd59d36c1409206c0d34289625bc4d648c1ebb",
+      "source": "https://registry.npmjs.org/tailwindcss/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "typescript",
+      "version": "7.0.2",
+      "tarball": "https://registry.npmjs.org/typescript/-/typescript-7.0.2.tgz",
+      "integrity": "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA==",
+      "engines": {
+        "node": ">=16.20.0"
+      },
+      "peerDependencies": {},
+      "license": "Apache-2.0",
+      "repository": {
+        "url": "git+https://github.com/microsoft/TypeScript.git",
+        "type": "git"
+      },
+      "metadataSha256": "28a8ef314c6bbc3fddb831088f80eb2fcac6351cb618c8ac029f7229f587b8aa",
+      "source": "https://registry.npmjs.org/typescript/7.0.2",
+      "installationVerified": false
+    },
+    {
+      "name": "typescript-eslint",
+      "version": "8.72.1",
+      "tarball": "https://registry.npmjs.org/typescript-eslint/-/typescript-eslint-8.72.1.tgz",
+      "integrity": "sha512-3Li9FfPmQp45nxEtFD1ZCrYFI3cYK5kpyNtmm1H7lMagm8u9sy6PTjy3ytwQZs7KNukOyKFHAZ6z6GjYFeaeXw==",
+      "engines": {
+        "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
+      },
+      "peerDependencies": {
+        "eslint": "^8.57.0 || ^9.0.0 || ^10.0.0",
+        "typescript": ">=4.8.4 <6.1.0"
+      },
+      "license": "MIT",
+      "repository": {
+        "url": "https://github.com/typescript-eslint/typescript-eslint.git",
+        "type": "git",
+        "directory": "packages/typescript-eslint"
+      },
+      "metadataSha256": "aaf198f4a8b32e1d70533c623adc99342860db2fbaeeb13a0e3d934ba37c8ef9",
+      "source": "https://registry.npmjs.org/typescript-eslint/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "vite",
+      "version": "8.3.5",
+      "tarball": "https://registry.npmjs.org/vite/-/vite-8.3.5.tgz",
+      "integrity": "sha512-z1YpjieJ9g0ebTmQpLBv/oq9E3F9EIlOe+7LahW8SrE3LTiG3udBRUXQOlYXP9b+IC2q2phHeVxj9xGlw34OEQ==",
+      "engines": {
+        "node": "^20.19.0 || >=22.12.0"
+      },
+      "peerDependencies": {
+        "tsx": "^4.8.1",
+        "jiti": ">=1.21.0",
+        "less": "^4.0.0",
+        "sass": "^1.70.0",
+        "yaml": "^2.4.2",
+        "stylus": ">=0.54.8",
+        "terser": "^5.16.0",
+        "esbuild": "^0.27.0 || ^0.28.0",
+        "sugarss": "^5.0.0",
+        "@types/node": "^20.19.0 || >=22.12.0",
+        "sass-embedded": "^1.70.0",
+        "@vitejs/devtools": "^0.7.1 || ^0.8.0"
+      },
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/vitejs/vite.git",
+        "type": "git",
+        "directory": "packages/vite"
+      },
+      "metadataSha256": "ba34bc2cd5e3e2c14de8d81d000e5596d4c110aab59b723c8b9bdb175df78723",
+      "source": "https://registry.npmjs.org/vite/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "vite-plugin-solid",
+      "version": "2.11.14",
+      "tarball": "https://registry.npmjs.org/vite-plugin-solid/-/vite-plugin-solid-2.11.14.tgz",
+      "integrity": "sha512-7ZVBt8rpoyqmlwin2kRIUveaHoF6/kulY7gsnD+qFh4nS29V4OPAnw+ojoAspXIjObiL9o1xh9a/nTuYHm02Rw==",
+      "engines": {},
+      "peerDependencies": {
+        "vite": "^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0 || ^9.0.0",
+        "solid-js": "^1.7.2",
+        "@testing-library/jest-dom": "^5.16.6 || ^5.17.0 || ^6.0.0 || ^7.0.0"
+      },
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/solidjs/vite-plugin-solid.git",
+        "type": "git"
+      },
+      "metadataSha256": "14dbe973aec117e852f1b19bd9fb0a297f79f91f44e353c42396a0bdf91d0f1a",
+      "source": "https://registry.npmjs.org/vite-plugin-solid/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "vitest",
+      "version": "5.0.5",
+      "tarball": "https://registry.npmjs.org/vitest/-/vitest-5.0.5.tgz",
+      "integrity": "sha512-cPODOMF8YnkiiYtDdHo6n4wWmBrOBBbOIYH2d33M4l3CdNn72h+qMmO6uXffUN6A5AZFXNND/d+krS9mgkXRfg==",
+      "engines": {
+        "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
+      },
+      "peerDependencies": {
+        "vite": "^6.4.0 || ^7.0.0 || ^8.0.0",
+        "jsdom": "*",
+        "happy-dom": "*",
+        "@vitest/ui": "5.0.5",
+        "@types/node": "^22.0.0 || >=24.0.0",
+        "@edge-runtime/vm": "*",
+        "@opentelemetry/api": "^1.9.0",
+        "@vitest/coverage-v8": "5.0.5",
+        "@vitest/browser-preview": "5.0.5",
+        "@vitest/coverage-istanbul": "5.0.5",
+        "@vitest/browser-playwright": "5.0.5",
+        "@vitest/browser-webdriverio": "^5.0.0-beta.5 || >=5.0.0"
+      },
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/vitest-dev/vitest.git",
+        "type": "git",
+        "directory": "packages/vitest"
+      },
+      "metadataSha256": "161da05d413b8aca31ebb7763625d66086cb47057057f00d24d69147a343ef62",
+      "source": "https://registry.npmjs.org/vitest/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "yaml",
+      "version": "2.9.1",
+      "tarball": "https://registry.npmjs.org/yaml/-/yaml-2.9.1.tgz",
+      "integrity": "sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw==",
+      "engines": {
+        "node": ">= 14.6"
+      },
+      "peerDependencies": {},
+      "license": "ISC",
+      "repository": {
+        "url": "git+https://github.com/eemeli/yaml.git",
+        "type": "git"
+      },
+      "metadataSha256": "3ace3f8ec5fc9a5784603960fd107d9a9f172d1d74d66c32dfd6a739512a7b24",
+      "source": "https://registry.npmjs.org/yaml/latest",
+      "installationVerified": false
+    }
+  ],
+  "failures": [],
+  "productIntegrationPassed": false
+}

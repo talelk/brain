@@ -1,0 +1,14 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "fixture",
+  "commandType": "sql.execute",
+  "idempotencyKey": "fixture",
+  "payload": {
+    "workflow": {
+      "id": "fixture",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "input": {}
+  },
+  "workspaceId": "fixture"
+}

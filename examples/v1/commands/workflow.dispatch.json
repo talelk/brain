@@ -1,0 +1,14 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_workflow.dispatch",
+  "commandType": "workflow.dispatch",
+  "idempotencyKey": "idem_workflow.dispatch",
+  "payload": {
+    "workflow": {
+      "id": "fixture",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "input": {}
+  },
+  "workspaceId": "fixture"
+}

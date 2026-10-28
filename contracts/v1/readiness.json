@@ -1,0 +1,89 @@
+{
+  "contractVersion": "brain.implementation-readiness/v1",
+  "gaps": [
+    {
+      "id": "dependency-baseline",
+      "artifact": "contracts/v1/dependency-baseline.json",
+      "completion": "Resolution/install procedure specified; exact working lock still needs G01",
+      "status": "specified"
+    },
+    {
+      "id": "closed-decisions",
+      "artifact": "docs/implementation/18-closed-decisions-and-bootstrap.md",
+      "completion": "Selected current target choices; vendor behavior needs live gates",
+      "status": "specified"
+    },
+    {
+      "id": "runtime-probes",
+      "artifact": "docs/implementation/18-closed-decisions-and-bootstrap.md",
+      "completion": "Probe files/oracles/artifacts specified; G01-G08 not run",
+      "status": "specified"
+    },
+    {
+      "id": "typed-contracts",
+      "artifact": "contracts/v1/brain.schema.json",
+      "completion": "Typed events, launcher, step-up, identity proof, reconciliation, screen queries and member commands",
+      "status": "specified"
+    },
+    {
+      "id": "authorization-data",
+      "artifact": "contracts/v1/authorization-matrix.json",
+      "completion": "Role matrix, current SQL, delegation/revocation/credential/upload tables",
+      "status": "specified"
+    },
+    {
+      "id": "closed-fixture",
+      "artifact": "examples/v1/golden-release/manifest.json",
+      "completion": "Real byte digests and closed references; actual runtime still to implement",
+      "status": "specified"
+    },
+    {
+      "id": "independent-oracles",
+      "artifact": "contracts/v1/acceptance-oracles.json",
+      "completion": "15 fixed critical traces and eight canonical vectors; 100 scenario catalog entries",
+      "status": "specified"
+    },
+    {
+      "id": "ui-recipes",
+      "artifact": "examples/v1/web/BrainRecipes.tsx",
+      "completion": "Source-reviewed real public props and screen contracts; compile/browser proof not run",
+      "status": "specified"
+    },
+    {
+      "id": "opencode-profile",
+      "artifact": "opencode.json",
+      "completion": "Pinned local model, explicit instructions, native-v2 profile and preflight",
+      "status": "specified"
+    },
+    {
+      "id": "model-continuity",
+      "artifact": "contracts/v1/task-packets.json",
+      "completion": "50 focused packets, typed ledger/checkpoint, six qualification cases requiring real measurements",
+      "status": "specified"
+    },
+    {
+      "id": "deployment-bootstrap",
+      "artifact": "docs/implementation/18-closed-decisions-and-bootstrap.md",
+      "completion": "Host/image/entrypoint/bootstrap/health/shutdown requirements specified",
+      "status": "specified"
+    },
+    {
+      "id": "modular-monolith",
+      "artifact": "contracts/v1/module-layout.json",
+      "completion": "One Governor, internal modules, generated task/route indexes, explicit capabilities and recoverable approval controller",
+      "status": "specified"
+    }
+  ],
+  "externalExecutionNeeds": [
+    "network-enabled package resolution and frozen install",
+    "working OpenCode background service and actual Qwen qualification",
+    "vendor service/model credentials and disposable GitLab target",
+    "Linux kernel/container/egress isolation probes",
+    "real runtime, browser, restore and performance implementation evidence"
+  ],
+  "policy": "No compatibility, historical migration or incremental delivery constraints until explicit user change.",
+  "kind": "readiness-requirements",
+  "currentStatusReport": "artifacts/implementation/runtime-readiness.json",
+  "runtimeEvidenceIsSeparateFromPlan": true,
+  "architectureStyle": "modular-monolith"
+}

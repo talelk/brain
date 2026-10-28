@@ -1,0 +1,18 @@
+{
+  "jobId": "job_demo",
+  "jobVersion": 1,
+  "evaluatedAt": "2026-10-27T12:00:00Z",
+  "primaryReason": "WAITING_FOR_RUNNER",
+  "reasons": [
+    "WAITING_FOR_RUNNER"
+  ],
+  "runners": [
+    {
+      "runnerId": "run_demo",
+      "eligible": false,
+      "reasons": [
+        "Missing verified tool:kubectl"
+      ]
+    }
+  ]
+}

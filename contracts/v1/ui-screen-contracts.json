@@ -1,0 +1,494 @@
+{
+  "contractVersion": "brain.ui-screen-contracts/v1",
+  "foundation": "NewUI",
+  "recipe": "examples/v1/web/BrainRecipes.tsx",
+  "compileStatus": "not-run",
+  "states": [
+    "loading",
+    "empty-authorized",
+    "ready",
+    "no-access",
+    "stale",
+    "partial-failure",
+    "retry",
+    "offline"
+  ],
+  "viewports": [
+    390,
+    768,
+    1440
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "screens": [
+    {
+      "route": "/today",
+      "queries": [
+        "today"
+      ],
+      "actions": [
+        "workflow.dispatch"
+      ],
+      "content": [
+        "priority",
+        "workspace",
+        "task",
+        "reason",
+        "freshness"
+      ],
+      "owner": "T34",
+      "navigationGroup": "today",
+      "task": "Handle prioritized work and return to the originating list"
+    },
+    {
+      "route": "/bridge",
+      "queries": [
+        "bridge"
+      ],
+      "actions": [],
+      "content": [
+        "workspace",
+        "health",
+        "attention",
+        "freshness"
+      ],
+      "owner": "T34",
+      "navigationGroup": "today",
+      "task": "Handle prioritized work and return to the originating list"
+    },
+    {
+      "route": "/w/:id/overview",
+      "queries": [
+        "workspace.context",
+        "jobs.list"
+      ],
+      "actions": [
+        "workflow.dispatch"
+      ],
+      "content": [
+        "state",
+        "outcomes",
+        "pending",
+        "connectivity"
+      ],
+      "owner": "T34",
+      "navigationGroup": "work",
+      "task": "Review workspace work and pack details"
+    },
+    {
+      "route": "/w/:id/board",
+      "queries": [
+        "board.get"
+      ],
+      "actions": [
+        "board.create",
+        "board.move",
+        "board.comment"
+      ],
+      "content": [
+        "title",
+        "state",
+        "criteria",
+        "evidence"
+      ],
+      "owner": "T37",
+      "navigationGroup": "work",
+      "task": "Review workspace work and pack details"
+    },
+    {
+      "route": "/w/:id/decisions",
+      "queries": [
+        "decisions.list"
+      ],
+      "actions": [
+        "decision.record"
+      ],
+      "content": [
+        "decision",
+        "actor",
+        "note",
+        "time"
+      ],
+      "owner": "T37",
+      "navigationGroup": "work",
+      "task": "Review workspace work and pack details"
+    },
+    {
+      "route": "/approvals",
+      "queries": [
+        "approvals.list"
+      ],
+      "actions": [],
+      "content": [
+        "action",
+        "workspace",
+        "target",
+        "expiry",
+        "evidence"
+      ],
+      "owner": "T35",
+      "navigationGroup": "approvals",
+      "task": "Review exact proposed effects and recover submitted decisions"
+    },
+    {
+      "route": "/approvals/:id",
+      "queries": [
+        "approval.get"
+      ],
+      "actions": [
+        "approval.decision",
+        "approval.revoke",
+        "approval.decision-status"
+      ],
+      "content": [
+        "exactContent",
+        "precondition",
+        "subjectDigest",
+        "history"
+      ],
+      "owner": "T35",
+      "navigationGroup": "approvals",
+      "task": "Review exact proposed effects and recover submitted decisions"
+    },
+    {
+      "route": "/jobs/:id",
+      "queries": [
+        "job.get",
+        "job.explain"
+      ],
+      "actions": [
+        "workflow.cancel",
+        "job.reconcile"
+      ],
+      "content": [
+        "state",
+        "attempts",
+        "blocker",
+        "evidence"
+      ],
+      "owner": "T36",
+      "navigationGroup": "runs",
+      "task": "Inspect a run, its attempts, events and evidence"
+    },
+    {
+      "route": "/runners",
+      "queries": [
+        "runners.list"
+      ],
+      "actions": [
+        "runner.drain",
+        "runner.quarantine"
+      ],
+      "content": [
+        "group",
+        "trust",
+        "health",
+        "capacity",
+        "freshness"
+      ],
+      "owner": "T36",
+      "navigationGroup": "runs",
+      "task": "Inspect a run, its attempts, events and evidence"
+    },
+    {
+      "route": "/runners/:id",
+      "queries": [
+        "runner.get"
+      ],
+      "actions": [
+        "runner.drain",
+        "runner.quarantine"
+      ],
+      "content": [
+        "capabilities",
+        "attempts",
+        "reservations"
+      ],
+      "owner": "T36",
+      "navigationGroup": "runs",
+      "task": "Inspect a run, its attempts, events and evidence"
+    },
+    {
+      "route": "/sessions/:id",
+      "queries": [
+        "session.get"
+      ],
+      "actions": [
+        "session.steer",
+        "session.stop"
+      ],
+      "content": [
+        "task",
+        "tools",
+        "usage",
+        "timeline"
+      ],
+      "owner": "T36",
+      "navigationGroup": "runs",
+      "task": "Inspect a run, its attempts, events and evidence"
+    },
+    {
+      "route": "/w/:id/support",
+      "queries": [
+        "tickets.list",
+        "sla.summary"
+      ],
+      "actions": [
+        "workflow.dispatch"
+      ],
+      "content": [
+        "priority",
+        "ticket",
+        "state",
+        "sla"
+      ],
+      "owner": "T42",
+      "navigationGroup": "work",
+      "task": "Review workspace work and pack details"
+    },
+    {
+      "route": "/tickets/:id",
+      "queries": [
+        "ticket.get"
+      ],
+      "actions": [
+        "workflow.dispatch"
+      ],
+      "content": [
+        "body",
+        "draft",
+        "evidence",
+        "approval"
+      ],
+      "owner": "T42",
+      "navigationGroup": "work",
+      "task": "Review workspace work and pack details"
+    },
+    {
+      "route": "/w/:id/sre",
+      "queries": [
+        "incidents.list"
+      ],
+      "actions": [
+        "workflow.dispatch"
+      ],
+      "content": [
+        "severity",
+        "target",
+        "state",
+        "freshness"
+      ],
+      "owner": "T43",
+      "navigationGroup": "work",
+      "task": "Review workspace work and pack details"
+    },
+    {
+      "route": "/incidents/:id",
+      "queries": [
+        "incident.get"
+      ],
+      "actions": [
+        "workflow.dispatch"
+      ],
+      "content": [
+        "observations",
+        "remediation",
+        "evidence"
+      ],
+      "owner": "T43",
+      "navigationGroup": "work",
+      "task": "Review workspace work and pack details"
+    },
+    {
+      "route": "/w/:id/delivery",
+      "queries": [
+        "delivery.list",
+        "delivery.get"
+      ],
+      "actions": [
+        "decision.record"
+      ],
+      "content": [
+        "source",
+        "criteria",
+        "risks",
+        "evidence"
+      ],
+      "owner": "T44",
+      "navigationGroup": "work",
+      "task": "Review workspace work and pack details"
+    },
+    {
+      "route": "/w/:id/knowledge",
+      "queries": [
+        "memory.search"
+      ],
+      "actions": [
+        "memory.publish",
+        "memory.revoke"
+      ],
+      "content": [
+        "source",
+        "scope",
+        "freshness",
+        "review"
+      ],
+      "owner": "T39",
+      "navigationGroup": "knowledge",
+      "task": "Find scoped facts and inspect trusted capabilities"
+    },
+    {
+      "route": "/tools",
+      "queries": [
+        "tools.list"
+      ],
+      "actions": [
+        "tool.propose",
+        "tool.publish"
+      ],
+      "content": [
+        "name",
+        "state",
+        "effect",
+        "release",
+        "evidence"
+      ],
+      "owner": "T40",
+      "navigationGroup": "knowledge",
+      "task": "Find scoped facts and inspect trusted capabilities"
+    },
+    {
+      "route": "/settings",
+      "queries": [
+        "members.list",
+        "audit.list",
+        "platform.health",
+        "config.explain"
+      ],
+      "actions": [
+        "member.grant",
+        "member.revoke",
+        "config.activate"
+      ],
+      "content": [
+        "members",
+        "policy",
+        "budget",
+        "audit",
+        "health"
+      ],
+      "owner": "T48",
+      "navigationGroup": "settings",
+      "task": "Manage explicitly authorized administration"
+    },
+    {
+      "route": "/tv/support",
+      "queries": [
+        "tickets.list",
+        "sla.summary"
+      ],
+      "actions": [],
+      "content": [
+        "aggregateStatus",
+        "freshness"
+      ],
+      "owner": "T45",
+      "navigationGroup": "tv",
+      "task": "Read scoped redacted monitoring"
+    },
+    {
+      "route": "/tv/sre",
+      "queries": [
+        "incidents.list"
+      ],
+      "actions": [],
+      "content": [
+        "aggregateStatus",
+        "freshness"
+      ],
+      "owner": "T45",
+      "navigationGroup": "tv",
+      "task": "Read scoped redacted monitoring"
+    },
+    {
+      "route": "/w/:id/runs",
+      "queries": [
+        "jobs.list",
+        "sessions.list",
+        "runners.list"
+      ],
+      "actions": [
+        "workflow.dispatch"
+      ],
+      "content": [
+        "jobs",
+        "sessions",
+        "runners"
+      ],
+      "owner": "T36",
+      "navigationGroup": "runs",
+      "task": "Inspect a run, its attempts, events and evidence"
+    }
+  ],
+  "specialActions": [
+    "approval.decision",
+    "approval.decision-status"
+  ],
+  "readOnlyPrincipals": {
+    "kiosk": "server-redacted aggregate view; never private ticket bodies or mutation"
+  },
+  "primaryNavigation": [
+    {
+      "id": "today",
+      "label": "Today",
+      "entryRoute": "/today"
+    },
+    {
+      "id": "work",
+      "label": "Work",
+      "entryRoute": "/w/:id/board"
+    },
+    {
+      "id": "runs",
+      "label": "Runs",
+      "entryRoute": "/w/:id/runs"
+    },
+    {
+      "id": "approvals",
+      "label": "Approvals",
+      "entryRoute": "/approvals"
+    },
+    {
+      "id": "knowledge",
+      "label": "Knowledge",
+      "entryRoute": "/w/:id/knowledge"
+    }
+  ],
+  "secondaryNavigation": {
+    "settings": "account-menu",
+    "tv": "dedicated-kiosk-entry"
+  },
+  "sharedRunDetail": [
+    "summary",
+    "attempts",
+    "timeline",
+    "evidence",
+    "placement"
+  ],
+  "approvalRecovery": {
+    "statuses": [
+      "review",
+      "submitting",
+      "unknown",
+      "checking",
+      "confirmed",
+      "stale",
+      "denied"
+    ],
+    "unknownAction": "Check decision",
+    "idempotencyKey": "one captured key per exact request; recovery reuses it",
+    "effectSuccessImpliedByDecision": false
+  }
+}

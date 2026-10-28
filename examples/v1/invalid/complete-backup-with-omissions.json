@@ -1,0 +1,32 @@
+{
+  "contractVersion": "brain.backup/v1",
+  "backupId": "backup_demo",
+  "organizationId": "org_demo",
+  "workspaceId": "ws_demo",
+  "kind": "workspace-portable",
+  "completeness": "complete",
+  "missingComponents": [
+    "TencentDB scoped knowledge export not validated"
+  ],
+  "watermarks": {
+    "control": 42,
+    "workspace": 21
+  },
+  "artifacts": [
+    {
+      "artifactId": "art_demo",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 123,
+      "mediaType": "application/json",
+      "classification": "internal"
+    }
+  ],
+  "configDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "adapterReleases": [
+    {
+      "id": "mastra",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "createdAt": "2026-10-27T12:00:00Z"
+}

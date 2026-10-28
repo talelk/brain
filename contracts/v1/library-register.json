@@ -1,0 +1,655 @@
+{
+  "reviewedAt": "2026-10-27",
+  "dependencies": [
+    {
+      "component": "Node.js",
+      "officialSources": [
+        "https://nodejs.org/en/about/previous-releases"
+      ],
+      "decision": "Select supported LTS; Node 24 is the candidate line at review time. Pin patch/image and verify native modules.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "TypeScript",
+      "officialSources": [
+        "https://www.typescriptlang.org/tsconfig/"
+      ],
+      "decision": "Strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes; Node/SDK major compatibility in G01. The local pack checker currently uses available TS 5.9.3; this is not the product pin.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json",
+      "candidateVersion": "7.0.2"
+    },
+    {
+      "component": "pnpm",
+      "officialSources": [
+        "https://pnpm.io/cli/install"
+      ],
+      "decision": "One workspace/lockfile, exact packageManager, frozen CI installs, reviewed build-script allowlist. Documentation must be refreshed in G01 for selected pnpm major.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json",
+      "candidateVersion": "12.15.0"
+    },
+    {
+      "component": "Hono",
+      "officialSources": [
+        "https://hono.dev/docs/getting-started/nodejs",
+        "https://hono.dev/docs/helpers/streaming"
+      ],
+      "decision": "Thin HTTP adapter; explicit body limits, abort cleanup and SSE backpressure. Do not copy an old major's adapter signatures.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Better Auth",
+      "officialSources": [
+        "https://better-auth.com/docs/integrations/hono",
+        "https://better-auth.com/docs/plugins/organization",
+        "https://better-auth.com/docs/installation"
+      ],
+      "decision": "Identity/organization integration; Governor retains operation policy and exact approval ledger. Generate plugin schema from pinned config.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json",
+      "candidateVersion": "1.7.14"
+    },
+    {
+      "component": "Better Auth API keys",
+      "officialSources": [
+        "https://better-auth.com/docs/plugins/api-key/reference"
+      ],
+      "decision": "Optional for approved machine/delegated identities; runner enrollment/session semantics remain Brain-owned. Confirm scoped verification/revocation before adopting.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Drizzle ORM / Kit",
+      "officialSources": [
+        "https://orm.drizzle.team/docs/sqlite/get-started-sqlite",
+        "https://orm.drizzle.team/docs/transactions"
+      ],
+      "decision": "Use documented better-sqlite3 driver and reviewed current-schema initialization; no historical migration framework or async work inside synchronous transactions. Never overwrite non-disposable state through schema-push.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "better-sqlite3",
+      "officialSources": [
+        "https://github.com/WiseLibs/better-sqlite3/blob/master/docs/api.md"
+      ],
+      "decision": "Brain's candidate local driver; inspect embedded engine and bounded blocking latency. Direct driver docs need pinned-version recheck at G01.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json",
+      "candidateVersion": "13.0.3"
+    },
+    {
+      "component": "SQLite",
+      "officialSources": [
+        "https://www.sqlite.org/wal.html",
+        "https://www.sqlite.org/backup.html",
+        "https://www.sqlite.org/lang_attach.html"
+      ],
+      "decision": "Local-file, one-owner authority; fixed engine build, short transactions, online backup and cross-file reconciliation.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "yaml",
+      "officialSources": [
+        "https://eemeli.org/yaml/"
+      ],
+      "decision": "Candidate 2.x API family; reject aliases/custom tags/duplicates and preserve source positions.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "JSON Schema",
+      "officialSources": [
+        "https://json-schema.org/specification"
+      ],
+      "decision": "Draft 2020-12 wire authority with restricted executable-config subset.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Ajv",
+      "officialSources": [
+        "https://ajv.js.org/guide/schema-language",
+        "https://ajv.js.org/strict-mode.html"
+      ],
+      "decision": "Use 2020-12 entrypoint, strict compilation, no coercion/default mutation/removal of unknown fields, no network refs. Compile once per digest.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Zod",
+      "officialSources": [
+        "https://zod.dev/json-schema"
+      ],
+      "decision": "Adapter-local where SDK requires it; v4 candidate. No second handwritten canonical contract and no unsupported transforms as wire types.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Mastra core",
+      "officialSources": [
+        "https://mastra.ai/docs/workflows/dynamic-workflows",
+        "https://mastra.ai/blog/introducing-dynamic-workflows"
+      ],
+      "decision": "Beta integration behind IR/port. Exact package pin required even across minor/patch updates. No direct user administration endpoints.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "@mastra/libsql",
+      "officialSources": [
+        "https://mastra.ai/docs/storage"
+      ],
+      "decision": "Private per-workspace engine file, single-owner constrained profile, restart/durability probe. Multi-process production is outside baseline.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "cron-parser",
+      "officialSources": [
+        "https://github.com/harrisiirak/cron-parser"
+      ],
+      "decision": "Parse schedule and timezone; Governor persists fires/misfires/overlap. Test DST boundaries rather than using a process timer as truth.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "RFC 8785 canonical JSON",
+      "officialSources": [
+        "https://www.rfc-editor.org/rfc/rfc8785"
+      ],
+      "decision": "Select npm canonicalize; strict duplicate/surrogate/number validation plus RFC8785 vectors. Exact installed artifact must pass G01.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "OpenSpec",
+      "officialSources": [
+        "https://github.com/Fission-AI/OpenSpec"
+      ],
+      "decision": "Optional change-file convention; not a runtime engine or authorization system. No mandatory CLI dependency.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "XState / OMA",
+      "officialSources": [],
+      "decision": "No parallel workflow authority; fallback engine would require a new adapter gate, not dual execution. No API recommendation is made here.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Pi",
+      "officialSources": [
+        "https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/sdk.md",
+        "https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/rpc.md"
+      ],
+      "decision": "Isolated child with explicit resources/tools. Current and historical npm scopes differ; pin and verify lineage instead of mixing examples.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Claude Agent SDK / CLI",
+      "officialSources": [
+        "https://code.claude.com/docs/en/agent-sdk/overview",
+        "https://code.claude.com/docs/en/agent-sdk/permissions",
+        "https://code.claude.com/docs/en/headless"
+      ],
+      "decision": "Select @anthropic-ai/claude-agent-sdk TypeScript integration in isolated child. No second CLI adapter. Exact auth/interception/cancel features must pass G05.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "ACP TypeScript SDK",
+      "officialSources": [
+        "https://github.com/agentclientprotocol/typescript-sdk"
+      ],
+      "decision": "Default stable protocol-v1 entrypoint; v2 entrypoints experimental. SDK package major and protocol version must be recorded separately.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "MCP TypeScript SDK",
+      "officialSources": [
+        "https://ts.sdk.modelcontextprotocol.io/v2/",
+        "https://ts.sdk.modelcontextprotocol.io/v2/get-started/packages"
+      ],
+      "decision": "Official docs describe stable v2 split server/client packages. Keep SDK behind ingress; do not use legacy v1 import paths accidentally.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Execa",
+      "officialSources": [
+        "https://github.com/sindresorhus/execa/blob/main/docs/api.md"
+      ],
+      "decision": "Fixed executable/argv, controlled env, stream limits, cancellation. Graceful cancellation may require Node-specific cooperation; confirm full process cleanup separately.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "p-queue",
+      "officialSources": [
+        "https://github.com/sindresorhus/p-queue"
+      ],
+      "decision": "Optional process-local admission; timeout does not grant distributed ownership or prove child death.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "p-retry",
+      "officialSources": [
+        "https://github.com/sindresorhus/p-retry"
+      ],
+      "decision": "Optional bounded transient read retry only; explicit classifier before use. Unknown writes never enter this helper.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "proper-lockfile",
+      "officialSources": [
+        "https://github.com/moxystudio/node-proper-lockfile"
+      ],
+      "decision": "Optional local staging lock; stale-lock behavior is not authoritative fencing. No central distributed correctness dependency.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "async-mutex",
+      "officialSources": [
+        "https://github.com/DirtyHairy/async-mutex"
+      ],
+      "decision": "Not needed initially; in-process coordination only if measured/necessary.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Git",
+      "officialSources": [
+        "https://git-scm.com/docs/git-worktree",
+        "https://git-scm.com/docs/git-push"
+      ],
+      "decision": "Isolated writer checkouts, fixed arguments, target ref preconditions and serialized merge. Exact installed CLI behavior is G01 work.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "GitHub runner model",
+      "officialSources": [
+        "https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job",
+        "https://docs.github.com/en/actions/reference/runners/self-hosted-runners",
+        "https://docs.github.com/en/actions/reference/security/secure-use"
+      ],
+      "decision": "Architectural precedent for group/label/availability and ephemeral cleanup; Brain uses its own protocol/binary.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "NewUI",
+      "officialSources": [
+        "https://talelk.github.io/newui/",
+        "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/spec/kit.md",
+        "https://github.com/talelk/newui/tree/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/apps/starter"
+      ],
+      "decision": "Required UI foundation via public `@talelk/newui-*` packages. Reviewed source revision and package observations are in ui-foundation.json; installation, peer/CSS compatibility and Brain workflows still need G01/T33. See document 16.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "SolidJS",
+      "officialSources": [
+        "https://docs.solidjs.com/reference/basic-reactivity/create-resource"
+      ],
+      "decision": "Fine-grained task UI with explicit loading/error state, owned cleanup and bounded stores.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Solid Router",
+      "officialSources": [
+        "https://docs.solidjs.com/solid-router"
+      ],
+      "decision": "SPA routes, deep links and lazy boundaries; no SSR runtime required initially.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Vite",
+      "officialSources": [
+        "https://vite.dev/guide/"
+      ],
+      "decision": "Static build for Governor; pin Solid plugin/toolchain compatibility in G01.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Tailwind",
+      "officialSources": [
+        "https://tailwindcss.com/docs/theme"
+      ],
+      "decision": "v4 build integration with `@talelk/newui-tailwind/style.css`; consume NewUI semantic tokens and verify emitted app/package classes.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Zag",
+      "officialSources": [
+        "https://zagjs.com/overview/installation"
+      ],
+      "decision": "NewUI owns Zag-backed interaction primitives; Brain composes their public APIs and tests product behavior. Direct Brain Zag imports require a documented library gap and review.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "TanStack Virtual",
+      "officialSources": [
+        "https://tanstack.com/virtual/latest/docs/framework/solid/solid-virtual"
+      ],
+      "decision": "Prefer NewUI VirtualList/DataTable organisms. Direct rendering integration only for a documented unmet need; long views retain accessible fallback.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Apache ECharts",
+      "officialSources": [
+        "https://echarts.apache.org/handbook/en/best-practices/aria/"
+      ],
+      "decision": "Use optional route-lazy `@talelk/newui-charts` wrappers and their semantic theme; verify accessible data fallbacks and initial-route budget.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "TencentDB Agent Memory",
+      "officialSources": [
+        "https://github.com/TencentCloud/TencentDB-Agent-Memory",
+        "https://github.com/TencentCloud/TencentDB-Agent-Memory/blob/feat/server_team/MemoryCore/README.md"
+      ],
+      "decision": "Optional at early slices; pin repo/image, test ACL/export/FTS5/private indexing and service footprint. Do not assume managed TencentDB cloud behavior.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Pino",
+      "officialSources": [
+        "https://github.com/pinojs/pino/blob/main/docs/transports.md",
+        "https://github.com/pinojs/pino/blob/main/docs/redaction.md"
+      ],
+      "decision": "Structured logs with off-hot-path transport; key redaction supplemented for arbitrary text.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Docker / Compose",
+      "officialSources": [
+        "https://docs.docker.com/engine/security/rootless/",
+        "https://docs.docker.com/engine/containers/resource_constraints/",
+        "https://docs.docker.com/compose/how-tos/use-secrets/"
+      ],
+      "decision": "Deployment and launcher candidate; validate cgroups/network enforcement; Compose secrets are host-file mounts.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "VictoriaLogs / VictoriaMetrics",
+      "officialSources": [
+        "https://docs.victoriametrics.com/victorialogs/quickstart/",
+        "https://docs.victoriametrics.com/victoriametrics/quick-start/"
+      ],
+      "decision": "Optional operational profiles after measured need. Never part of authorization availability.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "ntfy",
+      "officialSources": [
+        "https://docs.ntfy.sh/"
+      ],
+      "decision": "Optional authenticated self-hosted notifications; public unguessable topics are not tenant authorization.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Browser service worker/push",
+      "officialSources": [
+        "https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API",
+        "https://developer.mozilla.org/en-US/docs/Web/API/Push_API"
+      ],
+      "decision": "Static caching, opt-in notifications and fallbacks; no offline approvals or guaranteed periodic background agent work.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "WCAG",
+      "officialSources": [
+        "https://www.w3.org/TR/WCAG22/"
+      ],
+      "decision": "AA acceptance target with manual keyboard/screen-reader checks plus browser automation.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Vitest",
+      "officialSources": [
+        "https://vitest.dev/guide/"
+      ],
+      "decision": "Domain, port conformance and integration tests; isolate IO fixtures and clocks.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Playwright",
+      "officialSources": [
+        "https://playwright.dev/docs/test-assertions"
+      ],
+      "decision": "Real browser workflows with web-first assertions and fixed responsive sizes; no arbitrary sleeps.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Evalite",
+      "officialSources": [
+        "https://evalite.dev/"
+      ],
+      "decision": "Optional TypeScript model-quality experiments after deterministic acceptance exists.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Promptfoo",
+      "officialSources": [
+        "https://www.promptfoo.dev/docs/intro/"
+      ],
+      "decision": "Optional external red-team/regression harness; sanitized fixtures and budget limits. Avoid duplicating Evalite without a distinct need.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "ShellCheck",
+      "officialSources": [
+        "https://www.shellcheck.net/"
+      ],
+      "decision": "Static shell diagnostics before trusted tool publication.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "Bats",
+      "officialSources": [
+        "https://bats-core.readthedocs.io/en/stable/"
+      ],
+      "decision": "Tool behavioral/denial fixtures when shell tests need it.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    },
+    {
+      "component": "shfmt",
+      "officialSources": [
+        "https://github.com/mvdan/sh"
+      ],
+      "decision": "Reproducible shell formatting; no semantic proof.",
+      "reviewedAt": "2026-10-27",
+      "verificationLevel": "documentation-review-only",
+      "exactProductVersion": null,
+      "integrationStatus": "pending-G01-through-G08",
+      "baselineManifest": "contracts/v1/dependency-baseline.json"
+    }
+  ],
+  "note": "Primary-source review register; no installed compatibility/security certification. NewUI reviewed source and package observations are in ui-foundation.json; product artifact pin remains pending."
+}

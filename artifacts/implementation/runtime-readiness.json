@@ -1,0 +1,46 @@
+{
+  "scope": "evidence-record-integrity-only",
+  "productFingerprint": "sha256:2369b7e108abdd4a36d3b4534ace880a4b6e6cb83dfb9b6485f1fd7a905754ea",
+  "gates": {
+    "G01": {
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
+    },
+    "G02": {
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
+    },
+    "G03": {
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
+    },
+    "G04": {
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
+    },
+    "G05": {
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
+    },
+    "G06": {
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
+    },
+    "G07": {
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
+    },
+    "G08": {
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
+    }
+  },
+  "allRuntimeGatesPassed": true,
+  "modelQualification": {
+    "status": "not-run",
+    "reason": "evidence-missing"
+  },
+  "modelQualified": false,
+  "independentReleaseCertification": "separate-required-evidence",
+  "note": "Missing evidence stays not-run. Artifact hashes bind records to bytes; trusted test runners and independent review establish that the recorded tests actually ran."
+}

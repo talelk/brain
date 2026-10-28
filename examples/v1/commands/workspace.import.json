@@ -1,0 +1,15 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_workspace.import",
+  "commandType": "workspace.import",
+  "idempotencyKey": "idem_workspace.import",
+  "payload": {
+    "manifest": {
+      "artifactId": "fixture",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 0,
+      "mediaType": "fixture",
+      "classification": "public"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+apiVersion: brain.keyrus/v1
+kind: Evaluator
+metadata:
+  id: fixture-evaluator
+  version: 1.0.0
+spec:
+  tool:
+    id: fixture.verify
+    digest: sha256:a4ec529bd9d8d7235cf3f6971460fa315eebbc577da8c0a120ce8c7174be979c
+  requiredChecks:
+  - echo-message
+  - echo-bytes
+  independence: L2

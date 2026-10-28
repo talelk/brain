@@ -1,0 +1,5 @@
+/* Target location: apps/web/src/index.css. Paths are relative to that location. */
+@import "@talelk/newui-tailwind/style.css";
+
+@source "../index.html";
+@source "./**/*.{ts,tsx}";

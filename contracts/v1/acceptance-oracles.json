@@ -1,0 +1,425 @@
+{
+  "contractVersion": "brain.acceptance-oracles/v1",
+  "status": "independent-expected-data-runtime-execution-pending",
+  "clockMs": 100000,
+  "traces": [
+    {
+      "id": "O01",
+      "scenarios": [
+        "E006",
+        "E007"
+      ],
+      "initial": {
+        "commands": [],
+        "jobs": []
+      },
+      "stimuli": [
+        "dispatch actor=a key=k payload=P",
+        "retry actor=a key=k payload=P",
+        "retry actor=a key=k payload=Q"
+      ],
+      "expected": {
+        "durableCommands": 1,
+        "jobsCreated": 1,
+        "firstTwoReceiptsEqual": true,
+        "lastError": "IDEMPOTENCY_CONFLICT"
+      }
+    },
+    {
+      "id": "O02",
+      "scenarios": [
+        "E031",
+        "E036",
+        "E037"
+      ],
+      "initial": {
+        "jobState": "queued",
+        "jobFence": 0,
+        "runnerSlots": 1,
+        "reservedSlots": 0
+      },
+      "stimuli": [
+        "race two valid claim transactions",
+        "retry winning claim requestId",
+        "advance beyond offer ACK deadline without ACK"
+      ],
+      "expected": {
+        "winningOffers": 1,
+        "winningAttemptNumber": 1,
+        "winningFence": 1,
+        "duplicateClaimAllocations": 0,
+        "approvalConsumptions": 0,
+        "reservedSlotsAfterExpiry": 0
+      }
+    },
+    {
+      "id": "O03",
+      "scenarios": [
+        "E032"
+      ],
+      "initial": {
+        "capacityCpu": 2000,
+        "reservedCpu": 500,
+        "jobDemandCpu": 1000
+      },
+      "stimuli": [
+        "race two different job claims on the same runner"
+      ],
+      "expected": {
+        "successfulClaims": 1,
+        "finalReservedCpu": 1500,
+        "remainingQueuedJobs": 1
+      }
+    },
+    {
+      "id": "O04",
+      "scenarios": [
+        "E053",
+        "E054"
+      ],
+      "initial": {
+        "approval": "approved",
+        "consumptions": 0,
+        "currentRunnerEpoch": 3,
+        "leaseLive": true
+      },
+      "stimuli": [
+        "race permit invocation A with invocation B on same approval",
+        "lose winner response after commit",
+        "retry exact winner request"
+      ],
+      "expected": {
+        "newPermits": 1,
+        "consumptions": 1,
+        "retryReturnsOriginalGrant": true,
+        "retryReturnsSameToken": true,
+        "loserEffectCalls": 0
+      }
+    },
+    {
+      "id": "O05",
+      "scenarios": [
+        "E038",
+        "E042"
+      ],
+      "initial": {
+        "currentEpoch": 4,
+        "receiptEpoch": 3,
+        "jobState": "running"
+      },
+      "stimuli": [
+        "old epoch submits succeeded receipt"
+      ],
+      "expected": {
+        "jobFinalized": false,
+        "receiptDisposition": "quarantined",
+        "evaluatorDispatches": 0
+      }
+    },
+    {
+      "id": "O06",
+      "scenarios": [
+        "E043",
+        "E044",
+        "E059"
+      ],
+      "initial": {
+        "physicalTarget": "cluster-1/namespace-a/deployment-b",
+        "fence": 9,
+        "unresolvedEffect": true,
+        "leaseExpired": true
+      },
+      "stimuli": [
+        "other workspace claims alias of same physical target",
+        "readback proves absence",
+        "reacquire target"
+      ],
+      "expected": {
+        "firstClaimBlocked": true,
+        "guardClearedOnlyAfterEvidence": true,
+        "nextFence": 10,
+        "fenceReset": false
+      }
+    },
+    {
+      "id": "O07",
+      "scenarios": [
+        "E051",
+        "E052",
+        "E055",
+        "E060"
+      ],
+      "initial": {
+        "approvedSubject": "S",
+        "expiresAtMs": 110000,
+        "author": "alice",
+        "approver": "bob"
+      },
+      "stimuli": [
+        "ask permit for subject T",
+        "ask permit at time 110000",
+        "revoke before online start",
+        "alice attempts own high-risk approval"
+      ],
+      "expected": {
+        "mutations": 0,
+        "changedSubjectDenied": true,
+        "expiryBoundaryDenied": true,
+        "revokedStartDenied": true,
+        "selfApprovalDenied": true
+      }
+    },
+    {
+      "id": "O08",
+      "scenarios": [
+        "E056",
+        "E057"
+      ],
+      "initial": {
+        "invocation": "inv1",
+        "targetSupportsIdempotency": false,
+        "guard": "held"
+      },
+      "stimuli": [
+        "perform one target mutation",
+        "crash before receipt commit",
+        "expire runner lease",
+        "submit ordinary retry"
+      ],
+      "crashPoint": "after-target-commit-before-receipt",
+      "expected": {
+        "targetMutationCalls": 1,
+        "state": "outcome_unknown",
+        "guard": "held",
+        "retryDenied": true,
+        "nextAction": "read-only-reconciliation"
+      }
+    },
+    {
+      "id": "O09",
+      "scenarios": [
+        "E023",
+        "E024"
+      ],
+      "initial": {
+        "waitGeneration": 2,
+        "snapshotPersisted": false,
+        "wakeIntents": []
+      },
+      "stimuli": [
+        "human decision commits wake W",
+        "persist wait generation 2",
+        "deliver W twice",
+        "deliver old generation 1 wake"
+      ],
+      "expected": {
+        "resumedGeneration": 2,
+        "downstreamExecutionKeys": 1,
+        "oldGenerationEffects": 0,
+        "wakeAcknowledgedAfterStepProof": true
+      }
+    },
+    {
+      "id": "O10",
+      "scenarios": [
+        "E028",
+        "E085",
+        "E086"
+      ],
+      "initial": {
+        "dispatchState": "accepted",
+        "workspaceOnline": false
+      },
+      "stimuli": [
+        "commit cancel tombstone globally",
+        "recover workspace",
+        "deliver old create/start twice",
+        "deliver same event ID with changed digest"
+      ],
+      "expected": {
+        "workflowStarted": false,
+        "cancelled": true,
+        "duplicateProjectionRows": 0,
+        "changedDigestDisposition": "parked"
+      }
+    },
+    {
+      "id": "O11",
+      "scenarios": [
+        "E073",
+        "E074",
+        "E075"
+      ],
+      "initial": {
+        "authorRunner": "r-agent",
+        "evaluatorRunner": "r-eval",
+        "bundleDigest": "B",
+        "artifactVerified": false
+      },
+      "stimuli": [
+        "author submits verdict",
+        "evaluator submits verdict before artifact verification",
+        "same bundle with changed verdict bytes"
+      ],
+      "expected": {
+        "authorVerdictAccepted": false,
+        "unverifiedArtifactDone": false,
+        "immutableConflict": true,
+        "cardDone": false
+      }
+    },
+    {
+      "id": "O12",
+      "scenarios": [
+        "E076",
+        "E077"
+      ],
+      "initial": {
+        "signature": "operation-a",
+        "distinctVerifiedRoots": [
+          "root-1",
+          "root-2"
+        ]
+      },
+      "stimuli": [
+        "retry root-2 twice",
+        "race two observations from root-3"
+      ],
+      "expected": {
+        "distinctVerifiedRoots": 3,
+        "candidatesCreated": 1,
+        "candidateState": "quarantined",
+        "publishedTools": 0
+      }
+    },
+    {
+      "id": "O13",
+      "scenarios": [
+        "E078",
+        "E080"
+      ],
+      "initial": {
+        "memoryWorkspace": "wa",
+        "actorWorkspace": "wb",
+        "sameOrganization": true
+      },
+      "stimuli": [
+        "search wa through wb",
+        "fetch wa asset by digest",
+        "revoke wa reader after cached result"
+      ],
+      "expected": {
+        "crossWorkspaceResults": 0,
+        "assetBytesReturned": 0,
+        "revokedCacheReturned": false,
+        "memoryGrantedAuthority": false
+      }
+    },
+    {
+      "id": "O14",
+      "scenarios": [
+        "E089"
+      ],
+      "initial": {
+        "backupApprovalState": "approved",
+        "backupRunnerTokenValid": true,
+        "suspendedRuns": 1
+      },
+      "stimuli": [
+        "restore current-format bundle into empty destination",
+        "use backup approval/token to execute"
+      ],
+      "expected": {
+        "historyApprovalState": "approved",
+        "executionEnabled": false,
+        "oldTokensAccepted": false,
+        "suspendedRunsRestored": 1,
+        "freshAuthorityRequired": true
+      }
+    },
+    {
+      "id": "O15",
+      "scenarios": [
+        "E094",
+        "E095"
+      ],
+      "initial": {
+        "displayedVersion": 7,
+        "note": "Check rollout window",
+        "idempotencyKey": "human-k"
+      },
+      "stimuli": [
+        "commit exact human decision",
+        "drop HTTP response",
+        "recover using same key"
+      ],
+      "expected": {
+        "humanDecisions": 1,
+        "displayedState": "approved-awaiting-execution",
+        "notePreserved": true,
+        "effectMarkedApplied": false
+      }
+    }
+  ],
+  "canonicalVectors": [
+    {
+      "id": "J01",
+      "input": {
+        "b": 2,
+        "a": 1
+      },
+      "canonical": "{\"a\":1,\"b\":2}",
+      "sha256": "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777"
+    },
+    {
+      "id": "J02",
+      "input": {
+        "z": [
+          true,
+          null,
+          "é"
+        ],
+        "a": {}
+      },
+      "canonical": "{\"a\":{},\"z\":[true,null,\"é\"]}",
+      "sha256": "sha256:6932e61705b655c59d5d746b11b836e3073459db43f0956ab02a435b76b73e1c"
+    },
+    {
+      "id": "J03",
+      "rawInput": "{\"n\":-0.0}",
+      "canonical": "{\"n\":0}",
+      "sha256": "sha256:f3013f933b9fb80ab6d995e7ad9da36f683837ba1d81e950c943d40111eac2f0"
+    },
+    {
+      "id": "J04",
+      "rawInput": "{\"n\":1e+30}",
+      "canonical": "{\"n\":1e+30}",
+      "sha256": "sha256:53bcca850cd9028c384aef303539ce41d82d7fb56fbfa1e5289fe51caef28f93"
+    },
+    {
+      "id": "J05",
+      "input": {
+        "": 1,
+        "😀": 2
+      },
+      "canonical": "{\"😀\":2,\"\":1}",
+      "sha256": "sha256:28c95d1bbb2209223307e62f489020e8f9e0cfa16adf2daf6d88127a1e8dd22a"
+    },
+    {
+      "id": "J06",
+      "rawInput": "{\"a\":1,\"a\":2}",
+      "reject": "duplicate-key"
+    },
+    {
+      "id": "J07",
+      "rawInput": "{\"x\":\"\\ud800\"}",
+      "reject": "lone-surrogate"
+    },
+    {
+      "id": "J08",
+      "rawInput": "{\"n\":1e999}",
+      "reject": "non-finite-number"
+    }
+  ],
+  "canonicalVectorSource": "Own literal fixtures against RFC8785 semantics; add the full upstream RFC number vectors in G01. Python sort_keys is not the production JCS oracle."
+}

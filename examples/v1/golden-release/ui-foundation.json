@@ -1,0 +1,326 @@
+{
+  "contractVersion": "brain.ui-foundation/v1",
+  "library": "NewUI",
+  "docsUrl": "https://talelk.github.io/newui/",
+  "reviewedAt": "2026-10-27",
+  "source": {
+    "repository": "https://github.com/talelk/newui",
+    "commit": "54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1",
+    "selection": "reviewed-source-baseline; product artifact selection pending G01/T33",
+    "evidence": [
+      {
+        "path": "README.md",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/README.md",
+        "sha256": "e14a1f1aab2d5234ba97191b417c128874d8483dfdcd242026fe61743d849064"
+      },
+      {
+        "path": "spec/kit.md",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/spec/kit.md",
+        "sha256": "30acbd71cf1fe610a369b941b5b2f4bcdf53fe6ccead3b557d4eeaf09f0a2986"
+      },
+      {
+        "path": "spec/visual-system.md",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/spec/visual-system.md",
+        "sha256": "5b5107043f14d3d1d04f9d50169ff81f8aa8be9f2f9c6b5f5405140fcccc03cf"
+      },
+      {
+        "path": "apps/starter/README.md",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/apps/starter/README.md",
+        "sha256": "8468874fb3572ccaf0daeb8d552af0dd7f6747d0b1136688eb746179b0e84728"
+      },
+      {
+        "path": "apps/starter/package.json",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/apps/starter/package.json",
+        "sha256": "349a5991a33e690d8907f0d1778ffd075a73132a2b20993cf46abd159f9a31f2"
+      },
+      {
+        "path": "apps/starter/src/index.css",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/apps/starter/src/index.css",
+        "sha256": "06ac68c53c0c6df397ab483dfd3aa2108120e6b324d5d1400ff1d9aade874738"
+      },
+      {
+        "path": "apps/starter/src/shell/theme.ts",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/apps/starter/src/shell/theme.ts",
+        "sha256": "511060bdd6657e557124816bf880654725de7fe952444a8a7337df0ac343eae1"
+      },
+      {
+        "path": "apps/starter/vite.config.ts",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/apps/starter/vite.config.ts",
+        "sha256": "4a1a2f182badd68455fe6434e80a491adbef6302440f070e69e03a533882b6df"
+      },
+      {
+        "path": "packages/data/src/query/client.tsx",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/data/src/query/client.tsx",
+        "sha256": "0b1ca717361318d037e67478cf239371bf0ca234a546fb4a40a8db55ac21b1cf"
+      },
+      {
+        "path": "packages/data/src/query/collection.ts",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/data/src/query/collection.ts",
+        "sha256": "e6ee06565af3384b09e9ac9e0e895e97749bef3d8631253f3460a0a294248329"
+      },
+      {
+        "path": "packages/atoms/package.json",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/atoms/package.json",
+        "sha256": "e623002f8a1a7254dd0c738254ee6fe2c69f9e005b0f5cca8b15b2cfb4602193"
+      },
+      {
+        "path": "packages/molecules/package.json",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/molecules/package.json",
+        "sha256": "6642e7dfa981e9f3eadbe979d5ece682d0b110f719dfd1da463dab58aed0e244"
+      },
+      {
+        "path": "packages/organisms/package.json",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/organisms/package.json",
+        "sha256": "a89eea9218a0338cc6703dfab8dc841a0b5c4b41dd0dcd984a9ca63812628e49"
+      },
+      {
+        "path": "packages/templates/package.json",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/templates/package.json",
+        "sha256": "a42f0c40fe859d2215e9f11557a874c412566ad254d5debd958e39c87a8aeebd"
+      },
+      {
+        "path": "packages/tailwind/package.json",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/tailwind/package.json",
+        "sha256": "2839d5b339c70e58afca9f18122bc0ceafba0aee68a5c82e0c285fbae1be4ece"
+      },
+      {
+        "path": "packages/tokens/package.json",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/tokens/package.json",
+        "sha256": "3db38f21bd1c3b94a78603633915a7cb94c05de44f81af73caad3458b42576fe"
+      },
+      {
+        "path": "packages/data/package.json",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/data/package.json",
+        "sha256": "69748fe57df8fb1238f06e0b4b5facaba3c5171898130c222014ab33459b38ec"
+      },
+      {
+        "path": "packages/icons/package.json",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/icons/package.json",
+        "sha256": "3e57dbef2f7f54fffeb9c770be4691b0c015ccd9393eb4def792e9740e806245"
+      },
+      {
+        "path": "packages/charts/package.json",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/charts/package.json",
+        "sha256": "636168cf7d3c02281c6bdff510dc5c1cda3c973ecb166772bbb67b8ed129a4e4"
+      },
+      {
+        "path": "packages/editor/package.json",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/editor/package.json",
+        "sha256": "4850528ed129d6fc3de520f4253be7347a8d8d8ebe710e575fc9db332a37b89a"
+      },
+      {
+        "path": "packages/code-editor/package.json",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/code-editor/package.json",
+        "sha256": "0b844fb5f1da31abf7f1df1e88d8673e7d1be1d66e526e31a3569e259e572245"
+      },
+      {
+        "path": "packages/vite/package.json",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/vite/package.json",
+        "sha256": "efb2195854220d56d3a2340df2eec7156d3cdb0033383181142ace7a016636c2"
+      },
+      {
+        "path": "packages/atoms/src/atoms/index.ts",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/atoms/src/atoms/index.ts",
+        "sha256": "b1c7ceff8b5baa1d425aa8b181aa2eebaee30710e71406ddbf426680fea7c01c"
+      },
+      {
+        "path": "packages/molecules/src/molecules/index.ts",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/molecules/src/molecules/index.ts",
+        "sha256": "22af334f78ed4b0346f1a021285478e51f8d0db09dc646a52d0d12063e3c39f9"
+      },
+      {
+        "path": "packages/organisms/src/organisms/index.ts",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/organisms/src/organisms/index.ts",
+        "sha256": "72eb34f42db82019e6739c1dfebc0a08ea1e17a93bf1f1d72be4079e73d6f8f7"
+      },
+      {
+        "path": "packages/templates/src/templates/index.ts",
+        "url": "https://github.com/talelk/newui/blob/54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1/packages/templates/src/templates/index.ts",
+        "sha256": "c2c0a685aec790b87eadb991735bbe95c60c30fbc4a2cce5b0e1c78fa2cc8f64"
+      }
+    ]
+  },
+  "documentationFetch": {
+    "httpStatus": 200,
+    "pageTitle": "newui playground — SolidJS component library",
+    "htmlSha256": "077e1992cb68076842f2ea6b80049e4c60225293f181ff5d018af0edb370c55b",
+    "browserVisualAcceptanceRun": false
+  },
+  "packages": [
+    {
+      "name": "@talelk/newui-atoms",
+      "observedSourceVersion": "1.2.0",
+      "disposition": "required",
+      "publicEntrypoints": [
+        "@talelk/newui-atoms"
+      ],
+      "sourcePath": "packages/atoms/package.json",
+      "installationVerified": false
+    },
+    {
+      "name": "@talelk/newui-molecules",
+      "observedSourceVersion": "2.2.0",
+      "disposition": "required",
+      "publicEntrypoints": [
+        "@talelk/newui-molecules"
+      ],
+      "sourcePath": "packages/molecules/package.json",
+      "installationVerified": false
+    },
+    {
+      "name": "@talelk/newui-organisms",
+      "observedSourceVersion": "2.1.1",
+      "disposition": "required",
+      "publicEntrypoints": [
+        "@talelk/newui-organisms"
+      ],
+      "sourcePath": "packages/organisms/package.json",
+      "installationVerified": false
+    },
+    {
+      "name": "@talelk/newui-templates",
+      "observedSourceVersion": "1.1.2",
+      "disposition": "required",
+      "publicEntrypoints": [
+        "@talelk/newui-templates"
+      ],
+      "sourcePath": "packages/templates/package.json",
+      "installationVerified": false
+    },
+    {
+      "name": "@talelk/newui-tailwind",
+      "observedSourceVersion": "1.0.0",
+      "disposition": "required",
+      "publicEntrypoints": [
+        "@talelk/newui-tailwind/style.css",
+        "@talelk/newui-tailwind/source"
+      ],
+      "sourcePath": "packages/tailwind/package.json",
+      "installationVerified": false
+    },
+    {
+      "name": "@talelk/newui-tokens",
+      "observedSourceVersion": "0.1.0",
+      "disposition": "optional",
+      "publicEntrypoints": [
+        "@talelk/newui-tokens",
+        "@talelk/newui-tokens/css"
+      ],
+      "sourcePath": "packages/tokens/package.json",
+      "installationVerified": false
+    },
+    {
+      "name": "@talelk/newui-data",
+      "observedSourceVersion": "1.0.0",
+      "disposition": "optional",
+      "publicEntrypoints": [
+        "@talelk/newui-data",
+        "@talelk/newui-data/query",
+        "@talelk/newui-data/form",
+        "@talelk/newui-data/resource"
+      ],
+      "sourcePath": "packages/data/package.json",
+      "installationVerified": false
+    },
+    {
+      "name": "@talelk/newui-icons",
+      "observedSourceVersion": "0.0.1",
+      "disposition": "optional",
+      "publicEntrypoints": [
+        "@talelk/newui-icons"
+      ],
+      "sourcePath": "packages/icons/package.json",
+      "installationVerified": false
+    },
+    {
+      "name": "@talelk/newui-charts",
+      "observedSourceVersion": "1.0.1",
+      "disposition": "optional",
+      "publicEntrypoints": [
+        "@talelk/newui-charts"
+      ],
+      "sourcePath": "packages/charts/package.json",
+      "installationVerified": false
+    },
+    {
+      "name": "@talelk/newui-editor",
+      "observedSourceVersion": "0.1.2",
+      "disposition": "deferred",
+      "publicEntrypoints": [
+        "@talelk/newui-editor"
+      ],
+      "sourcePath": "packages/editor/package.json",
+      "installationVerified": false
+    },
+    {
+      "name": "@talelk/newui-code-editor",
+      "observedSourceVersion": "0.1.0",
+      "disposition": "deferred",
+      "publicEntrypoints": [
+        "@talelk/newui-code-editor"
+      ],
+      "sourcePath": "packages/code-editor/package.json",
+      "installationVerified": false
+    },
+    {
+      "name": "@talelk/newui-vite",
+      "observedSourceVersion": "1.0.0",
+      "disposition": "deferred",
+      "publicEntrypoints": [
+        "@talelk/newui-vite"
+      ],
+      "sourcePath": "packages/vite/package.json",
+      "installationVerified": false
+    }
+  ],
+  "templates": [
+    "AppShell",
+    "PaneLayout",
+    "AuthLayout"
+  ],
+  "componentOwners": {
+    "Button": "@talelk/newui-atoms",
+    "TextInput": "@talelk/newui-atoms",
+    "Badge": "@talelk/newui-atoms",
+    "UIProvider": "@talelk/newui-atoms",
+    "createColorScheme": "@talelk/newui-atoms",
+    "Dialog": "@talelk/newui-molecules",
+    "BottomSheet": "@talelk/newui-molecules",
+    "Toaster": "@talelk/newui-molecules",
+    "Timeline": "@talelk/newui-molecules",
+    "DataState": "@talelk/newui-organisms",
+    "DataTable": "@talelk/newui-organisms",
+    "VirtualList": "@talelk/newui-organisms",
+    "KanbanBoard": "@talelk/newui-organisms",
+    "AppShell": "@talelk/newui-templates",
+    "PaneLayout": "@talelk/newui-templates",
+    "AuthLayout": "@talelk/newui-templates"
+  },
+  "styling": {
+    "entrypoint": "@talelk/newui-tailwind/style.css",
+    "defaultControlSize": "sm",
+    "defaultControlHeightPx": 28,
+    "brainTouchTargetMinimumPx": 44,
+    "themeAuthority": "NewUI semantic tokens",
+    "brainOverrides": "product-specific layout/status mapping only"
+  },
+  "forbiddenEntrypoints": [
+    "@newui/ui",
+    "@newui/blocks",
+    "@talelk/newui-atoms/internal",
+    "@talelk/newui-data/resource"
+  ],
+  "dataRules": [
+    "Governor owns command/query/decision semantics",
+    "No optimistic approval, external effect or verified Done",
+    "Scope cache keys by organization/workspace/authorization generation",
+    "No Frappe transport, IndexedDB cache or realtime client for Brain records"
+  ],
+  "runtimeValidationStatus": "pending-G01-T33-T34-T35-T37-T49",
+  "acceptanceScenarios": [
+    "E093",
+    "E097",
+    "E099"
+  ],
+  "productPackageLockCreated": false
+}

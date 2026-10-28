@@ -1,0 +1,204 @@
+{
+  "contractVersion": "brain.golden-release/v1",
+  "environment": "fixture",
+  "productionReady": false,
+  "entries": [
+    {
+      "kind": "Policy",
+      "id": "fixture-policy",
+      "path": "config/fixture-policy.yaml",
+      "digest": "sha256:c133abc1311620367c84b58d65f457ac1e44bfc56e9a0a277f19bb9427f9efa8",
+      "definitionDigest": "sha256:c133abc1311620367c84b58d65f457ac1e44bfc56e9a0a277f19bb9427f9efa8"
+    },
+    {
+      "kind": "WorkspaceType",
+      "id": "fixture-type",
+      "path": "config/fixture-type.yaml",
+      "digest": "sha256:6b29f83d433b6f8a3f1984752d8f6a21c324245414715085b6cb630641b870c7",
+      "definitionDigest": "sha256:6b29f83d433b6f8a3f1984752d8f6a21c324245414715085b6cb630641b870c7"
+    },
+    {
+      "kind": "RunnerGroup",
+      "id": "fixture-tools",
+      "path": "config/fixture-tools.yaml",
+      "digest": "sha256:598bdd6f2a6259bc9143b9a62e2a54a6ad891212161cfd98272b1b21fb66fd7a",
+      "definitionDigest": "sha256:598bdd6f2a6259bc9143b9a62e2a54a6ad891212161cfd98272b1b21fb66fd7a"
+    },
+    {
+      "kind": "RunnerGroup",
+      "id": "fixture-evaluators",
+      "path": "config/fixture-evaluators.yaml",
+      "digest": "sha256:3f8cc2e561526b622fd94312c92351d230e3c4d665a3b05cc904fb4d15670d1e",
+      "definitionDigest": "sha256:3f8cc2e561526b622fd94312c92351d230e3c4d665a3b05cc904fb4d15670d1e"
+    },
+    {
+      "kind": "Tool",
+      "id": "fixture.echo",
+      "path": "config/fixture.echo.yaml",
+      "digest": "sha256:a3fe6a4caae9923fc7b88b98a9bb83234540741512decc87707dd2e97e03d6f0",
+      "definitionDigest": "sha256:ba102196c8289dc6873461cebb3dc56e15c6c5e525d5b7c1a20506e3757ccbe9"
+    },
+    {
+      "kind": "Tool",
+      "id": "fixture.verify",
+      "path": "config/fixture.verify.yaml",
+      "digest": "sha256:a4ec529bd9d8d7235cf3f6971460fa315eebbc577da8c0a120ce8c7174be979c",
+      "definitionDigest": "sha256:755cd2c471aca9209841adc3e7af545e7d773aaae497f1b94f9254961813edf4"
+    },
+    {
+      "kind": "Evaluator",
+      "id": "fixture-evaluator",
+      "path": "config/fixture-evaluator.yaml",
+      "digest": "sha256:2424854b14c4a5c0a350487e694286d295c6c495360035dadf1778bcb46a1e1a",
+      "definitionDigest": "sha256:2424854b14c4a5c0a350487e694286d295c6c495360035dadf1778bcb46a1e1a"
+    },
+    {
+      "kind": "Workflow",
+      "id": "fixture-workflow",
+      "path": "config/fixture-workflow.yaml",
+      "digest": "sha256:5766c9749f2094fb488c2fe28371512e7695781b5f88080d66e5f59ffaf28d07",
+      "definitionDigest": "sha256:5766c9749f2094fb488c2fe28371512e7695781b5f88080d66e5f59ffaf28d07"
+    },
+    {
+      "kind": "Workspace",
+      "id": "fixture-workspace",
+      "path": "config/fixture-workspace.yaml",
+      "digest": "sha256:3ce901e69e7840f9187ee55dcec814128090538181a55372a5b12e19ffb1b342",
+      "definitionDigest": "sha256:3ce901e69e7840f9187ee55dcec814128090538181a55372a5b12e19ffb1b342"
+    },
+    {
+      "kind": "BrainConfig",
+      "id": "fixture-brain",
+      "path": "config/fixture-brain.yaml",
+      "digest": "sha256:01282da0684d9ebfac774c83dba34febee332256921d6153fb3df265796f1014",
+      "definitionDigest": "sha256:01282da0684d9ebfac774c83dba34febee332256921d6153fb3df265796f1014"
+    }
+  ],
+  "files": [
+    {
+      "path": "config/fixture-brain.yaml",
+      "digest": "sha256:01282da0684d9ebfac774c83dba34febee332256921d6153fb3df265796f1014"
+    },
+    {
+      "path": "config/fixture-evaluator.yaml",
+      "digest": "sha256:2424854b14c4a5c0a350487e694286d295c6c495360035dadf1778bcb46a1e1a"
+    },
+    {
+      "path": "config/fixture-evaluators.yaml",
+      "digest": "sha256:3f8cc2e561526b622fd94312c92351d230e3c4d665a3b05cc904fb4d15670d1e"
+    },
+    {
+      "path": "config/fixture-policy.yaml",
+      "digest": "sha256:c133abc1311620367c84b58d65f457ac1e44bfc56e9a0a277f19bb9427f9efa8"
+    },
+    {
+      "path": "config/fixture-tools.yaml",
+      "digest": "sha256:598bdd6f2a6259bc9143b9a62e2a54a6ad891212161cfd98272b1b21fb66fd7a"
+    },
+    {
+      "path": "config/fixture-type.yaml",
+      "digest": "sha256:6b29f83d433b6f8a3f1984752d8f6a21c324245414715085b6cb630641b870c7"
+    },
+    {
+      "path": "config/fixture-workflow.yaml",
+      "digest": "sha256:5766c9749f2094fb488c2fe28371512e7695781b5f88080d66e5f59ffaf28d07"
+    },
+    {
+      "path": "config/fixture-workspace.yaml",
+      "digest": "sha256:3ce901e69e7840f9187ee55dcec814128090538181a55372a5b12e19ffb1b342"
+    },
+    {
+      "path": "config/fixture.echo.yaml",
+      "digest": "sha256:ba102196c8289dc6873461cebb3dc56e15c6c5e525d5b7c1a20506e3757ccbe9"
+    },
+    {
+      "path": "config/fixture.verify.yaml",
+      "digest": "sha256:755cd2c471aca9209841adc3e7af545e7d773aaae497f1b94f9254961813edf4"
+    },
+    {
+      "path": "schemas/check.json",
+      "digest": "sha256:e3490b6e889f52aebe7fc73950730b82e775c03aaa60a7b646c2f95e685619f6"
+    },
+    {
+      "path": "schemas/echo-input.json",
+      "digest": "sha256:92c59d473e2a959dc18a29d516304fbfbb4d3457b327696f0c7fb7b5c000a1d9"
+    },
+    {
+      "path": "schemas/echo-output.json",
+      "digest": "sha256:c442ac6d5ca971089a5a5e10d6b876f68fe3a2729e0541dd19dfecf02eacdb0c"
+    },
+    {
+      "path": "schemas/eval-input.json",
+      "digest": "sha256:dbda6101cbda20d1b1e6894b575253b3e99b5072fe6790c67cca54cee7627571"
+    },
+    {
+      "path": "tools/fixture.echo/TOOL.md",
+      "digest": "sha256:e65134a3e7f860008cd183817b92935a0431bf02874996d1e3cfb00557124ea9"
+    },
+    {
+      "path": "tools/fixture.echo/package-index.json",
+      "digest": "sha256:48838fcf3e665191f460fec97b0b247146721f3816edb8b81ba22e972e92a6ed"
+    },
+    {
+      "path": "tools/fixture.echo/run.sh",
+      "digest": "sha256:cbb4254db76698a6c9b722850ab66a347eabbd356af0c2333c3301f4ebb9f12b"
+    },
+    {
+      "path": "tools/fixture.echo/schemas/echo-input.json",
+      "digest": "sha256:92c59d473e2a959dc18a29d516304fbfbb4d3457b327696f0c7fb7b5c000a1d9"
+    },
+    {
+      "path": "tools/fixture.echo/schemas/echo-output.json",
+      "digest": "sha256:c442ac6d5ca971089a5a5e10d6b876f68fe3a2729e0541dd19dfecf02eacdb0c"
+    },
+    {
+      "path": "tools/fixture.echo/test.sh",
+      "digest": "sha256:e19bc9c0591cfc29fbfb5751b88296226e7f30f3b1b12624ce0cad6cd8c35843"
+    },
+    {
+      "path": "tools/fixture.verify/TOOL.md",
+      "digest": "sha256:7c335573c4e598cc3a42b047122c0a22f8901808306ceadc980373a3ac903198"
+    },
+    {
+      "path": "tools/fixture.verify/package-index.json",
+      "digest": "sha256:a3a89ba26a54592fef66bc58049f65ec1707fbffd531f2b46742b0a50030be7c"
+    },
+    {
+      "path": "tools/fixture.verify/run.sh",
+      "digest": "sha256:771590aecd6a268ab3623626b9770c01084c8b8c67526fa22700b748c09a03d3"
+    },
+    {
+      "path": "tools/fixture.verify/schemas/check.json",
+      "digest": "sha256:e3490b6e889f52aebe7fc73950730b82e775c03aaa60a7b646c2f95e685619f6"
+    },
+    {
+      "path": "tools/fixture.verify/schemas/eval-input.json",
+      "digest": "sha256:dbda6101cbda20d1b1e6894b575253b3e99b5072fe6790c67cca54cee7627571"
+    },
+    {
+      "path": "tools/fixture.verify/test.sh",
+      "digest": "sha256:de371055a99d208c693c442a9bd2b510cc94f65aa52f44341900c38469cc3535"
+    },
+    {
+      "path": "ui-foundation.json",
+      "digest": "sha256:7c9ee4843884efea3e849170434503d20e63633caa0f4394bb784d0eaf4ad598"
+    }
+  ],
+  "manifestContentDigest": "sha256:182fcacbea40fc7b67278ccbe9a721523e5e951fd4abfac8aa3fca34eda415ae",
+  "input": {
+    "message": "Brain fixture"
+  },
+  "expectedOutput": {
+    "passed": true,
+    "checks": [
+      {
+        "id": "echo-message",
+        "passed": true
+      },
+      {
+        "id": "echo-bytes",
+        "passed": true
+      }
+    ]
+  }
+}

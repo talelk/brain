@@ -1,0 +1,15 @@
+{
+  "sourceId": "fixture",
+  "scope": {
+    "organizationId": "fixture",
+    "visibility": "global-approved"
+  },
+  "sourceVersion": "fixture",
+  "updatedAt": "2026-10-27T12:00:00Z",
+  "classification": "public",
+  "content": "fixture",
+  "provenance": [
+    "fixture"
+  ],
+  "status": "reviewed"
+}

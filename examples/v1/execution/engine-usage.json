@@ -1,0 +1,18 @@
+{
+  "contractVersion": "brain.engine-event/v1",
+  "eventId": "fixture",
+  "sessionId": "fixture",
+  "attemptId": "fixture",
+  "sequence": 1,
+  "kind": "usage",
+  "occurredAt": "2026-10-27T12:00:00Z",
+  "payload": {
+    "usageId": "usage_1",
+    "inputTokens": 10,
+    "outputTokens": 2,
+    "cachedInputTokens": 0,
+    "microUsd": 0,
+    "accounting": "delta",
+    "estimated": true
+  }
+}

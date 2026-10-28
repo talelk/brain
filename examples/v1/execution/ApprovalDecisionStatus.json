@@ -1,0 +1,8 @@
+{
+  "approvalId": "approval_fixture",
+  "idempotencyKey": "decision_key",
+  "status": "confirmed",
+  "decisionId": "decision_fixture",
+  "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "currentApprovalState": "approved"
+}

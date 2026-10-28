@@ -1,0 +1,9 @@
+{
+  "jobId": "fixture",
+  "attemptId": "fixture",
+  "runnerId": "fixture",
+  "runnerEpoch": 1,
+  "leaseId": "fixture",
+  "jobFence": 1,
+  "accepted": false
+}

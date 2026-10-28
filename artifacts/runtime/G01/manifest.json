@@ -1,0 +1,99 @@
+{
+  "contractVersion": "brain.verification-run/v1",
+  "gateId": "G01",
+  "status": "passed",
+  "productFingerprint": "sha256:2369b7e108abdd4a36d3b4534ace880a4b6e6cb83dfb9b6485f1fd7a905754ea",
+  "lockDigest": "sha256:1d784f4bbcec55eb5d00c2f85d78393a9e8aac76426ea58236b59c7fe1fb2daa",
+  "startedAt": "2026-10-28T04:02:58.584Z",
+  "finishedAt": "2026-10-28T04:03:10.275Z",
+  "commands": [
+    {
+      "argv": [
+        "pnpm",
+        "install",
+        "--frozen-lockfile"
+      ],
+      "exitCode": 0,
+      "durationMs": 123
+    },
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/probes/dependencies"
+      ],
+      "exitCode": 0,
+      "durationMs": 962
+    },
+    {
+      "argv": [
+        "pnpm",
+        "build"
+      ],
+      "exitCode": 0,
+      "durationMs": 10409
+    },
+    {
+      "argv": [
+        "node",
+        "scripts/generate_sbom.mjs",
+        "artifacts/runtime/G01/sbom.json"
+      ],
+      "exitCode": 0,
+      "durationMs": 185
+    }
+  ],
+  "checks": [
+    {
+      "id": "frozen-install",
+      "passed": true
+    },
+    {
+      "id": "strict-peers-and-engines",
+      "passed": true
+    },
+    {
+      "id": "native-auth-imports",
+      "passed": true
+    },
+    {
+      "id": "newui-production-build",
+      "passed": true
+    },
+    {
+      "id": "sbom-licenses",
+      "passed": true
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "artifacts/runtime/G01/frozen-install.log",
+      "digest": "sha256:dcf4f3db4bada4e8237457dd0fb12a645e3d398eafa9c699825614ff2ebab1cd"
+    },
+    {
+      "path": "artifacts/runtime/G01/native-auth-imports.log",
+      "digest": "sha256:585cee13abdbd9820155fade5a5d010d8429e4c96734ae70c157426819264301"
+    },
+    {
+      "path": "artifacts/runtime/G01/newui-production-build.log",
+      "digest": "sha256:f77e6602df32ab9e72707f4d39062554e5bafff3e4ce0bd8c91fc46c830f18d7"
+    },
+    {
+      "path": "artifacts/runtime/G01/sbom-licenses.log",
+      "digest": "sha256:eee2463274cddc3f9208ab5a595b987c5e5d833b6fdb275fb2db2db503511cde"
+    },
+    {
+      "path": "artifacts/runtime/G01/sbom.json",
+      "digest": "sha256:f09a1df990e3123125b30a42a374ba2f54e67a900e0bd1dfbea25f4ada9bab28"
+    }
+  ],
+  "selectedScenarios": [
+    "dependency-smoke"
+  ],
+  "executedScenarios": [
+    "dependency-smoke"
+  ],
+  "skippedScenarios": []
+}

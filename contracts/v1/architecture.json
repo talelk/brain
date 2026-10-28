@@ -1,0 +1,190 @@
+{
+  "contractVersion": "brain.architecture/v1",
+  "logicalPlanes": [
+    "control",
+    "data",
+    "runtime"
+  ],
+  "experienceLayer": {
+    "foundation": "newui",
+    "framework": "solidjs",
+    "channels": [
+      "web",
+      "pwa",
+      "tv",
+      "cli",
+      "mcp"
+    ],
+    "productionAssetOwner": "governor",
+    "uiConfigSchema": "UIConfig",
+    "webBuildConfigSchema": "WebBuildConfig"
+  },
+  "components": {
+    "governor": {
+      "plane": "control",
+      "responsibility": "One modular monolith; Hono/Better Auth ingress, in-process modules and shared command/query path; serves static NewUI assets"
+    },
+    "config-compiler": {
+      "plane": "control",
+      "responsibility": "Compile reviewed Git declarations; validate UI manifest against image build; immutable release activation"
+    },
+    "governance": {
+      "plane": "control",
+      "responsibility": "Current identity and role matrix, TOTP step-up, exact approvals and short-lived opaque online effect permits"
+    },
+    "mastra-adapter": {
+      "plane": "control",
+      "responsibility": "Execute pinned Brain IR through trusted Governor primitives; no independent execution permission"
+    },
+    "scheduler": {
+      "plane": "control",
+      "responsibility": "Global admission, capabilities, job leases, resource fencing and reconciliation"
+    },
+    "memory-gateway": {
+      "plane": "control",
+      "responsibility": "Authorized knowledge scopes, provenance, publication and revocation"
+    },
+    "git": {
+      "plane": "data",
+      "responsibility": "Stable declarations and reviewed source releases"
+    },
+    "control-db": {
+      "plane": "data",
+      "responsibility": "Global identity, job, lease, approval/effect and audit authority"
+    },
+    "workspace-db": {
+      "plane": "data",
+      "responsibility": "Local business state, evidence indexes and idempotent global projections"
+    },
+    "mastra-db": {
+      "plane": "data",
+      "responsibility": "Private per-workspace engine snapshots; no authorization authority"
+    },
+    "artifacts": {
+      "plane": "data",
+      "responsibility": "Immutable content-addressed bytes and portable release/evidence references"
+    },
+    "tencentdb": {
+      "plane": "data",
+      "responsibility": "Scoped memory and knowledge assets; no operational permission"
+    },
+    "runner": {
+      "plane": "runtime",
+      "responsibility": "Outbound authenticated supervisor; isolated slots, current leases, engine-neutral session execution"
+    },
+    "tool-broker": {
+      "plane": "runtime",
+      "responsibility": "Pinned tools, target preconditions, narrow credentials and effect receipts"
+    },
+    "evaluator": {
+      "plane": "runtime",
+      "responsibility": "Independent attempts produce pinned evidence checks; Governor accepts verdicts"
+    },
+    "harness-adapter": {
+      "plane": "runtime",
+      "responsibility": "Normalize Pi/Claude/ACP session capabilities and events inside an isolated runner slot; no global authority"
+    },
+    "launcher": {
+      "plane": "runtime",
+      "responsibility": "Trusted constrained Unix HTTP launcher; preinstalled rootless Docker profiles, enforced egress proxy and owned cleanup; never exposed to agent slots"
+    }
+  },
+  "authorities": {
+    "definitions": "Git",
+    "operations": "control.db and workspace.db within explicit transaction boundaries",
+    "knowledge": "TencentDB behind MemoryGateway",
+    "authorization": "Governor governance services",
+    "coordination": "Mastra adapter behind Brain IR",
+    "execution": "Leased runners and governed tool broker",
+    "verification": "Independent evaluators with Governor verdict acceptance",
+    "presentation": "NewUI public packages plus Brain domain compositions; no authority elevation"
+  },
+  "boundaries": [
+    {
+      "id": "interface-governor",
+      "from": "experience",
+      "to": "governor",
+      "inputContract": "CommandEnvelope / QueryRequest / HumanApprovalDecision",
+      "outputContract": "CommandReceipt / QueryResponse / EventEnvelope",
+      "authorizationOwner": "governor"
+    },
+    {
+      "id": "git-compiler",
+      "from": "git",
+      "to": "config-compiler",
+      "inputContract": "BrainConfig / Workspace / Workflow",
+      "outputContract": "ConfigRelease / WorkflowIR",
+      "authorizationOwner": "governor"
+    },
+    {
+      "id": "governor-mastra",
+      "from": "governor",
+      "to": "mastra-adapter",
+      "inputContract": "WorkflowIR / WorkflowEnginePort",
+      "outputContract": "Workflow lifecycle / wake acknowledgment",
+      "authorizationOwner": "governor"
+    },
+    {
+      "id": "governor-runner",
+      "from": "scheduler",
+      "to": "runner",
+      "inputContract": "JobOffer / AttemptLease",
+      "outputContract": "JobReceipt / AttemptEventBatch",
+      "authorizationOwner": "governor"
+    },
+    {
+      "id": "runner-harness",
+      "from": "runner",
+      "to": "harness-adapter",
+      "inputContract": "EngineSessionSpec",
+      "outputContract": "EngineEvent / Checkpoint",
+      "authorizationOwner": "governor"
+    },
+    {
+      "id": "governor-memory",
+      "from": "memory-gateway",
+      "to": "tencentdb",
+      "inputContract": "MemoryQuery / MemoryPublication",
+      "outputContract": "MemoryResult / scoped artifact references",
+      "authorizationOwner": "governor"
+    },
+    {
+      "id": "newui-consumer",
+      "from": "reviewed-build-input",
+      "to": "experience",
+      "inputContract": "UIConfig / WebBuildConfig / ui-foundation.json",
+      "outputContract": "Immutable web bundle and theme-aware product compositions",
+      "authorizationOwner": "governor"
+    }
+  ],
+  "uiDependencyRules": {
+    "allowedConsumers": [
+      "apps/web"
+    ],
+    "serverOnlyAuthorities": [
+      "identity",
+      "authorization",
+      "approval-ledger",
+      "job-leases",
+      "target-effects",
+      "evidence-verdicts"
+    ],
+    "forbiddenEntrypoints": [
+      "@newui/ui",
+      "@newui/blocks",
+      "@talelk/newui-atoms/internal",
+      "@talelk/newui-data/resource"
+    ],
+    "directDatabaseAccess": false,
+    "runtimePackageInstallation": false
+  },
+  "configBindings": {
+    "brainConfig": "examples/v1/config/brainconfig.yaml",
+    "webBuildConfig": "examples/v1/config/web-build.json",
+    "foundationManifest": "contracts/v1/ui-foundation.json",
+    "composeReference": "deploy/reference/compose.core.yaml",
+    "moduleLayout": "contracts/v1/module-layout.json"
+  },
+  "implementationStatus": "contracts-and-reference-config-only",
+  "architectureStyle": "modular-monolith"
+}

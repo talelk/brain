@@ -1,0 +1,13 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_board.create",
+  "commandType": "board.create",
+  "idempotencyKey": "idem_board.create",
+  "payload": {
+    "title": "fixture",
+    "criteria": [
+      "fixture"
+    ]
+  },
+  "workspaceId": "fixture"
+}

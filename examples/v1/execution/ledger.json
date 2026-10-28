@@ -1,0 +1,357 @@
+{
+  "contractVersion": "brain.implementation-ledger/v1",
+  "sessionId": "unstarted",
+  "inputFingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "policyDigest": "sha256:6199e7e07edcc6fd4b1fae74fe1894a887b736115a4ce17b7ef59ae72f7ef816",
+  "updatedAt": "2026-10-27T12:00:00Z",
+  "tasks": [
+    {
+      "id": "T01",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Scaffold workspace, strict TS, exact dependency pins including a compatible NewUI public package set and declared checks; no app features"
+    },
+    {
+      "id": "T02",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Copy canonical contracts, Ajv2020 validator, generated types, typed catalog; no coercion or fallback unknown events"
+    },
+    {
+      "id": "T03",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Pure state reducers with expected versions and injected time/IDs"
+    },
+    {
+      "id": "T04",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Fresh current-schema initialization/PRAGMAs, exact schema check, engine health, workspace confinement/LRU; no historical conversions/backfills"
+    },
+    {
+      "id": "T05",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Better Auth/organization, secure sessions, workspace memberships, bootstrap"
+    },
+    {
+      "id": "T06",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Shared typed handlers/response views, structured errors, limits and command intents"
+    },
+    {
+      "id": "T07",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Per-destination outbox delivery, ordered idempotent projectors, poison parking"
+    },
+    {
+      "id": "T08",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Restricted YAML/frontmatter and source diagnostics"
+    },
+    {
+      "id": "T09",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Deterministic inheritance, restrictive lattice, config explain; validate explicit UIConfig locale/channel defaults and foundation byte binding"
+    },
+    {
+      "id": "T10",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "DAG/binding/type/effect checks, immutable complete IR"
+    },
+    {
+      "id": "T11",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Staged release, dry-run and CAS activation; current runs pinned; close over UI manifest asset and verify selected image/build compatibility"
+    },
+    {
+      "id": "T12",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Deny-first policy, scope narrowing, tenant authorization and budget facts"
+    },
+    {
+      "id": "T13",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Exact subject hashing, human-only decisions, step-up and immutable notes"
+    },
+    {
+      "id": "T14",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Atomic effect intent/consumption/fences, revocation and idempotent permit"
+    },
+    {
+      "id": "T15",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "One-use enrollment, authenticated hello/epochs, verified observations"
+    },
+    {
+      "id": "T16",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Pure hard predicates and redacted explain snapshots"
+    },
+    {
+      "id": "T17",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Atomic offer/capacity/job fence and duplicate-safe ACK"
+    },
+    {
+      "id": "T18",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Lease expiry, current epoch/fence checks, unresolved effect guards"
+    },
+    {
+      "id": "T19",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "House/work admission, bounded fair queue scan, unique cron fires"
+    },
+    {
+      "id": "T20",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Outbound polling, durable events, monotonic local deadline and cleanup"
+    },
+    {
+      "id": "T21",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Constrained rootless Docker launcher with three fixed profiles and verified isolation"
+    },
+    {
+      "id": "T22",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Digest-pinned tools, validated stdin/stdout, fixed argv, redacted bounds"
+    },
+    {
+      "id": "T23",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Short-lived permit, scoped secret delivery, target CAS/readback"
+    },
+    {
+      "id": "T24",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Pi process/resource/tool control, events/cancel/checkpoints"
+    },
+    {
+      "id": "T25",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Independent Claude adapter; same port behavior, vendor authentication"
+    },
+    {
+      "id": "T26",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Stable v1 handshake/features; no implicit experimental methods"
+    },
+    {
+      "id": "T27",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Scoped byte streaming/digest integrity, immutable submission and quotas"
+    },
+    {
+      "id": "T28",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Separate evaluator attempts, pinned tests and Done acceptance"
+    },
+    {
+      "id": "T29",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Pin Mastra, all six primitive lowering, deterministic run/step identity"
+    },
+    {
+      "id": "T30",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Durable dispatch/gate/eval, early wakes, release slots, cancellation"
+    },
+    {
+      "id": "T31",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Cards, decisions, optimistic versions and verified Done"
+    },
+    {
+      "id": "T32",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Shared commands, human review links, authorized bounded replay"
+    },
+    {
+      "id": "T33",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Integrate pinned NewUI atoms/molecules/organisms/templates and semantic CSS from the WebBuildConfig/Vite/CSS references; add only Brain domain compositions, one theme controller and missing-export gap record"
+    },
+    {
+      "id": "T34",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "NewUI AppShell/PaneLayout/AuthLayout, Governor query adapters, scoped cache, deep links, snapshot/replay and prioritized work"
+    },
+    {
+      "id": "T35",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Compose exact review from NewUI Dialog/BottomSheet and controls; step-up, stale/expired/double-submit and timeout recovery, with no optimistic authority change"
+    },
+    {
+      "id": "T36",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Explain blockers, drain/quarantine, grouped live stream and controls"
+    },
+    {
+      "id": "T37",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "NewUI KanbanBoard plus keyboard move controls, evidence gate, conflicts and verbatim decisions; Governor controls Done"
+    },
+    {
+      "id": "T38",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Pin service/SDK and verify v3 scope mappings/FTS5/private deployment"
+    },
+    {
+      "id": "T39",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Bounded provenance retrieval, current ACLs, async reviewed publication"
+    },
+    {
+      "id": "T40",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Rule of Three distinct roots, reuse search and quarantined review"
+    },
+    {
+      "id": "T41",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Typed connector/pack contract, read-only fact discovery and Git proposal"
+    },
+    {
+      "id": "T42",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Dedupe diagnosis/drafts, approved publication, exact text and SLA intervals"
+    },
+    {
+      "id": "T43",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Freshness-aware health, debounce, safe proposed remediation"
+    },
+    {
+      "id": "T44",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Evidence dossier/rubric, deterministic golden cases and optional calibrated judge"
+    },
+    {
+      "id": "T45",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Static-only PWA cache, push opt-in/fallback, read-only TV principal"
+    },
+    {
+      "id": "T46",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Safe drift observations, debounced work, no universal effect permission"
+    },
+    {
+      "id": "T47",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Consistency cuts, online snapshots, manifest completeness and suspended import"
+    },
+    {
+      "id": "T48",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Real readiness, budgets/resources, logs and shutdown; serve immutable NewUI bundle/manifest from declared image paths, verify UI config digest and protect API routes from SPA fallback"
+    },
+    {
+      "id": "T49",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Defined 3-run dataset/metrics/fault load; optimize measured hot paths only"
+    },
+    {
+      "id": "T50",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Complete acceptance traceability, independent review and release certification"
+    },
+    {
+      "id": "G01",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Execute and record the actual runtime gate from document 18"
+    },
+    {
+      "id": "G02",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Execute and record the actual runtime gate from document 18"
+    },
+    {
+      "id": "G03",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Execute and record the actual runtime gate from document 18"
+    },
+    {
+      "id": "G04",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Execute and record the actual runtime gate from document 18"
+    },
+    {
+      "id": "G05",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Execute and record the actual runtime gate from document 18"
+    },
+    {
+      "id": "G06",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Execute and record the actual runtime gate from document 18"
+    },
+    {
+      "id": "G07",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Execute and record the actual runtime gate from document 18"
+    },
+    {
+      "id": "G08",
+      "status": "pending",
+      "evidencePaths": [],
+      "nextAction": "Execute and record the actual runtime gate from document 18"
+    }
+  ]
+}

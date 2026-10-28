@@ -1,0 +1,112 @@
+{
+  "scope": "continuation-verification-not-release-certification",
+  "updatedAt": "2026-10-27T11:36:54.319031Z",
+  "productFingerprint": "sha256:8177a49b6bd9400cbf30a3ecfd7e9d6eaa2c9f8f120349f85b3e0efe444dd07d",
+  "inputFingerprint": "sha256:b02c2762ea0038ccd4aef9b474e023f208c6cc18da534b737aa7d69bb9061752",
+  "policyDigest": "sha256:6199e7e07edcc6fd4b1fae74fe1894a887b736115a4ce17b7ef59ae72f7ef816",
+  "taskStatuses": {
+    "active": 50,
+    "failed": 8
+  },
+  "scenarioIndexStatuses": {
+    "covered": 41,
+    "partial": 59
+  },
+  "verifiedFullScenarios": [],
+  "verification": {
+    "availableTests": {
+      "status": "passed",
+      "tests": 102,
+      "files": 17,
+      "log": "artifacts/implementation/resume-20261027/final-tests.log"
+    },
+    "fast": {
+      "status": "passed",
+      "log": "artifacts/implementation/resume-20261027/final-fast.log"
+    },
+    "lint": {
+      "status": "passed",
+      "log": "artifacts/implementation/resume-20261027/final-lint.log"
+    },
+    "build": {
+      "status": "passed",
+      "log": "artifacts/implementation/resume-20261027/build.log"
+    },
+    "pack": {
+      "status": "passed",
+      "checks": 22,
+      "scope": "pack-only",
+      "log": "artifacts/implementation/resume-20261027/pack.log"
+    },
+    "integration": {
+      "status": "failed",
+      "passedTests": 53,
+      "failedTests": 1,
+      "reason": "sandbox localhost socket bind EPERM",
+      "log": "artifacts/implementation/resume-20261027/integration.log"
+    },
+    "maintenanceCli": {
+      "status": "passed",
+      "operations": [
+        "backup",
+        "verify",
+        "restore",
+        "first-open-quarantine"
+      ],
+      "log": "artifacts/implementation/resume-20261027/maintenance-cli.log",
+      "sourceScope": "Core backup/verify/restore smoke plus new final regression tests; raw local archive remains partial."
+    },
+    "packBuild": {
+      "status": "passed",
+      "log": "artifacts/implementation/resume-20261027/pack-build.log",
+      "artifacts": [
+        "Keyrus_Brain_v4_2_Implementation_Pack.zip",
+        "Keyrus_Brain_v4_2_Implementation_Spec.md"
+      ]
+    }
+  },
+  "runtimeGates": {
+    "G01": {
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "ValidationError"
+    },
+    "G02": {
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "ValidationError"
+    },
+    "G03": {
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "ValidationError"
+    },
+    "G04": {
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "ValidationError"
+    },
+    "G05": {
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "ValidationError"
+    },
+    "G06": {
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "ValidationError"
+    },
+    "G07": {
+      "status": "failed",
+      "reason": "recorded-run-status"
+    },
+    "G08": {
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "ValidationError"
+    }
+  },
+  "releaseReady": false,
+  "nextWork": "docs/implementation/23-runtime-status.md",
+  "note": "Earlier passed task labels were reopened because whole-task acceptance was not supported by current evidence. Previous records preserved alongside this report. No existing implementation or user data was removed."
+}

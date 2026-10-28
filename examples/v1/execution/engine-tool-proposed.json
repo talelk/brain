@@ -1,0 +1,25 @@
+{
+  "contractVersion": "brain.engine-event/v1",
+  "eventId": "fixture",
+  "sessionId": "fixture",
+  "attemptId": "fixture",
+  "sequence": 1,
+  "kind": "tool.proposed",
+  "occurredAt": "2026-10-27T12:00:00Z",
+  "payload": {
+    "proposalId": "proposal_fixture",
+    "tool": {
+      "id": "fixture.echo",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "input": {
+      "message": "hello"
+    },
+    "inputDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "target": {
+      "targetId": "ticket_992",
+      "environmentId": "prod",
+      "preconditionDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  }
+}

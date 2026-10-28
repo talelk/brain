@@ -1,0 +1,15 @@
+apiVersion: brain.keyrus/v1
+kind: Schedule
+metadata:
+  id: example-schedule
+  version: 1.0.0
+spec:
+  workflow:
+    id: support-investigate
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  cron: '*/30 * * * *'
+  timezone: Africa/Tunis
+  misfire: coalesce
+  maxCatchUp: 1
+  overlap: skip
+  enabled: false

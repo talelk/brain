@@ -1,0 +1,582 @@
+{
+  "contractVersion": "brain.implementation-ledger/v1",
+  "sessionId": "01a17c54-5ef0-7fa0-9a11-f39579a3def8",
+  "inputFingerprint": "sha256:abb7ef68836d772bc439fda8a0a47b7e3b44bd1062d3b8c45d8cab86e2daad46",
+  "policyDigest": "sha256:6199e7e07edcc6fd4b1fae74fe1894a887b736115a4ce17b7ef59ae72f7ef816",
+  "updatedAt": "2026-10-28T04:02:48.960210Z",
+  "tasks": [
+    {
+      "id": "T01",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Scaffold acceptance: frozen install, strict typecheck (root+web+browser), boundary check and NewUI production build all gate-green (G01 + certify)."
+    },
+    {
+      "id": "T02",
+      "status": "passed",
+      "evidencePaths": [
+        "contracts/v1/brain.schema.json",
+        "tests/contracts/",
+        "docs/implementation/25-evaluator-authority.md",
+        "tests/integration/offers.test.ts",
+        "artifacts/implementation/verification-run.json"
+      ],
+      "nextAction": "Endpoint conformance complete: surface declared (pack OpenAPI + docs/api-extensions.json), error envelopes validate as BrainError, 200 bodies for setup/identity and 14 query kinds validate against declared response schemas. Fixed board.get/members.list/workspace.context to contract shapes."
+    },
+    {
+      "id": "T03",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "All six state machines enforced edge-by-edge with expected-version/CAS domain tests (tests/domain/states.test.ts) plus scenario coverage."
+    },
+    {
+      "id": "T04",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Fresh init + WAL/FULL/FK pragmas + WAL-safe engine gate; exact schema-digest check now covers workspace DBs too (tamper refused, preserved); bounded configurable handle LRU proven across 48 workspaces with data survival (tests/integration/storage.test.ts)."
+    },
+    {
+      "id": "T05",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/security/identity.test.ts",
+        "tests/security/setup.test.ts",
+        "tests/integration/cli.test.ts",
+        "docs/implementation/24-native-identity.md",
+        "apps/governor/src/modules/identity/options.ts"
+      ],
+      "nextAction": "Passed: native Better Auth identity, invitations via durable outbox with invited-account-only acceptance, password rotation, TOTP lifecycle and exact-origin guard proven in tests/security/identity.test.ts."
+    },
+    {
+      "id": "T06",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/security/body.test.ts",
+        "apps/governor/src/http/body.ts",
+        "tests/integration/sse.test.ts"
+      ],
+      "nextAction": "Typed handlers/views + structured errors + limits proven; live SSE with revocation close; optional TLS serving (all-or-nothing cert/key files, HTTPS-only when configured) in tests/integration/tls.test.ts."
+    },
+    {
+      "id": "T07",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Outbox producers wired: job.queued/job.updated carry workspace destinations; per-destination projection is idempotent across replays and digest collisions park without corrupting (tests/chaos/projections.test.ts)."
+    },
+    {
+      "id": "T08",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Confined deterministic loader (symlink/escape refusal) and restricted YAML grammar proven, including explicit-tag rejection added after a core-tag bypass was found (tests/security/config-loader.test.ts)."
+    },
+    {
+      "id": "T09",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Deterministic restrictive resolution + config explain proven; UIConfig locale/foundation declarations validated at compile time and workspace.context serves the declared, byte-bound UI config (tests/domain/config-resolution.test.ts, workflow-compiler.test.ts, responses.test.ts)."
+    },
+    {
+      "id": "T10",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Graph/binding/type compilation failures are named and total; deterministic IR digests (tests/domain/workflow-compiler.test.ts)."
+    },
+    {
+      "id": "T11",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Dry-run compiles persist nothing; staged immutable releases activate only by CAS; dispatched runs stay pinned to their release (tests/integration/config-release.test.ts)."
+    },
+    {
+      "id": "T12",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Restrict-only policy floor with deny-first semantics and role-narrowed tenant-isolated scopes proven (tests/security/policy.test.ts)."
+    },
+    {
+      "id": "T13",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/security/identity.test.ts",
+        "tests/integration/scenarios2.test.ts",
+        "docs/implementation/24-native-identity.md",
+        "tests/security/approvals.test.ts"
+      ],
+      "nextAction": "Approval security negatives plus browser exact-review, committed-timeout recovery and session-expiry fail-closed paths all proven through the real dialog."
+    },
+    {
+      "id": "T14",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/integration/scenarios2.test.ts",
+        "apps/governor/src/modules/governance/approval-authority.ts",
+        "tests/integration/permits.test.ts"
+      ],
+      "nextAction": "Permits/fences/revocation/idempotent replay proven (tests/integration/permits.test.ts); scoped secret delivery implemented runner-side: references only in declared input, privileged slots, per-workspace protected files, output scrubbing, fail-closed (tests/integration/secrets.test.ts)."
+    },
+    {
+      "id": "T15",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "One-use scope-gated enrollment, signed-challenge hello with replay/forgery refusal, monotonic boot epochs, self-elevation stored unverified (tests/security/runners.test.ts)."
+    },
+    {
+      "id": "T16",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Pure hard placement predicates with named redacted rejection reasons and deterministic ranking proven per-predicate (tests/domain/placement.test.ts)."
+    },
+    {
+      "id": "T17",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Atomic claim (exactly one winner), duplicate-safe ACKs, hard slot capacity, monotonic fences on re-offer (tests/integration/claim.test.ts)."
+    },
+    {
+      "id": "T18",
+      "status": "passed",
+      "evidencePaths": [
+        "apps/governor/src/application/brain.ts",
+        "tests/integration/evidence.test.ts",
+        "tests/chaos/leases.test.ts"
+      ],
+      "nextAction": "Leases/epochs/fences proven (tests/chaos/leases.test.ts) plus kill-9 restart integrity and corrupted-DB loud-failure drills (tests/chaos/kill9.test.ts)."
+    },
+    {
+      "id": "T19",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Cron uniqueness/DST gap+fold single-fire and explicit misfire policies proven (tests/domain/schedule.test.ts); bounded fair claim paging and house/work admission proven in integration contention suites."
+    },
+    {
+      "id": "T20",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Bounded runner event spool: duplicate-sequence refusal, telemetry backpressure, effect-event priority, byte+count caps (tests/chaos/runner.test.ts); outbound polling/deadlines proven in supervisor suites."
+    },
+    {
+      "id": "T21",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Fixed profiles/preinstalled images only; smuggled docker surface rejected pre-daemon (tests/security/sandbox.test.ts) with live create/stop/egress proofs in probes (G06)."
+    },
+    {
+      "id": "T22",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Pinned tool map, stdin/stdout bounds, fixed argv and scrubbed environment proven (tests/integration/tools.test.ts); found and fixed execa extendEnv leaking the runner environment into tools."
+    },
+    {
+      "id": "T23",
+      "status": "passed",
+      "evidencePaths": [
+        "apps/runner/src/engines/pi.ts",
+        "tests/probes/harnesses/pi.test.ts",
+        "artifacts/implementation/verification-run.json"
+      ],
+      "nextAction": "Mastra is the default engine and DAG admission delegation is removed: admission, completion, gate wake, cancel and eval admission are implemented in the Mastra engine; WorkflowRunner remains only as the opt-in brain engine behind the port."
+    },
+    {
+      "id": "T24",
+      "status": "passed",
+      "evidencePaths": [],
+      "nextAction": "Pi checkpoint/resume implemented over the durable session file: digest-pinned checkpoint artifact, fresh-instance resume with context recall, tamper refusal (tests/probes/harnesses/pi-checkpoint.test.ts)."
+    },
+    {
+      "id": "T25",
+      "status": "active",
+      "evidencePaths": [
+        "apps/runner/src/engines/claude.ts",
+        "tests/probes/harnesses/claude.test.ts",
+        "tests/security/claude-endpoint.test.ts"
+      ],
+      "nextAction": "Optional calibrated judge/provider remains explicitly uninstalled per T44; only the credentialed production Anthropic-cloud path remains unproven in this environment. Local Claude against the LAN endpoint is executed and now gated: real credentials via permission-checked BRAIN_ANTHROPIC_API_KEY_FILE or ANTHROPIC_API_KEY; placeholder local-no-key accepted only for loopback/LAN endpoints with explicit BRAIN_ANTHROPIC_ALLOW_LOCAL_NO_KEY=1 (tests/security/claude-endpoint.test.ts); no silent default remains. Operator direction (2026-10-28): live customer systems and production Anthropic credential remain unavailable in this environment; task stays active on the locally proven slice; no live evidence fabricated. Independent third-party VerificationRun also remains an external dependency (in-repo results are self-verification only)."
+    },
+    {
+      "id": "T26",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/probes/harnesses/conformance.test.ts",
+        "tests/certification/coverage.json",
+        "artifacts/implementation/verification-run.json"
+      ],
+      "nextAction": "ACP engine implemented over opencode acp (stdio JSON-RPC); conformance probe green 2026-10-27."
+    },
+    {
+      "id": "T27",
+      "status": "passed",
+      "evidencePaths": [
+        "apps/governor/src/modules/evidence/service.ts",
+        "tests/integration/evidence.test.ts",
+        "tests/integration/artifacts.test.ts",
+        "tests/integration/offers.test.ts"
+      ],
+      "nextAction": "Passed: streamed digest-bound uploads with mid-stream oversize abort, initiator-bound completion, attempt-bound execution artifact reads (tests/integration/artifacts.test.ts, offers.test.ts)."
+    },
+    {
+      "id": "T28",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/integration/evidence.test.ts",
+        "tests/integration/scenarios2.test.ts",
+        "docs/implementation/25-evaluator-authority.md",
+        "tests/security/evidence.test.ts"
+      ],
+      "nextAction": "Passed: evidence admission negatives (invented fence, foreign attempt, self/unknown verdict) plus deep evaluator admission suite (tests/security/evidence.test.ts, tests/integration/evidence.test.ts)."
+    },
+    {
+      "id": "T29",
+      "status": "passed",
+      "evidencePaths": [
+        "apps/governor/src/modules/workflows/mastra/engine.ts",
+        "apps/governor/src/modules/workflows/engine-port.ts",
+        "tests/integration/mastra-conformance.test.ts",
+        "tests/probes/mastra/probe.test.ts",
+        "docs/implementation/23-runtime-status.md"
+      ],
+      "nextAction": "Homegrown DAG runner (runner.ts) and the standalone lowering probe/helper are removed: MastraWorkflowEngine is the single WorkflowEnginePort implementation; E025 registration-failure proof moved into tests/integration/mastra-conformance.test.ts and coverage.json points there. All suites green on this engine."
+    },
+    {
+      "id": "T30",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/integration/evidence.test.ts",
+        "docs/implementation/25-evaluator-authority.md",
+        "tests/integration/mastra-conformance.test.ts"
+      ],
+      "nextAction": "Durable dispatch/gate/eval with early-wake replay, restart rehydration, 100 suspended gates exactly-once, cancellation on the default Mastra engine."
+    },
+    {
+      "id": "T31",
+      "status": "passed",
+      "evidencePaths": [
+        "apps/cli/src/client.ts",
+        "tests/integration/cli.test.ts",
+        "tests/integration/board.test.ts"
+      ],
+      "nextAction": "Cards/decisions/optimistic versions/verified Done proven; concurrent comments both land, idempotent replay dedupes, missing card is NOT_FOUND (tests/integration/board.test.ts)."
+    },
+    {
+      "id": "T32",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Identical command/query handlers across HTTP/MCP/CLI with shared idempotency; humans refused on MCP; approval decisions absent there by design (tests/integration/channels.test.ts)."
+    },
+    {
+      "id": "T33",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Exact NewUI primitives/tokens render across 390/768/1440 in both schemes with visible focus and live theme switching (tests/browser/primitives.spec.ts)."
+    },
+    {
+      "id": "T34",
+      "status": "passed",
+      "evidencePaths": [
+        "apps/web/src/app.tsx",
+        "docs/implementation/24-native-identity.md",
+        "artifacts/implementation/verification-run.json"
+      ],
+      "nextAction": "All areas + Work + detail screens composed with NewUI PaneLayout (compact-safe close control), TV kiosk, deep links; push surface shipped under T45."
+    },
+    {
+      "id": "T35",
+      "status": "passed",
+      "evidencePaths": [
+        "apps/web/src/ui/components/ApprovalReview.tsx",
+        "tests/browser/authentication.spec.ts",
+        "tests/browser/approval.spec.ts",
+        "artifacts/implementation/verification-run.json"
+      ],
+      "nextAction": "Approval decision flows proven in browser: exact review + TOTP step-up, committed-but-timed-out recovery via decision-status (single decision), and session-expiry mid-review failing closed with no decision recorded."
+    },
+    {
+      "id": "T36",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Explain blockers (job.explain in Runs detail), drain/quarantine with recorded reason from Settings, grouped live state via SSE/kiosk \u2014 browser-proven end-to-end (tests/browser/operations.spec.ts)."
+    },
+    {
+      "id": "T37",
+      "status": "passed",
+      "evidencePaths": [
+        "apps/governor/src/modules/evidence/service.ts",
+        "tests/integration/evidence.test.ts",
+        "tests/browser/board.spec.ts",
+        "apps/web/src/ui/components/ApprovalReview.tsx"
+      ],
+      "nextAction": "KanbanBoard with screen-reader move controls on every viewport, pointer drag where columns are side-by-side, and Done-with-bound-verified-evidence through the real UI (tests/browser/board.spec.ts)."
+    },
+    {
+      "id": "T38",
+      "status": "passed",
+      "evidencePaths": [
+        "apps/governor/src/modules/workflows/mastra/lowering.ts",
+        "tests/probes/mastra/lowering.test.ts"
+      ],
+      "nextAction": "Scope mappings and current-ACL enforcement proven (tests/security/memory-acl.test.ts); live TencentDB standalone probe green for publish/search/tenant isolation (tests/probes/tencentdb); FTS5/WAL engine gates in storage suite."
+    },
+    {
+      "id": "T39",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Reviewed publication enforced at the command surface: CAS-pinned content, existing evidence, distinct reviewer, release-declared redaction profile; degraded honesty and partial export (tests/integration/memory.test.ts)."
+    },
+    {
+      "id": "T40",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Rule-of-Three distinct roots with reuse search and quarantined candidate review proven in scenario suites; candidates surface only via release-declared tool catalog after publication."
+    },
+    {
+      "id": "T41",
+      "status": "active",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json",
+        "tests/integration/onboarding.test.ts"
+      ],
+      "nextAction": "Local slice verified end-to-end against a local GitLab-shaped mock: read-only discovery (GitLabConnector.listIssues) ingests ticket facts idempotently with source_version debounce and connector_cursors watermark (Brain.discoverGitLabFacts, tests/integration/onboarding.test.ts). Remaining: the same flows against a real customer GitLab instance - not available in this environment. Operator direction (2026-10-28): live customer systems and production Anthropic credential remain unavailable in this environment; task stays active on the locally proven slice; no live evidence fabricated. Independent third-party VerificationRun also remains an external dependency (in-repo results are self-verification only)."
+    },
+    {
+      "id": "T42",
+      "status": "active",
+      "evidencePaths": [
+        "apps/governor/src/modules/knowledge/tencentdb/client.ts",
+        "tests/probes/tencentdb/client.test.ts",
+        "tests/integration/support.test.ts"
+      ],
+      "nextAction": "Local slice verified: fingerprint-deduped draft creation from CAS content, approval-gated approval, exact-text publish with readback reconciliation and exactly-once visible publication (Brain.createSupportDraft/approveSupportDraft/publishSupportDraft, tests/integration/support.test.ts). Remaining: execution against a real customer support system (live GitLab) - not available in this environment; the same connector adapter is used. Operator direction (2026-10-28): live customer systems and production Anthropic credential remain unavailable in this environment; task stays active on the locally proven slice; no live evidence fabricated. Independent third-party VerificationRun also remains an external dependency (in-repo results are self-verification only)."
+    },
+    {
+      "id": "T43",
+      "status": "active",
+      "evidencePaths": [
+        "apps/governor/src/modules/knowledge/tencentdb/client.ts",
+        "tests/integration/sre.test.ts"
+      ],
+      "nextAction": "Local slice verified: remediation proposals require a fresh unexpired observation and an approved approval (Brain.proposeRemediation/decideRemediation, tests/integration/sre.test.ts); proposals are inert records - nothing executes without the approval-gated tool path. Remaining: incident facts from a live monitoring target - not available in this environment. Operator direction (2026-10-28): live customer systems and production Anthropic credential remain unavailable in this environment; task stays active on the locally proven slice; no live evidence fabricated. Independent third-party VerificationRun also remains an external dependency (in-repo results are self-verification only)."
+    },
+    {
+      "id": "T44",
+      "status": "passed",
+      "evidencePaths": [
+        "apps/governor/src/modules/knowledge/tencentdb/client.ts",
+        "apps/governor/src/application/authz.ts",
+        "tests/integration/delivery.test.ts",
+        "apps/governor/src/modules/packs/judge.ts",
+        "tests/integration/judge.test.ts",
+        "tests/probes/harnesses/judge.test.ts"
+      ],
+      "nextAction": "Passed in-repo: dossier lifecycle (create, evidence-required rubric results, deterministic finalize, finalized immutability) proven in tests/integration/delivery.test.ts. Optional calibrated judge installed per operator direction (2026-10-28): apps/governor/src/modules/packs/judge.ts + Brain.judgeDeliveryDossier (local model qwen3.8-flash-next-a5b, pinned prompt brain.judge/v1, fail-closed parsing, transcripts as CAS evidence, never finalizes); deterministic flow in tests/integration/judge.test.ts and live calibration agreement 4/4 on obvious fixtures in tests/probes/harnesses/judge.test.ts (2026-10-28, after fixing reasoning-model response handling: max_tokens 2048 + reasoning fallback). Independent third-party VerificationRun remains an external dependency per operator direction (in-repo results are self-verification only), consistent with T50."
+    },
+    {
+      "id": "T45",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Static-only PWA cache + TV principal + full Web Push: VAPID (RFC 8292) and aes128gcm (RFC 8291) delivery proven against a mock push service with independent decryption and JWT verification; subscriptions encrypted at rest (tests/integration/push.test.ts)."
+    },
+    {
+      "id": "T46",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Drift reconciliation complete locally: outcome_unknown only via authorized CAS reconcile, absent frees/fences forward, conflicting stays blocked, no universal permission (tests/chaos/reconciler.test.ts)."
+    },
+    {
+      "id": "T47",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/chaos/backup.test.ts",
+        "tests/chaos/restore.test.ts",
+        "tests/chaos/recovery.test.ts",
+        "artifacts/implementation/resume-20261027/g07.log",
+        "apps/governor/src/http/app.ts",
+        "artifacts/implementation/verification-run.json"
+      ],
+      "nextAction": "Consistency cuts/online snapshots/manifest completeness and suspended-import quarantine proven (tests/chaos/restore.test.ts, backup.test.ts)."
+    },
+    {
+      "id": "T48",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Deployment image built and proven: non-root boot, readiness, shell serving (cwd-independent dist resolution fixed), volume persistence across restart, compose parity (Dockerfile, docker-compose.yml, tests/probes/deployment, tests/integration/deploy.test.ts). Log shipping/retention are operator-owned via container stdout."
+    },
+    {
+      "id": "T49",
+      "status": "passed",
+      "evidencePaths": [
+        "benchmarks/steady.ts",
+        "benchmarks/full.ts",
+        "artifacts/runtime/G08/bench-steady.json"
+      ],
+      "nextAction": "Passed with G08: medians query p95 1.84ms, command p95 2.22ms, event-loop p99 12.4ms, RSS 330MB at ~25 ops/s over the full initial dataset."
+    },
+    {
+      "id": "T50",
+      "status": "passed",
+      "evidencePaths": [
+        "tests/certification/coverage.json",
+        "tests/certification/matrix.test.ts",
+        "tests/integration/scenarios2.test.ts",
+        "tests/integration/scenarios3.test.ts",
+        "tests/domain/config-resolution.test.ts",
+        "tests/browser/navigation.spec.ts",
+        "tests/browser/offline.spec.ts",
+        "tests/browser/vitals.spec.ts"
+      ],
+      "nextAction": "Passed in-repo: E001-E100 matrix 100/100 covered by passing tagged suites; verify:full green. Independent certification still requires trusted external VerificationRun evidence per matrix note."
+    },
+    {
+      "id": "G01",
+      "status": "passed",
+      "evidencePaths": [
+        "artifacts/implementation/runtime-readiness.json",
+        "docs/implementation/23-runtime-status.md",
+        "artifacts/runtime/G01/manifest.json"
+      ],
+      "nextAction": "Passed: manifest assertions green; probe suites re-run this session (tests/probes + tests/chaos, 35 tests) with no failures."
+    },
+    {
+      "id": "G02",
+      "status": "passed",
+      "evidencePaths": [
+        "artifacts/implementation/runtime-readiness.json",
+        "docs/implementation/23-runtime-status.md",
+        "artifacts/runtime/G02/manifest.json"
+      ],
+      "nextAction": "Passed: manifest assertions green; probe suites re-run this session (tests/probes + tests/chaos, 35 tests) with no failures."
+    },
+    {
+      "id": "G03",
+      "status": "passed",
+      "evidencePaths": [
+        "artifacts/implementation/runtime-readiness.json",
+        "docs/implementation/23-runtime-status.md",
+        "artifacts/runtime/G03/manifest.json"
+      ],
+      "nextAction": "Passed: manifest assertions green; probe suites re-run this session (tests/probes + tests/chaos, 35 tests) with no failures."
+    },
+    {
+      "id": "G04",
+      "status": "passed",
+      "evidencePaths": [
+        "artifacts/implementation/runtime-readiness.json",
+        "docs/implementation/23-runtime-status.md",
+        "artifacts/runtime/G04/manifest.json"
+      ],
+      "nextAction": "Passed: manifest assertions green; probe suites re-run this session (tests/probes + tests/chaos, 35 tests) with no failures."
+    },
+    {
+      "id": "G05",
+      "status": "passed",
+      "evidencePaths": [
+        "artifacts/implementation/runtime-readiness.json",
+        "docs/implementation/23-runtime-status.md",
+        "artifacts/runtime/G05/manifest.json"
+      ],
+      "nextAction": "Passed: manifest assertions green; probe suites re-run this session (tests/probes + tests/chaos, 35 tests) with no failures."
+    },
+    {
+      "id": "G06",
+      "status": "passed",
+      "evidencePaths": [
+        "artifacts/implementation/runtime-readiness.json",
+        "docs/implementation/23-runtime-status.md",
+        "artifacts/runtime/G06/manifest.json"
+      ],
+      "nextAction": "Passed: manifest assertions green; probe suites re-run this session (tests/probes + tests/chaos, 35 tests) with no failures."
+    },
+    {
+      "id": "G07",
+      "status": "passed",
+      "evidencePaths": [
+        "artifacts/runtime/G07/manifest.json",
+        "tests/chaos/restore.test.ts",
+        "tests/chaos/backup.test.ts"
+      ],
+      "nextAction": "Passed: hash-verified restore, suspended history preserved, restored authority quarantined on first open; completeness honestly partial (TencentDB Wiki/CodeGraph + Mastra snapshot export named missing)."
+    },
+    {
+      "id": "G08",
+      "status": "passed",
+      "evidencePaths": [
+        "artifacts/runtime/G08/manifest.json",
+        "artifacts/runtime/G08/bench-steady.json",
+        "benchmarks/steady.ts",
+        "tests/browser/vitals.spec.ts"
+      ],
+      "nextAction": "Passed: doc-10 protocol 3x10min steady-state trials all budgets green; 10x history repeat; fault-load fanout; browser vitals spec asserts LCP/INP/JS budgets."
+    }
+  ]
+}

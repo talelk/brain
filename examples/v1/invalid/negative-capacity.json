@@ -1,0 +1,16 @@
+{
+  "runnerId": "run_demo",
+  "runnerEpoch": 1,
+  "sequence": 1,
+  "health": "healthy",
+  "observedFree": {
+    "cpuMillicores": 0,
+    "memoryMb": 0,
+    "diskMb": 0,
+    "slots": -1
+  },
+  "activeAttemptIds": [
+    "att_demo"
+  ],
+  "observedAt": "2026-10-27T12:00:00Z"
+}

@@ -1,0 +1,27 @@
+apiVersion: brain.keyrus/v1
+kind: Workspace
+metadata:
+  id: example-workspace
+  version: 1.0.0
+spec:
+  organizationRef: org_demo
+  displayName: Orange OCI
+  typeRef:
+    id: operations
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  repositories:
+  - id: bff
+    remote: https://git.example.invalid/org/bff.git
+    defaultBranch: main
+  runnerGroups:
+  - agents
+  - evaluators
+  - privileged
+  workflows:
+  - id: support-investigate
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  memoryEnabled: false
+  limits:
+    concurrentJobs: 4
+    dailyMicroUsd: 20000000
+    dailyTokens: 200000

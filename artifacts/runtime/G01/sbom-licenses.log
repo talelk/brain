@@ -1,0 +1,3 @@
+$ node scripts/generate_sbom.mjs artifacts/runtime/G01/sbom.json
+(cwd=/home/talel/dev/rd2026/brain)
+SBOM: 673 packages (0 UNKNOWN license) -> artifacts/runtime/G01/sbom.json

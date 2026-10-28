@@ -1,0 +1,142 @@
+{
+  "scope": "continuation-verification-not-release-certification",
+  "recordedAt": "2026-10-27T13:44:05.788333Z",
+  "productFingerprint": "sha256:4aeb410a4140c386ae1a13857e77b6028c3d281b121c4a5b07c09ec6928c7c74",
+  "inputFingerprint": "sha256:abb7ef68836d772bc439fda8a0a47b7e3b44bd1062d3b8c45d8cab86e2daad46",
+  "commands": [
+    {
+      "argv": [
+        "rtk",
+        "proxy",
+        "pnpm",
+        "verify:fast"
+      ],
+      "exitCode": 0,
+      "logPath": "artifacts/implementation/identity-20261027/fast.log",
+      "logDigest": "sha256:8a22c325617f6ca6fd92fb875487ebc1dbfa966f9541a61fec7610460b595947"
+    },
+    {
+      "argv": [
+        "rtk",
+        "proxy",
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/contracts",
+        "tests/domain",
+        "tests/security",
+        "tests/chaos",
+        "tests/certification",
+        "tests/integration",
+        "tests/probes/dependencies/better-auth.test.ts",
+        "tests/probes/mastra/lowering.test.ts",
+        "--exclude",
+        "tests/integration/golden.test.ts"
+      ],
+      "exitCode": 0,
+      "logPath": "artifacts/implementation/identity-20261027/selected.log",
+      "logDigest": "sha256:795acc61ebd7b7f0b3f4d0b906049e3a745996f0a84f256957201e0cf1545f3e"
+    },
+    {
+      "argv": [
+        "rtk",
+        "proxy",
+        "pnpm",
+        "test:integration"
+      ],
+      "exitCode": 1,
+      "logPath": "artifacts/implementation/identity-20261027/integration.log",
+      "logDigest": "sha256:9eeacc2c46bf9fd1c7f0c87dcf8351696683779cdc8a3eddd3c94f5874d2149c"
+    },
+    {
+      "argv": [
+        "rtk",
+        "proxy",
+        "pnpm",
+        "lint"
+      ],
+      "exitCode": 0,
+      "logPath": "artifacts/implementation/identity-20261027/lint.log",
+      "logDigest": "sha256:960f1eb37ac4d28430af9bef2c98f32333254854ffde619330f53d373ce0f632"
+    },
+    {
+      "argv": [
+        "rtk",
+        "proxy",
+        "pnpm",
+        "build"
+      ],
+      "exitCode": 0,
+      "logPath": "artifacts/implementation/identity-20261027/build.log",
+      "logDigest": "sha256:ec3056488b060cfdec4e72269de38a14a66784a7367d520b43de7a677aeb2fd1"
+    },
+    {
+      "argv": [
+        "rtk",
+        "proxy",
+        "pnpm",
+        "test:browser",
+        "--project=1440-light"
+      ],
+      "exitCode": 1,
+      "logPath": "artifacts/implementation/identity-20261027/browser.log",
+      "logDigest": "sha256:d1d90a823b934f6d79e054fa15d36ac47b68c58161a7d6651c8d8127b2e8202b"
+    },
+    {
+      "argv": [
+        "rtk",
+        "proxy",
+        "pnpm",
+        "test:certification"
+      ],
+      "exitCode": 0,
+      "logPath": "artifacts/implementation/identity-20261027/certification.log",
+      "logDigest": "sha256:2a39ee32655f3cc94bcdb1d898f4540b407979e9cf115a7d3a7663314de10d80"
+    },
+    {
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "scripts/verify_implementation_pack.py"
+      ],
+      "exitCode": 0,
+      "logPath": "artifacts/implementation/identity-20261027/pack.log",
+      "logDigest": "sha256:cf46d975ed9cab8dd043c8072f13d5f09c51548839d06e2dfad2efdd071961be"
+    },
+    {
+      "argv": [
+        "rtk",
+        "proxy",
+        "python3",
+        "scripts/verify_runtime_evidence.py"
+      ],
+      "exitCode": 0,
+      "logPath": "artifacts/implementation/identity-20261027/runtime-evidence.log",
+      "logDigest": "sha256:eb8e05481be71517f91b868d0f81342b14dfc976412bc8158cb28d2736268259"
+    }
+  ],
+  "selectedTestFiles": 21,
+  "selectedTestsPassed": 144,
+  "integrationTestsPassed": 83,
+  "integrationTestsFailed": 1,
+  "limitations": [
+    "Localhost golden test fails on sandbox bind EPERM.",
+    "Focused browser test fails at Chromium launch before its body: Operation not permitted.",
+    "Docker socket unavailable in this environment.",
+    "An unscoped all-probe run was interrupted without a result; no live-vendor or model qualification is claimed.",
+    "In-process HTTP tests do not prove socket, TLS, launcher or Compose behavior.",
+    "No full scenario, whole task, runtime gate or model qualification was promoted."
+  ],
+  "remaining": [
+    "Real Mastra orchestration and all durable primitives",
+    "Exact effect/job/tool/policy binding and permit-start/use",
+    "Production launcher/harness/spool and trust-domain verification",
+    "Canonical runtime response and JobOffer conformance",
+    "Scoped streaming artifact ownership, primitive/executable provenance and full evidence/card binding",
+    "Five-area NewUI screens, live SSE, PWA and browser acceptance",
+    "TencentDB and connector completion, complete backup/restore",
+    "Independent gates, 3 workload trials and OpenCode/model qualification"
+  ]
+}

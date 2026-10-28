@@ -1,0 +1,87 @@
+{
+  "contractVersion": "brain.verification-run/v1",
+  "gateId": "G06",
+  "status": "passed",
+  "productFingerprint": "sha256:2369b7e108abdd4a36d3b4534ace880a4b6e6cb83dfb9b6485f1fd7a905754ea",
+  "lockDigest": "sha256:1d784f4bbcec55eb5d00c2f85d78393a9e8aac76426ea58236b59c7fe1fb2daa",
+  "startedAt": "2026-10-28T04:04:00.330Z",
+  "finishedAt": "2026-10-28T04:04:16.005Z",
+  "commands": [
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/probes/sandbox/launcher.test.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 4090
+    },
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/probes/sandbox/egress.test.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 9530
+    },
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/integration/scenarios3.test.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 2046
+    }
+  ],
+  "checks": [
+    {
+      "id": "fixed-profiles",
+      "passed": true
+    },
+    {
+      "id": "cgroup-cleanup",
+      "passed": true
+    },
+    {
+      "id": "filesystem-denial",
+      "passed": true
+    },
+    {
+      "id": "egress-denial",
+      "passed": true
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "artifacts/runtime/G06/fixed-profiles-and-denials.log",
+      "digest": "sha256:f5fc7c35739ee4e8ca8468f310c2ed777bcf4f56be574978aeaba100d723eaf4"
+    },
+    {
+      "path": "artifacts/runtime/G06/egress-denial.log",
+      "digest": "sha256:a1c3999c2a5bbd8f960a70f67639f4948bcb26aabedf62fb54f8ff3b99945448"
+    },
+    {
+      "path": "artifacts/runtime/G06/scenario-E066.log",
+      "digest": "sha256:7da30f90ca33730d107a53f0da3d4bf0fdb086c9e40461432bc421fe4fbf639e"
+    }
+  ],
+  "selectedScenarios": [
+    "E065",
+    "E066",
+    "E067"
+  ],
+  "executedScenarios": [
+    "E065",
+    "E066",
+    "E067"
+  ],
+  "skippedScenarios": []
+}

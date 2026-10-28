@@ -1,0 +1,9 @@
+$ pnpm exec tsx benchmarks/steady.ts
+(cwd=/home/talel/dev/rd2026/brain)
+[steady] seeded initial dataset in 1115ms; 3 trials x 600000ms
+[steady] trial 1 done {"q95":1.628,"c95":2.351,"eld99":12.354,"rssMax":326,"errors":0}
+[steady] trial 2 done {"q95":1.716,"c95":2.193,"eld99":12.263,"rssMax":331,"errors":0}
+[steady] trial 3 done {"q95":1.763,"c95":2.305,"eld99":12.206,"rssMax":332,"errors":0}
+[steady] 10x history trial done {"q95":1.982,"q99":2.298}
+[steady] RESULT {"queryP95":1.716,"queryP99":2.098,"commandP95":2.305,"commandP99":2.877,"eventLoopP99":12.263,"rssMaxMb":331,"throughputPerSec":25.07}
+[steady] ALL BUDGETS PASS

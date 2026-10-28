@@ -1,0 +1,14 @@
+{
+  "contractVersion": "brain.ir/v1",
+  "workflow": {
+    "id": "fixture",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "configDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "jobs": {},
+  "topologicalOrder": [
+    "fixture"
+  ],
+  "outputs": {},
+  "primitiveVersions": {}
+}

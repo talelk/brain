@@ -1,0 +1,14 @@
+{
+  "contractVersion": "brain.implementation-checkpoint/v1",
+  "sessionId": "unstarted",
+  "objective": "Implement the current Brain target",
+  "inputFingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "policyDigest": "sha256:6199e7e07edcc6fd4b1fae74fe1894a887b736115a4ce17b7ef59ae72f7ef816",
+  "activeTasks": [],
+  "changedPaths": [],
+  "verifiedScenarios": [],
+  "failures": [],
+  "processes": [],
+  "nextAction": "Inspect the workspace, run profile preflight and resolve the dependency baseline",
+  "updatedAt": "2026-10-27T12:00:00Z"
+}

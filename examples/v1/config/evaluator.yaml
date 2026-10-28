@@ -1,0 +1,13 @@
+apiVersion: brain.keyrus/v1
+kind: Evaluator
+metadata:
+  id: example-evaluator
+  version: 1.0.0
+spec:
+  tool:
+    id: check-draft
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  requiredChecks:
+  - draft-schema
+  - sources-present
+  independence: L2

@@ -1,0 +1,11 @@
+apiVersion: brain.keyrus/v1
+kind: Pack
+metadata:
+  id: example-pack
+  version: 1.0.0
+spec:
+  dependencies:
+  - id: support-investigate
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  minimumContract: brain.contract/v1
+  enabledByDefault: false

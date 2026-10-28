@@ -1,0 +1,23 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "packages/contracts"
+    },
+    {
+      "path": "apps/governor"
+    },
+    {
+      "path": "apps/runner"
+    },
+    {
+      "path": "apps/launcher"
+    },
+    {
+      "path": "apps/cli"
+    },
+    {
+      "path": "apps/web"
+    }
+  ]
+}

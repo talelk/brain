@@ -1,0 +1,12 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_board.move",
+  "commandType": "board.move",
+  "idempotencyKey": "idem_board.move",
+  "payload": {
+    "cardId": "fixture",
+    "status": "to-decide"
+  },
+  "workspaceId": "fixture",
+  "expectedVersion": 1
+}

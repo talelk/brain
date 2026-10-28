@@ -1,0 +1,11 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_memory.revoke",
+  "commandType": "memory.revoke",
+  "idempotencyKey": "idem_memory.revoke",
+  "payload": {
+    "sourceId": "fixture",
+    "reason": "fixture"
+  },
+  "workspaceId": "fixture"
+}

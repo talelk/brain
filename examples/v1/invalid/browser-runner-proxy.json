@@ -1,0 +1,49 @@
+{
+  "contractVersion": "brain.web-build/v1",
+  "foundation": "newui",
+  "foundationManifestDigest": "sha256:7c9ee4843884efea3e849170434503d20e63633caa0f4394bb784d0eaf4ad598",
+  "sourceCommit": "54bf4d641aa8fcaa909e5b8e29fa24de0e3492e1",
+  "packageCandidates": [
+    {
+      "name": "@talelk/newui-atoms",
+      "observedSourceVersion": "1.2.0"
+    },
+    {
+      "name": "@talelk/newui-molecules",
+      "observedSourceVersion": "2.2.0"
+    },
+    {
+      "name": "@talelk/newui-organisms",
+      "observedSourceVersion": "2.1.1"
+    },
+    {
+      "name": "@talelk/newui-templates",
+      "observedSourceVersion": "1.1.2"
+    },
+    {
+      "name": "@talelk/newui-tailwind",
+      "observedSourceVersion": "1.0.0"
+    }
+  ],
+  "selectionStatus": "source-reviewed-installation-pending",
+  "foundationBinding": "image-build-only",
+  "artifactLayout": {
+    "webDistDir": "/app/web",
+    "foundationManifestFile": "/app/ui/ui-foundation.json"
+  },
+  "routing": {
+    "productionApiOrigin": "same-origin",
+    "spaFallback": true,
+    "developmentProxyPrefixes": [
+      "/v1",
+      "/api/auth",
+      "/runner/v1"
+    ],
+    "runnerAndMcpConnectDirectlyToGovernor": true
+  },
+  "styling": {
+    "entrypoint": "@talelk/newui-tailwind/style.css",
+    "applicationSource": "./**/*.{ts,tsx}"
+  },
+  "acceptanceStatus": "pending-G01-T33-T34-T35-T37-T49"
+}

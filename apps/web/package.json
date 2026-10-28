@@ -1,0 +1,30 @@
+{
+  "name": "@brain/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit --pretty false",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@brain/contracts": "workspace:*",
+    "@solidjs/router": "1.0.0",
+    "@talelk/newui-atoms": "1.2.0",
+    "@talelk/newui-molecules": "2.2.0",
+    "@talelk/newui-organisms": "2.1.1",
+    "@talelk/newui-tailwind": "1.0.0",
+    "@talelk/newui-templates": "1.1.2",
+    "solid-js": "1.9.17"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "tailwindcss": "4.3.3",
+    "vite": "8.3.5",
+    "vite-plugin-solid": "2.11.14",
+    "@tailwindcss/forms": "0.5.11",
+    "@tailwindcss/typography": "0.5.20"
+  }
+}

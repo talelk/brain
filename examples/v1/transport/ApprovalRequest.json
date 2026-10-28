@@ -1,0 +1,32 @@
+{
+  "contractVersion": "brain.approval/v1",
+  "approvalId": "approval_demo",
+  "requestedBy": "actor_demo",
+  "subject": {
+    "organizationId": "org_demo",
+    "workspaceId": "ws_demo",
+    "operation": "tickets.publish-comment",
+    "tool": {
+      "id": "tickets.publish-comment",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "inputDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "target": {
+      "targetId": "ticket_992",
+      "environmentId": "prod",
+      "preconditionDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "policyDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "configDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "effectBounds": {
+      "maxComments": 1
+    },
+    "expiresAt": "2026-10-27T13:00:00Z",
+    "nonce": "nonce_demo"
+  },
+  "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "state": "pending",
+  "version": 1,
+  "createdAt": "2026-10-27T12:00:00Z"
+}

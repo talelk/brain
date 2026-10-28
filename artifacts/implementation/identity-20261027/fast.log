@@ -1,0 +1,29 @@
+$ pnpm typecheck && pnpm typecheck:web && pnpm typecheck:browser && pnpm check:boundaries && pnpm --filter @brain/governor auth:schema --check && pnpm test:contracts && pnpm test:domain
+$ tsc --noEmit --pretty false -p tsconfig.typecheck.json
+$ pnpm --filter @brain/web typecheck
+$ tsc --noEmit --pretty false
+$ tsc --noEmit --pretty false -p tsconfig.browser.json
+$ node scripts/check-boundaries.mjs
+boundaries OK
+$ node --import tsx scripts/generate-auth-schema.ts --check
+Better Auth fresh schema generated/verified
+$ vitest run tests/contracts
+
+ RUN  v5.0.5 /home/talel/dev/rd2026/brain
+
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  14:40:17
+   Duration  593ms (import 46%, tests 41%, transform 12%, worker 1%)
+
+$ vitest run tests/domain
+
+ RUN  v5.0.5 /home/talel/dev/rd2026/brain
+
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+   Start at  14:40:18
+   Duration  2.66s (import 54%, tests 39%, transform 7%, worker 1%)
+

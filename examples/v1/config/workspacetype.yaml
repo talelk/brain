@@ -1,0 +1,11 @@
+apiVersion: brain.keyrus/v1
+kind: WorkspaceType
+metadata:
+  id: example-workspacetype
+  version: 1.0.0
+spec:
+  defaultPolicy:
+    id: strict-default
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  packs: []
+  maxConcurrentJobs: 4

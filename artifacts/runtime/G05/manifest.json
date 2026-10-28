@@ -1,0 +1,117 @@
+{
+  "contractVersion": "brain.verification-run/v1",
+  "gateId": "G05",
+  "status": "passed",
+  "productFingerprint": "sha256:2369b7e108abdd4a36d3b4534ace880a4b6e6cb83dfb9b6485f1fd7a905754ea",
+  "lockDigest": "sha256:1d784f4bbcec55eb5d00c2f85d78393a9e8aac76426ea58236b59c7fe1fb2daa",
+  "startedAt": "2026-10-28T04:03:22.892Z",
+  "finishedAt": "2026-10-28T04:04:00.330Z",
+  "commands": [
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/probes/harnesses/pi.test.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 9796
+    },
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/probes/harnesses/claude.test.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 9144
+    },
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/probes/harnesses/conformance.test.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 10852
+    },
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/integration/scenarios2.test.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 3519
+    },
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/probes/sandbox/launcher.test.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 4115
+    }
+  ],
+  "checks": [
+    {
+      "id": "pi-start-stream-cancel",
+      "passed": true
+    },
+    {
+      "id": "claude-start-stream-cancel",
+      "passed": true
+    },
+    {
+      "id": "denied-bypass",
+      "passed": true
+    },
+    {
+      "id": "capability-matrix",
+      "passed": true
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "artifacts/runtime/G05/pi-start-stream-cancel.log",
+      "digest": "sha256:1957449a48c473517c5ee7487540e8a9ff364988fb04b72c2435810e508783f9"
+    },
+    {
+      "path": "artifacts/runtime/G05/claude-start-stream-cancel.log",
+      "digest": "sha256:55ab0ab5470e0c87ad5cd7d52c3e6c25c909ec317bc95131bde1606c2d659345"
+    },
+    {
+      "path": "artifacts/runtime/G05/capability-matrix.log",
+      "digest": "sha256:2afb34dcd29f2a692925d064219f62afac2e66b23a2581fb5dd11e014eb85ac3"
+    },
+    {
+      "path": "artifacts/runtime/G05/scenario-E063.log",
+      "digest": "sha256:d74d1ba664ef4703b01363b5d670f05d791a5fd27e57e63b06caf3deb55e5847"
+    },
+    {
+      "path": "artifacts/runtime/G05/scenario-E065.log",
+      "digest": "sha256:9443a17a0a8f085f7d214fac53478c15015b2661399ce65b0c95cbdd387ccf64"
+    }
+  ],
+  "selectedScenarios": [
+    "E062",
+    "E063",
+    "E065"
+  ],
+  "executedScenarios": [
+    "E062",
+    "E063",
+    "E065"
+  ],
+  "skippedScenarios": []
+}

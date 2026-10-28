@@ -1,0 +1,467 @@
+{
+  "purpose": "Literal expected policy decisions; production handlers must execute these same cases with server-verified facts",
+  "cases": [
+    {
+      "id": "viewer-read",
+      "roles": [
+        "viewer"
+      ],
+      "operationKind": "query",
+      "operation": "workspace.context",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": true
+    },
+    {
+      "id": "viewer-no-write",
+      "roles": [
+        "viewer"
+      ],
+      "operationKind": "command",
+      "operation": "board.create",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": false
+    },
+    {
+      "id": "viewer-cross-workspace",
+      "roles": [
+        "viewer"
+      ],
+      "operationKind": "query",
+      "operation": "job.get",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": false,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": false
+    },
+    {
+      "id": "revoked-read",
+      "roles": [
+        "operator"
+      ],
+      "operationKind": "query",
+      "operation": "workspace.context",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": false,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": false
+    },
+    {
+      "id": "cross-tenant",
+      "roles": [
+        "operator"
+      ],
+      "operationKind": "query",
+      "operation": "job.get",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": false,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": false
+    },
+    {
+      "id": "organization-revoked",
+      "roles": [
+        "operator"
+      ],
+      "operationKind": "command",
+      "operation": "workflow.dispatch",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": false,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": false
+    },
+    {
+      "id": "operator-write",
+      "roles": [
+        "operator"
+      ],
+      "operationKind": "command",
+      "operation": "board.create",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": true
+    },
+    {
+      "id": "approver-read",
+      "roles": [
+        "approver"
+      ],
+      "operationKind": "query",
+      "operation": "approval.get",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": true
+    },
+    {
+      "id": "approver-decide",
+      "roles": [
+        "approver"
+      ],
+      "operationKind": "endpoint",
+      "operation": "approval.decision",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": true
+    },
+    {
+      "id": "author-cannot-approve",
+      "roles": [
+        "approver"
+      ],
+      "operationKind": "endpoint",
+      "operation": "approval.decision",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": true
+      },
+      "allowed": false
+    },
+    {
+      "id": "step-up-expired",
+      "roles": [
+        "approver"
+      ],
+      "operationKind": "endpoint",
+      "operation": "approval.decision",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": false,
+        "isAuthor": false
+      },
+      "allowed": false
+    },
+    {
+      "id": "agent-cannot-approve",
+      "roles": [
+        "approver"
+      ],
+      "operationKind": "endpoint",
+      "operation": "approval.decision",
+      "facts": {
+        "actorKind": "agent",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": false
+    },
+    {
+      "id": "approver-no-operator-inheritance",
+      "roles": [
+        "approver"
+      ],
+      "operationKind": "command",
+      "operation": "workflow.dispatch",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": false
+    },
+    {
+      "id": "admin-grant",
+      "roles": [
+        "organization-admin"
+      ],
+      "operationKind": "command",
+      "operation": "member.grant",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": false,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": true
+    },
+    {
+      "id": "security-no-grant",
+      "roles": [
+        "security-admin"
+      ],
+      "operationKind": "command",
+      "operation": "member.grant",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": false
+    },
+    {
+      "id": "security-revoke",
+      "roles": [
+        "security-admin"
+      ],
+      "operationKind": "command",
+      "operation": "member.revoke",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": false,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": true
+    },
+    {
+      "id": "admin-no-implicit-dispatch",
+      "roles": [
+        "organization-admin"
+      ],
+      "operationKind": "command",
+      "operation": "workflow.dispatch",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": false
+    },
+    {
+      "id": "viewer-no-audit",
+      "roles": [
+        "viewer"
+      ],
+      "operationKind": "query",
+      "operation": "audit.list",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": false
+    },
+    {
+      "id": "admin-platform-health",
+      "roles": [
+        "organization-admin"
+      ],
+      "operationKind": "query",
+      "operation": "platform.health",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": false,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": true
+    },
+    {
+      "id": "viewer-no-platform-health",
+      "roles": [
+        "viewer"
+      ],
+      "operationKind": "query",
+      "operation": "platform.health",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": false
+    },
+    {
+      "id": "delegation-intersection",
+      "roles": [
+        "operator"
+      ],
+      "operationKind": "command",
+      "operation": "workflow.dispatch",
+      "facts": {
+        "actorKind": "workflow",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false,
+        "delegatedScopes": [
+          "workflow:dispatch"
+        ],
+        "parentScopes": [
+          "workflow:dispatch"
+        ]
+      },
+      "allowed": true
+    },
+    {
+      "id": "delegation-no-parent-scope",
+      "roles": [
+        "operator"
+      ],
+      "operationKind": "command",
+      "operation": "workflow.dispatch",
+      "facts": {
+        "actorKind": "workflow",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false,
+        "delegatedScopes": [
+          "workflow:dispatch"
+        ],
+        "parentScopes": []
+      },
+      "allowed": false
+    },
+    {
+      "id": "unknown-command",
+      "roles": [
+        "organization-admin"
+      ],
+      "operationKind": "command",
+      "operation": "invented.command",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false
+      },
+      "allowed": false
+    },
+    {
+      "id": "own-decision-recovery",
+      "roles": [
+        "viewer"
+      ],
+      "operationKind": "endpoint",
+      "operation": "approval.decision-status",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false,
+        "originalActor": true
+      },
+      "allowed": true
+    },
+    {
+      "id": "other-actor-recovery-denied",
+      "roles": [
+        "viewer"
+      ],
+      "operationKind": "endpoint",
+      "operation": "approval.decision-status",
+      "facts": {
+        "actorKind": "human",
+        "organizationCurrent": true,
+        "sameOrganization": true,
+        "workspaceCurrent": true,
+        "sameWorkspace": true,
+        "stepUpFresh": true,
+        "isAuthor": false,
+        "originalActor": false
+      },
+      "allowed": false
+    }
+  ]
+}

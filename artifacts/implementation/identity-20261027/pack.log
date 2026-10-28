@@ -1,0 +1,23 @@
+PASS schema-meta 185
+PASS schema-local-references all references resolve offline
+PASS schema-fixtures 98 valid; 23 correctly rejected
+PASS generated-types-fresh current
+PASS example-workflow-semantics 13 example jobs; dependency/binding/gate/path checks (not a production compiler)
+PASS example-output-schema-meta 6
+PASS restricted-yaml-and-tool-metadata four unsafe YAML cases rejected; canonical TOOL.md frontmatter matches
+PASS registry-parity 23 commands, 61 typed lifecycle events
+PASS openapi-structure-and-refs 26 operations; structural/reference checks (not full OpenAPI certification)
+PASS state-machine-parity 5
+PASS reference-sql-and-invariants 8 selected reference invariants, including two-connection claim race; not production handler tests
+PASS bash-example-syntax-and-behavior fixture tool: 4 valid and 6 invalid cases passed
+PASS source-input-fingerprints original inputs unchanged
+PASS documentation-inventory 52 dependency decisions; 100 scenarios; 50 work cards
+PASS implementation-policy-and-prompt direct-target policy, persistent workspace instructions and packaged prompt agree; target safety/recovery retained
+PASS newui-integration-contract 12 source package observations and UI documentation consistent; installed/browser compatibility remains pending
+PASS configuration-and-architecture-parity 7 boundaries, three planes, matching config/build/image references and 2 semantic rejections; consumer build not run
+PASS implementation-readiness-contracts-and-fixtures 50 generated task packets; 100 scenarios; 15 traces; crypto/golden fixtures; 22 screens in five areas; monolith/auth/recovery/evidence checks
+PASS generated-implementation-indexes-fresh layout, task table/packets, scenario catalog and routes match canonical sources
+PASS deployment-reference-structure 2 topology references; YAML/security structure only, Docker render not run
+PASS documentation-local-links 101
+PASS typescript-strict-typecheck Version 5.9.3
+All pack checks passed. Runtime status is recorded separately in runtime-readiness.json.

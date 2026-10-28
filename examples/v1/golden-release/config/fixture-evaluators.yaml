@@ -1,0 +1,19 @@
+apiVersion: brain.keyrus/v1
+kind: RunnerGroup
+metadata:
+  id: fixture-evaluators
+  version: 1.0.0
+spec:
+  organizationRef: org_fixture
+  allowedWorkspaces:
+  - fixture-workspace
+  jobClasses:
+  - eval
+  isolation: ephemeral-container
+  trust: evaluator
+  maxSlotsPerRunner: 1
+  reserve:
+    cpuMillicores: 100
+    memoryMb: 128
+    diskMb: 128
+    slots: 0

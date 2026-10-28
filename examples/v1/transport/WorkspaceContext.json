@@ -1,0 +1,58 @@
+{
+  "workspace": {
+    "workspaceId": "ws_demo",
+    "displayName": "Orange OCI",
+    "status": "active",
+    "health": "unknown",
+    "observedAt": "2026-10-27T12:00:00Z",
+    "activeJobs": 0,
+    "pendingApprovals": 0,
+    "blockedJobs": 0,
+    "dailyMicroUsd": 0
+  },
+  "release": {
+    "releaseId": "fixture",
+    "sourceRevision": "sha1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "configDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "compilerDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "irArtifact": {
+      "artifactId": "fixture",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 0,
+      "mediaType": "fixture",
+      "classification": "public"
+    },
+    "assets": [
+      {
+        "artifactId": "fixture",
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "bytes": 0,
+        "mediaType": "fixture",
+        "classification": "public"
+      }
+    ],
+    "primitiveVersions": {}
+  },
+  "allowedCommands": [
+    "workflow.dispatch"
+  ],
+  "features": {
+    "web": "enabled",
+    "pwa": "disabled",
+    "tv": "disabled"
+  },
+  "ui": {
+    "foundation": "newui",
+    "foundationManifestDigest": "sha256:7c9ee4843884efea3e849170434503d20e63633caa0f4394bb784d0eaf4ad598",
+    "defaultTheme": "system",
+    "density": "compact",
+    "supportedLocales": [
+      "en",
+      "fr"
+    ],
+    "defaultLocale": "en",
+    "enabledChannels": [
+      "web"
+    ]
+  }
+}

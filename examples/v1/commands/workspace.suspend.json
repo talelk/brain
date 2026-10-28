@@ -1,0 +1,10 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_workspace.suspend",
+  "commandType": "workspace.suspend",
+  "idempotencyKey": "idem_workspace.suspend",
+  "payload": {
+    "reason": "fixture"
+  },
+  "workspaceId": "fixture"
+}

@@ -1,0 +1,20 @@
+apiVersion: brain.keyrus/v1
+kind: RunnerGroup
+metadata:
+  id: example-runnergroup
+  version: 1.0.0
+spec:
+  organizationRef: org_demo
+  allowedWorkspaces:
+  - ws_demo
+  jobClasses:
+  - agent
+  - house
+  isolation: ephemeral-container
+  trust: agent
+  maxSlotsPerRunner: 1
+  reserve:
+    cpuMillicores: 500
+    memoryMb: 1024
+    diskMb: 1024
+    slots: 0

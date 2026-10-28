@@ -1,0 +1,27 @@
+{
+  "contractVersion": "brain.job-receipt/v1",
+  "jobId": "job_demo",
+  "attemptId": "att_demo",
+  "runnerId": "run_demo",
+  "runnerEpoch": 1,
+  "leaseId": "lease_demo",
+  "jobFence": 1,
+  "result": "succeeded",
+  "lastEventSequence": 2,
+  "evidence": {
+    "artifactId": "art_demo",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 123,
+    "mediaType": "application/json",
+    "classification": "internal"
+  },
+  "output": {
+    "artifactId": "art_demo",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 123,
+    "mediaType": "application/json",
+    "classification": "internal"
+  },
+  "externalEffects": [],
+  "cleanupConfirmed": true
+}

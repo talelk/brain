@@ -1,0 +1,10 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_runner.drain",
+  "commandType": "runner.drain",
+  "idempotencyKey": "idem_runner.drain",
+  "payload": {
+    "runnerId": "fixture",
+    "reason": "fixture"
+  }
+}

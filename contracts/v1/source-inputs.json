@@ -1,0 +1,25 @@
+{
+  "reviewedAt": "2026-10-27",
+  "inputs": [
+    {
+      "path": "Keyrus_Brain_Presentation_FR 1.pdf",
+      "sha256": "033a2368686aa1b42a3895a67145cd4637113750022dbe4b6982969e4d037434",
+      "bytes": 5268022
+    },
+    {
+      "path": "Keyrus_Brain_v4_1_Runner_Capability_RFC.md",
+      "sha256": "7bad0a9bdd94c0a5b17fd26b7ffbb39c16b71e5131c5a57bdcfdfb7aefab3c33",
+      "bytes": 14853
+    },
+    {
+      "path": "Keyrus_Brain_v4_Contract_Pack.zip",
+      "sha256": "75d758fd908ae0ea742ca4642c7be75f90d720e43ba51df438f5eb0fc07105a6",
+      "bytes": 14955
+    },
+    {
+      "path": "Keyrus_Brain_v4_Full_Spec_and_Boundary_Contracts.md",
+      "sha256": "3887ba8d872e2626eb547af561096ef92fb3e82f4cdb9e945f8d128b5215159e",
+      "bytes": 59667
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+$ pnpm exec vitest run tests/integration/scenarios2.test.ts
+(cwd=/home/talel/dev/rd2026/brain)
+
+ RUN  v5.0.5 /home/talel/dev/rd2026/brain
+
+
+ Test Files  1 passed (1)
+      Tests  33 passed (33)
+   Start at  18:40:40
+   Duration  3.34s (tests 82%, import 16%, transform 2%)
+

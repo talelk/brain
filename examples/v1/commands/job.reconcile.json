@@ -1,0 +1,12 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_reconcile",
+  "commandType": "job.reconcile",
+  "workspaceId": "ws_demo",
+  "idempotencyKey": "reconcile_once",
+  "expectedVersion": 1,
+  "payload": {
+    "jobId": "job_demo",
+    "reason": "Inspect an uncertain effect before any further operation"
+  }
+}

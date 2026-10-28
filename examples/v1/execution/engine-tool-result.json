@@ -1,0 +1,30 @@
+{
+  "contractVersion": "brain.engine-event/v1",
+  "eventId": "fixture",
+  "sessionId": "fixture",
+  "attemptId": "fixture",
+  "sequence": 1,
+  "kind": "tool.result",
+  "occurredAt": "2026-10-27T12:00:00Z",
+  "payload": {
+    "proposalId": "proposal_fixture",
+    "invocationId": "invoke_demo",
+    "receipt": {
+      "invocationId": "invoke_demo",
+      "attemptId": "att_demo",
+      "jobFence": 1,
+      "result": "succeeded",
+      "startedAt": "2026-10-27T12:00:00Z",
+      "finishedAt": "2026-10-27T13:00:00Z",
+      "exitCode": 0,
+      "stdout": {
+        "artifactId": "art_demo",
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "bytes": 123,
+        "mediaType": "application/json",
+        "classification": "internal"
+      },
+      "effects": []
+    }
+  }
+}

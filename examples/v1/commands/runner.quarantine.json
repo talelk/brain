@@ -1,0 +1,10 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_runner.quarantine",
+  "commandType": "runner.quarantine",
+  "idempotencyKey": "idem_runner.quarantine",
+  "payload": {
+    "runnerId": "fixture",
+    "reason": "fixture"
+  }
+}

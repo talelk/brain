@@ -1,0 +1,15 @@
+apiVersion: brain.keyrus/v1
+kind: Policy
+metadata:
+  id: example-policy
+  version: 1.0.0
+spec:
+  productionHumanApproval: required
+  defaultEffect: deny
+  allowedOperations:
+  - tickets.get
+  deniedOperations: []
+  maxMicroUsd: 2000000
+  maxRuntimeSeconds: 1200
+  minimumIsolation: ephemeral-container
+  separationOfDuties: true

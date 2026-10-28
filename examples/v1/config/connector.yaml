@@ -1,0 +1,15 @@
+apiVersion: brain.keyrus/v1
+kind: Connector
+metadata:
+  id: example-connector
+  version: 1.0.0
+spec:
+  allowedHosts:
+  - tickets.example.invalid
+  credentialRef: secret_tickets_read
+  operations:
+  - id: tickets.get
+    effectClass: read
+    idempotency: read
+    reconcileSupported: true
+  requestsPerMinute: 60

@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "paths": {
+      "@brain/contracts": ["./packages/contracts/src/index.ts"],
+      "@brain/contracts/validate": ["./packages/contracts/src/validate.ts"]
+    }
+  },
+  "include": [
+    "packages/contracts/src",
+    "apps/governor/src",
+    "apps/runner/src",
+    "apps/launcher/src",
+    "apps/cli/src",
+    "tests"
+  ],
+  "exclude": ["node_modules", "**/dist", "apps/web", "tests/browser"]
+}

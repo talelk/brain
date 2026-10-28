@@ -1,0 +1,19 @@
+{
+  "contractVersion": "brain.grant/v1",
+  "grantId": "grant_demo",
+  "organizationId": "org_demo",
+  "workspaceId": "ws_demo",
+  "attemptId": "att_demo",
+  "invocationId": "invoke_demo",
+  "audience": "run_demo",
+  "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "resourceFences": [
+    {
+      "resourceKey": "target/ticket_992/comments",
+      "token": 9007199254740992
+    }
+  ],
+  "expiresAt": "2026-10-27T13:00:00Z",
+  "revocationGeneration": 1,
+  "permitToken": "fixture-not-a-valid-token"
+}

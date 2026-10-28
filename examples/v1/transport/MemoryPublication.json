@@ -1,0 +1,23 @@
+{
+  "candidateId": "fixture",
+  "sourceWorkspaceId": "fixture",
+  "targetScope": {
+    "organizationId": "fixture",
+    "visibility": "global-approved"
+  },
+  "content": {
+    "artifactId": "fixture",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bytes": 0,
+    "mediaType": "fixture",
+    "classification": "public"
+  },
+  "evidenceDigests": [
+    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "reviewerId": "fixture",
+  "redactionProfile": {
+    "id": "fixture",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

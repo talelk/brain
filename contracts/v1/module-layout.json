@@ -1,0 +1,121 @@
+{
+  "contractVersion": "brain.module-layout/v1",
+  "architectureStyle": "modular-monolith",
+  "controlPlaneProcesses": 1,
+  "moduleTransport": "in-process-functions",
+  "sharedPackages": [
+    "packages/contracts"
+  ],
+  "roots": [
+    {
+      "path": "apps/governor",
+      "owns": "Single Governor composition root, application use cases, internal modules and local persistence",
+      "public": "src/main.ts; src/container.ts",
+      "forbidden": "Runner/harness execution; UI components"
+    },
+    {
+      "path": "apps/runner",
+      "owns": "Outbound supervisor, engine adapters, tool broker, spool and launcher client",
+      "public": "src/main.ts",
+      "forbidden": "Central database access; human approval decisions"
+    },
+    {
+      "path": "apps/launcher",
+      "owns": "Trusted rootless Docker launcher, fixed profiles and cleanup journal",
+      "public": "src/main.ts; Unix HTTP protocol",
+      "forbidden": "Arbitrary Docker passthrough; product business decisions"
+    },
+    {
+      "path": "apps/web",
+      "owns": "Solid/NewUI SPA, domain compositions in src/ui, Governor client and route state",
+      "public": "src/app.tsx; src/index.css",
+      "forbidden": "Server imports; NewUI internals; direct database access"
+    },
+    {
+      "path": "apps/cli",
+      "owns": "Thin typed Governor client, human login and output formatting",
+      "public": "src/main.ts",
+      "forbidden": "Direct database or module-private access"
+    },
+    {
+      "path": "packages/contracts",
+      "owns": "Canonical generated DTOs, validators and wire catalogs shared by executable consumers",
+      "public": "src/index.ts; src/validate.ts",
+      "forbidden": "Vendor SDKs; database IO; application authorization"
+    }
+  ],
+  "governorModules": {
+    "identity": {
+      "path": "apps/governor/src/modules/identity",
+      "owns": "Better Auth integration, principal construction and current memberships"
+    },
+    "governance": {
+      "path": "apps/governor/src/modules/governance",
+      "owns": "Policy, delegation, exact approvals, step-up and effect permits"
+    },
+    "configuration": {
+      "path": "apps/governor/src/modules/configuration",
+      "owns": "Restricted Git/YAML loading, release compilation and activation"
+    },
+    "jobs": {
+      "path": "apps/governor/src/modules/jobs",
+      "owns": "Placement, admission, leases/fences, scheduling and reconciliation facts"
+    },
+    "workflows": {
+      "path": "apps/governor/src/modules/workflows",
+      "owns": "Brain IR and Mastra adapter, primitive registry and durable wakes"
+    },
+    "evidence": {
+      "path": "apps/governor/src/modules/evidence",
+      "owns": "Artifact associations, independent verification and completion acceptance"
+    },
+    "knowledge": {
+      "path": "apps/governor/src/modules/knowledge",
+      "owns": "Scoped memory gateway, TencentDB adapter, publication and export"
+    },
+    "board": {
+      "path": "apps/governor/src/modules/board",
+      "owns": "Cards, business decisions and immutable comments"
+    },
+    "packs": {
+      "path": "apps/governor/src/modules/packs",
+      "owns": "Compiled onboarding/support/SRE/delivery/eval modules and connector adapters"
+    },
+    "operations": {
+      "path": "apps/governor/src/modules/operations",
+      "owns": "Health, bounded timers, backup/restore, audit and notifications"
+    }
+  },
+  "governorSharedFolders": {
+    "domain": "Pure reducers/predicates with injected time; no IO or SDK imports",
+    "application": "Typed use cases coordinate module public functions; shared auth/command/query path",
+    "infrastructure/persistence": "One connection/transaction lifecycle, current schema initialization and inbox/outbox"
+  },
+  "boundaryRules": [
+    "Cross-module imports use index.ts exports; module-private files stay private",
+    "Modules call in-process functions; no internal HTTP, message broker or general event bus",
+    "Composition roots bind vendor adapters; no generic service locator or runtime plugin loader",
+    "One owner writes each table; application use cases coordinate existing local transactions",
+    "Pure domain code has no IO, clocks, Hono, Mastra or harness dependencies",
+    "Only contracts are a shared workspace package; ordinary product modules stay folders"
+  ],
+  "sandboxProfiles": [
+    "agent",
+    "privileged-tool",
+    "evaluator"
+  ],
+  "workflowKinds": [
+    "dispatch",
+    "gate",
+    "eval",
+    "steer",
+    "merge",
+    "subgraph"
+  ],
+  "fullFunctionalScopePreserved": true,
+  "sandboxProfileMapping": {
+    "agent": "agent",
+    "privileged": "privileged-tool",
+    "evaluator": "evaluator"
+  }
+}

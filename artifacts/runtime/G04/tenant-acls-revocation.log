@@ -1,0 +1,18 @@
+$ pnpm exec vitest run tests/security/authz.test.ts
+(cwd=/home/talel/dev/rd2026/brain)
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.5 [39m[90m/home/talel/dev/rd2026/brain[39m
+
+ [32m✓[39m tests/security/authz.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 208[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 05:03:18
+[2m   Duration [22m 834ms[2m (import 64%, tests 29%, transform 7%, worker 1%)[22m
+
+[90mstderr[2m | tests/security/authz.test.ts[2m > [22m[2msecurity authz
+[22m[39m[2m2026-10-28T04:03:19.470Z[0m [31mERROR[0m [1m[Better Auth]:[0m Could not validate the database schema. Check your database connection.
+
+[90mstderr[2m | tests/security/authz.test.ts
+[22m[39m[2m2026-10-28T04:03:19.472Z[0m [31mERROR[0m [1m[Better Auth]:[0m Could not validate the database schema. Check your database connection.
+

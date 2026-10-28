@@ -1,0 +1,41 @@
+{
+  "contractVersion": "brain.runner/v1",
+  "runnerId": "run_demo",
+  "bootNonce": "boot_demo",
+  "runtimeVersion": "fixture-1",
+  "configDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "capabilities": [
+    {
+      "capability": "os:linux",
+      "observedAt": "2026-10-27T12:00:00Z",
+      "source": "runner-probe",
+      "verified": false,
+      "expiresAt": "2026-10-27T13:00:00Z"
+    }
+  ],
+  "engines": [
+    {
+      "id": "pi",
+      "version": "fixture-1",
+      "adapterDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "features": [
+        "start",
+        "events",
+        "cancel"
+      ]
+    }
+  ],
+  "capacity": {
+    "cpuMillicores": 1000,
+    "memoryMb": 1024,
+    "diskMb": 2048,
+    "slots": 1
+  },
+  "isolationModes": [
+    "ephemeral-container"
+  ],
+  "proof": {
+    "challengeId": "challenge_fixture",
+    "signatureBase64url": "fixture-shape-only"
+  }
+}

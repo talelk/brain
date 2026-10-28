@@ -1,0 +1,10 @@
+{
+  "queryType": "today",
+  "snapshot": {
+    "items": []
+  },
+  "cursor": "fixture",
+  "sourceWatermark": 0,
+  "asOf": "2026-10-27T12:00:00Z",
+  "projectionLagMs": 0
+}

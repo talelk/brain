@@ -1,0 +1,24 @@
+---
+apiVersion: brain.keyrus/v1
+kind: Tool
+metadata:
+  id: fixture.echo
+  version: 1.0.0
+spec:
+  effectClass: read
+  inputSchemaRef: schemas/echo-input.json
+  outputSchemaRef: schemas/echo-output.json
+  requiredCapabilities:
+  - tool:bash
+  - tool:python3
+  timeoutSeconds: 10
+  maxOutputBytes: 1048576
+  allowedEnvironments:
+  - fixture
+  owner: team_fixture
+  license: LicenseRef-Internal
+  entrypoint: run.sh
+  testEntrypoint: test.sh
+---
+
+Deterministic disposable fixture.

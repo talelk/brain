@@ -1,0 +1,624 @@
+{
+  "contractVersion": "brain.registry/v1",
+  "commands": [
+    {
+      "type": "workflow.dispatch",
+      "schema": "WorkflowDispatchCommand",
+      "scope": "workflow:dispatch",
+      "authority": "global",
+      "actors": [
+        "human",
+        "agent",
+        "workflow"
+      ]
+    },
+    {
+      "type": "workflow.cancel",
+      "schema": "WorkflowCancelCommand",
+      "scope": "workflow:cancel",
+      "authority": "global",
+      "actors": [
+        "human",
+        "agent",
+        "workflow"
+      ]
+    },
+    {
+      "type": "session.steer",
+      "schema": "SessionSteerCommand",
+      "scope": "session:steer",
+      "authority": "global",
+      "actors": [
+        "human",
+        "agent"
+      ]
+    },
+    {
+      "type": "session.stop",
+      "schema": "SessionStopCommand",
+      "scope": "session:stop",
+      "authority": "global",
+      "actors": [
+        "human",
+        "agent"
+      ]
+    },
+    {
+      "type": "approval.request",
+      "schema": "ApprovalRequestCommand",
+      "scope": "approval:request",
+      "authority": "global",
+      "actors": [
+        "human",
+        "agent",
+        "workflow"
+      ]
+    },
+    {
+      "type": "approval.revoke",
+      "schema": "ApprovalRevokeCommand",
+      "scope": "approval:revoke",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "runner.drain",
+      "schema": "RunnerDrainCommand",
+      "scope": "runner:admin",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "runner.quarantine",
+      "schema": "RunnerQuarantineCommand",
+      "scope": "runner:security",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "board.create",
+      "schema": "BoardCreateCommand",
+      "scope": "board:write",
+      "authority": "workspace",
+      "actors": [
+        "human",
+        "agent"
+      ]
+    },
+    {
+      "type": "board.move",
+      "schema": "BoardMoveCommand",
+      "scope": "board:write",
+      "authority": "workspace",
+      "actors": [
+        "human",
+        "agent"
+      ]
+    },
+    {
+      "type": "board.comment",
+      "schema": "BoardCommentCommand",
+      "scope": "board:write",
+      "authority": "workspace",
+      "actors": [
+        "human",
+        "agent"
+      ]
+    },
+    {
+      "type": "decision.record",
+      "schema": "DecisionRecordCommand",
+      "scope": "decision:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "config.activate",
+      "schema": "ConfigActivateCommand",
+      "scope": "config:activate",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "workspace.suspend",
+      "schema": "WorkspaceSuspendCommand",
+      "scope": "workspace:admin",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "workspace.export",
+      "schema": "WorkspaceExportCommand",
+      "scope": "workspace:export",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "workspace.import",
+      "schema": "WorkspaceImportCommand",
+      "scope": "workspace:import",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "tool.propose",
+      "schema": "ToolProposeCommand",
+      "scope": "tool:propose",
+      "authority": "workspace",
+      "actors": [
+        "human",
+        "agent"
+      ]
+    },
+    {
+      "type": "tool.publish",
+      "schema": "ToolPublishCommand",
+      "scope": "tool:publish",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "memory.publish",
+      "schema": "MemoryPublishCommand",
+      "scope": "memory:publish",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "memory.revoke",
+      "schema": "MemoryRevokeCommand",
+      "scope": "memory:admin",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "job.reconcile",
+      "schema": "JobReconcileCommand",
+      "scope": "job:reconcile",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "member.grant",
+      "schema": "MemberGrantCommand",
+      "scope": "membership:grant",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "member.revoke",
+      "schema": "MemberRevokeCommand",
+      "scope": "membership:revoke",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    }
+  ],
+  "queries": [
+    "today",
+    "bridge",
+    "workspace.context",
+    "jobs.list",
+    "job.get",
+    "job.explain",
+    "runners.list",
+    "runner.get",
+    "approvals.list",
+    "approval.get",
+    "sessions.list",
+    "session.get",
+    "board.get",
+    "evidence.get",
+    "memory.search",
+    "sla.summary",
+    "config.explain",
+    "platform.health",
+    "command.get",
+    "tickets.list",
+    "ticket.get",
+    "incidents.list",
+    "incident.get",
+    "delivery.list",
+    "delivery.get",
+    "tools.list",
+    "decisions.list",
+    "members.list",
+    "audit.list"
+  ],
+  "events": [
+    {
+      "type": "config.compiled",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ConfigEventPayload",
+      "durable": true
+    },
+    {
+      "type": "config.activated",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ConfigEventPayload",
+      "durable": true
+    },
+    {
+      "type": "config.revoked",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ConfigEventPayload",
+      "durable": true
+    },
+    {
+      "type": "dispatch.requested",
+      "envelope": "EventEnvelope",
+      "payloadContract": "DispatchEventPayload",
+      "durable": true
+    },
+    {
+      "type": "dispatch.cancelled",
+      "envelope": "EventEnvelope",
+      "payloadContract": "DispatchEventPayload",
+      "durable": true
+    },
+    {
+      "type": "workflow.start.requested",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkflowEventPayload",
+      "durable": true
+    },
+    {
+      "type": "workflow.started",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkflowEventPayload",
+      "durable": true
+    },
+    {
+      "type": "workflow.suspended",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkflowEventPayload",
+      "durable": true
+    },
+    {
+      "type": "workflow.wake.requested",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkflowEventPayload",
+      "durable": true
+    },
+    {
+      "type": "workflow.resumed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkflowEventPayload",
+      "durable": true
+    },
+    {
+      "type": "workflow.blocked",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkflowEventPayload",
+      "durable": true
+    },
+    {
+      "type": "workflow.succeeded",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkflowEventPayload",
+      "durable": true
+    },
+    {
+      "type": "workflow.failed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkflowEventPayload",
+      "durable": true
+    },
+    {
+      "type": "workflow.cancelled",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkflowEventPayload",
+      "durable": true
+    },
+    {
+      "type": "job.queued",
+      "envelope": "EventEnvelope",
+      "payloadContract": "JobEventPayload",
+      "durable": true
+    },
+    {
+      "type": "job.offered",
+      "envelope": "EventEnvelope",
+      "payloadContract": "JobEventPayload",
+      "durable": true
+    },
+    {
+      "type": "job.started",
+      "envelope": "EventEnvelope",
+      "payloadContract": "JobEventPayload",
+      "durable": true
+    },
+    {
+      "type": "job.verifying",
+      "envelope": "EventEnvelope",
+      "payloadContract": "JobEventPayload",
+      "durable": true
+    },
+    {
+      "type": "job.succeeded",
+      "envelope": "EventEnvelope",
+      "payloadContract": "JobEventPayload",
+      "durable": true
+    },
+    {
+      "type": "job.failed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "JobEventPayload",
+      "durable": true
+    },
+    {
+      "type": "job.cancelled",
+      "envelope": "EventEnvelope",
+      "payloadContract": "JobEventPayload",
+      "durable": true
+    },
+    {
+      "type": "job.outcome-unknown",
+      "envelope": "EventEnvelope",
+      "payloadContract": "JobEventPayload",
+      "durable": true
+    },
+    {
+      "type": "runner.enrolled",
+      "envelope": "EventEnvelope",
+      "payloadContract": "RunnerEventPayload",
+      "durable": true
+    },
+    {
+      "type": "runner.online",
+      "envelope": "EventEnvelope",
+      "payloadContract": "RunnerEventPayload",
+      "durable": true
+    },
+    {
+      "type": "runner.offline",
+      "envelope": "EventEnvelope",
+      "payloadContract": "RunnerEventPayload",
+      "durable": true
+    },
+    {
+      "type": "runner.draining",
+      "envelope": "EventEnvelope",
+      "payloadContract": "RunnerEventPayload",
+      "durable": true
+    },
+    {
+      "type": "runner.quarantined",
+      "envelope": "EventEnvelope",
+      "payloadContract": "RunnerEventPayload",
+      "durable": true
+    },
+    {
+      "type": "approval.requested",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ApprovalEventPayload",
+      "durable": true
+    },
+    {
+      "type": "approval.decided",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ApprovalEventPayload",
+      "durable": true
+    },
+    {
+      "type": "approval.expired",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ApprovalEventPayload",
+      "durable": true
+    },
+    {
+      "type": "approval.revoked",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ApprovalEventPayload",
+      "durable": true
+    },
+    {
+      "type": "approval.consumed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ApprovalEventPayload",
+      "durable": true
+    },
+    {
+      "type": "tool.proposed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ToolEventPayload",
+      "durable": true
+    },
+    {
+      "type": "tool.permitted",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ToolEventPayload",
+      "durable": true
+    },
+    {
+      "type": "tool.started",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ToolEventPayload",
+      "durable": true
+    },
+    {
+      "type": "tool.completed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ToolEventPayload",
+      "durable": true
+    },
+    {
+      "type": "tool.outcome-unknown",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ToolEventPayload",
+      "durable": true
+    },
+    {
+      "type": "session.started",
+      "envelope": "EventEnvelope",
+      "payloadContract": "SessionEventPayload",
+      "durable": true
+    },
+    {
+      "type": "session.stopped",
+      "envelope": "EventEnvelope",
+      "payloadContract": "SessionEventPayload",
+      "durable": true
+    },
+    {
+      "type": "session.usage",
+      "envelope": "EventEnvelope",
+      "payloadContract": "SessionEventPayload",
+      "durable": true
+    },
+    {
+      "type": "session.steered",
+      "envelope": "EventEnvelope",
+      "payloadContract": "SessionEventPayload",
+      "durable": true
+    },
+    {
+      "type": "session.checkpointed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "SessionEventPayload",
+      "durable": true
+    },
+    {
+      "type": "evidence.submitted",
+      "envelope": "EventEnvelope",
+      "payloadContract": "EvidenceEventPayload",
+      "durable": true
+    },
+    {
+      "type": "evidence.verified",
+      "envelope": "EventEnvelope",
+      "payloadContract": "EvidenceEventPayload",
+      "durable": true
+    },
+    {
+      "type": "evidence.rejected",
+      "envelope": "EventEnvelope",
+      "payloadContract": "EvidenceEventPayload",
+      "durable": true
+    },
+    {
+      "type": "evidence.incomplete",
+      "envelope": "EventEnvelope",
+      "payloadContract": "EvidenceEventPayload",
+      "durable": true
+    },
+    {
+      "type": "memory.publication.requested",
+      "envelope": "EventEnvelope",
+      "payloadContract": "MemoryEventPayload",
+      "durable": true
+    },
+    {
+      "type": "memory.published",
+      "envelope": "EventEnvelope",
+      "payloadContract": "MemoryEventPayload",
+      "durable": true
+    },
+    {
+      "type": "memory.revoked",
+      "envelope": "EventEnvelope",
+      "payloadContract": "MemoryEventPayload",
+      "durable": true
+    },
+    {
+      "type": "memory.index.failed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "MemoryEventPayload",
+      "durable": true
+    },
+    {
+      "type": "reconciliation.requested",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ReconciliationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "reconciliation.observed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ReconciliationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "reconciliation.blocked",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ReconciliationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "reconciliation.resolved",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ReconciliationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "board.created",
+      "envelope": "EventEnvelope",
+      "payloadContract": "BoardEventPayload",
+      "durable": true
+    },
+    {
+      "type": "board.moved",
+      "envelope": "EventEnvelope",
+      "payloadContract": "BoardEventPayload",
+      "durable": true
+    },
+    {
+      "type": "board.commented",
+      "envelope": "EventEnvelope",
+      "payloadContract": "BoardEventPayload",
+      "durable": true
+    },
+    {
+      "type": "decision.recorded",
+      "envelope": "EventEnvelope",
+      "payloadContract": "DecisionEventPayload",
+      "durable": true
+    },
+    {
+      "type": "membership.granted",
+      "envelope": "EventEnvelope",
+      "payloadContract": "MembershipEventPayload",
+      "durable": true
+    },
+    {
+      "type": "membership.revoked",
+      "envelope": "EventEnvelope",
+      "payloadContract": "MembershipEventPayload",
+      "durable": true
+    },
+    {
+      "type": "organization.bootstrapped",
+      "envelope": "EventEnvelope",
+      "payloadContract": "OrganizationEventPayload",
+      "durable": true
+    }
+  ],
+  "note": "Lifecycle events carry typed resource/version/state references. Feature-specific content is read through authorized typed queries and immutable artifacts; new event types need explicit schemas."
+}

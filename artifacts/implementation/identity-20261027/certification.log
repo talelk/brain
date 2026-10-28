@@ -1,0 +1,10 @@
+$ vitest run tests/certification
+
+ RUN  v5.0.5 /home/talel/dev/rd2026/brain
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  14:40:00
+   Duration  191ms (import 39%, tests 22%, transform 22%, worker 17%)
+

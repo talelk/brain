@@ -1,0 +1,11 @@
+apiVersion: brain.keyrus/v1
+kind: WorkspaceType
+metadata:
+  id: fixture-type
+  version: 1.0.0
+spec:
+  defaultPolicy:
+    id: fixture-policy
+    digest: sha256:c133abc1311620367c84b58d65f457ac1e44bfc56e9a0a277f19bb9427f9efa8
+  packs: []
+  maxConcurrentJobs: 2

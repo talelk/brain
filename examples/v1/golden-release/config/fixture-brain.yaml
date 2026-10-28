@@ -1,0 +1,24 @@
+apiVersion: brain.keyrus/v1
+kind: BrainConfig
+metadata:
+  id: fixture-brain
+  version: 1.0.0
+spec:
+  defaultPolicy:
+    id: fixture-policy
+    digest: sha256:c133abc1311620367c84b58d65f457ac1e44bfc56e9a0a277f19bb9427f9efa8
+  maxConcurrentJobs: 2
+  leaseSeconds: 60
+  heartbeatSeconds: 15
+  memoryRequired: false
+  ui:
+    foundation: newui
+    foundationManifestDigest: sha256:7c9ee4843884efea3e849170434503d20e63633caa0f4394bb784d0eaf4ad598
+    defaultTheme: system
+    density: compact
+    supportedLocales:
+    - en
+    - fr
+    defaultLocale: en
+    enabledChannels:
+    - web

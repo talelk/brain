@@ -1,0 +1,9 @@
+
+ RUN  v5.0.5 /home/talel/dev/rd2026/brain
+
+
+ Test Files  3 passed (3)
+      Tests  17 passed (17)
+   Start at  12:35:46
+   Duration  1.07s (import 59%, tests 36%, transform 5%)
+

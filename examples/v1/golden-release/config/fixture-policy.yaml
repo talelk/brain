@@ -1,0 +1,16 @@
+apiVersion: brain.keyrus/v1
+kind: Policy
+metadata:
+  id: fixture-policy
+  version: 1.0.0
+spec:
+  productionHumanApproval: required
+  defaultEffect: deny
+  allowedOperations:
+  - fixture.echo
+  - fixture.verify
+  deniedOperations: []
+  maxMicroUsd: 0
+  maxRuntimeSeconds: 120
+  minimumIsolation: ephemeral-container
+  separationOfDuties: true

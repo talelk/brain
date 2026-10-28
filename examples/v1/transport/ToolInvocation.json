@@ -1,0 +1,27 @@
+{
+  "contractVersion": "brain.tool/v1",
+  "organizationId": "org_demo",
+  "workspaceId": "ws_demo",
+  "jobId": "job_demo",
+  "attemptId": "att_demo",
+  "runnerId": "run_demo",
+  "runnerEpoch": 1,
+  "leaseId": "lease_demo",
+  "jobFence": 1,
+  "invocationId": "invoke_demo",
+  "tool": {
+    "id": "fixture.echo",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "input": {
+    "message": "hello"
+  },
+  "inputDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "target": {
+    "targetId": "ticket_992",
+    "environmentId": "prod",
+    "preconditionDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "grantId": "grant_demo",
+  "idempotencyKey": "idem_demo"
+}

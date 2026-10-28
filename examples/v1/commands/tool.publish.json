@@ -1,0 +1,16 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_tool.publish",
+  "commandType": "tool.publish",
+  "idempotencyKey": "idem_tool.publish",
+  "payload": {
+    "release": {
+      "id": "fixture",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "evidence": [
+      "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ]
+  },
+  "workspaceId": "fixture"
+}

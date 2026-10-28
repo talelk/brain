@@ -1,0 +1,23 @@
+apiVersion: brain.keyrus/v1
+kind: Workspace
+metadata:
+  id: fixture-workspace
+  version: 1.0.0
+spec:
+  organizationRef: org_fixture
+  displayName: Brain verification fixture
+  typeRef:
+    id: fixture-type
+    digest: sha256:6b29f83d433b6f8a3f1984752d8f6a21c324245414715085b6cb630641b870c7
+  repositories: []
+  runnerGroups:
+  - fixture-tools
+  - fixture-evaluators
+  workflows:
+  - id: fixture-workflow
+    digest: sha256:5766c9749f2094fb488c2fe28371512e7695781b5f88080d66e5f59ffaf28d07
+  memoryEnabled: false
+  limits:
+    concurrentJobs: 2
+    dailyMicroUsd: 0
+    dailyTokens: 1

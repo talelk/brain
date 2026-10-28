@@ -1,0 +1,57 @@
+$ pnpm exec vitest run tests/probes/harnesses/conformance.test.ts
+(cwd=/home/talel/dev/rd2026/brain)
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.5 [39m[90m/home/talel/dev/rd2026/brain[39m
+
+[90mstdout[2m | tests/probes/harnesses/conformance.test.ts[2m > [22m[2mG05 harness conformance matrix, unsupported ops explicit (E061)[2m > [22m[2mfixture: full port surface
+[22m[39mfixture {
+  probe: [32m'pass'[39m,
+  start: [32m'pass'[39m,
+  events: [32m'pass'[39m,
+  checkpoint: [32m'pass'[39m,
+  cancel: [32m'pass'[39m,
+  dispose: [32m'pass'[39m
+}
+
+[90mstdout[2m | tests/probes/harnesses/conformance.test.ts[2m > [22m[2mG05 harness conformance matrix, unsupported ops explicit (E061)[2m > [22m[2mpi: probe/start/prompt/cancel against local model
+[22m[39mpi {
+  probe: [32m'pass'[39m,
+  start: [32m'pass'[39m,
+  prompt: [32m'pass'[39m,
+  events: [32m'pass'[39m,
+  checkpoint: [32m'pass'[39m,
+  cancel: [32m'pass'[39m,
+  dispose: [32m'pass'[39m
+}
+
+[90mstdout[2m | tests/probes/harnesses/conformance.test.ts[2m > [22m[2mG05 harness conformance matrix, unsupported ops explicit (E061)[2m > [22m[2mMuse: probe/start/cancel against local Anthropic endpoint
+[22m[39mMuse {
+  probe: [32m'pass'[39m,
+  start: [32m'pass'[39m,
+  events: [32m'pass'[39m,
+  checkpoint: [32m'explicit-unsupported'[39m,
+  cancel: [32m'pass'[39m,
+  dispose: [32m'pass'[39m
+}
+
+[90mstdout[2m | tests/probes/harnesses/conformance.test.ts[2m > [22m[2mG05 harness conformance matrix, unsupported ops explicit (E061)[2m > [22m[2macp: probe/start/prompt/cancel over opencode acp
+[22m[39macp {
+  probe: [32m'pass'[39m,
+  start: [32m'pass'[39m,
+  prompt: [32m'pass'[39m,
+  events: [32m'pass'[39m,
+  checkpoint: [32m'explicit-unsupported'[39m,
+  cancel: [32m'pass'[39m,
+  dispose: [32m'pass'[39m
+}
+
+ [32m✓[39m tests/probes/harnesses/conformance.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 10382[2mms[22m[39m
+   [32m✓[39m G05 harness conformance matrix, unsupported ops explicit (E061) [2m(4)[22m
+     [33m[2m✓[22m[39m pi: probe/start/prompt/cancel against local model[33m 3456[2mms[22m[39m
+     [33m[2m✓[22m[39m acp: probe/start/prompt/cancel over opencode acp[33m 6709[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 05:03:42
+[2m   Duration [22m 10.50s[2m (tests 100%)[22m
+

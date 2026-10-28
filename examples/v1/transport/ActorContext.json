@@ -1,0 +1,8 @@
+{
+  "kind": "human",
+  "actorId": "fixture",
+  "organizationId": "fixture",
+  "scopes": [],
+  "authMethod": "session",
+  "authGeneration": 1
+}

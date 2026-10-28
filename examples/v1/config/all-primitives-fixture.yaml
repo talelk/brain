@@ -1,0 +1,200 @@
+apiVersion: brain.keyrus/v1
+kind: Workflow
+metadata:
+  id: all-primitives-fixture
+  version: 1.0.0
+spec:
+  inputSchemaRef: schemas/ticket-input.json
+  outputSchemaRef: schemas/check.json
+  jobs:
+    investigate:
+      kind: dispatch
+      needs: []
+      input:
+        ticketId:
+          source: input
+          pointer: /ticketId
+      outputSchemaRef: schemas/report.json
+      timeoutSeconds: 300
+      uses:
+        type: agent
+        release:
+          id: support-analyst
+          digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      runsOn:
+        group: agents
+        all:
+        - os:linux
+        - isolation:ephemeral-container
+        resources:
+          cpuMillicores: 1000
+          memoryMb: 1024
+          diskMb: 2048
+          slots: 1
+        isolation: ephemeral-container
+        engine:
+          anyOf:
+          - pi
+          - claude
+          features:
+          - start
+          - events
+          - cancel
+      effectClass: read
+    verify:
+      kind: eval
+      needs:
+      - investigate
+      input:
+        report:
+          source: job
+          jobId: investigate
+          pointer: ''
+      outputSchemaRef: schemas/check.json
+      timeoutSeconds: 60
+      evaluator:
+        id: support-draft
+        digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      runsOn:
+        group: evaluators
+        all:
+        - os:linux
+        - isolation:ephemeral-container
+        resources:
+          cpuMillicores: 1000
+          memoryMb: 1024
+          diskMb: 2048
+          slots: 1
+        isolation: ephemeral-container
+      independence: L2
+    approve:
+      kind: gate
+      needs:
+      - verify
+      input: {}
+      outputSchemaRef: schemas/approval.json
+      approvalPolicy:
+        id: support-publication
+        digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      proposalFrom:
+        source: job
+        jobId: investigate
+        pointer: /proposal
+      expiresAfterSeconds: 3600
+    publish:
+      kind: dispatch
+      needs:
+      - approve
+      input:
+        approvalId:
+          source: job
+          jobId: approve
+          pointer: /approvalId
+        proposal:
+          source: job
+          jobId: investigate
+          pointer: /proposal
+      outputSchemaRef: schemas/report.json
+      timeoutSeconds: 300
+      uses:
+        type: tool
+        release:
+          id: tickets.publish-comment
+          digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      runsOn:
+        group: privileged
+        all:
+        - os:linux
+        - isolation:ephemeral-container
+        resources:
+          cpuMillicores: 1000
+          memoryMb: 1024
+          diskMb: 2048
+          slots: 1
+        isolation: ephemeral-container
+      effectClass: privileged
+    final-check:
+      kind: eval
+      needs:
+      - publish
+      input:
+        receipt:
+          source: job
+          jobId: publish
+          pointer: ''
+      outputSchemaRef: schemas/check.json
+      timeoutSeconds: 60
+      evaluator:
+        id: ticket-published
+        digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      runsOn:
+        group: evaluators
+        all:
+        - os:linux
+        - isolation:ephemeral-container
+        resources:
+          cpuMillicores: 1000
+          memoryMb: 1024
+          diskMb: 2048
+          slots: 1
+        isolation: ephemeral-container
+      independence: L2
+    steer:
+      kind: steer
+      needs: []
+      input: {}
+      outputSchemaRef: schemas/report.json
+      sessionFrom:
+        source: input
+        pointer: /sessionId
+      messageFrom:
+        source: literal
+        value: Report your checkpoint.
+    merge:
+      kind: merge
+      needs:
+      - approve
+      input:
+        proposal:
+          source: job
+          jobId: investigate
+          pointer: /proposal
+      outputSchemaRef: schemas/report.json
+      tool:
+        id: git.merge-approved
+        digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      runsOn:
+        group: privileged
+        all:
+        - os:linux
+        - isolation:ephemeral-container
+        resources:
+          cpuMillicores: 1000
+          memoryMb: 1024
+          diskMb: 2048
+          slots: 1
+        isolation: ephemeral-container
+      proposalFrom:
+        source: job
+        jobId: investigate
+        pointer: /proposal
+      timeoutSeconds: 60
+    child:
+      kind: subgraph
+      needs:
+      - verify
+      input:
+        ticketId:
+          source: input
+          pointer: /ticketId
+      outputSchemaRef: schemas/report.json
+      workflow:
+        id: read-only-child
+        digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  outputs:
+    passed:
+      source: job
+      jobId: final-check
+      pointer: /passed
+  failFast: true
+  deadlineSeconds: 86400

@@ -1,0 +1,21 @@
+$ pnpm exec vitest run tests/probes/sandbox/launcher.test.ts
+(cwd=/home/talel/dev/rd2026/brain)
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.5 [39m[90m/home/talel/dev/rd2026/brain[39m
+
+[90mstdout[2m | tests/probes/sandbox/launcher.test.ts[2m > [22m[2mG06 launcher sandbox (requires docker + brain-sandbox-* tags of alpine)[2m > [22m[2mcreates a fixed-profile sandbox, rejects smuggled fields, stops with cleanup
+[22m[39mBrain launcher listening on /tmp/brain-launcher-test-1793160236704/launcher.sock
+
+[90mstdout[2m | tests/probes/sandbox/launcher.test.ts[2m > [22m[2mG06 launcher sandbox (requires docker + brain-sandbox-* tags of alpine)[2m > [22m[2mTERM-ignoring daemonized child is killed with the sandbox (E065)
+[22m[39mBrain launcher listening on /tmp/brain-launcher-test-1793160238981-e065/launcher.sock
+
+ [32m✓[39m tests/probes/sandbox/launcher.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 3595[2mms[22m[39m
+   [32m✓[39m G06 launcher sandbox (requires docker + brain-sandbox-* tags of alpine) [2m(2)[22m
+     [33m[2m✓[22m[39m creates a fixed-profile sandbox, rejects smuggled fields, stops with cleanup[33m 2277[2mms[22m[39m
+     [33m[2m✓[22m[39m TERM-ignoring daemonized child is killed with the sandbox (E065)[33m 1316[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 05:03:56
+[2m   Duration [22m 3.78s[2m (tests 98%, import 2%)[22m
+

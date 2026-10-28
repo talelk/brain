@@ -1,0 +1,13 @@
+$ pnpm exec playwright test tests/browser/vitals.spec.ts
+(cwd=/home/talel/dev/rd2026/brain)
+
+Running 6 tests using 1 worker
+
+  ✓  1 [390-light] › tests/browser/vitals.spec.ts:3:1 › web vitals: shell LCP, interaction latency, JS budget (E099 browser) (1.0s)
+  ✓  2 [390-dark] › tests/browser/vitals.spec.ts:3:1 › web vitals: shell LCP, interaction latency, JS budget (E099 browser) (1.0s)
+  ✓  3 [768-light] › tests/browser/vitals.spec.ts:3:1 › web vitals: shell LCP, interaction latency, JS budget (E099 browser) (1.0s)
+  ✓  4 [768-dark] › tests/browser/vitals.spec.ts:3:1 › web vitals: shell LCP, interaction latency, JS budget (E099 browser) (1.0s)
+  ✓  5 [1440-light] › tests/browser/vitals.spec.ts:3:1 › web vitals: shell LCP, interaction latency, JS budget (E099 browser) (1.0s)
+  ✓  6 [1440-dark] › tests/browser/vitals.spec.ts:3:1 › web vitals: shell LCP, interaction latency, JS budget (E099 browser) (1.1s)
+
+  6 passed (12.6s)

@@ -1,0 +1,13 @@
+{
+  "contractVersion": "brain.command/v1",
+  "commandId": "cmd_member.revoke",
+  "commandType": "member.revoke",
+  "workspaceId": "ws_demo",
+  "idempotencyKey": "key_member.revoke",
+  "expectedVersion": 1,
+  "payload": {
+    "principalId": "human_demo",
+    "role": "operator",
+    "reason": "Explicit workspace access decision"
+  }
+}

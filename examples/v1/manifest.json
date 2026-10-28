@@ -1,0 +1,532 @@
+{
+  "valid": [
+    {
+      "path": "config/support-investigate.yaml",
+      "schema": "Workflow"
+    },
+    {
+      "path": "config/all-primitives-fixture.yaml",
+      "schema": "Workflow"
+    },
+    {
+      "path": "config/workspace.yaml",
+      "schema": "Workspace"
+    },
+    {
+      "path": "config/runnergroup.yaml",
+      "schema": "RunnerGroup"
+    },
+    {
+      "path": "config/tool.yaml",
+      "schema": "Tool"
+    },
+    {
+      "path": "config/agent.yaml",
+      "schema": "Agent"
+    },
+    {
+      "path": "config/policy.yaml",
+      "schema": "Policy"
+    },
+    {
+      "path": "config/pack.yaml",
+      "schema": "Pack"
+    },
+    {
+      "path": "config/connector.yaml",
+      "schema": "Connector"
+    },
+    {
+      "path": "config/evaluator.yaml",
+      "schema": "Evaluator"
+    },
+    {
+      "path": "config/schedule.yaml",
+      "schema": "Schedule"
+    },
+    {
+      "path": "config/brainconfig.yaml",
+      "schema": "BrainConfig"
+    },
+    {
+      "path": "config/workspacetype.yaml",
+      "schema": "WorkspaceType"
+    },
+    {
+      "path": "transport/RunnerHello.json",
+      "schema": "RunnerHello"
+    },
+    {
+      "path": "transport/RunnerHeartbeat.json",
+      "schema": "RunnerHeartbeat"
+    },
+    {
+      "path": "transport/JobOffer.json",
+      "schema": "JobOffer"
+    },
+    {
+      "path": "transport/ApprovalRequest.json",
+      "schema": "ApprovalRequest"
+    },
+    {
+      "path": "transport/HumanApprovalDecision.json",
+      "schema": "HumanApprovalDecision"
+    },
+    {
+      "path": "transport/EffectPermitRequest.json",
+      "schema": "EffectPermitRequest"
+    },
+    {
+      "path": "transport/ExecutionGrant.json",
+      "schema": "ExecutionGrant"
+    },
+    {
+      "path": "transport/EngineSessionSpec.json",
+      "schema": "EngineSessionSpec"
+    },
+    {
+      "path": "transport/ToolInvocation.json",
+      "schema": "ToolInvocation"
+    },
+    {
+      "path": "transport/ToolReceipt.json",
+      "schema": "ToolReceipt"
+    },
+    {
+      "path": "transport/JobReceipt.json",
+      "schema": "JobReceipt"
+    },
+    {
+      "path": "transport/EvidenceBundle.json",
+      "schema": "EvidenceBundle"
+    },
+    {
+      "path": "transport/VerificationVerdict.json",
+      "schema": "VerificationVerdict"
+    },
+    {
+      "path": "transport/MemoryQuery.json",
+      "schema": "MemoryQuery"
+    },
+    {
+      "path": "transport/BackupManifest.json",
+      "schema": "BackupManifest"
+    },
+    {
+      "path": "transport/PlacementExplanation.json",
+      "schema": "PlacementExplanation"
+    },
+    {
+      "path": "transport/EventEnvelope.json",
+      "schema": "EventEnvelope"
+    },
+    {
+      "path": "transport/Checkpoint.json",
+      "schema": "Checkpoint"
+    },
+    {
+      "path": "commands/workflow.dispatch.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/workflow.cancel.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/session.steer.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/session.stop.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/approval.request.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/approval.revoke.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/runner.drain.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/runner.quarantine.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/board.create.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/board.move.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/board.comment.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/decision.record.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/config.activate.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/workspace.suspend.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/workspace.export.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/workspace.import.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/tool.propose.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/tool.publish.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/memory.publish.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/memory.revoke.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "transport/RunnerEnrollRequest.json",
+      "schema": "RunnerEnrollRequest"
+    },
+    {
+      "path": "transport/RunnerCredential.json",
+      "schema": "RunnerCredential"
+    },
+    {
+      "path": "transport/RunnerSession.json",
+      "schema": "RunnerSession"
+    },
+    {
+      "path": "transport/RunnerHeartbeatAck.json",
+      "schema": "RunnerHeartbeatAck"
+    },
+    {
+      "path": "transport/ClaimRequest.json",
+      "schema": "ClaimRequest"
+    },
+    {
+      "path": "transport/AttemptAck.json",
+      "schema": "AttemptAck"
+    },
+    {
+      "path": "transport/AttemptLease.json",
+      "schema": "AttemptLease"
+    },
+    {
+      "path": "transport/AttemptRenew.json",
+      "schema": "AttemptRenew"
+    },
+    {
+      "path": "transport/AttemptEventBatch.json",
+      "schema": "AttemptEventBatch"
+    },
+    {
+      "path": "transport/AttemptEventAck.json",
+      "schema": "AttemptEventAck"
+    },
+    {
+      "path": "transport/ReceiptAck.json",
+      "schema": "ReceiptAck"
+    },
+    {
+      "path": "transport/AttemptRelease.json",
+      "schema": "AttemptRelease"
+    },
+    {
+      "path": "transport/EngineEvent.json",
+      "schema": "EngineEvent"
+    },
+    {
+      "path": "transport/MemoryResult.json",
+      "schema": "MemoryResult"
+    },
+    {
+      "path": "transport/MemoryPublication.json",
+      "schema": "MemoryPublication"
+    },
+    {
+      "path": "transport/UploadInit.json",
+      "schema": "UploadInit"
+    },
+    {
+      "path": "transport/UploadSession.json",
+      "schema": "UploadSession"
+    },
+    {
+      "path": "transport/QueryRequest.json",
+      "schema": "QueryRequest"
+    },
+    {
+      "path": "transport/QueryResponse.json",
+      "schema": "QueryResponse"
+    },
+    {
+      "path": "transport/WorkflowIR.json",
+      "schema": "WorkflowIR"
+    },
+    {
+      "path": "transport/ConfigRelease.json",
+      "schema": "ConfigRelease"
+    },
+    {
+      "path": "transport/BrainError.json",
+      "schema": "BrainError"
+    },
+    {
+      "path": "transport/CommandReceipt.json",
+      "schema": "CommandReceipt"
+    },
+    {
+      "path": "transport/ActorContext.json",
+      "schema": "ActorContext"
+    },
+    {
+      "path": "config/web-build.json",
+      "schema": "WebBuildConfig"
+    },
+    {
+      "path": "transport/WorkspaceContext.json",
+      "schema": "WorkspaceContext"
+    },
+    {
+      "path": "commands/job.reconcile.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "execution/engine-text.json",
+      "schema": "EngineEvent"
+    },
+    {
+      "path": "execution/engine-usage.json",
+      "schema": "EngineEvent"
+    },
+    {
+      "path": "execution/ledger.json",
+      "schema": "ImplementationLedger"
+    },
+    {
+      "path": "execution/checkpoint.json",
+      "schema": "ImplementationCheckpoint"
+    },
+    {
+      "path": "commands/member.grant.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "commands/member.revoke.json",
+      "schema": "CommandEnvelope"
+    },
+    {
+      "path": "execution/engine-session-stopped.json",
+      "schema": "EngineEvent"
+    },
+    {
+      "path": "execution/engine-tool-proposed.json",
+      "schema": "EngineEvent"
+    },
+    {
+      "path": "execution/engine-tool-result.json",
+      "schema": "EngineEvent"
+    },
+    {
+      "path": "execution/engine-artifact.json",
+      "schema": "EngineEvent"
+    },
+    {
+      "path": "execution/engine-human-input-requested.json",
+      "schema": "EngineEvent"
+    },
+    {
+      "path": "execution/engine-error.json",
+      "schema": "EngineEvent"
+    },
+    {
+      "path": "execution/RunnerChallenge.json",
+      "schema": "RunnerChallenge"
+    },
+    {
+      "path": "execution/StepUpChallenge.json",
+      "schema": "StepUpChallenge"
+    },
+    {
+      "path": "execution/StepUpVerify.json",
+      "schema": "StepUpVerify"
+    },
+    {
+      "path": "execution/StepUpEvidence.json",
+      "schema": "StepUpEvidence"
+    },
+    {
+      "path": "execution/QueryCursorPayload.json",
+      "schema": "QueryCursorPayload"
+    },
+    {
+      "path": "execution/ApprovalDecisionStatus.json",
+      "schema": "ApprovalDecisionStatus"
+    },
+    {
+      "path": "transport/EvaluationAssignment.json",
+      "schema": "EvaluationAssignment"
+    },
+    {
+      "path": "transport/RunnerVerdictRequest.json",
+      "schema": "RunnerVerdictRequest"
+    }
+  ],
+  "invalid": [
+    {
+      "path": "invalid/zero-fence.json",
+      "schema": "JobOffer",
+      "reason": "Fences are positive safe integers"
+    },
+    {
+      "path": "invalid/short-digest.json",
+      "schema": "JobOffer",
+      "reason": "Digest length and syntax"
+    },
+    {
+      "path": "invalid/negative-capacity.json",
+      "schema": "RunnerHeartbeat",
+      "reason": "Observed free resources can be zero but never negative"
+    },
+    {
+      "path": "invalid/unscoped-workspace-memory.json",
+      "schema": "MemoryQuery",
+      "reason": "Workspace visibility requires workspace ID"
+    },
+    {
+      "path": "invalid/client-human-actor.json",
+      "schema": "HumanApprovalDecision",
+      "reason": "No client-supplied actor fields"
+    },
+    {
+      "path": "invalid/old-root-jobs.json",
+      "schema": "Workflow",
+      "reason": "Only spec.jobs grammar is accepted"
+    },
+    {
+      "path": "invalid/empty-anyof.json",
+      "schema": "Workflow",
+      "reason": "Specified alternatives must be nonempty"
+    },
+    {
+      "path": "invalid/runner-bound-gate.json",
+      "schema": "Workflow",
+      "reason": "Gate has no runner placement"
+    },
+    {
+      "path": "invalid/approval-without-subject.json",
+      "schema": "EventEnvelope",
+      "reason": "Approval event carries exact subject digest"
+    },
+    {
+      "path": "invalid/unknown-command.json",
+      "schema": "CommandEnvelope",
+      "reason": "No arbitrary command entrypoint"
+    },
+    {
+      "path": "invalid/empty-evidence-checks.json",
+      "schema": "EvidenceBundle",
+      "reason": "At least one acceptance check is required"
+    },
+    {
+      "path": "invalid/unsafe-counter.json",
+      "schema": "ExecutionGrant",
+      "reason": "Counter stays within safe integer range"
+    },
+    {
+      "path": "invalid/contradictory-command-receipt.json",
+      "schema": "CommandReceipt",
+      "reason": "Accepted receipts cannot have rejected outcome"
+    },
+    {
+      "path": "invalid/complete-backup-with-omissions.json",
+      "schema": "BackupManifest",
+      "reason": "Complete backups cannot name missing components"
+    },
+    {
+      "path": "invalid/portable-backup-without-workspace.json",
+      "schema": "BackupManifest",
+      "reason": "Portable exports require workspace scope"
+    },
+    {
+      "path": "invalid/unknown-query.json",
+      "schema": "QueryRequest",
+      "reason": "No arbitrary query execution"
+    },
+    {
+      "path": "invalid/missing-ui-foundation.json",
+      "schema": "BrainConfig",
+      "reason": "Required explicit UI declaration; old candidate config requires migration"
+    },
+    {
+      "path": "invalid/unsupported-ui-foundation.json",
+      "schema": "BrainConfig",
+      "reason": "Only the selected NewUI foundation is supported"
+    },
+    {
+      "path": "invalid/ui-palette-override.json",
+      "schema": "BrainConfig",
+      "reason": "Unknown UI fields and an independent token palette are not allowed"
+    },
+    {
+      "path": "invalid/runtime-ui-download.json",
+      "schema": "WebBuildConfig",
+      "reason": "UI dependencies bind at image build only"
+    },
+    {
+      "path": "invalid/browser-runner-proxy.json",
+      "schema": "WebBuildConfig",
+      "reason": "Runner endpoints are not a browser dev proxy target"
+    },
+    {
+      "path": "invalid/duplicate-ui-channel.json",
+      "schema": "BrainConfig",
+      "reason": "UI channels are unique supported values"
+    },
+    {
+      "path": "invalid/untyped-engine-event.json",
+      "schema": "EngineEvent"
+    }
+  ],
+  "configSchemas": [
+    "schemas/ticket-input.json",
+    "schemas/report.json",
+    "schemas/check.json",
+    "schemas/approval.json",
+    "schemas/echo-input.json",
+    "schemas/echo-output.json"
+  ],
+  "semanticInvalid": [
+    {
+      "path": "invalid/ui-foundation-drift.json",
+      "schema": "UIConfig",
+      "rule": "foundation-manifest"
+    },
+    {
+      "path": "invalid/ui-default-locale-unavailable.json",
+      "schema": "UIConfig",
+      "rule": "default-locale"
+    }
+  ]
+}

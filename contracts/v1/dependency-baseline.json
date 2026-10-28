@@ -1,0 +1,365 @@
+{
+  "contractVersion": "brain.dependency-baseline/v1",
+  "reviewedAt": "2026-10-27",
+  "status": "candidate-resolution-required",
+  "supportedTarget": {
+    "nodeMajor": 24,
+    "os": "linux",
+    "architecture": "amd64",
+    "libc": "glibc"
+  },
+  "packages": [
+    {
+      "name": "pnpm",
+      "disposition": "required",
+      "version": "12.15.0",
+      "resolution": "exact-candidate",
+      "installationVerified": false,
+      "evidence": "https://registry.npmjs.org/pnpm/latest"
+    },
+    {
+      "name": "typescript",
+      "disposition": "required",
+      "version": "7.0.2",
+      "resolution": "exact-candidate",
+      "installationVerified": false,
+      "evidence": "https://registry.npmjs.org/typescript/latest"
+    },
+    {
+      "name": "hono",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "@hono/node-server",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "better-auth",
+      "disposition": "required",
+      "version": "1.7.14",
+      "resolution": "exact-candidate",
+      "installationVerified": false,
+      "evidence": "https://better-auth.com/docs/concepts/hooks"
+    },
+    {
+      "name": "@better-auth/api-key",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "drizzle-orm",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "drizzle-kit",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "better-sqlite3",
+      "disposition": "required",
+      "version": "13.0.3",
+      "resolution": "exact-candidate",
+      "installationVerified": false,
+      "evidence": "https://registry.npmjs.org/better-sqlite3/latest"
+    },
+    {
+      "name": "ajv",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "ajv-formats",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "yaml",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "@mastra/core",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "@mastra/libsql",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "cron-parser",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "canonicalize",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "@earendil-works/pi-coding-agent",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "@anthropic-ai/claude-agent-sdk",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "@modelcontextprotocol/server",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "execa",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "solid-js",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "@solidjs/router",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "vite",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "vite-plugin-solid",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "tailwindcss",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "@tailwindcss/vite",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "pino",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "vitest",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "@playwright/test",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "@types/node",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "@types/better-sqlite3",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "eslint",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "typescript-eslint",
+      "disposition": "required",
+      "version": null,
+      "resolution": "stable-registry-snapshot",
+      "installationVerified": false,
+      "evidence": null
+    },
+    {
+      "name": "@talelk/newui-atoms",
+      "disposition": "required",
+      "version": "1.2.0",
+      "resolution": "reviewed-source-candidate",
+      "installationVerified": false,
+      "evidence": "contracts/v1/ui-foundation.json"
+    },
+    {
+      "name": "@talelk/newui-molecules",
+      "disposition": "required",
+      "version": "2.2.0",
+      "resolution": "reviewed-source-candidate",
+      "installationVerified": false,
+      "evidence": "contracts/v1/ui-foundation.json"
+    },
+    {
+      "name": "@talelk/newui-organisms",
+      "disposition": "required",
+      "version": "2.1.1",
+      "resolution": "reviewed-source-candidate",
+      "installationVerified": false,
+      "evidence": "contracts/v1/ui-foundation.json"
+    },
+    {
+      "name": "@talelk/newui-templates",
+      "disposition": "required",
+      "version": "1.1.2",
+      "resolution": "reviewed-source-candidate",
+      "installationVerified": false,
+      "evidence": "contracts/v1/ui-foundation.json"
+    },
+    {
+      "name": "@talelk/newui-tailwind",
+      "disposition": "required",
+      "version": "1.0.0",
+      "resolution": "reviewed-source-candidate",
+      "installationVerified": false,
+      "evidence": "contracts/v1/ui-foundation.json"
+    }
+  ],
+  "nonPackageDecisions": [
+    "RFC8785",
+    "WCAG2.2AA",
+    "Git runner model",
+    "SQLite WAL invariants"
+  ],
+  "optional": [
+    "@agentclientprotocol/sdk",
+    "@talelk/newui-charts",
+    "p-queue",
+    "p-retry",
+    "proper-lockfile",
+    "evalite",
+    "promptfoo"
+  ],
+  "notAdopted": [
+    "async-mutex",
+    "XState",
+    "OMA",
+    "mandatory Redis",
+    "mandatory PostgreSQL"
+  ],
+  "resolver": "scripts/resolve_dependency_baseline.py",
+  "resolutionRole": "candidate-metadata-only",
+  "cohortAcceptance": {
+    "manifest": "artifacts/runtime/G01/manifest.json",
+    "settingsReference": "examples/v1/pnpm-workspace.yaml",
+    "requiredSettings": {
+      "strictPeerDependencies": true,
+      "engineStrict": true,
+      "saveExact": true
+    },
+    "lockfile": "pnpm-lock.yaml",
+    "frozenInstallCommand": [
+      "rtk",
+      "pnpm",
+      "install",
+      "--frozen-lockfile"
+    ],
+    "requiredAssertions": [
+      "frozen-install",
+      "strict-peers-and-engines",
+      "native-auth-imports",
+      "newui-production-build",
+      "sbom-licenses"
+    ],
+    "latestMetadataIsInstallationProof": false
+  }
+}

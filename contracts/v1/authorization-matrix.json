@@ -1,0 +1,270 @@
+{
+  "contractVersion": "brain.authorization-matrix/v1",
+  "default": "deny",
+  "roleInheritance": false,
+  "workspaceReadRequiresMembership": true,
+  "roles": {
+    "viewer": {
+      "scopes": [
+        "workspace:read"
+      ],
+      "grantScope": "workspace"
+    },
+    "operator": {
+      "scopes": [
+        "workspace:read",
+        "workflow:dispatch",
+        "workflow:cancel",
+        "session:steer",
+        "session:stop",
+        "board:write",
+        "tool:propose",
+        "approval:request",
+        "job:reconcile",
+        "decision:write"
+      ],
+      "grantScope": "workspace"
+    },
+    "workspace-lead": {
+      "scopes": [
+        "workspace:read",
+        "workflow:dispatch",
+        "workflow:cancel",
+        "session:steer",
+        "session:stop",
+        "board:write",
+        "tool:propose",
+        "approval:request",
+        "job:reconcile",
+        "workspace:admin",
+        "workspace:export",
+        "memory:publish",
+        "approval:revoke",
+        "decision:write",
+        "members:read"
+      ],
+      "grantScope": "workspace"
+    },
+    "approver": {
+      "scopes": [
+        "workspace:read",
+        "approval:decide",
+        "approval:revoke"
+      ],
+      "grantScope": "workspace"
+    },
+    "organization-admin": {
+      "scopes": [
+        "config:activate",
+        "workspace:import",
+        "runner:admin",
+        "members:read",
+        "audit:read",
+        "membership:grant",
+        "membership:revoke",
+        "platform:read"
+      ],
+      "grantScope": "organization"
+    },
+    "security-admin": {
+      "scopes": [
+        "runner:security",
+        "memory:admin",
+        "approval:revoke",
+        "audit:read",
+        "membership:revoke",
+        "platform:read"
+      ],
+      "grantScope": "organization"
+    },
+    "tool-publisher": {
+      "scopes": [
+        "tool:publish"
+      ],
+      "grantScope": "organization"
+    }
+  },
+  "specialEndpoints": {
+    "approval.decision": {
+      "scope": "approval:decide",
+      "humanOnly": true,
+      "freshStepUpForHighRisk": true,
+      "actors": [
+        "human"
+      ]
+    },
+    "approval.decision-status": {
+      "scope": "workspace:read",
+      "actors": [
+        "human"
+      ],
+      "originalActorOnly": true,
+      "currentMembershipRequired": true
+    }
+  },
+  "separationOfDuties": "request author cannot approve own high-risk effect; organization administration grants no bypass",
+  "commandPolicySource": "contracts/v1/registry.json",
+  "queryRules": {
+    "today": {
+      "scope": "workspace:read",
+      "scopeMode": "authorized-workspace-union",
+      "redactPrivilegedDetails": false
+    },
+    "bridge": {
+      "scope": "workspace:read",
+      "scopeMode": "authorized-workspace-union",
+      "redactPrivilegedDetails": false
+    },
+    "workspace.context": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "jobs.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "job.get": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "job.explain": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "runners.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": true
+    },
+    "runner.get": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": true
+    },
+    "approvals.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "approval.get": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "sessions.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "session.get": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "board.get": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "evidence.get": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "memory.search": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "sla.summary": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "config.explain": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": true
+    },
+    "platform.health": {
+      "scope": "platform:read",
+      "scopeMode": "organization",
+      "redactPrivilegedDetails": false
+    },
+    "command.get": {
+      "scope": "workspace:read",
+      "scopeMode": "original-actor-or-workspace",
+      "redactPrivilegedDetails": false
+    },
+    "tickets.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "ticket.get": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "incidents.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "incident.get": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "delivery.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "delivery.get": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "tools.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "decisions.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "members.list": {
+      "scope": "members:read",
+      "scopeMode": "organization",
+      "redactPrivilegedDetails": false
+    },
+    "audit.list": {
+      "scope": "audit:read",
+      "scopeMode": "organization",
+      "redactPrivilegedDetails": false
+    }
+  },
+  "commandRecoveryRule": {
+    "query": "command.get",
+    "sameOriginalActorAllowed": true,
+    "otherwiseScope": "workspace:read",
+    "requireCurrentAuthorization": true,
+    "crossTenantLookup": "deny"
+  },
+  "evaluationOrder": [
+    "authenticate-server-principal",
+    "current-organization-membership",
+    "operation-exists-and-actor-kind-allowed",
+    "resolve-current-scope-and-membership",
+    "require-explicit-role-or-intersected-delegated-capability",
+    "current-policy-and-revocation",
+    "exact-step-up-and-separation-of-duties-when-required"
+  ]
+}

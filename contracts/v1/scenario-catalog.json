@@ -1,0 +1,1310 @@
+{
+  "contractVersion": "brain.scenario-catalog/v1",
+  "generatedFrom": "docs/implementation/11-acceptance-and-edge-cases.md + contracts/v1/work-plan.json",
+  "scenarios": [
+    {
+      "id": "E001",
+      "trigger": "Client submits a human ActorContext",
+      "requiredObservation": "Rejected/ignored as identity; authenticated principal remains authority",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T05",
+        "T50"
+      ]
+    },
+    {
+      "id": "E002",
+      "trigger": "Workspace A IDs used by tenant B",
+      "requiredObservation": "404/no data, no mutation or cache leakage",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T05",
+        "T12",
+        "T50"
+      ]
+    },
+    {
+      "id": "E003",
+      "trigger": "Revoked user keeps browser/SSE session open",
+      "requiredObservation": "New operations denied; stream/access data cleared",
+      "suites": [
+        "SECURITY",
+        "BROWSER"
+      ],
+      "owners": [
+        "T05",
+        "T32",
+        "T45",
+        "T50"
+      ]
+    },
+    {
+      "id": "E004",
+      "trigger": "Agent tries approval endpoint or MCP forged human note",
+      "requiredObservation": "No decision accepted",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T05",
+        "T13",
+        "T32",
+        "T50"
+      ]
+    },
+    {
+      "id": "E005",
+      "trigger": "Cookie-authenticated cross-origin mutation",
+      "requiredObservation": "CSRF/origin rejection",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T05",
+        "T50"
+      ]
+    },
+    {
+      "id": "E006",
+      "trigger": "Same idempotency key and same payload after timeout",
+      "requiredObservation": "One resource and saved receipt",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T06",
+        "T32",
+        "T50"
+      ]
+    },
+    {
+      "id": "E007",
+      "trigger": "Same key with changed payload/workspace/version",
+      "requiredObservation": "Conflict, no second mutation",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T06",
+        "T50"
+      ]
+    },
+    {
+      "id": "E008",
+      "trigger": "Different actors reuse a key",
+      "requiredObservation": "Separate namespaces and no receipt disclosure",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T05",
+        "T06",
+        "T50"
+      ]
+    },
+    {
+      "id": "E009",
+      "trigger": "Expected board version is stale",
+      "requiredObservation": "Conflict, current version visible, no overwrite",
+      "suites": [
+        "DOMAIN",
+        "BROWSER"
+      ],
+      "owners": [
+        "T06",
+        "T31",
+        "T37",
+        "T50"
+      ]
+    },
+    {
+      "id": "E010",
+      "trigger": "Bootstrap/enrollment token replay",
+      "requiredObservation": "One identity only; expired/replayed token denied",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T15",
+        "T50"
+      ]
+    },
+    {
+      "id": "E011",
+      "trigger": "YAML duplicate/unknown key, alias, tag, multi-document",
+      "requiredObservation": "Fail with exact source diagnostic",
+      "suites": [
+        "DOMAIN"
+      ],
+      "owners": [
+        "T08",
+        "T50"
+      ]
+    },
+    {
+      "id": "E012",
+      "trigger": "Config symlink/path traversal/case collision",
+      "requiredObservation": "Fail confined loader, no host file access",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T04",
+        "T08",
+        "T41",
+        "T50"
+      ]
+    },
+    {
+      "id": "E013",
+      "trigger": "Override broadens floor/uses null to disable safeguard",
+      "requiredObservation": "Reject; active config unchanged",
+      "suites": [
+        "DOMAIN"
+      ],
+      "owners": [
+        "T09",
+        "T50"
+      ]
+    },
+    {
+      "id": "E014",
+      "trigger": "Same config with different map order",
+      "requiredObservation": "Same canonical release digest",
+      "suites": [
+        "DOMAIN"
+      ],
+      "owners": [
+        "T09",
+        "T50"
+      ]
+    },
+    {
+      "id": "E015",
+      "trigger": "Changed tool script/schema/mode bit",
+      "requiredObservation": "New release digest; active run keeps prior pin",
+      "suites": [
+        "DOMAIN"
+      ],
+      "owners": [
+        "T10",
+        "T50"
+      ]
+    },
+    {
+      "id": "E016",
+      "trigger": "Missing dependency/cycle/unreachable binding",
+      "requiredObservation": "Compile failure with job/path",
+      "suites": [
+        "DOMAIN"
+      ],
+      "owners": [
+        "T10",
+        "T50"
+      ]
+    },
+    {
+      "id": "E017",
+      "trigger": "Binding points to future/unneeded job or missing field",
+      "requiredObservation": "Reject static unresolved path or runtime output; no empty substitution",
+      "suites": [
+        "DOMAIN"
+      ],
+      "owners": [
+        "T10",
+        "T50"
+      ]
+    },
+    {
+      "id": "E018",
+      "trigger": "Dangerous schema/network ref/regex complexity",
+      "requiredObservation": "Reject before activation; no schema SSRF",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T08",
+        "T10",
+        "T41",
+        "T50"
+      ]
+    },
+    {
+      "id": "E019",
+      "trigger": "Gate exists on one branch but does not dominate effect",
+      "requiredObservation": "Reject graph; runtime still exact-checks",
+      "suites": [
+        "DOMAIN"
+      ],
+      "owners": [
+        "T10",
+        "T50"
+      ]
+    },
+    {
+      "id": "E020",
+      "trigger": "Root jobs/old spec.nodes used",
+      "requiredObservation": "Unsupported-contract diagnostic; no converter or alternate runtime grammar",
+      "suites": [
+        "DOMAIN"
+      ],
+      "owners": [
+        "T08",
+        "T50"
+      ]
+    },
+    {
+      "id": "E021",
+      "trigger": "Config activation races another release",
+      "requiredObservation": "CAS conflict; one pointer update",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T11",
+        "T50"
+      ]
+    },
+    {
+      "id": "E022",
+      "trigger": "Mastra restarts with 100 pending gates",
+      "requiredObservation": "All waits restored; zero duplicate dispatch/effect",
+      "suites": [
+        "INTEGRATION",
+        "CHAOS"
+      ],
+      "owners": [
+        "T30",
+        "T50"
+      ]
+    },
+    {
+      "id": "E023",
+      "trigger": "Approval arrives before engine snapshot",
+      "requiredObservation": "Wake intent retained and eventually applied once",
+      "suites": [
+        "CHAOS"
+      ],
+      "owners": [
+        "T30",
+        "T50"
+      ]
+    },
+    {
+      "id": "E024",
+      "trigger": "Duplicate wake or old wait generation",
+      "requiredObservation": "No duplicate execution; old wait ignored/rejected",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T30",
+        "T50"
+      ]
+    },
+    {
+      "id": "E025",
+      "trigger": "Mastra registration/snapshot commit fails",
+      "requiredObservation": "Run blocked and reconcilable, not guessed success",
+      "suites": [
+        "CHAOS"
+      ],
+      "owners": [
+        "T30",
+        "T50"
+      ]
+    },
+    {
+      "id": "E026",
+      "trigger": "Current-build configuration disables a primitive referenced by a suspended run",
+      "requiredObservation": "Preserve pinned current-build definition/evidence or explicitly cancel; no historical code retention/conversion",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T11",
+        "T30",
+        "T50"
+      ]
+    },
+    {
+      "id": "E027",
+      "trigger": "Nested subgraph recursion/depth excess",
+      "requiredObservation": "Compilation/dispatch bounded and rejected",
+      "suites": [
+        "DOMAIN"
+      ],
+      "owners": [
+        "T10",
+        "T30",
+        "T50"
+      ]
+    },
+    {
+      "id": "E028",
+      "trigger": "Cancel before delayed workspace create/start",
+      "requiredObservation": "Tombstone prevents resurrection",
+      "suites": [
+        "CHAOS"
+      ],
+      "owners": [
+        "T07",
+        "T30",
+        "T31",
+        "T50"
+      ]
+    },
+    {
+      "id": "E029",
+      "trigger": "Retry limit or workflow deadline reached",
+      "requiredObservation": "Stable blocked/failed result with evidence; no loop",
+      "suites": [
+        "DOMAIN"
+      ],
+      "owners": [
+        "T10",
+        "T30",
+        "T50"
+      ]
+    },
+    {
+      "id": "E030",
+      "trigger": "DST skipped/repeated hour and cron backlog",
+      "requiredObservation": "Declared misfire policy, unique fire identity, bounded catch-up",
+      "suites": [
+        "DOMAIN"
+      ],
+      "owners": [
+        "T19",
+        "T50"
+      ]
+    },
+    {
+      "id": "E031",
+      "trigger": "Two runners claim same queued job",
+      "requiredObservation": "One offer and one active attempt",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T17",
+        "T50"
+      ]
+    },
+    {
+      "id": "E032",
+      "trigger": "Concurrent jobs exceed CPU/RAM/disk/slots",
+      "requiredObservation": "Atomic reservations prevent oversubscription",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T17",
+        "T50"
+      ]
+    },
+    {
+      "id": "E033",
+      "trigger": "Runner advertises privileged group/capability",
+      "requiredObservation": "Cannot elevate registered trust or target permission",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T12",
+        "T15",
+        "T50"
+      ]
+    },
+    {
+      "id": "E034",
+      "trigger": "Capability/connectivity observation expires",
+      "requiredObservation": "Ineligible with accurate explain reason",
+      "suites": [
+        "DOMAIN"
+      ],
+      "owners": [
+        "T15",
+        "T16",
+        "T43",
+        "T50"
+      ]
+    },
+    {
+      "id": "E035",
+      "trigger": "No matching runner versus no capacity versus policy deny",
+      "requiredObservation": "Distinct queue reason, no cross-tenant inventory leak",
+      "suites": [
+        "DOMAIN",
+        "BROWSER"
+      ],
+      "owners": [
+        "T16",
+        "T36",
+        "T50"
+      ]
+    },
+    {
+      "id": "E036",
+      "trigger": "Offer times out without ACK",
+      "requiredObservation": "Release owned reservation, no consumed approval",
+      "suites": [
+        "CHAOS"
+      ],
+      "owners": [
+        "T17",
+        "T20",
+        "T50"
+      ]
+    },
+    {
+      "id": "E037",
+      "trigger": "Duplicate ACK/renew/completion",
+      "requiredObservation": "Same saved result; changed receipt conflicts",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T17",
+        "T50"
+      ]
+    },
+    {
+      "id": "E038",
+      "trigger": "New hello epoch while old process still runs",
+      "requiredObservation": "Old session fenced; process/effect reconciled",
+      "suites": [
+        "CHAOS"
+      ],
+      "owners": [
+        "T15",
+        "T18",
+        "T50"
+      ]
+    },
+    {
+      "id": "E039",
+      "trigger": "Heartbeat reorder, duplicate, same sequence changed body",
+      "requiredObservation": "Monotonic acceptance or protocol violation",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T15",
+        "T20",
+        "T50"
+      ]
+    },
+    {
+      "id": "E040",
+      "trigger": "Runner capacity/free slots is zero",
+      "requiredObservation": "Valid observation, no new admission",
+      "suites": [
+        "DOMAIN"
+      ],
+      "owners": [
+        "T15",
+        "T16",
+        "T50"
+      ]
+    },
+    {
+      "id": "E041",
+      "trigger": "Runner disconnect beyond lease",
+      "requiredObservation": "Local stop, global suspect state, no blind write retry",
+      "suites": [
+        "CHAOS"
+      ],
+      "owners": [
+        "T18",
+        "T20",
+        "T50"
+      ]
+    },
+    {
+      "id": "E042",
+      "trigger": "Stale lease/job fence reports success",
+      "requiredObservation": "Cannot finalize; late evidence quarantined",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T18",
+        "T50"
+      ]
+    },
+    {
+      "id": "E043",
+      "trigger": "Resource counter after lease deletion/reacquisition",
+      "requiredObservation": "Strictly increases; never reset",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T04",
+        "T14",
+        "T18",
+        "T50"
+      ]
+    },
+    {
+      "id": "E044",
+      "trigger": "Expired lease but unresolved target mutation",
+      "requiredObservation": "Conflict guard remains, competing effect blocked",
+      "suites": [
+        "CHAOS"
+      ],
+      "owners": [
+        "T18",
+        "T46",
+        "T50"
+      ]
+    },
+    {
+      "id": "E045",
+      "trigger": "Draining busy runner",
+      "requiredObservation": "No new claims, owned work allowed bounded finish",
+      "suites": [
+        "INTEGRATION",
+        "BROWSER"
+      ],
+      "owners": [
+        "T18",
+        "T36",
+        "T50"
+      ]
+    },
+    {
+      "id": "E046",
+      "trigger": "Quarantine during an active job",
+      "requiredObservation": "Credentials/permits revoked, stop recorded, outcome reconciled",
+      "suites": [
+        "SECURITY",
+        "CHAOS"
+      ],
+      "owners": [
+        "T18",
+        "T50"
+      ]
+    },
+    {
+      "id": "E047",
+      "trigger": "Long build and house task compete",
+      "requiredObservation": "Reserved house progress and no starvation",
+      "suites": [
+        "PERF"
+      ],
+      "owners": [
+        "T19",
+        "T49",
+        "T50"
+      ]
+    },
+    {
+      "id": "E048",
+      "trigger": "Malicious high priority workspace",
+      "requiredObservation": "Bounded priority/fairness; other workspace progresses",
+      "suites": [
+        "PERF"
+      ],
+      "owners": [
+        "T16",
+        "T19",
+        "T49",
+        "T50"
+      ]
+    },
+    {
+      "id": "E049",
+      "trigger": "More candidates than claim page limit",
+      "requiredObservation": "Fair cursor eventually finds eligible job",
+      "suites": [
+        "PERF"
+      ],
+      "owners": [
+        "T19",
+        "T49",
+        "T50"
+      ]
+    },
+    {
+      "id": "E050",
+      "trigger": "Counter overflow/time jumps",
+      "requiredObservation": "Stop allocation/permits, explicit operator health error",
+      "suites": [
+        "DOMAIN",
+        "CHAOS"
+      ],
+      "owners": [
+        "T04",
+        "T18",
+        "T50"
+      ]
+    },
+    {
+      "id": "E051",
+      "trigger": "Approval target/text/diff/tool/policy digest changes",
+      "requiredObservation": "New approval required",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T13",
+        "T14",
+        "T42",
+        "T50"
+      ]
+    },
+    {
+      "id": "E052",
+      "trigger": "Approval expires in queue or before tool effect",
+      "requiredObservation": "Permit denied, no mutation",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T13",
+        "T14",
+        "T50"
+      ]
+    },
+    {
+      "id": "E053",
+      "trigger": "Two permits consume one approval concurrently",
+      "requiredObservation": "Exactly one immutable consumption/invocation",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T14",
+        "T50"
+      ]
+    },
+    {
+      "id": "E054",
+      "trigger": "Permit committed but response lost",
+      "requiredObservation": "Same invocation returns original permit, no second consumption",
+      "suites": [
+        "CHAOS"
+      ],
+      "owners": [
+        "T14",
+        "T23",
+        "T50"
+      ]
+    },
+    {
+      "id": "E055",
+      "trigger": "Cancel/revoke between proposal and effect",
+      "requiredObservation": "Broker checks current permit; stops before effect where enforceable",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T14",
+        "T23",
+        "T43",
+        "T50"
+      ]
+    },
+    {
+      "id": "E056",
+      "trigger": "Crash after target mutation before receipt",
+      "requiredObservation": "Outcome unknown/readback, no generic retry",
+      "suites": [
+        "CHAOS"
+      ],
+      "owners": [
+        "T18",
+        "T23",
+        "T43",
+        "T46",
+        "T50"
+      ]
+    },
+    {
+      "id": "E057",
+      "trigger": "Target supports no CAS/idempotency/queryable receipt",
+      "requiredObservation": "Conservative serialized operation and explicit uncertainty",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T23",
+        "T43",
+        "T50"
+      ]
+    },
+    {
+      "id": "E058",
+      "trigger": "External branch/resource changes after preflight",
+      "requiredObservation": "Target precondition fails; no expanded operation",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T23",
+        "T50"
+      ]
+    },
+    {
+      "id": "E059",
+      "trigger": "Two workspaces alias same physical target",
+      "requiredObservation": "Same canonical conflict key",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T14",
+        "T23",
+        "T50"
+      ]
+    },
+    {
+      "id": "E060",
+      "trigger": "Human approves own high-risk authored change",
+      "requiredObservation": "Separation-of-duties policy enforced",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T12",
+        "T13",
+        "T50"
+      ]
+    },
+    {
+      "id": "E061",
+      "trigger": "Harness unsupported steer/resume/fork",
+      "requiredObservation": "Structured unsupported response and honest UI controls",
+      "suites": [
+        "INTEGRATION",
+        "BROWSER"
+      ],
+      "owners": [
+        "T24",
+        "T25",
+        "T26",
+        "T36",
+        "T50"
+      ]
+    },
+    {
+      "id": "E062",
+      "trigger": "Pi/Claude same synthetic task",
+      "requiredObservation": "Same structured outcome/evidence acceptance",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T25",
+        "T50"
+      ]
+    },
+    {
+      "id": "E063",
+      "trigger": "Malformed/truncated/duplicate harness event",
+      "requiredObservation": "Adapter contains error, retains diagnostics and bounded stream",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T24",
+        "T25",
+        "T26",
+        "T50"
+      ]
+    },
+    {
+      "id": "E064",
+      "trigger": "Provider rate limit/timeout/auth failure",
+      "requiredObservation": "Classified bounded behavior and usage uncertainty",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T25",
+        "T50"
+      ]
+    },
+    {
+      "id": "E065",
+      "trigger": "Agent subprocess daemonizes/ignores TERM/forks",
+      "requiredObservation": "Owned cgroup/VM killed; slot not reused before proof",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T21",
+        "T24",
+        "T50"
+      ]
+    },
+    {
+      "id": "E066",
+      "trigger": "Tool shell injection, flags, Git hooks/config",
+      "requiredObservation": "Fixed argv/resource loader and denied bypass",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T21",
+        "T22",
+        "T50"
+      ]
+    },
+    {
+      "id": "E067",
+      "trigger": "Sandbox probes host secret/Docker socket/metadata network",
+      "requiredObservation": "Kernel/network denial, no host access",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T21",
+        "T50"
+      ]
+    },
+    {
+      "id": "E068",
+      "trigger": "Tool exit 0 with invalid JSON/schema or oversized output",
+      "requiredObservation": "Failed evidence; bounded bytes, no Done",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T22",
+        "T50"
+      ]
+    },
+    {
+      "id": "E069",
+      "trigger": "Tool exit nonzero after observed mutation",
+      "requiredObservation": "Partial/unknown, no safe-read retry path",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T22",
+        "T50"
+      ]
+    },
+    {
+      "id": "E070",
+      "trigger": "Budget oversubscription across parent/children",
+      "requiredObservation": "Atomic reservations; depth/turn/cost limits stop new work",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T12",
+        "T50"
+      ]
+    },
+    {
+      "id": "E071",
+      "trigger": "Context compaction/fallback after dirty code change",
+      "requiredObservation": "Verified checkpoint, new attempt, no file ownership loss",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T24",
+        "T50"
+      ]
+    },
+    {
+      "id": "E072",
+      "trigger": "Runner spool full or slow consumer",
+      "requiredObservation": "Backpressure/bounded stop, durable effect events retained",
+      "suites": [
+        "CHAOS",
+        "PERF"
+      ],
+      "owners": [
+        "T20",
+        "T24",
+        "T49",
+        "T50"
+      ]
+    },
+    {
+      "id": "E073",
+      "trigger": "Author tries to submit its own verdict/change golden tests",
+      "requiredObservation": "Rejected by evaluator identity and immutable fixtures",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T28",
+        "T31",
+        "T37",
+        "T44",
+        "T50"
+      ]
+    },
+    {
+      "id": "E074",
+      "trigger": "Evidence artifact absent/changed/partially uploaded",
+      "requiredObservation": "No verified verdict/Done",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T27",
+        "T28",
+        "T31",
+        "T37",
+        "T44",
+        "T50"
+      ]
+    },
+    {
+      "id": "E075",
+      "trigger": "Same evidence with changed verdict/check digest",
+      "requiredObservation": "Immutable conflict/new bundle, no silent overwrite",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T27",
+        "T28",
+        "T31",
+        "T37",
+        "T44",
+        "T50"
+      ]
+    },
+    {
+      "id": "E076",
+      "trigger": "Three retries versus three independent successful operations",
+      "requiredObservation": "Only distinct verified originals count; one candidate",
+      "suites": [
+        "DOMAIN"
+      ],
+      "owners": [
+        "T40",
+        "T50"
+      ]
+    },
+    {
+      "id": "E077",
+      "trigger": "Two concurrent third observations",
+      "requiredObservation": "One unique quarantined candidate",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T40",
+        "T50"
+      ]
+    },
+    {
+      "id": "E078",
+      "trigger": "Memory scoped incorrectly/cached ACL revoked",
+      "requiredObservation": "Deny including caches and direct asset lookup",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T38",
+        "T39",
+        "T50"
+      ]
+    },
+    {
+      "id": "E079",
+      "trigger": "TencentDB down/FTS5 missing/index pending",
+      "requiredObservation": "Explicit degraded state, no false empty-success guarantee",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T38",
+        "T39",
+        "T50"
+      ]
+    },
+    {
+      "id": "E080",
+      "trigger": "Memory injection/secret promotion/cross-org global sharing",
+      "requiredObservation": "Advisory only; scrub/review/authorization gate",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T38",
+        "T39",
+        "T50"
+      ]
+    },
+    {
+      "id": "E081",
+      "trigger": "Upstream memory export lacks Wiki/index components",
+      "requiredObservation": "Partial manifest with named omissions",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T38",
+        "T39",
+        "T47",
+        "T50"
+      ]
+    },
+    {
+      "id": "E082",
+      "trigger": "Duplicate/out-of-order webhook/poll result",
+      "requiredObservation": "One observation, gap recovery and cursor correctness",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T41",
+        "T42",
+        "T43",
+        "T46",
+        "T50"
+      ]
+    },
+    {
+      "id": "E083",
+      "trigger": "Support draft changed after review/missing-evidence request repeats",
+      "requiredObservation": "Fresh exact approval; one request per signature",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T42",
+        "T50"
+      ]
+    },
+    {
+      "id": "E084",
+      "trigger": "SLA reopen, DST, responsibility pause, late correction",
+      "requiredObservation": "Deterministic interval/calendar recomputation",
+      "suites": [
+        "DOMAIN"
+      ],
+      "owners": [
+        "T42",
+        "T50"
+      ]
+    },
+    {
+      "id": "E085",
+      "trigger": "Global commit before workspace outage / duplicate delivery",
+      "requiredObservation": "Durable queued receipt and one projection after recovery",
+      "suites": [
+        "CHAOS"
+      ],
+      "owners": [
+        "T07",
+        "T50"
+      ]
+    },
+    {
+      "id": "E086",
+      "trigger": "Event ID collision/different payload or aggregate gap",
+      "requiredObservation": "Quarantine/park and repair; no corrupt projection",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T07",
+        "T46",
+        "T50"
+      ]
+    },
+    {
+      "id": "E087",
+      "trigger": "Disk full/SQLITE_BUSY/corruption during claim/permit",
+      "requiredObservation": "No partial authority commit, fail closed, diagnostic",
+      "suites": [
+        "CHAOS"
+      ],
+      "owners": [
+        "T04",
+        "T48",
+        "T50"
+      ]
+    },
+    {
+      "id": "E088",
+      "trigger": "Snapshot copied without WAL/consistency watermark",
+      "requiredObservation": "Restore validation refuses incomplete claim",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T47",
+        "T50"
+      ]
+    },
+    {
+      "id": "E089",
+      "trigger": "Restore suspended run and old approvals/runner credentials",
+      "requiredObservation": "History preserved, execution stays disabled until fresh authority",
+      "suites": [
+        "CHAOS"
+      ],
+      "owners": [
+        "T47",
+        "T50"
+      ]
+    },
+    {
+      "id": "E090",
+      "trigger": "CAS GC races upload/live evidence/backup",
+      "requiredObservation": "Referenced bytes retained; incomplete upload never published",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T27",
+        "T47",
+        "T50"
+      ]
+    },
+    {
+      "id": "E091",
+      "trigger": "SSE reconnect/gap/retention expiry and changed filters",
+      "requiredObservation": "Correct replay/reset and authorized snapshot",
+      "suites": [
+        "BROWSER"
+      ],
+      "owners": [
+        "T32",
+        "T34",
+        "T50"
+      ]
+    },
+    {
+      "id": "E092",
+      "trigger": "Slow SSE/log viewer with long transcript",
+      "requiredObservation": "Bounded server/client memory, scroll selection preserved",
+      "suites": [
+        "PERF",
+        "BROWSER"
+      ],
+      "owners": [
+        "T34",
+        "T36",
+        "T49",
+        "T50"
+      ]
+    },
+    {
+      "id": "E093",
+      "trigger": "NewUI AppShell desktop collapse/mobile drawer; list → detail → decision → Back",
+      "requiredObservation": "One navigation model, correct focus restoration, all tasks usable at 390/768/1440",
+      "suites": [
+        "BROWSER"
+      ],
+      "owners": [
+        "T33",
+        "T34",
+        "T37",
+        "T50"
+      ]
+    },
+    {
+      "id": "E094",
+      "trigger": "Approval becomes stale while page is open",
+      "requiredObservation": "Approve disabled/revalidated, note preserved",
+      "suites": [
+        "BROWSER"
+      ],
+      "owners": [
+        "T35",
+        "T50"
+      ]
+    },
+    {
+      "id": "E095",
+      "trigger": "Decision committed but response times out",
+      "requiredObservation": "UI queries same key; one decision",
+      "suites": [
+        "BROWSER"
+      ],
+      "owners": [
+        "T35",
+        "T50"
+      ]
+    },
+    {
+      "id": "E096",
+      "trigger": "Offline PWA/service-worker update/push denied",
+      "requiredObservation": "No offline approval, safe refresh and visible fallback",
+      "suites": [
+        "BROWSER"
+      ],
+      "owners": [
+        "T35",
+        "T45",
+        "T50"
+      ]
+    },
+    {
+      "id": "E097",
+      "trigger": "UIConfig/build/image binding; NewUI production CSS/theme, dialogs/board/chart, RTL/long labels and text zoom",
+      "requiredObservation": "Reject unknown foundation, manifest drift and unavailable default locale; correct public exports/styles, keyboard/focus/contrast/layout, no duplicate primitive system",
+      "suites": [
+        "DOMAIN",
+        "INTEGRATION",
+        "BROWSER"
+      ],
+      "owners": [
+        "T09",
+        "T11",
+        "T33",
+        "T34",
+        "T37",
+        "T48",
+        "T50"
+      ]
+    },
+    {
+      "id": "E098",
+      "trigger": "TV token tries mutation/private ticket read",
+      "requiredObservation": "Read-only redacted scope enforced",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T45",
+        "T50"
+      ]
+    },
+    {
+      "id": "E099",
+      "trigger": "Declared workload and 10× history",
+      "requiredObservation": "Proposed p95/p99/resource budgets measured or honest lower limits",
+      "suites": [
+        "PERF"
+      ],
+      "owners": [
+        "T49",
+        "T50"
+      ]
+    },
+    {
+      "id": "E100",
+      "trigger": "Runner/build/schema contract differs from the supported target",
+      "requiredObservation": "Refuse mismatched execution with diagnostics; no cross-version normalization or upgrade path",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T26",
+        "T48",
+        "T50"
+      ]
+    }
+  ],
+  "executionStatusSource": "artifacts/runtime/*/manifest.json"
+}

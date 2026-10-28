@@ -1,0 +1,62 @@
+{
+  "contractVersion": "brain.verification-run/v1",
+  "gateId": "G02",
+  "status": "passed",
+  "productFingerprint": "sha256:2369b7e108abdd4a36d3b4534ace880a4b6e6cb83dfb9b6485f1fd7a905754ea",
+  "lockDigest": "sha256:1d784f4bbcec55eb5d00c2f85d78393a9e8aac76426ea58236b59c7fe1fb2daa",
+  "startedAt": "2026-10-28T04:03:10.276Z",
+  "finishedAt": "2026-10-28T04:03:12.283Z",
+  "commands": [
+    {
+      "argv": [
+        "node",
+        "-e",
+        "const p=require('better-sqlite3');const db=p(':memory:');const v=db.prepare('select sqlite_version() v').get().v;const o=db.prepare('pragma compile_options').all().map(r=>Object.values(r)[0]);if(!o.includes('ENABLE_FTS5'))throw new Error('FTS5 not compiled in');console.log('sqlite_version',v,'compile_options',o.join(','));"
+      ],
+      "exitCode": 0,
+      "durationMs": 31
+    },
+    {
+      "argv": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "tests/integration/scenarios3.test.ts"
+      ],
+      "exitCode": 0,
+      "durationMs": 1964
+    }
+  ],
+  "checks": [
+    {
+      "id": "embedded-engine-versions",
+      "passed": true
+    },
+    {
+      "id": "wal-fix-and-stress",
+      "passed": true
+    },
+    {
+      "id": "fts5-where-required",
+      "passed": true
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "artifacts/runtime/G02/embedded-engine-versions.log",
+      "digest": "sha256:f35c3c78ac61e5f7ee683b2fb5522d2dc4a2c42a55818dfebd62c4bca53184c3"
+    },
+    {
+      "path": "artifacts/runtime/G02/wal-fix-and-stress.log",
+      "digest": "sha256:23026e9369e507a07606802154455eb50427444e1bf847466e5087861b2a67a6"
+    }
+  ],
+  "selectedScenarios": [
+    "E087"
+  ],
+  "executedScenarios": [
+    "E087"
+  ],
+  "skippedScenarios": []
+}

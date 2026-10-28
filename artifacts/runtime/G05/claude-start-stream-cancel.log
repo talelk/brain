@@ -1,0 +1,14 @@
+$ pnpm exec vitest run tests/probes/harnesses/claude.test.ts
+(cwd=/home/talel/dev/rd2026/brain)
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.5 [39m[90m/home/talel/dev/rd2026/brain[39m
+
+ [32m✓[39m tests/probes/harnesses/claude.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 8731[2mms[22m[39m
+   [32m✓[39m G05 claude Agent SDK, same synthetic task as Pi (E062) [2m(1)[22m
+     [33m[2m✓[22m[39m completes an exact one-shot prompt via the SDK[33m 8729[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m   Start at [22m 05:03:32
+[2m   Duration [22m 8.83s[2m (tests 100%)[22m
+
