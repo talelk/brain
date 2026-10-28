@@ -1,0 +1,65 @@
+{
+ "contractVersion": "brain.verification-run/v1",
+ "createdAt": "2026-10-28T13:35:00Z",
+ "source": {
+  "gitHead": "09d2a3841a5462733b67074a5ace7b4712967e8e",
+  "dirtyWorktree": false,
+  "lockfile": "pnpm-lock.yaml (frozen install)"
+ },
+ "environment": "Linux sandbox; Docker 28.5.1 daemon reachable; Chromium Playwright runs",
+ "executed": [
+  {
+   "command": "pnpm verify:fast",
+   "scope": "typecheck(root+web+browser), boundary check, auth schema check, contracts + domain tests",
+   "result": "pass"
+  },
+  {
+   "command": "pnpm test:integration",
+   "result": "pass",
+   "tests": 137,
+   "files": 31,
+   "notes": "includes tests/integration/golden.test.ts real-socket wire test (previously misreported as environment-blocked) and tests/integration/scheduler.test.ts"
+  },
+  {
+   "command": "pnpm test:security",
+   "result": "pass",
+   "tests": 51,
+   "files": 15
+  },
+  {
+   "command": "pnpm test:chaos",
+   "result": "pass",
+   "tests": 32,
+   "files": 10,
+   "notes": "includes tests/chaos/runner-spool.test.ts durable event journal"
+  },
+  {
+   "command": "pnpm lint",
+   "result": "pass",
+   "notes": "eslint --max-warnings 0"
+  },
+  {
+   "command": "pnpm build",
+   "result": "pass",
+   "notes": "production web build; shell 83 KiB gzip + pages 79 KiB gzip chunks"
+  },
+  {
+   "command": "pnpm exec playwright test",
+   "result": "pass",
+   "tests": 79,
+   "skipped": 2,
+   "notes": "full matrix 390/768/1440 x light/dark against a real Governor; skips are the intentional 390 pointer-drag cases; one drag retry observed"
+  },
+  {
+   "command": "pnpm exec vitest run tests/probes/sandbox/launcher-exec.test.ts",
+   "result": "pass",
+   "notes": "real Docker execution: token-authenticated Unix-socket launcher, ephemeral read-only container, /tools mount, exec, confirmed stop"
+  }
+ ],
+ "notRun": [
+  "3x10-minute workload/fault trials with latency/CPU/RSS/WAL measurement",
+  "Qwen/OpenCode model qualification in a disposable workspace",
+  "browser-suite execution under docker-compose (scripts/up.sh) topology"
+ ],
+ "gateStatus": "G01-G08 remain active: this record binds executed command evidence to the current source, but gate completion additionally requires the notRun items and per-scenario audit."
+}

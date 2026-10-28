@@ -1,10 +1,33 @@
-# Runtime status and continuation — 2026-10-27
+# Runtime status and continuation — 2026-10-28
 
 The repository now contains runtime code for Governor, runners, launcher, CLI and the NewUI-backed Solid app. It remains an incomplete implementation. Earlier task `passed` labels and gate files overstated the available acceptance evidence. Documentation/contract checks, a named test, a standalone adapter probe and a production UI build each prove a limited property; none certifies the platform.
+
+## 28 October continuation
+
+The 27 October "environment-blocked" premises were retested and are stale: Chromium, localhost binding and the Docker daemon all work in this sandbox. The full integration suite including the real-socket golden test, the complete Playwright matrix, and a real-Docker launcher execution probe all pass; executed evidence is bound to source in `artifacts/implementation/verification-20261028/run-record.json`.
+
+Implemented this session, in dependency order:
+
+1. **Web (T33–T37/T39/T40/T42–T45).** The near-complete route tree that sat unwired in the working tree was fixed and brought live: all 22 contract routes generated from `ui-screen-contracts.json`, five primary areas with account-menu Settings and dedicated `/tv` kiosk entries, the shared RunDetail/SessionFeed/EvidenceList/PlacementPanel compositions, the 8-state ScreenRegion contract, scope-generation eviction on workspace switch or revocation, and real mutations (board create/move/comment, decisions, memory publish/revoke with a real publication form, member grant/revoke, config activate, tool propose/publish, runner drain/quarantine on `/runners/:id`, session steer/stop, approval revoke). QueueReason gained `READY` — `job.explain` always emitted it for placed jobs; the contract now says so. The approvals list no longer polls, so a background refresh cannot destroy an open review dialog.
+2. **Ledger truth pass.** Tasks whose whole behavior was not verified were demoted to `active` with precise remaining scope (runner path, evidence completion, restore, gates); 20 of 58 entries are now active.
+3. **Module extraction (T02 layout).** `modules/jobs` now owns runner identity/sessions (`protocol.ts`) and the attempt lifecycle (`attempts.ts`: fair claim, pinned execution artifacts, leases/fences, events, receipts, expiry); `modules/governance/permits.ts` owns effect-permit issuance and current-authority validation. `application/brain.ts` keeps a delegating facade; cross-module access goes through module indexes.
+4. **Runner execution path (T20/T22/T23).** The event spool is a fsynced per-attempt journal (replay after crash or failed delivery, shrink on acknowledgement only); the execution deadline derives from the ack/renew lease expiry on a monotonic clock and a watchdog aborts the in-flight job at deadline or lease loss, reporting `outcome_unknown` rather than success; effect-class tools require an attempt-scoped permit before execution; outputs are pinned into the CAS via `POST /runner/v1/attempts/:id/artifacts` (attempt-owned association).
+5. **Launcher (T21).** Bearer-token auth over the Unix socket, an exec endpoint with fixed argv, bounded stdin/stdout and a read-only `/tools` mount, sandbox-registry reconcile from labels after restart. The supervisor routes tools through the launcher when `BRAIN_LAUNCHER_SOCKET` is configured; effect-class tools refuse unsandboxed host bash (fail closed). Verified end-to-end with real Docker (`tests/probes/sandbox/launcher-exec.test.ts`).
+6. **Cron dispatch (T19 runtime).** `modules/jobs/scheduler.ts` fires release-declared Schedule documents exactly once per due minute with durable dedupe and an idempotent execution key; first sight anchors at now and persists the anchor (a re-anchoring pass would never fire — regression-tested). Wired into the maintenance loop.
 
 ## Active objective
 
 The active objective is **finalize all the implementation**. The full work plan and required gates remain in scope. No gate is complete merely because a module's local tests pass.
+
+## Required next work, ordered by dependency
+
+1. **Image/tool digest pinning and socket peer credentials (T21/T22)**; permit validation at a real tool-broker boundary (T23); engine adapter selection with harness events/cancel/checkpoints (T24).
+2. **Evidence completion (T27/T28/T31).** Runner-produced author bundles bound to uploaded attempt artifacts; production trust-domain verifier enabling real L2; revision/incomplete resubmission policy; explicit run/criterion bindings beyond the board path.
+3. **brain.ts decomposition continues**: queries, board/pack command application, CAS and release sections move to their owning modules as they are touched.
+4. **Complete restore (T47/G04/G07)**: knowledge/Mastra snapshot inventory, authority watermarks; fault-before/after-commit restore tests; second-restore test.
+5. **Operations completion (T41–T43)** remain blocked on live external systems (customer GitLab, monitoring targets, production Anthropic credential).
+6. **Gates (T49/T50/G01–G08).** Extend the executed verification record with the three 10-minute workload/fault trials, Qwen/OpenCode model qualification in a disposable workspace, and the per-scenario audit against actual observations before any gate returns to passed.
+
 
 ## Verified continuation
 
