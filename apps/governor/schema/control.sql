@@ -263,14 +263,14 @@ CREATE TABLE step_up_challenges (
   id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, auth_session_digest TEXT NOT NULL,
   approval_id TEXT NOT NULL REFERENCES approval_requests(id), subject_digest TEXT NOT NULL,
   expires_at_ms INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 5),
-  verified_at_ms INTEGER, factor_digest TEXT NOT NULL, auth_generation INTEGER NOT NULL
+  verified_at_ms INTEGER, factor_digest TEXT, auth_generation INTEGER NOT NULL
 ) STRICT;
 CREATE TABLE step_up_evidence (
   id TEXT PRIMARY KEY, challenge_id TEXT NOT NULL UNIQUE REFERENCES step_up_challenges(id),
   actor_id TEXT NOT NULL, auth_session_digest TEXT NOT NULL, subject_digest TEXT NOT NULL,
-  method TEXT NOT NULL CHECK(method='totp'), expires_at_ms INTEGER NOT NULL,
+  method TEXT NOT NULL CHECK(method IN ('session','totp')), expires_at_ms INTEGER NOT NULL,
   decision_id TEXT UNIQUE REFERENCES approval_decisions(id), revoked_at_ms INTEGER,
-  auth_session_id TEXT NOT NULL, auth_user_id TEXT NOT NULL, factor_digest TEXT NOT NULL, auth_generation INTEGER NOT NULL
+  auth_session_id TEXT NOT NULL, auth_user_id TEXT NOT NULL, factor_digest TEXT, auth_generation INTEGER NOT NULL
 ) STRICT;
 CREATE TABLE permit_credentials (
   permit_id TEXT PRIMARY KEY REFERENCES effect_permits(id), token_digest TEXT NOT NULL UNIQUE,

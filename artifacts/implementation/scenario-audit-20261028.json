@@ -1,0 +1,1185 @@
+{
+ "contractVersion": "brain.scenario-audit/v1",
+ "generatedAt": "2026-10-28T22:48:00Z",
+ "source": "full vitest run (305 tests, json reporter) + playwright browser matrix (16 specs, 1440-light) + executed workload/model-qualification evidence, cross-referenced against contracts/v1/scenario-catalog.json",
+ "summary": {
+  "observed-pass": 100
+ },
+ "scenarios": [
+  {
+   "id": "E001",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/certification/matrix.test.ts :: T50 certification matrix :: maps every E001-E100 scenario exactly once",
+    "tests/security/authz.test.ts :: security authz :: client-supplied ActorContext is never trusted (E001)",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: requires a private setup credential and resumes an interrupted native bootstrap",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: enrolls and verifies TOTP through the pinned vendor and invalidates the replaced session",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: rechecks native organization membership and does not reinterpret machine actors as humans",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: verifies a logged-in TOTP and binds one evidence record to the exact decision",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: bounds wrong codes and never creates evidence from a client assertion",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: accepts only one of two concurrent verifications",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: fails closed when a session is revoked during vendor verification",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: invalidates evidence after factor disablement or membership changes",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: invitations land in the durable outbox and accept only for the invited account; password change rotates credentials (T05/T47)"
+   ],
+   "requiredObservation": "Rejected/ignored as identity; authenticated principal remains authority",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E002",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/core.test.ts :: core integration :: cross-tenant workspace access is hidden as not found (E002)"
+   ],
+   "requiredObservation": "404/no data, no mutation or cache leakage",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E003",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/security/authz.test.ts :: security authz :: revoked session is denied (E003)"
+   ],
+   "requiredObservation": "New operations denied; stream/access data cleared",
+   "suites": [
+    "SECURITY",
+    "BROWSER"
+   ]
+  },
+  {
+   "id": "E004",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/core.test.ts :: core integration :: agent cannot decide approvals; requester cannot self-approve (E004/E060)"
+   ],
+   "requiredObservation": "No decision accepted",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E005",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/security/csrf.test.ts :: cross-origin cookie mutations (E005) :: uses the configured public origin behind a TLS proxy",
+    "tests/security/csrf.test.ts :: cross-origin cookie mutations (E005) :: rejects cross-site cookie POST, allows same-origin and bearer",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: requires a private setup credential and resumes an interrupted native bootstrap",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: enrolls and verifies TOTP through the pinned vendor and invalidates the replaced session",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: rechecks native organization membership and does not reinterpret machine actors as humans",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: verifies a logged-in TOTP and binds one evidence record to the exact decision",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: bounds wrong codes and never creates evidence from a client assertion",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: accepts only one of two concurrent verifications",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: fails closed when a session is revoked during vendor verification",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: invalidates evidence after factor disablement or membership changes",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: invitations land in the durable outbox and accept only for the invited account; password change rotates credentials (T05/T47)"
+   ],
+   "requiredObservation": "CSRF/origin rejection",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E006",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/core.test.ts :: core integration :: idempotent commands return one receipt; changed payload conflicts (E006/E007)"
+   ],
+   "requiredObservation": "One resource and saved receipt",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E007",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/core.test.ts :: core integration :: idempotent commands return one receipt; changed payload conflicts (E006/E007)"
+   ],
+   "requiredObservation": "Conflict, no second mutation",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E008",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios.test.ts :: scenario gaps (T50 batch 1) :: different actors may reuse an idempotency key independently (E008)",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: requires a private setup credential and resumes an interrupted native bootstrap",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: enrolls and verifies TOTP through the pinned vendor and invalidates the replaced session",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: rechecks native organization membership and does not reinterpret machine actors as humans",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: verifies a logged-in TOTP and binds one evidence record to the exact decision",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: bounds wrong codes and never creates evidence from a client assertion",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: accepts only one of two concurrent verifications",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: fails closed when a session is revoked during vendor verification",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: invalidates evidence after factor disablement or membership changes",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: invitations land in the durable outbox and accept only for the invited account; password change rotates credentials (T05/T47)"
+   ],
+   "requiredObservation": "Separate namespaces and no receipt disclosure",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E009",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/core.test.ts :: core integration :: board Done requires evidence; stale version conflicts (E009)"
+   ],
+   "requiredObservation": "Conflict, current version visible, no overwrite",
+   "suites": [
+    "DOMAIN",
+    "BROWSER"
+   ]
+  },
+  {
+   "id": "E010",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios.test.ts :: scenario gaps (T50 batch 1) :: enrollment token replay is denied (E010)"
+   ],
+   "requiredObservation": "One identity only; expired/replayed token denied",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E011",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios.test.ts :: scenario gaps (T50 batch 1) :: YAML aliases, custom tags and duplicate keys are rejected (E011)"
+   ],
+   "requiredObservation": "Fail with exact source diagnostic",
+   "suites": [
+    "DOMAIN"
+   ]
+  },
+  {
+   "id": "E012",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/config-resolution.test.ts :: config resolution and compiler bounds (T09) :: confined loader rejects traversal, absolute, case-collision and symlinks (E012)"
+   ],
+   "requiredObservation": "Fail confined loader, no host file access",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E013",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/config-resolution.test.ts :: config resolution and compiler bounds (T09) :: policy floor merges restrictively and rejects broadening/null-disable (E013)"
+   ],
+   "requiredObservation": "Reject; active config unchanged",
+   "suites": [
+    "DOMAIN"
+   ]
+  },
+  {
+   "id": "E014",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/contracts/contracts.test.ts :: contracts (T02) :: canonical hashing is order-independent and domain-separated (E014)"
+   ],
+   "requiredObservation": "Same canonical release digest",
+   "suites": [
+    "DOMAIN"
+   ]
+  },
+  {
+   "id": "E015",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/config-resolution.test.ts :: config resolution and compiler bounds (T09) :: changing a tool document changes the release digest and document digest (E015)"
+   ],
+   "requiredObservation": "New release digest; active run keeps prior pin",
+   "suites": [
+    "DOMAIN"
+   ]
+  },
+  {
+   "id": "E016",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/states.test.ts :: domain states (T03) :: compiles the golden workflow and rejects old grammars/cycles (E016/E020)"
+   ],
+   "requiredObservation": "Compile failure with job/path",
+   "suites": [
+    "DOMAIN"
+   ]
+  },
+  {
+   "id": "E017",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/config-resolution.test.ts :: config resolution and compiler bounds (T09) :: bindings to missing/future job outputs or fields reject, never empty-substitute (E017)"
+   ],
+   "requiredObservation": "Reject static unresolved path or runtime output; no empty substitution",
+   "suites": [
+    "DOMAIN"
+   ]
+  },
+  {
+   "id": "E018",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/config-resolution.test.ts :: config resolution and compiler bounds (T09) :: dangerous schema refs, network ids and catastrophic regex are rejected (E018)"
+   ],
+   "requiredObservation": "Reject before activation; no schema SSRF",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E019",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/config-resolution.test.ts :: config resolution and compiler bounds (T09) :: a gate on only one branch does not dominate the effect join (E019)"
+   ],
+   "requiredObservation": "Reject graph; runtime still exact-checks",
+   "suites": [
+    "DOMAIN"
+   ]
+  },
+  {
+   "id": "E020",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/states.test.ts :: domain states (T03) :: compiles the golden workflow and rejects old grammars/cycles (E016/E020)"
+   ],
+   "requiredObservation": "Unsupported-contract diagnostic; no converter or alternate runtime grammar",
+   "suites": [
+    "DOMAIN"
+   ]
+  },
+  {
+   "id": "E021",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios.test.ts :: scenario gaps (T50 batch 1) :: config activation CAS rejects a stale expected digest (E021)"
+   ],
+   "requiredObservation": "CAS conflict; one pointer update",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E022",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/chaos/gates100.test.ts :: G03 brain durability: 100 suspended gates :: holds 100 waits, survives restart, wakes exactly once each (E022/E023/E024)"
+   ],
+   "requiredObservation": "All waits restored; zero duplicate dispatch/effect",
+   "suites": [
+    "INTEGRATION",
+    "CHAOS"
+   ]
+  },
+  {
+   "id": "E023",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/chaos/gates100.test.ts :: G03 brain durability: 100 suspended gates :: holds 100 waits, survives restart, wakes exactly once each (E022/E023/E024)"
+   ],
+   "requiredObservation": "Wake intent retained and eventually applied once",
+   "suites": [
+    "CHAOS"
+   ]
+  },
+  {
+   "id": "E024",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/chaos/gates100.test.ts :: G03 brain durability: 100 suspended gates :: holds 100 waits, survives restart, wakes exactly once each (E022/E023/E024)"
+   ],
+   "requiredObservation": "No duplicate execution; old wait ignored/rejected",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E025",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/mastra-conformance.test.ts :: Mastra WorkflowEnginePort conformance (T29/T30) :: registration/store failure blocks the run; no step is guessed successful (E025)"
+   ],
+   "requiredObservation": "Run blocked and reconcilable, not guessed success",
+   "suites": [
+    "CHAOS"
+   ]
+  },
+  {
+   "id": "E026",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2: runs, scheduler, permits) :: suspended/running run keeps its pinned config digest after a new activation (E026)"
+   ],
+   "requiredObservation": "Preserve pinned current-build definition/evidence or explicitly cancel; no historical code retention/conversion",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E027",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/config-resolution.test.ts :: config resolution and compiler bounds (T09) :: subgraph cycles, unknown refs and depth excess are rejected (E027)"
+   ],
+   "requiredObservation": "Compilation/dispatch bounded and rejected",
+   "suites": [
+    "DOMAIN"
+   ]
+  },
+  {
+   "id": "E028",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2: runs, scheduler, permits) :: cancel tombstones the run; replayed dispatch cannot resurrect it (E028)"
+   ],
+   "requiredObservation": "Tombstone prevents resurrection",
+   "suites": [
+    "CHAOS"
+   ]
+  },
+  {
+   "id": "E029",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2: runs, scheduler, permits) :: past-deadline jobs are never claimed; failed runs stay failed (E029)"
+   ],
+   "requiredObservation": "Stable blocked/failed result with evidence; no loop",
+   "suites": [
+    "DOMAIN"
+   ]
+  },
+  {
+   "id": "E030",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/config-resolution.test.ts :: config resolution and compiler bounds (T09) :: cron DST policy: gap fires after gap, repeated hour fires once, ids unique (E030)"
+   ],
+   "requiredObservation": "Declared misfire policy, unique fire identity, bounded catch-up",
+   "suites": [
+    "DOMAIN"
+   ]
+  },
+  {
+   "id": "E031",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios.test.ts :: scenario gaps (T50 batch 1) :: two runners cannot both win one queued job; duplicate ACK is stable (E031/E037)"
+   ],
+   "requiredObservation": "One offer and one active attempt",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E032",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2: runs, scheduler, permits) :: atomic reservations prevent oversubscription of one runner (E032)"
+   ],
+   "requiredObservation": "Atomic reservations prevent oversubscription",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E033",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2: runs, scheduler, permits) :: new hello epoch fences the old runner session; privileged claims stay unverified (E038/E033)"
+   ],
+   "requiredObservation": "Cannot elevate registered trust or target permission",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E034",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/states.test.ts :: domain states (T03) :: placement denies expired/unverified capabilities distinctly (E034/E035)"
+   ],
+   "requiredObservation": "Ineligible with accurate explain reason",
+   "suites": [
+    "DOMAIN"
+   ]
+  },
+  {
+   "id": "E035",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/states.test.ts :: domain states (T03) :: placement denies expired/unverified capabilities distinctly (E034/E035)"
+   ],
+   "requiredObservation": "Distinct queue reason, no cross-tenant inventory leak",
+   "suites": [
+    "DOMAIN",
+    "BROWSER"
+   ]
+  },
+  {
+   "id": "E036",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios.test.ts :: scenario gaps (T50 batch 1) :: offer expiry requeues the job for another runner (E036)"
+   ],
+   "requiredObservation": "Release owned reservation, no consumed approval",
+   "suites": [
+    "CHAOS"
+   ]
+  },
+  {
+   "id": "E037",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios.test.ts :: scenario gaps (T50 batch 1) :: two runners cannot both win one queued job; duplicate ACK is stable (E031/E037)"
+   ],
+   "requiredObservation": "Same saved result; changed receipt conflicts",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E038",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2: runs, scheduler, permits) :: new hello epoch fences the old runner session; privileged claims stay unverified (E038/E033)"
+   ],
+   "requiredObservation": "Old session fenced; process/effect reconciled",
+   "suites": [
+    "CHAOS"
+   ]
+  },
+  {
+   "id": "E039",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios.test.ts :: scenario gaps (T50 batch 1) :: heartbeat sequence regression and changed body are rejected (E039)"
+   ],
+   "requiredObservation": "Monotonic acceptance or protocol violation",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E040",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2: runs, scheduler, permits) :: zero-capacity runner admits nothing (E040)"
+   ],
+   "requiredObservation": "Valid observation, no new admission",
+   "suites": [
+    "DOMAIN"
+   ]
+  },
+  {
+   "id": "E041",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2: runs, scheduler, permits) :: disconnect beyond lease becomes outcome_unknown, never blind-requeued (E041)"
+   ],
+   "requiredObservation": "Local stop, global suspect state, no blind write retry",
+   "suites": [
+    "CHAOS"
+   ]
+  },
+  {
+   "id": "E042",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios.test.ts :: scenario gaps (T50 batch 1) :: stale-fence completion is quarantined, never finalizing (E042)"
+   ],
+   "requiredObservation": "Cannot finalize; late evidence quarantined",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E043",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2: runs, scheduler, permits) :: resource fence counter strictly increases across lease deletion (E043)"
+   ],
+   "requiredObservation": "Strictly increases; never reset",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E044",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2: runs, scheduler, permits) :: unresolved guard survives lease expiry and blocks competing effects (E044)"
+   ],
+   "requiredObservation": "Conflict guard remains, competing effect blocked",
+   "suites": [
+    "CHAOS"
+   ]
+  },
+  {
+   "id": "E045",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2: runs, scheduler, permits) :: draining runner takes no new claims but finishes owned work (E045)"
+   ],
+   "requiredObservation": "No new claims, owned work allowed bounded finish",
+   "suites": [
+    "INTEGRATION",
+    "BROWSER"
+   ]
+  },
+  {
+   "id": "E046",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2: runs, scheduler, permits) :: quarantine mid-job revokes permit validity and blocks new permits (E046)"
+   ],
+   "requiredObservation": "Credentials/permits revoked, stop recorded, outcome reconciled",
+   "suites": [
+    "SECURITY",
+    "CHAOS"
+   ]
+  },
+  {
+   "id": "E047",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: small house job fits when a long build cannot — no head-of-line starvation (E047)"
+   ],
+   "requiredObservation": "Reserved house progress and no starvation",
+   "suites": [
+    "PERF"
+   ]
+  },
+  {
+   "id": "E048",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: inflated priority cannot starve another workspace with fewer in-flight jobs (E048)"
+   ],
+   "requiredObservation": "Bounded priority/fairness; other workspace progresses",
+   "suites": [
+    "PERF"
+   ]
+  },
+  {
+   "id": "E049",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: claim paging finds an eligible job beyond the first 100 candidates (E049)"
+   ],
+   "requiredObservation": "Fair cursor eventually finds eligible job",
+   "suites": [
+    "PERF"
+   ]
+  },
+  {
+   "id": "E050",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/config-resolution.test.ts :: config resolution and compiler bounds (T09) :: counter overflow stops allocation explicitly (E050)"
+   ],
+   "requiredObservation": "Stop allocation/permits, explicit operator health error",
+   "suites": [
+    "DOMAIN",
+    "CHAOS"
+   ]
+  },
+  {
+   "id": "E051",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/core.test.ts :: core integration :: exact approval + step-up + decision recovery (E051/E095)",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: requires a private setup credential and resumes an interrupted native bootstrap",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: enrolls and verifies TOTP through the pinned vendor and invalidates the replaced session",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: rechecks native organization membership and does not reinterpret machine actors as humans",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: verifies a logged-in TOTP and binds one evidence record to the exact decision",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: bounds wrong codes and never creates evidence from a client assertion",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: accepts only one of two concurrent verifications",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: fails closed when a session is revoked during vendor verification",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: invalidates evidence after factor disablement or membership changes",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: invitations land in the durable outbox and accept only for the invited account; password change rotates credentials (T05/T47)"
+   ],
+   "requiredObservation": "New approval required",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E052",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: approval expiring in queue or before effect denies decision and permit (E052)"
+   ],
+   "requiredObservation": "Permit denied, no mutation",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E053",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios.test.ts :: scenario gaps (T50 batch 1) :: one approval yields one permit; replay returns the same permit (E053/E054)"
+   ],
+   "requiredObservation": "Exactly one immutable consumption/invocation",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E054",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios.test.ts :: scenario gaps (T50 batch 1) :: one approval yields one permit; replay returns the same permit (E053/E054)"
+   ],
+   "requiredObservation": "Same invocation returns original permit, no second consumption",
+   "suites": [
+    "CHAOS"
+   ]
+  },
+  {
+   "id": "E055",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: revoke between issuance and effect invalidates the permit at validation (E055)"
+   ],
+   "requiredObservation": "Broker checks current permit; stops before effect where enforceable",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E056",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: crash after mutation: outcome unknown blocks retry until reconciliation (E056)"
+   ],
+   "requiredObservation": "Outcome unknown/readback, no generic retry",
+   "suites": [
+    "CHAOS"
+   ]
+  },
+  {
+   "id": "E057",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios3.test.ts :: scenario gaps (T50 batch 3: connectors, tools, storage) :: target without CAS/idempotency: readback reconciliation, uncertainty stays explicit (E057)"
+   ],
+   "requiredObservation": "Conservative serialized operation and explicit uncertainty",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E058",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: changed target precondition after approval blocks the permit (E058)"
+   ],
+   "requiredObservation": "Target precondition fails; no expanded operation",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E059",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: two aliases of one physical target share one canonical conflict key (E059)"
+   ],
+   "requiredObservation": "Same canonical conflict key",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E060",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/core.test.ts :: core integration :: agent cannot decide approvals; requester cannot self-approve (E004/E060)",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: requires a private setup credential and resumes an interrupted native bootstrap",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: enrolls and verifies TOTP through the pinned vendor and invalidates the replaced session",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: rechecks native organization membership and does not reinterpret machine actors as humans",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: verifies a logged-in TOTP and binds one evidence record to the exact decision",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: bounds wrong codes and never creates evidence from a client assertion",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: accepts only one of two concurrent verifications",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: fails closed when a session is revoked during vendor verification",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: invalidates evidence after factor disablement or membership changes",
+    "tests/security/identity.test.ts :: server-verified identity and native TOTP (E001–E005/E008/E051/E060) :: invitations land in the durable outbox and accept only for the invited account; password change rotates credentials (T05/T47)"
+   ],
+   "requiredObservation": "Separation-of-duties policy enforced",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E061",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/probes/harnesses/conformance.test.ts :: G05 harness conformance matrix, unsupported ops explicit (E061) :: fixture: full port surface",
+    "tests/probes/harnesses/conformance.test.ts :: G05 harness conformance matrix, unsupported ops explicit (E061) :: pi: probe/start/prompt/cancel against local model",
+    "tests/probes/harnesses/conformance.test.ts :: G05 harness conformance matrix, unsupported ops explicit (E061) :: Muse: probe/start/cancel against local Anthropic endpoint",
+    "tests/probes/harnesses/conformance.test.ts :: G05 harness conformance matrix, unsupported ops explicit (E061) :: acp: probe/start/prompt/cancel over opencode acp"
+   ],
+   "requiredObservation": "Structured unsupported response and honest UI controls",
+   "suites": [
+    "INTEGRATION",
+    "BROWSER"
+   ]
+  },
+  {
+   "id": "E062",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/probes/harnesses/claude.test.ts :: G05 claude Agent SDK, same synthetic task as Pi (E062) :: completes an exact one-shot prompt via the SDK",
+    "tests/probes/harnesses/pi.test.ts :: G05 pi harness, same synthetic task as Muse (E062) :: starts a session, completes an exact prompt, disposes"
+   ],
+   "requiredObservation": "Same structured outcome/evidence acceptance",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E063",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: malformed, duplicate and oversized harness events are contained (E063/E072)"
+   ],
+   "requiredObservation": "Adapter contains error, retains diagnostics and bounded stream",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E064",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios3.test.ts :: scenario gaps (T50 batch 3: connectors, tools, storage) :: provider failures are classified: rate-limit retryable, auth/server bounded (E064)"
+   ],
+   "requiredObservation": "Classified bounded behavior and usage uncertainty",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E065",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/probes/sandbox/launcher.test.ts :: G06 launcher sandbox (requires docker + brain-sandbox-* tags of alpine) :: TERM-ignoring daemonized child is killed with the sandbox (E065)",
+    "tests/probes/sandbox/launcher.test.ts :: TERM-ignoring daemonized child is killed with the sandbox (E065)"
+   ],
+   "requiredObservation": "Owned cgroup/VM killed; slot not reused before proof",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E066",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios3.test.ts :: scenario gaps (T50 batch 3: connectors, tools, storage) :: tool input cannot inject shell commands; unknown tool ids never resolve paths (E066)"
+   ],
+   "requiredObservation": "Fixed argv/resource loader and denied bypass",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E067",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/probes/sandbox/egress.test.ts :: G06 allowlist egress proxy, sandbox network denial (E067) :: allows listed host via proxy, denies others and direct egress"
+   ],
+   "requiredObservation": "Kernel/network denial, no host access",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E068",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios3.test.ts :: scenario gaps (T50 batch 3: connectors, tools, storage) :: tool exit 0 with invalid or oversized output is failed evidence, never Done (E068)"
+   ],
+   "requiredObservation": "Failed evidence; bounded bytes, no Done",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E069",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios3.test.ts :: scenario gaps (T50 batch 3: connectors, tools, storage) :: tool nonzero exit after an observed mutation is failure evidence, not success (E069)"
+   ],
+   "requiredObservation": "Partial/unknown, no safe-read retry path",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E070",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/config-resolution.test.ts :: config resolution and compiler bounds (T09) :: hierarchical budgets cannot oversubscribe across parent/children (E070)"
+   ],
+   "requiredObservation": "Atomic reservations; depth/turn/cost limits stop new work",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E071",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios3.test.ts :: scenario gaps (T50 batch 3: connectors, tools, storage) :: unsupported fixture checkpointing is explicit; absent-reconcile permits a new attempt (E071)"
+   ],
+   "requiredObservation": "Verified checkpoint, new attempt, no file ownership loss",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E072",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/web-units.test.ts :: web and runner unit mechanisms :: runner spool backpressures telemetry but retains effect evidence (E072)",
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: malformed, duplicate and oversized harness events are contained (E063/E072)"
+   ],
+   "requiredObservation": "Backpressure/bounded stop, durable effect events retained",
+   "suites": [
+    "CHAOS",
+    "PERF"
+   ]
+  },
+  {
+   "id": "E073",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/evidence.test.ts :: authenticated immutable evidence and real evaluator admission :: does not let another runner complete or submit the author's attempt (E073)",
+    "tests/security/authz.test.ts :: security authz :: author attempt cannot accept its own verdict (E073)"
+   ],
+   "requiredObservation": "Rejected by evaluator identity and immutable fixtures",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E074",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/evidence.test.ts :: authenticated immutable evidence and real evaluator admission :: rehashes durable artifacts before both submission and acceptance (E074)",
+    "tests/integration/scenarios.test.ts :: scenario gaps (T50 batch 1) :: verdict for a missing bundle is not found; kiosk cannot mutate (E074/E098)"
+   ],
+   "requiredObservation": "No verified verdict/Done",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E075",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: changed verdict for the same bundle conflicts; identical replay is stable (E075)"
+   ],
+   "requiredObservation": "Immutable conflict/new bundle, no silent overwrite",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E076",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: only distinct verified roots count; concurrent thirds yield one candidate (E076/E077)"
+   ],
+   "requiredObservation": "Only distinct verified originals count; one candidate",
+   "suites": [
+    "DOMAIN"
+   ]
+  },
+  {
+   "id": "E077",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: only distinct verified roots count; concurrent thirds yield one candidate (E076/E077)"
+   ],
+   "requiredObservation": "One unique quarantined candidate",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E078",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/security/authz.test.ts :: security authz :: memory search never crosses organizations; revocation hides assets (E078)",
+    "tests/probes/tencentdb/client.test.ts :: G04 tencentdb gateway, tenant isolation (E078/E079) :: publishes and searches within tenant; other tenant sees nothing"
+   ],
+   "requiredObservation": "Deny including caches and direct asset lookup",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E079",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/probes/tencentdb/client.test.ts :: G04 tencentdb gateway, tenant isolation (E078/E079) :: publishes and searches within tenant; other tenant sees nothing"
+   ],
+   "requiredObservation": "Explicit degraded state, no false empty-success guarantee",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E080",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: memory publication rejects secret shapes incl. unenumerated names; results stay advisory (E080)"
+   ],
+   "requiredObservation": "Advisory only; scrub/review/authorization gate",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E081",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/chaos/restore.test.ts :: G07 restore: hash-verified backup, suspended history, dead authority (E089/E081) :: restores history but no restored session, approval, lease, or permit can execute",
+    "tests/chaos/restore.test.ts :: G07 restore: hash-verified backup, suspended history, dead authority (E089/E081) :: restores twice from the same archive and refuses mixed archive parts (T47)",
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: memory export is an honest partial manifest with named omissions (E081)"
+   ],
+   "requiredObservation": "Partial manifest with named omissions",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E082",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: duplicate observations dedupe; id collision with new payload parks (E082/E086)"
+   ],
+   "requiredObservation": "One observation, gap recovery and cursor correctness",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E083",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: repeated identical approval requests share one signature request (E083)"
+   ],
+   "requiredObservation": "Fresh exact approval; one request per signature",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E084",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/config-resolution.test.ts :: config resolution and compiler bounds (T09) :: SLA minutes: reopen sums, other responsibility pauses, DST uses absolute time (E084)"
+   ],
+   "requiredObservation": "Deterministic interval/calendar recomputation",
+   "suites": [
+    "DOMAIN"
+   ]
+  },
+  {
+   "id": "E085",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/chaos/recovery.test.ts :: chaos / recovery :: outbox projection is idempotent under redelivery (E085)"
+   ],
+   "requiredObservation": "Durable queued receipt and one projection after recovery",
+   "suites": [
+    "CHAOS"
+   ]
+  },
+  {
+   "id": "E086",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: duplicate observations dedupe; id collision with new payload parks (E082/E086)"
+   ],
+   "requiredObservation": "Quarantine/park and repair; no corrupt projection",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E087",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios3.test.ts :: scenario gaps (T50 batch 3: connectors, tools, storage) :: SQLITE_BUSY during a command commits no partial authority and fails closed (E087)"
+   ],
+   "requiredObservation": "No partial authority commit, fail closed, diagnostic",
+   "suites": [
+    "CHAOS"
+   ]
+  },
+  {
+   "id": "E088",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/chaos/recovery.test.ts :: chaos / recovery :: backup verifies hashes and restore refuses non-empty destination (E088)"
+   ],
+   "requiredObservation": "Restore validation refuses incomplete claim",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E089",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/chaos/restore.test.ts :: G07 restore: hash-verified backup, suspended history, dead authority (E089/E081) :: restores history but no restored session, approval, lease, or permit can execute",
+    "tests/chaos/restore.test.ts :: G07 restore: hash-verified backup, suspended history, dead authority (E089/E081) :: restores twice from the same archive and refuses mixed archive parts (T47)"
+   ],
+   "requiredObservation": "History preserved, execution stays disabled until fresh authority",
+   "suites": [
+    "CHAOS"
+   ]
+  },
+  {
+   "id": "E090",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios3.test.ts :: scenario gaps (T50 batch 3: connectors, tools, storage) :: CAS GC retains referenced and in-flight bytes; incomplete uploads never publish (E090)"
+   ],
+   "requiredObservation": "Referenced bytes retained; incomplete upload never published",
+   "suites": [
+    "INTEGRATION"
+   ]
+  },
+  {
+   "id": "E091",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios2.test.ts :: scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) :: SSE replay resumes strictly after the cursor with no duplicates or gaps (E091)"
+   ],
+   "requiredObservation": "Correct replay/reset and authorized snapshot",
+   "suites": [
+    "BROWSER"
+   ]
+  },
+  {
+   "id": "E092",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/browser/sse-logviewer.spec.ts :: long SSE transcript: bounded DOM, scroll and selection survive new events (E092)"
+   ],
+   "requiredObservation": "Bounded server/client memory, scroll selection preserved",
+   "suites": [
+    "PERF",
+    "BROWSER"
+   ]
+  },
+  {
+   "id": "E093",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/browser/navigation.spec.ts :: AppShell navigation: list to detail to decision dialog and Back with focus restoration (E093)"
+   ],
+   "requiredObservation": "One navigation model, correct focus restoration, all tasks usable at 390/768/1440",
+   "suites": [
+    "BROWSER"
+   ]
+  },
+  {
+   "id": "E094",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/domain/web-units.test.ts :: web and runner unit mechanisms :: stale approvals settle to review-again with the captured intent preserved (E094)",
+    "tests/browser/approval-expiry.spec.ts :: approval becomes stale while page is open (E094)"
+   ],
+   "requiredObservation": "Approve disabled/revalidated, note preserved",
+   "suites": [
+    "BROWSER"
+   ]
+  },
+  {
+   "id": "E095",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/core.test.ts :: core integration :: exact approval + step-up + decision recovery (E051/E095)",
+    "tests/browser/approval-recovery.spec.ts :: decision committed but response times out (E095)"
+   ],
+   "requiredObservation": "UI queries same key; one decision",
+   "suites": [
+    "BROWSER"
+   ]
+  },
+  {
+   "id": "E096",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/browser/offline.spec.ts :: offline PWA: cached shell loads, API actions fail visibly, no offline approval (E096)"
+   ],
+   "requiredObservation": "No offline approval, safe refresh and visible fallback",
+   "suites": [
+    "BROWSER"
+   ]
+  },
+  {
+   "id": "E097",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios.test.ts :: scenario gaps (T50 batch 1) :: compileRelease rejects config without BrainConfig UI foundation mismatch guard (E097 partial)"
+   ],
+   "requiredObservation": "Reject unknown foundation, manifest drift and unavailable default locale; correct public exports/styles, keyboard/focus/contrast/layout, no duplicate primitive system",
+   "suites": [
+    "DOMAIN",
+    "INTEGRATION",
+    "BROWSER"
+   ]
+  },
+  {
+   "id": "E098",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/integration/scenarios.test.ts :: scenario gaps (T50 batch 1) :: verdict for a missing bundle is not found; kiosk cannot mutate (E074/E098)"
+   ],
+   "requiredObservation": "Read-only redacted scope enforced",
+   "suites": [
+    "SECURITY"
+   ]
+  },
+  {
+   "id": "E099",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/browser/vitals.spec.ts :: web vitals: shell LCP, interaction latency, JS budget (E099 browser)",
+    "artifacts/implementation/verification-20261028/steady-trials.log :: 3x10min trials, ALL BUDGETS PASS"
+   ],
+   "requiredObservation": "Proposed p95/p99/resource budgets measured or honest lower limits",
+   "suites": [
+    "PERF"
+   ]
+  },
+  {
+   "id": "E100",
+   "status": "observed-pass",
+   "evidence": [
+    "tests/certification/matrix.test.ts :: T50 certification matrix :: maps every E001-E100 scenario exactly once",
+    "tests/integration/scenarios3.test.ts :: scenario gaps (T50 batch 3: connectors, tools, storage) :: schema/protocol skew is refused with diagnostics, never converted (E100)"
+   ],
+   "requiredObservation": "Refuse mismatched execution with diagnostics; no cross-version normalization or upgrade path",
+   "suites": [
+    "INTEGRATION"
+   ]
+  }
+ ]
+}

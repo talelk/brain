@@ -1,0 +1,8 @@
+AssertionError [ERR_ASSERTION]: operations-triage: workflow must finish with accepted independent evidence
++ actual - expected
+
++ 'failed'
+- 'succeeded'
+
+    at <anonymous> (/home/talel/dev/rd2026/brain/scripts/verify-operational.ts:105:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)

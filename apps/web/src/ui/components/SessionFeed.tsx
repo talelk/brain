@@ -52,17 +52,98 @@ export function SessionFeed(props: {
     return [...grouped.values()].sort((a, b) => a.at < b.at ? 1 : -1);
   });
 
-  let lastLength = 0;
+  let lastSeqSeen = 0;
+  let feedWrap: HTMLDivElement | undefined;
+  let selectionSnapshot: { eventId: string; start: number; end: number } | undefined;
+  const ITEM_SIZE = 64;
+  const scrollRegion = (): HTMLElement | undefined =>
+    feedWrap?.querySelector('[data-slot="virtual-list"]') as HTMLElement | undefined;
+  const eventRow = (node: Node | null): HTMLElement | null => {
+    const element = node instanceof Element ? node : node?.parentElement;
+    const row = element?.closest<HTMLElement>("[data-event-id]") ?? null;
+    return row && feedWrap?.contains(row) ? row : null;
+  };
+  const offsetWithin = (row: HTMLElement, node: Node, offset: number): number => {
+    const range = document.createRange();
+    range.selectNodeContents(row);
+    range.setEnd(node, offset);
+    return range.toString().length;
+  };
+  const textPosition = (row: HTMLElement, offset: number): { node: Node; offset: number } => {
+    const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+    let remaining = offset;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const length = node.textContent?.length ?? 0;
+      if (remaining <= length) return { node, offset: remaining };
+      remaining -= length;
+    }
+    return { node: row, offset: row.childNodes.length };
+  };
+  const onSelectionChange = (): void => {
+    const selection = window.getSelection();
+    const anchorRow = eventRow(selection?.anchorNode ?? null);
+    const focusRow = eventRow(selection?.focusNode ?? null);
+    if (!selection || selection.isCollapsed || !anchorRow || anchorRow !== focusRow || !selection.anchorNode || !selection.focusNode) {
+      selectionSnapshot = undefined;
+      return;
+    }
+    const anchor = offsetWithin(anchorRow, selection.anchorNode, selection.anchorOffset);
+    const focus = offsetWithin(anchorRow, selection.focusNode, selection.focusOffset);
+    selectionSnapshot = { eventId: anchorRow.dataset["eventId"]!, start: Math.min(anchor, focus), end: Math.max(anchor, focus) };
+  };
+  document.addEventListener("selectionchange", onSelectionChange);
+  onCleanup(() => document.removeEventListener("selectionchange", onSelectionChange));
   createEffect(() => {
-    const length = rows().length;
-    if (length > lastLength) {
-      const arrived = length - lastLength;
-      lastLength = length;
-      if (follow()) setNewCount(0);
-      else setNewCount((n) => n + arrived);
+    rows();
+    const snapshot = selectionSnapshot;
+    if (!snapshot) return;
+    const row = feedWrap?.querySelector<HTMLElement>(`[data-event-id="${CSS.escape(snapshot.eventId)}"]`);
+    if (!row) return;
+    const start = textPosition(row, snapshot.start);
+    const end = textPosition(row, snapshot.end);
+    const range = document.createRange();
+    range.setStart(start.node, start.offset);
+    range.setEnd(end.node, end.offset);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  });
+
+  // Scrolling away from the newest end pauses follow; returning to the top
+  // resumes it. New rows prepend (newest first), so staying at the top is
+  // staying current. Re-runs when the list mounts (rows go from empty to
+  // streaming, at which point the virtualiser viewport exists).
+  createEffect(() => {
+    void rows().length;
+    const el = scrollRegion();
+    if (!el) return;
+    const onScroll = (): void => {
+      const away = el.scrollTop > ITEM_SIZE;
+      if (away && follow()) setFollow(false);
+      else if (!away && !follow()) { setFollow(true); setNewCount(0); }
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    onCleanup(() => el.removeEventListener("scroll", onScroll));
+  });
+
+  // Arrivals are measured on the authoritative stream cursor, not the capped
+  // client buffer, so a burst beyond the retention window still counts.
+  createEffect(() => {
+    const seq = stream.lastSequence();
+    if (lastSeqSeen === 0) { lastSeqSeen = seq; return; }
+    const arrived = seq - lastSeqSeen;
+    lastSeqSeen = seq;
+    if (arrived <= 0) return;
+    if (follow()) setNewCount(0);
+    else {
+      setNewCount((n) => n + arrived);
+      // Prepending shifts what the reader is looking at; compensate so the
+      // viewport and any text selection stay pinned where they were.
+      const el = scrollRegion();
+      if (el) el.scrollTop += arrived * ITEM_SIZE;
     }
   });
-  onCleanup(() => { lastLength = 0; });
+  onCleanup(() => { lastSeqSeen = 0; });
 
   const terminal = () => props.session?.state === "stopped" || props.session?.state === "failed";
 
@@ -79,7 +160,7 @@ export function SessionFeed(props: {
           </div>
           <div class="flex items-center gap-control-gap">
             <Show when={!follow()}>
-              <Button onClick={() => { setFollow(true); setNewCount(0); }}>
+              <Button onClick={() => { setFollow(true); setNewCount(0); scrollRegion()?.scrollTo({ top: 0 }); }}>
                 Jump to newest{newCount() > 0 ? ` (${newCount()})` : ""}
               </Button>
             </Show>
@@ -89,19 +170,21 @@ export function SessionFeed(props: {
           </div>
         </div>
 
-        <VirtualList items={rows()} label={`Live events for session ${props.sessionId}`} itemSize={64} height="28rem"
-          loading={props.state.status === "loading"} emptyTitle="No events yet"
-          emptyDescription="Tool and state events stream in while this session runs.">
-          {(row) => (
-            <div class="flex h-full items-start gap-2 border-b border-outline-gray-1 py-2">
-              <Badge theme={row.kind === "tool" ? "blue" : row.kind === "state" ? "green" : "gray"} label={row.kind} />
-              <div class="min-w-0">
-                <p class="truncate text-base-medium text-ink-gray-9">{row.title}</p>
-                <p class="truncate text-caption text-ink-gray-7">{row.detail} · {new Date(row.at).toLocaleTimeString()}</p>
+        <div ref={feedWrap}>
+          <VirtualList items={rows()} label={`Live events for session ${props.sessionId}`} itemSize={ITEM_SIZE} height="28rem"
+            loading={props.state.status === "loading"} emptyTitle="No events yet"
+            emptyDescription="Tool and state events stream in while this session runs.">
+            {(row) => (
+              <div data-event-id={row.id} class="flex h-full items-start gap-2 border-b border-outline-gray-1 py-2">
+                <Badge theme={row.kind === "tool" ? "blue" : row.kind === "state" ? "green" : "gray"} label={row.kind} />
+                <div class="min-w-0">
+                  <p class="truncate text-base-medium text-ink-gray-9">{row.title}</p>
+                  <p class="truncate text-caption text-ink-gray-7">{row.detail} · {new Date(row.at).toLocaleTimeString()}</p>
+                </div>
               </div>
-            </div>
-          )}
-        </VirtualList>
+            )}
+          </VirtualList>
+        </div>
 
         <Show when={!terminal()} fallback={
           <Alert theme="gray" variant="outline" title={`Session ${props.session?.state ?? "closed"}`} description="Steering and stopping are unavailable once the session is terminal." />

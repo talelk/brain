@@ -128,6 +128,16 @@ export function heartbeat(s: Store, runner: { runnerId: string; epoch: number },
     if (seq === row.heartbeat_seq && row.heartbeat_digest === digest) return;
     if (seq <= row.heartbeat_seq) throw new BrainDomainError("CONFLICT", "heartbeat sequence regression or changed payload");
     s.control.prepare("UPDATE runners SET heartbeat_seq=?, heartbeat_digest=?, last_heartbeat_ms=? WHERE id=?").run(seq, digest, s.now(), runner.runnerId);
+    if (Array.isArray(body["capabilities"])) {
+      if (body["capabilities"].length > 128) throw new BrainDomainError("INVALID_CONTRACT", "too many capability observations");
+      s.control.prepare("DELETE FROM runner_capabilities WHERE runner_id=? AND source='runner-probe'").run(runner.runnerId);
+      for (const raw of body["capabilities"]) {
+        const cap = raw as { capability?: unknown; verified?: unknown };
+        if (typeof cap.capability !== "string" || !/^[a-zA-Z0-9:._-]{1,128}$/u.test(cap.capability)) throw new BrainDomainError("INVALID_CONTRACT", "invalid capability observation");
+        if (/^(privileged|admin|target|group|trust):/iu.test(cap.capability)) continue;
+        s.control.prepare("INSERT OR REPLACE INTO runner_capabilities(runner_id,capability,verified,source,observed_at_ms,expires_at_ms) VALUES (?,?,?,'runner-probe',?,?)").run(runner.runnerId,cap.capability,cap.verified === true ? 1 : 0,s.now(),s.now()+300000);
+      }
+    }
   });
   return { acceptedSequence: seq };
 }

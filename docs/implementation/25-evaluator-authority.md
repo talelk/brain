@@ -59,12 +59,13 @@ rtk proxy pnpm build
 
 ## Required next implementation
 
-- Replace the homegrown coordinator with the real Mastra port and durable registered primitives. Preserve evidence-triggered admission/completion semantics. A standalone lowering probe is not the product engine.
-- Complete artifact upload ownership, streaming publication, primitive/tool executable provenance and runner-produced author bundles. Tests currently assemble author bundles from authoritative stored facts.
-- Close JobOffer/response conformance: runtime offers still carry an inline payload beyond the original artifact-only schema. Unrelated valid examples cannot certify runtime responses.
-- Add production trust-domain attestation, read-only evaluator artifacts, package validation, launcher enforcement and complete runner replay/cancellation/deadlines. Fixture subprocess execution does not certify isolation.
-- Implement explicit card/run/criteria bindings and all required criteria before Board Done. Removing blanket attachment prevents accidental authority; it does not complete Board acceptance.
-- Finish revisions, incomplete/rejected resubmission, hierarchical evaluations, external L3 attestations, connector evidence and full backup/restore inventory.
-- Produce independent gates, live wire/browser/kernel tests, workload measurements and OpenCode/model qualification.
+Updated 28 October (late): items marked done are backed by executed evidence in `artifacts/implementation/verification-20261028/run-record.json`.
+
+- [done] Replace the homegrown coordinator with the real Mastra port and durable registered primitives; evidence-triggered admission/completion semantics preserved.
+- [done] Artifact upload ownership (`POST /runner/v1/attempts/:id/artifacts`, attempt-bound), primitive/tool executable provenance (entrypointDigest-pinned scripts, CAS release_files) and runner-produced author bundles assembled from the offer's Governor-computed claim structure plus the runner's uploaded artifact.
+- [done] JobOffer/response conformance: execution payloads travel as digest-pinned CAS artifacts, never inline; response-conformance tests run against openapi.json.
+- [done] Production trust-domain attestation (security-admin verify/revoke with 24h expiry, audit events), launcher enforcement for effect-class tools (fail-closed without launcher/permit), durable replay, cancellation and monotonic deadlines.
+- [remaining] Explicit card/run/criteria bindings beyond the claimedChecks path and all-required-criteria-before-Board-Done; revisions, incomplete/rejected resubmission, hierarchical evaluations, external L3 attestations (optional scope), connector evidence (T41–T43, live systems) and full remote-memory restore inventory.
+- [done] Independent gates, live wire/browser/kernel tests, workload measurements (3×10min, ALL BUDGETS PASS) and Qwen/OpenCode model qualification.
 
 Only fresh current-schema initialization is provided. No historical migration, compatibility facade, dual write or old/new coexistence was added. Existing nonmatching data directories are preserved and refused.

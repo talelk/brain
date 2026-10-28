@@ -1,5 +1,6 @@
+import { PaneLayout } from "@talelk/newui-templates";
 import type { JSX } from "solid-js";
-import { For, Show, createSignal } from "solid-js";
+import { Show, createEffect, createSignal } from "solid-js";
 import { Badge, Button, KeyValue, Textarea } from "@talelk/newui-atoms";
 import { Alert, Dialog, Timeline } from "@talelk/newui-molecules";
 import { DataTable, DetailHeader, Section } from "@talelk/newui-organisms";
@@ -20,6 +21,7 @@ export function ApprovalsScreen(props: {
   active: boolean;
   onRefresh: () => void;
   onOpen: (approvalId: string) => void;
+  requireTwoFactor?: boolean;
   verifyIdentity: (approvalId: string, subjectDigest: string, code: string) => Promise<string>;
   submitDecision: (intent: ApprovalIntent, stepUpEvidenceId: string) => Promise<ApprovalOutcome>;
   checkDecision: (intent: ApprovalIntent) => Promise<ApprovalOutcome>;
@@ -36,40 +38,25 @@ export function ApprovalsScreen(props: {
     version: String(approval.version),
   }));
 
-  return (
-    <Section title="Approvals awaiting review" description="Each review shows the exact action, target, content, expiry and required evidence before anything can be approved." surface="card">
-      <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No approvals awaiting review"
-        emptyDescription="Nothing is waiting on your decision right now."
-        emptyAction={<Button onClick={props.onRefresh}>Check again</Button>} onRetry={props.onRefresh}>
-        <DataTable title="Approvals" selectable hideSearch rows={rows()} columns={[
-          { id: "action", header: "Action", accessorKey: "action" },
-          { id: "target", header: "Target", accessorKey: "target" },
-          { id: "state", header: "State", accessorKey: "state" },
-          { id: "version", header: "Version", accessorKey: "version" },
-          { id: "expires", header: "Expires", accessorKey: "expires" },
-        ]} caption={`${props.approvals.length} pending`} actionLabel="Open" onRowsAction={(ids) => props.onOpen(ids[0] ?? "")} />
-
-        <div class="flex flex-col gap-field-gap pt-field">
-          <For each={props.approvals}>{(approval) => (
-            <article class="flex flex-col gap-control-gap border-b border-outline-gray-1 py-3 last:border-b-0">
-              <div class="flex flex-wrap items-center gap-control-gap">
-                <Badge theme={approval.state === "pending" ? "amber" : approval.state === "approved" ? "green" : "gray"} label={approval.state} />
-                <code class="text-caption">{approval.approvalId}</code>
-                <span class="text-caption text-ink-gray-7">v{approval.version} · expires <DateText value={approval.subject.expiresAt} asOf={props.asOf} /></span>
-              </div>
-              <ApprovalReview active={props.active} approvalId={approval.approvalId}
-                targetLabel={`${String((approval.subject as { operation?: string } | undefined)?.operation ?? "effect")} on ${String((approval.subject as { target?: { targetId?: string } } | undefined)?.target?.targetId ?? "record")}`}
-                exactContent={JSON.stringify(approval.subject, null, 2)} subjectDigest={approval.subjectDigest} version={approval.version}
-                /* Freshness is decided against the server clock, never the browser's. */
-                fresh={!props.state.error && approval.state === "pending" && isFreshFromServer(approval.subject.expiresAt, props.state.asOf ?? props.asOf)}
-                createIdempotencyKey={() => `web-${crypto.randomUUID()}`}
-                verifyIdentity={props.verifyIdentity} submitDecision={props.submitDecision} checkDecision={props.checkDecision} />
-            </article>
-          )}</For>
-        </div>
-      </ScreenRegion>
-    </Section>
-  );
+  const [selected,setSelected] = createSignal<string | undefined>();
+  createEffect(() => { if (selected() === undefined && props.approvals.length) setSelected(props.approvals[0]!.approvalId); });
+  const current = () => props.approvals.find((approval) => approval.approvalId === selected());
+  return <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No approvals awaiting review" emptyDescription="Nothing is waiting on your decision." onRetry={props.onRefresh}>
+    <PaneLayout active={current() ? "end" : "start"} start={<Section title="Approvals awaiting review" surface="card">
+      <DataTable title="Approvals" selectable hideSearch rows={rows()} columns={[
+        {id:"action",header:"Action",accessorKey:"action"},{id:"target",header:"Target",accessorKey:"target"},{id:"state",header:"State",accessorKey:"state"},
+      ]} actionLabel="Inspect" onRowsAction={(ids) => setSelected(ids[0] ?? "")} />
+    </Section>} end={<Show when={current()} keyed fallback={<p>Select an approval to inspect its exact effect.</p>}>{(approval) => <Section title="Exact approval review" surface="card">
+      <Button variant="ghost" onClick={() => setSelected("")}>Back to approvals</Button>
+      <KeyValue label="Approval" value={approval.approvalId} />
+      <Badge label={approval.state} /><pre class="whitespace-pre-wrap break-words">{JSON.stringify(approval.subject,null,2)}</pre>
+      <ApprovalReview active={props.active} requireTwoFactor={props.requireTwoFactor} approvalId={approval.approvalId}
+        targetLabel={String(approval.subject.operation)} exactContent={JSON.stringify(approval.subject,null,2)} subjectDigest={approval.subjectDigest} version={approval.version}
+        fresh={!props.state.error && approval.state === "pending" && isFreshFromServer(approval.subject.expiresAt,props.state.asOf ?? props.asOf)}
+        createIdempotencyKey={() => `web-${crypto.randomUUID()}`} verifyIdentity={props.verifyIdentity} submitDecision={props.submitDecision} checkDecision={props.checkDecision} />
+      <Button variant="outline" onClick={() => props.onOpen(approval.approvalId)}>Open approval history</Button>
+    </Section>}</Show>} />
+  </ScreenRegion>;
 }
 
 /**
@@ -88,6 +75,7 @@ export function ApprovalDetailScreen(props: {
   onBack: () => void;
   history: { id: string; action: string; actorId: string; occurredAt: string }[];
   onRevoke: (reason: string) => Promise<void>;
+  requireTwoFactor?: boolean;
   verifyIdentity: (approvalId: string, subjectDigest: string, code: string) => Promise<string>;
   submitDecision: (intent: ApprovalIntent, stepUpEvidenceId: string) => Promise<ApprovalOutcome>;
   checkDecision: (intent: ApprovalIntent) => Promise<ApprovalOutcome>;
@@ -123,14 +111,14 @@ export function ApprovalDetailScreen(props: {
             <KeyValue label="Version" value={String(approval()?.version ?? "—")} />
             <KeyValue label="Expires" value={<DateText value={approval()?.subject.expiresAt} asOf={props.asOf} />} />
             <KeyValue label="Requester" value={approval()?.requestedBy ?? "—"} />
-            <KeyValue label="Required evidence" value="A six-digit authenticator code plus the exact subject digest." />
+            <KeyValue label="Required evidence" value={props.requireTwoFactor ? "A six-digit authenticator code plus the exact subject digest." : "One-use evidence bound to this session and the exact subject digest."} />
           </div>
           <Show when={!fresh()}><Alert theme="red" variant="outline" title="This proposal is no longer valid" description="Expired approvals cannot be approved. Review the current proposal or ask for a new one." /></Show>
           <details class="rounded-card border border-outline-gray-2 p-card-pad">
             <summary class="cursor-pointer text-base-medium">Exact proposed content</summary>
             <pre class="whitespace-pre-wrap break-words pt-field text-caption">{exact()}</pre>
           </details>
-          <ApprovalReview active approvalId={approval()?.approvalId ?? ""} targetLabel={`${subject().operation ?? "effect"} on ${subject().target?.targetId ?? "record"}`}
+          <ApprovalReview requireTwoFactor={props.requireTwoFactor} active approvalId={approval()?.approvalId ?? ""} targetLabel={`${subject().operation ?? "effect"} on ${subject().target?.targetId ?? "record"}`}
             exactContent={exact()} subjectDigest={approval()?.subjectDigest ?? ""} version={approval()?.version ?? 0} fresh={fresh()}
             createIdempotencyKey={() => `web-${crypto.randomUUID()}`}
             verifyIdentity={props.verifyIdentity} submitDecision={props.submitDecision} checkDecision={props.checkDecision} />

@@ -32,6 +32,7 @@ export interface WorkflowPrimitivePort {
 }
 export interface EngineAdapter {
   readonly id: string;
+  readonly defaultModelId?: string;
   probe(): Promise<EngineInfo>;
   start(spec: EngineSessionSpec, signal: AbortSignal): Promise<{ sessionId: string }>;
   events(sessionId: string, afterSequence: number, signal: AbortSignal): AsyncIterable<EngineEvent>;

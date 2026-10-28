@@ -34,6 +34,8 @@ export const ROUTES: readonly RouteSpec[] = [
   { route: "/tv/support", title: "Support board", owner: "T45", queries: ["tickets.list", "sla.summary"], actions: [], navigationGroup: "tv", task: "Read scoped redacted monitoring" },
   { route: "/tv/sre", title: "SRE board", owner: "T45", queries: ["incidents.list"], actions: [], navigationGroup: "tv", task: "Read scoped redacted monitoring" },
   { route: "/w/:id/runs", title: "Runs", owner: "T36", queries: ["jobs.list", "sessions.list", "runners.list"], actions: ["workflow.dispatch"], navigationGroup: "runs", task: "Inspect a run, its attempts, events and evidence" },
+  { route: "/w/:id/agents", title: "Agents", owner: "T34", queries: ["agents.list", "agents.get"], actions: ["workflow.dispatch"], navigationGroup: "work", task: "Inspect active agent and workflow definitions and dispatch schema-validated inputs" },
+  { route: "/w/:id/workflows", title: "Workflows", owner: "T34", queries: ["workflows.list", "workflows.get"], actions: ["workflow.dispatch"], navigationGroup: "work", task: "Inspect active agent and workflow definitions and dispatch schema-validated inputs" },
 ]
 
 /** The five primary areas plus the account-menu Settings entry. */

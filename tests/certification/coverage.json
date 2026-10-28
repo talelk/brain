@@ -460,7 +460,7 @@
   {
    "id": "E092",
    "status": "covered",
-   "evidence": "tests/domain/web-units.test.ts"
+   "evidence": "tests/browser/sse-logviewer.spec.ts"
   },
   {
    "id": "E093",

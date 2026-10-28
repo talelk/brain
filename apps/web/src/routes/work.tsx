@@ -35,6 +35,7 @@ export function BoardScreen(props: {
   const [createOpen, setCreateOpen] = createSignal(false);
   const [title, setTitle] = createSignal("");
   const [criteria, setCriteria] = createSignal("");
+  const [expandedCards,setExpandedCards] = createSignal<string[]>([]);
   const [commentByCard, setCommentByCard] = createSignal<Record<string, string>>({});
   const [evidenceByCard, setEvidenceByCard] = createSignal<Record<string, string>>({});
   /** KanbanBoard items are keyed by `id`; Brain cards are keyed by `cardId`. */
@@ -75,6 +76,10 @@ export function BoardScreen(props: {
                     <p class="text-caption text-ink-green-8">evidence attached</p>
                     <EvidenceList bundleDigest={card.evidenceDigest} />
                   </Show>
+                  <details open={expandedCards().includes(card.cardId)} onToggle={(event) => {
+                    const open=event.currentTarget.open;
+                    setExpandedCards((ids)=>open ? [...new Set([...ids,card.cardId])] : ids.filter((id)=>id!==card.cardId));
+                  }}><summary class="cursor-pointer text-base-medium">Manage {card.title}</summary>
                   <TextInput label={`Evidence digest for ${card.title}`} value={evidenceByCard()[card.cardId] ?? ""}
                     onInput={(e) => setEvidenceByCard({ ...evidenceByCard(), [card.cardId]: e.currentTarget.value })} />
                   <TextInput label={`Comment on ${card.title}`} value={commentByCard()[card.cardId] ?? ""}
@@ -91,6 +96,7 @@ export function BoardScreen(props: {
                       Add comment
                     </Button>
                   </div>
+                  </details>
                 </div>
               )}
             </KanbanBoard>
@@ -278,7 +284,7 @@ export function DeliveryScreen(props: {
                   <Badge theme={criterion.status === "passed" ? "green" : criterion.status === "failed" ? "red" : "amber"} label={criterion.criterionId} />
                 )}</For>
               </div>
-              <Button variant="outline" onClick={() => props.onOpen(dossier.id)} class="min-h-11">Open dossier</Button>
+
             </article>
           );
         }}</For>

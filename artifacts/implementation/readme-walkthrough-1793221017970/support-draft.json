@@ -1,0 +1,1300 @@
+{
+  "runOutputs": {
+    "respond": {
+      "summary": "User reports being unable to sign in and sees an expired session error message.",
+      "missingInformation": [
+        "Which application or platform they are trying to sign into",
+        "Browser and operating system being used",
+        "Whether this started recently or is persistent across attempts",
+        "Any additional error codes or messages displayed",
+        "Whether they have tried clearing cookies/cache or using incognito mode",
+        "Account status (locked, suspended, etc.)",
+        "Whether this affects other users or is isolated to their account"
+      ],
+      "risk": "medium",
+      "proposedReply": "Thank you for reaching out. I understand you are encountering an expired session error when attempting to sign in. To help us investigate and resolve this quickly, could you please provide the following details:\n\n1. Which application or service are you trying to access?\n2. What browser and device (OS) are you using?\n3. When did this issue first begin?\n4. Have you tried clearing your browser cookies and cache, or signing in from an incognito/private window?\n5. Are you seeing any specific error code alongside the message?\n6. Does the issue persist across multiple sign-in attempts?\n\nIn the meantime, please try clearing your cookies and cache or using a different browser to rule out a local session issue. We will follow up as soon as we have more information to pinpoint the root cause."
+    },
+    "validate": {
+      "passed": true,
+      "checks": [
+        {
+          "criterionId": "structure",
+          "checkId": "structure",
+          "status": "passed",
+          "oracleDigest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f",
+          "artifacts": [],
+          "detail": "Pinned evaluator executed this check"
+        },
+        {
+          "criterionId": "safety",
+          "checkId": "safety",
+          "status": "passed",
+          "oracleDigest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f",
+          "artifacts": [],
+          "detail": "Pinned evaluator executed this check"
+        }
+      ]
+    }
+  },
+  "engineEvents": [
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-1",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 1,
+      "occurredAt": "2026-10-28T20:58:26.023Z",
+      "kind": "session.started",
+      "payload": {
+        "engine": {
+          "id": "pi",
+          "version": "1.4.0",
+          "adapterDigest": "sha256:2330cc2a4afee89e2faf138a242f99946c35dde9812a01325281808ea3f18906",
+          "features": [
+            "sessions",
+            "checkpoint"
+          ]
+        }
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-2",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 2,
+      "occurredAt": "2026-10-28T20:59:07.813Z",
+      "kind": "text",
+      "payload": {
+        "text": "\n\n{\"summary",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-3",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 3,
+      "occurredAt": "2026-10-28T20:59:07.973Z",
+      "kind": "text",
+      "payload": {
+        "text": "\":\"User reports being",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-4",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 4,
+      "occurredAt": "2026-10-28T20:59:08.138Z",
+      "kind": "text",
+      "payload": {
+        "text": " unable to sign in and",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-5",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 5,
+      "occurredAt": "2026-10-28T20:59:08.305Z",
+      "kind": "text",
+      "payload": {
+        "text": " sees",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-6",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 6,
+      "occurredAt": "2026-10-28T20:59:08.465Z",
+      "kind": "text",
+      "payload": {
+        "text": " an expired session error message",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-7",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 7,
+      "occurredAt": "2026-10-28T20:59:08.622Z",
+      "kind": "text",
+      "payload": {
+        "text": ".\",\"missingInformation\":[\"Which",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-8",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 8,
+      "occurredAt": "2026-10-28T20:59:08.788Z",
+      "kind": "text",
+      "payload": {
+        "text": " application",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-9",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 9,
+      "occurredAt": "2026-10-28T20:59:08.955Z",
+      "kind": "text",
+      "payload": {
+        "text": " or platform they",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-10",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 10,
+      "occurredAt": "2026-10-28T20:59:09.112Z",
+      "kind": "text",
+      "payload": {
+        "text": " are trying to sign into\",\"",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-11",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 11,
+      "occurredAt": "2026-10-28T20:59:09.270Z",
+      "kind": "text",
+      "payload": {
+        "text": "Browser and",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-12",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 12,
+      "occurredAt": "2026-10-28T20:59:09.435Z",
+      "kind": "text",
+      "payload": {
+        "text": " operating",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-13",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 13,
+      "occurredAt": "2026-10-28T20:59:09.608Z",
+      "kind": "text",
+      "payload": {
+        "text": " system being used\",\"Whether",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-14",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 14,
+      "occurredAt": "2026-10-28T20:59:09.776Z",
+      "kind": "text",
+      "payload": {
+        "text": " this",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-15",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 15,
+      "occurredAt": "2026-10-28T20:59:09.920Z",
+      "kind": "text",
+      "payload": {
+        "text": " started",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-16",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 16,
+      "occurredAt": "2026-10-28T20:59:10.069Z",
+      "kind": "text",
+      "payload": {
+        "text": " recently",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-17",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 17,
+      "occurredAt": "2026-10-28T20:59:10.203Z",
+      "kind": "text",
+      "payload": {
+        "text": " or is persistent",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-18",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 18,
+      "occurredAt": "2026-10-28T20:59:10.352Z",
+      "kind": "text",
+      "payload": {
+        "text": " across",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-19",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 19,
+      "occurredAt": "2026-10-28T20:59:10.497Z",
+      "kind": "text",
+      "payload": {
+        "text": " attempts",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-20",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 20,
+      "occurredAt": "2026-10-28T20:59:10.649Z",
+      "kind": "text",
+      "payload": {
+        "text": "\",\"Any",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-21",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 21,
+      "occurredAt": "2026-10-28T20:59:10.795Z",
+      "kind": "text",
+      "payload": {
+        "text": " additional",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-22",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 22,
+      "occurredAt": "2026-10-28T20:59:11.672Z",
+      "kind": "text",
+      "payload": {
+        "text": " error codes",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-23",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 23,
+      "occurredAt": "2026-10-28T20:59:12.251Z",
+      "kind": "text",
+      "payload": {
+        "text": " or messages displayed",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-24",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 24,
+      "occurredAt": "2026-10-28T20:59:12.457Z",
+      "kind": "text",
+      "payload": {
+        "text": "\",\"",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-25",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 25,
+      "occurredAt": "2026-10-28T20:59:12.556Z",
+      "kind": "text",
+      "payload": {
+        "text": "Whether they have tried clearing cookies",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-26",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 26,
+      "occurredAt": "2026-10-28T20:59:12.721Z",
+      "kind": "text",
+      "payload": {
+        "text": "/cache or using",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-27",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 27,
+      "occurredAt": "2026-10-28T20:59:12.883Z",
+      "kind": "text",
+      "payload": {
+        "text": " inc",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-28",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 28,
+      "occurredAt": "2026-10-28T20:59:13.037Z",
+      "kind": "text",
+      "payload": {
+        "text": "ognito mode\",\"Account status (",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-29",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 29,
+      "occurredAt": "2026-10-28T20:59:13.196Z",
+      "kind": "text",
+      "payload": {
+        "text": "locked",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-30",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 30,
+      "occurredAt": "2026-10-28T20:59:13.338Z",
+      "kind": "text",
+      "payload": {
+        "text": ", suspended",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-31",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 31,
+      "occurredAt": "2026-10-28T20:59:13.501Z",
+      "kind": "text",
+      "payload": {
+        "text": ", etc.)\",\"",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-32",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 32,
+      "occurredAt": "2026-10-28T20:59:13.651Z",
+      "kind": "text",
+      "payload": {
+        "text": "Whether this",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-33",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 33,
+      "occurredAt": "2026-10-28T20:59:13.799Z",
+      "kind": "text",
+      "payload": {
+        "text": " affects other users or is",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-34",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 34,
+      "occurredAt": "2026-10-28T20:59:13.950Z",
+      "kind": "text",
+      "payload": {
+        "text": " isolated to their",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-35",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 35,
+      "occurredAt": "2026-10-28T20:59:14.109Z",
+      "kind": "text",
+      "payload": {
+        "text": " account\"],\"risk\":\"medium\",\"",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-36",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 36,
+      "occurredAt": "2026-10-28T20:59:14.260Z",
+      "kind": "text",
+      "payload": {
+        "text": "proposedReply\":\"Thank",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-37",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 37,
+      "occurredAt": "2026-10-28T20:59:14.416Z",
+      "kind": "text",
+      "payload": {
+        "text": " you for reaching out. I",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-38",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 38,
+      "occurredAt": "2026-10-28T20:59:14.568Z",
+      "kind": "text",
+      "payload": {
+        "text": " understand",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-39",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 39,
+      "occurredAt": "2026-10-28T20:59:14.721Z",
+      "kind": "text",
+      "payload": {
+        "text": " you are encountering",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-40",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 40,
+      "occurredAt": "2026-10-28T20:59:14.881Z",
+      "kind": "text",
+      "payload": {
+        "text": " an expired session error when attempting",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-41",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 41,
+      "occurredAt": "2026-10-28T20:59:15.028Z",
+      "kind": "text",
+      "payload": {
+        "text": " to sign in. To",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-42",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 42,
+      "occurredAt": "2026-10-28T20:59:15.184Z",
+      "kind": "text",
+      "payload": {
+        "text": " help us investigate",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-43",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 43,
+      "occurredAt": "2026-10-28T20:59:15.340Z",
+      "kind": "text",
+      "payload": {
+        "text": " and resolve this quickly",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-44",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 44,
+      "occurredAt": "2026-10-28T20:59:15.498Z",
+      "kind": "text",
+      "payload": {
+        "text": ", could you please provide",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-45",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 45,
+      "occurredAt": "2026-10-28T20:59:15.644Z",
+      "kind": "text",
+      "payload": {
+        "text": " the following details:\\",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-46",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 46,
+      "occurredAt": "2026-10-28T20:59:15.966Z",
+      "kind": "text",
+      "payload": {
+        "text": "n\\n1. Which application",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-47",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 47,
+      "occurredAt": "2026-10-28T20:59:16.288Z",
+      "kind": "text",
+      "payload": {
+        "text": " or service",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-48",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 48,
+      "occurredAt": "2026-10-28T20:59:16.611Z",
+      "kind": "text",
+      "payload": {
+        "text": " are you trying to access",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-49",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 49,
+      "occurredAt": "2026-10-28T20:59:16.935Z",
+      "kind": "text",
+      "payload": {
+        "text": "?\\n2. What",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-50",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 50,
+      "occurredAt": "2026-10-28T20:59:17.251Z",
+      "kind": "text",
+      "payload": {
+        "text": " browser and device (",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-51",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 51,
+      "occurredAt": "2026-10-28T20:59:17.483Z",
+      "kind": "text",
+      "payload": {
+        "text": "OS) are you using?\\",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-52",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 52,
+      "occurredAt": "2026-10-28T20:59:17.644Z",
+      "kind": "text",
+      "payload": {
+        "text": "n3. When",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-53",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 53,
+      "occurredAt": "2026-10-28T20:59:17.792Z",
+      "kind": "text",
+      "payload": {
+        "text": " did this issue",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-54",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 54,
+      "occurredAt": "2026-10-28T20:59:18.051Z",
+      "kind": "text",
+      "payload": {
+        "text": " first begin",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-55",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 55,
+      "occurredAt": "2026-10-28T20:59:18.127Z",
+      "kind": "text",
+      "payload": {
+        "text": "?\\n4. Have you",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-56",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 56,
+      "occurredAt": "2026-10-28T20:59:18.252Z",
+      "kind": "text",
+      "payload": {
+        "text": " tried",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-57",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 57,
+      "occurredAt": "2026-10-28T20:59:18.387Z",
+      "kind": "text",
+      "payload": {
+        "text": " clearing your browser cookies",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-58",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 58,
+      "occurredAt": "2026-10-28T20:59:18.524Z",
+      "kind": "text",
+      "payload": {
+        "text": " and cache, or signing",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-59",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 59,
+      "occurredAt": "2026-10-28T20:59:18.658Z",
+      "kind": "text",
+      "payload": {
+        "text": " in from an",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-60",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 60,
+      "occurredAt": "2026-10-28T20:59:18.803Z",
+      "kind": "text",
+      "payload": {
+        "text": " incognito/private",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-61",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 61,
+      "occurredAt": "2026-10-28T20:59:18.944Z",
+      "kind": "text",
+      "payload": {
+        "text": " window?\\n5. Are",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-62",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 62,
+      "occurredAt": "2026-10-28T20:59:19.085Z",
+      "kind": "text",
+      "payload": {
+        "text": " you",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-63",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 63,
+      "occurredAt": "2026-10-28T20:59:19.222Z",
+      "kind": "text",
+      "payload": {
+        "text": " seeing any specific",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-64",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 64,
+      "occurredAt": "2026-10-28T20:59:19.383Z",
+      "kind": "text",
+      "payload": {
+        "text": " error code alongside the message?\\",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-65",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 65,
+      "occurredAt": "2026-10-28T20:59:20.223Z",
+      "kind": "text",
+      "payload": {
+        "text": "n6. Does",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-66",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 66,
+      "occurredAt": "2026-10-28T20:59:20.931Z",
+      "kind": "text",
+      "payload": {
+        "text": " the",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-67",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 67,
+      "occurredAt": "2026-10-28T20:59:21.205Z",
+      "kind": "text",
+      "payload": {
+        "text": " issue persist",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-68",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 68,
+      "occurredAt": "2026-10-28T20:59:21.254Z",
+      "kind": "text",
+      "payload": {
+        "text": " across",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-69",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 69,
+      "occurredAt": "2026-10-28T20:59:21.399Z",
+      "kind": "text",
+      "payload": {
+        "text": " multiple sign",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-70",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 70,
+      "occurredAt": "2026-10-28T20:59:21.551Z",
+      "kind": "text",
+      "payload": {
+        "text": "-in attempts?\\",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-71",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 71,
+      "occurredAt": "2026-10-28T20:59:21.705Z",
+      "kind": "text",
+      "payload": {
+        "text": "n\\nIn the meantime,",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-72",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 72,
+      "occurredAt": "2026-10-28T20:59:21.867Z",
+      "kind": "text",
+      "payload": {
+        "text": " please try clearing your cookies",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-73",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 73,
+      "occurredAt": "2026-10-28T20:59:22.004Z",
+      "kind": "text",
+      "payload": {
+        "text": " and cache or",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-74",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 74,
+      "occurredAt": "2026-10-28T20:59:22.151Z",
+      "kind": "text",
+      "payload": {
+        "text": " using a different browser to",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-75",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 75,
+      "occurredAt": "2026-10-28T20:59:22.298Z",
+      "kind": "text",
+      "payload": {
+        "text": " rule",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-76",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 76,
+      "occurredAt": "2026-10-28T20:59:22.453Z",
+      "kind": "text",
+      "payload": {
+        "text": " out a",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-77",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 77,
+      "occurredAt": "2026-10-28T20:59:22.608Z",
+      "kind": "text",
+      "payload": {
+        "text": " local session issue. We",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-78",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 78,
+      "occurredAt": "2026-10-28T20:59:22.752Z",
+      "kind": "text",
+      "payload": {
+        "text": " will follow",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-79",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 79,
+      "occurredAt": "2026-10-28T20:59:22.907Z",
+      "kind": "text",
+      "payload": {
+        "text": " up as",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-80",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 80,
+      "occurredAt": "2026-10-28T20:59:23.064Z",
+      "kind": "text",
+      "payload": {
+        "text": " soon as we have more information",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-81",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 81,
+      "occurredAt": "2026-10-28T20:59:23.220Z",
+      "kind": "text",
+      "payload": {
+        "text": " to",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-82",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 82,
+      "occurredAt": "2026-10-28T20:59:23.373Z",
+      "kind": "text",
+      "payload": {
+        "text": " pinpoint",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-83",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 83,
+      "occurredAt": "2026-10-28T20:59:23.527Z",
+      "kind": "text",
+      "payload": {
+        "text": " the root cause.\"}",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-84",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 84,
+      "occurredAt": "2026-10-28T20:59:23.530Z",
+      "kind": "usage",
+      "payload": {
+        "usageId": "pi-usage-att-mvsljonq-11-fm5yzvjs",
+        "inputTokens": 323,
+        "outputTokens": 490,
+        "cachedInputTokens": 0,
+        "microUsd": 0,
+        "accounting": "final-total",
+        "estimated": false
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-85",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 85,
+      "occurredAt": "2026-10-28T20:59:23.530Z",
+      "kind": "artifact",
+      "payload": {
+        "artifact": {
+          "artifactId": "pi-output-att-mvsljonq-11-fm5yzvjs",
+          "digest": "sha256:f2a298f5f16a5e79fe0caec71ebeaac71fff02e4689086d504ab5f10ed24de1a",
+          "bytes": 1356,
+          "mediaType": "text/plain",
+          "classification": "internal"
+        },
+        "purpose": "output"
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-86",
+      "sessionId": "01a1844e-9958-71fe-94aa-2682db79bea6",
+      "attemptId": "att-mvsljonq-11-fm5yzvjs",
+      "sequence": 86,
+      "occurredAt": "2026-10-28T20:59:23.530Z",
+      "kind": "session.stopped",
+      "payload": {
+        "reason": "completed",
+        "terminationConfirmed": true,
+        "output": {
+          "artifactId": "pi-output-att-mvsljonq-11-fm5yzvjs",
+          "digest": "sha256:f2a298f5f16a5e79fe0caec71ebeaac71fff02e4689086d504ab5f10ed24de1a",
+          "bytes": 1356,
+          "mediaType": "text/plain",
+          "classification": "internal"
+        }
+      }
+    }
+  ],
+  "evidenceDigest": "sha256:069510715b667f9fd53168c8cd8dac0ebe8dfa6f723f46407df702911cd74596",
+  "jobId": "job-mvslkx85-14-3y5tiaxe",
+  "organizationId": "org-local",
+  "workspaceId": "operations",
+  "workflowRunId": "run-mvsljnib-y-jyefn0wz",
+  "state": "succeeded",
+  "version": 5,
+  "queueReasons": [],
+  "placement": {
+    "group": "evaluators",
+    "all": [
+      "os:linux",
+      "tool:bash",
+      "tool:python3"
+    ],
+    "resources": {
+      "cpuMillicores": 500,
+      "memoryMb": 256,
+      "diskMb": 256,
+      "slots": 1
+    },
+    "isolation": "ephemeral-container"
+  },
+  "attempts": [
+    {
+      "attemptId": "att-mvslkyfj-16-i5126oqh",
+      "number": 1,
+      "runnerId": "runner-evaluators-1",
+      "state": "succeeded",
+      "leaseExpiresAt": "2026-10-28T21:00:25.142Z"
+    }
+  ],
+  "configDigest": "sha256:93bf0082392cf775642c59d76a8a919f6e34fd245bb8c829beee7f2716d0aa32",
+  "createdAt": "2026-10-28T20:59:23.573Z"
+}

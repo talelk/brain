@@ -35,7 +35,7 @@ export type PayloadFor<K extends CommandKind> =
                     : K extends "runner.drain" | "runner.quarantine" ? { runnerId: string; reason: string }
                       : K extends "member.grant" ? { principalId: string; role: string; reason: string }
                         : K extends "member.revoke" ? { principalId: string; role: string; reason: string }
-                          : K extends "config.activate" ? { configDigest: string; expectedActiveDigest: string }
+                          : K extends "config.activate" ? { configDigest: string; expectedActiveDigest: string | null }
                             : K extends "memory.publish" ? { candidateId: string; sourceWorkspaceId: string; targetScope: unknown; content: unknown; evidenceDigests: string[]; reviewerId: string; redactionProfile: unknown }
                               : K extends "memory.revoke" ? { sourceId: string; reason: string }
                                 : K extends "tool.propose" ? { package: unknown; evidence: string[] }

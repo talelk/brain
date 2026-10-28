@@ -2,8 +2,8 @@ import { generateKeyPairSync, sign } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { domainDigest, sha256Digest } from "@brain/contracts";
-import type { EvaluationAssignment, JsonValue, VerificationVerdict } from "@brain/contracts";
-import { executeToolPayload, normalizeFixtureEvaluation } from "./tools/invoke";
+import type { Agent, EvaluationAssignment, JsonValue, VerificationVerdict } from "@brain/contracts";
+import { executeToolPayload, normalizeEvaluation } from "./tools/invoke";
 import { DurableEventSpool } from "./spool-durable";
 import { LauncherClient } from "./launcher-client";
 import { runAgentExecution, selectEngine } from "./engines/run";
@@ -13,13 +13,14 @@ export interface RunnerConfig {
   readonly runnerId: string;
   readonly stateDir: string;
   readonly capabilities: readonly string[];
+  readonly engines?: readonly string[];
   readonly groupToolsDir?: string;
   readonly transport?: typeof fetch;
 }
 
 async function req(cfg: RunnerConfig, token: string | undefined, path: string, body?: unknown): Promise<{ status: number; json: unknown }> {
   const res = await (cfg.transport ?? fetch)(`${cfg.governorUrl.replace(/\/$/, "")}${path}`, {
-    method: "POST",
+    method: body === undefined ? "GET" : "POST",
     headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     signal: AbortSignal.timeout(30_000),
@@ -52,17 +53,30 @@ export function loadOrCreateKeys(stateDir: string): { publicKeyPem: string; priv
   return { publicKeyPem, privateKeyPem };
 }
 
+async function availableEngines(cfg: RunnerConfig) {
+  const available = [];
+  for (const id of cfg.engines ?? ["fixture"]) {
+    const engine = selectEngine(id);
+    if (!engine) continue;
+    const info = await engine.probe();
+    if (info.features.includes("sessions")) available.push(info);
+  }
+  return available;
+}
+
 async function challengeHello(cfg: RunnerConfig, credential: string): Promise<{ sessionToken: string; epoch: number }> {
   const keys = loadOrCreateKeys(cfg.stateDir);
   const chal = await req(cfg, undefined, "/runner/v1/challenges", { runnerId: cfg.runnerId, credential });
   if (chal.status !== 201) throw new Error(`challenge failed ${chal.status}`);
   const { challengeId, nonce } = chal.json as { challengeId: string; nonce: string };
   const bootNonce = `boot-${Date.now()}`;
+  const engines = await availableEngines(cfg);
+  const capabilities = [...new Set([...cfg.capabilities.filter((cap) => !/^engine(:|-feature:)/u.test(cap)), ...engines.map((engine) => `engine:${engine.id}`), ...engines.flatMap((engine) => engine.features.map((feature) => `engine-feature:${engine.id}:${feature}`))])];
   const helloBody = {
     contractVersion: "brain.runner/v1", runnerId: cfg.runnerId, bootNonce, runtimeVersion: "brain-runner/0.1.0",
     configDigest: `sha256:${"0".repeat(64)}`,
-    capabilities: cfg.capabilities.map((capability) => ({ capability, observedAt: new Date().toISOString(), source: "runner-probe", verified: true, expiresAt: new Date(Date.now() + 5 * 60_000).toISOString() })),
-    engines: [{ id: "fixture", version: "1", adapterDigest: `sha256:${"0".repeat(64)}`, features: [] }],
+    capabilities: capabilities.map((capability) => ({ capability, observedAt: new Date().toISOString(), source: "runner-probe", verified: true, expiresAt: new Date(Date.now() + 5 * 60_000).toISOString() })),
+    engines,
     capacity: { cpuMillicores: 4000, memoryMb: 8192, diskMb: 20480, slots: 1 },
     isolationModes: ["ephemeral-container"],
   };
@@ -99,12 +113,14 @@ export async function refreshSession(cfg: RunnerConfig): Promise<{ sessionToken:
   return challengeHello(cfg, credential);
 }
 
-export async function runOnce(cfg: RunnerConfig, sessionToken: string): Promise<boolean> {
+export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpoch = 1): Promise<boolean> {
   const claim = await req(cfg, sessionToken, "/runner/v1/claim", { requestId: `claim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
   if (claim.status === 204) return false;
   if (claim.status !== 200) throw new Error(`claim failed ${claim.status}: ${JSON.stringify(claim.json)}`);
   const offer = claim.json as { attemptId: string; jobId: string; workspaceId: string; organizationId?: string; workflowRunId?: string; attemptNumber?: number; sourceRevision?: string; leaseId: string; jobFence: number; configDigest: string; toolPins?: Record<string, string>; authorEvidence?: { toolReleases: { id: string; digest: string }[]; claimedChecks: unknown[] }; execution: { kind: string; artifact: { artifactId: string; digest: string; bytes: number } } };
-  const ack = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/ack`, { leaseId: offer.leaseId, jobFence: offer.jobFence });
+  const ackBody: Record<string, unknown> = { leaseId: offer.leaseId, jobFence: offer.jobFence };
+  if (offer.execution.kind === "tool") ackBody["engine"] = { id: "tool-broker", adapterDigest: sha256Digest(new TextEncoder().encode("tool-broker:v1")) };
+  const ack = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/ack`, ackBody);
   if (ack.status !== 200) throw new Error(`ack failed ${ack.status}`);
   // Execution input travels as a digest-pinned CAS artifact, never inline.
   const artifactRes = await reqBytes(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/artifact`);
@@ -133,6 +149,9 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string): Promise<
   const controller = new AbortController();
   const spool = DurableEventSpool.load(join(cfg.stateDir, "spool", `${offer.attemptId}.jsonl`));
   let eventSeq = spool.stats().lastSequence;
+  // The engine that actually executes the attempt; reported with the event
+  // batches so the Governor's session view names the real adapter, not a guess.
+  let engineInfo: { id: string; adapterDigest: string } | undefined;
   // A failed events POST leaves the journal untouched: the same batch replays
   // on the next flush, in order, after the Governor acknowledges the batch.
   const flushEvents = async (): Promise<void> => {
@@ -140,12 +159,17 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string): Promise<
     if (batch.length === 0) return;
     const sent = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/events`, {
       leaseId: offer.leaseId, jobFence: offer.jobFence,
+      ...(engineInfo ? { engine: engineInfo } : {}),
       events: batch.map((e) => ({ sequence: e.sequence, kind: e.kind, payload: e.payload })),
     });
     if (sent.status === 200) spool.commit(batch.map((e) => e.sequence));
     else if (sent.status === 409 || sent.status === 410) spool.discard(); // attempt fenced server-side: journal is dead
   };
   const emit = async (kind: string, eventPayload: unknown): Promise<void> => {
+    if (kind === "engine") {
+      const event = eventPayload as { kind?: string; payload?: { engine?: { id: string; adapterDigest: string } } };
+      if (event.kind === "session.started" && event.payload?.engine) engineInfo = event.payload.engine;
+    }
     eventSeq += 1;
     const pushed = spool.push({ sequence: eventSeq, kind, payload: eventPayload });
     if (pushed === "backpressure") throw new Error("event spool full; stopping bounded instead of growing memory");
@@ -188,38 +212,47 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string): Promise<
       permit = { token: body.token, permitId: body.invocationId ?? `inv-${offer.attemptId}` };
       (payload as { invocationId?: string }).invocationId = body.invocationId ?? `inv-${offer.attemptId}`;
     }
-    // T24: agent-kind executions run through the configured engine adapter;
-    // tool/eval/merge kinds run the governed tool path.
-    const engineConfigured = process.env["BRAIN_RUNNER_ENGINE"];
+    let result: { ok: boolean; output: JsonValue; cleanupConfirmed?: boolean };
     if (offer.execution.kind === "agent") {
+      const step = (payload.step ?? {}) as { task?: string; timeoutSeconds?: number; uses?: { release?: { id: string; digest: string } } };
+      const ref = step.uses?.release;
+      if (!ref) throw new Error("agent job has no pinned agent release");
+      const assetResponse = await req(cfg, sessionToken, `/runner/v1/releases/${encodeURIComponent(offer.configDigest)}/agents/${encodeURIComponent(ref.id)}/instructions`);
+      if (assetResponse.status !== 200) throw new Error(`agent instruction fetch failed ${assetResponse.status}: ${JSON.stringify(assetResponse.json)}`);
+      const asset = assetResponse.json as { agent: Agent; agentDigest: string; path: string; instructionsDigest: string; bytesBase64: string };
+      if (asset.agentDigest !== ref.digest || asset.agent.metadata.id !== ref.id || asset.path !== asset.agent.spec.instructionsPath) throw new Error("agent release identity does not match the job offer");
+      const instructionBytes = new Uint8Array(Buffer.from(asset.bytesBase64, "base64"));
+      if (sha256Digest(instructionBytes) !== asset.instructionsDigest) throw new Error("agent instruction digest mismatch");
+      const instructions = new TextDecoder().decode(instructionBytes);
+      const configured = cfg.engines ?? [process.env["BRAIN_RUNNER_ENGINE"] ?? "fixture"];
+      const engineConfigured = asset.agent.spec.engine.anyOf.find((id) => configured.includes(id));
       const engine = selectEngine(engineConfigured);
-      if (!engine) {
-        const failed = { ok: false, output: { error: `no engine installed on this runner (BRAIN_RUNNER_ENGINE=${engineConfigured ?? "unset"}); agent execution refused` } as unknown as JsonValue };
-        const doneFailed = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/complete`, {
-          result: "failed", output: failed.output, jobFence: offer.jobFence, cleanupConfirmed: true,
-        });
-        if (doneFailed.status !== 200) throw new Error(`complete failed ${doneFailed.status}`);
-        return true;
-      }
+      if (!engine) throw new Error(`none of the required engines (${asset.agent.spec.engine.anyOf.join(", ")}) is configured on this runner`);
+      const engineProbe = await engine.probe();
+      engineInfo = { id: engineProbe.id, adapterDigest: engineProbe.adapterDigest };
+      const task = step.task ?? JSON.stringify(payload.input ?? {});
       const agentResult = await runAgentExecution({
         engine, attemptId: offer.attemptId, jobFence: offer.jobFence, leaseId: offer.leaseId,
-        runnerId: cfg.runnerId, organizationId: (offer as { organizationId?: string }).organizationId ?? "", workspaceId: offer.workspaceId,
-        jobId: offer.jobId, configDigest: offer.configDigest,
-        task: String((payload.step as { task?: string } | undefined)?.task ?? (payload.input as { message?: string } | undefined)?.message ?? "agent run"),
-        modelId: engineConfigured, timeoutMs: 300_000,
+        runnerId: cfg.runnerId, runnerEpoch, organizationId: offer.organizationId ?? "", workspaceId: offer.workspaceId,
+        jobId: offer.jobId, configDigest: offer.configDigest, sourceRevision: offer.sourceRevision ?? offer.configDigest,
+        instructions, task, modelId: process.env["BRAIN_LOCAL_MODEL_ID"], timeoutMs: (step.timeoutSeconds ?? 300) * 1000,
+        maxTurns: asset.agent.spec.maxTurns, maxTokens: asset.agent.spec.maxTokens,
+        maxMicroUsd: asset.agent.spec.maxMicroUsd, allowedTools: asset.agent.spec.tools,
         emit, signal: controller.signal,
       });
-      const doneAgent = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/complete`, {
-        result: leaseLost || abortReason !== undefined ? "unknown-outcome" : agentResult.ok ? "succeeded" : "failed",
-        output: agentResult.output, jobFence: offer.jobFence, cleanupConfirmed: true,
-      });
-      if (doneAgent.status !== 200) throw new Error(`complete failed ${doneAgent.status}`);
-      spool.discard();
-      return true;
-    }
+      if (agentResult.ok) {
+        const outputBytes = new TextEncoder().encode(agentResult.outputText);
+        const uploaded = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/artifacts`, {
+          digest: sha256Digest(outputBytes), mediaType: "text/plain", bytesBase64: Buffer.from(outputBytes).toString("base64"),
+        });
+        if (uploaded.status !== 201) throw new Error(`agent output artifact upload failed ${uploaded.status}`);
+        await emit("effect", { phase: "output-pinned", artifact: uploaded.json });
+      }
+      result = agentResult;
+    } else {
     const launcher = LauncherClient.configured() ? LauncherClient.fromEnv() : undefined;
     const toolPins = (offer as { toolPins?: Record<string, string> }).toolPins;
-    const result = await executeToolPayload({
+    result = await executeToolPayload({
       offer: { payload, execution: offer.execution, workspaceId: offer.workspaceId },
       cfg, signal: controller.signal, launcher, permit, toolPins,
       validatePermit: async (token, invocationId) => {
@@ -234,69 +267,51 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string): Promise<
         return { entrypoint: body.entrypoint, bytes: new Uint8Array(Buffer.from(body.bytesBase64, "base64")) };
       },
     });
+    }
     const assignment = payload.evaluation;
     await emit("progress", { phase: "executed", ok: result.ok });
-    const output = result.ok && assignment ? normalizeFixtureEvaluation(result.output,assignment) : result.output;
-    // Durable output trail: the exact result bytes are pinned in the CAS and
-    // bound to the attempt, independent of the inline completion body.
+    const output = result.ok && assignment ? normalizeEvaluation(result.output,assignment) : result.output;
+    const outcomeUnknown = leaseLost || abortReason !== undefined || result.cleanupConfirmed === false;
+    let artifact: { artifactId: string; digest: string; bytes: number } | undefined;
     if (result.ok) {
       const outputBytes = new TextEncoder().encode(JSON.stringify(output));
-      await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/artifacts`, {
+      const uploaded = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/artifacts`, {
         digest: sha256Digest(outputBytes), mediaType: "application/json",
         bytesBase64: Buffer.from(outputBytes).toString("base64"),
-      }).then((r) => {
-        if (r.status !== 201) throw new Error(`attempt artifact upload failed ${r.status}: ${JSON.stringify(r.json)}`);
-        return emit("effect", { phase: "output-pinned", artifact: r.json });
-      }).catch((e: unknown) => { void emit("error", { phase: "output-pin-failed", detail: e instanceof Error ? e.message : "upload failed" }); });
+      });
+      if (uploaded.status !== 201) throw new Error(`attempt artifact upload failed ${uploaded.status}: ${JSON.stringify(uploaded.json)}`);
+      artifact = uploaded.json as { artifactId: string; digest: string; bytes: number };
+      await emit("effect", { phase: "output-pinned", artifact });
     }
-    // T27: the author's evidence bundle is produced by the runner from the
-    // offer's Governor-computed claim structure plus its own uploaded
-    // artifact, and submitted before completion so the job can be admitted to
-    // its independent evaluator while the author stays `verifying`.
-    if (result.ok && !assignment && offer.authorEvidence && offer.authorEvidence.claimedChecks.length > 0 && offer.workflowRunId) {
-      try {
-        const upload = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/artifacts`, {
-          digest: sha256Digest(new TextEncoder().encode(JSON.stringify(output))),
-          mediaType: "application/json",
-          bytesBase64: Buffer.from(new TextEncoder().encode(JSON.stringify(output))).toString("base64"),
-        });
-        if (upload.status !== 201) throw new Error(`artifact upload failed ${upload.status}`);
-        const artifact = upload.json as { artifactId: string; digest: string; bytes: number };
-        const bundle = {
-          contractVersion: "brain.evidence/v1",
-          bundleId: `bundle-${offer.attemptId}`,
-          organizationId: offer.organizationId ?? "",
-          workspaceId: offer.workspaceId,
-          workflowRunId: offer.workflowRunId,
-          jobId: offer.jobId,
-          attemptId: offer.attemptId,
-          jobFence: offer.jobFence,
-          sourceRevision: offer.sourceRevision ?? "",
-          configDigest: offer.configDigest,
-          workflowDigest: (offer as { workflowDigest?: string }).workflowDigest ?? offer.configDigest,
-          primitiveVersions: (offer as { primitiveVersions?: Record<string, string> }).primitiveVersions ?? {},
-          toolReleases: offer.authorEvidence.toolReleases,
-          artifacts: [{ ...artifact, mediaType: "application/json", classification: "internal" }],
-          checks: offer.authorEvidence.claimedChecks,
-          approvalIds: [],
-          effects: [],
-          createdAt: new Date().toISOString(),
-        };
-        const submitted = await req(cfg, sessionToken, "/runner/v1/evidence", bundle);
-        if (submitted.status !== 200) throw new Error(`evidence submit failed ${submitted.status}: ${JSON.stringify(submitted.json)}`);
-        await emit("effect", { phase: "author-bundle-submitted", bundleId: bundle.bundleId, digest: (submitted.json as { digest?: string }).digest });
-      } catch (e) {
-        await emit("error", { phase: "author-bundle-failed", detail: e instanceof Error ? e.message : "bundle submission failed" });
-      }
-    }
-    // A lost lease or a fired deadline means the effect may have happened
-    // without authority to report it: never claim success, surface
-    // outcome_unknown instead.
-    const outcomeUnknown = leaseLost || abortReason !== undefined;
     const done = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/complete`, {
-      result: outcomeUnknown ? "unknown-outcome" : result.ok ? "succeeded" : "failed", output, jobFence: offer.jobFence, cleanupConfirmed: true,
+      result: outcomeUnknown ? "unknown-outcome" : result.ok ? "succeeded" : "failed", output, jobFence: offer.jobFence, cleanupConfirmed: result.cleanupConfirmed ?? true,
     });
     if (done.status !== 200) throw new Error(`complete failed ${done.status}: ${JSON.stringify(done.json)}`);
+    if (result.ok && !assignment && offer.authorEvidence && offer.workflowRunId && artifact) {
+      const bundle = {
+        contractVersion: "brain.evidence/v1",
+        bundleId: `bundle-${offer.attemptId}`,
+        organizationId: offer.organizationId ?? "",
+        workspaceId: offer.workspaceId,
+        workflowRunId: offer.workflowRunId,
+        jobId: offer.jobId,
+        attemptId: offer.attemptId,
+        jobFence: offer.jobFence,
+        sourceRevision: offer.sourceRevision ?? "",
+        configDigest: offer.configDigest,
+        workflowDigest: (offer as { workflowDigest?: string }).workflowDigest ?? offer.configDigest,
+        primitiveVersions: (offer as { primitiveVersions?: Record<string, string> }).primitiveVersions ?? {},
+        toolReleases: offer.authorEvidence.toolReleases,
+        artifacts: [{ ...artifact, mediaType: "application/json", classification: "internal" }],
+        checks: offer.authorEvidence.claimedChecks,
+        approvalIds: [],
+        effects: [],
+        createdAt: new Date().toISOString(),
+      };
+      const submitted = await req(cfg, sessionToken, "/runner/v1/evidence", bundle);
+      if (submitted.status !== 201) throw new Error(`evidence submit failed ${submitted.status}: ${JSON.stringify(submitted.json)}`);
+      await emit("effect", { phase: "author-bundle-submitted", bundleId: bundle.bundleId, digest: (submitted.json as { digest?: string }).digest });
+    }
     if (result.ok && assignment && !outcomeUnknown) {
       const checks = (output as unknown as { checks: VerificationVerdict["checks"] }).checks;
       const outcome = checks.some((c) => c.status === "failed") ? "rejected" : checks.every((c) => c.status === "passed") ? "verified" : "incomplete";
@@ -320,7 +335,8 @@ export async function startSupervisor(): Promise<void> {
     governorUrl: process.env["BRAIN_GOVERNOR_URL"] ?? "http://127.0.0.1:3000",
     runnerId: process.env["BRAIN_RUNNER_ID"] ?? "runner-local-1",
     stateDir: process.env["BRAIN_RUNNER_STATE_DIR"] ?? join(process.cwd(), ".runner-state"),
-    capabilities: (process.env["BRAIN_RUNNER_CAPABILITIES"] ?? "os:linux,arch:amd64,tool:fixture.echo,tool:fixture.verify,engine:fixture,isolation:ephemeral-container").split(","),
+    capabilities: (process.env["BRAIN_RUNNER_CAPABILITIES"] ?? "os:linux,arch:amd64,tool:fixture.echo,tool:fixture.verify,isolation:ephemeral-container").split(","),
+    engines: (process.env["BRAIN_RUNNER_ENGINE"] ?? "fixture").split(",").map((id) => id.trim()).filter(Boolean),
   };
   const enrollToken = process.env["BRAIN_RUNNER_ENROLL_TOKEN"] ?? "";
   const initial = await enrollAndHello(cfg, enrollToken);
@@ -328,10 +344,11 @@ export async function startSupervisor(): Promise<void> {
   // Session TTL is 15 minutes; refresh proactively at 10 and on any 401.
   // Refresh happens only between runOnce calls so an in-flight attempt's
   // token is never revoked mid-flight; the heartbeat just flags staleness.
-  const session = { token: initial.sessionToken, sinceMs: Date.now(), stale: false };
+  const session = { token: initial.sessionToken, epoch: initial.epoch, sinceMs: Date.now(), stale: false };
   const refresh = async (): Promise<void> => {
     const next = await refreshSession(cfg);
     session.token = next.sessionToken;
+    session.epoch = next.epoch;
     session.sinceMs = Date.now();
     session.stale = false;
     console.log(`Brain runner ${cfg.runnerId} session refreshed (epoch ${next.epoch})`);
@@ -339,14 +356,17 @@ export async function startSupervisor(): Promise<void> {
   let seq = 0;
   setInterval(() => {
     seq += 1;
-    void req(cfg, session.token, "/runner/v1/heartbeat", { sequence: seq }).then((r) => {
+    void availableEngines(cfg).then((engines) => req(cfg, session.token, "/runner/v1/heartbeat", { sequence: seq,
+      capabilities: [...cfg.capabilities.filter((cap) => !/^engine(:|-feature:)/u.test(cap)), ...engines.map((engine) => `engine:${engine.id}`), ...engines.flatMap((engine) => engine.features.map((feature) => `engine-feature:${engine.id}:${feature}`))]
+        .map((capability) => ({ capability, verified: true, source: "runner-probe", observedAt: new Date().toISOString(), expiresAt: new Date(Date.now()+300000).toISOString() })),
+    })).then((r) => {
       if (r.status === 401) session.stale = true;
     }, () => { /* transient; claim loop surfaces errors */ });
   }, 15_000).unref();
   for (;;) {
     try {
       if (session.stale || Date.now() - session.sinceMs > 10 * 60_000) await refresh();
-      const worked = await runOnce(cfg, session.token);
+      const worked = await runOnce(cfg, session.token, session.epoch);
       if (!worked) await new Promise((r) => setTimeout(r, 2000));
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

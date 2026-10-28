@@ -38,3 +38,11 @@ export function knownDefinitions(): readonly string[] {
   const defs = (rootSchema["$defs"] ?? {}) as Record<string, unknown>;
   return Object.keys(defs).sort();
 }
+
+/** Compile a confined release-owned payload schema without remote resolution. */
+export function payloadValidator(schema: object): (value: unknown) => ValidationResult {
+  const compiler = new Ajv2020({ strict: false, allErrors: true, coerceTypes: false, removeAdditional: false, useDefaults: false });
+  addFormats(compiler);
+  const fn = compiler.compile(schema);
+  return (value) => ({ ok: !!fn(value), errors: (fn.errors ?? []).map((e) => `${e.instancePath || "/"} ${e.message ?? e.keyword}`) });
+}

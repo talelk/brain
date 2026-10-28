@@ -1,3 +1,4 @@
+import { readRuntimeConfig, type RuntimeConfig } from "../runtime-config";
 import { createHash } from "node:crypto";
 import { createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -5,21 +6,21 @@ import type {
   ActionSubject, ActorContext, CommandEnvelope, CommandReceipt, HumanApprovalDecision, JsonValue,
 } from "@brain/contracts";
 import { approvalSubjectDigest, domainDigest, isKnownQuery, sha256Digest } from "@brain/contracts";
-import { validate } from "@brain/contracts/validate";
+import { payloadValidator, validate } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
 import { assertExpectedVersion, assertTransition } from "../domain/states";
 import { evaluateRunner, rankRunners, type RunnerView } from "../domain/placement";
 import { iso } from "../domain/clock";
 import { Store, type BrainOptions } from "./store";
 import { authorizeCommand, hasWorkspaceMembership, resolveActor, requireWorkspaceRead, scopesForPrincipal, type ResolvedActor } from "./authz";
-import { compileRelease, type SourceDoc, type ToolScript } from "../modules/configuration/index";
+import { compileRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
 import { MastraWorkflowEngine, type WorkflowEnginePort } from "../modules/workflows/index";
 import { MemoryStore, TencentDbClient } from "../modules/knowledge/index";
 import { StepUpService } from "../modules/governance/index";
 import { createBrainAuth, bootstrapIdentity, assertHumanIdentity, type BootstrapResult, type BrainAuth } from "../modules/identity/index";
 import { quarantineRestoredAuthority, loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscription, type VapidKeys } from "../modules/operations/index";
 import { EvidenceService } from "../modules/evidence/index";
-import { readReleaseToolScript } from "../modules/configuration/index";
+import { readReleaseAgentInstructions, readReleaseToolScript } from "../modules/configuration/index";
 import { acceptAttemptArtifact } from "../modules/evidence/index";
 import {
   ackAttempt as jobsAckAttempt, attemptEvents as jobsAttemptEvents, authRunner, claim as jobsClaim,
@@ -34,6 +35,7 @@ import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } f
 // releaseReservation is used by reconcileJob above via the jobs module index.
 
 export class Brain {
+  readonly runtime: RuntimeConfig;
   readonly store: Store;
   readonly workflows: WorkflowEnginePort;
   readonly memory: MemoryStore;
@@ -41,11 +43,12 @@ export class Brain {
   readonly stepUp: StepUpService;
   readonly evidence: EvidenceService;
 
-  constructor(opts: BrainOptions) {
+  constructor(opts: BrainOptions & { runtime?: RuntimeConfig }) {
+    this.runtime = opts.runtime ?? readRuntimeConfig();
     this.store = new Store(opts);
     try {
       const authSecret = process.env["BRAIN_AUTH_SECRET"] ?? Buffer.from(this.store.pepper).toString("hex");
-      this.auth = createBrainAuth(this.store.control, { secret: authSecret, baseURL: process.env["BRAIN_BASE_URL"] ?? "http://127.0.0.1:3000" });
+      this.auth = createBrainAuth(this.store.control, { secret: authSecret, baseURL: process.env["BRAIN_BASE_URL"] ?? "http://127.0.0.1:3000", requireTwoFactor: this.runtime.requireTwoFactor });
       this.auth.ensureTables();
       this.stepUp = new StepUpService(this.store, this.auth);
       this.memory = new MemoryStore(this.store);
@@ -116,12 +119,15 @@ export class Brain {
   }
 
   // --- config releases ---
-  stageRelease(actor: ActorContext, docs: readonly SourceDoc[], sourceRevision: string, scripts?: readonly ToolScript[]): { digest: string } {
+  stageRelease(actor: ActorContext, docs: readonly SourceDoc[], sourceRevision: string, scripts?: readonly ToolScript[], instructions: readonly AgentInstruction[] = [], schemas: readonly SourceDoc[] = []): { digest: string } {
     this.requireConfigurationAdmin(actor);
+    const request = validate("ReleaseStageRequest",{ documents: docs, sourceRevision, scripts, instructions, schemas });
+    if (!request.ok) throw new BrainDomainError("INVALID_CONTRACT",request.errors.join("; "));
     if (!/^(sha1:[0-9a-f]{40}|sha256:[0-9a-f]{64})$/u.test(sourceRevision)) {
       throw new BrainDomainError("INVALID_CONTRACT", "sourceRevision must be sha1:<40 hex> or sha256:<64 hex>");
     }
     if (scripts && scripts.length > 64) throw new BrainDomainError("PAYLOAD_TOO_LARGE", "too many tool scripts");
+    if (instructions.length > 100) throw new BrainDomainError("PAYLOAD_TOO_LARGE", "too many agent instruction assets");
     for (const script of scripts ?? []) {
       if (!/^[A-Za-z0-9._-]+$/u.test(script.entrypoint) || !/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u.test(script.toolId)) {
         throw new BrainDomainError("INVALID_CONTRACT", "tool script toolId/entrypoint malformed");
@@ -130,14 +136,19 @@ export class Brain {
         throw new BrainDomainError("PAYLOAD_TOO_LARGE", "tool script exceeds 1 MiB");
       }
     }
-    const compiled = compileRelease(docs, sourceRevision, scripts);
+    for (const instruction of instructions) {
+      const bytes = Buffer.byteLength(instruction.text, "utf8");
+      if (!/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u.test(instruction.agentId) || !/^[A-Za-z0-9][A-Za-z0-9/_-]*\.md$/u.test(instruction.path) || instruction.path.includes("..")) {
+        throw new BrainDomainError("INVALID_CONTRACT", "agent instruction agentId/path malformed");
+      }
+      if (bytes > 256 * 1024) throw new BrainDomainError("PAYLOAD_TOO_LARGE", "agent instructions exceed 256 KiB");
+    }
+    const compiled = compileRelease(docs, sourceRevision, scripts, instructions, schemas);
     const s = this.store;
     s.inTx(s.control, () => {
       const compilerDigest = (compiled.manifest as { compilerDigest?: string }).compilerDigest ?? compiled.digest;
       s.control.prepare("INSERT OR IGNORE INTO config_releases(digest, organization_id, source_revision, compiler_digest, manifest_json, created_at_ms) VALUES (?,?,?,?,?,?)")
-        .run(compiled.digest, actor.organizationId, sourceRevision, compilerDigest, JSON.stringify({ manifest: compiled.manifest, workflows: compiled.workflows, evaluators: compiled.evaluators }), s.now());
-      // T22: pin each staged entrypoint's exact bytes into the CAS under the
-      // release; the manifest carries the digest the runner will verify.
+        .run(compiled.digest, actor.organizationId, sourceRevision, compilerDigest, JSON.stringify({ manifest: compiled.manifest, workflows: compiled.workflows, agents: compiled.agents, evaluators: compiled.evaluators, schemas: compiled.schemas }), s.now());
       for (const script of scripts ?? []) {
         const bytes = new Uint8Array(Buffer.from(script.bytesBase64, "base64"));
         const digest = sha256Digest(bytes);
@@ -147,12 +158,29 @@ export class Brain {
         s.control.prepare("INSERT OR REPLACE INTO release_files(release_digest, tool_id, entrypoint, digest, bytes, created_at_ms) VALUES (?,?,?,?,?,?)")
           .run(compiled.digest, script.toolId, script.entrypoint, digest, bytes.length, s.now());
       }
+      for (const instruction of instructions) {
+        const bytes = new TextEncoder().encode(instruction.text);
+        const digest = sha256Digest(bytes);
+        const path = this.casPath(digest);
+        mkdirSync(join(path, ".."), { recursive: true });
+        if (!existsSync(path)) writeFileSync(path, bytes);
+        s.control.prepare("INSERT OR REPLACE INTO release_files(release_digest, tool_id, entrypoint, digest, bytes, created_at_ms) VALUES (?,?,?,?,?,?)")
+          .run(compiled.digest, `agent:${instruction.agentId}`, instruction.path, digest, bytes.length, s.now());
+      }
       s.emit(s.control, { organizationId: actor.organizationId, aggregateType: "config", aggregateId: compiled.digest, eventType: "config.compiled", payload: { digest: compiled.digest } });
     });
     return { digest: compiled.digest };
   }
 
-  activateRelease(actor: ActorContext, digest: string, expectedActiveDigest?: string): void {
+  inspectRelease(actor: ActorContext, digest: string): JsonValue {
+    this.requireConfigurationAdmin(actor);
+    const row = this.store.control.prepare("SELECT digest,source_revision,manifest_json FROM config_releases WHERE digest=? AND organization_id=?").get(digest, actor.organizationId) as { digest: string; source_revision: string; manifest_json: string } | undefined;
+    if (!row) throw new BrainDomainError("NOT_FOUND", "config release not found");
+    const active = this.activeRelease(actor.organizationId);
+    return { digest: row.digest, sourceRevision: row.source_revision, expectedActiveDigest: active?.digest ?? null, ...JSON.parse(row.manifest_json) } as JsonValue;
+  }
+
+  activateRelease(actor: ActorContext, digest: string, expectedActiveDigest?: string | null): void {
     this.requireConfigurationAdmin(actor);
     const s = this.store;
     s.inTx(s.control, () => {
@@ -160,7 +188,7 @@ export class Brain {
       if (!rel) throw new BrainDomainError("NOT_FOUND", "config release not found");
       const cur = s.control.prepare("SELECT release_digest, version FROM active_config WHERE organization_id=?").get(actor.organizationId) as
         | { release_digest: string; version: number } | undefined;
-      if (expectedActiveDigest && cur && cur.release_digest !== expectedActiveDigest) {
+      if (expectedActiveDigest !== undefined && (cur?.release_digest ?? null) !== expectedActiveDigest) {
         throw new BrainDomainError("CONFLICT", "active config changed; CAS failed");
       }
       if (cur) s.control.prepare("UPDATE active_config SET release_digest=?, version=version+1 WHERE organization_id=?").run(digest, actor.organizationId);
@@ -217,9 +245,20 @@ export class Brain {
       if (existing) { jobId = existing.id; return; }
       jobId = s.id("job");
       s.control.exec("CREATE TABLE IF NOT EXISTS job_payloads(job_id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload_json TEXT NOT NULL) STRICT");
+      let placementJson = input.placementJson;
+      const step = (input.payload as { step?: { uses?: { type: string; release: { id: string } } } }).step;
+      if (step?.uses?.type === "agent") {
+        const release = s.control.prepare("SELECT manifest_json FROM config_releases WHERE digest=? AND organization_id=?").get(input.configDigest, input.organizationId) as { manifest_json: string };
+        const agent = (JSON.parse(release.manifest_json) as { agents: Record<string, import("@brain/contracts").Agent> }).agents[step.uses.release.id];
+        if (!agent) throw new BrainDomainError("INVALID_CONTRACT", "agent is absent from pinned release");
+        const placement = JSON.parse(placementJson) as import("@brain/contracts").Placement;
+        const anyOf = placement.engine ? agent.spec.engine.anyOf.filter((id) => placement.engine!.anyOf.includes(id)) : agent.spec.engine.anyOf;
+        if (!anyOf.length) throw new BrainDomainError("INVALID_CONTRACT", "agent and workflow engine requirements do not intersect");
+        placementJson = JSON.stringify({ ...placement, engine: { anyOf, features: [...new Set([...agent.spec.engine.features, ...(placement.engine?.features ?? [])])] } });
+      }
       s.control.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, queue_reason, created_at_ms, ready_at_ms, deadline_ms)
         VALUES (?,?,?,?,?,?,'queued',?,?,?,?,'WAITING_FOR_RUNNER',?,?,?)`)
-        .run(jobId, input.organizationId, input.workspaceId, input.executionKey, input.runId, input.stepId, input.configDigest, input.placementJson, input.executionDigest, input.effectClass, s.now(), s.now(), s.now() + 7 * 24 * 3600_000);
+        .run(jobId, input.organizationId, input.workspaceId, input.executionKey, input.runId, input.stepId, input.configDigest, placementJson, input.executionDigest, input.effectClass, s.now(), s.now(), s.now() + 7 * 24 * 3600_000);
       s.control.prepare("INSERT INTO job_payloads(job_id, kind, payload_json) VALUES (?,?,?)").run(jobId, input.kind, JSON.stringify(input.payload));
       s.emit(s.control, { organizationId: input.organizationId, workspaceId: input.workspaceId, aggregateType: "job", aggregateId: jobId, eventType: "job.queued", payload: { jobId, runId: input.runId, stepId: input.stepId }, destinations: [`workspace:${input.workspaceId}`] });
     });
@@ -320,6 +359,16 @@ export class Brain {
     const workspaceId = (cmd as { workspaceId?: string }).workspaceId;
     if (workspaceId) requireWorkspaceRead(s, actor, workspaceId);
     if (workspaceId && cmd.commandType === "workflow.dispatch") s.assertWorkspaceActive(workspaceId, actor.organizationId);
+    if (cmd.commandType === "workflow.dispatch") {
+      const p = cmd.payload as { workflow: { id: string }; input: JsonValue };
+      const { workflow, configDigest } = this.workflowFromRelease(actor.organizationId, p.workflow.id);
+      const release = s.control.prepare("SELECT manifest_json FROM config_releases WHERE digest=? AND organization_id=?").get(configDigest, actor.organizationId) as { manifest_json: string };
+      const schema = (JSON.parse(release.manifest_json) as { schemas?: Record<string, object> }).schemas?.[workflow.spec.inputSchemaRef];
+      if (schema) {
+        const result = payloadValidator(schema)(p.input);
+        if (!result.ok) throw new BrainDomainError("INVALID_ARGUMENT", result.errors.join("; "));
+      }
+    }
     const requestDigest = domainDigest("brain:command:v1", raw as JsonValue);
     let receipt: CommandReceipt | undefined;
     let replayed = false;
@@ -352,7 +401,7 @@ export class Brain {
     const wsId = (cmd as { workspaceId?: string }).workspaceId;
     switch (cmd.commandType) {
       case "config.activate": {
-        this.activateRelease(actor, String(p["configDigest"]), p["expectedActiveDigest"] ? String(p["expectedActiveDigest"]) : undefined);
+        this.activateRelease(actor, String(p["configDigest"]), p["expectedActiveDigest"] === null ? null : String(p["expectedActiveDigest"]));
         return String(p["configDigest"]);
       }
       case "approval.request": {
@@ -657,9 +706,9 @@ export class Brain {
       void subject;
       if (body.decision === "approve") {
         if (!body.stepUpEvidenceId) throw new BrainDomainError("APPROVAL_REQUIRED", "fresh step-up evidence required to approve");
-        const ev = s.control.prepare("SELECT actor_id, auth_session_digest, subject_digest, expires_at_ms, decision_id, revoked_at_ms, auth_session_id, auth_user_id, factor_digest, auth_generation FROM step_up_evidence WHERE id=?").get(body.stepUpEvidenceId) as
-          | { actor_id: string; auth_session_digest: string; subject_digest: string; expires_at_ms: number; decision_id: string | null; revoked_at_ms: number | null; auth_session_id: string; auth_user_id: string; factor_digest: string; auth_generation: number } | undefined;
-        if (!ev || ev.revoked_at_ms || ev.expires_at_ms <= s.now() || ev.actor_id !== actor.actorId || ev.auth_session_digest !== sessionDigest || ev.subject_digest !== body.subjectDigest || ev.decision_id || ev.auth_generation !== actor.authGeneration || !this.auth.isSessionCurrent(ev.auth_user_id, ev.auth_session_id, s.now(), ev.factor_digest)) {
+        const ev = s.control.prepare("SELECT e.actor_id,e.auth_session_digest,e.subject_digest,e.expires_at_ms,e.decision_id,e.revoked_at_ms,e.auth_session_id,e.auth_user_id,e.factor_digest,e.auth_generation,e.method,c.approval_id FROM step_up_evidence e JOIN step_up_challenges c ON c.id=e.challenge_id WHERE e.id=?").get(body.stepUpEvidenceId) as
+          | { actor_id: string; auth_session_digest: string; subject_digest: string; expires_at_ms: number; decision_id: string | null; revoked_at_ms: number | null; auth_session_id: string; auth_user_id: string; factor_digest: string | null; auth_generation: number; method: string; approval_id: string } | undefined;
+        if (!ev || ev.approval_id !== approvalId || (this.auth.requireTwoFactor && ev.method !== "totp") || ev.revoked_at_ms || ev.expires_at_ms <= s.now() || ev.actor_id !== actor.actorId || ev.auth_session_digest !== sessionDigest || ev.subject_digest !== body.subjectDigest || ev.decision_id || ev.auth_generation !== actor.authGeneration || !this.auth.isSessionCurrent(ev.auth_user_id, ev.auth_session_id, s.now(), ev.factor_digest)) {
           throw new BrainDomainError("FORBIDDEN", "step-up evidence invalid, expired, or already used");
         }
       }
@@ -763,7 +812,18 @@ export class Brain {
     return readReleaseToolScript(this.store, runner.organizationId, releaseDigest, toolId);
   }
 
-  verifyTrustDomain(actor: ActorContext, input: { runnerId: string; domain: string; reason: string }): { capability: string; expiresAtMs: number } {
+  readReleaseAgent(runner: { runnerId: string; epoch: number; organizationId: string }, releaseDigest: string, agentId: string): ReturnType<typeof readReleaseAgentInstructions> {
+    const attempt = this.store.control.prepare(`SELECT 1 FROM job_attempts a JOIN jobs j ON j.id=a.job_id JOIN job_payloads p ON p.job_id=j.id JOIN runners r ON r.id=a.runner_id
+      WHERE a.runner_id=? AND a.runner_epoch=? AND r.session_epoch=a.runner_epoch AND a.state='running' AND j.state='running'
+        AND j.organization_id=? AND j.config_digest=? AND json_extract(p.payload_json,'$.step.uses.type')='agent' AND json_extract(p.payload_json,'$.step.uses.release.id')=?
+        AND a.lease_expires_at_ms>? AND j.job_fence=a.job_fence`).get(runner.runnerId,runner.epoch,runner.organizationId,releaseDigest,agentId,this.store.now());
+    if (!attempt) throw new BrainDomainError("FORBIDDEN","agent asset requires a current matching attempt");
+    return readReleaseAgentInstructions(this.store, runner.organizationId, releaseDigest, agentId);
+  }
+
+  verifyTrustDomain(identity: ResolvedActor, input: { runnerId: string; domain: string; reason: string }): { capability: string; expiresAtMs: number } {
+    assertHumanIdentity(this.store, this.auth, identity, this.runtime.requireTwoFactor);
+    const actor = { ...identity.actor, scopes: scopesForPrincipal(this.store, identity.actor.actorId, identity.actor.organizationId) };
     return governanceVerifyTrustDomain(this.store, actor, input);
   }
 
@@ -1272,10 +1332,20 @@ export class Brain {
 
   private jobSnapshot(row: Record<string, unknown>): JsonValue {
     const attempts = this.store.control.prepare("SELECT id, runner_id, attempt_no, state, lease_expires_at_ms FROM job_attempts WHERE job_id=? ORDER BY attempt_no").all(String(row["id"])) as Array<Record<string, unknown>>;
+    const ws = this.store.workspaceDb(String(row["workspace_id"]),String(row["organization_id"]));
+    const runId = String(row["workflow_run_id"]);
+    const hasOutputs = ws.prepare("SELECT 1 FROM sqlite_master WHERE name='step_outputs'").get();
+    const outputs = hasOutputs ? ws.prepare("SELECT step_id,output_json FROM step_outputs WHERE run_id=?").all(runId) as {step_id:string;output_json:string}[] : [];
+    const hasEvents = this.store.control.prepare("SELECT 1 FROM sqlite_master WHERE name='attempt_events'").get();
+    const events = hasEvents ? this.store.control.prepare("SELECT e.event_json FROM attempt_events e JOIN job_attempts a ON a.id=e.attempt_id JOIN jobs j ON j.id=a.job_id WHERE j.organization_id=? AND j.workflow_run_id=? AND json_extract(e.event_json,'$.kind')='engine' ORDER BY j.created_at_ms DESC,e.seq DESC LIMIT 200").all(String(row["organization_id"]),runId) as {event_json:string}[] : [];
+    const bundle = ws.prepare("SELECT digest FROM evidence_bundles WHERE json_extract(manifest_json,'$.workflowRunId')=? ORDER BY created_at_ms DESC LIMIT 1").get(runId) as {digest:string}|undefined;
     return {
+      runOutputs: Object.fromEntries(outputs.map((entry) => [entry.step_id,JSON.parse(entry.output_json)])),
+      engineEvents: events.reverse().map((entry) => (JSON.parse(entry.event_json) as {payload:JsonValue}).payload),
+      ...(bundle ? { evidenceDigest: bundle.digest } : {}),
       jobId: String(row["id"]), organizationId: String(row["organization_id"]), workspaceId: String(row["workspace_id"]),
       workflowRunId: String(row["workflow_run_id"]), state: String(row["state"]), version: Number(row["version"]),
-      queueReasons: row["queue_reason"] ? [String(row["queue_reason"])] : [],
+      queueReasons: ["queued","blocked"].includes(String(row["state"])) && row["queue_reason"] ? [String(row["queue_reason"])] : [],
       placement: JSON.parse(String(row["placement_json"])),
       attempts: attempts.map((a) => ({
         attemptId: String(a["id"]), number: Number(a["attempt_no"]), runnerId: String(a["runner_id"]), state: String(a["state"]),
@@ -1566,6 +1636,40 @@ export class Brain {
           sourceWatermark: ends.length ? Math.max(...ends) : 0,
         } as unknown as JsonValue);
       }
+      case "toolCandidates.list": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT","workspaceId required");
+        requireWorkspaceRead(s,actor,q.workspaceId);
+        const rows=s.workspaceDb(q.workspaceId,actor.organizationId).prepare("SELECT id,package_digest,state,created_at_ms FROM tool_candidates ORDER BY created_at_ms DESC LIMIT 100").all() as {id:string;package_digest:string;state:string;created_at_ms:number}[];
+        return this.envelope(q.queryType,{items:rows.map((row)=>({release:{id:row.id,digest:row.package_digest},state:row.state,createdAt:iso(row.created_at_ms)}))} as unknown as JsonValue);
+      }
+      case "artifacts.list": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT","workspaceId required");
+        requireWorkspaceRead(s,actor,q.workspaceId);
+        const ws=s.workspaceDb(q.workspaceId,actor.organizationId);
+        const rows=ws.prepare("SELECT id,digest,bytes,media_type,classification FROM artifacts WHERE state='verified' ORDER BY created_at_ms DESC,id LIMIT 100").all() as {id:string;digest:string;bytes:number;media_type:string;classification:string}[];
+        return this.envelope(q.queryType,{items:rows.map((row)=>({artifactId:row.id,digest:row.digest,bytes:row.bytes,mediaType:row.media_type,classification:row.classification}))} as unknown as JsonValue);
+      }
+      case "agents.list": case "agents.get": case "workflows.list": case "workflows.get": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        requireWorkspaceRead(s, actor, q.workspaceId);
+        const release = this.activeRelease(actor.organizationId);
+        if (!release) throw new BrainDomainError("DEPENDENCY_UNAVAILABLE", "activate a configuration release first");
+        const stored = JSON.parse(release.manifest) as { schemas?: Record<string, JsonValue>; agents?: Record<string, import("@brain/contracts").Agent>; workflows?: Record<string, import("@brain/contracts").Workflow>; manifest: { documents: Array<{ id: string; kind: string; digest: string }> } };
+        const isAgent = q.queryType.startsWith("agents.");
+        const entries = Object.values(isAgent ? stored.agents ?? {} : stored.workflows ?? {}).sort((a, b) => a.metadata.id.localeCompare(b.metadata.id));
+        const items = entries.map((definition) => {
+          const id = definition.metadata.id;
+          const document = stored.manifest.documents.find((doc) => doc.kind === (isAgent ? "Agent" : "Workflow") && doc.id === id)!;
+          const asset = isAgent ? readReleaseAgentInstructions(s, actor.organizationId, release.digest, id) : undefined;
+          return { release: { id, digest: document.digest }, configDigest: release.digest, definition,
+            ...(!isAgent ? { inputSchema: stored.schemas?.[(definition as import("@brain/contracts").Workflow).spec.inputSchemaRef] ?? null, outputSchema: stored.schemas?.[(definition as import("@brain/contracts").Workflow).spec.outputSchemaRef] ?? null } : {}),
+            ...(asset ? { instructions: new TextDecoder().decode(asset.bytes), instructionsDigest: asset.instructionsDigest } : {}) };
+        });
+        if (q.queryType.endsWith(".list")) return this.envelope(q.queryType, { items } as unknown as JsonValue);
+        const item = items.find((item) => item.release.id === q.resourceId);
+        if (!item) throw new BrainDomainError("NOT_FOUND", "definition not found in the active release");
+        return this.envelope(q.queryType, item as unknown as JsonValue);
+      }
       case "config.explain": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         requireWorkspaceRead(s, actor, q.workspaceId);
@@ -1667,9 +1771,8 @@ export class Brain {
     const s = this.store;
     const job = s.control.prepare("SELECT step_id, workflow_run_id FROM jobs WHERE id=?").get(String(r["job_id"])) as Record<string, unknown> | undefined;
     const budget = s.control.prepare("SELECT micro_usd, settled_micro_usd FROM budget_reservations WHERE job_id=?").get(String(r["job_id"])) as Record<string, unknown> | undefined;
-    const attempt = s.control.prepare("SELECT created_at_ms FROM job_attempts WHERE id=?").get(String(r["attempt_id"])) as Record<string, unknown> | undefined;
     const states = ["starting", "running", "waiting", "stopping", "stopped", "failed"];
-    const updated = Number(r["updated_at_ms"] ?? 0) || Number(attempt?.["created_at_ms"] ?? 0) || s.now();
+    const updated = Number(r["updated_at_ms"] ?? 0) || s.now();
     return {
       sessionId: String(r["id"]), jobId: String(r["job_id"]), attemptId: String(r["attempt_id"]),
       engine: { id: String(r["engine_id"]), version: "1", adapterDigest: String(r["adapter_digest"]), features: [] },

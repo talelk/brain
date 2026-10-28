@@ -1,5 +1,5 @@
 import type { JSX } from "solid-js";
-import { For, Show, createSignal, onMount } from "solid-js";
+import { For, Show, createSignal, createEffect } from "solid-js";
 import { Badge, Button, KeyValue, Progress } from "@talelk/newui-atoms";
 import { Alert, List } from "@talelk/newui-molecules";
 import type { EvidenceBundle, VerificationVerdict } from "@brain/contracts";
@@ -23,15 +23,21 @@ export function EvidenceList(props: {
   const [status, setStatus] = createSignal<"loading" | "ready" | "missing">("loading");
   const [error, setError] = createSignal("");
 
-  onMount(() => {
-    if (!props.bundleDigest) { setStatus("missing"); setError(props.emptyHint ?? "No evidence bundle is bound to this record yet."); return; }
-    void evidenceQuery(props.bundleDigest, props.workspaceId)
+  let requestGeneration = 0;
+  createEffect(() => {
+    const digest = props.bundleDigest;
+    const workspaceId = props.workspaceId;
+    const current = ++requestGeneration;
+    setBundle(undefined); setVerdict(undefined); setStatus("loading"); setError("");
+    if (!digest) { setStatus("missing"); setError(props.emptyHint ?? "No evidence bundle is bound to this record yet."); return; }
+    void evidenceQuery(digest, workspaceId)
       .then((loaded) => {
+        if (current !== requestGeneration) return;
         setBundle(loaded.snapshot.bundle);
         if (loaded.snapshot.verdict) setVerdict(loaded.snapshot.verdict);
         setStatus("ready");
       })
-      .catch((e: unknown) => { setStatus("missing"); setError(e instanceof Error ? e.message : "Evidence is not available."); });
+      .catch((e: unknown) => { if (current !== requestGeneration) return; setStatus("missing"); setError(e instanceof Error ? e.message : "Evidence is not available."); });
   });
 
   const current = () => verdict();

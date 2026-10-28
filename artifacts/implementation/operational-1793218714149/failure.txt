@@ -1,0 +1,3 @@
+AssertionError [ERR_ASSERTION]: independent evaluator must claim the validation job
+    at <anonymous> (/home/talel/dev/rd2026/brain/scripts/verify-operational.ts:56:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)

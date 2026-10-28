@@ -27,7 +27,10 @@ export function acceptAttemptArtifact(
   if (digest !== input.digest) throw new BrainDomainError("INVALID_CONTRACT", "artifact digest does not match bytes");
   const organizationId = String(row["organization_id"]);
   const workspaceId = String(row["workspace_id"]);
-  const artifactId = `att-${attemptId}-${digest.slice(7, 19)}`;
+  const mediaType = input.mediaType ?? "application/octet-stream";
+  if (!/^[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+$/u.test(mediaType)) throw new BrainDomainError("INVALID_CONTRACT", "artifact media type malformed");
+  const identity = sha256Digest(new TextEncoder().encode(JSON.stringify({ digest, mediaType })));
+  const artifactId = `att-${attemptId}-${identity.slice(7,31)}`;
   const existing = s.control.prepare("SELECT digest FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(artifactId, organizationId) as { digest: string } | undefined;
   if (existing && existing.digest !== digest) throw new BrainDomainError("CONFLICT", "attempt artifact id already pinned to different bytes");
   const path = casPathOf(s.dataDir, digest);
@@ -38,7 +41,7 @@ export function acceptAttemptArtifact(
       VALUES (?,?,?,?,'attempt',?,'internal',?)`).run(artifactId, organizationId, workspaceId, digest, attemptId, s.now());
     const ws = s.workspaceDb(workspaceId, organizationId);
     ws.prepare("INSERT OR IGNORE INTO artifacts(id, digest, bytes, media_type, classification, state, created_at_ms) VALUES (?,?,?,?, 'internal','verified',?)")
-      .run(artifactId, digest, bytes.length, input.mediaType ?? "application/octet-stream", s.now());
+      .run(artifactId, digest, bytes.length, mediaType, s.now());
   }
   return { artifactId, digest, bytes: bytes.length };
 }

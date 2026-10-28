@@ -1,0 +1,40 @@
+{
+  "workspaceId": "operations",
+  "configDigest": "sha256:93bf0082392cf775642c59d76a8a919f6e34fd245bb8c829beee7f2716d0aa32",
+  "ready": true,
+  "smokeVerified": true,
+  "checks": [
+    {
+      "id": "release",
+      "status": "ready",
+      "detail": "sha256:93bf0082392cf775642c59d76a8a919f6e34fd245bb8c829beee7f2716d0aa32",
+      "nextAction": "Inspect Agents and Workflows"
+    },
+    {
+      "id": "workflow:agent-smoke",
+      "status": "ready",
+      "detail": "Agent/model requirements and runner placement are available",
+      "nextAction": "Dispatch agent-smoke"
+    },
+    {
+      "id": "workflow:operations-triage",
+      "status": "ready",
+      "detail": "Agent/model requirements and runner placement are available",
+      "nextAction": "Dispatch operations-triage"
+    },
+    {
+      "id": "workflow:support-draft",
+      "status": "ready",
+      "detail": "Agent/model requirements and runner placement are available",
+      "nextAction": "Dispatch support-draft"
+    },
+    {
+      "id": "smoke",
+      "status": "ready",
+      "detail": "run-mvsli6tg-8-cvclu8vs: succeeded",
+      "nextAction": "Run agent-smoke with message BRAIN_OK and inspect independent evidence"
+    }
+  ],
+  "memoryMode": "local",
+  "asOf": "2026-10-28T20:59:31.643Z"
+}

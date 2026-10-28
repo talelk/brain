@@ -1,6 +1,7 @@
 import { test, expect } from "./fixtures";
 import { totpCode } from "../support/totp";
 import { approvalSubjectDigest, type JsonValue } from "../../packages/contracts/src/index";
+test.use({ requireTwoFactor: true });
 const DIGEST_A = `sha256:${"a".repeat(64)}`;
 
 // T35: a decision POST that commits server-side but loses its response must

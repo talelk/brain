@@ -15,7 +15,12 @@ export class TencentDbClient {
   static fromEnv(): TencentDbClient | null {
     const url = process.env["BRAIN_TENCENTDB_URL"];
     if (!url) return null;
-    return new TencentDbClient(url, process.env["BRAIN_TENCENTDB_API_KEY"] ?? "local-no-key");
+    const parsed = new URL(url);
+    if (parsed.username || parsed.password || !["http:","https:"].includes(parsed.protocol)) throw new BrainDomainError("INVALID_ARGUMENT", "TencentDB URL must be credential-free HTTP(S)");
+    const key = process.env["BRAIN_TENCENTDB_API_KEY"];
+    const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(parsed.hostname);
+    if (!loopback && (!key || key === "local-no-key")) throw new BrainDomainError("FORBIDDEN", "non-loopback TencentDB requires BRAIN_TENCENTDB_API_KEY");
+    return new TencentDbClient(url, key ?? "local-no-key");
   }
 
   private async post(path: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {

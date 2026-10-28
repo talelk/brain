@@ -37,6 +37,8 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/tv/support` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
 | `/tv/sre` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
 | `/w/:id/runs` | runs | Inspect a run, its attempts, events and evidence | jobs, sessions, runners |
+| `/w/:id/agents` | work | Inspect active agent and workflow definitions and dispatch schema-validated inputs | release, instructions, engine, limits |
+| `/w/:id/workflows` | work | Inspect active agent and workflow definitions and dispatch schema-validated inputs | release, input-schema, engine, dependencies |
 <!-- END GENERATED ROUTES -->
 
 Routes use immutable object IDs; workspace slug is presentation only. Cross-workspace links check access before displaying data. Deep links preserve selected workspace, filters and view; Back returns to list position. Global search is permission-filtered and uses typed categories.

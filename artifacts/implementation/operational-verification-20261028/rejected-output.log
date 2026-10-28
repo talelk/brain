@@ -1,0 +1,22 @@
+agent-smoke: accepted run-mvsle5jw-8-okbx0vsq (sha256:dd6972a8933593bcfcf5a4f05be130f8973ec6130106cb43ae14c7465eeb6581)
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: operations-triage: workflow must finish with accepted independent evidence
++ actual - expected
+
++ 'failed'
+- 'succeeded'
+
+    at <anonymous> (/home/talel/dev/rd2026/brain/scripts/verify-operational.ts:105:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 'failed',
+  expected: 'succeeded',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.12.0

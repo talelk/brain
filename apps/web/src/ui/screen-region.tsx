@@ -30,7 +30,7 @@ export function ScreenRegion<T>(props: {
       status={
         state().status === "loading" ? "loading"
           : state().status === "empty-authorized" ? "empty"
-            : state().status === "ready" || state().status === "stale" ? "ready"
+            : state().status === "ready" || state().status === "stale" || state().status === "partial-failure" ? "ready"
               : "error"
       }
       skeleton={props.skeleton ?? "rows"}
@@ -38,7 +38,7 @@ export function ScreenRegion<T>(props: {
       description={state().status === "empty-authorized" ? props.emptyDescription : undefined}
       action={state().status === "empty-authorized" ? props.emptyAction : undefined}
       error={
-        state().status === "ready" || state().status === "stale" ? undefined
+        state().status === "ready" || state().status === "stale" || state().status === "partial-failure" ? undefined
           : state().status === "no-access" ? <>Your account no longer has access to this content, so it was cleared from this view. Ask a workspace lead if you need it restored.</>
             : state().status === "offline" ? <>Governor is unreachable while you are offline. {state().error ?? ""}</>
               : state().status === "retry" ? <>Governor could not complete this read. {state().error ?? ""}</>
@@ -47,6 +47,9 @@ export function ScreenRegion<T>(props: {
       onRetry={state().status === "retry" || state().status === "offline" ? props.onRetry : undefined}
     >
       <Show when={props.warning}>{props.warning}</Show>
+      <Show when={state().status === "partial-failure"}>
+        <Alert theme="amber" variant="outline" title="Some data is unavailable" description={state().error ?? "A provider could not complete its read. The available results are shown below."} />
+      </Show>
       <Show when={state().status === "stale"}>
         {/* Failure retains the last authorized snapshot, but says so. */}
         <Alert theme="amber" variant="outline" title="Showing the last authorized result" description="The Governor could not be reached, so this data may be out of date. Effect actions are disabled until it is reachable again." />

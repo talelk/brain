@@ -171,8 +171,8 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
   async function submitDecision(intent: ApprovalIntent, stepUpEvidenceId: string): Promise<ApprovalOutcome> {
     try {
       await governor(`/v1/approvals/${intent.approvalId}/decision`, {
-        contractVersion: "brain.approval-decision/v1", idempotencyKey: intent.idempotencyKey, decision: "approve",
-        subjectDigest: intent.subjectDigest, expectedVersion: intent.expectedVersion, note: intent.note, stepUpEvidenceId,
+        contractVersion: "brain.approval-decision/v1", idempotencyKey: intent.idempotencyKey, decision: intent.decision ?? "approve",
+        subjectDigest: intent.subjectDigest, expectedVersion: intent.expectedVersion, note: intent.note, ...(stepUpEvidenceId ? { stepUpEvidenceId } : {}),
       });
       return "confirmed";
     } catch (e) {

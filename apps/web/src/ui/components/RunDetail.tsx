@@ -1,5 +1,5 @@
 import type { JSX } from "solid-js";
-import { Show, createSignal } from "solid-js";
+import { For, Show, createSignal } from "solid-js";
 import { Badge, Button, KeyValue, Textarea } from "@talelk/newui-atoms";
 import { Alert, Dialog, TabButtons, Timeline } from "@talelk/newui-molecules";
 import { DetailHeader, Section } from "@talelk/newui-organisms";
@@ -75,8 +75,8 @@ export function RunDetail(props: {
         subtitle={`Run ${job()?.workflowRunId ?? "—"} · v${job()?.version ?? "?"} · config ${job()?.configDigest?.slice(0, 15) ?? "—"}`}
         status={{ label: job()?.state ?? "unknown", theme: job()?.state === "succeeded" ? "green" : job()?.state === "failed" ? "red" : "blue" }}
         actions={[
-          { label: "Reconcile outcome", onClick: () => { setReasonOpen("reconcile"); setReason(""); } },
-          { label: "Cancel run", onClick: () => { setReasonOpen("cancel"); setReason(""); } },
+          ...(unknown() ? [{ label: "Reconcile outcome", onClick: () => { setReasonOpen("reconcile"); setReason(""); } }] : []),
+          ...(!["succeeded","failed","cancelled"].includes(job()?.state ?? "") ? [{ label: "Cancel run", onClick: () => { setReasonOpen("cancel"); setReason(""); } }] : []),
         ]}
       />
       <Show when={unknown()}>
@@ -92,6 +92,11 @@ export function RunDetail(props: {
             <KeyValue label="Queue reasons" value={(job()?.queueReasons ?? []).map((r) => REASON_LABEL[r] ?? r).join(", ") || "none"} />
             <KeyValue label="Workspace" value={job()?.workspaceId ?? "—"} />
           </div>
+        </Section>
+      </Show>
+      <Show when={tab() === "summary" && Object.keys(job()?.runOutputs ?? {}).length}>
+        <Section title="Structured output" surface="card">
+          <For each={Object.entries(job()?.runOutputs ?? {})}>{([step,output]) => <div><h3>{step}</h3><pre class="whitespace-pre-wrap break-words">{JSON.stringify(output,null,2)}</pre></div>}</For>
         </Section>
       </Show>
       <Show when={tab() === "attempts"}>
@@ -115,6 +120,7 @@ export function RunDetail(props: {
               tone: "gray" as const,
             }))} />
           </Show>
+          <For each={job()?.engineEvents ?? []}>{(event) => <div class="border-b border-outline-gray-1 py-2"><strong>{event.kind}</strong><pre class="whitespace-pre-wrap break-words">{JSON.stringify(event.payload,null,2)}</pre></div>}</For>
           <Show when={props.onOpenSession && (job()?.attempts.length ?? 0) > 0}>
             <Button variant="outline" onClick={() => { const first = job()?.attempts[0]; if (first) props.onOpenSession?.(first.attemptId); }}>
               Open live session

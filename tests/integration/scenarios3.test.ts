@@ -79,11 +79,11 @@ describe("scenario gaps (T50 batch 3: connectors, tools, storage)", () => {
     w.brain.close();
   });
 
-  it("checkpoint is produced by the harness and the job can be re-attempted after absent-reconcile (E071)", async () => {
+  it("unsupported fixture checkpointing is explicit; absent-reconcile permits a new attempt (E071)", async () => {
     const engine = new FixtureEngine();
-    const cp = await engine.checkpoint() as unknown as { checkpointId: string; artifact: { digest: string } };
-    expect(cp.checkpointId).toBeTruthy();
-    expect(cp.artifact.digest).toMatch(/^sha256:/);
+    await expect(engine.checkpoint()).rejects.toMatchObject({ code: "UNSUPPORTED_CAPABILITY" });
+    // Actual checkpoint bytes/recovery are covered by pi-checkpoint.test.ts;
+    // a fixture without a session cannot certify checkpoint production.
     const w = setupWorld();
     const s = w.brain.store;
     const { receipt } = w.brain.executeCommand(w.owner, {

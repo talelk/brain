@@ -1,4 +1,4 @@
-import { createEffect, createSignal, createUniqueId, onCleanup } from "solid-js";
+import { Show, createEffect, createSignal, createUniqueId, onCleanup } from "solid-js";
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Dialog } from "@talelk/newui-molecules";
 import {
@@ -8,6 +8,7 @@ import {
 
 export function ApprovalReview(props: {
   active: boolean;
+  requireTwoFactor?: boolean;
   approvalId: string;
   targetLabel: string;
   exactContent: string;
@@ -43,16 +44,16 @@ export function ApprovalReview(props: {
     if (canReviewAgain()) setState(returnToReview(state()));
     if (state().status === "review") setReviewed(snapshot());
   }
-  async function submit() {
-    if (!canSubmit() || busy() || !/^\d{6}$/u.test(code())) return;
+  async function submit(decision: "approve" | "reject" | "request-changes" = "approve") {
+    if (!canSubmit() || busy() || (decision === "approve" && props.requireTwoFactor && !/^\d{6}$/u.test(code()))) return;
     let proof: string;
     setVerifying(true); setIdentityError("");
     const entered = code(); setCode("");
-    try { proof = await props.verifyIdentity(reviewed().approvalId, reviewed().subjectDigest, entered); }
+    try { proof = decision === "approve" ? await props.verifyIdentity(reviewed().approvalId, reviewed().subjectDigest, entered) : ""; }
     catch (e) { setIdentityError(e instanceof Error ? e.message : "Verify your identity again."); return; }
     finally { setVerifying(false); }
     if (disposed || !canSubmit()) return;
-    const next = beginDecision(state(), reviewed(), note(), props.createIdempotencyKey());
+    const next = beginDecision(state(), reviewed(), note(), props.createIdempotencyKey(), decision);
     setState(next);
     if (next.status !== "submitting") return;
     let outcome: ApprovalOutcome = "pending";
@@ -78,7 +79,7 @@ export function ApprovalReview(props: {
   })[state().status];
   return (
     <>
-      <Button onClick={openReview} class="min-h-11">Review action</Button>
+      <Button disabled={!props.active || !props.fresh} onClick={openReview} class="min-h-11">Review action</Button>
       <Dialog.Root open={open()} onOpenChange={setOpen} dismissible={!busy()}>
         <Dialog.Content size="lg">
           <Dialog.Header>
@@ -87,14 +88,16 @@ export function ApprovalReview(props: {
           </Dialog.Header>
           <pre class="whitespace-pre-wrap break-words">{reviewed().exactContent}</pre>
           <Textarea id={noteId} label="Decision note" value={note()} disabled={state().status !== "review"} onInput={(e) => setNote(e.currentTarget.value)} />
-          <TextInput label="Authenticator code" autocomplete="one-time-code" inputmode="numeric" maxlength={6} pattern="[0-9]{6}" value={code()} onInput={(e) => setCode(e.currentTarget.value)} disabled={busy() || state().status !== "review"} />
+          <Show when={props.requireTwoFactor}><TextInput label="Authenticator code" autocomplete="one-time-code" inputmode="numeric" maxlength={6} pattern="[0-9]{6}" value={code()} onInput={(e) => setCode(e.currentTarget.value)} disabled={busy() || state().status !== "review"} /></Show>
           <p role="alert">{identityError()}</p>
           <p role="status" aria-live="polite">{message()}</p>
           <Dialog.Footer class="flex-wrap justify-start">
             <Button onClick={() => setOpen(false)} disabled={busy()} class="min-h-11">Back</Button>
             <Button onClick={reviewCurrent} disabled={busy() || !(canReviewAgain() || (state().status === "review" && !sameProposal()))} class="min-h-11">Review current proposal</Button>
             <Button onClick={check} loading={state().status === "checking"} disabled={state().status !== "unknown"} class="min-h-11">Check decision</Button>
-            <Button onClick={submit} loading={busy()} disabled={!canSubmit() || busy() || !/^\d{6}$/u.test(code())} class="min-h-11">Verify identity and approve</Button>
+            <Button onClick={() => void submit("request-changes")} disabled={!canSubmit() || busy() || !note().trim()}>Request changes</Button>
+            <Button onClick={() => void submit("reject")} disabled={!canSubmit() || busy() || !note().trim()} theme="red">Reject</Button>
+            <Button onClick={() => void submit()} loading={busy()} disabled={!canSubmit() || busy() || (!!props.requireTwoFactor && !/^\d{6}$/u.test(code()))} class="min-h-11">{props.requireTwoFactor ? "Verify identity and approve" : "Approve exact action"}</Button>
           </Dialog.Footer>
         </Dialog.Content>
       </Dialog.Root>

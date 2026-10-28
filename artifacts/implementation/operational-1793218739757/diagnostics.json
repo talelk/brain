@@ -1,0 +1,37 @@
+{
+  "jobs": [
+    {
+      "id": "job-mvsk5081-9-b536klop",
+      "state": "failed",
+      "step_id": "respond"
+    }
+  ],
+  "outputs": [],
+  "events": [
+    {
+      "attempt_id": "att-mvsk51gd-b-4jhewfh9",
+      "seq": 1,
+      "event_json": "{\"sequence\":1,\"kind\":\"progress\",\"payload\":{\"phase\":\"started\",\"artifactId\":\"exec-job-mvsk5081-9-b536klop\"}}"
+    },
+    {
+      "attempt_id": "att-mvsk51gd-b-4jhewfh9",
+      "seq": 2,
+      "event_json": "{\"sequence\":2,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-1\",\"sessionId\":\"01a1842a-8b19-727c-a585-85a3f30890af\",\"attemptId\":\"att-mvsk51gd-b-4jhewfh9\",\"sequence\":1,\"occurredAt\":\"2026-10-28T20:19:03.099Z\",\"kind\":\"session.started\",\"payload\":{\"engine\":{\"id\":\"pi\",\"version\":\"1.4.0\",\"adapterDigest\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"features\":[\"sessions\",\"checkpoint\"]}}}}"
+    },
+    {
+      "attempt_id": "att-mvsk51gd-b-4jhewfh9",
+      "seq": 3,
+      "event_json": "{\"sequence\":3,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-2\",\"sessionId\":\"01a1842a-8b19-727c-a585-85a3f30890af\",\"attemptId\":\"att-mvsk51gd-b-4jhewfh9\",\"sequence\":2,\"occurredAt\":\"2026-10-28T20:19:03.311Z\",\"kind\":\"artifact\",\"payload\":{\"artifact\":{\"artifactId\":\"pi-output-att-mvsk51gd-b-4jhewfh9\",\"digest\":\"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"bytes\":0,\"mediaType\":\"text/plain\",\"classification\":\"internal\"},\"purpose\":\"output\"}}}"
+    },
+    {
+      "attempt_id": "att-mvsk51gd-b-4jhewfh9",
+      "seq": 4,
+      "event_json": "{\"sequence\":4,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-3\",\"sessionId\":\"01a1842a-8b19-727c-a585-85a3f30890af\",\"attemptId\":\"att-mvsk51gd-b-4jhewfh9\",\"sequence\":3,\"occurredAt\":\"2026-10-28T20:19:03.311Z\",\"kind\":\"session.stopped\",\"payload\":{\"reason\":\"completed\",\"terminationConfirmed\":true,\"output\":{\"artifactId\":\"pi-output-att-mvsk51gd-b-4jhewfh9\",\"digest\":\"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"bytes\":0,\"mediaType\":\"text/plain\",\"classification\":\"internal\"}}}}"
+    },
+    {
+      "attempt_id": "att-mvsk51gd-b-4jhewfh9",
+      "seq": 5,
+      "event_json": "{\"sequence\":5,\"kind\":\"progress\",\"payload\":{\"phase\":\"executed\",\"ok\":false}}"
+    }
+  ]
+}

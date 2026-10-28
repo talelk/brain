@@ -36,5 +36,8 @@
     "maxTokens": 1000,
     "maxMicroUsd": 100000,
     "maxTurns": 12
-  }
+  },
+  "instructions": "Follow the dispatched task and use only governed tools.",
+  "instructionsDigest": "sha256:156993a290d10a579ebb2b07d72b2edfddc00a103c35919e47c73def18d100b1",
+  "task": "Run the fixture diagnostic."
 }

@@ -61,7 +61,10 @@ export function evaluateRunner(placement: Placement, demand: Resources, runner: 
     if (!any) reasons.push("no-anyof-capability");
   }
   if (placement.engine) {
-    const engineOk = placement.engine.anyOf.some((e) => runner.engines.includes(e));
+    const engineOk = placement.engine.anyOf.some((e) => runner.engines.includes(e) && placement.engine!.features.every((feature) => {
+      const capability = runner.capabilities.get(`engine-feature:${e}:${feature}`);
+      return capability?.verified && capability.expiresAtMs > nowMs;
+    }));
     if (!engineOk) reasons.push("engine-mismatch");
   }
   if (!fits(demand, available(runner))) reasons.push("insufficient-capacity");

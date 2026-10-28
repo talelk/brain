@@ -65,26 +65,22 @@ export function createScopedRead<T>(input: {
     controller = new AbortController();
     const current = ++generation;
     const previous = lastGood;
-    setState((s) => ({
-      status: previous && !force ? "stale" : "loading",
-      data: previous?.value,
-      asOf: previous?.asOf,
-      error: s.error,
-      clearedProtected: false,
-      canMutate: false,
-    }));
+    if (!previous || force) setState({
+      status: "loading", data: previous?.value, asOf: previous?.asOf,
+      clearedProtected: false, canMutate: false,
+    });
     try {
       const loaded = await input.load(scope, controller.signal);
       if (current !== generation) return; // superseded by a newer scope/read
       lastGood = { value: loaded.snapshot, asOf: loaded.asOf };
       const empty = input.isEmpty ? input.isEmpty(loaded.snapshot) : false;
       setState({
-        status: empty ? "empty-authorized" : "ready",
+        status: loaded.partialFailures?.length ? "partial-failure" : empty ? "empty-authorized" : "ready",
         data: loaded.snapshot,
         asOf: loaded.asOf,
-        error: undefined,
+        error: loaded.partialFailures?.join("; "),
         clearedProtected: false,
-        canMutate: true,
+        canMutate: !loaded.partialFailures?.length,
       });
     } catch (e) {
       if (controller?.signal.aborted || current !== generation) return;

@@ -1,6 +1,8 @@
 import { test, expect } from "./fixtures";
 import { totpCode } from "../support/totp";
 
+test.use({ requireTwoFactor: true });
+
 test("native setup, enrollment and second-factor sign-in (E093/E094 partial)",async({page,governor},info)=>{
   const errors:string[]=[];page.on("pageerror",(error)=>errors.push(error.message));
   await page.goto(governor.url);
@@ -11,7 +13,7 @@ test("native setup, enrollment and second-factor sign-in (E093/E094 partial)",as
   await page.getByLabel(/^Password/).fill("browser-password-1234");
   await page.getByRole("button",{name:"Create organization",exact:true}).click();
   await expect(page.getByRole("heading",{name:"Today",exact:true})).toBeVisible();
-  await expect(page.getByText("No workspaces are assigned",{exact:false})).toBeVisible();
+  await expect(page.getByRole("region",{name:"Create your first workspace"})).toHaveCount(0);
   await page.getByLabel(/^Confirm password/).fill("browser-password-1234");
   await page.getByRole("button",{name:"Begin setup",exact:true}).click();
   const link=page.getByRole("link",{name:"Keyrus Brain to your authenticator",exact:true});
@@ -19,6 +21,7 @@ test("native setup, enrollment and second-factor sign-in (E093/E094 partial)",as
   await page.getByLabel(/^Authenticator code/).fill(totpCode(secret,Date.now()));
   await page.getByRole("button",{name:"Verify authenticator",exact:true}).click();
   await expect(page.getByRole("region",{name:"Authenticator setup"})).toHaveCount(0);
+  await expect(page.getByRole("region",{name:"Create your first workspace"})).toBeVisible();
   const cookies=await page.context().cookies();
   const identity=await governor.app.brain.resolveActor(new Headers({cookie:cookies.map((c)=>`${c.name}=${c.value}`).join("; ")}));
   expect(identity.humanSession?.factorDigest).toBeTruthy();

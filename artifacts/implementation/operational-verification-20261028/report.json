@@ -1,0 +1,142 @@
+{
+  "scope": "Operational product milestone; repository self-verification, not independent release certification",
+  "finishedAt": "2026-10-28T21:02:53.708159+00:00",
+  "head": "693343e2bc03eeafa316e11cf4004abe5b343670",
+  "sourceFingerprint": "a82a3157fce2eba227fb5b969c27305c6e0abe6b126f24d2b2f860877dbf8194",
+  "sourceStable": true,
+  "lockSha256": "726836477d3242e3016c16379c526cacb3610bb9a699ca7c323f5051c0bafce8",
+  "full": {
+    "record": "artifacts/implementation/operational-verification-20261028/full-run.json",
+    "log": "artifacts/implementation/operational-verification-20261028/full.log",
+    "exitCode": 0,
+    "tests": {
+      "contracts": 5,
+      "domain": 27,
+      "integration": 165,
+      "security": 54,
+      "chaos": 33,
+      "certification": 2
+    },
+    "browserPassed": 88,
+    "browserSkipped": 2,
+    "browserProjects": [
+      "390-light",
+      "390-dark",
+      "768-light",
+      "768-dark",
+      "1440-light",
+      "1440-dark"
+    ]
+  },
+  "checks": "artifacts/implementation/operational-verification-20261028/checks.json",
+  "realOperational": {
+    "command": "rtk bash scripts/verify-operational.sh",
+    "record": "artifacts/implementation/operational-1793221019010/run.json",
+    "engine": "pi",
+    "modelId": "qwen3.8-flash-next-a5b",
+    "runs": [
+      {
+        "workflowId": "agent-smoke",
+        "runId": "run-mvslhx06-8-miuapqls",
+        "jobId": "job-mvslhx09-9-gqtussv9",
+        "attemptId": "att-mvslhzn6-b-phg528j3",
+        "bundleDigest": "sha256:da40f8d88aaceb63fa3c15f4ce64df5c86f4c56fc97737f9e7ae47f3cd1906e1",
+        "artifacts": [
+          {
+            "artifactId": "att-att-mvslhzn6-b-phg528j3-88da8a24121e64f083f714d2",
+            "digest": "sha256:69d613a3e11cbc66866f73c02e52e80fc7e08083bfb926c5ef98a01fb8f348c8",
+            "bytes": 10,
+            "mediaType": "application/json",
+            "classification": "internal"
+          }
+        ],
+        "verdict": {
+          "outcome": "verified",
+          "evaluator_attempt_id": "att-mvsliijb-g-lrxag538"
+        }
+      },
+      {
+        "workflowId": "operations-triage",
+        "runId": "run-mvslilgm-l-l466rlvn",
+        "jobId": "job-mvslilgn-m-4w6a18az",
+        "attemptId": "att-mvslilgw-o-5lgiw8l3",
+        "bundleDigest": "sha256:de25c6a9591d3bb876c3f13bec1d9179f6748920ffe1e9b876b93675f66572f0",
+        "artifacts": [
+          {
+            "artifactId": "att-att-mvslilgw-o-5lgiw8l3-7f95eb213878fb234ef52be8",
+            "digest": "sha256:44a4e97a247207bb2d182ce77360644d46b67851add87779e5613777e1803234",
+            "bytes": 1604,
+            "mediaType": "application/json",
+            "classification": "internal"
+          }
+        ],
+        "verdict": {
+          "outcome": "verified",
+          "evaluator_attempt_id": "att-mvslj9a8-t-3zd1gub6"
+        }
+      },
+      {
+        "workflowId": "support-draft",
+        "runId": "run-mvsljc7a-y-z3s26lel",
+        "jobId": "job-mvsljc7c-z-eif7t39v",
+        "attemptId": "att-mvsljc7m-11-9zgbka7d",
+        "bundleDigest": "sha256:54a3964a88abfb0584a198506af146e46d85cbe5f46d90faf0020bdc48db1654",
+        "artifacts": [
+          {
+            "artifactId": "att-att-mvsljc7m-11-9zgbka7d-73084f5b83669dc7143e79df",
+            "digest": "sha256:ded4db3fd77ceede95133ca5c6986bbd07dbe046f462b4c5f8c74dc710faf3cb",
+            "bytes": 1403,
+            "mediaType": "application/json",
+            "classification": "internal"
+          }
+        ],
+        "verdict": {
+          "outcome": "verified",
+          "evaluator_attempt_id": "att-mvsljwgw-16-mxqfcvpu"
+        }
+      }
+    ],
+    "log": "artifacts/implementation/operational-verification-20261028/operational.log",
+    "logSha256": "4488563d3e269f309ffd2369e19204b6bfccebc7fbe6f53f92687e82513390d3"
+  },
+  "readmeWalkthrough": {
+    "record": "artifacts/implementation/readme-walkthrough-1793221017970/run.json",
+    "detachedGovernorRunnerLauncherProcesses": true,
+    "runs": [
+      {
+        "workflowId": "agent-smoke",
+        "runId": "run-mvsli6tg-8-cvclu8vs",
+        "state": "succeeded"
+      },
+      {
+        "workflowId": "operations-triage",
+        "runId": "run-mvslivjk-l-hiw0ctd6",
+        "state": "succeeded"
+      },
+      {
+        "workflowId": "support-draft",
+        "runId": "run-mvsljnib-y-jyefn0wz",
+        "state": "succeeded"
+      }
+    ]
+  },
+  "piCheckpoint": {
+    "command": "rtk pnpm exec vitest run tests/probes/harnesses/pi-checkpoint.test.ts",
+    "log": "artifacts/implementation/operational-verification-20261028/pi-checkpoint.log",
+    "passed": true
+  },
+  "rejectedModelOutput": {
+    "record": "artifacts/implementation/operational-1793220842976/operations-triage-failure.json",
+    "observation": "Independent validator rejected extra observations/unknowns fields. Exact-key instructions were tightened; schema/evaluator acceptance was preserved.",
+    "log": "artifacts/implementation/operational-verification-20261028/rejected-output.log"
+  },
+  "cleanup": "artifacts/implementation/operational-verification-20261028/cleanup.json",
+  "limitations": [
+    "Two existing 390px pointer-drag browser cases are skipped.",
+    "E092 slow-SSE scroll preservation remains partial; concurrent SessionFeed edits were preserved.",
+    "Claude SDK lifecycle mapping is tested; no real Claude endpoint was selected or certified.",
+    "Read-only native engine adapters reject nonempty governed-tool bindings.",
+    "Semantic model quality, customer connectors, complete remote-memory restore and independent G01-G08/release certification are unproven."
+  ],
+  "passed": true
+}

@@ -19,3 +19,5 @@ spec:
   maxTurns: 12
   maxChildren: 2
   maxDepth: 1
+  maxTokens: 100000
+  maxMicroUsd: 1000000

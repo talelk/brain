@@ -25,10 +25,20 @@ DATA_DIR="${BRAIN_DATA_DIR:-/tmp/brain-data}"
 RUN_DIR="${BRAIN_RUN_DIR:-/tmp/brain-run}"
 PORT="${BRAIN_PORT:-3100}"
 BASE_URL="http://127.0.0.1:${PORT}"
-TENCENTDB_URL="${BRAIN_TENCENTDB_URL:-http://127.0.0.1:8420}"
+TENCENTDB_URL="${BRAIN_TENCENTDB_URL:-}"
 LAUNCHER_SOCKET="${BRAIN_LAUNCHER_SOCKET:-${RUN_DIR}/launcher.sock}"
 RUNNERS="${BRAIN_RUNNERS:-1}"
-RUNNER_GROUP="${BRAIN_RUNNER_GROUP:-local}"
+PROFILE="${BRAIN_PROFILE:-agents}"
+case "$PROFILE" in
+  fixture) ENGINE="fixture"; DEFAULT_GROUP="fixture-tools" ;;
+  agents) ENGINE="${BRAIN_RUNNER_ENGINE:-pi}"; DEFAULT_GROUP="agents" ;;
+  *) echo "BRAIN_PROFILE must be agents or fixture" >&2; exit 1 ;;
+esac
+RUNNER_GROUP="${BRAIN_RUNNER_GROUP:-$DEFAULT_GROUP}"
+export BRAIN_RUNNER_ENGINE="$ENGINE"
+export BRAIN_AUTH_REQUIRE_2FA="${BRAIN_AUTH_REQUIRE_2FA:-false}"
+export BRAIN_LOCAL_MODEL_URL="${BRAIN_LOCAL_MODEL_URL:-http://tntungx10:8000/v1}"
+export BRAIN_LOCAL_MODEL_ID="${BRAIN_LOCAL_MODEL_ID:-qwen3.8-flash-next-a5b}"
 
 mkdir -p "$RUN_DIR" "$DATA_DIR"
 cd "$ROOT"
@@ -48,8 +58,15 @@ start_detached() { # name logfile -- command...
   log "$name started (pid $(cat "$pidfile" 2>/dev/null || echo '?'), log $logfile)"
 }
 
+# Fail before starting processes when a selected real engine cannot run.
+if [[ "$PROFILE" == agents && "$RUNNERS" -gt 0 ]]; then
+  pnpm exec tsx scripts/probe-engine.ts
+fi
+
 # 1) External memory service: check only, never managed here.
-if curl -fsS --max-time 3 "${TENCENTDB_URL%/}/" >/dev/null 2>&1 || curl -s --max-time 3 -o /dev/null "${TENCENTDB_URL%/}/" 2>/dev/null; then
+if [[ -z "$TENCENTDB_URL" ]]; then
+  log "using local memory; no external TencentDB configured"
+elif curl -fsS --max-time 3 "${TENCENTDB_URL%/}/" >/dev/null 2>&1 || curl -s --max-time 3 -o /dev/null "${TENCENTDB_URL%/}/" 2>/dev/null; then
   log "tencentdb reachable at $TENCENTDB_URL (external service)"
 else
   log "WARNING: tencentdb not reachable at $TENCENTDB_URL — memory features degraded; start it separately"
@@ -57,7 +74,8 @@ fi
 
 # 2) Governor
 if curl -fsS --max-time 2 "${BASE_URL}/health/ready" >/dev/null 2>&1 && [[ ! -f "${RUN_DIR}/governor.pid" ]]; then
-  log "WARNING: something already serves ${BASE_URL} but is not managed by this script; refusing to double-start"
+  log "ERROR: something already serves ${BASE_URL} but is not managed by this script; choose another BRAIN_PORT"
+  exit 1
 else
   start_detached governor "${RUN_DIR}/governor.log" \
     env BRAIN_DATA_DIR="$DATA_DIR" PORT="$PORT" BRAIN_BASE_URL="$BASE_URL" BRAIN_TENCENTDB_URL="$TENCENTDB_URL" \
@@ -82,51 +100,16 @@ for _ in $(seq 1 15); do [[ -S "$LAUNCHER_SOCKET" ]] && break; sleep 1; done
 [[ -S "$LAUNCHER_SOCKET" ]] && log "launcher socket ready at $LAUNCHER_SOCKET" \
   || log "WARNING: launcher socket not seen at $LAUNCHER_SOCKET — see ${RUN_DIR}/launcher.log"
 
-# 4) Runners (need an initialized org + admin credentials to mint tokens)
-if [[ "$RUNNERS" -lt 1 ]]; then
-  log "BRAIN_RUNNERS=$RUNNERS — skipping runners"
-  exit 0
-fi
-if ! grep -q '"initialized":true' <(curl -s --max-time 3 "${BASE_URL}/v1/setup/status" 2>/dev/null); then
-  log "setup not completed yet: open $BASE_URL, create the organization/admin, then rerun with BRAIN_ADMIN_EMAIL + BRAIN_ADMIN_PASSWORD_FILE to add runners"
-  exit 0
-fi
-if [[ -z "${BRAIN_ADMIN_EMAIL:-}" || -z "${BRAIN_ADMIN_PASSWORD_FILE:-}" ]]; then
-  log "BRAIN_ADMIN_EMAIL / BRAIN_ADMIN_PASSWORD_FILE not set — skipping runner enrollment"
-  exit 0
-fi
-ADMIN_PASSWORD="$(cat "$BRAIN_ADMIN_PASSWORD_FILE")"
-COOKIES="$(mktemp)"; trap 'rm -f "$COOKIES"' EXIT
-if ! curl -fsS --max-time 10 -X POST "${BASE_URL}/api/auth/sign-in/email" \
-      -H 'content-type: application/json' -H "origin: ${BASE_URL}" -c "$COOKIES" \
-      -d "{\"email\":\"${BRAIN_ADMIN_EMAIL}\",\"password\":\"${ADMIN_PASSWORD}\"}" >/dev/null; then
-  log "ERROR: admin sign-in failed; cannot mint enrollment tokens"
-  exit 1
-fi
-for i in $(seq 1 "$RUNNERS"); do
-  name="runner-${i}"
-  if [[ -f "${RUN_DIR}/${name}.pid" ]] && kill -0 "$(cat "${RUN_DIR}/${name}.pid")" 2>/dev/null; then
-    log "$name already running (pid $(cat "${RUN_DIR}/${name}.pid"))"
-    continue
+# 4) Runners use the same private CLI session as the operator. An explicit
+# private password-file login is also supported for unattended local startup.
+if [[ "$RUNNERS" -gt 0 ]]; then
+  if ! grep -q '\"initialized\":true' <(curl -s --max-time 3 "${BASE_URL}/v1/setup/status"); then
+    log "Create the organization at $BASE_URL (or with brain setup), compile/activate the starter release, then rerun this script."
+    exit 0
   fi
-  token="$(curl -fsS --max-time 10 -b "$COOKIES" -X POST "${BASE_URL}/v1/runner-tokens" \
-      -H 'content-type: application/json' -H "origin: ${BASE_URL}" \
-      -d "{\"groupId\":\"${RUNNER_GROUP}\"}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')"
-  start_detached "$name" "${RUN_DIR}/${name}.log" \
-    env BRAIN_GOVERNOR_URL="$BASE_URL" BRAIN_RUNNER_ID="runner-${RUNNER_GROUP}-${i}" \
-    BRAIN_RUNNER_STATE_DIR="${RUN_DIR}/${name}-state" BRAIN_RUNNER_ENROLL_TOKEN="$token" \
-    ${BRAIN_RUNNER_CAPABILITIES:+BRAIN_RUNNER_CAPABILITIES="$BRAIN_RUNNER_CAPABILITIES"} \
-    ${BRAIN_ANTHROPIC_BASE_URL:+BRAIN_ANTHROPIC_BASE_URL="$BRAIN_ANTHROPIC_BASE_URL"} \
-    ${BRAIN_ANTHROPIC_ALLOW_LOCAL_NO_KEY:+BRAIN_ANTHROPIC_ALLOW_LOCAL_NO_KEY="$BRAIN_ANTHROPIC_ALLOW_LOCAL_NO_KEY"} \
-    ${BRAIN_ANTHROPIC_API_KEY_FILE:+BRAIN_ANTHROPIC_API_KEY_FILE="$BRAIN_ANTHROPIC_API_KEY_FILE"} \
-    pnpm exec tsx apps/runner/src/main.ts
-done
-sleep 3
-for i in $(seq 1 "$RUNNERS"); do
-  grep -q "connected" "${RUN_DIR}/runner-${i}.log" 2>/dev/null \
-    && log "runner-${i} connected" \
-    || log "WARNING: runner-${i} not connected yet — see ${RUN_DIR}/runner-${i}.log"
-done
-
-log "stack up: governor $BASE_URL | launcher $LAUNCHER_SOCKET | runners $RUNNERS | data $DATA_DIR | run state $RUN_DIR"
+  BRAIN_GOVERNOR_URL="$BASE_URL" BRAIN_RUN_DIR="$RUN_DIR" BRAIN_PROFILE="$PROFILE" \
+    BRAIN_RUNNER_GROUP="$RUNNER_GROUP" BRAIN_RUNNERS="$RUNNERS" BRAIN_LAUNCHER_SOCKET="$LAUNCHER_SOCKET" \
+    pnpm exec tsx scripts/enroll-local-runners.ts
+fi
+log "stack up: governor $BASE_URL | launcher $LAUNCHER_SOCKET | data $DATA_DIR | logs $RUN_DIR"
 log "stop with: scripts/down.sh"

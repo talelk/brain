@@ -43,7 +43,7 @@ describe("placement hard predicates (T16)", () => {
       [{ reserved: { cpuMillicores: 3800, memoryMb: 0, diskMb: 0, slots: 0 } }, "insufficient-capacity"],
       [{ engines: ["Muse"] }, "engine-mismatch"],
     ];
-    const withEngine = { ...placement, engine: { anyOf: ["pi", "acp"] } } as unknown as Placement;
+    const withEngine = { ...placement, engine: { anyOf: ["pi", "acp"], features: [] } } as unknown as Placement;
     for (const [over, reason] of cases) {
       const v = evaluateRunner(withEngine, demand, runner(over), NOW);
       expect(v.eligible, reason).toBe(false);

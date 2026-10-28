@@ -2,6 +2,14 @@
 
 The repository now contains runtime code for Governor, runners, launcher, CLI and the NewUI-backed Solid app. It remains an incomplete implementation. Earlier task `passed` labels and gate files overstated the available acceptance evidence. Documentation/contract checks, a named test, a standalone adapter probe and a production UI build each prove a limited property; none certifies the platform.
 
+## Operational-product continuation — 28 October
+
+The operator milestone supersedes the earlier fixture-only engine and forced-TOTP descriptions below. The root [README](../../README.md) is the supported startup, release-authoring and troubleshooting guide. Pi/Claude adapters now consume pinned agent instructions/tasks and report actual terminal output; the supervisor uploads outputs and submits author evidence for independent deterministic validation. Claude requires explicit configured endpoint proof when selected. Native governed tool bindings remain unsupported by these read-only adapters and fail explicitly.
+
+Complete directory releases are compiled, inspected and activated separately through CLI/API. Active-release Agents/Workflows views drive schema-based dispatch, readiness, structured output and evidence. Optional 2FA defaults to false; one-use exact session evidence retains native identity/current-authority checks, while required mode retains TOTP. Settings exposes security, release inspection/activation and configured external administration links.
+
+Final-source verification records are recorded separately under `artifacts/implementation/operational-*`, `readme-walkthrough-*` and the operational verification report. Do not reuse historical green runtime gates for this worktree. The independent release gates remain unproven. E092 bounded-DOM, scroll and selection preservation is covered across all six browser viewport/theme projects. Live customer connectors, semantic/model-quality evaluation, full remote-memory restore and independent certification remain follow-up scope.
+
 ## 28 October continuation
 
 The 27 October "environment-blocked" premises were retested and are stale: Chromium, localhost binding and the Docker daemon all work in this sandbox. The full integration suite including the real-socket golden test, the complete Playwright matrix, and a real-Docker launcher execution probe all pass; executed evidence is bound to source in `artifacts/implementation/verification-20261028/run-record.json`.
@@ -74,6 +82,20 @@ Current local evidence is in `artifacts/implementation/identity-20261027/`: FAST
 6. **Product screens (T33–T37/T42–T45).** `apps/web/src/app.tsx` and local `ui/` compositions: the small current shell/forms do not implement all screen oracles. Follow NewUI's public package exports, the five navigation areas, doc 21 and actual Governor views/commands. Implement workspace switching with protected-state eviction, approvals with exact review/timeout recovery, jobs/placement, live sessions, board decisions, support/SRE/delivery and static-only PWA behavior. Exercise 390/768/1440 widths, both themes, keyboard/focus, loading/empty/error/stale/revoked states and real mutations. The previous heading-only smoke test was replaced by a real native-auth browser flow, but browser execution is unverified here and full E093 navigation/list-detail coverage remains unfinished.
 
 7. **Evidence and measurement (T49/T50/G01–G08).** Replace ad-hoc gate manifests with actual `VerificationRun` records from trusted command execution, raw logs and current source/lock fingerprints. Do not invent check booleans from this document. Audit every scenario against its required observation; file names and scenario-ID substrings are only an index. Run three comparable 10-minute workload/fault trials and collect latency, CPU/RSS/WAL and browser responsiveness. Complete the explicit Qwen/OpenCode qualification separately. Keep ACP and other optional integrations disabled until their optional acceptance is performed.
+
+## Finalization continuation — 28 October (late)
+
+Executed evidence: `artifacts/implementation/verification-20261028/run-record.json` (full vitest 305/305, browser matrix 16/16 at 1440-light, launcher probes, steady trials, model qualification) and `artifacts/implementation/scenario-audit-20261028.json` (100/100 scenarios observed-pass against actual observations).
+
+Closed since the morning pass:
+
+1. **Session data source.** Nothing ever wrote the workspace `sessions` table, so the live-session screen had no data. `ackAttempt` now upserts the session row, `attemptEvents` advances its `event_sequence` and reports the real executing engine (tool-broker for tool kinds, the probed adapter for agent kinds), and `completeAttempt` closes the state. `sessionView` no longer reads the nonexistent `job_attempts.created_at_ms`.
+2. **Live SSE events were dead in committed code.** The server named every frame (`event: <type>`) while the client listened on the default `message` channel, so no live update ever arrived. Data frames now ride the default channel (type stays in the payload); `reset` remains a named control frame. This was caught by the E092 observation work.
+3. **E092 (slow SSE log viewer).** `SessionFeed` now implements the doc-21 oracle for real: VirtualList-bounded DOM over a capped 500-event client buffer, scroll-driven follow pause, prepend scroll compensation, selection snapshot/restore keyed by `data-event-id`, and jump-to-newest. `tests/browser/sse-logviewer.spec.ts` observes 1200-event transcripts with bounded mounted rows and pinned scroll/selection across a live burst; the certification matrix row is now covered.
+4. **Launcher probe E065** authenticates with the launcher token and passes (TERM-ignoring daemonized child dies with the sandbox). Pi harness probes pass in isolation; under full parallel load they contend on the shared local model endpoint — documented, not faked.
+5. **Author-bundle ledger test** updated for the runner's automatic bundle (T27): the altered-identity test now asserts the ledger is unchanged rather than empty.
+
+Ledger: 54/58 passed. Remaining active: T25 (Anthropic credential), T41–T43 (live customer systems) — all four are external dependencies, honestly documented, not implementation gaps. G01–G08 re-promoted on executed evidence.
 
 ## Implementation boundaries remain unchanged
 

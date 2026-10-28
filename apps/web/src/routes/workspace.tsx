@@ -1,7 +1,7 @@
 import type { JSX } from "solid-js";
 import { For, Show, createSignal } from "solid-js";
 import { Badge, Button, KeyValue, Progress, TextInput } from "@talelk/newui-atoms";
-import { Alert, Dialog } from "@talelk/newui-molecules";
+import { Alert } from "@talelk/newui-molecules";
 import { DetailHeader, Section, StatGrid } from "@talelk/newui-organisms";
 import type { IncidentDetail, RunnerSnapshot, TicketDetail, WorkspaceContext } from "@brain/contracts";
 import { ScreenRegion, DateText } from "../ui/screen-region";
@@ -16,14 +16,12 @@ export function WorkspaceOverview(props: {
   context?: WorkspaceContext;
   workflows: readonly string[];
   canDispatch: boolean;
+  onBrowseWorkflows: () => void;
   state: ScreenState<unknown>;
   onRefresh: () => void;
   onDispatch: (workflowId: string, input: Record<string, unknown>) => Promise<void>;
   blockedReason?: string;
 }): JSX.Element {
-  const [dispatchOpen, setDispatchOpen] = createSignal(false);
-  const [workflow, setWorkflow] = createSignal("");
-  const [message, setMessage] = createSignal("");
   const ctx = () => props.context;
 
   return (
@@ -38,7 +36,7 @@ export function WorkspaceOverview(props: {
           { label: "Spend today", value: `${(ctx()?.workspace.dailyMicroUsd ?? 0) / 1_000_000} USD` },
         ]} />
         <Section title="Active release" surface="card"
-          actions={props.canDispatch ? <Button onClick={() => setDispatchOpen(true)} class="min-h-11">Dispatch workflow</Button> : undefined}>
+          actions={props.canDispatch ? <Button onClick={props.onBrowseWorkflows} class="min-h-11">Dispatch workflow</Button> : undefined}>
           <div class="grid gap-field-gap sm:grid-cols-2">
             <KeyValue label="Source revision" value={<code class="break-all">{ctx()?.release.sourceRevision ?? "—"}</code>} orientation="vertical" />
             <KeyValue label="Config digest" value={<code class="break-all">{ctx()?.release.configDigest ?? "—"}</code>} orientation="vertical" />
@@ -50,32 +48,7 @@ export function WorkspaceOverview(props: {
           </Show>
         </Section>
 
-        <Dialog.Root open={dispatchOpen()} onOpenChange={setDispatchOpen}>
-          <Dialog.Content size="md">
-            <Dialog.Header>
-              <Dialog.Title>Dispatch a declared workflow</Dialog.Title>
-              <Dialog.Description>Only workflows in the active release are offered; the run stays pinned to that release.</Dialog.Description>
-            </Dialog.Header>
-            <Show when={props.workflows.length} fallback={<Alert theme="gray" variant="outline" title="No workflows declared" description="Publish a configuration release that declares at least one workflow." />}>
-              <div class="flex flex-col gap-field-gap">
-                <For each={props.workflows}>{(id) => (
-                  <button type="button" class="flex items-center justify-between rounded-card border border-outline-gray-2 p-3 text-start hover:bg-surface-gray-1"
-                    onClick={() => setWorkflow(id)}>
-                    <span class="text-base-medium">{id}</span>
-                    <Badge theme={workflow() === id ? "blue" : "gray"} label={workflow() === id ? "selected" : "declare"} />
-                  </button>
-                )}</For>
-                <TextInput label="Input message" value={message()} onInput={(e) => setMessage(e.currentTarget.value)} />
-              </div>
-            </Show>
-            <Dialog.Footer class="justify-end">
-              <Button variant="outline" onClick={() => setDispatchOpen(false)}>Back</Button>
-              <Button disabled={!workflow()} onClick={() => { void props.onDispatch(workflow(), { message: message().trim() }); setDispatchOpen(false); }}>
-                Dispatch
-              </Button>
-            </Dialog.Footer>
-          </Dialog.Content>
-        </Dialog.Root>
+
       </div>
     </ScreenRegion>
   );

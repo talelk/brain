@@ -1,11 +1,12 @@
+import { readFileSync } from "node:fs";
 import { request } from "node:http";
 import { describe, expect, it } from "vitest";
 import { startLauncher } from "../../../apps/launcher/src/server";
 
-function unixJson(socket: string, method: string, path: string, body?: unknown): Promise<{ status: number; json: Record<string, unknown> }> {
+function unixJson(socket: string, method: string, path: string, body?: unknown, token?: string): Promise<{ status: number; json: Record<string, unknown> }> {
   return new Promise((resolve, reject) => {
     const payload = body === undefined ? "" : JSON.stringify(body);
-    const req = request({ socketPath: socket, method, path, headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload) } }, (res) => {
+    const req = request({ socketPath: socket, method, path, headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload), ...(token ? { authorization: `Bearer ${token}` } : {}) } }, (res) => {
       const chunks: Buffer[] = [];
       res.on("data", (c: Buffer) => chunks.push(c));
       res.on("end", () => {
@@ -23,16 +24,17 @@ describe("G06 launcher sandbox (requires docker + brain-sandbox-* tags of alpine
     const socket = `/tmp/brain-launcher-test-${Date.now()}/launcher.sock`;
     process.env["BRAIN_LAUNCHER_SOCKET"] = socket;
     await startLauncher();
-    const health = await unixJson(socket, "GET", "/v1/health");
+    const token = readFileSync(`${socket}.token`, "utf8").trim();
+    const health = await unixJson(socket, "GET", "/v1/health", undefined, token);
     expect(health.json["docker"]).toBe(true);
-    const bad = await unixJson(socket, "POST", "/v1/sandboxes", { profile: "agent", image: "brain-sandbox-agent", requestId: "bad-1", privileged: true });
+    const bad = await unixJson(socket, "POST", "/v1/sandboxes", { profile: "agent", image: "brain-sandbox-agent", requestId: "bad-1", privileged: true }, token);
     expect(bad.status).toBe(422);
-    const created = await unixJson(socket, "POST", "/v1/sandboxes", { profile: "agent", image: "brain-sandbox-agent", requestId: "sb-1", network: "none" });
+    const created = await unixJson(socket, "POST", "/v1/sandboxes", { profile: "agent", image: "brain-sandbox-agent", requestId: "sb-1", network: "none" }, token);
     expect(created.status).toBe(201);
     const sandboxId = String(created.json["sandboxId"]);
-    const replay = await unixJson(socket, "POST", "/v1/sandboxes", { profile: "agent", image: "brain-sandbox-agent", requestId: "sb-1", network: "none" });
+    const replay = await unixJson(socket, "POST", "/v1/sandboxes", { profile: "agent", image: "brain-sandbox-agent", requestId: "sb-1", network: "none" }, token);
     expect(String(replay.json["sandboxId"])).toBe(sandboxId);
-    const stopped = await unixJson(socket, "POST", `/v1/sandboxes/${encodeURIComponent(sandboxId)}/stop`, { graceMs: 2000 });
+    const stopped = await unixJson(socket, "POST", `/v1/sandboxes/${encodeURIComponent(sandboxId)}/stop`, { graceMs: 2000 }, token);
     expect(stopped.json["cleanupConfirmed"]).toBe(true);
   }, 120_000);
 
@@ -53,7 +55,8 @@ describe("G06 launcher sandbox (requires docker + brain-sandbox-* tags of alpine
     const socket = `/tmp/brain-launcher-test-${Date.now()}-e065/launcher.sock`;
     process.env["BRAIN_LAUNCHER_SOCKET"] = socket;
     await startLauncher();
-    const created = await unixJson(socket, "POST", "/v1/sandboxes", { profile: "agent", image: "brain-sandbox-agent", requestId: "sb-e065", network: "none" });
+    const token = readFileSync(`${socket}.token`, "utf8").trim();
+    const created = await unixJson(socket, "POST", "/v1/sandboxes", { profile: "agent", image: "brain-sandbox-agent", requestId: "sb-e065", network: "none" }, token);
     expect(created.status).toBe(201);
     const sandboxId = String(created.json["sandboxId"]);
     const containerId = String(created.json["containerId"]);
@@ -61,7 +64,7 @@ describe("G06 launcher sandbox (requires docker + brain-sandbox-* tags of alpine
     await execa("docker", ["exec", "-d", containerId, "sh", "-c", "trap '' TERM; (sleep 600 &) ; sleep 600"], { timeout: 15_000 });
     const before = await execa("docker", ["top", containerId], { timeout: 15_000 });
     expect(String(before.stdout)).toContain("sleep");
-    const stopped = await unixJson(socket, "POST", `/v1/sandboxes/${encodeURIComponent(sandboxId)}/stop`, { graceMs: 1000 });
+    const stopped = await unixJson(socket, "POST", `/v1/sandboxes/${encodeURIComponent(sandboxId)}/stop`, { graceMs: 1000 }, token);
     expect(stopped.json["terminationConfirmed"]).toBe(true);
     expect(stopped.json["cleanupConfirmed"]).toBe(true);
     const gone = await execa("docker", ["inspect", containerId], { timeout: 10_000, reject: false });

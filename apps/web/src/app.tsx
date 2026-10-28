@@ -4,7 +4,7 @@ import { Navigate, Route, Router, useLocation, useNavigate, useParams } from "@s
 import type { RouteSectionProps } from "@solidjs/router";
 import { createMediaQuery } from "@talelk/newui-atoms";
 import { Button, TextInput } from "@talelk/newui-atoms";
-import { Dropdown, Select } from "@talelk/newui-molecules";
+import { Dropdown, Select, Toaster } from "@talelk/newui-molecules";
 import { AppShell } from "@talelk/newui-templates";
 import type { AppSidebarGroup } from "@talelk/newui-organisms";
 import { AppProvider, useApp } from "./ui/app-context";
@@ -22,14 +22,34 @@ import { PRIMARY_NAVIGATION, ROUTES } from "./routes/index.gen";
  * so the initial shell stays inside the release budget.
  */
 
-type PageKey = keyof (typeof import("./routes/pages"))["pages"];
-
-const page = (key: PageKey) =>
-  lazy(async () => {
-    const module = await import("./routes/pages");
-    const Component = module.pages[key];
-    return { default: () => <Component /> };
-  });
+const PAGE_LOADERS = {
+  AgentsPage: () => import('./routes/catalog').then((m) => ({ default: m.AgentsPage })),
+  WorkflowsPage: () => import('./routes/catalog').then((m) => ({ default: m.WorkflowsPage })),
+  TodayPage: () => import('./routes/pages/TodayPage'),
+  BridgePage: () => import('./routes/pages/BridgePage'),
+  WorkspaceOverviewPage: () => import('./routes/pages/WorkspaceOverviewPage'),
+  BoardPage: () => import('./routes/pages/BoardPage'),
+  DecisionsPage: () => import('./routes/pages/DecisionsPage'),
+  RunsPage: () => import('./routes/pages/RunsPage'),
+  RunnersPage: () => import('./routes/pages/RunnersPage'),
+  ApprovalsPage: () => import('./routes/pages/ApprovalsPage'),
+  ApprovalDetailPage: () => import('./routes/pages/ApprovalDetailPage'),
+  JobDetailPage: () => import('./routes/pages/JobDetailPage'),
+  RunnersDetailPage: () => import('./routes/pages/RunnerDetailPage'),
+  SessionDetailPage: () => import('./routes/pages/SessionDetailPage'),
+  SupportPage: () => import('./routes/pages/SupportPage'),
+  TicketDetailPage: () => import('./routes/pages/TicketDetailPage'),
+  SrePage: () => import('./routes/pages/SrePage'),
+  IncidentDetailPage: () => import('./routes/pages/IncidentDetailPage'),
+  DeliveryPage: () => import('./routes/pages/DeliveryPage'),
+  KnowledgePage: () => import('./routes/pages/KnowledgePage'),
+  ToolsPage: () => import('./routes/pages/ToolsPage'),
+  SettingsPage: () => import('./routes/pages/SettingsPage'),
+  TvSupportPage: () => import('./routes/pages/TvSupportPage'),
+  TvSrePage: () => import('./routes/pages/TvSrePage'),
+};
+type PageKey = keyof typeof PAGE_LOADERS;
+const page = (key: PageKey) => lazy(PAGE_LOADERS[key]);
 
 /** Syncs the route's :id workspace into the app context (deep links). */
 function WorkspaceSync(props: { children: JSX.Element }): JSX.Element {
@@ -79,6 +99,8 @@ function PrimaryNav(): AppSidebarGroup[] {
       label: "Workspace",
       items: [
         item("Overview", "/w/:id/overview"),
+        item("Agents", "/w/:id/agents"),
+        item("Workflows", "/w/:id/workflows"),
         item("Board", "/w/:id/board"),
         item("Decisions", "/w/:id/decisions"),
         item("Support", "/w/:id/support"),
@@ -128,11 +150,9 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
     account={<Show when={!narrow()}><AccountMenu /></Show>}
     navLabel="Brain navigation">
     <Show when={app.globalError()}><p role="alert" class="mb-field">{app.globalError()}</p></Show>
-    <Show when={!app.identity()?.totpEnrolled}>
-      <AuthenticatorEnrollment recoveryRequired={app.identity()?.recoveryRequired ?? false} onEnrolled={() => app.reloadIdentity()} />
-    </Show>
-    <Show when={app.workspaceId()} fallback={<NoWorkspaceCard />}>
-      {props.children}
+    <Show when={!app.identity()?.recoveryRequired && !(app.identity()?.requireTwoFactor && !app.identity()?.totpEnrolled)}
+      fallback={<AuthenticatorEnrollment recoveryRequired={app.identity()?.recoveryRequired ?? false} onEnrolled={() => app.reloadIdentity()} />}>
+      <Show when={app.workspaceId()} fallback={<NoWorkspaceCard />}>{props.children}</Show>
     </Show>
   </AppShell>;
 }
@@ -188,6 +208,8 @@ export function App(): JSX.Element {
       <Route path="/" component={() => <Navigate href="/today" />} />
       <Route path="/today" component={page("TodayPage")} />
       <Route path="/bridge" component={page("BridgePage")} />
+      <Route path="/w/:id/agents" component={workspacePage("AgentsPage")} />
+      <Route path="/w/:id/workflows" component={workspacePage("WorkflowsPage")} />
       <Route path="/w/:id/overview" component={workspacePage("WorkspaceOverviewPage")} />
       <Route path="/w/:id/board" component={workspacePage("BoardPage")} />
       <Route path="/w/:id/decisions" component={workspacePage("DecisionsPage")} />
@@ -209,5 +231,6 @@ export function App(): JSX.Element {
       <Route path="*" component={() => <Navigate href="/today" />} />
     </Route>
     </Router>
+    <Toaster />
   </AppProvider>;
 }

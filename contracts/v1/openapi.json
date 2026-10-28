@@ -3111,7 +3111,7 @@
   },
   "/runner/v1/attempts/{id}/artifacts": {
    "post": {
-    "operationId": "post_runner_v1_attempts_id_permit",
+    "operationId": "post_runner_v1_attempts_id_artifacts",
     "security": [
      {
       "runnerSession": []
@@ -3282,7 +3282,7 @@
   },
   "/runner/v1/permits/validate": {
    "post": {
-    "operationId": "post_runner_v1_attempts_id_permit",
+    "operationId": "post_runner_v1_permits_validate",
     "security": [
      {
       "runnerSession": []
@@ -3305,18 +3305,6 @@
       }
      }
     },
-    "parameters": [
-     {
-      "name": "id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "string",
-       "minLength": 1,
-       "maxLength": 128
-      }
-     }
-    ],
     "requestBody": {
      "required": true,
      "content": {
@@ -3367,7 +3355,26 @@
        }
       }
      }
-    }
+    },
+    "parameters": [
+     {
+      "name": "digest",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "toolId",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "operationId": "get_runner_v1_releases_digest_tools_toolId"
    }
   },
   "/v1/runners/{id}/trust": {
@@ -3413,7 +3420,18 @@
        }
       }
      }
-    }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "operationId": "post_v1_runners_id_trust"
    },
    "delete": {
     "summary": "Revoke a verified runner trust domain",
@@ -3442,7 +3460,111 @@
      "204": {
       "description": "Revoked"
      }
-    }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "operationId": "delete_v1_runners_id_trust"
+   }
+  },
+  "/v1/config/releases/{digest}": {
+   "get": {
+    "summary": "Inspect an immutable staged release and current activation precondition (organization administrator)",
+    "parameters": [
+     {
+      "name": "digest",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Manifest, pinned definitions, schemas and expected active digest"
+     },
+     "403": {
+      "description": "Current organization administrator required"
+     },
+     "404": {
+      "description": "Release absent in this organization"
+     }
+    },
+    "operationId": "get_v1_config_releases_digest"
+   }
+  },
+  "/runner/v1/releases/{digest}/agents/{agentId}/instructions": {
+   "get": {
+    "summary": "Fetch digest-pinned agent definition and Markdown instructions (authenticated runner in the release organization)",
+    "parameters": [
+     {
+      "name": "digest",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "agentId",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Agent definition, document digest, instruction digest and base64 bytes"
+     },
+     "404": {
+      "description": "Release or agent absent"
+     },
+     "409": {
+      "description": "Pinned asset integrity failure"
+     }
+    },
+    "operationId": "get_runner_v1_releases_digest_agents_agentId_instructions"
+   }
+  },
+  "/v1/doctor": {
+   "get": {
+    "summary": "Inspect actionable workspace release, runner, engine and smoke readiness",
+    "parameters": [
+     {
+      "name": "workspaceId",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Operational readiness",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/OperationalReadiness"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Workspace access required"
+     }
+    },
+    "operationId": "get_v1_doctor"
    }
   }
  },

@@ -1,3 +1,4 @@
+import { payloadValidator } from "@brain/contracts/validate";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
@@ -60,6 +61,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     // the Mastra run drive progression from those exact durable rows. Step
     // execution is idempotent against admitted rows.
     const s = this.store;
+    this.validatePayload(input.organizationId, input.configDigest, input.workflow.spec.inputSchemaRef, input.runInput);
     s.assertWorkspaceActive(input.workspaceId, input.organizationId);
     const ws = s.workspaceDb(input.workspaceId, input.organizationId);
     const existing = ws.prepare("SELECT id FROM workflow_runs WHERE execution_key=?").get(input.executionKey) as { id: string } | undefined;
@@ -85,10 +87,27 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
   }
 
   completeStep(organizationId: string, workspaceId: string, runId: string, stepId: string, output: JsonValue, ok: boolean): void {
+    if (ok) {
+      const run = this.loadRun(workspaceId, organizationId, runId);
+      const step = run.workflow.spec.jobs[stepId];
+      if (step && step.kind === "dispatch") {
+        try { this.validatePayload(organizationId, run.configDigest, step.outputSchemaRef, output); }
+        catch (e) { ok = false; output = { error: e instanceof Error ? e.message : "invalid output" }; }
+      }
+    }
     this.recordResume(organizationId, workspaceId, runId, stepId, { output, ok });
     this.applyCompletionSync(organizationId, workspaceId, runId, stepId, output, ok);
     if (ok) this.admit(organizationId, workspaceId, runId);
     this.track(this.drive(organizationId, workspaceId, runId, "resume", stepId));
+  }
+
+  private validatePayload(organizationId: string, configDigest: string, ref: string, value: JsonValue): void {
+    const row = this.store.control.prepare("SELECT manifest_json FROM config_releases WHERE digest=? AND organization_id=?").get(configDigest, organizationId) as { manifest_json: string } | undefined;
+    const schemas = row ? (JSON.parse(row.manifest_json) as { schemas?: Record<string, JsonValue> }).schemas : undefined;
+    const schema = schemas?.[ref];
+    if (!schema) return;
+    const result = payloadValidator(schema as object)(value);
+    if (!result.ok) throw new BrainDomainError("INVALID_ARGUMENT", `${ref}: ${result.errors.join("; ")}`);
   }
 
   wakeGate(organizationId: string, workspaceId: string, approvalId: string, approved: boolean): void {
@@ -449,7 +468,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
   ): unknown {
     const s = this.store;
     const order = compileWorkflowGraph(workflow, workflow.metadata.id);
-    const loose = () => z.looseObject({});
+    const loose = () => z.unknown();
     let builder: unknown = createWorkflow({ id: mastraWorkflowId, inputSchema: loose(), outputSchema: loose() } as never);
     for (const stepId of order) {
       const job = workflow.spec.jobs[stepId];

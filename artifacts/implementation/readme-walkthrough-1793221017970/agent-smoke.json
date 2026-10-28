@@ -1,0 +1,167 @@
+{
+  "runOutputs": {
+    "respond": "BRAIN_OK",
+    "validate": {
+      "passed": true,
+      "checks": [
+        {
+          "criterionId": "structure",
+          "checkId": "structure",
+          "status": "passed",
+          "oracleDigest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f",
+          "artifacts": [],
+          "detail": "Pinned evaluator executed this check"
+        },
+        {
+          "criterionId": "safety",
+          "checkId": "safety",
+          "status": "passed",
+          "oracleDigest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f",
+          "artifacts": [],
+          "detail": "Pinned evaluator executed this check"
+        }
+      ]
+    }
+  },
+  "engineEvents": [
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-1",
+      "sessionId": "01a1844d-9490-71fe-94aa-267f1ca33734",
+      "attemptId": "att-mvsli94u-b-4w82rfce",
+      "sequence": 1,
+      "occurredAt": "2026-10-28T20:57:19.289Z",
+      "kind": "session.started",
+      "payload": {
+        "engine": {
+          "id": "pi",
+          "version": "1.4.0",
+          "adapterDigest": "sha256:2330cc2a4afee89e2faf138a242f99946c35dde9812a01325281808ea3f18906",
+          "features": [
+            "sessions",
+            "checkpoint"
+          ]
+        }
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-2",
+      "sessionId": "01a1844d-9490-71fe-94aa-267f1ca33734",
+      "attemptId": "att-mvsli94u-b-4w82rfce",
+      "sequence": 2,
+      "occurredAt": "2026-10-28T20:57:41.090Z",
+      "kind": "text",
+      "payload": {
+        "text": "\n\n\"BRAIN",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-3",
+      "sessionId": "01a1844d-9490-71fe-94aa-267f1ca33734",
+      "attemptId": "att-mvsli94u-b-4w82rfce",
+      "sequence": 3,
+      "occurredAt": "2026-10-28T20:57:41.254Z",
+      "kind": "text",
+      "payload": {
+        "text": "_OK\"",
+        "channel": "assistant",
+        "provisional": true
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-4",
+      "sessionId": "01a1844d-9490-71fe-94aa-267f1ca33734",
+      "attemptId": "att-mvsli94u-b-4w82rfce",
+      "sequence": 4,
+      "occurredAt": "2026-10-28T20:57:41.273Z",
+      "kind": "usage",
+      "payload": {
+        "usageId": "pi-usage-att-mvsli94u-b-4w82rfce",
+        "inputTokens": 130,
+        "outputTokens": 34,
+        "cachedInputTokens": 0,
+        "microUsd": 0,
+        "accounting": "final-total",
+        "estimated": false
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-5",
+      "sessionId": "01a1844d-9490-71fe-94aa-267f1ca33734",
+      "attemptId": "att-mvsli94u-b-4w82rfce",
+      "sequence": 5,
+      "occurredAt": "2026-10-28T20:57:41.273Z",
+      "kind": "artifact",
+      "payload": {
+        "artifact": {
+          "artifactId": "pi-output-att-mvsli94u-b-4w82rfce",
+          "digest": "sha256:37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493",
+          "bytes": 12,
+          "mediaType": "text/plain",
+          "classification": "internal"
+        },
+        "purpose": "output"
+      }
+    },
+    {
+      "contractVersion": "brain.engine-event/v1",
+      "eventId": "pi-evt-6",
+      "sessionId": "01a1844d-9490-71fe-94aa-267f1ca33734",
+      "attemptId": "att-mvsli94u-b-4w82rfce",
+      "sequence": 6,
+      "occurredAt": "2026-10-28T20:57:41.273Z",
+      "kind": "session.stopped",
+      "payload": {
+        "reason": "completed",
+        "terminationConfirmed": true,
+        "output": {
+          "artifactId": "pi-output-att-mvsli94u-b-4w82rfce",
+          "digest": "sha256:37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493",
+          "bytes": 12,
+          "mediaType": "text/plain",
+          "classification": "internal"
+        }
+      }
+    }
+  ],
+  "evidenceDigest": "sha256:e726c9a1db0bc04b1074bba3bdbf8d8a2ae156810ff79addb55260536608a25b",
+  "jobId": "job-mvsliqdg-e-baao718r",
+  "organizationId": "org-local",
+  "workspaceId": "operations",
+  "workflowRunId": "run-mvsli6tg-8-cvclu8vs",
+  "state": "succeeded",
+  "version": 5,
+  "queueReasons": [],
+  "placement": {
+    "group": "evaluators",
+    "all": [
+      "os:linux",
+      "tool:bash",
+      "tool:python3"
+    ],
+    "resources": {
+      "cpuMillicores": 500,
+      "memoryMb": 256,
+      "diskMb": 256,
+      "slots": 1
+    },
+    "isolation": "ephemeral-container"
+  },
+  "attempts": [
+    {
+      "attemptId": "att-mvslirps-g-b37cotgk",
+      "number": 1,
+      "runnerId": "runner-evaluators-1",
+      "state": "succeeded",
+      "leaseExpiresAt": "2026-10-28T20:58:43.127Z"
+    }
+  ],
+  "configDigest": "sha256:93bf0082392cf775642c59d76a8a919f6e34fd245bb8c829beee7f2716d0aa32",
+  "createdAt": "2026-10-28T20:57:41.380Z"
+}

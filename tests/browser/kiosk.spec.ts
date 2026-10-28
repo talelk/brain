@@ -29,7 +29,7 @@ test("tv kiosk renders read-only board; ticket detail opens exact record (T34)",
   await page.goto(`${governor.url}/w/ws-kiosk/support`);
   await expect(page.getByText("Printer on fire")).toBeVisible();
   await page.getByRole("checkbox", { name: "Select tkt-1" }).check();
-  await page.getByRole("button", { name: /Details \(/ }).click();
+  await page.getByRole("button", { name: /^Details(?: \(\d+\))?$/ }).click();
   await expect(page).toHaveURL(/\/tickets\/tkt-1$/);
   const detail = page.getByRole("heading", { name: "Printer on fire", exact: true });
   await expect(detail).toBeVisible();

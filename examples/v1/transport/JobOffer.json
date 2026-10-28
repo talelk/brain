@@ -47,5 +47,6 @@
       "classification": "internal"
     }
   },
-  "grantRef": "grant_demo"
+  "grantRef": "grant_demo",
+  "workflowRunId": "run-001"
 }

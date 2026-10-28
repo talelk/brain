@@ -13,6 +13,7 @@ export { GovernorError, command, governor };
 /** A query response plus the authority facts every screen must bind to. */
 export interface Loaded<T> {
   readonly snapshot: T;
+  readonly partialFailures?: readonly string[];
   /** Server clock the screen's freshness decisions use; never the browser clock. */
   readonly asOf: string;
   readonly sourceWatermark: number;

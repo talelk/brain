@@ -1,0 +1,8 @@
+[steady] seeded initial dataset in 2550ms; 3 trials x 600000ms
+[steady] trial 1 done {"q95":3.474,"c95":4.571,"eld99":17.105,"rssMax":327,"errors":0}
+[steady] trial 2 done {"q95":2.477,"c95":3.026,"eld99":13.55,"rssMax":334,"errors":0}
+[steady] trial 3 done {"q95":3.291,"c95":3.961,"eld99":16.343,"rssMax":337,"errors":0}
+[steady] 10x history trial done {"q95":3.044,"q99":4.222}
+[steady] RESULT {"queryP95":3.291,"queryP99":5.354,"commandP95":3.961,"commandP99":6.417,"eventLoopP99":16.343,"rssMaxMb":334,"throughputPerSec":25.09}
+[steady] ALL BUDGETS PASS
+exit=0

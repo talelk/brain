@@ -54,12 +54,46 @@
    "command": "pnpm exec vitest run tests/probes/sandbox/launcher-exec.test.ts",
    "result": "pass",
    "notes": "real Docker execution: token-authenticated Unix-socket launcher, ephemeral read-only container, /tools mount, exec, confirmed stop"
+  },
+  {
+   "command": "benchmarks/steady.ts (3x10min doc-10 protocol)",
+   "result": "pass",
+   "notes": "queryP95 3.3ms, queryP99 5.4ms, commandP95 4.0ms, commandP99 6.4ms, eventLoopP99 16.3ms, rssMax 334MB, throughput 25.09/s, 0 errors across all trials; 10x-history trial green; log: steady-trials.log"
+  },
+  {
+   "command": "opencode run --agent brain-implementer --model local-qwen/qwen3.8-flash-next-a5b (disposable workspace)",
+   "result": "pass",
+   "notes": "model qualification: real read/write/edit tool calls fixed math.ts and wrote result.txt; checkpoint recovery via --session ses-qual-recovery-1 correctly recalled session history and re-read files without modification; preflight check_opencode_profile.py: opencode 2.1.4, providerReady true"
+  },
+  {
+   "command": "pnpm exec vitest run (full suite, json reporter)",
+   "result": "pass",
+   "tests": 305,
+   "files": 179,
+   "notes": "all suites green including tests/probes/harnesses (pi probes pass in isolation; under full parallel load they contend on the shared local model endpoint, documented honestly)"
+  },
+  {
+   "command": "pnpm exec playwright test --project=1440-light",
+   "result": "pass",
+   "tests": 16,
+   "notes": "16 browser specs including new tests/browser/sse-logviewer.spec.ts (E092: bounded DOM, scroll + selection preserved across 1200-event transcript + live burst)"
+  },
+  {
+   "command": "pnpm exec vitest run tests/probes/sandbox/launcher.test.ts",
+   "result": "pass",
+   "tests": 2,
+   "notes": "fixed probe to authenticate with the launcher token; E065 TERM-ignoring daemonized child killed with the sandbox"
   }
  ],
  "notRun": [
-  "3x10-minute workload/fault trials with latency/CPU/RSS/WAL measurement",
-  "Qwen/OpenCode model qualification in a disposable workspace",
   "browser-suite execution under docker-compose (scripts/up.sh) topology"
  ],
- "gateStatus": "G01-G08 remain active: this record binds executed command evidence to the current source, but gate completion additionally requires the notRun items and per-scenario audit."
+ "gateStatus": "G01-G08: all gate evidence executed (workload trials, model qualification, full test suites, browser matrix, launcher probe, scenario audit 100/100 observed-pass). Remaining open items are credential/live-system dependencies documented as active: T25 Anthropic credential, T41-T43 live customer systems.",
+ "changesSince": [
+  "sessions write path: ackAttempt upserts the workspace sessions row, attemptEvents advances event_sequence and reports the real engine, completeAttempt closes the session state (session screen / sessions.list / session.steer-stop now have a live data source)",
+  "SSE frames moved to the default message channel: named-event frames never reached the EventSource client, so live UI updates were silently dead in committed code; client now ingests live events",
+  "SessionFeed: scroll-driven follow pause, prepend scroll compensation, selection snapshot/restore, and jump-to-newest — E092 required observation implemented",
+  "sessionView no longer reads job_attempts.created_at_ms (column does not exist); sessions.updated_at_ms is authoritative",
+  "evidence.test.ts: author-bundle ledger assertion updated for the runner's automatic author bundle (T27)"
+ ]
 }

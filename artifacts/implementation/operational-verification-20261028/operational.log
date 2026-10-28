@@ -1,0 +1,5 @@
+agent-smoke: accepted run-mvslhx06-8-miuapqls (sha256:da40f8d88aaceb63fa3c15f4ce64df5c86f4c56fc97737f9e7ae47f3cd1906e1)
+operations-triage: accepted run-mvslilgm-l-l466rlvn (sha256:de25c6a9591d3bb876c3f13bec1d9179f6748920ffe1e9b876b93675f66572f0)
+support-draft: accepted run-mvsljc7a-y-z3s26lel (sha256:54a3964a88abfb0584a198506af146e46d85cbe5f46d90faf0020bdc48db1654)
+All workflows accepted with pi; checking final source identity
+Operational proof passed; evidence: /home/talel/dev/rd2026/brain/artifacts/implementation/operational-1793221019010

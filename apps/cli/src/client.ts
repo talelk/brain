@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { collectRelease } from "./release.ts";
 import { credentialStore, readSetupCredential, validCredential } from "./credentials.ts";
 import { prompt } from "./prompt.ts";
 
@@ -46,8 +48,13 @@ export async function runCli(argv: string[], options: CliOptions = {}): Promise<
   try {
     switch (cmd) {
       case "doctor": {
-        const r = await call("/health/ready");
-        return print(r.json, r.status);
+        const identity = await call("/v1/identity");
+        if (identity.status >= 400) return print(identity.json, identity.status);
+        const workspaceId = flag("--workspace") ?? (identity.json as { workspaces: { workspaceId: string }[] }).workspaces[0]?.workspaceId;
+        if (!workspaceId) throw new Error("Create a workspace before running brain doctor");
+        const r = await call(`/v1/doctor?workspaceId=${encodeURIComponent(workspaceId)}`);
+        const result = print(r.json, r.status);
+        return result || ((r.json as { ready?: boolean }).ready ? 0 : 1);
       }
       case "query": {
         const query = JSON.parse(rest.filter((a) => a !== "--json").join(" ") || "{}") as unknown;
@@ -103,8 +110,57 @@ export async function runCli(argv: string[], options: CliOptions = {}): Promise<
         stderr("usage: brain runner token create --group <id>\n");
         return 2;
       }
+      case "workspace": {
+        if (rest[0] === "create" && rest[1]) {
+          const r = await call("/v1/setup/workspace", { workspaceId: rest[1], slug: flag("--slug") ?? rest[1] });
+          return print(r.json, r.status);
+        }
+        stderr("usage: brain workspace create <id> [--slug <slug>]\n"); return 2;
+      }
       case "config": {
-        stderr("config compile/activate run via Governor /v1/setup/config with reviewed documents\n");
+        if (rest[0] === "compile" && rest[1]) {
+          const bundle = collectRelease(rest[1]);
+          const r = await call("/v1/setup/config", { ...bundle, sourceRevision: flag("--source-revision") ?? bundle.sourceRevision });
+          return print(r.json, r.status);
+        }
+        if (rest[0] === "inspect" && rest[1]) {
+          const r = await call(`/v1/config/releases/${encodeURIComponent(rest[1])}`);
+          return print(r.json, r.status);
+        }
+        if (rest[0] === "activate" && rest[1]) {
+          const inspected = await call(`/v1/config/releases/${encodeURIComponent(rest[1])}`);
+          if (inspected.status >= 400) return print(inspected.json, inspected.status);
+          const expectedActiveDigest = (inspected.json as { expectedActiveDigest: string | null }).expectedActiveDigest;
+          const r = await call("/v1/commands", {
+            contractVersion: "brain.command/v1", commandType: "config.activate",
+            commandId: randomUUID(), idempotencyKey: randomUUID(),
+            payload: { configDigest: rest[1], expectedActiveDigest },
+          });
+          return print(r.json, r.status);
+        }
+        stderr("usage: brain config <compile <dir> [--source-revision <digest>]|inspect <digest>|activate <digest>>\n");
+        return 2;
+      }
+      case "workflow": {
+        const workspaceId = flag("--workspace");
+        if (!workspaceId) throw new Error("workflow commands require --workspace <id>");
+        if (rest[0] === "list") {
+          const r = await call("/v1/query", { queryType: "workflows.list", workspaceId });
+          return print(r.json, r.status);
+        }
+        if (rest[0] === "run" && rest[1]) {
+          const input = JSON.parse(flag("--input") ?? "{}");
+          const catalog = await call("/v1/query", { queryType: "workflows.get", workspaceId, resourceId: rest[1] });
+          if (catalog.status >= 400) return print(catalog.json, catalog.status);
+          const workflow = (catalog.json as { snapshot: { release: { id: string; digest: string } } }).snapshot.release;
+          const r = await call("/v1/commands", {
+            contractVersion: "brain.command/v1", commandType: "workflow.dispatch",
+            commandId: randomUUID(), idempotencyKey: randomUUID(), workspaceId,
+            payload: { workflow, input },
+          });
+          return print(r.json, r.status);
+        }
+        stderr("usage: brain workflow <list|run <id> --input <json>> --workspace <id>\n");
         return 2;
       }
       case "backup": {
@@ -112,7 +168,7 @@ export async function runCli(argv: string[], options: CliOptions = {}): Promise<
         return 2;
       }
       default:
-        stderr("usage: brain <login|logout|doctor|query|command|setup|runner|config|backup> [--json]\n");
+        stderr("usage: brain <login|logout|doctor|query|command|setup|runner|config|workflow|workspace|backup> [--json]\n");
         return cmd ? 2 : 0;
     }
   } catch (e) {

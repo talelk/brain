@@ -1,0 +1,37 @@
+{
+  "jobs": [
+    {
+      "id": "job-mvsk5dbm-9-iwmea173",
+      "state": "failed",
+      "step_id": "respond"
+    }
+  ],
+  "outputs": [],
+  "events": [
+    {
+      "attempt_id": "att-mvsk5ejc-b-tt4p796x",
+      "seq": 1,
+      "event_json": "{\"sequence\":1,\"kind\":\"progress\",\"payload\":{\"phase\":\"started\",\"artifactId\":\"exec-job-mvsk5dbm-9-iwmea173\"}}"
+    },
+    {
+      "attempt_id": "att-mvsk5ejc-b-tt4p796x",
+      "seq": 2,
+      "event_json": "{\"sequence\":2,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-1\",\"sessionId\":\"01a1842a-cd5e-7432-b1a3-e6dba8091230\",\"attemptId\":\"att-mvsk5ejc-b-tt4p796x\",\"sequence\":1,\"occurredAt\":\"2026-10-28T20:19:20.051Z\",\"kind\":\"session.started\",\"payload\":{\"engine\":{\"id\":\"pi\",\"version\":\"1.4.0\",\"adapterDigest\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"features\":[\"sessions\",\"checkpoint\"]}}}}"
+    },
+    {
+      "attempt_id": "att-mvsk5ejc-b-tt4p796x",
+      "seq": 3,
+      "event_json": "{\"sequence\":3,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-2\",\"sessionId\":\"01a1842a-cd5e-7432-b1a3-e6dba8091230\",\"attemptId\":\"att-mvsk5ejc-b-tt4p796x\",\"sequence\":2,\"occurredAt\":\"2026-10-28T20:19:20.213Z\",\"kind\":\"error\",\"payload\":{\"error\":{\"code\":\"DEPENDENCY_UNAVAILABLE\",\"detail\":\"404: {\\\"message\\\":\\\"The model `default` does not exist.\\\",\\\"type\\\":\\\"NotFoundError\\\",\\\"param\\\":\\\"model\\\",\\\"code\\\":404}\",\"retryable\":true,\"correlationId\":\"01a1842a-cd5e-7432-b1a3-e6dba8091230\"},\"phase\":\"stream\",\"retryClass\":\"new-attempt\"}}}"
+    },
+    {
+      "attempt_id": "att-mvsk5ejc-b-tt4p796x",
+      "seq": 4,
+      "event_json": "{\"sequence\":4,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-3\",\"sessionId\":\"01a1842a-cd5e-7432-b1a3-e6dba8091230\",\"attemptId\":\"att-mvsk5ejc-b-tt4p796x\",\"sequence\":3,\"occurredAt\":\"2026-10-28T20:19:20.214Z\",\"kind\":\"session.stopped\",\"payload\":{\"reason\":\"error\",\"terminationConfirmed\":true}}}"
+    },
+    {
+      "attempt_id": "att-mvsk5ejc-b-tt4p796x",
+      "seq": 5,
+      "event_json": "{\"sequence\":5,\"kind\":\"progress\",\"payload\":{\"phase\":\"executed\",\"ok\":false}}"
+    }
+  ]
+}

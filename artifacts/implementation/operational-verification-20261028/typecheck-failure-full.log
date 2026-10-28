@@ -1,0 +1,9 @@
+$ pnpm verify:change && pnpm test:chaos && pnpm test:certification && pnpm test:browser
+$ pnpm verify:fast && pnpm test:integration && pnpm test:security
+$ pnpm typecheck && pnpm typecheck:web && pnpm typecheck:browser && pnpm check:boundaries && pnpm --filter @brain/governor auth:schema --check && pnpm test:contracts && pnpm test:domain
+$ tsc --noEmit --pretty false -p tsconfig.typecheck.json
+tests/integration/claude-engine.test.ts(41,45): error TS2540: Cannot assign to 'allowedTools' because it is a read-only property.
+[ELIFECYCLE] Command failed with exit code 2.
+[ELIFECYCLE] Command failed with exit code 2.
+[ELIFECYCLE] Command failed with exit code 2.
+[ELIFECYCLE] Command failed with exit code 2.

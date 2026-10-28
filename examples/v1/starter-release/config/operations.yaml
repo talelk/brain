@@ -1,0 +1,41 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Workspace",
+  "metadata": {
+    "id": "operations",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "organizationRef": "org-local",
+    "displayName": "Operations",
+    "typeRef": {
+      "id": "operations-type",
+      "digest": "sha256:9fdc87accd1d0a5626d7fa936b96c66a155ac830c9f74b81377c8a4e06c9ee32"
+    },
+    "repositories": [],
+    "runnerGroups": [
+      "agents",
+      "evaluators"
+    ],
+    "workflows": [
+      {
+        "id": "agent-smoke",
+        "digest": "sha256:424742dc3830a4d87a7a17a0af9a91c275031befa92d6315d59dac268fdba219"
+      },
+      {
+        "id": "operations-triage",
+        "digest": "sha256:d5642402bb57aa6f0c20a9a1452fb76f4062c9f9f4be6ce19de4bd918e76cecf"
+      },
+      {
+        "id": "support-draft",
+        "digest": "sha256:e418c1e17a16849e80ce10356e43ad06eb9c3704edc8a92d051beabaa5d6dff7"
+      }
+    ],
+    "memoryEnabled": false,
+    "limits": {
+      "concurrentJobs": 2,
+      "dailyMicroUsd": 0,
+      "dailyTokens": 100000
+    }
+  }
+}

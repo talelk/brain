@@ -1,0 +1,26 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Agent",
+  "metadata": {
+    "id": "support-analyst",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "instructionsPath": "agents/support-analyst.md",
+    "tools": [],
+    "engine": {
+      "anyOf": [
+        "pi",
+        "claude"
+      ],
+      "features": [
+        "sessions"
+      ]
+    },
+    "maxTurns": 3,
+    "maxChildren": 0,
+    "maxDepth": 0,
+    "maxTokens": 8192,
+    "maxMicroUsd": 0
+  }
+}

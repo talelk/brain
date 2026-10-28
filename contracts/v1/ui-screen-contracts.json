@@ -430,6 +430,44 @@
       "owner": "T36",
       "navigationGroup": "runs",
       "task": "Inspect a run, its attempts, events and evidence"
+    },
+    {
+      "route": "/w/:id/agents",
+      "queries": [
+        "agents.list",
+        "agents.get"
+      ],
+      "actions": [
+        "workflow.dispatch"
+      ],
+      "content": [
+        "release",
+        "instructions",
+        "engine",
+        "limits"
+      ],
+      "owner": "T34",
+      "navigationGroup": "work",
+      "task": "Inspect active agent and workflow definitions and dispatch schema-validated inputs"
+    },
+    {
+      "route": "/w/:id/workflows",
+      "queries": [
+        "workflows.list",
+        "workflows.get"
+      ],
+      "actions": [
+        "workflow.dispatch"
+      ],
+      "content": [
+        "release",
+        "input-schema",
+        "engine",
+        "dependencies"
+      ],
+      "owner": "T34",
+      "navigationGroup": "work",
+      "task": "Inspect active agent and workflow definitions and dispatch schema-validated inputs"
     }
   ],
   "specialActions": [

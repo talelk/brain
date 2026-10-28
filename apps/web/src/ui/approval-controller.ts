@@ -7,17 +7,18 @@ export interface ApprovalProposal {
 export interface ApprovalIntent extends ApprovalProposal {
   readonly idempotencyKey: string;
   readonly note: string;
+  readonly decision?: "approve" | "reject" | "request-changes";
 }
 export type ApprovalOutcome = 'confirmed' | 'pending' | 'stale' | 'denied';
 export type ApprovalState =
   | { readonly status: 'review' }
   | { readonly status: 'submitting' | 'unknown' | 'checking' | 'confirmed' | 'stale' | 'denied'; readonly intent: ApprovalIntent };
 
-export function beginDecision(state: ApprovalState, proposal: ApprovalProposal, note: string, key: string): ApprovalState {
+export function beginDecision(state: ApprovalState, proposal: ApprovalProposal, note: string, key: string, decision: "approve" | "reject" | "request-changes" = "approve"): ApprovalState {
   if (state.status !== 'review') throw new Error('Decision already captured; recover or explicitly review a new proposal');
   if (!key) throw new Error('An idempotency key is required');
   return { status: 'submitting', intent: Object.freeze({ approvalId: proposal.approvalId,
-    subjectDigest: proposal.subjectDigest, expectedVersion: proposal.expectedVersion, note, idempotencyKey: key }) };
+    subjectDigest: proposal.subjectDigest, expectedVersion: proposal.expectedVersion, note, idempotencyKey: key, decision }) };
 }
 export function beginRecovery(state: ApprovalState): ApprovalState {
   if (state.status !== 'unknown') throw new Error('Only an uncertain decision can be checked');

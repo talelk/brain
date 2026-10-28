@@ -6,11 +6,11 @@ import type { ArtifactRef, EvaluationAssignment, VerificationVerdict } from "@br
 import { sha256Digest } from "@brain/contracts";
 import { createApp } from "../../apps/governor/src/http/app";
 import { enrollAndHello, runOnce, type RunnerConfig } from "../../apps/runner/src/supervisor";
-import { normalizeFixtureEvaluation } from "../../apps/runner/src/tools/invoke";
+import { normalizeEvaluation } from "../../apps/runner/src/tools/invoke";
 import { setupWorld } from "../helpers";
 import { attestDomain, bundleForAttempt } from "../support/evidence";
 
-async function world() {
+async function world(executeAuthor = false) {
   const app=await createApp({dataDir:mkdtempSync(join(tmpdir(),"brain-evidence-")),allowTestActor:true});
   const w=setupWorld(app.brain);
   const transport: typeof fetch = async(input,init) => app.fetch(new Request(input,init));
@@ -24,9 +24,20 @@ async function world() {
   const digest=w.brain.activeRelease(w.org)!.digest;
   w.brain.executeCommand(w.owner,{contractVersion:"brain.command/v1",commandId:"dispatch-evidence",commandType:"workflow.dispatch",workspaceId:w.workspaceId,idempotencyKey:"dispatch-evidence",
     payload:{workflow:{id:"fixture-workflow",digest},input:{message:"Brain fixture"}}},"corr-evidence");
-  await runOnce(authorConfig,authorSession.sessionToken);
+  if (executeAuthor) {
+    await runOnce(authorConfig,authorSession.sessionToken,authorSession.epoch);
+  } else {
+    // Arrange a receipted author without submitting a bundle. Negative evidence
+    // cases must begin before submission/admission; real supervisor submission
+    // is covered separately below and by agent-dispatch.test.ts.
+    const offer=w.brain.claim(author,"author-claim") as unknown as {attemptId:string;leaseId:string;jobFence:number};
+    w.brain.ackAttempt(author,offer.attemptId,{leaseId:offer.leaseId,jobFence:offer.jobFence});
+    w.brain.completeAttempt(author,offer.attemptId,{result:"succeeded",output:{message:"Brain fixture",bytes:13},jobFence:offer.jobFence,cleanupConfirmed:true});
+  }
   const attempt=w.brain.store.control.prepare("SELECT a.id FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE j.step_id='echo'").get() as {id:string};
-  const bundle=bundleForAttempt(w.brain,w.org,w.workspaceId,attempt.id,"bundle-author");
+  const bundle=executeAuthor
+    ? JSON.parse((w.brain.store.workspaceDb(w.workspaceId,w.org).prepare("SELECT manifest_json FROM evidence_bundles WHERE attempt_id=?").get(attempt.id) as {manifest_json:string}).manifest_json) as import("@brain/contracts").EvidenceBundle
+    : bundleForAttempt(w.brain,w.org,w.workspaceId,attempt.id,"bundle-author");
   return {...w,app,authorConfig,evaluatorConfig,authorSession,evaluatorSession,author,evaluator,bundle};
 }
 
@@ -48,7 +59,7 @@ async function admitted(prepare?: (w:World)=>void) {
   expect(offer).toBeTruthy();
   w.brain.ackAttempt(w.evaluator,offer.attemptId,{leaseId:offer.leaseId,jobFence:offer.jobFence});
   const offerPayload=JSON.parse(new TextDecoder().decode(w.brain.readExecutionArtifact(w.evaluator,offer.attemptId))) as {evaluation:EvaluationAssignment};
-  const output=normalizeFixtureEvaluation({passed:true,checks:[{id:"echo-message",passed:true},{id:"echo-bytes",passed:true}]},offerPayload.evaluation);
+  const output=normalizeEvaluation({passed:true,checks:[{id:"echo-message",passed:true},{id:"echo-bytes",passed:true}]},offerPayload.evaluation);
   w.brain.completeAttempt(w.evaluator,offer.attemptId,{result:"succeeded",output,jobFence:offer.jobFence,cleanupConfirmed:true});
   const verdict:VerificationVerdict={contractVersion:"brain.verdict/v1",bundleDigest:submitted.digest,evaluatorAttemptId:offer.attemptId,evaluatorRelease:offerPayload.evaluation.evaluatorRelease,
     independence:offerPayload.evaluation.independence,outcome:"verified",checks:(output as unknown as {checks:VerificationVerdict["checks"]}).checks,acceptedBy:w.evaluator.runnerId,createdAt:w.brain.store.nowIso()};
@@ -57,7 +68,7 @@ async function admitted(prepare?: (w:World)=>void) {
 
 describe("authenticated immutable evidence and real evaluator admission",()=>{
   it("runs the pinned tool and admitted evaluator through real HTTP handlers without synthetic verdicts",async()=>{
-    const w=await world();
+    const w=await world(true);
     try {
       const ws=w.brain.store.workspaceDb(w.workspaceId,w.org);
       ws.prepare("INSERT INTO cards(id,title,state,criteria_json,created_at_ms) VALUES ('unrelated','Unrelated','verifying','[\"other\"]',?)").run(w.brain.store.now());
@@ -78,9 +89,12 @@ describe("authenticated immutable evidence and real evaluator admission",()=>{
   it.each(["jobId","workflowRunId","jobFence","sourceRevision","configDigest","workflowDigest"] as const)("rejects altered author %s before bundle or evaluator publication",async(field)=>{
     const w=await world();
     try {
+      // The runner auto-captured the legitimate author bundle during world();
+      // an altered resubmission must add nothing to that ledger.
+      const before=(w.brain.store.workspaceDb(w.workspaceId,w.org).prepare("SELECT COUNT(*) AS n FROM evidence_bundles").get() as {n:number}).n;
       const altered={...w.bundle,[field]:field==="jobFence"?w.bundle.jobFence+1:field.endsWith("Digest")?`sha256:${"f".repeat(64)}`:"not-the-author"};
       expect(()=>w.brain.submitEvidence(w.author,altered)).toThrow();
-      expect(w.brain.store.workspaceDb(w.workspaceId,w.org).prepare("SELECT COUNT(*) AS n FROM evidence_bundles").get()).toEqual({n:0});
+      expect(w.brain.store.workspaceDb(w.workspaceId,w.org).prepare("SELECT COUNT(*) AS n FROM evidence_bundles").get()).toEqual({n:before});
       expect(w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM jobs").get()).toEqual({n:1});
     } finally {await w.app.close();}
   });

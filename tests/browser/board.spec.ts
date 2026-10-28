@@ -58,6 +58,7 @@ test("board: cards render by state, move applies, Done without evidence is refus
   await expect(page.getByText("Ship the fixture", { exact: true })).toBeVisible();
   expect(new URL(page.url()).pathname).toBe("/w/ws-board/board");
 
+  await page.getByText("Manage Ship the fixture",{exact:true}).click();
   await page.getByRole("button", { name: "Move Ship the fixture to In progress", exact: true }).click();
   await expect.poll(() => (ws.prepare("SELECT state FROM cards WHERE id='card-ui-1'").get() as { state: string }).state).toBe("in-progress");
 
@@ -85,6 +86,7 @@ test("board: Done succeeds with explicitly bound verified evidence (T37)", async
 
   await openBoard(page);
   await expect(page.getByText("Verify the fixture", { exact: true })).toBeVisible();
+  await page.getByText("Manage Verify the fixture",{exact:true}).click();
   await page.getByLabel("Evidence digest for Verify the fixture").fill(DIGEST_A);
   await page.getByRole("button", { name: "Move Verify the fixture to Done", exact: true }).click();
   await expect.poll(() => (ws.prepare("SELECT state FROM cards WHERE id='card-ui-2'").get() as { state: string }).state).toBe("done");

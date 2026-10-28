@@ -223,6 +223,9 @@ importers:
       '@brain/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      yaml:
+        specifier: 2.9.1
+        version: 2.9.1
     devDependencies:
       tsx:
         specifier: 4.20.6

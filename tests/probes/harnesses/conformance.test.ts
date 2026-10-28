@@ -9,7 +9,8 @@ const SPEC = {
   dispatchId: "d-1", jobId: "job-c", attemptId: "att-c", runnerId: "runner-c", runnerEpoch: 1,
   leaseId: "lease-c", jobFence: 1,
   engine: { id: "fixture", version: "1", adapterDigest: `sha256:${"0".repeat(64)}`, features: [] },
-  modelId: "qwen3.8-flash-next-a5b", sourceRevision: "test", worktreeId: "wt-c",
+  modelId: "qwen3.8-flash-next-a5b", instructions: "Follow the task.", instructionsDigest: `sha256:${"0".repeat(64)}`,
+  task: "Reply with exactly: BRAIN_OK", sourceRevision: "test", worktreeId: "wt-c",
   configDigest: `sha256:${"0".repeat(64)}`, allowedTools: [],
   context: { artifactId: "ctx", digest: `sha256:${"0".repeat(64)}`, bytes: 0, mediaType: "application/json", classification: "internal" },
   limits: { timeoutMs: 120000, maxTokens: 4096, maxMicroUsd: 0, maxTurns: 3 },
@@ -34,12 +35,6 @@ async function exercise(engine: EngineAdapter, needsModel: boolean): Promise<Rec
   try {
     const { sessionId } = await engine.start(SPEC, ctrl.signal);
     out["start"] = sessionId ? "pass" : "fail";
-    // Prompt path exists only on concrete adapters; events drain is the port contract.
-    const pi = engine as unknown as { prompt?: (t: string) => Promise<void> };
-    if (typeof pi.prompt === "function") {
-      await pi.prompt("Reply with exactly: BRAIN_OK");
-      out["prompt"] = "pass";
-    }
     const evts: unknown[] = [];
     for await (const ev of engine.events(sessionId, 0, ctrl.signal)) evts.push(ev);
     out["events"] = "pass";

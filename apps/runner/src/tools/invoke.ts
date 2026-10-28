@@ -14,7 +14,7 @@ const TOOL_SCRIPTS: Record<string, string> = {
 
 // The pinned fixture evaluator emits its own small tool schema. Normalize that
 // actual result once at the adapter boundary before committing a Brain receipt.
-export function normalizeFixtureEvaluation(output: JsonValue, assignment: EvaluationAssignment): JsonValue {
+export function normalizeEvaluation(output: JsonValue, assignment: EvaluationAssignment): JsonValue {
   if (!output || typeof output !== "object" || Array.isArray(output)) throw new Error("evaluator result must be an object");
   const raw = (output as { readonly [key:string]:JsonValue })["checks"];
   if (!Array.isArray(raw) || raw.length > 100) throw new Error("evaluator checks missing or excessive");
@@ -25,7 +25,7 @@ export function normalizeFixtureEvaluation(output: JsonValue, assignment: Evalua
   }
   const checks: CheckResult[] = assignment.requiredChecks.map((checkId) => ({ criterionId: assignment.criteria[checkId]!,checkId,
     status: observed.has(checkId) ? observed.get(checkId) ? "passed" : "failed" : "missing",
-    oracleDigest: assignment.evaluatorRelease.digest,artifacts:[],detail: observed.has(checkId) ? "Pinned fixture evaluator executed this check" : "Pinned fixture evaluator omitted this check" }));
+    oracleDigest: assignment.evaluatorRelease.digest,artifacts:[],detail: observed.has(checkId) ? "Pinned evaluator executed this check" : "Pinned evaluator omitted this check" }));
   return { passed:checks.every((c) => c.status === "passed"),checks:checks as unknown as JsonValue };
 }
 
@@ -91,10 +91,7 @@ export async function executeToolPayload(
   const uses = step["uses"] as { release?: { id?: string } } | undefined;
   const evaluator = step["evaluator"] as { id?: string } | undefined;
   const toolId = uses?.release?.id ?? evaluator?.id ?? "";
-  const rel = TOOL_SCRIPTS[toolId];
-  if (!rel) {
-    return { ok: false, output: { error: `unsupported tool ${toolId}` } as unknown as JsonValue };
-  }
+  const rel = TOOL_SCRIPTS[toolId] ?? `${toolId}/run.sh`;
   // T22: in a pinned world the tool executes only bytes fetched from the
   // release and verified against the offer's digest; an unpinned tool is
   // refused under the launcher. Dev worlds without pins keep the local dir.

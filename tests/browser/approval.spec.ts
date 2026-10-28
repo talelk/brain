@@ -1,6 +1,7 @@
 import { test, expect } from "./fixtures";
 import { totpCode } from "../support/totp";
 import { approvalSubjectDigest, type JsonValue } from "../../packages/contracts/src/index";
+test.use({ requireTwoFactor: true });
 const DIGEST_A = `sha256:${"a".repeat(64)}`;
 
 test("approval decision: exact review, TOTP step-up, recorded decision (T35)", async ({ page, governor }) => {

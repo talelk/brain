@@ -1,9 +1,13 @@
+import { ArtifactSelector, EvidenceSelector } from "../ui/components/ArtifactSelectors";
+import { useApp } from "../ui/app-context";
+import { createScopedRead } from "../data/screens";
+import { configExplainQuery } from "../data/governor";
 import type { JSX } from "solid-js";
 import { For, Show, createSignal } from "solid-js";
-import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
+import { Badge, Button, TextInput } from "@talelk/newui-atoms";
 import { Alert, Select } from "@talelk/newui-molecules";
 import { DataTable, Section } from "@talelk/newui-organisms";
-import type { Classification, MemoryResult, MemoryScope, ToolCatalogEntry } from "@brain/contracts";
+import type { Classification, MemoryResult, MemoryScope, ToolCatalogEntry, ToolCandidateView } from "@brain/contracts";
 import { ScreenRegion } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
 import { DateText } from "../ui/screen-region";
@@ -38,6 +42,12 @@ export function KnowledgeScreen(props: {
   onRevoke: (sourceId: string, reason: string) => Promise<void>;
   canPublish: boolean;
 }): JSX.Element {
+  const app=useApp(); const members=app.useMembers();
+  const profiles=createScopedRead<{id:string;digest:string}[]>({scope:app.scope,load:async(scope,signal)=>{
+    const loaded=await configExplainQuery(scope.workspaceId,"/manifest/documents",signal);
+    const documents=loaded.snapshot.effective;
+    return {...loaded,snapshot:Array.isArray(documents)?(documents as {kind:string;id:string;digest:string}[]).filter((doc)=>doc.kind==="Policy"):[]};
+  }});
   const [text, setText] = createSignal("");
   const [revokeReason, setRevokeReason] = createSignal("");
   const [publishOpenFor, setPublishOpenFor] = createSignal<string>();
@@ -90,17 +100,10 @@ export function KnowledgeScreen(props: {
                       Publication binds a real content artifact in CAS, evidence artifacts, a reviewer other than you,
                       and a redaction profile declared in the active release.
                     </p>
-                    <div class="flex flex-wrap items-end gap-control-gap">
-                      <div class="min-w-56"><TextInput label="Content artifact id" value={contentArtifactId()} onInput={(e) => setContentArtifactId(e.currentTarget.value)} /></div>
-                      <div class="min-w-64 flex-1"><TextInput label="Content digest (sha256)" value={contentDigest()} onInput={(e) => setContentDigest(e.currentTarget.value)} /></div>
-                      <div class="min-w-32"><TextInput label="Content bytes" type="number" value={contentBytes()} onInput={(e) => setContentBytes(e.currentTarget.value)} /></div>
-                    </div>
-                    <div class="flex flex-wrap items-end gap-control-gap">
-                      <div class="min-w-56"><TextInput label="Reviewer principal id" value={reviewerId()} description="Must differ from your account." onInput={(e) => setReviewerId(e.currentTarget.value)} /></div>
-                      <div class="min-w-40"><TextInput label="Redaction profile id" value={profileId()} onInput={(e) => setProfileId(e.currentTarget.value)} /></div>
-                      <div class="min-w-64 flex-1"><TextInput label="Redaction profile digest" value={profileDigest()} onInput={(e) => setProfileDigest(e.currentTarget.value)} /></div>
-                    </div>
-                    <Textarea label="Evidence digests (whitespace separated)" value={evidenceText()} onInput={(e) => setEvidenceText(e.currentTarget.value)} />
+                    <ArtifactSelector label="Content artifact" maxBytes={262144} onSelect={(artifact)=>{setContentArtifactId(artifact.artifactId);setContentDigest(artifact.digest);setContentBytes(String(artifact.bytes));}} />
+                    <Select label="Reviewer" value={reviewerId()} options={(members.state().data??[]).filter((member)=>!member.revoked&&member.principalId!==app.identity()?.actor.actorId).map((member)=>({value:member.principalId,label:member.principalId}))} onValueChange={(id)=>setReviewerId(id??"")} />
+                    <Select label="Redaction policy" value={profileId()} options={(profiles.state().data??[]).map((profile)=>({value:profile.id,label:profile.id}))} onValueChange={(id)=>{const profile=profiles.state().data?.find((entry)=>entry.id===id);setProfileId(profile?.id??"");setProfileDigest(profile?.digest??"");}} />
+                    <EvidenceSelector onSelect={(digests)=>setEvidenceText(digests.join(" "))} />
                     <div class="flex flex-wrap gap-control-gap">
                       <Button disabled={!publishReady()} class="min-h-11" onClick={() => {
                         const targetScope: MemoryScope = result.scope;
@@ -162,6 +165,7 @@ export interface ToolProposalInput {
  */
 export function ToolsScreen(props: {
   tools: ToolCatalogEntry[];
+  candidates: ToolCandidateView[];
   state: ScreenState<ToolCatalogEntry[]>;
   onRefresh: () => void;
   canPublish: boolean;
@@ -169,6 +173,7 @@ export function ToolsScreen(props: {
   onPublish: (release: { id: string; digest: string }, evidence: string[]) => Promise<void>;
 }): JSX.Element {
   const [proposeOpen, setProposeOpen] = createSignal(false);
+  const [packageArtifactId,setPackageArtifactId] = createSignal("");
   const [packageDigest, setPackageDigest] = createSignal("");
   const [packageBytes, setPackageBytes] = createSignal("");
   const [packageClassification, setPackageClassification] = createSignal<Classification>("internal");
@@ -200,9 +205,8 @@ export function ToolsScreen(props: {
       <Show when={props.canPublish}>
         <Section title="Publish a reviewed tool release" description="Publishing requires the Rule of Three: three independent evidence digests for the exact release." surface="card">
           <div class="flex flex-wrap items-end gap-control-gap">
-            <div class="min-w-40"><TextInput label="Release id" value={releaseId()} onInput={(e) => setReleaseId(e.currentTarget.value)} /></div>
-            <div class="min-w-64 flex-1"><TextInput label="Release digest" value={releaseDigest()} onInput={(e) => setReleaseDigest(e.currentTarget.value)} /></div>
-            <div class="min-w-64 flex-1"><TextInput label="Evidence digests" value={publishEvidence()} description="Whitespace or comma separated." onInput={(e) => setPublishEvidence(e.currentTarget.value)} /></div>
+            <Select label="Reviewed tool candidate" value={releaseId()} options={props.candidates.map((candidate)=>({value:candidate.release.id,label:`${candidate.release.id} · ${candidate.state}`}))} onValueChange={(id)=>{const candidate=props.candidates.find((entry)=>entry.release.id===id);setReleaseId(candidate?.release.id??"");setReleaseDigest(candidate?.release.digest??"");}} />
+            <EvidenceSelector onSelect={(digests)=>setPublishEvidence(digests.join(" "))} />
             <Button disabled={!releaseId().trim() || !releaseDigest().trim() || digests(publishEvidence()).length === 0} class="min-h-11"
               onClick={() => void props.onPublish({ id: releaseId().trim(), digest: releaseDigest().trim() }, digests(publishEvidence()))}>
               Publish release
@@ -213,23 +217,14 @@ export function ToolsScreen(props: {
 
       <Show when={proposeOpen()}>
         <Section title="Propose a tool package" description="A proposal is a pinned package artifact plus evidence; review happens before any publish." surface="card">
-          <div class="flex flex-wrap items-end gap-control-gap">
-            <div class="min-w-64 flex-1"><TextInput label="Package digest (sha256)" value={packageDigest()} onInput={(e) => setPackageDigest(e.currentTarget.value)} /></div>
-            <div class="min-w-32"><TextInput label="Package bytes" type="number" value={packageBytes()} onInput={(e) => setPackageBytes(e.currentTarget.value)} /></div>
-            <div class="min-w-40">
-              <Select label="Classification" value={packageClassification()} options={[
-                { value: "public", label: "Public" }, { value: "internal", label: "Internal" },
-                { value: "confidential", label: "Confidential" }, { value: "restricted", label: "Restricted" },
-              ]} onValueChange={(v) => setPackageClassification((v ?? "internal") as Classification)} />
-            </div>
-          </div>
-          <div class="flex flex-wrap items-end gap-control-gap pt-field">
-            <div class="min-w-64 flex-1"><TextInput label="Evidence digests" value={proposeEvidence()} description="Whitespace or comma separated." onInput={(e) => setProposeEvidence(e.currentTarget.value)} /></div>
+          <div class="flex flex-col gap-field-gap">
+            <ArtifactSelector label="Tool package" onSelect={(artifact)=>{setPackageArtifactId(artifact.artifactId);setPackageDigest(artifact.digest);setPackageBytes(String(artifact.bytes));setPackageClassification(artifact.classification);}} />
+            <EvidenceSelector onSelect={(digests)=>setProposeEvidence(digests.join(" "))} />
             <Button disabled={!packageDigest().trim() || Number(packageBytes()) <= 0 || digests(proposeEvidence()).length === 0} class="min-h-11"
               onClick={() => {
                 void props.onPropose({
                   package: {
-                    artifactId: packageDigest().trim().slice(0, 12), digest: packageDigest().trim(),
+                    artifactId: packageArtifactId(), digest: packageDigest().trim(),
                     bytes: Number(packageBytes()), mediaType: "application/octet-stream",
                     classification: packageClassification(),
                   },

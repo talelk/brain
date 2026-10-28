@@ -1261,6 +1261,16 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 2
+            },
+            "maxTokens": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "maxMicroUsd": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
             }
           },
           "required": [
@@ -1269,7 +1279,9 @@
             "engine",
             "maxTurns",
             "maxChildren",
-            "maxDepth"
+            "maxDepth",
+            "maxTokens",
+            "maxMicroUsd"
           ],
           "additionalProperties": false
         }
@@ -2480,6 +2492,14 @@
         },
         "observedAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CapabilityObservation"
+          },
+          "minItems": 0,
+          "maxItems": 200
         }
       },
       "required": [
@@ -2674,6 +2694,9 @@
               }
             }
           }
+        },
+        "workflowRunId": {
+          "$ref": "#/$defs/Id"
         }
       },
       "required": [
@@ -2692,7 +2715,8 @@
         "workflowDigest",
         "placement",
         "execution",
-        "grantRef"
+        "grantRef",
+        "workflowRunId"
       ],
       "additionalProperties": false
     },
@@ -4172,6 +4196,18 @@
           "minLength": 1,
           "maxLength": 128
         },
+        "instructions": {
+          "type": "string",
+          "maxLength": 262144
+        },
+        "instructionsDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 262144
+        },
         "sourceRevision": {
           "type": "string",
           "minLength": 1,
@@ -4241,6 +4277,9 @@
         "jobFence",
         "engine",
         "modelId",
+        "instructions",
+        "instructionsDigest",
+        "task",
         "sourceRevision",
         "worktreeId",
         "configDigest",
@@ -6757,7 +6796,14 @@
               "$ref": "#/$defs/Digest"
             },
             "expectedActiveDigest": {
-              "$ref": "#/$defs/Digest"
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/Digest"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           },
           "required": [
@@ -8218,6 +8264,116 @@
             "workspaceId"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "agents.list"
+            },
+            "workspaceId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "queryType",
+            "workspaceId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "agents.get"
+            },
+            "workspaceId": {
+              "$ref": "#/$defs/Id"
+            },
+            "resourceId": {
+              "$ref": "#/$defs/ConfigId"
+            }
+          },
+          "required": [
+            "queryType",
+            "workspaceId",
+            "resourceId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "workflows.list"
+            },
+            "workspaceId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "queryType",
+            "workspaceId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "workflows.get"
+            },
+            "workspaceId": {
+              "$ref": "#/$defs/Id"
+            },
+            "resourceId": {
+              "$ref": "#/$defs/ConfigId"
+            }
+          },
+          "required": [
+            "queryType",
+            "workspaceId",
+            "resourceId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "artifacts.list"
+            },
+            "workspaceId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "queryType",
+            "workspaceId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "toolCandidates.list"
+            },
+            "workspaceId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "queryType",
+            "workspaceId"
+          ],
+          "additionalProperties": false
         }
       ]
     },
@@ -9621,6 +9777,292 @@
             "projectionLagMs"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "agents.list"
+            },
+            "snapshot": {
+              "type": "object",
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/AgentCatalogEntry"
+                  },
+                  "maxItems": 100
+                }
+              },
+              "required": [
+                "items"
+              ],
+              "additionalProperties": false
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            },
+            "sourceWatermark": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "asOf": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "projectionLagMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "queryType",
+            "snapshot",
+            "cursor",
+            "sourceWatermark",
+            "asOf",
+            "projectionLagMs"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "agents.get"
+            },
+            "snapshot": {
+              "$ref": "#/$defs/AgentCatalogEntry"
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            },
+            "sourceWatermark": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "asOf": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "projectionLagMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "queryType",
+            "snapshot",
+            "cursor",
+            "sourceWatermark",
+            "asOf",
+            "projectionLagMs"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "workflows.list"
+            },
+            "snapshot": {
+              "type": "object",
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/WorkflowCatalogEntry"
+                  },
+                  "maxItems": 100
+                }
+              },
+              "required": [
+                "items"
+              ],
+              "additionalProperties": false
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            },
+            "sourceWatermark": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "asOf": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "projectionLagMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "queryType",
+            "snapshot",
+            "cursor",
+            "sourceWatermark",
+            "asOf",
+            "projectionLagMs"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "workflows.get"
+            },
+            "snapshot": {
+              "$ref": "#/$defs/WorkflowCatalogEntry"
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            },
+            "sourceWatermark": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "asOf": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "projectionLagMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "queryType",
+            "snapshot",
+            "cursor",
+            "sourceWatermark",
+            "asOf",
+            "projectionLagMs"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "artifacts.list"
+            },
+            "snapshot": {
+              "type": "object",
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/ArtifactRef"
+                  },
+                  "maxItems": 100
+                }
+              },
+              "required": [
+                "items"
+              ],
+              "additionalProperties": false
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            },
+            "sourceWatermark": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "asOf": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "projectionLagMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "queryType",
+            "snapshot",
+            "cursor",
+            "sourceWatermark",
+            "asOf",
+            "projectionLagMs"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "toolCandidates.list"
+            },
+            "snapshot": {
+              "type": "object",
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/ToolCandidateView"
+                  },
+                  "maxItems": 100
+                }
+              },
+              "required": [
+                "items"
+              ],
+              "additionalProperties": false
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            },
+            "sourceWatermark": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "asOf": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "projectionLagMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "queryType",
+            "snapshot",
+            "cursor",
+            "sourceWatermark",
+            "asOf",
+            "projectionLagMs"
+          ],
+          "additionalProperties": false
         }
       ]
     },
@@ -9762,6 +10204,19 @@
         },
         "evidenceDigest": {
           "$ref": "#/$defs/Digest"
+        },
+        "runOutputs": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          }
+        },
+        "engineEvents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EngineEvent"
+          },
+          "maxItems": 200
         }
       },
       "required": [
@@ -11460,13 +11915,21 @@
         },
         "expiresAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "session",
+            "totp"
+          ]
         }
       },
       "required": [
         "challengeId",
         "approvalId",
         "subjectDigest",
-        "expiresAt"
+        "expiresAt",
+        "method"
       ],
       "additionalProperties": false
     },
@@ -11478,12 +11941,11 @@
         },
         "code": {
           "type": "string",
-          "pattern": "^[0-9]{6}$"
+          "pattern": "^([0-9]{6})?$"
         }
       },
       "required": [
-        "challengeId",
-        "code"
+        "challengeId"
       ],
       "additionalProperties": false
     },
@@ -11498,12 +11960,20 @@
         },
         "expiresAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "session",
+            "totp"
+          ]
         }
       },
       "required": [
         "evidenceId",
         "subjectDigest",
-        "expiresAt"
+        "expiresAt",
+        "method"
       ],
       "additionalProperties": false
     },
@@ -12556,7 +13026,13 @@
             "tools.list",
             "decisions.list",
             "members.list",
-            "audit.list"
+            "audit.list",
+            "agents.list",
+            "agents.get",
+            "workflows.list",
+            "workflows.get",
+            "artifacts.list",
+            "toolCandidates.list"
           ]
         },
         "filterDigest": {
@@ -13015,6 +13491,41 @@
         },
         "recoveryRequired": {
           "type": "boolean"
+        },
+        "requireTwoFactor": {
+          "type": "boolean"
+        },
+        "integrations": {
+          "type": "object",
+          "properties": {
+            "memoryUiUrl": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "format": "uri"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "betterAuthAdminUiUrl": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "format": "uri"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "memoryUiUrl",
+            "betterAuthAdminUiUrl"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -13022,7 +13533,9 @@
         "displayName",
         "totpEnrolled",
         "workspaces",
-        "recoveryRequired"
+        "recoveryRequired",
+        "requireTwoFactor",
+        "integrations"
       ],
       "additionalProperties": false
     },
@@ -13035,6 +13548,268 @@
       },
       "required": [
         "ownerPrincipalId"
+      ],
+      "additionalProperties": false
+    },
+    "AgentCatalogEntry": {
+      "type": "object",
+      "properties": {
+        "release": {
+          "$ref": "#/$defs/ReleaseRef"
+        },
+        "configDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "definition": {
+          "$ref": "#/$defs/Agent"
+        },
+        "instructions": {
+          "type": "string",
+          "maxLength": 262144
+        },
+        "instructionsDigest": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "release",
+        "configDigest",
+        "definition",
+        "instructions",
+        "instructionsDigest"
+      ],
+      "additionalProperties": false
+    },
+    "WorkflowCatalogEntry": {
+      "type": "object",
+      "properties": {
+        "release": {
+          "$ref": "#/$defs/ReleaseRef"
+        },
+        "configDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "definition": {
+          "$ref": "#/$defs/Workflow"
+        },
+        "inputSchema": {},
+        "outputSchema": {}
+      },
+      "required": [
+        "release",
+        "configDigest",
+        "definition",
+        "inputSchema",
+        "outputSchema"
+      ],
+      "additionalProperties": false
+    },
+    "OperationalReadiness": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "configDigest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "smokeVerified": {
+          "type": "boolean"
+        },
+        "memoryMode": {
+          "type": "string",
+          "enum": [
+            "local",
+            "remote"
+          ]
+        },
+        "asOf": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ready",
+                  "missing",
+                  "unverified"
+                ]
+              },
+              "detail": {
+                "type": "string"
+              },
+              "nextAction": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "status",
+              "detail",
+              "nextAction"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "workspaceId",
+        "configDigest",
+        "ready",
+        "smokeVerified",
+        "memoryMode",
+        "asOf",
+        "checks"
+      ],
+      "additionalProperties": false
+    },
+    "ReleaseStageRequest": {
+      "type": "object",
+      "properties": {
+        "documents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "text": {
+                "type": "string",
+                "maxLength": 262144
+              }
+            },
+            "required": [
+              "path",
+              "text"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "sourceRevision": {
+          "type": "string",
+          "pattern": "^(sha1:[0-9a-f]{40}|sha256:[0-9a-f]{64})$"
+        },
+        "scripts": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "properties": {
+              "toolId": {
+                "$ref": "#/$defs/ConfigId"
+              },
+              "entrypoint": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "bytesBase64": {
+                "type": "string",
+                "maxLength": 1398104
+              }
+            },
+            "required": [
+              "toolId",
+              "entrypoint",
+              "bytesBase64"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "instructions": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "properties": {
+              "agentId": {
+                "$ref": "#/$defs/ConfigId"
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 512
+              },
+              "text": {
+                "type": "string",
+                "maxLength": 262144
+              }
+            },
+            "required": [
+              "agentId",
+              "path",
+              "text"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "schemas": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "text": {
+                "type": "string",
+                "maxLength": 262144
+              }
+            },
+            "required": [
+              "path",
+              "text"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "documents",
+        "sourceRevision"
+      ],
+      "additionalProperties": false
+    },
+    "ToolCandidateView": {
+      "type": "object",
+      "properties": {
+        "release": {
+          "$ref": "#/$defs/ReleaseRef"
+        },
+        "state": {
+          "type": "string"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "release",
+        "state",
+        "createdAt"
       ],
       "additionalProperties": false
     }

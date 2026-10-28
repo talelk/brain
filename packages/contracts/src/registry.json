@@ -250,7 +250,13 @@
     "tools.list",
     "decisions.list",
     "members.list",
-    "audit.list"
+    "audit.list",
+    "agents.list",
+    "agents.get",
+    "workflows.list",
+    "workflows.get",
+    "artifacts.list",
+    "toolCandidates.list"
   ],
   "events": [
     {

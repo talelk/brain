@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { JsonValue } from "@brain/contracts";
 import { domainDigest, sha256Digest } from "@brain/contracts";
 import { releaseToolPins } from "../configuration/index";
-import { authorEvidenceFor } from "../evidence/index";
+import { authorEvidenceFor, toolReleasesForPayload } from "../evidence/index";
 import { BrainDomainError } from "../../domain/errors";
 import { evaluateRunner, type RunnerView } from "../../domain/placement";
 import { iso } from "../../domain/clock";
@@ -182,7 +182,7 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
   const toolPins = releaseToolPins(s, String(row["config_digest"]));
   const authorEvidence = authorEvidenceFor(s, String(row["organization_id"]), String(row["workspace_id"]), String(row["workflow_run_id"]), String(row["config_digest"]));
   return {
-    contractVersion: "brain.job-offer/v1", jobId: String(row["job_id"]), attemptId,
+    contractVersion: "brain.job-offer/v1", jobId: String(row["job_id"]), workflowRunId: String(row["workflow_run_id"]), attemptId,
     runnerId: String(row["runner_id"]), runnerEpoch: Number(row["runner_epoch"]), leaseId: String(row["lease_id"]),
     jobFence: Number(row["job_fence"]), organizationId: String(row["organization_id"]), workspaceId: String(row["workspace_id"]),
     attemptNumber: Number(row["attempt_no"]), offerExpiresAt: iso(Number(row["offer_expires_at_ms"])),
@@ -192,7 +192,7 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
     toolPins,
     sourceRevision: authorEvidence.sourceRevision,
     primitiveVersions: authorEvidence.primitiveVersions,
-    authorEvidence: { toolReleases: authorEvidence.toolReleases, claimedChecks: authorEvidence.claimedChecks },
+    authorEvidence: { toolReleases: toolReleasesForPayload(JSON.parse(artifactText) as JsonValue), claimedChecks: authorEvidence.claimedChecks },
     grantRef: `grant-${attemptId}`,
   } as unknown as JsonValue;
 }
@@ -226,6 +226,16 @@ export function ackAttempt(s: Store, runner: { runnerId: string; epoch: number }
     const expires = s.now() + 60_000;
     s.control.prepare("UPDATE job_attempts SET state='running', lease_expires_at_ms=? WHERE id=?").run(expires, attemptId);
     s.control.prepare("UPDATE jobs SET state='running', version=version+1 WHERE id=?").run(String(row["job_id"]));
+    // The live session view (sessions.list / session.steer / SessionFeed) is
+    // backed by this workspace row; a running attempt without one is invisible.
+    {
+      const ws = s.workspaceDb(String(row["workspace_id"]), String(row["organization_id"]));
+      const engine = body["engine"] as { id?: string; adapterDigest?: string } | undefined;
+      ws.prepare(`INSERT INTO sessions(id, job_id, attempt_id, engine_id, adapter_digest, state, event_sequence, updated_at_ms)
+        VALUES (?,?,?,?,?, 'running', 0, ?)
+        ON CONFLICT(id) DO UPDATE SET attempt_id=excluded.attempt_id, engine_id=excluded.engine_id, adapter_digest=excluded.adapter_digest, state='running', updated_at_ms=excluded.updated_at_ms`)
+        .run(`ses-${String(row["job_id"])}`, String(row["job_id"]), attemptId, String(engine?.id ?? "unknown"), String(engine?.adapterDigest ?? `sha256:${"0".repeat(64)}`), s.now());
+    }
     result = { attemptId, leaseId: String(row["lease_id"]), jobFence: Number(row["job_fence"]), leaseExpiresAt: iso(expires) } as unknown as JsonValue;
   });
   return result;
@@ -271,6 +281,15 @@ export function attemptEvents(s: Store, runner: { runnerId: string; epoch: numbe
       lastSeq = seq;
     }
     s.control.prepare("UPDATE job_attempts SET last_event_seq=? WHERE id=?").run(lastSeq, attemptId);
+    // Keep the session view's cursor current so the live feed resumes at the
+    // authoritative sequence instead of replaying the whole transcript.
+    const ws = s.workspaceDb(String(row["workspace_id"]), String(row["organization_id"]));
+    ws.prepare("UPDATE sessions SET event_sequence=MAX(event_sequence,?), state='running', updated_at_ms=? WHERE attempt_id=?").run(lastSeq, s.now(), attemptId);
+    const eng = body["engine"] as { id?: unknown; adapterDigest?: unknown } | undefined;
+    if (eng && typeof eng.id === "string" && eng.id.length > 0) {
+      ws.prepare("UPDATE sessions SET engine_id=?, adapter_digest=?, updated_at_ms=? WHERE attempt_id=?")
+        .run(eng.id, typeof eng.adapterDigest === "string" ? eng.adapterDigest : `sha256:${"0".repeat(64)}`, s.now(), attemptId);
+    }
   });
   return { attemptId, lastCommittedSequence: lastSeq } as unknown as JsonValue;
 }
@@ -318,6 +337,10 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
       jobState = "failed";
     }
     if (cleanup === 1) releaseReservation(s, attemptId);
+    {
+      const ws = s.workspaceDb(workspaceId, String(row["organization_id"]));
+      ws.prepare("UPDATE sessions SET state=?, updated_at_ms=? WHERE attempt_id=?").run(jobState === "failed" ? "failed" : "stopped", s.now(), attemptId);
+    }
     for (const keyRow of s.control.prepare("SELECT resource_key FROM resource_leases WHERE attempt_id=?").all(attemptId) as Array<{ resource_key: string }>) {
       void keyRow; // unresolved guards persist until reconciled; compute release is separate
     }

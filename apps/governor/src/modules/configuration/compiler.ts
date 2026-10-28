@@ -1,15 +1,18 @@
 import { parseDocument, isAlias } from "yaml";
-import type { Evaluator, JsonValue, Workflow } from "@brain/contracts";
-import { validate } from "@brain/contracts/validate";
+import type { Agent, Evaluator, JsonValue, Workflow } from "@brain/contracts";
+import { payloadValidator, validate } from "@brain/contracts/validate";
 import { domainDigest, sha256Digest } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import { mergePolicyFloor, type PolicySpec } from "./policy-floor";
 
 export interface SourceDoc { readonly path: string; readonly text: string }
+export interface AgentInstruction { readonly agentId: string; readonly path: string; readonly text: string }
 export interface CompiledRelease {
+  readonly schemas: Readonly<Record<string, JsonValue>>;
   readonly digest: string;
   readonly manifest: JsonValue;
   readonly workflows: Readonly<Record<string, Workflow>>;
+  readonly agents: Readonly<Record<string, Agent>>;
   readonly evaluators: Readonly<Record<string, Evaluator>>;
   readonly documents: readonly { kind: string; id: string; digest: string }[];
 }
@@ -204,9 +207,22 @@ export function assertSchemaSafety(value: unknown, path: string, depth = 0): voi
 /** A pinned tool entrypoint script staged alongside the release documents. */
 export interface ToolScript { readonly toolId: string; readonly entrypoint: string; readonly bytesBase64: string }
 
-export function compileRelease(docs: readonly SourceDoc[], sourceRevision: string, scripts?: readonly ToolScript[]): CompiledRelease {
+export function compileRelease(docs: readonly SourceDoc[], sourceRevision: string, scripts?: readonly ToolScript[], instructions: readonly AgentInstruction[] = [], schemas: readonly SourceDoc[] = []): CompiledRelease {
   assertConfinedDocPaths(docs);
+  const schemaMap: Record<string, JsonValue> = {};
+  const schemaAssets: { path: string; digest: string; bytes: number }[] = [];
+  for (const asset of schemas) {
+    if (!/^schemas\/[A-Za-z0-9/_-]+\.json$/u.test(asset.path) || asset.path.includes("..") || schemaMap[asset.path]) throw new BrainDomainError("INVALID_CONTRACT", `invalid or duplicate schema asset: ${asset.path}`);
+    if (Buffer.byteLength(asset.text) > 256 * 1024) throw new BrainDomainError("PAYLOAD_TOO_LARGE", "schema asset exceeds 256 KiB");
+    const schema = JSON.parse(asset.text) as JsonValue;
+    if (!schema || typeof schema !== "object" || Array.isArray(schema)) throw new BrainDomainError("INVALID_CONTRACT", "schema must be an object");
+    assertSchemaSafety(schema, asset.path);
+    try { payloadValidator(schema); } catch { throw new BrainDomainError("INVALID_CONTRACT", `invalid payload schema: ${asset.path}`); }
+    schemaMap[asset.path] = schema;
+    schemaAssets.push({ path: asset.path, digest: sha256Digest(new TextEncoder().encode(asset.text)), bytes: Buffer.byteLength(asset.text) });
+  }
   const workflows: Record<string, Workflow> = {};
+  const agents: Record<string, Agent> = {};
   const evaluators: Record<string, Evaluator> = {};
   const entries: { kind: string; id: string; digest: string; bytes: number; path: string }[] = [];
   const tools: { id: string; digest: string; effectClass: string; inputSchemaRef: string; outputSchemaRef: string; entrypoint?: string; entrypointDigest?: string }[] = [];
@@ -235,6 +251,17 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
       const wf = raw as unknown as Workflow;
       compileWorkflowGraph(wf, path);
       workflows[id] = wf;
+    }
+    if (kind === "Agent") {
+      const check = validate("Agent", raw);
+      if (!check.ok) throw new BrainDomainError("INVALID_CONTRACT", `${path}: ${check.errors.join("; ")}`);
+      const agent = raw as unknown as Agent;
+      const matches = instructions.filter((instruction) => instruction.agentId === id);
+      if (matches.length !== 1 || matches[0]?.path !== agent.spec.instructionsPath) {
+        throw new BrainDomainError("INVALID_CONTRACT", `${path}: exactly one pinned ${agent.spec.instructionsPath} instruction asset is required`);
+      }
+      if (Buffer.byteLength(matches[0]?.text ?? "", "utf8") > 256 * 1024) throw new BrainDomainError("PAYLOAD_TOO_LARGE", `${path}: agent instructions exceed 256 KiB`);
+      agents[id] = agent;
     }
     if (kind === "Evaluator") {
       const check = validate("Evaluator", raw);
@@ -269,8 +296,30 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
     }
     entries.push({ kind, id, digest: docDigest, bytes: Buffer.byteLength(text, "utf8"), path });
   }
+  const uniqueScripts = new Set<string>();
+  for (const script of scripts ?? []) {
+    const tool = tools.find((candidate) => candidate.id === script.toolId);
+    if (!tool || uniqueScripts.has(script.toolId)) throw new BrainDomainError("INVALID_CONTRACT", "tool script must name one unique declared Tool");
+    uniqueScripts.add(script.toolId);
+    const raw = docs.map((doc) => parseRestrictedYaml(doc.text, doc.path)).find((doc) => doc["kind"] === "Tool" && (doc["metadata"] as { id?: string })?.id === script.toolId);
+    if ((raw?.["spec"] as { entrypoint?: string } | undefined)?.entrypoint !== script.entrypoint) throw new BrainDomainError("INVALID_CONTRACT", "tool entrypoint does not match its declaration");
+  }
+  for (const instruction of instructions) {
+    if (!agents[instruction.agentId]) throw new BrainDomainError("INVALID_CONTRACT", "instruction asset names an undeclared Agent");
+  }
   assertSubgraphBounds(workflows, sourceRevision);
   for (const workflow of Object.values(workflows)) for (const job of Object.values(workflow.spec.jobs)) {
+    if (job.kind === "dispatch" && job.uses.type === "agent") {
+      for (const path of [workflow.spec.inputSchemaRef, workflow.spec.outputSchemaRef, job.outputSchemaRef]) {
+        if (!schemaMap[path]) throw new BrainDomainError("INVALID_CONTRACT", `agent workflow schema asset missing: ${path}`);
+      }
+      const ref = job.uses.release;
+      const agent = agents[ref.id];
+      if (agent && job.runsOn.engine && !agent.spec.engine.anyOf.some((id)=>job.runsOn.engine!.anyOf.includes(id))) throw new BrainDomainError("INVALID_CONTRACT","workflow and agent engine requirements do not intersect");
+      if (!agents[ref.id] || !entries.some((entry) => entry.kind === "Agent" && entry.id === ref.id && entry.digest === ref.digest)) {
+        throw new BrainDomainError("INVALID_CONTRACT", `agent ${ref.id} must match an immutable document in this release`);
+      }
+    }
     if (job.kind !== "eval") continue;
     if (!evaluators[job.evaluator.id] || !entries.some((entry) => entry.kind === "Evaluator" && entry.id === job.evaluator.id && entry.digest === job.evaluator.digest)) throw new BrainDomainError("INVALID_CONTRACT", `evaluator ${job.evaluator.id} must match an immutable document in this release`);
   }
@@ -279,22 +328,35 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
   if (policies.length > 1) {
     mergePolicyFloor(policies.map((p) => ({ name: p.name, spec: p.spec as unknown as PolicySpec })));
   }
+  const agentViews = Object.values(agents).map((agent) => {
+    const instruction = instructions.find((candidate) => candidate.agentId === agent.metadata.id)!;
+    const bytes = new TextEncoder().encode(instruction.text);
+    return {
+      id: agent.metadata.id,
+      digest: entries.find((entry) => entry.kind === "Agent" && entry.id === agent.metadata.id)!.digest,
+      engine: agent.spec.engine, tools: agent.spec.tools,
+      maxTokens: agent.spec.maxTokens, maxMicroUsd: agent.spec.maxMicroUsd,
+      maxTurns: agent.spec.maxTurns, maxChildren: agent.spec.maxChildren, maxDepth: agent.spec.maxDepth,
+      instructions: { path: instruction.path, digest: sha256Digest(bytes), bytes: bytes.length },
+    };
+  });
   // The compiled IR (lowered workflows/evaluators + document index) is a
   // real digest-addressed artifact of the release; ConfigRelease views are
   // derived from these exact fields, never synthesized at read time.
-  const ir = { workflows, evaluators, documents: entries } as unknown as JsonValue;
+  const ir = { workflows, agents, evaluators, schemas: schemaMap, documents: entries } as unknown as JsonValue;
   const irJson = JSON.stringify(ir);
   const primitiveVersions: Record<string, string> = {};
   for (const e of entries) primitiveVersions[`${e.kind}:${e.id}`] = e.digest;
   const manifest: JsonValue = {
     sourceRevision, documents: entries as unknown as JsonValue,
-    workflows: Object.keys(workflows).sort(), uiFoundation: brainConfigUi ? "newui" : "absent",
+    workflows: Object.keys(workflows).sort(), agents: agentViews as unknown as JsonValue, uiFoundation: brainConfigUi ? "newui" : "absent",
     ui: (brainConfigUi ?? null) as JsonValue,
     compilerDigest: domainDigest("brain:compiler:v1", { compiler: "brain-config-compiler", version: 1 }),
     irArtifact: {
       artifactId: "config-ir", digest: domainDigest("brain:config-ir:v1", ir),
       bytes: Buffer.byteLength(irJson, "utf8"), mediaType: "application/json", classification: "internal",
     },
+    schemaAssets: schemaAssets as unknown as JsonValue,
     assets: entries.map((e) => ({
       artifactId: e.id, digest: e.digest, bytes: e.bytes, mediaType: "application/yaml", classification: "internal",
     })),
@@ -302,7 +364,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
     tools: tools as unknown as JsonValue,
   };
   const digest = domainDigest("brain:config-release:v1", manifest);
-  return { digest, manifest, workflows, evaluators, documents: entries };
+  return { digest, manifest, workflows, agents, evaluators, schemas: schemaMap, documents: entries };
 }
 
 export function resolveBinding(bindings: Readonly<Record<string, unknown>>, input: JsonValue, outputs: Readonly<Record<string, JsonValue>>): Record<string, JsonValue> {

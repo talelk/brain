@@ -17,6 +17,7 @@ export interface VerifiedSession {
 }
 
 export interface BrainAuth {
+  readonly requireTwoFactor: boolean;
   handler(request: Request): Promise<Response>;
   ready(): Promise<void>;
   readSession(headers: Headers): Promise<VerifiedSession | null>;
@@ -32,7 +33,7 @@ export interface BrainAuth {
 interface TableDef { modelName: string; fields: Record<string, { fieldName?: string }> }
 const quote = (id: string) => `"${id.replaceAll('"', '""')}"`;
 
-export function createBrainAuth(db: Db, opts: { secret: string; baseURL: string }): BrainAuth {
+export function createBrainAuth(db: Db, opts: { secret: string; baseURL: string; requireTwoFactor?: boolean }): BrainAuth {
   const sql = readFileSync(new URL("../../../schema/auth.sql", import.meta.url), "utf8");
   const securitySql = "CREATE TABLE brain_auth_recovery(user_id TEXT PRIMARY KEY, factor_digest TEXT NOT NULL, recovered_at_ms INTEGER NOT NULL) STRICT";
   const schemaDigest = `sha256:${createHash("sha256").update(sql).update(securitySql).digest("hex")}`;
@@ -86,6 +87,7 @@ export function createBrainAuth(db: Db, opts: { secret: string; baseURL: string 
   }
 
   return {
+    requireTwoFactor: opts.requireTwoFactor ?? false,
     async handler(request) {
       const response = await auth.handler(request);
       if (request.method === "POST" && new URL(request.url).pathname === "/api/auth/two-factor/verify-backup-code" && response.ok) {

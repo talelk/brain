@@ -14,7 +14,8 @@ function spec(): EngineSessionSpec {
     dispatchId: "d-pi", jobId: "job-pi", attemptId: "att-pi", runnerId: "runner-pi",
     runnerEpoch: 1, leaseId: "lease-pi", jobFence: 1,
     engine: { id: "pi", version: "1.4.0", adapterDigest: DIGEST, features: ["sessions", "checkpoint"] },
-    modelId: "qwen3.8-flash-next-a5b", sourceRevision: "sha256:" + "1".repeat(64), worktreeId: "wt-pi",
+    modelId: "qwen3.8-flash-next-a5b", instructions: "Follow the task.", instructionsDigest: DIGEST,
+    task: "Reply with exactly: BRAIN_OK", sourceRevision: "sha256:" + "1".repeat(64), worktreeId: "wt-pi",
     configDigest: DIGEST, allowedTools: [],
     context: { artifactId: "ctx-pi", digest: DIGEST, bytes: 0, mediaType: "application/json", classification: "internal" },
     limits: { timeoutMs: 120_000, maxTokens: 8192, maxMicroUsd: 0, maxTurns: 8 },
@@ -33,17 +34,14 @@ describe("pi checkpoint/resume (T24)", () => {
       const res = await fetch(`${MODEL_URL}/models`, { signal: AbortSignal.timeout(5000) });
       reachable = res.ok;
     } catch { reachable = false; }
-    if (!reachable) {
-      console.warn(`local model endpoint unreachable at ${MODEL_URL}; Pi checkpoint probe skipped`);
-      return;
-    }
+    expect(reachable, `selected Pi checkpoint probe requires ${MODEL_URL}`).toBe(true);
     const dir = mkdtempSync(join(tmpdir(), "brain-pi-ckpt-"));
     dirs.push(dir);
     process.env["BRAIN_PI_AGENT_DIR"] = dir;
 
     const first = new PiEngine();
-    const { sessionId } = await first.start(spec(), new AbortController().signal);
-    await first.prompt("Remember this codeword exactly: ZEPHYR-42. Reply with exactly: STORED");
+    const { sessionId } = await first.start({ ...spec(), task: "Remember this codeword exactly: ZEPHYR-42. Reply with exactly: STORED" }, new AbortController().signal);
+    for await (const event of first.events(sessionId,0,new AbortController().signal)) { if (event.kind === "session.stopped") expect(event.payload.reason).toBe("completed"); }
     const checkpoint = await first.checkpoint(sessionId);
     expect(checkpoint.contractVersion).toBe("brain.checkpoint/v1");
     expect(checkpoint.attemptId).toBe("att-pi");
@@ -54,6 +52,7 @@ describe("pi checkpoint/resume (T24)", () => {
     // Tampered digest must be refused before any session state changes.
     const second = new PiEngine();
     const started = await second.start(spec(), new AbortController().signal);
+    for await (const event of second.events(started.sessionId,0,new AbortController().signal)) { if (event.kind === "session.stopped") expect(event.payload.reason).toBe("completed"); }
     await expect(second.resume(started.sessionId, { ...checkpoint.diff, digest: `sha256:${"f".repeat(64)}` })).rejects.toThrow();
     await second.resume(started.sessionId, checkpoint.diff);
     await second.prompt("What was the codeword I asked you to remember? Reply with exactly the codeword and nothing else.");

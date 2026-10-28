@@ -42,12 +42,12 @@ test("work area shows decisions, tickets, incidents and delivery (T34)", async (
   await expect(page.getByText("ship the golden workflow")).toBeVisible();
   await page.goto(`${governor.url}/w/ws-work/support`);
   await expect(page.getByRole("heading", { name: "Support", exact: true, level: 1 })).toBeVisible();
-  await expect(page.getByText("No support tickets.")).toBeVisible();
+  await expect(page.getByText("No support tickets")).toBeVisible();
   await page.goto(`${governor.url}/w/ws-work/sre`);
   await expect(page.getByRole("heading", { name: "SRE", exact: true, level: 1 })).toBeVisible();
-  await expect(page.getByText("No incidents.")).toBeVisible();
+  await expect(page.getByText("No incidents")).toBeVisible();
   await page.goto(`${governor.url}/w/ws-work/delivery`);
   await expect(page.getByRole("heading", { name: "Delivery", exact: true, level: 1 })).toBeVisible();
-  await expect(page.getByText("No delivery dossiers.")).toBeVisible();
+  await expect(page.getByText("No delivery dossiers")).toBeVisible();
   expect(errors).toEqual([]);
 });

@@ -1,3 +1,5 @@
+import { operationalReadiness } from "../modules/operations/index";
+import type { RuntimeConfig } from "../runtime-config";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { join } from "node:path";
@@ -20,16 +22,16 @@ function correlation(c: { req: { header: (n: string) => string | undefined } }):
   return c.req.header("x-correlation-id") ?? newId("corr");
 }
 
-export async function createApp(opts?: { dataDir?: string; allowTestActor?: boolean }): Promise<GovernorHandle & { brain: Brain }> {
+export async function createApp(opts?: { dataDir?: string; allowTestActor?: boolean; runtime?: RuntimeConfig }): Promise<GovernorHandle & { brain: Brain }> {
   const dataDir = opts?.dataDir ?? process.env["BRAIN_DATA_DIR"] ?? join(process.cwd(), ".brain-data");
   const publicOrigin = process.env["BRAIN_BASE_URL"] ? new URL(process.env["BRAIN_BASE_URL"]).origin : undefined;
   const allowTestActor = opts?.allowTestActor ?? process.env["BRAIN_ALLOW_TEST_ACTOR"] === "1";
   if (allowTestActor && process.env["NODE_ENV"] === "production") throw new Error("test actor refused in production");
-  const brain = new Brain({ dataDir, allowTestActor });
+  const brain = new Brain({ dataDir, allowTestActor, ...(opts?.runtime ? { runtime: opts.runtime } : {}) });
   await brain.auth.ready();
   const app = new Hono();
   const bodies = new BodyReader();
-  const readJson = async (c: { req: { raw: Request } }) => parseJson(await bodies.read(c.req.raw, MAX_JSON));
+  const readJson = async (c: { req: { raw: Request } }, limit = MAX_JSON) => parseJson(await bodies.read(c.req.raw, limit));
   const requireBody = (name: string, body: unknown) => {
     const result = validate(name, body);
     if (!result.ok) throw new BrainDomainError("INVALID_CONTRACT", result.errors.join("; "));
@@ -130,7 +132,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     try {
       const identity = await actorFor(c);
       const workspaces = brain.store.control.prepare("SELECT DISTINCT w.id AS workspaceId,w.slug AS name,w.status FROM workspaces w JOIN workspace_memberships m ON m.workspace_id=w.id AND m.organization_id=w.organization_id WHERE w.organization_id=? AND m.principal_id=? AND m.revoked_at_ms IS NULL ORDER BY w.slug,w.id LIMIT 1000").all(identity.actor.organizationId, identity.principalId) as Array<{ workspaceId: string; name: string; status: string }>;
-      const view: IdentityView = { actor: identity.actor, displayName: identity.humanSession?.displayName ?? identity.principalId, totpEnrolled: !!identity.humanSession?.factorDigest, recoveryRequired: identity.humanSession?.recoveryRequired ?? false, workspaces };
+      const view: IdentityView = { actor: identity.actor, displayName: identity.humanSession?.displayName ?? identity.principalId, totpEnrolled: !!identity.humanSession?.factorDigest, recoveryRequired: identity.humanSession?.recoveryRequired ?? false, requireTwoFactor: brain.runtime.requireTwoFactor, integrations: { memoryUiUrl: brain.runtime.memoryUiUrl, betterAuthAdminUiUrl: identity.actor.scopes.includes("config:activate") ? brain.runtime.betterAuthAdminUiUrl : null }, workspaces };
       return c.json(view);
     } catch (e) { return fail(c as never, e); }
   });
@@ -160,12 +162,31 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     } catch (e) { return fail(c as never, e); }
   });
 
+  app.get("/v1/doctor", async (c) => {
+    try {
+      const workspaceId = c.req.query("workspaceId") ?? "";
+      const { actor } = await actorFor(c, workspaceId);
+      return c.json(operationalReadiness(brain.store, actor, workspaceId));
+    } catch (e) { return fail(c as never, e); }
+  });
+
+  app.get("/v1/config/releases/:digest", async (c) => {
+    try {
+      const { actor } = await actorFor(c);
+      return c.json(brain.inspectRelease(actor, c.req.param("digest")) as never);
+    } catch (e) { return fail(c as never, e); }
+  });
+
   app.post("/v1/setup/config", async (c) => {
     try {
-      const body = (await readJson(c)) as { documents: { path: string; text: string }[]; sourceRevision: string; activate?: boolean };
+      const body = (await readJson(c,8*1024*1024)) as {
+        documents: { path: string; text: string }[]; sourceRevision: string;
+        scripts?: { toolId: string; entrypoint: string; bytesBase64: string }[];
+        instructions?: { agentId: string; path: string; text: string }[];
+        schemas?: { path: string; text: string }[];
+      };
       const { actor } = await actorFor(c);
-      const { digest } = brain.stageRelease(actor, body.documents, body.sourceRevision);
-      if (body.activate) brain.activateRelease(actor, digest);
+      const { digest } = brain.stageRelease(actor, body.documents, body.sourceRevision, body.scripts, body.instructions, body.schemas);
       return c.json({ digest }, 201);
     } catch (e) { return fail(c as never, e); }
   });
@@ -199,7 +220,9 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       const identity = await actorFor(c);
       const after = Number(c.req.header("last-event-id") ?? c.req.query("after") ?? 0);
       const startCursor = Number.isFinite(after) && after > 0 ? Math.floor(after) : 0;
-      const frame = (e: { cursor: number; type: string }) => `id: ${e.cursor}\nevent: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`;
+      // Data frames go on the default `message` channel (the client parses the
+      // type from the JSON payload); only control frames like `reset` are named.
+      const frame = (e: { cursor: number; type: string }) => `id: ${e.cursor}\ndata: ${JSON.stringify(e)}\n\n`;
       if (c.req.query("live") !== "1") {
         const events = brain.listEvents(identity.actor, startCursor) as unknown as Array<{ cursor: number; eventId: string; type: string }>;
         return new Response(events.map(frame).join("") + ": keepalive\n\n", { headers: { "content-type": "text/event-stream", "cache-control": "no-cache", "x-accel-buffering": "no" } });
@@ -272,10 +295,10 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
 
   app.post("/v1/step-up/verify", async (c) => {
     try {
-      const body = (await readJson(c)) as { challengeId: string; code: string };
+      const body = (await readJson(c)) as { challengeId: string; code?: string };
       requireBody("StepUpVerify", body);
       const identity = await actorFor(c);
-      return c.json(await brain.stepUp.verify(identity, body.challengeId, body.code, c.req.raw.headers));
+      return c.json(await brain.stepUp.verify(identity, body.challengeId, body.code ?? "", c.req.raw.headers));
     } catch (e) { return fail(c as never, e); }
   });
 
@@ -435,9 +458,9 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
   });
   app.post("/v1/runners/:id/trust", async (c) => {
     try {
-      const { actor } = await actorFor(c);
+      const identity = await actorFor(c);
       const body = (await readJson(c)) as { domain?: string; reason?: string };
-      return c.json(brain.verifyTrustDomain(actor, { runnerId: c.req.param("id"), domain: String(body.domain ?? ""), reason: String(body.reason ?? "") }) as never);
+      return c.json(brain.verifyTrustDomain(identity, { runnerId: c.req.param("id"), domain: String(body.domain ?? ""), reason: String(body.reason ?? "") }) as never);
     } catch (e) { return fail(c as never, e); }
   });
   app.delete("/v1/runners/:id/trust", async (c) => {
@@ -466,10 +489,20 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       });
     } catch (e) { return fail(c as never, e); }
   });
+  app.get("/runner/v1/releases/:digest/agents/:agentId/instructions", (c) => {
+    try {
+      const runner = brain.authRunner(c.req.raw.headers);
+      const asset = brain.readReleaseAgent(runner, c.req.param("digest"), c.req.param("agentId"));
+      return c.json({
+        agent: asset.agent, agentDigest: asset.agentDigest, path: asset.path,
+        instructionsDigest: asset.instructionsDigest, bytesBase64: Buffer.from(asset.bytes).toString("base64"),
+      });
+    } catch (e) { return fail(c as never, e); }
+  });
   app.post("/runner/v1/attempts/:id/artifacts", async (c) => {
     try {
       const runner = brain.authRunner(c.req.raw.headers);
-      return c.json(brain.acceptAttemptArtifact(runner, c.req.param("id"), (await readJson(c)) as { digest: string; bytesBase64: string; mediaType?: string }) as never, 201);
+      return c.json(brain.acceptAttemptArtifact(runner, c.req.param("id"), (await readJson(c,12*1024*1024)) as { digest: string; bytesBase64: string; mediaType?: string }) as never, 201);
     } catch (e) { return fail(c as never, e); }
   });
   app.post("/runner/v1/attempts/:id/complete", async (c) => {

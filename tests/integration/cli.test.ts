@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../../apps/governor/src/http/app";
 import { runCli } from "../../apps/cli/src/client";
 import { credentialStore } from "../../apps/cli/src/credentials";
+import { goldenDocs } from "../helpers";
 import { totpCode } from "../support/totp";
 
 const cleanups: Array<() => Promise<void>> = [];
@@ -48,5 +49,37 @@ describe("CLI native credential flow", () => {
     expect(await x.run(["login","--json"])).toBe(0);
     expect((await x.app.brain.resolveActor(new Headers({authorization:`Bearer ${x.credentials.read()}`}))).humanSession!.factorDigest).toBeTruthy();
     expect(x.output()+x.errors()).not.toContain(secret);expect(x.output()+x.errors()).not.toContain(x.env["BRAIN_PASSWORD"]!);expect(x.output()).not.toContain(x.credentials.read());
+  });
+});
+
+describe("CLI configuration and workflow operations", () => {
+  it("compiles a full release without activation, inspects, activates, lists, and dispatches", async () => {
+    const x = await fixture(); expect(await x.setup()).toBe(0);
+    const token = x.credentials.read();
+    const { actor } = await x.app.brain.resolveActor(new Headers({ authorization: `Bearer ${token}` }));
+    x.app.brain.createWorkspace(actor, { workspaceId: "ws-cli", slug: "cli" });
+    expect(await x.run(["config", "compile", "examples/v1/golden-release", "--json"])).toBe(0);
+    const digest = (JSON.parse(x.output()) as { digest: string }).digest;
+    expect(x.app.brain.activeRelease("org-cli")).toBeUndefined();
+    expect(await x.run(["config", "inspect", digest, "--json"])).toBe(0);
+    expect(JSON.parse(x.output()).manifest.tools).toHaveLength(2);
+    expect(await x.run(["config", "activate", digest, "--json"])).toBe(0);
+    expect(x.app.brain.activeRelease("org-cli")?.digest).toBe(digest);
+    expect(await x.run(["workflow", "list", "--workspace", "ws-cli", "--json"])).toBe(0);
+    expect(JSON.parse(x.output()).snapshot.items[0].release.id).toBe("fixture-workflow");
+    expect(await x.run(["workflow", "run", "fixture-workflow", "--workspace", "ws-cli", "--input", '{"message":"CLI dispatch"}', "--json"])).toBe(0);
+    expect(JSON.parse(x.output()).resourceId).toBeTruthy();
+    expect(await x.run(["workflow", "run", "fixture-workflow", "--workspace", "ws-cli", "--input", "{malformed", "--json"])).toBe(1);
+  });
+
+  it("denies catalog reads for a workspace outside the current membership and anonymous inspection", async () => {
+    const x = await fixture(); expect(await x.setup()).toBe(0);
+    const token = x.credentials.read();
+    const { actor } = await x.app.brain.resolveActor(new Headers({ authorization: `Bearer ${token}` }));
+    const { digest } = x.app.brain.stageRelease(actor, goldenDocs(), `sha256:${"b".repeat(64)}`);
+    x.app.brain.activateRelease(actor, digest);
+    expect(await x.run(["workflow", "list", "--workspace", "ws-other", "--json"])).toBe(1);
+    x.credentials.clear();
+    expect(await x.run(["config", "inspect", digest, "--json"])).toBe(1);
   });
 });

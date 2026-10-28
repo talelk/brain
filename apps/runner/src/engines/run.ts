@@ -1,15 +1,9 @@
-import type { EngineAdapter, EngineSessionSpec, JsonValue } from "@brain/contracts";
+import type { EngineAdapter, EngineSessionSpec, JsonValue, ReleaseRef } from "@brain/contracts";
 import { sha256Digest } from "@brain/contracts";
 import { FixtureEngine } from "./fixture";
 import { PiEngine } from "./pi";
 import { ClaudeEngine } from "./claude";
 
-/**
- * Engine selection (T24): the configured adapter runs agent-kind executions
- * with real session events, cancellation and checkpoints. With no engine
- * configured, agent jobs fail explicitly — they are never mis-run through the
- * fixture tool path.
- */
 export function selectEngine(configured: string | undefined): EngineAdapter | undefined {
   switch (configured) {
     case "fixture": return new FixtureEngine();
@@ -25,58 +19,151 @@ export interface AgentExecutionInput {
   jobFence: number;
   leaseId: string;
   runnerId: string;
+  runnerEpoch?: number;
   organizationId: string;
   workspaceId: string;
   jobId: string;
   configDigest: string;
+  sourceRevision?: string;
+  worktreeId?: string;
+  instructions?: string;
   task: string;
   modelId?: string | undefined;
   timeoutMs: number;
-  /** Streams each authoritative engine event to the attempt journal. */
+  cleanupTimeoutMs?: number;
+  maxTokens?: number;
+  maxMicroUsd?: number;
+  maxTurns?: number;
+  allowedTools?: readonly ReleaseRef[];
   emit: (kind: string, payload: unknown) => Promise<void>;
   signal: AbortSignal;
 }
 
-export async function runAgentExecution(input: AgentExecutionInput): Promise<{ ok: boolean; output: JsonValue }> {
-  const { engine, signal } = input;
-  const probe = await engine.probe();
+export interface AgentExecutionResult {
+  ok: boolean;
+  output: JsonValue;
+  outputText: string;
+  cleanupConfirmed?: boolean;
+}
+
+function decodedOutput(text: string): JsonValue {
+  try { return JSON.parse(text) as JsonValue; }
+  catch { return text; }
+}
+
+export async function runAgentExecution(input: AgentExecutionInput): Promise<AgentExecutionResult> {
+  const { engine } = input;
+  const deadline = new AbortController();
+  const timer = setTimeout(() => deadline.abort(new Error("agent execution deadline exceeded")), input.timeoutMs);
+  const signal = AbortSignal.any([input.signal, deadline.signal]);
+  const bounded = <T>(operation: Promise<T>): Promise<T> => {
+    if (signal.aborted) return Promise.reject(signal.reason);
+    return new Promise<T>((resolve, reject) => {
+      const abort = () => reject(signal.reason ?? new Error("agent execution aborted"));
+      signal.addEventListener("abort", abort, { once: true });
+      void operation.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+    });
+  };
+  const instructions = input.instructions ?? "";
+  const instructionsBytes = new TextEncoder().encode(instructions);
+  const taskBytes = new TextEncoder().encode(input.task);
+  let sessionId = "";
+  let startPending = false;
+  let outputText = "";
+  let terminalReason = "";
+  let terminalConfirmed = false;
+  let terminalOutput: { digest: string; bytes: number } | undefined;
+  let engineError = false;
+  const cleanup = async (operation: () => Promise<unknown>): Promise<boolean> => {
+    let cleanupTimer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        Promise.resolve().then(operation).then(() => true, () => false),
+        new Promise<boolean>((resolve) => { cleanupTimer = setTimeout(() => resolve(false), input.cleanupTimeoutMs ?? 2000); }),
+      ]);
+    } finally { if (cleanupTimer) clearTimeout(cleanupTimer); }
+  };
+  const execute = async (): Promise<AgentExecutionResult> => {
+  try {
+  const probe = await bounded(engine.probe());
+  if (!probe.features.includes("sessions")) {
+    return { ok: false, output: { error: `${engine.id} is unavailable or its model is unreachable` }, outputText: "" };
+  }
   const spec: EngineSessionSpec = {
     contractVersion: "brain.engine/v1",
     organizationId: input.organizationId, workspaceId: input.workspaceId,
     dispatchId: input.jobId, jobId: input.jobId, attemptId: input.attemptId,
-    runnerId: input.runnerId, runnerEpoch: 0, leaseId: input.leaseId, jobFence: input.jobFence,
-    engine: probe, modelId: input.modelId ?? "default",
-    sourceRevision: "runner", worktreeId: input.attemptId, configDigest: input.configDigest,
-    allowedTools: [], context: {
-      artifactId: `ctx-${input.attemptId}`, digest: sha256Digest(new TextEncoder().encode(input.task)),
-      bytes: Buffer.byteLength(input.task), mediaType: "text/plain", classification: "internal",
+    runnerId: input.runnerId, runnerEpoch: input.runnerEpoch ?? 1, leaseId: input.leaseId, jobFence: input.jobFence,
+    engine: probe, modelId: input.modelId ?? engine.defaultModelId ?? "fixture",
+    instructions, instructionsDigest: sha256Digest(instructionsBytes), task: input.task,
+    sourceRevision: input.sourceRevision ?? input.configDigest, worktreeId: input.worktreeId ?? `read-only:${input.workspaceId}`,
+    configDigest: input.configDigest, allowedTools: input.allowedTools ?? [],
+    context: {
+      artifactId: `ctx-${input.attemptId}`, digest: sha256Digest(taskBytes),
+      bytes: taskBytes.length, mediaType: "text/plain", classification: "internal",
     },
-    limits: { timeoutMs: input.timeoutMs, maxTokens: 0, maxMicroUsd: 0, maxTurns: 0 },
+    limits: {
+      timeoutMs: input.timeoutMs, maxTokens: input.maxTokens ?? 100_000,
+      maxMicroUsd: input.maxMicroUsd ?? 0, maxTurns: input.maxTurns ?? 10,
+    },
   };
-  const { sessionId } = await engine.start(spec, signal);
-  await input.emit("engine", { phase: "session.started", sessionId, engine: engine.id });
-  let output: JsonValue = null;
-  let ok = false;
-  try {
-    for await (const event of engine.events(sessionId, 0, signal)) {
-      await input.emit("engine", event as unknown as JsonValue);
-      if (event.kind === "session.stopped") {
-        const stopped = event as { payload: { reason: string; output?: { digest: string } } };
-        ok = stopped.payload.reason === "completed";
-        output = { stopped: stopped.payload.reason, outputDigest: stopped.payload.output?.digest ?? null } as unknown as JsonValue;
-        break;
+    startPending = true;
+    const pendingStart = engine.start(spec, signal);
+    // A non-cooperative adapter may finish starting after the deadline.
+    void pendingStart.then(async (started) => {
+      if (signal.aborted && !sessionId) {
+        await cleanup(() => engine.cancel(started.sessionId, "execution expired during start"));
+        await cleanup(() => engine.dispose(started.sessionId));
       }
-      if (event.kind === "artifact" && (event as { payload: { purpose?: string } }).payload.purpose === "output") {
-        output = (event as unknown as { payload: { artifact: unknown } }).payload.artifact as unknown as JsonValue;
+    }, () => undefined);
+    const started = await bounded(pendingStart);
+    sessionId = started.sessionId;
+    startPending = false;
+    const events = engine.events(sessionId, 0, signal)[Symbol.asyncIterator]();
+    for (;;) {
+      const next = await bounded(events.next());
+      if (next.done) break;
+      const event = next.value;
+      await bounded(input.emit("engine", event as unknown as JsonValue));
+      if (event.kind === "error") engineError = true;
+      if (event.kind === "text") outputText += event.payload.text;
+      if (event.kind === "session.stopped") {
+        terminalReason = event.payload.reason;
+        terminalConfirmed = event.payload.terminationConfirmed;
+        terminalOutput = event.payload.output;
+        break;
       }
     }
     if (signal.aborted) {
-      await engine.cancel(sessionId, "lease lost or deadline reached").catch(() => undefined);
-      return { ok: false, output: { error: "agent execution aborted; outcome unknown" } as unknown as JsonValue };
+      return { ok: false, output: { error: "agent execution aborted; outcome unknown" }, outputText };
     }
+    if (engineError || !terminalConfirmed || terminalReason !== "completed") {
+      return { ok: false, output: { error: terminalReason ? `agent ended with ${terminalReason}` : "agent event stream ended without a terminal result" }, outputText };
+    }
+    if (!outputText.trim()) return { ok: false, output: { error: "agent completed without output" }, outputText };
+    const bytes = new TextEncoder().encode(outputText);
+    if (!terminalOutput || terminalOutput.digest !== sha256Digest(bytes) || terminalOutput.bytes !== bytes.length) {
+      return { ok: false, output: { error: "terminal output digest does not match the captured output" }, outputText };
+    }
+    return { ok: true, output: decodedOutput(outputText), outputText };
   } catch (e) {
-    await engine.cancel(sessionId, e instanceof Error ? e.message : "engine failure").catch(() => undefined);
-    return { ok: false, output: { error: e instanceof Error ? e.message : "engine execution failed" } as unknown as JsonValue };
+    return { ok: false, output: { error: e instanceof Error ? e.message : "engine execution failed" }, outputText };
   }
-  return { ok, output };
+  };
+  const result = await execute();
+  clearTimeout(timer);
+  let cleanupConfirmed = !sessionId && !startPending;
+  if (sessionId) {
+    let terminationConfirmed = terminalConfirmed;
+    if (!terminationConfirmed) {
+      const cancelled = await cleanup(async () => {
+        const cancellation = await engine.cancel(sessionId, "execution ended without confirmed termination");
+        terminationConfirmed = cancellation.terminationConfirmed;
+      });
+      terminationConfirmed = cancelled && terminationConfirmed;
+    }
+    const disposed = await cleanup(() => engine.dispose(sessionId));
+    cleanupConfirmed = terminationConfirmed && disposed;
+  }
+  return { ...result, ok: result.ok && cleanupConfirmed, cleanupConfirmed };
 }
