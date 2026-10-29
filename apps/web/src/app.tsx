@@ -1,4 +1,4 @@
-import { lazy, Show, onMount, createSignal } from "solid-js";
+import { lazy, Show, onMount, onCleanup, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { Navigate, Route, Router, useLocation, useNavigate, useParams } from "@solidjs/router";
 import type { RouteSectionProps } from "@solidjs/router";
@@ -11,6 +11,7 @@ import { AppProvider, useApp } from "./ui/app-context";
 import { governor } from "./data/client";
 import { Authentication, AuthenticatorEnrollment } from "./ui/components/Authentication";
 import { ThemeToggle } from "./ui/components/ThemeToggle";
+import { GlobalSearchDialog } from "./ui/components/GlobalSearch";
 import { PRIMARY_NAVIGATION, ROUTES } from "./routes/index.gen";
 
 /**
@@ -136,19 +137,26 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
   const location = useLocation();
-  // Below the shell's desktop breakpoint the sidebar becomes a drawer that
-  // closes on any button press, so the account menu moves to the header bar.
+  const [searchOpen, setSearchOpen] = createSignal(false);
   const narrow = createMediaQuery("(max-width: 1023px)");
+  onMount(() => {
+    const shortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setSearchOpen(true); }
+    };
+    window.addEventListener("keydown", shortcut);
+    onCleanup(() => window.removeEventListener("keydown", shortcut));
+  });
   return <AppShell
     brand="Keyrus Brain"
     title={titleForLocation(location.pathname)}
-    headerActions={<><Show when={narrow()}><AccountMenu compact /></Show><ThemeToggle /></>}
+    headerActions={<><Button variant="outline" class="min-h-11" icon="lucide-search" aria-label="Search Brain (Control K)" onClick={() => setSearchOpen(true)}>Search</Button><Show when={narrow()}><AccountMenu compact /></Show><ThemeToggle /></>}
     tenant={<Select label="Workspace" options={app.workspaceOptions()} value={app.workspaceId() || null}
       onValueChange={(value) => { if (value) { app.selectWorkspace(value); void navigate(`/w/${value}/overview`); } }} />}
     navigation={PrimaryNav()}
     settings={<Button variant="ghost" onClick={() => void navigate("/settings")} class="min-h-11">Settings</Button>}
     account={<Show when={!narrow()}><AccountMenu /></Show>}
     navLabel="Brain navigation">
+    <GlobalSearchDialog open={searchOpen()} onOpenChange={setSearchOpen} />
     <Show when={app.globalError()}><p role="alert" class="mb-field">{app.globalError()}</p></Show>
     <Show when={!app.identity()?.recoveryRequired && !(app.identity()?.requireTwoFactor && !app.identity()?.totpEnrolled)}
       fallback={<AuthenticatorEnrollment recoveryRequired={app.identity()?.recoveryRequired ?? false} onEnrolled={() => app.reloadIdentity()} />}>

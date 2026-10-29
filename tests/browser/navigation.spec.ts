@@ -34,6 +34,8 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
   await page.getByRole("button", { name: "Approvals", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Approvals", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByText("apr-nav-1")).toBeVisible();
+  await page.getByRole("row").filter({ hasText: "apr-nav-1" }).getByRole("checkbox").check();
+  await page.getByRole("button", { name: /^Review(?: \(\d+\))?$/, exact: true }).click();
 
   const reviewButton = page.getByRole("button", { name: "Review action", exact: true });
   await reviewButton.click({ timeout: 5000 });
@@ -64,6 +66,6 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
   if (await navToggle.isVisible()) await navToggle.click();
   await page.getByRole("button", { name: "Runs", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Runs", exact: true, level: 1 })).toBeVisible();
-  await expect(page.getByText("No runs yet", { exact: false })).toBeVisible();
+  await expect(page.getByText("No runs match", { exact: false })).toBeVisible();
   expect(errors).toEqual([]);
 });

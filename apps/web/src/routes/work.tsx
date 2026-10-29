@@ -1,7 +1,7 @@
 import type { JSX } from "solid-js";
 import { For, Show, createSignal } from "solid-js";
 import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
-import { Alert, Dialog, TabButtons } from "@talelk/newui-molecules";
+import { Alert, Dialog, Select, TabButtons } from "@talelk/newui-molecules";
 import { DataTable, KanbanBoard, Section, StatGrid } from "@talelk/newui-organisms";
 import type { KanbanColumn } from "@talelk/newui-organisms";
 import type {
@@ -10,6 +10,7 @@ import type {
 import { ScreenRegion, DateText } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
 import { EvidenceList } from "../ui/components/EvidenceList";
+import { EvidenceBundleSelector } from "../ui/components/ArtifactSelectors";
 import { count } from "../ui/format";
 
 const BOARD_STATES = [
@@ -38,6 +39,7 @@ export function BoardScreen(props: {
   const [expandedCards,setExpandedCards] = createSignal<string[]>([]);
   const [commentByCard, setCommentByCard] = createSignal<Record<string, string>>({});
   const [evidenceByCard, setEvidenceByCard] = createSignal<Record<string, string>>({});
+  const [moveByCard, setMoveByCard] = createSignal<Record<string, string>>({});
   /** KanbanBoard items are keyed by `id`; Brain cards are keyed by `cardId`. */
   type BoardCard = CardView & { id: string };
   const cards = (): BoardCard[] => (props.board?.cards ?? []).map((card) => ({ ...card, id: card.cardId }));
@@ -80,21 +82,18 @@ export function BoardScreen(props: {
                     const open=event.currentTarget.open;
                     setExpandedCards((ids)=>open ? [...new Set([...ids,card.cardId])] : ids.filter((id)=>id!==card.cardId));
                   }}><summary class="cursor-pointer text-base-medium">Manage {card.title}</summary>
-                  <TextInput label={`Evidence digest for ${card.title}`} value={evidenceByCard()[card.cardId] ?? ""}
-                    onInput={(e) => setEvidenceByCard({ ...evidenceByCard(), [card.cardId]: e.currentTarget.value })} />
+                  <Show when={card.criteria.some((criterion) => criterion.status !== "passed")}><p class="text-caption text-ink-amber-8">Done stays unavailable until verified evidence covers every criterion.</p></Show>
+                  <EvidenceBundleSelector label={`Verified evidence for ${card.title}`} onSelect={(digest) => setEvidenceByCard({ ...evidenceByCard(), [card.cardId]: digest })} />
                   <TextInput label={`Comment on ${card.title}`} value={commentByCard()[card.cardId] ?? ""}
                     onInput={(e) => setCommentByCard({ ...commentByCard(), [card.cardId]: e.currentTarget.value })} />
-                  <div class="flex flex-wrap gap-control-gap">
-                    <For each={BOARD_STATES.filter((state) => state.id !== card.state)}>{(state) => (
-                      <Button aria-label={`Move ${card.title} to ${state.name}`} class="min-h-11"
-                        onClick={() => void props.onMove(card.cardId, state.id, card.version, evidenceByCard()[card.cardId]?.trim())}>
-                        Move to {state.name}
-                      </Button>
-                    )}</For>
+                  <div class="flex flex-wrap items-end gap-control-gap">
+                    <div class="min-w-48 flex-1"><Select label={`Move ${card.title}`} value={moveByCard()[card.cardId] || null}
+                      options={BOARD_STATES.filter((state) => state.id !== card.state).map((state) => ({ value: state.id, label: state.name }))}
+                      onValueChange={(status) => setMoveByCard({ ...moveByCard(), [card.cardId]: status ?? "" })} /></div>
+                    <Button aria-label={`Move ${card.title} to selected column`} class="min-h-11" disabled={!moveByCard()[card.cardId]}
+                      onClick={() => void props.onMove(card.cardId, moveByCard()[card.cardId]!, card.version, evidenceByCard()[card.cardId]?.trim())}>Move card</Button>
                     <Button variant="outline" class="min-h-11" disabled={!(commentByCard()[card.cardId] ?? "").trim()}
-                      onClick={() => void props.onComment(card.cardId, commentByCard()[card.cardId]!.trim())}>
-                      Add comment
-                    </Button>
+                      onClick={() => void props.onComment(card.cardId, commentByCard()[card.cardId]!.trim())}>Add comment</Button>
                   </div>
                   </details>
                 </div>
@@ -284,7 +283,7 @@ export function DeliveryScreen(props: {
                   <Badge theme={criterion.status === "passed" ? "green" : criterion.status === "failed" ? "red" : "amber"} label={criterion.criterionId} />
                 )}</For>
               </div>
-
+              <div><Button variant="outline" class="min-h-11" onClick={() => props.onOpen(dossier.id)}>Inspect dossier</Button></div>
             </article>
           );
         }}</For>

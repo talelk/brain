@@ -19,6 +19,7 @@ export interface CommandContext {
   workspaceId: string;
   /** Captured once per exact request and reused by the recovery path. */
   idempotencyKey?: string;
+  commandId?: string;
   expectedVersion?: number;
 }
 
@@ -56,6 +57,7 @@ export async function send<K extends CommandKind>(
     payload: payload as never,
     workspaceId: context.workspaceId,
     ...(context.idempotencyKey ? { idempotencyKey: context.idempotencyKey } : {}),
+    ...(context.commandId ? { commandId: context.commandId } : {}),
     ...(context.expectedVersion !== undefined ? { expectedVersion: context.expectedVersion } : {}),
   } as never);
 }

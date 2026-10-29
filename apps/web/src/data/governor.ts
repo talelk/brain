@@ -17,6 +17,8 @@ export interface Loaded<T> {
   /** Server clock the screen's freshness decisions use; never the browser clock. */
   readonly asOf: string;
   readonly sourceWatermark: number;
+  readonly cursor?: string;
+  readonly totalEstimate?: number;
 }
 
 /**
@@ -38,7 +40,8 @@ async function fetchView<K extends QueryRequest["queryType"], R extends QueryRes
   signal?: AbortSignal,
 ): Promise<Loaded<R["snapshot"]>> {
   const response = await query<R>(request, signal);
-  return { snapshot: response.snapshot as R["snapshot"], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+  return { snapshot: response.snapshot as R["snapshot"], asOf: response.asOf, sourceWatermark: response.sourceWatermark,
+    cursor: response.cursor, ...("totalEstimate" in response.snapshot ? { totalEstimate: response.snapshot.totalEstimate } : {}) };
 }
 
 export const todayQuery = (request: { workspaceId?: string; limit?: number; states?: string[] }, signal?: AbortSignal) =>
@@ -47,7 +50,7 @@ export const bridgeQuery = (request: { workspaceId?: string } = {}, signal?: Abo
   fetchView({ queryType: "bridge", ...request }, signal);
 export const workspaceContextQuery = (workspaceId: string, signal?: AbortSignal) =>
   fetchView({ queryType: "workspace.context", workspaceId }, signal);
-export const jobsQuery = (request: { workspaceId?: string; states?: string[]; search?: string }, signal?: AbortSignal) =>
+export const jobsQuery = (request: { workspaceId?: string; states?: string[]; search?: string; cursor?: string; limit?: number }, signal?: AbortSignal) =>
   fetchView({ queryType: "jobs.list", ...request }, signal);
 export const jobQuery = (workspaceId: string, resourceId: string, signal?: AbortSignal) =>
   fetchView({ queryType: "job.get", workspaceId, resourceId }, signal);

@@ -10,3 +10,80 @@
 @source not "../node_modules/@talelk/newui-organisms/src/**/*.test.{ts,tsx}";
 @source "../node_modules/@talelk/newui-templates/src/**/*.{ts,tsx}";
 @source not "../node_modules/@talelk/newui-templates/src/**/*.test.{ts,tsx}";
+
+.brain-page-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-field-gap, 1rem);
+}
+
+.brain-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-control-gap, 0.5rem);
+}
+
+.brain-key-value-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: var(--spacing-field-gap, 1rem);
+  min-width: 0;
+}
+
+.brain-record-collection,
+.brain-digest {
+  min-width: 0;
+}
+
+.brain-digest {
+  display: inline-flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.brain-digest > code {
+  overflow-wrap: anywhere;
+}
+
+.brain-empty-state {
+  padding: 1.5rem;
+  text-align: start;
+}
+
+.brain-readable {
+  max-width: 75ch;
+  overflow-wrap: anywhere;
+}
+
+.brain-detail-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--spacing-field-gap, 1rem);
+}
+
+@media (max-width: 639px) {
+  .brain-page-intro,
+  .brain-action-bar {
+    width: 100%;
+  }
+
+  .brain-page-intro .brain-action-bar > button,
+  .brain-action-bar.brain-primary-actions > button {
+    flex: 1 1 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

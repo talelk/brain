@@ -2,10 +2,12 @@ import { governor } from "../data/client";
 import { useApp } from "../ui/app-context";
 import { AuthenticatorEnrollment } from "../ui/components/Authentication";
 import type { JSX } from "solid-js";
-import { For, Show, createSignal } from "solid-js";
+import { For, Show, createSignal, onMount } from "solid-js";
 import { Button, KeyValue, TextInput } from "@talelk/newui-atoms";
-import { Alert, Select } from "@talelk/newui-molecules";
+import { Alert, Select, TabButtons } from "@talelk/newui-molecules";
 import { DataTable, Section, StatGrid } from "@talelk/newui-organisms";
+import { useSearchParams } from "@solidjs/router";
+import { PageIntro } from "../ui/components/PageLayout";
 import type { AuditEntry, HealthView, MemberGrantView, ConfigExplanation } from "@brain/contracts";
 import { ScreenRegion } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
@@ -33,6 +35,9 @@ export function SettingsScreen(props: {
   viewerId?: string;
   viewerName?: string;
 }): JSX.Element {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = () => typeof searchParams.tab === "string" ? searchParams.tab : "security";
+  const setTab = (value: string) => setSearchParams({ tab: value });
   const [principalId, setPrincipalId] = createSignal("");
   const [role, setRole] = createSignal("viewer");
   const [reason, setReason] = createSignal("");
@@ -45,8 +50,14 @@ export function SettingsScreen(props: {
 
   return (
     <div class="flex flex-col gap-field-gap">
-      <SecurityAndIntegrations />
-      <Section title="Platform health" surface="card">
+      <PageIntro title="Workspace administration" description="Security, releases, integrations, membership and operational evidence in focused workspaces." />
+      <TabButtons label="Settings areas" value={tab()} onValueChange={setTab} options={[
+        { value: "security", label: "Security" }, { value: "release", label: "Release" }, { value: "integrations", label: "Integrations" },
+        { value: "members", label: "Members" }, { value: "health", label: "Health & audit" },
+      ]} />
+      <Show when={tab() === "security"}><SecurityAndIntegrations area="security" /></Show>
+      <Show when={tab() === "integrations"}><SecurityAndIntegrations area="integrations" /></Show>
+      <Show when={tab() === "health"}><Section title="Platform health" surface="card">
         <ScreenRegion state={props.state} skeleton="rows" emptyTitle="Health unavailable"
           emptyDescription="The Governor did not return a service snapshot." onRetry={props.onRefresh}>
           <StatGrid columns={2} loading={!props.health} stats={(props.health?.services ?? []).map((service) => ({
@@ -57,9 +68,9 @@ export function SettingsScreen(props: {
               description={`${health.pendingOutbox} outbox deliveries are pending (oldest ${health.oldestOutboxAgeMs}ms).`} />
           )}</Show>
         </ScreenRegion>
-      </Section>
+      </Section></Show>
 
-      <Section title="Workspace members" description="Roles are granted per principal with a reason; revocation stops new reads and writes." surface="card">
+      <Show when={tab() === "members"}><Section title="Workspace members" description="Roles are granted per principal with a reason; revocation stops new reads and writes." surface="card">
         <Show when={props.canAdminister}>
           <div class="flex flex-wrap items-end gap-control-gap pb-field">
             <div class="min-w-56"><TextInput label="Principal id" value={principalId()} onInput={(e) => setPrincipalId(e.currentTarget.value)} /></div>
@@ -83,9 +94,9 @@ export function SettingsScreen(props: {
             { id: "created", header: "Granted", accessorKey: "created" },
           ]} caption={count(props.members.length, "principal")} />
         </ScreenRegion>
-      </Section>
+      </Section></Show>
 
-      <Section title="Release onboarding" description="Stage configuration documents and activate them as the release this workspace runs against." surface="card">
+      <Show when={tab() === "release"}><Section title="Release onboarding" description="Select an immutable staged release, inspect its complete contents, then activate it explicitly." surface="card">
         <Show when={props.canAdminister} fallback={
           <p class="text-base text-ink-gray-7">Staging a release requires an administrator role.</p>
         }>
@@ -104,18 +115,11 @@ export function SettingsScreen(props: {
             <For each={props.explanation!.sources}>{(source) => (
               <KeyValue label={`Rule (${source.rule})`} value={`${source.path}:${source.line}`} orientation="vertical" />
             )}</For>
-            <Show when={props.canAdminister}>
-              <TextInput label="Config digest to activate" value={activateDigest()} onInput={(e) => setActivateDigest(e.currentTarget.value)} />
-              <Button disabled={activateDigest().trim().length === 0} class="min-h-11"
-                onClick={() => void props.onActivate(activateDigest().trim(), props.activeConfigDigest ?? "")}>
-                Activate config revision
-              </Button>
-            </Show>
           </div>
         </Show>
-      </Section>
+      </Section></Show>
 
-      <Section title="Audit trail" description="Append-only, scoped to this workspace." surface="card">
+      <Show when={tab() === "health"}><Section title="Audit trail" description="Append-only, scoped to this workspace." surface="card">
         <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No audited events yet"
           emptyDescription="Actions appear here as the Governor records them." onRetry={props.onRefresh}>
           <DataTable title="Audit" selectable={false} hideSearch rows={props.audit.map((entry) => ({
@@ -128,59 +132,70 @@ export function SettingsScreen(props: {
             { id: "at", header: "At", accessorKey: "at" },
           ]} caption={count(props.audit.length, "event")} />
         </ScreenRegion>
-      </Section>
+      </Section></Show>
 
-      <Section title="Notifications" surface="card">
+      <Show when={tab() === "security"}><Section title="Notifications" surface="card">
         <PushControls />
-      </Section>
+      </Section></Show>
     </div>
   );
 }
 
-/**
- * Stage-and-activate path for a workspace with no release yet. Documents are
- * pasted with a `%%% <path>` separator line before each file, mirroring the
- * setup API's {path, text} documents; the revision is optional (the server
- * digests what it receives).
- */
+/** Select, inspect and explicitly activate an immutable staged release. */
 function InspectRelease(props: { onActivate: (digest: string, expectedActiveDigest: string | null) => Promise<void> }) {
+  type ReleaseSummary = { digest: string; sourceRevision: string; createdAt: string; active: boolean; agents: number; workflows: number; assets: number };
   const [digest,setDigest] = createSignal("");
-  const [inspection,setInspection] = createSignal<{ digest: string; expectedActiveDigest: string | null; manifest: unknown }>();
+  const [releases,setReleases] = createSignal<ReleaseSummary[]>([]);
+  const [inspection,setInspection] = createSignal<{ digest: string; expectedActiveDigest: string | null; manifest: { documents?: { id: string; kind: string; path: string }[] } }>();
   const [error,setError] = createSignal(""); const [busy,setBusy] = createSignal(false);
+  async function loadReleases() {
+    try {
+      const result = await governor<{ items: ReleaseSummary[] }>("/v1/config/releases");
+      setReleases(result.items);
+      if (!digest() && result.items[0]) setDigest(result.items[0].digest);
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not list staged releases"); }
+  }
+  onMount(() => void loadReleases());
   async function inspect() {
     setBusy(true); setError(""); setInspection(undefined);
-    try { setInspection(await governor(`/v1/config/releases/${encodeURIComponent(digest().trim())}`)); }
+    try { setInspection(await governor(`/v1/config/releases/${encodeURIComponent(digest())}`)); }
     catch (e) { setError(e instanceof Error ? e.message : "Inspection failed"); }
     finally { setBusy(false); }
   }
+  const current = () => releases().find((release) => release.digest === digest());
   return <div class="flex flex-col gap-field-gap">
-    <p>Compile the complete directory, including Markdown instructions, tool scripts and schemas:</p>
-    <code>brain config compile examples/v1/starter-release</code>
-    <p>Paste the returned digest to inspect its immutable manifest before activation.</p>
-    <TextInput label="Staged release digest" value={digest()} onInput={(e) => { setDigest(e.currentTarget.value); setInspection(undefined); }} />
-    <Button onClick={() => void inspect()} disabled={!digest().trim() || busy()} loading={busy()}>Inspect release</Button>
+    <div class="flex flex-wrap items-end gap-control-gap">
+      <div class="min-w-64 flex-1"><Select label="Staged release" value={digest() || null} options={releases().map((release) => ({ value: release.digest, label: `${release.workflows} Workflows · ${release.agents} Agents${release.active ? " · active" : ""}`, description: `${new Date(release.createdAt).toLocaleString()} · ${release.digest}` }))}
+        onValueChange={(value) => { setDigest(value ?? ""); setInspection(undefined); }} /></div>
+      <Button onClick={() => void inspect()} disabled={!digest() || busy()} loading={busy()} class="min-h-11">Inspect selected release</Button>
+      <Button variant="outline" onClick={() => void loadReleases()} class="min-h-11">Refresh</Button>
+    </div>
+    <Show when={current()}>{(release) => <p class="text-base text-ink-gray-7">Source {release().sourceRevision} · {release().assets} supporting assets · {release().active ? "currently active" : "staged, not active"}</p>}</Show>
+    <Show when={!releases().length && !error()}><p>No staged releases yet. Compile the complete starter directory, then refresh this list.</p></Show>
     <Show when={inspection()} keyed>{(release) => <>
-      <pre class="whitespace-pre-wrap break-words">{JSON.stringify(release.manifest,null,2)}</pre>
-      <Button disabled={busy()} onClick={async () => {
+      <div class="rounded-card border border-outline-gray-1 p-3"><h3 class="text-base-medium">Release contents</h3><ul class="mt-2 grid gap-1 sm:grid-cols-2"><For each={release.manifest.documents ?? []}>{(document) => <li class="text-base text-ink-gray-7"><strong>{document.kind}</strong> · {document.id}</li>}</For></ul></div>
+      <details><summary class="cursor-pointer text-base-medium">Technical manifest</summary><pre class="brain-readable whitespace-pre-wrap pt-2 text-caption">{JSON.stringify(release.manifest,null,2)}</pre></details>
+      <Button disabled={busy()} class="min-h-11" onClick={async () => {
         setBusy(true); setError("");
-        try { await props.onActivate(release.digest,release.expectedActiveDigest); setInspection(undefined); setError("Release activated. Inspect Agents and Workflows to continue."); }
+        try { await props.onActivate(release.digest,release.expectedActiveDigest); setInspection(undefined); setError("Release activated. Inspect Agents and Workflows to continue."); await loadReleases(); }
         catch (e) { setError(e instanceof Error ? e.message : "Activation failed"); }
         finally { setBusy(false); }
       }}>Activate inspected release</Button>
     </>}</Show>
-    <Show when={error()}><p role="status">{error()}</p></Show>
+    <Show when={error()}><p role={error().includes("activated") ? "status" : "alert"}>{error()}</p></Show>
+    <details><summary class="cursor-pointer text-base-medium">Compile a new release</summary><p class="mt-2">Compile the complete directory, including Markdown instructions, tool scripts and schemas:</p><code class="mt-1 block break-all">brain config compile examples/v1/starter-release</code></details>
   </div>;
 }
 
-function SecurityAndIntegrations() {
+function SecurityAndIntegrations(props: { area: "security" | "integrations" }) {
   const app = useApp(); const [password,setPassword] = createSignal(""); const [message,setMessage] = createSignal("");
   return <>
-    <Section title="Security" description={app.identity()?.requireTwoFactor ? "Authenticator enrollment and TOTP step-up are required." : "Two-factor authentication is optional. Exact approvals still require one-use session evidence."} surface="card">
+    <Show when={props.area === "security"}><><Section title="Security" description={app.identity()?.requireTwoFactor ? "Authenticator enrollment and TOTP step-up are required." : "Two-factor authentication is optional by default. Exact approvals still require one-use session evidence."} surface="card">
       <Show when={!app.identity()?.totpEnrolled} fallback={<>
         <p>Authenticator enrolled. Recovery codes are available when you enroll a replacement authenticator.</p>
         <Show when={!app.identity()?.requireTwoFactor}>
           <TextInput label="Confirm password to disable authenticator" type="password" autocomplete="current-password" value={password()} onInput={(e) => setPassword(e.currentTarget.value)} />
-          <Button disabled={!password()} onClick={async () => {
+          <Button disabled={!password()} class="min-h-11" onClick={async () => {
             const entered=password(); setPassword("");
             try { await governor("/api/auth/two-factor/disable",{password:entered}); await app.reloadIdentity(); }
             catch(e) { setMessage(e instanceof Error ? e.message : "Could not disable authenticator"); }
@@ -188,13 +203,36 @@ function SecurityAndIntegrations() {
         </Show>
       </>}><AuthenticatorEnrollment recoveryRequired={app.identity()?.recoveryRequired ?? false} onEnrolled={app.reloadIdentity} /></Show>
       <Show when={message()}><p role="alert">{message()}</p></Show>
-    </Section>
-    <Section title="Integrations" description="External administration applications open separately. Brain does not forward your credentials." surface="card">
-      <Show when={app.identity()?.integrations.memoryUiUrl}><a href={app.identity()!.integrations.memoryUiUrl!} target="_blank" rel="noopener noreferrer">Open Memory UI</a></Show>
-      <Show when={app.identity()?.integrations.betterAuthAdminUiUrl}><a href={app.identity()!.integrations.betterAuthAdminUiUrl!} target="_blank" rel="noopener noreferrer">Open Better Auth Admin</a></Show>
+    </Section><SessionControls /></></Show>
+    <Show when={props.area === "integrations"}><Section title="Integrations" description="External administration applications open separately. Brain does not forward your credentials." surface="card">
+      <div class="brain-action-bar"><Show when={app.identity()?.integrations.memoryUiUrl}><a class="text-ink-blue-8 underline" href={app.identity()!.integrations.memoryUiUrl!} target="_blank" rel="noopener noreferrer">Open Memory UI</a></Show>
+      <Show when={app.identity()?.integrations.betterAuthAdminUiUrl}><a class="text-ink-blue-8 underline" href={app.identity()!.integrations.betterAuthAdminUiUrl!} target="_blank" rel="noopener noreferrer">Open Better Auth Admin</a></Show></div>
       <Show when={!app.identity()?.integrations.memoryUiUrl && !app.identity()?.integrations.betterAuthAdminUiUrl}><p>No external administration links are configured.</p></Show>
-    </Section>
+    </Section></Show>
   </>;
+}
+
+function SessionControls(): JSX.Element {
+  type Session = { id: string; token: string; userAgent?: string; ipAddress?: string; createdAt: string; expiresAt: string };
+  const [sessions, setSessions] = createSignal<Session[]>([]);
+  const [message, setMessage] = createSignal("");
+  async function load() {
+    try { setSessions(await governor<Session[]>("/api/auth/list-sessions")); }
+    catch (error) { setMessage(error instanceof Error ? error.message : "Sessions are unavailable"); }
+  }
+  onMount(() => void load());
+  return <Section title="Active sign-in sessions" description="Better Auth lists only your sessions. Revocation takes effect on the server; session tokens are never displayed." surface="card">
+    <Show when={sessions().length} fallback={<p class="text-base text-ink-gray-7">No active sessions were returned.</p>}>
+      <For each={sessions()}>{(session) => <article class="flex flex-wrap items-center justify-between gap-control-gap border-b border-outline-gray-1 py-3 last:border-0">
+        <div><h3 class="text-base-medium">{session.userAgent || "Browser session"}</h3><p class="text-caption text-ink-gray-6">Started {new Date(session.createdAt).toLocaleString()} · expires {new Date(session.expiresAt).toLocaleString()}{session.ipAddress ? ` · ${session.ipAddress}` : ""}</p></div>
+        <Button variant="outline" theme="red" class="min-h-11" onClick={() => void (async () => {
+          try { await governor("/api/auth/revoke-session", { token: session.token }); setMessage("Session revoked."); await load(); }
+          catch (error) { setMessage(error instanceof Error ? error.message : "Revocation failed"); }
+        })()}>Revoke session</Button>
+      </article>}</For>
+    </Show>
+    <Show when={message()}><p role="status">{message()}</p></Show>
+  </Section>;
 }
 
 function PushControls(): JSX.Element {

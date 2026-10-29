@@ -41,7 +41,7 @@ export interface AppContextValue {
   run: <K extends CommandKind>(
     commandType: K,
     payload: PayloadFor<K>,
-    options?: { expectedVersion?: number; idempotencyKey?: string },
+    options?: { expectedVersion?: number; idempotencyKey?: string; commandId?: string },
   ) => Promise<{ accepted: boolean; outcome: string; detail: string; resourceId?: string }>;
   verifyIdentity: (approvalId: string, subjectDigest: string, code: string) => Promise<string>;
   submitDecision: (intent: ApprovalIntent, stepUpEvidenceId: string) => Promise<ApprovalOutcome>;
@@ -144,11 +144,12 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
   async function run<K extends CommandKind>(
     commandType: K,
     payload: PayloadFor<K>,
-    options?: { expectedVersion?: number; idempotencyKey?: string },
+    options?: { expectedVersion?: number; idempotencyKey?: string; commandId?: string },
   ) {
     const receipt = await send(commandType, payload, {
       workspaceId: workspaceId(),
       idempotencyKey: options?.idempotencyKey,
+      commandId: options?.commandId,
       expectedVersion: options?.expectedVersion,
     });
     return {

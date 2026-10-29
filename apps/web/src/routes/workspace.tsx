@@ -6,6 +6,7 @@ import { DetailHeader, Section, StatGrid } from "@talelk/newui-organisms";
 import type { IncidentDetail, RunnerSnapshot, TicketDetail, WorkspaceContext } from "@brain/contracts";
 import { ScreenRegion, DateText } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
+import { ArtifactContent } from "../ui/components/ArtifactContent";
 
 /**
  * The workspace overview: what is running, what is waiting on a human, and the
@@ -139,14 +140,12 @@ export function TicketDetailScreen(props: {
         subtitle={`${ticket()?.id ?? "—"} · source v${ticket()?.sourceVersion ?? "—"} · record v${ticket()?.version ?? "—"}`}
         status={{ label: ticket()?.state ?? "open", theme: ticket()?.state === "resolved" ? "green" : "blue" }}
         actions={[{ label: "Back to tickets", onClick: props.onBack }]} />
-      <Section title="Body" surface="card">
-        <KeyValue label="Content" value={<code class="break-all">{ticket()?.body.digest ?? "—"}</code>} orientation="vertical" />
-        <KeyValue label="Classification" value={ticket()?.body.classification ?? "internal"} />
-        <KeyValue label="Bytes" value={String(ticket()?.body.bytes ?? 0)} />
+      <Section title="Customer request" description="Authorized content from the immutable source artifact." surface="card">
+        <ArtifactContent artifact={ticket()?.body} title="Ticket body" />
       </Section>
       <Section title="Draft and approval" surface="card">
         <Show when={ticket()?.draft} fallback={<Alert theme="gray" variant="outline" title="No reviewed draft yet" description="A visible publication requires a draft plus an approval; nothing is sent from this screen." />}>
-          <KeyValue label="Draft digest" value={<code class="break-all">{ticket()?.draft?.digest}</code>} orientation="vertical" />
+          <ArtifactContent artifact={ticket()?.draft} title="Proposed response" />
         </Show>
         <Show when={ticket()?.approvalId}>
           <div class="flex items-center gap-control-gap pt-field">
@@ -182,17 +181,7 @@ export function IncidentDetailScreen(props: {
       <Section title="Observation artifacts" description="The pinned observations a remediation would act on." surface="card">
         <Show when={(incident()?.observations.length ?? 0) > 0}
           fallback={<p class="text-base text-ink-gray-7">No observation artifacts are bound to this incident yet.</p>}>
-          <For each={incident()?.observations ?? []}>{(artifact) => (
-            <div class="flex flex-wrap items-center justify-between gap-control-gap border-b border-outline-gray-1 py-2 last:border-b-0">
-              <div class="min-w-0">
-                <p class="truncate text-base-medium text-ink-gray-9">{artifact.artifactId}</p>
-                <p class="break-all text-caption text-ink-gray-7">{artifact.digest} · {artifact.mediaType} · {artifact.bytes} bytes</p>
-              </div>
-              <Button size="sm" onClick={() => { window.location.href = `/v1/artifacts/${encodeURIComponent(artifact.artifactId)}/content`; }}>
-                Open artifact
-              </Button>
-            </div>
-          )}</For>
+          <For each={incident()?.observations ?? []}>{(artifact) => <ArtifactContent artifact={artifact} compact />}</For>
         </Show>
       </Section>
     </ScreenRegion>

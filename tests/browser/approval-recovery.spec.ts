@@ -62,6 +62,8 @@ test("approval decision: committed-but-timed-out response recovers (T35)", async
   const navToggle = page.getByRole("button", { name: "Open application navigation", exact: true });
   if (await navToggle.isVisible()) await navToggle.click();
   await page.getByRole("button", { name: "Approvals", exact: true }).click();
+  await page.getByRole("row").filter({ hasText: "apr-rec-1" }).getByRole("checkbox").check();
+  await page.getByRole("button", { name: /^Review(?: \(\d+\))?$/, exact: true }).click();
   await page.getByRole("button", { name: "Review action", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByLabel(/^Decision note/).fill("recovery path");

@@ -8,6 +8,8 @@ import { DateText, ScreenRegion } from "../screen-region";
 import type { ScreenState } from "../../data/screens";
 import { EvidenceList } from "./EvidenceList";
 import { PlacementPanel } from "./PlacementPanel";
+import { ArtifactContent } from "./ArtifactContent";
+import { StructuredOutputView } from "./StructuredOutputView";
 
 const TABS = [
   { value: "summary", label: "Summary" },
@@ -95,9 +97,12 @@ export function RunDetail(props: {
         </Section>
       </Show>
       <Show when={tab() === "summary" && Object.keys(job()?.runOutputs ?? {}).length}>
-        <Section title="Structured output" surface="card">
-          <For each={Object.entries(job()?.runOutputs ?? {})}>{([step,output]) => <div><h3>{step}</h3><pre class="whitespace-pre-wrap break-words">{JSON.stringify(output,null,2)}</pre></div>}</For>
+        <Section title="Structured output" description="Readable values with the exact JSON available on demand." surface="card">
+          <For each={Object.entries(job()?.runOutputs ?? {})}>{([step,output]) => <div><h3 class="mb-2 text-base-medium">{step}</h3><StructuredOutputView value={output} /></div>}</For>
         </Section>
+      </Show>
+      <Show when={tab() === "summary" && (job()?.engineEvents ?? []).some((event) => event.kind === "artifact")}>
+        <Section title="Run artifacts" surface="card"><For each={(job()?.engineEvents ?? []).filter((event) => event.kind === "artifact")}>{(event) => <ArtifactContent artifact={"artifact" in event.payload ? event.payload.artifact : undefined} compact />}</For></Section>
       </Show>
       <Show when={tab() === "attempts"}>
         <Section title="Attempts" surface="card">

@@ -1,11 +1,13 @@
 import type { JSX } from "solid-js";
-import { For, Show, createSignal } from "solid-js";
+import { For, Show } from "solid-js";
 import { Badge, Button } from "@talelk/newui-atoms";
 import { Alert } from "@talelk/newui-molecules";
 import { FilterBar, Section, StatGrid } from "@talelk/newui-organisms";
 import type { TodayItem, WorkspaceSummary } from "@brain/contracts";
 import { ScreenRegion, DateText } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
+import { PageIntro } from "../ui/components/PageLayout";
+import { useSearchParams } from "@solidjs/router";
 
 const PRIORITY_LABEL: Record<number, string> = { 0: "Routine", 1: "Immediate", 2: "Today", 3: "Now" };
 const ACTION_LABEL: Record<string, string> = {
@@ -27,8 +29,11 @@ export function TodayScreen(props: {
   onOpen: (item: TodayItem) => void;
   asOf?: string;
 }): JSX.Element {
-  const [filter, setFilter] = createSignal("");
-  const [type, setType] = createSignal<string | undefined>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filter = () => typeof searchParams.q === "string" ? searchParams.q : "";
+  const type = () => typeof searchParams.type === "string" ? searchParams.type : undefined;
+  const setFilter = (value: string) => setSearchParams({ q: value || undefined });
+  const setType = (value?: string) => setSearchParams({ type: value || undefined });
   const visible = () => props.items.filter((item) =>
     (!type() || item.type === type()) &&
     (!filter() || `${item.title} ${item.detail}`.toLowerCase().includes(filter().toLowerCase())),
@@ -37,6 +42,9 @@ export function TodayScreen(props: {
 
   return (
     <div class="flex flex-col gap-field-gap">
+      <PageIntro title="Your next actions" description="The next authorized actions across your workspaces, ordered by urgency and explained in plain language."
+        freshness={props.asOf ? <>Verified {new Date(props.asOf).toLocaleString()}</> : undefined}
+        actions={<Button variant="outline" class="min-h-11" onClick={props.onRefresh}>Refresh</Button>} />
       <Show when={staleCount() > 0}>
         <Alert theme="amber" variant="outline" title="Some items are older than their last verified state"
           description={`${staleCount()} of ${props.items.length} rows were not re-verified since they were raised. Open them before acting.`} />

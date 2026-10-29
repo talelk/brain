@@ -5,7 +5,8 @@ import { join } from "node:path";
 
 test.use({ requireTwoFactor: false, integrationUrls: true });
 
-test("optional-factor operator inspects a release, activates it, dispatches both starter workflows, and reads evidence", async ({ page, governor }) => {
+test("optional-factor operator inspects a release, activates it, dispatches both starter workflows, and reads evidence", async ({ page, governor }, info) => {
+  const capture = (name: string) => page.screenshot({ path: info.outputPath(`${name}.png`), fullPage: true });
   const errors: string[] = []; page.on("pageerror",(error) => errors.push(error.message));
   const brain = governor.app.brain;
   const boot = await brain.bootstrap({ organizationId: "org-ui-ops", name: "Operations", email: "operator@example.test", password: "operator-password-123" }, governor.credential);
@@ -19,19 +20,31 @@ test("optional-factor operator inspects a release, activates it, dispatches both
   await page.getByRole("button",{name:"Sign in",exact:true}).click();
   await expect(page.getByRole("heading",{name:"Today",exact:true})).toBeVisible();
   await expect(page.getByRole("region",{name:"Authenticator setup"})).toHaveCount(0);
+  await capture("today");
   await page.goto(`${governor.url}/settings`);
   await expect(page.getByRole("heading",{name:"Security",exact:true})).toBeVisible();
+  await capture("settings-security");
+  await page.getByRole("radio",{name:"Integrations",exact:true}).click();
   await expect(page.getByRole("link",{name:"Open Memory UI"})).toHaveAttribute("rel","noopener noreferrer");
   await expect(page.getByRole("link",{name:"Open Better Auth Admin"})).toHaveAttribute("target","_blank");
+  await capture("settings-integrations");
   await page.goto(`${governor.url}/w/operations/knowledge`);
   await expect(page.getByRole("link",{name:"Open Memory UI"})).toHaveAttribute("href","https://memory.example.test/");
   await expect(page.getByRole("link",{name:"Open Memory UI"})).toHaveAttribute("rel","noopener noreferrer");
-  await page.goto(`${governor.url}/settings`);
-  await page.getByLabel(/^Staged release digest/).fill(digest);
-  await page.getByRole("button",{name:"Inspect release",exact:true}).click();
+  await capture("knowledge");
+  await page.goto(`${governor.url}/settings?tab=release`);
+  await expect(page.getByLabel("Staged release",{exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"Inspect selected release",exact:true}).click();
   await expect(page.getByText(/operations-assistant/).first()).toBeVisible();
+  await capture("settings-release");
   await page.getByRole("button",{name:"Activate inspected release",exact:true}).click();
   await expect.poll(() => brain.activeRelease(actor.organizationId)?.digest).toBe(digest);
+  await page.keyboard.press("Control+k");
+  await page.getByLabel("Search Brain",{exact:true}).fill("operations-triage");
+  await expect(page.getByRole("option",{name:/operations triage/i}).first()).toBeVisible();
+  await capture("global-search");
+  await page.getByRole("option",{name:/operations triage/i}).first().click();
+  await expect(page).toHaveURL(/\/w\/operations\/workflows\?selected=operations-triage/);
   const cfg = (group:string) => ({ governorUrl:governor.url,runnerId:`runner-ui-${group}`,stateDir:join(brain.store.dataDir,`runner-${group}`),engines:["fixture"],capabilities:["os:linux","tool:bash","tool:python3","isolation:ephemeral-container"] });
   const author=cfg("agents"),evaluator=cfg("evaluators");
   const authorSession=await enrollAndHello(author,brain.issueEnrollment(actor,"agents").token);
@@ -43,6 +56,7 @@ test("optional-factor operator inspects a release, activates it, dispatches both
     await page.getByRole("button",{name:/^Inspect(?: \(\d+\))?$/}).click();
     if (id === "operations-triage") await page.getByLabel(/^Situation/).fill("Latency increased after deployment");
     else { await page.getByLabel(/^Title/).fill("Session expired"); await page.getByLabel(/^Body/).fill("I cannot sign in"); }
+    await capture(`workflow-${id}`);
     await page.getByRole("button",{name:`Dispatch ${title}`,exact:true}).click();
     await page.waitForURL(/\/jobs\//);
     expect(await runOnce(author,authorSession.sessionToken,authorSession.epoch)).toBe(true);
@@ -52,7 +66,10 @@ test("optional-factor operator inspects a release, activates it, dispatches both
     await expect(page.getByText(/Fixture:/).first()).toBeVisible();
     await page.getByRole("radio",{name:"Evidence",exact:true}).click();
     await expect(page.getByText("Independent verdict: verified",{exact:true})).toBeVisible();
+    await capture(`run-${id}`);
   }
+  await page.goto(`${governor.url}/w/operations/runs`);
+  await capture("runs");
   brain.store.control.prepare("INSERT INTO workspace_memberships(workspace_id,organization_id,principal_id,role,version,granted_by,granted_at_ms) VALUES ('operations',?,?,'approver',1,?,?)").run(actor.organizationId,actor.actorId,actor.actorId,Date.now());
   brain.ensurePrincipal(actor.organizationId,"ui-independent-requester","human");
   for (const decision of ["approve","reject","request-changes"] as const) {
@@ -61,6 +78,7 @@ test("optional-factor operator inspects a release, activates it, dispatches both
     const approvalId=brain.createApprovalForGate({organizationId:actor.organizationId,workspaceId:"operations",runId:"ui-review",stepId:decision,subject,expiresAtMs:Date.now()+3600000,requestedBy:"ui-independent-requester"});
     await page.goto(`${governor.url}/approvals/${approvalId}`);
     await expect(page.getByText("One-use evidence bound to this session and the exact subject digest.",{exact:true})).toBeVisible();
+    await capture(`approval-${decision}`);
     await page.getByRole("button",{name:"Review action",exact:true}).click();
     await page.getByLabel(/^Decision note/).fill(`Operator chose ${decision}`);
     await expect(page.getByLabel(/^Authenticator code/)).toHaveCount(0);
@@ -68,6 +86,10 @@ test("optional-factor operator inspects a release, activates it, dispatches both
     await expect(page.getByText(/Decision recorded/)).toBeVisible();
     expect(brain.store.control.prepare("SELECT decision FROM approval_decisions WHERE approval_id=?").get(approvalId)).toEqual({decision});
   }
+  brain.store.workspaceDb("operations",actor.organizationId).prepare("INSERT INTO cards(id,title,state,criteria_json,version,created_at_ms) VALUES ('card-ui-design','Design review card','todo','[\"evidence\"]',1,?)").run(Date.now());
+  await page.goto(`${governor.url}/w/operations/board`);
+  await expect(page.getByText("Design review card",{exact:true})).toBeVisible();
+  await capture("board");
   expect(errors).toEqual([]);
 });
 

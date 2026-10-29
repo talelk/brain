@@ -59,10 +59,14 @@ test("board: cards render by state, move applies, Done without evidence is refus
   expect(new URL(page.url()).pathname).toBe("/w/ws-board/board");
 
   await page.getByText("Manage Ship the fixture",{exact:true}).click();
-  await page.getByRole("button", { name: "Move Ship the fixture to In progress", exact: true }).click();
+  await page.getByLabel("Move Ship the fixture", { exact: true }).click();
+  await page.getByRole("option", { name: "In progress", exact: true }).click();
+  await page.getByRole("button", { name: "Move Ship the fixture to selected column", exact: true }).click();
   await expect.poll(() => (ws.prepare("SELECT state FROM cards WHERE id='card-ui-1'").get() as { state: string }).state).toBe("in-progress");
 
-  await page.getByRole("button", { name: "Move Ship the fixture to Done", exact: true }).click();
+  await page.getByLabel("Move Ship the fixture", { exact: true }).click();
+  await page.getByRole("option", { name: "Done", exact: true }).click();
+  await page.getByRole("button", { name: "Move Ship the fixture to selected column", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText(/evidence/i);
   expect((ws.prepare("SELECT state FROM cards WHERE id='card-ui-1'").get() as { state: string }).state).toBe("in-progress");
   expect(errors).toEqual([]);
@@ -87,24 +91,32 @@ test("board: Done succeeds with explicitly bound verified evidence (T37)", async
   await openBoard(page);
   await expect(page.getByText("Verify the fixture", { exact: true })).toBeVisible();
   await page.getByText("Manage Verify the fixture",{exact:true}).click();
-  await page.getByLabel("Evidence digest for Verify the fixture").fill(DIGEST_A);
-  await page.getByRole("button", { name: "Move Verify the fixture to Done", exact: true }).click();
+  await page.getByLabel("Verified evidence for Verify the fixture", { exact: true }).click();
+  await page.getByRole("option", { name: /1 passed criteria/ }).click();
+  await page.getByLabel("Move Verify the fixture", { exact: true }).click();
+  await page.getByRole("option", { name: "Done", exact: true }).click();
+  await page.getByRole("button", { name: "Move Verify the fixture to selected column", exact: true }).click();
   await expect.poll(() => (ws.prepare("SELECT state FROM cards WHERE id='card-ui-2'").get() as { state: string }).state).toBe("done");
   await expect(page.getByText(/evidence attached/)).toBeVisible();
   expect(errors).toEqual([]);
 });
 
-test("board: pointer drag moves a card across columns (T37)", async ({ page, governor }, info) => {
-  // At phone widths the board is single-column; the explicit move buttons
-  // (proven above on every viewport) are the compact path. Pointer drag is
-  // exercised where columns sit side by side.
-  test.skip(info.project.name.startsWith("390"), "compact board uses explicit move controls, not cross-column drag");
+test("board: desktop drag and compact controls move a card across columns (T37)", async ({ page, governor }, info) => {
   test.setTimeout(120_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const { ws } = await boardWorld(page, governor);
   ws.prepare("INSERT INTO cards(id, title, state, criteria_json, version, created_at_ms) VALUES ('card-drag-1', 'Drag the fixture', 'todo', '[\"echo\"]', 1, ?)").run(Date.now());
   await openBoard(page);
+  if (info.project.name.startsWith("390")) {
+    await page.getByText("Manage Drag the fixture", { exact: true }).click();
+    await page.getByLabel("Move Drag the fixture", { exact: true }).click();
+    await page.getByRole("option", { name: "In progress", exact: true }).click();
+    await page.getByRole("button", { name: "Move Drag the fixture to selected column", exact: true }).click();
+    await expect.poll(() => (ws.prepare("SELECT state FROM cards WHERE id='card-drag-1'").get() as { state: string }).state).toBe("in-progress");
+    expect(errors).toEqual([]);
+    return;
+  }
   const card = page.locator("[data-kanban-id='card-drag-1']");
   await expect(card).toBeVisible();
   const from = await card.boundingBox();

@@ -1,9 +1,11 @@
 import type { JSX } from "solid-js";
 import { For, Show, createSignal, createEffect } from "solid-js";
-import { Badge, Button, KeyValue, Progress } from "@talelk/newui-atoms";
-import { Alert, List } from "@talelk/newui-molecules";
+import { Badge, KeyValue, Progress } from "@talelk/newui-atoms";
+import { Alert } from "@talelk/newui-molecules";
 import type { EvidenceBundle, VerificationVerdict } from "@brain/contracts";
 import { evidenceQuery } from "../../data/governor";
+import { ArtifactContent } from "./ArtifactContent";
+import { DigestValue } from "./DigestValue";
 
 /**
  * Evidence is what makes "done" mean something (document 25).
@@ -52,8 +54,8 @@ export function EvidenceList(props: {
               {bundle()!.jobId ? `job ${bundle()!.jobId}` : "record"} · {bundle()!.artifacts.length} artifacts
             </span>
           </div>
-          <KeyValue label="Configuration digest" value={<code class="break-all">{bundle()!.configDigest}</code>} orientation="vertical" />
-          <KeyValue label="Source revision" value={bundle()!.sourceRevision} />
+          <KeyValue label="Configuration digest" value={<DigestValue value={bundle()!.configDigest} label="Configuration digest" />} orientation="vertical" />
+          <KeyValue label="Source revision" value={<DigestValue value={bundle()!.sourceRevision} label="Source revision" />} orientation="vertical" />
           <KeyValue label="Pinned primitives" value={`${Object.keys(bundle()!.primitiveVersions).length} pinned`} />
           <Show when={current()}>
             <Alert theme={current()!.outcome === "verified" ? "green" : "red"} variant="outline"
@@ -67,19 +69,7 @@ export function EvidenceList(props: {
             )}</For>
           </Show>
           <Show when={bundle()!.artifacts.length}>
-            <List>
-              <For each={bundle()!.artifacts}>{(artifact) => (
-                <li class="flex flex-wrap items-center justify-between gap-2 border-b border-outline-gray-1 py-2">
-                  <div class="min-w-0">
-                    <p class="truncate text-base-medium text-ink-gray-9">{artifact.artifactId}</p>
-                    <p class="break-all text-caption text-ink-gray-7">{artifact.digest} · {artifact.mediaType} · {artifact.bytes} bytes</p>
-                  </div>
-                  <Button size="sm" onClick={() => { window.location.href = `/v1/artifacts/${encodeURIComponent(artifact.artifactId)}/content`; }}>
-                    Open artifact
-                  </Button>
-                </li>
-              )}</For>
-            </List>
+            <div class="flex flex-col gap-field-gap"><For each={bundle()!.artifacts}>{(artifact) => <ArtifactContent artifact={artifact} compact />}</For></div>
           </Show>
         </div>
       </Show>
