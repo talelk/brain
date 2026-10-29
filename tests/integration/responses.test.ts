@@ -103,6 +103,7 @@ describe("endpoint surface conformance (T02)", () => {
         ].map((queryType) => ({ queryType, workspaceId: w.workspaceId })),
         { queryType: "sla.summary", workspaceId: w.workspaceId, periodStart: new Date(Date.now() - 3600_000).toISOString(), periodEnd: new Date(Date.now() + 60000).toISOString() },
         { queryType: "config.explain", workspaceId: w.workspaceId, pointer: "/workflows/fixture-workflow" },
+        { queryType: "search.global", workspaceId: w.workspaceId, search: "fixture", limit: 10 },
         { queryType: "ticket.get", workspaceId: w.workspaceId, resourceId: "tkt-1" },
         { queryType: "incident.get", workspaceId: w.workspaceId, resourceId: "inc-1" },
         { queryType: "delivery.get", workspaceId: w.workspaceId, resourceId: "dos-1" },

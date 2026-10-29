@@ -170,6 +170,21 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     } catch (e) { return fail(c as never, e); }
   });
 
+  app.get("/v1/evidence", async (c) => {
+    try {
+      const workspaceId = c.req.query("workspaceId") ?? "";
+      const { actor } = await actorFor(c, workspaceId);
+      return c.json(brain.listVerifiedEvidence(actor, workspaceId) as never);
+    } catch (e) { return fail(c as never, e); }
+  });
+
+  app.get("/v1/config/releases", async (c) => {
+    try {
+      const { actor } = await actorFor(c);
+      return c.json(brain.listReleases(actor) as never);
+    } catch (e) { return fail(c as never, e); }
+  });
+
   app.get("/v1/config/releases/:digest", async (c) => {
     try {
       const { actor } = await actorFor(c);
@@ -495,7 +510,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       const asset = brain.readReleaseAgent(runner, c.req.param("digest"), c.req.param("agentId"));
       return c.json({
         agent: asset.agent, agentDigest: asset.agentDigest, path: asset.path,
-        instructionsDigest: asset.instructionsDigest, bytesBase64: Buffer.from(asset.bytes).toString("base64"),
+        instructionsDigest: asset.instructionsDigest, bytesBase64: Buffer.from(asset.bytes).toString("base64"), toolBindings: asset.toolBindings,
       });
     } catch (e) { return fail(c as never, e); }
   });

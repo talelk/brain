@@ -106,8 +106,11 @@ export class EvidenceService {
     if (!run || !release || run.workflow_digest !== bundle.workflowDigest || release.source_revision !== bundle.sourceRevision || ["cancelled", "failed", "succeeded"].includes(run.state)) throw new BrainDomainError("EVIDENCE_MISSING", "bundle run, workflow or source revision is not current");
     if (new Set(bundle.checks.map((c) => `${c.criterionId}\n${c.checkId}`)).size !== bundle.checks.length) throw new BrainDomainError("INVALID_CONTRACT", "duplicate evidence check");
     const payload=this.s.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(author.job_id) as {payload_json:string};
-    const step=(JSON.parse(payload.payload_json) as {step:{uses?:{release:{id:string;digest:string}}}}).step;
-    if (step.uses && !same(bundle.toolReleases,[step.uses.release])) throw new BrainDomainError("FORBIDDEN", "bundle tool release does not match the admitted execution");
+    const step=(JSON.parse(payload.payload_json) as {step:{uses?:{type?:string;release:{id:string;digest:string}}}}).step;
+    const admitted = step.uses?.type === "agent"
+      ? [step.uses.release, ...(((JSON.parse(release.manifest_json) as { agents?: Record<string, { spec: { tools: { id: string; digest: string }[] } }> }).agents?.[step.uses.release.id]?.spec.tools) ?? [])]
+      : step.uses ? [step.uses.release] : [];
+    if (step.uses && !bundle.toolReleases.every((actual) => admitted.some((tool) => same(actual, tool)))) throw new BrainDomainError("FORBIDDEN", "bundle tool release does not match the admitted execution");
     for (const effect of bundle.effects) {
       const permit=this.s.control.prepare("SELECT 1 FROM effect_permits WHERE attempt_id=? AND invocation_id=?").get(author.id,effect.invocationId);
       const receipt=this.s.control.prepare("SELECT 1 FROM domain_operation_receipts WHERE invocation_id=? AND target_key=? AND operation=? AND outcome=? AND receipt_digest=?").get(effect.invocationId,effect.targetId,effect.operation,effect.outcome,effect.receiptArtifact.digest);

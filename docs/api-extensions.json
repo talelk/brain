@@ -51,6 +51,16 @@
       "method": "POST",
       "path": "/v1/push/subscriptions/delete",
       "purpose": "revoke a browser push subscription"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/evidence",
+      "purpose": "list verified evidence bundles available for governed Board and delivery selection"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/config/releases",
+      "purpose": "list staged immutable configuration releases for administrative inspection and activation"
     }
   ]
 }

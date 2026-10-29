@@ -41,7 +41,7 @@ function toolsRoot(cfg: RunnerConfig): string {
 }
 
 export interface ToolExecution {
-  offer: { payload: { input?: Record<string, unknown>; step?: Record<string, unknown> }; execution: { kind: string }; workspaceId?: string };
+  offer: { payload: { input?: Record<string, unknown>; step?: Record<string, unknown>; invocationId?: string }; execution: { kind: string }; workspaceId?: string };
   cfg: RunnerConfig;
   /** Aborted at the monotonic deadline or on a lost lease; kills the child. */
   signal?: AbortSignal | undefined;

@@ -14,6 +14,7 @@ export interface CompiledRelease {
   readonly workflows: Readonly<Record<string, Workflow>>;
   readonly agents: Readonly<Record<string, Agent>>;
   readonly evaluators: Readonly<Record<string, Evaluator>>;
+  readonly tools: readonly { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; entrypoint?: string; entrypointDigest?: string }[];
   readonly documents: readonly { kind: string; id: string; digest: string }[];
 }
 
@@ -225,7 +226,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
   const agents: Record<string, Agent> = {};
   const evaluators: Record<string, Evaluator> = {};
   const entries: { kind: string; id: string; digest: string; bytes: number; path: string }[] = [];
-  const tools: { id: string; digest: string; effectClass: string; inputSchemaRef: string; outputSchemaRef: string; entrypoint?: string; entrypointDigest?: string }[] = [];
+  const tools: { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; entrypoint?: string; entrypointDigest?: string }[] = [];
   const seenIds = new Set<string>();
   const policies: { name: string; spec: Record<string, unknown> }[] = [];
   let brainConfigUi: Record<string, unknown> | undefined;
@@ -285,14 +286,15 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
       const effectClass = String(spec?.["effectClass"] ?? "");
       const inputSchemaRef = String(spec?.["inputSchemaRef"] ?? "");
       const outputSchemaRef = String(spec?.["outputSchemaRef"] ?? "");
-      if (!effectClass || !inputSchemaRef || !outputSchemaRef) throw new BrainDomainError("INVALID_CONTRACT", `${path}: Tool spec.effectClass/inputSchemaRef/outputSchemaRef required`);
+      if (!["read", "write", "privileged"].includes(effectClass) || !inputSchemaRef || !outputSchemaRef) throw new BrainDomainError("INVALID_CONTRACT", `${path}: Tool spec.effectClass/inputSchemaRef/outputSchemaRef required`);
       // T22: when entrypoint scripts are staged with the release, each tool is
       // pinned to the exact script bytes (sha256 of the decoded file).
       const script = scripts?.find((s) => s.toolId === id);
       const pin = script
         ? { entrypoint: script.entrypoint, entrypointDigest: sha256Digest(new Uint8Array(Buffer.from(script.bytesBase64, "base64"))) }
         : undefined;
-      tools.push({ id, digest: docDigest, effectClass, inputSchemaRef, outputSchemaRef, ...(pin ?? {}) });
+      tools.push({ id, digest: docDigest, effectClass: effectClass as "read" | "write" | "privileged", inputSchemaRef, outputSchemaRef,
+        allowedEnvironments: Array.isArray(spec?.["allowedEnvironments"]) ? (spec["allowedEnvironments"] as string[]) : [], ...(pin ?? {}) });
     }
     entries.push({ kind, id, digest: docDigest, bytes: Buffer.byteLength(text, "utf8"), path });
   }
@@ -364,7 +366,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
     tools: tools as unknown as JsonValue,
   };
   const digest = domainDigest("brain:config-release:v1", manifest);
-  return { digest, manifest, workflows, agents, evaluators, schemas: schemaMap, documents: entries };
+  return { digest, manifest, workflows, agents, evaluators, tools, schemas: schemaMap, documents: entries };
 }
 
 export function resolveBinding(bindings: Readonly<Record<string, unknown>>, input: JsonValue, outputs: Readonly<Record<string, JsonValue>>): Record<string, JsonValue> {

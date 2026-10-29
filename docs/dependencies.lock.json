@@ -11,7 +11,7 @@
   "pnpm": "12.11.2",
   "typescript": "5.9.3 (resolver candidate 7.0.2 rejected: typescript-eslint@8.72.1 requires <6.1.0)",
   "typesNode": "24.10.1 (matches Node 24; resolver 26.6.5 describes a different runtime)",
-  "lockSha256": "sha256:03a4ba79fdb9b85f25efca5ff98e4532f25d36066382ec93a6384e0bb5695722",
+  "lockSha256": "sha256:02e5f9d2d2b1810a445c5b750c07d527d7f07dacaec4c5e969723cf992fc32e7",
   "packages": [
     {
       "name": "@anthropic-ai/claude-agent-sdk",
@@ -206,11 +206,12 @@
   ],
   "extraPins": {
     "tsx": "4.20.6",
-    "zod": "4.1.12",
+    "zod": "4.6.7",
     "@anthropic-ai/sdk": "1.3.0",
     "@modelcontextprotocol/sdk": "1.32.2",
     "@tailwindcss/forms": "0.5.11",
     "@tailwindcss/typography": "0.5.20",
+    "undici": "8.12.2",
     "undici-types": "8.12.3"
   },
   "frozenInstall": "rtk pnpm install --frozen-lockfile -> ok (verified this session)"

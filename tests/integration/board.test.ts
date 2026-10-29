@@ -51,6 +51,8 @@ describe("board Done requires explicit verified criterion evidence (T31/T37)", (
     seedBundle(w, D("c"), "verified", [{ criterionId: "echo", checkId: "c1", status: "passed" }, { criterionId: "bytes", checkId: "c2", status: "failed" }]);
     expect(() => move(w, "m5", cardId, "done", 1, D("c"))).toThrow(/criter/);
     seedBundle(w, D("d"), "verified", [{ criterionId: "echo", checkId: "c1", status: "passed" }, { criterionId: "bytes", checkId: "c2", status: "passed" }]);
+    const listed = w.brain.listVerifiedEvidence(w.owner, w.workspaceId) as { items: { digest: string; passedCriteria: string[] }[] };
+    expect(listed.items.find((bundle) => bundle.digest === D("d"))?.passedCriteria).toEqual(["echo", "bytes"]);
     move(w, "m6", cardId, "verifying", 1);
     move(w, "m7", cardId, "done", 2, D("d"));
     const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);

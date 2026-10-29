@@ -105,6 +105,11 @@
   "separationOfDuties": "request author cannot approve own high-risk effect; organization administration grants no bypass",
   "commandPolicySource": "contracts/v1/registry.json",
   "queryRules": {
+    "search.global": {
+      "scope": "workspace:read",
+      "scopeMode": "authorized-workspace-union",
+      "redactPrivilegedDetails": false
+    },
     "today": {
       "scope": "workspace:read",
       "scopeMode": "authorized-workspace-union",

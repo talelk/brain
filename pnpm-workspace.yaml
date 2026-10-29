@@ -1,6 +1,9 @@
 packages:
   - apps/*
   - packages/contracts
+overrides:
+  zod: 4.6.7
+  undici: 8.12.2
 strictPeerDependencies: true
 engineStrict: true
 saveExact: true

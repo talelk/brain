@@ -2,7 +2,8 @@ import { generateKeyPairSync, sign } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { domainDigest, sha256Digest } from "@brain/contracts";
-import type { Agent, EvaluationAssignment, JsonValue, VerificationVerdict } from "@brain/contracts";
+import type { Agent, ArtifactRef, EngineToolBinding, EvaluationAssignment, JsonValue, ReleaseRef, VerificationVerdict } from "@brain/contracts";
+import Ajv2020 from "ajv/dist/2020.js";
 import { executeToolPayload, normalizeEvaluation } from "./tools/invoke";
 import { DurableEventSpool } from "./spool-durable";
 import { LauncherClient } from "./launcher-client";
@@ -213,24 +214,30 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
       (payload as { invocationId?: string }).invocationId = body.invocationId ?? `inv-${offer.attemptId}`;
     }
     let result: { ok: boolean; output: JsonValue; cleanupConfirmed?: boolean };
+    const toolArtifacts: ArtifactRef[] = [];
+    const nestedToolReleases: ReleaseRef[] = [];
     if (offer.execution.kind === "agent") {
       const step = (payload.step ?? {}) as { task?: string; timeoutSeconds?: number; uses?: { release?: { id: string; digest: string } } };
       const ref = step.uses?.release;
       if (!ref) throw new Error("agent job has no pinned agent release");
       const assetResponse = await req(cfg, sessionToken, `/runner/v1/releases/${encodeURIComponent(offer.configDigest)}/agents/${encodeURIComponent(ref.id)}/instructions`);
       if (assetResponse.status !== 200) throw new Error(`agent instruction fetch failed ${assetResponse.status}: ${JSON.stringify(assetResponse.json)}`);
-      const asset = assetResponse.json as { agent: Agent; agentDigest: string; path: string; instructionsDigest: string; bytesBase64: string };
+      const asset = assetResponse.json as { agent: Agent; agentDigest: string; path: string; instructionsDigest: string; bytesBase64: string; toolBindings: EngineToolBinding[] };
       if (asset.agentDigest !== ref.digest || asset.agent.metadata.id !== ref.id || asset.path !== asset.agent.spec.instructionsPath) throw new Error("agent release identity does not match the job offer");
       const instructionBytes = new Uint8Array(Buffer.from(asset.bytesBase64, "base64"));
       if (sha256Digest(instructionBytes) !== asset.instructionsDigest) throw new Error("agent instruction digest mismatch");
       const instructions = new TextDecoder().decode(instructionBytes);
       const configured = cfg.engines ?? [process.env["BRAIN_RUNNER_ENGINE"] ?? "fixture"];
       const engineConfigured = asset.agent.spec.engine.anyOf.find((id) => configured.includes(id));
-      const engine = selectEngine(engineConfigured);
+      const engine = selectEngine(engineConfigured, asset.toolBindings);
       if (!engine) throw new Error(`none of the required engines (${asset.agent.spec.engine.anyOf.join(", ")}) is configured on this runner`);
       const engineProbe = await engine.probe();
       engineInfo = { id: engineProbe.id, adapterDigest: engineProbe.adapterDigest };
       const task = step.task ?? JSON.stringify(payload.input ?? {});
+      const launcher = LauncherClient.configured() ? LauncherClient.fromEnv() : undefined;
+      const toolPins = (offer as { toolPins?: Record<string, string> }).toolPins;
+      const ajv = new Ajv2020({ allErrors: true, strict: true });
+      let invocationCount = 0;
       const agentResult = await runAgentExecution({
         engine, attemptId: offer.attemptId, jobFence: offer.jobFence, leaseId: offer.leaseId,
         runnerId: cfg.runnerId, runnerEpoch, organizationId: offer.organizationId ?? "", workspaceId: offer.workspaceId,
@@ -238,6 +245,55 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
         instructions, task, modelId: process.env["BRAIN_LOCAL_MODEL_ID"], timeoutMs: (step.timeoutSeconds ?? 300) * 1000,
         maxTurns: asset.agent.spec.maxTurns, maxTokens: asset.agent.spec.maxTokens,
         maxMicroUsd: asset.agent.spec.maxMicroUsd, allowedTools: asset.agent.spec.tools,
+        executeTool: async (proposal) => {
+          if (++invocationCount > asset.agent.spec.maxTurns) throw new Error("Agent tool-call budget exhausted");
+          const binding = asset.toolBindings.find((candidate) => candidate.release.id === proposal.tool.id && candidate.release.digest === proposal.tool.digest);
+          if (!binding || !asset.agent.spec.tools.some((allowed) => allowed.id === proposal.tool.id && allowed.digest === proposal.tool.digest)) throw new Error("Agent proposed an unauthorized tool or digest");
+          if (!nestedToolReleases.some((tool) => tool.id === binding.release.id && tool.digest === binding.release.digest)) nestedToolReleases.push(binding.release);
+          if (JSON.stringify(binding.target) !== JSON.stringify(proposal.target)) throw new Error("Agent tool target does not match the pinned target");
+          if (sha256Digest(new TextEncoder().encode(JSON.stringify(proposal.input))) !== proposal.inputDigest) throw new Error("Agent tool input digest mismatch");
+          const valid = ajv.compile(binding.inputSchema);
+          if (!valid(proposal.input)) throw new Error(`Agent tool input rejected: ${ajv.errorsText(valid.errors)}`);
+          let invocationId = proposal.proposalId;
+          let nestedPermit: { token: string; permitId: string } | undefined;
+          if (binding.effectClass !== "read") {
+            const subjectDigest = domainDigest("brain:agent-tool:v1", { tool: proposal.tool, inputDigest: proposal.inputDigest, target: proposal.target, attemptId: offer.attemptId });
+            const permitRes = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/permit`, { invocationId, subjectDigest, resourceKeys: [`target:${binding.target.targetId}`] });
+            if (permitRes.status !== 200) throw new Error(`nested effect permit refused ${permitRes.status}: ${JSON.stringify(permitRes.json)}`);
+            const body = permitRes.json as { token: string; permitId: string; invocationId?: string };
+            invocationId = body.invocationId ?? invocationId;
+            nestedPermit = { token: body.token, permitId: invocationId };
+          }
+          const startedAt = new Date().toISOString();
+          const executed = await executeToolPayload({
+            offer: { payload: { input: proposal.input as Record<string, unknown>, invocationId,
+              step: { uses: { type: "tool", release: proposal.tool }, effectClass: binding.effectClass, target: binding.target } },
+              execution: { kind: "tool" }, workspaceId: offer.workspaceId },
+            cfg, signal: controller.signal, launcher, permit: nestedPermit, toolPins,
+            validatePermit: async (token, id) => {
+              const validation = await req(cfg, sessionToken, "/runner/v1/permits/validate", { token, invocationId: id });
+              return validation.status === 200 && (validation.json as { valid?: boolean }).valid === true;
+            },
+            fetchPinnedTool: async (toolId, digest) => {
+              const fetched = await req(cfg, sessionToken, `/runner/v1/releases/${encodeURIComponent(offer.configDigest)}/tools/${encodeURIComponent(toolId)}`);
+              if (fetched.status !== 200) throw new Error(`tool script fetch failed ${fetched.status}: ${JSON.stringify(fetched.json)}`);
+              const body = fetched.json as { entrypoint: string; entrypointDigest: string; bytesBase64: string };
+              if (body.entrypointDigest !== digest) throw new Error("release tool digest disagrees with the offer pin");
+              return { entrypoint: body.entrypoint, bytes: new Uint8Array(Buffer.from(body.bytesBase64, "base64")) };
+            },
+          });
+          const bytes = new TextEncoder().encode(JSON.stringify(executed.output));
+          const uploaded = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/artifacts`, {
+            digest: sha256Digest(bytes), mediaType: "application/json", bytesBase64: Buffer.from(bytes).toString("base64"),
+          });
+          if (uploaded.status !== 201) throw new Error(`tool output artifact upload failed ${uploaded.status}`);
+          const artifact = { ...(uploaded.json as { artifactId: string; digest: string; bytes: number }), mediaType: "application/json", classification: "internal" as const };
+          toolArtifacts.push(artifact);
+          await emit("effect", { phase: "governed-tool-result", proposalId: proposal.proposalId, invocationId, artifact });
+          return { proposalId: proposal.proposalId, invocationId,
+            receipt: { invocationId, attemptId: offer.attemptId, jobFence: offer.jobFence, result: executed.ok ? "succeeded" : "failed", startedAt, finishedAt: new Date().toISOString(), stdout: artifact, effects: [] },
+            output: executed.output };
+        },
         emit, signal: controller.signal,
       });
       if (agentResult.ok) {
@@ -301,8 +357,8 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
         configDigest: offer.configDigest,
         workflowDigest: (offer as { workflowDigest?: string }).workflowDigest ?? offer.configDigest,
         primitiveVersions: (offer as { primitiveVersions?: Record<string, string> }).primitiveVersions ?? {},
-        toolReleases: offer.authorEvidence.toolReleases,
-        artifacts: [{ ...artifact, mediaType: "application/json", classification: "internal" }],
+        toolReleases: [...offer.authorEvidence.toolReleases, ...nestedToolReleases.filter((nested) => !offer.authorEvidence?.toolReleases.some((tool) => tool.id === nested.id && tool.digest === nested.digest))],
+        artifacts: [{ ...artifact, mediaType: "application/json", classification: "internal" }, ...toolArtifacts],
         checks: offer.authorEvidence.claimedChecks,
         approvalIds: [],
         effects: [],

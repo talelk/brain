@@ -2,8 +2,9 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { sha256Digest } from "@brain/contracts";
-import type { ArtifactRef, Checkpoint, EngineAdapter, EngineEvent, EngineSessionSpec } from "@brain/contracts";
+import type { ArtifactRef, Checkpoint, EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
+import { GovernedToolCalls } from "./tool-calls";
 
 export class PiEngine implements EngineAdapter {
   readonly id = "pi";
@@ -16,6 +17,8 @@ export class PiEngine implements EngineAdapter {
   private stream = new EngineEventStream();
   private output = "";
   private failure: string | undefined;
+  private toolCalls: GovernedToolCalls | undefined;
+  constructor(private readonly toolBindings: readonly EngineToolBinding[] = []) {}
 
   private agentDir(): string {
     return process.env["BRAIN_PI_AGENT_DIR"] ?? join(process.cwd(), ".pi-agent");
@@ -71,7 +74,15 @@ export class PiEngine implements EngineAdapter {
     const runtime = await ModelRuntime.create();
     const model = runtime.getModel("local-qwen" as never, (spec.modelId || this.modelId()) as never);
     if (!model) throw Object.assign(new Error("Pi local model not found in models.json"), { code: "UNSUPPORTED_CAPABILITY" });
-    if (spec.allowedTools.length > 0) throw new Error("Pi governed tool bindings are not configured; refusing native tool access");
+    if (spec.allowedTools.some((allowed) => !this.toolBindings.some((binding) => binding.release.id === allowed.id && binding.release.digest === allowed.digest))) throw new Error("Pi Agent tool definitions are incomplete; refusing execution");
+    const calls = new GovernedToolCalls(this.toolBindings, spec, (kind, payload) => this.push(kind, payload));
+    this.toolCalls = calls;
+    const customTools = this.toolBindings.map((binding) => ({
+      name: calls.names().find((name) => name === `brain_${binding.release.id.replace(/[^A-Za-z0-9_]/gu, "_")}`)!,
+      label: binding.release.id, description: `Governed ${binding.effectClass} tool ${binding.release.id}; inputs are validated and execution is isolated by Brain.`,
+      parameters: binding.inputSchema,
+      execute: async (toolCallId: string, params: unknown) => ({ content: [{ type: "text", text: JSON.stringify(await calls.execute(`brain_${binding.release.id.replace(/[^A-Za-z0-9_]/gu, "_")}`, toolCallId, params as JsonValue)) }] }),
+    }));
     const { DefaultResourceLoader } = await import("@earendil-works/pi-coding-agent");
     const resourceLoader = new DefaultResourceLoader({
       cwd: process.cwd(), agentDir, noExtensions: true, noSkills: true,
@@ -80,7 +91,7 @@ export class PiEngine implements EngineAdapter {
     await resourceLoader.reload();
     const { session } = await createAgentSession({
       model, thinkingLevel: "low", modelRuntime: runtime, cwd: process.cwd(), agentDir,
-      sessionManager: manager, tools: [], noTools: "all", resourceLoader,
+      sessionManager: manager, tools: calls.names(), ...(calls.names().length ? { customTools } : { noTools: "all" }), resourceLoader,
     } as never);
     this.session?.dispose();
     this.session = session as unknown as { dispose: () => void; abort: () => Promise<void>; getSessionStats: () => { assistantMessages: number; tokens: {input:number;output:number;cacheRead:number;total:number};cost:number }; prompt: (text: string) => Promise<void> };
@@ -161,7 +172,13 @@ export class PiEngine implements EngineAdapter {
     yield* this.stream.after(after, signal);
   }
 
+  async toolResult(_sessionId: string, result: EngineToolExecutionResult): Promise<void> {
+    if (!this.toolCalls) throw new Error("Pi tool broker is not initialized");
+    this.toolCalls.complete(result);
+  }
+
   async cancel(_sessionId?: string, _reason?: string) {
+    this.toolCalls?.clear();
     await this.session?.abort();
     this.session?.dispose();
     this.session = null;

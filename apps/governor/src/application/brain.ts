@@ -148,7 +148,7 @@ export class Brain {
     s.inTx(s.control, () => {
       const compilerDigest = (compiled.manifest as { compilerDigest?: string }).compilerDigest ?? compiled.digest;
       s.control.prepare("INSERT OR IGNORE INTO config_releases(digest, organization_id, source_revision, compiler_digest, manifest_json, created_at_ms) VALUES (?,?,?,?,?,?)")
-        .run(compiled.digest, actor.organizationId, sourceRevision, compilerDigest, JSON.stringify({ manifest: compiled.manifest, workflows: compiled.workflows, agents: compiled.agents, evaluators: compiled.evaluators, schemas: compiled.schemas }), s.now());
+        .run(compiled.digest, actor.organizationId, sourceRevision, compilerDigest, JSON.stringify({ manifest: compiled.manifest, workflows: compiled.workflows, agents: compiled.agents, evaluators: compiled.evaluators, tools: compiled.tools, schemas: compiled.schemas }), s.now());
       for (const script of scripts ?? []) {
         const bytes = new Uint8Array(Buffer.from(script.bytesBase64, "base64"));
         const digest = sha256Digest(bytes);
@@ -170,6 +170,28 @@ export class Brain {
       s.emit(s.control, { organizationId: actor.organizationId, aggregateType: "config", aggregateId: compiled.digest, eventType: "config.compiled", payload: { digest: compiled.digest } });
     });
     return { digest: compiled.digest };
+  }
+
+  listVerifiedEvidence(actor: ActorContext, workspaceId: string): JsonValue {
+    requireWorkspaceRead(this.store, actor, workspaceId);
+    const rows = this.store.workspaceDb(workspaceId, actor.organizationId).prepare("SELECT digest,manifest_json FROM evidence_bundles WHERE state='verified' ORDER BY created_at_ms DESC LIMIT 100").all() as Array<{ digest: string; manifest_json: string }>;
+    return { items: rows.map((row) => {
+      const manifest = JSON.parse(row.manifest_json) as { checks?: Array<{ criterionId: string; status: string }> };
+      return { digest: row.digest, passedCriteria: (manifest.checks ?? []).filter((check) => check.status === "passed").map((check) => check.criterionId) };
+    }) } as JsonValue;
+  }
+
+  listReleases(actor: ActorContext): JsonValue {
+    this.requireConfigurationAdmin(actor);
+    const active = this.activeRelease(actor.organizationId);
+    const rows = this.store.control.prepare("SELECT digest,source_revision,manifest_json,created_at_ms FROM config_releases WHERE organization_id=? ORDER BY created_at_ms DESC LIMIT 50").all(actor.organizationId) as Array<{ digest: string; source_revision: string; manifest_json: string; created_at_ms: number }>;
+    return { items: rows.map((row) => {
+      const stored = JSON.parse(row.manifest_json) as { manifest?: { documents?: Array<{ kind: string }> } };
+      const documents = stored.manifest?.documents ?? [];
+      return { digest: row.digest, sourceRevision: row.source_revision, createdAt: iso(row.created_at_ms), active: row.digest === active?.digest,
+        agents: documents.filter((doc) => doc.kind === "Agent").length, workflows: documents.filter((doc) => doc.kind === "Workflow").length,
+        assets: documents.filter((doc) => doc.kind !== "Agent" && doc.kind !== "Workflow").length };
+    }) } as JsonValue;
   }
 
   inspectRelease(actor: ActorContext, digest: string): JsonValue {
@@ -1341,7 +1363,14 @@ export class Brain {
     const bundle = ws.prepare("SELECT digest FROM evidence_bundles WHERE json_extract(manifest_json,'$.workflowRunId')=? ORDER BY created_at_ms DESC LIMIT 1").get(runId) as {digest:string}|undefined;
     return {
       runOutputs: Object.fromEntries(outputs.map((entry) => [entry.step_id,JSON.parse(entry.output_json)])),
-      engineEvents: events.reverse().map((entry) => (JSON.parse(entry.event_json) as {payload:JsonValue}).payload),
+      engineEvents: events.reverse().map((entry) => {
+        const payload = (JSON.parse(entry.event_json) as { payload: JsonValue }).payload as { kind?: string; artifact?: { artifactId: string; digest: string } };
+        if (payload.kind === "artifact" && payload.artifact) {
+          const stored = ws.prepare("SELECT id FROM artifacts WHERE digest=? ORDER BY created_at_ms DESC LIMIT 1").get(payload.artifact.digest) as { id: string } | undefined;
+          if (stored) return { ...payload, artifact: { ...payload.artifact, artifactId: stored.id } };
+        }
+        return payload;
+      }),
       ...(bundle ? { evidenceDigest: bundle.digest } : {}),
       jobId: String(row["id"]), organizationId: String(row["organization_id"]), workspaceId: String(row["workspace_id"]),
       workflowRunId: String(row["workflow_run_id"]), state: String(row["state"]), version: Number(row["version"]),
@@ -1446,10 +1475,27 @@ export class Brain {
         const allowed = q.workspaceId ? [q.workspaceId] : orgWorkspaces();
         if (q.workspaceId) requireWorkspaceRead(s, actor, q.workspaceId);
         if (allowed.length === 0) return this.envelope(q.queryType, { items: [] } as unknown as JsonValue);
+        const filters = q as typeof q & { states?: string[]; search?: string; cursor?: string };
         const marks = allowed.map(() => "?").join(",");
-        const rows = s.control.prepare(`SELECT * FROM jobs WHERE organization_id=? AND workspace_id IN (${marks}) ORDER BY created_at_ms DESC, id DESC LIMIT ?`)
-          .all(actor.organizationId, ...allowed, limit) as Array<Record<string, unknown>>;
-        return this.envelope(q.queryType, { items: rows.map((r) => this.jobSnapshot(r)) } as unknown as JsonValue);
+        const clauses = [`organization_id=?`, `workspace_id IN (${marks})`];
+        const parameters: Array<string | number> = [actor.organizationId, ...allowed];
+        if (filters.states?.length) { clauses.push(`state IN (${filters.states.map(() => "?").join(",")})`); parameters.push(...filters.states); }
+        if (filters.search) { clauses.push("(LOWER(id) LIKE ? OR LOWER(workflow_run_id) LIKE ?)"); const search = `%${filters.search.toLowerCase()}%`; parameters.push(search, search); }
+        if (filters.cursor) {
+          try {
+            const position = JSON.parse(Buffer.from(filters.cursor, "base64url").toString("utf8")) as { createdAt: number; id: string };
+            clauses.push("(created_at_ms<? OR (created_at_ms=? AND id<?))"); parameters.push(position.createdAt, position.createdAt, position.id);
+          } catch { throw new BrainDomainError("INVALID_ARGUMENT", "invalid jobs cursor"); }
+        }
+        const where = clauses.join(" AND ");
+        const rows = s.control.prepare(`SELECT * FROM jobs WHERE ${where} ORDER BY created_at_ms DESC, id DESC LIMIT ?`).all(...parameters, limit + 1) as Array<Record<string, unknown>>;
+        const page = rows.slice(0, limit);
+        const last = page.at(-1);
+        const nextCursor = rows.length > limit && last ? Buffer.from(JSON.stringify({ createdAt: Number(last["created_at_ms"]), id: String(last["id"]) })).toString("base64url") : "";
+        const total = s.control.prepare(`SELECT COUNT(*) AS count FROM jobs WHERE ${clauses.filter((clause) => !clause.startsWith("(created_at_ms")).join(" AND ")}`).get(...parameters.slice(0, parameters.length - (filters.cursor ? 3 : 0))) as { count: number };
+        const response = this.envelope(q.queryType, { items: page.map((row) => this.jobSnapshot(row)), totalEstimate: total.count } as unknown as JsonValue) as Record<string, JsonValue>;
+        response["cursor"] = nextCursor;
+        return response;
       }
       case "job.get": {
         const row = this.jobRowFor(actor, String(q.resourceId));
@@ -1567,6 +1613,32 @@ export class Brain {
         const mq = (raw as { memoryQuery: import("@brain/contracts").MemoryQuery }).memoryQuery;
         const found = this.memory.search(mq, { organizationId: actor.organizationId, workspaceId: q.workspaceId });
         return this.envelope(q.queryType, found as unknown as JsonValue);
+      }
+      case "search.global": {
+        const allowed = q.workspaceId ? [q.workspaceId] : orgWorkspaces();
+        if (q.workspaceId) requireWorkspaceRead(s, actor, q.workspaceId);
+        const needle = (q as typeof q & { search: string }).search.trim().toLowerCase();
+        const matches = (value: unknown) => String(value ?? "").toLowerCase().includes(needle);
+        const results: Array<Record<string, JsonValue>> = [];
+        const release = this.activeRelease(actor.organizationId);
+        const documents = release
+          ? (JSON.parse(release.manifest) as { manifest?: { documents?: Array<{ id: string; kind: string }> } }).manifest?.documents ?? []
+          : [];
+        for (const workspaceId of allowed.slice(0, 25)) {
+          const jobs = s.control.prepare("SELECT id,workflow_run_id,state,created_at_ms FROM jobs WHERE organization_id=? AND workspace_id=? ORDER BY created_at_ms DESC LIMIT 100").all(actor.organizationId, workspaceId) as Array<{ id: string; workflow_run_id: string; state: string; created_at_ms: number }>;
+          for (const job of jobs) {
+            if (matches(job.id) || matches(job.workflow_run_id) || matches(job.state)) results.push({ category: "run", title: `Run ${job.workflow_run_id}`, reason: `${job.state} · job ${job.id}`, resourceId: job.id, workspaceId, updatedAt: iso(job.created_at_ms) });
+          }
+          const approvals = s.control.prepare("SELECT id,subject_json,state,expires_at_ms FROM approval_requests WHERE organization_id=? AND workspace_id=? ORDER BY expires_at_ms ASC LIMIT 100").all(actor.organizationId, workspaceId) as Array<{ id: string; subject_json: string; state: string; expires_at_ms: number }>;
+          for (const approval of approvals) {
+            const subject = JSON.parse(approval.subject_json) as { operation?: string; target?: { targetId?: string } };
+            if (matches(approval.id) || matches(subject.operation) || matches(subject.target?.targetId) || matches(approval.state)) results.push({ category: "approval", title: subject.operation ?? "Approval request", reason: `${approval.state} · ${subject.target?.targetId ?? approval.id}`, resourceId: approval.id, workspaceId, updatedAt: iso(approval.expires_at_ms) });
+          }
+          for (const document of documents) {
+            if ((document.kind === "Agent" || document.kind === "Workflow") && (matches(document.id) || matches(document.kind))) results.push({ category: document.kind === "Agent" ? "agent" : "workflow", title: document.id.replaceAll("-", " "), reason: `${document.kind} in the active release`, resourceId: document.id, workspaceId, updatedAt: s.nowIso() });
+          }
+        }
+        return this.envelope(q.queryType, { items: results.slice(0, limit) } as unknown as JsonValue);
       }
       case "today": case "bridge": {
         const allowed = orgWorkspaces();

@@ -94,3 +94,33 @@ describe("agent lifecycle failure boundaries", () => {
     expect(engine.dispose).toHaveBeenCalled();
   });
 });
+
+describe("governed Agent tool broker", () => {
+  const release = { id: "operations.context", digest: `sha256:${"a".repeat(64)}` };
+  const target = { targetId: "tool:operations.context", environmentId: "local", preconditionDigest: release.digest };
+  const engineWithProposal = () => adapter(async function* () {
+    yield { kind: "tool.proposed", payload: { proposalId: "proposal-1", tool: release, input: {}, target, inputDigest: `sha256:${"b".repeat(64)}` } } as EngineEvent;
+    yield { kind: "text", payload: { text: "tool completed" } } as EngineEvent;
+    const bytes = new TextEncoder().encode("tool completed");
+    yield { kind: "session.stopped", payload: { reason: "completed", terminationConfirmed: true,
+      output: { digest: (await import("@brain/contracts")).sha256Digest(bytes), bytes: bytes.length } } } as EngineEvent;
+  });
+
+  it("mediates proposals and returns their receipt/output to the adapter", async () => {
+    const engine = engineWithProposal();
+    let resolved = false;
+    engine.toolResult = async () => { resolved = true; };
+    const result = await runAgentExecution(input(engine, { allowedTools: [release], executeTool: async (proposal: { proposalId: string }) => ({
+      proposalId: proposal.proposalId, invocationId: "invocation-1", output: { context: "safe" },
+      receipt: { invocationId: "invocation-1", attemptId: "att-failures", jobFence: 1, result: "succeeded", startedAt: new Date().toISOString(), effects: [] },
+    }) }));
+    expect(result.ok).toBe(true);
+    expect(resolved).toBe(true);
+  });
+
+  it("fails closed when a proposal has no broker", async () => {
+    const result = await runAgentExecution(input(engineWithProposal(), { allowedTools: [release] }));
+    expect(result.ok).toBe(false);
+    expect(result.output).toEqual({ error: "Agent proposed a tool without a governed broker" });
+  });
+});

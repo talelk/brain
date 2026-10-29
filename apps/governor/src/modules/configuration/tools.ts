@@ -40,12 +40,14 @@ export function readReleaseAgentInstructions(
   organizationId: string,
   releaseDigest: string,
   agentId: string,
-): { agent: Agent; agentDigest: string; path: string; instructionsDigest: string; bytes: Uint8Array } {
+): { agent: Agent; agentDigest: string; path: string; instructionsDigest: string; bytes: Uint8Array; toolBindings: { release: { id: string; digest: string }; inputSchema: Record<string, import("@brain/contracts").JsonValue>; effectClass: "read" | "write" | "privileged"; target: { targetId: string; environmentId: string; preconditionDigest: string } }[] } {
   const release = s.control.prepare("SELECT organization_id,manifest_json FROM config_releases WHERE digest=?").get(releaseDigest) as
     | { organization_id: string; manifest_json: string } | undefined;
   if (!release || release.organization_id !== organizationId) throw new BrainDomainError("NOT_FOUND", "release not found");
   const stored = JSON.parse(release.manifest_json) as {
     agents?: Record<string, Agent>;
+    tools?: Array<{ id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; allowedEnvironments: string[] }>;
+    schemas?: Record<string, Record<string, import("@brain/contracts").JsonValue>>;
     manifest?: { agents?: Array<{ id: string; digest: string; instructions: { path: string; digest: string } }> };
   };
   const agent = stored.agents?.[agentId];
@@ -59,7 +61,14 @@ export function readReleaseAgentInstructions(
   if (!existsSync(path)) throw new BrainDomainError("EVIDENCE_MISSING", "agent instruction bytes missing from CAS");
   const bytes = new Uint8Array(readFileSync(path));
   if (sha256Digest(bytes) !== row.digest || bytes.length !== row.bytes) throw new BrainDomainError("EVIDENCE_MISSING", "agent instruction bytes do not match the pinned digest");
-  return { agent, agentDigest: view.digest, path: row.entrypoint, instructionsDigest: row.digest, bytes };
+  const toolBindings = agent.spec.tools.map((allowed) => {
+    const tool = stored.tools?.find((candidate) => candidate.id === allowed.id && candidate.digest === allowed.digest);
+    const inputSchema = tool ? stored.schemas?.[tool.inputSchemaRef] : undefined;
+    if (!tool || !inputSchema || !tool.allowedEnvironments[0]) throw new BrainDomainError("EVIDENCE_MISSING", `Agent tool ${allowed.id} lacks a pinned definition, schema or environment`);
+    return { release: allowed, inputSchema, effectClass: tool.effectClass,
+      target: { targetId: `tool:${tool.id}`, environmentId: tool.allowedEnvironments[0], preconditionDigest: tool.digest } };
+  });
+  return { agent, agentDigest: view.digest, path: row.entrypoint, instructionsDigest: row.digest, bytes, toolBindings };
 }
 
 /** The pinned-tool digest map for a release, as embedded in job offers. */

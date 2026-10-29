@@ -4,8 +4,8 @@ import type { EngineEvent, EngineSessionSpec } from "@brain/contracts";
 import { sha256Digest } from "@brain/contracts";
 import { ClaudeEngine } from "../../apps/runner/src/engines/claude";
 
-const sdk = vi.hoisted(() => ({ query: vi.fn(), close: vi.fn() }));
-vi.mock("@anthropic-ai/claude-agent-sdk", () => ({ query: sdk.query }));
+const sdk = vi.hoisted(() => ({ query: vi.fn(), close: vi.fn(), tool: vi.fn(), createSdkMcpServer: vi.fn() }));
+vi.mock("@anthropic-ai/claude-agent-sdk", () => ({ query: sdk.query, tool: sdk.tool, createSdkMcpServer: sdk.createSdkMcpServer }));
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
 function spec(): EngineSessionSpec {
   vi.stubEnv("ANTHROPIC_API_KEY", "test-credential");

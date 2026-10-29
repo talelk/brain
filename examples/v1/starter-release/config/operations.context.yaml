@@ -1,0 +1,21 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Tool",
+  "metadata": {
+    "id": "operations.context",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "effectClass": "read",
+    "inputSchemaRef": "schemas/context-input.json",
+    "outputSchemaRef": "schemas/context-output.json",
+    "requiredCapabilities": ["tool:bash", "tool:python3"],
+    "timeoutSeconds": 10,
+    "maxOutputBytes": 4096,
+    "allowedEnvironments": ["local"],
+    "owner": "team_operations",
+    "license": "LicenseRef-Internal",
+    "entrypoint": "run.sh",
+    "testEntrypoint": "test.sh"
+  }
+}

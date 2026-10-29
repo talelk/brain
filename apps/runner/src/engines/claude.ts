@@ -1,7 +1,28 @@
 import { readFileSync, statSync } from "node:fs";
 import { sha256Digest } from "@brain/contracts";
-import type { EngineAdapter, EngineEvent, EngineSessionSpec } from "@brain/contracts";
+import type { EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
+import { GovernedToolCalls } from "./tool-calls";
+import { z } from "zod";
+import type { ZodTypeAny } from "zod";
+
+function schemaToZod(schema: Record<string, JsonValue>): ZodTypeAny {
+  if (Array.isArray(schema["enum"]) && schema["enum"].every((value) => typeof value === "string") && schema["enum"].length) return z.enum(schema["enum"] as [string, ...string[]]);
+  if (schema["const"] !== undefined && (typeof schema["const"] === "string" || typeof schema["const"] === "number" || typeof schema["const"] === "boolean")) return z.literal(schema["const"]);
+  if (schema["type"] === "string") return z.string();
+  if (schema["type"] === "number") return z.number();
+  if (schema["type"] === "integer") return z.number().int();
+  if (schema["type"] === "boolean") return z.boolean();
+  if (schema["type"] === "array") return z.array(schemaToZod((schema["items"] as Record<string, JsonValue> | undefined) ?? {}));
+  if (schema["type"] === "object") {
+    const properties = (schema["properties"] as Record<string, Record<string, JsonValue>> | undefined) ?? {};
+    const required = new Set((schema["required"] as string[] | undefined) ?? []);
+    const shape: Record<string, ZodTypeAny> = {};
+    for (const [key, value] of Object.entries(properties)) shape[key] = required.has(key) ? schemaToZod(value) : schemaToZod(value).optional();
+    return schema["additionalProperties"] === false ? z.object(shape).strict() : z.object(shape).passthrough();
+  }
+  return z.unknown();
+}
 
 export interface AnthropicEndpoint {
   baseUrl?: string | undefined;
@@ -57,6 +78,9 @@ export class ClaudeEngine implements EngineAdapter {
   private stream = new EngineEventStream();
   private output = "";
   private query: { close(): void } | undefined;
+  private toolCalls: GovernedToolCalls | undefined;
+  private toolSeq = 0;
+  constructor(private readonly toolBindings: readonly EngineToolBinding[] = []) {}
 
   private baseUrl(): string | undefined { return process.env["BRAIN_ANTHROPIC_BASE_URL"] ?? process.env["ANTHROPIC_BASE_URL"]; }
   private model(): string { return process.env["BRAIN_CLAUDE_MODEL"] ?? process.env["BRAIN_LOCAL_MODEL_ID"] ?? "qwen3.8-flash-next-a5b"; }
@@ -92,19 +116,33 @@ export class ClaudeEngine implements EngineAdapter {
 
   private async complete(spec: EngineSessionSpec): Promise<void> {
     try {
-      const { query } = (await import("@anthropic-ai/claude-agent-sdk")) as typeof import("@anthropic-ai/claude-agent-sdk");
+      const { query, tool, createSdkMcpServer } = (await import("@anthropic-ai/claude-agent-sdk")) as typeof import("@anthropic-ai/claude-agent-sdk");
       const prompt = `${spec.instructions.trim()}\n\nTask:\n${spec.task}`.trim();
-      if (spec.allowedTools.length > 0) throw new Error("Claude governed tool bindings are not configured; refusing native tool access");
+      if (spec.allowedTools.some((allowed) => !this.toolBindings.some((binding) => binding.release.id === allowed.id && binding.release.digest === allowed.digest))) throw new Error("Claude Agent tool definitions are incomplete; refusing execution");
+      const calls = new GovernedToolCalls(this.toolBindings, spec, (kind, payload) => this.push(kind, payload));
+      this.toolCalls = calls;
+      const tools = this.toolBindings.map((binding) => {
+        const name = `brain_${binding.release.id.replace(/[^A-Za-z0-9_]/gu, "_")}`;
+        const properties = (binding.inputSchema["properties"] as Record<string, Record<string, JsonValue>> | undefined) ?? {};
+        const required = new Set((binding.inputSchema["required"] as string[] | undefined) ?? []);
+        const shape: Record<string, ZodTypeAny> = {};
+        for (const [key, value] of Object.entries(properties)) shape[key] = required.has(key) ? schemaToZod(value) : schemaToZod(value).optional();
+        return tool(name, `Governed ${binding.effectClass} tool ${binding.release.id}; Brain validates and isolates every call.`, shape, async (args) => ({ content: [{ type: "text", text: JSON.stringify(await calls.execute(name, `claude-tool-${++this.toolSeq}`, args as JsonValue)) }] }));
+      });
+      const mcpServer = tools.length ? createSdkMcpServer({ name: "brain", version: "1", tools, alwaysLoad: true, timeout: Math.min(spec.limits.timeoutMs, 60_000) }) : undefined;
       let resultText = "";
       let completed = false;
       const execution = query({
         prompt,
         options: {
           model: spec.modelId || this.model(), cwd: process.cwd(), maxTurns: spec.limits.maxTurns,
-          tools: [], allowedTools: [], settingSources: [],
+          tools: [], allowedTools: calls.names().map((name) => `mcp__brain__${name}`), settingSources: [],
+          ...(mcpServer ? { mcpServers: { brain: mcpServer } } : {}),
           ...(spec.limits.maxMicroUsd > 0 ? { maxBudgetUsd: spec.limits.maxMicroUsd / 1000000 } : {}),
           env: { ...process.env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(spec.limits.maxTokens) },
-          canUseTool: async () => ({ behavior: "deny", message: "Native tools are disabled; Brain tools require the governed broker" }),
+          canUseTool: async (toolName: string, input: Record<string, unknown>) => calls.names().some((name) => toolName === `mcp__brain__${name}`)
+            ? { behavior: "allow", updatedInput: input }
+            : { behavior: "deny", message: "Only release-pinned Brain broker tools are allowed" },
           abortController: this.abort ?? undefined,
         } as never,
       });
@@ -170,7 +208,13 @@ export class ClaudeEngine implements EngineAdapter {
     yield* this.stream.after(after, signal);
   }
 
+  async toolResult(_sessionId: string, result: EngineToolExecutionResult): Promise<void> {
+    if (!this.toolCalls) throw new Error("Claude tool broker is not initialized");
+    this.toolCalls.complete(result);
+  }
+
   async cancel(_sessionId?: string, _reason?: string) {
+    this.toolCalls?.clear();
     this.abort?.abort();
     this.query?.close(); this.query = undefined;
     this.stream.close();

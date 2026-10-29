@@ -7,7 +7,12 @@
   },
   "spec": {
     "instructionsPath": "agents/operations-assistant.md",
-    "tools": [],
+    "tools": [
+      {
+        "id": "operations.context",
+        "digest": "sha256:693bf4cf88405ab9b1845385eee2abcef51085c3dde0bc47de6ea0cebf6dafab"
+      }
+    ],
     "engine": {
       "anyOf": [
         "pi",

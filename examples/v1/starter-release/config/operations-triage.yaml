@@ -24,7 +24,7 @@
           "type": "agent",
           "release": {
             "id": "operations-assistant",
-            "digest": "sha256:50ad0891a57eab836239f37a116acc81c5357e1d5d0bb65b92d96fa05abc9415"
+            "digest": "sha256:3efd66c8ebced8337f0b3418af7474ccb1896e272f37f4d30e686ca394a75931"
           }
         },
         "runsOn": {

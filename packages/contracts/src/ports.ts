@@ -3,7 +3,7 @@ import type {
   EngineInfo, EngineSessionSpec, EvidenceBundle, ExecutionGrant, JobOffer,
   JobReceipt, MemoryQuery, MemoryResult, Placement, PlacementExplanation,
   JsonValue, LauncherCreate, LauncherInspection, ReleaseRef, ToolInvocation,
-  ToolReceipt, VerificationVerdict, WorkflowIR, WorkflowState,
+  ToolReceipt, VerificationVerdict, WorkflowIR, WorkflowState, Target,
 } from './brain.generated';
 
 // Internal ports. Implementations normalize vendor types at their own boundary.
@@ -30,12 +30,25 @@ export interface WorkflowPrimitivePort {
   invoke(runId: string, stepId: string): Promise<{ status: 'completed'; output: JsonValue } | { status: 'waiting'; reason: WorkflowWait['reason']; digest: Digest }>;
   wait(runId: string, stepId: string, reason: WorkflowWait['reason'], digest: Digest): Promise<WorkflowWait>;
 }
+export interface EngineToolBinding {
+  release: ReleaseRef;
+  inputSchema: Readonly<Record<string, JsonValue>>;
+  effectClass: 'read' | 'write' | 'privileged';
+  target: Target;
+}
+export interface EngineToolExecutionResult {
+  proposalId: string;
+  invocationId: string;
+  receipt: ToolReceipt;
+  output: JsonValue;
+}
 export interface EngineAdapter {
   readonly id: string;
   readonly defaultModelId?: string;
   probe(): Promise<EngineInfo>;
   start(spec: EngineSessionSpec, signal: AbortSignal): Promise<{ sessionId: string }>;
   events(sessionId: string, afterSequence: number, signal: AbortSignal): AsyncIterable<EngineEvent>;
+  toolResult?(sessionId: string, result: EngineToolExecutionResult): Promise<void>;
   cancel(sessionId: string, reason: string): Promise<{ terminationConfirmed: boolean }>;
   checkpoint(sessionId: string): Promise<Checkpoint>;
   resume?(sessionId: string, checkpoint: ArtifactRef): Promise<void>;

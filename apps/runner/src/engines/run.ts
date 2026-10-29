@@ -1,14 +1,14 @@
-import type { EngineAdapter, EngineSessionSpec, JsonValue, ReleaseRef } from "@brain/contracts";
+import type { EngineAdapter, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue, ReleaseRef } from "@brain/contracts";
 import { sha256Digest } from "@brain/contracts";
 import { FixtureEngine } from "./fixture";
 import { PiEngine } from "./pi";
 import { ClaudeEngine } from "./claude";
 
-export function selectEngine(configured: string | undefined): EngineAdapter | undefined {
+export function selectEngine(configured: string | undefined, toolBindings: readonly EngineToolBinding[] = []): EngineAdapter | undefined {
   switch (configured) {
     case "fixture": return new FixtureEngine();
-    case "pi": return new PiEngine();
-    case "claude": return new ClaudeEngine();
+    case "pi": return new PiEngine(toolBindings);
+    case "claude": return new ClaudeEngine(toolBindings);
     default: return undefined;
   }
 }
@@ -35,6 +35,7 @@ export interface AgentExecutionInput {
   maxMicroUsd?: number;
   maxTurns?: number;
   allowedTools?: readonly ReleaseRef[];
+  executeTool?: (proposal: { proposalId: string; tool: ReleaseRef; input: JsonValue; target: { targetId: string; environmentId: string; preconditionDigest: string }; inputDigest: string }) => Promise<EngineToolExecutionResult>;
   emit: (kind: string, payload: unknown) => Promise<void>;
   signal: AbortSignal;
 }
@@ -125,6 +126,11 @@ export async function runAgentExecution(input: AgentExecutionInput): Promise<Age
       if (next.done) break;
       const event = next.value;
       await bounded(input.emit("engine", event as unknown as JsonValue));
+      if (event.kind === "tool.proposed") {
+        if (!input.executeTool || !engine.toolResult) throw new Error("Agent proposed a tool without a governed broker");
+        const result = await bounded(input.executeTool(event.payload));
+        await bounded(engine.toolResult(sessionId, result));
+      }
       if (event.kind === "error") engineError = true;
       if (event.kind === "text") outputText += event.payload.text;
       if (event.kind === "session.stopped") {
