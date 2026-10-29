@@ -4,7 +4,7 @@ The repository now contains runtime code for Governor, runners, launcher, CLI an
 
 ## Operational-product continuation — 28 October
 
-The operator milestone supersedes the earlier fixture-only engine and forced-TOTP descriptions below. The root [README](../../README.md) is the supported startup, release-authoring and troubleshooting guide. Pi/Claude adapters now consume pinned agent instructions/tasks and report actual terminal output; the supervisor uploads outputs and submits author evidence for independent deterministic validation. Claude requires explicit configured endpoint proof when selected. Native governed tool bindings remain unsupported by these read-only adapters and fail explicitly.
+The operator milestone supersedes the earlier fixture-only engine and forced-TOTP descriptions below. The root [README](../../README.md) is the supported startup, release-authoring and troubleshooting guide. Pi/Claude adapters now consume pinned agent instructions/tasks and report actual terminal output; the supervisor uploads outputs and submits author evidence for independent deterministic validation. Claude requires explicit configured endpoint proof when selected. Pi/Claude adapters now expose release-pinned custom tools as native bindings through the governed broker: the supervisor re-checks the Agent allowlist digest, pinned target and input schema, requires an effect permit for non-read classes, executes only launcher-sandboxed pinned bytes, uploads the output as an attempt artifact and records the tool release plus a `governed-tool-result` effect event in the evidence bundle. The starter Operations Assistant calls only the read-only `operations.context` tool; the Support Analyst remains tool-free. Task-oriented guides were added under [`docs/howto/`](../howto/README.md).
 
 Complete directory releases are compiled, inspected and activated separately through CLI/API. Active-release Agents/Workflows views drive schema-based dispatch, readiness, structured output and evidence. Optional 2FA defaults to false; one-use exact session evidence retains native identity/current-authority checks, while required mode retains TOTP. Settings exposes security, release inspection/activation and configured external administration links.
 
@@ -29,7 +29,7 @@ The active objective is **finalize all the implementation**. The full work plan 
 
 ## Required next work, ordered by dependency
 
-1. **Image/tool digest pinning and socket peer credentials (T21/T22)**; permit validation at a real tool-broker boundary (T23); engine adapter selection with harness events/cancel/checkpoints (T24).
+1. **Image/tool digest pinning and socket peer credentials (T21/T22)**; engine adapter selection with harness events/cancel/checkpoints (T24). The tool-broker boundary (T23) now validates pinned digests, targets, schemas, budgets and effect permits in the live supervisor path; the operational proof asserts the broker event and pinned `operations.context` release for `operations-triage`.
 2. **Evidence completion (T27/T28/T31).** Runner-produced author bundles bound to uploaded attempt artifacts; production trust-domain verifier enabling real L2; revision/incomplete resubmission policy; explicit run/criterion bindings beyond the board path.
 3. **brain.ts decomposition continues**: queries, board/pack command application, CAS and release sections move to their owning modules as they are touched.
 4. **Complete restore (T47/G04/G07)**: knowledge/Mastra snapshot inventory, authority watermarks; fault-before/after-commit restore tests; second-restore test.

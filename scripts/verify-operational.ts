@@ -109,6 +109,15 @@ try {
     const output = ws.prepare("SELECT output_json FROM step_outputs WHERE run_id=? AND step_id='respond'").get(receipt.resourceId) as { output_json: string };
     const events = app.brain.store.control.prepare("SELECT event_json FROM attempt_events WHERE attempt_id=(SELECT id FROM job_attempts WHERE job_id=(SELECT id FROM jobs WHERE workflow_run_id=? AND step_id='respond')) ORDER BY seq").all(receipt.resourceId);
     const manifest = JSON.parse(bundle.manifest_json);
+    if (id === "operations-triage") {
+      const toolReleases = (manifest.toolReleases ?? []) as { id: string; digest: string }[];
+      assert(toolReleases.some((tool) => tool.id === "operations.context" && tool.digest.startsWith("sha256:")), "operations-triage evidence must pin the governed operations.context release");
+      const brokerObserved = events.some((entry) => {
+        const event = JSON.parse(entry.event_json) as { kind?: string; payload?: { kind?: string; phase?: string } };
+        return event.payload?.kind === "tool.proposed" || event.payload?.phase === "governed-tool-result";
+      });
+      assert(brokerObserved, "operations-triage must exercise the governed tool broker; no tool.proposed or governed-tool-result event was recorded");
+    }
     runs.push({ workflowId: id, runId: receipt.resourceId, bundleDigest: bundle.digest, jobId: manifest.jobId, attemptId: manifest.attemptId, artifacts: manifest.artifacts, verdict, output: JSON.parse(output.output_json), engineEvents: events });
     console.log(`${id}: accepted ${receipt.resourceId} (${bundle.digest})`);
   }

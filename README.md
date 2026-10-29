@@ -2,7 +2,7 @@
 
 Brain runs declared workflows through one Governor, enrolled runners, and independent evaluators. The Web UI and CLI use the same authorized commands. Git release assets declare configuration; SQLite records operational state; outputs and evidence are immutable, digest-addressed artifacts.
 
-The supplied Operations Assistant and Support Analyst have **no tools or external effects**. Their outputs are independently checked for structure and forbidden action fields. These checks do not certify model answer quality, production integrations, or an independent release audit.
+The supplied Operations Assistant can call only the pinned, read-only `operations.context` tool through the governed broker; the Support Analyst has no tools. Neither has external effects. Their outputs are independently checked for structure and forbidden action fields. These checks do not certify model answer quality, production integrations, or an independent release audit.
 
 ## Local quickstart
 
@@ -65,6 +65,10 @@ rtk bash scripts/down.sh
 
 Governor logs are in `$BRAIN_RUN_DIR/governor.log`; launcher logs are in `launcher.log`; each runner has `runner-<group>-<number>.log`. Stop preserves data and private runner/CLI state. Remove disposable test directories only after stopping and reviewing the evidence. Never reset an existing data directory to work around a schema error.
 
+## How-to guides
+
+Task-oriented guides live under [`docs/howto/`](docs/howto/): running the local stack, compiling and activating releases, adding governed tools, operating runs and approvals, backup/restore, the operational proof, and the reference deployment topology.
+
 ## Configuration
 
 | Variable | Purpose / default |
@@ -104,7 +108,7 @@ Start from `examples/v1/starter-release/`. A complete release contains:
 - `schemas/*.json`: confined JSON schemas referenced by workflow/tool inputs and outputs; network schema references are rejected.
 - `tools/<tool-id>/<entrypoint>`: the declared tool script; executable bytes are pinned and fetched through the authenticated runner protocol.
 
-An Agent declares its permitted engines/features, immutable tool references, and turn/token/cost/child/depth limits. The starter agents have empty tool allowlists, 8192-token budgets and zero-cost local-model budgets. Set an explicit `maxMicroUsd` in the Agent document before selecting a paid provider, then update its immutable workflow reference. Native Pi/Claude tools are disabled; an agent requesting uninstalled governed tool bindings fails explicitly.
+An Agent declares its permitted engines/features, immutable tool references, and turn/token/cost/child/depth limits. The Operations Assistant allowlists only the read-only `operations.context` release; the other starter agents have empty allowlists. All have 8192-token budgets and zero-cost local-model budgets. Set an explicit `maxMicroUsd` in the Agent document before selecting a paid provider, then update its immutable workflow reference. Pi and Claude native host tools stay disabled; only release-pinned custom tools may cross the broker, which validates schemas, targets, digests, budgets and permits before sandboxed execution. Uninstalled or unauthorized bindings fail explicitly.
 
 Workflows bind input fields to jobs and refer to Agent/Evaluator documents by SHA-256 of their exact document bytes. After editing an Agent, Tool or Evaluator, update its referring documents' digests. `brain config compile` collects declared assets, rejects missing instructions/schemas and bad references, and stages an immutable manifest. It uses the collected bundle's content digest as the source revision unless you supply `--source-revision sha1:<git-commit>` or `sha256:<source-digest>`. Inspect the exact manifest, then activate separately. Activation checks the observed active digest; a concurrent change requires another inspection.
 
