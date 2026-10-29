@@ -1,0 +1,1678 @@
+ok
+$ pnpm typecheck && pnpm typecheck:web && pnpm --filter @brain/web build
+$ tsc --noEmit --pretty false -p tsconfig.typecheck.json
+$ pnpm --filter @brain/web typecheck
+$ tsc --noEmit --pretty false
+$ vite build
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 767 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                  0.75 kB │ gzip:  0.38 kB
+dist/assets/Inter.var-C9xDBOS3.woff2           264.23 kB
+dist/assets/Inter-Italic.var-BGHziHgI.woff2    297.26 kB
+dist/assets/index-D9k_kTZM.css                 152.24 kB │ gzip: 26.75 kB
+dist/assets/TvSrePage-BaC0CQcv.js                0.14 kB │ gzip:  0.14 kB
+dist/assets/TvSupportPage-DS0_Xm0w.js            0.14 kB │ gzip:  0.14 kB
+dist/assets/RunnersPage-D0wKyOqK.js              0.15 kB │ gzip:  0.15 kB
+dist/assets/format-Dw_EdeiE.js                   0.20 kB │ gzip:  0.16 kB
+dist/assets/IncidentDetailPage-CD8LFkS8.js       0.49 kB │ gzip:  0.33 kB
+dist/assets/TicketDetailPage-CTTEFWTA.js         0.52 kB │ gzip:  0.34 kB
+dist/assets/BridgePage-Qa0nIUpa.js               0.52 kB │ gzip:  0.36 kB
+dist/assets/SrePage-CQHlKzMO.js                  0.61 kB │ gzip:  0.39 kB
+dist/assets/TodayPage-Dm7JJfTk.js                0.76 kB │ gzip:  0.43 kB
+dist/assets/ApprovalsPage-CRJzGX-a.js            0.78 kB │ gzip:  0.43 kB
+dist/assets/DecisionsPage-B0G6BVxU.js            0.86 kB │ gzip:  0.47 kB
+dist/assets/KeyValue-IXWbPp_o.js                 0.87 kB │ gzip:  0.46 kB
+dist/assets/SupportPage-D1OGT2Nn.js              0.98 kB │ gzip:  0.58 kB
+dist/assets/RunnerDetailPage-Dwf09mtb.js         0.99 kB │ gzip:  0.58 kB
+dist/assets/RecordCollection-Bt5_G2eH.js         1.11 kB │ gzip:  0.55 kB
+dist/assets/BoardPage-JQqWV-R7.js                1.12 kB │ gzip:  0.59 kB
+dist/assets/DigestValue-DgPhOukX.js              1.14 kB │ gzip:  0.67 kB
+dist/assets/StatusBadge-E3YIl6_N.js              1.20 kB │ gzip:  0.58 kB
+dist/assets/ToolsPage-C5oDBMew.js                1.37 kB │ gzip:  0.67 kB
+dist/assets/ApprovalDetailPage-DkRhPZEA.js       1.47 kB │ gzip:  0.78 kB
+dist/assets/DetailHeader-UnXcw9KB.js             1.54 kB │ gzip:  0.70 kB
+dist/assets/WorkspaceOverviewPage-CYTtCOgQ.js    1.62 kB │ gzip:  0.86 kB
+dist/assets/PageLayout-aaLG7bOg.js               1.81 kB │ gzip:  0.79 kB
+dist/assets/Textarea-Byd9wWy3.js                 1.83 kB │ gzip:  0.78 kB
+dist/assets/helpers-BD89dTS0.js                  1.95 kB │ gzip:  0.98 kB
+dist/assets/KnowledgePage-CHXnxhRS.js            1.99 kB │ gzip:  0.96 kB
+dist/assets/Section-BeJLf5V_.js                  2.07 kB │ gzip:  0.88 kB
+dist/assets/Timeline-DiOh3tKk.js                 2.09 kB │ gzip:  0.95 kB
+dist/assets/Badge-DKbdRgjh.js                    2.39 kB │ gzip:  0.89 kB
+dist/assets/StatGrid-DvMgCryl.js                 2.92 kB │ gzip:  1.20 kB
+dist/assets/ArtifactSelectors-jQ54U9Yv.js        3.03 kB │ gzip:  1.44 kB
+dist/assets/PaneLayout-Ed9wZqzF.js               3.12 kB │ gzip:  1.43 kB
+dist/assets/EvidenceList-DOd_Ktsm.js             3.15 kB │ gzip:  1.33 kB
+dist/assets/TextInput-2iTBdv5t.js                3.59 kB │ gzip:  1.24 kB
+dist/assets/DeliveryPage-Ds-gzT1Z.js             4.02 kB │ gzip:  1.69 kB
+dist/assets/FilterBar-D9NgCx_n.js                4.34 kB │ gzip:  1.76 kB
+dist/assets/ArtifactContent-CFDKISda.js          5.02 kB │ gzip:  2.21 kB
+dist/assets/today-DhtHvkpa.js                    5.58 kB │ gzip:  2.21 kB
+dist/assets/RunsPage-CRkFKR4g.js                 8.59 kB │ gzip:  3.11 kB
+dist/assets/TabButtons-DzT2ijk4.js               8.73 kB │ gzip:  3.31 kB
+dist/assets/screen-region-DBzuuW8Y.js            8.86 kB │ gzip:  2.99 kB
+dist/assets/knowledge-BK4PzhMM.js                9.14 kB │ gzip:  3.19 kB
+dist/assets/workspace-MIOiHCnP.js                9.24 kB │ gzip:  2.88 kB
+dist/assets/JobDetailPage-BH52f-M8.js           12.08 kB │ gzip:  4.30 kB
+dist/assets/approvals-CcI-YUau.js               13.66 kB │ gzip:  4.51 kB
+dist/assets/catalog-DrfkcOxQ.js                 13.77 kB │ gzip:  4.86 kB
+dist/assets/SettingsPage-BrIjIJg1.js            17.34 kB │ gzip:  5.60 kB
+dist/assets/work-CY7boEm8.js                    24.30 kB │ gzip:  8.29 kB
+dist/assets/dismissable-layer-DiZC37L2.js       33.06 kB │ gzip: 12.07 kB
+dist/assets/SessionDetailPage-CPo7koBe.js       45.44 kB │ gzip: 14.49 kB
+dist/assets/app-context-D5835TOL.js             63.15 kB │ gzip: 22.30 kB
+dist/assets/DataTable-I0MbdMQL.js               86.36 kB │ gzip: 23.96 kB
+dist/assets/index-C3RRrKOW.js                  273.08 kB │ gzip: 79.64 kB
+
+✓ built in 1.86s
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from sandbox.Dockerfile
+#1 transferring dockerfile: 136B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-alpine
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 139B done
+#3 DONE 0.0s
+
+#4 [1/3] FROM docker.io/library/python:3.12-alpine
+#4 DONE 0.0s
+
+#5 [2/3] RUN apk add --no-cache bash
+#5 CACHED
+
+#6 [3/3] WORKDIR /tmp
+#6 CACHED
+
+#7 exporting to image
+#7 exporting layers done
+#7 writing image sha256:f3f05def316d4eb89269eed6618f5d6be7c233d578cd780202b2765599333cb5 done
+#7 naming to docker.io/library/brain-sandbox-evaluator done
+#7 DONE 0.0s
+[brain-up] using local memory; no external TencentDB configured
+[brain-up] governor started (pid 100886, log /tmp/brain-run.nkZ9Uw/governor.log)
+[brain-up] governor ready at http://127.0.0.1:3100
+[brain-up] launcher started (pid 100995, log /tmp/brain-run.nkZ9Uw/launcher.log)
+[brain-up] launcher socket ready at /tmp/brain-run.nkZ9Uw/launcher.sock
+[brain-up] stack up: governor http://127.0.0.1:3100 | launcher /tmp/brain-run.nkZ9Uw/launcher.sock | data /tmp/brain-data.Hq2tb3 | logs /tmp/brain-run.nkZ9Uw
+[brain-up] stop with: scripts/down.sh
+{
+  "authenticated": true,
+  "organizationId": "org-local"
+}
+{
+  "workspaceId": "operations"
+}
+{
+  "digest": "sha256:eafad9165bf0b93928bf24d49a30acf694927cd3fdd1170cbad775a9fab4de51",
+  "sourceRevision": "sha256:ed58ac230d80cd722b9e595ee105c8df3e72f998ae99ccd48c6f37390947d276",
+  "expectedActiveDigest": null,
+  "manifest": {
+    "sourceRevision": "sha256:ed58ac230d80cd722b9e595ee105c8df3e72f998ae99ccd48c6f37390947d276",
+    "documents": [
+      {
+        "kind": "Workflow",
+        "id": "agent-smoke",
+        "digest": "sha256:424742dc3830a4d87a7a17a0af9a91c275031befa92d6315d59dac268fdba219",
+        "bytes": 2422,
+        "path": "config/agent-smoke.yaml"
+      },
+      {
+        "kind": "RunnerGroup",
+        "id": "agents",
+        "digest": "sha256:bcbc92211b061149b9133c26f225c5dad137e23d1071b6b74a0cfd966086fb40",
+        "bytes": 476,
+        "path": "config/agents.yaml"
+      },
+      {
+        "kind": "Agent",
+        "id": "diagnostic",
+        "digest": "sha256:35a266b009b4ad079d89e79b6a387041fd6c58f192f1c3d98aa354181cddd2e8",
+        "bytes": 438,
+        "path": "config/diagnostic.yaml"
+      },
+      {
+        "kind": "RunnerGroup",
+        "id": "evaluators",
+        "digest": "sha256:0ffd4e210e784e3615e1d67e49705820e44c71963922c337e16ba7376e999e23",
+        "bytes": 483,
+        "path": "config/evaluators.yaml"
+      },
+      {
+        "kind": "Agent",
+        "id": "operations-assistant",
+        "digest": "sha256:3efd66c8ebced8337f0b3418af7474ccb1896e272f37f4d30e686ca394a75931",
+        "bytes": 607,
+        "path": "config/operations-assistant.yaml"
+      },
+      {
+        "kind": "Policy",
+        "id": "operations-policy",
+        "digest": "sha256:bbd7fe7098a681fcedeb4b6308bf1d6eeb4ff52bc57dd77418638807f0008baa",
+        "bytes": 442,
+        "path": "config/operations-policy.yaml"
+      },
+      {
+        "kind": "Workflow",
+        "id": "operations-triage",
+        "digest": "sha256:6343fcc6fda6ed6fff98fd78f7c751baea47da4a0fc12a354315b5509055572a",
+        "bytes": 2458,
+        "path": "config/operations-triage.yaml"
+      },
+      {
+        "kind": "WorkspaceType",
+        "id": "operations-type",
+        "digest": "sha256:9fdc87accd1d0a5626d7fa936b96c66a155ac830c9f74b81377c8a4e06c9ee32",
+        "bytes": 352,
+        "path": "config/operations-type.yaml"
+      },
+      {
+        "kind": "Evaluator",
+        "id": "operations-validator",
+        "digest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f",
+        "bytes": 392,
+        "path": "config/operations-validator.yaml"
+      },
+      {
+        "kind": "Tool",
+        "id": "operations.context",
+        "digest": "sha256:693bf4cf88405ab9b1845385eee2abcef51085c3dde0bc47de6ea0cebf6dafab",
+        "bytes": 563,
+        "path": "config/operations.context.yaml"
+      },
+      {
+        "kind": "Tool",
+        "id": "operations.validate",
+        "digest": "sha256:68cdd50093346745e560e7f688a7773866c1075e0b1d653e66067c27c6efeeee",
+        "bytes": 603,
+        "path": "config/operations.validate.yaml"
+      },
+      {
+        "kind": "Workspace",
+        "id": "operations",
+        "digest": "sha256:0bcda9feeeed4eff4f7d1ee31c92f3b6a5e07f0cac49e9e27370c4a0ec98e99f",
+        "bytes": 1026,
+        "path": "config/operations.yaml"
+      },
+      {
+        "kind": "Agent",
+        "id": "support-analyst",
+        "digest": "sha256:7f9909b668353a9baa1406f40974fb186ce2b7821e4a0e73de1ed50ed35f0abe",
+        "bytes": 448,
+        "path": "config/support-analyst.yaml"
+      },
+      {
+        "kind": "Workflow",
+        "id": "support-draft",
+        "digest": "sha256:e418c1e17a16849e80ce10356e43ad06eb9c3704edc8a92d051beabaa5d6dff7",
+        "bytes": 2526,
+        "path": "config/support-draft.yaml"
+      }
+    ],
+    "workflows": [
+      "agent-smoke",
+      "operations-triage",
+      "support-draft"
+    ],
+    "agents": [
+      {
+        "id": "diagnostic",
+        "digest": "sha256:35a266b009b4ad079d89e79b6a387041fd6c58f192f1c3d98aa354181cddd2e8",
+        "engine": {
+          "anyOf": [
+            "pi",
+            "claude"
+          ],
+          "features": [
+            "sessions"
+          ]
+        },
+        "tools": [],
+        "maxTokens": 8192,
+        "maxMicroUsd": 0,
+        "maxTurns": 3,
+        "maxChildren": 0,
+        "maxDepth": 0,
+        "instructions": {
+          "path": "agents/diagnostic.md",
+          "digest": "sha256:5324f24e49ffd7858554c230d9128d160476c22436d23747bc6c1d13fc6bec0b",
+          "bytes": 109
+        }
+      },
+      {
+        "id": "operations-assistant",
+        "digest": "sha256:3efd66c8ebced8337f0b3418af7474ccb1896e272f37f4d30e686ca394a75931",
+        "engine": {
+          "anyOf": [
+            "pi",
+            "claude"
+          ],
+          "features": [
+            "sessions"
+          ]
+        },
+        "tools": [
+          {
+            "id": "operations.context",
+            "digest": "sha256:693bf4cf88405ab9b1845385eee2abcef51085c3dde0bc47de6ea0cebf6dafab"
+          }
+        ],
+        "maxTokens": 8192,
+        "maxMicroUsd": 0,
+        "maxTurns": 3,
+        "maxChildren": 0,
+        "maxDepth": 0,
+        "instructions": {
+          "path": "agents/operations-assistant.md",
+          "digest": "sha256:32e41cfa8efadea202184fc1f293d48a18fb49c9d70d291db8fd9a7fe2965610",
+          "bytes": 718
+        }
+      },
+      {
+        "id": "support-analyst",
+        "digest": "sha256:7f9909b668353a9baa1406f40974fb186ce2b7821e4a0e73de1ed50ed35f0abe",
+        "engine": {
+          "anyOf": [
+            "pi",
+            "claude"
+          ],
+          "features": [
+            "sessions"
+          ]
+        },
+        "tools": [],
+        "maxTokens": 8192,
+        "maxMicroUsd": 0,
+        "maxTurns": 3,
+        "maxChildren": 0,
+        "maxDepth": 0,
+        "instructions": {
+          "path": "agents/support-analyst.md",
+          "digest": "sha256:66f522d02f9e5631e93d408427bbb91f2c5adbb61393b5f056024781fcaeb8c7",
+          "bytes": 561
+        }
+      }
+    ],
+    "uiFoundation": "absent",
+    "ui": null,
+    "compilerDigest": "sha256:8697565666501e24d91403d9ebc346fcfd5dcd6eedcf866b49e976248e30ba1c",
+    "irArtifact": {
+      "artifactId": "config-ir",
+      "digest": "sha256:5899e9617187907a459fc9bbd0f554615e8788fce13ac091038c4748c95473e6",
+      "bytes": 11510,
+      "mediaType": "application/json",
+      "classification": "internal"
+    },
+    "schemaAssets": [
+      {
+        "path": "schemas/smoke-input.json",
+        "digest": "sha256:c58af53052babb5e13c6c5e79d317994a879f505c15979a4321c8e8941f7b74d",
+        "bytes": 248
+      },
+      {
+        "path": "schemas/workflow-output.json",
+        "digest": "sha256:1cf77e5ee48dae2a97cbb85a5b6b6288c760e72ab7008d306d6dd0651594f3f6",
+        "bytes": 256
+      },
+      {
+        "path": "schemas/smoke-output.json",
+        "digest": "sha256:0f48e3365174b3b283b6781fb66aa02e9a5329374c72766318cf0e306e5f56e6",
+        "bytes": 107
+      },
+      {
+        "path": "schemas/validation-output.json",
+        "digest": "sha256:ee68539497ed977d5f1fdf606a1a73a6494fd4503196debbe319d15b834ad1d4",
+        "bytes": 617
+      },
+      {
+        "path": "schemas/operations-input.json",
+        "digest": "sha256:e3aad2008b345c91b19d3065dbe59080567eda71652131e71ebd6c8a025cc8aa",
+        "bytes": 273
+      },
+      {
+        "path": "schemas/operations-output.json",
+        "digest": "sha256:9b2b4b3d7a10966f3d60b16fd67b74584cee8fb226257a0ea23b26c51eb20b36",
+        "bytes": 651
+      },
+      {
+        "path": "schemas/context-input.json",
+        "digest": "sha256:c104cf368d17c24cc0eccddadf5bed01149e7243f144a81e756a743e85307324",
+        "bytes": 137
+      },
+      {
+        "path": "schemas/context-output.json",
+        "digest": "sha256:aa48ba59f3e593ff75370984a6a437ec06be6956d1ab2b77321b1fd053fb65e5",
+        "bytes": 329
+      },
+      {
+        "path": "schemas/validation-input.json",
+        "digest": "sha256:f1e58754f133ae69a1dcb7cc6e90bcb571db0fda9e427e5b9709cbe93ae99431",
+        "bytes": 348
+      },
+      {
+        "path": "schemas/support-input.json",
+        "digest": "sha256:886537cbd643a8dda84f53aa95719561bddcd08dd32aa8563791d27f0bcc839f",
+        "bytes": 369
+      },
+      {
+        "path": "schemas/support-output.json",
+        "digest": "sha256:38e697e1592358250515c59024ae50dd667d8affc03d6d2999672d1fdc3e3829",
+        "bytes": 728
+      }
+    ],
+    "assets": [
+      {
+        "artifactId": "agent-smoke",
+        "digest": "sha256:424742dc3830a4d87a7a17a0af9a91c275031befa92d6315d59dac268fdba219",
+        "bytes": 2422,
+        "mediaType": "application/yaml",
+        "classification": "internal"
+      },
+      {
+        "artifactId": "agents",
+        "digest": "sha256:bcbc92211b061149b9133c26f225c5dad137e23d1071b6b74a0cfd966086fb40",
+        "bytes": 476,
+        "mediaType": "application/yaml",
+        "classification": "internal"
+      },
+      {
+        "artifactId": "diagnostic",
+        "digest": "sha256:35a266b009b4ad079d89e79b6a387041fd6c58f192f1c3d98aa354181cddd2e8",
+        "bytes": 438,
+        "mediaType": "application/yaml",
+        "classification": "internal"
+      },
+      {
+        "artifactId": "evaluators",
+        "digest": "sha256:0ffd4e210e784e3615e1d67e49705820e44c71963922c337e16ba7376e999e23",
+        "bytes": 483,
+        "mediaType": "application/yaml",
+        "classification": "internal"
+      },
+      {
+        "artifactId": "operations-assistant",
+        "digest": "sha256:3efd66c8ebced8337f0b3418af7474ccb1896e272f37f4d30e686ca394a75931",
+        "bytes": 607,
+        "mediaType": "application/yaml",
+        "classification": "internal"
+      },
+      {
+        "artifactId": "operations-policy",
+        "digest": "sha256:bbd7fe7098a681fcedeb4b6308bf1d6eeb4ff52bc57dd77418638807f0008baa",
+        "bytes": 442,
+        "mediaType": "application/yaml",
+        "classification": "internal"
+      },
+      {
+        "artifactId": "operations-triage",
+        "digest": "sha256:6343fcc6fda6ed6fff98fd78f7c751baea47da4a0fc12a354315b5509055572a",
+        "bytes": 2458,
+        "mediaType": "application/yaml",
+        "classification": "internal"
+      },
+      {
+        "artifactId": "operations-type",
+        "digest": "sha256:9fdc87accd1d0a5626d7fa936b96c66a155ac830c9f74b81377c8a4e06c9ee32",
+        "bytes": 352,
+        "mediaType": "application/yaml",
+        "classification": "internal"
+      },
+      {
+        "artifactId": "operations-validator",
+        "digest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f",
+        "bytes": 392,
+        "mediaType": "application/yaml",
+        "classification": "internal"
+      },
+      {
+        "artifactId": "operations.context",
+        "digest": "sha256:693bf4cf88405ab9b1845385eee2abcef51085c3dde0bc47de6ea0cebf6dafab",
+        "bytes": 563,
+        "mediaType": "application/yaml",
+        "classification": "internal"
+      },
+      {
+        "artifactId": "operations.validate",
+        "digest": "sha256:68cdd50093346745e560e7f688a7773866c1075e0b1d653e66067c27c6efeeee",
+        "bytes": 603,
+        "mediaType": "application/yaml",
+        "classification": "internal"
+      },
+      {
+        "artifactId": "operations",
+        "digest": "sha256:0bcda9feeeed4eff4f7d1ee31c92f3b6a5e07f0cac49e9e27370c4a0ec98e99f",
+        "bytes": 1026,
+        "mediaType": "application/yaml",
+        "classification": "internal"
+      },
+      {
+        "artifactId": "support-analyst",
+        "digest": "sha256:7f9909b668353a9baa1406f40974fb186ce2b7821e4a0e73de1ed50ed35f0abe",
+        "bytes": 448,
+        "mediaType": "application/yaml",
+        "classification": "internal"
+      },
+      {
+        "artifactId": "support-draft",
+        "digest": "sha256:e418c1e17a16849e80ce10356e43ad06eb9c3704edc8a92d051beabaa5d6dff7",
+        "bytes": 2526,
+        "mediaType": "application/yaml",
+        "classification": "internal"
+      }
+    ],
+    "primitiveVersions": {
+      "Workflow:agent-smoke": "sha256:424742dc3830a4d87a7a17a0af9a91c275031befa92d6315d59dac268fdba219",
+      "RunnerGroup:agents": "sha256:bcbc92211b061149b9133c26f225c5dad137e23d1071b6b74a0cfd966086fb40",
+      "Agent:diagnostic": "sha256:35a266b009b4ad079d89e79b6a387041fd6c58f192f1c3d98aa354181cddd2e8",
+      "RunnerGroup:evaluators": "sha256:0ffd4e210e784e3615e1d67e49705820e44c71963922c337e16ba7376e999e23",
+      "Agent:operations-assistant": "sha256:3efd66c8ebced8337f0b3418af7474ccb1896e272f37f4d30e686ca394a75931",
+      "Policy:operations-policy": "sha256:bbd7fe7098a681fcedeb4b6308bf1d6eeb4ff52bc57dd77418638807f0008baa",
+      "Workflow:operations-triage": "sha256:6343fcc6fda6ed6fff98fd78f7c751baea47da4a0fc12a354315b5509055572a",
+      "WorkspaceType:operations-type": "sha256:9fdc87accd1d0a5626d7fa936b96c66a155ac830c9f74b81377c8a4e06c9ee32",
+      "Evaluator:operations-validator": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f",
+      "Tool:operations.context": "sha256:693bf4cf88405ab9b1845385eee2abcef51085c3dde0bc47de6ea0cebf6dafab",
+      "Tool:operations.validate": "sha256:68cdd50093346745e560e7f688a7773866c1075e0b1d653e66067c27c6efeeee",
+      "Workspace:operations": "sha256:0bcda9feeeed4eff4f7d1ee31c92f3b6a5e07f0cac49e9e27370c4a0ec98e99f",
+      "Agent:support-analyst": "sha256:7f9909b668353a9baa1406f40974fb186ce2b7821e4a0e73de1ed50ed35f0abe",
+      "Workflow:support-draft": "sha256:e418c1e17a16849e80ce10356e43ad06eb9c3704edc8a92d051beabaa5d6dff7"
+    },
+    "tools": [
+      {
+        "id": "operations.context",
+        "digest": "sha256:693bf4cf88405ab9b1845385eee2abcef51085c3dde0bc47de6ea0cebf6dafab",
+        "effectClass": "read",
+        "inputSchemaRef": "schemas/context-input.json",
+        "outputSchemaRef": "schemas/context-output.json",
+        "allowedEnvironments": [
+          "local"
+        ],
+        "entrypoint": "run.sh",
+        "entrypointDigest": "sha256:2f94e76d15acf9b50666b5d2d64d1bcfddb02086ee51b61d1671b61a9288bc89"
+      },
+      {
+        "id": "operations.validate",
+        "digest": "sha256:68cdd50093346745e560e7f688a7773866c1075e0b1d653e66067c27c6efeeee",
+        "effectClass": "read",
+        "inputSchemaRef": "schemas/validation-input.json",
+        "outputSchemaRef": "schemas/validation-output.json",
+        "allowedEnvironments": [
+          "local"
+        ],
+        "entrypoint": "run.sh",
+        "entrypointDigest": "sha256:833d168af882f6bead910654d2359a76d0c2c03e986cd95169893464f31fa271"
+      }
+    ]
+  },
+  "workflows": {
+    "agent-smoke": {
+      "apiVersion": "brain.keyrus/v1",
+      "kind": "Workflow",
+      "metadata": {
+        "id": "agent-smoke",
+        "version": "1.0.0"
+      },
+      "spec": {
+        "inputSchemaRef": "schemas/smoke-input.json",
+        "outputSchemaRef": "schemas/workflow-output.json",
+        "jobs": {
+          "respond": {
+            "kind": "dispatch",
+            "needs": [],
+            "input": {
+              "message": {
+                "source": "input",
+                "pointer": "/message"
+              }
+            },
+            "outputSchemaRef": "schemas/smoke-output.json",
+            "timeoutSeconds": 120,
+            "uses": {
+              "type": "agent",
+              "release": {
+                "id": "diagnostic",
+                "digest": "sha256:35a266b009b4ad079d89e79b6a387041fd6c58f192f1c3d98aa354181cddd2e8"
+              }
+            },
+            "runsOn": {
+              "group": "agents",
+              "all": [
+                "os:linux"
+              ],
+              "resources": {
+                "cpuMillicores": 500,
+                "memoryMb": 256,
+                "diskMb": 256,
+                "slots": 1
+              },
+              "isolation": "ephemeral-container"
+            },
+            "effectClass": "read"
+          },
+          "validate": {
+            "kind": "eval",
+            "needs": [
+              "respond"
+            ],
+            "input": {
+              "kind": {
+                "source": "literal",
+                "value": "agent-smoke"
+              },
+              "report": {
+                "source": "job",
+                "jobId": "respond",
+                "pointer": ""
+              }
+            },
+            "outputSchemaRef": "schemas/validation-output.json",
+            "timeoutSeconds": 30,
+            "evaluator": {
+              "id": "operations-validator",
+              "digest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f"
+            },
+            "runsOn": {
+              "group": "evaluators",
+              "all": [
+                "os:linux",
+                "tool:bash",
+                "tool:python3"
+              ],
+              "resources": {
+                "cpuMillicores": 500,
+                "memoryMb": 256,
+                "diskMb": 256,
+                "slots": 1
+              },
+              "isolation": "ephemeral-container"
+            },
+            "independence": "L1"
+          }
+        },
+        "outputs": {
+          "response": {
+            "source": "job",
+            "jobId": "respond",
+            "pointer": ""
+          },
+          "passed": {
+            "source": "job",
+            "jobId": "validate",
+            "pointer": "/passed"
+          }
+        },
+        "failFast": true,
+        "deadlineSeconds": 300
+      }
+    },
+    "operations-triage": {
+      "apiVersion": "brain.keyrus/v1",
+      "kind": "Workflow",
+      "metadata": {
+        "id": "operations-triage",
+        "version": "1.0.0"
+      },
+      "spec": {
+        "inputSchemaRef": "schemas/operations-input.json",
+        "outputSchemaRef": "schemas/workflow-output.json",
+        "jobs": {
+          "respond": {
+            "kind": "dispatch",
+            "needs": [],
+            "input": {
+              "situation": {
+                "source": "input",
+                "pointer": "/situation"
+              }
+            },
+            "outputSchemaRef": "schemas/operations-output.json",
+            "timeoutSeconds": 120,
+            "uses": {
+              "type": "agent",
+              "release": {
+                "id": "operations-assistant",
+                "digest": "sha256:3efd66c8ebced8337f0b3418af7474ccb1896e272f37f4d30e686ca394a75931"
+              }
+            },
+            "runsOn": {
+              "group": "agents",
+              "all": [
+                "os:linux"
+              ],
+              "resources": {
+                "cpuMillicores": 500,
+                "memoryMb": 256,
+                "diskMb": 256,
+                "slots": 1
+              },
+              "isolation": "ephemeral-container"
+            },
+            "effectClass": "read"
+          },
+          "validate": {
+            "kind": "eval",
+            "needs": [
+              "respond"
+            ],
+            "input": {
+              "kind": {
+                "source": "literal",
+                "value": "operations-triage"
+              },
+              "report": {
+                "source": "job",
+                "jobId": "respond",
+                "pointer": ""
+              }
+            },
+            "outputSchemaRef": "schemas/validation-output.json",
+            "timeoutSeconds": 30,
+            "evaluator": {
+              "id": "operations-validator",
+              "digest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f"
+            },
+            "runsOn": {
+              "group": "evaluators",
+              "all": [
+                "os:linux",
+                "tool:bash",
+                "tool:python3"
+              ],
+              "resources": {
+                "cpuMillicores": 500,
+                "memoryMb": 256,
+                "diskMb": 256,
+                "slots": 1
+              },
+              "isolation": "ephemeral-container"
+            },
+            "independence": "L1"
+          }
+        },
+        "outputs": {
+          "response": {
+            "source": "job",
+            "jobId": "respond",
+            "pointer": ""
+          },
+          "passed": {
+            "source": "job",
+            "jobId": "validate",
+            "pointer": "/passed"
+          }
+        },
+        "failFast": true,
+        "deadlineSeconds": 300
+      }
+    },
+    "support-draft": {
+      "apiVersion": "brain.keyrus/v1",
+      "kind": "Workflow",
+      "metadata": {
+        "id": "support-draft",
+        "version": "1.0.0"
+      },
+      "spec": {
+        "inputSchemaRef": "schemas/support-input.json",
+        "outputSchemaRef": "schemas/workflow-output.json",
+        "jobs": {
+          "respond": {
+            "kind": "dispatch",
+            "needs": [],
+            "input": {
+              "title": {
+                "source": "input",
+                "pointer": "/title"
+              },
+              "body": {
+                "source": "input",
+                "pointer": "/body"
+              }
+            },
+            "outputSchemaRef": "schemas/support-output.json",
+            "timeoutSeconds": 120,
+            "uses": {
+              "type": "agent",
+              "release": {
+                "id": "support-analyst",
+                "digest": "sha256:7f9909b668353a9baa1406f40974fb186ce2b7821e4a0e73de1ed50ed35f0abe"
+              }
+            },
+            "runsOn": {
+              "group": "agents",
+              "all": [
+                "os:linux"
+              ],
+              "resources": {
+                "cpuMillicores": 500,
+                "memoryMb": 256,
+                "diskMb": 256,
+                "slots": 1
+              },
+              "isolation": "ephemeral-container"
+            },
+            "effectClass": "read"
+          },
+          "validate": {
+            "kind": "eval",
+            "needs": [
+              "respond"
+            ],
+            "input": {
+              "kind": {
+                "source": "literal",
+                "value": "support-draft"
+              },
+              "report": {
+                "source": "job",
+                "jobId": "respond",
+                "pointer": ""
+              }
+            },
+            "outputSchemaRef": "schemas/validation-output.json",
+            "timeoutSeconds": 30,
+            "evaluator": {
+              "id": "operations-validator",
+              "digest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f"
+            },
+            "runsOn": {
+              "group": "evaluators",
+              "all": [
+                "os:linux",
+                "tool:bash",
+                "tool:python3"
+              ],
+              "resources": {
+                "cpuMillicores": 500,
+                "memoryMb": 256,
+                "diskMb": 256,
+                "slots": 1
+              },
+              "isolation": "ephemeral-container"
+            },
+            "independence": "L1"
+          }
+        },
+        "outputs": {
+          "response": {
+            "source": "job",
+            "jobId": "respond",
+            "pointer": ""
+          },
+          "passed": {
+            "source": "job",
+            "jobId": "validate",
+            "pointer": "/passed"
+          }
+        },
+        "failFast": true,
+        "deadlineSeconds": 300
+      }
+    }
+  },
+  "agents": {
+    "diagnostic": {
+      "apiVersion": "brain.keyrus/v1",
+      "kind": "Agent",
+      "metadata": {
+        "id": "diagnostic",
+        "version": "1.0.0"
+      },
+      "spec": {
+        "instructionsPath": "agents/diagnostic.md",
+        "tools": [],
+        "engine": {
+          "anyOf": [
+            "pi",
+            "claude"
+          ],
+          "features": [
+            "sessions"
+          ]
+        },
+        "maxTurns": 3,
+        "maxChildren": 0,
+        "maxDepth": 0,
+        "maxTokens": 8192,
+        "maxMicroUsd": 0
+      }
+    },
+    "operations-assistant": {
+      "apiVersion": "brain.keyrus/v1",
+      "kind": "Agent",
+      "metadata": {
+        "id": "operations-assistant",
+        "version": "1.0.0"
+      },
+      "spec": {
+        "instructionsPath": "agents/operations-assistant.md",
+        "tools": [
+          {
+            "id": "operations.context",
+            "digest": "sha256:693bf4cf88405ab9b1845385eee2abcef51085c3dde0bc47de6ea0cebf6dafab"
+          }
+        ],
+        "engine": {
+          "anyOf": [
+            "pi",
+            "claude"
+          ],
+          "features": [
+            "sessions"
+          ]
+        },
+        "maxTurns": 3,
+        "maxChildren": 0,
+        "maxDepth": 0,
+        "maxTokens": 8192,
+        "maxMicroUsd": 0
+      }
+    },
+    "support-analyst": {
+      "apiVersion": "brain.keyrus/v1",
+      "kind": "Agent",
+      "metadata": {
+        "id": "support-analyst",
+        "version": "1.0.0"
+      },
+      "spec": {
+        "instructionsPath": "agents/support-analyst.md",
+        "tools": [],
+        "engine": {
+          "anyOf": [
+            "pi",
+            "claude"
+          ],
+          "features": [
+            "sessions"
+          ]
+        },
+        "maxTurns": 3,
+        "maxChildren": 0,
+        "maxDepth": 0,
+        "maxTokens": 8192,
+        "maxMicroUsd": 0
+      }
+    }
+  },
+  "evaluators": {
+    "operations-validator": {
+      "apiVersion": "brain.keyrus/v1",
+      "kind": "Evaluator",
+      "metadata": {
+        "id": "operations-validator",
+        "version": "1.0.0"
+      },
+      "spec": {
+        "tool": {
+          "id": "operations.validate",
+          "digest": "sha256:68cdd50093346745e560e7f688a7773866c1075e0b1d653e66067c27c6efeeee"
+        },
+        "requiredChecks": [
+          "structure",
+          "safety"
+        ],
+        "independence": "L1"
+      }
+    }
+  },
+  "tools": [
+    {
+      "id": "operations.context",
+      "digest": "sha256:693bf4cf88405ab9b1845385eee2abcef51085c3dde0bc47de6ea0cebf6dafab",
+      "effectClass": "read",
+      "inputSchemaRef": "schemas/context-input.json",
+      "outputSchemaRef": "schemas/context-output.json",
+      "allowedEnvironments": [
+        "local"
+      ],
+      "entrypoint": "run.sh",
+      "entrypointDigest": "sha256:2f94e76d15acf9b50666b5d2d64d1bcfddb02086ee51b61d1671b61a9288bc89"
+    },
+    {
+      "id": "operations.validate",
+      "digest": "sha256:68cdd50093346745e560e7f688a7773866c1075e0b1d653e66067c27c6efeeee",
+      "effectClass": "read",
+      "inputSchemaRef": "schemas/validation-input.json",
+      "outputSchemaRef": "schemas/validation-output.json",
+      "allowedEnvironments": [
+        "local"
+      ],
+      "entrypoint": "run.sh",
+      "entrypointDigest": "sha256:833d168af882f6bead910654d2359a76d0c2c03e986cd95169893464f31fa271"
+    }
+  ],
+  "schemas": {
+    "schemas/smoke-input.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string",
+          "const": "BRAIN_OK"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "schemas/workflow-output.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "response": {},
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "response",
+        "passed"
+      ],
+      "additionalProperties": false
+    },
+    "schemas/smoke-output.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "string",
+      "const": "BRAIN_OK"
+    },
+    "schemas/validation-output.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "passed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "passed"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 2
+        }
+      },
+      "required": [
+        "passed",
+        "checks"
+      ],
+      "additionalProperties": false
+    },
+    "schemas/operations-input.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "situation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        }
+      },
+      "required": [
+        "situation"
+      ],
+      "additionalProperties": false
+    },
+    "schemas/operations-output.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          },
+          "maxItems": 20
+        },
+        "nextActions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          },
+          "maxItems": 20
+        }
+      },
+      "required": [
+        "summary",
+        "blockers",
+        "nextActions"
+      ],
+      "additionalProperties": false
+    },
+    "schemas/context-input.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "schemas/context-output.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "observations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "observations",
+        "limitations"
+      ],
+      "additionalProperties": false
+    },
+    "schemas/validation-input.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "agent-smoke",
+            "operations-triage",
+            "support-draft"
+          ]
+        },
+        "report": {}
+      },
+      "required": [
+        "kind",
+        "report"
+      ],
+      "additionalProperties": false
+    },
+    "schemas/support-input.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        }
+      },
+      "required": [
+        "title",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "schemas/support-output.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        },
+        "missingInformation": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          },
+          "maxItems": 20
+        },
+        "risk": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "proposedReply": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        }
+      },
+      "required": [
+        "summary",
+        "missingInformation",
+        "risk",
+        "proposedReply"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
+{
+  "commandId": "4782bc81-7bf4-4560-8344-0fdeece0d385",
+  "accepted": true,
+  "outcome": "applied",
+  "resourceId": "sha256:eafad9165bf0b93928bf24d49a30acf694927cd3fdd1170cbad775a9fab4de51"
+}
+pi 1.4.0: model qwen3.8-flash-next-a5b available
+[brain-up] using local memory; no external TencentDB configured
+[brain-up] governor already running (pid 100886)
+[brain-up] governor ready at http://127.0.0.1:3100
+[brain-up] launcher already running (pid 100995)
+[brain-up] launcher socket ready at /tmp/brain-run.nkZ9Uw/launcher.sock
+runner-agents-1: connected; log /tmp/brain-run.nkZ9Uw/runner-agents-1.log
+runner-evaluators-1: connected; log /tmp/brain-run.nkZ9Uw/runner-evaluators-1.log
+[brain-up] stack up: governor http://127.0.0.1:3100 | launcher /tmp/brain-run.nkZ9Uw/launcher.sock | data /tmp/brain-data.Hq2tb3 | logs /tmp/brain-run.nkZ9Uw
+[brain-up] stop with: scripts/down.sh
+{
+  "queryType": "workflows.list",
+  "snapshot": {
+    "items": [
+      {
+        "release": {
+          "id": "agent-smoke",
+          "digest": "sha256:424742dc3830a4d87a7a17a0af9a91c275031befa92d6315d59dac268fdba219"
+        },
+        "configDigest": "sha256:eafad9165bf0b93928bf24d49a30acf694927cd3fdd1170cbad775a9fab4de51",
+        "definition": {
+          "apiVersion": "brain.keyrus/v1",
+          "kind": "Workflow",
+          "metadata": {
+            "id": "agent-smoke",
+            "version": "1.0.0"
+          },
+          "spec": {
+            "inputSchemaRef": "schemas/smoke-input.json",
+            "outputSchemaRef": "schemas/workflow-output.json",
+            "jobs": {
+              "respond": {
+                "kind": "dispatch",
+                "needs": [],
+                "input": {
+                  "message": {
+                    "source": "input",
+                    "pointer": "/message"
+                  }
+                },
+                "outputSchemaRef": "schemas/smoke-output.json",
+                "timeoutSeconds": 120,
+                "uses": {
+                  "type": "agent",
+                  "release": {
+                    "id": "diagnostic",
+                    "digest": "sha256:35a266b009b4ad079d89e79b6a387041fd6c58f192f1c3d98aa354181cddd2e8"
+                  }
+                },
+                "runsOn": {
+                  "group": "agents",
+                  "all": [
+                    "os:linux"
+                  ],
+                  "resources": {
+                    "cpuMillicores": 500,
+                    "memoryMb": 256,
+                    "diskMb": 256,
+                    "slots": 1
+                  },
+                  "isolation": "ephemeral-container"
+                },
+                "effectClass": "read"
+              },
+              "validate": {
+                "kind": "eval",
+                "needs": [
+                  "respond"
+                ],
+                "input": {
+                  "kind": {
+                    "source": "literal",
+                    "value": "agent-smoke"
+                  },
+                  "report": {
+                    "source": "job",
+                    "jobId": "respond",
+                    "pointer": ""
+                  }
+                },
+                "outputSchemaRef": "schemas/validation-output.json",
+                "timeoutSeconds": 30,
+                "evaluator": {
+                  "id": "operations-validator",
+                  "digest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f"
+                },
+                "runsOn": {
+                  "group": "evaluators",
+                  "all": [
+                    "os:linux",
+                    "tool:bash",
+                    "tool:python3"
+                  ],
+                  "resources": {
+                    "cpuMillicores": 500,
+                    "memoryMb": 256,
+                    "diskMb": 256,
+                    "slots": 1
+                  },
+                  "isolation": "ephemeral-container"
+                },
+                "independence": "L1"
+              }
+            },
+            "outputs": {
+              "response": {
+                "source": "job",
+                "jobId": "respond",
+                "pointer": ""
+              },
+              "passed": {
+                "source": "job",
+                "jobId": "validate",
+                "pointer": "/passed"
+              }
+            },
+            "failFast": true,
+            "deadlineSeconds": 300
+          }
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string",
+              "const": "BRAIN_OK"
+            }
+          },
+          "required": [
+            "message"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "response": {},
+            "passed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "response",
+            "passed"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "release": {
+          "id": "operations-triage",
+          "digest": "sha256:6343fcc6fda6ed6fff98fd78f7c751baea47da4a0fc12a354315b5509055572a"
+        },
+        "configDigest": "sha256:eafad9165bf0b93928bf24d49a30acf694927cd3fdd1170cbad775a9fab4de51",
+        "definition": {
+          "apiVersion": "brain.keyrus/v1",
+          "kind": "Workflow",
+          "metadata": {
+            "id": "operations-triage",
+            "version": "1.0.0"
+          },
+          "spec": {
+            "inputSchemaRef": "schemas/operations-input.json",
+            "outputSchemaRef": "schemas/workflow-output.json",
+            "jobs": {
+              "respond": {
+                "kind": "dispatch",
+                "needs": [],
+                "input": {
+                  "situation": {
+                    "source": "input",
+                    "pointer": "/situation"
+                  }
+                },
+                "outputSchemaRef": "schemas/operations-output.json",
+                "timeoutSeconds": 120,
+                "uses": {
+                  "type": "agent",
+                  "release": {
+                    "id": "operations-assistant",
+                    "digest": "sha256:3efd66c8ebced8337f0b3418af7474ccb1896e272f37f4d30e686ca394a75931"
+                  }
+                },
+                "runsOn": {
+                  "group": "agents",
+                  "all": [
+                    "os:linux"
+                  ],
+                  "resources": {
+                    "cpuMillicores": 500,
+                    "memoryMb": 256,
+                    "diskMb": 256,
+                    "slots": 1
+                  },
+                  "isolation": "ephemeral-container"
+                },
+                "effectClass": "read"
+              },
+              "validate": {
+                "kind": "eval",
+                "needs": [
+                  "respond"
+                ],
+                "input": {
+                  "kind": {
+                    "source": "literal",
+                    "value": "operations-triage"
+                  },
+                  "report": {
+                    "source": "job",
+                    "jobId": "respond",
+                    "pointer": ""
+                  }
+                },
+                "outputSchemaRef": "schemas/validation-output.json",
+                "timeoutSeconds": 30,
+                "evaluator": {
+                  "id": "operations-validator",
+                  "digest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f"
+                },
+                "runsOn": {
+                  "group": "evaluators",
+                  "all": [
+                    "os:linux",
+                    "tool:bash",
+                    "tool:python3"
+                  ],
+                  "resources": {
+                    "cpuMillicores": 500,
+                    "memoryMb": 256,
+                    "diskMb": 256,
+                    "slots": 1
+                  },
+                  "isolation": "ephemeral-container"
+                },
+                "independence": "L1"
+              }
+            },
+            "outputs": {
+              "response": {
+                "source": "job",
+                "jobId": "respond",
+                "pointer": ""
+              },
+              "passed": {
+                "source": "job",
+                "jobId": "validate",
+                "pointer": "/passed"
+              }
+            },
+            "failFast": true,
+            "deadlineSeconds": 300
+          }
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "situation": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 10000
+            }
+          },
+          "required": [
+            "situation"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "response": {},
+            "passed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "response",
+            "passed"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "release": {
+          "id": "support-draft",
+          "digest": "sha256:e418c1e17a16849e80ce10356e43ad06eb9c3704edc8a92d051beabaa5d6dff7"
+        },
+        "configDigest": "sha256:eafad9165bf0b93928bf24d49a30acf694927cd3fdd1170cbad775a9fab4de51",
+        "definition": {
+          "apiVersion": "brain.keyrus/v1",
+          "kind": "Workflow",
+          "metadata": {
+            "id": "support-draft",
+            "version": "1.0.0"
+          },
+          "spec": {
+            "inputSchemaRef": "schemas/support-input.json",
+            "outputSchemaRef": "schemas/workflow-output.json",
+            "jobs": {
+              "respond": {
+                "kind": "dispatch",
+                "needs": [],
+                "input": {
+                  "title": {
+                    "source": "input",
+                    "pointer": "/title"
+                  },
+                  "body": {
+                    "source": "input",
+                    "pointer": "/body"
+                  }
+                },
+                "outputSchemaRef": "schemas/support-output.json",
+                "timeoutSeconds": 120,
+                "uses": {
+                  "type": "agent",
+                  "release": {
+                    "id": "support-analyst",
+                    "digest": "sha256:7f9909b668353a9baa1406f40974fb186ce2b7821e4a0e73de1ed50ed35f0abe"
+                  }
+                },
+                "runsOn": {
+                  "group": "agents",
+                  "all": [
+                    "os:linux"
+                  ],
+                  "resources": {
+                    "cpuMillicores": 500,
+                    "memoryMb": 256,
+                    "diskMb": 256,
+                    "slots": 1
+                  },
+                  "isolation": "ephemeral-container"
+                },
+                "effectClass": "read"
+              },
+              "validate": {
+                "kind": "eval",
+                "needs": [
+                  "respond"
+                ],
+                "input": {
+                  "kind": {
+                    "source": "literal",
+                    "value": "support-draft"
+                  },
+                  "report": {
+                    "source": "job",
+                    "jobId": "respond",
+                    "pointer": ""
+                  }
+                },
+                "outputSchemaRef": "schemas/validation-output.json",
+                "timeoutSeconds": 30,
+                "evaluator": {
+                  "id": "operations-validator",
+                  "digest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f"
+                },
+                "runsOn": {
+                  "group": "evaluators",
+                  "all": [
+                    "os:linux",
+                    "tool:bash",
+                    "tool:python3"
+                  ],
+                  "resources": {
+                    "cpuMillicores": 500,
+                    "memoryMb": 256,
+                    "diskMb": 256,
+                    "slots": 1
+                  },
+                  "isolation": "ephemeral-container"
+                },
+                "independence": "L1"
+              }
+            },
+            "outputs": {
+              "response": {
+                "source": "job",
+                "jobId": "respond",
+                "pointer": ""
+              },
+              "passed": {
+                "source": "job",
+                "jobId": "validate",
+                "pointer": "/passed"
+              }
+            },
+            "failFast": true,
+            "deadlineSeconds": 300
+          }
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 10000
+            },
+            "body": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 10000
+            }
+          },
+          "required": [
+            "title",
+            "body"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "response": {},
+            "passed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "response",
+            "passed"
+          ],
+          "additionalProperties": false
+        }
+      }
+    ]
+  },
+  "cursor": "",
+  "sourceWatermark": 3,
+  "asOf": "2026-10-29T07:40:45.153Z",
+  "projectionLagMs": 0
+}
+{
+  "workspaceId": "operations",
+  "configDigest": "sha256:eafad9165bf0b93928bf24d49a30acf694927cd3fdd1170cbad775a9fab4de51",
+  "ready": true,
+  "smokeVerified": false,
+  "checks": [
+    {
+      "id": "release",
+      "status": "ready",
+      "detail": "sha256:eafad9165bf0b93928bf24d49a30acf694927cd3fdd1170cbad775a9fab4de51",
+      "nextAction": "Inspect Agents and Workflows"
+    },
+    {
+      "id": "workflow:agent-smoke",
+      "status": "ready",
+      "detail": "Agent/model requirements and runner placement are available",
+      "nextAction": "Dispatch agent-smoke"
+    },
+    {
+      "id": "workflow:operations-triage",
+      "status": "ready",
+      "detail": "Agent/model requirements and runner placement are available",
+      "nextAction": "Dispatch operations-triage"
+    },
+    {
+      "id": "workflow:support-draft",
+      "status": "ready",
+      "detail": "Agent/model requirements and runner placement are available",
+      "nextAction": "Dispatch support-draft"
+    },
+    {
+      "id": "smoke",
+      "status": "unverified",
+      "detail": "No accepted smoke run for this release",
+      "nextAction": "Run agent-smoke with message BRAIN_OK and inspect independent evidence"
+    }
+  ],
+  "memoryMode": "local",
+  "asOf": "2026-10-29T07:40:45.518Z"
+}
+{
+  "commandId": "fb28baf1-f340-461d-a3ac-cb1dea1715d1",
+  "accepted": true,
+  "outcome": "queued",
+  "resourceId": "run-mvt8hqd9-8-umyfpcwx"
+}
+[brain-down] runner-agents-1 stopped (pid 101673)
+[brain-down] runner-evaluators-1 stopped (pid 101705)
+[brain-down] launcher stopped (pid 100995)
+[brain-down] governor stopped (pid 100886)
+[brain-down] stack down (data preserved in /tmp/brain-data.Hq2tb3; tencentdb is external and untouched)

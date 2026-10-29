@@ -1,0 +1,1470 @@
+$ pnpm verify:change && pnpm test:chaos && pnpm test:certification && pnpm test:browser
+$ pnpm verify:fast && pnpm test:integration && pnpm test:security
+$ pnpm typecheck && pnpm typecheck:web && pnpm typecheck:browser && pnpm check:boundaries && pnpm --filter @brain/governor auth:schema --check && pnpm test:contracts && pnpm test:domain
+$ tsc --noEmit --pretty false -p tsconfig.typecheck.json
+$ pnpm --filter @brain/web typecheck
+$ tsc --noEmit --pretty false
+$ tsc --noEmit --pretty false -p tsconfig.browser.json
+$ node scripts/check-boundaries.mjs
+boundaries OK
+$ node --import tsx scripts/generate-auth-schema.ts --check
+Better Auth fresh schema generated/verified
+$ vitest run tests/contracts
+
+ RUN  v5.0.5 /home/talel/dev/rd2026/brain
+
+ ✓ tests/contracts/contracts.test.ts (5 tests) 70ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  08:35:21
+   Duration  266ms (import 52%, tests 38%, transform 9%, worker 1%)
+
+$ vitest run tests/domain
+
+ RUN  v5.0.5 /home/talel/dev/rd2026/brain
+
+ ✓ tests/domain/web-units.test.ts (2 tests) 10ms
+ ✓ tests/domain/placement.test.ts (3 tests) 12ms
+ ✓ tests/domain/schedule.test.ts (4 tests) 643ms
+ ✓ tests/domain/states.test.ts (3 tests) 52ms
+ ✓ tests/domain/workflow-compiler.test.ts (4 tests) 76ms
+ ✓ tests/domain/config-resolution.test.ts (11 tests) 1394ms
+   ✓ config resolution and compiler bounds (T09) (11)
+     ✓ cron DST policy: gap fires after gap, repeated hour fires once, ids unique (E030) 1283ms
+
+ Test Files  6 passed (6)
+      Tests  27 passed (27)
+   Start at  08:35:21
+   Duration  2.10s (tests 51%, import 43%, transform 5%, worker 1%)
+
+$ vitest run tests/integration
+
+ RUN  v5.0.5 /home/talel/dev/rd2026/brain
+
+stderr | tests/integration/core.test.ts > core integration > exact approval + step-up + decision recovery (E051/E095)
+2026-10-29T07:35:26.427Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:26.428Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/scenarios.test.ts > scenario gaps (T50 batch 1) > config activation CAS rejects a stale expected digest (E021)
+2026-10-29T07:35:26.714Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/offers.test.ts
+2026-10-29T07:35:26.724Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/integration/offers.test.ts (1 test) 652ms
+   ✓ JobOffer runtime conformance (T02) (1)
+     ✓ claim returns a schema-valid JobOffer whose execution artifact is fetchable and digest-true 648ms
+stderr | tests/integration/scenarios.test.ts > scenario gaps (T50 batch 1) > offer expiry requeues the job for another runner (E036)
+2026-10-29T07:35:26.880Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/scenarios.test.ts > scenario gaps (T50 batch 1) > heartbeat sequence regression and changed body are rejected (E039)
+2026-10-29T07:35:26.942Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/scenarios.test.ts > scenario gaps (T50 batch 1) > stale-fence completion is quarantined, never finalizing (E042)
+2026-10-29T07:35:26.983Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/scenarios.test.ts > scenario gaps (T50 batch 1) > one approval yields one permit; replay returns the same permit (E053/E054)
+2026-10-29T07:35:27.040Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/scenarios.test.ts > scenario gaps (T50 batch 1) > one approval yields one permit; replay returns the same permit (E053/E054)
+2026-10-29T07:35:27.081Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/core.test.ts > core integration > fresh storage initializes and health is ready (T04)
+2026-10-29T07:35:27.192Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/core.test.ts > core integration
+2026-10-29T07:35:27.260Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/core.test.ts
+2026-10-29T07:35:27.264Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/integration/core.test.ts (6 tests) 1395ms
+   ✓ core integration (6)
+     ✓ idempotent commands return one receipt; changed payload conflicts (E006/E007) 405ms
+     ✓ exact approval + step-up + decision recovery (E051/E095) 363ms
+     ✓ cross-tenant workspace access is hidden as not found (E002) 386ms
+stderr | tests/integration/scenarios3.test.ts > scenario gaps (T50 batch 3: connectors, tools, storage) > CAS GC retains referenced and in-flight bytes; incomplete uploads never publish (E090)
+2026-10-29T07:35:27.292Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/scenarios3.test.ts > scenario gaps (T50 batch 3: connectors, tools, storage) > schema/protocol skew is refused with diagnostics, never converted (E100)
+2026-10-29T07:35:27.370Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/scenarios3.test.ts > scenario gaps (T50 batch 3: connectors, tools, storage)
+2026-10-29T07:35:27.520Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/scenarios3.test.ts
+2026-10-29T07:35:27.522Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:27.522Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/integration/scenarios3.test.ts (9 tests) 1309ms
+   ✓ scenario gaps (T50 batch 3: connectors, tools, storage) (9)
+     ✓ unsupported fixture checkpointing is explicit; absent-reconcile permits a new attempt (E071) 435ms
+stderr | ConsoleLogger.error (file:/home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/logger-DGUE8DHx.js:245:194)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/permits.test.ts
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+ ✓ tests/integration/permits.test.ts (1 test) 1896ms
+   ✓ effect permits (T14) (1)
+     ✓ a permit is bound to its attempt and invocation; replay is exact and current-only 1892ms
+stderr | tests/integration/scenarios.test.ts > scenario gaps (T50 batch 1) > one approval yields one permit; replay returns the same permit (E053/E054)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+ ✓ tests/integration/golden.test.ts (1 test) 2313ms
+   ✓ golden workflow end-to-end (T29/T30, G03 smoke) (1)
+     ✓ dispatches echo, runs both fixture tools on separate runners, verifies output 2307ms
+stderr | tests/integration/mastra-conformance.test.ts > Mastra WorkflowEnginePort conformance (T29/T30) > registration/store failure blocks the run; no step is guessed successful (E025)
+[STORAGE] LibSQLStore: Failed to set PRAGMA journal_mode=WAL. LibsqlError: SQLITE_NOTADB: file is not a database
+    at mapSqliteError (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:653:16)
+    at executeStmt (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:556:15)
+    at Sqlite3Client.execute (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:245:20)
+    at async run (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+libsql@1.27.0_@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typeb_fa7af1e64a135deac6370347a688a28d/node_modules/@mastra/libsql/dist/index.js:242:11)
+    at async LibSQLStore.applyLocalPragmas (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+libsql@1.27.0_@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typeb_fa7af1e64a135deac6370347a688a28d/node_modules/@mastra/libsql/dist/index.js:16783:4) {
+  code: 'SQLITE_NOTADB',
+  extendedCode: 'SQLITE_NOTADB',
+  rawCode: 26,
+  [cause]: SqliteError: file is not a database
+      at convertError (/home/talel/dev/rd2026/brain/node_modules/.pnpm/libsql@0.5.29/node_modules/libsql/index.js:59:12)
+      at Database.prepare (/home/talel/dev/rd2026/brain/node_modules/.pnpm/libsql@0.5.29/node_modules/libsql/index.js:131:13)
+      at executeStmt (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:527:28)
+      at Sqlite3Client.execute (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:245:20)
+      at async run (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+libsql@1.27.0_@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typeb_fa7af1e64a135deac6370347a688a28d/node_modules/@mastra/libsql/dist/index.js:242:11)
+      at async LibSQLStore.applyLocalPragmas (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+libsql@1.27.0_@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typeb_fa7af1e64a135deac6370347a688a28d/node_modules/@mastra/libsql/dist/index.js:16783:4) {
+    code: 'SQLITE_NOTADB',
+    rawCode: 26
+  }
+}
+
+stderr | tests/integration/mastra-conformance.test.ts > Mastra WorkflowEnginePort conformance (T29/T30) > registration/store failure blocks the run; no step is guessed successful (E025)
+[STORAGE] LibSQLStore: Failed to set PRAGMA synchronous=NORMAL. LibsqlError: SQLITE_NOTADB: file is not a database
+    at mapSqliteError (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:653:16)
+    at executeStmt (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:556:15)
+    at Sqlite3Client.execute (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:245:20)
+    ... 5 lines matching cause stack trace ...
+    at async Workflow.getWorkflowRunById (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:8309:26)
+    at async Workflow.createRun (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:7869:65) {
+  code: 'SQLITE_NOTADB',
+  extendedCode: 'SQLITE_NOTADB',
+  rawCode: 26,
+  [cause]: SqliteError: file is not a database
+      at convertError (/home/talel/dev/rd2026/brain/node_modules/.pnpm/libsql@0.5.29/node_modules/libsql/index.js:59:12)
+      at Database.prepare (/home/talel/dev/rd2026/brain/node_modules/.pnpm/libsql@0.5.29/node_modules/libsql/index.js:131:13)
+      at executeStmt (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:527:28)
+      at Sqlite3Client.execute (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:245:20)
+      at async run (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+libsql@1.27.0_@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typeb_fa7af1e64a135deac6370347a688a28d/node_modules/@mastra/libsql/dist/index.js:242:11)
+      at async LibSQLStore.applyLocalPragmas (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+libsql@1.27.0_@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typeb_fa7af1e64a135deac6370347a688a28d/node_modules/@mastra/libsql/dist/index.js:16783:4)
+      at async LibSQLStore.init (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+libsql@1.27.0_@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typeb_fa7af1e64a135deac6370347a688a28d/node_modules/@mastra/libsql/dist/index.js:16824:3)
+      at async ensureInit (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/storageWithInit-BrCQ3qiU.js:27:3)
+      at async Proxy.<anonymous> (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/storageWithInit-BrCQ3qiU.js:39:5)
+      at async Workflow.getWorkflowRunById (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:8309:26) {
+    code: 'SQLITE_NOTADB',
+    rawCode: 26
+  }
+}
+
+stderr | tests/integration/mastra-conformance.test.ts > Mastra WorkflowEnginePort conformance (T29/T30) > registration/store failure blocks the run; no step is guessed successful (E025)
+[STORAGE] LibSQLStore: Failed to set PRAGMA cache_size=-16000. LibsqlError: SQLITE_NOTADB: file is not a database
+    at mapSqliteError (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:653:16)
+    at executeStmt (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:556:15)
+    at Sqlite3Client.execute (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:245:20)
+    ... 5 lines matching cause stack trace ...
+    at async Workflow.getWorkflowRunById (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:8309:26)
+    at async Workflow.createRun (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:7869:65) {
+  code: 'SQLITE_NOTADB',
+  extendedCode: 'SQLITE_NOTADB',
+  rawCode: 26,
+  [cause]: SqliteError: file is not a database
+      at convertError (/home/talel/dev/rd2026/brain/node_modules/.pnpm/libsql@0.5.29/node_modules/libsql/index.js:59:12)
+      at Database.prepare (/home/talel/dev/rd2026/brain/node_modules/.pnpm/libsql@0.5.29/node_modules/libsql/index.js:131:13)
+      at executeStmt (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:527:28)
+      at Sqlite3Client.execute (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:245:20)
+      at async run (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+libsql@1.27.0_@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typeb_fa7af1e64a135deac6370347a688a28d/node_modules/@mastra/libsql/dist/index.js:242:11)
+      at async LibSQLStore.applyLocalPragmas (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+libsql@1.27.0_@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typeb_fa7af1e64a135deac6370347a688a28d/node_modules/@mastra/libsql/dist/index.js:16783:4)
+      at async LibSQLStore.init (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+libsql@1.27.0_@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typeb_fa7af1e64a135deac6370347a688a28d/node_modules/@mastra/libsql/dist/index.js:16824:3)
+      at async ensureInit (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/storageWithInit-BrCQ3qiU.js:27:3)
+      at async Proxy.<anonymous> (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/storageWithInit-BrCQ3qiU.js:39:5)
+      at async Workflow.getWorkflowRunById (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:8309:26) {
+    code: 'SQLITE_NOTADB',
+    rawCode: 26
+  }
+}
+
+stderr | tests/integration/scenarios.test.ts > scenario gaps (T50 batch 1)
+2026-10-29T07:35:28.764Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | ConsoleLogger.error (file:/home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/logger-DGUE8DHx.js:245:194)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+ ✓ tests/integration/scenarios.test.ts (11 tests) 2691ms
+   ✓ scenario gaps (T50 batch 1) (11)
+     ✓ different actors may reuse an idempotency key independently (E008) 569ms
+     ✓ one approval yields one permit; replay returns the same permit (E053/E054) 1590ms
+stderr | tests/integration/mastra-conformance.test.ts > Mastra WorkflowEnginePort conformance (T29/T30) > registration/store failure blocks the run; no step is guessed successful (E025)
+[STORAGE] Storage init failed; will retry on next storage call {
+  error: MastraError: SQLITE_NOTADB: file is not a database
+      at LibSQLDB.createTable (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+libsql@1.27.0_@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typeb_fa7af1e64a135deac6370347a688a28d/node_modules/@mastra/libsql/dist/index.js:2254:10)
+      at async ScoresLibSQL.init (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+libsql@1.27.0_@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typeb_fa7af1e64a135deac6370347a688a28d/node_modules/@mastra/libsql/dist/index.js:13876:3)
+      ... 3 lines matching cause stack trace ...
+      at async Proxy.<anonymous> (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/storageWithInit-BrCQ3qiU.js:39:5)
+      at async Workflow.getWorkflowRunById (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:8309:26)
+      at async Workflow.createRun (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:7869:65)
+      at MastraWorkflowEngine.drive (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:370:19) {
+    cause: LibsqlError: SQLITE_NOTADB: file is not a database
+        at mapSqliteError (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:653:16)
+        at executeStmt (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:556:15)
+        at Sqlite3Client.execute (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@libsql+client@0.18.0/node_modules/@libsql/client/lib-esm/sqlite3.js:245:20)
+        ... 5 lines matching cause stack trace ...
+        at async ensureInit (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/storageWithInit-BrCQ3qiU.js:27:3)
+        at async Proxy.<anonymous> (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/storageWithInit-BrCQ3qiU.js:39:5) {
+      code: 'SQLITE_NOTADB',
+      extendedCode: 'SQLITE_NOTADB',
+      rawCode: 26,
+      [cause]: [SqliteError]
+    },
+    id: 'MASTRA_STORAGE_LIBSQL_CREATE_TABLE_FAILED',
+    domain: 'STORAGE',
+    category: 'THIRD_PARTY',
+    details: { tableName: 'mastra_scorers' }
+  }
+}
+
+ ✓ tests/integration/tls.test.ts (2 tests) 4087ms
+   ✓ TLS serving (T06) (2)
+     ✓ serves HTTPS with an operator-provided certificate; plaintext gets no HTTP response 4079ms
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > rejects altered author configDigest before bundle or evaluator publication
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/mastra-conformance.test.ts > Mastra WorkflowEnginePort conformance (T29/T30) > Brain in mastra mode creates real jobs and fails the run on step failure
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: BrainDomainError: step echo completed with failure
+    at MastraWorkflowEngine.applyResume (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:357:27)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:516:25)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+    at file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5508:56
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+
+ ✓ tests/integration/mastra-conformance.test.ts (5 tests) 3018ms
+   ✓ Mastra WorkflowEnginePort conformance (T29/T30) (5)
+     ✓ drives dispatch -> gate -> dispatch with durable suspend/resume across engine restart 1549ms
+     ✓ holds 100 suspended gates and wakes each exactly once after restart (T30) 887ms
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > rejects altered author workflowDigest before bundle or evaluator publication
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2: runs, scheduler, permits) > past-deadline jobs are never claimed; failed runs stay failed (E029)
+2026-10-29T07:35:29.214Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > does not let another runner complete or submit the author's attempt (E073)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2: runs, scheduler, permits) > atomic reservations prevent oversubscription of one runner (E032)
+2026-10-29T07:35:29.384Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2: runs, scheduler, permits) > new hello epoch fences the old runner session; privileged claims stay unverified (E038/E033)
+2026-10-29T07:35:29.460Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:29.461Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > rejects invented-attempt without accepting or completing author work
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2: runs, scheduler, permits) > zero-capacity runner admits nothing (E040)
+2026-10-29T07:35:29.539Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2: runs, scheduler, permits) > disconnect beyond lease becomes outcome_unknown, never blind-requeued (E041)
+2026-10-29T07:35:29.589Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2: runs, scheduler, permits) > resource fence counter strictly increases across lease deletion (E043)
+2026-10-29T07:35:29.651Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > rejects self-evaluation without accepting or completing author work
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2: runs, scheduler, permits) > resource fence counter strictly increases across lease deletion (E043)
+2026-10-29T07:35:29.713Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > rejects wrong-identity without accepting or completing author work
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/memory.test.ts > reviewed memory publication (T39) > revoke removes retrieval; export stays honestly partial; outsiders cannot search
+2026-10-29T07:35:29.852Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/memory.test.ts > reviewed memory publication (T39) > revoke removes retrieval; export stays honestly partial; outsiders cannot search
+2026-10-29T07:35:29.854Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/memory.test.ts
+2026-10-29T07:35:29.857Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/integration/memory.test.ts (3 tests) 603ms
+   ✓ reviewed memory publication (T39) (3)
+     ✓ publishes reviewed CAS content and retrieves it with provenance; degraded honesty preserved 420ms
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2: runs, scheduler, permits) > resource fence counter strictly increases across lease deletion (E043)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2: runs, scheduler, permits) > resource fence counter strictly increases across lease deletion (E043)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: BrainDomainError: step echo completed with failure
+    at MastraWorkflowEngine.applyResume (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:357:27)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:516:25)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+    at file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5508:56
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14)
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2: runs, scheduler, permits) > resource fence counter strictly increases across lease deletion (E043)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+ ✓ tests/integration/storage.test.ts (3 tests) 516ms
+   ✓ storage initialization and bounds (T04) (3)
+     ✓ LRU keeps at most the configured handles across 48 workspaces; data survives eviction 421ms
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2: runs, scheduler, permits) > resource fence counter strictly increases across lease deletion (E043)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > rejects missing-check without accepting or completing author work
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2: runs, scheduler, permits) > resource fence counter strictly increases across lease deletion (E043)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2: runs, scheduler, permits) > resource fence counter strictly increases across lease deletion (E043)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+ ✓ tests/integration/channels.test.ts (1 test) 750ms
+   ✓ channel parity (T32) (1)
+     ✓ MCP refuses humans and approval decisions; agent command/query matches HTTP exactly 747ms
+stderr | tests/integration/config-release.test.ts
+2026-10-29T07:35:30.074Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:30.075Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > rejects wrong-oracle without accepting or completing author work
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+ ✓ tests/integration/sse.test.ts (1 test) 4164ms
+   ✓ live SSE replay (T06) (1)
+     ✓ streams new authorized events after the replay cursor and closes on revocation 4157ms
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2: runs, scheduler, permits) > quarantine mid-job revokes permit validity and blocks new permits (E046)
+2026-10-29T07:35:30.234Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/integration/cli.test.ts (4 tests) 4247ms
+   ✓ CLI native credential flow (2)
+     ✓ sets up, persists a private native session, runs a shared command and logs out 1155ms
+     ✓ completes a native second-factor sign-in without printing credentials 523ms
+   ✓ CLI configuration and workflow operations (2)
+     ✓ compiles a full release without activation, inspects, activates, lists, and dispatches 979ms
+     ✓ denies catalog reads for a workspace outside the current membership and anonymous inspection 1587ms
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2: runs, scheduler, permits) > quarantine mid-job revokes permit validity and blocks new permits (E046)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > rejects receipt-mismatch without accepting or completing author work
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2: runs, scheduler, permits) > quarantine mid-job revokes permit validity and blocks new permits (E046)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) > claim paging finds an eligible job beyond the first 100 candidates (E049)
+2026-10-29T07:35:30.484Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > rejects stale-epoch without accepting or completing author work
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/config-release.test.ts
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+ ✓ tests/integration/config-release.test.ts (2 tests) 1022ms
+   ✓ config release staging and activation (T11) (2)
+     ✓ activation is CAS-guarded and existing runs keep their pinned release digest 765ms
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) > approval expiring in queue or before effect denies decision and permit (E052)
+2026-10-29T07:35:30.572Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) > approval expiring in queue or before effect denies decision and permit (E052)
+2026-10-29T07:35:30.612Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/delivery.test.ts
+2026-10-29T07:35:30.629Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/delivery.test.ts
+2026-10-29T07:35:30.630Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/integration/delivery.test.ts (2 tests) 474ms
+   ✓ delivery dossier rubric rendering (T44) (1)
+     ✓ maps rubric outcomes faithfully and never auto-advances state 368ms
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) > approval expiring in queue or before effect denies decision and permit (E052)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > rejects trust-revoked without accepting or completing author work
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+ ✓ tests/integration/gitlab.test.ts (1 test) 158ms
+stderr | tests/integration/support.test.ts > support draft lifecycle (T42) > dedupes by fingerprint, gates on approval, publishes exact CAS text once
+2026-10-29T07:35:30.819Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/sre.test.ts > remediation proposal lifecycle (T43)
+2026-10-29T07:35:30.829Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:30.830Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/sre.test.ts
+2026-10-29T07:35:30.833Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/integration/sre.test.ts (3 tests) 618ms
+   ✓ sre observations and incident freshness (T43) (2)
+     ✓ incident detail reports the freshest observation window 322ms
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > rejects same-domain without accepting or completing author work
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) > changed target precondition after approval blocks the permit (E058)
+2026-10-29T07:35:30.897Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/integration/support.test.ts (3 tests) 599ms
+   ✓ support SLA and draft gates (T42) (2)
+     ✓ evidenceReady requires an approved draft; sla.summary aggregates stored intervals 382ms
+ ✓ tests/integration/scheduler.test.ts (2 tests) 408ms
+   ✓ durable cron dispatch (T19 runtime) (2)
+     ✓ anchors at first sight, fires once per minute coalesced, and is idempotent on replay 384ms
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) > changed target precondition after approval blocks the permit (E058)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > rejects stale-author-fence without accepting or completing author work
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > rehashes durable artifacts before both submission and acceptance (E074)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > rehashes durable artifacts before both submission and acceptance (E074)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) > only distinct verified roots count; concurrent thirds yield one candidate (E076/E077)
+2026-10-29T07:35:31.373Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) > memory publication rejects secret shapes incl. unenumerated names; results stay advisory (E080)
+2026-10-29T07:35:31.416Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/integration/agent-engine.test.ts (10 tests) 130ms
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > cannot use a passed check verdict to clear an unresolved external-effect guard
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) > memory export is an honest partial manifest with named omissions (E081)
+2026-10-29T07:35:31.467Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/integration/tools.test.ts (4 tests) 96ms
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) > duplicate observations dedupe; id collision with new payload parks (E082/E086)
+2026-10-29T07:35:31.502Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) > repeated identical approval requests share one signature request (E083)
+2026-10-29T07:35:31.532Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory) > SSE replay resumes strictly after the cursor with no duplicates or gaps (E091)
+2026-10-29T07:35:31.569Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > does not accept a new verdict after cancellation
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+ ✓ tests/integration/agent-dispatch.test.ts (10 tests) 5414ms
+   ✓ starter agent dispatch through real Governor and supervisor (1)
+     ✓ pins instructions and output, submits author evidence, and accepts an independent validation 3225ms
+   ✓ complete starter release compilation (9)
+     ✓ pins all three agents, instructions, schemas, and the independent validator 306ms
+     ✓ rejects digest mismatch before activation 305ms
+     ✓ rejects unknown workflow before activation 332ms
+stderr | tests/integration/scenarios2.test.ts > scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)
+2026-10-29T07:35:31.613Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/scenarios2.test.ts
+2026-10-29T07:35:31.629Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/claim.test.ts
+2026-10-29T07:35:31.638Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:31.639Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/claim.test.ts
+2026-10-29T07:35:31.665Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/integration/evidence.test.ts > authenticated immutable evidence and real evaluator admission > retries durable finalization after a fault between control/workflow completion and the final marker
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/scenarios2.test.ts
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/scenarios2.test.ts
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+ ✓ tests/integration/scenarios2.test.ts (33 tests) 5563ms
+   ✓ scenario gaps (T50 batch 2: runs, scheduler, permits) (17)
+     ✓ rejects stale reviewer session before consuming approval or creating fences 2072ms
+     ✓ resource fence counter strictly increases across lease deletion (E043) 400ms
+stderr | tests/integration/evidence.test.ts
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/evidence.test.ts
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+ ✓ tests/integration/claude-engine.test.ts (6 tests) 25ms
+ ✓ tests/integration/evidence.test.ts (22 tests) 5603ms
+   ✓ authenticated immutable evidence and real evaluator admission (22)
+     ✓ runs the pinned tool and admitted evaluator through real HTTP handlers without synthetic verdicts 2194ms
+stderr | tests/integration/claim.test.ts
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/claim.test.ts
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/integration/claim.test.ts
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+ ✓ tests/integration/onboarding.test.ts (1 test) 347ms
+   ✓ connector onboarding discovery (T41) (1)
+     ✓ discovers facts idempotently and advances versions only on real change 344ms
+ ✓ tests/integration/claim.test.ts (3 tests) 1753ms
+   ✓ atomic claim, capacity and fences (T17) (3)
+     ✓ exactly one of two racing runners wins; replayed request returns the same offer 1087ms
+ ✓ tests/integration/secrets.test.ts (4 tests) 19ms
+ ✓ tests/integration/judge.test.ts (2 tests) 227ms
+ ✓ tests/integration/artifacts.test.ts (2 tests) 244ms
+stderr | tests/integration/author-claims.test.ts
+2026-10-29T07:35:32.421Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/integration/author-claims.test.ts (2 tests) 149ms
+stderr | tests/integration/board.test.ts
+2026-10-29T07:35:32.459Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:32.460Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/integration/board.test.ts (2 tests) 374ms
+   ✓ board Done requires explicit verified criterion evidence (T31/T37) (2)
+     ✓ binds a card to a verified bundle only when every criterion passed 305ms
+ ✓ tests/integration/push.test.ts (1 test) 177ms
+stderr | tests/integration/deploy.test.ts
+2026-10-29T07:35:32.599Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:32.600Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/integration/deploy.test.ts (2 tests) 61ms
+ ✓ tests/integration/responses.test.ts (2 tests) 1039ms
+   ✓ endpoint surface conformance (T02) (2)
+     ✓ every registered route is declared in OpenAPI and declared GETs respond 408ms
+     ✓ per-operation 200 bodies validate against their declared response schemas 628ms
+
+ Test Files  35 passed (35)
+      Tests  167 passed (167)
+   Start at  08:35:24
+   Duration  8.18s (tests 59%, import 38%, transform 3%)
+
+$ vitest run tests/security
+
+ RUN  v5.0.5 /home/talel/dev/rd2026/brain
+
+stdout | tests/security/sandbox.test.ts > launcher validation boundary (T21) > health advertises only fixed profiles and preinstalled images
+Brain launcher listening on /tmp/brain-launcher-sec-1793259333494/launcher.sock
+
+stdout | tests/security/sandbox.test.ts > launcher validation boundary (T21) > smuggled fields, unknown profiles and foreign images are 422 before docker
+Brain launcher listening on /tmp/brain-launcher-sec2-1793259333653/launcher.sock
+
+ ✓ tests/security/sandbox.test.ts (2 tests) 216ms
+ ✓ tests/security/body.test.ts (3 tests) 102ms
+ ✓ tests/security/config-loader.test.ts (3 tests) 63ms
+ ✓ tests/security/policy.test.ts (3 tests) 215ms
+stderr | tests/security/policy.test.ts
+2026-10-29T07:35:34.863Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/security/runners.test.ts
+2026-10-29T07:35:34.962Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:34.964Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/security/runners.test.ts
+2026-10-29T07:35:34.966Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/security/runners.test.ts (3 tests) 448ms
+stderr | tests/security/evidence.test.ts
+2026-10-29T07:35:35.022Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/security/memory-acl.test.ts > memory ACL and scope mapping (T38)
+2026-10-29T07:35:35.024Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:35.025Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/security/evidence.test.ts (1 test) 572ms
+   ✓ evidence admission security (T28) (1)
+     ✓ rejects bundles with invented fences, foreign attempts, and self-verdicts 567ms
+ ✓ tests/security/trust.test.ts (1 test) 462ms
+   ✓ trust-domain verifier (T28/L2) (1)
+     ✓ verifies, audits and revokes a runner trust domain behind runner:security 458ms
+stderr | tests/security/authz.test.ts > security authz
+2026-10-29T07:35:35.063Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/security/authz.test.ts
+2026-10-29T07:35:35.067Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/security/authz.test.ts (4 tests) 550ms
+   ✓ security authz (4)
+     ✓ client-supplied ActorContext is never trusted (E001) 358ms
+stderr | tests/security/memory-acl.test.ts > memory ACL and scope mapping (T38) > search bounds: limit clamps to 8 and content truncates at maxChars
+2026-10-29T07:35:35.072Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/security/memory-acl.test.ts
+2026-10-29T07:35:35.075Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/security/memory-acl.test.ts (4 tests) 482ms
+ ✓ tests/security/setup.test.ts (2 tests) 535ms
+   ✓ setup authorization (2)
+     ✓ never mints impersonation sessions and refuses setup after the first organization 430ms
+ ✓ tests/security/optional-two-factor.test.ts (2 tests) 537ms
+   ✓ optional and required two-factor approval policy (2)
+     ✓ issues one-use session evidence for one exact approval, and required policy refuses it after restart 529ms
+ ✓ tests/security/claude-endpoint.test.ts (4 tests) 13ms
+ ✓ tests/security/approvals.test.ts (3 tests) 671ms
+   ✓ approval security (T13) (3)
+     ✓ separation of duties: the requester can never approve their own action 517ms
+ ✓ tests/security/csrf.test.ts (2 tests) 649ms
+   ✓ cross-origin cookie mutations (E005) (2)
+     ✓ uses the configured public origin behind a TLS proxy 420ms
+stderr | tests/security/auth-matrix.test.ts > auth online matrix (T47) > issuer: sign-in issues a session for the configured base URL only
+2026-10-29T07:35:35.398Z WARN [Better Auth]: Invalid password
+
+stderr | tests/security/auth-matrix.test.ts > auth online matrix (T47) > issuer: sign-in issues a session for the configured base URL only
+2026-10-29T07:35:35.492Z WARN [Better Auth]: User not found
+
+stderr | ConsoleLogger.error (file:/home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/logger-DGUE8DHx.js:245:194)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+ ✓ tests/security/oidc-gate.test.ts (3 tests) 24ms
+ ✓ tests/security/auth-matrix.test.ts (5 tests) 1583ms
+   ✓ auth online matrix (T47) (5)
+     ✓ issuer: sign-in issues a session for the configured base URL only 829ms
+stderr | tests/security/identity.test.ts > server-verified identity and native TOTP (E001–E005/E008/E051/E060) > invitations land in the durable outbox and accept only for the invited account; password change rotates credentials (T05/T47)
+2026-10-29T07:35:36.607Z WARN [Better Auth]: Invalid password
+
+ ✓ tests/security/identity.test.ts (9 tests) 2121ms
+   ✓ server-verified identity and native TOTP (E001–E005/E008/E051/E060) (9)
+     ✓ requires a private setup credential and resumes an interrupted native bootstrap 508ms
+     ✓ enrolls and verifies TOTP through the pinned vendor and invalidates the replaced session 674ms
+     ✓ invitations land in the durable outbox and accept only for the invited account; password change rotates credentials (T05/T47) 506ms
+
+ Test Files  17 passed (17)
+      Tests  54 passed (54)
+   Start at  08:35:32
+   Duration  3.70s (import 60%, tests 33%, transform 7%)
+
+$ vitest run tests/chaos
+
+ RUN  v5.0.5 /home/talel/dev/rd2026/brain
+
+ ✓ tests/chaos/runner.test.ts (4 tests) 4ms
+ ✓ tests/chaos/runner-spool.test.ts (3 tests) 13ms
+stderr | tests/chaos/backup.test.ts > local backup integrity and confinement > refuses a running Governor; includes committed WAL rows through SQLite backup
+2026-10-29T07:35:38.096Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/backup.test.ts > local backup integrity and confinement > rejects unsafe manifest path ../escape before writing output
+2026-10-29T07:35:38.130Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/backup.test.ts > local backup integrity and confinement > rejects unsafe manifest path /tmp/escape before writing output
+2026-10-29T07:35:38.162Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/backup.test.ts > local backup integrity and confinement > rejects unsafe manifest path nested/../../escape before writing output
+2026-10-29T07:35:38.182Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/backup.test.ts > local backup integrity and confinement > rejects unsafe manifest path nested\escape before writing output
+2026-10-29T07:35:38.216Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/backup.test.ts > local backup integrity and confinement > rejects unsafe manifest path a//b before writing output
+2026-10-29T07:35:38.261Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/backup.test.ts > local backup integrity and confinement > rejects unsafe manifest path RESTORED-APPLIED.json before writing output
+2026-10-29T07:35:38.305Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/backup.test.ts > local backup integrity and confinement > rejects unsafe manifest path control.db-wal before writing output
+2026-10-29T07:35:38.338Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/backup.test.ts > local backup integrity and confinement > rejects duplicate paths and symbolic or hard linked contents
+2026-10-29T07:35:38.372Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/backup.test.ts > local backup integrity and confinement > does not publish a failed backup or overwrite an existing destination
+2026-10-29T07:35:38.409Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/projections.test.ts
+2026-10-29T07:35:38.502Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:38.503Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/chaos/projections.test.ts (2 tests) 357ms
+stderr | tests/chaos/recovery.test.ts > chaos / recovery > backup verifies hashes and restore refuses non-empty destination (E088)
+2026-10-29T07:35:38.520Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:38.521Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:38.521Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/recovery.test.ts
+2026-10-29T07:35:38.574Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/chaos/recovery.test.ts (3 tests) 394ms
+stderr | tests/chaos/reconciler.test.ts
+2026-10-29T07:35:38.711Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:38.712Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/chaos/reconciler.test.ts (2 tests) 442ms
+   ✓ drift reconciler (T46) (2)
+     ✓ absent outcome frees the job for a fresh attempt; conflicting keeps the guard 347ms
+stderr | tests/chaos/backup.test.ts > local backup integrity and confinement > normal restart retains sessions; each new restore revokes them exactly once
+2026-10-29T07:35:38.749Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/backup.test.ts > local backup integrity and confinement > rolls back a quarantine fault before commit and retries on the next open
+2026-10-29T07:35:38.800Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/backup.test.ts > local backup integrity and confinement > rolls back a quarantine fault before commit and retries on the next open
+2026-10-29T07:35:38.802Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/backup.test.ts > local backup integrity and confinement > refuses a changed restore identity and releases ownership after initialization failure
+2026-10-29T07:35:38.886Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/backup.test.ts
+2026-10-29T07:35:38.939Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:38.939Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:38.939Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/chaos/backup.test.ts (13 tests) 907ms
+   ✓ local backup integrity and confinement (13)
+     ✓ normal restart retains sessions; each new restore revokes them exactly once 352ms
+stderr | ConsoleLogger.error (file:/home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/logger-DGUE8DHx.js:245:194)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/chaos/restore.test.ts > G07 restore: hash-verified backup, suspended history, dead authority (E089/E081) > restores twice from the same archive and refuses mixed archive parts (T47)
+2026-10-29T07:35:39.569Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/restore.test.ts > G07 restore: hash-verified backup, suspended history, dead authority (E089/E081) > restores twice from the same archive and refuses mixed archive parts (T47)
+2026-10-29T07:35:39.570Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+stderr | tests/chaos/restore.test.ts
+2026-10-29T07:35:39.622Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:39.622Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+2026-10-29T07:35:39.622Z ERROR [Better Auth]: Could not validate the database schema. Check your database connection.
+
+ ✓ tests/chaos/restore.test.ts (2 tests) 1415ms
+   ✓ G07 restore: hash-verified backup, suspended history, dead authority (E089/E081) (2)
+     ✓ restores history but no restored session, approval, lease, or permit can execute 1335ms
+ ✓ tests/chaos/leases.test.ts (1 test) 1378ms
+   ✓ lease contention across processes (T18) (1)
+     ✓ exactly one of three concurrent runner processes wins the single queued job; a second Governor on the data dir is refused 1376ms
+stderr | ConsoleLogger.error (file:/home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/logger-DGUE8DHx.js:245:194)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | ConsoleLogger.error (file:/home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/logger-DGUE8DHx.js:245:194)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | ConsoleLogger.error (file:/home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/logger-DGUE8DHx.js:245:194)
+[WORKFLOW] Error executing step workflow.fixture-workflow-f4a3c84627ed.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+stderr | tests/chaos/gates100.test.ts
+[WORKFLOW] Error executing step workflow.gate-workflow-3d0b331808bd.step.echo: TypeError: The database connection is not open
+    at sqliteTransaction (/home/talel/dev/rd2026/brain/node_modules/.pnpm/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/methods/transaction.js:63:9)
+    at Store.inTx (/home/talel/dev/rd2026/brain/apps/governor/src/application/store.ts:142:31)
+    at Brain.createJobForStep (/home/talel/dev/rd2026/brain/apps/governor/src/application/brain.ts:264:7)
+    at Object.execute (/home/talel/dev/rd2026/brain/apps/governor/src/modules/workflows/mastra/engine.ts:551:35)
+    at fn (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4965:19)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/observability/context-storage.js:56:9)
+    at executeWithContext (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/utils-DEHIM55Z.js:961:37)
+    at runStep (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:4963:10)
+    at engine.executeStepWithRetry.retries.retries (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5088:24)
+    at DefaultExecutionEngine.wrapDurableOperation (file:///home/talel/dev/rd2026/brain/node_modules/.pnpm/@mastra+core@1.79.0_@opentelemetry+api@1.10.0_express@5.3.0_typebox@1.3.27_zod-to-json-_fab941b9ecd78f38d969136157c9b62e/node_modules/@mastra/core/dist/agent-tuAMgHe3.js:5359:10)
+
+ ✓ tests/chaos/gates100.test.ts (1 test) 2964ms
+   ✓ G03 brain durability: 100 suspended gates (1)
+     ✓ holds 100 waits, survives restart, wakes exactly once each (E022/E023/E024) 2959ms
+ ✓ tests/chaos/kill9.test.ts (2 tests) 37731ms
+   ✓ kill-9 and WAL corruption drills (T18) (2)
+     ✓ kill -9 after committed bootstrap: restart serves and data survives integrity check 5293ms
+     ✓ corrupted control database: startup fails loudly and leaves the bytes untouched 32436ms
+
+ Test Files  10 passed (10)
+      Tests  33 passed (33)
+   Start at  08:35:37
+   Duration  37.98s (tests 86%, import 12%, transform 2%)
+
+$ vitest run tests/certification
+
+ RUN  v5.0.5 /home/talel/dev/rd2026/brain
+
+ ✓ tests/certification/matrix.test.ts (2 tests) 10ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  08:36:15
+   Duration  119ms (transform 40%, tests 29%, import 22%, worker 9%)
+
+$ pnpm build && playwright test --forbid-only --update-snapshots=none
+$ pnpm typecheck && pnpm typecheck:web && pnpm --filter @brain/web build
+$ tsc --noEmit --pretty false -p tsconfig.typecheck.json
+$ pnpm --filter @brain/web typecheck
+$ tsc --noEmit --pretty false
+$ vite build
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 767 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                  0.75 kB │ gzip:  0.38 kB
+dist/assets/Inter.var-C9xDBOS3.woff2           264.23 kB
+dist/assets/Inter-Italic.var-BGHziHgI.woff2    297.26 kB
+dist/assets/index-D9k_kTZM.css                 152.24 kB │ gzip: 26.75 kB
+dist/assets/TvSrePage-BaC0CQcv.js                0.14 kB │ gzip:  0.14 kB
+dist/assets/TvSupportPage-DS0_Xm0w.js            0.14 kB │ gzip:  0.14 kB
+dist/assets/RunnersPage-D0wKyOqK.js              0.15 kB │ gzip:  0.15 kB
+dist/assets/format-Dw_EdeiE.js                   0.20 kB │ gzip:  0.16 kB
+dist/assets/IncidentDetailPage-CD8LFkS8.js       0.49 kB │ gzip:  0.33 kB
+dist/assets/TicketDetailPage-CTTEFWTA.js         0.52 kB │ gzip:  0.34 kB
+dist/assets/BridgePage-Qa0nIUpa.js               0.52 kB │ gzip:  0.36 kB
+dist/assets/SrePage-CQHlKzMO.js                  0.61 kB │ gzip:  0.39 kB
+dist/assets/TodayPage-Dm7JJfTk.js                0.76 kB │ gzip:  0.43 kB
+dist/assets/ApprovalsPage-CRJzGX-a.js            0.78 kB │ gzip:  0.43 kB
+dist/assets/DecisionsPage-B0G6BVxU.js            0.86 kB │ gzip:  0.47 kB
+dist/assets/KeyValue-IXWbPp_o.js                 0.87 kB │ gzip:  0.46 kB
+dist/assets/SupportPage-D1OGT2Nn.js              0.98 kB │ gzip:  0.58 kB
+dist/assets/RunnerDetailPage-Dwf09mtb.js         0.99 kB │ gzip:  0.58 kB
+dist/assets/RecordCollection-Bt5_G2eH.js         1.11 kB │ gzip:  0.55 kB
+dist/assets/BoardPage-JQqWV-R7.js                1.12 kB │ gzip:  0.59 kB
+dist/assets/DigestValue-DgPhOukX.js              1.14 kB │ gzip:  0.67 kB
+dist/assets/StatusBadge-E3YIl6_N.js              1.20 kB │ gzip:  0.58 kB
+dist/assets/ToolsPage-C5oDBMew.js                1.37 kB │ gzip:  0.67 kB
+dist/assets/ApprovalDetailPage-DkRhPZEA.js       1.47 kB │ gzip:  0.78 kB
+dist/assets/DetailHeader-UnXcw9KB.js             1.54 kB │ gzip:  0.70 kB
+dist/assets/WorkspaceOverviewPage-CYTtCOgQ.js    1.62 kB │ gzip:  0.86 kB
+dist/assets/PageLayout-aaLG7bOg.js               1.81 kB │ gzip:  0.79 kB
+dist/assets/Textarea-Byd9wWy3.js                 1.83 kB │ gzip:  0.78 kB
+dist/assets/helpers-BD89dTS0.js                  1.95 kB │ gzip:  0.98 kB
+dist/assets/KnowledgePage-CHXnxhRS.js            1.99 kB │ gzip:  0.96 kB
+dist/assets/Section-BeJLf5V_.js                  2.07 kB │ gzip:  0.88 kB
+dist/assets/Timeline-DiOh3tKk.js                 2.09 kB │ gzip:  0.95 kB
+dist/assets/Badge-DKbdRgjh.js                    2.39 kB │ gzip:  0.89 kB
+dist/assets/StatGrid-DvMgCryl.js                 2.92 kB │ gzip:  1.20 kB
+dist/assets/ArtifactSelectors-jQ54U9Yv.js        3.03 kB │ gzip:  1.44 kB
+dist/assets/PaneLayout-Ed9wZqzF.js               3.12 kB │ gzip:  1.43 kB
+dist/assets/EvidenceList-DOd_Ktsm.js             3.15 kB │ gzip:  1.33 kB
+dist/assets/TextInput-2iTBdv5t.js                3.59 kB │ gzip:  1.24 kB
+dist/assets/DeliveryPage-Ds-gzT1Z.js             4.02 kB │ gzip:  1.69 kB
+dist/assets/FilterBar-D9NgCx_n.js                4.34 kB │ gzip:  1.76 kB
+dist/assets/ArtifactContent-CFDKISda.js          5.02 kB │ gzip:  2.21 kB
+dist/assets/today-DhtHvkpa.js                    5.58 kB │ gzip:  2.21 kB
+dist/assets/RunsPage-CRkFKR4g.js                 8.59 kB │ gzip:  3.11 kB
+dist/assets/TabButtons-DzT2ijk4.js               8.73 kB │ gzip:  3.31 kB
+dist/assets/screen-region-DBzuuW8Y.js            8.86 kB │ gzip:  2.99 kB
+dist/assets/knowledge-BK4PzhMM.js                9.14 kB │ gzip:  3.19 kB
+dist/assets/workspace-MIOiHCnP.js                9.24 kB │ gzip:  2.88 kB
+dist/assets/JobDetailPage-BH52f-M8.js           12.08 kB │ gzip:  4.30 kB
+dist/assets/approvals-CcI-YUau.js               13.66 kB │ gzip:  4.51 kB
+dist/assets/catalog-DrfkcOxQ.js                 13.77 kB │ gzip:  4.86 kB
+dist/assets/SettingsPage-BrIjIJg1.js            17.34 kB │ gzip:  5.60 kB
+dist/assets/work-CY7boEm8.js                    24.30 kB │ gzip:  8.29 kB
+dist/assets/dismissable-layer-DiZC37L2.js       33.06 kB │ gzip: 12.07 kB
+dist/assets/SessionDetailPage-CPo7koBe.js       45.44 kB │ gzip: 14.49 kB
+dist/assets/app-context-D5835TOL.js             63.15 kB │ gzip: 22.30 kB
+dist/assets/DataTable-I0MbdMQL.js               86.36 kB │ gzip: 23.96 kB
+dist/assets/index-C3RRrKOW.js                  273.08 kB │ gzip: 79.64 kB
+
+✓ built in 1.84s
+
+Running 96 tests using 1 worker
+
+(node:95819) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [390-light] › tests/browser/approval-expiry.spec.ts:10:1 › approval decision: session expiry mid-review fails closed (T35) (1.3s)
+  ✓   2 [390-light] › tests/browser/approval-recovery.spec.ts:10:1 › approval decision: committed-but-timed-out response recovers (T35) (1.1s)
+  ✓   3 [390-light] › tests/browser/approval.spec.ts:7:1 › approval decision: exact review, TOTP step-up, recorded decision (T35) (883ms)
+  ✓   4 [390-light] › tests/browser/authentication.spec.ts:6:1 › native setup, enrollment and second-factor sign-in (E093/E094 partial) (819ms)
+  ✓   5 [390-light] › tests/browser/board.spec.ts:33:1 › board: cards render by state, move applies, Done without evidence is refused in UI (T37) (954ms)
+  ✓   6 [390-light] › tests/browser/board.spec.ts:75:1 › board: Done succeeds with explicitly bound verified evidence (T37) (785ms)
+  ✓   7 [390-light] › tests/browser/board.spec.ts:104:1 › board: desktop drag and compact controls move a card across columns (T37) (662ms)
+  ✓   8 [390-light] › tests/browser/kiosk.spec.ts:6:1 › tv kiosk renders read-only board; ticket detail opens exact record (T34) (719ms)
+  ✓   9 [390-light] › tests/browser/navigation.spec.ts:3:1 › AppShell navigation: list to detail to decision dialog and Back with focus restoration (E093) (758ms)
+  ✓  10 [390-light] › tests/browser/offline.spec.ts:3:1 › offline PWA: cached shell loads, API actions fail visibly, no offline approval (E096) (348ms)
+  ✓  11 [390-light] › tests/browser/operational.spec.ts:8:1 › optional-factor operator inspects a release, activates it, dispatches both starter workflows, and reads evidence (4.3s)
+  ✓  12 [390-light] › tests/browser/operations.spec.ts:6:1 › operations: drain and quarantine a runner from settings (T36) (576ms)
+  ✓  13 [390-light] › tests/browser/primitives.spec.ts:7:1 › primitives and tokens render across widths and themes (T33) (327ms)
+  ✓  14 [390-light] › tests/browser/sse-logviewer.spec.ts:7:1 › long SSE transcript: bounded DOM, scroll and selection survive new events (E092) (7.8s)
+  ✓  15 [390-light] › tests/browser/vitals.spec.ts:3:1 › web vitals: shell LCP, interaction latency, JS budget (E099 browser) (924ms)
+  ✓  16 [390-light] › tests/browser/work.spec.ts:4:1 › work area shows decisions, tickets, incidents and delivery (T34) (702ms)
+(node:96345) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  17 [390-dark] › tests/browser/approval-expiry.spec.ts:10:1 › approval decision: session expiry mid-review fails closed (T35) (1.4s)
+  ✓  18 [390-dark] › tests/browser/approval-recovery.spec.ts:10:1 › approval decision: committed-but-timed-out response recovers (T35) (1.1s)
+  ✓  19 [390-dark] › tests/browser/approval.spec.ts:7:1 › approval decision: exact review, TOTP step-up, recorded decision (T35) (1.0s)
+  ✓  20 [390-dark] › tests/browser/authentication.spec.ts:6:1 › native setup, enrollment and second-factor sign-in (E093/E094 partial) (842ms)
+  ✓  21 [390-dark] › tests/browser/board.spec.ts:33:1 › board: cards render by state, move applies, Done without evidence is refused in UI (T37) (876ms)
+  ✓  22 [390-dark] › tests/browser/board.spec.ts:75:1 › board: Done succeeds with explicitly bound verified evidence (T37) (797ms)
+  ✓  23 [390-dark] › tests/browser/board.spec.ts:104:1 › board: desktop drag and compact controls move a card across columns (T37) (662ms)
+  ✓  24 [390-dark] › tests/browser/kiosk.spec.ts:6:1 › tv kiosk renders read-only board; ticket detail opens exact record (T34) (694ms)
+  ✓  25 [390-dark] › tests/browser/navigation.spec.ts:3:1 › AppShell navigation: list to detail to decision dialog and Back with focus restoration (E093) (855ms)
+  ✓  26 [390-dark] › tests/browser/offline.spec.ts:3:1 › offline PWA: cached shell loads, API actions fail visibly, no offline approval (E096) (346ms)
+  ✓  27 [390-dark] › tests/browser/operational.spec.ts:8:1 › optional-factor operator inspects a release, activates it, dispatches both starter workflows, and reads evidence (4.4s)
+  ✓  28 [390-dark] › tests/browser/operations.spec.ts:6:1 › operations: drain and quarantine a runner from settings (T36) (605ms)
+  ✓  29 [390-dark] › tests/browser/primitives.spec.ts:7:1 › primitives and tokens render across widths and themes (T33) (333ms)
+  ✓  30 [390-dark] › tests/browser/sse-logviewer.spec.ts:7:1 › long SSE transcript: bounded DOM, scroll and selection survive new events (E092) (7.8s)
+  ✓  31 [390-dark] › tests/browser/vitals.spec.ts:3:1 › web vitals: shell LCP, interaction latency, JS budget (E099 browser) (994ms)
+  ✓  32 [390-dark] › tests/browser/work.spec.ts:4:1 › work area shows decisions, tickets, incidents and delivery (T34) (918ms)
+(node:96930) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  33 [768-light] › tests/browser/approval-expiry.spec.ts:10:1 › approval decision: session expiry mid-review fails closed (T35) (1.5s)
+  ✓  34 [768-light] › tests/browser/approval-recovery.spec.ts:10:1 › approval decision: committed-but-timed-out response recovers (T35) (1.4s)
+  ✓  35 [768-light] › tests/browser/approval.spec.ts:7:1 › approval decision: exact review, TOTP step-up, recorded decision (T35) (1.1s)
+  ✓  36 [768-light] › tests/browser/authentication.spec.ts:6:1 › native setup, enrollment and second-factor sign-in (E093/E094 partial) (953ms)
+  ✓  37 [768-light] › tests/browser/board.spec.ts:33:1 › board: cards render by state, move applies, Done without evidence is refused in UI (T37) (909ms)
+  ✓  38 [768-light] › tests/browser/board.spec.ts:75:1 › board: Done succeeds with explicitly bound verified evidence (T37) (928ms)
+  ✓  39 [768-light] › tests/browser/board.spec.ts:104:1 › board: desktop drag and compact controls move a card across columns (T37) (1.4s)
+  ✓  40 [768-light] › tests/browser/kiosk.spec.ts:6:1 › tv kiosk renders read-only board; ticket detail opens exact record (T34) (736ms)
+  ✓  41 [768-light] › tests/browser/navigation.spec.ts:3:1 › AppShell navigation: list to detail to decision dialog and Back with focus restoration (E093) (824ms)
+  ✓  42 [768-light] › tests/browser/offline.spec.ts:3:1 › offline PWA: cached shell loads, API actions fail visibly, no offline approval (E096) (365ms)
+  ✓  43 [768-light] › tests/browser/operational.spec.ts:8:1 › optional-factor operator inspects a release, activates it, dispatches both starter workflows, and reads evidence (4.7s)
+  ✓  44 [768-light] › tests/browser/operations.spec.ts:6:1 › operations: drain and quarantine a runner from settings (T36) (721ms)
+  ✓  45 [768-light] › tests/browser/primitives.spec.ts:7:1 › primitives and tokens render across widths and themes (T33) (359ms)
+  ✓  46 [768-light] › tests/browser/sse-logviewer.spec.ts:7:1 › long SSE transcript: bounded DOM, scroll and selection survive new events (E092) (7.5s)
+  ✓  47 [768-light] › tests/browser/vitals.spec.ts:3:1 › web vitals: shell LCP, interaction latency, JS budget (E099 browser) (925ms)
+  ✓  48 [768-light] › tests/browser/work.spec.ts:4:1 › work area shows decisions, tickets, incidents and delivery (T34) (799ms)
+(node:97706) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  49 [768-dark] › tests/browser/approval-expiry.spec.ts:10:1 › approval decision: session expiry mid-review fails closed (T35) (1.3s)
+  ✓  50 [768-dark] › tests/browser/approval-recovery.spec.ts:10:1 › approval decision: committed-but-timed-out response recovers (T35) (1.2s)
+  ✓  51 [768-dark] › tests/browser/approval.spec.ts:7:1 › approval decision: exact review, TOTP step-up, recorded decision (T35) (961ms)
+  ✓  52 [768-dark] › tests/browser/authentication.spec.ts:6:1 › native setup, enrollment and second-factor sign-in (E093/E094 partial) (935ms)
+  ✓  53 [768-dark] › tests/browser/board.spec.ts:33:1 › board: cards render by state, move applies, Done without evidence is refused in UI (T37) (1.1s)
+  ✓  54 [768-dark] › tests/browser/board.spec.ts:75:1 › board: Done succeeds with explicitly bound verified evidence (T37) (870ms)
+  ✓  55 [768-dark] › tests/browser/board.spec.ts:104:1 › board: desktop drag and compact controls move a card across columns (T37) (1.3s)
+  ✓  56 [768-dark] › tests/browser/kiosk.spec.ts:6:1 › tv kiosk renders read-only board; ticket detail opens exact record (T34) (763ms)
+  ✓  57 [768-dark] › tests/browser/navigation.spec.ts:3:1 › AppShell navigation: list to detail to decision dialog and Back with focus restoration (E093) (847ms)
+  ✓  58 [768-dark] › tests/browser/offline.spec.ts:3:1 › offline PWA: cached shell loads, API actions fail visibly, no offline approval (E096) (357ms)
+  ✓  59 [768-dark] › tests/browser/operational.spec.ts:8:1 › optional-factor operator inspects a release, activates it, dispatches both starter workflows, and reads evidence (4.8s)
+  ✓  60 [768-dark] › tests/browser/operations.spec.ts:6:1 › operations: drain and quarantine a runner from settings (T36) (724ms)
+  ✓  61 [768-dark] › tests/browser/primitives.spec.ts:7:1 › primitives and tokens render across widths and themes (T33) (340ms)
+  ✓  62 [768-dark] › tests/browser/sse-logviewer.spec.ts:7:1 › long SSE transcript: bounded DOM, scroll and selection survive new events (E092) (7.8s)
+  ✓  63 [768-dark] › tests/browser/vitals.spec.ts:3:1 › web vitals: shell LCP, interaction latency, JS budget (E099 browser) (910ms)
+  ✓  64 [768-dark] › tests/browser/work.spec.ts:4:1 › work area shows decisions, tickets, incidents and delivery (T34) (1.0s)
+(node:98521) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  65 [1440-light] › tests/browser/approval-expiry.spec.ts:10:1 › approval decision: session expiry mid-review fails closed (T35) (1.3s)
+  ✓  66 [1440-light] › tests/browser/approval-recovery.spec.ts:10:1 › approval decision: committed-but-timed-out response recovers (T35) (1.2s)
+  ✓  67 [1440-light] › tests/browser/approval.spec.ts:7:1 › approval decision: exact review, TOTP step-up, recorded decision (T35) (1.1s)
+  ✓  68 [1440-light] › tests/browser/authentication.spec.ts:6:1 › native setup, enrollment and second-factor sign-in (E093/E094 partial) (845ms)
+  ✓  69 [1440-light] › tests/browser/board.spec.ts:33:1 › board: cards render by state, move applies, Done without evidence is refused in UI (T37) (1.1s)
+  ✓  70 [1440-light] › tests/browser/board.spec.ts:75:1 › board: Done succeeds with explicitly bound verified evidence (T37) (828ms)
+  ✓  71 [1440-light] › tests/browser/board.spec.ts:104:1 › board: desktop drag and compact controls move a card across columns (T37) (1.3s)
+  ✓  72 [1440-light] › tests/browser/kiosk.spec.ts:6:1 › tv kiosk renders read-only board; ticket detail opens exact record (T34) (860ms)
+  ✓  73 [1440-light] › tests/browser/navigation.spec.ts:3:1 › AppShell navigation: list to detail to decision dialog and Back with focus restoration (E093) (786ms)
+  ✓  74 [1440-light] › tests/browser/offline.spec.ts:3:1 › offline PWA: cached shell loads, API actions fail visibly, no offline approval (E096) (374ms)
+  ✓  75 [1440-light] › tests/browser/operational.spec.ts:8:1 › optional-factor operator inspects a release, activates it, dispatches both starter workflows, and reads evidence (5.2s)
+  ✓  76 [1440-light] › tests/browser/operations.spec.ts:6:1 › operations: drain and quarantine a runner from settings (T36) (753ms)
+  ✓  77 [1440-light] › tests/browser/primitives.spec.ts:7:1 › primitives and tokens render across widths and themes (T33) (478ms)
+  ✓  78 [1440-light] › tests/browser/sse-logviewer.spec.ts:7:1 › long SSE transcript: bounded DOM, scroll and selection survive new events (E092) (8.0s)
+  ✓  79 [1440-light] › tests/browser/vitals.spec.ts:3:1 › web vitals: shell LCP, interaction latency, JS budget (E099 browser) (915ms)
+  ✓  80 [1440-light] › tests/browser/work.spec.ts:4:1 › work area shows decisions, tickets, incidents and delivery (T34) (849ms)
+(node:99213) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  81 [1440-dark] › tests/browser/approval-expiry.spec.ts:10:1 › approval decision: session expiry mid-review fails closed (T35) (1.4s)
+  ✓  82 [1440-dark] › tests/browser/approval-recovery.spec.ts:10:1 › approval decision: committed-but-timed-out response recovers (T35) (1.2s)
+  ✓  83 [1440-dark] › tests/browser/approval.spec.ts:7:1 › approval decision: exact review, TOTP step-up, recorded decision (T35) (1.1s)
+  ✓  84 [1440-dark] › tests/browser/authentication.spec.ts:6:1 › native setup, enrollment and second-factor sign-in (E093/E094 partial) (984ms)
+  ✓  85 [1440-dark] › tests/browser/board.spec.ts:33:1 › board: cards render by state, move applies, Done without evidence is refused in UI (T37) (937ms)
+  ✓  86 [1440-dark] › tests/browser/board.spec.ts:75:1 › board: Done succeeds with explicitly bound verified evidence (T37) (896ms)
+  ✓  87 [1440-dark] › tests/browser/board.spec.ts:104:1 › board: desktop drag and compact controls move a card across columns (T37) (1.4s)
+  ✓  88 [1440-dark] › tests/browser/kiosk.spec.ts:6:1 › tv kiosk renders read-only board; ticket detail opens exact record (T34) (759ms)
+  ✓  89 [1440-dark] › tests/browser/navigation.spec.ts:3:1 › AppShell navigation: list to detail to decision dialog and Back with focus restoration (E093) (853ms)
+  ✓  90 [1440-dark] › tests/browser/offline.spec.ts:3:1 › offline PWA: cached shell loads, API actions fail visibly, no offline approval (E096) (379ms)
+  ✓  91 [1440-dark] › tests/browser/operational.spec.ts:8:1 › optional-factor operator inspects a release, activates it, dispatches both starter workflows, and reads evidence (5.5s)
+  ✓  92 [1440-dark] › tests/browser/operations.spec.ts:6:1 › operations: drain and quarantine a runner from settings (T36) (748ms)
+  ✓  93 [1440-dark] › tests/browser/primitives.spec.ts:7:1 › primitives and tokens render across widths and themes (T33) (488ms)
+  ✓  94 [1440-dark] › tests/browser/sse-logviewer.spec.ts:7:1 › long SSE transcript: bounded DOM, scroll and selection survive new events (E092) (8.1s)
+  ✓  95 [1440-dark] › tests/browser/vitals.spec.ts:3:1 › web vitals: shell LCP, interaction latency, JS budget (E099 browser) (932ms)
+  ✓  96 [1440-dark] › tests/browser/work.spec.ts:4:1 › work area shows decisions, tickets, incidents and delivery (T34) (973ms)
+
+  96 passed (2.6m)
