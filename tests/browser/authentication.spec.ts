@@ -26,8 +26,9 @@ test("native setup, enrollment and second-factor sign-in (E093/E094 partial)",as
   const identity=await governor.app.brain.resolveActor(new Headers({cookie:cookies.map((c)=>`${c.name}=${c.value}`).join("; ")}));
   expect(identity.humanSession?.factorDigest).toBeTruthy();
   expect(await page.evaluate(()=>JSON.stringify({local:{...localStorage},session:{...sessionStorage}}))).not.toContain(secret);
-  // The account menu sits in the header bar below the shell's desktop
-  // breakpoint and in the sidebar above it; one test id covers both.
+  // The shared account control lives in the desktop sidebar/mobile drawer.
+  const navToggle = page.getByRole("button", { name: "Open application navigation", exact: true });
+  if (await navToggle.isVisible()) await navToggle.click();
   const account = page.getByTestId("account-menu").getByRole("button");
   await account.click();
   await page.getByRole("menuitem", { name: "Sign out", exact: true }).click();

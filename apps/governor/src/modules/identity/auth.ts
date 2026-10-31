@@ -1,11 +1,12 @@
 import { betterAuth } from "better-auth";
 import { getAuthTables } from "better-auth/db";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { domainDigest } from "@brain/contracts";
 import type { Db } from "../../infrastructure/persistence/open";
 import { BrainDomainError } from "../../domain/errors";
 import { authOptions } from "./options";
+import { createIdentityAdministration, type IdentityAdministration, type VendorAuth } from "./administration";
 
 export interface VerifiedSession {
   readonly userId: string;
@@ -14,10 +15,12 @@ export interface VerifiedSession {
   readonly activeOrganizationId: string | null;
   readonly factorDigest: string | null;
   readonly recoveryRequired: boolean;
+  readonly passwordChangeRequired?: boolean;
 }
 
 export interface BrainAuth {
   readonly requireTwoFactor: boolean;
+  readonly administration: IdentityAdministration;
   handler(request: Request): Promise<Response>;
   ready(): Promise<void>;
   readSession(headers: Headers): Promise<VerifiedSession | null>;
@@ -33,16 +36,22 @@ export interface BrainAuth {
 interface TableDef { modelName: string; fields: Record<string, { fieldName?: string }> }
 const quote = (id: string) => `"${id.replaceAll('"', '""')}"`;
 
-export function createBrainAuth(db: Db, opts: { secret: string; baseURL: string; requireTwoFactor?: boolean }): BrainAuth {
+export function createBrainAuth(db: Db, opts: { secret: string; baseURL: string; requireTwoFactor?: boolean; initialPasswordFile?: string }): BrainAuth {
   const sql = readFileSync(new URL("../../../schema/auth.sql", import.meta.url), "utf8");
   const securitySql = "CREATE TABLE brain_auth_recovery(user_id TEXT PRIMARY KEY, factor_digest TEXT NOT NULL, recovered_at_ms INTEGER NOT NULL) STRICT";
-  const schemaDigest = `sha256:${createHash("sha256").update(sql).update(securitySql).digest("hex")}`;
+  const passwordSql = "CREATE TABLE brain_initial_password(user_id TEXT PRIMARY KEY, password_hash TEXT NOT NULL) STRICT";
+  const deliverySql = "CREATE TABLE auth_email_outbox(id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('verify-email','organization-invitation','password-reset')), email TEXT NOT NULL, url TEXT NOT NULL, organization_id TEXT, state TEXT NOT NULL CHECK(state IN ('pending','delivered','failed','cancelled')), attempt_count INTEGER NOT NULL DEFAULT 0, last_error TEXT, created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL) STRICT";
+  const securityEventsSql = "CREATE TABLE auth_security_events(id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL, user_id TEXT, auth_organization_id TEXT, occurred_at_ms INTEGER NOT NULL) STRICT";
+  const schemaDigest = `sha256:${createHash("sha256").update(sql).update(securitySql).update(passwordSql).update(deliverySql).update(securityEventsSql).digest("hex")}`;
   // Only apply the vendor-generated initial schema to an empty auth namespace.
   // An existing, different schema is preserved and rejected, never converted.
   const existing = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='user'").get();
   if (!existing) db.transaction(() => {
     db.exec(sql);
     db.exec(securitySql);
+    db.exec(passwordSql);
+    db.exec(deliverySql);
+    db.exec(securityEventsSql);
     db.exec("CREATE TABLE auth_schema_metadata(singleton INTEGER PRIMARY KEY CHECK(singleton=1), digest TEXT NOT NULL) STRICT");
     db.prepare("INSERT INTO auth_schema_metadata VALUES (1,?)").run(schemaDigest);
   }).immediate();
@@ -52,7 +61,8 @@ export function createBrainAuth(db: Db, opts: { secret: string; baseURL: string;
     if (row?.digest !== schemaDigest) throw new BrainDomainError("UPGRADE_REQUIRED", "existing auth schema differs from the selected current schema; preserved");
   }
 
-  const auth = betterAuth(authOptions(db, opts));
+  const auth = betterAuth(authOptions(db, opts)) as VendorAuth;
+  const administration = createIdentityAdministration(db, auth);
   const tables = getAuthTables(auth.options) as unknown as Record<string, TableDef>;
   const table = (name: string) => {
     const value = tables[name];
@@ -83,20 +93,37 @@ export function createBrainAuth(db: Db, opts: { secret: string; baseURL: string;
     if (!value) return null;
     const session = value.session as typeof value.session & { activeOrganizationId?: string | null };
     const current = rawFactorDigest(value.user.id); const recovered = recoveryRequired(value.user.id,current);
-    return { userId: value.user.id, displayName: value.user.name.slice(0,256), sessionId: session.id, activeOrganizationId: session.activeOrganizationId ?? null, factorDigest: recovered ? null : current, recoveryRequired: recovered };
+    const initial = db.prepare("SELECT password_hash FROM brain_initial_password WHERE user_id=?").get(value.user.id) as { password_hash: string } | undefined;
+    const credential = db.prepare("SELECT password FROM account WHERE userId=? AND providerId='credential'").get(value.user.id) as { password: string } | undefined;
+    const passwordChangeRequired = !!initial && initial.password_hash === credential?.password;
+    if (initial && !passwordChangeRequired) {
+      db.prepare("DELETE FROM brain_initial_password WHERE user_id=?").run(value.user.id);
+      if (opts.initialPasswordFile && existsSync(opts.initialPasswordFile)) unlinkSync(opts.initialPasswordFile);
+    }
+    return { passwordChangeRequired, userId: value.user.id, displayName: value.user.name.slice(0,256), sessionId: session.id, activeOrganizationId: session.activeOrganizationId ?? null, factorDigest: recovered ? null : current, recoveryRequired: recovered };
   }
 
   return {
     requireTwoFactor: opts.requireTwoFactor ?? false,
+    administration,
     async handler(request) {
       const response = await auth.handler(request);
-      if (request.method === "POST" && new URL(request.url).pathname === "/api/auth/two-factor/verify-backup-code" && response.ok) {
+      const path = new URL(request.url).pathname;
+      if (request.method === "POST" && path === "/api/auth/two-factor/verify-backup-code" && response.ok) {
         const value = await response.clone().json() as { user?: { id?: string }; token?: string };
         // A recovery sign-in restores account access. Its existing factor must
         // be replaced before it can produce new effect-approval evidence.
         if (value.user?.id && value.token) {
           const digest = rawFactorDigest(value.user.id);
           if (digest) db.prepare("INSERT INTO brain_auth_recovery(user_id,factor_digest,recovered_at_ms) VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET factor_digest=excluded.factor_digest,recovered_at_ms=excluded.recovered_at_ms").run(value.user.id,digest,Date.now());
+        }
+      }
+      if (request.method === "POST" && path === "/api/auth/organization/accept-invitation" && response.ok) {
+        const value = await response.clone().json() as { member?: { userId?: string; organizationId?: string } };
+        if (value.member?.userId && value.member.organizationId) {
+          const organization = db.prepare("SELECT id FROM organizations WHERE auth_organization_id=?").get(value.member.organizationId) as { id: string } | undefined;
+          if (!organization) throw new BrainDomainError("CONFLICT", "accepted organization is not registered in Brain");
+          db.prepare("INSERT OR IGNORE INTO principals(id,organization_id,kind,auth_subject_id) VALUES (?,?,'human',?)").run(value.member.userId, organization.id, value.member.userId);
         }
       }
       return response;
@@ -130,6 +157,7 @@ export function createBrainAuth(db: Db, opts: { secret: string; baseURL: string;
       if (!response.ok) throw new BrainDomainError("UNAUTHENTICATED", "setup authentication failed");
       const body = await response.json() as { token?: string; user?: { id: string }; twoFactorRedirect?: boolean };
       if (!body.token || !body.user?.id || body.twoFactorRedirect) throw new BrainDomainError("FORBIDDEN", "complete strong sign-in before setup");
+      db.prepare(`UPDATE ${table("user")} SET ${field("user", "role")}='admin' WHERE id=?`).run(body.user.id);
       return { userId: body.user.id, token: response.headers.get("set-auth-token") ?? body.token, cookies: response.headers.getSetCookie() };
     },
     async bootstrapOrganization(userId, slug, name) {

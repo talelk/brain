@@ -1,7 +1,6 @@
 export interface RuntimeConfig {
   readonly requireTwoFactor: boolean;
   readonly memoryUiUrl: string | null;
-  readonly betterAuthAdminUiUrl: string | null;
 }
 
 export function readRuntimeConfig(env: NodeJS.ProcessEnv = process.env): RuntimeConfig {
@@ -19,5 +18,5 @@ export function readRuntimeConfig(env: NodeJS.ProcessEnv = process.env): Runtime
     if (memory.username || memory.password || !["http:","https:"].includes(memory.protocol)) throw new Error("BRAIN_TENCENTDB_URL must be credential-free HTTP(S)");
     if (!["127.0.0.1","localhost","[::1]"].includes(memory.hostname) && (!env["BRAIN_TENCENTDB_API_KEY"] || env["BRAIN_TENCENTDB_API_KEY"] === "local-no-key")) throw new Error("non-loopback TencentDB requires BRAIN_TENCENTDB_API_KEY");
   }
-  return Object.freeze({ requireTwoFactor: flag === "true", memoryUiUrl: url("BRAIN_MEMORY_UI_URL"), betterAuthAdminUiUrl: url("BRAIN_BETTER_AUTH_ADMIN_UI_URL") });
+  return Object.freeze({ requireTwoFactor: flag === "true", memoryUiUrl: url("BRAIN_MEMORY_UI_URL") });
 }

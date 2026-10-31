@@ -325,6 +325,19 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
     if (job.kind !== "eval") continue;
     if (!evaluators[job.evaluator.id] || !entries.some((entry) => entry.kind === "Evaluator" && entry.id === job.evaluator.id && entry.digest === job.evaluator.digest)) throw new BrainDomainError("INVALID_CONTRACT", `evaluator ${job.evaluator.id} must match an immutable document in this release`);
   }
+  // Conversation inference is allowed before task confirmation. Its reserved
+  // helper must therefore stay tool-free with only independent read validation.
+  const guide = workflows["task-guide"];
+  if (guide) {
+    const respond = guide.spec.jobs["respond"];
+    const validation = guide.spec.jobs["validate"];
+    const agent = respond?.kind === "dispatch" && respond.uses.type === "agent" ? agents[respond.uses.release.id] : undefined;
+    const evaluator = validation?.kind === "eval" ? evaluators[validation.evaluator.id] : undefined;
+    const tool = evaluator && tools.find((candidate) => candidate.id === evaluator.spec.tool.id && candidate.digest === evaluator.spec.tool.digest);
+    if (Object.keys(guide.spec.jobs).length !== 2 || respond?.kind !== "dispatch" || respond.effectClass !== "read" || respond.needs.length !== 0 || !agent || agent.spec.tools.length !== 0 || agent.spec.maxChildren !== 0 || validation?.kind !== "eval" || validation.needs.length !== 1 || validation.needs[0] !== "respond" || !tool || tool.effectClass !== "read") {
+      throw new BrainDomainError("INVALID_CONTRACT", "task-guide must remain a tool-free read-only conversation helper with independent read validation");
+    }
+  }
   // Multiple Policy documents are floor layers in document order; a later
   // layer may only restrict. Broadening/null-disable rejects the release.
   if (policies.length > 1) {

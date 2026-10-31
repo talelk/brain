@@ -11,16 +11,16 @@ import { setupWorld, seedHuman, DIGEST_A } from "../helpers";
 describe("optional and required two-factor approval policy", () => {
   it("issues one-use session evidence for one exact approval, and required policy refuses it after restart", async () => {
     const root = mkdtempSync(join(tmpdir(), "brain-optional-factor-"));
-    let app = await createApp({ dataDir: root, runtime: readRuntimeConfig({ BRAIN_MEMORY_UI_URL: "https://memory.example.test/", BRAIN_BETTER_AUTH_ADMIN_UI_URL: "https://identity.example.test/" }) });
+    let app = await createApp({ dataDir: root, runtime: readRuntimeConfig({ BRAIN_MEMORY_UI_URL: "https://memory.example.test/" }) });
     try {
       const w = setupWorld(app.brain);
       const session = seedHuman(w.brain, w.org, "optional-reviewer");
       w.brain.store.control.prepare("INSERT INTO workspace_memberships(workspace_id,organization_id,principal_id,role,version,granted_by,granted_at_ms) VALUES (?,?,?,'approver',1,?,?)").run(w.workspaceId,w.org,"optional-reviewer",w.owner.actorId,Date.now());
       const headers = new Headers({ authorization: `Bearer ${session.token}` });
       const identity = await w.brain.resolveActor(headers, w.workspaceId);
-      const view = await (await app.fetch(new Request("http://127.0.0.1:3000/v1/identity",{headers}))).json() as {integrations:{memoryUiUrl:string;betterAuthAdminUiUrl:string|null}};
+      const view = await (await app.fetch(new Request("http://127.0.0.1:3000/v1/identity",{headers}))).json() as {integrations:{memoryUiUrl:string}};
       expect(view.integrations.memoryUiUrl).toBe("https://memory.example.test/");
-      expect(view.integrations.betterAuthAdminUiUrl).toBeNull();
+      expect(view.integrations).not.toHaveProperty("betterAuthAdminUiUrl");
       const subject = { organizationId: w.org, workspaceId: w.workspaceId, operation: "fixture.publish", tool: { id: "fixture.echo", digest: DIGEST_A }, inputDigest: DIGEST_A,
         target: { targetId: "target-optional", environmentId: "prod", preconditionDigest: DIGEST_A }, artifactDigest: DIGEST_A, policyDigest: DIGEST_A, configDigest: DIGEST_A,
         effectBounds: {}, expiresAt: new Date(Date.now()+3600000).toISOString(), nonce: "optional" };
@@ -48,7 +48,6 @@ describe("optional and required two-factor approval policy", () => {
     expect(readRuntimeConfig({}).requireTwoFactor).toBe(false);
     expect(() => readRuntimeConfig({ BRAIN_AUTH_REQUIRE_2FA: "yes" })).toThrow();
     expect(() => readRuntimeConfig({ BRAIN_MEMORY_UI_URL: "javascript:alert(1)" })).toThrow();
-    expect(() => readRuntimeConfig({ BRAIN_BETTER_AUTH_ADMIN_UI_URL: "https://user:secret@example.test/" })).toThrow();
     expect(readRuntimeConfig({ BRAIN_MEMORY_UI_URL: "https://memory.example.test/" }).memoryUiUrl).toBe("https://memory.example.test/");
   });
 });

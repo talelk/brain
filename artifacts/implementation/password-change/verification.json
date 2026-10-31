@@ -1,0 +1,49 @@
+{
+  "recordedAt": "2026-10-29T13:32:17.651169+00:00",
+  "scope": "Password-change validation clarity and subsequent sign-in",
+  "changes": [
+    "Show 12\u2013128-character requirement and explain temporary-password field.",
+    "Show explicit short-password feedback and retain entered values.",
+    "Carry native error codes to distinguish an incorrect temporary password from new-password validation."
+  ],
+  "checks": {
+    "build": "passed",
+    "browserTypecheck": "passed",
+    "changedFileLint": "passed",
+    "nativeIdentityTests": 11,
+    "browserCases": 6,
+    "browserAssertions": [
+      "Reject short new password with explicit feedback.",
+      "Explain incorrect temporary password and retain the new input.",
+      "Change password, sign out and successfully sign in with the new password."
+    ],
+    "viewportThemes": [
+      "390-light",
+      "390-dark",
+      "768-light",
+      "768-dark",
+      "1440-light",
+      "1440-dark"
+    ],
+    "liveServing": "Existing localhost:3100 instance serves the rebuilt assets."
+  },
+  "limits": [
+    "Exact user-visible error has not been supplied, so the cause of the reported rejection is not confirmed.",
+    "Existing administrator credentials and account data were not changed or reset.",
+    "Full suite and live model lifecycle were not rerun for this UI follow-up; earlier UX evidence retains its original source fingerprint."
+  ],
+  "files": [
+    {
+      "path": "apps/web/src/data/client.ts",
+      "sha256": "14272c21c5c47860d77b62d324062526b6f26e4b4a8b33dcbd695a50dc671b32"
+    },
+    {
+      "path": "apps/web/src/ui/components/Authentication.tsx",
+      "sha256": "f0b80b6d0de44775fa38870bc08b886720c0c916e2d274deb4a5f58552845380"
+    },
+    {
+      "path": "tests/browser/first-launch.spec.ts",
+      "sha256": "79dae97bed8f6f9a3bcf1b62c7604597dc412da9d63bfa2edc67ec691ca282e1"
+    }
+  ]
+}

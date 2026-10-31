@@ -1,0 +1,61 @@
+{
+  "recordedAt": "2026-10-30T18:36:34+01:00",
+  "task": "T53",
+  "scenario": "E106",
+  "implementation": "complete",
+  "sourceInputFingerprint": "ad49bdb08535997b2cb1fe0ddc41277d5f5095fcfe5d2feb0b99af0aef529258",
+  "checks": {
+    "focused": {
+      "command": "rtk pnpm exec vitest run tests/integration/session-collaboration.test.ts tests/security/delegation.test.ts",
+      "exitCode": 0,
+      "tests": 5
+    },
+    "staticAndFastRemainder": {
+      "commands": [
+        "rtk pnpm lint",
+        "rtk pnpm check:knip",
+        "rtk pnpm typecheck",
+        "rtk pnpm typecheck:web",
+        "rtk pnpm typecheck:browser",
+        "rtk pnpm check:boundaries",
+        "rtk pnpm --filter @brain/governor auth:schema --check",
+        "rtk pnpm test:contracts",
+        "rtk pnpm test:domain"
+      ],
+      "exitCode": 0,
+      "contractTests": 5,
+      "domainTests": 29
+    },
+    "integration": { "command": "rtk pnpm test:integration", "exitCode": 0, "files": 42, "tests": 194 },
+    "security": { "command": "rtk pnpm test:security", "exitCode": 0, "files": 20, "tests": 64 },
+    "chaos": { "command": "rtk pnpm test:chaos", "exitCode": 0, "files": 10, "tests": 33 },
+    "certification": { "command": "rtk pnpm test:certification", "exitCode": 0, "tests": 2 },
+    "browser": {
+      "command": "rtk pnpm test:browser",
+      "exitCode": 0,
+      "tests": 126,
+      "duration": "4.2m",
+      "projects": ["390-light", "390-dark", "768-light", "768-dark", "1440-light", "1440-dark"],
+      "includesProductionBuild": true
+    },
+    "openCodeSelection": {
+      "command": "rtk pnpm exec vitest run tests/contracts tests/probes/harnesses/conformance.test.ts -t 'opencode:|contracts'",
+      "exitCode": 0,
+      "liveModelQualification": "not-run"
+    }
+  },
+  "observedBehavior": [
+    "Managed sessions bind to real workflow jobs, attempts and WorkItem execution links; unmanaged attempts retain native sessions.",
+    "Portable checkpoints resume as new managed sessions without reusing native harness session identifiers or expanding scope.",
+    "Delegation enforces child scope subsets, aggregate parent budgets, distinct agents, depth three and no active worktree sharing.",
+    "Delegation review requires a different human reviewer, child-job evidence and a different evaluator attempt.",
+    "Late attempt events no longer reopen terminal sessions.",
+    "Session details expose managed lineage, worktree, delegation, budget and checkpoint facts."
+  ],
+  "limitations": [
+    "pnpm verify:fast remains red at Biome because of the pre-existing unused db parameter in apps/governor/src/modules/jobs/automation.ts:319; all other fast checks passed separately.",
+    "Documentation pack verification remains red because declared T54-T56 screen actions have no command DTOs/registry entries; no placeholder APIs were added.",
+    "OpenCode was verified as an explicit adapter selection; a new live OpenCode model run was not performed.",
+    "These results do not promote historical G01-G08 evidence or independently certify a release."
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "maxLength": 20000
+    },
+    "history": {
+      "type": "string",
+      "maxLength": 20000
+    },
+    "tasks": {
+      "type": "string",
+      "maxLength": 20000
+    }
+  },
+  "required": [
+    "message",
+    "history",
+    "tasks"
+  ],
+  "additionalProperties": false
+}

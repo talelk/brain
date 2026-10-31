@@ -29,7 +29,7 @@ export function ArtifactContent(props: { artifact?: ArtifactRef; title?: string;
     {(artifact) => <div class="brain-detail-stack">
       <div class="flex flex-wrap items-center justify-between gap-control-gap">
         <div class="min-w-0"><h3 class="text-base-medium text-ink-gray-9">{props.title ?? artifact().artifactId}</h3><p class="text-caption text-ink-gray-6">{artifact().mediaType} · {artifact().bytes.toLocaleString()} bytes · {artifact().classification}</p></div>
-        <a href={`/v1/artifacts/${encodeURIComponent(artifact().artifactId)}/content`} download={artifact().artifactId} class="inline-flex"><Button variant="outline" class="min-h-11">Download</Button></a>
+        <a href={`/v1/artifacts/${encodeURIComponent(artifact().artifactId)}/content`} download={artifact().artifactId} class="inline-flex"><Button size="lg" variant="outline">Download</Button></a>
       </div>
       <Show when={!preview.loading} fallback={<p role="status" class="text-base text-ink-gray-7">Loading authorized preview…</p>}>
         <Show when={!preview.error} fallback={<Alert theme="red" variant="outline" title="Preview unavailable" description={preview.error instanceof Error ? preview.error.message : "The artifact could not be read. Use Download to retry."} />}>

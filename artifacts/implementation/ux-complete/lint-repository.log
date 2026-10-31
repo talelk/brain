@@ -1,0 +1,8 @@
+$ eslint . --max-warnings 0
+
+/home/talel/dev/rd2026/brain/screenshot-world.mts
+  20:5  error  'app' is never reassigned. Use 'const' instead  prefer-const
+
+✖ 1 problem (1 error, 0 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.

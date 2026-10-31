@@ -30,18 +30,21 @@ test("operations: drain and quarantine a runner from settings (T36)", async ({ p
   await page.goto(`${governor.url}/runners/runner-ops-1`);
   await expect(page.getByRole("heading", { name: "Runner detail", exact: true, level: 1 })).toBeVisible();
 
-  // No reason: the control stays disabled, state untouched.
-  const drain = page.getByRole("button", { name: "Drain", exact: true });
-  await expect(drain).toBeDisabled();
+  // Reason-bound confirmation: the command stays disabled until the reason exists.
+  await page.getByRole("button", { name: "Drain runner", exact: true }).click();
+  let dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("button", { name: "Drain runner", exact: true })).toBeDisabled();
   expect(adminState()).toBe("enabled");
 
-  await page.getByLabel(/^Operations reason/).fill("kernel upgrade window");
-  await drain.click();
+  await dialog.getByLabel(/^Operations reason/).fill("kernel upgrade window");
+  await dialog.getByRole("button", { name: "Drain runner", exact: true }).click();
   await expect.poll(adminState).toBe("draining");
   await expect(page.getByText("Draining", { exact: false }).first()).toBeVisible();
 
-  await page.getByLabel(/^Operations reason/).fill("suspected compromise");
-  await page.getByRole("button", { name: "Quarantine", exact: true }).click();
+  await page.getByRole("button", { name: "Quarantine runner", exact: true }).click();
+  dialog = page.getByRole("dialog");
+  await dialog.getByLabel(/^Operations reason/).fill("suspected compromise");
+  await dialog.getByRole("button", { name: "Quarantine runner", exact: true }).click();
   await expect.poll(adminState).toBe("quarantined");
   expect(errors).toEqual([]);
 });

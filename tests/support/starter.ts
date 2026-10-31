@@ -8,9 +8,10 @@ export function fixtureStarter() {
   const replacements = new Map<string, string>();
   for (const doc of bundle.documents) {
     const value = JSON.parse(doc.text);
-    if (value.kind !== "Agent") continue;
+    if (value.kind !== "Agent" && value.kind !== "Workflow") continue;
     const prior = sha256Digest(new TextEncoder().encode(doc.text));
-    value.spec.engine.anyOf = ["fixture"];
+    if (value.kind === "Agent") value.spec.engine.anyOf = ["fixture"];
+    else for (const job of Object.values<{ runsOn: { engine: { anyOf: string[] } } }>(value.spec.jobs)) job.runsOn.engine.anyOf = ["fixture"];
     doc.text = JSON.stringify(value, null, 2) + "\n";
     replacements.set(prior, sha256Digest(new TextEncoder().encode(doc.text)));
   }

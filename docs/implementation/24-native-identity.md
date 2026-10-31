@@ -6,14 +6,17 @@ The full objective remains **finalize all the implementation**. This document re
 
 | File/module | Responsibility |
 |---|---|
-| `modules/identity/options.ts` | Exact Better Auth plugin/options contract: organization, bearer sessions and TOTP; no public organization creation/deletion |
-| `modules/identity/auth.ts` | Public vendor API adapter, current session/membership checks, protected factor fingerprints and recovery handling |
+| `modules/identity/options.ts` | Exact Better Auth 1.7.14 plugin/options contract: organization, bearer, TOTP, admin and passkeys; invite-only sign-up and existing-user-only OIDC provisioning |
+| `modules/identity/auth.ts` | Public vendor API adapter, current session/membership checks, protected factor fingerprints, recovery and accepted-invitation projection |
+| `modules/identity/administration.ts` | Narrow typed vendor user/session/invitation operations and vendor-role synchronization |
 | `modules/identity/bootstrap.ts` | One-use local setup authority, durable pending setup, native account/organization and explicit owner roles |
 | `modules/identity/security.ts` | Current strong-human-session assertions, separate from transport claims |
 | `modules/governance/step-up.ts` | Exact subject/session/factor/generation binding, bounded attempts, native TOTP verification and one-use evidence |
 | `application/authz.ts` | Current native-human or scoped machine actor resolution and Brain roles/memberships |
-| `http/app.ts`, `http/body.ts` | Shared HTTP entry points, origin protection, strict bounded JSON and body admission |
-| `apps/web/src/ui/components/Authentication.tsx` | NewUI sign-in/setup, authenticator enrollment and account recovery |
+| `application/organization-admin.ts` | Tenant-safe organization commands/queries, idempotent lifecycle operations, principal/user mapping and token-free session DTOs |
+| `http/app.ts`, `http/body.ts` | Shared HTTP entry points, privileged vendor-route denial, origin protection, strict bounded JSON and body admission |
+| `apps/web/src/ui/components/Authentication.tsx` | NewUI sign-in/setup, invited sign-up/verification/acceptance, passkey sign-in and authenticator recovery |
+| `apps/web/src/ui/components/OrganizationAdmin.tsx` | Native People, user detail, Invitations, Access and Authentication Policy administration |
 | `apps/cli/src/{client,credentials,prompt}.ts` | Thin native credential client, masked prompts and private origin-scoped session files |
 
 These are internal Governor modules, not services. Better Auth owns credential/factor storage; Brain owns authorization decisions and verification evidence. The former parallel human `brain_sessions` and plaintext `totp_secrets` authorities have been removed. A test-only RFC 6238 generator remains in `tests/support/totp.ts` as an independent oracle; production verification never calls it.
@@ -25,6 +28,16 @@ These are internal Governor modules, not services. Better Auth owns credential/f
 `POST /v1/setup` requires `Authorization: Setup <credential>`. Governor creates the random credential in owner-only `setup.token` in its data directory. Read it on the trusted host, enter it in the setup UI, or let the CLI read it from an explicit private file. It is never a default password or an unauthenticated arbitrary-user session minting endpoint. Exact trusted origin checks also apply. Native account creation and organization ownership are followed by one short Brain-authority transaction. A persisted pending intent binds retries to the original email/organization; a retry authenticates the account rather than duplicating it. Once any organization exists, or a restore marker exists, setup is closed.
 
 Human cookies and CLI bearer sessions are verified using Better Auth with cookie caching disabled. Brain binds evidence to the actual opaque vendor **session ID**, not just a user ID, and rechecks organization membership, disabled-principal state, current Brain roles and revocation generation. Explicit invalid bearer credentials cannot fall back to an ambient cookie. Workspace access additionally requires a matching active Brain membership. Agent/workflow/kiosk credentials use separate `machine_sessions` lookup digests and retain their actor kinds; they cannot become humans or satisfy step-up. All runner routes reject browser cookies.
+
+## Organization administration, invitations and passkeys
+
+The `OrganizationAdminCommand` family covers invitation create/cancel/retry, organization-role grant/revoke, member suspend/reactivate and current-organization session revocation. Typed queries expose directory, member detail, invitations, redacted security events and effective non-secret authentication policy. Mutations require identity scopes, a reason, idempotency and the current organization authorization generation. Callers can grant only roles they hold; last-admin removal and self-suspension are refused. Workspace grants require an active current-organization principal and matching Better Auth membership; arbitrary principal creation is closed.
+
+Better Auth's global admin role is only an internal vendor capability. Browser access to `/api/auth/admin/*` and privileged organization mutation routes is denied. Global impersonation, hard deletion, administrator-set passwords and cross-tenant listing are not exposed. Brain principal IDs and Better Auth user IDs are mapped through `auth_subject_id`, so shared users retain tenant isolation. Suspending a member disables only the current Brain organization and revokes only sessions associated with it.
+
+Password sign-up requires an active invitation; unknown OIDC users cannot implicitly provision. Invitations use the durable `auth_email_outbox`, with pending/failed/cancelled/delivered states and retry intents, not an assertion that SMTP succeeded. Acceptance requires a verified email and an explicit action. The invitation page checks the credential session directly until acceptance projects the Brain principal. Pending vendor intents support safe same-command retry without awaiting a network call inside a SQLite transaction.
+
+Passkeys use the pinned `@better-auth/passkey` 1.7.14 plugin and official Solid client. Loopback uses the valid `localhost` relying-party domain. Users can register, rename, delete and sign in with passkeys; passkeys do not replace TOTP-bound effect-approval evidence. Self-session APIs use session IDs and never return session tokens to browser JavaScript. Rate limits use the generated SQLite `rateLimit` table and explicitly configured trusted proxies only. Redacted `auth_security_events` retain path/user/organization/timestamp only.
 
 ## Strong verification and recovery
 
@@ -64,4 +77,4 @@ Noninteractive identity inputs are `BRAIN_EMAIL`, `BRAIN_PASSWORD`, `BRAIN_TOTP`
 
 Native HTTP tests cover actual signup/sign-in, cookie and bearer verification, membership/disablement, TOTP enrollment, session replacement, recovery/reset, bounded attempts, concurrent proof creation, revocation during vendor verification and exact decision replay. CLI tests use the real Governor handlers and shared commands. Recovery tests exercise native sessions as well as old approvals/leases. Request tests cover byte/depth/node limits, cancellation/admission, invalid UTF-8, duplicate keys and prototype-shaped JSON.
 
-The Playwright authentication fixture owns an isolated Governor and declares 390/768/1440 light/dark projects. No snapshot is silently regenerated. This environment cannot launch Chromium successfully or bind localhost, and cannot access the Docker socket, so browser/kernel/live integration acceptance is **unverified**, not passed. Required remaining identity work includes complete native organization/member administration and invitation/account-management UX, full identity/recovery browser coverage, and current approver authority checks at permit time. The full evidence/Mastra/runner/UI/memory/restore/performance scope in doc 23 remains active.
+Focused HTTP suites now additionally cover organization/user administration, invitation delivery/cancel/retry, real verification links, role invariants, idempotency, two-tenant session isolation, token-free self-session revocation, persistent rate limiting and redacted security events (`tests/security/organization-admin.test.ts`, `tests/security/auth-rate-limit.test.ts`, `tests/security/identity.test.ts`). `tests/browser/identity-administration.spec.ts` exercises the complete invitation/access flow and real WebAuthn registration/sign-in with an emulated authenticator across all 390/768/1440 light/dark projects; all 12 focused scenarios passed. These results do not certify unrelated platform gates, external email delivery, live customer systems or independent release acceptance.

@@ -1,11 +1,12 @@
 import { GovernorError } from "../../data/client";
-import { Show, createSignal } from "solid-js";
+import { createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import type { AuditEntry, ConfigExplanation, HealthView, MemberGrantView, WorkspaceContext } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { auditQuery, configExplainQuery, healthQuery, membersQuery, workspaceContextQuery } from "../../data/governor";
 import { SettingsScreen } from "../settings";
+import { ActionFeedback } from "../../ui/components/ActionFeedback";
 
 export default function SettingsPage(): JSX.Element {
   const app = useApp();
@@ -35,19 +36,21 @@ export default function SettingsPage(): JSX.Element {
   });
   const [message, setMessage] = createSignal("");
   return <div class="flex flex-col gap-field-gap">
-    <Show when={message()}><p role="status" class="text-base text-ink-gray-7">{message()}</p></Show>
+    <ActionFeedback message={message()} />
     <SettingsScreen workspaceId={app.workspaceId()}
       members={settings.state().data?.members ?? []} audit={settings.state().data?.audit ?? []}
       health={settings.state().data?.health} explanation={explanation.state().data}
       state={settings.state()} onRefresh={() => void settings.refresh({ force: true })}
       canAdminister={app.canAdminister()}
       onGrant={async (principalId, role, reason) => {
-        const result = await app.run("member.grant", { principalId, role: role as "viewer" | "operator" | "workspace-lead" | "approver", reason });
+        const expectedVersion = Math.max(1, ...(settings.state().data?.members.map((member) => member.version) ?? []));
+        const result = await app.run("member.grant", { principalId, role: role as "viewer" | "operator" | "workspace-lead" | "approver", reason }, { expectedVersion });
         setMessage(result.detail);
         await settings.refresh({ force: true });
       }}
       onRevoke={async (principalId, role, reason) => {
-        const result = await app.run("member.revoke", { principalId, role: role as "viewer" | "operator" | "workspace-lead" | "approver", reason });
+        const expectedVersion = Math.max(1, ...(settings.state().data?.members.map((member) => member.version) ?? []));
+        const result = await app.run("member.revoke", { principalId, role: role as "viewer" | "operator" | "workspace-lead" | "approver", reason }, { expectedVersion });
         setMessage(result.detail);
         await settings.refresh({ force: true });
       }}

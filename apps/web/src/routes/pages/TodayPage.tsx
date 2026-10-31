@@ -18,7 +18,7 @@ export default function TodayPage(): JSX.Element {
     isEmpty: (items) => items.length === 0,
     refreshMs: 15_000,
   });
-  return <TodayScreen items={today.state().data ?? []} state={today.state()} asOf={today.state().asOf}
+  return <TodayScreen onStart={() => void navigate(`/w/${app.workspaceId()}/workflows`)} items={today.state().data ?? []} state={today.state()} asOf={today.state().asOf}
     onRefresh={() => void today.refresh({ force: true })}
     onOpen={(item) => {
       if (item.type === "approval") void navigate(`/approvals/${item.resourceId}`);

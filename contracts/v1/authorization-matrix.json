@@ -62,6 +62,9 @@
         "audit:read",
         "membership:grant",
         "membership:revoke",
+        "identity:read",
+        "identity:manage",
+        "identity:security",
         "platform:read"
       ],
       "grantScope": "organization"
@@ -73,6 +76,8 @@
         "approval:revoke",
         "audit:read",
         "membership:revoke",
+        "identity:read",
+        "identity:security",
         "platform:read"
       ],
       "grantScope": "organization"
@@ -99,6 +104,150 @@
         "human"
       ],
       "originalActorOnly": true,
+      "currentMembershipRequired": true
+    },
+    "task.prepare": {
+      "scope": "workflow:dispatch",
+      "actors": [
+        "human",
+        "agent",
+        "workflow"
+      ],
+      "currentMembershipRequired": true,
+      "scopeMode": "workspace",
+      "originalActorOnly": false
+    },
+    "task.start": {
+      "scope": "workflow:dispatch",
+      "actors": [
+        "human",
+        "agent",
+        "workflow"
+      ],
+      "currentMembershipRequired": true,
+      "scopeMode": "workspace",
+      "originalActorOnly": true
+    },
+    "conversation.create": {
+      "scope": "workflow:dispatch",
+      "actors": [
+        "human",
+        "agent",
+        "workflow"
+      ],
+      "currentMembershipRequired": true,
+      "scopeMode": "workspace",
+      "originalActorOnly": true
+    },
+    "conversation.message": {
+      "scope": "workflow:dispatch",
+      "actors": [
+        "human",
+        "agent",
+        "workflow"
+      ],
+      "currentMembershipRequired": true,
+      "scopeMode": "workspace",
+      "originalActorOnly": true
+    },
+    "task.get": {
+      "scope": "workspace:read",
+      "actors": [
+        "human",
+        "agent",
+        "workflow"
+      ],
+      "currentMembershipRequired": true,
+      "originalActorOnly": true,
+      "scopeMode": "workspace"
+    },
+    "conversation.get": {
+      "scope": "workspace:read",
+      "actors": [
+        "human",
+        "agent",
+        "workflow"
+      ],
+      "currentMembershipRequired": true,
+      "originalActorOnly": true,
+      "scopeMode": "workspace"
+    },
+    "conversation.list": {
+      "scope": "workspace:read",
+      "actors": [
+        "human",
+        "agent",
+        "workflow"
+      ],
+      "currentMembershipRequired": true,
+      "originalActorOnly": true,
+      "scopeMode": "workspace"
+    },
+    "task.context": {
+      "scope": "workspace:read",
+      "actors": [
+        "human",
+        "agent",
+        "workflow"
+      ],
+      "currentMembershipRequired": true,
+      "scopeMode": "workspace"
+    },
+    "plan.prepare": {
+      "scope": "workflow:dispatch",
+      "actors": ["human", "agent", "workflow"],
+      "currentMembershipRequired": true,
+      "scopeMode": "workspace",
+      "originalActorOnly": false
+    },
+    "plan.get": {
+      "scope": "workspace:read",
+      "actors": ["human", "agent", "workflow"],
+      "currentMembershipRequired": true,
+      "originalActorOnly": true,
+      "scopeMode": "workspace"
+    },
+    "diagnostics.export": {
+      "scope": "config:activate",
+      "additionalScopes": [
+        "runner:admin"
+      ],
+      "actors": [
+        "human"
+      ],
+      "humanOnly": true,
+      "currentMembershipRequired": true
+    },
+    "local-runtime.get": {
+      "scope": "config:activate",
+      "additionalScopes": [
+        "runner:admin"
+      ],
+      "actors": [
+        "human"
+      ],
+      "humanOnly": true,
+      "currentMembershipRequired": true
+    },
+    "local-runtime.connect": {
+      "scope": "config:activate",
+      "additionalScopes": [
+        "runner:admin"
+      ],
+      "actors": [
+        "human"
+      ],
+      "humanOnly": true,
+      "currentMembershipRequired": true,
+      "requireFactorWhenConfigured": true
+    },
+    "runner.tokens": {
+      "scope": "runner:admin",
+      "actors": [
+        "human"
+      ],
+      "humanOnly": true,
+      "requireFactorWhenConfigured": true,
       "currentMembershipRequired": true
     }
   },
@@ -255,6 +404,26 @@
       "scopeMode": "organization",
       "redactPrivilegedDetails": false
     },
+    "organization.members.list": {
+      "scope": "identity:read",
+      "scopeMode": "organization",
+      "redactPrivilegedDetails": false
+    },
+    "organization.member.get": {
+      "scope": "identity:read",
+      "scopeMode": "organization",
+      "redactPrivilegedDetails": false
+    },
+    "organization.invitations.list": {
+      "scope": "identity:read",
+      "scopeMode": "organization",
+      "redactPrivilegedDetails": false
+    },
+    "organization.auth-policy.get": {
+      "scope": "identity:read",
+      "scopeMode": "organization",
+      "redactPrivilegedDetails": false
+    },
     "agents.list": {
       "scope": "workspace:read",
       "scopeMode": "workspace",
@@ -284,7 +453,28 @@
       "scope": "workspace:read",
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
-    }
+    },
+    "objectives.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "objectives.get": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "plans.get": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "workItems.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "workItems.get": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "workBoard.get": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "automations.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "automations.occurrences": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "delegations.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "workItemMessages.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "documents.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "documents.get": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "documents.search": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "configDrafts.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "configDrafts.get": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "configDrafts.impact": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": true },
+    "integrations.list": { "scope": "platform:read", "scopeMode": "organization", "redactPrivilegedDetails": true },
+    "integrations.repositories": { "scope": "platform:read", "scopeMode": "organization", "redactPrivilegedDetails": true },
+    "knowledgeAssets.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "capabilityCandidates.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "capitalizationRuns.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false }
   },
   "commandRecoveryRule": {
     "query": "command.get",

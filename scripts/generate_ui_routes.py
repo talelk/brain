@@ -14,30 +14,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "contracts" / "v1" / "ui-screen-contracts.json"
 OUTPUT = ROOT / "apps" / "web" / "src" / "routes" / "index.gen.ts"
 
-TITLES = {
-    "/today": "Today",
-    "/bridge": "Bridge",
-    "/w/:id/overview": "Work",
-    "/w/:id/board": "Board",
-    "/w/:id/decisions": "Decisions",
-    "/w/:id/support": "Support",
-    "/w/:id/sre": "SRE",
-    "/w/:id/delivery": "Delivery",
-    "/w/:id/knowledge": "Knowledge",
-    "/w/:id/runs": "Runs",
-    "/approvals": "Approvals",
-    "/approvals/:id": "Approval review",
-    "/jobs/:id": "Run detail",
-    "/runners": "Runners",
-    "/runners/:id": "Runner detail",
-    "/sessions/:id": "Live session",
-    "/tickets/:id": "Ticket detail",
-    "/incidents/:id": "Incident detail",
-    "/tools": "Tool catalog",
-    "/settings": "Settings",
-    "/tv/support": "Support board",
-    "/tv/sre": "SRE board",
-}
+
 
 
 def main() -> None:
@@ -64,7 +41,7 @@ def main() -> None:
         route = screen["route"]
         fields = {
             "route": route,
-            "title": TITLES.get(route, route.rsplit("/", 1)[-1].capitalize()),
+            "title": screen["title"],
             "owner": screen["owner"],
             "queries": screen["queries"],
             "actions": screen["actions"],
@@ -74,9 +51,10 @@ def main() -> None:
         lines.append("  { " + ", ".join(f"{key}: {json.dumps(value)}" for key, value in fields.items()) + " },")
     lines.append("]")
     lines.append("")
-    lines.append("/** The five primary areas plus the account-menu Settings entry. */")
+    lines.append("/** Primary product areas; personal settings remain in the account menu. */")
     lines.append(f"export const PRIMARY_NAVIGATION: readonly {{ id: string; label: string; route: string }}[] = {json.dumps([{ 'id': n['id'], 'label': n['label'], 'route': n['entryRoute']} for n in primary])};")
     lines.append("")
+    lines.append("export const AREA_NAVIGATION: Readonly<Record<string, readonly { label: string; route: string; adminOnly?: boolean; organizationOnly?: boolean; identityOnly?: boolean }[]>> = " + json.dumps(contract["areaNavigation"]) + ";")
     lines.append(f"export const SECONDARY_NAVIGATION: Readonly<Record<string, string>> = {json.dumps(contract['secondaryNavigation'])};")
     lines.append("")
     lines.append(f"export const READ_ONLY_PRINCIPALS: Readonly<Record<string, string>> = {json.dumps(contract['readOnlyPrincipals'])};")

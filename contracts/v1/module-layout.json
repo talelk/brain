@@ -73,9 +73,29 @@
       "path": "apps/governor/src/modules/knowledge",
       "owns": "Scoped memory gateway, TencentDB adapter, publication and export"
     },
-    "board": {
-      "path": "apps/governor/src/modules/board",
-      "owns": "Cards, business decisions and immutable comments"
+    "work": {
+      "path": "apps/governor/src/modules/work",
+      "owns": "Objectives, immutable plan versions, WorkItems, dependencies, assignments, business decisions and execution links"
+    },
+    "sessions": {
+      "path": "apps/governor/src/modules/sessions",
+      "owns": "Native and managed BrainSessions, durable messages, portable checkpoints and cross-agent collaboration"
+    },
+    "capabilities": {
+      "path": "apps/governor/src/modules/capabilities",
+      "owns": "Capability discovery, private candidates, packaging, tests and governed publication"
+    },
+    "workspaces": {
+      "path": "apps/governor/src/modules/workspaces",
+      "owns": "Workspace settings, source associations, context, quotas and available capabilities"
+    },
+    "resources": {
+      "path": "apps/governor/src/modules/resources",
+      "owns": "Documents, immutable versions, preview, associations, classification and storage lifecycle"
+    },
+    "integrations": {
+      "path": "apps/governor/src/modules/integrations",
+      "owns": "GitHub/GitLab connections, secret references, repository bindings, webhooks and change proposals"
     },
     "packs": {
       "path": "apps/governor/src/modules/packs",

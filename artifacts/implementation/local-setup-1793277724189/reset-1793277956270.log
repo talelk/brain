@@ -1,0 +1,11 @@
+Reset will remove all accounts, workspaces, releases, runs, artifacts, conversations, model settings, credentials and logs in:
+/tmp/brain-local-setup-proof-be9Rdi/data
+/tmp/brain-local-setup-proof-be9Rdi/run
+/tmp/brain-local-setup-proof-be9Rdi/cli
+Reset cannot undo actions already applied to external systems.
+[brain-down] runner-agents-1 stopped (pid 297983)
+[brain-down] runner-evaluators-1 stopped (pid 298064)
+[brain-down] launcher stopped (pid 297885)
+[brain-down] governor stopped (pid 297803)
+[brain-down] stack down (data preserved in /tmp/brain-local-setup-proof-be9Rdi/data; tencentdb is external and untouched)
+Instance reset. Run pnpm brain start to generate a new administrator and populated workspace.

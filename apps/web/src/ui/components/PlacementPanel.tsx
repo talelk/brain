@@ -4,6 +4,8 @@ import { Badge, KeyValue } from "@talelk/newui-atoms";
 import { Alert } from "@talelk/newui-molecules";
 import { StatGrid } from "@talelk/newui-organisms";
 import type { PlacementExplanation } from "@brain/contracts";
+import { statusTheme } from "./StatusBadge";
+import { DateText } from "../screen-region";
 
 const REASON_COPY: Record<string, string> = {
   READY: "A runner can take this job now.",
@@ -23,10 +25,10 @@ export function PlacementPanel(props: { explanation?: PlacementExplanation; erro
   return (
     <Show when={explanation()} fallback={<Alert theme="gray" variant="outline" title="Placement not evaluated" description={props.error ?? "The Governor has not returned a placement for this run yet."} />}>
       <div class="flex flex-col gap-field-gap">
-        <KeyValue label="Primary reason" value={<Badge theme={explanation()!.primaryReason === "READY" ? "green" : "amber"} label={explanation()!.primaryReason} />} />
+        <KeyValue label="Primary reason" value={<Badge theme={statusTheme("placement", explanation()!.primaryReason)} label={explanation()!.primaryReason} />} />
         <p class="text-base text-ink-gray-8">{REASON_COPY[explanation()!.primaryReason] ?? explanation()!.primaryReason}</p>
         <StatGrid compact columns={2} stats={[
-          { label: "Evaluated", value: new Date(explanation()!.evaluatedAt).toLocaleString() },
+          { label: "Evaluated", value: <DateText value={explanation()!.evaluatedAt} /> },
           { label: "Eligible runners", value: String(explanation()!.runners.filter((r) => r.eligible).length) },
         ]} />
         <Show when={explanation()!.runners.length} fallback={<Alert theme="amber" variant="outline" title="No runners registered" description="Enroll a runner that matches this job's capability and resource demand." />}>

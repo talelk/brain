@@ -1,0 +1,19 @@
+{
+  "id": "673f7d79-2509-4d17-9206-dea8508b9265",
+  "workspaceId": "ws-fc89e0af-b74f-4faa-9a17-98b946ed7871",
+  "messages": [
+    {
+      "id": "1be57719-5e6d-4c08-af59-edfa6e5596b2",
+      "role": "user",
+      "text": "Prepare support-draft. Title: Session expired. Body: I cannot sign in after my session expired. Draft a concise response asking for diagnostic details. Do not send it.",
+      "state": "done"
+    },
+    {
+      "id": "1be57719-5e6d-4c08-af59-edfa6e5596b2-reply",
+      "role": "assistant",
+      "text": "Brain could not prepare a verified proposal. You can choose a task directly, or send a new message after checking the model connection.",
+      "state": "failed",
+      "runId": "run-mvtj62fw-17-7085f5k4"
+    }
+  ]
+}

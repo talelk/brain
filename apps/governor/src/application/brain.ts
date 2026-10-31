@@ -18,7 +18,7 @@ import { MastraWorkflowEngine, type WorkflowEnginePort } from "../modules/workfl
 import { MemoryStore, TencentDbClient } from "../modules/knowledge/index";
 import { StepUpService } from "../modules/governance/index";
 import { createBrainAuth, bootstrapIdentity, assertHumanIdentity, type BootstrapResult, type BrainAuth } from "../modules/identity/index";
-import { quarantineRestoredAuthority, loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscription, type VapidKeys } from "../modules/operations/index";
+import { localRunnerSettingsCurrent, quarantineRestoredAuthority, loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscription, type VapidKeys } from "../modules/operations/index";
 import { EvidenceService } from "../modules/evidence/index";
 import { readReleaseAgentInstructions, readReleaseToolScript } from "../modules/configuration/index";
 import { acceptAttemptArtifact } from "../modules/evidence/index";
@@ -32,12 +32,26 @@ import {
 } from "../modules/jobs/index";
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
+import { WorkService } from "../modules/work/index";
+import { SessionService } from "../modules/sessions/index";
+import { DocumentService } from "../modules/resources/index";
+import { IntegrationService } from "../modules/integrations/index";
+import { ConfigurationDraftService } from "../modules/configuration/index";
+import { AutomationService, type AutomationDispatchDeps } from "../modules/jobs/index";
+import { CapitalizationService } from "../modules/capabilities/index";
 // releaseReservation is used by reconcileJob above via the jobs module index.
 
 export class Brain {
   readonly runtime: RuntimeConfig;
   readonly store: Store;
   readonly workflows: WorkflowEnginePort;
+  readonly work: WorkService;
+  readonly sessions: SessionService;
+  readonly documents: DocumentService;
+  readonly integrations: IntegrationService;
+  readonly drafts: ConfigurationDraftService;
+  readonly automation: AutomationService;
+  readonly capitalization: CapitalizationService;
   readonly memory: MemoryStore;
   readonly auth: BrainAuth;
   readonly stepUp: StepUpService;
@@ -48,11 +62,25 @@ export class Brain {
     this.store = new Store(opts);
     try {
       const authSecret = process.env["BRAIN_AUTH_SECRET"] ?? Buffer.from(this.store.pepper).toString("hex");
-      this.auth = createBrainAuth(this.store.control, { secret: authSecret, baseURL: process.env["BRAIN_BASE_URL"] ?? "http://127.0.0.1:3000", requireTwoFactor: this.runtime.requireTwoFactor });
+      this.auth = createBrainAuth(this.store.control, { initialPasswordFile: join(this.store.dataDir, "initial-admin-password"), secret: authSecret, baseURL: process.env["BRAIN_BASE_URL"] ?? "http://localhost:3000", requireTwoFactor: this.runtime.requireTwoFactor });
       this.auth.ensureTables();
       this.stepUp = new StepUpService(this.store, this.auth);
       this.memory = new MemoryStore(this.store);
+      this.work = new WorkService(this.store);
+      this.sessions = new SessionService(this.store);
+      this.documents = new DocumentService(this.store);
+      this.integrations = new IntegrationService(this.store);
+      this.drafts = new ConfigurationDraftService(this.store, {
+        activeDocuments: (organizationId) => {
+          const row = this.store.control.prepare("SELECT r.source_documents_json FROM active_config a JOIN config_releases r ON r.digest=a.release_digest WHERE a.organization_id=?").get(organizationId) as { source_documents_json: string } | undefined;
+          return row ? JSON.parse(row.source_documents_json) as import("../modules/configuration/compiler").SourceDoc[] : [];
+        },
+        publishConfiguration: (actor, bindingId, documents, message) => this.integrations.publishConfiguration(actor, bindingId, documents, message),
+        stageRelease: (actor, documents, sourceRevision) => this.stageRelease(actor, documents, sourceRevision),
+      });
       this.workflows = new MastraWorkflowEngine(this.store, this, join(this.store.dataDir, "mastra"));
+      this.automation = new AutomationService(this.store, this.automationDeps());
+      this.capitalization = new CapitalizationService(this.store);
       this.evidence = new EvidenceService(this.store, this.workflows);
       quarantineRestoredAuthority(this.store, this.auth);
     } catch (e) {
@@ -84,9 +112,11 @@ export class Brain {
       this.memoryProbe = { status: "disabled", detail: "no memory service configured; local scoped store active", checkedAt };
       return;
     }
-    fetch(url, { signal: AbortSignal.timeout(1500) })
-      .then(() => { this.memoryProbe = { status: "healthy", detail: "memory service reachable; local scoped store active (cross-service memory gate G04 not yet claimed)", checkedAt }; })
-      .catch(() => { this.memoryProbe = { status: "unavailable", detail: `memory service unreachable at ${url}; local scoped store active`, checkedAt }; });
+    fetch(`${url.replace(/\/$/u, "")}/health`, { signal: AbortSignal.timeout(1500) })
+      .then((response) => { this.memoryProbe = response.ok
+        ? { status: "healthy", detail: "TencentDB Memory Core reachable; scoped local review records remain authoritative", checkedAt }
+        : { status: "unavailable", detail: `TencentDB Memory Core health returned HTTP ${response.status}`, checkedAt }; })
+      .catch(() => { this.memoryProbe = { status: "unavailable", detail: `TencentDB Memory Core unreachable at ${url}`, checkedAt }; });
   }
 
   // --- bootstrap / directory ---
@@ -147,8 +177,8 @@ export class Brain {
     const s = this.store;
     s.inTx(s.control, () => {
       const compilerDigest = (compiled.manifest as { compilerDigest?: string }).compilerDigest ?? compiled.digest;
-      s.control.prepare("INSERT OR IGNORE INTO config_releases(digest, organization_id, source_revision, compiler_digest, manifest_json, created_at_ms) VALUES (?,?,?,?,?,?)")
-        .run(compiled.digest, actor.organizationId, sourceRevision, compilerDigest, JSON.stringify({ manifest: compiled.manifest, workflows: compiled.workflows, agents: compiled.agents, evaluators: compiled.evaluators, tools: compiled.tools, schemas: compiled.schemas }), s.now());
+      s.control.prepare("INSERT OR IGNORE INTO config_releases(digest, organization_id, source_revision, compiler_digest, source_documents_json, manifest_json, created_at_ms) VALUES (?,?,?,?,?,?,?)")
+        .run(compiled.digest, actor.organizationId, sourceRevision, compilerDigest, JSON.stringify(docs), JSON.stringify({ manifest: compiled.manifest, workflows: compiled.workflows, agents: compiled.agents, evaluators: compiled.evaluators, tools: compiled.tools, schemas: compiled.schemas }), s.now());
       for (const script of scripts ?? []) {
         const bytes = new Uint8Array(Buffer.from(script.bytesBase64, "base64"));
         const digest = sha256Digest(bytes);
@@ -278,6 +308,8 @@ export class Brain {
         if (!anyOf.length) throw new BrainDomainError("INVALID_CONTRACT", "agent and workflow engine requirements do not intersect");
         placementJson = JSON.stringify({ ...placement, engine: { anyOf, features: [...new Set([...agent.spec.engine.features, ...(placement.engine?.features ?? [])])] } });
       }
+      const runTarget = s.workspaceDb(input.workspaceId, input.organizationId).prepare("SELECT runner_id FROM run_inputs WHERE run_id=?").get(input.runId) as { runner_id: string | null } | undefined;
+      if (runTarget?.runner_id) placementJson = JSON.stringify({ ...(JSON.parse(placementJson) as import("@brain/contracts").Placement), runnerId: runTarget.runner_id });
       s.control.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, queue_reason, created_at_ms, ready_at_ms, deadline_ms)
         VALUES (?,?,?,?,?,?,'queued',?,?,?,?,'WAITING_FOR_RUNNER',?,?,?)`)
         .run(jobId, input.organizationId, input.workspaceId, input.executionKey, input.runId, input.stepId, input.configDigest, placementJson, input.executionDigest, input.effectClass, s.now(), s.now(), s.now() + 7 * 24 * 3600_000);
@@ -464,7 +496,10 @@ export class Brain {
       case "member.grant": case "member.revoke": {
         if (!wsId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         const principalId = String(p["principalId"]); const role = String(p["role"]);
-        this.ensurePrincipal(actor.organizationId, principalId, "human");
+        const activePrincipal = s.control.prepare("SELECT 1 AS active FROM principals WHERE id=? AND organization_id=? AND kind='human' AND disabled_at_ms IS NULL").get(principalId, actor.organizationId);
+        if (!activePrincipal) throw new BrainDomainError("NOT_FOUND", "active organization member not found");
+        const authOrganization = s.control.prepare("SELECT auth_organization_id FROM organizations WHERE id=?").get(actor.organizationId) as { auth_organization_id: string };
+        if (!this.auth.hasMembership(principalId, authOrganization.auth_organization_id)) throw new BrainDomainError("FORBIDDEN", "current Better Auth organization membership required");
         const wsRow = s.control.prepare("SELECT version FROM workspaces WHERE id=? AND organization_id=?").get(wsId, actor.organizationId) as { version: number } | undefined;
         if (!wsRow) throw new BrainDomainError("NOT_FOUND", "workspace not found");
         assertExpectedVersion(wsRow.version, (cmd as { expectedVersion?: number }).expectedVersion);
@@ -495,7 +530,14 @@ export class Brain {
         return id;
       }
       case "workflow.dispatch": case "workflow.cancel": case "board.create": case "board.move": case "board.comment":
+      case "objective.create": case "plan.propose": case "plan.confirm": case "workItem.transition": case "workItem.comment":
+      case "automation.upsert": case "automation.control":
       case "decision.record": case "session.steer": case "session.stop": case "tool.propose": case "tool.publish":
+      case "capitalization.run": case "capability.review":
+      case "session.create": case "session.checkpoint": case "session.delegate": case "delegation.review": case "workItem.message":
+      case "document.upload": case "document.revise": case "document.associate": case "document.delete":
+      case "integration.connect": case "integration.verify": case "integration.bind":
+      case "configDraft.create": case "configDraft.update": case "configDraft.validate": case "configDraft.test": case "configDraft.publish":
       case "memory.publish": case "memory.revoke": case "workspace.export": case "workspace.import": {
         // Applied in postApply (workspace DB / workflow start) to keep control tx short.
         return undefined;
@@ -515,15 +557,46 @@ export class Brain {
         .run(JSON.stringify(receipt), actor.organizationId, actor.actorId, cmd.commandType, cmd.idempotencyKey);
     };
     switch (cmd.commandType) {
+      case "objective.create": case "plan.propose": case "plan.confirm": case "workItem.transition": case "workItem.comment": {
+        setResource(this.work.apply(actor, cmd));
+        break;
+      }
+      case "session.create": case "session.checkpoint": case "session.delegate": case "delegation.review": case "workItem.message": {
+        setResource(this.sessions.apply(actor, cmd));
+        break;
+      }
+      case "document.upload": case "document.revise": case "document.associate": case "document.delete": {
+        setResource(this.documents.apply(actor, cmd));
+        break;
+      }
+      case "integration.connect": case "integration.verify": case "integration.bind": {
+        setResource(this.integrations.apply(actor, cmd));
+        break;
+      }
+      case "configDraft.create": case "configDraft.update": case "configDraft.validate": case "configDraft.test": case "configDraft.publish": {
+        setResource(this.drafts.apply(actor, cmd));
+        break;
+      }
+      case "automation.upsert": case "automation.control": {
+        if (!wsId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        setResource(this.automation.apply(actor, cmd));
+        break;
+      }
       case "workflow.dispatch": {
         if (!wsId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         const wfRef = p["workflow"] as { id: string };
+        const sessionId = p["sessionId"] ? String(p["sessionId"]) : "";
+        const sessionWorkItemId = sessionId ? this.sessions.workItemForDispatch(actor, wsId, sessionId) : undefined;
+        if (sessionWorkItemId && p["workItemId"] && sessionWorkItemId !== String(p["workItemId"])) throw new BrainDomainError("FORBIDDEN", "session and dispatch work item differ");
+        const workItemId = sessionWorkItemId ?? (p["workItemId"] ? String(p["workItemId"]) : "");
         const { workflow, configDigest } = this.workflowFromRelease(actor.organizationId, wfRef.id);
         const { runId } = this.workflows.startRun({
           organizationId: actor.organizationId, workspaceId: wsId, actorId: actor.actorId,
           workflowId: wfRef.id, workflow, configDigest,
           runInput: (p["input"] ?? null) as JsonValue, executionKey: cmd.commandId,
         });
+        if (workItemId) this.work.linkExecution(actor, wsId, workItemId, runId);
+        if (sessionId) this.sessions.attachRun(actor, wsId, sessionId, runId);
         // The receipt names the created aggregate: the run. The /jobs/:id
         // route resolves a run id to the run's current job, so the dispatch
         // deep link opens the work right away and follows it across steps.
@@ -610,22 +683,8 @@ export class Brain {
         setResource(String(p["sessionId"]));
         break;
       }
-      case "tool.propose": {
-        if (!wsId) break;
-        const ws = s.workspaceDb(wsId, actor.organizationId);
-        const pkg = p["package"] as { digest: string };
-        const id = s.id("toolcand");
-        ws.prepare("INSERT OR IGNORE INTO tool_candidates(id, signature, state, source_count, package_digest, created_at_ms) VALUES (?,?, 'quarantined', 3, ?,?)")
-          .run(id, pkg.digest, pkg.digest, s.now());
-        setResource(id);
-        break;
-      }
-      case "tool.publish": {
-        if (!actor.scopes.includes("tool:publish")) throw new BrainDomainError("FORBIDDEN", "tool publication requires tool publisher scope");
-        const rel = p["release"] as { id: string; digest: string };
-        s.control.exec("CREATE TABLE IF NOT EXISTS tool_releases(id TEXT PRIMARY KEY, digest TEXT NOT NULL, published_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL) STRICT");
-        s.control.prepare("INSERT OR REPLACE INTO tool_releases(id, digest, published_by, created_at_ms) VALUES (?,?,?,?)").run(rel.id, rel.digest, actor.actorId, s.now());
-        setResource(rel.id);
+      case "capitalization.run": case "capability.review": case "tool.propose": case "tool.publish": {
+        setResource(this.capitalization.apply(actor, cmd));
         break;
       }
       case "memory.publish": {
@@ -665,11 +724,14 @@ export class Brain {
           organizationId: actor.organizationId, workspaceId: targetWorkspaceId,
           sourceId: String(p["candidateId"]), text: casBytes.toString("utf8"),
         });
+        this.capitalization.markKnowledgePublished(actor.organizationId, sourceWorkspaceId, String(p["candidateId"]));
         setResource(id);
         break;
       }
       case "memory.revoke": {
-        this.memory.revoke(String(p["sourceId"]));
+        if (!wsId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        this.memory.revoke(actor.organizationId, wsId, String(p["sourceId"]));
+        this.capitalization.markKnowledgeRevoked(actor.organizationId, wsId, String(p["sourceId"]));
         setResource(String(p["sourceId"]));
         break;
       }
@@ -791,7 +853,7 @@ export class Brain {
   }
 
   claim(runner: { runnerId: string; epoch: number; organizationId: string }, requestId: string): JsonValue | null {
-    return jobsClaim(this.store, { isEvaluatorEligible: (runnerId, jobId) => this.evidence.evaluatorEligible(runnerId, jobId) }, runner, requestId);
+    return jobsClaim(this.store, { isRunnerCurrent: (id) => localRunnerSettingsCurrent(this.store, runner.organizationId, id), isEvaluatorEligible: (runnerId, jobId) => this.evidence.evaluatorEligible(runnerId, jobId) }, runner, requestId);
   }
 
   readExecutionArtifact(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string): Uint8Array {
@@ -865,6 +927,19 @@ export class Brain {
       resolveWorkflow: (organizationId, workflowId) => this.workflowFromRelease(organizationId, workflowId),
       startRun: (input) => this.workflows.startRun(input as Parameters<WorkflowEnginePort["startRun"]>[0]),
     });
+  }
+
+  private automationDeps(): AutomationDispatchDeps {
+    return {
+      resolveWorkflow: (organizationId, workflowId) => this.workflowFromRelease(organizationId, workflowId),
+      startRun: (input) => this.workflows.startRun(input as Parameters<WorkflowEnginePort["startRun"]>[0]),
+    };
+  }
+
+  // T52: due automation occurrences materialize and dispatch in the same
+  // maintenance pass as the declared-release cron schedules.
+  runAutomationDispatch(): { dispatched: number; skipped: number } {
+    return this.automation.dispatchAll();
   }
 
   // --- CAS artifacts ---
@@ -978,10 +1053,9 @@ export class Brain {
     return bytes;
   }
 
-  // E090: CAS garbage collection. Referenced bytes (artifact associations)
-  // and digests named by still-open uploads are always retained; only
-  // unreferenced files older than the grace window are removed, so a sweep
-  // racing a live upload or a backup can never take published evidence.
+  // E090: CAS garbage collection. Evidence/upload references and every
+  // immutable document version are always retained; only unreferenced files
+  // older than the grace window can be removed.
   casSweep(graceMs = 24 * 3600_000): { scanned: number; removed: number; retained: number } {
     const s = this.store;
     const referenced = new Set<string>();
@@ -990,6 +1064,10 @@ export class Brain {
     }
     for (const r of s.control.prepare("SELECT expected_digest FROM artifact_uploads WHERE state='open' AND expires_at_ms>?").all(s.now()) as Array<{ expected_digest: string }>) {
       referenced.add(r.expected_digest.replace("sha256:", ""));
+    }
+    for (const workspace of s.control.prepare("SELECT id,organization_id FROM workspaces").all() as Array<{ id: string; organization_id: string }>) {
+      const db = s.workspaceDb(workspace.id, workspace.organization_id);
+      for (const version of db.prepare("SELECT digest FROM document_versions").all() as Array<{ digest: string }>) referenced.add(version.digest.replace("sha256:", ""));
     }
     const casDir = join(s.dataDir, "cas");
     let scanned = 0, removed = 0, retained = 0;
@@ -1019,7 +1097,9 @@ export class Brain {
   }
 
   acceptVerdict(runner: { runnerId: string; epoch: number; organizationId: string }, workspaceId: string, raw: unknown): JsonValue {
-    return this.evidence.accept(runner,workspaceId,raw);
+    const result = this.evidence.accept(runner, workspaceId, raw);
+    if (result.outcome === "verified") this.capitalization.captureVerifiedBundle(runner.organizationId, workspaceId, (raw as { bundleDigest: string }).bundleDigest);
+    return result;
   }
 
   reconcileJob(input: { organizationId: string; jobId: string; outcome: "applied" | "absent" | "conflicting" | "unknown"; evidenceDigest: string }): JsonValue {
@@ -1051,39 +1131,12 @@ export class Brain {
     return { jobId: input.jobId, outcome: input.outcome } as unknown as JsonValue;
   }
 
-  // Rule of Three (E076/E077): only *distinct* verified root operations
-  // count toward a tool candidate — retries of one operation never do. The
-  // third distinct observation creates exactly one quarantined candidate;
-  // concurrent thirds race on the candidate signature primary key.
-  recordToolObservation(input: {
-    organizationId: string; workspaceId: string; signature: string;
-    rootOperationId: string; packageDigest: string; verified: boolean;
-  }): JsonValue {
-    const s = this.store;
-    const ws = s.workspaceDb(input.workspaceId, input.organizationId);
-    let distinctRoots = 0;
-    let candidateId: string | null = null;
-    s.inTx(ws, () => {
-      ws.prepare(`CREATE TABLE IF NOT EXISTS tool_observations(
-        signature TEXT NOT NULL, root_operation_id TEXT NOT NULL, verified INTEGER NOT NULL, created_at_ms INTEGER NOT NULL,
-        PRIMARY KEY(signature, root_operation_id)) STRICT`).run();
-      ws.prepare("INSERT OR IGNORE INTO tool_observations(signature, root_operation_id, verified, created_at_ms) VALUES (?,?,?,?)")
-        .run(input.signature, input.rootOperationId, input.verified ? 1 : 0, s.now());
-      const row = ws.prepare("SELECT COUNT(*) AS n FROM tool_observations WHERE signature=? AND verified=1").get(input.signature) as { n: number };
-      distinctRoots = row.n;
-      if (distinctRoots >= 3) {
-        const existing = ws.prepare("SELECT id FROM tool_candidates WHERE signature=?").get(input.signature) as { id: string } | undefined;
-        if (existing) {
-          candidateId = existing.id;
-          ws.prepare("UPDATE tool_candidates SET source_count=? WHERE signature=?").run(distinctRoots, input.signature);
-        } else {
-          candidateId = s.id("toolcand");
-          ws.prepare("INSERT INTO tool_candidates(id, signature, state, source_count, package_digest, created_at_ms) VALUES (?,?, 'quarantined', ?,?,?)")
-            .run(candidateId, input.signature, distinctRoots, input.packageDigest, s.now());
-        }
-      }
-    });
-    return { signature: input.signature, distinctVerifiedRoots: distinctRoots, candidateId } as unknown as JsonValue;
+  recordToolObservation(input: Parameters<CapitalizationService["capture"]>[0]): JsonValue {
+    return this.capitalization.capture(input);
+  }
+
+  runCapitalization(): { processed: number; failed: number } {
+    return this.capitalization.processPending();
   }
 
   // External observation ingest (E082/E086): deliveries dedupe on
@@ -1356,12 +1409,19 @@ export class Brain {
     const attempts = this.store.control.prepare("SELECT id, runner_id, attempt_no, state, lease_expires_at_ms FROM job_attempts WHERE job_id=? ORDER BY attempt_no").all(String(row["id"])) as Array<Record<string, unknown>>;
     const ws = this.store.workspaceDb(String(row["workspace_id"]),String(row["organization_id"]));
     const runId = String(row["workflow_run_id"]);
+    const workflowState = ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string } | undefined;
+    const hasInputs = ws.prepare("SELECT 1 FROM sqlite_master WHERE name='run_inputs'").get();
+    const workflow = hasInputs ? ws.prepare("SELECT json_extract(workflow_json,'$.spec.presentation.title') AS title,json_extract(workflow_json,'$.metadata.id') AS id FROM run_inputs WHERE run_id=?").get(runId) as { title: string | null; id: string } | undefined : undefined;
+    const origin = ws.prepare("SELECT origin_json FROM task_drafts WHERE run_id=? AND origin_json IS NOT NULL LIMIT 1").get(runId) as { origin_json: string } | undefined;
     const hasOutputs = ws.prepare("SELECT 1 FROM sqlite_master WHERE name='step_outputs'").get();
     const outputs = hasOutputs ? ws.prepare("SELECT step_id,output_json FROM step_outputs WHERE run_id=?").all(runId) as {step_id:string;output_json:string}[] : [];
     const hasEvents = this.store.control.prepare("SELECT 1 FROM sqlite_master WHERE name='attempt_events'").get();
     const events = hasEvents ? this.store.control.prepare("SELECT e.event_json FROM attempt_events e JOIN job_attempts a ON a.id=e.attempt_id JOIN jobs j ON j.id=a.job_id WHERE j.organization_id=? AND j.workflow_run_id=? AND json_extract(e.event_json,'$.kind')='engine' ORDER BY j.created_at_ms DESC,e.seq DESC LIMIT 200").all(String(row["organization_id"]),runId) as {event_json:string}[] : [];
     const bundle = ws.prepare("SELECT digest FROM evidence_bundles WHERE json_extract(manifest_json,'$.workflowRunId')=? ORDER BY created_at_ms DESC LIMIT 1").get(runId) as {digest:string}|undefined;
     return {
+      ...(workflowState ? { workflowState: workflowState.state } : {}),
+      ...(workflow ? { workflowTitle: workflow.title ?? workflow.id.replaceAll("-", " ") } : {}),
+      ...(origin ? { origin: JSON.parse(origin.origin_json) } : {}),
       runOutputs: Object.fromEntries(outputs.map((entry) => [entry.step_id,JSON.parse(entry.output_json)])),
       engineEvents: events.reverse().map((entry) => {
         const payload = (JSON.parse(entry.event_json) as { payload: JsonValue }).payload as { kind?: string; artifact?: { artifactId: string; digest: string } };
@@ -1569,6 +1629,33 @@ export class Brain {
         }
         return this.envelope(q.queryType, { items } as unknown as JsonValue);
       }
+      case "configDrafts.list": case "configDrafts.get": case "configDrafts.impact": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        return this.envelope(q.queryType, this.drafts.query(actor, q.queryType, q.workspaceId, q.resourceId));
+      }
+      case "integrations.list": case "integrations.repositories": {
+        return this.envelope(q.queryType, this.integrations.query(actor, q.queryType, q.resourceId));
+      }
+      case "documents.list": case "documents.get": case "documents.search": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        return this.envelope(q.queryType, this.documents.query(actor, q.queryType, q.workspaceId, q.resourceId, limit, (raw as { search?: string }).search));
+      }
+      case "sessions.list": case "session.get": case "delegations.list": case "workItemMessages.list": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        return this.envelope(q.queryType, this.sessions.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
+      }
+      case "knowledgeAssets.list": case "capabilityCandidates.list": case "capitalizationRuns.list": case "toolCandidates.list": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        return this.envelope(q.queryType, this.capitalization.query(actor, q.queryType, q.workspaceId, limit));
+      }
+      case "automations.list": case "automations.occurrences": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        return this.envelope(q.queryType, this.automation.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
+      }
+      case "objectives.list": case "objectives.get": case "plans.get": case "workItems.list": case "workItems.get": case "workBoard.get": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        return this.envelope(q.queryType, this.work.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
+      }
       case "board.get": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         requireWorkspaceRead(s, actor, q.workspaceId);
@@ -1674,11 +1761,15 @@ export class Brain {
         }
         return this.envelope(q.queryType, { items: items.slice(0, limit) } as unknown as JsonValue);
       }
-      case "sessions.list": case "tickets.list": case "incidents.list": case "delivery.list": case "tools.list": case "decisions.list": case "members.list": case "audit.list": {
+      case "tools.list": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        return this.envelope(q.queryType, this.capitalization.query(actor, q.queryType, q.workspaceId, limit));
+      }
+      case "tickets.list": case "incidents.list": case "delivery.list": case "decisions.list": case "members.list": case "audit.list": {
         if (q.workspaceId) requireWorkspaceRead(s, actor, q.workspaceId);
         return this.listPackQuery(actor, q.queryType, q.workspaceId);
       }
-      case "session.get": case "ticket.get": case "incident.get": case "delivery.get": case "evidence.get": {
+      case "ticket.get": case "incident.get": case "delivery.get": case "evidence.get": {
         return this.getPackQuery(actor, q.queryType, q.workspaceId, String(q.resourceId ?? ""));
       }
       case "sla.summary": {
@@ -1707,12 +1798,6 @@ export class Brain {
           incompleteRecords: intervals.filter((i) => i["ended_at_ms"] == null).length,
           sourceWatermark: ends.length ? Math.max(...ends) : 0,
         } as unknown as JsonValue);
-      }
-      case "toolCandidates.list": {
-        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT","workspaceId required");
-        requireWorkspaceRead(s,actor,q.workspaceId);
-        const rows=s.workspaceDb(q.workspaceId,actor.organizationId).prepare("SELECT id,package_digest,state,created_at_ms FROM tool_candidates ORDER BY created_at_ms DESC LIMIT 100").all() as {id:string;package_digest:string;state:string;created_at_ms:number}[];
-        return this.envelope(q.queryType,{items:rows.map((row)=>({release:{id:row.id,digest:row.package_digest},state:row.state,createdAt:iso(row.created_at_ms)}))} as unknown as JsonValue);
       }
       case "artifacts.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT","workspaceId required");
@@ -1839,27 +1924,11 @@ export class Brain {
     };
   }
 
-  private sessionView(r: Record<string, unknown>): Record<string, unknown> {
-    const s = this.store;
-    const job = s.control.prepare("SELECT step_id, workflow_run_id FROM jobs WHERE id=?").get(String(r["job_id"])) as Record<string, unknown> | undefined;
-    const budget = s.control.prepare("SELECT micro_usd, settled_micro_usd FROM budget_reservations WHERE job_id=?").get(String(r["job_id"])) as Record<string, unknown> | undefined;
-    const states = ["starting", "running", "waiting", "stopping", "stopped", "failed"];
-    const updated = Number(r["updated_at_ms"] ?? 0) || s.now();
-    return {
-      sessionId: String(r["id"]), jobId: String(r["job_id"]), attemptId: String(r["attempt_id"]),
-      engine: { id: String(r["engine_id"]), version: "1", adapterDigest: String(r["adapter_digest"]), features: [] },
-      state: states.includes(String(r["state"])) ? String(r["state"]) : "running",
-      task: job ? `step ${String(job["step_id"])} of run ${String(job["workflow_run_id"])}` : `job ${String(r["job_id"])}`,
-      usedTokens: 0, usedMicroUsd: Number(budget?.["settled_micro_usd"] ?? 0), reservedMicroUsd: Number(budget?.["micro_usd"] ?? 0),
-      lastEventSequence: Number(r["event_sequence"] ?? 0), updatedAt: iso(updated),
-    };
-  }
-
   private listPackQuery(actor: ActorContext, queryType: string, workspaceId?: string): JsonValue {
     const s = this.store;
     if (!workspaceId) return this.envelope(queryType, { items: [] } as unknown as JsonValue);
     const ws = s.workspaceDb(workspaceId, actor.organizationId);
-    const table = { "tickets.list": "tickets", "incidents.list": "incidents", "delivery.list": "delivery_dossiers", "tools.list": "tool_candidates", "decisions.list": "decisions", "sessions.list": "sessions", "members.list": "", "audit.list": "" }[queryType] ?? "";
+    const table = { "tickets.list": "tickets", "incidents.list": "incidents", "delivery.list": "delivery_dossiers", "tools.list": "tool_candidates", "decisions.list": "decisions", "members.list": "", "audit.list": "" }[queryType] ?? "";
     if (queryType === "members.list") {
       const rows = s.control.prepare("SELECT principal_id, role, version, granted_at_ms, revoked_at_ms FROM workspace_memberships WHERE workspace_id=?").all(workspaceId) as Array<Record<string, unknown>>;
       const byPrincipal = new Map<string, { roles: string[]; version: number; createdAtMs: number; revoked: boolean }>();
@@ -1908,7 +1977,6 @@ export class Brain {
         case "tickets.list": return this.ticketView(workspaceId, r, false, ws);
         case "incidents.list": return this.incidentView(workspaceId, r, false, ws);
         case "delivery.list": return this.deliveryView(workspaceId, r, ws);
-        case "sessions.list": return this.sessionView(r);
         case "decisions.list": return {
           id: String(r["id"]), workspaceId, cardId: String(r["card_id"]), actorId: String(r["actor_id"]),
           decision: String(r["decision"]), note: String(r["note"] ?? ""), createdAt: iso(Number(r["created_at_ms"])),
@@ -1937,14 +2005,13 @@ export class Brain {
     if (!workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
     requireWorkspaceRead(s, actor, workspaceId);
     const ws = s.workspaceDb(workspaceId, actor.organizationId);
-    const table = { "session.get": "sessions", "ticket.get": "tickets", "incident.get": "incidents", "delivery.get": "delivery_dossiers" }[queryType] ?? "";
+    const table = { "ticket.get": "tickets", "incident.get": "incidents", "delivery.get": "delivery_dossiers" }[queryType] ?? "";
     if (!table) throw new BrainDomainError("NOT_FOUND", "resource not found");
     const row = ws.prepare(`SELECT * FROM ${table} WHERE id=?`).get(resourceId) as Record<string, unknown> | undefined;
     if (!row) throw new BrainDomainError("NOT_FOUND", "resource not found");
     const view = queryType === "ticket.get" ? this.ticketView(workspaceId, row, true, ws)
       : queryType === "incident.get" ? this.incidentView(workspaceId, row, true, ws)
       : queryType === "delivery.get" ? this.deliveryView(workspaceId, row, ws)
-      : queryType === "session.get" ? this.sessionView(row)
       : row;
     return this.envelope(queryType, view as unknown as JsonValue);
   }
@@ -2022,8 +2089,7 @@ export class Brain {
         const scoped = results.filter((r) => r.scope.organizationId === actor.organizationId);
         return this.envelope("memory.search", { results: scoped, degraded: false } as unknown as import("@brain/contracts").JsonValue);
       } catch {
-        const found = this.memory.search(mq, { organizationId: actor.organizationId, workspaceId });
-        return this.envelope("memory.search", { ...found, degraded: true, reason: "TencentDB unavailable; local scoped store used" } as unknown as import("@brain/contracts").JsonValue);
+        throw new BrainDomainError("DEPENDENCY_UNAVAILABLE", "TencentDB memory search failed; the managed runtime does not fall back to local memory", { retryable: true });
       }
     }
     const found = this.memory.search(mq, { organizationId: actor.organizationId, workspaceId });

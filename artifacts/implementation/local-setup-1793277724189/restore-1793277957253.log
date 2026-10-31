@@ -1,0 +1,218 @@
+[brain-down] launcher: no pidfile, nothing to stop
+[brain-down] governor: no pidfile, nothing to stop
+[brain-down] stack down (data preserved in /tmp/brain-local-setup-proof-be9Rdi/data; tencentdb is external and untouched)
+$ node --import tsx src/maintenance.ts verify /tmp/brain-local-setup-proof-be9Rdi/backup
+{
+  "format": "brain.local-backup/v1",
+  "backupId": "5782337c-66c5-46f3-bcf0-0e2b9a133f3a",
+  "createdAt": "2026-10-29T12:45:21.032Z",
+  "files": [
+    {
+      "path": "authority.keys",
+      "digest": "sha256:2ad781eae426331ed12963fcec755aaceeb10560c37ca7e427b23f75b0e1c94f",
+      "bytes": 64
+    },
+    {
+      "path": "cas/08/08c6c6151eb31c76ae4d1b7975317d96ea74585e53d50f375d288d26a1fbcc39",
+      "digest": "sha256:08c6c6151eb31c76ae4d1b7975317d96ea74585e53d50f375d288d26a1fbcc39",
+      "bytes": 1740
+    },
+    {
+      "path": "cas/08/08cb1e0ceff22abe67816bdd7a683edb878a7c7dfa7fdf370b5450027ec92ce0",
+      "digest": "sha256:08cb1e0ceff22abe67816bdd7a683edb878a7c7dfa7fdf370b5450027ec92ce0",
+      "bytes": 587
+    },
+    {
+      "path": "cas/09/0996048876f162415b072b01481b6648d112b0299a8ecfd365df3f5b16cf4e97",
+      "digest": "sha256:0996048876f162415b072b01481b6648d112b0299a8ecfd365df3f5b16cf4e97",
+      "bytes": 1544
+    },
+    {
+      "path": "cas/0c/0cf8da46e1a0a3ade2e96f1f3bde1c394b11afe76f7097ad0b7102c5ed45e56c",
+      "digest": "sha256:0cf8da46e1a0a3ade2e96f1f3bde1c394b11afe76f7097ad0b7102c5ed45e56c",
+      "bytes": 160
+    },
+    {
+      "path": "cas/23/233c68bb35966c507b50f3588dc49938a73709e19cf33d6a104e60a91247ae5b",
+      "digest": "sha256:233c68bb35966c507b50f3588dc49938a73709e19cf33d6a104e60a91247ae5b",
+      "bytes": 603
+    },
+    {
+      "path": "cas/26/263da2f19dabddc820e2f927e1a483212b97690670dbbd905a169c33841b3e07",
+      "digest": "sha256:263da2f19dabddc820e2f927e1a483212b97690670dbbd905a169c33841b3e07",
+      "bytes": 508
+    },
+    {
+      "path": "cas/28/2814bec2c11327b3eb9c9cb63ce7ac202b2c2ae25fc6d03da223962b430a309d",
+      "digest": "sha256:2814bec2c11327b3eb9c9cb63ce7ac202b2c2ae25fc6d03da223962b430a309d",
+      "bytes": 720
+    },
+    {
+      "path": "cas/29/298a55569077d75d458d0ba24abde80f4a70723d31567faa36a6121b9607cd22",
+      "digest": "sha256:298a55569077d75d458d0ba24abde80f4a70723d31567faa36a6121b9607cd22",
+      "bytes": 772
+    },
+    {
+      "path": "cas/2f/2f94e76d15acf9b50666b5d2d64d1bcfddb02086ee51b61d1671b61a9288bc89",
+      "digest": "sha256:2f94e76d15acf9b50666b5d2d64d1bcfddb02086ee51b61d1671b61a9288bc89",
+      "bytes": 279
+    },
+    {
+      "path": "cas/2f/2feb02260775ae61efbc78769bb18f905e3a9474ee0b89172b98a91b33120cac",
+      "digest": "sha256:2feb02260775ae61efbc78769bb18f905e3a9474ee0b89172b98a91b33120cac",
+      "bytes": 592
+    },
+    {
+      "path": "cas/31/3111d495bba49dc686ebf77ce1c128aee92f442603b5ee11697d95be6447de2a",
+      "digest": "sha256:3111d495bba49dc686ebf77ce1c128aee92f442603b5ee11697d95be6447de2a",
+      "bytes": 655
+    },
+    {
+      "path": "cas/37/37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493",
+      "digest": "sha256:37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493",
+      "bytes": 12
+    },
+    {
+      "path": "cas/40/40df42299d971e9c46264b2dd4fee9e737c33f06f612dc7e6c13af53fbeb9f14",
+      "digest": "sha256:40df42299d971e9c46264b2dd4fee9e737c33f06f612dc7e6c13af53fbeb9f14",
+      "bytes": 1662
+    },
+    {
+      "path": "cas/46/46b7b6f978a16e33b515b391ebf3ae6ec210994d39239c8a03e7da94465353c5",
+      "digest": "sha256:46b7b6f978a16e33b515b391ebf3ae6ec210994d39239c8a03e7da94465353c5",
+      "bytes": 460
+    },
+    {
+      "path": "cas/53/5324f24e49ffd7858554c230d9128d160476c22436d23747bc6c1d13fc6bec0b",
+      "digest": "sha256:5324f24e49ffd7858554c230d9128d160476c22436d23747bc6c1d13fc6bec0b",
+      "bytes": 109
+    },
+    {
+      "path": "cas/58/58a6ee063e65083a9093c1ba8f59d3f69159c7711c72726163f245428decc0be",
+      "digest": "sha256:58a6ee063e65083a9093c1ba8f59d3f69159c7711c72726163f245428decc0be",
+      "bytes": 774
+    },
+    {
+      "path": "cas/5d/5db448f035d22c0fa95ea9aca38edddebbf940d2140a44029f6eda81116191ac",
+      "digest": "sha256:5db448f035d22c0fa95ea9aca38edddebbf940d2140a44029f6eda81116191ac",
+      "bytes": 1007
+    },
+    {
+      "path": "cas/65/650a53c4211408a08049d9950923b443d5bb0e4c96f1dc1b71944f0916dba034",
+      "digest": "sha256:650a53c4211408a08049d9950923b443d5bb0e4c96f1dc1b71944f0916dba034",
+      "bytes": 633
+    },
+    {
+      "path": "cas/69/69d613a3e11cbc66866f73c02e52e80fc7e08083bfb926c5ef98a01fb8f348c8",
+      "digest": "sha256:69d613a3e11cbc66866f73c02e52e80fc7e08083bfb926c5ef98a01fb8f348c8",
+      "bytes": 10
+    },
+    {
+      "path": "cas/6c/6cb8f74f0fa1da2795e320d14cbedb6fcb8e2487718d18bcc876a68242aed9e0",
+      "digest": "sha256:6cb8f74f0fa1da2795e320d14cbedb6fcb8e2487718d18bcc876a68242aed9e0",
+      "bytes": 570
+    },
+    {
+      "path": "cas/88/884cfc36d16858fb0cd6941bdc476761248b338740700ab024aba583d95fdb3e",
+      "digest": "sha256:884cfc36d16858fb0cd6941bdc476761248b338740700ab024aba583d95fdb3e",
+      "bytes": 1874
+    },
+    {
+      "path": "cas/89/89031d1fad8d2ded253e51286c58d48c58e6b8b556faf7e7f6b3e13f41a8c4b0",
+      "digest": "sha256:89031d1fad8d2ded253e51286c58d48c58e6b8b556faf7e7f6b3e13f41a8c4b0",
+      "bytes": 590
+    },
+    {
+      "path": "cas/8b/8bf38591f6b45e0d2e29af298997754d18d2a2444c1f3b11c8d83efb27c97e17",
+      "digest": "sha256:8bf38591f6b45e0d2e29af298997754d18d2a2444c1f3b11c8d83efb27c97e17",
+      "bytes": 589
+    },
+    {
+      "path": "cas/97/97828f29db666efb6b4a77fd3b08a3ee0684084e2c0a9b1c8df44654d893b9df",
+      "digest": "sha256:97828f29db666efb6b4a77fd3b08a3ee0684084e2c0a9b1c8df44654d893b9df",
+      "bytes": 568
+    },
+    {
+      "path": "cas/9f/9fa222495a139e7283e8498e4523c123ce9714053595022044e8219cc3da85db",
+      "digest": "sha256:9fa222495a139e7283e8498e4523c123ce9714053595022044e8219cc3da85db",
+      "bytes": 810
+    },
+    {
+      "path": "cas/b3/b32eafcb8cd9bc5debf3eea00b275086e916677035c39443e53604fc2a6aa20b",
+      "digest": "sha256:b32eafcb8cd9bc5debf3eea00b275086e916677035c39443e53604fc2a6aa20b",
+      "bytes": 966
+    },
+    {
+      "path": "cas/bb/bba0b933b9796f05087d3fb2c36d846dd65735d7e998e9fc6ac6a278ef710a31",
+      "digest": "sha256:bba0b933b9796f05087d3fb2c36d846dd65735d7e998e9fc6ac6a278ef710a31",
+      "bytes": 1528
+    },
+    {
+      "path": "cas/bf/bffb1ca3e04cd50e68e5b31938140bf293cfc1c88b72f7687b5126a6ee057f71",
+      "digest": "sha256:bffb1ca3e04cd50e68e5b31938140bf293cfc1c88b72f7687b5126a6ee057f71",
+      "bytes": 906
+    },
+    {
+      "path": "cas/dd/ddf37d40a8122d3f1dde2c3bf3a7cabb436d29c49238d65109f4d1b397900382",
+      "digest": "sha256:ddf37d40a8122d3f1dde2c3bf3a7cabb436d29c49238d65109f4d1b397900382",
+      "bytes": 908
+    },
+    {
+      "path": "cas/e7/e7823e2c5b265e4d886e77b2233c8de8eeb719efd833d1600e131967c94431c5",
+      "digest": "sha256:e7823e2c5b265e4d886e77b2233c8de8eeb719efd833d1600e131967c94431c5",
+      "bytes": 1547
+    },
+    {
+      "path": "cas/f2/f223209dab97732b9f53f6bd8d4899c7db605317912768cb560157db88106966",
+      "digest": "sha256:f223209dab97732b9f53f6bd8d4899c7db605317912768cb560157db88106966",
+      "bytes": 962
+    },
+    {
+      "path": "cas/fa/fad98f599ddea8db0003ba5c2d1dcd64f070e3ccfb362e204332d9fd7366341b",
+      "digest": "sha256:fad98f599ddea8db0003ba5c2d1dcd64f070e3ccfb362e204332d9fd7366341b",
+      "bytes": 1605
+    },
+    {
+      "path": "control.db",
+      "digest": "sha256:c577895d3d179c58c2f6d90ad204fd9dc51edcb637114deff2dc3e4a656f7c8d",
+      "bytes": 987136
+    },
+    {
+      "path": "first-launch.json",
+      "digest": "sha256:06fe6d647675a2ba1b1ba5326692b756a9404574f4abcaaf3dbadbe041fcc429",
+      "bytes": 134
+    },
+    {
+      "path": "local-model.json",
+      "digest": "sha256:0d03600e907938d4b133435a94dbb0274941d46c62cc9a884ba738ff75bb485d",
+      "bytes": 222
+    },
+    {
+      "path": "mastra/mastra.db",
+      "digest": "sha256:3d30a4205cd14437104e772d6f8534da6f385be9d4a062646b9df7928e883c75",
+      "bytes": 544768
+    },
+    {
+      "path": "workspaces/ws-33b2e4d1-237a-4fd6-98cd-033ad2183e4b.db",
+      "digest": "sha256:79b8bade2accc81c40b8eb31ea5fad00513f21a4db0c4f25b3bfe9536c27ee4e",
+      "bytes": 458752
+    }
+  ],
+  "completeness": "complete",
+  "missing": [],
+  "authority": {
+    "organizations": [
+      {
+        "id": "org-18b7abbd-1d6e-4cd0-b9fe-3c7128f48875",
+        "revocationGeneration": 1,
+        "activeReleaseDigest": "sha256:0a50c9da30b0b75316faa9385ad2b0d0538897f70370d288d815de92c5f2a138",
+        "primitiveVersions": 16
+      }
+    ],
+    "mastraLibsqlSnapshot": true,
+    "memoryMode": "local"
+  }
+}
+$ node --import tsx src/maintenance.ts restore /tmp/brain-local-setup-proof-be9Rdi/backup /tmp/brain-local-setup-proof-be9Rdi/data
+{"restored":true,"suspended":true}
+Restore verified. Execution remains suspended for controlled reconciliation. Run pnpm brain start to inspect the restored instance.

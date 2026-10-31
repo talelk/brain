@@ -8,7 +8,7 @@ Use [NewUI](https://talelk.github.io/newui/) as the UI foundation. Its semantic 
 
 ## Information architecture
 
-Use five primary navigation areas: **Today, Work, Runs, Approvals and Knowledge**. Workspace selection scopes them. Work includes board/decisions and Support/SRE/Delivery tabs; Runs has jobs/sessions/runners tabs and one shared detail composition for summary, attempts, timeline, evidence and placement. Knowledge includes tools. Bridge is a Today view. Settings lives in the account menu; TV has a dedicated kiosk entry. This groups the complete feature set without removing routes or introducing another shell.
+Use six primary navigation areas: **Today, Work, Activity, Approvals, Knowledge and Administration**. Workspace selection scopes operational areas. Work includes objectives/plans, board, tasks, schedules, sessions, resources and pack views; Activity has jobs/sessions/history; Knowledge includes documents, capabilities and specialized Studios; Administration includes Git integrations, models, members, runners, policies, storage and releases. Personal security and preferences stay in the account menu; TV has a dedicated kiosk entry. A contextual Workspace Create action and Ask Brain converge on the same reviewed drafts and commands as manual creation. Primary and contextual destinations share the shell's grouped responsive sidebar rather than a second horizontal tab strip.
 
 The following route index is generated from `contracts/v1/ui-screen-contracts.json`:
 
@@ -31,14 +31,21 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/w/:id/sre` | work | Review workspace work and pack details | severity, target, state, freshness |
 | `/incidents/:id` | work | Review workspace work and pack details | observations, remediation, evidence |
 | `/w/:id/delivery` | work | Review workspace work and pack details | source, criteria, risks, evidence |
-| `/w/:id/knowledge` | knowledge | Find scoped facts and inspect trusted capabilities | source, scope, freshness, review |
+| `/w/:id/knowledge` | knowledge | Find scoped facts and inspect trusted capabilities | source, scope, freshness, review, capitalization, provenance, candidateTests, releaseGate |
 | `/tools` | knowledge | Find scoped facts and inspect trusted capabilities | name, state, effect, release, evidence |
-| `/settings` | settings | Manage explicitly authorized administration | members, policy, budget, audit, health |
+| `/settings` | settings | Manage explicitly authorized administration | members, people, invitations, access, authenticationPolicy, audit, health |
+| `/accept-invitation/:id` | settings | Verify an invited account and accept organization membership | invitedSignUp, emailVerification, explicitAcceptance |
 | `/tv/support` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
 | `/tv/sre` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
 | `/w/:id/runs` | runs | Inspect a run, its attempts, events and evidence | jobs, sessions, runners |
 | `/w/:id/agents` | work | Inspect active agent and workflow definitions and dispatch schema-validated inputs | release, instructions, engine, limits |
 | `/w/:id/workflows` | work | Inspect active agent and workflow definitions and dispatch schema-validated inputs | release, input-schema, engine, dependencies |
+| `/w/:id/plans` | work | Turn an intention into a reviewed plan and versioned work | objective, planVersion, tasks, dependencies, assignments |
+| `/w/:id/schedules` | work | Schedule and control task and workflow occurrences | target, trigger, nextOccurrences, overlap, misfire, history |
+| `/w/:id/resources` | work | Manage and use workspace documents | documents, versions, preview, scope, associations, indexing |
+| `/studio/:kind` | knowledge | Create and validate a capability without editing YAML | definitions, drafts, validation, dependencies |
+| `/studio/:kind/:draftId` | knowledge | Edit, test, review and publish an immutable definition | editor, diagnostics, diff, tests, publication |
+| `/administration/integrations` | administration | Connect Git providers and bind repositories to workspaces | providers, organizations, repositories, permissions, webhooks, status |
 <!-- END GENERATED ROUTES -->
 
 Routes use immutable object IDs; workspace slug is presentation only. Cross-workspace links check access before displaying data. Deep links preserve selected workspace, filters and view; Back returns to list position. Global search is permission-filtered and uses typed categories.

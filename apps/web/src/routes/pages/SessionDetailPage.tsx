@@ -1,24 +1,25 @@
-import { Show, createSignal } from "solid-js";
+import { createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { useParams } from "@solidjs/router";
-import type { SessionView } from "@brain/contracts";
+import type { BrainSession } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { sessionQuery } from "../../data/governor";
 import { SessionFeed } from "../../ui/components/SessionFeed";
+import { ActionFeedback } from "../../ui/components/ActionFeedback";
 
 export default function SessionDetailPage(): JSX.Element {
   const app = useApp();
   const params = useParams();
   const sessionId = () => params.id ?? "";
-  const session = createScopedRead<SessionView>({
+  const session = createScopedRead<BrainSession>({
     scope: app.scope,
     load: (scope, signal) => sessionQuery(scope.workspaceId, sessionId(), signal),
     refreshMs: 5_000,
   });
   const [message, setMessage] = createSignal("");
   return <div class="flex flex-col gap-field-gap">
-    <Show when={message()}><p role="status" class="text-base text-ink-gray-7">{message()}</p></Show>
+    <ActionFeedback message={message()} />
     <SessionFeed sessionId={sessionId()} session={session.state().data} state={session.state()}
       onRefresh={() => void session.refresh({ force: true })}
       onSteer={async (messageText) => {

@@ -53,7 +53,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
 
   startRun(input: {
     organizationId: string; workspaceId: string; actorId: string;
-    workflowId: string; workflow: Workflow; configDigest: string; runInput: JsonValue; executionKey: string;
+    workflowId: string; workflow: Workflow; configDigest: string; runInput: JsonValue; executionKey: string; runnerId?: string;
   }): { runId: string } {
     // Synchronous admission (caller contract: a claim immediately after
     // dispatch sees the first job/approval). Admission is implemented here,
@@ -73,9 +73,9 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     s.inTx(ws, () => {
       ws.prepare(`INSERT INTO workflow_runs(id, execution_key, config_digest, workflow_digest, adapter_digest, engine_run_id, state, input_digest, created_at_ms)
         VALUES (?,?,?,?,?,?,?,?,?)`).run(runId, input.executionKey, input.configDigest, workflowDigest, domainDigest("brain:engine:v1", { engine: "mastra" }), runId, "running", inputDigest, s.now());
-      ws.prepare("CREATE TABLE IF NOT EXISTS run_inputs(run_id TEXT PRIMARY KEY, input_json TEXT NOT NULL, workflow_json TEXT NOT NULL, actor_id TEXT NOT NULL) STRICT").run();
-      ws.prepare("INSERT INTO run_inputs(run_id, input_json, workflow_json, actor_id) VALUES (?,?,?,?)")
-        .run(runId, JSON.stringify(input.runInput), JSON.stringify(input.workflow), input.actorId);
+      ws.prepare("CREATE TABLE IF NOT EXISTS run_inputs(run_id TEXT PRIMARY KEY, input_json TEXT NOT NULL, workflow_json TEXT NOT NULL, actor_id TEXT NOT NULL, runner_id TEXT) STRICT").run();
+      ws.prepare("INSERT INTO run_inputs(run_id, input_json, workflow_json, actor_id, runner_id) VALUES (?,?,?,?,?)")
+        .run(runId, JSON.stringify(input.runInput), JSON.stringify(input.workflow), input.actorId, input.runnerId ?? null);
       for (const stepId of order) {
         ws.prepare("INSERT INTO workflow_steps(run_id, step_id, execution_key, state) VALUES (?,?,?, 'pending')")
           .run(runId, stepId, `${input.executionKey}:${stepId}`);

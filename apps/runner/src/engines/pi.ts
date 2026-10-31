@@ -34,7 +34,7 @@ export class PiEngine implements EngineAdapter {
     try {
       await import("@earendil-works/pi-coding-agent");
       version = "1.4.0";
-      const res = await fetch(`${this.modelUrl()}/models`, { signal: AbortSignal.timeout(5000) });
+      const res = await fetch(`${this.modelUrl()}/models`, { redirect: "error", headers: process.env["BRAIN_LOCAL_MODEL_API_KEY"] ? { authorization: `Bearer ${process.env["BRAIN_LOCAL_MODEL_API_KEY"]}` } : {}, signal: AbortSignal.timeout(5000) });
       reachable = res.ok && ((await res.json()) as { data?: {id:string}[] }).data?.some((model) => model.id === this.modelId()) === true;
     } catch { version = "unavailable"; }
     return {
@@ -61,14 +61,14 @@ export class PiEngine implements EngineAdapter {
     writeFileSync(join(agentDir, "models.json"), JSON.stringify({
       providers: {
         "local-qwen": {
-          name: "Local Qwen (vLLM)", baseUrl: this.modelUrl(), api: "openai-completions", apiKey: "local-no-key",
+          name: "Local Qwen (vLLM)", baseUrl: this.modelUrl(), api: "openai-completions", apiKey: process.env["BRAIN_LOCAL_MODEL_API_KEY"] || "local-no-key",
           models: [{
             id: spec.modelId || this.modelId(), name: spec.modelId || this.modelId(), reasoning: true, input: ["text"],
             cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 262144, maxTokens: Math.min(8192, spec.limits.maxTokens),
           }],
         },
       },
-    }, null, 2));
+    }, null, 2), { mode: 0o600 });
     process.env["PI_CODING_AGENT_DIR"] = agentDir;
     const { createAgentSession, ModelRuntime } = (await import("@earendil-works/pi-coding-agent")) as typeof import("@earendil-works/pi-coding-agent");
     const runtime = await ModelRuntime.create();

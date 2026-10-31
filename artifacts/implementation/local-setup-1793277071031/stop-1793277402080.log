@@ -1,0 +1,3 @@
+[brain-down] launcher: no pidfile, nothing to stop
+[brain-down] governor: no pidfile, nothing to stop
+[brain-down] stack down (data preserved in /tmp/brain-local-setup-proof-JFccGp/data; tencentdb is external and untouched)

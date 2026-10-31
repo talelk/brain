@@ -156,6 +156,46 @@
     }
    }
   },
+  "/v1/identity/sessions": {
+   "get": {
+    "operationId": "get_v1_identity_sessions",
+    "security": [{ "bearer": [] }, { "humanSession": [] }],
+    "responses": {
+     "200": {
+      "description": "Current user's sessions without credential tokens",
+      "content": { "application/json": { "schema": { "$ref": "./brain.schema.json#/$defs/IdentitySessionList" } } }
+     },
+     "401": { "description": "Session required" }
+    }
+   }
+  },
+  "/v1/identity/sessions/revoke": {
+   "post": {
+    "operationId": "post_v1_identity_sessions_revoke",
+    "security": [{ "bearer": [] }, { "humanSession": [] }],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "mode": { "type": "string", "enum": ["one", "others", "all"] },
+         "sessionId": { "$ref": "./brain.schema.json#/$defs/Id" }
+        },
+        "required": ["mode"],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "responses": {
+     "204": { "description": "Session revocation applied" },
+     "401": { "description": "Session required" },
+     "404": { "description": "Session not found" }
+    }
+   }
+  },
   "/v1/query": {
    "post": {
     "operationId": "post_v1_query",
@@ -3565,6 +3605,405 @@
      }
     },
     "operationId": "get_v1_doctor"
+   }
+  },
+  "/v1/local-runtime": {
+   "get": {
+    "operationId": "get_v1_local_runtime",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Local model connection and observed runner state",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/LocalRuntimeStatus"
+        }
+       }
+      }
+     }
+    },
+    "x-brain-operation": "local-runtime.get"
+   }
+  },
+  "/v1/local-runtime/connect": {
+   "post": {
+    "operationId": "post_v1_local_runtime_connect",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Local model connection and observed runner state",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/LocalRuntimeStatus"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/LocalModelConnectionRequest"
+       }
+      }
+     }
+    },
+    "x-brain-operation": "local-runtime.connect"
+   }
+  },
+  "/v1/task-context": {
+   "get": {
+    "operationId": "get_v1_task_context",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Authorized task experience",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/TaskContext"
+        }
+       }
+      }
+     }
+    },
+    "x-brain-operation": "task.context"
+   }
+  },
+  "/v1/tasks/drafts": {
+   "post": {
+    "operationId": "post_v1_tasks_drafts",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Authorized task experience",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/TaskDraft"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/TaskPrepareRequest"
+       }
+      }
+     }
+    },
+    "x-brain-operation": "task.prepare"
+   }
+  },
+  "/v1/tasks/drafts/{id}": {
+   "get": {
+    "operationId": "get_v1_tasks_drafts_id",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Authorized task experience",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/TaskDraft"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "x-brain-operation": "task.get"
+   }
+  },
+  "/v1/tasks/drafts/{id}/start": {
+   "post": {
+    "operationId": "post_v1_tasks_drafts_id_start",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Authorized task experience",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/TaskDraft"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/WorkspaceRequest"
+       }
+      }
+     }
+    },
+    "x-brain-operation": "task.start"
+   }
+  },
+  "/v1/conversations": {
+   "post": {
+    "operationId": "post_v1_conversations",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Authorized task experience",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/ConversationView"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/ConversationCreateRequest"
+       }
+      }
+     }
+    },
+    "x-brain-operation": "conversation.create"
+   },
+   "get": {
+    "operationId": "get_v1_conversations",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Current principal conversation history",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "./brain.schema.json#/$defs/ConversationSummary"
+         }
+        }
+       }
+      }
+     }
+    },
+    "x-brain-operation": "conversation.list"
+   }
+  },
+  "/v1/conversations/{id}": {
+   "get": {
+    "operationId": "get_v1_conversations_id",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Authorized task experience",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/ConversationView"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "x-brain-operation": "conversation.get"
+   }
+  },
+  "/v1/conversations/{id}/messages": {
+   "post": {
+    "operationId": "post_v1_conversations_id_messages",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Authorized task experience",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/ConversationView"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/ConversationMessageRequest"
+       }
+      }
+     }
+    },
+    "x-brain-operation": "conversation.message"
+   }
+  },
+  "/v1/diagnostics": {
+   "get": {
+    "operationId": "get_v1_diagnostics",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Redacted diagnostics without credentials or private content",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/RedactedDiagnostics"
+        }
+       }
+      }
+     }
+    },
+    "x-brain-operation": "diagnostics.export"
+   }
+  },
+  "/v1/plans": {
+   "post": {
+    "operationId": "post_v1_plans",
+    "security": [{ "bearer": [] }, { "humanSession": [] }],
+    "responses": {
+     "202": { "description": "Plan assistant started", "content": { "application/json": { "schema": { "$ref": "./brain.schema.json#/$defs/ObjectivePlanView" } } } }
+    },
+    "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "./brain.schema.json#/$defs/ObjectivePlanRequest" } } } },
+    "x-brain-operation": "plan.prepare"
+   }
+  },
+  "/v1/plans/{id}": {
+   "get": {
+    "operationId": "get_v1_plans_id",
+    "security": [{ "bearer": [] }, { "humanSession": [] }],
+    "responses": {
+     "200": { "description": "Current principal planning request", "content": { "application/json": { "schema": { "$ref": "./brain.schema.json#/$defs/ObjectivePlanView" } } } }
+    },
+    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+    "x-brain-operation": "plan.get"
    }
   }
  },

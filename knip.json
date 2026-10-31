@@ -1,0 +1,51 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/**/*.{ts,mjs}", "benchmarks/*.ts", "tests/**/*.{ts,tsx}", "playwright.config.ts"],
+      "project": ["scripts/**/*.{ts,mjs}", "benchmarks/*.ts", "tests/**/*.{ts,tsx}", "playwright.config.ts"]
+    },
+    "apps/governor": {
+      "entry": ["src/main.ts", "src/maintenance.ts", "scripts/*.ts"],
+      "project": ["src/**/*.ts", "scripts/**/*.ts"]
+    },
+    "apps/runner": {
+      "entry": ["src/main.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "apps/launcher": {
+      "entry": ["src/main.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "apps/cli": {
+      "entry": ["src/main.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "apps/web": {
+      "entry": ["src/main.tsx", "vite.config.ts"],
+      "project": ["src/**/*.{ts,tsx}", "vite.config.ts"]
+    },
+    "packages/contracts": {
+      "entry": ["src/index.ts", "src/validate.ts"],
+      "project": ["src/**/*.ts"]
+    }
+  },
+  "ignore": [
+    "node_modules/**",
+    "**/dist/**",
+    "artifacts/**",
+    "contracts/**",
+    "examples/**",
+    "docs/**",
+    "deploy/**",
+    "screenshots/**",
+    "test-results/**",
+    "apps/web/src/routes/index.gen.ts",
+    "**/*.generated.ts",
+    "review.*.mjs",
+    "review.phase*.mjs"
+  ],
+  "ignoreBinaries": ["docker", "docker-compose", "python3", "bash", "git", "rtk", "openssl"],
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": ["@talelk/newui-tailwind", "tailwindcss", "@tailwindcss/forms", "@tailwindcss/typography", "lucide-static"]
+}

@@ -5,10 +5,6 @@ export const systemClock: Clock = {
   monotonicMs: () => performance.now(),
 };
 
-export function fixedClock(ms: number): Clock {
-  return { nowMs: () => ms, monotonicMs: () => ms };
-}
-
 export function iso(ms: number): string {
   return new Date(ms).toISOString();
 }

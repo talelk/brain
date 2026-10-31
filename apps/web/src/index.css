@@ -11,14 +11,6 @@
 @source "../node_modules/@talelk/newui-templates/src/**/*.{ts,tsx}";
 @source not "../node_modules/@talelk/newui-templates/src/**/*.test.{ts,tsx}";
 
-.brain-page-intro {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--spacing-field-gap, 1rem);
-}
-
 .brain-action-bar {
   display: flex;
   flex-wrap: wrap;
@@ -55,25 +47,54 @@
   text-align: start;
 }
 
+
+.brain-empty-inline { color: var(--ink-gray-6, currentColor); font-size: 0.875rem; line-height: 1.25rem; text-align: center; padding: var(--spacing-4, 1rem) 0; }
+
+
+/* Subtle, token-based motion (Phase 2): guarded globally by prefers-reduced-motion overrides. */
+.brain-region-enter > * { animation: brain-fade-in var(--duration-base, 160ms) var(--ease-standard, ease-out); }
+@keyframes brain-fade-in { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+[data-kanban-card] { transition: transform var(--duration-fast, 120ms) var(--ease-standard, ease-out); }
+[data-kanban-card]:hover { transform: translateY(-1px); }
+/* Shared list/field rhythms (Phase 1 standardization): one definition, no per-page drift. */
+.brain-row-list > * { padding-block: var(--spacing-4, 1rem); }
+.brain-row-list > *:first-child { padding-top: 0; }
+.brain-row-list > *:last-child { padding-bottom: 0; }
+.brain-field-grid { display: grid; gap: var(--spacing-3, 0.75rem); }
+@media (min-width: 1024px) { .brain-field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
 .brain-readable {
   max-width: 75ch;
   overflow-wrap: anywhere;
 }
 
+.brain-row-list,
+.brain-page-stack,
 .brain-detail-stack {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: var(--spacing-field-gap, 1rem);
+  gap: var(--spacing-section-gap, 1.5rem);
+}
+
+.brain-page-stack > *,
+.brain-detail-stack > * {
+  min-width: 0;
+}
+
+.brain-technical-details {
+  min-width: 0;
+  border: 1px solid var(--outline-gray-1);
+  border-radius: var(--radius-card);
+  padding: var(--spacing-card-pad-compact);
+  background: var(--surface-gray-1);
 }
 
 @media (max-width: 639px) {
-  .brain-page-intro,
   .brain-action-bar {
     width: 100%;
   }
 
-  .brain-page-intro .brain-action-bar > button,
   .brain-action-bar.brain-primary-actions > button {
     flex: 1 1 auto;
   }

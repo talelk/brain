@@ -1,0 +1,5 @@
+[brain-down] runner-agents-1 stopped (pid 292195)
+[brain-down] runner-evaluators-1 stopped (pid 292364)
+[brain-down] launcher stopped (pid 292010)
+[brain-down] governor stopped (pid 291739)
+[brain-down] stack down (data preserved in /tmp/brain-local-setup-proof-be9Rdi/data; tencentdb is external and untouched)

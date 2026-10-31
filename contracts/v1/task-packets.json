@@ -110,9 +110,9 @@
     "T05": {
       "id": "T05",
       "dependencies": "T04",
-      "targetFiles": "apps/governor/src/modules/identity/{auth,actor-context}.ts; apps/governor/src/container.ts; generated current auth schema",
-      "behavior": "Better Auth/organization, secure sessions, workspace memberships, bootstrap",
-      "verify": "tests/security/identity.test.ts; E001–E005/E008, real plugin schema",
+      "targetFiles": "apps/governor/src/modules/identity/; apps/governor/src/application/organization-admin.ts; apps/web/src/ui/components/{Authentication,OrganizationAdmin,PasskeyControls}.tsx; generated current auth schema",
+      "behavior": "Better Auth organization/admin/passkey, secure token-free sessions, tenant-safe user/role administration, invite-only sign-up with verified explicit acceptance, persistent rate limits and native administration screens; default local administrator login and explicit temporary-password replacement retained.",
+      "verify": "tests/security/identity.test.ts; tests/security/organization-admin.test.ts; tests/security/auth-rate-limit.test.ts; tests/browser/identity-administration.spec.ts; E001–E005/E008, real plugin schema",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/05-authorization-and-security.md",
@@ -123,7 +123,10 @@
       "contractDefinitions": [
         "ActorContext",
         "StepUpChallenge",
-        "StepUpVerify"
+        "StepUpVerify",
+        "OrganizationAdminCommand",
+        "OrganizationDirectorySnapshot",
+        "IdentitySessionList"
       ],
       "ownerModule": "identity",
       "scenarioIds": [
@@ -135,7 +138,10 @@
         "E008"
       ],
       "verificationCommands": [
-        "rtk pnpm test:security -- tests/security/identity.test.ts"
+        "rtk pnpm test:security -- tests/security/identity.test.ts",
+        "rtk pnpm test:security -- tests/security/organization-admin.test.ts",
+        "rtk pnpm test:security -- tests/security/auth-rate-limit.test.ts",
+        "rtk pnpm test:browser -- tests/browser/identity-administration.spec.ts --forbid-only --update-snapshots=none"
       ],
       "oracleIds": []
     },
@@ -1030,8 +1036,8 @@
       "id": "T34",
       "dependencies": "T33,T32",
       "targetFiles": "apps/web/src/{app.tsx,shell/BrainShell.tsx,routes/today/,routes/bridge/,data/}; stores",
-      "behavior": "NewUI AppShell/PaneLayout/AuthLayout, Governor query adapters, scoped cache, deep links, snapshot/replay and prioritized work",
-      "verify": "tests/browser/navigation.spec.ts; E091–E093/E097; workspace switch/revocation clears protected cache",
+      "behavior": "NewUI AppShell/PaneLayout/AuthLayout, Governor query adapters, scoped cache, deep links, snapshot/replay and prioritized work Simplified daily task entry, populated default workspace, shared guided/conversation/work-item dispatch and outcome-first results. Three task entry points share durable explicit review/start; private conversations use governed runner inference and independently checked proposals; work-item associations preserve source context. Task/navigation presentation metadata is generated from canonical contracts.",
+      "verify": "tests/browser/navigation.spec.ts; E091–E093/E097; workspace switch/revocation clears protected cache; tests/browser/task-entry.spec.ts and tests/integration/task-experience.test.ts cover confirmation, proposal privacy, stale releases, accepted-response recovery and origin links",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/09-ux-and-ui.md",
@@ -1053,7 +1059,9 @@
         "E097"
       ],
       "verificationCommands": [
-        "rtk pnpm test:browser -- tests/browser/navigation.spec.ts --forbid-only --update-snapshots=none"
+        "rtk pnpm test:browser -- tests/browser/navigation.spec.ts --forbid-only --update-snapshots=none",
+        "rtk pnpm test:browser -- tests/browser/task-entry.spec.ts --forbid-only --update-snapshots=none",
+        "rtk pnpm test:integration -- tests/integration/task-experience.test.ts"
       ],
       "oracleIds": []
     },
@@ -1108,7 +1116,7 @@
       "contractDefinitions": [
         "JobSnapshot",
         "RunnerSnapshot",
-        "SessionView",
+        "BrainSession",
         "PlacementExplanation"
       ],
       "ownerModule": "experience",
@@ -1467,8 +1475,8 @@
       "id": "T48",
       "dependencies": "T04,T20,T33",
       "targetFiles": "apps/governor/src/{health,metrics,static-assets}.ts; deploy/compose*.yaml; Governor image build",
-      "behavior": "Real readiness, budgets/resources, logs and shutdown; serve immutable NewUI bundle/manifest from declared image paths, verify UI config digest and protect API routes from SPA fallback",
-      "verify": "tests/integration/deploy.test.ts; E087/E097/E100; Compose render, missing/mismatched assets fail readiness and rootless smoke",
+      "behavior": "Real readiness, budgets/resources, logs and shutdown; serve immutable NewUI bundle/manifest from declared image paths, verify UI config digest and protect API routes from SPA fallback Checkout lifecycle commands, automatic starter-release initialization, browser model setup, scoped runner pairing and actionable readiness. Registered local instance reset with explicit consent, owner/path/writer guards, guided offline backup/restore, redacted browser diagnostics and concise user guides.",
+      "verify": "tests/integration/deploy.test.ts; E087/E097/E100; Compose render, missing/mismatched assets fail readiness and rootless smoke; tests/integration/local-reset.test.ts; scripts/verify-local-setup.ts covers live helper/task execution, restart and reset factory defaults",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/02-transport-and-commands.md",
@@ -1488,7 +1496,8 @@
         "E100"
       ],
       "verificationCommands": [
-        "rtk pnpm test:integration -- tests/integration/deploy.test.ts"
+        "rtk pnpm test:integration -- tests/integration/deploy.test.ts",
+        "rtk pnpm test:integration -- tests/integration/local-reset.test.ts"
       ],
       "oracleIds": []
     },
@@ -1525,10 +1534,10 @@
     },
     "T50": {
       "id": "T50",
-      "dependencies": "T42–T49",
+      "dependencies": "T42–T49,T58",
       "targetFiles": "tests/scenarios/; release manifest and operator runbooks",
       "behavior": "Complete acceptance traceability, independent review and release certification",
-      "verify": "FULL + RELEASE, all required E001–E100, no hidden skips",
+      "verify": "FULL + RELEASE, all required E001–E110, no hidden skips",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/02-transport-and-commands.md",
@@ -1641,7 +1650,17 @@
         "E097",
         "E098",
         "E099",
-        "E100"
+        "E100",
+        "E101",
+        "E102",
+        "E103",
+        "E104",
+        "E105",
+        "E106",
+        "E107",
+        "E108",
+        "E109",
+        "E110"
       ],
       "verificationCommands": [
         "rtk pnpm verify:full",
@@ -1664,6 +1683,249 @@
         "O14",
         "O15"
       ]
+    },
+    "T51": {
+      "id": "T51",
+      "dependencies": "T28,T31,T34",
+      "targetFiles": "apps/governor/src/modules/work/; apps/governor/src/domain/work-plan.ts; apps/web/src/routes/plans/; current workspace schema",
+      "behavior": "Objectives, immutable reviewed PlanVersions, WorkItems with dependencies/assignments, execution links and lossless replanning",
+      "verify": "tests/domain/work-plan.test.ts; tests/integration/work-plans.test.ts; tests/browser/plans.spec.ts; E101–E103",
+      "read": [
+        "docs/implementation/04-persistence-and-recovery.md",
+        "docs/implementation/09-ux-and-ui.md",
+        "docs/implementation/11-acceptance-and-edge-cases.md"
+      ],
+      "evidenceDirectory": "artifacts/runtime/T51",
+      "contractDefinitions": [
+        "Objective",
+        "PlanVersion",
+        "WorkItem",
+        "ExecutionLink"
+      ],
+      "ownerModule": "work",
+      "scenarioIds": [
+        "E101",
+        "E102",
+        "E103"
+      ],
+      "verificationCommands": [
+        "rtk pnpm test:domain -- tests/domain/work-plan.test.ts",
+        "rtk pnpm test:integration -- tests/integration/work-plans.test.ts",
+        "rtk pnpm test:browser -- tests/browser/plans.spec.ts --forbid-only --update-snapshots=none"
+      ],
+      "oracleIds": []
+    },
+    "T52": {
+      "id": "T52",
+      "dependencies": "T19,T51",
+      "targetFiles": "apps/governor/src/modules/jobs/{automation,occurrences,triggers}.ts; apps/web/src/routes/schedules/; automation schema",
+      "behavior": "One durable scheduler for WorkItems/capabilities/workflows with typed triggers, occurrence preview/history and managed/personal targets",
+      "verify": "tests/domain/automation.test.ts; tests/integration/automation.test.ts; tests/chaos/automation-restart.test.ts; tests/browser/schedules.spec.ts; E104–E105",
+      "read": [
+        "docs/implementation/03-configuration-and-workflows.md",
+        "docs/implementation/06-runners-and-scheduling.md",
+        "docs/implementation/11-acceptance-and-edge-cases.md"
+      ],
+      "evidenceDirectory": "artifacts/runtime/T52",
+      "contractDefinitions": [
+        "Automation",
+        "AutomationTrigger",
+        "AutomationOccurrence"
+      ],
+      "ownerModule": "jobs",
+      "scenarioIds": [
+        "E104",
+        "E105"
+      ],
+      "verificationCommands": [
+        "rtk pnpm test:domain -- tests/domain/automation.test.ts",
+        "rtk pnpm test:integration -- tests/integration/automation.test.ts",
+        "rtk pnpm test:chaos -- tests/chaos/automation-restart.test.ts",
+        "rtk pnpm test:browser -- tests/browser/schedules.spec.ts --forbid-only --update-snapshots=none"
+      ],
+      "oracleIds": []
+    },
+    "T53": {
+      "id": "T53",
+      "dependencies": "T24,T25,T26,T51",
+      "targetFiles": "apps/governor/src/modules/sessions/; apps/runner/src/engines/opencode.ts; apps/web/src/routes/sessions/",
+      "behavior": "Native/managed BrainSessions, portable checkpoints, WorkItem messages and bounded cross-agent delegation/review",
+      "verify": "tests/integration/session-collaboration.test.ts; tests/security/delegation.test.ts; E106 and harness feature matrix",
+      "read": [
+        "docs/implementation/07-harnesses-and-tools.md",
+        "docs/implementation/11-acceptance-and-edge-cases.md"
+      ],
+      "evidenceDirectory": "artifacts/runtime/T53",
+      "contractDefinitions": [
+        "BrainSession",
+        "WorkItemMessage",
+        "Delegation"
+      ],
+      "ownerModule": "sessions",
+      "scenarioIds": [
+        "E106"
+      ],
+      "verificationCommands": [
+        "rtk pnpm test:integration -- tests/integration/session-collaboration.test.ts",
+        "rtk pnpm test:security -- tests/security/delegation.test.ts"
+      ],
+      "oracleIds": []
+    },
+    "T54": {
+      "id": "T54",
+      "dependencies": "T27,T39",
+      "targetFiles": "apps/governor/src/modules/resources/; apps/web/src/routes/resources/; document schema and storage port",
+      "behavior": "UI document upload, safe preview, immutable versions, scoped associations, extraction and authorized indexing",
+      "verify": "tests/integration/documents.test.ts; tests/security/document-access.test.ts; tests/browser/resources.spec.ts; E107",
+      "read": [
+        "docs/implementation/04-persistence-and-recovery.md",
+        "docs/implementation/08-evidence-and-memory.md",
+        "docs/implementation/11-acceptance-and-edge-cases.md"
+      ],
+      "evidenceDirectory": "artifacts/runtime/T54",
+      "contractDefinitions": [
+        "Document",
+        "DocumentVersion",
+        "ResourceAssociation"
+      ],
+      "ownerModule": "resources",
+      "scenarioIds": [
+        "E107"
+      ],
+      "verificationCommands": [
+        "rtk pnpm test:integration -- tests/integration/documents.test.ts",
+        "rtk pnpm test:security -- tests/security/document-access.test.ts",
+        "rtk pnpm test:browser -- tests/browser/resources.spec.ts --forbid-only --update-snapshots=none"
+      ],
+      "oracleIds": []
+    },
+    "T55": {
+      "id": "T55",
+      "dependencies": "T41,T54",
+      "targetFiles": "apps/governor/src/modules/integrations/; apps/web/src/routes/administration/integrations/",
+      "behavior": "UI-first TypeScript Git protocol connections, encrypted HTTP credentials, configuration/project repository bindings and ref-change proposals",
+      "verify": "tests/integration/git-integrations.test.ts; tests/security/integration-secrets.test.ts; tests/browser/integrations.spec.ts; E108; disposable live-provider checks when credentials exist",
+      "read": [
+        "docs/implementation/05-authorization-and-security.md",
+        "docs/implementation/20-golden-oracles-and-integrations.md",
+        "docs/implementation/11-acceptance-and-edge-cases.md"
+      ],
+      "evidenceDirectory": "artifacts/runtime/T55",
+      "contractDefinitions": [
+        "GitConnection",
+        "RepositoryBinding",
+        "GitProposal"
+      ],
+      "ownerModule": "integrations",
+      "scenarioIds": [
+        "E108"
+      ],
+      "verificationCommands": [
+        "rtk pnpm test:integration -- tests/integration/git-integrations.test.ts",
+        "rtk pnpm test:security -- tests/security/integration-secrets.test.ts",
+        "rtk pnpm test:browser -- tests/browser/integrations.spec.ts --forbid-only --update-snapshots=none"
+      ],
+      "oracleIds": []
+    },
+    "T56": {
+      "id": "T56",
+      "dependencies": "T11,T55",
+      "targetFiles": "apps/governor/src/modules/configuration/{drafts,serialize,diff,impact,proposals}.ts; apps/governor/src/modules/capabilities/; apps/web/src/ui/studio/",
+      "behavior": "Shared UI draft/validate/test/diff/Git/compile/activate pipeline for every definition, with restricted private candidates and exact spec.jobs visual authoring",
+      "verify": "tests/domain/configuration-drafts.test.ts; tests/integration/studio.test.ts; tests/security/studio-authorization.test.ts; tests/browser/studio.spec.ts; E109",
+      "read": [
+        "docs/implementation/03-configuration-and-workflows.md",
+        "docs/implementation/09-ux-and-ui.md",
+        "docs/implementation/11-acceptance-and-edge-cases.md"
+      ],
+      "evidenceDirectory": "artifacts/runtime/T56",
+      "contractDefinitions": [
+        "ConfigurationDraft",
+        "DraftRevision",
+        "ValidationRun",
+        "PublicationProposal"
+      ],
+      "ownerModule": "configuration",
+      "scenarioIds": [
+        "E109"
+      ],
+      "verificationCommands": [
+        "rtk pnpm test:domain -- tests/domain/configuration-drafts.test.ts",
+        "rtk pnpm test:integration -- tests/integration/studio.test.ts",
+        "rtk pnpm test:security -- tests/security/studio-authorization.test.ts",
+        "rtk pnpm test:browser -- tests/browser/studio.spec.ts --forbid-only --update-snapshots=none"
+      ],
+      "oracleIds": []
+    },
+    "T57": {
+      "id": "T57",
+      "dependencies": "T40,T56",
+      "targetFiles": "apps/governor/src/modules/{capabilities,knowledge}/; capitalization scheduler workers; Knowledge Studio",
+      "behavior": "Autonomous provenance-scoped L0 capture, L1 extraction, L2 deduplicated tested candidates and governed L3 promotion",
+      "verify": "tests/integration/capitalization.test.ts; tests/chaos/capitalization-restart.test.ts; tests/security/capitalization-scope.test.ts; E110",
+      "read": [
+        "docs/implementation/08-evidence-and-memory.md",
+        "docs/implementation/11-acceptance-and-edge-cases.md"
+      ],
+      "evidenceDirectory": "artifacts/runtime/T57",
+      "contractDefinitions": [
+        "KnowledgeAsset",
+        "CapabilityCandidate",
+        "CapitalizationRun"
+      ],
+      "ownerModule": "capabilities",
+      "scenarioIds": [
+        "E110"
+      ],
+      "verificationCommands": [
+        "rtk pnpm test:integration -- tests/integration/capitalization.test.ts",
+        "rtk pnpm test:chaos -- tests/chaos/capitalization-restart.test.ts",
+        "rtk pnpm test:security -- tests/security/capitalization-scope.test.ts"
+      ],
+      "oracleIds": []
+    },
+    "T58": {
+      "id": "T58",
+      "dependencies": "T52,T53,T54,T55,T56,T57",
+      "targetFiles": "apps/web/src/{app.tsx,routes/,ui/}; contracts/v1/ui-screen-contracts.json; browser acceptance",
+      "behavior": "Six-area UI-first experience with contextual Create, Ask Brain, all Studios and accessible responsive operation without YAML or terminal",
+      "verify": "tests/browser/navigation.spec.ts; tests/browser/plans.spec.ts; tests/browser/schedules.spec.ts; tests/browser/resources.spec.ts; tests/browser/integrations.spec.ts; tests/browser/studio.spec.ts; E093/E097/E101–E110 at 390/768/1440 in both themes",
+      "read": [
+        "docs/implementation/09-ux-and-ui.md",
+        "docs/implementation/21-ui-recipes-and-screen-oracles.md",
+        "docs/implementation/11-acceptance-and-edge-cases.md"
+      ],
+      "evidenceDirectory": "artifacts/runtime/T58",
+      "contractDefinitions": [
+        "WorkBoardView",
+        "ConfigurationDraft",
+        "Document",
+        "Automation"
+      ],
+      "ownerModule": "experience",
+      "scenarioIds": [
+        "E093",
+        "E097",
+        "E101",
+        "E102",
+        "E103",
+        "E104",
+        "E105",
+        "E106",
+        "E107",
+        "E108",
+        "E109",
+        "E110"
+      ],
+      "verificationCommands": [
+        "rtk pnpm test:browser -- tests/browser/navigation.spec.ts --forbid-only --update-snapshots=none",
+        "rtk pnpm test:browser -- tests/browser/plans.spec.ts --forbid-only --update-snapshots=none",
+        "rtk pnpm test:browser -- tests/browser/schedules.spec.ts --forbid-only --update-snapshots=none",
+        "rtk pnpm test:browser -- tests/browser/resources.spec.ts --forbid-only --update-snapshots=none",
+        "rtk pnpm test:browser -- tests/browser/integrations.spec.ts --forbid-only --update-snapshots=none",
+        "rtk pnpm test:browser -- tests/browser/studio.spec.ts --forbid-only --update-snapshots=none"
+      ],
+      "oracleIds": []
     }
   }
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { FixtureEngine } from "../../../apps/runner/src/engines/fixture";
 import { PiEngine } from "../../../apps/runner/src/engines/pi";
 import { AcpEngine } from "../../../apps/runner/src/engines/acp";
+import { selectEngine } from "../../../apps/runner/src/engines/run";
 import type { EngineAdapter, EngineSessionSpec } from "@brain/contracts";
 
 const SPEC = {
@@ -93,4 +94,9 @@ describe("G05 harness conformance matrix, unsupported ops explicit (E061)", () =
       expect(r["cancel"]).toBe("pass");
     }
   }, 300_000);
+
+  it("opencode: selectable as a distinct native ACP profile (T53)", () => {
+    expect(selectEngine("opencode")?.id).toBe("opencode");
+    expect(selectEngine("acp")?.id).toBe("acp");
+  });
 });

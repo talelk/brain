@@ -14,10 +14,6 @@ export interface RunnerView {
   readonly engines: readonly string[];
 }
 
-export type QueueReason =
-  | "BLOCKED_BY_POLICY" | "WAITING_FOR_APPROVAL" | "WAITING_FOR_RESOURCE"
-  | "WAITING_FOR_RUNNER" | "INSUFFICIENT_CAPACITY" | "BUDGET_EXHAUSTED" | "READY";
-
 export interface PlacementVerdict {
   readonly eligible: boolean;
   readonly reasons: readonly string[];
@@ -42,6 +38,7 @@ export function fits(demand: Resources, avail: Resources): boolean {
 
 export function evaluateRunner(placement: Placement, demand: Resources, runner: RunnerView, nowMs: number): PlacementVerdict {
   const reasons: string[] = [];
+  if (placement.runnerId && placement.runnerId !== runner.id) reasons.push("runner-mismatch");
   if (runner.adminState !== "enabled") reasons.push(`runner-admin-state:${runner.adminState}`);
   if (!runner.online) reasons.push("runner-offline");
   if (runner.health === "unhealthy") reasons.push("runner-unhealthy");

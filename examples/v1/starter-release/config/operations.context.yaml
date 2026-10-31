@@ -9,10 +9,15 @@
     "effectClass": "read",
     "inputSchemaRef": "schemas/context-input.json",
     "outputSchemaRef": "schemas/context-output.json",
-    "requiredCapabilities": ["tool:bash", "tool:python3"],
+    "requiredCapabilities": [
+      "tool:bash",
+      "tool:python3"
+    ],
     "timeoutSeconds": 10,
     "maxOutputBytes": 4096,
-    "allowedEnvironments": ["local"],
+    "allowedEnvironments": [
+      "local"
+    ],
     "owner": "team_operations",
     "license": "LicenseRef-Internal",
     "entrypoint": "run.sh",

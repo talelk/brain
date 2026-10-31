@@ -31,11 +31,12 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
   await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
   const navToggle = page.getByRole("button", { name: "Open application navigation", exact: true });
   if (await navToggle.isVisible()) await navToggle.click();
+  await expect(page.getByText("Keyrus Brain", { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await page.getByRole("button", { name: "Approvals", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Approvals", exact: true, level: 1 })).toBeVisible();
-  await expect(page.getByText("apr-nav-1")).toBeVisible();
-  await page.getByRole("row").filter({ hasText: "apr-nav-1" }).getByRole("checkbox").check();
-  await page.getByRole("button", { name: /^Review(?: \(\d+\))?$/, exact: true }).click();
+  const approvalList = page.getByRole("region", { name: "Approvals", exact: true });
+  await expect(approvalList.getByText("apr-nav-1", { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await approvalList.getByRole("button", { name: "Review: apr-nav-1", exact: true }).click();
 
   const reviewButton = page.getByRole("button", { name: "Review action", exact: true });
   await reviewButton.click({ timeout: 5000 });
@@ -64,8 +65,8 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
 
   // One navigation model across areas: Runs list renders its bounded window.
   if (await navToggle.isVisible()) await navToggle.click();
-  await page.getByRole("button", { name: "Runs", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Runs", exact: true, level: 1 })).toBeVisible();
+  await page.getByRole("button", { name: "Activity", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Activity", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByText("No runs match", { exact: false })).toBeVisible();
   expect(errors).toEqual([]);
 });

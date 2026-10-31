@@ -1,0 +1,116 @@
+$ pnpm typecheck && pnpm typecheck:web && pnpm --filter @brain/web build
+$ tsc --noEmit --pretty false -p tsconfig.typecheck.json
+$ pnpm --filter @brain/web typecheck
+$ tsc --noEmit --pretty false
+$ vite build
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 769 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                  0.75 kB │ gzip:  0.38 kB
+dist/assets/Inter.var-C9xDBOS3.woff2           264.23 kB
+dist/assets/Inter-Italic.var-BGHziHgI.woff2    297.26 kB
+dist/assets/index-D9k_kTZM.css                 152.24 kB │ gzip: 26.75 kB
+dist/assets/TvSrePage-CWvdEPu9.js                0.14 kB │ gzip:  0.14 kB
+dist/assets/TvSupportPage-H5CgwHRl.js            0.14 kB │ gzip:  0.14 kB
+dist/assets/RunnersPage-BI_R0StM.js              0.15 kB │ gzip:  0.15 kB
+dist/assets/format-Dw_EdeiE.js                   0.20 kB │ gzip:  0.16 kB
+dist/assets/IncidentDetailPage-fxOUkwMO.js       0.49 kB │ gzip:  0.33 kB
+dist/assets/TicketDetailPage-BGOHCQOp.js         0.52 kB │ gzip:  0.34 kB
+dist/assets/BridgePage-Deqy4SQ2.js               0.52 kB │ gzip:  0.36 kB
+dist/assets/SrePage-CiLJG1aE.js                  0.61 kB │ gzip:  0.39 kB
+dist/assets/ApprovalsPage-CmFS-I6G.js            0.78 kB │ gzip:  0.43 kB
+dist/assets/TodayPage-B1xKBB16.js                0.81 kB │ gzip:  0.45 kB
+dist/assets/DecisionsPage-Bzlp-139.js            0.86 kB │ gzip:  0.47 kB
+dist/assets/KeyValue-IXWbPp_o.js                 0.87 kB │ gzip:  0.46 kB
+dist/assets/SupportPage-DAj7jrHi.js              0.98 kB │ gzip:  0.58 kB
+dist/assets/RunnerDetailPage-BrrPjlaO.js         0.99 kB │ gzip:  0.58 kB
+dist/assets/RecordCollection-Bt5_G2eH.js         1.11 kB │ gzip:  0.55 kB
+dist/assets/BoardPage-C7N5-wP_.js                1.12 kB │ gzip:  0.59 kB
+dist/assets/DigestValue-D3OwuK3W.js              1.14 kB │ gzip:  0.67 kB
+dist/assets/StatusBadge-E3YIl6_N.js              1.20 kB │ gzip:  0.58 kB
+dist/assets/ToolsPage-BRnZRAO6.js                1.37 kB │ gzip:  0.67 kB
+dist/assets/ApprovalDetailPage-BlqFVNUv.js       1.47 kB │ gzip:  0.78 kB
+dist/assets/DetailHeader-Cb8vyCMM.js             1.54 kB │ gzip:  0.70 kB
+dist/assets/WorkspaceOverviewPage-H-AjjtPW.js    1.61 kB │ gzip:  0.86 kB
+dist/assets/PageLayout-aaLG7bOg.js               1.81 kB │ gzip:  0.79 kB
+dist/assets/Textarea-Byd9wWy3.js                 1.83 kB │ gzip:  0.78 kB
+dist/assets/OperationalChecklist-CY-05hpv.js     1.94 kB │ gzip:  1.02 kB
+dist/assets/helpers-CFAJrw9x.js                  1.95 kB │ gzip:  0.98 kB
+dist/assets/KnowledgePage-CN7fhcgF.js            1.99 kB │ gzip:  0.96 kB
+dist/assets/Section-BeJLf5V_.js                  2.07 kB │ gzip:  0.88 kB
+dist/assets/Timeline-DiOh3tKk.js                 2.09 kB │ gzip:  0.95 kB
+dist/assets/Badge-DKbdRgjh.js                    2.39 kB │ gzip:  0.89 kB
+dist/assets/StatGrid-DvMgCryl.js                 2.92 kB │ gzip:  1.20 kB
+dist/assets/ArtifactSelectors-IgM9fQ3G.js        3.03 kB │ gzip:  1.44 kB
+dist/assets/PaneLayout-Ed9wZqzF.js               3.12 kB │ gzip:  1.43 kB
+dist/assets/EvidenceList-DVbCntBp.js             3.15 kB │ gzip:  1.33 kB
+dist/assets/TextInput-2iTBdv5t.js                3.59 kB │ gzip:  1.24 kB
+dist/assets/DeliveryPage-BVrvA0Fj.js             4.02 kB │ gzip:  1.69 kB
+dist/assets/FilterBar-ClSPbc73.js                4.34 kB │ gzip:  1.76 kB
+dist/assets/ArtifactContent-CFDKISda.js          5.02 kB │ gzip:  2.21 kB
+dist/assets/today-DuFU9Ukd.js                    5.72 kB │ gzip:  2.24 kB
+dist/assets/RunsPage-Cn-JjiTk.js                 8.59 kB │ gzip:  3.11 kB
+dist/assets/TabButtons-DzT2ijk4.js               8.73 kB │ gzip:  3.31 kB
+dist/assets/screen-region-DBzuuW8Y.js            8.86 kB │ gzip:  2.99 kB
+dist/assets/knowledge-Dq8VhWRi.js                9.14 kB │ gzip:  3.19 kB
+dist/assets/workspace-C5_NJ071.js                9.24 kB │ gzip:  2.88 kB
+dist/assets/JobDetailPage-ZKUMe4OY.js           12.08 kB │ gzip:  4.30 kB
+dist/assets/catalog-CJ_NTWG8.js                 12.63 kB │ gzip:  4.55 kB
+dist/assets/approvals-Cm3sKV5a.js               13.66 kB │ gzip:  4.51 kB
+dist/assets/SettingsPage-BFhChlWL.js            21.13 kB │ gzip:  6.81 kB
+dist/assets/work-CKASO1uO.js                    24.30 kB │ gzip:  8.29 kB
+dist/assets/dismissable-layer-DiZC37L2.js       33.06 kB │ gzip: 12.07 kB
+dist/assets/SessionDetailPage-DHAYZhhp.js       45.44 kB │ gzip: 14.49 kB
+dist/assets/app-context-D5835TOL.js             63.15 kB │ gzip: 22.30 kB
+dist/assets/DataTable-I0MbdMQL.js               86.36 kB │ gzip: 23.96 kB
+dist/assets/index-D-bnGi6-.js                  274.47 kB │ gzip: 79.94 kB
+
+✓ built in 4.04s
+[33m[PLUGIN_TIMINGS] [0mJavaScript callbacks ran for 3.7s of this 4.0s build (91%).
+The slowest callbacks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+  - plugin @tailwindcss/vite:generate:build transform (83%, 3.3s, 1 call)
+  - plugin solid transform (73%, 2.9s, 769 calls)
+These rows add up to more than the total. Callbacks can overlap, so the same time counts for more than one row.
+See https://rolldown.rs/reference/InputOptions.checks#bundlertimings for more details.
+
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from sandbox.Dockerfile
+#1 transferring dockerfile: 136B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-alpine
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 139B done
+#3 DONE 0.0s
+
+#4 [1/3] FROM docker.io/library/python:3.12-alpine
+#4 DONE 0.0s
+
+#5 [2/3] RUN apk add --no-cache bash
+#5 CACHED
+
+#6 [3/3] WORKDIR /tmp
+#6 CACHED
+
+#7 exporting to image
+#7 exporting layers done
+#7 writing image sha256:f3f05def316d4eb89269eed6618f5d6be7c233d578cd780202b2765599333cb5 done
+#7 naming to docker.io/library/brain-sandbox-evaluator done
+#7 DONE 0.0s
+Created administrator, My workspace, starter workflows and governed tools.
+First sign-in: admin@brain.local. Read the temporary password from /tmp/brain-local-setup-proof-JUeA6U/data/initial-admin-password on this host.
+[brain-up] using local memory; no external TencentDB configured
+[brain-up] governor started (pid 135548, log /tmp/brain-local-setup-proof-JUeA6U/run/governor.log)
+[brain-up] governor ready at http://127.0.0.1:35823
+[brain-up] launcher started (pid 135637, log /tmp/brain-local-setup-proof-JUeA6U/run/launcher.log)
+[brain-up] launcher socket ready at /tmp/brain-local-setup-proof-JUeA6U/run/launcher.sock
+[brain-up] runner-agents-1 started (pid 135770, log /tmp/brain-local-setup-proof-JUeA6U/run/runner-agents-1.log)
+[brain-up] runner-evaluators-1 started (pid 135851, log /tmp/brain-local-setup-proof-JUeA6U/run/runner-evaluators-1.log)
+[brain-up] stack up: governor http://127.0.0.1:35823 | launcher /tmp/brain-local-setup-proof-JUeA6U/run/launcher.sock | data /tmp/brain-local-setup-proof-JUeA6U/data | logs /tmp/brain-local-setup-proof-JUeA6U/run
+[brain-up] stop with: scripts/down.sh
+Open http://127.0.0.1:35823. Sign in and connect your model in Administration → Setup. Local runners connect automatically.

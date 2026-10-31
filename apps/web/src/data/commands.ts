@@ -1,5 +1,5 @@
 import { runCommand } from "../data/governor";
-import type { CommandReceipt } from "@brain/contracts";
+import type { CommandReceipt, OrganizationAdminCommand, PlanTask, WorkItemState } from "@brain/contracts";
 
 /**
  * Explicit Brain commands, one per declared command type.
@@ -12,8 +12,14 @@ import type { CommandReceipt } from "@brain/contracts";
 export type CommandKind =
   | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop"
   | "board.create" | "board.move" | "board.comment" | "decision.record" | "runner.drain" | "runner.quarantine"
+  | "objective.create" | "plan.propose" | "plan.confirm" | "workItem.transition" | "workItem.comment"
+  | "automation.upsert" | "automation.control"
+  | "document.upload" | "document.revise" | "document.associate" | "document.delete"
+  | "integration.connect" | "integration.verify" | "integration.bind"
+  | "configDraft.create" | "configDraft.update" | "configDraft.validate" | "configDraft.test" | "configDraft.publish"
   | "member.grant" | "member.revoke" | "config.activate" | "memory.publish" | "memory.revoke"
-  | "tool.propose" | "tool.publish" | "approval.revoke" | "workspace.suspend" | "workspace.export" | "workspace.import";
+  | "tool.propose" | "tool.publish" | "capitalization.run" | "capability.review" | "approval.revoke" | "workspace.suspend" | "workspace.export" | "workspace.import"
+  | OrganizationAdminCommand["commandType"];
 
 export interface CommandContext {
   workspaceId: string;
@@ -24,7 +30,12 @@ export interface CommandContext {
 }
 
 export type PayloadFor<K extends CommandKind> =
-  K extends "workflow.dispatch" ? { workflow: { id: string; digest: string }; input: Record<string, unknown> }
+  K extends "objective.create" ? { title: string; intent: string; successCriteria: string[] }
+    : K extends "plan.propose" ? { objectiveId: string; origin: "manual" | "agent" | "template" | "capitalization"; summary?: string; tasks: PlanTask[] }
+      : K extends "plan.confirm" ? { planVersionId: string }
+        : K extends "workItem.transition" ? { workItemId: string; state: WorkItemState; evidenceDigest?: string; reason?: string }
+          : K extends "workItem.comment" ? { workItemId: string; text: string }
+            : K extends "workflow.dispatch" ? { workflow: { id: string; digest: string }; input: Record<string, unknown>; workItemId?: string }
     : K extends "workflow.cancel" ? { runId: string; reason: string }
       : K extends "job.reconcile" ? { jobId: string; reason: string }
         : K extends "session.steer" ? { sessionId: string; message: string }
@@ -41,11 +52,27 @@ export type PayloadFor<K extends CommandKind> =
                               : K extends "memory.revoke" ? { sourceId: string; reason: string }
                                 : K extends "tool.propose" ? { package: unknown; evidence: string[] }
                                   : K extends "tool.publish" ? { release: { id: string; digest: string }; evidence: string[] }
-                                    : K extends "approval.revoke" ? { approvalId: string; reason: string }
+                                    : K extends "capitalization.run" ? Record<string, never>
+                                      : K extends "capability.review" ? { candidateId: string; decision: "approve" | "reject"; reason: string }
+                                        : K extends "approval.revoke" ? { approvalId: string; reason: string }
                                       : K extends "workspace.suspend" ? { workspaceId: string; reason: string }
                                         : K extends "workspace.export" ? { workspaceId: string }
                                           : K extends "workspace.import" ? { workspaceId: string; bundle: unknown }
-                                            : never;
+                                            : K extends "automation.upsert" ? { automationId?: string; title?: string; target: { kind: "workflow" | "workItem"; id: string }; trigger: { kind: "cron"; cron: string; timezone: string } | { kind: "once"; scheduledAt: string } | { kind: "manual" }; input?: unknown; overlap?: "skip" | "queue-one"; misfire?: "skip" | "coalesce"; execution?: { mode: "managed" } | { mode: "personal-host"; runnerId: string; offlinePolicy: "wait" | "fail" } }
+                                              : K extends "automation.control" ? { automationId: string; action: "pause" | "resume" | "runNow"; reason?: string }
+                                                : K extends "document.upload" ? { title: string; fileName: string; mediaType: string; bytesBase64: string }
+                                                  : K extends "document.revise" ? { documentId: string; title: string; fileName: string; mediaType: string; bytesBase64: string }
+                                                    : K extends "document.associate" ? { documentId: string; resource: { kind: "workItem" | "objective" | "session" | "run"; id: string } }
+                                                      : K extends "document.delete" ? { documentId: string; reason: string }
+                                                        : K extends "integration.connect" ? { name: string; repositoryUrl: string; username?: string; token?: string }
+                                                          : K extends "integration.verify" ? { connectionId: string }
+                                                            : K extends "integration.bind" ? { connectionId: string; workspaceId: string; kind: "configuration" | "project"; repositoryKey: string; access: "read" | "write" }
+                                                              : K extends "configDraft.create" ? { title: string; kind?: string; bindingId?: string; documents?: Array<{ path: string; text: string }> }
+                                                                : K extends "configDraft.update" ? { draftId: string; documents: Array<{ path: string; text: string }>; source?: "visual" | "yaml" }
+                                                                  : K extends "configDraft.validate" | "configDraft.test" ? { draftId: string }
+                                                                    : K extends "configDraft.publish" ? { draftId: string; bindingId?: string }
+                                                                      : K extends OrganizationAdminCommand["commandType"] ? OrganizationAdminCommand["payload"]
+                                                  : never;
 
 export async function send<K extends CommandKind>(
   commandType: K,
@@ -55,17 +82,9 @@ export async function send<K extends CommandKind>(
   return runCommand({
     commandType,
     payload: payload as never,
-    workspaceId: context.workspaceId,
+    ...(commandType.startsWith("organization.") ? {} : { workspaceId: context.workspaceId }),
     ...(context.idempotencyKey ? { idempotencyKey: context.idempotencyKey } : {}),
     ...(context.commandId ? { commandId: context.commandId } : {}),
     ...(context.expectedVersion !== undefined ? { expectedVersion: context.expectedVersion } : {}),
   } as never);
-}
-
-/** Receipts are authoritative; `queued` is not completion. */
-export function receiptMessage(receipt: CommandReceipt): string {
-  if (!receipt.accepted) return `Rejected: ${receipt.error?.detail ?? "the Governor refused this request"}`;
-  return receipt.outcome === "applied" ? "Applied."
-    : receipt.outcome === "pending-approval" ? "Recorded — this effect needs an approval before it runs."
-      : "Queued for execution.";
 }

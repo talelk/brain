@@ -12,8 +12,5 @@
   "dependencies": {
     "@brain/contracts": "workspace:*",
     "yaml": "2.9.1"
-  },
-  "devDependencies": {
-    "tsx": "4.20.6"
   }
 }

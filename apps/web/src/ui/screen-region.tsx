@@ -1,8 +1,9 @@
 import type { JSX } from "solid-js";
-import { Show } from "solid-js";
+import { Show, createMemo } from "solid-js";
 import { Alert } from "@talelk/newui-molecules";
 import { DataState } from "@talelk/newui-organisms";
 import type { ScreenState } from "../data/screens";
+import { formatRelative } from "./format";
 
 /**
  * The one region contract for every data screen (document 21).
@@ -46,15 +47,17 @@ export function ScreenRegion<T>(props: {
       }
       onRetry={state().status === "retry" || state().status === "offline" ? props.onRetry : undefined}
     >
-      <Show when={props.warning}>{props.warning}</Show>
-      <Show when={state().status === "partial-failure"}>
-        <Alert theme="amber" variant="outline" title="Some data is unavailable" description={state().error ?? "A provider could not complete its read. The available results are shown below."} />
-      </Show>
-      <Show when={state().status === "stale"}>
-        {/* Failure retains the last authorized snapshot, but says so. */}
-        <Alert theme="amber" variant="outline" title="Showing the last authorized result" description="The Governor could not be reached, so this data may be out of date. Effect actions are disabled until it is reachable again." />
-      </Show>
-      {props.children}
+      <div class="brain-region-enter">
+        <Show when={props.warning}>{props.warning}</Show>
+        <Show when={state().status === "partial-failure"}>
+          <Alert theme="amber" variant="outline" title="Some data is unavailable" description={state().error ?? "A provider could not complete its read. The available results are shown below."} />
+        </Show>
+        <Show when={state().status === "stale"}>
+          {/* Failure retains the last authorized snapshot, but says so. */}
+          <Alert theme="amber" variant="outline" title="Showing the last authorized result" description="The Governor could not be reached, so this data may be out of date. Effect actions are disabled until it is reachable again." />
+        </Show>
+        {props.children}
+      </div>
     </DataState>
   );
 }
@@ -65,6 +68,12 @@ export function DateText(props: { value?: string; asOf?: string; tone?: "expired
   return (
     <span title={props.value ? `Absolute time: ${props.value}` : undefined}>{formatted()}</span>
   );
+}
+
+/** Relative stamp ("3 min ago") with the absolute time as the tooltip; meta lines use this, never a raw clock. */
+export function RelativeTime(props: { value?: string }): JSX.Element {
+  const formatted = createMemo(() => formatRelative(props.value));
+  return <span title={props.value ? `Absolute time: ${props.value}` : undefined}>{formatted()}</span>;
 }
 
 /** Freshness from the server clock only; the browser clock never decides authority. */

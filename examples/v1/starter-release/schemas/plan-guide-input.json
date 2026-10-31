@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "title": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "intent": { "type": "string", "minLength": 1, "maxLength": 8000 },
+    "successCriteria": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 1024 }, "minItems": 1, "maxItems": 100 },
+    "capabilities": { "type": "string", "maxLength": 20000 }
+  },
+  "required": ["title", "intent", "successCriteria", "capabilities"],
+  "additionalProperties": false
+}

@@ -4,6 +4,7 @@ import type { JsonValue } from "@brain/contracts";
 import { domainDigest, sha256Digest } from "@brain/contracts";
 import { releaseToolPins } from "../configuration/index";
 import { authorEvidenceFor, toolReleasesForPayload } from "../evidence/index";
+import { recordAttemptSession } from "../sessions/index";
 import { BrainDomainError } from "../../domain/errors";
 import { evaluateRunner, type RunnerView } from "../../domain/placement";
 import { iso } from "../../domain/clock";
@@ -41,7 +42,7 @@ export function runnerView(s: Store, runnerId: string): RunnerView | undefined {
   };
 }
 
-export function claim(s: Store, deps: { isEvaluatorEligible: (runnerId: string, jobId: string) => boolean }, runner: { runnerId: string; epoch: number; organizationId: string }, requestId: string): JsonValue | null {
+export function claim(s: Store, deps: { isEvaluatorEligible: (runnerId: string, jobId: string) => boolean; isRunnerCurrent?: (runnerId: string) => boolean }, runner: { runnerId: string; epoch: number; organizationId: string }, requestId: string): JsonValue | null {
   let offer: JsonValue | null = null;
   s.inTx(s.control, () => {
     const priorClaim = s.control.prepare("SELECT attempt_id FROM runner_claim_requests WHERE runner_id=? AND runner_epoch=? AND request_id=?").get(runner.runnerId, runner.epoch, requestId) as { attempt_id: string | null } | undefined;
@@ -49,6 +50,7 @@ export function claim(s: Store, deps: { isEvaluatorEligible: (runnerId: string, 
       offer = offerJson(s, priorClaim.attempt_id);
       return;
     }
+    if (deps.isRunnerCurrent && !deps.isRunnerCurrent(runner.runnerId)) return;
     const view = runnerView(s, runner.runnerId);
     if (!view) throw new BrainDomainError("UNAUTHENTICATED", "runner missing");
     // Fair paging (E047/E048/E049): scan beyond the first 100-row page with a
@@ -226,15 +228,17 @@ export function ackAttempt(s: Store, runner: { runnerId: string; epoch: number }
     const expires = s.now() + 60_000;
     s.control.prepare("UPDATE job_attempts SET state='running', lease_expires_at_ms=? WHERE id=?").run(expires, attemptId);
     s.control.prepare("UPDATE jobs SET state='running', version=version+1 WHERE id=?").run(String(row["job_id"]));
-    // The live session view (sessions.list / session.steer / SessionFeed) is
-    // backed by this workspace row; a running attempt without one is invisible.
     {
-      const ws = s.workspaceDb(String(row["workspace_id"]), String(row["organization_id"]));
       const engine = body["engine"] as { id?: string; adapterDigest?: string } | undefined;
-      ws.prepare(`INSERT INTO sessions(id, job_id, attempt_id, engine_id, adapter_digest, state, event_sequence, updated_at_ms)
-        VALUES (?,?,?,?,?, 'running', 0, ?)
-        ON CONFLICT(id) DO UPDATE SET attempt_id=excluded.attempt_id, engine_id=excluded.engine_id, adapter_digest=excluded.adapter_digest, state='running', updated_at_ms=excluded.updated_at_ms`)
-        .run(`ses-${String(row["job_id"])}`, String(row["job_id"]), attemptId, String(engine?.id ?? "unknown"), String(engine?.adapterDigest ?? `sha256:${"0".repeat(64)}`), s.now());
+      const ws = s.workspaceDb(String(row["workspace_id"]), String(row["organization_id"]));
+      const link = ws.prepare("SELECT session_id FROM execution_links WHERE run_id=? AND session_id IS NOT NULL ORDER BY created_at_ms DESC LIMIT 1").get(String(row["workflow_run_id"])) as { session_id: string | null } | undefined;
+      const sessionId = link?.session_id ?? undefined;
+      recordAttemptSession(s, {
+        organizationId: String(row["organization_id"]), workspaceId: String(row["workspace_id"]),
+        jobId: String(row["job_id"]), attemptId,
+        engineId: String(engine?.id ?? "unknown"), adapterDigest: String(engine?.adapterDigest ?? `sha256:${"0".repeat(64)}`),
+        ...(sessionId ? { sessionId } : {}),
+      });
     }
     result = { attemptId, leaseId: String(row["lease_id"]), jobFence: Number(row["job_fence"]), leaseExpiresAt: iso(expires) } as unknown as JsonValue;
   });
@@ -284,7 +288,7 @@ export function attemptEvents(s: Store, runner: { runnerId: string; epoch: numbe
     // Keep the session view's cursor current so the live feed resumes at the
     // authoritative sequence instead of replaying the whole transcript.
     const ws = s.workspaceDb(String(row["workspace_id"]), String(row["organization_id"]));
-    ws.prepare("UPDATE sessions SET event_sequence=MAX(event_sequence,?), state='running', updated_at_ms=? WHERE attempt_id=?").run(lastSeq, s.now(), attemptId);
+    ws.prepare("UPDATE sessions SET event_sequence=MAX(event_sequence,?), state=CASE WHEN state IN ('stopped','failed') THEN state ELSE 'running' END, updated_at_ms=? WHERE attempt_id=?").run(lastSeq, s.now(), attemptId);
     const eng = body["engine"] as { id?: unknown; adapterDigest?: unknown } | undefined;
     if (eng && typeof eng.id === "string" && eng.id.length > 0) {
       ws.prepare("UPDATE sessions SET engine_id=?, adapter_digest=?, updated_at_ms=? WHERE attempt_id=?")

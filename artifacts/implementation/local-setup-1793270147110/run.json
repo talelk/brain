@@ -1,0 +1,203 @@
+{
+  "root": "/tmp/brain-local-setup-proof-74igsw",
+  "evidence": "/home/talel/dev/rd2026/brain/artifacts/implementation/local-setup-1793270147110",
+  "startedAt": "2026-10-29T10:35:47.131Z",
+  "sourceFingerprint": "015b5ea3bd85724f3e8ef3e180d183f7167cbf4c97dcb36c59c49ad05c80fc7d",
+  "modelUrl": "http://tntungx10:8000/v1",
+  "modelId": "qwen3.8-flash-next-a5b",
+  "runs": [
+    {
+      "workflow": "agent-smoke",
+      "runId": "run-mvtercgd-5-u4gq5i9l",
+      "job": {
+        "runOutputs": {
+          "respond": "BRAIN_OK",
+          "validate": {
+            "passed": true,
+            "checks": [
+              {
+                "criterionId": "structure",
+                "checkId": "structure",
+                "status": "passed",
+                "oracleDigest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f",
+                "artifacts": [],
+                "detail": "Pinned evaluator executed this check"
+              },
+              {
+                "criterionId": "safety",
+                "checkId": "safety",
+                "status": "passed",
+                "oracleDigest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f",
+                "artifacts": [],
+                "detail": "Pinned evaluator executed this check"
+              }
+            ]
+          }
+        },
+        "engineEvents": [
+          {
+            "contractVersion": "brain.engine-event/v1",
+            "eventId": "pi-evt-1",
+            "sessionId": "01a1873b-50b1-7262-b18e-8a6d21fee713",
+            "attemptId": "att-mvterdrf-8-08vwjkuu",
+            "sequence": 1,
+            "occurredAt": "2026-10-29T10:36:13.902Z",
+            "kind": "session.started",
+            "payload": {
+              "engine": {
+                "id": "pi",
+                "version": "1.4.0",
+                "adapterDigest": "sha256:80bca45fdaeaca831fc244bda9015981382c2cf07fa61ada9755ff8200b1a6bd",
+                "features": [
+                  "sessions",
+                  "checkpoint"
+                ]
+              }
+            }
+          },
+          {
+            "contractVersion": "brain.engine-event/v1",
+            "eventId": "pi-evt-2",
+            "sessionId": "01a1873b-50b1-7262-b18e-8a6d21fee713",
+            "attemptId": "att-mvterdrf-8-08vwjkuu",
+            "sequence": 2,
+            "occurredAt": "2026-10-29T10:36:17.616Z",
+            "kind": "text",
+            "payload": {
+              "text": "\n\n\"BRAIN_OK\"",
+              "channel": "assistant",
+              "provisional": true
+            }
+          },
+          {
+            "contractVersion": "brain.engine-event/v1",
+            "eventId": "pi-evt-3",
+            "sessionId": "01a1873b-50b1-7262-b18e-8a6d21fee713",
+            "attemptId": "att-mvterdrf-8-08vwjkuu",
+            "sequence": 3,
+            "occurredAt": "2026-10-29T10:36:17.807Z",
+            "kind": "usage",
+            "payload": {
+              "usageId": "pi-usage-att-mvterdrf-8-08vwjkuu",
+              "inputTokens": 130,
+              "outputTokens": 35,
+              "cachedInputTokens": 0,
+              "microUsd": 0,
+              "accounting": "final-total",
+              "estimated": false
+            }
+          },
+          {
+            "contractVersion": "brain.engine-event/v1",
+            "eventId": "pi-evt-4",
+            "sessionId": "01a1873b-50b1-7262-b18e-8a6d21fee713",
+            "attemptId": "att-mvterdrf-8-08vwjkuu",
+            "sequence": 4,
+            "occurredAt": "2026-10-29T10:36:17.808Z",
+            "kind": "artifact",
+            "payload": {
+              "artifact": {
+                "artifactId": "pi-output-att-mvterdrf-8-08vwjkuu",
+                "digest": "sha256:37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493",
+                "bytes": 12,
+                "mediaType": "text/plain",
+                "classification": "internal"
+              },
+              "purpose": "output"
+            }
+          },
+          {
+            "contractVersion": "brain.engine-event/v1",
+            "eventId": "pi-evt-5",
+            "sessionId": "01a1873b-50b1-7262-b18e-8a6d21fee713",
+            "attemptId": "att-mvterdrf-8-08vwjkuu",
+            "sequence": 5,
+            "occurredAt": "2026-10-29T10:36:17.808Z",
+            "kind": "session.stopped",
+            "payload": {
+              "reason": "completed",
+              "terminationConfirmed": true,
+              "output": {
+                "artifactId": "pi-output-att-mvterdrf-8-08vwjkuu",
+                "digest": "sha256:37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493",
+                "bytes": 12,
+                "mediaType": "text/plain",
+                "classification": "internal"
+              }
+            }
+          }
+        ],
+        "evidenceDigest": "sha256:87c7c3957ed29d5478fd143b9d3a442b2615290c2c5e8de0ca87605134d5211a",
+        "jobId": "job-mvtergvt-b-o4qxnz8j",
+        "organizationId": "org-1975987b-a172-4539-82b5-e9022475fed8",
+        "workspaceId": "ws-2613ae71-a3cd-4dbe-9ad2-7ee981d9a1ec",
+        "workflowRunId": "run-mvtercgd-5-u4gq5i9l",
+        "state": "succeeded",
+        "version": 5,
+        "queueReasons": [],
+        "placement": {
+          "group": "evaluators",
+          "all": [
+            "os:linux",
+            "tool:bash",
+            "tool:python3"
+          ],
+          "resources": {
+            "cpuMillicores": 500,
+            "memoryMb": 256,
+            "diskMb": 256,
+            "slots": 1
+          },
+          "isolation": "ephemeral-container"
+        },
+        "attempts": [
+          {
+            "attemptId": "att-mvteri8i-d-lmiiqcya",
+            "number": 1,
+            "runnerId": "runner-evaluators-1",
+            "state": "succeeded",
+            "leaseExpiresAt": "2026-10-29T10:37:19.608Z"
+          }
+        ],
+        "configDigest": "sha256:d9ca5a11ecc97d6a84bc16eb80dd60aa75fa8ab68f67caaa1b9c95a85dadfa70",
+        "createdAt": "2026-10-29T10:36:17.849Z"
+      },
+      "verdict": {
+        "contractVersion": "brain.verdict/v1",
+        "bundleDigest": "sha256:87c7c3957ed29d5478fd143b9d3a442b2615290c2c5e8de0ca87605134d5211a",
+        "evaluatorAttemptId": "att-mvteri8i-d-lmiiqcya",
+        "evaluatorRelease": {
+          "id": "operations-validator",
+          "digest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f"
+        },
+        "independence": "L1",
+        "outcome": "verified",
+        "checks": [
+          {
+            "criterionId": "structure",
+            "checkId": "structure",
+            "status": "passed",
+            "oracleDigest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f",
+            "artifacts": [],
+            "detail": "Pinned evaluator executed this check"
+          },
+          {
+            "criterionId": "safety",
+            "checkId": "safety",
+            "status": "passed",
+            "oracleDigest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f",
+            "artifacts": [],
+            "detail": "Pinned evaluator executed this check"
+          }
+        ],
+        "acceptedBy": "runner-evaluators-1",
+        "createdAt": "2026-10-29T10:36:23.125Z"
+      }
+    }
+  ],
+  "phase": "new-password sign-in",
+  "workspaceId": "ws-2613ae71-a3cd-4dbe-9ad2-7ee981d9a1ec",
+  "passed": false,
+  "failure": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'rejected'\n- 'verified'\n",
+  "completedAt": "2026-10-29T10:37:02.914Z"
+}

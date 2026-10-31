@@ -1,0 +1,121 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Workflow",
+  "metadata": {
+    "id": "task-guide",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "inputSchemaRef": "schemas/guide-input.json",
+    "outputSchemaRef": "schemas/workflow-output.json",
+    "jobs": {
+      "respond": {
+        "kind": "dispatch",
+        "needs": [],
+        "input": {
+          "message": {
+            "source": "input",
+            "pointer": "/message"
+          },
+          "history": {
+            "source": "input",
+            "pointer": "/history"
+          },
+          "tasks": {
+            "source": "input",
+            "pointer": "/tasks"
+          }
+        },
+        "outputSchemaRef": "schemas/guide-output.json",
+        "timeoutSeconds": 120,
+        "uses": {
+          "type": "agent",
+          "release": {
+            "id": "task-guide-assistant",
+            "digest": "sha256:dc1971de8e96da67ff6f1b7c3ee0e1d9c2a65f81e09f140fe28675b6d5597433"
+          }
+        },
+        "runsOn": {
+          "group": "agents",
+          "engine": {
+            "anyOf": ["pi"],
+            "features": ["sessions"]
+          },
+          "all": [
+            "os:linux"
+          ],
+          "resources": {
+            "cpuMillicores": 500,
+            "memoryMb": 256,
+            "diskMb": 256,
+            "slots": 1
+          },
+          "isolation": "ephemeral-container"
+        },
+        "effectClass": "read"
+      },
+      "validate": {
+        "kind": "eval",
+        "needs": [
+          "respond"
+        ],
+        "input": {
+          "kind": {
+            "source": "literal",
+            "value": "task-guide"
+          },
+          "report": {
+            "source": "job",
+            "jobId": "respond",
+            "pointer": ""
+          }
+        },
+        "outputSchemaRef": "schemas/validation-output.json",
+        "timeoutSeconds": 30,
+        "evaluator": {
+          "id": "operations-validator",
+          "digest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f"
+        },
+        "runsOn": {
+          "group": "evaluators",
+          "engine": {
+            "anyOf": ["claude"],
+            "features": ["sessions"]
+          },
+          "all": [
+            "os:linux",
+            "tool:bash",
+            "tool:python3"
+          ],
+          "resources": {
+            "cpuMillicores": 500,
+            "memoryMb": 256,
+            "diskMb": 256,
+            "slots": 1
+          },
+          "isolation": "ephemeral-container"
+        },
+        "independence": "L1"
+      }
+    },
+    "outputs": {
+      "response": {
+        "source": "job",
+        "jobId": "respond",
+        "pointer": ""
+      },
+      "passed": {
+        "source": "job",
+        "jobId": "validate",
+        "pointer": "/passed"
+      }
+    },
+    "failFast": true,
+    "deadlineSeconds": 300,
+    "presentation": {
+      "title": "Ask Brain",
+      "description": "Prepare a task proposal for human review.",
+      "system": true
+    }
+  }
+}

@@ -1,0 +1,109 @@
+$ pnpm typecheck && pnpm typecheck:web && pnpm --filter @brain/web build
+$ tsc --noEmit --pretty false -p tsconfig.typecheck.json
+$ pnpm --filter @brain/web typecheck
+$ tsc --noEmit --pretty false
+$ vite build
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 769 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                  0.75 kB │ gzip:  0.37 kB
+dist/assets/Inter.var-C9xDBOS3.woff2           264.23 kB
+dist/assets/Inter-Italic.var-BGHziHgI.woff2    297.26 kB
+dist/assets/index-D9k_kTZM.css                 152.24 kB │ gzip: 26.75 kB
+dist/assets/TvSrePage-Cx7or4_S.js                0.14 kB │ gzip:  0.14 kB
+dist/assets/TvSupportPage-Bmb6GucV.js            0.14 kB │ gzip:  0.14 kB
+dist/assets/RunnersPage-BGcuJQFQ.js              0.15 kB │ gzip:  0.14 kB
+dist/assets/format-Dw_EdeiE.js                   0.20 kB │ gzip:  0.16 kB
+dist/assets/IncidentDetailPage-BA-Lp5PA.js       0.49 kB │ gzip:  0.33 kB
+dist/assets/TicketDetailPage-BbOUMoiC.js         0.52 kB │ gzip:  0.34 kB
+dist/assets/BridgePage-BQ8RxBFj.js               0.52 kB │ gzip:  0.36 kB
+dist/assets/SrePage-DbowKB_Q.js                  0.61 kB │ gzip:  0.39 kB
+dist/assets/ApprovalsPage-DhMThmf6.js            0.78 kB │ gzip:  0.43 kB
+dist/assets/TodayPage-C-V7wtCR.js                0.81 kB │ gzip:  0.45 kB
+dist/assets/DecisionsPage-DuLbLMMq.js            0.86 kB │ gzip:  0.47 kB
+dist/assets/KeyValue-IXWbPp_o.js                 0.87 kB │ gzip:  0.46 kB
+dist/assets/SupportPage-CAsRyvMR.js              0.98 kB │ gzip:  0.58 kB
+dist/assets/RunnerDetailPage-CfOglTa_.js         0.99 kB │ gzip:  0.58 kB
+dist/assets/RecordCollection-Bt5_G2eH.js         1.11 kB │ gzip:  0.55 kB
+dist/assets/BoardPage-BV1mrDRS.js                1.12 kB │ gzip:  0.59 kB
+dist/assets/DigestValue-7wAfTTGw.js              1.14 kB │ gzip:  0.66 kB
+dist/assets/StatusBadge-E3YIl6_N.js              1.20 kB │ gzip:  0.58 kB
+dist/assets/ToolsPage-DtrQqLnv.js                1.37 kB │ gzip:  0.67 kB
+dist/assets/ApprovalDetailPage-1V0FyI3W.js       1.47 kB │ gzip:  0.77 kB
+dist/assets/DetailHeader-NlhsFSNW.js             1.54 kB │ gzip:  0.70 kB
+dist/assets/WorkspaceOverviewPage-CRdHTfmo.js    1.61 kB │ gzip:  0.85 kB
+dist/assets/PageLayout-aaLG7bOg.js               1.81 kB │ gzip:  0.79 kB
+dist/assets/Textarea-Byd9wWy3.js                 1.83 kB │ gzip:  0.78 kB
+dist/assets/OperationalChecklist-DlNnqiMK.js     1.94 kB │ gzip:  1.02 kB
+dist/assets/helpers-BGCkAMKf.js                  1.95 kB │ gzip:  0.98 kB
+dist/assets/KnowledgePage-C9FDpmvQ.js            1.99 kB │ gzip:  0.96 kB
+dist/assets/Section-BeJLf5V_.js                  2.07 kB │ gzip:  0.88 kB
+dist/assets/Timeline-DiOh3tKk.js                 2.09 kB │ gzip:  0.95 kB
+dist/assets/Badge-DKbdRgjh.js                    2.39 kB │ gzip:  0.89 kB
+dist/assets/StatGrid-DvMgCryl.js                 2.92 kB │ gzip:  1.20 kB
+dist/assets/ArtifactSelectors-DnPxoC1j.js        3.03 kB │ gzip:  1.44 kB
+dist/assets/PaneLayout-Ed9wZqzF.js               3.12 kB │ gzip:  1.43 kB
+dist/assets/EvidenceList-XshDnup4.js             3.15 kB │ gzip:  1.34 kB
+dist/assets/TextInput-2iTBdv5t.js                3.59 kB │ gzip:  1.24 kB
+dist/assets/DeliveryPage-BRCnXv_3.js             4.02 kB │ gzip:  1.69 kB
+dist/assets/FilterBar-DwhVRWur.js                4.34 kB │ gzip:  1.76 kB
+dist/assets/ArtifactContent-CFDKISda.js          5.02 kB │ gzip:  2.21 kB
+dist/assets/today-D8UIGwRG.js                    5.72 kB │ gzip:  2.24 kB
+dist/assets/RunsPage-Bv6sjeif.js                 8.59 kB │ gzip:  3.11 kB
+dist/assets/TabButtons-DzT2ijk4.js               8.73 kB │ gzip:  3.31 kB
+dist/assets/screen-region-DBzuuW8Y.js            8.86 kB │ gzip:  2.99 kB
+dist/assets/knowledge-Dj4VWFUV.js                9.14 kB │ gzip:  3.19 kB
+dist/assets/workspace-CG9KEt3m.js                9.24 kB │ gzip:  2.88 kB
+dist/assets/JobDetailPage-Bjsnw53h.js           12.08 kB │ gzip:  4.31 kB
+dist/assets/catalog-CFEsZI8i.js                 12.63 kB │ gzip:  4.55 kB
+dist/assets/approvals-CA-IxOon.js               13.66 kB │ gzip:  4.51 kB
+dist/assets/SettingsPage-_qdfOR-J.js            21.13 kB │ gzip:  6.81 kB
+dist/assets/work-y1Nxkr4I.js                    24.30 kB │ gzip:  8.29 kB
+dist/assets/dismissable-layer-DiZC37L2.js       33.06 kB │ gzip: 12.07 kB
+dist/assets/SessionDetailPage-C9OVzuQ2.js       45.44 kB │ gzip: 14.49 kB
+dist/assets/app-context-D5835TOL.js             63.15 kB │ gzip: 22.30 kB
+dist/assets/DataTable-I0MbdMQL.js               86.36 kB │ gzip: 23.96 kB
+dist/assets/index-DpX0esck.js                  274.47 kB │ gzip: 79.94 kB
+
+✓ built in 1.98s
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from sandbox.Dockerfile
+#1 transferring dockerfile: 136B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-alpine
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 139B done
+#3 DONE 0.0s
+
+#4 [1/3] FROM docker.io/library/python:3.12-alpine
+#4 DONE 0.0s
+
+#5 [2/3] RUN apk add --no-cache bash
+#5 CACHED
+
+#6 [3/3] WORKDIR /tmp
+#6 CACHED
+
+#7 exporting to image
+#7 exporting layers done
+#7 writing image sha256:f3f05def316d4eb89269eed6618f5d6be7c233d578cd780202b2765599333cb5 done
+#7 naming to docker.io/library/brain-sandbox-evaluator done
+#7 DONE 0.0s
+Created administrator, My workspace, starter workflows and governed tools.
+First sign-in: admin@brain.local. Read the temporary password from /tmp/brain-local-setup-proof-6ccg9V/data/initial-admin-password on this host.
+[brain-up] using local memory; no external TencentDB configured
+[brain-up] governor started (pid 145717, log /tmp/brain-local-setup-proof-6ccg9V/run/governor.log)
+[brain-up] governor ready at http://127.0.0.1:37417
+[brain-up] launcher started (pid 145801, log /tmp/brain-local-setup-proof-6ccg9V/run/launcher.log)
+[brain-up] launcher socket ready at /tmp/brain-local-setup-proof-6ccg9V/run/launcher.sock
+[brain-up] runner-agents-1 started (pid 145909, log /tmp/brain-local-setup-proof-6ccg9V/run/runner-agents-1.log)
+[brain-up] runner-evaluators-1 started (pid 145991, log /tmp/brain-local-setup-proof-6ccg9V/run/runner-evaluators-1.log)
+[brain-up] stack up: governor http://127.0.0.1:37417 | launcher /tmp/brain-local-setup-proof-6ccg9V/run/launcher.sock | data /tmp/brain-local-setup-proof-6ccg9V/data | logs /tmp/brain-local-setup-proof-6ccg9V/run
+[brain-up] stop with: scripts/down.sh
+Open http://127.0.0.1:37417. Sign in and connect your model in Administration → Setup. Local runners connect automatically.

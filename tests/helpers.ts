@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ActorContext } from "@brain/contracts";
+import type { ActorContext } from "../packages/contracts/src/index";
 import { Brain } from "../apps/governor/src/application/brain";
 import { scopesForPrincipal, type ResolvedActor } from "../apps/governor/src/application/authz";
 import { totpCode, newTotpSecret } from "./support/totp";

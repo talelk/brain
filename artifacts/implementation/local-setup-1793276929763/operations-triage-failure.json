@@ -1,0 +1,1033 @@
+{
+  "queryType": "job.get",
+  "snapshot": {
+    "workflowState": "failed",
+    "workflowTitle": "Investigate an operational issue",
+    "runOutputs": {
+      "respond": "\n\n{\"summary\":\"Error rates increased post-deployment with no rollback performed. The diagnostic tool confirms local environment access but has no connection to the production system.\",\"blockers\":[\"No production metrics, error logs, or deployment diff are available through this context.\",\"Unknown which service or endpoint is driving the error-rate increase.\",\"Unknown whether the increase is sustained or transient, and its exact onset time relative to deployment.\"],\"nextActions\":[\"Retrieve the deployment diff and recent error logs from the affected service.\",\"Check service-level error-rate dashboards to isolate which endpoints or dependencies are failing.\",\"Evaluate whether a rollback or feature-flag disable is warranted based on blast radius.\"}"
+    },
+    "engineEvents": [
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-1",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 1,
+        "occurredAt": "2026-10-29T12:29:20.586Z",
+        "kind": "session.started",
+        "payload": {
+          "engine": {
+            "id": "pi",
+            "version": "1.4.0",
+            "adapterDigest": "sha256:80bca45fdaeaca831fc244bda9015981382c2cf07fa61ada9755ff8200b1a6bd",
+            "features": [
+              "sessions",
+              "checkpoint"
+            ]
+          }
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-2",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 2,
+        "occurredAt": "2026-10-29T12:29:49.365Z",
+        "kind": "tool.proposed",
+        "payload": {
+          "proposalId": "chatcmpl-tool-baa1d67a8bfe4992",
+          "tool": {
+            "id": "operations.context",
+            "digest": "sha256:34fa8bce5467157d60b19931112a7a946b1ebebfd10748421826cd531424403b"
+          },
+          "input": {},
+          "target": {
+            "targetId": "tool:operations.context",
+            "environmentId": "local",
+            "preconditionDigest": "sha256:34fa8bce5467157d60b19931112a7a946b1ebebfd10748421826cd531424403b"
+          },
+          "inputDigest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-3",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 3,
+        "occurredAt": "2026-10-29T12:29:53.599Z",
+        "kind": "tool.result",
+        "payload": {
+          "proposalId": "chatcmpl-tool-baa1d67a8bfe4992",
+          "invocationId": "chatcmpl-tool-baa1d67a8bfe4992",
+          "receipt": {
+            "invocationId": "chatcmpl-tool-baa1d67a8bfe4992",
+            "attemptId": "att-mvtisufp-l-nlign35s",
+            "jobFence": 1,
+            "result": "succeeded",
+            "startedAt": "2026-10-29T12:29:49.461Z",
+            "finishedAt": "2026-10-29T12:29:53.598Z",
+            "stdout": {
+              "artifactId": "att-att-mvtisufp-l-nlign35s-cf9042b73e17c15ccc9b2268",
+              "digest": "sha256:0cf8da46e1a0a3ade2e96f1f3bde1c394b11afe76f7097ad0b7102c5ed45e56c",
+              "bytes": 160,
+              "mediaType": "application/json",
+              "classification": "internal"
+            },
+            "effects": []
+          }
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-4",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 4,
+        "occurredAt": "2026-10-29T12:30:18.223Z",
+        "kind": "text",
+        "payload": {
+          "text": "\n\n{\"",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-5",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 5,
+        "occurredAt": "2026-10-29T12:30:18.383Z",
+        "kind": "text",
+        "payload": {
+          "text": "summary\":\"Error",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-6",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 6,
+        "occurredAt": "2026-10-29T12:30:18.548Z",
+        "kind": "text",
+        "payload": {
+          "text": " rates increased post",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-7",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 7,
+        "occurredAt": "2026-10-29T12:30:18.718Z",
+        "kind": "text",
+        "payload": {
+          "text": "-deployment with no rollback performed",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-8",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 8,
+        "occurredAt": "2026-10-29T12:30:18.881Z",
+        "kind": "text",
+        "payload": {
+          "text": ". The diagnostic",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-9",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 9,
+        "occurredAt": "2026-10-29T12:30:19.046Z",
+        "kind": "text",
+        "payload": {
+          "text": " tool",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-10",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 10,
+        "occurredAt": "2026-10-29T12:30:19.208Z",
+        "kind": "text",
+        "payload": {
+          "text": " confirms",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-11",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 11,
+        "occurredAt": "2026-10-29T12:30:19.369Z",
+        "kind": "text",
+        "payload": {
+          "text": " local",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-12",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 12,
+        "occurredAt": "2026-10-29T12:30:19.528Z",
+        "kind": "text",
+        "payload": {
+          "text": " environment",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-13",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 13,
+        "occurredAt": "2026-10-29T12:30:19.694Z",
+        "kind": "text",
+        "payload": {
+          "text": " access",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-14",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 14,
+        "occurredAt": "2026-10-29T12:30:19.854Z",
+        "kind": "text",
+        "payload": {
+          "text": " but has",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-15",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 15,
+        "occurredAt": "2026-10-29T12:30:20.013Z",
+        "kind": "text",
+        "payload": {
+          "text": " no connection",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-16",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 16,
+        "occurredAt": "2026-10-29T12:30:20.175Z",
+        "kind": "text",
+        "payload": {
+          "text": " to the production",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-17",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 17,
+        "occurredAt": "2026-10-29T12:30:20.337Z",
+        "kind": "text",
+        "payload": {
+          "text": " system.\",\"",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-18",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 18,
+        "occurredAt": "2026-10-29T12:30:20.500Z",
+        "kind": "text",
+        "payload": {
+          "text": "blockers\":[\"No",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-19",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 19,
+        "occurredAt": "2026-10-29T12:30:20.665Z",
+        "kind": "text",
+        "payload": {
+          "text": " production metrics,",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-20",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 20,
+        "occurredAt": "2026-10-29T12:30:20.825Z",
+        "kind": "text",
+        "payload": {
+          "text": " error",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-21",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 21,
+        "occurredAt": "2026-10-29T12:30:20.984Z",
+        "kind": "text",
+        "payload": {
+          "text": " logs, or deployment",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-22",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 22,
+        "occurredAt": "2026-10-29T12:30:21.146Z",
+        "kind": "text",
+        "payload": {
+          "text": " diff",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-23",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 23,
+        "occurredAt": "2026-10-29T12:30:21.310Z",
+        "kind": "text",
+        "payload": {
+          "text": " are available through",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-24",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 24,
+        "occurredAt": "2026-10-29T12:30:21.478Z",
+        "kind": "text",
+        "payload": {
+          "text": " this context.\",\"",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-25",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 25,
+        "occurredAt": "2026-10-29T12:30:21.644Z",
+        "kind": "text",
+        "payload": {
+          "text": "Unknown which",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-26",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 26,
+        "occurredAt": "2026-10-29T12:30:21.808Z",
+        "kind": "text",
+        "payload": {
+          "text": " service or",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-27",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 27,
+        "occurredAt": "2026-10-29T12:30:21.969Z",
+        "kind": "text",
+        "payload": {
+          "text": " endpoint",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-28",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 28,
+        "occurredAt": "2026-10-29T12:30:22.132Z",
+        "kind": "text",
+        "payload": {
+          "text": " is",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-29",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 29,
+        "occurredAt": "2026-10-29T12:30:22.294Z",
+        "kind": "text",
+        "payload": {
+          "text": " driving the error-rate",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-30",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 30,
+        "occurredAt": "2026-10-29T12:30:22.457Z",
+        "kind": "text",
+        "payload": {
+          "text": " increase.\",\"Unknown",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-31",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 31,
+        "occurredAt": "2026-10-29T12:30:22.791Z",
+        "kind": "text",
+        "payload": {
+          "text": " whether the",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-32",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 32,
+        "occurredAt": "2026-10-29T12:30:22.792Z",
+        "kind": "text",
+        "payload": {
+          "text": " increase",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-33",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 33,
+        "occurredAt": "2026-10-29T12:30:22.949Z",
+        "kind": "text",
+        "payload": {
+          "text": " is sustained",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-34",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 34,
+        "occurredAt": "2026-10-29T12:30:23.110Z",
+        "kind": "text",
+        "payload": {
+          "text": " or",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-35",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 35,
+        "occurredAt": "2026-10-29T12:30:23.270Z",
+        "kind": "text",
+        "payload": {
+          "text": " transient,",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-36",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 36,
+        "occurredAt": "2026-10-29T12:30:23.432Z",
+        "kind": "text",
+        "payload": {
+          "text": " and its",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-37",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 37,
+        "occurredAt": "2026-10-29T12:30:23.594Z",
+        "kind": "text",
+        "payload": {
+          "text": " exact",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-38",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 38,
+        "occurredAt": "2026-10-29T12:30:23.757Z",
+        "kind": "text",
+        "payload": {
+          "text": " onset",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-39",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 39,
+        "occurredAt": "2026-10-29T12:30:23.919Z",
+        "kind": "text",
+        "payload": {
+          "text": " time relative",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-40",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 40,
+        "occurredAt": "2026-10-29T12:30:24.080Z",
+        "kind": "text",
+        "payload": {
+          "text": " to deployment.\"],\"nextActions",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-41",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 41,
+        "occurredAt": "2026-10-29T12:30:24.244Z",
+        "kind": "text",
+        "payload": {
+          "text": "\":[\"Retrieve",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-42",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 42,
+        "occurredAt": "2026-10-29T12:30:24.406Z",
+        "kind": "text",
+        "payload": {
+          "text": " the",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-43",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 43,
+        "occurredAt": "2026-10-29T12:30:24.575Z",
+        "kind": "text",
+        "payload": {
+          "text": " deployment",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-44",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 44,
+        "occurredAt": "2026-10-29T12:30:24.741Z",
+        "kind": "text",
+        "payload": {
+          "text": " diff and recent",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-45",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 45,
+        "occurredAt": "2026-10-29T12:30:24.921Z",
+        "kind": "text",
+        "payload": {
+          "text": " error",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-46",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 46,
+        "occurredAt": "2026-10-29T12:30:25.618Z",
+        "kind": "text",
+        "payload": {
+          "text": " logs from",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-47",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 47,
+        "occurredAt": "2026-10-29T12:30:26.287Z",
+        "kind": "text",
+        "payload": {
+          "text": " the affected service.\",\"Check",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-48",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 48,
+        "occurredAt": "2026-10-29T12:30:26.502Z",
+        "kind": "text",
+        "payload": {
+          "text": " service",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-49",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 49,
+        "occurredAt": "2026-10-29T12:30:26.664Z",
+        "kind": "text",
+        "payload": {
+          "text": "-level error-rate",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-50",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 50,
+        "occurredAt": "2026-10-29T12:30:26.828Z",
+        "kind": "text",
+        "payload": {
+          "text": " dash",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-51",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 51,
+        "occurredAt": "2026-10-29T12:30:26.993Z",
+        "kind": "text",
+        "payload": {
+          "text": "boards to",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-52",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 52,
+        "occurredAt": "2026-10-29T12:30:27.159Z",
+        "kind": "text",
+        "payload": {
+          "text": " isolate",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-53",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 53,
+        "occurredAt": "2026-10-29T12:30:27.323Z",
+        "kind": "text",
+        "payload": {
+          "text": " which",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-54",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 54,
+        "occurredAt": "2026-10-29T12:30:27.490Z",
+        "kind": "text",
+        "payload": {
+          "text": " endpoints",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-55",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 55,
+        "occurredAt": "2026-10-29T12:30:27.663Z",
+        "kind": "text",
+        "payload": {
+          "text": " or",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-56",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 56,
+        "occurredAt": "2026-10-29T12:30:27.833Z",
+        "kind": "text",
+        "payload": {
+          "text": " dependencies",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-57",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 57,
+        "occurredAt": "2026-10-29T12:30:28.001Z",
+        "kind": "text",
+        "payload": {
+          "text": " are failing",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-58",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 58,
+        "occurredAt": "2026-10-29T12:30:28.168Z",
+        "kind": "text",
+        "payload": {
+          "text": ".\",\"Evaluate",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-59",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 59,
+        "occurredAt": "2026-10-29T12:30:28.518Z",
+        "kind": "text",
+        "payload": {
+          "text": " whether a rollback or",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-60",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 60,
+        "occurredAt": "2026-10-29T12:30:28.852Z",
+        "kind": "text",
+        "payload": {
+          "text": " feature-flag",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-61",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 61,
+        "occurredAt": "2026-10-29T12:30:29.159Z",
+        "kind": "text",
+        "payload": {
+          "text": " disable is warranted",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-62",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 62,
+        "occurredAt": "2026-10-29T12:30:29.400Z",
+        "kind": "text",
+        "payload": {
+          "text": " based",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-63",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 63,
+        "occurredAt": "2026-10-29T12:30:29.565Z",
+        "kind": "text",
+        "payload": {
+          "text": " on blast",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-64",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 64,
+        "occurredAt": "2026-10-29T12:30:29.730Z",
+        "kind": "text",
+        "payload": {
+          "text": " radius.\"}",
+          "channel": "assistant",
+          "provisional": true
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-65",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 65,
+        "occurredAt": "2026-10-29T12:30:29.909Z",
+        "kind": "usage",
+        "payload": {
+          "usageId": "pi-usage-att-mvtisufp-l-nlign35s",
+          "inputTokens": 1731,
+          "outputTokens": 235,
+          "cachedInputTokens": 0,
+          "microUsd": 0,
+          "accounting": "final-total",
+          "estimated": false
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-66",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 66,
+        "occurredAt": "2026-10-29T12:30:29.909Z",
+        "kind": "artifact",
+        "payload": {
+          "artifact": {
+            "artifactId": "pi-output-att-mvtisufp-l-nlign35s",
+            "digest": "sha256:d26fa6306abd38f8185ab53254322ce6df2e55b4d3e73b1167ff50ddbd669153",
+            "bytes": 752,
+            "mediaType": "text/plain",
+            "classification": "internal"
+          },
+          "purpose": "output"
+        }
+      },
+      {
+        "contractVersion": "brain.engine-event/v1",
+        "eventId": "pi-evt-67",
+        "sessionId": "01a187a2-df40-7007-8ee2-46f5f3aa3a79",
+        "attemptId": "att-mvtisufp-l-nlign35s",
+        "sequence": 67,
+        "occurredAt": "2026-10-29T12:30:29.909Z",
+        "kind": "session.stopped",
+        "payload": {
+          "reason": "completed",
+          "terminationConfirmed": true,
+          "output": {
+            "artifactId": "pi-output-att-mvtisufp-l-nlign35s",
+            "digest": "sha256:d26fa6306abd38f8185ab53254322ce6df2e55b4d3e73b1167ff50ddbd669153",
+            "bytes": 752,
+            "mediaType": "text/plain",
+            "classification": "internal"
+          }
+        }
+      }
+    ],
+    "evidenceDigest": "sha256:8bec868eff1996526f8a726cdf4e801c5ccecb1b8950608cbec2010386ff9860",
+    "jobId": "job-mvtiubzl-o-xd9twgdd",
+    "organizationId": "org-9d2a7358-18cc-4c2e-b63a-36ecc2dc14a6",
+    "workspaceId": "ws-55a1a192-f5d7-420b-8bcf-8d22cad5fcac",
+    "workflowRunId": "run-mvtistyw-i-ytke0vvk",
+    "state": "succeeded",
+    "version": 5,
+    "queueReasons": [],
+    "placement": {
+      "group": "evaluators",
+      "all": [
+        "os:linux",
+        "tool:bash",
+        "tool:python3"
+      ],
+      "resources": {
+        "cpuMillicores": 500,
+        "memoryMb": 256,
+        "diskMb": 256,
+        "slots": 1
+      },
+      "isolation": "ephemeral-container"
+    },
+    "attempts": [
+      {
+        "attemptId": "att-mvtiuc10-q-j7rzyf36",
+        "number": 1,
+        "runnerId": "runner-evaluators-1",
+        "state": "succeeded",
+        "leaseExpiresAt": "2026-10-29T12:31:29.990Z"
+      }
+    ],
+    "configDigest": "sha256:965ca5f2bf6a90151ac644c37431e078bf206113ff9bfadc0e15a99bdcfcaf14",
+    "createdAt": "2026-10-29T12:30:29.937Z"
+  },
+  "cursor": "",
+  "sourceWatermark": 12,
+  "asOf": "2026-10-29T12:30:33.836Z",
+  "projectionLagMs": 0
+}

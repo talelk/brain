@@ -19,7 +19,7 @@ RUN pnpm install --frozen-lockfile \
 ENV NODE_ENV=production \
     BRAIN_DATA_DIR=/data \
     PORT=3100 \
-    BRAIN_BASE_URL=http://127.0.0.1:3100
+    BRAIN_BASE_URL=http://localhost:3100
 
 RUN mkdir -p /data && chown -R node:node /data /app
 USER node

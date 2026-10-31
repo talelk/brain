@@ -1,3 +1,5 @@
+import { Show } from "solid-js";
+import { WorkItemTasks } from "../../ui/components/WorkItemTasks";
 import type { JSX } from "solid-js";
 import { useNavigate, useParams } from "@solidjs/router";
 import type { TicketDetail } from "@brain/contracts";
@@ -17,7 +19,7 @@ export default function TicketDetailPage(): JSX.Element {
     scope: app.scope,
     load: (_scope, signal) => ticketQuery(workspaceId(), ticketId(), signal),
   });
-  return <TicketDetailScreen ticket={ticket.state().data} state={ticket.state()}
+  return <div class="flex flex-col gap-field-gap"><TicketDetailScreen ticket={ticket.state().data} state={ticket.state()}
     onRefresh={() => void ticket.refresh({ force: true })} onBack={() => void navigate(`/w/${workspaceId()}/support`)}
-    onOpenApproval={(approvalId) => void navigate(`/approvals/${approvalId}`)} />;
+    onOpenApproval={(approvalId) => void navigate(`/approvals/${approvalId}`)} /><Show when={ticket.state().data}><WorkItemTasks origin={{ kind: "ticket", id: ticketId() }} /></Show></div>;
 }

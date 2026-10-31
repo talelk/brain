@@ -20,20 +20,26 @@ def check():
     assert len({e['properties']['kind']['const'] for e in events})==9
     assert all(e['properties']['payload'].get('additionalProperties') is False for e in events)
     def resolved_variant(v):return defs[v['$ref'].split('/')[-1]] if '$ref' in v else v
-    assert {resolved_variant(q)['properties']['queryType']['const'] for q in defs['QueryRequest']['oneOf']}==set(registry['queries'])
-    assert {q['properties']['queryType']['const'] for q in defs['QueryResponse']['oneOf']}==set(registry['queries'])
+    def query_types(variants):
+        result=set()
+        for variant in variants:
+            shape=resolved_variant(variant)['properties']['queryType']
+            result.add(shape['const']) if 'const' in shape else result.update(shape.get('enum',[]))
+        return result
+    assert query_types(defs['QueryRequest']['oneOf'])==set(registry['queries'])
+    assert query_types(defs['QueryResponse']['oneOf'])==set(registry['queries'])
     screens=load('contracts/v1/ui-screen-contracts.json')
     for screen in screens['screens']:
         assert set(screen['queries'])<=set(registry['queries'])
         assert set(screen['actions'])<={c['type'] for c in registry['commands']}|set(screens['specialActions'])
     packets=load('contracts/v1/task-packets.json')['tasks']
-    assert set(packets)=={f'T{i:02}' for i in range(1,51)}
+    assert set(packets)=={f'T{i:02}' for i in range(1,59)}
     for packet in packets.values():
         assert all((ROOT/p).is_file() for p in packet['read'])
         assert packet['behavior'] and packet['verify'] and packet['targetFiles']
         assert packet['contractDefinitions'] and set(packet['contractDefinitions'])<=set(defs)
     catalog=load('contracts/v1/scenario-catalog.json')['scenarios']
-    assert {x['id'] for x in catalog}=={f'E{i:03}' for i in range(1,101)}
+    assert {x['id'] for x in catalog}=={f'E{i:03}' for i in range(1,111)}
     for x in catalog:assert x['owners'] and set(x['owners'])<=set(packets) and 'runtimeStatus' not in x
     oracle=load('contracts/v1/acceptance-oracles.json')
     assert len(oracle['traces'])==15 and len({x['id'] for x in oracle['traces']})==15
@@ -61,7 +67,7 @@ def check():
     assert ready['runtimeEvidenceIsSeparateFromPlan'] and 'allRuntimeGatesPassed' not in ready
     assert all((ROOT/x['artifact']).is_file() for x in ready['gaps'])
     modular_monolith_checks(schema,matrix,registry)
-    return f"{len(packets)} generated task packets; 100 scenarios; 15 traces; crypto/golden fixtures; {len(screens['screens'])} screens in five areas; monolith/auth/recovery/evidence checks"
+    return f"{len(packets)} generated task packets; 110 scenarios; 15 traces; crypto/golden fixtures; {len(screens['screens'])} screens in six areas; monolith/auth/recovery/evidence checks"
 def golden_checks(schema):
     base=ROOT/'examples/v1/golden-release';manifest=load('examples/v1/golden-release/manifest.json')
     fresh=run(sys.executable,str(ROOT/'scripts/build_golden_release.py'),'--check');assert fresh.returncode==0,fresh.stderr
@@ -141,8 +147,8 @@ def modular_monolith_checks(schema,matrix,registry):
     assert all(v['path'].startswith('apps/governor/src/modules/') for v in layout['governorModules'].values())
     assert layout['sandboxProfiles']==['agent','privileged-tool','evaluator']
     screens=load('contracts/v1/ui-screen-contracts.json')
-    assert [n['label'] for n in screens['primaryNavigation']]==['Today','Work','Runs','Approvals','Knowledge']
-    assert all(s['navigationGroup'] in {'today','work','runs','approvals','knowledge','settings','tv'} for s in screens['screens'])
+    assert [n['label'] for n in screens['primaryNavigation']]==['Today','Work','Activity','Approvals','Knowledge','Administration']
+    assert all(s['navigationGroup'] in {'today','work','runs','approvals','knowledge','settings','administration','tv'} for s in screens['screens'])
     assert {n['entryRoute'] for n in screens['primaryNavigation']}<={s['route'] for s in screens['screens']}
     assert 'workspace:read' in matrix['roles']['viewer']['scopes']
     assert 'membership:grant' not in matrix['roles']['security-admin']['scopes']

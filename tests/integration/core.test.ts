@@ -14,6 +14,21 @@ function subject(world: ReturnType<typeof setupWorld>, nonce: string): Record<st
 }
 
 describe("core integration", () => {
+  it("run details expose workflow failure even when the latest step succeeded", async () => {
+    const w = setupWorld();
+    try {
+      await w.brain.auth.ready();
+      const digest = w.brain.activeRelease(w.org)!.digest;
+      const result = w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: "status-dispatch", idempotencyKey: "status-dispatch", commandType: "workflow.dispatch", workspaceId: w.workspaceId, payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "Status check" } } }, "status-check");
+      const runId = result.receipt.resourceId!;
+      const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
+      w.brain.store.control.prepare("UPDATE jobs SET state='succeeded' WHERE workflow_run_id=?").run(runId);
+      ws.prepare("UPDATE workflow_runs SET state='failed' WHERE id=?").run(runId);
+      const detail = w.brain.executeQuery(w.owner, { queryType: "job.get", workspaceId: w.workspaceId, resourceId: runId }) as unknown as { snapshot: { state: string; workflowState: string } };
+      expect(detail.snapshot).toMatchObject({ state: "succeeded", workflowState: "failed" });
+    } finally { w.brain.close(); }
+  });
+
   it("idempotent commands return one receipt; changed payload conflicts (E006/E007)", async () => {
     const w = setupWorld();
     const cmd = {

@@ -151,6 +151,32 @@
       "partial": [],
       "failed": [],
       "cancelled": []
+    },
+    "planVersion": {
+      "proposed": ["confirmed", "superseded"],
+      "confirmed": ["superseded"],
+      "superseded": []
+    },
+    "workItem": {
+      "backlog": ["ready", "blocked", "abandoned"],
+      "ready": ["in-progress", "blocked", "abandoned"],
+      "in-progress": ["review", "blocked", "ready", "abandoned"],
+      "blocked": ["ready", "backlog", "abandoned"],
+      "review": ["done", "in-progress", "blocked", "abandoned"],
+      "done": [],
+      "abandoned": []
+    },
+    "capitalizationRun": {
+      "queued": ["running", "failed"],
+      "running": ["succeeded", "failed"],
+      "succeeded": [],
+      "failed": []
+    },
+    "capabilityCandidate": {
+      "quarantined": ["reviewed", "rejected"],
+      "reviewed": ["published"],
+      "rejected": [],
+      "published": []
     }
   },
   "rules": [

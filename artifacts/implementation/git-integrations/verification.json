@@ -1,0 +1,66 @@
+{
+  "recordedAt": "2026-10-30T23:25:13+01:00",
+  "task": "T55",
+  "scenario": "E108",
+  "implementation": "complete",
+  "sourceInputFingerprint": "ad49bdb08535997b2cb1fe0ddc41277d5f5095fcfe5d2feb0b99af0aef529258",
+  "dependency": {
+    "name": "isomorphic-git",
+    "version": "1.44.8",
+    "integrity": "sha512-E4MJXejXlCIIast2TWYc3vt3mu+GaU6MNnOS689UpuotqsM6jgK9v9ubnG9yPExNWXO5QvOmoDfYdZwRhR4OQg==",
+    "registryResolution": "resolved-not-installed",
+    "installedAndExercised": true
+  },
+  "checks": {
+    "focused": {
+      "command": "rtk pnpm exec vitest run tests/integration/git-integrations.test.ts tests/security/integration-secrets.test.ts tests/contracts",
+      "exitCode": 0,
+      "tests": 10
+    },
+    "focusedBrowser": {
+      "command": "rtk pnpm exec playwright test tests/browser/integrations.spec.ts --project=1440-light --forbid-only --update-snapshots=none",
+      "exitCode": 0,
+      "tests": 1
+    },
+    "integration": { "command": "rtk pnpm test:integration", "exitCode": 0, "files": 44, "tests": 200 },
+    "security": { "command": "rtk pnpm test:security", "exitCode": 0, "files": 22, "tests": 70 },
+    "chaos": { "command": "rtk pnpm test:chaos", "exitCode": 0, "files": 10, "tests": 33 },
+    "certification": { "command": "rtk pnpm test:certification", "exitCode": 0, "tests": 2 },
+    "staticAndFastRemainder": {
+      "commands": [
+        "rtk pnpm lint",
+        "rtk pnpm check:knip",
+        "rtk pnpm typecheck",
+        "rtk pnpm typecheck:web",
+        "rtk pnpm typecheck:browser",
+        "rtk pnpm check:boundaries",
+        "rtk pnpm --filter @brain/governor auth:schema --check",
+        "rtk pnpm test:contracts",
+        "rtk pnpm test:domain"
+      ],
+      "exitCode": 0,
+      "contractTests": 5,
+      "domainTests": 29
+    },
+    "fullBrowserMatrix": {
+      "command": "rtk pnpm test:browser",
+      "exitCode": 0,
+      "testsPassed": 138,
+      "duration": "5.2m",
+      "projects": ["390-light", "390-dark", "768-light", "768-dark", "1440-light", "1440-dark"]
+    }
+  },
+  "observedBehavior": [
+    "Each connection is one Git remote verified through isomorphic-git listServerRefs, not a hosting-provider API.",
+    "Optional HTTP credentials are AES-256-GCM encrypted at rest and absent from query DTOs and browser output.",
+    "Configuration and project bindings remain separate and require verified remote refs and push negotiation.",
+    "Ref transitions create inert proposals once per binding per actual ref change; HEAD aliases and repeated verification do not duplicate them.",
+    "The administration UI connects remotes, binds repositories and reviews ref proposals without exposing secrets."
+  ],
+  "limitations": [
+    "Biome remains red only on the pre-existing unused db parameter in apps/governor/src/modules/jobs/automation.ts:319.",
+    "Pack readiness remains red only for future T56 Studio actions without command DTOs/registry entries.",
+    "No live customer Git remote was contacted; protocol verification used a real loopback Git smart-HTTP fixture.",
+    "Historical G01-G08 and independent release certification are not promoted by this task evidence."
+  ]
+}

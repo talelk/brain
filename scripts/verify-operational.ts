@@ -28,6 +28,7 @@ const server = createAdaptorServer({ fetch: (request) => app ? app.fetch(request
 const commands: { argv: string[]; exitCode: number }[] = [];
 const runs: Record<string, unknown>[] = [];
 let failed = false;
+let passed = false;
 let launcher: ReturnType<typeof spawn> | undefined;
 const heartbeatTimers: ReturnType<typeof setInterval>[] = [];
 try {
@@ -65,7 +66,7 @@ try {
   writeFileSync(join(evidenceDir,"launcher.log"),launcherLog);
   assert(launcherReady,"trusted launcher and Docker must be ready");
   const caps = ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"];
-  const cfg = (group: string) => ({ governorUrl: url, runnerId: `runner-${group}`, stateDir: join(root, group), capabilities: caps, engines: group === "agents" ? [engine] : ["fixture"] });
+  const cfg = (group: string) => ({ governorUrl: url, runnerId: `runner-${group}`, stateDir: join(root, group), capabilities: caps, engines: group === "agents" ? [engine] : ["claude"] });
   const author = cfg("agents"), evaluator = cfg("evaluators");
   const authorSession = await enrollAndHello(author, (await cli(["runner", "token", "create", "--group", "agents"])).token);
   const evalSession = await enrollAndHello(evaluator, (await cli(["runner", "token", "create", "--group", "evaluators"])).token);
@@ -77,6 +78,7 @@ try {
   }
   for (const [id, input] of [
     ["agent-smoke", { message: "BRAIN_OK" }],
+    ["runner-topology-smoke", { message: "BRAIN_OK" }],
     ["operations-triage", { situation: "After a deployment, error rates rose. No rollback has been attempted. Outline read-only checks and missing information." }],
     ["support-draft", { title: "Unable to sign in", body: "I see an expired session error. Draft a response asking for useful diagnostic details. Do not send it." }],
   ] as const) {
@@ -137,9 +139,13 @@ try {
   try {
     const finalSource = sourceSnapshot();
     const sourceStable = finalSource.fingerprint === initialSource.fingerprint;
-    const passed = !failed && runs.length === 3 && sourceStable;
+    passed = !failed && runs.length === 4 && sourceStable;
     writeFileSync(join(evidenceDir, "run.json"), JSON.stringify({ startedAt, finishedAt: new Date().toISOString(), engine, modelId: process.env["BRAIN_LOCAL_MODEL_ID"] ?? "qwen3.8-flash-next-a5b", head: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), sourceFingerprint: initialSource.fingerprint, finalSourceFingerprint: finalSource.fingerprint, sourceStable, sources: initialSource.sources, commands, runs, passed }, null, 2) + "\n");
-    if (!failed && !passed) throw new Error("Operational proof is not current: source changed during execution");
     if (passed) console.log(`Operational proof passed; evidence: ${evidenceDir}`);
-  } finally { rmSync(root, { recursive: true, force: true }); }
+  } catch (error) {
+    console.error(error);
+    process.exitCode = 1;
+  }
+  rmSync(root, { recursive: true, force: true });
+  if (!failed && !passed) process.exitCode = 1;
 }

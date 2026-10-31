@@ -128,10 +128,13 @@ def main():
         assert len({c['type'] for c in registry['commands']})==len(registry['commands'])
         for c in registry['commands']:
             assert c['schema'] in definitions
-            assert definitions[c['schema']]['properties']['commandType']['const']==c['type']
+            command_type=definitions[c['schema']]['properties']['commandType']
+            if 'const' in command_type: assert command_type['const']==c['type']
+            else: assert c['type'] in command_type.get('enum',[])
         assert all(e['payloadContract'] in definitions for e in registry['events'])
+        variants=[definitions[x['$ref'].split('/')[-1]] if '$ref' in x else x for x in definitions['EventEnvelope']['oneOf']]
         for e in registry['events']:
-            assert any(e['type'] in x['properties']['eventType']['enum'] for x in definitions['EventEnvelope']['oneOf'])
+            assert any(e['type'] in x['properties']['eventType']['enum'] for x in variants)
         return f"{len(registry['commands'])} commands, {len(registry['events'])} typed lifecycle events"
     checked('registry-parity',registry_check)
     def openapi_check():
@@ -174,11 +177,11 @@ def main():
     def documentation_inventory():
         scenarios=(ROOT/'docs/implementation/11-acceptance-and-edge-cases.md').read_text()
         tasks=(ROOT/'docs/implementation/12-implementation-tasks.md').read_text()
-        assert set(re.findall(r'^\| (E\d{3}) \|',scenarios,re.M))=={f'E{i:03}' for i in range(1,101)}
-        assert set(re.findall(r'^\| (T\d{2}) /',tasks,re.M))=={f'T{i:02}' for i in range(1,51)}
+        assert set(re.findall(r'^\| (E\d{3}) \|',scenarios,re.M))=={f'E{i:03}' for i in range(1,111)}
+        assert set(re.findall(r'^\| (T\d{2}) /',tasks,re.M))=={f'T{i:02}' for i in range(1,59)}
         libraries=load_json(ROOT/'contracts/v1/library-register.json')['dependencies']
         assert all(x['exactProductVersion'] is None or (isinstance(x['exactProductVersion'],str) and x['exactProductVersion'].strip()) for x in libraries)
-        return f'{len(libraries)} dependency decisions; 100 scenarios; 50 work cards'
+        return f'{len(libraries)} dependency decisions; 110 scenarios; 58 work cards'
     checked('documentation-inventory',documentation_inventory)
     def implementation_policy():
         policy=load_json(ROOT/'contracts/v1/implementation-policy.json')

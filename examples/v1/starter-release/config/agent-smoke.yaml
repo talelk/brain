@@ -29,6 +29,10 @@
         },
         "runsOn": {
           "group": "agents",
+          "engine": {
+            "anyOf": ["pi"],
+            "features": ["sessions"]
+          },
           "all": [
             "os:linux"
           ],
@@ -66,6 +70,10 @@
         },
         "runsOn": {
           "group": "evaluators",
+          "engine": {
+            "anyOf": ["claude"],
+            "features": ["sessions"]
+          },
           "all": [
             "os:linux",
             "tool:bash",
@@ -95,6 +103,11 @@
       }
     },
     "failFast": true,
-    "deadlineSeconds": 300
+    "deadlineSeconds": 300,
+    "presentation": {
+      "title": "Verify installation",
+      "description": "Check model execution and independent validation.",
+      "system": true
+    }
   }
 }

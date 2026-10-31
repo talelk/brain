@@ -8,7 +8,7 @@ export class TencentDbClient {
   constructor(
     private readonly baseUrl: string,
     private readonly apiKey: string,
-    private readonly serviceId = "brain-governor",
+    private readonly serviceId = "default",
     private readonly fetchFn: typeof fetch = fetch,
   ) {}
 

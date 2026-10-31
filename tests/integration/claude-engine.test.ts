@@ -10,6 +10,8 @@ afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
 function spec(): EngineSessionSpec {
   vi.stubEnv("ANTHROPIC_API_KEY", "test-credential");
   vi.stubEnv("BRAIN_ANTHROPIC_API_KEY_FILE", "");
+  vi.stubEnv("BRAIN_ANTHROPIC_BASE_URL", "");
+  vi.stubEnv("ANTHROPIC_BASE_URL", "");
   return JSON.parse(readFileSync("examples/v1/transport/EngineSessionSpec.json", "utf8")) as EngineSessionSpec;
 }
 function messages(values: unknown[]) {
@@ -34,6 +36,15 @@ describe("Claude SDK lifecycle mapping", () => {
     expect(events.at(-1)).toMatchObject({ kind: "session.stopped", payload: { reason: "completed", terminationConfirmed: true, output: { digest: sha256Digest(new TextEncoder().encode("BRAIN_OK")), bytes: 8 } } });
     await expect(engine.checkpoint()).rejects.toMatchObject({ code: "UNSUPPORTED_CAPABILITY" });
     await engine.dispose(); expect(sdk.close).toHaveBeenCalled();
+  });
+  it("does not charge provider estimates to a zero-cost local endpoint", async () => {
+    const base = spec(), value = { ...base, limits: { ...base.limits, maxTokens: 16384 } }, engine = new ClaudeEngine();
+    vi.stubEnv("BRAIN_ANTHROPIC_BASE_URL", "http://localhost:8096/claude-code/default");
+    messages([{ type: "assistant", message: { content: [{ type: "text", text: "BRAIN_OK" }] } }, { type: "result", subtype: "success", result: "BRAIN_OK", total_cost_usd: 0.0151, usage: { input_tokens: 3470, output_tokens: 61 } }]);
+    const { events } = await execute(engine, value);
+    expect(events.find((event) => event.kind === "usage")?.payload).toMatchObject({ microUsd: 0 });
+    expect(events.at(-1)).toMatchObject({ kind: "session.stopped", payload: { reason: "completed" } });
+    await engine.dispose();
   });
   it.each(["error-result", "missing-result", "over-budget", "unbound-tools"])("fails closed for %s", async (scenario) => {
     let value = spec(); const engine = new ClaudeEngine();

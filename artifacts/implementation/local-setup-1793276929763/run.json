@@ -1,0 +1,219 @@
+{
+  "root": "/tmp/brain-local-setup-proof-GZ1PGw",
+  "evidence": "/home/talel/dev/rd2026/brain/artifacts/implementation/local-setup-1793276929763",
+  "startedAt": "2026-10-29T12:28:49.788Z",
+  "sourceFingerprint": "ef45567482069ba8d4edd9e6f4592a746d58b9abd7886e33336ddfc5f9a4f5d3",
+  "modelUrl": "http://tntungx10:8000/v1",
+  "modelId": "qwen3.8-flash-next-a5b",
+  "runs": [
+    {
+      "workflow": "agent-smoke",
+      "runId": "run-mvtismzg-5-8utu4f24",
+      "job": {
+        "workflowState": "succeeded",
+        "workflowTitle": "Verify installation",
+        "runOutputs": {
+          "respond": "BRAIN_OK",
+          "validate": {
+            "passed": true,
+            "checks": [
+              {
+                "criterionId": "structure",
+                "checkId": "structure",
+                "status": "passed",
+                "oracleDigest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f",
+                "artifacts": [],
+                "detail": "Pinned evaluator executed this check"
+              },
+              {
+                "criterionId": "safety",
+                "checkId": "safety",
+                "status": "passed",
+                "oracleDigest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f",
+                "artifacts": [],
+                "detail": "Pinned evaluator executed this check"
+              }
+            ]
+          }
+        },
+        "engineEvents": [
+          {
+            "contractVersion": "brain.engine-event/v1",
+            "eventId": "pi-evt-1",
+            "sessionId": "01a187a2-bf4a-7007-8ee2-46f384f73b64",
+            "attemptId": "att-mvtiso42-8-hua3sesz",
+            "sequence": 1,
+            "occurredAt": "2026-10-29T12:29:12.423Z",
+            "kind": "session.started",
+            "payload": {
+              "engine": {
+                "id": "pi",
+                "version": "1.4.0",
+                "adapterDigest": "sha256:80bca45fdaeaca831fc244bda9015981382c2cf07fa61ada9755ff8200b1a6bd",
+                "features": [
+                  "sessions",
+                  "checkpoint"
+                ]
+              }
+            }
+          },
+          {
+            "contractVersion": "brain.engine-event/v1",
+            "eventId": "pi-evt-2",
+            "sessionId": "01a187a2-bf4a-7007-8ee2-46f384f73b64",
+            "attemptId": "att-mvtiso42-8-hua3sesz",
+            "sequence": 2,
+            "occurredAt": "2026-10-29T12:29:14.374Z",
+            "kind": "text",
+            "payload": {
+              "text": "\n\n\"BRAIN",
+              "channel": "assistant",
+              "provisional": true
+            }
+          },
+          {
+            "contractVersion": "brain.engine-event/v1",
+            "eventId": "pi-evt-3",
+            "sessionId": "01a187a2-bf4a-7007-8ee2-46f384f73b64",
+            "attemptId": "att-mvtiso42-8-hua3sesz",
+            "sequence": 3,
+            "occurredAt": "2026-10-29T12:29:14.477Z",
+            "kind": "text",
+            "payload": {
+              "text": "_OK\"",
+              "channel": "assistant",
+              "provisional": true
+            }
+          },
+          {
+            "contractVersion": "brain.engine-event/v1",
+            "eventId": "pi-evt-4",
+            "sessionId": "01a187a2-bf4a-7007-8ee2-46f384f73b64",
+            "attemptId": "att-mvtiso42-8-hua3sesz",
+            "sequence": 4,
+            "occurredAt": "2026-10-29T12:29:14.482Z",
+            "kind": "usage",
+            "payload": {
+              "usageId": "pi-usage-att-mvtiso42-8-hua3sesz",
+              "inputTokens": 130,
+              "outputTokens": 34,
+              "cachedInputTokens": 0,
+              "microUsd": 0,
+              "accounting": "final-total",
+              "estimated": false
+            }
+          },
+          {
+            "contractVersion": "brain.engine-event/v1",
+            "eventId": "pi-evt-5",
+            "sessionId": "01a187a2-bf4a-7007-8ee2-46f384f73b64",
+            "attemptId": "att-mvtiso42-8-hua3sesz",
+            "sequence": 5,
+            "occurredAt": "2026-10-29T12:29:14.482Z",
+            "kind": "artifact",
+            "payload": {
+              "artifact": {
+                "artifactId": "pi-output-att-mvtiso42-8-hua3sesz",
+                "digest": "sha256:37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493",
+                "bytes": 12,
+                "mediaType": "text/plain",
+                "classification": "internal"
+              },
+              "purpose": "output"
+            }
+          },
+          {
+            "contractVersion": "brain.engine-event/v1",
+            "eventId": "pi-evt-6",
+            "sessionId": "01a187a2-bf4a-7007-8ee2-46f384f73b64",
+            "attemptId": "att-mvtiso42-8-hua3sesz",
+            "sequence": 6,
+            "occurredAt": "2026-10-29T12:29:14.482Z",
+            "kind": "session.stopped",
+            "payload": {
+              "reason": "completed",
+              "terminationConfirmed": true,
+              "output": {
+                "artifactId": "pi-output-att-mvtiso42-8-hua3sesz",
+                "digest": "sha256:37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493",
+                "bytes": 12,
+                "mediaType": "text/plain",
+                "classification": "internal"
+              }
+            }
+          }
+        ],
+        "evidenceDigest": "sha256:71f1d5f9e388f3654cecf63cf2b752a07e8fd8c8e76eff8ecd2fb1d506c61e67",
+        "jobId": "job-mvtispsl-b-jws0q8bm",
+        "organizationId": "org-9d2a7358-18cc-4c2e-b63a-36ecc2dc14a6",
+        "workspaceId": "ws-55a1a192-f5d7-420b-8bcf-8d22cad5fcac",
+        "workflowRunId": "run-mvtismzg-5-8utu4f24",
+        "state": "succeeded",
+        "version": 5,
+        "queueReasons": [],
+        "placement": {
+          "group": "evaluators",
+          "all": [
+            "os:linux",
+            "tool:bash",
+            "tool:python3"
+          ],
+          "resources": {
+            "cpuMillicores": 500,
+            "memoryMb": 256,
+            "diskMb": 256,
+            "slots": 1
+          },
+          "isolation": "ephemeral-container"
+        },
+        "attempts": [
+          {
+            "attemptId": "att-mvtisr75-d-e1l9wtig",
+            "number": 1,
+            "runnerId": "runner-evaluators-1",
+            "state": "succeeded",
+            "leaseExpiresAt": "2026-10-29T12:30:16.341Z"
+          }
+        ],
+        "configDigest": "sha256:965ca5f2bf6a90151ac644c37431e078bf206113ff9bfadc0e15a99bdcfcaf14",
+        "createdAt": "2026-10-29T12:29:14.517Z"
+      },
+      "verdict": {
+        "contractVersion": "brain.verdict/v1",
+        "bundleDigest": "sha256:71f1d5f9e388f3654cecf63cf2b752a07e8fd8c8e76eff8ecd2fb1d506c61e67",
+        "evaluatorAttemptId": "att-mvtisr75-d-e1l9wtig",
+        "evaluatorRelease": {
+          "id": "operations-validator",
+          "digest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f"
+        },
+        "independence": "L1",
+        "outcome": "verified",
+        "checks": [
+          {
+            "criterionId": "structure",
+            "checkId": "structure",
+            "status": "passed",
+            "oracleDigest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f",
+            "artifacts": [],
+            "detail": "Pinned evaluator executed this check"
+          },
+          {
+            "criterionId": "safety",
+            "checkId": "safety",
+            "status": "passed",
+            "oracleDigest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f",
+            "artifacts": [],
+            "detail": "Pinned evaluator executed this check"
+          }
+        ],
+        "acceptedBy": "runner-evaluators-1",
+        "createdAt": "2026-10-29T12:29:19.773Z"
+      }
+    }
+  ],
+  "phase": "new-password sign-in",
+  "workspaceId": "ws-55a1a192-f5d7-420b-8bcf-8d22cad5fcac",
+  "passed": false,
+  "failure": "operations-triage: failed",
+  "completedAt": "2026-10-29T12:30:34.050Z"
+}

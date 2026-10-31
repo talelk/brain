@@ -1,0 +1,12 @@
+{
+  "root": "/tmp/brain-local-setup-proof-Xq9e9y",
+  "evidence": "/home/talel/dev/rd2026/brain/artifacts/implementation/local-setup-1793277415133",
+  "startedAt": "2026-10-29T12:36:55.159Z",
+  "sourceFingerprint": "45624f16879969ebe1b643bfd24cbb607c0407b18068f145eeffdaaa682a0238",
+  "modelUrl": "http://tntungx10:8000/v1",
+  "modelId": "qwen3.8-flash-next-a5b",
+  "runs": [],
+  "passed": false,
+  "failure": "start failed; see lifecycle log in /home/talel/dev/rd2026/brain/artifacts/implementation/local-setup-1793277415133\n\n1 !== 0\n",
+  "completedAt": "2026-10-29T12:37:05.754Z"
+}

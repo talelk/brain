@@ -1,7 +1,7 @@
 import type { CommandEnvelope, QueryRequest } from "@brain/contracts";
 
 export class GovernorError extends Error {
-  constructor(readonly status: number, message: string) { super(message); }
+  constructor(readonly status: number, message: string, readonly code?: string) { super(message); }
 }
 
 // Human credentials remain in Better Auth's HttpOnly cookies. Store no token,
@@ -13,7 +13,7 @@ export async function governor<T = unknown>(path: string, body?: unknown, signal
     ...(body === undefined ? {} : { body: JSON.stringify(body) }), ...(signal ? { signal } : {}),
   });
   const value = await response.json() as T & { message?: string; detail?: string; code?: string };
-  if (!response.ok) throw new GovernorError(response.status, value?.detail ?? value?.message ?? `Request failed (${response.status})`);
+  if (!response.ok) throw new GovernorError(response.status, value?.detail ?? value?.message ?? `Request failed (${response.status})`, value?.code);
   return value;
 }
 

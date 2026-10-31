@@ -114,6 +114,7 @@ export function parseStrictJson(text: string): JsonValue {
     if (text.startsWith("true", i)) { i += 4; return true; }
     if (text.startsWith("false", i)) { i += 5; return false; }
     if (text.startsWith("null", i)) { i += 4; return null; }
+    // eslint-disable-next-line security/detect-unsafe-regex -- Anchored JSON number grammar, not an open-ended repetition.
     const m = /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?/.exec(text.slice(i));
     if (m) {
       i += m[0].length;

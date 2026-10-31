@@ -43,6 +43,20 @@ describe("agent engine execution lifecycle", () => {
     expect(result.ok).toBe(true);
     expect(result.output).toEqual({ text: "fixture complete" });
   });
+
+  it("decodes one fenced JSON result while preserving its exact evidence bytes", async () => {
+    const text = '\n```json\n{"reply":"ok","workflowId":null,"input":{},"questions":[]}\n```';
+    const engine = adapter(async function* () {
+      yield { kind: "text", payload: { text } } as EngineEvent;
+      const bytes = new TextEncoder().encode(text);
+      yield { kind: "session.stopped", payload: { reason: "completed", terminationConfirmed: true,
+        output: { digest: (await import("@brain/contracts")).sha256Digest(bytes), bytes: bytes.length } } } as EngineEvent;
+    });
+    const result = await runAgentExecution(input(engine));
+    expect(result.ok).toBe(true);
+    expect(result.output).toEqual({ reply: "ok", workflowId: null, input: {}, questions: [] });
+    expect(result.outputText).toBe(text);
+  });
 });
 
 describe("agent lifecycle failure boundaries", () => {

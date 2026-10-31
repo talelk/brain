@@ -11,8 +11,16 @@ interface Pending {
   reject: (e: Error) => void;
 }
 
+export interface AcpEngineOptions {
+  readonly id?: string;
+  readonly commandEnv?: string;
+  readonly defaultCommand?: string;
+}
+
 export class AcpEngine implements EngineAdapter {
-  readonly id = "acp";
+  readonly id: string;
+  private readonly commandEnv: string;
+  private readonly defaultCommand: string;
   private proc: ChildProcess | null = null;
   private buffer = "";
   private nextId = 1;
@@ -23,8 +31,14 @@ export class AcpEngine implements EngineAdapter {
   private readonly eventsBuffer: EngineEvent[] = [];
   private agentVersion = "unknown";
 
+  constructor(options: AcpEngineOptions = {}) {
+    this.id = options.id ?? "acp";
+    this.commandEnv = options.commandEnv ?? "BRAIN_ACP_COMMAND";
+    this.defaultCommand = options.defaultCommand ?? "opencode acp";
+  }
+
   private command(): { file: string; args: string[] } {
-    const raw = process.env["BRAIN_ACP_COMMAND"] ?? "opencode acp";
+    const raw = process.env[this.commandEnv] ?? this.defaultCommand;
     const [file, ...args] = raw.split(/\s+/);
     return { file: file ?? "opencode", args };
   }
@@ -110,9 +124,9 @@ export class AcpEngine implements EngineAdapter {
       }, 20_000);
       const info = (init["agentInfo"] ?? {}) as { name?: string; version?: string };
       this.agentVersion = info.version ?? "acp-1";
-      return { id: "acp", version: this.agentVersion, adapterDigest: `sha256:${"0".repeat(64)}`, features: ["sessions"] };
+      return { id: this.id, version: this.agentVersion, adapterDigest: `sha256:${"0".repeat(64)}`, features: ["sessions"] };
     } catch {
-      return { id: "acp", version: "unavailable", adapterDigest: `sha256:${"0".repeat(64)}`, features: [] };
+      return { id: this.id, version: "unavailable", adapterDigest: `sha256:${"0".repeat(64)}`, features: [] };
     }
   }
 

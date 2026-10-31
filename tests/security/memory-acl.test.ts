@@ -36,7 +36,7 @@ describe("memory ACL and scope mapping (T38)", () => {
     const brain = w.brain;
     brain.memory.publish({ organizationId: w.org, workspaceId: w.workspaceId, sourceId: "doc-revoked", text: "rollout to be revoked" });
     expect(brain.memory.search(query(), { organizationId: w.org, workspaceId: w.workspaceId }).results).toHaveLength(1);
-    brain.memory.revoke("doc-revoked");
+    brain.memory.revoke(w.org, w.workspaceId, "doc-revoked");
     expect(brain.memory.search(query(), { organizationId: w.org, workspaceId: w.workspaceId }).results).toEqual([]);
   });
 

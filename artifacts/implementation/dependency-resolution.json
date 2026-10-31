@@ -1,20 +1,20 @@
 {
   "status": "resolved-not-installed",
-  "checkedAt": "2026-10-27T08:01:48.934237+00:00",
-  "baselineDigest": "sha256:25da9fd2e460a7dc69425bae8e493cbb7221085c21a651fab2abef2e771a784f",
+  "checkedAt": "2026-10-30T22:20:58.405954+00:00",
+  "baselineDigest": "sha256:c3092a93c1b13dbab54983b57fea4354c37fef78ddf5c6ba6fbb6ff1fba42bc0",
   "node": {
-    "version": "v24.22.1",
-    "url": "https://nodejs.org/dist/v24.22.1/node-v24.22.1-linux-x64.tar.xz",
-    "sha256": "6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6",
+    "version": "v24.22.2",
+    "url": "https://nodejs.org/dist/v24.22.2/node-v24.22.2-linux-x64.tar.xz",
+    "sha256": "48cc0e21e048790e54c0cf5749c2725005313d652651c40b7a21feb9697aaf75",
     "installationVerified": false,
     "metadataVerification": "HTTPS official manifest; verify release signatures and artifact bytes before use"
   },
   "packages": [
     {
       "name": "@anthropic-ai/claude-agent-sdk",
-      "version": "0.3.311",
-      "tarball": "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-0.3.311.tgz",
-      "integrity": "sha512-8aKYcHGB3LsYP79e2EHNdwbpIvRJkMLd19qSx4u9+J9yDDAK7w9uy1GyvFUz8xa1A+xIEtTW1k/r419uE/Kbsw==",
+      "version": "0.3.314",
+      "tarball": "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-0.3.314.tgz",
+      "integrity": "sha512-NxKq4U+/UlPO1muxcYo1iTftjacLdo2SUcrNLitsi9WBARRejvM0biCwUpNrZVbRDPY4Gj59NsB+cH/YuR5EsQ==",
       "engines": {
         "node": ">=18.14.0"
       },
@@ -28,7 +28,7 @@
         "url": "git+https://github.com/anthropics/claude-agent-sdk-typescript.git",
         "type": "git"
       },
-      "metadataSha256": "6b6e4a4f48718ef985b34e82915ffd0fa0d04460f46159398cd20ab9bce7097b",
+      "metadataSha256": "63ede7921a4ed5b84f372020ba611811af721fdfa837d57e5aaffdaca130b81a",
       "source": "https://registry.npmjs.org/%40anthropic-ai%2Fclaude-agent-sdk/latest",
       "installationVerified": false
     },
@@ -52,6 +52,49 @@
       },
       "metadataSha256": "e945a240fff6b24ee0bbf1e53e3790ce486fab7561e741c10ac7d65f9974b01f",
       "source": "https://registry.npmjs.org/%40better-auth%2Fapi-key/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "@better-auth/passkey",
+      "version": "1.7.14",
+      "tarball": "https://registry.npmjs.org/@better-auth/passkey/-/passkey-1.7.14.tgz",
+      "integrity": "sha512-ZUODCRp9vnbk2GThOXRja+bpTLweJar5bJppSoobck2DhM7XCRPaQjzrCIJllnjy6VUBcCkjGm2oKmy2yvepeg==",
+      "engines": {},
+      "peerDependencies": {
+        "nanostores": "^1.0.1",
+        "better-auth": "^1.7.14",
+        "better-call": "1.4.4",
+        "@better-auth/core": "^1.7.14",
+        "@better-auth/utils": "^0.4.2 || ^0.5.0",
+        "@better-fetch/fetch": "1.3.3"
+      },
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/better-auth/better-auth.git",
+        "type": "git",
+        "directory": "packages/passkey"
+      },
+      "metadataSha256": "24212308cedec3b53466a86b8f49240a1ce2699671d6de293e7e527f2522e25a",
+      "source": "https://registry.npmjs.org/%40better-auth%2Fpasskey/1.7.14",
+      "installationVerified": false
+    },
+    {
+      "name": "@biomejs/biome",
+      "version": "2.6.4",
+      "tarball": "https://registry.npmjs.org/@biomejs/biome/-/biome-2.6.4.tgz",
+      "integrity": "sha512-8sKKwaNW4ot22awZ3lBjwWLHnUFXgXnrBPYS2gNlBAXRbDC++7kqjK2H7dR/FgCDtPvO1xfKpgEhJkGxAKYkxA==",
+      "engines": {
+        "node": ">=14.21.3"
+      },
+      "peerDependencies": {},
+      "license": "MIT OR Apache-2.0",
+      "repository": {
+        "url": "git+https://github.com/biomejs/biome.git",
+        "type": "git",
+        "directory": "packages/@biomejs/biome"
+      },
+      "metadataSha256": "aaaa004a02a3e0ebe3368bb7355b44d95abfad11395135f0d346e6b24843ea0a",
+      "source": "https://registry.npmjs.org/%40biomejs%2Fbiome/2.6.4",
       "installationVerified": false
     },
     {
@@ -95,9 +138,9 @@
     },
     {
       "name": "@mastra/core",
-      "version": "1.79.0",
-      "tarball": "https://registry.npmjs.org/@mastra/core/-/core-1.79.0.tgz",
-      "integrity": "sha512-8E3+Ct9RihoIc+Q5FPzGVs5uZOdubIZs78EXiK3VvPSESEc5dhBTJmfO1DSU23Qmv8qoe2Gh5QKaztjKeF2mwQ==",
+      "version": "1.80.0",
+      "tarball": "https://registry.npmjs.org/@mastra/core/-/core-1.80.0.tgz",
+      "integrity": "sha512-0yaOz2u5SLTT8JKqTGF0GUBqaMAiVDMatC5Rcu7uIP+O6HPW3XpA8JtLqjfBZmNREflnLxYgKYHN7mSYZy+zCA==",
       "engines": {
         "node": ">=22.13.0"
       },
@@ -110,15 +153,15 @@
         "type": "git",
         "directory": "packages/core"
       },
-      "metadataSha256": "c4da3454149ffce20e001aee7b10d49a3dcd86ae4081791591ecdf5f2cd01bad",
+      "metadataSha256": "71a269d9b9abfa02ea7780aee3cc80861520c4cbf589242a22b94226a9dfdfae",
       "source": "https://registry.npmjs.org/%40mastra%2Fcore/latest",
       "installationVerified": false
     },
     {
       "name": "@mastra/libsql",
-      "version": "1.27.0",
-      "tarball": "https://registry.npmjs.org/@mastra/libsql/-/libsql-1.27.0.tgz",
-      "integrity": "sha512-SU/FiOocqmpz8oRkq2xGFVIC5iuWO5XMN4yx5B2bAI5U1w1UdQdLg/txzGEyZIzfiZUOXAjRL6krtP+H/IeNJA==",
+      "version": "1.27.1",
+      "tarball": "https://registry.npmjs.org/@mastra/libsql/-/libsql-1.27.1.tgz",
+      "integrity": "sha512-8P52TspmK2t2HKLx0DYp6riTTcxsW+VWgmc7SdgAe5WiY1vhEO4Z+nr+moh22E5kfgZhzuMTT9ZeL5AyOYLRkw==",
       "engines": {
         "node": ">=22.13.0"
       },
@@ -131,7 +174,7 @@
         "type": "git",
         "directory": "stores/libsql"
       },
-      "metadataSha256": "4aee680acd1299d79e96a3f36b78afcff8d8acfc99895bc6150c5cd8785066a4",
+      "metadataSha256": "b603d80d12c520f7e3190e8a9e48967e9cccc09088d6854f739c0055b409d93c",
       "source": "https://registry.npmjs.org/%40mastra%2Flibsql/latest",
       "installationVerified": false
     },
@@ -173,9 +216,9 @@
     },
     {
       "name": "@solidjs/router",
-      "version": "1.0.0",
-      "tarball": "https://registry.npmjs.org/@solidjs/router/-/router-1.0.0.tgz",
-      "integrity": "sha512-cCSk1hvgCowiMa9bzzYWHiLu1U4E22+DfJe6/rOwAyECKrxc3jrd5QnoW3sDDJtW+e077cz/M67bPl3DqOBw1Q==",
+      "version": "1.0.1",
+      "tarball": "https://registry.npmjs.org/@solidjs/router/-/router-1.0.1.tgz",
+      "integrity": "sha512-JxY0+Y8RMZZjk3pATfY5f9ANbFa26+aOf3X7KtpRC9yCuy7f2UWDL8ukx6pVot2OYOJyUfTH7LYG2bbMPZ3WDw==",
       "engines": {},
       "peerDependencies": {
         "solid-js": "^1.8.6"
@@ -185,7 +228,7 @@
         "url": "git+https://github.com/solidjs/solid-router.git",
         "type": "git"
       },
-      "metadataSha256": "f975a3edbffe7c4d2e8bc085194cc974b1fe7d11971f244bad3b5245b23a82c2",
+      "metadataSha256": "8f5ecf1c0cd932cc3c81c96f1e0027943ed6c015cd7a60e4add0555b30805f46",
       "source": "https://registry.npmjs.org/%40solidjs%2Frouter/latest",
       "installationVerified": false
     },
@@ -322,9 +365,9 @@
     },
     {
       "name": "@types/node",
-      "version": "26.6.5",
-      "tarball": "https://registry.npmjs.org/@types/node/-/node-26.6.5.tgz",
-      "integrity": "sha512-uMzsv9stDdofIZBx4UGh4Z9ZgXnGC9seRDscilBcTHAeOFk67MZg/k9bWVfO+bk4qZmG+l52hRnLwUiH2LnJTg==",
+      "version": "26.6.6",
+      "tarball": "https://registry.npmjs.org/@types/node/-/node-26.6.6.tgz",
+      "integrity": "sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog==",
       "engines": {},
       "peerDependencies": {},
       "license": "MIT",
@@ -333,7 +376,7 @@
         "type": "git",
         "directory": "types/node"
       },
-      "metadataSha256": "c7b04c1f31c47dc6589284644d790ded395526d47fc08c9732885e9818a7b9c4",
+      "metadataSha256": "b1295e1ad30abafc4ed137319ebb5d472118e0e08b5725569edee4579df7da7a",
       "source": "https://registry.npmjs.org/%40types%2Fnode/latest",
       "installationVerified": false
     },
@@ -525,9 +568,9 @@
     },
     {
       "name": "eslint",
-      "version": "10.13.0",
-      "tarball": "https://registry.npmjs.org/eslint/-/eslint-10.13.0.tgz",
-      "integrity": "sha512-UohDjD4zSzEwhf58M3O7vc/ycc8O1I7dNlhtD0WxE8Px8EHNJKtUwzBqrzeGhisRuv2ag4sAYswszCJRgKXYUg==",
+      "version": "10.14.0",
+      "tarball": "https://registry.npmjs.org/eslint/-/eslint-10.14.0.tgz",
+      "integrity": "sha512-T0pNsxkb9IKmtQjhpK3d7nWOpFv+YHuMbTJnSVMoQblF0onvXfErrtp4V1jHtsQPan7dKaGVD0q1WCXnzMF31A==",
       "engines": {
         "node": "^20.19.0 || ^22.13.0 || >=24"
       },
@@ -539,8 +582,88 @@
         "url": "git+https://github.com/eslint/eslint.git",
         "type": "git"
       },
-      "metadataSha256": "1c53c5fad93e009f1315838f82bfb41e2bbf9c6da7ed8b90a5570d58c47e3f99",
+      "metadataSha256": "3c71c8c1c80217a71251defcf0d211601ee3d51f1e9b808ec477a747a912b459",
       "source": "https://registry.npmjs.org/eslint/latest",
+      "installationVerified": false
+    },
+    {
+      "name": "eslint-plugin-import-x",
+      "version": "4.17.1",
+      "tarball": "https://registry.npmjs.org/eslint-plugin-import-x/-/eslint-plugin-import-x-4.17.1.tgz",
+      "integrity": "sha512-4cdstYkKCyjumM2Q9NSI03K8D2a9F4Ssz33K2lv2hQa4KmR9jPLwk3uWGtNvclfqBrPGfGuMBwsGMbe6dMRbfg==",
+      "engines": {
+        "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
+      },
+      "peerDependencies": {
+        "eslint": "^8.57.0 || ^9.0.0 || ^10.0.0",
+        "@typescript-eslint/utils": "^8.56.0",
+        "eslint-import-resolver-node": "*"
+      },
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/un-ts/eslint-plugin-import-x.git",
+        "type": "git"
+      },
+      "metadataSha256": "cd85a583fbd09bb6d30d2718b7d9da223cf3e0327ef8b96236e75d94f227f5de",
+      "source": "https://registry.npmjs.org/eslint-plugin-import-x/4.17.1",
+      "installationVerified": false
+    },
+    {
+      "name": "eslint-plugin-security",
+      "version": "4.2.0",
+      "tarball": "https://registry.npmjs.org/eslint-plugin-security/-/eslint-plugin-security-4.2.0.tgz",
+      "integrity": "sha512-LL5jbxRzlNv0vkSyBtbO7qAPofqd3xlseAFTDevyDTMmScjBrLv2/VkQ7ZFQxBaFYsa3dhpE7NcV+JkwJ9l6RQ==",
+      "engines": {
+        "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
+      },
+      "peerDependencies": {},
+      "license": "Apache-2.0",
+      "repository": {
+        "url": "git+https://github.com/eslint-community/eslint-plugin-security.git",
+        "type": "git"
+      },
+      "metadataSha256": "49ef86c6515b825c8f2b2385a9031d4f19bb67419ced7117aeda6b6033c77aec",
+      "source": "https://registry.npmjs.org/eslint-plugin-security/4.2.0",
+      "installationVerified": false
+    },
+    {
+      "name": "eslint-plugin-solid",
+      "version": "0.18.1",
+      "tarball": "https://registry.npmjs.org/eslint-plugin-solid/-/eslint-plugin-solid-0.18.1.tgz",
+      "integrity": "sha512-zxGSWGEfaVCujuOT358UVrBWuKEf91RP6bRbEIQaoX2d3VVP6R2+4NchdSajtpwNliw7eAJDjYBviuyPuSwmUQ==",
+      "engines": {
+        "node": ">=22.0.0"
+      },
+      "peerDependencies": {
+        "eslint": "^9.0.0 || ^10.0.0",
+        "typescript": ">=4.8.4"
+      },
+      "license": "MIT",
+      "repository": {
+        "url": "https://github.com/solidjs-community/eslint-plugin-solid",
+        "type": "git"
+      },
+      "metadataSha256": "a352face78a735ceb7e5b1a7f1105fbe76aa16863f5339181893f13a909d6c58",
+      "source": "https://registry.npmjs.org/eslint-plugin-solid/0.18.1",
+      "installationVerified": false
+    },
+    {
+      "name": "eslint-plugin-unused-imports",
+      "version": "4.4.1",
+      "tarball": "https://registry.npmjs.org/eslint-plugin-unused-imports/-/eslint-plugin-unused-imports-4.4.1.tgz",
+      "integrity": "sha512-oZGYUz1X3sRMGUB+0cZyK2VcvRX5lm/vB56PgNNcU+7ficUCKm66oZWKUubXWnOuPjQ8PvmXtCViXBMONPe7tQ==",
+      "engines": {},
+      "peerDependencies": {
+        "eslint": "^10.0.0 || ^9.0.0 || ^8.0.0",
+        "@typescript-eslint/eslint-plugin": "^8.0.0-0 || ^7.0.0 || ^6.0.0 || ^5.0.0"
+      },
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/sweepline/eslint-plugin-unused-imports.git",
+        "type": "git"
+      },
+      "metadataSha256": "f6d8b604dcdd946b331570a47d286bd9e780930666fec683443ca80e166a8431",
+      "source": "https://registry.npmjs.org/eslint-plugin-unused-imports/4.4.1",
       "installationVerified": false
     },
     {
@@ -580,6 +703,43 @@
       "installationVerified": false
     },
     {
+      "name": "isomorphic-git",
+      "version": "1.44.8",
+      "tarball": "https://registry.npmjs.org/isomorphic-git/-/isomorphic-git-1.44.8.tgz",
+      "integrity": "sha512-E4MJXejXlCIIast2TWYc3vt3mu+GaU6MNnOS689UpuotqsM6jgK9v9ubnG9yPExNWXO5QvOmoDfYdZwRhR4OQg==",
+      "engines": {
+        "node": ">=14.17"
+      },
+      "peerDependencies": {},
+      "license": "MIT",
+      "repository": {
+        "url": "git+https://github.com/isomorphic-git/isomorphic-git.git",
+        "type": "git"
+      },
+      "metadataSha256": "b8e57c4335c04579003729c3d7aa61612541656514348563ba30d9953ce9a69a",
+      "source": "https://registry.npmjs.org/isomorphic-git/1.44.8",
+      "installationVerified": false
+    },
+    {
+      "name": "knip",
+      "version": "6.43.0",
+      "tarball": "https://registry.npmjs.org/knip/-/knip-6.43.0.tgz",
+      "integrity": "sha512-8l3cCOg/EXoILO0qcSoMra49yQM91+lEIR4fu5Ko8rrArGX8xKdKZiGI9psPiY6rhLmfLERcMfFEByF0wli5CA==",
+      "engines": {
+        "node": "^20.19.0 || >=22.12.0"
+      },
+      "peerDependencies": {},
+      "license": "ISC",
+      "repository": {
+        "url": "git+https://github.com/webpro-nl/knip.git",
+        "type": "git",
+        "directory": "packages/knip"
+      },
+      "metadataSha256": "4fd0938312a1fcfdcbaf63843ef5e71659c8dd17cfcc3bd6d67b53d98f415ff3",
+      "source": "https://registry.npmjs.org/knip/6.43.0",
+      "installationVerified": false
+    },
+    {
       "name": "pino",
       "version": "10.4.0",
       "tarball": "https://registry.npmjs.org/pino/-/pino-10.4.0.tgz",
@@ -616,9 +776,9 @@
     },
     {
       "name": "solid-js",
-      "version": "1.9.17",
-      "tarball": "https://registry.npmjs.org/solid-js/-/solid-js-1.9.17.tgz",
-      "integrity": "sha512-4GAmLOWPfNV8H9Jfn2LSFTpNEG6jiOKPiwd5lnLGQtehHaX6l3TOLzJqQ7mqwB/3k1Yy3zyumFVopmc/tm34ow==",
+      "version": "1.9.18",
+      "tarball": "https://registry.npmjs.org/solid-js/-/solid-js-1.9.18.tgz",
+      "integrity": "sha512-CHGO5YFk6Y9m/1YSxVtKnXfrW7JD3Tmof8HmR4z6TmCPsS8efo8LnzIR8CQh3cUvffqYm6DWyBFfk8dQw1CNQQ==",
       "engines": {},
       "peerDependencies": {},
       "license": "MIT",
@@ -626,7 +786,7 @@
         "url": "git+https://github.com/solidjs/solid.git",
         "type": "git"
       },
-      "metadataSha256": "a01e34f97f60616d956dea7a78e46b331338c9d4b475d853d5eaf6cb6e11c81c",
+      "metadataSha256": "848382c20888faf3760e4629b418234523026ec231cdcc9bec3a753031409f94",
       "source": "https://registry.npmjs.org/solid-js/latest",
       "installationVerified": false
     },
@@ -721,9 +881,9 @@
     },
     {
       "name": "vite-plugin-solid",
-      "version": "2.11.14",
-      "tarball": "https://registry.npmjs.org/vite-plugin-solid/-/vite-plugin-solid-2.11.14.tgz",
-      "integrity": "sha512-7ZVBt8rpoyqmlwin2kRIUveaHoF6/kulY7gsnD+qFh4nS29V4OPAnw+ojoAspXIjObiL9o1xh9a/nTuYHm02Rw==",
+      "version": "2.11.15",
+      "tarball": "https://registry.npmjs.org/vite-plugin-solid/-/vite-plugin-solid-2.11.15.tgz",
+      "integrity": "sha512-twDNPdUDbhem+UOXVu5PyRJvwHFmxSJ3+NxbCgT9iFL42EmWS7lBfFskVM/HXLwd86fh1BgHKJBfGCWkTu2zEg==",
       "engines": {},
       "peerDependencies": {
         "vite": "^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0 || ^9.0.0",
@@ -732,10 +892,10 @@
       },
       "license": "MIT",
       "repository": {
-        "url": "git+https://github.com/solidjs/vite-plugin-solid.git",
+        "url": "git+https://github.com/solidjs/solid-vite-plugin.git",
         "type": "git"
       },
-      "metadataSha256": "14dbe973aec117e852f1b19bd9fb0a297f79f91f44e353c42396a0bdf91d0f1a",
+      "metadataSha256": "0425963fb7e28315e9814d28b18bec37a5462d3d9b00edee1e05d80feffedc13",
       "source": "https://registry.npmjs.org/vite-plugin-solid/latest",
       "installationVerified": false
     },

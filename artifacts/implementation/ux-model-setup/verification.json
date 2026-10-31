@@ -1,0 +1,32 @@
+{
+  "recordedAt": "2026-10-29T10:55:12.267243+00:00",
+  "sourceFingerprint": "52274103bdbdddf5b6bbdf45607cf19e352028a0d09db90bb7037c6b9f37048a",
+  "scope": "Browser local Pi model setup, private runner handoff, automatic enrollment, current-runtime admission and truthful workflow state",
+  "checks": {
+    "focusedIntegration": "passed: 14 focused bootstrap, local-runtime and native identity cases; 14 focused core/query, local-runtime and CLI cases",
+    "focusedBrowser": "passed: 18 cases at 390/768/1440 light and dark, including two real runner processes",
+    "verifyFull": "passed: 294 non-browser tests and 108 browser tests; no failures or skips",
+    "implementationPack": "passed: generated contract/index freshness and all pack checks",
+    "liveDefaultSetup": "artifacts/implementation/local-setup-1793270507852/run.json",
+    "liveDefaultSetupPassed": true,
+    "restartVerified": true,
+    "operationsContextInvocation": "observed exactly one governed operations.context proposal with matching tool result",
+    "liveProofFinalFingerprint": "passed: current application, contracts, scripts, examples, tests, package manifest and lockfile match retained proof",
+    "fullOutputTail": "artifacts/implementation/ux-model-setup/full-output-tail.log"
+  },
+  "priorProofs": [
+    "artifacts/implementation/local-setup-1793269958786/run.json",
+    "artifacts/implementation/local-setup-1793270147110/run.json"
+  ],
+  "priorFailures": [
+    "Proof client initially omitted same-origin authentication header",
+    "Model output was incomplete and independent evaluation rejected it; report length instructions shortened, validation retained"
+  ],
+  "remaining": [
+    "navigation consolidation and outcome-first shared task review",
+    "guided conversation and durable proposals",
+    "contextual work-item actions and run associations",
+    "guided host maintenance and redacted diagnostic export",
+    "representative end-user usability sessions"
+  ]
+}

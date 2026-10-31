@@ -1,0 +1,82 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!node_modules",
+      "!**/dist",
+      "!artifacts",
+      "!contracts",
+      "!examples",
+      "!docs",
+      "!deploy",
+      "!screenshots",
+      "!test-results",
+      "!review.browser.mjs",
+      "!review.phase2.mjs",
+      "!review.phase3.mjs",
+      "!review.phase4.mjs",
+      "!review.phase5.mjs",
+      "!**/*.generated.ts",
+      "!packages/contracts/src/ports.ts",
+      "!pnpm-lock.yaml",
+      "!Keyrus_Brain_v4_2_Implementation_Spec.md",
+      "!Keyrus_Brain_v4_2_Implementation_Pack.zip"
+    ]
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 160
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "jsxQuoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "correctness": {
+        "noUnusedVariables": "error",
+        "noUnusedImports": "error"
+      },
+      "suspicious": {
+        "noDebugger": "error",
+        "noDoubleEquals": "error",
+        "noExplicitAny": "warn",
+        "noImplicitAnyLet": "off",
+        "noAssignInExpressions": "off"
+      },
+      "security": {
+        "noGlobalEval": "error"
+      },
+      "complexity": {
+        "useLiteralKeys": "off",
+        "useOptionalChain": "off",
+        "noImportantStyles": "off"
+      },
+      "style": {
+        "useTemplate": "off",
+        "noNonNullAssertion": "off"
+      }
+    }
+  },
+  "assist": {
+    "enabled": false
+  }
+}

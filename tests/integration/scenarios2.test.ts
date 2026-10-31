@@ -5,6 +5,7 @@ import type { JsonValue } from "@brain/contracts";
 import { approvalSubjectDigest } from "@brain/contracts";
 import { setupWorld, stepUp, DIGEST_A, goldenDocs } from "../helpers";
 import { attestDomain, bundleForAttempt } from "../support/evidence";
+import { activeTool, verifiedEvidence } from "../support/capitalization";
 
 type World = ReturnType<typeof setupWorld>;
 
@@ -447,6 +448,7 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
     const verdict = {contractVersion:"brain.verdict/v1",bundleDigest:submitted.digest,evaluatorAttemptId:offer.attemptId,evaluatorRelease:assignment.evaluatorRelease,
       independence:assignment.independence,outcome:"verified",checks:bundle.checks,acceptedBy:evaluator.runnerId,createdAt:w.brain.store.nowIso()};
     const first = w.brain.acceptVerdict(evaluator,w.workspaceId,verdict) as { verdictId: string };
+    expect((w.brain.store.workspaceDb(w.workspaceId,w.org).prepare("SELECT COUNT(*) AS count FROM operation_observations WHERE evidence_digest=? AND verified_success=1").get(submitted.digest) as { count: number }).count).toBe(1);
     const replay = w.brain.acceptVerdict(evaluator,w.workspaceId,verdict) as { verdictId: string };
     expect(replay.verdictId).toBe(first.verdictId);
     expect(() => w.brain.acceptVerdict(evaluator,w.workspaceId,{ ...verdict, outcome: "rejected" })).toThrow(/immutable/);
@@ -455,21 +457,30 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
 
   it("only distinct verified roots count; concurrent thirds yield one candidate (E076/E077)", async () => {
     const w = setupWorld();
-    const obs = (root: string, verified = true) => w.brain.recordToolObservation({
-      organizationId: w.org, workspaceId: w.workspaceId, signature: "sig-x", rootOperationId: root, packageDigest: DIGEST_A, verified,
+    const release = activeTool(w);
+    const parameterShape = { message: "string" };
+    const signature = domainDigest("brain:operation-signature:v1", { operationId: release.id, parameterShape, effectClass: "read" });
+    const obs = (root: string, evidenceDigest: string, verified = true) => w.brain.recordToolObservation({
+      organizationId: w.org, workspaceId: w.workspaceId, signature, rootOperationId: root, packageDigest: release.digest,
+      evidenceDigest, operationId: release.id, parameterShape, effectClass: "read", verified,
     }) as unknown as { distinctVerifiedRoots: number; candidateId: string | null };
-    expect(obs("root-1").candidateId).toBeNull();
-    expect(obs("root-1").distinctVerifiedRoots).toBe(1); // retry of same root
-    expect(obs("root-1").distinctVerifiedRoots).toBe(1);
-    expect(obs("root-2", false).distinctVerifiedRoots).toBe(1); // unverified never counts
-    expect(obs("root-2").distinctVerifiedRoots).toBe(1); // first write wins per root
-    expect(obs("root-3").candidateId).toBeNull();
-    const third = obs("root-4");
+    const first = verifiedEvidence(w, "root-1");
+    expect(obs("root-1", first).candidateId).toBeNull();
+    expect(obs("root-1", first).distinctVerifiedRoots).toBe(1);
+    expect(obs("root-1", first).distinctVerifiedRoots).toBe(1);
+    const second = verifiedEvidence(w, "root-2");
+    expect(obs("root-2", second, false).distinctVerifiedRoots).toBe(1);
+    expect(obs("root-2", second).distinctVerifiedRoots).toBe(1);
+    obs("root-3", verifiedEvidence(w, "root-3"));
+    const third = obs("root-4", verifiedEvidence(w, "root-4"));
     expect(third.distinctVerifiedRoots).toBe(3);
-    expect(third.candidateId).toBeTruthy();
-    const fourth = obs("root-5");
-    expect(fourth.candidateId).toBe(third.candidateId);
-    const rows = w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT COUNT(*) AS n, state FROM tool_candidates WHERE signature='sig-x'").get() as { n: number; state: string };
+    expect(w.brain.runCapitalization()).toEqual({ processed: 4, failed: 0 });
+    const candidate = w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT id,state FROM tool_candidates WHERE signature=?").get(signature) as { id: string; state: string };
+    expect(candidate.state).toBe("quarantined");
+    const fourth = obs("root-5", verifiedEvidence(w, "root-5"));
+    expect(fourth.candidateId).toBe(candidate.id);
+    expect(w.brain.runCapitalization()).toEqual({ processed: 1, failed: 0 });
+    const rows = w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT COUNT(*) AS n, state FROM tool_candidates WHERE signature=?").get(signature) as { n: number; state: string };
     expect(rows.n).toBe(1);
     expect(rows.state).toBe("quarantined");
     w.brain.close();

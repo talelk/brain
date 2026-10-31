@@ -15,6 +15,11 @@ test("primitives and tokens render across widths and themes (T33)", async ({ pag
   await page.getByLabel(/^Password/).fill("browser-password-1234");
   await page.getByRole("button", { name: "Create organization", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
+  const cookies = await page.context().cookies();
+  const identity = await governor.app.brain.resolveActor(new Headers({ cookie: cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ") }));
+  governor.app.brain.createWorkspace(identity.actor, { workspaceId: "ws-primitives", slug: "primitives" });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
 
   // Every visible button is a design-system button (carries classes), never a
   // bare unstyled native control.
@@ -22,6 +27,15 @@ test("primitives and tokens render across widths and themes (T33)", async ({ pag
   expect(bareButtons).toBe(0);
   const bareInputs = await page.locator("input:not([class])").count();
   expect(bareInputs).toBe(0);
+
+  // Page actions share NewUI's lg metrics and header icons really render.
+  const refreshBox = await page.getByRole("button", { name: "Refresh", exact: true }).boundingBox();
+  const startBox = await page.getByRole("button", { name: "Start a task", exact: true }).boundingBox();
+  expect(refreshBox?.height).toBe(40);
+  expect(startBox?.height).toBe(refreshBox?.height);
+  const searchIcon = page.locator("header .lucide-search");
+  await expect(searchIcon).toBeVisible();
+  expect(await searchIcon.evaluate((node) => getComputedStyle(node).maskImage)).not.toBe("none");
 
   // Token cascade: the theme attribute and color-scheme match the project.
   const theme = await page.evaluate(() => ({ attr: document.documentElement.dataset["theme"], scheme: document.documentElement.style.colorScheme }));
@@ -34,10 +48,11 @@ test("primitives and tokens render across widths and themes (T33)", async ({ pag
   });
   expect(surfaceBg).not.toBe("");
 
-  // Theme toggle flips the applied scheme live.
-  const toggle = page.getByRole("button", { name: /Switch to (dark|light) theme/ });
+  // The NewUI color-scheme menu flips the applied scheme live.
+  const toggle = page.getByRole("button", { name: /(light|dark|system) theme/i }).first();
   await expect(toggle).toBeVisible();
   await toggle.click();
+  await page.getByRole("menuitem", { name: theme.attr === "dark" ? "Light" : "Dark", exact: true }).click();
   const flipped = await page.evaluate(() => document.documentElement.dataset["theme"]);
   expect(flipped).not.toBe(theme.attr);
 

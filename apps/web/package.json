@@ -10,21 +10,25 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@better-auth/passkey": "1.7.14",
     "@brain/contracts": "workspace:*",
     "@solidjs/router": "1.0.0",
+    "@tailwindcss/forms": "0.5.11",
+    "@tailwindcss/typography": "0.5.20",
     "@talelk/newui-atoms": "1.2.0",
     "@talelk/newui-molecules": "2.2.0",
     "@talelk/newui-organisms": "2.1.1",
     "@talelk/newui-tailwind": "1.0.0",
     "@talelk/newui-templates": "1.1.2",
-    "solid-js": "1.9.17"
+    "better-auth": "1.7.14",
+    "lucide-static": "1.57.0",
+    "solid-js": "1.9.17",
+    "yaml": "2.9.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",
     "tailwindcss": "4.3.3",
     "vite": "8.3.5",
-    "vite-plugin-solid": "2.11.14",
-    "@tailwindcss/forms": "0.5.11",
-    "@tailwindcss/typography": "0.5.20"
+    "vite-plugin-solid": "2.11.14"
   }
 }

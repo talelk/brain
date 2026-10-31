@@ -1,12 +1,10 @@
-export { evaluateRunner, rankRunners } from "../../domain/placement";
 export {
   issueEnrollment, enrollRunner, runnerChallenge, runnerHello, authRunner, heartbeat,
 } from "./protocol";
 export {
-  claim, offerJson, loadAttempt, assertAttemptLive, ackAttempt, renewAttempt, attemptEvents,
+  claim, loadAttempt, assertAttemptLive, ackAttempt, renewAttempt, attemptEvents,
   completeAttempt, releaseAttempt, releaseReservation, expireLeases, runnerView,
-  readExecutionArtifact, ensureExecutionArtifact, casPathOf,
+  readExecutionArtifact, casPathOf,
 } from "./attempts";
 export { runScheduledDispatch } from "./scheduler";
-export {
-} from "./attempts";
+export { AutomationService, type AutomationDispatchDeps } from "./automation";

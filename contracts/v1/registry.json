@@ -2,6 +2,55 @@
   "contractVersion": "brain.registry/v1",
   "commands": [
     {
+      "type": "objective.create",
+      "schema": "ObjectiveCreateCommand",
+      "scope": "board:write",
+      "authority": "workspace",
+      "actors": [
+        "human",
+        "agent"
+      ]
+    },
+    {
+      "type": "plan.propose",
+      "schema": "PlanProposeCommand",
+      "scope": "board:write",
+      "authority": "workspace",
+      "actors": [
+        "human",
+        "agent"
+      ]
+    },
+    {
+      "type": "plan.confirm",
+      "schema": "PlanConfirmCommand",
+      "scope": "board:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "workItem.transition",
+      "schema": "WorkItemTransitionCommand",
+      "scope": "board:write",
+      "authority": "workspace",
+      "actors": [
+        "human",
+        "agent"
+      ]
+    },
+    {
+      "type": "workItem.comment",
+      "schema": "WorkItemCommentCommand",
+      "scope": "board:write",
+      "authority": "workspace",
+      "actors": [
+        "human",
+        "agent"
+      ]
+    },
+    {
       "type": "workflow.dispatch",
       "schema": "WorkflowDispatchCommand",
       "scope": "workflow:dispatch",
@@ -42,6 +91,125 @@
         "human",
         "agent"
       ]
+    },
+    {
+      "type": "session.create",
+      "schema": "SessionCreateCommand",
+      "scope": "session:steer",
+      "authority": "workspace",
+      "actors": ["human", "agent"]
+    },
+    {
+      "type": "session.checkpoint",
+      "schema": "SessionCheckpointCommand",
+      "scope": "session:steer",
+      "authority": "workspace",
+      "actors": ["human", "agent"]
+    },
+    {
+      "type": "session.delegate",
+      "schema": "SessionDelegateCommand",
+      "scope": "session:steer",
+      "authority": "workspace",
+      "actors": ["human", "agent"]
+    },
+    {
+      "type": "delegation.review",
+      "schema": "DelegationReviewCommand",
+      "scope": "session:steer",
+      "authority": "workspace",
+      "actors": ["human"]
+    },
+    {
+      "type": "workItem.message",
+      "schema": "WorkItemMessageCommand",
+      "scope": "board:write",
+      "authority": "workspace",
+      "actors": ["human", "agent"]
+    },
+    {
+      "type": "configDraft.create",
+      "schema": "ConfigDraftCreateCommand",
+      "scope": "config:activate",
+      "authority": "workspace",
+      "actors": ["human"]
+    },
+    {
+      "type": "configDraft.update",
+      "schema": "ConfigDraftUpdateCommand",
+      "scope": "config:activate",
+      "authority": "workspace",
+      "actors": ["human"]
+    },
+    {
+      "type": "configDraft.validate",
+      "schema": "ConfigDraftValidateCommand",
+      "scope": "config:activate",
+      "authority": "workspace",
+      "actors": ["human"]
+    },
+    {
+      "type": "configDraft.test",
+      "schema": "ConfigDraftTestCommand",
+      "scope": "config:activate",
+      "authority": "workspace",
+      "actors": ["human"]
+    },
+    {
+      "type": "configDraft.publish",
+      "schema": "ConfigDraftPublishCommand",
+      "scope": "config:activate",
+      "authority": "workspace",
+      "actors": ["human"]
+    },
+    {
+      "type": "integration.connect",
+      "schema": "IntegrationConnectCommand",
+      "scope": "config:activate",
+      "authority": "organization",
+      "actors": ["human"]
+    },
+    {
+      "type": "integration.verify",
+      "schema": "IntegrationVerifyCommand",
+      "scope": "config:activate",
+      "authority": "organization",
+      "actors": ["human"]
+    },
+    {
+      "type": "integration.bind",
+      "schema": "IntegrationBindCommand",
+      "scope": "config:activate",
+      "authority": "organization",
+      "actors": ["human"]
+    },
+    {
+      "type": "document.upload",
+      "schema": "DocumentUploadCommand",
+      "scope": "board:write",
+      "authority": "workspace",
+      "actors": ["human", "agent"]
+    },
+    {
+      "type": "document.revise",
+      "schema": "DocumentReviseCommand",
+      "scope": "board:write",
+      "authority": "workspace",
+      "actors": ["human", "agent"]
+    },
+    {
+      "type": "document.associate",
+      "schema": "DocumentAssociateCommand",
+      "scope": "board:write",
+      "authority": "workspace",
+      "actors": ["human", "agent"]
+    },
+    {
+      "type": "document.delete",
+      "schema": "DocumentDeleteCommand",
+      "scope": "board:write",
+      "authority": "workspace",
+      "actors": ["human"]
     },
     {
       "type": "approval.request",
@@ -219,6 +387,110 @@
       "actors": [
         "human"
       ]
+    },
+    {
+      "type": "organization.invitation.create",
+      "schema": "OrganizationAdminCommand",
+      "scope": "identity:manage",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "organization.invitation.cancel",
+      "schema": "OrganizationAdminCommand",
+      "scope": "identity:manage",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "organization.invitation.retry",
+      "schema": "OrganizationAdminCommand",
+      "scope": "identity:manage",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "organization.member.role-grant",
+      "schema": "OrganizationAdminCommand",
+      "scope": "identity:manage",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "organization.member.role-revoke",
+      "schema": "OrganizationAdminCommand",
+      "scope": "identity:manage",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "organization.member.suspend",
+      "schema": "OrganizationAdminCommand",
+      "scope": "identity:security",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "organization.member.reactivate",
+      "schema": "OrganizationAdminCommand",
+      "scope": "identity:security",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "organization.session.revoke",
+      "schema": "OrganizationAdminCommand",
+      "scope": "identity:security",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "automation.upsert",
+      "schema": "AutomationUpsertCommand",
+      "scope": "workflow:dispatch",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "automation.control",
+      "schema": "AutomationControlCommand",
+      "scope": "workflow:dispatch",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "capitalization.run",
+      "schema": "CapitalizationRunCommand",
+      "scope": "tool:propose",
+      "authority": "workspace",
+      "actors": ["human", "agent"]
+    },
+    {
+      "type": "capability.review",
+      "schema": "CapabilityReviewCommand",
+      "scope": "tool:publish",
+      "authority": "workspace",
+      "actors": ["human"]
     }
   ],
   "queries": [
@@ -257,9 +529,58 @@
     "workflows.list",
     "workflows.get",
     "artifacts.list",
-    "toolCandidates.list"
+    "toolCandidates.list",
+    "organization.members.list",
+    "organization.member.get",
+    "organization.invitations.list",
+    "organization.auth-policy.get",
+    "objectives.list",
+    "objectives.get",
+    "plans.get",
+    "workItems.list",
+    "workItems.get",
+    "workBoard.get",
+    "automations.list",
+    "automations.occurrences",
+    "delegations.list",
+    "workItemMessages.list",
+    "documents.list",
+    "documents.get",
+    "documents.search",
+    "configDrafts.list",
+    "configDrafts.get",
+    "configDrafts.impact",
+    "integrations.list",
+    "integrations.repositories",
+    "knowledgeAssets.list",
+    "capabilityCandidates.list",
+    "capitalizationRuns.list"
   ],
   "events": [
+    {
+      "type": "objective.created",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "plan.proposed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "plan.confirmed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "workItem.transitioned",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
     {
       "type": "config.compiled",
       "envelope": "EventEnvelope",
@@ -513,6 +834,84 @@
       "durable": true
     },
     {
+      "type": "session.created",
+      "envelope": "EventEnvelope",
+      "payloadContract": "SessionEventPayload",
+      "durable": true
+    },
+    {
+      "type": "session.resumed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "SessionEventPayload",
+      "durable": true
+    },
+    {
+      "type": "session.delegated",
+      "envelope": "EventEnvelope",
+      "payloadContract": "SessionEventPayload",
+      "durable": true
+    },
+    {
+      "type": "delegation.reviewed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "SessionEventPayload",
+      "durable": true
+    },
+    {
+      "type": "configDraft.published",
+      "envelope": "EventEnvelope",
+      "payloadContract": "ConfigDraftEventPayload",
+      "durable": true
+    },
+    {
+      "type": "integration.connected",
+      "envelope": "EventEnvelope",
+      "payloadContract": "IntegrationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "integration.bound",
+      "envelope": "EventEnvelope",
+      "payloadContract": "IntegrationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "integration.verified",
+      "envelope": "EventEnvelope",
+      "payloadContract": "IntegrationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "integration.proposed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "IntegrationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "document.uploaded",
+      "envelope": "EventEnvelope",
+      "payloadContract": "DocumentEventPayload",
+      "durable": true
+    },
+    {
+      "type": "document.revised",
+      "envelope": "EventEnvelope",
+      "payloadContract": "DocumentEventPayload",
+      "durable": true
+    },
+    {
+      "type": "document.associated",
+      "envelope": "EventEnvelope",
+      "payloadContract": "DocumentEventPayload",
+      "durable": true
+    },
+    {
+      "type": "document.revoked",
+      "envelope": "EventEnvelope",
+      "payloadContract": "DocumentEventPayload",
+      "durable": true
+    },
+    {
       "type": "evidence.submitted",
       "envelope": "EventEnvelope",
       "payloadContract": "EvidenceEventPayload",
@@ -624,6 +1023,84 @@
       "type": "organization.bootstrapped",
       "envelope": "EventEnvelope",
       "payloadContract": "OrganizationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "local-runtime.configured",
+      "envelope": "EventEnvelope",
+      "payloadContract": "LocalRuntimeConfiguredPayload",
+      "durable": true
+    },
+    {
+      "type": "organization.invitation.create",
+      "envelope": "EventEnvelope",
+      "payloadContract": "OrganizationAdminEventPayload",
+      "durable": true
+    },
+    {
+      "type": "organization.invitation.cancel",
+      "envelope": "EventEnvelope",
+      "payloadContract": "OrganizationAdminEventPayload",
+      "durable": true
+    },
+    {
+      "type": "organization.invitation.retry",
+      "envelope": "EventEnvelope",
+      "payloadContract": "OrganizationAdminEventPayload",
+      "durable": true
+    },
+    {
+      "type": "organization.member.role-grant",
+      "envelope": "EventEnvelope",
+      "payloadContract": "OrganizationAdminEventPayload",
+      "durable": true
+    },
+    {
+      "type": "organization.member.role-revoke",
+      "envelope": "EventEnvelope",
+      "payloadContract": "OrganizationAdminEventPayload",
+      "durable": true
+    },
+    {
+      "type": "organization.member.suspend",
+      "envelope": "EventEnvelope",
+      "payloadContract": "OrganizationAdminEventPayload",
+      "durable": true
+    },
+    {
+      "type": "organization.member.reactivate",
+      "envelope": "EventEnvelope",
+      "payloadContract": "OrganizationAdminEventPayload",
+      "durable": true
+    },
+    {
+      "type": "organization.session.revoke",
+      "envelope": "EventEnvelope",
+      "payloadContract": "OrganizationAdminEventPayload",
+      "durable": true
+    },
+    {
+      "type": "capitalization.completed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "CapitalizationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "knowledge.extracted",
+      "envelope": "EventEnvelope",
+      "payloadContract": "CapitalizationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "capability.reviewed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "CapitalizationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "capability.published",
+      "envelope": "EventEnvelope",
+      "payloadContract": "CapitalizationEventPayload",
       "durable": true
     }
   ],

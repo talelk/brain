@@ -45,3 +45,16 @@ allowBuilds:
   better-sqlite3: true
   esbuild: true
   protobufjs: false
+  unrs-resolver: true
+skills:
+  dirs:
+    - .pi-agent/skills
+permissions:
+  '@talelk/newui-atoms':
+    skills: true
+  '@talelk/newui-molecules':
+    skills: true
+  '@talelk/newui-organisms':
+    skills: true
+  '@talelk/newui-templates':
+    skills: true

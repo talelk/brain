@@ -1,0 +1,2962 @@
+{
+  "startedAt": "2026-10-30T12:20:04.229Z",
+  "finishedAt": "2026-10-30T12:20:54.092Z",
+  "engine": "pi",
+  "modelId": "qwen3.8-flash-next-a5b",
+  "head": "20016d2a44ea113e0402207128389e0b0728f780",
+  "sourceFingerprint": "3c2802ccf8d7664303f4d05dd6fcde4e6cebdcd2ad26cd17defce83b0e281de8",
+  "finalSourceFingerprint": "3c2802ccf8d7664303f4d05dd6fcde4e6cebdcd2ad26cd17defce83b0e281de8",
+  "sourceStable": true,
+  "sources": [
+    {
+      "path": "Dockerfile",
+      "sha256": "81c001f60f453d4a864c164d733b3efe8881645b4c669d683715fd62fe20a156"
+    },
+    {
+      "path": "README.md",
+      "sha256": "2c4df9d527a3881d8317228e58077eb708f2f6f85f518617532d9b81c19be834"
+    },
+    {
+      "path": "apps/cli/package.json",
+      "sha256": "c0c2909d09df7906fe27db821a213621babb21dca8e372edbcd55c1ae1a84808"
+    },
+    {
+      "path": "apps/cli/src/client.ts",
+      "sha256": "a1b9e6aa80bf5c9f04ab4a6f248643cfd1b3891bc03f5903e38db340c4ce9b3d"
+    },
+    {
+      "path": "apps/cli/src/credentials.ts",
+      "sha256": "3d4720e15dc865bdeafe91d6a76ffdd624649c44ad263170c331620b51f6ef17"
+    },
+    {
+      "path": "apps/cli/src/main.ts",
+      "sha256": "8ebbe73b3576cecc2a1f0314a424ad05ae4cb9a3ac3e904a7772de21c6af1c24"
+    },
+    {
+      "path": "apps/cli/src/prompt.ts",
+      "sha256": "95485b15ef189e2c6d6a173f544023de3ff95a595abec800f5a7f9632089220b"
+    },
+    {
+      "path": "apps/cli/src/release.ts",
+      "sha256": "5ed9c09272cf9f9fc417bc384b48981db31be9b6e242209d887133cdf49e5970"
+    },
+    {
+      "path": "apps/cli/tsconfig.json",
+      "sha256": "fdf05e5602560d128de8c532e39ec90eb0bced6cbab67b995df68cccb77c15d8"
+    },
+    {
+      "path": "apps/governor/package.json",
+      "sha256": "490eecd77ab41451371725afbfc6c4806900239a9093835d265092116c117b66"
+    },
+    {
+      "path": "apps/governor/schema/auth.sql",
+      "sha256": "2ed4bc32da3d29ee74b166ecd36cd5362374cff885bd64b9dc05ba275622e3df"
+    },
+    {
+      "path": "apps/governor/schema/control.sql",
+      "sha256": "e57caa826243391308e62af667fab127598548bf290a3a80bb945edcae0e7f83"
+    },
+    {
+      "path": "apps/governor/schema/workspace.sql",
+      "sha256": "511f26ffde3450ecf716e87ba381794234de52bff06ec70d5c0a883e412c8df5"
+    },
+    {
+      "path": "apps/governor/scripts/generate-auth-schema.ts",
+      "sha256": "371ce9f8e9e70ac78e7abab4044d48c4daa0c228b9820e5b7dab24f4aee53281"
+    },
+    {
+      "path": "apps/governor/src/application/authz.ts",
+      "sha256": "09b919518a090cab7af2eafcb3b459d6076c23c16caf2b4a566d8aa9f807a5d6"
+    },
+    {
+      "path": "apps/governor/src/application/brain.ts",
+      "sha256": "c139b67a7b950728f9b317d39c733954560b69b6cdfd71275fa42039b741ed71"
+    },
+    {
+      "path": "apps/governor/src/application/organization-admin.ts",
+      "sha256": "bc48108e47e98c223c8e2e1855565e089a433182532e736addd1569685250596"
+    },
+    {
+      "path": "apps/governor/src/application/store.ts",
+      "sha256": "a11b80f311578fc91533e5b84716ae3fbe59a517a47ceabc71d6e2d76266ddf6"
+    },
+    {
+      "path": "apps/governor/src/container.ts",
+      "sha256": "2a68b5f228437608952c7443efcb6a5f1774c4ee3dbe5740eab2ae1f7846daff"
+    },
+    {
+      "path": "apps/governor/src/domain/budget.ts",
+      "sha256": "e91d992390a05f8c5c22aa4c3ba8deb14b4bbcc3e7e7902e682aaf671c840c06"
+    },
+    {
+      "path": "apps/governor/src/domain/clock.ts",
+      "sha256": "85998311e87ddbd4f1bcc63ae83e37ae63a4e8b4085f431de08f47bad174d452"
+    },
+    {
+      "path": "apps/governor/src/domain/errors.ts",
+      "sha256": "ba6b94df7b728f3d53a40a78b7264c8c0231c0bfb0595b7481f0186e19bfca14"
+    },
+    {
+      "path": "apps/governor/src/domain/placement.ts",
+      "sha256": "ae552d47823019e169213017c43852c46e7e772ab2bd36af7b507cb4c880238f"
+    },
+    {
+      "path": "apps/governor/src/domain/states.ts",
+      "sha256": "a03cba06482c27db42aea1ff40fe1b879796357f87e0bd5fe006327d066c83f1"
+    },
+    {
+      "path": "apps/governor/src/http/app.ts",
+      "sha256": "2f066b9e3d80d13bf8f015545bf6ede6af6c3ff01c8d447a24908dd2e0e96f56"
+    },
+    {
+      "path": "apps/governor/src/http/body.ts",
+      "sha256": "6db171aa801f6c51ab21ec90c9e51fcad6d571f20033901a77f7a36447dc7792"
+    },
+    {
+      "path": "apps/governor/src/http/tls.ts",
+      "sha256": "d2744e45f77ceb668cb5563b93d67af165f0d6705c38d8a96bf401310c6903c2"
+    },
+    {
+      "path": "apps/governor/src/infrastructure/persistence/directory.ts",
+      "sha256": "523ed54a613b7f20a0f38002f0afb0bf3912f106ba1f1174cacf88a99c57297d"
+    },
+    {
+      "path": "apps/governor/src/infrastructure/persistence/open.ts",
+      "sha256": "14545a685869a45ea7815cfa9ce734daa5ff851ec4c8b1b2e70df224860b1215"
+    },
+    {
+      "path": "apps/governor/src/main.ts",
+      "sha256": "b92aef486978f6dc22093a10f29558829b12b51b5733f29f73f0c5276ee5f16b"
+    },
+    {
+      "path": "apps/governor/src/maintenance.ts",
+      "sha256": "dbd8779ad9a7b808cb43142b97657ce0e299ed816bee37555b33c57739b45780"
+    },
+    {
+      "path": "apps/governor/src/modules/board/index.ts",
+      "sha256": null
+    },
+    {
+      "path": "apps/governor/src/modules/configuration/compiler.ts",
+      "sha256": "a36b2fb578088874a2f7458f103565f8e65a0f8218546a15e624e46a1a0476c9"
+    },
+    {
+      "path": "apps/governor/src/modules/configuration/index.ts",
+      "sha256": "d98e4feda7c3d54157298255afe9e2b4a747262f8d6117b9f9f69f5f7b0241b3"
+    },
+    {
+      "path": "apps/governor/src/modules/configuration/loader.ts",
+      "sha256": "afdda529c38ab90fb376d40367395db9512a6c053bfc738fb7a7a3c989442d88"
+    },
+    {
+      "path": "apps/governor/src/modules/configuration/policy-floor.ts",
+      "sha256": "7e7fb28a628703a3d89d82528214a4f0c1821c32d55f8e5ea29b391bdb4fb198"
+    },
+    {
+      "path": "apps/governor/src/modules/configuration/tools.ts",
+      "sha256": "84205304ca6eadd973dc68b678f8c4ae047a3927d329ca4d25f9083e0bee1517"
+    },
+    {
+      "path": "apps/governor/src/modules/evidence/artifacts.ts",
+      "sha256": "6a724bed8a8f6647d2c668a8888db50f647705942f81112a6011380ab05fcf5c"
+    },
+    {
+      "path": "apps/governor/src/modules/evidence/author-claims.ts",
+      "sha256": "d88a147bcef76075361ba115b43d8818c2d0473ae62af063b980124d5f5aaa8d"
+    },
+    {
+      "path": "apps/governor/src/modules/evidence/index.ts",
+      "sha256": "291c6fd6440b33cc59c8c9d17e68862d0236064fa0cff9a2ea018ef9b8dce76a"
+    },
+    {
+      "path": "apps/governor/src/modules/evidence/service.ts",
+      "sha256": "adb19cc766def893d9c17a4432c8bca5cdaa4483e187c7b788e045f5e240830e"
+    },
+    {
+      "path": "apps/governor/src/modules/governance/approval-authority.ts",
+      "sha256": "73a7e13e11102aab25d5eb3b41e374a70e572d5912cc54f4acfd247428d5d489"
+    },
+    {
+      "path": "apps/governor/src/modules/governance/index.ts",
+      "sha256": "f23f956fabc967117a65a9f6ab818f5535ef089f7db20fdb001ed1e941d086a5"
+    },
+    {
+      "path": "apps/governor/src/modules/governance/permits.ts",
+      "sha256": "70c5dbc11fc87a2f7370197e60c3d25eb2cb08b45c4d4b80e4c003237f6c40f9"
+    },
+    {
+      "path": "apps/governor/src/modules/governance/step-up.ts",
+      "sha256": "780679d0f22d076eb848adcf42162984caa5a33d6f48301cfc68b95f76f2b458"
+    },
+    {
+      "path": "apps/governor/src/modules/governance/trust.ts",
+      "sha256": "58c4b94a33fba7f6361c42eed6e66072bbf9585140cc491f98229c5ec2be7700"
+    },
+    {
+      "path": "apps/governor/src/modules/identity/administration.ts",
+      "sha256": "2e7f31f612f293043aa379b11f67260aa8d10203873d5d8bd4712530ed0d89ca"
+    },
+    {
+      "path": "apps/governor/src/modules/identity/auth.ts",
+      "sha256": "3e2649aee1787c6a6f132208656fc870056df3d3fda95a926f19b8357b6b2e3a"
+    },
+    {
+      "path": "apps/governor/src/modules/identity/bootstrap.ts",
+      "sha256": "16aa67436e175c7328153d40bd5004e209a2cc022257eb4e4e766e77a65a08a3"
+    },
+    {
+      "path": "apps/governor/src/modules/identity/index.ts",
+      "sha256": "998c047ef7a2e30b2fc5a6edaa055cd954c7784c3b46b08789df4880f134015b"
+    },
+    {
+      "path": "apps/governor/src/modules/identity/oidc.ts",
+      "sha256": "e531a3b772efb8ae00e7c6545929edd7170a151c3adaa2d76867ac2892414908"
+    },
+    {
+      "path": "apps/governor/src/modules/identity/options.ts",
+      "sha256": "dceee3f14bd082467d61df1ea6d4d40cede0f52ba6181ce147bdaff1e5f5fd74"
+    },
+    {
+      "path": "apps/governor/src/modules/identity/security.ts",
+      "sha256": "e27f0dd5e121f41a772b648263f1c034f363f94453e31c17d51c27e88c0170be"
+    },
+    {
+      "path": "apps/governor/src/modules/jobs/attempts.ts",
+      "sha256": "559684e6c250aa51f84664f175ca47e4213071415c44ccc4797b4399619bd51d"
+    },
+    {
+      "path": "apps/governor/src/modules/jobs/index.ts",
+      "sha256": "d14e5bb5010ebcc4b008f7ae8a42d94f4a4c0198595ad26001b162f458ab142e"
+    },
+    {
+      "path": "apps/governor/src/modules/jobs/protocol.ts",
+      "sha256": "ff03137dc3610b789560bc5b324e978624dc65b81628caf73e94ebb4bc43fd5a"
+    },
+    {
+      "path": "apps/governor/src/modules/jobs/scheduler.ts",
+      "sha256": "93fcbf28474fbfc02b54458dcd6f813607e742d4a13fb19651cd42e7f160f179"
+    },
+    {
+      "path": "apps/governor/src/modules/knowledge/index.ts",
+      "sha256": "cb1fdeed70f7f636609c4d3b51639ef1f4dd5d19de7d9dddcb02ab2b7af618a0"
+    },
+    {
+      "path": "apps/governor/src/modules/knowledge/memory.ts",
+      "sha256": "5339ea2d8dbeaafd394450dccee0f8ba7b774bda59756c994336fd6774ce3cab"
+    },
+    {
+      "path": "apps/governor/src/modules/knowledge/tencentdb/client.ts",
+      "sha256": "d48b4ef57d832f69d9802f0cb26e97bc424ff3d827ab13d15747acf114b794c5"
+    },
+    {
+      "path": "apps/governor/src/modules/operations/backup.ts",
+      "sha256": "fc013c08f2dfd6ca36d22868132cfdf4508108d596134e34c89d90577deeacb2"
+    },
+    {
+      "path": "apps/governor/src/modules/operations/index.ts",
+      "sha256": "79743ec47a07dc8cb6eb715d1170ebbd3f3014122e0326a957f442d562d032cf"
+    },
+    {
+      "path": "apps/governor/src/modules/operations/local-runtime.ts",
+      "sha256": "15a23f892addc832d4e4e0fa7a20ecd09e633a2fe434547f733acc630f91c581"
+    },
+    {
+      "path": "apps/governor/src/modules/operations/push.ts",
+      "sha256": "9a3ac2fbd6e08e4a73c3b285b8f2d85ccb23498157409161779473277f297307"
+    },
+    {
+      "path": "apps/governor/src/modules/operations/readiness.ts",
+      "sha256": "bd2e7aeaa7d6ce73d41c8cb51e94574e91d0b2e9f0f7fc618f3ae80c6c5ccd5c"
+    },
+    {
+      "path": "apps/governor/src/modules/operations/restore.ts",
+      "sha256": "a419e5e35ebd2e9e0ee1e4ebc6fbc0811308ab166eced85928253400a04d5f36"
+    },
+    {
+      "path": "apps/governor/src/modules/packs/gitlab.ts",
+      "sha256": "418eaa0f653904a9cad40445491357da727aee584c771f6d52d6788773a17d42"
+    },
+    {
+      "path": "apps/governor/src/modules/packs/index.ts",
+      "sha256": "91842a3e04554b30a5c29d0cfd9f9d390cf3acafcb4cc8e34bec30f5061574f7"
+    },
+    {
+      "path": "apps/governor/src/modules/packs/judge.ts",
+      "sha256": "f39b718e29a0ae491f2afda9157250ff36137cf864eb9d24a1d3c837d1f77494"
+    },
+    {
+      "path": "apps/governor/src/modules/packs/sla.ts",
+      "sha256": "d2a6e57c20d4b99d3866bc67a6dee2d4c3d46951f8f8ef966c1ab11dd042ce2e"
+    },
+    {
+      "path": "apps/governor/src/modules/workflows/cron.ts",
+      "sha256": "f8245d9cf96df60597423a7540c330fecacec7c9b16f41db398e5db011189b60"
+    },
+    {
+      "path": "apps/governor/src/modules/workflows/engine-port.ts",
+      "sha256": "65edeceda229d1f77e2a6ceeb0996cd51c6af7b6ec6499288db883bdb362f9bd"
+    },
+    {
+      "path": "apps/governor/src/modules/workflows/index.ts",
+      "sha256": "a7e5a8ac7d18e722f69d02f88111b1f52d2590c595855b8927d19f835564b307"
+    },
+    {
+      "path": "apps/governor/src/modules/workflows/mastra/engine.ts",
+      "sha256": "6dac9a9b502d11129deb99393be9adf3a4e222c702d98e16f4cbc59f4ce7f8a1"
+    },
+    {
+      "path": "apps/governor/src/modules/workflows/task-experience.ts",
+      "sha256": "dc956dd86266d03ea193867106cfc8b2470da55f584ef3f72ad5b60f949487bd"
+    },
+    {
+      "path": "apps/governor/src/runtime-config.ts",
+      "sha256": "61283d1d8f358112316f998c65c6e78848269dd7565ad649995ac967b9a0cec8"
+    },
+    {
+      "path": "apps/governor/tsconfig.json",
+      "sha256": "d4582b435ee105b1288cc6888f9f94b44cee5f1dd9d78d618516794573ef4181"
+    },
+    {
+      "path": "apps/launcher/package.json",
+      "sha256": "27daa1a20b5697c87959f96aa04da7abd96419e14e3f33f9f8686894d410304a"
+    },
+    {
+      "path": "apps/launcher/proxy/allowlist_proxy.py",
+      "sha256": "1aaebc6b191f25319d0de1cb27d7d4979687d964b97d63f554a27acc90ffd7de"
+    },
+    {
+      "path": "apps/launcher/src/main.ts",
+      "sha256": "12b2436c2746c3d86339fe3a30f07a2121154e25b6112a00788c863616a53c53"
+    },
+    {
+      "path": "apps/launcher/src/server.ts",
+      "sha256": "759809100297fafdcc559c9131cd9d9444c48095767a6d22fe781f029d260e2c"
+    },
+    {
+      "path": "apps/launcher/tsconfig.json",
+      "sha256": "fdf05e5602560d128de8c532e39ec90eb0bced6cbab67b995df68cccb77c15d8"
+    },
+    {
+      "path": "apps/runner/package.json",
+      "sha256": "73a42cfc405180c62481eaaa075bba040d3e39c98530f39908f692acca85656e"
+    },
+    {
+      "path": "apps/runner/src/engines/acp.ts",
+      "sha256": "a629f3ee4dd5996c7386605cc55f16f11583c5a88c476b1cc0edefa689af64d3"
+    },
+    {
+      "path": "apps/runner/src/engines/claude.ts",
+      "sha256": "edf1ea8e28e0754b0a579938fef200794ea47085ef0ca7ea9bdb6dc93e7d1980"
+    },
+    {
+      "path": "apps/runner/src/engines/event-stream.ts",
+      "sha256": "1a66989472b78d94a1d50b2a5b9600629494b2c83c864173446f6d2f10d5ed89"
+    },
+    {
+      "path": "apps/runner/src/engines/fixture.ts",
+      "sha256": "1a1ee5ae4bb3077044dd4f3514013a1131ab61d9fe15e278ca3efdc4dd508e62"
+    },
+    {
+      "path": "apps/runner/src/engines/pi.ts",
+      "sha256": "80bca45fdaeaca831fc244bda9015981382c2cf07fa61ada9755ff8200b1a6bd"
+    },
+    {
+      "path": "apps/runner/src/engines/run.ts",
+      "sha256": "8f81a572b13c3f22178658f2692cc88cd70215d090283f98ae659a305de5173a"
+    },
+    {
+      "path": "apps/runner/src/engines/tool-calls.ts",
+      "sha256": "19483d7e928282f92ca1311d996ee738892dfd09943d4aea7451fdf92afb2df1"
+    },
+    {
+      "path": "apps/runner/src/launcher-client.ts",
+      "sha256": "d149c367a979acfe52f35be69815c2263d9fed6fe6c9e2320a61e76b3c26cbde"
+    },
+    {
+      "path": "apps/runner/src/local-configuration.ts",
+      "sha256": "3646ad0533e750e3060a160a76416b946b14280b539c3e1d5905ea567d9ca326"
+    },
+    {
+      "path": "apps/runner/src/main.ts",
+      "sha256": "70ca9f92c53940d2cf325a35a577ebd8e82d24f849111773b9bc4fd907fe934f"
+    },
+    {
+      "path": "apps/runner/src/spool-durable.ts",
+      "sha256": "639749f1c9e59d3c1fa84f8361a78763c0c42d8619ab650a58eee45e2b17fce1"
+    },
+    {
+      "path": "apps/runner/src/spool.ts",
+      "sha256": "415e735b83117e8bb4f5394ce5f220eddf35dc15ba4aa316d732ee7aa9348b7b"
+    },
+    {
+      "path": "apps/runner/src/supervisor.ts",
+      "sha256": "1186576fab697cfa916ad59e235bf2586e40e87e055dc4087df8a1be00ed1f3f"
+    },
+    {
+      "path": "apps/runner/src/tools/invoke.ts",
+      "sha256": "0c02f9a891433167620b63ceccc3492850f887589768448244feb8be3594ca0e"
+    },
+    {
+      "path": "apps/runner/src/tools/secrets.ts",
+      "sha256": "0b9df7e9d150e4e6a652a9a438dde32c1dbeb0471f90890b25ed0cfb26f75e46"
+    },
+    {
+      "path": "apps/runner/tsconfig.json",
+      "sha256": "fdf05e5602560d128de8c532e39ec90eb0bced6cbab67b995df68cccb77c15d8"
+    },
+    {
+      "path": "apps/web/index.html",
+      "sha256": "76c14decee7d34ade8b970f2a69564b46be04ada72d3675c77131d7e468cdc14"
+    },
+    {
+      "path": "apps/web/package.json",
+      "sha256": "1e014c0c0c931c1a009d60df1bfc8fa33218659144d1ccf5223799d247ead51b"
+    },
+    {
+      "path": "apps/web/public/manifest.webmanifest",
+      "sha256": "e017e0e019fee628773ef9c045132a2be40d1aa9de3e34bbc48d27011a7f91a1"
+    },
+    {
+      "path": "apps/web/public/sw.js",
+      "sha256": "8c8de1f709d289c60a6a83aee6f0ae94de65eac2d9ffd33141e0299b20ccecf0"
+    },
+    {
+      "path": "apps/web/src/app.tsx",
+      "sha256": "cdc3a2812829e9b5a9301d2785f57d32b07847f246e2d81d6d083bf5c257b8d0"
+    },
+    {
+      "path": "apps/web/src/data/auth-client.ts",
+      "sha256": "1dd9e1bb4d2cabee2e3bd2a1f3ef355cc9d1e1a760015a5c77c7708b5507a277"
+    },
+    {
+      "path": "apps/web/src/data/client.ts",
+      "sha256": "14272c21c5c47860d77b62d324062526b6f26e4b4a8b33dcbd695a50dc671b32"
+    },
+    {
+      "path": "apps/web/src/data/commands.ts",
+      "sha256": "8f6a54ca1af021801ead24aaa48ec01f7bc9798a8a92c9921c7fac6297c56fc1"
+    },
+    {
+      "path": "apps/web/src/data/governor.ts",
+      "sha256": "2620239f1932110be76370996ac6be8f3e907be4fea3639e0d32131afc96cbd4"
+    },
+    {
+      "path": "apps/web/src/data/screens.ts",
+      "sha256": "2b001382f727b01ba234f938151776a01574cf5ced9e1f537e86609b67290731"
+    },
+    {
+      "path": "apps/web/src/index.css",
+      "sha256": "2957e2586a1bf21db2bb3af2b8a3ca53a1e71e0014a81525c39ef1bfdfb6f64a"
+    },
+    {
+      "path": "apps/web/src/main.tsx",
+      "sha256": "c958b35d6cced4c3f3d87579f278fb66ba393c573f257be6534eaa9131b53689"
+    },
+    {
+      "path": "apps/web/src/routes/approvals.tsx",
+      "sha256": "d9b8975e3d30531ef44ca77b326f0f9b8a56b1a8186f5e9947c51a1933c49357"
+    },
+    {
+      "path": "apps/web/src/routes/catalog.tsx",
+      "sha256": "1ad62edffe00cc0d92b0812f1f91816adc203b7040e00a19ad8c9da20581a037"
+    },
+    {
+      "path": "apps/web/src/routes/index.gen.ts",
+      "sha256": "255179afe5d0fbc55b2716e0d10561372badd39453ac7e72b574b5b9ec5d848e"
+    },
+    {
+      "path": "apps/web/src/routes/knowledge.tsx",
+      "sha256": "950fc82f87646ca52539bbdd7d7ac77a9f6da9b8a447c6d90ba31d7e8c9f6271"
+    },
+    {
+      "path": "apps/web/src/routes/pages/ApprovalDetailPage.tsx",
+      "sha256": "303d0916ec906205a6ea1d8f75cd12e60e3adb54cf4e8620fdb5a2892fd5b1a1"
+    },
+    {
+      "path": "apps/web/src/routes/pages/ApprovalsPage.tsx",
+      "sha256": "7c01b0fd2cdca3d0abdcfc6cd1669f0ce891e3b89cca6dd18b47af93da63a024"
+    },
+    {
+      "path": "apps/web/src/routes/pages/BoardPage.tsx",
+      "sha256": "fd79a77f90c2ba11b0203577e4f5f6fc2de700f56ef2004a58d06280591afb69"
+    },
+    {
+      "path": "apps/web/src/routes/pages/BridgePage.tsx",
+      "sha256": "0f8b4809ad825bfecf73ef866b9bff6d3e1d6b5be06c0a8db572af478ffcacf5"
+    },
+    {
+      "path": "apps/web/src/routes/pages/DecisionsPage.tsx",
+      "sha256": "bddad7e5d9936948c74b4bc22ec38bda03bc24daf3cd606f269f0c8d3c87f06e"
+    },
+    {
+      "path": "apps/web/src/routes/pages/DeliveryPage.tsx",
+      "sha256": "cd5fb03abb0b2668a463f3f863e787b6028f95325e77023e953bed529a98453c"
+    },
+    {
+      "path": "apps/web/src/routes/pages/IncidentDetailPage.tsx",
+      "sha256": "ccc0ec1ab5afb0d84337ec0dcd7be085eba59c557735a6602ebdda98fc1c4e56"
+    },
+    {
+      "path": "apps/web/src/routes/pages/JobDetailPage.tsx",
+      "sha256": "b650ef8b4933f806f4a5062d5ad86da1cf3f983f3f35fe11092bd4d462ec78f0"
+    },
+    {
+      "path": "apps/web/src/routes/pages/KnowledgePage.tsx",
+      "sha256": "6b247782f77dd5ebb50fc26c850b5376d800f92ce023f243cd54d29fe17eed98"
+    },
+    {
+      "path": "apps/web/src/routes/pages/RunnerDetailPage.tsx",
+      "sha256": "b64a8f69bb7ac95d3a8550b58ce598a0a0f0d8ab1a48c2d75b38c23e6f8793ef"
+    },
+    {
+      "path": "apps/web/src/routes/pages/RunnersPage.tsx",
+      "sha256": "d70cf9825519e67f69ec1320fa7a4bc4db201dc2ae3f20faedd579e57b62c78f"
+    },
+    {
+      "path": "apps/web/src/routes/pages/RunsPage.tsx",
+      "sha256": "6ee058d0c77208405b4ea57e2260656172dfbf26a5335c60052267324af91f20"
+    },
+    {
+      "path": "apps/web/src/routes/pages/SessionDetailPage.tsx",
+      "sha256": "26dfd784254f902e911b6a6ce64527cec07b94d97b1b76afc13b71a5d63c92ff"
+    },
+    {
+      "path": "apps/web/src/routes/pages/SettingsPage.tsx",
+      "sha256": "8ace527e46f6757111ccb2983bddfbc4798543759097b3fee88da70bb3c620ea"
+    },
+    {
+      "path": "apps/web/src/routes/pages/SrePage.tsx",
+      "sha256": "79f243d72bfcd3f82fcc8eec9bf4ec8fe8f7f5fd49bba390cab1874b0a520ea4"
+    },
+    {
+      "path": "apps/web/src/routes/pages/SupportPage.tsx",
+      "sha256": "691172a907d0ca832d6203a92f66a56dee107b6761f50f75995b80047579992a"
+    },
+    {
+      "path": "apps/web/src/routes/pages/TicketDetailPage.tsx",
+      "sha256": "7613315ffc9d9fe520e78b1ffc8c7987475ac63a4fd1c131653c1a38c0388a50"
+    },
+    {
+      "path": "apps/web/src/routes/pages/TodayPage.tsx",
+      "sha256": "5b19d075e99e341f890fe5e0ef433998ddfc1c43d32e6b6edabd560f85459fe1"
+    },
+    {
+      "path": "apps/web/src/routes/pages/ToolsPage.tsx",
+      "sha256": "05c2bf6ffebe63809a8a0cf7bf1275999cde2fdd7604dd83e562e361b181babd"
+    },
+    {
+      "path": "apps/web/src/routes/pages/TvSrePage.tsx",
+      "sha256": "a08d073a884f7569f400bc4963b1111de2bda0a2c850153fa4e964e771d41397"
+    },
+    {
+      "path": "apps/web/src/routes/pages/TvSupportPage.tsx",
+      "sha256": "80eb25a6230a011b3a554199be5aaa69482e4475df78a3bd7650c9c60232e9c3"
+    },
+    {
+      "path": "apps/web/src/routes/pages/WorkspaceOverviewPage.tsx",
+      "sha256": "8126c26ebd191947a90f51e7e3fad58ca494177e2f179b1742b3e37947c3c801"
+    },
+    {
+      "path": "apps/web/src/routes/pages/helpers.tsx",
+      "sha256": "c8c14d8966aa2f391b141f861467097bbbade53aac9e8d5c8a423e3a3ff544b7"
+    },
+    {
+      "path": "apps/web/src/routes/runs.tsx",
+      "sha256": "606c2c216874f33fcb01ab0414680a13dcc4cb3f44f6334bfd484e04faf4d88f"
+    },
+    {
+      "path": "apps/web/src/routes/settings.tsx",
+      "sha256": "8ef127945ceac76196a8f2b41ac4caeb13e9920990f1aa3dd5b7412db58f0748"
+    },
+    {
+      "path": "apps/web/src/routes/today.tsx",
+      "sha256": "735d031b903292656db85d4f7c77c594ebd235b6425461874a2814891ea24510"
+    },
+    {
+      "path": "apps/web/src/routes/work.tsx",
+      "sha256": "fa7d056a3b9b4a766097231114b832f84ac2250b6ac8bdba5793435d99647350"
+    },
+    {
+      "path": "apps/web/src/routes/workspace.tsx",
+      "sha256": "d1bb3996359ff95219a6580f3f1981e9dfbb3ca7dcd82ce24f3c95f520993cbd"
+    },
+    {
+      "path": "apps/web/src/ui/app-context.tsx",
+      "sha256": "707511bc501a17cb31e584490c53042438b76ef0b1e2a77e287044424bf7904e"
+    },
+    {
+      "path": "apps/web/src/ui/approval-controller.ts",
+      "sha256": "8d068429fe142859945066e0479bd4b51a93a88c24b2fe94a7bc6b8b2fe9a312"
+    },
+    {
+      "path": "apps/web/src/ui/components/ApprovalReview.tsx",
+      "sha256": "f964f0941d4f1ee5bd9e9bbbbb124cc624d5170020b03c15bf4f8a2ee7a8c720"
+    },
+    {
+      "path": "apps/web/src/ui/components/ArtifactContent.tsx",
+      "sha256": "a1c93afa880edeb8b95012687d3c421266a960f06acc186455a34142340f60b7"
+    },
+    {
+      "path": "apps/web/src/ui/components/ArtifactSelectors.tsx",
+      "sha256": "8a3086a060de6c2551161c99de981f77e9efe39a5bf4459c6ab3c19f86365ebb"
+    },
+    {
+      "path": "apps/web/src/ui/components/Authentication.tsx",
+      "sha256": "d51a7f9fd3a6e975608d7d4041988e51072c44ac5382694a227e84e6a4d31973"
+    },
+    {
+      "path": "apps/web/src/ui/components/Conversation.tsx",
+      "sha256": "3028c7aed1521dea83a1624d0ba162c84a910bac2ab145a7936e87961d33dec1"
+    },
+    {
+      "path": "apps/web/src/ui/components/DiagnosticExport.tsx",
+      "sha256": "b61d4408eb9c4c3f07a3d7dc14a422467afab4608e74180e811b3d57c3fa7161"
+    },
+    {
+      "path": "apps/web/src/ui/components/DigestValue.tsx",
+      "sha256": "8af02b90d956f391b4fe293af8978cc82df6f7e655e654f4a0a9ba54c85f7028"
+    },
+    {
+      "path": "apps/web/src/ui/components/EvidenceList.tsx",
+      "sha256": "a3b90aa4fea3201aad9a4b9a75c61175709696162e2fa6886d5c030b3fc568b6"
+    },
+    {
+      "path": "apps/web/src/ui/components/GlobalSearch.tsx",
+      "sha256": "753a0563c491ae1d39809510154af41698eb156036b229788a7107862bd24587"
+    },
+    {
+      "path": "apps/web/src/ui/components/LocalModelSetup.tsx",
+      "sha256": "b07c4a770e9a752c2e9bed659e31b39d4cb11da5e9da6d31822c25d3deed8af9"
+    },
+    {
+      "path": "apps/web/src/ui/components/OperationalChecklist.tsx",
+      "sha256": "f0af89ff3a5578ffcfb462ffa1f4bf4d369de122060a29828a9f9855f20148e9"
+    },
+    {
+      "path": "apps/web/src/ui/components/OrganizationAdmin.tsx",
+      "sha256": "38a8408964d46371dad0c7ef466801576ceca5aaf6c8f6c74a90360274c6023d"
+    },
+    {
+      "path": "apps/web/src/ui/components/PageLayout.tsx",
+      "sha256": "1c35854c1576523a6c6b93e436a3bf4df76c758e0758441c21d616564aba3cb5"
+    },
+    {
+      "path": "apps/web/src/ui/components/PasskeyControls.tsx",
+      "sha256": "c1160d9ac0e850afa85ce6fc6a5b46a8c5cea66be6dd0acb308daaaf888a4656"
+    },
+    {
+      "path": "apps/web/src/ui/components/PlacementPanel.tsx",
+      "sha256": "c9cba66748bc4064f8d7d57ea3153a8e7362b242125a67a91bab923b327fad3a"
+    },
+    {
+      "path": "apps/web/src/ui/components/RecordCollection.tsx",
+      "sha256": "64f00d35ab2fcdc7593225efb4ea27490b81c73ab3c1bf6e68a1ccc770e9244f"
+    },
+    {
+      "path": "apps/web/src/ui/components/RunDetail.tsx",
+      "sha256": "8f32d415f7899d655d13d2b72c81115f6521f8eee60726abfe3bddf2366e0354"
+    },
+    {
+      "path": "apps/web/src/ui/components/SchemaForm.tsx",
+      "sha256": "db8880128841f78d81166b4b0dd5b5ee26a534fcc350c9f3df2506bc67b57d5b"
+    },
+    {
+      "path": "apps/web/src/ui/components/SessionFeed.tsx",
+      "sha256": "619da1297de15ceb4ae466ccf8486a7d5469ad7c7db4289e81fce91ce9ce221d"
+    },
+    {
+      "path": "apps/web/src/ui/components/StatusBadge.tsx",
+      "sha256": "86d3ef464ccaeee1fa6169ff8a5c2083c72aa24c96a35748f07800aa4cca74a8"
+    },
+    {
+      "path": "apps/web/src/ui/components/StructuredOutputView.tsx",
+      "sha256": "96e69533037867a290f24b31b00cb69abfbaec6b42d2944c8a7317529447c6bb"
+    },
+    {
+      "path": "apps/web/src/ui/components/TaskEntry.tsx",
+      "sha256": "1276b3485d3abfb2f0d48d5e247f8f0e882693d3c067170a63bef6115b33f6f6"
+    },
+    {
+      "path": "apps/web/src/ui/components/TaskReview.tsx",
+      "sha256": "5eda66ad448d928f3c9b95e37268d2efcbc69d27805b20ca77feb88741c5ef56"
+    },
+    {
+      "path": "apps/web/src/ui/components/ThemeToggle.tsx",
+      "sha256": "173a0e87d8e3395b78db2e8cd21334f9966c5189d10eed3a4702fc0665f7e863"
+    },
+    {
+      "path": "apps/web/src/ui/components/WorkItemTasks.tsx",
+      "sha256": "34793b1b16370fce5de58133066221e87c12326e4d92d782e87b280f7e75596e"
+    },
+    {
+      "path": "apps/web/src/ui/format.ts",
+      "sha256": "7d8ab82ec80f34ec5773f43c5042757ee6105bfe2d8af29bc1a47dd1af6ce8fa"
+    },
+    {
+      "path": "apps/web/src/ui/page-context.tsx",
+      "sha256": "781830fb79c95a00587ca4495f81350ca2ed233255a64f6f78933a3187a9124f"
+    },
+    {
+      "path": "apps/web/src/ui/screen-region.tsx",
+      "sha256": "87800b43d6a7eb2ce4e7d5bcb3ac79e44cf46151c3cf068130a16f3f3f02c87b"
+    },
+    {
+      "path": "apps/web/src/ui/theme.ts",
+      "sha256": "e6df777583d37230322c5b696ed9379eb78bd7c8268c1b584c2ba2f4b6ae3332"
+    },
+    {
+      "path": "apps/web/tsconfig.json",
+      "sha256": "862dcdb6f3533f8bc599db9e271d03824f9097409a9867c52954156a3ce95773"
+    },
+    {
+      "path": "apps/web/vite.config.ts",
+      "sha256": "fea977cb028688bb0a46a90809e30edd24b78d1c04b64c3ff3fac77ffb9a5926"
+    },
+    {
+      "path": "contracts/tsconfig.json",
+      "sha256": "36e6f9eb74f2c752a77185d7dd4c0ad973b6cca7c1f0afbc7e0725c976fe5c8a"
+    },
+    {
+      "path": "contracts/v1/acceptance-oracles.json",
+      "sha256": "2e9346b6e196987803c1c01d39f472ee36b9173bcc3842154f24a07ac6c91705"
+    },
+    {
+      "path": "contracts/v1/architecture.json",
+      "sha256": "31859b3cd6f90025bf6cc7045bcd62a43a7731db605d658246b393eb2574b874"
+    },
+    {
+      "path": "contracts/v1/authorization-matrix.json",
+      "sha256": "5171c6fd0d40151be254fefbed2f880c46133826fed27394e5d6d32f3390b082"
+    },
+    {
+      "path": "contracts/v1/brain.generated.ts",
+      "sha256": "05d4a2674f709383b8a20a4265cc4991edc1b9cc43fbb31acd3366b9df203cc5"
+    },
+    {
+      "path": "contracts/v1/brain.schema.json",
+      "sha256": "c85a02cbb4e2d826c65edb7844ec50de4d182051d41efbfdc593fa38c5a1d9e8"
+    },
+    {
+      "path": "contracts/v1/crypto-vectors.json",
+      "sha256": "6431fbc2c22d00d5dd30738f749a06678bcbb75fb10ec874dbc5de53bfa1b629"
+    },
+    {
+      "path": "contracts/v1/dependency-baseline.json",
+      "sha256": "9cd27ac9b6778ae80b7f27ba02e0f57779a577349dfba10403fe84998c3aba6f"
+    },
+    {
+      "path": "contracts/v1/execution-plan.json",
+      "sha256": "77eed5176f63b0247061746ab9d1d79a38427b059de211ded30b1cba64b76edc"
+    },
+    {
+      "path": "contracts/v1/implementation-policy.json",
+      "sha256": "6199e7e07edcc6fd4b1fae74fe1894a887b736115a4ce17b7ef59ae72f7ef816"
+    },
+    {
+      "path": "contracts/v1/library-register.json",
+      "sha256": "2591242801aceb60177f934893bd0fa63e87a9f1b17f561b8dda2019cba29014"
+    },
+    {
+      "path": "contracts/v1/module-layout.json",
+      "sha256": "48d0db14d97ba80936cbf88d72ba972b2cac5923acf41b633f917e3c27f35063"
+    },
+    {
+      "path": "contracts/v1/openapi.json",
+      "sha256": "803a08ddd8ac9a6e376497db0eaca2d8ef0fb7450c96c7777f8a201af3270832"
+    },
+    {
+      "path": "contracts/v1/ports.ts",
+      "sha256": "331c92b11e24330eca73da4a61ae6b2307976b741568ef186f4ae294804101cf"
+    },
+    {
+      "path": "contracts/v1/readiness.json",
+      "sha256": "cca5c46725c28f346390391cb263bd9ed25a745da54f9d0d035ef9d286a7012c"
+    },
+    {
+      "path": "contracts/v1/registry.json",
+      "sha256": "41842dac688ddca9e71d107ff45c1f1f8627211e81fa71d153208a40f13e57a7"
+    },
+    {
+      "path": "contracts/v1/scenario-catalog.json",
+      "sha256": "e1ce372aa0ba6f6f5a6bf815d939abc150d8d7cc26943b4fbe6a1026bc6038ed"
+    },
+    {
+      "path": "contracts/v1/source-inputs.json",
+      "sha256": "f0adc2e798a267978313c46fdb4bc2d5c816ab51345db843b4286eaf00b64aca"
+    },
+    {
+      "path": "contracts/v1/state-machines.json",
+      "sha256": "cd7197a8ab07413ce527d9598d938c962453dab5f6417a767ebf815f53ac730e"
+    },
+    {
+      "path": "contracts/v1/task-packets.json",
+      "sha256": "76bed162d70b6e83cae83ed449c76490305a4121c0201afd0fd3106cabcb1528"
+    },
+    {
+      "path": "contracts/v1/ui-foundation.json",
+      "sha256": "7c9ee4843884efea3e849170434503d20e63633caa0f4394bb784d0eaf4ad598"
+    },
+    {
+      "path": "contracts/v1/ui-screen-contracts.json",
+      "sha256": "2e7743cae657291cfe2f573fcf2d11a711e68c4a0bccccd69eeb720355372685"
+    },
+    {
+      "path": "contracts/v1/work-plan.json",
+      "sha256": "64025d70e91bf64b6c0b24ab77eece57004016f7e75655a2b68d4efcb84981f6"
+    },
+    {
+      "path": "deploy/reference/README.md",
+      "sha256": "91c7daf6604525c67bada928a79165a6806c6f92c5d7c0237ccda79c783dd467"
+    },
+    {
+      "path": "deploy/reference/compose.core.yaml",
+      "sha256": "ded628d8a789226590e52fcc43dd0f9835c778c8052284eaca35270d5ae1b85e"
+    },
+    {
+      "path": "deploy/reference/compose.runner.yaml",
+      "sha256": "726ffa932536f461784bab6e6f84c30fb1b3f0837ecd13e103d1adf0b3d21932"
+    },
+    {
+      "path": "deploy/sandbox.Dockerfile",
+      "sha256": "80e01f75c74b594d33a0efb7d18f2315c2b1bc57aac16ddc1f70f526d7c65425"
+    },
+    {
+      "path": "docker-compose.yml",
+      "sha256": "8c7da77ce11c779d102342cbcd907edb54a4cbd6a8e3e9eda4943d04fbb43475"
+    },
+    {
+      "path": "examples/v1/README.md",
+      "sha256": "12ebbe55f3ecd4c7a229f27718b6971726516035104f12d86eccb837524e7e1c"
+    },
+    {
+      "path": "examples/v1/commands/approval.request.json",
+      "sha256": "6279b707a4cd8f00c4fea282fce8f032bf080ce505aad7199f5570ae834d4f37"
+    },
+    {
+      "path": "examples/v1/commands/approval.revoke.json",
+      "sha256": "caf963fdd503460f600a7c1fa1ecf92c8a830edb8355ee238d1a6492e949f154"
+    },
+    {
+      "path": "examples/v1/commands/board.comment.json",
+      "sha256": "6dc30c6180273a1047c6114b8b5621c77774e06fb89059bf948decbc7648c652"
+    },
+    {
+      "path": "examples/v1/commands/board.create.json",
+      "sha256": "6aa658844bdc2ea7814c093d8ea442ab8818046d882dcbd400211260f71f9ba0"
+    },
+    {
+      "path": "examples/v1/commands/board.move.json",
+      "sha256": "9488c2e78d21d915523431d387f3ef600659287892c817608cdcfa2d3cb003be"
+    },
+    {
+      "path": "examples/v1/commands/config.activate.json",
+      "sha256": "3e8627ef4943a07370933a6671cc590c36d918ee6c8e9aa0e225f7e7cb13a507"
+    },
+    {
+      "path": "examples/v1/commands/decision.record.json",
+      "sha256": "e0af772b67205e90bce3f8cdb0a65e7ee30934fb1ff2f4459d8ab34b313ac932"
+    },
+    {
+      "path": "examples/v1/commands/job.reconcile.json",
+      "sha256": "eaa9969d376a42991c4984d58399808fa516ba120c3960036e516fa1e02960c3"
+    },
+    {
+      "path": "examples/v1/commands/member.grant.json",
+      "sha256": "c30144b75d2e0a2e35d2e060a6b37389dd4f70273af1139c98c28821b637c919"
+    },
+    {
+      "path": "examples/v1/commands/member.revoke.json",
+      "sha256": "cd7cd13266ee59b8b5766bc98bd46bab96320bbba6d0117c833efb230c811469"
+    },
+    {
+      "path": "examples/v1/commands/memory.publish.json",
+      "sha256": "69e6e117a20f87c1bdc49f83ca76a5c4a84fcf89e6e4f5895a8fd05b6a47056c"
+    },
+    {
+      "path": "examples/v1/commands/memory.revoke.json",
+      "sha256": "f0cbaa08881914fe97b56dbb9168a89cfb47195a6a2bb5d26f80e539c6d75c08"
+    },
+    {
+      "path": "examples/v1/commands/runner.drain.json",
+      "sha256": "7d7a4fa744c3101d7a8f955b41a70d7c810ea802994b7ff69984ac97d13252f7"
+    },
+    {
+      "path": "examples/v1/commands/runner.quarantine.json",
+      "sha256": "c61aee57aeade9ee5417bb1b860c021daecd6c5821246dcc4124d639e5ff2b11"
+    },
+    {
+      "path": "examples/v1/commands/session.steer.json",
+      "sha256": "5c5209fc275de91f50c07cfc6e2b57a49d37290ef09e83f6161d2c77a20bfaf2"
+    },
+    {
+      "path": "examples/v1/commands/session.stop.json",
+      "sha256": "61a2d7af7957647dc45cb9a3d60d16e741905b395d47cd879e8da375aadbe36f"
+    },
+    {
+      "path": "examples/v1/commands/tool.propose.json",
+      "sha256": "8ae1a73131906a17fbf25924aff8b12bb40dc65298e33aaed0f70bd23863d4e3"
+    },
+    {
+      "path": "examples/v1/commands/tool.publish.json",
+      "sha256": "5ab6b7c764c0d2032dac64a06f87f709108fa04fa64722b6247262ae502c08e4"
+    },
+    {
+      "path": "examples/v1/commands/workflow.cancel.json",
+      "sha256": "1fb287f57508f29aa6a233238a5f2ea2d351e8e7f82bd22c30a1abd224cc718a"
+    },
+    {
+      "path": "examples/v1/commands/workflow.dispatch.json",
+      "sha256": "e54ff2f3583d247033bbf61b1d785c8e1df656bafc63f2c3e3521ebae05eb7e5"
+    },
+    {
+      "path": "examples/v1/commands/workspace.export.json",
+      "sha256": "09b86513814ad8ed1c928b3ac227a2cfcc937783bd358598190cee0f0d95ad4d"
+    },
+    {
+      "path": "examples/v1/commands/workspace.import.json",
+      "sha256": "4d7228fd08d4318852672cd43c1068d08a811f00b56b78abb5547895c724805d"
+    },
+    {
+      "path": "examples/v1/commands/workspace.suspend.json",
+      "sha256": "7f260b7e72cac6ef2d3ee6827530e338bba3d2f7373796d8d53b19942c64f3b0"
+    },
+    {
+      "path": "examples/v1/config/agent.yaml",
+      "sha256": "2ab0028f9e884bdadf42a10055894bde0762d7efb7bec7dc391a0f35a741efd9"
+    },
+    {
+      "path": "examples/v1/config/all-primitives-fixture.yaml",
+      "sha256": "511d7af8c35127f992611065d57f95ebc6916b1337d97fc22c7d80a3e9e061c6"
+    },
+    {
+      "path": "examples/v1/config/brainconfig.yaml",
+      "sha256": "84a7155530ffc8891b8adc2547a5fec73712131dc145e14097b0337ac013c95a"
+    },
+    {
+      "path": "examples/v1/config/connector.yaml",
+      "sha256": "5509dc144dbf2337d459cb3129e3c8e14cc63796ab0ec91489200d4206bdff03"
+    },
+    {
+      "path": "examples/v1/config/evaluator.yaml",
+      "sha256": "eb409abc000765f9f59f5392d0caf216f6424a44695857dc3ce176caff163dc8"
+    },
+    {
+      "path": "examples/v1/config/pack.yaml",
+      "sha256": "b6400b20c76e3c9aca0cb55b8f6da9640679bd8a37b4e27da9f579cb142e429d"
+    },
+    {
+      "path": "examples/v1/config/policy.yaml",
+      "sha256": "7d047b0cd41766da5d3981e3be3fba4d6a9525bedd639e2a5b2b58f72286c87a"
+    },
+    {
+      "path": "examples/v1/config/runnergroup.yaml",
+      "sha256": "8dd7b600041dbe887ac9bafea91d227c9f9c40aa25a096e7fd2256f3cf36fd65"
+    },
+    {
+      "path": "examples/v1/config/schedule.yaml",
+      "sha256": "d8eb90b7f36d9bb132eca15f4d58212082d56161ce6c23e5dbee3f60944d4947"
+    },
+    {
+      "path": "examples/v1/config/support-investigate.yaml",
+      "sha256": "2ebda883534b23511b479d36a993f64252f7cec5f934fd92b85840dcce4e7525"
+    },
+    {
+      "path": "examples/v1/config/tool.yaml",
+      "sha256": "66c88b3962fb8925d851e798e92a353ee0a983c891fd5b109aaed440b6b876e7"
+    },
+    {
+      "path": "examples/v1/config/web-build.json",
+      "sha256": "1955517c83589b3694130280acc6b628da66de7f67b40a13a48d30ac9e9772e0"
+    },
+    {
+      "path": "examples/v1/config/workspace.yaml",
+      "sha256": "69b0eed05232b3bd84a119ab5f8eee49ef5d838536e4cffa45fe915d2cd1572f"
+    },
+    {
+      "path": "examples/v1/config/workspacetype.yaml",
+      "sha256": "f48025accfc5d147d9892531e02641b83cb29cb4b110263f3b7c709c024b78d4"
+    },
+    {
+      "path": "examples/v1/execution/ApprovalDecisionStatus.json",
+      "sha256": "2e6f0bdfa44e2266c2cd433d0b8a9d9c3b50453ac6a83921834b381f802a035a"
+    },
+    {
+      "path": "examples/v1/execution/QueryCursorPayload.json",
+      "sha256": "8eb06e4fb4694e2c05e697f927a32a13cddb2f95d7258bbeb23b2314978afcef"
+    },
+    {
+      "path": "examples/v1/execution/RunnerChallenge.json",
+      "sha256": "98618936cc8e36ebc6c408395192ff26c75b915803cb31b4d431ec01264d22b6"
+    },
+    {
+      "path": "examples/v1/execution/StepUpChallenge.json",
+      "sha256": "fd2b1ebfc40016220656922e4f88173c3f093061985174615898d1d2d8f08ca0"
+    },
+    {
+      "path": "examples/v1/execution/StepUpEvidence.json",
+      "sha256": "7f3015b9ac169752e3eba74dc1259069c31852c7abf0bc1014eaabf825a7e69a"
+    },
+    {
+      "path": "examples/v1/execution/StepUpVerify.json",
+      "sha256": "d994491c9b7b1bf2b7f635900ab311ec5e0e50e47dccad395931c2d9b46ccdb8"
+    },
+    {
+      "path": "examples/v1/execution/authorization-cases.json",
+      "sha256": "5d106a7552520304c782e4d3b8eafdcd3f7c0ba6f80e8cfe9bb78446817595d8"
+    },
+    {
+      "path": "examples/v1/execution/checkpoint.json",
+      "sha256": "9e942333805557c877a2c86f2410b553e763ee12a809e596cc89a55fec45af7b"
+    },
+    {
+      "path": "examples/v1/execution/engine-artifact.json",
+      "sha256": "70faaa634a639de9f1e9cb6fd1218464bcf8e999c62399bd58a5b0695c877522"
+    },
+    {
+      "path": "examples/v1/execution/engine-error.json",
+      "sha256": "6ef6583c27d251cba9095aeb22c849ad04c306afc73853cddf7b329fa82e3b7d"
+    },
+    {
+      "path": "examples/v1/execution/engine-human-input-requested.json",
+      "sha256": "599d2c4fc8158ab039b29b0d520c097826451293f77771f15de6938a514c8ce8"
+    },
+    {
+      "path": "examples/v1/execution/engine-session-stopped.json",
+      "sha256": "92750cd7f17e96c5a3ecaccfc30861f0b83b75af1c3a374dcfd595be7078776a"
+    },
+    {
+      "path": "examples/v1/execution/engine-text.json",
+      "sha256": "df314c99d729168f96e64fdad605693ba6eda3b3738e3227c5bf31becb025dee"
+    },
+    {
+      "path": "examples/v1/execution/engine-tool-proposed.json",
+      "sha256": "9451eb6615fdd028531c65e5219c092e657c2da6791166acbc6a33eab20075c8"
+    },
+    {
+      "path": "examples/v1/execution/engine-tool-result.json",
+      "sha256": "ee590a9abd8f69556ab8c8264ca4b7c21f620a353ef07a71193bca854d96cdd8"
+    },
+    {
+      "path": "examples/v1/execution/engine-usage.json",
+      "sha256": "992c14a0c687febb99b2839fc7827c80a9ed409d53a44a33c6c0427f40e580ec"
+    },
+    {
+      "path": "examples/v1/execution/ledger.json",
+      "sha256": "3e1bbcfa9e2dd0d03198d48eb009da8b61e50778528ca8ed785ea985218fac5a"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture-brain.yaml",
+      "sha256": "01282da0684d9ebfac774c83dba34febee332256921d6153fb3df265796f1014"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture-evaluator.yaml",
+      "sha256": "2424854b14c4a5c0a350487e694286d295c6c495360035dadf1778bcb46a1e1a"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture-evaluators.yaml",
+      "sha256": "3f8cc2e561526b622fd94312c92351d230e3c4d665a3b05cc904fb4d15670d1e"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture-policy.yaml",
+      "sha256": "c133abc1311620367c84b58d65f457ac1e44bfc56e9a0a277f19bb9427f9efa8"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture-tools.yaml",
+      "sha256": "598bdd6f2a6259bc9143b9a62e2a54a6ad891212161cfd98272b1b21fb66fd7a"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture-type.yaml",
+      "sha256": "6b29f83d433b6f8a3f1984752d8f6a21c324245414715085b6cb630641b870c7"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture-workflow.yaml",
+      "sha256": "5766c9749f2094fb488c2fe28371512e7695781b5f88080d66e5f59ffaf28d07"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture-workspace.yaml",
+      "sha256": "3ce901e69e7840f9187ee55dcec814128090538181a55372a5b12e19ffb1b342"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture.echo.yaml",
+      "sha256": "ba102196c8289dc6873461cebb3dc56e15c6c5e525d5b7c1a20506e3757ccbe9"
+    },
+    {
+      "path": "examples/v1/golden-release/config/fixture.verify.yaml",
+      "sha256": "755cd2c471aca9209841adc3e7af545e7d773aaae497f1b94f9254961813edf4"
+    },
+    {
+      "path": "examples/v1/golden-release/manifest.json",
+      "sha256": "b41a894f7fbd324c2f9d577558214ef3b3cb0735781a544d9cb626d34234336d"
+    },
+    {
+      "path": "examples/v1/golden-release/schemas/check.json",
+      "sha256": "e3490b6e889f52aebe7fc73950730b82e775c03aaa60a7b646c2f95e685619f6"
+    },
+    {
+      "path": "examples/v1/golden-release/schemas/echo-input.json",
+      "sha256": "92c59d473e2a959dc18a29d516304fbfbb4d3457b327696f0c7fb7b5c000a1d9"
+    },
+    {
+      "path": "examples/v1/golden-release/schemas/echo-output.json",
+      "sha256": "c442ac6d5ca971089a5a5e10d6b876f68fe3a2729e0541dd19dfecf02eacdb0c"
+    },
+    {
+      "path": "examples/v1/golden-release/schemas/eval-input.json",
+      "sha256": "dbda6101cbda20d1b1e6894b575253b3e99b5072fe6790c67cca54cee7627571"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.echo/TOOL.md",
+      "sha256": "e65134a3e7f860008cd183817b92935a0431bf02874996d1e3cfb00557124ea9"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.echo/package-index.json",
+      "sha256": "48838fcf3e665191f460fec97b0b247146721f3816edb8b81ba22e972e92a6ed"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.echo/run.sh",
+      "sha256": "cbb4254db76698a6c9b722850ab66a347eabbd356af0c2333c3301f4ebb9f12b"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.echo/schemas/echo-input.json",
+      "sha256": "92c59d473e2a959dc18a29d516304fbfbb4d3457b327696f0c7fb7b5c000a1d9"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.echo/schemas/echo-output.json",
+      "sha256": "c442ac6d5ca971089a5a5e10d6b876f68fe3a2729e0541dd19dfecf02eacdb0c"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.echo/test.sh",
+      "sha256": "e19bc9c0591cfc29fbfb5751b88296226e7f30f3b1b12624ce0cad6cd8c35843"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.verify/TOOL.md",
+      "sha256": "7c335573c4e598cc3a42b047122c0a22f8901808306ceadc980373a3ac903198"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.verify/package-index.json",
+      "sha256": "a3a89ba26a54592fef66bc58049f65ec1707fbffd531f2b46742b0a50030be7c"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.verify/run.sh",
+      "sha256": "771590aecd6a268ab3623626b9770c01084c8b8c67526fa22700b748c09a03d3"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.verify/schemas/check.json",
+      "sha256": "e3490b6e889f52aebe7fc73950730b82e775c03aaa60a7b646c2f95e685619f6"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.verify/schemas/eval-input.json",
+      "sha256": "dbda6101cbda20d1b1e6894b575253b3e99b5072fe6790c67cca54cee7627571"
+    },
+    {
+      "path": "examples/v1/golden-release/tools/fixture.verify/test.sh",
+      "sha256": "de371055a99d208c693c442a9bd2b510cc94f65aa52f44341900c38469cc3535"
+    },
+    {
+      "path": "examples/v1/golden-release/ui-foundation.json",
+      "sha256": "7c9ee4843884efea3e849170434503d20e63633caa0f4394bb784d0eaf4ad598"
+    },
+    {
+      "path": "examples/v1/invalid/approval-without-subject.json",
+      "sha256": "dfa5be4423dadb3b0e3c1d49dd6ddb2d114b4efd9df0963f91df6d3b90f46f23"
+    },
+    {
+      "path": "examples/v1/invalid/browser-runner-proxy.json",
+      "sha256": "15cb2caaaf08895e3f0fc7c511939a1ca95e1866393c7ab60c5adb0290fdca5e"
+    },
+    {
+      "path": "examples/v1/invalid/client-human-actor.json",
+      "sha256": "3841d881fc8ee7c2e50c6bbd6669cc70baa2106dd53b46a4e33732dc7836b293"
+    },
+    {
+      "path": "examples/v1/invalid/complete-backup-with-omissions.json",
+      "sha256": "9495877f9b0e3dd19a30797602ee3a71a1261ad5faf687e2a8aeea12cbb91f32"
+    },
+    {
+      "path": "examples/v1/invalid/contradictory-command-receipt.json",
+      "sha256": "35ccdac321736993a4943aa778db56752c9d87aeb629a7ed52ec3e509746ac01"
+    },
+    {
+      "path": "examples/v1/invalid/duplicate-ui-channel.json",
+      "sha256": "3abdbb3ae2ca88b3867664fade2a829fd7a246e08b7bba4bf8fe0963784e4149"
+    },
+    {
+      "path": "examples/v1/invalid/empty-anyof.json",
+      "sha256": "31212caa3e65c93c6bc65abdf4cee4b7997e20df31084dc7c0cdb5e4f5981287"
+    },
+    {
+      "path": "examples/v1/invalid/empty-evidence-checks.json",
+      "sha256": "cb006895ee9dde53a2aae0e8c70c98480e5de6ae2b1fd73c68b0dd6968f269ca"
+    },
+    {
+      "path": "examples/v1/invalid/missing-ui-foundation.json",
+      "sha256": "f69a8ef8d0d7859db6765c3651d1e5bb2442a8ad5206b2b8f1a145575cab6c44"
+    },
+    {
+      "path": "examples/v1/invalid/negative-capacity.json",
+      "sha256": "cfef0c6fae4ce8b48b8e6078784376adfaec4205cdb6c52659e7eedc5a034e58"
+    },
+    {
+      "path": "examples/v1/invalid/old-root-jobs.json",
+      "sha256": "4643634f544286d5615c43e9125e54fa7561ee898cf4d3b9eed64b03cbfbc546"
+    },
+    {
+      "path": "examples/v1/invalid/portable-backup-without-workspace.json",
+      "sha256": "cf238563edacbb0286b39ab11dc13795c58b5d6ae3698bfefd963e144fe7dd76"
+    },
+    {
+      "path": "examples/v1/invalid/runner-bound-gate.json",
+      "sha256": "97f1854dfa31fa388b090a208dc7a64f64d3a2121a640405884f355e4df0575d"
+    },
+    {
+      "path": "examples/v1/invalid/runtime-ui-download.json",
+      "sha256": "122446ad2dc210a17b40d6e808dedddd2917056fd7299375ae1cad248a545365"
+    },
+    {
+      "path": "examples/v1/invalid/short-digest.json",
+      "sha256": "5a84b96c3c410bb0ad88477df7f4d03003443fc964dc5ccb1ca3b4a8d732244b"
+    },
+    {
+      "path": "examples/v1/invalid/ui-default-locale-unavailable.json",
+      "sha256": "a15fed09dfd569981022face6540005fab535921b042ba4b0ddc09fa7042f7bd"
+    },
+    {
+      "path": "examples/v1/invalid/ui-foundation-drift.json",
+      "sha256": "dc95eb2d8bf7a95e345bf111a7d0dacd201f20016931fb6d32597d7d30b615ee"
+    },
+    {
+      "path": "examples/v1/invalid/ui-palette-override.json",
+      "sha256": "a48fb82424f010c040303c6d6e494da27b4978b31a2173a1bc8742825fec6932"
+    },
+    {
+      "path": "examples/v1/invalid/unknown-command.json",
+      "sha256": "22b7370b3c2ffd90e6736c74f1092dd7238cdd160a95fad628bf552a849179c1"
+    },
+    {
+      "path": "examples/v1/invalid/unknown-query.json",
+      "sha256": "9dd009993995728e8aede7f591482872dd2461123fd52488fd08a61e02cb9414"
+    },
+    {
+      "path": "examples/v1/invalid/unsafe-counter.json",
+      "sha256": "4f8ffdcb7686c23bcf0e48e7935fb458e6bfc759082aab587695fef570e349dd"
+    },
+    {
+      "path": "examples/v1/invalid/unscoped-workspace-memory.json",
+      "sha256": "b7c08204ceff8f1843e15fa6c1427e9f2cbb35f9789f869a031251e25e21f462"
+    },
+    {
+      "path": "examples/v1/invalid/unsupported-ui-foundation.json",
+      "sha256": "67bc0cc6b2250263842becc78fc9a2bb0c9f9e99138c660ffc119ca10229780d"
+    },
+    {
+      "path": "examples/v1/invalid/untyped-engine-event.json",
+      "sha256": "85c04b0b33296045b3862abe686d27625969c1098f3e6a8e085abfe69093a4e3"
+    },
+    {
+      "path": "examples/v1/invalid/zero-fence.json",
+      "sha256": "7e84a996aef78b03d73ded806efefb4d4ff14d336a5a10797badd0799021453d"
+    },
+    {
+      "path": "examples/v1/manifest.json",
+      "sha256": "056ce8ca9af97b504fb74bf180f572793d2714ee4d859bfe19cb1cdee45e9a69"
+    },
+    {
+      "path": "examples/v1/pnpm-workspace.yaml",
+      "sha256": "4e15df7443aad67f1b1407be6f77a08e11c6d98d1431a227b0554a14c3fc389f"
+    },
+    {
+      "path": "examples/v1/schemas/approval.json",
+      "sha256": "6689b5fe7f4b9712720b2e806d0caf88a4e0205e7805f27e372c68b85b80fe64"
+    },
+    {
+      "path": "examples/v1/schemas/check.json",
+      "sha256": "35a3d5a548c2eeb1e1edb883ba958e9bdf92e5904866b50bd0825cec5176d54f"
+    },
+    {
+      "path": "examples/v1/schemas/echo-input.json",
+      "sha256": "92c59d473e2a959dc18a29d516304fbfbb4d3457b327696f0c7fb7b5c000a1d9"
+    },
+    {
+      "path": "examples/v1/schemas/echo-output.json",
+      "sha256": "c442ac6d5ca971089a5a5e10d6b876f68fe3a2729e0541dd19dfecf02eacdb0c"
+    },
+    {
+      "path": "examples/v1/schemas/report.json",
+      "sha256": "1a8611150f18d05e6f6e83e4d66901e5f1635e9c9669fe264667e1b96f88a5f8"
+    },
+    {
+      "path": "examples/v1/schemas/ticket-input.json",
+      "sha256": "2ca2013c5a02a678a45e9d17f81afe5d1d1f1af798dc473812f5412c2125af3f"
+    },
+    {
+      "path": "examples/v1/starter-release/README.md",
+      "sha256": "725edadaca672c6fc696e2820cb2edb30a15bd291ebd195f71e8a9e3b342828c"
+    },
+    {
+      "path": "examples/v1/starter-release/agents/diagnostic.md",
+      "sha256": "5324f24e49ffd7858554c230d9128d160476c22436d23747bc6c1d13fc6bec0b"
+    },
+    {
+      "path": "examples/v1/starter-release/agents/operations-assistant.md",
+      "sha256": "5db448f035d22c0fa95ea9aca38edddebbf940d2140a44029f6eda81116191ac"
+    },
+    {
+      "path": "examples/v1/starter-release/agents/support-analyst.md",
+      "sha256": "2814bec2c11327b3eb9c9cb63ce7ac202b2c2ae25fc6d03da223962b430a309d"
+    },
+    {
+      "path": "examples/v1/starter-release/agents/task-guide.md",
+      "sha256": "9fa222495a139e7283e8498e4523c123ce9714053595022044e8219cc3da85db"
+    },
+    {
+      "path": "examples/v1/starter-release/config/agent-smoke.yaml",
+      "sha256": "9a3997862941842658559601aceb6ffe6eac48b9a8559dabffed42a08d7adcb4"
+    },
+    {
+      "path": "examples/v1/starter-release/config/agents.yaml",
+      "sha256": "bcbc92211b061149b9133c26f225c5dad137e23d1071b6b74a0cfd966086fb40"
+    },
+    {
+      "path": "examples/v1/starter-release/config/diagnostic.yaml",
+      "sha256": "35a266b009b4ad079d89e79b6a387041fd6c58f192f1c3d98aa354181cddd2e8"
+    },
+    {
+      "path": "examples/v1/starter-release/config/evaluators.yaml",
+      "sha256": "0ffd4e210e784e3615e1d67e49705820e44c71963922c337e16ba7376e999e23"
+    },
+    {
+      "path": "examples/v1/starter-release/config/operations-assistant.yaml",
+      "sha256": "4a7714cb3bf1967c135208d03c7af6e9e53d11d129deb7b1df57cf6f5b7da87d"
+    },
+    {
+      "path": "examples/v1/starter-release/config/operations-policy.yaml",
+      "sha256": "bbd7fe7098a681fcedeb4b6308bf1d6eeb4ff52bc57dd77418638807f0008baa"
+    },
+    {
+      "path": "examples/v1/starter-release/config/operations-triage.yaml",
+      "sha256": "97f17aeb2424d064bd6aa6d38140ccbbe691ace2afd4bf3a73b11e45cd44356b"
+    },
+    {
+      "path": "examples/v1/starter-release/config/operations-type.yaml",
+      "sha256": "9fdc87accd1d0a5626d7fa936b96c66a155ac830c9f74b81377c8a4e06c9ee32"
+    },
+    {
+      "path": "examples/v1/starter-release/config/operations-validator.yaml",
+      "sha256": "874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f"
+    },
+    {
+      "path": "examples/v1/starter-release/config/operations.context.yaml",
+      "sha256": "34fa8bce5467157d60b19931112a7a946b1ebebfd10748421826cd531424403b"
+    },
+    {
+      "path": "examples/v1/starter-release/config/operations.validate.yaml",
+      "sha256": "68cdd50093346745e560e7f688a7773866c1075e0b1d653e66067c27c6efeeee"
+    },
+    {
+      "path": "examples/v1/starter-release/config/operations.yaml",
+      "sha256": "ebef1e81de8f65cea15a22efe24141f22f31a80739b093d9a5de280a5b699eba"
+    },
+    {
+      "path": "examples/v1/starter-release/config/runner-topology-smoke.yaml",
+      "sha256": "5183dc45530d67a49e8b4673f25ca78a2f6a66d4c70eba08380edea5b3c66208"
+    },
+    {
+      "path": "examples/v1/starter-release/config/support-analyst.yaml",
+      "sha256": "7f9909b668353a9baa1406f40974fb186ce2b7821e4a0e73de1ed50ed35f0abe"
+    },
+    {
+      "path": "examples/v1/starter-release/config/support-draft.yaml",
+      "sha256": "b940949b49bca33088b582792988a7c01f64d9c5886ac2cec706f94a035da3fd"
+    },
+    {
+      "path": "examples/v1/starter-release/config/task-guide-agent.yaml",
+      "sha256": "dc1971de8e96da67ff6f1b7c3ee0e1d9c2a65f81e09f140fe28675b6d5597433"
+    },
+    {
+      "path": "examples/v1/starter-release/config/task-guide-workflow.yaml",
+      "sha256": "8531759e88ee8fc0232b5310ff9a12c7564ebe51159b488983c52c98a2fe9b67"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/context-input.json",
+      "sha256": "c104cf368d17c24cc0eccddadf5bed01149e7243f144a81e756a743e85307324"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/context-output.json",
+      "sha256": "aa48ba59f3e593ff75370984a6a437ec06be6956d1ab2b77321b1fd053fb65e5"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/guide-input.json",
+      "sha256": "11091011c3c0c5c4ff2d7c9c690db43154389dfb01659425245a0f6f2a2cda5a"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/guide-output.json",
+      "sha256": "7861b131cb4a889ba553a3e2bd80d14f9e4806c29f1f5a8cfe3f5069af2c5d7d"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/operations-input.json",
+      "sha256": "e3aad2008b345c91b19d3065dbe59080567eda71652131e71ebd6c8a025cc8aa"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/operations-output.json",
+      "sha256": "9b2b4b3d7a10966f3d60b16fd67b74584cee8fb226257a0ea23b26c51eb20b36"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/smoke-input.json",
+      "sha256": "c58af53052babb5e13c6c5e79d317994a879f505c15979a4321c8e8941f7b74d"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/smoke-output.json",
+      "sha256": "0f48e3365174b3b283b6781fb66aa02e9a5329374c72766318cf0e306e5f56e6"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/support-input.json",
+      "sha256": "886537cbd643a8dda84f53aa95719561bddcd08dd32aa8563791d27f0bcc839f"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/support-output.json",
+      "sha256": "38e697e1592358250515c59024ae50dd667d8affc03d6d2999672d1fdc3e3829"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/validation-input.json",
+      "sha256": "f1e58754f133ae69a1dcb7cc6e90bcb571db0fda9e427e5b9709cbe93ae99431"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/validation-output.json",
+      "sha256": "ee68539497ed977d5f1fdf606a1a73a6494fd4503196debbe319d15b834ad1d4"
+    },
+    {
+      "path": "examples/v1/starter-release/schemas/workflow-output.json",
+      "sha256": "1cf77e5ee48dae2a97cbb85a5b6b6288c760e72ab7008d306d6dd0651594f3f6"
+    },
+    {
+      "path": "examples/v1/starter-release/tools/operations.context/run.sh",
+      "sha256": "2f94e76d15acf9b50666b5d2d64d1bcfddb02086ee51b61d1671b61a9288bc89"
+    },
+    {
+      "path": "examples/v1/starter-release/tools/operations.validate/run.sh",
+      "sha256": "fad98f599ddea8db0003ba5c2d1dcd64f070e3ccfb362e204332d9fd7366341b"
+    },
+    {
+      "path": "examples/v1/starter-release/tools/operations.validate/test.sh",
+      "sha256": "dabddb39a6b2de663450c868b6227782789c1b61644cd6ce52f8c2bd3b753e4c"
+    },
+    {
+      "path": "examples/v1/tool/TOOL.md",
+      "sha256": "390426e5c2c404d55be40bc3d18816195b31dc7619c50083aed5f2363d4d0eb1"
+    },
+    {
+      "path": "examples/v1/tool/run.sh",
+      "sha256": "cbb4254db76698a6c9b722850ab66a347eabbd356af0c2333c3301f4ebb9f12b"
+    },
+    {
+      "path": "examples/v1/tool/test.sh",
+      "sha256": "e19bc9c0591cfc29fbfb5751b88296226e7f30f3b1b12624ce0cad6cd8c35843"
+    },
+    {
+      "path": "examples/v1/transport/ActorContext.json",
+      "sha256": "42712a172e74f13910b2999dc26a617c5c5de071254bed8455079c96fd1b9918"
+    },
+    {
+      "path": "examples/v1/transport/ApprovalRequest.json",
+      "sha256": "334ce1019fbda69e6170bcbc7657e41d5861f9669c1bccd5d8694e448242c51d"
+    },
+    {
+      "path": "examples/v1/transport/AttemptAck.json",
+      "sha256": "84e0a45b2e81b3c3c410395229c84633bcfbfdd5903e1424d9ebbaa918dddd67"
+    },
+    {
+      "path": "examples/v1/transport/AttemptEventAck.json",
+      "sha256": "20dac99050f11cba3214d9d36754b72d59a7300d4fe0fb999e18be939ad66fa8"
+    },
+    {
+      "path": "examples/v1/transport/AttemptEventBatch.json",
+      "sha256": "89f1e19a61cdff69f71a71a732806362099259657d8b37272721b4e5328b5961"
+    },
+    {
+      "path": "examples/v1/transport/AttemptLease.json",
+      "sha256": "750178df6db1061e4b8629ea9e11f5e3f4ec69a25df91d8e2e3c09d5a2dc8a07"
+    },
+    {
+      "path": "examples/v1/transport/AttemptRelease.json",
+      "sha256": "2690c179e3132e36ac631e152660a53b2f3d265fdab6b1a54c5eff66887c910b"
+    },
+    {
+      "path": "examples/v1/transport/AttemptRenew.json",
+      "sha256": "5c6fa907ae83f866074f23d36da1777ff3cb5f6f40dd33ceda0c8d512317595e"
+    },
+    {
+      "path": "examples/v1/transport/BackupManifest.json",
+      "sha256": "2a1f3e1d961b8dd5b6c3ad961417c5c54265b061a410e95f25985830c25a048c"
+    },
+    {
+      "path": "examples/v1/transport/BrainError.json",
+      "sha256": "d6b7a3c83e6c844262ec56efc29769244dea156abb00c90771c4fd3d52fffa37"
+    },
+    {
+      "path": "examples/v1/transport/Checkpoint.json",
+      "sha256": "7be74499e2d4d8920890a4c0af9b295700e00db7d1e8fff2bc2433b804010a8c"
+    },
+    {
+      "path": "examples/v1/transport/ClaimRequest.json",
+      "sha256": "b772a7d9b7fcab5fc375002f381d1596f877cca34a856003e23a74af762395de"
+    },
+    {
+      "path": "examples/v1/transport/CommandReceipt.json",
+      "sha256": "d400ab646221a319f9e5604fb6b643b41dd5dd034088a79c091405f5dee14469"
+    },
+    {
+      "path": "examples/v1/transport/ConfigRelease.json",
+      "sha256": "248c22082b499430aa59dfb6a3ae2f88d051b7940ec7f10493ee6a9932679130"
+    },
+    {
+      "path": "examples/v1/transport/EffectPermitRequest.json",
+      "sha256": "5f3f3974cc2c7a04f1a634d82fd7393fae79fde860dc31a0089c53f5229ccf3f"
+    },
+    {
+      "path": "examples/v1/transport/EngineEvent.json",
+      "sha256": "54e8dbb312e28eeee0b75f2a2925161848bf0e26359b04a6e1953f738d529c00"
+    },
+    {
+      "path": "examples/v1/transport/EngineSessionSpec.json",
+      "sha256": "4a00c000733f700c75ea6e4350f8c95fbf5423bc3f3a72c68f44d3e8f715b787"
+    },
+    {
+      "path": "examples/v1/transport/EvaluationAssignment.json",
+      "sha256": "e00d7bbf90882426ab4b2d6f7bd5d8edf10c5d94372ba93a2a2993f920cae507"
+    },
+    {
+      "path": "examples/v1/transport/EventEnvelope.json",
+      "sha256": "9baf79880babca4bef93da5eac170311111daf0c9821564cba0cf7a5de2de612"
+    },
+    {
+      "path": "examples/v1/transport/EvidenceBundle.json",
+      "sha256": "c954549d0794f52e058ef8663a736234f3603108622a54d18339380253aaf5b0"
+    },
+    {
+      "path": "examples/v1/transport/ExecutionGrant.json",
+      "sha256": "ae71da6e1dd639b8c21e638bd941b326c8c6aded0b6d19a39c05abea3605673a"
+    },
+    {
+      "path": "examples/v1/transport/HumanApprovalDecision.json",
+      "sha256": "59b20d1fdfa9d76d05586cab8bad172c2eab05442f6f6e602f05a27f11ab4356"
+    },
+    {
+      "path": "examples/v1/transport/JobOffer.json",
+      "sha256": "32cb940563a4e4f6318ec59f5b3e8922ef527d664f3ee577667051c3880e9050"
+    },
+    {
+      "path": "examples/v1/transport/JobReceipt.json",
+      "sha256": "225e3b275b6f08e4eda0b315896beda92abe31d821ef5cf33e087d0aef0c3f07"
+    },
+    {
+      "path": "examples/v1/transport/MemoryPublication.json",
+      "sha256": "4cc8c9ca33f7cc1e39c7216cef768154fce13eabc038e0e994c42795c8baa892"
+    },
+    {
+      "path": "examples/v1/transport/MemoryQuery.json",
+      "sha256": "510051ea9864f87bdb0fc1ec54046448f9f08c1ca0b130b7c872ad4200d45df0"
+    },
+    {
+      "path": "examples/v1/transport/MemoryResult.json",
+      "sha256": "48010dc85c9e598f1b5d85ba48d3c2cd46e9a9656355b5beb4b18c190119d4e9"
+    },
+    {
+      "path": "examples/v1/transport/PlacementExplanation.json",
+      "sha256": "efccd3f20e455789604efc75dd1f26e5ec206ea4c53baf62d78871ecdd92125f"
+    },
+    {
+      "path": "examples/v1/transport/QueryRequest.json",
+      "sha256": "9549dea51e20a950ab0be3c6a6961392b33c9e9bc900605d32932eae14ac38d8"
+    },
+    {
+      "path": "examples/v1/transport/QueryResponse.json",
+      "sha256": "26e944c76c34d594eacfaa8e3ba78b37596fa0031371f4050366cabff2a67c89"
+    },
+    {
+      "path": "examples/v1/transport/ReceiptAck.json",
+      "sha256": "9a475f3b5d8ae3e772d1805914831d5fc42a963f057591c61b311c631d69e4ff"
+    },
+    {
+      "path": "examples/v1/transport/RunnerCredential.json",
+      "sha256": "ece13e3b1c9f72fcdca706c911509a3156dbf164d3f5c2a3f12a5cb0237d4918"
+    },
+    {
+      "path": "examples/v1/transport/RunnerEnrollRequest.json",
+      "sha256": "ff33d9314bc02f52eff84f4d6984c3e8ac1d728a9a9885d576210fb609c9513b"
+    },
+    {
+      "path": "examples/v1/transport/RunnerHeartbeat.json",
+      "sha256": "bfd9108ecd38279886e2eeecced1e5ba1c5d3520fbe42369d96981f92965b494"
+    },
+    {
+      "path": "examples/v1/transport/RunnerHeartbeatAck.json",
+      "sha256": "4e1ba3c45feff2f0c1b03356c55208358895a505fa410fdb79cdc64539d8a94d"
+    },
+    {
+      "path": "examples/v1/transport/RunnerHello.json",
+      "sha256": "c528e6fce273dafc4bd2172fdcc2b078e67726fadc3e30bc157ead89c695ace1"
+    },
+    {
+      "path": "examples/v1/transport/RunnerSession.json",
+      "sha256": "9684a79347e7916c6104b2854cd8c3247e16c7fd9605ab2b1b380fff614cf0ee"
+    },
+    {
+      "path": "examples/v1/transport/RunnerVerdictRequest.json",
+      "sha256": "9f4f3a2733325ac7a1d74293cc04ea19eb894d41b2a5db7941feba554f8d1774"
+    },
+    {
+      "path": "examples/v1/transport/ToolInvocation.json",
+      "sha256": "8ec7eca4e7af2db4d9ea9f57d818da98c2f77c8711873b975871504aad50b1f8"
+    },
+    {
+      "path": "examples/v1/transport/ToolReceipt.json",
+      "sha256": "aaa6c6f17b57fa8d3fcddb5e690160148a6d9070933e9f9a29a2ef55e6e44fde"
+    },
+    {
+      "path": "examples/v1/transport/UploadInit.json",
+      "sha256": "5b0476c5cb00026fcb392691e6003d148ad01df8ffefcbc326aace6bb27431fc"
+    },
+    {
+      "path": "examples/v1/transport/UploadSession.json",
+      "sha256": "c3fdc07930bcfccde37705348e98777fd17e406a9cb50b7ea03e65d9c401af2d"
+    },
+    {
+      "path": "examples/v1/transport/VerificationVerdict.json",
+      "sha256": "16459050363fba0ebee9988a1e56e94a0a4055282dab74afe920289dada3e99a"
+    },
+    {
+      "path": "examples/v1/transport/WorkflowIR.json",
+      "sha256": "b06133082ec110c9ffcc9256c00de165d97234c2f70a9932d54f78ef27e5329a"
+    },
+    {
+      "path": "examples/v1/transport/WorkspaceContext.json",
+      "sha256": "38a4c6fdbb45241cf069943ec084a1d6271f1b7e445b8e3c46f8e2d714e90782"
+    },
+    {
+      "path": "examples/v1/web/BrainRecipes.tsx",
+      "sha256": "d79e63d91c25bf8ff635bdf143fee10cd088a4b0f56d67db0aabb0a2d0c7c2ef"
+    },
+    {
+      "path": "examples/v1/web/README.md",
+      "sha256": "6ea69af37b8119b4804a02f84302fa045ae2f7e58d43dbef40043c4d916790a0"
+    },
+    {
+      "path": "examples/v1/web/approval-controller.ts",
+      "sha256": "1261f000be3be968f3691bbf558194e153c2dc90b2acc59acb58db8cd51345fd"
+    },
+    {
+      "path": "examples/v1/web/index.css",
+      "sha256": "3fff5586c61b424cf349270db0abcd0b22cbd0bf1aec14f524fd4a725bd7326b"
+    },
+    {
+      "path": "examples/v1/web/vite.config.ts",
+      "sha256": "234e73a6018e1759bf847e27d08d46d90ab48eb28ba7cc45d1f3371b36094da1"
+    },
+    {
+      "path": "package.json",
+      "sha256": "ab303ab8ce83ba36f97c608121a28460af58c32e42f06abaf68b30434fa46055"
+    },
+    {
+      "path": "packages/contracts/package.json",
+      "sha256": "d011acd2ee5f8ce1e85f04c2ae77b700a76906c70a27eec57c9214b5e6a17173"
+    },
+    {
+      "path": "packages/contracts/src/authorization-matrix.json",
+      "sha256": "5171c6fd0d40151be254fefbed2f880c46133826fed27394e5d6d32f3390b082"
+    },
+    {
+      "path": "packages/contracts/src/brain.generated.ts",
+      "sha256": "05d4a2674f709383b8a20a4265cc4991edc1b9cc43fbb31acd3366b9df203cc5"
+    },
+    {
+      "path": "packages/contracts/src/brain.schema.json",
+      "sha256": "c85a02cbb4e2d826c65edb7844ec50de4d182051d41efbfdc593fa38c5a1d9e8"
+    },
+    {
+      "path": "packages/contracts/src/catalogs.ts",
+      "sha256": "a1d50e7d5c493897fc3a78c5f03b0d9645899be935d699b277f15ef07e190205"
+    },
+    {
+      "path": "packages/contracts/src/hash.ts",
+      "sha256": "d49271d4c98c135b8848b40bd6ffcd3791131ec64c682180ba106bccadb66abf"
+    },
+    {
+      "path": "packages/contracts/src/index.ts",
+      "sha256": "b7937ee711d5983389eafb921a5b888aca61bf10fcf1d39078f2f2da9029f88e"
+    },
+    {
+      "path": "packages/contracts/src/ports.ts",
+      "sha256": "331c92b11e24330eca73da4a61ae6b2307976b741568ef186f4ae294804101cf"
+    },
+    {
+      "path": "packages/contracts/src/registry.json",
+      "sha256": "41842dac688ddca9e71d107ff45c1f1f8627211e81fa71d153208a40f13e57a7"
+    },
+    {
+      "path": "packages/contracts/src/state-machines.json",
+      "sha256": "cd7197a8ab07413ce527d9598d938c962453dab5f6417a767ebf815f53ac730e"
+    },
+    {
+      "path": "packages/contracts/src/validate.ts",
+      "sha256": "0c9716cf152f522b2feec8de22328c12868e45ade75e231ee328801613fc783d"
+    },
+    {
+      "path": "packages/contracts/tsconfig.json",
+      "sha256": "fdf05e5602560d128de8c532e39ec90eb0bced6cbab67b995df68cccb77c15d8"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "29d3088d9963be53ba0a66fe96e5c9dbb9b90ac93312992f23f8faeaa5d151af"
+    },
+    {
+      "path": "scripts/brain.ts",
+      "sha256": "9677909d492283b98db20727d1f86775b4a83b7e225ba45b924a438486d81178"
+    },
+    {
+      "path": "scripts/build-sandbox-images.sh",
+      "sha256": "27c3108e6e575dcfe6b4570019e4aff2c437fb6288064d5a359a0c25cd606d12"
+    },
+    {
+      "path": "scripts/build_golden_release.py",
+      "sha256": "9dd76f81278cdde46d47d84bb7eb089bfe2e1f9fabf54edd91d5b14913e7751b"
+    },
+    {
+      "path": "scripts/build_implementation_pack.py",
+      "sha256": "92ce1ea432cbd186562a5c0c4ff9f2ac43e6dbea64a146c48bea0ce9a803eb93"
+    },
+    {
+      "path": "scripts/certify.ts",
+      "sha256": "1cae3c5e028f2286d6c21d6c51c4a36517a9a745162d720816561b3cb450f261"
+    },
+    {
+      "path": "scripts/check-boundaries.mjs",
+      "sha256": "114a6527fc41de4db05136ff08a59c38fea09ad7c9851f757f0966965a0f97a7"
+    },
+    {
+      "path": "scripts/check_approval_controller.mjs",
+      "sha256": "b56439d954e9e9e946d55d35d7ad3e5633feab70fc92f4121bfaa30031786171"
+    },
+    {
+      "path": "scripts/check_crypto_vectors.mjs",
+      "sha256": "cc66f92c5a947cb919d328c21eb476aaa496f3c758dafce36bfde61a96e215d0"
+    },
+    {
+      "path": "scripts/check_opencode_profile.py",
+      "sha256": "6a5a096d2d09670c4953649e8d6622acaea5612fb64821c0bf7d6790b7fca4e6"
+    },
+    {
+      "path": "scripts/down.sh",
+      "sha256": "d359674722d33ad645319fd26fb13f2c15cc5b5ef6af660734c876aa37df4654"
+    },
+    {
+      "path": "scripts/enroll-local-runners.ts",
+      "sha256": "aa5a9343c8afbf49de36a1f063b82e8183217c01ad17acfa06c9d60ceac8ba8b"
+    },
+    {
+      "path": "scripts/generate_contract_types.py",
+      "sha256": "d84b5886542be6f2a9efcd6c7891070d3e6da93357ab8acb77cb62f19c22313f"
+    },
+    {
+      "path": "scripts/generate_implementation_indexes.py",
+      "sha256": "56d52ad7be82bfd098a1b92764c86fdfb2d9c313df70e7fc7aa2634a76fdb9d0"
+    },
+    {
+      "path": "scripts/generate_sbom.mjs",
+      "sha256": "442bdfcd7df25bc9e0995b79ac338b15b6619642dc118cd44b015aaaf58485af"
+    },
+    {
+      "path": "scripts/generate_ui_routes.py",
+      "sha256": "d85be081eb2570d7271af3ed50b0f8343a6bfeb2bbee6fb74a65bd6c47b0abaf"
+    },
+    {
+      "path": "scripts/implementation_context.py",
+      "sha256": "8105e779dc9035c59f2b97b9618d9a739417f2697899f4490296b6f22b6645bd"
+    },
+    {
+      "path": "scripts/initialize-local.ts",
+      "sha256": "495c2784a1301a8022f302f595e84f36d7c33bcc7f52ac2771950962ce0671a9"
+    },
+    {
+      "path": "scripts/local-instance.ts",
+      "sha256": "0f4b3587052dd303455178828492a46df8802e3b97fb28948c51145200e7b894"
+    },
+    {
+      "path": "scripts/pack_inputs.py",
+      "sha256": "a2bc9581612d8e2127c32c9a3e77a16da6d9ce1c43c8664023e20a4174fa592d"
+    },
+    {
+      "path": "scripts/probe-engine.ts",
+      "sha256": "fdd486859c7e32ce9e5369c1e61dbd90b318764ccac619e4b62a0062ed9fa139"
+    },
+    {
+      "path": "scripts/resolve_dependency_baseline.py",
+      "sha256": "9d2beeb9dad8131bb5b8d113d41898bce0d89a51a3fe1a5b1a205985336098ca"
+    },
+    {
+      "path": "scripts/run_verification_gates.ts",
+      "sha256": "7a0404f0b97babb5b94923a9e120166de6255b97c40d06bd7491c9f957a8359b"
+    },
+    {
+      "path": "scripts/start-tencentdb.ts",
+      "sha256": "fe61006a872674cad7cc81670eadb807a984d6d923dd3d26cf954c3142e0c694"
+    },
+    {
+      "path": "scripts/up.sh",
+      "sha256": "94dfdde98c411b2c21bf27234dd61da4f3219798b308c6e8886746dc51ecea60"
+    },
+    {
+      "path": "scripts/verify-local-setup.ts",
+      "sha256": "08c5918286b08d688c7db2d4b92fec092c62de0bacb5e23b16767289c70bf594"
+    },
+    {
+      "path": "scripts/verify-operational.sh",
+      "sha256": "27291a47327b80a188244c5561433048fd2db726d97832f1a17fc9289d6a534e"
+    },
+    {
+      "path": "scripts/verify-operational.ts",
+      "sha256": "c3d4d7f98de0f527d757273133393b03445d013cc028cb935cad1066f73b6c84"
+    },
+    {
+      "path": "scripts/verify_implementation_pack.py",
+      "sha256": "5a3a184e0df287ad76dc98d50b9fada847ac86b84049cdbf0acc8501fc30ae6d"
+    },
+    {
+      "path": "scripts/verify_readiness_additions.py",
+      "sha256": "0195e8d02bfaede1e793a67aa5917f49674db63224a7142695a1c5bb9253d286"
+    },
+    {
+      "path": "scripts/verify_runtime_evidence.py",
+      "sha256": "2190b77c74e560fc8cd91d0868f3fd1e905b187ae050397f293fb979c33d65cf"
+    },
+    {
+      "path": "tests/browser/approval-expiry.spec.ts",
+      "sha256": "b3b27a29339335f30d8b895fda24b05258bbb83fd613a698b16ee7e88881ecbf"
+    },
+    {
+      "path": "tests/browser/approval-recovery.spec.ts",
+      "sha256": "72073b177b1c1580427956f58f9a30d9d8ba825e3115e184745a4c2984764fde"
+    },
+    {
+      "path": "tests/browser/approval.spec.ts",
+      "sha256": "d5607abed3653edbddf327f2b961bf346e11058773356c0c3c6a746ab5a07c2c"
+    },
+    {
+      "path": "tests/browser/authentication.spec.ts",
+      "sha256": "a0574357bbfc60455df20a85454fa20734a80531f7e953be579f533ad081df2d"
+    },
+    {
+      "path": "tests/browser/board.spec.ts",
+      "sha256": "79141a76ea8e495ff41c2113f85c33abe7e3837101ed85a5565295fe6fbccb9e"
+    },
+    {
+      "path": "tests/browser/first-launch.spec.ts",
+      "sha256": "79043d4ea25684be0df729e1a2682baafb6cb009b45d0ad5521300fb3fd4d566"
+    },
+    {
+      "path": "tests/browser/fixtures.ts",
+      "sha256": "2221ef2ec3c6460e90a8ab96954bcfaa17c2ccd64010f3010ef43c3bfeb1c5aa"
+    },
+    {
+      "path": "tests/browser/identity-administration.spec.ts",
+      "sha256": "53a394ee547fab967eb8df712791197b714c4d9fa8747448168e4493cb34e683"
+    },
+    {
+      "path": "tests/browser/kiosk.spec.ts",
+      "sha256": "308392bdaaae31987cf559734a1221334bf29f28c1dc83f7ca524e0e0ffa1dc2"
+    },
+    {
+      "path": "tests/browser/model-setup.spec.ts",
+      "sha256": "7e541a29956c8f7c9ac4c22ea652510af206377e264ee99b359be91c518bbb09"
+    },
+    {
+      "path": "tests/browser/navigation.spec.ts",
+      "sha256": "c19901412ab1974a0c6487cc8b497fecc3a9c54404a2078f89541bbcbb6fac51"
+    },
+    {
+      "path": "tests/browser/offline.spec.ts",
+      "sha256": "439e84fb35c51e1cb58f6d84bf0a7b3dfe044abac60e3e728f94c42baee98bfe"
+    },
+    {
+      "path": "tests/browser/operational.spec.ts",
+      "sha256": "e2b7f7dad29303d5c32f670a239e4a8a4bdcc14bcacf51896d0e18ad17557d1a"
+    },
+    {
+      "path": "tests/browser/operations.spec.ts",
+      "sha256": "1eafa9e1f8175a8ac6eea21ae5f64aebe27e3d0bec85342e7c4c30940aeaae88"
+    },
+    {
+      "path": "tests/browser/primitives.spec.ts",
+      "sha256": "152237098531afa149695172a7d2bc4e2569ed06865d79d830ea0f3c013b6d53"
+    },
+    {
+      "path": "tests/browser/sse-logviewer.spec.ts",
+      "sha256": "1e21f2aacd0fdaa022443c2460b6b480b145ba98edd00838d907e68491da49c3"
+    },
+    {
+      "path": "tests/browser/task-entry.spec.ts",
+      "sha256": "529e73c7221fee3525fd7ffbbe93f09f3a91222a7ee7c0bd1759610f33d99c94"
+    },
+    {
+      "path": "tests/browser/vitals.spec.ts",
+      "sha256": "31c6c818e4f2a8a0e5854ebb143e46ca871f5326dffefdd13333da499f1d68bd"
+    },
+    {
+      "path": "tests/browser/work.spec.ts",
+      "sha256": "64dfe42019a3096a25d8560f5ba6a323359e396240c78e16a64ceede0e90e37f"
+    },
+    {
+      "path": "tests/certification/coverage.json",
+      "sha256": "ecf06fdfb7e420691c8c7d90d535e81c1b019f1fd333c6a6d467b0415313151f"
+    },
+    {
+      "path": "tests/certification/matrix.test.ts",
+      "sha256": "a34af641449ffd6bca400a9e56ae5dfe26aca57f3a27c132a0a633104cd28c2b"
+    },
+    {
+      "path": "tests/chaos/backup.test.ts",
+      "sha256": "6c42b900ec5bab45fa7c94dc8c72578c53324ea0cd999047b9df01c6655bf412"
+    },
+    {
+      "path": "tests/chaos/gates100.test.ts",
+      "sha256": "ed43689c8fd47cfe199b8c7141e901dd608ad4213883411ad7f42723b77a66b4"
+    },
+    {
+      "path": "tests/chaos/kill9.test.ts",
+      "sha256": "12b1c1e7be5ce448aed1319760b408909f0e07c992afdafdf1f6ce5ef3811eae"
+    },
+    {
+      "path": "tests/chaos/leases.test.ts",
+      "sha256": "e2f6cb20a441709e52133441798b0c57818b65158d0af98fc7a9d4435e8416ff"
+    },
+    {
+      "path": "tests/chaos/projections.test.ts",
+      "sha256": "b4f4b24ab83a78b04b83869cdb2419492e7b404a6359de7354cd10b34373092f"
+    },
+    {
+      "path": "tests/chaos/reconciler.test.ts",
+      "sha256": "54cefa7f217549da6632e24d0160274d3082bfdee75b0bac8660202bed51c580"
+    },
+    {
+      "path": "tests/chaos/recovery.test.ts",
+      "sha256": "3e820b52805b5459c3c6f48c1b07233a5092cec9117c282ea312139bbe0bb601"
+    },
+    {
+      "path": "tests/chaos/restore.test.ts",
+      "sha256": "9ba1e93b55c77aa3294e53e4fa39dbd282eb7d09b2df9b57bd20a70112d2a339"
+    },
+    {
+      "path": "tests/chaos/runner-spool.test.ts",
+      "sha256": "a7c9dc781b5f198d96a5a7778333e00d2394781171ffc667a45764796a298f42"
+    },
+    {
+      "path": "tests/chaos/runner.test.ts",
+      "sha256": "e1e54edf83059983a602ecde2eb25710cf6dc7ce78fb3878782f95d554dce983"
+    },
+    {
+      "path": "tests/contracts/contracts.test.ts",
+      "sha256": "8e42b3d0111daf32371623773f6f3c70ae4b40d8f1ab22d4498373734cedf4d9"
+    },
+    {
+      "path": "tests/domain/config-resolution.test.ts",
+      "sha256": "5cf5187fab2ae2a6f48783acdb78bbedc19179a0833f54d29de330af6e061314"
+    },
+    {
+      "path": "tests/domain/placement.test.ts",
+      "sha256": "b961016bfe8a72da728be9126d9f34a1e696388174e18d623ebdee6314356b66"
+    },
+    {
+      "path": "tests/domain/schedule.test.ts",
+      "sha256": "ff84438eebd5289c7f7b3c5a9fa52582da42e80df3691534c29b533e035710e1"
+    },
+    {
+      "path": "tests/domain/states.test.ts",
+      "sha256": "c042d2800651345c2052ac91c3eb5f36bf303fdf4fca2b8a5f2364141f4931c2"
+    },
+    {
+      "path": "tests/domain/web-units.test.ts",
+      "sha256": "e4f8f3b7e9b68d3db9222fcc18d37997a5e246f9dad5fc39dc6ee0b120f47586"
+    },
+    {
+      "path": "tests/domain/workflow-compiler.test.ts",
+      "sha256": "c75b6b4fb8d5a2e45793ebbf7c78704bebcdff1ee0939255f33bb2858fc2913c"
+    },
+    {
+      "path": "tests/helpers.ts",
+      "sha256": "46efc7f48de88e5ec9368977bbac89c12bfce5242970fd1bc18ad56b0b190818"
+    },
+    {
+      "path": "tests/integration/agent-dispatch.test.ts",
+      "sha256": "1b0251e20d9a557f36981bec42a234cfcf8e69494ae42ba755016824ed35ab8d"
+    },
+    {
+      "path": "tests/integration/agent-engine.test.ts",
+      "sha256": "b7abcd19ec1a97de5cd28e24a961e56b622c54b86d2beca9cb63510925553219"
+    },
+    {
+      "path": "tests/integration/artifacts.test.ts",
+      "sha256": "4466d70d94584e652e9e192fcaedce0d4f22be892c07366ce2237f27c6c9d2fc"
+    },
+    {
+      "path": "tests/integration/author-claims.test.ts",
+      "sha256": "a1011c9d01d38c2616f4c7b640f76d1c741a510bd5b8d84110ac4c6eed31898e"
+    },
+    {
+      "path": "tests/integration/board.test.ts",
+      "sha256": "8ebc5bb4ce1d5f1c64ade9f892266a0ff67d254f76f7976729b669d102d27487"
+    },
+    {
+      "path": "tests/integration/channels.test.ts",
+      "sha256": "40ef37e06d64d676fef3624f71c8095cb3aa041f7d82a0b7449b2672f0decbed"
+    },
+    {
+      "path": "tests/integration/claim.test.ts",
+      "sha256": "4ec820b0669e83fb4365200e0dda7d7e30d9f68d09ac592638bd42d458d352b3"
+    },
+    {
+      "path": "tests/integration/claude-engine.test.ts",
+      "sha256": "31061e426decd44611ba9a7271e2cb9250fb9873d333c40403b0fde0567edb3b"
+    },
+    {
+      "path": "tests/integration/cli.test.ts",
+      "sha256": "1ec7a0f1c044528847d92a7cf382fb68a1a57f19aeab6101f5dfe7c12fc91c4e"
+    },
+    {
+      "path": "tests/integration/config-release.test.ts",
+      "sha256": "d32e8bd7e790316b73a2b64cea5687eac604ba1985105096acfffc446e2537ca"
+    },
+    {
+      "path": "tests/integration/core.test.ts",
+      "sha256": "ac95357885217f5cf6f366d55999f38b00b37039deb40fcc4e0ecb24fa190206"
+    },
+    {
+      "path": "tests/integration/delivery.test.ts",
+      "sha256": "ae67256f7028c7998f8bc66cf7b471ad93ad0abfe69e181f5df7c471541a082a"
+    },
+    {
+      "path": "tests/integration/deploy.test.ts",
+      "sha256": "50b09b9a01e2c7bb5edad3ef25e81f39e4b147269a39871e6e0242de6718febe"
+    },
+    {
+      "path": "tests/integration/evidence.test.ts",
+      "sha256": "10283bcafa0660b1f509bd30625b1898aee6ecba2987ccf30ae949765a337478"
+    },
+    {
+      "path": "tests/integration/first-launch.test.ts",
+      "sha256": "19e5b81d2583071ca8bc2b621198d7bcbf2c4185171bd2c1066d6a33b6b047fe"
+    },
+    {
+      "path": "tests/integration/gitlab.test.ts",
+      "sha256": "6d6f9c4c8dd87e7dd430b5474639c760b1da17e7d58f439158bfe6ef94b48065"
+    },
+    {
+      "path": "tests/integration/golden.test.ts",
+      "sha256": "1979b828af288d0084741d0c2497c52df8ddcdc3de7a61f29550931905465760"
+    },
+    {
+      "path": "tests/integration/judge.test.ts",
+      "sha256": "40fc8a599e5cc422d26737f1c68e43e7be4547dc056fa5dcc1275dae2d6051e2"
+    },
+    {
+      "path": "tests/integration/local-reset.test.ts",
+      "sha256": "31b6e8b8984a90da93ae4601f57f296dfca376a7cef8cffe7473de0f033e00bb"
+    },
+    {
+      "path": "tests/integration/local-runtime.test.ts",
+      "sha256": "de1e7a81b2fc5b16c6ea70bc783b52096cfe4642bc9b0ef6d523716e1f343fd5"
+    },
+    {
+      "path": "tests/integration/mastra-conformance.test.ts",
+      "sha256": "104ee99f21a513cba25fde89752df1414341e412fcf183b3d9f86d1cafc59ade"
+    },
+    {
+      "path": "tests/integration/memory.test.ts",
+      "sha256": "0dd00b266170cb22bff21dbeea5422ceec1f096595ee5fc1ddb1bffd1acbe2d0"
+    },
+    {
+      "path": "tests/integration/offers.test.ts",
+      "sha256": "abe79726893c38b9ece54efac886d1d97ac63731d5cbcb2b54d860d9622b4ea0"
+    },
+    {
+      "path": "tests/integration/onboarding.test.ts",
+      "sha256": "0ad25ad51f955b0e8e8a88049ceeccc7ca410a4db05db62cbe3a58f2a7bba904"
+    },
+    {
+      "path": "tests/integration/permits.test.ts",
+      "sha256": "61b507123e4b6f63aab4f5950352e8b60d12e9c14452468c7fdb575c00bfb751"
+    },
+    {
+      "path": "tests/integration/push.test.ts",
+      "sha256": "92b50a14e9c6b6c3d77205819c497232f2de396c9580230517ac0ef5e48ef023"
+    },
+    {
+      "path": "tests/integration/responses.test.ts",
+      "sha256": "1459a3f011c13955d65d4f09b41fda2e999bcde5f8f27feaf859cdfc3f41b354"
+    },
+    {
+      "path": "tests/integration/scenarios.test.ts",
+      "sha256": "9796a48cdf231d1d161156e15dfd4a6de2372a652fee855eeb2f1acbb71ffffe"
+    },
+    {
+      "path": "tests/integration/scenarios2.test.ts",
+      "sha256": "90a5dcc0994327529b44ea8b3e29d699266f5e49da013584d6e10090c5b8efea"
+    },
+    {
+      "path": "tests/integration/scenarios3.test.ts",
+      "sha256": "116c84aa93407028e171f866b7f2b6050584df11dd93ccd5385e8037566b7ac7"
+    },
+    {
+      "path": "tests/integration/scheduler.test.ts",
+      "sha256": "37d38933c7393d9052c499c373f858de2b2876067f6ea369af32faa1728bb251"
+    },
+    {
+      "path": "tests/integration/secrets.test.ts",
+      "sha256": "7604b5e994a36111bf0dc1d0040084426ba1f7d5e0f9d5a495a0fe2a717cf274"
+    },
+    {
+      "path": "tests/integration/sre.test.ts",
+      "sha256": "2e496d49c1b7aa7fd94a5550d0929d47a73f7f354cee133f73112da03115e9a0"
+    },
+    {
+      "path": "tests/integration/sse.test.ts",
+      "sha256": "d17d4050b262d44e366d878d48fcedafe2fdb892ae7674ca826134a59a4c8253"
+    },
+    {
+      "path": "tests/integration/storage.test.ts",
+      "sha256": "8e059a8cdbd32c4163ceb53511ea915677c3cf405a7b8db28da828c4dc3812a3"
+    },
+    {
+      "path": "tests/integration/support.test.ts",
+      "sha256": "575c0bf6a3638606470d3e75406e0108a8e5765471e941826ec47e9cf8503396"
+    },
+    {
+      "path": "tests/integration/task-experience.test.ts",
+      "sha256": "fd4de7dec8fda68951b66fa58e27c2df2d0ccd38f4e34af6d4ef793c5b520b9a"
+    },
+    {
+      "path": "tests/integration/tls.test.ts",
+      "sha256": "abdf66da1a773c4cd5fe6bbf452047016773b80bee49b8653c1d5b1add6d6d51"
+    },
+    {
+      "path": "tests/integration/tools.test.ts",
+      "sha256": "0f4409cb5e87bfb8b5986441388f232abc604ecab077773c7b8860fe61f56ca1"
+    },
+    {
+      "path": "tests/probes/dependencies/better-auth.test.ts",
+      "sha256": "e0855d6f4db13c57abc3c54a536bb44198b5c8f1364d4f3fe634a9e1202a7356"
+    },
+    {
+      "path": "tests/probes/deployment/image.test.ts",
+      "sha256": "ba76b9f48103db030f96cc80e8016b73d3acaa794fb5f532458ac935a8af5a27"
+    },
+    {
+      "path": "tests/probes/harnesses/claude.test.ts",
+      "sha256": "394b800805f80b490fa2a11df407a6d8d24594dcfc521194ccca1be91fded441"
+    },
+    {
+      "path": "tests/probes/harnesses/conformance.test.ts",
+      "sha256": "24502e13ecd27cd374aaafe859c77fe0a0c5bb24c2408d0dea123841204687a2"
+    },
+    {
+      "path": "tests/probes/harnesses/judge.test.ts",
+      "sha256": "d459ab61e0296f048fd89c9c87c6d4d6a021d715a1efee8b8def9d886a635b3f"
+    },
+    {
+      "path": "tests/probes/harnesses/pi-checkpoint.test.ts",
+      "sha256": "7828dc59067ad149ad5a4eb974239e4d22f03670a062a4a1d3d238ef3576ee28"
+    },
+    {
+      "path": "tests/probes/harnesses/pi.test.ts",
+      "sha256": "152401a3abd606f1b97d86be706311791caa1abb9a1dba0d10afb1c6d57ed09b"
+    },
+    {
+      "path": "tests/probes/mastra/durable.test.ts",
+      "sha256": "359a6af5f5f789a9bdd2cf6caeac4617e5f4f7bd00bb6931bdb1883e613ee8b6"
+    },
+    {
+      "path": "tests/probes/mastra/dynamic.test.ts",
+      "sha256": "c9cd5896328a737d11d06496efece6ed665a7f44766210efbbec0ade4b81ed60"
+    },
+    {
+      "path": "tests/probes/mastra/probe.test.ts",
+      "sha256": "2345baffe9a4a3ca5fe62fb1e97ee419f63e063463b86120a0f81eac450f9a11"
+    },
+    {
+      "path": "tests/probes/mastra/suspend.test.ts",
+      "sha256": "626f5809b9f550abe92300c9567d42de202492e4571ed504aefe91a7e1a29c66"
+    },
+    {
+      "path": "tests/probes/sandbox/egress.test.ts",
+      "sha256": "ffbf49e8bdfa3d9be1e455b88621c852d9ea3bda9146dd86d0e1bfc710013977"
+    },
+    {
+      "path": "tests/probes/sandbox/launcher-exec.test.ts",
+      "sha256": "aa195d61686ba7e1d13364841fc5cfd73b771c41f80fd668cceb92f17869a793"
+    },
+    {
+      "path": "tests/probes/sandbox/launcher.test.ts",
+      "sha256": "6a826a4b8311132802293ff122d8293b0444f98b654758d22fc899e71169c821"
+    },
+    {
+      "path": "tests/probes/tencentdb/client.test.ts",
+      "sha256": "6b647f45d86bf486fc5e231b8a5514478b7dc611463d56c76717748e5868e4ae"
+    },
+    {
+      "path": "tests/security/approvals.test.ts",
+      "sha256": "d421075746f2628c11c20a2d33d60774c2fea20344a4caa413c5813b3d98e97f"
+    },
+    {
+      "path": "tests/security/auth-matrix.test.ts",
+      "sha256": "11c09085551022cb0d50bce2ee69b78668bf5f147e7897192a9591581e082cd2"
+    },
+    {
+      "path": "tests/security/auth-rate-limit.test.ts",
+      "sha256": "829b8d9561ac0a3d2c1ae95c91cca74733f6b3909a36ec7b8d864b852472326c"
+    },
+    {
+      "path": "tests/security/authz.test.ts",
+      "sha256": "c6a78f7460c2fa8437fa895dab79ae8b08764389ab143ad0d5513078a12d8ba6"
+    },
+    {
+      "path": "tests/security/body.test.ts",
+      "sha256": "e794a078ce49c4a35dec229c2bffc47eda639eba4e2211f1a243b15abe81dacd"
+    },
+    {
+      "path": "tests/security/claude-endpoint.test.ts",
+      "sha256": "cc788c66ea0b61a0f63a3d79d7b59a20ce2dcff23763d2c939a1d593335af87a"
+    },
+    {
+      "path": "tests/security/config-loader.test.ts",
+      "sha256": "d5abec1e1c7df17f88485840557e5cfc2b4f031a2b5305cd72a2386f1edcc075"
+    },
+    {
+      "path": "tests/security/csrf.test.ts",
+      "sha256": "aad937fc6afc96fd63a0c47016c9aa82ba76ffac27d27802e5646136ab3cdcab"
+    },
+    {
+      "path": "tests/security/evidence.test.ts",
+      "sha256": "fd5a2d403d8b6c5c56757bd2ee67df6ef50cf98e88d4b1c65e787c20810f7493"
+    },
+    {
+      "path": "tests/security/identity.test.ts",
+      "sha256": "c65e56eabf6938b4592ec254637db8fafdb2e5985a35e91f2f75757014c4d558"
+    },
+    {
+      "path": "tests/security/memory-acl.test.ts",
+      "sha256": "7280aac453c86d6e2031029da477b25d4b59d8ac982c3062f4fe9fb58e3abdcc"
+    },
+    {
+      "path": "tests/security/oidc-gate.test.ts",
+      "sha256": "f7036f6af10b398b5dfb7ddf30809fd077fa87264df162153da6537721301d91"
+    },
+    {
+      "path": "tests/security/optional-two-factor.test.ts",
+      "sha256": "3cf32f7bf521594df4a71159c773d7c397e2ddf7fac55cb9386fc47f6e5e0b6b"
+    },
+    {
+      "path": "tests/security/organization-admin.test.ts",
+      "sha256": "a562894cb2509b4169168ce06ba3ca6560cf0b1767e4eefe52cf88337527d454"
+    },
+    {
+      "path": "tests/security/policy.test.ts",
+      "sha256": "76f41c7ee5f5206e94757e99d8cfa9ccb980fdbcb9dce9a299c233169b452240"
+    },
+    {
+      "path": "tests/security/runners.test.ts",
+      "sha256": "eef5da14008d6326aec6b47f9ed6b9520b51a85392fee07db0ad6f4f4d2be267"
+    },
+    {
+      "path": "tests/security/sandbox.test.ts",
+      "sha256": "ee84347cd5b548c582225e75f66fe1164a7c9063a2fb177ef349741cd6719641"
+    },
+    {
+      "path": "tests/security/setup.test.ts",
+      "sha256": "e01dd627629b9a082df7937b35d8d3932c037e8cd862b89b7e3c6f8b901f9472"
+    },
+    {
+      "path": "tests/security/trust.test.ts",
+      "sha256": "7c706768a2e0d1006b3184f38646358cd2dd2cd1d1ca8cc3e883eb8828d4fb06"
+    },
+    {
+      "path": "tests/support/claim-once.ts",
+      "sha256": "05e9b35dbe81a8f6f05ecb7bc227b826f4e610ad956d106f5fdcb96327e8826d"
+    },
+    {
+      "path": "tests/support/evidence.ts",
+      "sha256": "2c2dcc2c2f5f73f536af09f26f36e1203887e3310b6536b3699520e7bd805ed4"
+    },
+    {
+      "path": "tests/support/starter.ts",
+      "sha256": "c0347e904a46c216a47cdc0aa7fa5a13393adc70563a08328234dff9189f9a1a"
+    },
+    {
+      "path": "tests/support/totp.ts",
+      "sha256": "9096af1bd31c06890ab11c6223f0dc7fce494b05e2d8e0068f7d60cefe5083e4"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "brain",
+        "setup",
+        "--local",
+        "--org",
+        "org-local",
+        "--name",
+        "Operational proof",
+        "--setup-token-file",
+        "<disposable>/data/setup.token"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "workspace",
+        "create",
+        "operations",
+        "--slug",
+        "operations"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "config",
+        "compile",
+        "examples/v1/starter-release"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "config",
+        "inspect",
+        "sha256:5297e2a7863021680ef8b1f02207bc185a6173198172c359c35ddf04b290dc53"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "config",
+        "activate",
+        "sha256:5297e2a7863021680ef8b1f02207bc185a6173198172c359c35ddf04b290dc53"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "workflow",
+        "list",
+        "--workspace",
+        "operations"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "runner",
+        "token",
+        "create",
+        "--group",
+        "agents"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "runner",
+        "token",
+        "create",
+        "--group",
+        "evaluators"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "workflow",
+        "run",
+        "agent-smoke",
+        "--workspace",
+        "operations",
+        "--input",
+        "{\"message\":\"BRAIN_OK\"}"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "workflow",
+        "run",
+        "runner-topology-smoke",
+        "--workspace",
+        "operations",
+        "--input",
+        "{\"message\":\"BRAIN_OK\"}"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "workflow",
+        "run",
+        "operations-triage",
+        "--workspace",
+        "operations",
+        "--input",
+        "{\"situation\":\"After a deployment, error rates rose. No rollback has been attempted. Outline read-only checks and missing information.\"}"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "brain",
+        "workflow",
+        "run",
+        "support-draft",
+        "--workspace",
+        "operations",
+        "--input",
+        "{\"title\":\"Unable to sign in\",\"body\":\"I see an expired session error. Draft a response asking for useful diagnostic details. Do not send it.\"}"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "runs": [
+    {
+      "workflowId": "agent-smoke",
+      "runId": "run-mvuxwu6u-8-6uipx1rz",
+      "bundleDigest": "sha256:79a3dd24bc87fd16a3650d2ec2862258885e2481f70a0b4e95fe2467052c5dd1",
+      "jobId": "job-mvuxwu6w-9-dzjh3qrr",
+      "attemptId": "att-mvuxwvjy-b-ox2u5i9j",
+      "artifacts": [
+        {
+          "artifactId": "att-att-mvuxwvjy-b-ox2u5i9j-88da8a24121e64f083f714d2",
+          "digest": "sha256:69d613a3e11cbc66866f73c02e52e80fc7e08083bfb926c5ef98a01fb8f348c8",
+          "bytes": 10,
+          "mediaType": "application/json",
+          "classification": "internal"
+        }
+      ],
+      "verdict": {
+        "outcome": "verified",
+        "evaluator_attempt_id": "att-mvuxwwxt-g-8yfaxbx3"
+      },
+      "output": "BRAIN_OK",
+      "engineEvents": [
+        {
+          "event_json": "{\"sequence\":1,\"kind\":\"progress\",\"payload\":{\"phase\":\"started\",\"artifactId\":\"exec-job-mvuxwu6w-9-dzjh3qrr\"}}"
+        },
+        {
+          "event_json": "{\"sequence\":2,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-1\",\"sessionId\":\"01a18cc0-d0f7-74c9-84dd-cb6e152bece0\",\"attemptId\":\"att-mvuxwvjy-b-ox2u5i9j\",\"sequence\":1,\"occurredAt\":\"2026-10-30T12:20:09.104Z\",\"kind\":\"session.started\",\"payload\":{\"engine\":{\"id\":\"pi\",\"version\":\"1.4.0\",\"adapterDigest\":\"sha256:80bca45fdaeaca831fc244bda9015981382c2cf07fa61ada9755ff8200b1a6bd\",\"features\":[\"sessions\",\"checkpoint\"]}}}}"
+        },
+        {
+          "event_json": "{\"sequence\":3,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-2\",\"sessionId\":\"01a18cc0-d0f7-74c9-84dd-cb6e152bece0\",\"attemptId\":\"att-mvuxwvjy-b-ox2u5i9j\",\"sequence\":2,\"occurredAt\":\"2026-10-30T12:20:10.623Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\n\\n\\\"BRAIN_OK\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":4,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-3\",\"sessionId\":\"01a18cc0-d0f7-74c9-84dd-cb6e152bece0\",\"attemptId\":\"att-mvuxwvjy-b-ox2u5i9j\",\"sequence\":3,\"occurredAt\":\"2026-10-30T12:20:10.755Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\\"\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":5,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-4\",\"sessionId\":\"01a18cc0-d0f7-74c9-84dd-cb6e152bece0\",\"attemptId\":\"att-mvuxwvjy-b-ox2u5i9j\",\"sequence\":4,\"occurredAt\":\"2026-10-30T12:20:10.758Z\",\"kind\":\"usage\",\"payload\":{\"usageId\":\"pi-usage-att-mvuxwvjy-b-ox2u5i9j\",\"inputTokens\":130,\"outputTokens\":30,\"cachedInputTokens\":0,\"microUsd\":0,\"accounting\":\"final-total\",\"estimated\":false}}}"
+        },
+        {
+          "event_json": "{\"sequence\":6,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-5\",\"sessionId\":\"01a18cc0-d0f7-74c9-84dd-cb6e152bece0\",\"attemptId\":\"att-mvuxwvjy-b-ox2u5i9j\",\"sequence\":5,\"occurredAt\":\"2026-10-30T12:20:10.758Z\",\"kind\":\"artifact\",\"payload\":{\"artifact\":{\"artifactId\":\"pi-output-att-mvuxwvjy-b-ox2u5i9j\",\"digest\":\"sha256:37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493\",\"bytes\":12,\"mediaType\":\"text/plain\",\"classification\":\"internal\"},\"purpose\":\"output\"}}}"
+        },
+        {
+          "event_json": "{\"sequence\":7,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-6\",\"sessionId\":\"01a18cc0-d0f7-74c9-84dd-cb6e152bece0\",\"attemptId\":\"att-mvuxwvjy-b-ox2u5i9j\",\"sequence\":6,\"occurredAt\":\"2026-10-30T12:20:10.758Z\",\"kind\":\"session.stopped\",\"payload\":{\"reason\":\"completed\",\"terminationConfirmed\":true,\"output\":{\"artifactId\":\"pi-output-att-mvuxwvjy-b-ox2u5i9j\",\"digest\":\"sha256:37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493\",\"bytes\":12,\"mediaType\":\"text/plain\",\"classification\":\"internal\"}}}}"
+        },
+        {
+          "event_json": "{\"sequence\":8,\"kind\":\"effect\",\"payload\":{\"phase\":\"output-pinned\",\"artifact\":{\"artifactId\":\"att-att-mvuxwvjy-b-ox2u5i9j-7db6127f1b8c2cd562eb7803\",\"digest\":\"sha256:37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493\",\"bytes\":12}}}"
+        },
+        {
+          "event_json": "{\"sequence\":9,\"kind\":\"progress\",\"payload\":{\"phase\":\"executed\",\"ok\":true}}"
+        },
+        {
+          "event_json": "{\"sequence\":10,\"kind\":\"effect\",\"payload\":{\"phase\":\"output-pinned\",\"artifact\":{\"artifactId\":\"att-att-mvuxwvjy-b-ox2u5i9j-88da8a24121e64f083f714d2\",\"digest\":\"sha256:69d613a3e11cbc66866f73c02e52e80fc7e08083bfb926c5ef98a01fb8f348c8\",\"bytes\":10}}}"
+        },
+        {
+          "event_json": "{\"sequence\":11,\"kind\":\"effect\",\"payload\":{\"phase\":\"author-bundle-submitted\",\"bundleId\":\"bundle-att-mvuxwvjy-b-ox2u5i9j\",\"digest\":\"sha256:79a3dd24bc87fd16a3650d2ec2862258885e2481f70a0b4e95fe2467052c5dd1\"}}"
+        }
+      ]
+    },
+    {
+      "workflowId": "runner-topology-smoke",
+      "runId": "run-mvuxwzok-l-d8t1hw0c",
+      "bundleDigest": "sha256:fb9291f208d404daf0644b45c27c76dce05261b08bb2146a04e56334e006a6b2",
+      "jobId": "job-mvuxwzok-m-hla0j7p0",
+      "attemptId": "att-mvuxwzor-o-vb7y3uun",
+      "artifacts": [
+        {
+          "artifactId": "att-att-mvuxwzor-o-vb7y3uun-88da8a24121e64f083f714d2",
+          "digest": "sha256:69d613a3e11cbc66866f73c02e52e80fc7e08083bfb926c5ef98a01fb8f348c8",
+          "bytes": 10,
+          "mediaType": "application/json",
+          "classification": "internal"
+        }
+      ],
+      "verdict": {
+        "outcome": "verified",
+        "evaluator_attempt_id": "att-mvuxx0sy-t-8lr39s6v"
+      },
+      "output": "BRAIN_OK",
+      "engineEvents": [
+        {
+          "event_json": "{\"sequence\":1,\"kind\":\"progress\",\"payload\":{\"phase\":\"started\",\"artifactId\":\"exec-job-mvuxwzok-m-hla0j7p0\"}}"
+        },
+        {
+          "event_json": "{\"sequence\":2,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-1\",\"sessionId\":\"01a18cc0-e5ce-74c9-84dd-cb70e28a76b8\",\"attemptId\":\"att-mvuxwzor-o-vb7y3uun\",\"sequence\":1,\"occurredAt\":\"2026-10-30T12:20:14.425Z\",\"kind\":\"session.started\",\"payload\":{\"engine\":{\"id\":\"pi\",\"version\":\"1.4.0\",\"adapterDigest\":\"sha256:80bca45fdaeaca831fc244bda9015981382c2cf07fa61ada9755ff8200b1a6bd\",\"features\":[\"sessions\",\"checkpoint\"]}}}}"
+        },
+        {
+          "event_json": "{\"sequence\":3,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-2\",\"sessionId\":\"01a18cc0-e5ce-74c9-84dd-cb70e28a76b8\",\"attemptId\":\"att-mvuxwzor-o-vb7y3uun\",\"sequence\":2,\"occurredAt\":\"2026-10-30T12:20:15.652Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\n\\n\\\"BRAIN_OK\\\"\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":4,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-3\",\"sessionId\":\"01a18cc0-e5ce-74c9-84dd-cb70e28a76b8\",\"attemptId\":\"att-mvuxwzor-o-vb7y3uun\",\"sequence\":3,\"occurredAt\":\"2026-10-30T12:20:15.796Z\",\"kind\":\"usage\",\"payload\":{\"usageId\":\"pi-usage-att-mvuxwzor-o-vb7y3uun\",\"inputTokens\":130,\"outputTokens\":35,\"cachedInputTokens\":0,\"microUsd\":0,\"accounting\":\"final-total\",\"estimated\":false}}}"
+        },
+        {
+          "event_json": "{\"sequence\":5,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-4\",\"sessionId\":\"01a18cc0-e5ce-74c9-84dd-cb70e28a76b8\",\"attemptId\":\"att-mvuxwzor-o-vb7y3uun\",\"sequence\":4,\"occurredAt\":\"2026-10-30T12:20:15.796Z\",\"kind\":\"artifact\",\"payload\":{\"artifact\":{\"artifactId\":\"pi-output-att-mvuxwzor-o-vb7y3uun\",\"digest\":\"sha256:37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493\",\"bytes\":12,\"mediaType\":\"text/plain\",\"classification\":\"internal\"},\"purpose\":\"output\"}}}"
+        },
+        {
+          "event_json": "{\"sequence\":6,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-5\",\"sessionId\":\"01a18cc0-e5ce-74c9-84dd-cb70e28a76b8\",\"attemptId\":\"att-mvuxwzor-o-vb7y3uun\",\"sequence\":5,\"occurredAt\":\"2026-10-30T12:20:15.796Z\",\"kind\":\"session.stopped\",\"payload\":{\"reason\":\"completed\",\"terminationConfirmed\":true,\"output\":{\"artifactId\":\"pi-output-att-mvuxwzor-o-vb7y3uun\",\"digest\":\"sha256:37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493\",\"bytes\":12,\"mediaType\":\"text/plain\",\"classification\":\"internal\"}}}}"
+        },
+        {
+          "event_json": "{\"sequence\":7,\"kind\":\"effect\",\"payload\":{\"phase\":\"output-pinned\",\"artifact\":{\"artifactId\":\"att-att-mvuxwzor-o-vb7y3uun-7db6127f1b8c2cd562eb7803\",\"digest\":\"sha256:37c71d90dc02c62c824ec3feab71f370c0b19ad122e7c74decef659d34e36493\",\"bytes\":12}}}"
+        },
+        {
+          "event_json": "{\"sequence\":8,\"kind\":\"progress\",\"payload\":{\"phase\":\"executed\",\"ok\":true}}"
+        },
+        {
+          "event_json": "{\"sequence\":9,\"kind\":\"effect\",\"payload\":{\"phase\":\"output-pinned\",\"artifact\":{\"artifactId\":\"att-att-mvuxwzor-o-vb7y3uun-88da8a24121e64f083f714d2\",\"digest\":\"sha256:69d613a3e11cbc66866f73c02e52e80fc7e08083bfb926c5ef98a01fb8f348c8\",\"bytes\":10}}}"
+        },
+        {
+          "event_json": "{\"sequence\":10,\"kind\":\"effect\",\"payload\":{\"phase\":\"author-bundle-submitted\",\"bundleId\":\"bundle-att-mvuxwzor-o-vb7y3uun\",\"digest\":\"sha256:fb9291f208d404daf0644b45c27c76dce05261b08bb2146a04e56334e006a6b2\"}}"
+        }
+      ]
+    },
+    {
+      "workflowId": "operations-triage",
+      "runId": "run-mvuxx3iq-y-mpdnub17",
+      "bundleDigest": "sha256:2968285a16979da1a2a74f0cd99ae8149fc61a1477323886cc567c2d1b206d9e",
+      "jobId": "job-mvuxx3iq-z-137wrpv4",
+      "attemptId": "att-mvuxx3iw-11-ie9l28tw",
+      "artifacts": [
+        {
+          "artifactId": "att-att-mvuxx3iw-11-ie9l28tw-2eefc1839a37c33af8cec807",
+          "digest": "sha256:33f001fafad4fc2ff841a592103edbc6a5de33a9459dca1b22e274043175aef6",
+          "bytes": 858,
+          "mediaType": "application/json",
+          "classification": "internal"
+        },
+        {
+          "artifactId": "att-att-mvuxx3iw-11-ie9l28tw-cf9042b73e17c15ccc9b2268",
+          "digest": "sha256:0cf8da46e1a0a3ade2e96f1f3bde1c394b11afe76f7097ad0b7102c5ed45e56c",
+          "bytes": 160,
+          "mediaType": "application/json",
+          "classification": "internal"
+        }
+      ],
+      "verdict": {
+        "outcome": "verified",
+        "evaluator_attempt_id": "att-mvuxxflg-16-6ilstl1a"
+      },
+      "output": {
+        "summary": "The read-only context tool confirms no production system is connected, so no live metrics, logs, or deployment metadata are available for diagnosis. The situation is limited to the reported symptom: error rates rose post-deployment with no rollback attempted.",
+        "blockers": [
+          "No access to production error logs, traces, or dashboards to identify failing services or error types",
+          "Deployment metadata (what changed, which services, canary vs full rollout) is unknown",
+          "Current error rate baseline vs post-deployment comparison is unavailable"
+        ],
+        "nextActions": [
+          "Identify the deployed change set (diff, service list, config changes) to narrow the suspect scope",
+          "Check error-rate and latency dashboards per service to isolate which component regressed",
+          "Evaluate rollback feasibility and blast radius before deciding between rollback and forward-fix"
+        ]
+      },
+      "engineEvents": [
+        {
+          "event_json": "{\"sequence\":1,\"kind\":\"progress\",\"payload\":{\"phase\":\"started\",\"artifactId\":\"exec-job-mvuxx3iq-z-137wrpv4\"}}"
+        },
+        {
+          "event_json": "{\"sequence\":2,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-1\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":1,\"occurredAt\":\"2026-10-30T12:20:19.391Z\",\"kind\":\"session.started\",\"payload\":{\"engine\":{\"id\":\"pi\",\"version\":\"1.4.0\",\"adapterDigest\":\"sha256:80bca45fdaeaca831fc244bda9015981382c2cf07fa61ada9755ff8200b1a6bd\",\"features\":[\"sessions\",\"checkpoint\"]}}}}"
+        },
+        {
+          "event_json": "{\"sequence\":3,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-2\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":2,\"occurredAt\":\"2026-10-30T12:20:21.498Z\",\"kind\":\"tool.proposed\",\"payload\":{\"proposalId\":\"chatcmpl-tool-9f11fbcad11d4417\",\"tool\":{\"id\":\"operations.context\",\"digest\":\"sha256:34fa8bce5467157d60b19931112a7a946b1ebebfd10748421826cd531424403b\"},\"input\":{},\"target\":{\"targetId\":\"tool:operations.context\",\"environmentId\":\"local\",\"preconditionDigest\":\"sha256:34fa8bce5467157d60b19931112a7a946b1ebebfd10748421826cd531424403b\"},\"inputDigest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\"}}}"
+        },
+        {
+          "event_json": "{\"sequence\":4,\"kind\":\"effect\",\"payload\":{\"phase\":\"governed-tool-result\",\"proposalId\":\"chatcmpl-tool-9f11fbcad11d4417\",\"invocationId\":\"chatcmpl-tool-9f11fbcad11d4417\",\"artifact\":{\"artifactId\":\"att-att-mvuxx3iw-11-ie9l28tw-cf9042b73e17c15ccc9b2268\",\"digest\":\"sha256:0cf8da46e1a0a3ade2e96f1f3bde1c394b11afe76f7097ad0b7102c5ed45e56c\",\"bytes\":160,\"mediaType\":\"application/json\",\"classification\":\"internal\"}}}"
+        },
+        {
+          "event_json": "{\"sequence\":5,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-3\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":3,\"occurredAt\":\"2026-10-30T12:20:24.869Z\",\"kind\":\"tool.result\",\"payload\":{\"proposalId\":\"chatcmpl-tool-9f11fbcad11d4417\",\"invocationId\":\"chatcmpl-tool-9f11fbcad11d4417\",\"receipt\":{\"invocationId\":\"chatcmpl-tool-9f11fbcad11d4417\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"jobFence\":1,\"result\":\"succeeded\",\"startedAt\":\"2026-10-30T12:20:21.506Z\",\"finishedAt\":\"2026-10-30T12:20:24.869Z\",\"stdout\":{\"artifactId\":\"att-att-mvuxx3iw-11-ie9l28tw-cf9042b73e17c15ccc9b2268\",\"digest\":\"sha256:0cf8da46e1a0a3ade2e96f1f3bde1c394b11afe76f7097ad0b7102c5ed45e56c\",\"bytes\":160,\"mediaType\":\"application/json\",\"classification\":\"internal\"},\"effects\":[]}}}}"
+        },
+        {
+          "event_json": "{\"sequence\":6,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-4\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":4,\"occurredAt\":\"2026-10-30T12:20:28.183Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\n\\n{\\\"summary\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":7,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-5\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":5,\"occurredAt\":\"2026-10-30T12:20:28.298Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\\":\\\"The read\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":8,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-6\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":6,\"occurredAt\":\"2026-10-30T12:20:28.414Z\",\"kind\":\"text\",\"payload\":{\"text\":\"-only context tool confirms\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":9,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-7\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":7,\"occurredAt\":\"2026-10-30T12:20:28.525Z\",\"kind\":\"text\",\"payload\":{\"text\":\" no\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":10,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-8\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":8,\"occurredAt\":\"2026-10-30T12:20:28.640Z\",\"kind\":\"text\",\"payload\":{\"text\":\" production system is connected, so\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":11,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-9\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":9,\"occurredAt\":\"2026-10-30T12:20:28.750Z\",\"kind\":\"text\",\"payload\":{\"text\":\" no live metrics\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":12,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-10\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":10,\"occurredAt\":\"2026-10-30T12:20:28.853Z\",\"kind\":\"text\",\"payload\":{\"text\":\", logs, or deployment metadata\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":13,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-11\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":11,\"occurredAt\":\"2026-10-30T12:20:28.963Z\",\"kind\":\"text\",\"payload\":{\"text\":\" are available for\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":14,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-12\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":12,\"occurredAt\":\"2026-10-30T12:20:29.073Z\",\"kind\":\"text\",\"payload\":{\"text\":\" diagnosis. The situation is\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":15,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-13\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":13,\"occurredAt\":\"2026-10-30T12:20:29.181Z\",\"kind\":\"text\",\"payload\":{\"text\":\" limited\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":16,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-14\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":14,\"occurredAt\":\"2026-10-30T12:20:29.287Z\",\"kind\":\"text\",\"payload\":{\"text\":\" to the\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":17,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-15\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":15,\"occurredAt\":\"2026-10-30T12:20:29.394Z\",\"kind\":\"text\",\"payload\":{\"text\":\" reported symptom: error rates rose\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":18,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-16\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":16,\"occurredAt\":\"2026-10-30T12:20:29.499Z\",\"kind\":\"text\",\"payload\":{\"text\":\" post\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":19,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-17\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":17,\"occurredAt\":\"2026-10-30T12:20:29.610Z\",\"kind\":\"text\",\"payload\":{\"text\":\"-deployment with no rollback attempted\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":20,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-18\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":18,\"occurredAt\":\"2026-10-30T12:20:29.714Z\",\"kind\":\"text\",\"payload\":{\"text\":\".\\\",\\\"blockers\\\":[\\\"No access\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":21,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-19\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":19,\"occurredAt\":\"2026-10-30T12:20:29.823Z\",\"kind\":\"text\",\"payload\":{\"text\":\" to production error\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":22,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-20\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":20,\"occurredAt\":\"2026-10-30T12:20:29.930Z\",\"kind\":\"text\",\"payload\":{\"text\":\" logs\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":23,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-21\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":21,\"occurredAt\":\"2026-10-30T12:20:30.038Z\",\"kind\":\"text\",\"payload\":{\"text\":\", traces\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":24,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-22\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":22,\"occurredAt\":\"2026-10-30T12:20:30.145Z\",\"kind\":\"text\",\"payload\":{\"text\":\", or dash\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":25,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-23\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":23,\"occurredAt\":\"2026-10-30T12:20:30.253Z\",\"kind\":\"text\",\"payload\":{\"text\":\"boards to identify\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":26,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-24\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":24,\"occurredAt\":\"2026-10-30T12:20:30.362Z\",\"kind\":\"text\",\"payload\":{\"text\":\" failing\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":27,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-25\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":25,\"occurredAt\":\"2026-10-30T12:20:30.474Z\",\"kind\":\"text\",\"payload\":{\"text\":\" services or error types\\\",\\\"\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":28,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-26\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":26,\"occurredAt\":\"2026-10-30T12:20:30.583Z\",\"kind\":\"text\",\"payload\":{\"text\":\"Deployment\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":29,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-27\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":27,\"occurredAt\":\"2026-10-30T12:20:30.693Z\",\"kind\":\"text\",\"payload\":{\"text\":\" metadata\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":30,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-28\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":28,\"occurredAt\":\"2026-10-30T12:20:30.803Z\",\"kind\":\"text\",\"payload\":{\"text\":\" (what\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":31,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-29\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":29,\"occurredAt\":\"2026-10-30T12:20:30.915Z\",\"kind\":\"text\",\"payload\":{\"text\":\" changed, which services\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":32,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-30\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":30,\"occurredAt\":\"2026-10-30T12:20:31.028Z\",\"kind\":\"text\",\"payload\":{\"text\":\", can\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":33,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-31\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":31,\"occurredAt\":\"2026-10-30T12:20:31.141Z\",\"kind\":\"text\",\"payload\":{\"text\":\"ary vs\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":34,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-32\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":32,\"occurredAt\":\"2026-10-30T12:20:31.253Z\",\"kind\":\"text\",\"payload\":{\"text\":\" full\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":35,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-33\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":33,\"occurredAt\":\"2026-10-30T12:20:31.363Z\",\"kind\":\"text\",\"payload\":{\"text\":\" rollout) is unknown\\\",\\\"Current\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":36,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-34\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":34,\"occurredAt\":\"2026-10-30T12:20:31.472Z\",\"kind\":\"text\",\"payload\":{\"text\":\" error\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":37,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-35\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":35,\"occurredAt\":\"2026-10-30T12:20:31.583Z\",\"kind\":\"text\",\"payload\":{\"text\":\" rate baseline\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":38,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-36\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":36,\"occurredAt\":\"2026-10-30T12:20:31.696Z\",\"kind\":\"text\",\"payload\":{\"text\":\" vs\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":39,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-37\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":37,\"occurredAt\":\"2026-10-30T12:20:31.807Z\",\"kind\":\"text\",\"payload\":{\"text\":\" post\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":40,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-38\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":38,\"occurredAt\":\"2026-10-30T12:20:31.924Z\",\"kind\":\"text\",\"payload\":{\"text\":\"-deployment comparison\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":41,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-39\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":39,\"occurredAt\":\"2026-10-30T12:20:32.038Z\",\"kind\":\"text\",\"payload\":{\"text\":\" is unavailable\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":42,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-40\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":40,\"occurredAt\":\"2026-10-30T12:20:32.152Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\\"],\\\"nextActions\\\":[\\\"Ident\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":43,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-41\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":41,\"occurredAt\":\"2026-10-30T12:20:32.263Z\",\"kind\":\"text\",\"payload\":{\"text\":\"ify the\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":44,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-42\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":42,\"occurredAt\":\"2026-10-30T12:20:32.376Z\",\"kind\":\"text\",\"payload\":{\"text\":\" deployed change\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":45,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-43\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":43,\"occurredAt\":\"2026-10-30T12:20:32.485Z\",\"kind\":\"text\",\"payload\":{\"text\":\" set (\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":46,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-44\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":44,\"occurredAt\":\"2026-10-30T12:20:32.595Z\",\"kind\":\"text\",\"payload\":{\"text\":\"diff, service list, config\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":47,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-45\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":45,\"occurredAt\":\"2026-10-30T12:20:32.706Z\",\"kind\":\"text\",\"payload\":{\"text\":\" changes\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":48,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-46\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":46,\"occurredAt\":\"2026-10-30T12:20:32.817Z\",\"kind\":\"text\",\"payload\":{\"text\":\") to\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":49,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-47\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":47,\"occurredAt\":\"2026-10-30T12:20:32.928Z\",\"kind\":\"text\",\"payload\":{\"text\":\" narrow\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":50,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-48\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":48,\"occurredAt\":\"2026-10-30T12:20:33.042Z\",\"kind\":\"text\",\"payload\":{\"text\":\" the suspect\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":51,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-49\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":49,\"occurredAt\":\"2026-10-30T12:20:33.154Z\",\"kind\":\"text\",\"payload\":{\"text\":\" scope\\\",\\\"Check\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":52,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-50\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":50,\"occurredAt\":\"2026-10-30T12:20:33.265Z\",\"kind\":\"text\",\"payload\":{\"text\":\" error-rate\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":53,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-51\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":51,\"occurredAt\":\"2026-10-30T12:20:33.375Z\",\"kind\":\"text\",\"payload\":{\"text\":\" and\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":54,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-52\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":52,\"occurredAt\":\"2026-10-30T12:20:33.491Z\",\"kind\":\"text\",\"payload\":{\"text\":\" latency dashboards per\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":55,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-53\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":53,\"occurredAt\":\"2026-10-30T12:20:33.604Z\",\"kind\":\"text\",\"payload\":{\"text\":\" service to isolate\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":56,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-54\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":54,\"occurredAt\":\"2026-10-30T12:20:33.720Z\",\"kind\":\"text\",\"payload\":{\"text\":\" which\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":57,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-55\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":55,\"occurredAt\":\"2026-10-30T12:20:33.835Z\",\"kind\":\"text\",\"payload\":{\"text\":\" component reg\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":58,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-56\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":56,\"occurredAt\":\"2026-10-30T12:20:33.948Z\",\"kind\":\"text\",\"payload\":{\"text\":\"ressed\\\",\\\"\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":59,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-57\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":57,\"occurredAt\":\"2026-10-30T12:20:34.063Z\",\"kind\":\"text\",\"payload\":{\"text\":\"Evaluate\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":60,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-58\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":58,\"occurredAt\":\"2026-10-30T12:20:34.174Z\",\"kind\":\"text\",\"payload\":{\"text\":\" rollback feasibility\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":61,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-59\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":59,\"occurredAt\":\"2026-10-30T12:20:34.288Z\",\"kind\":\"text\",\"payload\":{\"text\":\" and\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":62,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-60\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":60,\"occurredAt\":\"2026-10-30T12:20:34.402Z\",\"kind\":\"text\",\"payload\":{\"text\":\" blast\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":63,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-61\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":61,\"occurredAt\":\"2026-10-30T12:20:34.516Z\",\"kind\":\"text\",\"payload\":{\"text\":\" radius before\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":64,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-62\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":62,\"occurredAt\":\"2026-10-30T12:20:34.629Z\",\"kind\":\"text\",\"payload\":{\"text\":\" deciding between\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":65,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-63\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":63,\"occurredAt\":\"2026-10-30T12:20:34.740Z\",\"kind\":\"text\",\"payload\":{\"text\":\" rollback and forward\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":66,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-64\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":64,\"occurredAt\":\"2026-10-30T12:20:34.853Z\",\"kind\":\"text\",\"payload\":{\"text\":\"-fix\\\"]}\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":67,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-65\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":65,\"occurredAt\":\"2026-10-30T12:20:34.964Z\",\"kind\":\"usage\",\"payload\":{\"usageId\":\"pi-usage-att-mvuxx3iw-11-ie9l28tw\",\"inputTokens\":1741,\"outputTokens\":288,\"cachedInputTokens\":0,\"microUsd\":0,\"accounting\":\"final-total\",\"estimated\":false}}}"
+        },
+        {
+          "event_json": "{\"sequence\":68,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-66\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":66,\"occurredAt\":\"2026-10-30T12:20:34.964Z\",\"kind\":\"artifact\",\"payload\":{\"artifact\":{\"artifactId\":\"pi-output-att-mvuxx3iw-11-ie9l28tw\",\"digest\":\"sha256:eda810f058794817aa47334e39e2121d2c00f4e99b28fdbc800a118f1a71c3f7\",\"bytes\":860,\"mediaType\":\"text/plain\",\"classification\":\"internal\"},\"purpose\":\"output\"}}}"
+        },
+        {
+          "event_json": "{\"sequence\":69,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-67\",\"sessionId\":\"01a18cc0-f934-74c9-84dd-cb729f3cfdde\",\"attemptId\":\"att-mvuxx3iw-11-ie9l28tw\",\"sequence\":67,\"occurredAt\":\"2026-10-30T12:20:34.964Z\",\"kind\":\"session.stopped\",\"payload\":{\"reason\":\"completed\",\"terminationConfirmed\":true,\"output\":{\"artifactId\":\"pi-output-att-mvuxx3iw-11-ie9l28tw\",\"digest\":\"sha256:eda810f058794817aa47334e39e2121d2c00f4e99b28fdbc800a118f1a71c3f7\",\"bytes\":860,\"mediaType\":\"text/plain\",\"classification\":\"internal\"}}}}"
+        },
+        {
+          "event_json": "{\"sequence\":70,\"kind\":\"effect\",\"payload\":{\"phase\":\"output-pinned\",\"artifact\":{\"artifactId\":\"att-att-mvuxx3iw-11-ie9l28tw-fbba7f5d760d9dd3900c7730\",\"digest\":\"sha256:eda810f058794817aa47334e39e2121d2c00f4e99b28fdbc800a118f1a71c3f7\",\"bytes\":860}}}"
+        },
+        {
+          "event_json": "{\"sequence\":71,\"kind\":\"progress\",\"payload\":{\"phase\":\"executed\",\"ok\":true}}"
+        },
+        {
+          "event_json": "{\"sequence\":72,\"kind\":\"effect\",\"payload\":{\"phase\":\"output-pinned\",\"artifact\":{\"artifactId\":\"att-att-mvuxx3iw-11-ie9l28tw-2eefc1839a37c33af8cec807\",\"digest\":\"sha256:33f001fafad4fc2ff841a592103edbc6a5de33a9459dca1b22e274043175aef6\",\"bytes\":858}}}"
+        },
+        {
+          "event_json": "{\"sequence\":73,\"kind\":\"effect\",\"payload\":{\"phase\":\"author-bundle-submitted\",\"bundleId\":\"bundle-att-mvuxx3iw-11-ie9l28tw\",\"digest\":\"sha256:2968285a16979da1a2a74f0cd99ae8149fc61a1477323886cc567c2d1b206d9e\"}}"
+        }
+      ]
+    },
+    {
+      "workflowId": "support-draft",
+      "runId": "run-mvuxxia2-1b-3w0y1cls",
+      "bundleDigest": "sha256:88319d0ce7aeee146f1cd8f164f9b2695fc3fd44a01b9da6d43452da50bc5cbf",
+      "jobId": "job-mvuxxia3-1c-cgwzxn6b",
+      "attemptId": "att-mvuxxia8-1e-rweul95z",
+      "artifacts": [
+        {
+          "artifactId": "att-att-mvuxxia8-1e-rweul95z-2a7415bb79d065e5e9b8008e",
+          "digest": "sha256:a9fcb2bb5b4718d9c5daa5808a719d88e1f11849938d815bee59353af132cc07",
+          "bytes": 569,
+          "mediaType": "application/json",
+          "classification": "internal"
+        }
+      ],
+      "verdict": {
+        "outcome": "verified",
+        "evaluator_attempt_id": "att-mvuxxrog-1j-pl26ndoz"
+      },
+      "output": {
+        "summary": "User reports being unable to sign in due to an expired session error.",
+        "missingInformation": [
+          "When did the issue first occur?",
+          "Which browser and device are they using?",
+          "Does the error happen on every attempt or intermittently?"
+        ],
+        "risk": "low",
+        "proposedReply": "Hi, thanks for reaching out. To help troubleshoot the expired session error, could you share: 1) When did you first notice this issue? 2) Which browser and device are you using? 3) Does the error occur on every sign-in attempt or only sometimes? We'll look into this once we have those details."
+      },
+      "engineEvents": [
+        {
+          "event_json": "{\"sequence\":1,\"kind\":\"progress\",\"payload\":{\"phase\":\"started\",\"artifactId\":\"exec-job-mvuxxia3-1c-cgwzxn6b\"}}"
+        },
+        {
+          "event_json": "{\"sequence\":2,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-1\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":1,\"occurredAt\":\"2026-10-30T12:20:38.513Z\",\"kind\":\"session.started\",\"payload\":{\"engine\":{\"id\":\"pi\",\"version\":\"1.4.0\",\"adapterDigest\":\"sha256:80bca45fdaeaca831fc244bda9015981382c2cf07fa61ada9755ff8200b1a6bd\",\"features\":[\"sessions\",\"checkpoint\"]}}}}"
+        },
+        {
+          "event_json": "{\"sequence\":3,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-2\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":2,\"occurredAt\":\"2026-10-30T12:20:46.620Z\",\"kind\":\"text\",\"payload\":{\"text\":\"\\n\\n{\\\"summary\\\":\\\"\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":4,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-3\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":3,\"occurredAt\":\"2026-10-30T12:20:46.746Z\",\"kind\":\"text\",\"payload\":{\"text\":\"User reports being\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":5,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-4\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":4,\"occurredAt\":\"2026-10-30T12:20:46.873Z\",\"kind\":\"text\",\"payload\":{\"text\":\" unable to sign in due to\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":6,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-5\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":5,\"occurredAt\":\"2026-10-30T12:20:46.996Z\",\"kind\":\"text\",\"payload\":{\"text\":\" an expired session error.\\\",\\\"missing\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":7,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-6\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":6,\"occurredAt\":\"2026-10-30T12:20:47.117Z\",\"kind\":\"text\",\"payload\":{\"text\":\"Information\\\":[\\\"When\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":8,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-7\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":7,\"occurredAt\":\"2026-10-30T12:20:47.240Z\",\"kind\":\"text\",\"payload\":{\"text\":\" did\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":9,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-8\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":8,\"occurredAt\":\"2026-10-30T12:20:47.366Z\",\"kind\":\"text\",\"payload\":{\"text\":\" the issue first\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":10,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-9\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":9,\"occurredAt\":\"2026-10-30T12:20:47.492Z\",\"kind\":\"text\",\"payload\":{\"text\":\" occur?\\\",\\\"Which\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":11,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-10\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":10,\"occurredAt\":\"2026-10-30T12:20:47.621Z\",\"kind\":\"text\",\"payload\":{\"text\":\" browser\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":12,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-11\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":11,\"occurredAt\":\"2026-10-30T12:20:47.750Z\",\"kind\":\"text\",\"payload\":{\"text\":\" and device are they\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":13,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-12\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":12,\"occurredAt\":\"2026-10-30T12:20:47.882Z\",\"kind\":\"text\",\"payload\":{\"text\":\" using?\\\",\\\"Does the error\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":14,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-13\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":13,\"occurredAt\":\"2026-10-30T12:20:48.007Z\",\"kind\":\"text\",\"payload\":{\"text\":\" happen\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":15,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-14\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":14,\"occurredAt\":\"2026-10-30T12:20:48.134Z\",\"kind\":\"text\",\"payload\":{\"text\":\" on every attempt or intermittently\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":16,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-15\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":15,\"occurredAt\":\"2026-10-30T12:20:48.263Z\",\"kind\":\"text\",\"payload\":{\"text\":\"?\\\"\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":17,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-16\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":16,\"occurredAt\":\"2026-10-30T12:20:48.389Z\",\"kind\":\"text\",\"payload\":{\"text\":\"],\\\"risk\\\":\\\"low\\\",\\\"pro\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":18,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-17\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":17,\"occurredAt\":\"2026-10-30T12:20:48.516Z\",\"kind\":\"text\",\"payload\":{\"text\":\"posedReply\\\":\\\"Hi, thanks\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":19,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-18\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":18,\"occurredAt\":\"2026-10-30T12:20:48.645Z\",\"kind\":\"text\",\"payload\":{\"text\":\" for reaching out. To\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":20,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-19\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":19,\"occurredAt\":\"2026-10-30T12:20:48.772Z\",\"kind\":\"text\",\"payload\":{\"text\":\" help troub\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":21,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-20\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":20,\"occurredAt\":\"2026-10-30T12:20:48.906Z\",\"kind\":\"text\",\"payload\":{\"text\":\"leshoot the expired session error\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":22,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-21\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":21,\"occurredAt\":\"2026-10-30T12:20:49.040Z\",\"kind\":\"text\",\"payload\":{\"text\":\", could you share: \",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":23,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-22\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":22,\"occurredAt\":\"2026-10-30T12:20:49.171Z\",\"kind\":\"text\",\"payload\":{\"text\":\"1) When did you\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":24,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-23\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":23,\"occurredAt\":\"2026-10-30T12:20:49.306Z\",\"kind\":\"text\",\"payload\":{\"text\":\" first notice this issue\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":25,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-24\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":24,\"occurredAt\":\"2026-10-30T12:20:49.442Z\",\"kind\":\"text\",\"payload\":{\"text\":\"? 2) Which browser\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":26,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-25\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":25,\"occurredAt\":\"2026-10-30T12:20:49.575Z\",\"kind\":\"text\",\"payload\":{\"text\":\" and device are you using?\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":27,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-26\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":26,\"occurredAt\":\"2026-10-30T12:20:49.708Z\",\"kind\":\"text\",\"payload\":{\"text\":\" 3) Does the error\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":28,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-27\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":27,\"occurredAt\":\"2026-10-30T12:20:49.846Z\",\"kind\":\"text\",\"payload\":{\"text\":\" occur on every sign\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":29,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-28\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":28,\"occurredAt\":\"2026-10-30T12:20:49.978Z\",\"kind\":\"text\",\"payload\":{\"text\":\"-in attempt or only sometimes\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":30,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-29\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":29,\"occurredAt\":\"2026-10-30T12:20:50.111Z\",\"kind\":\"text\",\"payload\":{\"text\":\"? We'll look\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":31,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-30\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":30,\"occurredAt\":\"2026-10-30T12:20:50.244Z\",\"kind\":\"text\",\"payload\":{\"text\":\" into this\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":32,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-31\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":31,\"occurredAt\":\"2026-10-30T12:20:50.372Z\",\"kind\":\"text\",\"payload\":{\"text\":\" once\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":33,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-32\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":32,\"occurredAt\":\"2026-10-30T12:20:50.502Z\",\"kind\":\"text\",\"payload\":{\"text\":\" we have those\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":34,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-33\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":33,\"occurredAt\":\"2026-10-30T12:20:50.635Z\",\"kind\":\"text\",\"payload\":{\"text\":\" details.\\\"}\",\"channel\":\"assistant\",\"provisional\":true}}}"
+        },
+        {
+          "event_json": "{\"sequence\":35,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-34\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":34,\"occurredAt\":\"2026-10-30T12:20:50.637Z\",\"kind\":\"usage\",\"payload\":{\"usageId\":\"pi-usage-att-mvuxxia8-1e-rweul95z\",\"inputTokens\":395,\"outputTokens\":332,\"cachedInputTokens\":0,\"microUsd\":0,\"accounting\":\"final-total\",\"estimated\":false}}}"
+        },
+        {
+          "event_json": "{\"sequence\":36,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-35\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":35,\"occurredAt\":\"2026-10-30T12:20:50.637Z\",\"kind\":\"artifact\",\"payload\":{\"artifact\":{\"artifactId\":\"pi-output-att-mvuxxia8-1e-rweul95z\",\"digest\":\"sha256:bf63b32a3145f1692f650e19966381c2cf7ef5f89d6dec5abdcea9000c5fd720\",\"bytes\":571,\"mediaType\":\"text/plain\",\"classification\":\"internal\"},\"purpose\":\"output\"}}}"
+        },
+        {
+          "event_json": "{\"sequence\":37,\"kind\":\"engine\",\"payload\":{\"contractVersion\":\"brain.engine-event/v1\",\"eventId\":\"pi-evt-36\",\"sessionId\":\"01a18cc1-43ea-74c9-84dd-cb75dfee2903\",\"attemptId\":\"att-mvuxxia8-1e-rweul95z\",\"sequence\":36,\"occurredAt\":\"2026-10-30T12:20:50.637Z\",\"kind\":\"session.stopped\",\"payload\":{\"reason\":\"completed\",\"terminationConfirmed\":true,\"output\":{\"artifactId\":\"pi-output-att-mvuxxia8-1e-rweul95z\",\"digest\":\"sha256:bf63b32a3145f1692f650e19966381c2cf7ef5f89d6dec5abdcea9000c5fd720\",\"bytes\":571,\"mediaType\":\"text/plain\",\"classification\":\"internal\"}}}}"
+        },
+        {
+          "event_json": "{\"sequence\":38,\"kind\":\"effect\",\"payload\":{\"phase\":\"output-pinned\",\"artifact\":{\"artifactId\":\"att-att-mvuxxia8-1e-rweul95z-e703172a4597a66a2a80d61e\",\"digest\":\"sha256:bf63b32a3145f1692f650e19966381c2cf7ef5f89d6dec5abdcea9000c5fd720\",\"bytes\":571}}}"
+        },
+        {
+          "event_json": "{\"sequence\":39,\"kind\":\"progress\",\"payload\":{\"phase\":\"executed\",\"ok\":true}}"
+        },
+        {
+          "event_json": "{\"sequence\":40,\"kind\":\"effect\",\"payload\":{\"phase\":\"output-pinned\",\"artifact\":{\"artifactId\":\"att-att-mvuxxia8-1e-rweul95z-2a7415bb79d065e5e9b8008e\",\"digest\":\"sha256:a9fcb2bb5b4718d9c5daa5808a719d88e1f11849938d815bee59353af132cc07\",\"bytes\":569}}}"
+        },
+        {
+          "event_json": "{\"sequence\":41,\"kind\":\"effect\",\"payload\":{\"phase\":\"author-bundle-submitted\",\"bundleId\":\"bundle-att-mvuxxia8-1e-rweul95z\",\"digest\":\"sha256:88319d0ce7aeee146f1cd8f164f9b2695fc3fd44a01b9da6d43452da50bc5cbf\"}}"
+        }
+      ]
+    }
+  ],
+  "passed": true
+}

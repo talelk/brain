@@ -1,11 +1,11 @@
 {
   "archive": "Keyrus_Brain_v4_2_Implementation_Pack.zip",
-  "bytes": 4631877,
-  "sha256": "e462d9d650f52d91ba0bc7821f0c6270d9301001f7e27b8a4bff994b1bb757c2",
-  "entries": 251,
+  "bytes": 4707292,
+  "sha256": "283b2e3d1a36820c967e322453a734c179211b9a98721463ffd3c11d9d07c105",
+  "entries": 303,
   "specification": "Keyrus_Brain_v4_2_Implementation_Spec.md",
-  "specBytes": 292914,
-  "specWords": 37767,
+  "specBytes": 309512,
+  "specWords": 39678,
   "sourceInputsIncluded": 4,
   "verificationScope": "documentation-contract-pack-only"
 }

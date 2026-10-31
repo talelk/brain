@@ -1,4 +1,4 @@
-import { Show, createSignal } from "solid-js";
+import { createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate, useParams } from "@solidjs/router";
 import type { RunnerSnapshot } from "@brain/contracts";
@@ -6,6 +6,7 @@ import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { runnerQuery } from "../../data/governor";
 import { RunnerDetailScreen } from "../workspace";
+import { ActionFeedback } from "../../ui/components/ActionFeedback";
 
 export default function RunnerDetailPage(): JSX.Element {
   const app = useApp();
@@ -26,7 +27,7 @@ export default function RunnerDetailPage(): JSX.Element {
     } catch (e) { setMessage(e instanceof Error ? e.message : "Runner operation failed."); }
   }
   return <div class="flex flex-col gap-field-gap">
-    <Show when={message()}><p role="status" class="text-base text-ink-gray-7">{message()}</p></Show>
+    <ActionFeedback message={message()} />
     <RunnerDetailScreen runner={runner.state().data} state={runner.state()}
       onRefresh={() => void runner.refresh({ force: true })} onBack={() => void navigate("/runners")}
       onDrain={(reason) => operate("runner.drain", reason)} onQuarantine={(reason) => operate("runner.quarantine", reason)}

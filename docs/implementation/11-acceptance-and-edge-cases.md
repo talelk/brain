@@ -110,6 +110,16 @@ Tests use deterministic clocks/IDs and fresh per-test DBs/checkouts. Security te
 | E098 | TV token tries mutation/private ticket read | Read-only redacted scope enforced | SECURITY |
 | E099 | Declared workload and 10× history | Proposed p95/p99/resource budgets measured or honest lower limits | PERF |
 | E100 | Runner/build/schema contract differs from the supported target | Refuse mismatched execution with diagnostics; no cross-version normalization or upgrade path | INTEGRATION |
+| E101 | Natural-language objective produces an unreviewed agent plan | Plan and tasks remain inert until explicit review; confirmation creates the exact WorkItems and dependencies | INTEGRATION/BROWSER |
+| E102 | Replan after executions and partial completion | New PlanVersion; unchanged work retained, changed work replaced, abandoned history and old execution links preserved | INTEGRATION |
+| E103 | WorkItem dependency or Done attempted without accepted evidence | Transition denied; no automatic completion from model text; verified dependencies release Ready work | DOMAIN/INTEGRATION |
+| E104 | Schedule pause/run-now/DST/misfire/overlap plus Governor restart and lost response | Preview is server-derived; one durable occurrence per identity, no duplicate run, complete history | DOMAIN/INTEGRATION/CHAOS/BROWSER |
+| E105 | Personal host is offline for scheduled work | Explicit wait/fail policy; no silent managed fallback or fictional native resume | INTEGRATION |
+| E106 | Agent delegates beyond scope/budget or writers share a worktree | Delegation narrowed/denied and bounded; isolated writes and independent review; parent/WorkItem links intact | SECURITY/INTEGRATION |
+| E107 | Document uploaded, associated, indexed, revised or revoked across memberships | Immutable bytes/versions and safe preview; scoped associations/search; no automatic shared-memory publication | SECURITY/INTEGRATION/BROWSER |
+| E108 | Git credentials, webhook replay and configuration/project repository binding | Secrets never leave backend; exact rights verified; replay deduplicated; repository classes and permissions stay separate | SECURITY/INTEGRATION |
+| E109 | Studio draft validation, advanced YAML, diff, PR/MR, compile and activation | No direct active mutation; exact reviewed commit compiles; impacted references revalidate; explicit activation required | SECURITY/INTEGRATION/BROWSER |
+| E110 | Autonomous capitalization finds duplicates and prepares executable candidates | L0–L2 idempotent and provenance-scoped; no shared or executable L3 promotion without required review/release | INTEGRATION/SECURITY/CHAOS |
 
 ## Required suite tiers
 

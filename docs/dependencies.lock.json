@@ -11,7 +11,7 @@
   "pnpm": "12.11.2",
   "typescript": "5.9.3 (resolver candidate 7.0.2 rejected: typescript-eslint@8.72.1 requires <6.1.0)",
   "typesNode": "24.10.1 (matches Node 24; resolver 26.6.5 describes a different runtime)",
-  "lockSha256": "sha256:02e5f9d2d2b1810a445c5b750c07d527d7f07dacaec4c5e969723cf992fc32e7",
+  "lockSha256": "sha256:9cd1779f755a849542444c67bcd6320b7da7f651721555bdf2f15f1c7f03cddf",
   "packages": [
     {
       "name": "@anthropic-ai/claude-agent-sdk",
@@ -114,6 +114,11 @@
       "integrity": "sha512-QxDCI0pOCCHDYmruisKhKyrvOJ6Icv9xg0RA6ZUysfKFXENYwhNNpwUlkE/NmViH2nDMgkKcymmLr55pnpR9vw=="
     },
     {
+      "name": "@better-auth/passkey",
+      "version": "1.7.14",
+      "integrity": "sha512-ZUODCRp9vnbk2GThOXRja+bpTLweJar5bJppSoobck2DhM7XCRPaQjzrCIJllnjy6VUBcCkjGm2oKmy2yvepeg=="
+    },
+    {
       "name": "better-sqlite3",
       "version": "13.0.3",
       "integrity": "sha512-RbOBxmLBG8uvFUc15X9+9SFemKcQ0WBuISBVkpuiaUB2qblC8UWlHEjdWVoZ8AdhSwmoEgsiXKfopX0CQxaACQ=="
@@ -154,6 +159,16 @@
       "integrity": "sha512-yhRLQ21U6qa9Hsu2N7Qcbh8tE+WKEcoErjIo56LeSGiGXGp9sA7UpE86Ui9uexb61KakiGwuHMn2QdV7w6i6kQ=="
     },
     {
+      "name": "isomorphic-git",
+      "version": "1.44.8",
+      "integrity": "sha512-E4MJXejXlCIIast2TWYc3vt3mu+GaU6MNnOS689UpuotqsM6jgK9v9ubnG9yPExNWXO5QvOmoDfYdZwRhR4OQg=="
+    },
+    {
+      "name": "lucide-static",
+      "version": "1.57.0",
+      "integrity": "sha512-nuf4YoaKt3Pq9scXVQ71SLr0Q1/UZiTcfBBivFsCVL6biAzPplTikVWXLetBmK3oFEJS6f2L1rzgEsoJN/Ce0Q=="
+    },
+    {
       "name": "pino",
       "version": "10.4.0",
       "integrity": "sha512-bk1ZMTwG/Vymx+zPoa28MhNzucFvXJWp3csrSuxuHPSMeUettaCoQ5Jvg07mtC4JGNpcfTwz41oVCnNgBK9+vA=="
@@ -172,6 +187,36 @@
       "name": "tailwindcss",
       "version": "4.3.3",
       "integrity": "sha512-gOhV3P7ufE62QDGg1zVaTgCR+EtPv92k2nIhVcVKcLmxT1sUBsQGhnZj175j+MqRt4zLF7ic+sCYjfhxMxj7YQ=="
+    },
+    {
+      "name": "@biomejs/biome",
+      "version": "2.6.4",
+      "integrity": "sha512-8sKKwaNW4ot22awZ3lBjwWLHnUFXgXnrBPYS2gNlBAXRbDC++7kqjK2H7dR/FgCDtPvO1xfKpgEhJkGxAKYkxA=="
+    },
+    {
+      "name": "knip",
+      "version": "6.43.0",
+      "integrity": "sha512-8l3cCOg/EXoILO0qcSoMra49yQM91+lEIR4fu5Ko8rrArGX8xKdKZiGI9psPiY6rhLmfLERcMfFEByF0wli5CA=="
+    },
+    {
+      "name": "eslint-plugin-solid",
+      "version": "0.18.1",
+      "integrity": "sha512-zxGSWGEfaVCujuOT358UVrBWuKEf91RP6bRbEIQaoX2d3VVP6R2+4NchdSajtpwNliw7eAJDjYBviuyPuSwmUQ=="
+    },
+    {
+      "name": "eslint-plugin-import-x",
+      "version": "4.17.1",
+      "integrity": "sha512-4cdstYkKCyjumM2Q9NSI03K8D2a9F4Ssz33K2lv2hQa4KmR9jPLwk3uWGtNvclfqBrPGfGuMBwsGMbe6dMRbfg=="
+    },
+    {
+      "name": "eslint-plugin-unused-imports",
+      "version": "4.4.1",
+      "integrity": "sha512-oZGYUz1X3sRMGUB+0cZyK2VcvRX5lm/vB56PgNNcU+7ficUCKm66oZWKUubXWnOuPjQ8PvmXtCViXBMONPe7tQ=="
+    },
+    {
+      "name": "eslint-plugin-security",
+      "version": "4.2.0",
+      "integrity": "sha512-LL5jbxRzlNv0vkSyBtbO7qAPofqd3xlseAFTDevyDTMmScjBrLv2/VkQ7ZFQxBaFYsa3dhpE7NcV+JkwJ9l6RQ=="
     },
     {
       "name": "typescript",
@@ -211,8 +256,7 @@
     "@modelcontextprotocol/sdk": "1.32.2",
     "@tailwindcss/forms": "0.5.11",
     "@tailwindcss/typography": "0.5.20",
-    "undici": "8.12.2",
-    "undici-types": "8.12.3"
+    "undici": "8.12.2"
   },
   "frozenInstall": "rtk pnpm install --frozen-lockfile -> ok (verified this session)"
 }

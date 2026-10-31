@@ -1,0 +1,12 @@
+{
+  "root": "/tmp/brain-local-setup-proof-JUeA6U",
+  "evidence": "/home/talel/dev/rd2026/brain/artifacts/implementation/local-setup-1793269958786",
+  "startedAt": "2026-10-29T10:32:38.862Z",
+  "sourceFingerprint": "c95a4b66e48a734542d83b5aaea70e1a22f50c40b010030e16f39ab9158825c8",
+  "modelUrl": "http://tntungx10:8000/v1",
+  "modelId": "qwen3.8-flash-next-a5b",
+  "runs": [],
+  "passed": false,
+  "failure": "/api/auth/sign-in/email: HTTP 403",
+  "completedAt": "2026-10-29T10:33:14.055Z"
+}

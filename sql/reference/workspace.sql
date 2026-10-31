@@ -74,14 +74,34 @@ CREATE TABLE connector_cursors (
 ) STRICT;
 CREATE TABLE operation_observations (
   root_run_id TEXT NOT NULL, signature TEXT NOT NULL, evidence_digest TEXT NOT NULL,
+  operation_id TEXT NOT NULL, parameter_shape_json TEXT NOT NULL CHECK(json_valid(parameter_shape_json)),
+  effect_class TEXT NOT NULL CHECK(effect_class IN ('read','write','privileged')), package_digest TEXT NOT NULL,
   verified_success INTEGER NOT NULL CHECK(verified_success IN (0,1)), created_at_ms INTEGER NOT NULL,
   PRIMARY KEY(root_run_id,signature)
 ) STRICT;
+CREATE INDEX operation_observations_signature ON operation_observations(signature,verified_success);
+CREATE TABLE knowledge_assets (
+  id TEXT PRIMARY KEY, signature TEXT NOT NULL UNIQUE, operation_id TEXT NOT NULL,
+  state TEXT NOT NULL CHECK(state IN ('extracted','reviewed','published','revoked')),
+  classification TEXT NOT NULL CHECK(classification IN ('public','internal','confidential','restricted')),
+  content TEXT NOT NULL, source_count INTEGER NOT NULL CHECK(source_count >= 1),
+  created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
 CREATE TABLE tool_candidates (
   id TEXT PRIMARY KEY, signature TEXT NOT NULL UNIQUE,
-  state TEXT NOT NULL CHECK(state IN ('quarantined','reviewing','rejected','published')),
-  source_count INTEGER NOT NULL CHECK(source_count >= 3), package_digest TEXT, created_at_ms INTEGER NOT NULL
+  state TEXT NOT NULL CHECK(state IN ('quarantined','reviewed','rejected','published')),
+  source_count INTEGER NOT NULL CHECK(source_count >= 3), package_digest TEXT NOT NULL,
+  operation_id TEXT NOT NULL, effect_class TEXT NOT NULL CHECK(effect_class IN ('read','write','privileged')),
+  test_status TEXT NOT NULL CHECK(test_status IN ('passed','failed')), definition_json TEXT NOT NULL CHECK(json_valid(definition_json)),
+  created_by TEXT NOT NULL, reviewer_id TEXT, reviewed_at_ms INTEGER, published_at_ms INTEGER, created_at_ms INTEGER NOT NULL
 ) STRICT;
+CREATE TABLE capitalization_runs (
+  id TEXT PRIMARY KEY, state TEXT NOT NULL CHECK(state IN ('queued','running','succeeded','failed')),
+  requested_by TEXT NOT NULL, observed_count INTEGER NOT NULL DEFAULT 0, extracted_count INTEGER NOT NULL DEFAULT 0,
+  candidate_count INTEGER NOT NULL DEFAULT 0, error TEXT, created_at_ms INTEGER NOT NULL,
+  started_at_ms INTEGER, completed_at_ms INTEGER
+) STRICT;
+CREATE INDEX capitalization_runs_pending ON capitalization_runs(state,created_at_ms);
 CREATE TABLE memory_publications (
   id TEXT PRIMARY KEY, content_digest TEXT NOT NULL, target_scope_json TEXT NOT NULL CHECK(json_valid(target_scope_json)),
   state TEXT NOT NULL CHECK(state IN ('candidate','reviewed','publishing','published','revoked','failed')),

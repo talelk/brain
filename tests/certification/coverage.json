@@ -1,6 +1,6 @@
 {
  "contractVersion": "brain.certification-matrix/v1",
- "note": "T50 certification matrix. covered = a passing suite names the scenario; partial = mechanism implemented, dedicated scenario test pending. Independent certification requires every row covered with trusted VerificationRun evidence.",
+ "note": "T50 certification matrix. covered = a passing suite names the scenario; partial = scenario accepted in the catalog and owned by its work-plan task (T52-T58 deliver the mechanism and its dedicated scenario test). Independent certification requires every row covered with trusted VerificationRun evidence.",
  "scenarios": [
   {
    "id": "E001",
@@ -501,6 +501,56 @@
    "id": "E100",
    "status": "covered",
    "evidence": "tests/integration/scenarios3.test.ts"
+  },
+  {
+   "id": "E101",
+   "status": "covered",
+   "evidence": "tests/integration/task-experience.test.ts"
+  },
+  {
+   "id": "E102",
+   "status": "covered",
+   "evidence": "tests/integration/work-plans.test.ts"
+  },
+  {
+   "id": "E103",
+   "status": "covered",
+   "evidence": "tests/integration/work-plans.test.ts"
+  },
+  {
+   "id": "E104",
+   "status": "covered",
+   "evidence": "tests/chaos/automation-restart.test.ts"
+  },
+  {
+   "id": "E105",
+   "status": "covered",
+   "evidence": "tests/browser/schedules.spec.ts"
+  },
+  {
+   "id": "E106",
+   "status": "covered",
+   "evidence": "tests/security/delegation.test.ts"
+  },
+  {
+   "id": "E107",
+   "status": "covered",
+   "evidence": "tests/browser/resources.spec.ts"
+  },
+  {
+   "id": "E108",
+   "status": "covered",
+   "evidence": "tests/browser/integrations.spec.ts"
+  },
+  {
+   "id": "E109",
+   "status": "covered",
+   "evidence": "tests/browser/studio.spec.ts"
+  },
+  {
+   "id": "E110",
+   "status": "covered",
+   "evidence": "tests/browser/capitalization.spec.ts"
   }
  ]
 }

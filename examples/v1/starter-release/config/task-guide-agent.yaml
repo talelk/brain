@@ -1,0 +1,26 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Agent",
+  "metadata": {
+    "id": "task-guide-assistant",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "instructionsPath": "agents/task-guide.md",
+    "tools": [],
+    "engine": {
+      "anyOf": [
+        "pi",
+        "claude"
+      ],
+      "features": [
+        "sessions"
+      ]
+    },
+    "maxTurns": 2,
+    "maxChildren": 0,
+    "maxDepth": 0,
+    "maxTokens": 16384,
+    "maxMicroUsd": 0
+  }
+}

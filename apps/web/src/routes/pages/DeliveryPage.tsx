@@ -1,6 +1,6 @@
 import { For, Show, createEffect, createSignal, onCleanup } from "solid-js";
 import type { JSX } from "solid-js";
-import { Button } from "@talelk/newui-atoms";
+import { Button, Spinner } from "@talelk/newui-atoms";
 import { Dialog } from "@talelk/newui-molecules";
 import type { BoardView, DeliveryDossier } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
@@ -10,6 +10,7 @@ import { DeliveryScreen } from "../work";
 import { StatusBadge } from "../../ui/components/StatusBadge";
 import { ArtifactContent } from "../../ui/components/ArtifactContent";
 import { DigestValue } from "../../ui/components/DigestValue";
+import { ActionFeedback } from "../../ui/components/ActionFeedback";
 
 export default function DeliveryPage(): JSX.Element {
   const app = useApp();
@@ -40,7 +41,7 @@ export default function DeliveryPage(): JSX.Element {
   });
   const card = () => board.state().data?.cards.find((candidate) => candidate.cardId === selected());
   return <div class="brain-detail-stack">
-    <Show when={message()}><p role="status" class="text-base text-ink-gray-7">{message()}</p></Show>
+    <ActionFeedback message={message()} />
     <DeliveryScreen dossiers={dossiers.state().data ?? []} state={dossiers.state()}
       onRefresh={() => void dossiers.refresh({ force: true })} onOpen={setSelected}
       onDecide={async (cardId, note) => {
@@ -51,8 +52,8 @@ export default function DeliveryPage(): JSX.Element {
     <Dialog.Root open={Boolean(selected())} onOpenChange={(open) => { if (!open) setSelected(""); }}>
       <Dialog.Content size="4xl" position="top">
         <Dialog.Header><Dialog.Title>Delivery dossier</Dialog.Title><Dialog.Description>Criteria, independent evidence and the exact source behind this delivery decision.</Dialog.Description></Dialog.Header>
-        <Show when={!loading()} fallback={<p role="status">Loading dossier…</p>}>
-          <Show when={!error()} fallback={<p role="alert">{error()}</p>}>
+        <Show when={!loading()} fallback={<div role="status" class="flex items-center gap-control-gap p-card-pad text-base text-ink-gray-7"><Spinner class="size-5" /> Loading dossier…</div>}>
+          <Show when={!error()} fallback={<ActionFeedback tone="error" message={error()} />}>
             <Show when={detail()} keyed>{(dossier) => <div class="brain-detail-stack">
               <div class="flex flex-wrap items-center gap-control-gap"><StatusBadge status={dossier.state} /><span class="text-base text-ink-gray-7">{dossier.criteria.filter((criterion) => criterion.status === "passed").length}/{dossier.criteria.length} criteria passed</span></div>
               <div><span class="text-caption text-ink-gray-6">Source revision</span><DigestValue value={dossier.sourceRevision} label="Source revision" /></div>
@@ -60,14 +61,14 @@ export default function DeliveryPage(): JSX.Element {
                 <div class="flex flex-wrap items-center gap-2"><StatusBadge status={criterion.status} /><strong>{criterion.criterionId}</strong></div><p class="mt-1 text-base text-ink-gray-7">{criterion.detail}</p>
               </article>}</For></section>
               <section><h3 class="mb-2 text-base-medium">Evidence artifacts</h3><Show when={dossier.evidence.length} fallback={<p>No evidence artifacts are attached.</p>}><For each={dossier.evidence}>{(artifact) => <ArtifactContent artifact={artifact} compact />}</For></Show></section>
-              <Show when={card()}>{(linked) => <Button class="min-h-11" onClick={() => void (async () => {
+              <Show when={card()}>{(linked) => <Button size="lg" onClick={() => void (async () => {
                 const result = await app.run("decision.record", { cardId: linked().cardId, decision: "go", note: `Accepted against delivery dossier ${dossier.id}` }, { expectedVersion: linked().version });
                 setMessage(result.detail); setSelected("");
               })()}>Record Go decision</Button>}</Show>
             </div>}</Show>
           </Show>
         </Show>
-        <Dialog.Footer><Button variant="outline" onClick={() => setSelected("")}>Close</Button></Dialog.Footer>
+        <Dialog.Footer><Button size="lg" variant="outline" onClick={() => setSelected("")}>Close</Button></Dialog.Footer>
       </Dialog.Content>
     </Dialog.Root>
   </div>;

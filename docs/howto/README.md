@@ -1,14 +1,32 @@
-# How-to guides
+# Brain guides
 
-Task-oriented guides for operating the current target system. The architecture and
-decision records stay in `docs/implementation/`; the README keeps the short quickstart.
+## Using Brain
 
-| Guide | Use it to |
-|---|---|
-| [Run the local stack](run-local-stack.md) | Start, stop, and troubleshoot Governor, launcher, and runners on one host |
-| [Compile and activate a release](compile-activate-release.md) | Stage, inspect, and activate configuration; change documents safely |
-| [Add a governed tool](add-governed-tool.md) | Wire a new release-pinned tool into an Agent through the broker |
-| [Operate runs and approvals](operate-runs-and-approvals.md) | Dispatch, watch, and reconcile runs; review exact effects |
-| [Backup and restore](backup-restore.md) | Run trusted offline maintenance on the Governor host |
-| [Run the operational proof](verify-operational.md) | Reproduce the end-to-end acceptance evidence |
-| [Deploy the reference topology](deploy-compose.md) | Understand the separate Governor/runner trust boundary files |
+- [Run your first task](use-brain.md): sign in, choose a starter task and read the result.
+- [Runs and approvals](operate-runs-and-approvals.md): follow work and review proposed actions.
+
+## Administering Brain
+
+Start an installed source checkout with `rtk pnpm brain start`. Fresh initialization
+creates the administrator and a populated workspace. See the [README](../../README.md)
+for generated credentials, persistent state and current setup limits.
+
+- [Advanced configuration](configuration-reference.md): full environment and authoring reference.
+- [Run the local stack](run-local-stack.md): advanced model/runner configuration and troubleshooting.
+- [Backup and restore](backup-restore.md): verified host maintenance and recovery.
+- [Deploy the reference topology](deploy-compose.md): Governor, runner and launcher boundaries.
+- [Run the operational proof](verify-operational.md): reproduce live execution evidence.
+
+## Authoring capabilities
+
+- [Compile and activate a release](compile-activate-release.md): prepare, inspect and activate custom configuration.
+- [Add a governed tool](add-governed-tool.md): declare and pin tools through the broker.
+
+## Reference
+
+- [Functional specification](../functional-spec.md): user and admin workflows as
+  functional specs with technical notes.
+- [Screen descriptions](../screen-descriptions.md): every screen, its queries,
+  actions and audience.
+
+Architecture and implementation contracts live in `docs/implementation/`.

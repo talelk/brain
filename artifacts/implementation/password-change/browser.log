@@ -1,0 +1,23 @@
+
+Running 6 tests using 1 worker
+
+(node:328839) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [390-light] › tests/browser/first-launch.spec.ts:4:1 › default administrator changes password and discovers populated starter tasks (1.9s)
+(node:328976) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  2 [390-dark] › tests/browser/first-launch.spec.ts:4:1 › default administrator changes password and discovers populated starter tasks (2.1s)
+(node:329217) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  3 [768-light] › tests/browser/first-launch.spec.ts:4:1 › default administrator changes password and discovers populated starter tasks (2.0s)
+(node:329738) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  4 [768-dark] › tests/browser/first-launch.spec.ts:4:1 › default administrator changes password and discovers populated starter tasks (2.0s)
+(node:330247) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  5 [1440-light] › tests/browser/first-launch.spec.ts:4:1 › default administrator changes password and discovers populated starter tasks (1.9s)
+(node:330347) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  6 [1440-dark] › tests/browser/first-launch.spec.ts:4:1 › default administrator changes password and discovers populated starter tasks (1.8s)
+
+  6 passed (17.8s)

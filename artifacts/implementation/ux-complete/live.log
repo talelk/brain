@@ -1,0 +1,17 @@
+Local setup proof: start
+Local setup proof: agent-smoke independently verified
+Local setup proof: operations-triage independently verified
+Local setup proof: support-draft independently verified
+Local setup proof: live conversation proposal required explicit confirmation and completed
+Local setup proof: stop
+Local setup proof: start
+Local setup proof: backup
+Local setup proof: reset
+Local setup proof: start
+Local setup proof: reset erased all managed state and regenerated fresh defaults
+Local setup proof: reset
+Local setup proof: restore
+Local setup proof: start
+Local setup proof: backup survived reset; restored workspace remains suspended
+Local setup proof: stop
+Local setup evidence: /home/talel/dev/rd2026/brain/artifacts/implementation/local-setup-1793277724189

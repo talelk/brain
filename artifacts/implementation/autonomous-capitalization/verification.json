@@ -1,0 +1,58 @@
+{
+  "recordedAt": "2026-10-31T04:42:58Z",
+  "task": "T57",
+  "scenario": "E110",
+  "implementation": "complete",
+  "sourceRevision": "20016d2a44ea113e0402207128389e0b0728f780",
+  "worktree": "dirty; existing user changes preserved",
+  "checks": {
+    "focusedIntegration": {
+      "command": "rtk pnpm exec vitest run tests/integration/capitalization.test.ts tests/integration/scenarios2.test.ts",
+      "exitCode": 0,
+      "tests": 36
+    },
+    "focusedSecurity": {
+      "command": "rtk pnpm exec vitest run tests/security/capitalization-scope.test.ts tests/security/memory-acl.test.ts tests/security/authz.test.ts",
+      "exitCode": 0,
+      "tests": 11
+    },
+    "focusedChaos": {
+      "command": "rtk pnpm exec vitest run tests/chaos/capitalization-restart.test.ts",
+      "exitCode": 0,
+      "tests": 1
+    },
+    "fast": {
+      "command": "rtk pnpm verify:fast",
+      "exitCode": 0,
+      "contractTests": 5,
+      "domainTests": 31,
+      "notes": "ESLint, Knip, all typechecks, boundaries and native auth schema pass; Biome reports only the pre-existing automation unused parameter warning."
+    },
+    "integration": { "command": "rtk pnpm test:integration", "exitCode": 0, "files": 46, "tests": 204 },
+    "security": { "command": "rtk pnpm test:security", "exitCode": 0, "files": 24, "tests": 75 },
+    "chaos": { "command": "rtk pnpm test:chaos", "exitCode": 0, "files": 11, "tests": 34 },
+    "certification": { "command": "rtk pnpm test:certification", "exitCode": 0, "tests": 2 },
+    "fullBrowserMatrix": {
+      "command": "rtk pnpm test:browser",
+      "exitCode": 0,
+      "testsPassed": 150,
+      "duration": "5.2m",
+      "projects": ["390-light", "390-dark", "768-light", "768-dark", "1440-light", "1440-dark"]
+    },
+    "implementationPack": { "command": "rtk python3 scripts/verify_implementation_pack.py", "exitCode": 0, "definitions": 308, "commands": 57, "events": 91 }
+  },
+  "observedBehavior": [
+    "Accepted independent verified evidence automatically captures provenance-scoped L0 operation observations.",
+    "Durable capitalization runs extract L1 knowledge and deduplicate L2 candidates from three distinct verified root runs; retries do not count.",
+    "Candidates include typed input shapes, effect class, existing alternatives and original test evidence, and remain quarantined.",
+    "L3 tool publication requires explicit human review, every original test evidence digest and the exact active configuration release.",
+    "Knowledge publication remains a separate reviewed memory flow; extraction never publishes shared memory or executable authority.",
+    "Queued and interrupted runs resume after restart without duplicate assets, candidates or completion events.",
+    "Knowledge Studio exposes run state, provenance, candidate tests, review and exact-release publication in all six browser projects."
+  ],
+  "limitations": [
+    "Biome reports only the pre-existing unused db parameter in apps/governor/src/modules/jobs/automation.ts:319.",
+    "No live Anthropic/customer-system qualification or independent release certification is claimed by this evidence.",
+    "Historical G01-G08 and runtime-readiness records were not promoted."
+  ]
+}

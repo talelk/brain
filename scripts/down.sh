@@ -2,7 +2,7 @@
 # Keyrus Brain — stop the stack started by scripts/up.sh.
 # Stops runners -> launcher -> governor using pidfiles in BRAIN_RUN_DIR.
 # Each pid is verified against its expected command line before signaling.
-# Data (BRAIN_DATA_DIR) is never touched. TencentDB is external; left alone.
+# Data (BRAIN_DATA_DIR) and TencentDB volumes are never deleted.
 set -euo pipefail
 
 RUN_DIR="${BRAIN_RUN_DIR:-/tmp/brain-run}"
@@ -45,5 +45,8 @@ done
 stop_one launcher "apps/launcher/src/main.ts"
 rm -f "${BRAIN_LAUNCHER_SOCKET:-${RUN_DIR}/launcher.sock}"
 stop_one governor "apps/governor/src/main.ts"
+if [[ "${BRAIN_TENCENTDB_MANAGED:-true}" == "true" ]]; then
+  pnpm exec tsx scripts/start-tencentdb.ts --stop
+fi
 
-log "stack down (data preserved in ${BRAIN_DATA_DIR:-/tmp/brain-data}; tencentdb is external and untouched)"
+log "stack down (Brain data and TencentDB volumes preserved in ${BRAIN_DATA_DIR:-/tmp/brain-data} and Docker)"

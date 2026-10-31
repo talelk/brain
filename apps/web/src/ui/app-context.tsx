@@ -197,7 +197,7 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
     scope,
     myRoles, canDispatch: () => identity()?.actor.kind === "human" && hasRole("operator"),
     canOperate: () => identity()?.actor.kind === "human" && hasRole("operator"),
-    canAdminister: () => identity()?.actor.kind === "human" && myRoles().includes("workspace-lead"),
+    canAdminister: () => identity()?.actor.kind === "human" && (myRoles().includes("workspace-lead") || Boolean(identity()?.actor.scopes.includes("config:activate"))),
     canApprove: () => identity()?.actor.kind === "human" && hasRole("approver"),
     canPublish: () => identity()?.actor.kind === "human" && hasRole("operator"),
     selectWorkspace, start, reloadIdentity, signOut, run,

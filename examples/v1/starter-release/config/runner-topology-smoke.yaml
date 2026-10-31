@@ -1,0 +1,105 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Workflow",
+  "metadata": {
+    "id": "runner-topology-smoke",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "inputSchemaRef": "schemas/smoke-input.json",
+    "outputSchemaRef": "schemas/workflow-output.json",
+    "jobs": {
+      "respond": {
+        "kind": "dispatch",
+        "needs": [],
+        "input": {
+          "message": {
+            "source": "input",
+            "pointer": "/message"
+          }
+        },
+        "outputSchemaRef": "schemas/smoke-output.json",
+        "timeoutSeconds": 120,
+        "uses": {
+          "type": "agent",
+          "release": {
+            "id": "diagnostic",
+            "digest": "sha256:35a266b009b4ad079d89e79b6a387041fd6c58f192f1c3d98aa354181cddd2e8"
+          }
+        },
+        "runsOn": {
+          "group": "agents",
+          "engine": {
+            "anyOf": ["pi"],
+            "features": ["sessions"]
+          },
+          "all": ["os:linux"],
+          "resources": {
+            "cpuMillicores": 500,
+            "memoryMb": 256,
+            "diskMb": 256,
+            "slots": 1
+          },
+          "isolation": "ephemeral-container"
+        },
+        "effectClass": "read"
+      },
+      "validate": {
+        "kind": "eval",
+        "needs": ["respond"],
+        "input": {
+          "kind": {
+            "source": "literal",
+            "value": "agent-smoke"
+          },
+          "report": {
+            "source": "job",
+            "jobId": "respond",
+            "pointer": ""
+          }
+        },
+        "outputSchemaRef": "schemas/validation-output.json",
+        "timeoutSeconds": 30,
+        "evaluator": {
+          "id": "operations-validator",
+          "digest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f"
+        },
+        "runsOn": {
+          "group": "evaluators",
+          "engine": {
+            "anyOf": ["claude"],
+            "features": ["sessions"]
+          },
+          "all": ["os:linux", "tool:bash", "tool:python3"],
+          "resources": {
+            "cpuMillicores": 500,
+            "memoryMb": 256,
+            "diskMb": 256,
+            "slots": 1
+          },
+          "isolation": "ephemeral-container"
+        },
+        "independence": "L1"
+      }
+    },
+    "outputs": {
+      "response": {
+        "source": "job",
+        "jobId": "respond",
+        "pointer": ""
+      },
+      "passed": {
+        "source": "job",
+        "jobId": "validate",
+        "pointer": "/passed"
+      }
+    },
+    "failFast": true,
+    "deadlineSeconds": 300,
+    "presentation": {
+      "title": "Verify Pi and Claude routing",
+      "description": "Exercise the default Pi author and Claude evaluator runner topology.",
+      "system": true
+    }
+  }
+}

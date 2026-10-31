@@ -10,7 +10,7 @@
     "tools": [
       {
         "id": "operations.context",
-        "digest": "sha256:693bf4cf88405ab9b1845385eee2abcef51085c3dde0bc47de6ea0cebf6dafab"
+        "digest": "sha256:34fa8bce5467157d60b19931112a7a946b1ebebfd10748421826cd531424403b"
       }
     ],
     "engine": {

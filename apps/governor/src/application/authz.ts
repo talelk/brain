@@ -27,10 +27,6 @@ export function issueMachineSession(store: Store, principalId: string, organizat
   return token;
 }
 
-export function revokeMachineSession(store: Store, token: string): void {
-  store.control.prepare("UPDATE machine_sessions SET revoked_at_ms=? WHERE token_digest=?").run(store.now(), store.tokenDigest("machine-session", token));
-}
-
 export function scopesForPrincipal(store: Store, principalId: string, organizationId: string, workspaceId?: string): string[] {
   const scopes = new Set<string>();
   const orgRows = store.control.prepare(

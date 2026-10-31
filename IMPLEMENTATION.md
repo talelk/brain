@@ -4,6 +4,8 @@ Prepared 27 October 2026. This pack consolidates the supplied v4 architecture an
 
 **Git declares. SQLite records. TencentDB remembers. Governor authorizes. Mastra coordinates. Runners execute. Independent evaluators verify.**
 
+**Product vision:** Brain turns intentions into versioned plans, WorkItems and coordinated executions, then capitalizes reusable knowledge and capabilities. Its eight pillars are Workspace, Plan & Board, Agent Sessions, Multi-Agent Collaboration, Scheduling & Automation, Governance & Verification, Autonomous Capitalization, and Configuration & Studio. The Web UI is the primary creation/administration experience; GitOps remains underneath for published definitions, with no mandatory YAML or terminal for common operations.
+
 **Deployment model: modular monolith.** One Governor contains the internal product modules. The shared workspace package is `packages/contracts`; Web/CLI are thin clients, and runner/launcher remain isolated executables. [Module layout](contracts/v1/module-layout.json) defines the target folders. Full functional scope and the user's direct-target implementation policy remain unchanged.
 
 **UI foundation:** use [NewUI](https://talelk.github.io/newui/) and its public `@talelk/newui-*` packages for Brain Web, PWA and TV. [NewUI integration](docs/implementation/16-newui-integration.md) specifies package ownership, component mapping, styling, Governor data adapters and acceptance gates. Brain composes product workflows on NewUI.

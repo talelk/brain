@@ -8,7 +8,7 @@ export interface WorkflowEnginePort {
   readonly engineId: string;
   startRun(input: {
     organizationId: string; workspaceId: string; actorId: string;
-    workflowId: string; workflow: Workflow; configDigest: string; runInput: JsonValue; executionKey: string;
+    workflowId: string; workflow: Workflow; configDigest: string; runInput: JsonValue; executionKey: string; runnerId?: string;
   }): { runId: string };
   completeStep(organizationId: string, workspaceId: string, runId: string, stepId: string, output: JsonValue, ok: boolean): void;
   wakeGate(organizationId: string, workspaceId: string, approvalId: string, approved: boolean): void;

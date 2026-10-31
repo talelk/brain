@@ -23,8 +23,7 @@ if (env["BRAIN_ADMIN_PASSWORD_FILE"]) {
   delete env["BRAIN_PASSWORD"]; delete env["BRAIN_TOTP"];
 }
 for (const group of [process.env["BRAIN_RUNNER_GROUP"] ?? (profile === "fixture" ? "fixture-tools" : "agents"), profile === "fixture" ? "fixture-evaluators" : "evaluators"]) {
-  const count = group.endsWith("evaluators") ? 1 : Number(process.env["BRAIN_RUNNERS"] ?? "1");
-  for (let i=1;i<=count;i++) {
+  for (let i=1;i<=1;i++) {
     const name=`runner-${group}-${i}`, pidfile=join(runDir,`${name}.pid`), logfile=join(runDir,`${name}.log`);
     if (existsSync(pidfile)) {
       const pid=Number(readFileSync(pidfile,"utf8").trim());
@@ -35,9 +34,9 @@ for (const group of [process.env["BRAIN_RUNNER_GROUP"] ?? (profile === "fixture"
     const offset=existsSync(logfile)?statSync(logfile).size:0;
     const fd=openSync(logfile,"a",0o600);
     const runnerEnv={...process.env,BRAIN_GOVERNOR_URL:env.BRAIN_GOVERNOR_URL,BRAIN_RUNNER_ID:name,BRAIN_RUNNER_STATE_DIR:join(runDir,`${name}-state`),BRAIN_RUNNER_ENROLL_TOKEN:String(token),
-      BRAIN_RUNNER_ENGINE:group.endsWith("evaluators")?"fixture":process.env["BRAIN_RUNNER_ENGINE"]??(profile==="fixture"?"fixture":"pi"),
+      BRAIN_RUNNER_ENGINE:group.endsWith("evaluators")?(profile==="fixture"?"fixture":"claude"):process.env["BRAIN_RUNNER_ENGINE"]??(profile==="fixture"?"fixture":"pi"),
       BRAIN_RUNNER_CAPABILITIES:process.env["BRAIN_RUNNER_CAPABILITIES"]??"os:linux,tool:bash,tool:python3,isolation:ephemeral-container"};
-    for (const key of ["BRAIN_AUTH_SECRET","BRAIN_TOKEN","BRAIN_PASSWORD","BRAIN_ADMIN_EMAIL","BRAIN_ADMIN_PASSWORD_FILE","BRAIN_ADMIN_TOTP","BRAIN_TOTP"]) delete runnerEnv[key];
+    for (const key of ["BRAIN_AUTH_SECRET","BRAIN_TOKEN","BRAIN_PASSWORD","BRAIN_ADMIN_PASSWORD","BRAIN_ADMIN_EMAIL","BRAIN_ADMIN_PASSWORD_FILE","BRAIN_ADMIN_TOTP","BRAIN_TOTP"]) delete runnerEnv[key];
     const child=spawn(process.execPath,["--import","tsx","apps/runner/src/main.ts"],{env:runnerEnv,detached:true,stdio:["ignore",fd,fd]});
     closeSync(fd); child.unref(); writeFileSync(pidfile,String(child.pid),{mode:0o600});
     let connected=false;

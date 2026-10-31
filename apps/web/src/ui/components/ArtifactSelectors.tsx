@@ -1,10 +1,11 @@
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, For } from "solid-js";
 import { Button, TextInput } from "@talelk/newui-atoms";
 import { Select } from "@talelk/newui-molecules";
 import type { ArtifactRef } from "@brain/contracts";
 import { governor, query } from "../../data/client";
 import { createScopedRead } from "../../data/screens";
 import { useApp } from "../app-context";
+import { ActionFeedback } from "./ActionFeedback";
 
 /** Select verified workspace artifacts or upload bytes; never ask an operator to invent a digest or byte count. */
 export function ArtifactSelector(props: { label: string; onSelect: (artifact: ArtifactRef) => void; maxBytes?: number }) {
@@ -31,7 +32,7 @@ export function ArtifactSelector(props: { label: string; onSelect: (artifact: Ar
     <Select label={props.label} value={selected()} options={(read.state().data??[]).map((artifact)=>({value:artifact.artifactId,label:`${artifact.artifactId} · ${artifact.mediaType} · ${artifact.bytes} bytes`}))}
       onValueChange={(id)=>{setSelected(id??"");const artifact=read.state().data?.find((a)=>a.artifactId===id);if(artifact)props.onSelect(artifact);}} />
     <TextInput label={`Upload ${props.label.toLowerCase()}`} type="file" onChange={(event)=>{const file=event.currentTarget.files?.[0];if(file)void upload(file);}} />
-    <Show when={error()||read.state().error}><p role="alert">{error()||read.state().error}</p></Show>
+    <ActionFeedback tone="error" message={error() || read.state().error} />
   </div>;
 }
 
@@ -56,6 +57,6 @@ export function EvidenceBundleSelector(props: { label?: string; onSelect: (diges
       description="Only server-verified bundles are listed; an arbitrary artifact digest cannot mark work Done."
       options={(read.state().data ?? []).map((bundle) => ({ value: bundle.digest, label: `${bundle.passedCriteria.length} passed criteria`, description: bundle.digest }))}
       onValueChange={(digest) => { setSelected(digest ?? ""); if (digest) props.onSelect(digest); }} />
-    <Show when={read.state().error}><p role="alert">{read.state().error}</p></Show>
+    <ActionFeedback tone="error" message={read.state().error} />
   </div>;
 }

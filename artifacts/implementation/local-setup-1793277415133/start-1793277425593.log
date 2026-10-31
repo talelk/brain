@@ -1,0 +1,13 @@
+$ pnpm typecheck && pnpm typecheck:web && pnpm --filter @brain/web build
+$ tsc --noEmit --pretty false -p tsconfig.typecheck.json
+$ pnpm --filter @brain/web typecheck
+$ tsc --noEmit --pretty false
+src/ui/components/OperationalChecklist.tsx(22,121): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+[ELIFECYCLE] Command failed with exit code 2.
+Error: ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL
+
+  × "pnpm recursive run" failed in /home/talel/dev/rd2026/brain/apps/web
+
+[ELIFECYCLE] Command failed with exit code 1.
+[ELIFECYCLE] Command failed with exit code 1.

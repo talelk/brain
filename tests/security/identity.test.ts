@@ -10,9 +10,9 @@ import { totpCode } from "../support/totp";
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const close of cleanup.splice(0)) await close(); vi.restoreAllMocks(); });
-async function application() {
+async function application(requireTwoFactor = false) {
   const dir = mkdtempSync(join(tmpdir(), "brain-identity-"));
-  const app = await createApp({ dataDir: dir });
+  const app = await createApp({ dataDir: dir, ...(requireTwoFactor ? { runtime: { requireTwoFactor: true, memoryUiUrl: null } } : {}) });
   cleanup.push(async () => { await app.close(); rmSync(dir, { recursive: true, force: true }); });
   const send = (path: string, body: unknown, token?: string, headers: Record<string, string> = {}) => app.fetch(new Request(`http://127.0.0.1:3000${path}`, {
     method: "POST", headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers }, body: JSON.stringify(body),
@@ -191,21 +191,29 @@ describe("server-verified identity and native TOTP (E001–E005/E008/E051/E060)"
     const password = "native-invite-password-1";
     const boot = await app.brain.bootstrap({ organizationId: "org-invite", name: "Invite", email: "owner-invite@example.test", password }, setupCredential(app.brain));
     const authOrg = app.brain.store.control.prepare('SELECT id FROM "organization" LIMIT 1').get() as { id: string };
-    const invite = await send("/api/auth/organization/invite-member", { email: "invitee@example.test", role: "member", organizationId: authOrg.id }, boot.sessionToken);
+    expect((await send("/api/auth/organization/invite-member", { email: "invitee@example.test", role: "member", organizationId: authOrg.id }, boot.sessionToken)).status).toBe(403);
+    const invite = await send("/v1/commands", { contractVersion: "brain.command/v1", commandId: "invite-native-1", commandType: "organization.invitation.create", idempotencyKey: "invite-native-1", expectedVersion: 1, payload: { email: "invitee@example.test", reason: "Native invitation test" } }, boot.sessionToken);
     expect(invite.status).toBe(200);
-    const invitation = await invite.json() as { id: string };
-    const outbox = app.brain.store.control.prepare("SELECT email, role FROM invitation_outbox WHERE invitation_id=?").get(invitation.id) as { email: string; role: string };
-    expect(outbox).toEqual({ email: "invitee@example.test", role: "member" });
-    // A different account cannot accept someone else's invitation.
+    const invitation = await invite.json() as { resourceId: string };
+    const outbox = app.brain.store.control.prepare("SELECT email,kind,state FROM auth_email_outbox WHERE id=?").get(`invitation:${invitation.resourceId}`) as { email: string; kind: string; state: string };
+    expect(outbox).toEqual({ email: "invitee@example.test", kind: "organization-invitation", state: "pending" });
+    // Uninvited sign-up is closed; a different invited account cannot accept this invitation.
+    expect((await send("/api/auth/sign-up/email", { email: "stranger@example.test", password: "other-password-1234", name: "Stranger" })).status).toBe(403);
+    await send("/v1/commands", { contractVersion: "brain.command/v1", commandId: "invite-native-2", commandType: "organization.invitation.create", idempotencyKey: "invite-native-2", expectedVersion: 2, payload: { email: "other@example.test", reason: "Second invitation test" } }, boot.sessionToken);
     const other = await send("/api/auth/sign-up/email", { email: "other@example.test", password: "other-password-1234", name: "Other" });
-    const otherBody = await other.json() as { token?: string };
-    const wrongAccept = await send("/api/auth/organization/accept-invitation", { invitationId: invitation.id }, otherBody.token);
+    const otherBody = await other.json() as { token?: string; user?: { id: string } };
+    app.brain.store.control.prepare('UPDATE "user" SET emailVerified=1 WHERE id=?').run(otherBody.user!.id);
+    const wrongAccept = await send("/api/auth/organization/accept-invitation", { invitationId: invitation.resourceId }, otherBody.token);
     expect(wrongAccept.status).not.toBe(200);
-    // The invited account accepts and becomes a member.
+    // The invited account verifies its email, accepts and becomes a member.
     const signup = await send("/api/auth/sign-up/email", { email: "invitee@example.test", password: "invitee-password-123", name: "Invitee" });
     expect(signup.status).toBe(200);
     const inviteeBody = await signup.json() as { token?: string; user?: { id: string } };
-    const accepted = await send("/api/auth/organization/accept-invitation", { invitationId: invitation.id }, inviteeBody.token);
+    const verification = app.brain.store.control.prepare("SELECT url FROM auth_email_outbox WHERE kind='verify-email' AND email=? ORDER BY created_at_ms DESC LIMIT 1").get("invitee@example.test") as { url: string };
+    expect(new URL(verification.url).searchParams.get("callbackURL")).toBe(`/accept-invitation/${invitation.resourceId}`);
+    const verified = await app.fetch(new Request(verification.url, { redirect: "manual" }));
+    expect(verified.status).toBeLessThan(400);
+    const accepted = await send("/api/auth/organization/accept-invitation", { invitationId: invitation.resourceId }, inviteeBody.token);
     expect(accepted.status).toBe(200);
     expect(app.brain.auth.hasMembership(inviteeBody.user!.id, authOrg.id)).toBe(true);
     // Password rotation: old password stops working, new one signs in.
@@ -217,4 +225,42 @@ describe("server-verified identity and native TOTP (E001–E005/E008/E051/E060)"
     const cookie = boot.cookies.map((c) => c.split(";")[0]).join("; ");
     expect((await send("/api/auth/sign-out", {}, undefined, { cookie, origin: "https://evil.example" })).status).toBe(403);
   });
+});
+
+describe("generated administrator credentials", () => {
+  it("restricts temporary-password sessions until a genuinely different password is saved", async () => {
+    const { app, send } = await application();
+    const initial = "temporary-password-for-test-123";
+    const response = await send("/v1/setup", { email: "admin@brain.local", password: initial, name: "My organization", organizationId: "org-default" }, undefined, { authorization: `Setup ${setupCredential(app.brain)}` });
+    expect(response.status).toBe(201);
+    const result = await response.json() as { sessionToken: string; ownerPrincipalId: string };
+    app.brain.store.control.prepare("INSERT INTO brain_initial_password SELECT userId,password FROM account WHERE userId=? AND providerId='credential'").run(result.ownerPrincipalId);
+    const identity = await app.fetch(new Request("http://127.0.0.1:3000/v1/identity", { headers: { authorization: `Bearer ${result.sessionToken}` } }));
+    expect((await identity.json() as { passwordChangeRequired: boolean }).passwordChangeRequired).toBe(true);
+    expect((await send("/v1/setup/workspace", { workspaceId: "blocked", slug: "Blocked" }, result.sessionToken)).status).toBe(403);
+    expect((await send("/api/auth/change-password", { currentPassword: initial, newPassword: initial }, result.sessionToken)).status).toBe(400);
+    const changed = await send("/api/auth/change-password", { currentPassword: initial, newPassword: "new-unique-password-for-test-456", revokeOtherSessions: true }, result.sessionToken);
+    expect(changed.status).toBe(200);
+    const login = await send("/api/auth/sign-in/email", { email: "admin@brain.local", password: "new-unique-password-for-test-456" });
+    expect(login.status).toBe(200);
+    const account = await login.json() as { token: string };
+    expect((await app.brain.auth.readSession(new Headers({ authorization: `Bearer ${account.token}` })))?.passwordChangeRequired).toBe(false);
+    expect((await send("/v1/setup/workspace", { workspaceId: "allowed", slug: "Allowed" }, account.token)).status).toBe(201);
+    expect((await send("/api/auth/sign-in/email", { email: "admin@brain.local", password: initial })).status).toBe(401);
+  });
+});
+
+it("required 2FA gates both runner-token issuance and guided local pairing", async () => {
+  const { app, send } = await application(true);
+  const password = "required-factor-password-123";
+  const setup = await send("/v1/setup", { email: "factor@example.test", password, name: "Required factor", organizationId: "org-factor" }, undefined, { authorization: `Setup ${setupCredential(app.brain)}` });
+  expect(setup.status).toBe(201);
+  const boot = await setup.json() as { sessionToken: string };
+  expect((await send("/v1/runner-tokens", { groupId: "agents" }, boot.sessionToken)).status).toBe(403);
+  expect((await send("/v1/local-runtime/connect", { modelUrl: "http://localhost:8000/v1", modelId: "model" }, boot.sessionToken)).status).toBe(403);
+  const enabled = await send("/api/auth/two-factor/enable", { password }, boot.sessionToken);
+  const secret = new URL((await enabled.json() as { totpURI: string }).totpURI).searchParams.get("secret")!;
+  const verified = await send("/api/auth/two-factor/verify-totp", { code: totpCode(secret, Date.now()), trustDevice: false }, boot.sessionToken);
+  expect(verified.status).toBe(200);
+  expect((await send("/v1/runner-tokens", { groupId: "agents" }, verified.headers.get("set-auth-token")!)).status).toBe(201);
 });

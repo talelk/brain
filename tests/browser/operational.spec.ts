@@ -24,10 +24,14 @@ test("optional-factor operator inspects a release, activates it, dispatches both
   await page.goto(`${governor.url}/settings`);
   await expect(page.getByRole("heading",{name:"Security",exact:true})).toBeVisible();
   await capture("settings-security");
-  await page.getByRole("radio",{name:"Integrations",exact:true}).click();
-  await expect(page.getByRole("link",{name:"Open Memory UI"})).toHaveAttribute("rel","noopener noreferrer");
-  await expect(page.getByRole("link",{name:"Open Better Auth Admin"})).toHaveAttribute("target","_blank");
-  await capture("settings-integrations");
+  await page.goto(`${governor.url}/settings?tab=people`);
+  await expect(page.getByRole("heading",{name:"People",exact:true})).toBeVisible();
+  await expect(page.getByText("operator@example.test",{exact:true}).locator("visible=true").first()).toBeVisible();
+  await page.goto(`${governor.url}/settings?tab=invitations`);
+  await expect(page.getByRole("heading",{name:"Invitations",exact:true})).toBeVisible();
+  await page.goto(`${governor.url}/settings?tab=policy`);
+  await expect(page.getByRole("heading",{name:"Authentication policy",exact:true})).toBeVisible();
+  await expect(page.getByText("Enabled · sign-in only",{exact:true})).toBeVisible();
   await page.goto(`${governor.url}/w/operations/knowledge`);
   await expect(page.getByRole("link",{name:"Open Memory UI"})).toHaveAttribute("href","https://memory.example.test/");
   await expect(page.getByRole("link",{name:"Open Memory UI"})).toHaveAttribute("rel","noopener noreferrer");
@@ -51,13 +55,12 @@ test("optional-factor operator inspects a release, activates it, dispatches both
   const evalSession=await enrollAndHello(evaluator,brain.issueEnrollment(actor,"evaluators").token);
   for (const id of ["operations-triage","support-draft"]) {
     await page.goto(`${governor.url}/w/operations/workflows`);
-    const title=id === "operations-triage" ? "Operations triage" : "Support draft";
-    await page.getByRole("row").filter({hasText:title}).getByRole("checkbox").check();
-    await page.getByRole("button",{name:/^Inspect(?: \(\d+\))?$/}).click();
+    await page.getByRole("region",{name:"Workflows",exact:true}).getByRole("button",{name:`Start task: ${id}`,exact:true}).click();
     if (id === "operations-triage") await page.getByLabel(/^Situation/).fill("Latency increased after deployment");
     else { await page.getByLabel(/^Title/).fill("Session expired"); await page.getByLabel(/^Body/).fill("I cannot sign in"); }
     await capture(`workflow-${id}`);
-    await page.getByRole("button",{name:`Dispatch ${title}`,exact:true}).click();
+    await page.getByRole("button",{name:"Review task",exact:true}).click();
+    await page.getByRole("heading",{name:"Review before starting",exact:true}).locator("..").getByRole("button",{name:"Start task",exact:true}).click();
     await page.waitForURL(/\/jobs\//);
     expect(await runOnce(author,authorSession.sessionToken,authorSession.epoch)).toBe(true);
     expect(await runOnce(evaluator,evalSession.sessionToken,evalSession.epoch)).toBe(true);
@@ -86,7 +89,11 @@ test("optional-factor operator inspects a release, activates it, dispatches both
     await expect(page.getByText(/Decision recorded/)).toBeVisible();
     expect(brain.store.control.prepare("SELECT decision FROM approval_decisions WHERE approval_id=?").get(approvalId)).toEqual({decision});
   }
-  brain.store.workspaceDb("operations",actor.organizationId).prepare("INSERT INTO cards(id,title,state,criteria_json,version,created_at_ms) VALUES ('card-ui-design','Design review card','todo','[\"evidence\"]',1,?)").run(Date.now());
+  const boardSeed = Date.now();
+  const boardWs = brain.store.workspaceDb("operations",actor.organizationId);
+  boardWs.prepare("INSERT INTO objectives(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-ui-design','Design review','Design intent','[\"evidence\"]',?, ?, ?)").run(actor.actorId,boardSeed,boardSeed);
+  boardWs.prepare("INSERT INTO plan_versions(id,objective_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-ui-design','obj-ui-design',1,?,'confirmed','manual',?,'[]',?)").run(`sha256:${"c".repeat(64)}`,actor.actorId,boardSeed);
+  boardWs.prepare("INSERT INTO work_items(id,objective_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('work-ui-design','obj-ui-design','plan-ui-design','design','Design review card','ready','[\"evidence\"]','Start this task',?,?)").run(boardSeed,boardSeed);
   await page.goto(`${governor.url}/w/operations/board`);
   await expect(page.getByText("Design review card",{exact:true})).toBeVisible();
   await capture("board");

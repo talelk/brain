@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -55,11 +56,32 @@ describe("complete starter release compilation", () => {
   function compile(bundle: ReturnType<typeof collectRelease>) {
     return compileRelease(bundle.documents, bundle.sourceRevision, bundle.scripts, bundle.instructions, bundle.schemas);
   }
-  it("pins all three agents, instructions, schemas, and the independent validator", () => {
+  it("pins starter tasks, system helpers, instructions and the independent validator", () => {
     const release = compile(collectRelease("examples/v1/starter-release"));
-    expect(Object.keys(release.agents)).toHaveLength(3);
-    expect(Object.keys(release.workflows)).toHaveLength(3);
+    expect(Object.keys(release.agents)).toHaveLength(5);
+    expect(Object.keys(release.workflows)).toHaveLength(6);
     expect(Object.keys(release.schemas).length).toBeGreaterThanOrEqual(6);
+    expect(Object.values(release.workflows).filter((workflow) => !workflow.spec.presentation?.system)).toHaveLength(2);
+    for (const workflow of Object.values(release.workflows)) {
+      const dispatch = Object.values(workflow.spec.jobs).find((job) => job.kind === "dispatch");
+      const validate = Object.values(workflow.spec.jobs).find((job) => job.kind === "eval");
+      if (!dispatch || dispatch.kind !== "dispatch" || !validate || validate.kind !== "eval") throw new Error("starter workflow must contain dispatch and eval jobs");
+      expect(dispatch.runsOn.engine?.anyOf).toEqual(["pi"]);
+      expect(validate.runsOn.engine?.anyOf).toEqual(["claude"]);
+    }
+    expect(release.agents["task-guide-assistant"]?.spec.tools).toEqual([]);
+  });
+  it("rejects child-agent execution in the reserved conversation helper before activation", () => {
+    const bundle = collectRelease("examples/v1/starter-release");
+    const doc = bundle.documents.find((entry) => JSON.parse(entry.text).metadata.id === "task-guide")!;
+    const workflow = JSON.parse(doc.text);
+    const agent = bundle.documents.find((entry) => JSON.parse(entry.text).metadata.id === "task-guide-assistant")!;
+    const declaration = JSON.parse(agent.text);
+    declaration.spec.maxChildren = 1;
+    agent.text = JSON.stringify(declaration);
+    workflow.spec.jobs.respond.uses.release.digest = `sha256:${createHash("sha256").update(agent.text).digest("hex")}`;
+    doc.text = JSON.stringify(workflow);
+    expect(() => compile(bundle)).toThrow("read-only conversation helper");
   });
   it.each(["missing instructions", "ambiguous instructions", "missing schema", "digest mismatch", "unknown agent", "engine mismatch", "unknown workflow", "cycle"])("rejects %s before activation", (scenario) => {
     const bundle = collectRelease("examples/v1/starter-release");

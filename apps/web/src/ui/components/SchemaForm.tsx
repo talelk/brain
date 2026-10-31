@@ -4,6 +4,7 @@ import { Button, KeyValue, TextInput, Textarea } from "@talelk/newui-atoms";
 import { Select } from "@talelk/newui-molecules";
 import type { JsonValue } from "@brain/contracts";
 import { ErrorSummary } from "./PageLayout";
+import { titleize } from "../format";
 
 export interface SchemaField {
   type?: string;
@@ -21,13 +22,14 @@ export interface InputSchema {
   required?: string[];
 }
 
-const label = (key: string) => key.replaceAll("-", " ").replace(/^./u, (letter) => letter.toUpperCase());
+const label = (key: string) => titleize(key);
 const initialText = (field: SchemaField) => field.default === undefined ? "" : typeof field.default === "string" ? field.default : JSON.stringify(field.default);
 
 export function SchemaForm(props: {
   schema: InputSchema;
   schemaKey: string;
   submitLabel: string;
+  initialInput?: JsonValue;
   busy: boolean;
   disabled?: boolean;
   error?: string;
@@ -39,8 +41,9 @@ export function SchemaForm(props: {
   const [json, setJson] = createSignal("{}");
   const [errors, setErrors] = createSignal<string[]>([]);
   createEffect(on(() => props.schemaKey, () => {
-    setValues(Object.fromEntries(fields().map(([key, field]) => [key, initialText(field)])));
-    setJson("{}"); setErrors([]);
+    const initial: Readonly<Record<string, JsonValue>> = props.initialInput && typeof props.initialInput === "object" && !Array.isArray(props.initialInput) ? props.initialInput as Readonly<Record<string, JsonValue>> : {};
+    setValues(Object.fromEntries(fields().map(([key, field]) => [key, initial[key] === undefined ? initialText(field) : typeof initial[key] === "string" ? initial[key] : JSON.stringify(initial[key])])));
+    setJson(JSON.stringify(props.initialInput ?? {})); setErrors([]);
   }, { defer: false }));
   function update(key: string, value: string) {
     setValues((current) => ({ ...current, [key]: value }));
@@ -72,6 +75,7 @@ export function SchemaForm(props: {
     } catch { nextErrors.push("Workflow input must be a valid JSON object."); }
     setErrors(nextErrors);
     if (!nextErrors.length) await props.onSubmit(input);
+    else queueMicrotask(() => document.getElementById(`field-${fields().find(([key]) => props.schema.required?.includes(key) && !(values()[key] ?? "").trim())?.[0] ?? fields()[0]?.[0]}`)?.focus());
   }
   return <form onSubmit={(event) => void submit(event)} class="flex flex-col gap-field-gap" novalidate>
     <ErrorSummary errors={[...errors(), ...(props.error ? [props.error] : [])]} title="Dispatch needs attention" />
@@ -80,7 +84,7 @@ export function SchemaForm(props: {
       const required = props.schema.required?.includes(key) === true;
       return <Show when={field.const === undefined} fallback={<KeyValue label={fieldLabel} value={String(field.const)} orientation="vertical" />}>
         <Show when={field.enum || field.type === "boolean"} fallback={
-          <Show when={field.type === "string" && (field.maxLength ?? 0) <= 200 && field.format !== "textarea"} fallback={
+          <Show when={field.type === "string" && ((field.maxLength ?? 1000) > 200 || field.format === "textarea")} fallback={
             <TextInput id={`field-${key}`} type={field.type === "number" || field.type === "integer" ? "number" : "text"} label={fieldLabel}
               description={field.description} required={required} value={values()[key] ?? ""} disabled={props.busy}
               onInput={(event) => update(key, event.currentTarget.value)} />
@@ -96,6 +100,6 @@ export function SchemaForm(props: {
     }}</For>
     <Show when={!fields().length}><Textarea label="Workflow input (JSON object)" value={json()} disabled={props.busy}
       onInput={(event) => { setJson(event.currentTarget.value); props.onChange?.(); }} /></Show>
-    <Button type="submit" class="min-h-11" loading={props.busy} disabled={props.disabled || props.busy}>{props.submitLabel}</Button>
+    <Button size="lg" type="submit" loading={props.busy} disabled={props.disabled || props.busy}>{props.submitLabel}</Button>
   </form>;
 }

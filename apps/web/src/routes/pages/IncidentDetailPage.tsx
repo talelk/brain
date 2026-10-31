@@ -1,3 +1,5 @@
+import { Show } from "solid-js";
+import { WorkItemTasks } from "../../ui/components/WorkItemTasks";
 import type { JSX } from "solid-js";
 import { useNavigate, useParams } from "@solidjs/router";
 import type { IncidentDetail } from "@brain/contracts";
@@ -18,6 +20,6 @@ export default function IncidentDetailPage(): JSX.Element {
     load: (_scope, signal) => incidentQuery(workspaceId(), incidentId(), signal),
     refreshMs: 30_000,
   });
-  return <IncidentDetailScreen incident={incident.state().data} state={incident.state()}
-    onRefresh={() => void incident.refresh({ force: true })} onBack={() => void navigate(`/w/${workspaceId()}/sre`)} />;
+  return <div class="flex flex-col gap-field-gap"><IncidentDetailScreen incident={incident.state().data} state={incident.state()}
+    onRefresh={() => void incident.refresh({ force: true })} onBack={() => void navigate(`/w/${workspaceId()}/sre`)} /><Show when={incident.state().data}><WorkItemTasks origin={{ kind: "incident", id: incidentId() }} /></Show></div>;
 }

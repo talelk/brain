@@ -4,11 +4,6 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@brain/contracts": "workspace:*",
-    "execa": "10.2.1",
-    "pino": "10.4.0"
-  },
-  "devDependencies": {
-    "tsx": "4.20.6"
+    "execa": "10.2.1"
   }
 }

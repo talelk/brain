@@ -49,8 +49,7 @@ test("approval decision: exact review, TOTP step-up, recorded decision (T35)", a
   const navToggle = page.getByRole("button", { name: "Open application navigation", exact: true });
   if (await navToggle.isVisible()) await navToggle.click();
   await page.getByRole("button", { name: "Approvals", exact: true }).click();
-  await page.getByRole("row").filter({ hasText: "apr-decide-1" }).getByRole("checkbox").check();
-  await page.getByRole("button", { name: /^Review(?: \(\d+\))?$/, exact: true }).click();
+  await page.getByRole("region", { name: "Approvals", exact: true }).getByRole("button", { name: "Review: apr-decide-1", exact: true }).click();
   await page.getByRole("button", { name: "Review action", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByLabel(/^Decision note/).fill("reviewed exact subject");

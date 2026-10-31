@@ -10,18 +10,16 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@better-auth/passkey": "1.7.14",
     "@brain/contracts": "workspace:*",
     "@hono/node-server": "2.1.5",
     "@mastra/core": "1.79.0",
     "@mastra/libsql": "1.27.0",
-    "@modelcontextprotocol/server": "2.4.0",
     "better-auth": "1.7.14",
     "better-sqlite3": "13.0.3",
-    "canonicalize": "5.1.0",
-    "cron-parser": "5.10.2",
     "drizzle-orm": "0.45.4",
     "hono": "4.13.14",
-    "pino": "10.4.0",
+    "isomorphic-git": "1.44.8",
     "yaml": "2.9.1",
     "zod": "4.6.7"
   },

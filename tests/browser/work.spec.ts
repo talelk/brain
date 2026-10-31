@@ -39,12 +39,12 @@ test("work area shows decisions, tickets, incidents and delivery (T34)", async (
   // Each pack view is its own contract route under the workspace.
   await page.goto(`${governor.url}/w/ws-work/decisions`);
   await expect(page.getByRole("heading", { name: "Decisions", exact: true, level: 1 })).toBeVisible();
-  await expect(page.getByText("ship the golden workflow")).toBeVisible();
+  await expect(page.getByText("ship the golden workflow").filter({ visible: true }).first()).toBeVisible();
   await page.goto(`${governor.url}/w/ws-work/support`);
   await expect(page.getByRole("heading", { name: "Support", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByText("No support tickets")).toBeVisible();
   await page.goto(`${governor.url}/w/ws-work/sre`);
-  await expect(page.getByRole("heading", { name: "SRE", exact: true, level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Incidents", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByText("No incidents")).toBeVisible();
   await page.goto(`${governor.url}/w/ws-work/delivery`);
   await expect(page.getByRole("heading", { name: "Delivery", exact: true, level: 1 })).toBeVisible();

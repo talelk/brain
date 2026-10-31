@@ -1,0 +1,101 @@
+{
+  "recordedAt": "2026-10-29T12:47:04.486909+00:00",
+  "scope": "Approved end-user UX simplification and managed local lifecycle",
+  "sourceFingerprint": "357ad49f64a26f51979159a243e9de2bd7362bf2c523ef89d41c89e2ba48ddd4",
+  "sourceMatchesFinalLiveProof": true,
+  "implementation": "complete",
+  "checks": {
+    "verifyFull": {
+      "command": "rtk proxy pnpm verify:full",
+      "exitCode": 0,
+      "nonBrowserTests": 300,
+      "browserTests": 114,
+      "browserProjects": [
+        "390-light",
+        "390-dark",
+        "768-light",
+        "768-dark",
+        "1440-light",
+        "1440-dark"
+      ],
+      "browserDuration": "3.4m",
+      "log": "artifacts/implementation/ux-complete/full.log"
+    },
+    "pack": {
+      "command": "rtk proxy python3 scripts/verify_implementation_pack.py",
+      "exitCode": 0,
+      "log": "artifacts/implementation/ux-complete/pack.log"
+    },
+    "productLint": {
+      "command": "rtk proxy pnpm exec eslint apps packages scripts tests --max-warnings 0",
+      "exitCode": 0,
+      "log": "artifacts/implementation/ux-complete/lint-product.log"
+    },
+    "live": {
+      "command": "rtk proxy node --import tsx scripts/verify-local-setup.ts",
+      "exitCode": 0,
+      "report": "artifacts/implementation/local-setup-1793277724189/run.json",
+      "startedAt": "2026-10-29T12:42:04.217Z",
+      "completedAt": "2026-10-29T12:46:16.958Z",
+      "starterTasksVerified": 3,
+      "conversationConfirmationVerified": true,
+      "workItemLinkVerified": true,
+      "restartVerified": true,
+      "backupVerified": true,
+      "resetVerified": true,
+      "restoreSuspendedVerified": true
+    },
+    "separateRestore": "artifacts/implementation/ux-complete/restore-current-source.json",
+    "diffCheck": "passed"
+  },
+  "retainedFailures": [
+    {
+      "report": "artifacts/implementation/local-setup-1793276929763/run.json",
+      "reason": "Live operations model emitted malformed JSON; independent verification rejected it."
+    },
+    {
+      "report": "artifacts/implementation/local-setup-1793277437237/run.json",
+      "reason": "Live helper emitted escaped Markdown-wrapped JSON; independent verification rejected it."
+    },
+    {
+      "report": "artifacts/implementation/local-setup-1793277071031/run.json",
+      "reason": "Task/conversation/work-item/restart/backup/reset checks passed; restore startup build caught optional readiness.action type error. Corrected before final passing full and live runs."
+    },
+    {
+      "log": "artifacts/implementation/ux-first-launch/full-initial.log",
+      "reason": "Initial full browser run exposed first-workspace admin navigation and obsolete Board navigation expectations. Both corrected and final full rerun passed."
+    }
+  ],
+  "limitations": [
+    "Representative end-user usability sessions and a formal accessibility audit were not run.",
+    "Live model formatting is variable; failed outputs remain rejected and direct task entry remains available. This proof does not qualify semantic accuracy.",
+    "Repository-wide pnpm lint reported an unrelated prefer-const error in screenshot-world.mts. That user file was preserved; product/scripts/tests lint passes.",
+    "Independent G01-G08/release certification, production connectors and complete external-memory restore are separate requirements; this UX proof does not certify them."
+  ],
+  "artifacts": [
+    {
+      "path": "artifacts/implementation/ux-complete/full.log",
+      "sha256": "337a628e468fabb79c5a0fe424f0560b41bc37e77f0d6347a906451960500be7"
+    },
+    {
+      "path": "artifacts/implementation/ux-complete/pack.log",
+      "sha256": "b2ed69fefd9729f1e30f6c3fac7c463aec22d4259bcf12d529212614664da81f"
+    },
+    {
+      "path": "artifacts/implementation/ux-complete/lint-product.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/implementation/ux-complete/live.log",
+      "sha256": "19df23f387d0f714a4088507f771ba10b062b88158eb05ce740f8b763549506f"
+    },
+    {
+      "path": "artifacts/implementation/local-setup-1793277724189/run.json",
+      "sha256": "6f65d50c89e0a614ac284853a316e8d4e5dccfcb3d74617804959da0939ee872"
+    },
+    {
+      "path": "artifacts/implementation/ux-complete/restore-current-source.json",
+      "sha256": "6518488b288da9562cc86054e7b2c48020632a2e9e595a834618df87d5856cd5"
+    }
+  ]
+}

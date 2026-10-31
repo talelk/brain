@@ -20,18 +20,30 @@
     "workflows": [
       {
         "id": "agent-smoke",
-        "digest": "sha256:424742dc3830a4d87a7a17a0af9a91c275031befa92d6315d59dac268fdba219"
+        "digest": "sha256:9a3997862941842658559601aceb6ffe6eac48b9a8559dabffed42a08d7adcb4"
       },
       {
         "id": "operations-triage",
-        "digest": "sha256:d5642402bb57aa6f0c20a9a1452fb76f4062c9f9f4be6ce19de4bd918e76cecf"
+        "digest": "sha256:97f17aeb2424d064bd6aa6d38140ccbbe691ace2afd4bf3a73b11e45cd44356b"
       },
       {
         "id": "support-draft",
-        "digest": "sha256:e418c1e17a16849e80ce10356e43ad06eb9c3704edc8a92d051beabaa5d6dff7"
+        "digest": "sha256:b940949b49bca33088b582792988a7c01f64d9c5886ac2cec706f94a035da3fd"
+      },
+      {
+        "id": "task-guide",
+        "digest": "sha256:8531759e88ee8fc0232b5310ff9a12c7564ebe51159b488983c52c98a2fe9b67"
+      },
+      {
+        "id": "plan-guide",
+        "digest": "sha256:a34373eb4457539a433c5484b9886bf98271df2b1622906de88313a831e5d54c"
+      },
+      {
+        "id": "runner-topology-smoke",
+        "digest": "sha256:5183dc45530d67a49e8b4673f25ca78a2f6a66d4c70eba08380edea5b3c66208"
       }
     ],
-    "memoryEnabled": false,
+    "memoryEnabled": true,
     "limits": {
       "concurrentJobs": 2,
       "dailyMicroUsd": 0,

@@ -20,6 +20,7 @@ const SECRET_PATTERNS: readonly RegExp[] = [
   /\bsk-[A-Za-z0-9_-]{16,}\b/,
   /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/,
   /\bBearer\s+[A-Za-z0-9._-]{20,}\b/i,
+  // eslint-disable-next-line security/detect-unsafe-regex -- Linear, bounded secret-name matcher.
   /\b[A-Za-z][A-Za-z0-9]*(_[A-Za-z0-9]+)*_(KEY|TOKEN|SECRET|PASSWORD)\s*=/,
 ];
 
@@ -59,10 +60,10 @@ export class MemoryStore {
     return id;
   }
 
-  revoke(sourceId: string): void {
+  revoke(organizationId: string, workspaceId: string, sourceId: string): void {
     this.aclGeneration += 1;
-    this.store.control.prepare("UPDATE memory_assets SET revoked=1 WHERE source_id=?").run(sourceId);
-    for (const a of this.assets) if (a.sourceId === sourceId) a.revoked = true;
+    this.store.control.prepare("UPDATE memory_assets SET revoked=1 WHERE organization_id=? AND workspace_id=? AND source_id=?").run(organizationId, workspaceId, sourceId);
+    for (const asset of this.assets) if (asset.organizationId === organizationId && asset.workspaceId === workspaceId && asset.sourceId === sourceId) asset.revoked = true;
   }
 
   search(query: MemoryQuery, scope: { organizationId: string; workspaceId?: string }): { results: MemoryResult[]; degraded: boolean; reason?: string } {

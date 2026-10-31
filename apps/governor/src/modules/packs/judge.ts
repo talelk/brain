@@ -15,7 +15,7 @@ export interface JudgeVerdict {
   raw: string;
 }
 
-export function buildJudgePrompt(criterionText: string, evidenceText: string): string {
+function buildJudgePrompt(criterionText: string, evidenceText: string): string {
   return [
     "You are an independent rubric judge. Decide only from the evidence below.",
     "Reply with exactly one JSON object: {\"verdict\":\"pass\"|\"fail\"|\"inconclusive\",\"rationale\":\"<one sentence>\"}.",
@@ -52,7 +52,7 @@ export interface JudgeOptions {
   timeoutMs?: number;
 }
 
-export function judgeModelUrl(env: NodeJS.ProcessEnv = process.env): string {
+function judgeModelUrl(env: NodeJS.ProcessEnv = process.env): string {
   return env["BRAIN_LOCAL_MODEL_URL"] ?? "http://tntungx10:8000/v1";
 }
 

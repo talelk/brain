@@ -386,7 +386,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
   }
 }
 
-export async function startSupervisor(): Promise<void> {
+export async function startSupervisor(configurationChanged?: () => boolean): Promise<void> {
   const cfg: RunnerConfig = {
     governorUrl: process.env["BRAIN_GOVERNOR_URL"] ?? "http://127.0.0.1:3000",
     runnerId: process.env["BRAIN_RUNNER_ID"] ?? "runner-local-1",
@@ -410,7 +410,7 @@ export async function startSupervisor(): Promise<void> {
     console.log(`Brain runner ${cfg.runnerId} session refreshed (epoch ${next.epoch})`);
   };
   let seq = 0;
-  setInterval(() => {
+  const heartbeatTimer = setInterval(() => {
     seq += 1;
     void availableEngines(cfg).then((engines) => req(cfg, session.token, "/runner/v1/heartbeat", { sequence: seq,
       capabilities: [...cfg.capabilities.filter((cap) => !/^engine(:|-feature:)/u.test(cap)), ...engines.map((engine) => `engine:${engine.id}`), ...engines.flatMap((engine) => engine.features.map((feature) => `engine-feature:${engine.id}:${feature}`))]
@@ -419,8 +419,9 @@ export async function startSupervisor(): Promise<void> {
       if (r.status === 401) session.stale = true;
     }, () => { /* transient; claim loop surfaces errors */ });
   }, 15_000).unref();
-  for (;;) {
+  try { for (;;) {
     try {
+      if (configurationChanged?.()) return;
       if (session.stale || Date.now() - session.sinceMs > 10 * 60_000) await refresh();
       const worked = await runOnce(cfg, session.token, session.epoch);
       if (!worked) await new Promise((r) => setTimeout(r, 2000));
@@ -434,4 +435,5 @@ export async function startSupervisor(): Promise<void> {
       await new Promise((r) => setTimeout(r, 3000));
     }
   }
+  } finally { clearInterval(heartbeatTimer); }
 }

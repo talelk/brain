@@ -102,20 +102,3 @@ export function initializeFresh(db: Db, sql: string, identity?: { workspaceId: s
     }
   }
 }
-
-export function withBusyRetry<T>(fn: () => T, attempts = 5): T {
-  let last: unknown;
-  for (let i = 0; i < attempts; i++) {
-    try {
-      return fn();
-    } catch (e) {
-      last = e;
-      const msg = e instanceof Error ? e.message : String(e);
-      if (!msg.includes("SQLITE_BUSY") && !msg.includes("database is locked")) throw e;
-      const wait = 10 * (i + 1);
-      const end = Date.now() + wait;
-      while (Date.now() < end) { /* bounded spin outside transaction */ }
-    }
-  }
-  throw last;
-}

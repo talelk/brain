@@ -1,6 +1,6 @@
 {
   "scope": "evidence-record-integrity-only",
-  "productFingerprint": "sha256:17089f7d58bc65a03e850fff8e02f2581c9e50439f8db2de99927b436ed0a728",
+  "productFingerprint": "sha256:f96a87f3c88d7dc336274d1c23bd4dc25ec9e32c7909ab46126ea1ea340889f3",
   "gates": {
     "G01": {
       "status": "failed",

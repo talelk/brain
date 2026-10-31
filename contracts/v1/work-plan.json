@@ -85,9 +85,9 @@
     "T05": {
       "id": "T05",
       "dependencies": "T04",
-      "targetFiles": "apps/governor/src/modules/identity/{auth,actor-context}.ts; apps/governor/src/container.ts; generated current auth schema",
-      "behavior": "Better Auth/organization, secure sessions, workspace memberships, bootstrap",
-      "verify": "tests/security/identity.test.ts; E001–E005/E008, real plugin schema",
+      "targetFiles": "apps/governor/src/modules/identity/; apps/governor/src/application/organization-admin.ts; apps/web/src/ui/components/{Authentication,OrganizationAdmin,PasskeyControls}.tsx; generated current auth schema",
+      "behavior": "Better Auth organization/admin/passkey, secure token-free sessions, tenant-safe user/role administration, invite-only sign-up with verified explicit acceptance, persistent rate limits and native administration screens; default local administrator login and explicit temporary-password replacement retained.",
+      "verify": "tests/security/identity.test.ts; tests/security/organization-admin.test.ts; tests/security/auth-rate-limit.test.ts; tests/browser/identity-administration.spec.ts; E001\u2013E005/E008, real plugin schema",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/05-authorization-and-security.md",
@@ -98,7 +98,10 @@
       "contractDefinitions": [
         "ActorContext",
         "StepUpChallenge",
-        "StepUpVerify"
+        "StepUpVerify",
+        "OrganizationAdminCommand",
+        "OrganizationDirectorySnapshot",
+        "IdentitySessionList"
       ],
       "ownerModule": "identity"
     },
@@ -107,7 +110,7 @@
       "dependencies": "T05",
       "targetFiles": "apps/governor/src/application/{command-bus,query-bus,idempotency}.ts; apps/governor/src/http/",
       "behavior": "Shared typed handlers/response views, structured errors, limits and command intents",
-      "verify": "tests/integration/commands.test.ts; E006–E009; cookie/bearer routes same policy",
+      "verify": "tests/integration/commands.test.ts; E006\u2013E009; cookie/bearer routes same policy",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/02-transport-and-commands.md",
@@ -186,7 +189,7 @@
       "dependencies": "T09",
       "targetFiles": "apps/governor/src/modules/configuration/{graph,bindings,ir,digest}.ts",
       "behavior": "DAG/binding/type/effect checks, immutable complete IR",
-      "verify": "tests/domain/workflow-compiler.test.ts; E015–E019/E027/E029",
+      "verify": "tests/domain/workflow-compiler.test.ts; E015\u2013E019/E027/E029",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/03-configuration-and-workflows.md",
@@ -268,7 +271,7 @@
       "dependencies": "T13,T04",
       "targetFiles": "apps/governor/src/modules/governance/{permits,resource-fences}.ts",
       "behavior": "Atomic effect intent/consumption/fences, revocation and idempotent permit",
-      "verify": "tests/integration/permits.test.ts; E043/E051–E055/E059",
+      "verify": "tests/integration/permits.test.ts; E043/E051\u2013E055/E059",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/05-authorization-and-security.md",
@@ -288,7 +291,7 @@
       "dependencies": "T06,T12",
       "targetFiles": "apps/governor/src/modules/jobs/{enrollment,runner-sessions,inventory}.ts",
       "behavior": "One-use enrollment, authenticated hello/epochs, verified observations",
-      "verify": "tests/security/runners.test.ts; E010/E033/E034/E038–E040",
+      "verify": "tests/security/runners.test.ts; E010/E033/E034/E038\u2013E040",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/05-authorization-and-security.md",
@@ -350,7 +353,7 @@
       "dependencies": "T17,T14",
       "targetFiles": "apps/governor/src/modules/jobs/{renew,stop,expire,reconcile}.ts",
       "behavior": "Lease expiry, current epoch/fence checks, unresolved effect guards",
-      "verify": "tests/chaos/leases.test.ts; E038/E041–E046/E050/E056",
+      "verify": "tests/chaos/leases.test.ts; E038/E041\u2013E046/E050/E056",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/06-runners-and-scheduling.md",
@@ -371,7 +374,7 @@
       "dependencies": "T17",
       "targetFiles": "apps/governor/src/modules/jobs/{fairness,ready-index,schedule}.ts",
       "behavior": "House/work admission, bounded fair queue scan, unique cron fires",
-      "verify": "tests/domain/schedule.test.ts and bench scheduler; E030/E047–E049",
+      "verify": "tests/domain/schedule.test.ts and bench scheduler; E030/E047\u2013E049",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/06-runners-and-scheduling.md",
@@ -410,7 +413,7 @@
       "dependencies": "T20",
       "targetFiles": "apps/runner/src/tools/{sandbox,launcher-client}.ts; apps/launcher/src/{main,profiles,containers,journal}.ts",
       "behavior": "Constrained rootless Docker launcher with fixed agent/privileged-tool/evaluator profiles and tested cgroup/network/filesystem controls",
-      "verify": "tests/security/sandbox.test.ts; E065–E067, G06; no privileged profile before pass",
+      "verify": "tests/security/sandbox.test.ts; E065\u2013E067, G06; no privileged profile before pass",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/07-harnesses-and-tools.md",
@@ -449,7 +452,7 @@
       "dependencies": "T22,T14",
       "targetFiles": "apps/runner/src/tools/{credentials,target-preconditions,effects}.ts",
       "behavior": "Short-lived permit, scoped secret delivery, target CAS/readback",
-      "verify": "tests/chaos/effects.test.ts; E054–E059; unknown outcome blocks repeat",
+      "verify": "tests/chaos/effects.test.ts; E054\u2013E059; unknown outcome blocks repeat",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/07-harnesses-and-tools.md",
@@ -489,7 +492,7 @@
       "dependencies": "T24",
       "targetFiles": "apps/runner/src/engines/claude.ts",
       "behavior": "Independent Claude adapter; same port behavior, vendor authentication",
-      "verify": "tests/integration/claude-conformance.test.ts; E061–E064; G05 parity",
+      "verify": "tests/integration/claude-conformance.test.ts; E061\u2013E064; G05 parity",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/07-harnesses-and-tools.md",
@@ -549,7 +552,7 @@
       "dependencies": "T27,T18",
       "targetFiles": "apps/governor/src/modules/evidence/{evaluate,accept}.ts",
       "behavior": "Separate evaluator attempts, pinned tests and Done acceptance",
-      "verify": "tests/security/evidence.test.ts; E073–E075; no author acceptance path",
+      "verify": "tests/security/evidence.test.ts; E073\u2013E075; no author acceptance path",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/02-transport-and-commands.md",
@@ -587,7 +590,7 @@
       "dependencies": "T29,T13,T18,T28",
       "targetFiles": "apps/governor/src/modules/workflows/mastra/{primitives,wake-worker,recover}.ts",
       "behavior": "Durable dispatch/gate/eval, early wakes, release slots, cancellation",
-      "verify": "tests/chaos/workflow-restart.test.ts; E022–E029; G03 full proof",
+      "verify": "tests/chaos/workflow-restart.test.ts; E022\u2013E029; G03 full proof",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/02-transport-and-commands.md",
@@ -606,7 +609,7 @@
       "dependencies": "T06,T28,T30",
       "targetFiles": "apps/governor/src/modules/board/; current workspace schema",
       "behavior": "Cards, decisions, optimistic versions and verified Done",
-      "verify": "tests/integration/board.test.ts; E009/E028/E073–E075",
+      "verify": "tests/integration/board.test.ts; E009/E028/E073\u2013E075",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/02-transport-and-commands.md",
@@ -666,8 +669,8 @@
       "id": "T34",
       "dependencies": "T33,T32",
       "targetFiles": "apps/web/src/{app.tsx,shell/BrainShell.tsx,routes/today/,routes/bridge/,data/}; stores",
-      "behavior": "NewUI AppShell/PaneLayout/AuthLayout, Governor query adapters, scoped cache, deep links, snapshot/replay and prioritized work",
-      "verify": "tests/browser/navigation.spec.ts; E091–E093/E097; workspace switch/revocation clears protected cache",
+      "behavior": "NewUI AppShell/PaneLayout/AuthLayout, Governor query adapters, scoped cache, deep links, snapshot/replay and prioritized work Simplified daily task entry, populated default workspace, shared guided/conversation/work-item dispatch and outcome-first results. Three task entry points share durable explicit review/start; private conversations use governed runner inference and independently checked proposals; work-item associations preserve source context. Task/navigation presentation metadata is generated from canonical contracts.",
+      "verify": "tests/browser/navigation.spec.ts; E091\u2013E093/E097; workspace switch/revocation clears protected cache; tests/browser/task-entry.spec.ts and tests/integration/task-experience.test.ts cover confirmation, proposal privacy, stale releases, accepted-response recovery and origin links",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/09-ux-and-ui.md",
@@ -688,7 +691,7 @@
       "dependencies": "T34,T13,T23",
       "targetFiles": "apps/web/src/routes/approvals/; apps/web/src/ui/components/ApprovalReview.tsx; apps/web/src/ui/approval-controller.ts",
       "behavior": "Compose exact review from NewUI Dialog/BottomSheet and controls; step-up, stale/expired/double-submit and timeout recovery, with no optimistic authority change",
-      "verify": "tests/browser/approval.spec.ts; E094–E096; real committed-timeout case",
+      "verify": "tests/browser/approval.spec.ts; E094\u2013E096; real committed-timeout case",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/09-ux-and-ui.md",
@@ -723,7 +726,7 @@
       "contractDefinitions": [
         "JobSnapshot",
         "RunnerSnapshot",
-        "SessionView",
+        "BrainSession",
         "PlacementExplanation"
       ],
       "ownerModule": "experience"
@@ -733,7 +736,7 @@
       "dependencies": "T34,T31",
       "targetFiles": "apps/web/src/routes/{board,decisions}/",
       "behavior": "NewUI KanbanBoard plus keyboard move controls, evidence gate, conflicts and verbatim decisions; Governor controls Done",
-      "verify": "tests/browser/board.spec.ts; E009/E073–E075/E093/E097",
+      "verify": "tests/browser/board.spec.ts; E009/E073\u2013E075/E093/E097",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/09-ux-and-ui.md",
@@ -753,7 +756,7 @@
       "dependencies": "T12,T27",
       "targetFiles": "apps/governor/src/modules/knowledge/tencentdb/{client,scope,health}.ts",
       "behavior": "Pin service/SDK and verify v3 scope mappings/FTS5/private deployment",
-      "verify": "tests/security/memory-acl.test.ts; E078–E081, G04",
+      "verify": "tests/security/memory-acl.test.ts; E078\u2013E081, G04",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/08-evidence-and-memory.md",
@@ -773,7 +776,7 @@
       "dependencies": "T38,T28",
       "targetFiles": "apps/governor/src/modules/knowledge/tencentdb/{search,cache,promotion,export}.ts",
       "behavior": "Bounded provenance retrieval, current ACLs, async reviewed publication",
-      "verify": "tests/integration/memory.test.ts; E078–E081; no complete-export claim without proof",
+      "verify": "tests/integration/memory.test.ts; E078\u2013E081; no complete-export claim without proof",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/08-evidence-and-memory.md",
@@ -830,7 +833,7 @@
       "dependencies": "T41,T35",
       "targetFiles": "apps/governor/src/modules/packs/support/; apps/web/src/routes/support/",
       "behavior": "Dedupe diagnosis/drafts, approved publication, exact text and SLA intervals",
-      "verify": "tests/integration/support.test.ts; E051/E082–E084",
+      "verify": "tests/integration/support.test.ts; E051/E082\u2013E084",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/08-evidence-and-memory.md",
@@ -850,7 +853,7 @@
       "dependencies": "T41,T23",
       "targetFiles": "apps/governor/src/modules/packs/sre/; apps/web/src/routes/sre/",
       "behavior": "Freshness-aware health, debounce, safe proposed remediation",
-      "verify": "tests/integration/sre.test.ts; E034/E055–E057/E082",
+      "verify": "tests/integration/sre.test.ts; E034/E055\u2013E057/E082",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/08-evidence-and-memory.md",
@@ -869,7 +872,7 @@
       "dependencies": "T41,T28",
       "targetFiles": "apps/governor/src/modules/packs/delivery/; apps/governor/src/modules/packs/eval/; delivery route",
       "behavior": "Evidence dossier/rubric, deterministic golden cases and optional calibrated judge",
-      "verify": "tests/integration/delivery.test.ts; E073–E075; recommendation separate from approval",
+      "verify": "tests/integration/delivery.test.ts; E073\u2013E075; recommendation separate from approval",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/08-evidence-and-memory.md",
@@ -926,7 +929,7 @@
       "dependencies": "T27,T30,T39",
       "targetFiles": "apps/governor/src/modules/operations/backup/; backup CLI",
       "behavior": "Consistency cuts, online snapshots, manifest completeness and suspended import",
-      "verify": "tests/chaos/restore.test.ts; E081/E088–E090, G07",
+      "verify": "tests/chaos/restore.test.ts; E081/E088\u2013E090, G07",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/04-persistence-and-recovery.md",
@@ -943,8 +946,8 @@
       "id": "T48",
       "dependencies": "T04,T20,T33",
       "targetFiles": "apps/governor/src/{health,metrics,static-assets}.ts; deploy/compose*.yaml; Governor image build",
-      "behavior": "Real readiness, budgets/resources, logs and shutdown; serve immutable NewUI bundle/manifest from declared image paths, verify UI config digest and protect API routes from SPA fallback",
-      "verify": "tests/integration/deploy.test.ts; E087/E097/E100; Compose render, missing/mismatched assets fail readiness and rootless smoke",
+      "behavior": "Real readiness, budgets/resources, logs and shutdown; serve immutable NewUI bundle/manifest from declared image paths, verify UI config digest and protect API routes from SPA fallback Checkout lifecycle commands, automatic starter-release initialization, browser model setup, scoped runner pairing and actionable readiness. Registered local instance reset with explicit consent, owner/path/writer guards, guided offline backup/restore, redacted browser diagnostics and concise user guides.",
+      "verify": "tests/integration/deploy.test.ts; E087/E097/E100; Compose render, missing/mismatched assets fail readiness and rootless smoke; tests/integration/local-reset.test.ts; scripts/verify-local-setup.ts covers live helper/task execution, restart and reset factory defaults",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/02-transport-and-commands.md",
@@ -964,7 +967,7 @@
       "dependencies": "T19,T30,T36,T48",
       "targetFiles": "benchmarks/; scripts/profile.ts",
       "behavior": "Defined 3-run dataset/metrics/fault load; optimize measured hot paths only",
-      "verify": "G08 and E047–E049/E072/E092/E099; raw results retained",
+      "verify": "G08 and E047\u2013E049/E072/E092/E099; raw results retained",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/02-transport-and-commands.md",
@@ -980,10 +983,10 @@
     },
     "T50": {
       "id": "T50",
-      "dependencies": "T42–T49",
+      "dependencies": "T42\u2013T49,T58",
       "targetFiles": "tests/scenarios/; release manifest and operator runbooks",
       "behavior": "Complete acceptance traceability, independent review and release certification",
-      "verify": "FULL + RELEASE, all required E001–E100, no hidden skips",
+      "verify": "FULL + RELEASE, all required E001\u2013E110, no hidden skips",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
         "docs/implementation/02-transport-and-commands.md",
@@ -996,6 +999,70 @@
         "ImplementationCheckpoint"
       ],
       "ownerModule": "release"
+    },
+    "T51": {
+      "id": "T51", "dependencies": "T28,T31,T34",
+      "targetFiles": "apps/governor/src/modules/work/; apps/governor/src/domain/work-plan.ts; apps/web/src/routes/plans/; current workspace schema",
+      "behavior": "Objectives, immutable reviewed PlanVersions, WorkItems with dependencies/assignments, execution links and lossless replanning",
+      "verify": "tests/domain/work-plan.test.ts; tests/integration/work-plans.test.ts; tests/browser/plans.spec.ts; E101–E103",
+      "read": ["docs/implementation/04-persistence-and-recovery.md", "docs/implementation/09-ux-and-ui.md", "docs/implementation/11-acceptance-and-edge-cases.md"],
+      "evidenceDirectory": "artifacts/runtime/T51", "contractDefinitions": ["Objective", "PlanVersion", "WorkItem", "ExecutionLink"], "ownerModule": "work"
+    },
+    "T52": {
+      "id": "T52", "dependencies": "T19,T51",
+      "targetFiles": "apps/governor/src/modules/jobs/{automation,occurrences,triggers}.ts; apps/web/src/routes/schedules/; automation schema",
+      "behavior": "One durable scheduler for WorkItems/capabilities/workflows with typed triggers, occurrence preview/history and managed/personal targets",
+      "verify": "tests/domain/automation.test.ts; tests/integration/automation.test.ts; tests/chaos/automation-restart.test.ts; tests/browser/schedules.spec.ts; E104–E105",
+      "read": ["docs/implementation/03-configuration-and-workflows.md", "docs/implementation/06-runners-and-scheduling.md", "docs/implementation/11-acceptance-and-edge-cases.md"],
+      "evidenceDirectory": "artifacts/runtime/T52", "contractDefinitions": ["Automation", "AutomationTrigger", "AutomationOccurrence"], "ownerModule": "jobs"
+    },
+    "T53": {
+      "id": "T53", "dependencies": "T24,T25,T26,T51",
+      "targetFiles": "apps/governor/src/modules/sessions/; apps/runner/src/engines/opencode.ts; apps/web/src/routes/sessions/",
+      "behavior": "Native/managed BrainSessions, portable checkpoints, WorkItem messages and bounded cross-agent delegation/review",
+      "verify": "tests/integration/session-collaboration.test.ts; tests/security/delegation.test.ts; E106 and harness feature matrix",
+      "read": ["docs/implementation/07-harnesses-and-tools.md", "docs/implementation/11-acceptance-and-edge-cases.md"],
+      "evidenceDirectory": "artifacts/runtime/T53", "contractDefinitions": ["BrainSession", "WorkItemMessage", "Delegation"], "ownerModule": "sessions"
+    },
+    "T54": {
+      "id": "T54", "dependencies": "T27,T39",
+      "targetFiles": "apps/governor/src/modules/resources/; apps/web/src/routes/resources/; document schema and storage port",
+      "behavior": "UI document upload, safe preview, immutable versions, scoped associations, extraction and authorized indexing",
+      "verify": "tests/integration/documents.test.ts; tests/security/document-access.test.ts; tests/browser/resources.spec.ts; E107",
+      "read": ["docs/implementation/04-persistence-and-recovery.md", "docs/implementation/08-evidence-and-memory.md", "docs/implementation/11-acceptance-and-edge-cases.md"],
+      "evidenceDirectory": "artifacts/runtime/T54", "contractDefinitions": ["Document", "DocumentVersion", "ResourceAssociation"], "ownerModule": "resources"
+    },
+    "T55": {
+      "id": "T55", "dependencies": "T41,T54",
+      "targetFiles": "apps/governor/src/modules/integrations/; apps/web/src/routes/administration/integrations/",
+      "behavior": "UI-first TypeScript Git protocol connections, encrypted HTTP credentials, configuration/project repository bindings and ref-change proposals",
+      "verify": "tests/integration/git-integrations.test.ts; tests/security/integration-secrets.test.ts; tests/browser/integrations.spec.ts; E108; disposable live-provider checks when credentials exist",
+      "read": ["docs/implementation/05-authorization-and-security.md", "docs/implementation/20-golden-oracles-and-integrations.md", "docs/implementation/11-acceptance-and-edge-cases.md"],
+      "evidenceDirectory": "artifacts/runtime/T55", "contractDefinitions": ["GitConnection", "RepositoryBinding", "GitProposal"], "ownerModule": "integrations"
+    },
+    "T56": {
+      "id": "T56", "dependencies": "T11,T55",
+      "targetFiles": "apps/governor/src/modules/configuration/{drafts,serialize,diff,impact,proposals}.ts; apps/governor/src/modules/capabilities/; apps/web/src/ui/studio/",
+      "behavior": "Shared UI draft/validate/test/diff/Git/compile/activate pipeline for every definition, with restricted private candidates and exact spec.jobs visual authoring",
+      "verify": "tests/domain/configuration-drafts.test.ts; tests/integration/studio.test.ts; tests/security/studio-authorization.test.ts; tests/browser/studio.spec.ts; E109",
+      "read": ["docs/implementation/03-configuration-and-workflows.md", "docs/implementation/09-ux-and-ui.md", "docs/implementation/11-acceptance-and-edge-cases.md"],
+      "evidenceDirectory": "artifacts/runtime/T56", "contractDefinitions": ["ConfigurationDraft", "DraftRevision", "ValidationRun", "PublicationProposal"], "ownerModule": "configuration"
+    },
+    "T57": {
+      "id": "T57", "dependencies": "T40,T56",
+      "targetFiles": "apps/governor/src/modules/{capabilities,knowledge}/; capitalization scheduler workers; Knowledge Studio",
+      "behavior": "Autonomous provenance-scoped L0 capture, L1 extraction, L2 deduplicated tested candidates and governed L3 promotion",
+      "verify": "tests/integration/capitalization.test.ts; tests/chaos/capitalization-restart.test.ts; tests/security/capitalization-scope.test.ts; E110",
+      "read": ["docs/implementation/08-evidence-and-memory.md", "docs/implementation/11-acceptance-and-edge-cases.md"],
+      "evidenceDirectory": "artifacts/runtime/T57", "contractDefinitions": ["KnowledgeAsset", "CapabilityCandidate", "CapitalizationRun"], "ownerModule": "capabilities"
+    },
+    "T58": {
+      "id": "T58", "dependencies": "T52,T53,T54,T55,T56,T57",
+      "targetFiles": "apps/web/src/{app.tsx,routes/,ui/}; contracts/v1/ui-screen-contracts.json; browser acceptance",
+      "behavior": "Six-area UI-first experience with contextual Create, Ask Brain, all Studios and accessible responsive operation without YAML or terminal",
+      "verify": "tests/browser/navigation.spec.ts; tests/browser/plans.spec.ts; tests/browser/schedules.spec.ts; tests/browser/resources.spec.ts; tests/browser/integrations.spec.ts; tests/browser/studio.spec.ts; E093/E097/E101–E110 at 390/768/1440 in both themes",
+      "read": ["docs/implementation/09-ux-and-ui.md", "docs/implementation/21-ui-recipes-and-screen-oracles.md", "docs/implementation/11-acceptance-and-edge-cases.md"],
+      "evidenceDirectory": "artifacts/runtime/T58", "contractDefinitions": ["WorkBoardView", "ConfigurationDraft", "Document", "Automation"], "ownerModule": "experience"
     }
   }
 }

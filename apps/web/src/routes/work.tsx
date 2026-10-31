@@ -1,187 +1,74 @@
 import type { JSX } from "solid-js";
 import { For, Show, createSignal } from "solid-js";
-import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
-import { Alert, Dialog, Select, TabButtons } from "@talelk/newui-molecules";
-import { DataTable, KanbanBoard, Section, StatGrid } from "@talelk/newui-organisms";
-import type { KanbanColumn } from "@talelk/newui-organisms";
-import type {
-  BoardView, CardView, DecisionHistoryEntry, DeliveryDossier, IncidentSummary, SLASummary, TicketSummary,
+import { Badge, Button, Progress, Textarea, TextInput } from "@talelk/newui-atoms";
+import { Alert, Dialog, TabButtons } from "@talelk/newui-molecules";
+import { DataTable, FilterBar, Section, StatGrid } from "@talelk/newui-organisms";
+import type { DataTableColumn } from "@talelk/newui-organisms";
+import type { DecisionHistoryEntry, DeliveryDossier, IncidentSummary, SLASummary, TicketSummary,
 } from "@brain/contracts";
 import { ScreenRegion, DateText } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
-import { EvidenceList } from "../ui/components/EvidenceList";
-import { EvidenceBundleSelector } from "../ui/components/ArtifactSelectors";
-import { count } from "../ui/format";
 
-const BOARD_STATES = [
-  { id: "to-decide", name: "To decide", theme: "gray" }, { id: "todo", name: "Todo", theme: "gray" },
-  { id: "in-progress", name: "In progress", theme: "blue" }, { id: "verifying", name: "Verifying", theme: "amber" },
-  { id: "done", name: "Done", theme: "green" }, { id: "blocked", name: "Blocked", theme: "red" },
-] as const;
+import { BrainPage, PageStack } from "../ui/components/PageLayout";
+import { StatusBadge, statusTheme } from "../ui/components/StatusBadge";
+import { count, formatDateTime, formatSlaMinutes } from "../ui/format";
+import { CardTile } from "../ui/components/primitives";
 
-/**
- * The work board. Moves are versioned commands, Done requires bound verified
- * evidence, and a lost race shows the newer version instead of overwriting.
- */
-export function BoardScreen(props: {
-  board?: BoardView;
-  state: ScreenState<BoardView>;
-  onRefresh: () => void;
-  onCreate: (title: string, criteria: string[]) => Promise<void>;
-  onMove: (cardId: string, status: string, version: number, evidenceDigest?: string) => Promise<void>;
-  onComment: (cardId: string, text: string) => Promise<void>;
-  /** Populated after a rejected move so the reader sees the newer state. */
-  conflict?: string;
-}): JSX.Element {
-  const [createOpen, setCreateOpen] = createSignal(false);
-  const [title, setTitle] = createSignal("");
-  const [criteria, setCriteria] = createSignal("");
-  const [expandedCards,setExpandedCards] = createSignal<string[]>([]);
-  const [commentByCard, setCommentByCard] = createSignal<Record<string, string>>({});
-  const [evidenceByCard, setEvidenceByCard] = createSignal<Record<string, string>>({});
-  const [moveByCard, setMoveByCard] = createSignal<Record<string, string>>({});
-  /** KanbanBoard items are keyed by `id`; Brain cards are keyed by `cardId`. */
-  type BoardCard = CardView & { id: string };
-  const cards = (): BoardCard[] => (props.board?.cards ?? []).map((card) => ({ ...card, id: card.cardId }));
 
-  const columns = (): KanbanColumn<BoardCard>[] =>
-    BOARD_STATES.map((state) => ({
-      id: state.id, name: state.name, theme: state.theme,
-      items: cards().filter((card) => card.state === state.id),
-    }));
-
-  return (
-    <div class="flex flex-col gap-field-gap">
-      <Show when={props.conflict}>
-        <Alert theme="amber" variant="outline" title="That card changed while you were reviewing it"
-          description={props.conflict} />
-      </Show>
-      <Section title="Board" description="Done is only accepted when verified evidence covers every criterion." surface="card"
-        actions={<Button onClick={() => setCreateOpen(true)} class="min-h-11">New card</Button>}>
-        <ScreenRegion state={props.state} skeleton="cards" emptyTitle="No cards yet"
-          emptyDescription="Cards appear here when work is planned for this workspace."
-          emptyAction={<Button onClick={() => setCreateOpen(true)}>New card</Button>} onRetry={props.onRefresh}>
-          <Show when={cards().length}>
-            <KanbanBoard columns={columns()} label="Workspace board"
-              onMove={(move) => {
-                if (move.to.column !== move.item.state) void props.onMove(move.item.cardId, move.to.column, move.item.version, evidenceByCard()[move.item.cardId]?.trim());
-              }}>
-              {(card) => (
-                <div class="flex flex-col gap-control-gap">
-                  <p class="text-base-medium text-ink-gray-9">{card.title}</p>
-                  <div class="flex flex-wrap gap-1">
-                    <For each={card.criteria}>{(criterion) => (
-                      <Badge theme={criterion.status === "passed" ? "green" : criterion.status === "failed" ? "red" : "gray"} label={`${criterion.id}: ${criterion.status}`} />
-                    )}</For>
-                  </div>
-                  <Show when={card.evidenceDigest}>
-                    <p class="text-caption text-ink-green-8">evidence attached</p>
-                    <EvidenceList bundleDigest={card.evidenceDigest} />
-                  </Show>
-                  <details open={expandedCards().includes(card.cardId)} onToggle={(event) => {
-                    const open=event.currentTarget.open;
-                    setExpandedCards((ids)=>open ? [...new Set([...ids,card.cardId])] : ids.filter((id)=>id!==card.cardId));
-                  }}><summary class="cursor-pointer text-base-medium">Manage {card.title}</summary>
-                  <Show when={card.criteria.some((criterion) => criterion.status !== "passed")}><p class="text-caption text-ink-amber-8">Done stays unavailable until verified evidence covers every criterion.</p></Show>
-                  <EvidenceBundleSelector label={`Verified evidence for ${card.title}`} onSelect={(digest) => setEvidenceByCard({ ...evidenceByCard(), [card.cardId]: digest })} />
-                  <TextInput label={`Comment on ${card.title}`} value={commentByCard()[card.cardId] ?? ""}
-                    onInput={(e) => setCommentByCard({ ...commentByCard(), [card.cardId]: e.currentTarget.value })} />
-                  <div class="flex flex-wrap items-end gap-control-gap">
-                    <div class="min-w-48 flex-1"><Select label={`Move ${card.title}`} value={moveByCard()[card.cardId] || null}
-                      options={BOARD_STATES.filter((state) => state.id !== card.state).map((state) => ({ value: state.id, label: state.name }))}
-                      onValueChange={(status) => setMoveByCard({ ...moveByCard(), [card.cardId]: status ?? "" })} /></div>
-                    <Button aria-label={`Move ${card.title} to selected column`} class="min-h-11" disabled={!moveByCard()[card.cardId]}
-                      onClick={() => void props.onMove(card.cardId, moveByCard()[card.cardId]!, card.version, evidenceByCard()[card.cardId]?.trim())}>Move card</Button>
-                    <Button variant="outline" class="min-h-11" disabled={!(commentByCard()[card.cardId] ?? "").trim()}
-                      onClick={() => void props.onComment(card.cardId, commentByCard()[card.cardId]!.trim())}>Add comment</Button>
-                  </div>
-                  </details>
-                </div>
-              )}
-            </KanbanBoard>
-          </Show>
-        </ScreenRegion>
-      </Section>
-
-      <Dialog.Root open={createOpen()} onOpenChange={setCreateOpen}>
-        <Dialog.Content size="md">
-          <Dialog.Header>
-            <Dialog.Title>New card</Dialog.Title>
-            <Dialog.Description>A card records the intended outcome and the criteria that make it Done.</Dialog.Description>
-          </Dialog.Header>
-          <TextInput label="Title" value={title()} onInput={(e) => setTitle(e.currentTarget.value)} required />
-          <Textarea label="Criteria" value={criteria()} description="One criterion per line; each becomes an oracle the evidence must cover."
-            onInput={(e) => setCriteria(e.currentTarget.value)} />
-          <Dialog.Footer class="justify-end">
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>Back</Button>
-            <Button disabled={!title().trim() || criteria().trim().length === 0}
-              onClick={() => { void props.onCreate(title().trim(), criteria().split("\n").map((c) => c.trim()).filter(Boolean)); setCreateOpen(false); }}>
-              Create card
-            </Button>
-          </Dialog.Footer>
-        </Dialog.Content>
-      </Dialog.Root>
-    </div>
-  );
-}
-
-/** Decisions are verbatim records: the note is what was decided, not a paraphrase. */
 type Decision = "go" | "no" | "not-now" | "need-more-data";
+
 export function DecisionsScreen(props: {
   decisions: DecisionHistoryEntry[];
   state: ScreenState<DecisionHistoryEntry[]>;
   onRefresh: () => void;
   onRecord: (cardId: string, decision: Decision, note: string) => Promise<void>;
   cardIds: string[];
-  /** The signed-in principal, so "decided by" names people instead of ids. */
   viewerId?: string;
   viewerName?: string;
 }): JSX.Element {
+  const [open, setOpen] = createSignal(false);
   const [cardId, setCardId] = createSignal("");
   const [decision, setDecision] = createSignal<Decision | "">("");
   const [note, setNote] = createSignal("");
   const [error, setError] = createSignal("");
-  const actorName = (actorId: string) => (actorId === props.viewerId ? props.viewerName ?? actorId : actorId);
+  const actorName = (actorId: string) => actorId === props.viewerId ? props.viewerName ?? actorId : actorId;
   async function record() {
     if (!cardId().trim() || !note().trim() || !decision()) return;
     setError("");
     try {
       await props.onRecord(cardId().trim(), decision() as Decision, note().trim());
-      // The record is verbatim and one-shot: clear the form so a second submit
-      // cannot re-record the same decision against a different card by accident.
-      setCardId(""); setDecision(""); setNote("");
-    } catch (e) { setError(e instanceof Error ? e.message : "The decision was refused."); }
+      setCardId(""); setDecision(""); setNote(""); setOpen(false);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "The decision was refused."); }
   }
-  return (
-    <Section title="Recorded decisions" surface="card">
-      <div class="flex flex-col gap-field-gap pb-field">
-        <div class="flex flex-wrap items-end gap-control-gap">
-          <div class="min-w-64 flex-1"><TextInput label="Card id" value={cardId()} onInput={(e) => setCardId(e.currentTarget.value)} description={props.cardIds.length ? `Known cards: ${props.cardIds.slice(0, 4).join(", ")}` : undefined} /></div>
-          <TabButtons label="Decision" options={[{ value: "go", label: "Go" }, { value: "no", label: "No" }, { value: "not-now", label: "Not now" }, { value: "need-more-data", label: "Need more data" }]} value={decision()} onValueChange={(v) => setDecision(v as Decision | "")} />
-        </div>
-        <Textarea label="Note" value={note()} onInput={(e) => setNote(e.currentTarget.value)} />
-        <Show when={error()}><p role="alert" class="text-base text-ink-red-8">{error()}</p></Show>
-        <div>
-          <Button disabled={!cardId().trim() || !note().trim() || !decision()} onClick={() => void record()} class="min-h-11">Record decision</Button>
-        </div>
-      </div>
+  return <BrainPage title="Decisions" description="Keep the exact decision, its author, and the reasoning that moved the work forward."
+    actions={<Button size="lg" variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setOpen(true)}>Record decision</Button>}>
+    <Section title="Decision history" description={count(props.decisions.length, "decision")} surface="card">
       <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No recorded decisions yet"
         emptyDescription="Record the go/no-go decision for a card when you make it." onRetry={props.onRefresh}>
-        <DataTable title="Decisions" selectable={false} hideSearch rows={props.decisions.map((d) => ({
-          id: d.id, actor: actorName(d.actorId), decision: d.decision, note: d.note, at: new Date(d.createdAt).toLocaleString(), card: d.cardId,
+        <DataTable title="Decisions" selectable={false} hideSearch cardBreakpoint="lg" rows={props.decisions.map((entry) => ({
+          id: entry.id, actor: actorName(entry.actorId), decision: entry.decision, note: entry.note, at: formatDateTime(entry.createdAt), card: entry.cardId,
         }))} columns={[
-          { id: "card", header: "Card", accessorKey: "card" },
-          { id: "actor", header: "Decided by", accessorKey: "actor" },
-          { id: "decision", header: "Decision", accessorKey: "decision" },
-          { id: "note", header: "Note", accessorKey: "note" },
-          { id: "at", header: "At", accessorKey: "at" },
-        ]} caption={count(props.decisions.length, "decision")} />
+          { id: "card", header: "Card", accessorKey: "card", meta: { mobile: "subtitle" } },
+          { id: "actor", header: "Decided by", accessorKey: "actor", meta: { mobile: "meta" } },
+          { id: "decision", header: "Decision", accessorKey: "decision", meta: { mobile: "status" }, cell: (context) => <StatusBadge kind="decision" status={context.row.original.decision} /> },
+          { id: "note", header: "Note", accessorKey: "note", meta: { mobile: "title" } },
+          { id: "at", header: "At", accessorKey: "at", meta: { mobile: "meta" } },
+        ]} />
       </ScreenRegion>
+      <Dialog.Root open={open()} onOpenChange={setOpen}><Dialog.Content size="md">
+        <Dialog.Header><Dialog.Title>Record a decision</Dialog.Title><Dialog.Description>The note is stored verbatim and cannot be treated as a paraphrase.</Dialog.Description></Dialog.Header>
+        <div class="my-4 flex flex-col gap-4">
+          <TextInput label="Card id" value={cardId()} onInput={(event) => setCardId(event.currentTarget.value)} description={props.cardIds.length ? `Known cards: ${props.cardIds.slice(0, 4).join(", ")}` : undefined} />
+          <TabButtons label="Decision" options={[{ value: "go", label: "Go" }, { value: "no", label: "No" }, { value: "not-now", label: "Not now" }, { value: "need-more-data", label: "Need more data" }]} value={decision()} onValueChange={(value) => setDecision(value as Decision | "")} />
+          <Textarea label="Note" value={note()} onInput={(event) => setNote(event.currentTarget.value)} />
+          <Show when={error()}><Alert theme="red" variant="outline" title="Decision refused" description={error()} /></Show>
+        </div>
+        <Dialog.Footer class="justify-end"><Button size="lg" variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button size="lg" variant="solid" theme="blue" disabled={!cardId().trim() || !note().trim() || !decision()} onClick={() => void record()}>Record decision</Button></Dialog.Footer>
+      </Dialog.Content></Dialog.Root>
     </Section>
-  );
+  </BrainPage>;
 }
 
-/** Support: tickets and the measured SLA period, with the publish gate visible. */
 export function SupportScreen(props: {
   tickets: TicketSummary[];
   sla?: SLASummary;
@@ -191,36 +78,35 @@ export function SupportScreen(props: {
   onDispatch: () => void;
   canDispatch: boolean;
 }): JSX.Element {
-  const ms = (n: number) => `${Math.round(n / 60000)} min`;
-  return (
-    <div class="flex flex-col gap-field-gap">
-      <Show when={props.sla}>
-        <StatGrid columns={3} stats={[
-          { label: "Keyrus response time", value: ms(props.sla!.keyrusMs) },
-          { label: "Client wait", value: ms(props.sla!.clientWaitMs) },
-          { label: "Samples", value: String(props.sla!.sampleCount) },
-        ]} />
-      </Show>
-      <Section title="Support tickets" description="Replies are drafted and reviewed here; a reply reaches the customer only after an approval — nothing is sent from this screen directly." surface="card"
-        actions={props.canDispatch ? <Button onClick={props.onDispatch} class="min-h-11">Run support workflow</Button> : undefined}>
-        <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No support tickets"
-          emptyDescription="Connect the ticket connector and sync to see the queue." onRetry={props.onRefresh}>
-        <DataTable title="Tickets" selectable hideSearch rows={props.tickets.map((t) => ({
-          id: t.id, title: t.title, state: t.state, priority: t.priority, evidence: t.evidenceReady ? "ready" : "not yet", at: new Date(t.updatedAt).toLocaleString(),
-        }))} columns={[
-          { id: "title", header: "Ticket", accessorKey: "title" },
-          { id: "state", header: "State", accessorKey: "state" },
-          { id: "priority", header: "Priority", accessorKey: "priority" },
-          { id: "evidence", header: "Draft evidence", accessorKey: "evidence" },
-          { id: "at", header: "Updated", accessorKey: "at" },
-        ]} caption={count(props.tickets.length, "ticket")} actionLabel="Details" onRowsAction={(ids) => props.onOpenTicket(ids[0] ?? "")} />
+  const [query, setQuery] = createSignal("");
+  const rows = () => props.tickets.filter((ticket) => `${ticket.id} ${ticket.title}`.toLowerCase().includes(query().toLowerCase()));
+  const columns: DataTableColumn<TicketSummary>[] = [
+    { id: "title", header: "Ticket", accessorKey: "title", meta: { mobile: "title" }, cell: (context) => <button type="button" class="rounded-control text-start font-medium text-ink-blue-link focus-visible:focus-ring" onClick={() => props.onOpenTicket(context.row.original.id)}>{context.row.original.title}<span class="mt-1 block text-caption font-normal text-ink-gray-6">{context.row.original.id}</span></button> },
+    { id: "state", header: "State", accessorKey: "state", meta: { mobile: "status" }, cell: (context) => <StatusBadge kind="ticket" status={context.row.original.state} /> },
+    { id: "priority", header: "Priority", accessorKey: "priority", meta: { mobile: "meta" } },
+    { id: "evidence", header: "Draft evidence", accessorFn: (row) => row.evidenceReady ? "Ready" : "Not yet", meta: { mobile: "meta" }, cell: (context) => <Badge variant="outline" theme={statusTheme("check", context.row.original.evidenceReady ? "passed" : "missing")} label={context.row.original.evidenceReady ? "Ready" : "Not yet"} /> },
+    { id: "updatedAt", header: "Updated", accessorFn: (row) => formatDateTime(row.updatedAt), meta: { mobile: "subtitle" } },
+    { id: "open", header: "", enableSorting: false, meta: { mobile: "meta" }, cell: (context) => <Button variant="outline" size="sm" onClick={() => props.onOpenTicket(context.row.original.id)}>Details</Button> },
+  ];
+  return <BrainPage title="Support" description="Prioritize customer requests and review drafts; nothing reaches a customer without exact approval."
+    actions={<Show when={props.canDispatch}><Button size="lg" variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Run support workflow</Button></Show>}>
+    <PageStack>
+      <Show when={props.sla} keyed>{(sla) => <StatGrid compact columns={3} stats={[
+        { label: "Keyrus response time", value: formatSlaMinutes(sla.keyrusMs), hint: "Measured response window", icon: "lucide-timer" },
+        { label: "Client wait", value: formatSlaMinutes(sla.clientWaitMs), hint: "Time waiting on the client", icon: "lucide-clock" },
+        { label: "Samples", value: String(sla.sampleCount), hint: "Requests in this summary", icon: "lucide-chart-no-axes-column" },
+      ]} />}</Show>
+      <FilterBar query={{ value: query(), placeholder: "Find a ticket…", onInput: setQuery }} resultCount={rows().length}
+        chips={query() ? [{ label: `Search: ${query()}`, onRemove: () => setQuery("") }] : []} onClearAll={query() ? () => setQuery("") : undefined} />
+      <Section title="Support queue" description="Draft evidence is visible before review; publication remains approval-gated." surface="card">
+        <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No support tickets" emptyDescription="Connect the ticket connector and sync to see the queue." onRetry={props.onRefresh}>
+          <DataTable title="Tickets" selectable={false} hideSearch cardBreakpoint="lg" rows={rows()} columns={columns} emptyTitle="No tickets match" emptyHint="Clear the search to see the complete queue." onClearFilters={() => setQuery("")} />
         </ScreenRegion>
       </Section>
-    </div>
-  );
+    </PageStack>
+  </BrainPage>;
 }
 
-/** SRE: incidents with their observation freshness and the inert remediation. */
 export function SreScreen(props: {
   incidents: IncidentSummary[];
   state: ScreenState<IncidentSummary[]>;
@@ -230,32 +116,22 @@ export function SreScreen(props: {
   canDispatch: boolean;
 }): JSX.Element {
   const now = Date.now();
-  return (
-    <Section title="Incidents" description="A remediation proposal stays inert until an approval gates its tool path." surface="card"
-      actions={props.canDispatch ? <Button onClick={props.onDispatch} class="min-h-11">Run SRE workflow</Button> : undefined}>
-      <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No incidents"
-        emptyDescription="Open incidents appear when a monitored target breaches a declared threshold." onRetry={props.onRefresh}>
-        <For each={props.incidents}>{(incident) => (
-          <article class="flex flex-wrap items-center justify-between gap-control-gap border-b border-outline-gray-1 py-3 last:border-b-0">
-            <div class="min-w-0">
-              <h3 class="truncate text-base-medium text-ink-gray-9">{incident.title}</h3>
-              <p class="text-caption text-ink-gray-7">{incident.targetKey} · observed <DateText value={incident.observedAt} /> · expires <DateText value={incident.expiresAt} /></p>
-            </div>
-            <div class="flex items-center gap-control-gap">
-              <Badge theme={incident.severity === "critical" ? "red" : incident.severity === "warning" ? "amber" : "gray"} label={incident.severity} />
-              <Show when={incident.expiresAt && Date.parse(incident.expiresAt) < now}>
-                <Badge theme="amber" label="observation stale" />
-              </Show>
-              <Button onClick={() => props.onOpenIncident(incident.id)} class="min-h-11">Open</Button>
-            </div>
-          </article>
-        )}</For>
+  return <BrainPage title="Incidents" description="Review current observations and their expiry before considering any approval-gated remediation."
+    actions={<Show when={props.canDispatch}><Button size="lg" variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Run SRE workflow</Button></Show>}>
+    <Section title="Incident queue" description="A remediation proposal stays inert until its exact tool path is approved." surface="card">
+      <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No incidents" emptyDescription="Open incidents appear when a monitored target breaches a declared threshold." onRetry={props.onRefresh}>
+        <div class="divide-y divide-outline-gray-1 brain-row-list">
+          <For each={props.incidents}>{(incident) => <article class="grid gap-3 py-4 first:pt-0 last:pb-0 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
+            <div class="min-w-0"><h3 class="text-base-medium text-ink-gray-9">{incident.title}</h3><p class="mt-1 text-caption text-ink-gray-6">{incident.targetKey} · observed <DateText value={incident.observedAt} /> · expires <DateText value={incident.expiresAt} /></p></div>
+            <div class="flex flex-wrap gap-2"><StatusBadge kind="severity" status={incident.severity} /><Show when={incident.expiresAt && Date.parse(incident.expiresAt) < now}><Badge theme="amber" label="Observation stale" /></Show></div>
+            <Button size="lg" variant="outline" iconRight="lucide-arrow-right" onClick={() => props.onOpenIncident(incident.id)}>Open incident</Button>
+          </article>}</For>
+        </div>
       </ScreenRegion>
     </Section>
-  );
+  </BrainPage>;
 }
 
-/** Delivery: rubric-backed dossiers; an inconclusive criterion is not a pass. */
 export function DeliveryScreen(props: {
   dossiers: DeliveryDossier[];
   state: ScreenState<DeliveryDossier[]>;
@@ -263,31 +139,21 @@ export function DeliveryScreen(props: {
   onOpen: (dossierId: string) => void;
   onDecide: (cardId: string, note: string) => Promise<void>;
 }): JSX.Element {
-  return (
-    <Section title="Delivery dossiers" description="Criteria pass only against accepted evidence; inconclusive stays inconclusive." surface="card">
-      <ScreenRegion state={props.state} skeleton="cards" emptyTitle="No delivery dossiers"
-        emptyDescription="Dossiers are created when a delivery release declares its rubric." onRetry={props.onRefresh}>
-        <For each={props.dossiers}>{(dossier) => {
-          const passed = () => dossier.criteria.filter((c) => c.status === "passed").length;
-          return (
-            <article class="flex flex-col gap-control-gap border-b border-outline-gray-1 py-3 last:border-b-0">
-              <div class="flex flex-wrap items-center justify-between gap-control-gap">
-                <div class="min-w-0">
-                  <h3 class="truncate text-base-medium text-ink-gray-9">{dossier.id}</h3>
-                  <p class="text-caption text-ink-gray-7">source {dossier.sourceRevision} · {passed()}/{dossier.criteria.length} criteria · updated <DateText value={dossier.updatedAt} /></p>
-                </div>
-                <Badge theme={dossier.state === "verified" ? "green" : dossier.state === "rejected" ? "red" : "gray"} label={dossier.state} />
-              </div>
-              <div class="flex flex-wrap gap-1">
-                <For each={dossier.criteria}>{(criterion) => (
-                  <Badge theme={criterion.status === "passed" ? "green" : criterion.status === "failed" ? "red" : "amber"} label={criterion.criterionId} />
-                )}</For>
-              </div>
-              <div><Button variant="outline" class="min-h-11" onClick={() => props.onOpen(dossier.id)}>Inspect dossier</Button></div>
-            </article>
-          );
-        }}</For>
+  return <BrainPage title="Delivery" description="Inspect release dossiers where every criterion is backed by accepted evidence.">
+    <Section title="Delivery dossiers" description="Inconclusive evidence stays inconclusive; it never becomes a pass." surface="card">
+      <ScreenRegion state={props.state} skeleton="cards" emptyTitle="No delivery dossiers" emptyDescription="Dossiers are created when a delivery release declares its rubric." onRetry={props.onRefresh}>
+        <div class="brain-field-grid">
+          <For each={props.dossiers}>{(dossier) => {
+            const passed = () => dossier.criteria.filter((criterion) => criterion.status === "passed").length;
+            return <CardTile class="flex flex-col gap-4">
+              <div class="flex items-start justify-between gap-3"><div class="min-w-0"><h3 class="break-all text-base-medium text-ink-gray-9">{dossier.id}</h3><p class="mt-1 text-caption text-ink-gray-6">Source {dossier.sourceRevision} · updated <DateText value={dossier.updatedAt} /></p></div><StatusBadge kind="evidence" status={dossier.state} /></div>
+              <div><div class="mb-2 flex justify-between text-caption text-ink-gray-7"><span>Accepted criteria</span><span class="tabular-nums">{passed()}/{dossier.criteria.length}</span></div><Progress label="Accepted criteria" value={dossier.criteria.length ? passed() / dossier.criteria.length * 100 : 0} /></div>
+              <div class="flex flex-wrap gap-1"><For each={dossier.criteria}>{(criterion) => <Badge variant="outline" theme={statusTheme("check", criterion.status === "inconclusive" ? "missing" : criterion.status)} label={criterion.criterionId} />}</For></div>
+              <Button size="lg" variant="outline" iconRight="lucide-arrow-right" class="self-start" onClick={() => props.onOpen(dossier.id)}>Inspect dossier</Button>
+            </CardTile>;
+          }}</For>
+        </div>
       </ScreenRegion>
     </Section>
-  );
+  </BrainPage>;
 }

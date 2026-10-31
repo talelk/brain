@@ -42,6 +42,8 @@ Original v4 inputs are historical context. Current user instructions take preced
 
 **Git declares. SQLite records. TencentDB remembers. Governor authorizes. Mastra coordinates. Runners execute. Independent evaluators verify.**
 
+The product has eight fundamental pillars: Workspace, Plan & Board, Agent Sessions, Multi-Agent Collaboration, Scheduling & Automation, Governance & Verification, Autonomous Capitalization, and Configuration & Studio. The primary model is Objective → PlanVersion → WorkItem → Execution. Brain is UI-first: every common operation is available through typed Web/Governor flows without mandatory YAML, commits or terminal commands, while Git remains the published-definition authority and CLI/MCP/YAML remain equivalent advanced interfaces.
+
 Implement a **modular monolith**. Governor is one process/deployment with internal modules and in-process public function calls. Use `contracts/v1/module-layout.json`; keep only `packages/contracts` as a shared package. Domain logic, repositories, Mastra/TencentDB/connector adapters and Brain UI compositions stay in their owning application folders. Preserve the runner/launcher isolation boundary. Do not create per-module services, internal HTTP/brokers, a universal plugin system or extra packages merely to mirror the architecture diagram. This simplifies packaging while retaining the full requested functional scope.
 
 Use the three logical planes and the separate experience/client layer in `architecture.json`:
@@ -61,7 +63,7 @@ Use the task cards to cover all required behavior and the declared optional/defe
 
 ## NewUI requirements
 
-Use five primary areas: Today, Work, Runs, Approvals and Knowledge. Pack views are workspace tabs, Runs shares one detail composition, and Settings is in the account menu. The route index is generated from `ui-screen-contracts.json`. Exact approval recovery uses a captured idempotency key and the dedicated decision-status endpoint; an uncertain response remains recoverable and cannot become an automatic new submission.
+Use six primary areas: Today, Work, Activity, Approvals, Knowledge and Administration. Work includes Plans, Board, Tasks, Schedules, Sessions and Resources; Knowledge includes specialized Studios; Administration includes Git integrations, models, members, runners, policies, storage and releases. Personal security/preferences stay in the account menu. The route index is generated from `ui-screen-contracts.json`. Exact approval recovery uses a captured idempotency key and the dedicated decision-status endpoint; an uncertain response remains recoverable and cannot become an automatic new submission.
 
 Use the current public `@talelk/newui-*` atomic packages and the reviewed source/API baseline in `ui-foundation.json`. Select and verify exact actual package artifacts; source-observed versions are not proof of installability. Do not use historical `@newui/ui` APIs, import library internals, recreate Zag primitives or define another palette/component system.
 

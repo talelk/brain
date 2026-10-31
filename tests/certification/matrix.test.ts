@@ -9,10 +9,10 @@ describe("T50 certification matrix", () => {
   const catalog = JSON.parse(readFileSync(new URL("../../contracts/v1/scenario-catalog.json", import.meta.url), "utf8")) as
     { scenarios: { id: string }[] };
 
-  it("maps every E001-E100 scenario exactly once", () => {
+  it("maps every E001-E110 scenario exactly once", () => {
     const catalogIds = catalog.scenarios.map((s) => s.id).sort();
     const matrixIds = matrix.scenarios.map((s) => s.id).sort();
-    expect(catalogIds).toHaveLength(100);
+    expect(catalogIds).toHaveLength(110);
     expect(matrixIds).toEqual(catalogIds);
   });
 

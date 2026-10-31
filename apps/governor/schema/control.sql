@@ -20,9 +20,74 @@ CREATE TABLE workspaces (
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   UNIQUE(organization_id, slug), UNIQUE(id, organization_id)
 ) STRICT;
+CREATE TABLE git_connections (
+  id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id),
+  name TEXT NOT NULL, provider TEXT NOT NULL CHECK(provider IN ('git')),
+  base_url TEXT NOT NULL, encrypted_credentials TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('pending','verified','failed')), detail TEXT,
+  repositories_json TEXT NOT NULL CHECK(json_valid(repositories_json)),
+  remote_refs_json TEXT NOT NULL CHECK(json_valid(remote_refs_json)),
+  created_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
+  last_verified_at_ms INTEGER, UNIQUE(organization_id,name)
+) STRICT;
+CREATE TABLE repository_bindings (
+  id TEXT PRIMARY KEY, connection_id TEXT NOT NULL REFERENCES git_connections(id),
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  kind TEXT NOT NULL CHECK(kind IN ('configuration','project')), repository_key TEXT NOT NULL,
+  access TEXT NOT NULL CHECK(access IN ('read','write')),
+  status TEXT NOT NULL CHECK(status IN ('pending','verified','failed')), detail TEXT,
+  created_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
+  last_verified_at_ms INTEGER, UNIQUE(connection_id,workspace_id,kind,repository_key)
+) STRICT;
+CREATE INDEX repository_bindings_workspace ON repository_bindings(workspace_id,kind,status);
+CREATE TABLE verification_requests (
+  id TEXT PRIMARY KEY, connection_id TEXT NOT NULL REFERENCES git_connections(id),
+  state TEXT NOT NULL CHECK(state IN ('pending','complete','failed')),
+  requested_at_ms INTEGER NOT NULL, completed_at_ms INTEGER
+) STRICT;
+CREATE INDEX verification_requests_pending ON verification_requests(state,requested_at_ms,id);
+CREATE TABLE git_proposals (
+  id TEXT PRIMARY KEY, binding_id TEXT NOT NULL REFERENCES repository_bindings(id),
+  source_event_id TEXT NOT NULL, digest TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK(kind IN ('configuration','project')),
+  payload_json TEXT NOT NULL CHECK(json_valid(payload_json)),
+  state TEXT NOT NULL CHECK(state IN ('proposed','superseded','accepted','rejected')),
+  created_at_ms INTEGER NOT NULL, UNIQUE(binding_id,source_event_id)
+) STRICT;
+CREATE TABLE config_drafts (
+  id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id),
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id), title TEXT NOT NULL, kind TEXT NOT NULL,
+  state TEXT NOT NULL CHECK(state IN ('draft','valid','invalid','publishing','published','failed')),
+  current_revision_id TEXT NOT NULL, binding_id TEXT REFERENCES repository_bindings(id),
+  created_by TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
+  created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX config_drafts_workspace ON config_drafts(organization_id,workspace_id,updated_at_ms,id);
+CREATE TABLE config_draft_revisions (
+  id TEXT PRIMARY KEY, draft_id TEXT NOT NULL REFERENCES config_drafts(id),
+  revision INTEGER NOT NULL CHECK(revision > 0), digest TEXT NOT NULL,
+  documents_json TEXT NOT NULL CHECK(json_valid(documents_json)),
+  source TEXT NOT NULL CHECK(source IN ('visual','yaml')), created_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
+  UNIQUE(draft_id,revision)
+) STRICT;
+CREATE TABLE validation_runs (
+  id TEXT PRIMARY KEY, draft_id TEXT NOT NULL REFERENCES config_drafts(id),
+  revision_id TEXT NOT NULL REFERENCES config_draft_revisions(id),
+  kind TEXT NOT NULL CHECK(kind IN ('validate','test')), status TEXT NOT NULL CHECK(status IN ('passed','failed')),
+  diagnostics_json TEXT NOT NULL CHECK(json_valid(diagnostics_json)), created_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE TABLE publication_requests (
+  id TEXT PRIMARY KEY, draft_id TEXT NOT NULL REFERENCES config_drafts(id),
+  revision_id TEXT NOT NULL REFERENCES config_draft_revisions(id), binding_id TEXT NOT NULL REFERENCES repository_bindings(id),
+  state TEXT NOT NULL CHECK(state IN ('queued','compiled','failed')),
+  commit_oid TEXT, release_digest TEXT, error TEXT,
+  requested_by TEXT NOT NULL, requested_at_ms INTEGER NOT NULL, completed_at_ms INTEGER
+) STRICT;
+CREATE INDEX publication_requests_queue ON publication_requests(state,requested_at_ms,id);
 CREATE TABLE config_releases (
   digest TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id),
   source_revision TEXT NOT NULL, compiler_digest TEXT NOT NULL,
+  source_documents_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(source_documents_json)),
   manifest_json TEXT NOT NULL CHECK(json_valid(manifest_json)), created_at_ms INTEGER NOT NULL
 ) STRICT;
 CREATE TABLE active_config (

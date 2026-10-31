@@ -85,7 +85,12 @@ Governor module folders share this one deployment:
 | workflows | `apps/governor/src/modules/workflows` | Brain IR and Mastra adapter, primitive registry and durable wakes |
 | evidence | `apps/governor/src/modules/evidence` | Artifact associations, independent verification and completion acceptance |
 | knowledge | `apps/governor/src/modules/knowledge` | Scoped memory gateway, TencentDB adapter, publication and export |
-| board | `apps/governor/src/modules/board` | Cards, business decisions and immutable comments |
+| work | `apps/governor/src/modules/work` | Objectives, immutable plan versions, WorkItems, dependencies, assignments, business decisions and execution links |
+| sessions | `apps/governor/src/modules/sessions` | Native and managed BrainSessions, durable messages, portable checkpoints and cross-agent collaboration |
+| capabilities | `apps/governor/src/modules/capabilities` | Capability discovery, private candidates, packaging, tests and governed publication |
+| workspaces | `apps/governor/src/modules/workspaces` | Workspace settings, source associations, context, quotas and available capabilities |
+| resources | `apps/governor/src/modules/resources` | Documents, immutable versions, preview, associations, classification and storage lifecycle |
+| integrations | `apps/governor/src/modules/integrations` | GitHub/GitLab connections, secret references, repository bindings, webhooks and change proposals |
 | packs | `apps/governor/src/modules/packs` | Compiled onboarding/support/SRE/delivery/eval modules and connector adapters |
 | operations | `apps/governor/src/modules/operations` | Health, bounded timers, backup/restore, audit and notifications |
 <!-- END GENERATED LAYOUT -->

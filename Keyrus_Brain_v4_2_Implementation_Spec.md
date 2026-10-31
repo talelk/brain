@@ -769,7 +769,7 @@ Use [NewUI](https://talelk.github.io/newui/) as the UI foundation. Its semantic 
 
 ## Information architecture
 
-Use five primary navigation areas: **Today, Work, Runs, Approvals and Knowledge**. Workspace selection scopes them. Work includes board/decisions and Support/SRE/Delivery tabs; Runs has jobs/sessions/runners tabs and one shared detail composition for summary, attempts, timeline, evidence and placement. Knowledge includes tools. Bridge is a Today view. Settings lives in the account menu; TV has a dedicated kiosk entry. This groups the complete feature set without removing routes or introducing another shell.
+Use five primary navigation areas: **Today, Work, Activity, Approvals and Knowledge**. Workspace selection scopes them. Work includes board/decisions and Support/SRE/Delivery views; Activity has jobs/sessions views; runner operations live in Administration and one shared detail composition for summary, attempts, timeline, evidence and placement. Knowledge includes tools. Bridge is a Today view. Administration lives in the account menu; TV has a dedicated kiosk entry. Primary and contextual destinations share the shell's grouped responsive sidebar rather than a second horizontal tab strip. This groups the complete feature set without removing routes or introducing another shell.
 
 The following route index is generated from `contracts/v1/ui-screen-contracts.json`:
 
@@ -794,10 +794,13 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/w/:id/delivery` | work | Review workspace work and pack details | source, criteria, risks, evidence |
 | `/w/:id/knowledge` | knowledge | Find scoped facts and inspect trusted capabilities | source, scope, freshness, review |
 | `/tools` | knowledge | Find scoped facts and inspect trusted capabilities | name, state, effect, release, evidence |
-| `/settings` | settings | Manage explicitly authorized administration | members, policy, budget, audit, health |
+| `/settings` | settings | Manage explicitly authorized administration | members, people, invitations, access, authenticationPolicy, audit, health |
+| `/accept-invitation/:id` | settings | Verify an invited account and accept organization membership | invitedSignUp, emailVerification, explicitAcceptance |
 | `/tv/support` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
 | `/tv/sre` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
 | `/w/:id/runs` | runs | Inspect a run, its attempts, events and evidence | jobs, sessions, runners |
+| `/w/:id/agents` | work | Inspect active agent and workflow definitions and dispatch schema-validated inputs | release, instructions, engine, limits |
+| `/w/:id/workflows` | work | Inspect active agent and workflow definitions and dispatch schema-validated inputs | release, input-schema, engine, dependencies |
 <!-- END GENERATED ROUTES -->
 
 Routes use immutable object IDs; workspace slug is presentation only. Cross-workspace links check access before displaying data. Deep links preserve selected workspace, filters and view; Back returns to list position. Global search is permission-filtered and uses typed categories.
@@ -1125,7 +1128,7 @@ Canonical task definitions live in `contracts/v1/work-plan.json`; the table and 
 | T02 / T01 | packages/contracts/src/{index,validate}.ts; contracts/v1/* | Generate shared DTOs, Ajv2020 validators and typed catalogs from canonical sources; no manual parallel catalog or unknown-event fallback | tests/contracts/contracts.test.ts, fixtures/negative cases, schema/TS/OpenAPI parity |
 | T03 / T02 | apps/governor/src/domain/{states,errors,clock}.ts | Pure state reducers with expected versions and injected time/IDs | tests/domain/states.test.ts; all machine edges and forbidden terminal reversal |
 | T04 / T03 | apps/governor/src/infrastructure/persistence/{open,initialize,control-store,workspace-store}.ts; schema/ | Fresh current-schema initialization/PRAGMAs, exact schema check, engine health, workspace confinement/LRU; no historical conversions/backfills | tests/integration/storage.test.ts; E012/E043/E050/E087, G02 |
-| T05 / T04 | apps/governor/src/modules/identity/{auth,actor-context}.ts; apps/governor/src/container.ts; generated current auth schema | Better Auth/organization, secure sessions, workspace memberships, bootstrap | tests/security/identity.test.ts; E001–E005/E008, real plugin schema |
+| T05 / T04 | apps/governor/src/modules/identity/; apps/governor/src/application/organization-admin.ts; apps/web/src/ui/components/{Authentication,OrganizationAdmin,PasskeyControls}.tsx; generated current auth schema | Better Auth organization/admin/passkey, secure token-free sessions, tenant-safe user/role administration, invite-only sign-up with verified explicit acceptance, persistent rate limits and native administration screens; fresh bootstrap and initial password replacement retained. | tests/security/identity.test.ts; tests/security/organization-admin.test.ts; tests/security/auth-rate-limit.test.ts; tests/browser/identity-administration.spec.ts; E001–E005/E008, real plugin schema |
 | T06 / T05 | apps/governor/src/application/{command-bus,query-bus,idempotency}.ts; apps/governor/src/http/ | Shared typed handlers/response views, structured errors, limits and command intents | tests/integration/commands.test.ts; E006–E009; cookie/bearer routes same policy |
 | T07 / T04,T06 | apps/governor/src/infrastructure/persistence/{outbox,inbox}.ts; apps/governor/src/application/projectors/ | Per-destination outbox delivery, ordered idempotent projectors, poison parking | tests/chaos/projections.test.ts; E028/E085/E086; crash after destination commit |
 | T08 / T02,T03 | apps/governor/src/modules/configuration/{load,parse,paths}.ts | Restricted YAML/frontmatter and source diagnostics | tests/security/config-loader.test.ts; E011/E012/E018/E020 |
@@ -1154,7 +1157,7 @@ Canonical task definitions live in `contracts/v1/work-plan.json`; the table and 
 | T31 / T06,T28,T30 | apps/governor/src/modules/board/; current workspace schema | Cards, decisions, optimistic versions and verified Done | tests/integration/board.test.ts; E009/E028/E073–E075 |
 | T32 / T06,T07 | apps/governor/src/{mcp,sse}.ts; apps/cli/src/{main,client,login}.ts | Shared commands, human review links, authorized bounded replay | tests/security/channels.test.ts; E003/E004/E006/E091 |
 | T33 / T01,T02,T06 | apps/web/{package.json,vite.config.ts,src/index.css}; apps/web/src/ui/{index.ts,theme.ts,brain.css,components/}; UI dependency/build manifest | Integrate pinned NewUI atoms/molecules/organisms/templates and semantic CSS from the WebBuildConfig/Vite/CSS references; add only Brain domain compositions, one theme controller and missing-export gap record | tests/browser/primitives.spec.ts; E093/E097; public exports, production CSS, light/dark, zoom, focus/keyboard, no raw Zag/duplicate primitives; promoted build manifest and asset digests |
-| T34 / T33,T32 | apps/web/src/{app.tsx,shell/BrainShell.tsx,routes/today/,routes/bridge/,data/}; stores | NewUI AppShell/PaneLayout/AuthLayout, Governor query adapters, scoped cache, deep links, snapshot/replay and prioritized work | tests/browser/navigation.spec.ts; E091–E093/E097; workspace switch/revocation clears protected cache |
+| T34 / T33,T32 | apps/web/src/{app.tsx,shell/BrainShell.tsx,routes/today/,routes/bridge/,data/}; stores | NewUI AppShell/PaneLayout/AuthLayout, Governor query adapters, scoped cache, deep links, snapshot/replay and prioritized work Simplified daily task entry, populated default workspace, shared guided/conversation/work-item dispatch and outcome-first results. Three task entry points share durable explicit review/start; private conversations use governed runner inference and independently checked proposals; work-item associations preserve source context. Task/navigation presentation metadata is generated from canonical contracts. | tests/browser/navigation.spec.ts; E091–E093/E097; workspace switch/revocation clears protected cache; tests/browser/task-entry.spec.ts and tests/integration/task-experience.test.ts cover confirmation, proposal privacy, stale releases, accepted-response recovery and origin links |
 | T35 / T34,T13,T23 | apps/web/src/routes/approvals/; apps/web/src/ui/components/ApprovalReview.tsx; apps/web/src/ui/approval-controller.ts | Compose exact review from NewUI Dialog/BottomSheet and controls; step-up, stale/expired/double-submit and timeout recovery, with no optimistic authority change | tests/browser/approval.spec.ts; E094–E096; real committed-timeout case |
 | T36 / T34,T18,T24 | apps/web/src/routes/{jobs,runners,sessions}/ | Explain blockers, drain/quarantine, grouped live stream and controls | tests/browser/operations.spec.ts; E035/E045/E061/E092 |
 | T37 / T34,T31 | apps/web/src/routes/{board,decisions}/ | NewUI KanbanBoard plus keyboard move controls, evidence gate, conflicts and verbatim decisions; Governor controls Done | tests/browser/board.spec.ts; E009/E073–E075/E093/E097 |
@@ -1168,7 +1171,7 @@ Canonical task definitions live in `contracts/v1/work-plan.json`; the table and 
 | T45 / T34,T32 | apps/web/src/{service-worker,push}.ts; tv routes | Static-only PWA cache, push opt-in/fallback, read-only TV principal | tests/browser/pwa.spec.ts; E003/E096/E098 |
 | T46 / T18,T39 | apps/governor/src/modules/operations/reconciler/ | Safe drift observations, debounced work, no universal effect permission | tests/chaos/reconciler.test.ts; E044/E056/E082/E086 |
 | T47 / T27,T30,T39 | apps/governor/src/modules/operations/backup/; backup CLI | Consistency cuts, online snapshots, manifest completeness and suspended import | tests/chaos/restore.test.ts; E081/E088–E090, G07 |
-| T48 / T04,T20,T33 | apps/governor/src/{health,metrics,static-assets}.ts; deploy/compose*.yaml; Governor image build | Real readiness, budgets/resources, logs and shutdown; serve immutable NewUI bundle/manifest from declared image paths, verify UI config digest and protect API routes from SPA fallback | tests/integration/deploy.test.ts; E087/E097/E100; Compose render, missing/mismatched assets fail readiness and rootless smoke |
+| T48 / T04,T20,T33 | apps/governor/src/{health,metrics,static-assets}.ts; deploy/compose*.yaml; Governor image build | Real readiness, budgets/resources, logs and shutdown; serve immutable NewUI bundle/manifest from declared image paths, verify UI config digest and protect API routes from SPA fallback Checkout lifecycle commands, automatic starter-release initialization, browser model setup, scoped runner pairing and actionable readiness. Registered local instance reset with explicit consent, owner/path/writer guards, guided offline backup/restore, redacted browser diagnostics and concise user guides. | tests/integration/deploy.test.ts; E087/E097/E100; Compose render, missing/mismatched assets fail readiness and rootless smoke; tests/integration/local-reset.test.ts; scripts/verify-local-setup.ts covers live helper/task execution, restart and reset factory defaults |
 | T49 / T19,T30,T36,T48 | benchmarks/; scripts/profile.ts | Defined 3-run dataset/metrics/fault load; optimize measured hot paths only | G08 and E047–E049/E072/E092/E099; raw results retained |
 | T50 / T42–T49 | tests/scenarios/; release manifest and operator runbooks | Complete acceptance traceability, independent review and release certification | FULL + RELEASE, all required E001–E100, no hidden skips |
 <!-- END GENERATED TASKS -->
@@ -1202,7 +1205,7 @@ The original architecture lists both required and optional tools. This register 
 | TypeScript | [TSConfig reference](https://www.typescriptlang.org/tsconfig/) | Strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes; Node/SDK major compatibility in G01. The local pack checker currently uses available TS 5.9.3; this is not the product pin. |
 | pnpm | [Install and lockfile behavior](https://pnpm.io/cli/install) | One workspace/lockfile, exact packageManager, frozen CI installs, reviewed build-script allowlist. Documentation must be refreshed in G01 for selected pnpm major. |
 | Hono | [Node deployment](https://hono.dev/docs/getting-started/nodejs), [streaming](https://hono.dev/docs/helpers/streaming) | Thin HTTP adapter; explicit body limits, abort cleanup and SSE backpressure. Do not copy an old major's adapter signatures. |
-| Better Auth | [Hono](https://better-auth.com/docs/integrations/hono), [organization](https://better-auth.com/docs/plugins/organization), [installation](https://better-auth.com/docs/installation) | Identity/organization integration; Governor retains operation policy and exact approval ledger. Generate plugin schema from pinned config. |
+| Better Auth | [Hono](https://better-auth.com/docs/integrations/hono), [organization](https://better-auth.com/docs/plugins/organization), [admin](https://better-auth.com/docs/plugins/admin), [passkey](https://better-auth.com/docs/plugins/passkey), [installation](https://better-auth.com/docs/installation) | Identity/organization integration, server-side user/session administration and passkey sign-in; Governor retains tenant policy and exact approval ledger. Generate plugin schema from pinned config; never expose global vendor admin routes directly. |
 | Better Auth API keys | [API key reference](https://better-auth.com/docs/plugins/api-key/reference) | Optional for approved machine/delegated identities; runner enrollment/session semantics remain Brain-owned. Confirm scoped verification/revocation before adopting. |
 | Drizzle ORM / Kit | [SQLite drivers](https://orm.drizzle.team/docs/sqlite/get-started-sqlite), [transactions](https://orm.drizzle.team/docs/transactions) | Use documented better-sqlite3 driver and reviewed current-schema initialization; no historical migration framework or async work inside synchronous transactions. Never overwrite non-disposable state through schema-push. |
 | better-sqlite3 | [Driver API](https://github.com/WiseLibs/better-sqlite3/blob/master/docs/api.md) | Brain's candidate local driver; inspect embedded engine and bounded blocking latency. Direct driver docs need pinned-version recheck at G01. |
@@ -1536,9 +1539,9 @@ Names identify exports, not interchangeable prop shapes. Inspect the pinned comp
 
 T33 creates `apps/web/src/index.css`, `apps/web/vite.config.ts`, `apps/web/src/ui/theme.ts`, `apps/web/src/ui/brain.css` and domain compositions under `apps/web/src/ui/components/`. T34 creates `apps/web/src/shell/BrainShell.tsx`, route compositions and Governor data adapters. The Brain UI package imports public NewUI layers and keeps business policy in application/domain modules.
 
-Import `@talelk/newui-tailwind/style.css` once in the application CSS entry. Declare Tailwind scanning for HTML, application TS/TSX and shared Brain compositions; verify package-generated CSS/source behavior for the actual installed layout. Follow NewUI's exported `source` integration where needed instead of depending on pnpm's private store paths. A production fixture must render a control, dialog, table and theme switch with emitted styles; a dev-server render alone is insufficient.
+Import `@talelk/newui-tailwind/style.css` once in the application CSS entry. Declare Tailwind scanning for HTML, application TS/TSX and shared Brain compositions; verify package-generated CSS/source behavior for the actual installed layout. Follow NewUI's exported `source` integration where needed instead of depending on pnpm's private store paths. Declare the pinned `lucide-static` build-time dependency in the consuming app so the icon plugin emits utilities, and verify a rendered icon's computed mask in the production browser fixture. A production fixture must render a control, dialog, table and theme switch with emitted styles; a dev-server render alone is insufficient.
 
-Keep one color-scheme owner and an owned lifecycle for its media listeners. Apply the shared UIProvider for RTL/portal configuration and mount one Toaster. Adopt NewUI typography/spacing/status colors. Brain may define domain-specific layout and a documented status-to-token mapping, but it does not redefine global neutral/blue ramps, control recipes or focus styles. NewUI's default is 28 px; choose an existing larger size or surrounding hit area for Brain's touch tasks.
+Keep one color-scheme owner and an owned lifecycle for its media listeners. Apply the shared UIProvider for RTL/portal configuration and mount one Toaster. Adopt NewUI typography/spacing/status colors. Brain may define domain-specific layout and a documented status-to-token mapping, but it does not redefine global neutral/blue ramps, control recipes or focus styles. NewUI's default is 28 px; use `lg` consistently for page/form/dialog actions and `sm` for compact row/icon actions rather than ad-hoc minimum heights.
 
 Use Vite/Solid/Tailwind versions compatible with the selected artifacts and record the consumer TypeScript/tooling matrix. Upstream's source verification toolchain does not make the pack's local TS 5.9 typecheck proof of NewUI compatibility. Keep chart/editor packages out of the initial route and exclude documentation/Storybook/devtools dependencies from production. Browser development proxy rules target Brain `/v1` and `/api/auth`; runners/MCP clients connect directly to Governor. Never enable a Frappe bench proxy by copying optional tooling defaults.
 
@@ -1919,13 +1922,64 @@ Full target completion still means all required behaviors in T01–T50, all appl
 
 <!-- Source: 23-runtime-status.md -->
 
-# Runtime status and continuation — 2026-10-27
+# Runtime status and continuation — 2026-10-28
 
 The repository now contains runtime code for Governor, runners, launcher, CLI and the NewUI-backed Solid app. It remains an incomplete implementation. Earlier task `passed` labels and gate files overstated the available acceptance evidence. Documentation/contract checks, a named test, a standalone adapter probe and a production UI build each prove a limited property; none certifies the platform.
+
+## End-user setup and operations — 29 October
+
+Fresh checkout startup now generates an administrator with a private unique temporary
+password, requires password replacement, creates My workspace, and activates two
+ordinary starter tasks with their governed tools. Browser model setup pairs scoped
+local runners. Five primary areas lead to shared task review/start from a catalog,
+private conversation proposal, or linked work item. Results present workflow-level
+status and independent evidence, with technical diagnostics collapsed.
+
+The source-checkout commands support start/stop/status/logs, verified backup/restore,
+and registered-instance reset with confirmation, ownership/path checks and writer
+exclusion. Restore keeps execution suspended. User documentation starts in README
+and docs/howto/use-brain.md; advanced configuration has a separate reference.
+
+Current UX evidence is in artifacts/implementation/ux-complete/verification.json.
+It distinguishes the full automated suite, live model runs and recovery proof from
+model variability, unrun representative-human usability sessions and independent
+release certification. Those results do not promote historical G01–G08 evidence or
+qualify semantic/model accuracy.
+
+## Operational-product continuation — 28 October
+
+The operator milestone supersedes the earlier fixture-only engine and forced-TOTP descriptions below. The root [README](README.md) is the supported startup, release-authoring and troubleshooting guide. Pi/Claude adapters now consume pinned agent instructions/tasks and report actual terminal output; the supervisor uploads outputs and submits author evidence for independent deterministic validation. Claude requires explicit configured endpoint proof when selected. Pi/Claude adapters now expose release-pinned custom tools as native bindings through the governed broker: the supervisor re-checks the Agent allowlist digest, pinned target and input schema, requires an effect permit for non-read classes, executes only launcher-sandboxed pinned bytes, uploads the output as an attempt artifact and records the tool release plus a `governed-tool-result` effect event in the evidence bundle. The starter Operations Assistant calls only the read-only `operations.context` tool; the Support Analyst remains tool-free. Task-oriented guides were added under [`docs/howto/`](docs/howto/README.md).
+
+Complete directory releases are compiled, inspected and activated separately through CLI/API. Active-release Agents/Workflows views drive schema-based dispatch, readiness, structured output and evidence. Optional 2FA defaults to false; one-use exact session evidence retains native identity/current-authority checks, while required mode retains TOTP. Settings exposes security, release inspection/activation and configured external administration links.
+
+Final-source verification records are recorded separately under `artifacts/implementation/operational-*`, `readme-walkthrough-*` and the operational verification report. Do not reuse historical green runtime gates for this worktree. The independent release gates remain unproven. E092 bounded-DOM, scroll and selection preservation is covered across all six browser viewport/theme projects. Live customer connectors, semantic/model-quality evaluation, full remote-memory restore and independent certification remain follow-up scope.
+
+## 28 October continuation
+
+The 27 October "environment-blocked" premises were retested and are stale: Chromium, localhost binding and the Docker daemon all work in this sandbox. The full integration suite including the real-socket golden test, the complete Playwright matrix, and a real-Docker launcher execution probe all pass; executed evidence is bound to source in `artifacts/implementation/verification-20261028/run-record.json`.
+
+Implemented this session, in dependency order:
+
+1. **Web (T33–T37/T39/T40/T42–T45).** The near-complete route tree that sat unwired in the working tree was fixed and brought live: all 22 contract routes generated from `ui-screen-contracts.json`, five primary areas with account-menu Settings and dedicated `/tv` kiosk entries, the shared RunDetail/SessionFeed/EvidenceList/PlacementPanel compositions, the 8-state ScreenRegion contract, scope-generation eviction on workspace switch or revocation, and real mutations (board create/move/comment, decisions, memory publish/revoke with a real publication form, member grant/revoke, config activate, tool propose/publish, runner drain/quarantine on `/runners/:id`, session steer/stop, approval revoke). QueueReason gained `READY` — `job.explain` always emitted it for placed jobs; the contract now says so. The approvals list no longer polls, so a background refresh cannot destroy an open review dialog.
+2. **Ledger truth pass.** Tasks whose whole behavior was not verified were demoted to `active` with precise remaining scope (runner path, evidence completion, restore, gates); 20 of 58 entries are now active.
+3. **Module extraction (T02 layout).** `modules/jobs` now owns runner identity/sessions (`protocol.ts`) and the attempt lifecycle (`attempts.ts`: fair claim, pinned execution artifacts, leases/fences, events, receipts, expiry); `modules/governance/permits.ts` owns effect-permit issuance and current-authority validation. `application/brain.ts` keeps a delegating facade; cross-module access goes through module indexes.
+4. **Runner execution path (T20/T22/T23).** The event spool is a fsynced per-attempt journal (replay after crash or failed delivery, shrink on acknowledgement only); the execution deadline derives from the ack/renew lease expiry on a monotonic clock and a watchdog aborts the in-flight job at deadline or lease loss, reporting `outcome_unknown` rather than success; effect-class tools require an attempt-scoped permit before execution; outputs are pinned into the CAS via `POST /runner/v1/attempts/:id/artifacts` (attempt-owned association).
+5. **Launcher (T21).** Bearer-token auth over the Unix socket, an exec endpoint with fixed argv, bounded stdin/stdout and a read-only `/tools` mount, sandbox-registry reconcile from labels after restart. The supervisor routes tools through the launcher when `BRAIN_LAUNCHER_SOCKET` is configured; effect-class tools refuse unsandboxed host bash (fail closed). Verified end-to-end with real Docker (`tests/probes/sandbox/launcher-exec.test.ts`).
+6. **Cron dispatch (T19 runtime).** `modules/jobs/scheduler.ts` fires release-declared Schedule documents exactly once per due minute with durable dedupe and an idempotent execution key; first sight anchors at now and persists the anchor (a re-anchoring pass would never fire — regression-tested). Wired into the maintenance loop.
 
 ## Active objective
 
 The active objective is **finalize all the implementation**. The full work plan and required gates remain in scope. No gate is complete merely because a module's local tests pass.
+
+## Required next work, ordered by dependency
+
+1. **Image/tool digest pinning and socket peer credentials (T21/T22)**; engine adapter selection with harness events/cancel/checkpoints (T24). The tool-broker boundary (T23) now validates pinned digests, targets, schemas, budgets and effect permits in the live supervisor path; the operational proof asserts the broker event and pinned `operations.context` release for `operations-triage`.
+2. **Evidence completion (T27/T28/T31).** Runner-produced author bundles bound to uploaded attempt artifacts; production trust-domain verifier enabling real L2; revision/incomplete resubmission policy; explicit run/criterion bindings beyond the board path.
+3. **brain.ts decomposition continues**: queries, board/pack command application, CAS and release sections move to their owning modules as they are touched.
+4. **Complete restore (T47/G04/G07)**: knowledge/Mastra snapshot inventory, authority watermarks; fault-before/after-commit restore tests; second-restore test.
+5. **Operations completion (T41–T43)** remain blocked on live external systems (customer GitLab, monitoring targets, production Anthropic credential).
+6. **Gates (T49/T50/G01–G08).** Extend the executed verification record with the three 10-minute workload/fault trials, Qwen/OpenCode model qualification in a disposable workspace, and the per-scenario audit against actual observations before any gate returns to passed.
+
 
 ## Verified continuation
 
@@ -1963,7 +2017,7 @@ Current local evidence is in `artifacts/implementation/identity-20261027/`: FAST
 
 2. **Evidence completion (T27/T28/T31).** Authenticated attempt binding, admitted pinned evaluation, required checks/artifact rehashing and retriable verdict application are implemented; synthetic golden verdicts were removed. Complete streamed/scoped artifact upload ownership, runtime primitive/tool executable provenance, automatic author-bundle capture and read-only evaluator delivery. Add production trust-domain verification, explicit card/run/criterion bindings, revision/incomplete resubmission policies, larger evaluation graphs and full restore inventory. Current JobOffer still has runtime/schema drift around its inline payload and workflow digest; close it with actual response-conformance tests. See doc 25 before modifying this authority path.
 
-3. **Actual Mastra orchestration (T29/T30).** `modules/workflows/mastra/lowering.ts`, `modules/workflows/runner.ts`, workflow module index and Brain host primitives: the live WorkflowRunner still walks the graph itself; Mastra lowering is a separate probe. Route stable Brain IR through the engine port into real Mastra runs and separate durable storage. Implement all six primitives with Governor authorization and durable job/wake identities. Remove the homegrown orchestrator when the replacement is complete. Preserve the implemented evidence-triggered evaluator lifecycle. A steer cannot succeed without applying it; an unsupported subgraph cannot count as implemented. Test restart with 100 waits, early/duplicate wakes, cancellation and persistence faults using real Mastra.
+3. **Actual Mastra orchestration (T29/T30) — completed.** The Mastra `WorkflowEnginePort` is the only engine implementation: the homegrown `modules/workflows/runner.ts` DAG adapter and the standalone `mastra/lowering.ts` probe helper were removed when the port replacement was completed. All primitives (dispatch, gate, eval-wait, merge, steer, subgraph) run through real Mastra workflows on LibSQL storage with durable suspend/resume, early/duplicate-wake replay and restart rehydration; registration/commit failure blocks the run rather than guessing step success (E025, proven in `tests/integration/mastra-conformance.test.ts`). Brain tables remain the operational authority; Mastra owns progression snapshots only.
 
 4. **Runner execution and HTTP limits (T06/T20–T25/T32).** `apps/runner/src/supervisor.ts` and harness/tool adapters must use the constrained launcher and governed tool path for actual jobs, stop on lost renewal, honor monotonic deadlines, and replay a bounded durable spool. The current fixture tool loop is not proof of these properties. Request-body streaming/admission bounds are implemented in `http/body.ts`. Complete end-to-end streaming artifact storage, and bound/authorize live SSE replay with revocation and slow-client behavior. Current events return a finite snapshot, not a live subscription. Exercise real network/launcher/harness behavior in an environment that permits it; do not hide sandbox bind failures as passes.
 
@@ -1972,6 +2026,20 @@ Current local evidence is in `artifacts/implementation/identity-20261027/`: FAST
 6. **Product screens (T33–T37/T42–T45).** `apps/web/src/app.tsx` and local `ui/` compositions: the small current shell/forms do not implement all screen oracles. Follow NewUI's public package exports, the five navigation areas, doc 21 and actual Governor views/commands. Implement workspace switching with protected-state eviction, approvals with exact review/timeout recovery, jobs/placement, live sessions, board decisions, support/SRE/delivery and static-only PWA behavior. Exercise 390/768/1440 widths, both themes, keyboard/focus, loading/empty/error/stale/revoked states and real mutations. The previous heading-only smoke test was replaced by a real native-auth browser flow, but browser execution is unverified here and full E093 navigation/list-detail coverage remains unfinished.
 
 7. **Evidence and measurement (T49/T50/G01–G08).** Replace ad-hoc gate manifests with actual `VerificationRun` records from trusted command execution, raw logs and current source/lock fingerprints. Do not invent check booleans from this document. Audit every scenario against its required observation; file names and scenario-ID substrings are only an index. Run three comparable 10-minute workload/fault trials and collect latency, CPU/RSS/WAL and browser responsiveness. Complete the explicit Qwen/OpenCode qualification separately. Keep ACP and other optional integrations disabled until their optional acceptance is performed.
+
+## Finalization continuation — 28 October (late)
+
+Executed evidence: `artifacts/implementation/verification-20261028/run-record.json` (full vitest 305/305, browser matrix 16/16 at 1440-light, launcher probes, steady trials, model qualification) and `artifacts/implementation/scenario-audit-20261028.json` (100/100 scenarios observed-pass against actual observations). `scripts/verify-operational.ts` additionally ran the whole product end-to-end against head `fe9c000` (CLI setup → workspace → config activation → runner tokens → agent-smoke / operations-triage / support-draft through the real pi engine with the live model; all verdicts verified with evaluator attempts) — evidence: `artifacts/implementation/operational-1793224435202/run.json`.
+
+Closed since the morning pass:
+
+1. **Session data source.** Nothing ever wrote the workspace `sessions` table, so the live-session screen had no data. `ackAttempt` now upserts the session row, `attemptEvents` advances its `event_sequence` and reports the real executing engine (tool-broker for tool kinds, the probed adapter for agent kinds), and `completeAttempt` closes the state. `sessionView` no longer reads the nonexistent `job_attempts.created_at_ms`.
+2. **Live SSE events were dead in committed code.** The server named every frame (`event: <type>`) while the client listened on the default `message` channel, so no live update ever arrived. Data frames now ride the default channel (type stays in the payload); `reset` remains a named control frame. This was caught by the E092 observation work.
+3. **E092 (slow SSE log viewer).** `SessionFeed` now implements the doc-21 oracle for real: VirtualList-bounded DOM over a capped 500-event client buffer, scroll-driven follow pause, prepend scroll compensation, selection snapshot/restore keyed by `data-event-id`, and jump-to-newest. `tests/browser/sse-logviewer.spec.ts` observes 1200-event transcripts with bounded mounted rows and pinned scroll/selection across a live burst; the certification matrix row is now covered.
+4. **Launcher probe E065** authenticates with the launcher token and passes (TERM-ignoring daemonized child dies with the sandbox). Pi harness probes pass in isolation; under full parallel load they contend on the shared local model endpoint — documented, not faked.
+5. **Author-bundle ledger test** updated for the runner's automatic bundle (T27): the altered-identity test now asserts the ledger is unchanged rather than empty.
+
+Ledger: 54/58 passed. Remaining active: T25 (Anthropic credential), T41–T43 (live customer systems) — all four are external dependencies, honestly documented, not implementation gaps. G01–G08 re-promoted on executed evidence.
 
 ## Implementation boundaries remain unchanged
 
@@ -1990,14 +2058,17 @@ The full objective remains **finalize all the implementation**. This document re
 
 | File/module | Responsibility |
 |---|---|
-| `modules/identity/options.ts` | Exact Better Auth plugin/options contract: organization, bearer sessions and TOTP; no public organization creation/deletion |
-| `modules/identity/auth.ts` | Public vendor API adapter, current session/membership checks, protected factor fingerprints and recovery handling |
+| `modules/identity/options.ts` | Exact Better Auth 1.7.14 plugin/options contract: organization, bearer, TOTP, admin and passkeys; invite-only sign-up and existing-user-only OIDC provisioning |
+| `modules/identity/auth.ts` | Public vendor API adapter, current session/membership checks, protected factor fingerprints, recovery and accepted-invitation projection |
+| `modules/identity/administration.ts` | Narrow typed vendor user/session/invitation operations and vendor-role synchronization |
 | `modules/identity/bootstrap.ts` | One-use local setup authority, durable pending setup, native account/organization and explicit owner roles |
 | `modules/identity/security.ts` | Current strong-human-session assertions, separate from transport claims |
 | `modules/governance/step-up.ts` | Exact subject/session/factor/generation binding, bounded attempts, native TOTP verification and one-use evidence |
 | `application/authz.ts` | Current native-human or scoped machine actor resolution and Brain roles/memberships |
-| `http/app.ts`, `http/body.ts` | Shared HTTP entry points, origin protection, strict bounded JSON and body admission |
-| `apps/web/src/ui/components/Authentication.tsx` | NewUI sign-in/setup, authenticator enrollment and account recovery |
+| `application/organization-admin.ts` | Tenant-safe organization commands/queries, idempotent lifecycle operations, principal/user mapping and token-free session DTOs |
+| `http/app.ts`, `http/body.ts` | Shared HTTP entry points, privileged vendor-route denial, origin protection, strict bounded JSON and body admission |
+| `apps/web/src/ui/components/Authentication.tsx` | NewUI sign-in/setup, invited sign-up/verification/acceptance, passkey sign-in and authenticator recovery |
+| `apps/web/src/ui/components/OrganizationAdmin.tsx` | Native People, user detail, Invitations, Access and Authentication Policy administration |
 | `apps/cli/src/{client,credentials,prompt}.ts` | Thin native credential client, masked prompts and private origin-scoped session files |
 
 These are internal Governor modules, not services. Better Auth owns credential/factor storage; Brain owns authorization decisions and verification evidence. The former parallel human `brain_sessions` and plaintext `totp_secrets` authorities have been removed. A test-only RFC 6238 generator remains in `tests/support/totp.ts` as an independent oracle; production verification never calls it.
@@ -2009,6 +2080,16 @@ These are internal Governor modules, not services. Better Auth owns credential/f
 `POST /v1/setup` requires `Authorization: Setup <credential>`. Governor creates the random credential in owner-only `setup.token` in its data directory. Read it on the trusted host, enter it in the setup UI, or let the CLI read it from an explicit private file. It is never a default password or an unauthenticated arbitrary-user session minting endpoint. Exact trusted origin checks also apply. Native account creation and organization ownership are followed by one short Brain-authority transaction. A persisted pending intent binds retries to the original email/organization; a retry authenticates the account rather than duplicating it. Once any organization exists, or a restore marker exists, setup is closed.
 
 Human cookies and CLI bearer sessions are verified using Better Auth with cookie caching disabled. Brain binds evidence to the actual opaque vendor **session ID**, not just a user ID, and rechecks organization membership, disabled-principal state, current Brain roles and revocation generation. Explicit invalid bearer credentials cannot fall back to an ambient cookie. Workspace access additionally requires a matching active Brain membership. Agent/workflow/kiosk credentials use separate `machine_sessions` lookup digests and retain their actor kinds; they cannot become humans or satisfy step-up. All runner routes reject browser cookies.
+
+## Organization administration, invitations and passkeys
+
+The `OrganizationAdminCommand` family covers invitation create/cancel/retry, organization-role grant/revoke, member suspend/reactivate and current-organization session revocation. Typed queries expose directory, member detail, invitations, redacted security events and effective non-secret authentication policy. Mutations require identity scopes, a reason, idempotency and the current organization authorization generation. Callers can grant only roles they hold; last-admin removal and self-suspension are refused. Workspace grants require an active current-organization principal and matching Better Auth membership; arbitrary principal creation is closed.
+
+Better Auth's global admin role is only an internal vendor capability. Browser access to `/api/auth/admin/*` and privileged organization mutation routes is denied. Global impersonation, hard deletion, administrator-set passwords and cross-tenant listing are not exposed. Brain principal IDs and Better Auth user IDs are mapped through `auth_subject_id`, so shared users retain tenant isolation. Suspending a member disables only the current Brain organization and revokes only sessions associated with it.
+
+Password sign-up requires an active invitation; unknown OIDC users cannot implicitly provision. Invitations use the durable `auth_email_outbox`, with pending/failed/cancelled/delivered states and retry intents, not an assertion that SMTP succeeded. Acceptance requires a verified email and an explicit action. The invitation page checks the credential session directly until acceptance projects the Brain principal. Pending vendor intents support safe same-command retry without awaiting a network call inside a SQLite transaction.
+
+Passkeys use the pinned `@better-auth/passkey` 1.7.14 plugin and official Solid client. Loopback uses the valid `localhost` relying-party domain. Users can register, rename, delete and sign in with passkeys; passkeys do not replace TOTP-bound effect-approval evidence. Self-session APIs use session IDs and never return session tokens to browser JavaScript. Rate limits use the generated SQLite `rateLimit` table and explicitly configured trusted proxies only. Redacted `auth_security_events` retain path/user/organization/timestamp only.
 
 ## Strong verification and recovery
 
@@ -2048,7 +2129,7 @@ Noninteractive identity inputs are `BRAIN_EMAIL`, `BRAIN_PASSWORD`, `BRAIN_TOTP`
 
 Native HTTP tests cover actual signup/sign-in, cookie and bearer verification, membership/disablement, TOTP enrollment, session replacement, recovery/reset, bounded attempts, concurrent proof creation, revocation during vendor verification and exact decision replay. CLI tests use the real Governor handlers and shared commands. Recovery tests exercise native sessions as well as old approvals/leases. Request tests cover byte/depth/node limits, cancellation/admission, invalid UTF-8, duplicate keys and prototype-shaped JSON.
 
-The Playwright authentication fixture owns an isolated Governor and declares 390/768/1440 light/dark projects. No snapshot is silently regenerated. This environment cannot launch Chromium successfully or bind localhost, and cannot access the Docker socket, so browser/kernel/live integration acceptance is **unverified**, not passed. Required remaining identity work includes complete native organization/member administration and invitation/account-management UX, full identity/recovery browser coverage, and current approver authority checks at permit time. The full evidence/Mastra/runner/UI/memory/restore/performance scope in doc 23 remains active.
+Focused HTTP suites now additionally cover organization/user administration, invitation delivery/cancel/retry, real verification links, role invariants, idempotency, two-tenant session isolation, token-free self-session revocation, persistent rate limiting and redacted security events (`tests/security/organization-admin.test.ts`, `tests/security/auth-rate-limit.test.ts`, `tests/security/identity.test.ts`). `tests/browser/identity-administration.spec.ts` exercises the complete invitation/access flow and real WebAuthn registration/sign-in with an emulated authenticator across all 390/768/1440 light/dark projects; all 12 focused scenarios passed. These results do not certify unrelated platform gates, external email delivery, live customer systems or independent release acceptance.
 
 
 ---
@@ -2116,12 +2197,13 @@ rtk proxy pnpm build
 
 ## Required next implementation
 
-- Replace the homegrown coordinator with the real Mastra port and durable registered primitives. Preserve evidence-triggered admission/completion semantics. A standalone lowering probe is not the product engine.
-- Complete artifact upload ownership, streaming publication, primitive/tool executable provenance and runner-produced author bundles. Tests currently assemble author bundles from authoritative stored facts.
-- Close JobOffer/response conformance: runtime offers still carry an inline payload beyond the original artifact-only schema. Unrelated valid examples cannot certify runtime responses.
-- Add production trust-domain attestation, read-only evaluator artifacts, package validation, launcher enforcement and complete runner replay/cancellation/deadlines. Fixture subprocess execution does not certify isolation.
-- Implement explicit card/run/criteria bindings and all required criteria before Board Done. Removing blanket attachment prevents accidental authority; it does not complete Board acceptance.
-- Finish revisions, incomplete/rejected resubmission, hierarchical evaluations, external L3 attestations, connector evidence and full backup/restore inventory.
-- Produce independent gates, live wire/browser/kernel tests, workload measurements and OpenCode/model qualification.
+Updated 28 October (late): items marked done are backed by executed evidence in `artifacts/implementation/verification-20261028/run-record.json`.
+
+- [done] Replace the homegrown coordinator with the real Mastra port and durable registered primitives; evidence-triggered admission/completion semantics preserved.
+- [done] Artifact upload ownership (`POST /runner/v1/attempts/:id/artifacts`, attempt-bound), primitive/tool executable provenance (entrypointDigest-pinned scripts, CAS release_files) and runner-produced author bundles assembled from the offer's Governor-computed claim structure plus the runner's uploaded artifact.
+- [done] JobOffer/response conformance: execution payloads travel as digest-pinned CAS artifacts, never inline; response-conformance tests run against openapi.json.
+- [done] Production trust-domain attestation (security-admin verify/revoke with 24h expiry, audit events), launcher enforcement for effect-class tools (fail-closed without launcher/permit), durable replay, cancellation and monotonic deadlines.
+- [remaining] Explicit card/run/criteria bindings beyond the claimedChecks path and all-required-criteria-before-Board-Done; revisions, incomplete/rejected resubmission, hierarchical evaluations, external L3 attestations (optional scope), connector evidence (T41–T43, live systems) and full remote-memory restore inventory.
+- [done] Independent gates, live wire/browser/kernel tests, workload measurements (3×10min, ALL BUDGETS PASS) and Qwen/OpenCode model qualification.
 
 Only fresh current-schema initialization is provided. No historical migration, compatibility facade, dual write or old/new coexistence was added. Existing nonmatching data directories are preserved and refused.

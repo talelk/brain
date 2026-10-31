@@ -3,12 +3,16 @@ import { sha256Digest } from "@brain/contracts";
 import { FixtureEngine } from "./fixture";
 import { PiEngine } from "./pi";
 import { ClaudeEngine } from "./claude";
+import { AcpEngine } from "./acp";
+import { OpenCodeEngine } from "./opencode";
 
 export function selectEngine(configured: string | undefined, toolBindings: readonly EngineToolBinding[] = []): EngineAdapter | undefined {
   switch (configured) {
     case "fixture": return new FixtureEngine();
     case "pi": return new PiEngine(toolBindings);
     case "claude": return new ClaudeEngine(toolBindings);
+    case "acp": return new AcpEngine();
+    case "opencode": return new OpenCodeEngine();
     default: return undefined;
   }
 }
@@ -48,8 +52,10 @@ export interface AgentExecutionResult {
 }
 
 function decodedOutput(text: string): JsonValue {
-  try { return JSON.parse(text) as JsonValue; }
-  catch { return text; }
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/iu)?.[1];
+  try { return JSON.parse(fenced ?? trimmed) as JsonValue; }
+  catch { return trimmed; }
 }
 
 export async function runAgentExecution(input: AgentExecutionInput): Promise<AgentExecutionResult> {

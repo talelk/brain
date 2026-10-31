@@ -33,6 +33,10 @@
         },
         "runsOn": {
           "group": "agents",
+          "engine": {
+            "anyOf": ["pi"],
+            "features": ["sessions"]
+          },
           "all": [
             "os:linux"
           ],
@@ -70,6 +74,10 @@
         },
         "runsOn": {
           "group": "evaluators",
+          "engine": {
+            "anyOf": ["claude"],
+            "features": ["sessions"]
+          },
           "all": [
             "os:linux",
             "tool:bash",
@@ -99,6 +107,17 @@
       }
     },
     "failFast": true,
-    "deadlineSeconds": 300
+    "deadlineSeconds": 300,
+    "presentation": {
+      "title": "Draft a support response",
+      "description": "Prepare a response for human review. Nothing is sent.",
+      "examples": [
+        {
+          "title": "Unable to sign in",
+          "body": "My session expired and I cannot sign in."
+        }
+      ],
+      "system": false
+    }
   }
 }

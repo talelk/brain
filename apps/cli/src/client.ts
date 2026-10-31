@@ -29,7 +29,7 @@ export async function runCli(argv: string[], options: CliOptions = {}): Promise<
     if (token && !validCredential(token)) throw new Error("invalid credential format");
     const response = await transport(new Request(`${base.origin}${path}`, {
       method: body === undefined ? "GET" : "POST",
-      headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers },
+      headers: { "content-type": "application/json", origin: base.origin, ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(30_000),
     }));
     const text = await response.text();

@@ -1,4 +1,4 @@
-import { Show, createSignal } from "solid-js";
+import { createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate, useParams } from "@solidjs/router";
 import type { ApprovalRequest } from "@brain/contracts";
@@ -6,6 +6,7 @@ import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { approvalQuery, auditQuery } from "../../data/governor";
 import { ApprovalDetailScreen } from "../approvals";
+import { ActionFeedback } from "../../ui/components/ActionFeedback";
 
 export default function ApprovalDetailPage(): JSX.Element {
   const app = useApp();
@@ -30,7 +31,7 @@ export default function ApprovalDetailPage(): JSX.Element {
   });
   const [message, setMessage] = createSignal("");
   return <div class="flex flex-col gap-field-gap">
-    <Show when={message()}><p role="status" class="text-base text-ink-gray-7">{message()}</p></Show>
+    <ActionFeedback message={message()} />
     <ApprovalDetailScreen approval={approval.state().data} state={approval.state()} asOf={approval.state().asOf}
       onRefresh={() => void approval.refresh({ force: true })} onBack={() => void navigate("/approvals")}
       history={history.state().data ?? []}

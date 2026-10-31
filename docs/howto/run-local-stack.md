@@ -1,13 +1,13 @@
 # Run the local stack
 
-One host, four components: an external memory service (optional, checked only),
-the Governor, the trusted sandbox launcher, and enrolled runners.
+One host runs the official TencentDB Agent Memory stack, Governor, trusted sandbox
+launcher, and two enrolled runners: Pi for authoring and Claude Code for evaluation.
 
 ## Requirements
 
-Linux, Node 24, pnpm 12.11.2, Python 3, Bash, curl, Docker (for sandboxed tool and
-evaluator execution), and a reachable OpenAI-compatible endpoint for the Pi engine.
-Claude needs its own endpoint and credential.
+Linux, Node 24, pnpm 12.11.2, Python 3, Bash, curl, Docker (for memory and sandboxed
+execution), and a reachable OpenAI-compatible model endpoint. Startup uses the pinned
+official TencentDB deployment scripts and creates a scoped non-admin Claude identity.
 
 ## Start
 
@@ -24,20 +24,23 @@ export BRAIN_RUN_DIR="$(mktemp -d /tmp/brain-run.XXXXXX)"
 export BRAIN_CLI_STATE_DIR="$BRAIN_RUN_DIR/cli"
 export BRAIN_PORT=3100
 export BRAIN_GOVERNOR_URL="http://127.0.0.1:$BRAIN_PORT"
-export BRAIN_PROFILE=agents          # fixture uses the disposable golden workflows
-export BRAIN_RUNNER_ENGINE=pi        # pi | claude | fixture
+export BRAIN_PROFILE=agents
 export BRAIN_LOCAL_MODEL_URL=http://tntungx10:8000/v1
 export BRAIN_LOCAL_MODEL_ID=qwen3.8-flash-next-a5b
 
 BRAIN_RUNNERS=0 rtk bash scripts/up.sh
 ```
 
-`up.sh` is idempotent per pidfile, starts components detached via `setsid`, and fails
-before launching when the selected engine cannot run (`scripts/probe-engine.ts`).
-With `BRAIN_RUNNERS=0` it starts only Governor and launcher so you can initialize the
-organization and activate a release first (see
-[compile-activate-release.md](compile-activate-release.md)). Then rerun `up.sh` with
-runners enabled; enrollment reuses the private CLI session.
+`up.sh` starts components detached via `setsid`. It starts Memory Core on `8420`,
+Knowledge on `8424`, Panel on `8125`, and Proxy on `8096`; verifies the model and
+service health; then starts Governor and the launcher. With `BRAIN_RUNNERS=0`, runner
+enrollment waits until the organization and release exist (see
+[compile-activate-release.md](compile-activate-release.md)). Rerun `up.sh` with the
+default `BRAIN_RUNNERS=2` to enroll Pi in `agents` and Claude in `evaluators`.
+Startup fails without using local memory or fixture runners as a fallback.
+
+Open **http://localhost:8125** for TencentDB Memory administration. Brain's
+Administration → Integrations link opens the same UI without forwarding credentials.
 
 ## Stop
 
@@ -45,9 +48,9 @@ runners enabled; enrollment reuses the private CLI session.
 rtk bash scripts/down.sh
 ```
 
-Runners stop first, then the launcher, then the Governor. Each pid is verified against
-its expected command line before signaling. Data and private CLI/runner state are never
-touched. TencentDB, if configured, is external and left alone.
+Runners stop first, then the launcher, Governor, and managed TencentDB containers.
+Each Brain pid is verified against its expected command line before signaling. Brain
+data, private CLI/runner state, TencentDB volumes, and the admin credential are preserved.
 
 ## Logs and state
 
@@ -56,14 +59,19 @@ touched. TencentDB, if configured, is external and left alone.
 | `$BRAIN_RUN_DIR/governor.log` | Governor request/daemon log |
 | `$BRAIN_RUN_DIR/launcher.log` | Trusted launcher sandbox lifecycle |
 | `$BRAIN_RUN_DIR/runner-<group>-<n>.log` | One log per runner |
+| `$BRAIN_RUN_DIR/tencentdb-binding.json` | Non-secret team/agent binding for Claude |
+| `$BRAIN_RUN_DIR/tencentdb-claude-user-key` | Private scoped TencentDB business credential |
 | `$BRAIN_DATA_DIR` | Governor SQLite control state and CAS bytes |
+
+Use `docker logs tdai-memory-core`, `docker logs tdai-memory-hub`, or
+`docker logs tdai-proxy` for memory service diagnostics. Do not print credential files.
 
 ## Troubleshooting
 
 | Symptom | Action |
 |---|---|
-| Port already serves something | Pick another `BRAIN_PORT`; the script refuses to hijack an unmanaged port |
-| Engine preflight fails | Check the exact model ID against the endpoint; for Claude check `BRAIN_ANTHROPIC_BASE_URL` and the credential file |
+| Port already serves something | Pick another `BRAIN_PORT`; the script refuses to hijack an unmanaged Governor port; change TencentDB ports in its private deployment `.env` |
+| Memory or engine preflight fails | Check the exact model ID and endpoint; inspect the official containers and the scoped Claude credential/binding |
 | Runners never claim work | `brain doctor --workspace <id>`; check group, capabilities, engine, heartbeat on Runs → Runners |
 | Launcher socket missing | Sandbox/evaluator execution fails closed; read `launcher.log`, verify `BRAIN_LAUNCHER_SOCKET` |
 | Schema mismatch on existing data dir | Preserve it; start a fresh disposable directory or review the existing deployment |

@@ -50,6 +50,14 @@
       "evidence": "https://better-auth.com/docs/concepts/hooks"
     },
     {
+      "name": "@better-auth/passkey",
+      "disposition": "required",
+      "version": "1.7.14",
+      "resolution": "exact-candidate",
+      "installationVerified": true,
+      "evidence": "https://better-auth.com/docs/plugins/passkey"
+    },
+    {
       "name": "@better-auth/api-key",
       "disposition": "required",
       "version": null,
@@ -96,6 +104,14 @@
       "resolution": "stable-registry-snapshot",
       "installationVerified": false,
       "evidence": null
+    },
+    {
+      "name": "isomorphic-git",
+      "disposition": "required",
+      "version": "1.44.8",
+      "resolution": "exact-candidate",
+      "installationVerified": true,
+      "evidence": "https://isomorphic-git.github.io/docs/listServerRefs.html"
     },
     {
       "name": "yaml",
@@ -312,6 +328,54 @@
       "resolution": "reviewed-source-candidate",
       "installationVerified": false,
       "evidence": "contracts/v1/ui-foundation.json"
+    },
+    {
+      "name": "@biomejs/biome",
+      "disposition": "required",
+      "version": "2.6.4",
+      "resolution": "exact-candidate",
+      "installationVerified": true,
+      "evidence": "https://biomejs.dev/"
+    },
+    {
+      "name": "knip",
+      "disposition": "required",
+      "version": "6.43.0",
+      "resolution": "exact-candidate",
+      "installationVerified": true,
+      "evidence": "https://knip.dev/"
+    },
+    {
+      "name": "eslint-plugin-solid",
+      "disposition": "required",
+      "version": "0.18.1",
+      "resolution": "exact-candidate",
+      "installationVerified": true,
+      "evidence": "https://github.com/solidjs-community/eslint-plugin-solid"
+    },
+    {
+      "name": "eslint-plugin-import-x",
+      "disposition": "required",
+      "version": "4.17.1",
+      "resolution": "exact-candidate",
+      "installationVerified": true,
+      "evidence": "https://github.com/un-ts/eslint-plugin-import-x"
+    },
+    {
+      "name": "eslint-plugin-unused-imports",
+      "disposition": "required",
+      "version": "4.4.1",
+      "resolution": "exact-candidate",
+      "installationVerified": true,
+      "evidence": "https://github.com/JoshuaKGoldberg/eslint-plugin-unused-imports"
+    },
+    {
+      "name": "eslint-plugin-security",
+      "disposition": "required",
+      "version": "4.2.0",
+      "resolution": "exact-candidate",
+      "installationVerified": true,
+      "evidence": "https://github.com/eslint-community/eslint-plugin-security"
     }
   ],
   "nonPackageDecisions": [

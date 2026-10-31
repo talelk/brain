@@ -31,7 +31,7 @@ describe("security authz", async () => {
       { contractVersion: "brain.memory/v1", queryId: "q2", scope: { organizationId: "org-other", visibility: "workspace", workspaceId: w.workspaceId }, query: "golden", sourceTypes: ["wiki"], limit: 8, maxChars: 12000 },
       { organizationId: w.org, workspaceId: w.workspaceId },
     )).toThrow();
-    w.brain.memory.revoke("src-1");
+    w.brain.memory.revoke(w.org, w.workspaceId, "src-1");
     const after = w.brain.memory.search(
       { contractVersion: "brain.memory/v1", queryId: "q3", scope: { organizationId: w.org, visibility: "workspace", workspaceId: w.workspaceId }, query: "golden", sourceTypes: ["wiki"], limit: 8, maxChars: 12000 },
       { organizationId: w.org, workspaceId: w.workspaceId },

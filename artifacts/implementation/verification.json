@@ -1,13 +1,13 @@
 {
   "status": "passed",
   "scope": "documentation-contract-pack-only",
-  "inputFingerprint": "8bda480adc5e4099e380d22a4957aba324d6ee59874423fd5dd42eb81f2476df",
-  "checkedAt": "2026-10-29T07:35:12.268466+00:00",
+  "inputFingerprint": "7bbb475b603a14bc556560c81576339be63eafd662cbe97ea02620d02fda55d6",
+  "checkedAt": "2026-10-31T14:33:40.154470+00:00",
   "checks": [
     {
       "name": "schema-meta",
       "status": "passed",
-      "detail": 190
+      "detail": 309
     },
     {
       "name": "schema-local-references",
@@ -42,17 +42,17 @@
     {
       "name": "registry-parity",
       "status": "passed",
-      "detail": "23 commands, 61 typed lifecycle events"
+      "detail": "57 commands, 91 typed lifecycle events"
     },
     {
       "name": "openapi-structure-and-refs",
       "status": "passed",
-      "detail": "34 operations; structural/reference checks (not full OpenAPI certification)"
+      "detail": "49 operations; structural/reference checks (not full OpenAPI certification)"
     },
     {
       "name": "state-machine-parity",
       "status": "passed",
-      "detail": 5
+      "detail": 9
     },
     {
       "name": "reference-sql-and-invariants",
@@ -72,7 +72,7 @@
     {
       "name": "documentation-inventory",
       "status": "passed",
-      "detail": "52 dependency decisions; 100 scenarios; 50 work cards"
+      "detail": "52 dependency decisions; 110 scenarios; 58 work cards"
     },
     {
       "name": "implementation-policy-and-prompt",
@@ -92,7 +92,7 @@
     {
       "name": "implementation-readiness-contracts-and-fixtures",
       "status": "passed",
-      "detail": "50 generated task packets; 100 scenarios; 15 traces; crypto/golden fixtures; 24 screens in five areas; monolith/auth/recovery/evidence checks"
+      "detail": "58 generated task packets; 110 scenarios; 15 traces; crypto/golden fixtures; 31 screens in six areas; monolith/auth/recovery/evidence checks"
     },
     {
       "name": "generated-implementation-indexes-fresh",
@@ -107,7 +107,7 @@
     {
       "name": "documentation-local-links",
       "status": "passed",
-      "detail": 102
+      "detail": 103
     },
     {
       "name": "typescript-strict-typecheck",

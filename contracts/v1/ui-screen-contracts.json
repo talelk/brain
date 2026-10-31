@@ -40,7 +40,8 @@
       ],
       "owner": "T34",
       "navigationGroup": "today",
-      "task": "Handle prioritized work and return to the originating list"
+      "task": "Handle prioritized work and return to the originating list",
+      "title": "Today"
     },
     {
       "route": "/bridge",
@@ -56,7 +57,8 @@
       ],
       "owner": "T34",
       "navigationGroup": "today",
-      "task": "Handle prioritized work and return to the originating list"
+      "task": "Handle prioritized work and return to the originating list",
+      "title": "Bridge"
     },
     {
       "route": "/w/:id/overview",
@@ -75,7 +77,8 @@
       ],
       "owner": "T34",
       "navigationGroup": "work",
-      "task": "Review workspace work and pack details"
+      "task": "Review workspace work and pack details",
+      "title": "Overview"
     },
     {
       "route": "/w/:id/board",
@@ -95,7 +98,8 @@
       ],
       "owner": "T37",
       "navigationGroup": "work",
-      "task": "Review workspace work and pack details"
+      "task": "Review workspace work and pack details",
+      "title": "Board"
     },
     {
       "route": "/w/:id/decisions",
@@ -113,7 +117,8 @@
       ],
       "owner": "T37",
       "navigationGroup": "work",
-      "task": "Review workspace work and pack details"
+      "task": "Review workspace work and pack details",
+      "title": "Decisions"
     },
     {
       "route": "/approvals",
@@ -130,7 +135,8 @@
       ],
       "owner": "T35",
       "navigationGroup": "approvals",
-      "task": "Review exact proposed effects and recover submitted decisions"
+      "task": "Review exact proposed effects and recover submitted decisions",
+      "title": "Approvals"
     },
     {
       "route": "/approvals/:id",
@@ -150,7 +156,8 @@
       ],
       "owner": "T35",
       "navigationGroup": "approvals",
-      "task": "Review exact proposed effects and recover submitted decisions"
+      "task": "Review exact proposed effects and recover submitted decisions",
+      "title": "Approval review"
     },
     {
       "route": "/jobs/:id",
@@ -170,7 +177,8 @@
       ],
       "owner": "T36",
       "navigationGroup": "runs",
-      "task": "Inspect a run, its attempts, events and evidence"
+      "task": "Inspect a run, its attempts, events and evidence",
+      "title": "Run detail"
     },
     {
       "route": "/runners",
@@ -190,7 +198,8 @@
       ],
       "owner": "T36",
       "navigationGroup": "runs",
-      "task": "Inspect a run, its attempts, events and evidence"
+      "task": "Inspect a run, its attempts, events and evidence",
+      "title": "Runners"
     },
     {
       "route": "/runners/:id",
@@ -208,7 +217,8 @@
       ],
       "owner": "T36",
       "navigationGroup": "runs",
-      "task": "Inspect a run, its attempts, events and evidence"
+      "task": "Inspect a run, its attempts, events and evidence",
+      "title": "Runner detail"
     },
     {
       "route": "/sessions/:id",
@@ -227,7 +237,8 @@
       ],
       "owner": "T36",
       "navigationGroup": "runs",
-      "task": "Inspect a run, its attempts, events and evidence"
+      "task": "Inspect a run, its attempts, events and evidence",
+      "title": "Live session"
     },
     {
       "route": "/w/:id/support",
@@ -246,7 +257,8 @@
       ],
       "owner": "T42",
       "navigationGroup": "work",
-      "task": "Review workspace work and pack details"
+      "task": "Review workspace work and pack details",
+      "title": "Support"
     },
     {
       "route": "/tickets/:id",
@@ -264,7 +276,8 @@
       ],
       "owner": "T42",
       "navigationGroup": "work",
-      "task": "Review workspace work and pack details"
+      "task": "Review workspace work and pack details",
+      "title": "Ticket detail"
     },
     {
       "route": "/w/:id/sre",
@@ -282,7 +295,8 @@
       ],
       "owner": "T43",
       "navigationGroup": "work",
-      "task": "Review workspace work and pack details"
+      "task": "Review workspace work and pack details",
+      "title": "Incidents"
     },
     {
       "route": "/incidents/:id",
@@ -299,7 +313,8 @@
       ],
       "owner": "T43",
       "navigationGroup": "work",
-      "task": "Review workspace work and pack details"
+      "task": "Review workspace work and pack details",
+      "title": "Incident detail"
     },
     {
       "route": "/w/:id/delivery",
@@ -318,26 +333,38 @@
       ],
       "owner": "T44",
       "navigationGroup": "work",
-      "task": "Review workspace work and pack details"
+      "task": "Review workspace work and pack details",
+      "title": "Delivery"
     },
     {
       "route": "/w/:id/knowledge",
       "queries": [
-        "memory.search"
+        "memory.search",
+        "knowledgeAssets.list",
+        "capabilityCandidates.list",
+        "capitalizationRuns.list"
       ],
       "actions": [
         "memory.publish",
-        "memory.revoke"
+        "memory.revoke",
+        "capitalization.run",
+        "capability.review",
+        "tool.publish"
       ],
       "content": [
         "source",
         "scope",
         "freshness",
-        "review"
+        "review",
+        "capitalization",
+        "provenance",
+        "candidateTests",
+        "releaseGate"
       ],
       "owner": "T39",
       "navigationGroup": "knowledge",
-      "task": "Find scoped facts and inspect trusted capabilities"
+      "task": "Find scoped facts and inspect trusted capabilities",
+      "title": "Knowledge"
     },
     {
       "route": "/tools",
@@ -357,7 +384,8 @@
       ],
       "owner": "T40",
       "navigationGroup": "knowledge",
-      "task": "Find scoped facts and inspect trusted capabilities"
+      "task": "Find scoped facts and inspect trusted capabilities",
+      "title": "Tool catalog"
     },
     {
       "route": "/settings",
@@ -365,23 +393,48 @@
         "members.list",
         "audit.list",
         "platform.health",
-        "config.explain"
+        "config.explain",
+        "organization.members.list",
+        "organization.member.get",
+        "organization.invitations.list",
+        "organization.auth-policy.get"
       ],
       "actions": [
         "member.grant",
         "member.revoke",
-        "config.activate"
+        "config.activate",
+        "organization.invitation.create",
+        "organization.invitation.cancel",
+        "organization.invitation.retry",
+        "organization.member.role-grant",
+        "organization.member.role-revoke",
+        "organization.member.suspend",
+        "organization.member.reactivate",
+        "organization.session.revoke"
       ],
       "content": [
         "members",
-        "policy",
-        "budget",
+        "people",
+        "invitations",
+        "access",
+        "authenticationPolicy",
         "audit",
         "health"
       ],
       "owner": "T48",
       "navigationGroup": "settings",
-      "task": "Manage explicitly authorized administration"
+      "task": "Manage explicitly authorized administration",
+      "title": "Administration"
+    },
+    {
+      "route": "/accept-invitation/:id",
+      "queries": [],
+      "actions": [],
+      "content": ["invitedSignUp", "emailVerification", "explicitAcceptance"],
+      "owner": "T05",
+      "navigationGroup": "settings",
+      "task": "Verify an invited account and accept organization membership",
+      "title": "Accept invitation"
     },
     {
       "route": "/tv/support",
@@ -396,7 +449,8 @@
       ],
       "owner": "T45",
       "navigationGroup": "tv",
-      "task": "Read scoped redacted monitoring"
+      "task": "Read scoped redacted monitoring",
+      "title": "Support board"
     },
     {
       "route": "/tv/sre",
@@ -410,7 +464,8 @@
       ],
       "owner": "T45",
       "navigationGroup": "tv",
-      "task": "Read scoped redacted monitoring"
+      "task": "Read scoped redacted monitoring",
+      "title": "SRE board"
     },
     {
       "route": "/w/:id/runs",
@@ -429,7 +484,8 @@
       ],
       "owner": "T36",
       "navigationGroup": "runs",
-      "task": "Inspect a run, its attempts, events and evidence"
+      "task": "Inspect a run, its attempts, events and evidence",
+      "title": "Activity"
     },
     {
       "route": "/w/:id/agents",
@@ -448,26 +504,78 @@
       ],
       "owner": "T34",
       "navigationGroup": "work",
-      "task": "Inspect active agent and workflow definitions and dispatch schema-validated inputs"
+      "task": "Inspect active agent and workflow definitions and dispatch schema-validated inputs",
+      "title": "Agents"
     },
     {
       "route": "/w/:id/workflows",
-      "queries": [
-        "workflows.list",
-        "workflows.get"
-      ],
-      "actions": [
-        "workflow.dispatch"
-      ],
-      "content": [
-        "release",
-        "input-schema",
-        "engine",
-        "dependencies"
-      ],
+      "queries": ["workflows.list", "workflows.get"],
+      "actions": ["workflow.dispatch"],
+      "content": ["release", "input-schema", "engine", "dependencies"],
       "owner": "T34",
       "navigationGroup": "work",
-      "task": "Inspect active agent and workflow definitions and dispatch schema-validated inputs"
+      "task": "Inspect active agent and workflow definitions and dispatch schema-validated inputs",
+      "title": "Start work"
+    },
+    {
+      "route": "/w/:id/plans",
+      "queries": ["objectives.list", "workBoard.get"],
+      "actions": ["objective.create", "plan.propose", "plan.confirm"],
+      "content": ["objective", "planVersion", "tasks", "dependencies", "assignments"],
+      "owner": "T51",
+      "navigationGroup": "work",
+      "task": "Turn an intention into a reviewed plan and versioned work",
+      "title": "Plans"
+    },
+    {
+      "route": "/w/:id/schedules",
+      "queries": ["automations.list", "automations.occurrences"],
+      "actions": ["automation.upsert", "automation.control"],
+      "content": ["target", "trigger", "nextOccurrences", "overlap", "misfire", "history"],
+      "owner": "T52",
+      "navigationGroup": "work",
+      "task": "Schedule and control task and workflow occurrences",
+      "title": "Schedules"
+    },
+    {
+      "route": "/w/:id/resources",
+      "queries": ["documents.list", "documents.get", "documents.search"],
+      "actions": ["document.upload", "document.revise", "document.associate", "document.delete"],
+      "content": ["documents", "versions", "preview", "scope", "associations", "indexing"],
+      "owner": "T54",
+      "navigationGroup": "work",
+      "task": "Manage and use workspace documents",
+      "title": "Resources"
+    },
+    {
+      "route": "/studio/:kind",
+      "queries": ["configDrafts.list"],
+      "actions": ["configDraft.create"],
+      "content": ["definitions", "drafts", "validation", "dependencies"],
+      "owner": "T56",
+      "navigationGroup": "knowledge",
+      "task": "Create and validate a capability without editing YAML",
+      "title": "Studio"
+    },
+    {
+      "route": "/studio/:kind/:draftId",
+      "queries": ["configDrafts.get", "configDrafts.impact"],
+      "actions": ["configDraft.update", "configDraft.validate", "configDraft.test", "configDraft.publish"],
+      "content": ["editor", "diagnostics", "diff", "tests", "publication"],
+      "owner": "T56",
+      "navigationGroup": "knowledge",
+      "task": "Edit, test, review and publish an immutable definition",
+      "title": "Configuration Studio"
+    },
+    {
+      "route": "/administration/integrations",
+      "queries": ["integrations.list", "integrations.repositories"],
+      "actions": ["integration.connect", "integration.bind", "integration.verify"],
+      "content": ["providers", "organizations", "repositories", "permissions", "webhooks", "status"],
+      "owner": "T55",
+      "navigationGroup": "administration",
+      "task": "Connect Git providers and bind repositories to workspaces",
+      "title": "Integrations"
     }
   ],
   "specialActions": [
@@ -490,7 +598,7 @@
     },
     {
       "id": "runs",
-      "label": "Runs",
+      "label": "Activity",
       "entryRoute": "/w/:id/runs"
     },
     {
@@ -502,6 +610,11 @@
       "id": "knowledge",
       "label": "Knowledge",
       "entryRoute": "/w/:id/knowledge"
+    },
+    {
+      "id": "administration",
+      "label": "Administration",
+      "entryRoute": "/settings"
     }
   ],
   "secondaryNavigation": {
@@ -528,5 +641,127 @@
     "unknownAction": "Check decision",
     "idempotencyKey": "one captured key per exact request; recovery reuses it",
     "effectSuccessImpliedByDecision": false
+  },
+  "areaNavigation": {
+    "today": [
+      {
+        "label": "Today",
+        "route": "/today"
+      },
+      {
+        "label": "Bridge",
+        "route": "/bridge"
+      }
+    ],
+    "work": [
+      {
+        "label": "Overview",
+        "route": "/w/:id/overview"
+      },
+      {
+        "label": "Plans",
+        "route": "/w/:id/plans"
+      },
+      {
+        "label": "Board",
+        "route": "/w/:id/board"
+      },
+      {
+        "label": "Tasks",
+        "route": "/w/:id/workflows"
+      },
+      {
+        "label": "Schedules",
+        "route": "/w/:id/schedules"
+      },
+      {
+        "label": "Resources",
+        "route": "/w/:id/resources"
+      },
+      {
+        "label": "Support",
+        "route": "/w/:id/support"
+      },
+      {
+        "label": "Incidents",
+        "route": "/w/:id/sre"
+      },
+      {
+        "label": "Delivery",
+        "route": "/w/:id/delivery"
+      },
+      {
+        "label": "Decisions",
+        "route": "/w/:id/decisions"
+      }
+    ],
+    "administration": [
+      {
+        "label": "Setup",
+        "route": "/settings?tab=setup",
+        "adminOnly": true,
+        "organizationOnly": true
+      },
+      {
+        "label": "Security",
+        "route": "/settings?tab=security"
+      },
+      {
+        "label": "Integrations",
+        "route": "/administration/integrations",
+        "adminOnly": true,
+        "organizationOnly": true
+      },
+      {
+        "label": "Releases",
+        "route": "/settings?tab=release",
+        "adminOnly": true,
+        "organizationOnly": true
+      },
+      {
+        "label": "Agents",
+        "route": "/w/:id/agents",
+        "adminOnly": true
+      },
+      {
+        "label": "Tools",
+        "route": "/tools",
+        "adminOnly": true
+      },
+      {
+        "label": "Runners",
+        "route": "/runners",
+        "adminOnly": true
+      },
+      {
+        "label": "People",
+        "route": "/settings?tab=people",
+        "adminOnly": true,
+        "identityOnly": true
+      },
+      {
+        "label": "Invitations",
+        "route": "/settings?tab=invitations",
+        "adminOnly": true,
+        "identityOnly": true
+      },
+      {
+        "label": "Access",
+        "route": "/settings?tab=members",
+        "adminOnly": true
+      },
+      {
+        "label": "Authentication",
+        "route": "/settings?tab=policy",
+        "adminOnly": true,
+        "identityOnly": true
+      },
+      {
+        "label": "Health",
+        "route": "/settings?tab=health",
+        "adminOnly": true,
+        "organizationOnly": true
+      }
+    ]
   }
 }

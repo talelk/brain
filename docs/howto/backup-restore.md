@@ -1,16 +1,34 @@
 # Backup and restore
 
-Maintenance runs on the Governor host inside the Governor executable. The remote CLI
-does not open databases or accept arbitrary server paths; `brain backup` only prints
-this pointer.
-
-## Commands
+For a managed local installation, run from the checkout:
 
 ```bash
-# Stop the source Governor and any other writers first.
-pnpm --filter @brain/governor maintenance backup  /srv/brain/data /srv/backups/brain-20261029
-pnpm --filter @brain/governor maintenance verify  /srv/backups/brain-20261029
-pnpm --filter @brain/governor maintenance restore /srv/backups/brain-20261029 /srv/brain/restored
+rtk pnpm brain backup /path/to/new-backup
+```
+
+Brain stops its managed processes, creates and verifies the archive, then restarts.
+Keep the backup outside the instance's `data`, `run` and `cli` directories so reset
+preserves it. To restore into a fresh local data directory after an intentional reset:
+
+```bash
+rtk pnpm brain restore /path/to/backup
+rtk pnpm brain start
+```
+
+Restore verifies the archive first and keeps execution suspended for reconciliation.
+It does not overwrite an existing data directory.
+
+## Custom deployments
+
+Maintenance runs on the Governor host inside the Governor executable. The remote CLI
+does not open databases or accept arbitrary server paths; its `brain backup` command
+prints this guide. Custom deployments can use the lower-level maintenance commands:
+
+```bash
+# Stop the Governor and any other writers first.
+rtk pnpm --filter @brain/governor maintenance backup /srv/brain/data /srv/backups/brain-20261029
+rtk pnpm --filter @brain/governor maintenance verify /srv/backups/brain-20261029
+rtk pnpm --filter @brain/governor maintenance restore /srv/backups/brain-20261029 /srv/brain/restored
 ```
 
 Governor and maintenance contend for the same kernel-held SQLite ownership lock, so a

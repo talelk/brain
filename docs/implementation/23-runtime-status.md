@@ -2,6 +2,64 @@
 
 The repository now contains runtime code for Governor, runners, launcher, CLI and the NewUI-backed Solid app. It remains an incomplete implementation. Earlier task `passed` labels and gate files overstated the available acceptance evidence. Documentation/contract checks, a named test, a standalone adapter probe and a production UI build each prove a limited property; none certifies the platform.
 
+## Six-area UI-first acceptance — 31 October
+
+T58 completes the six-area UI-first flow with contextual Create, Ask Brain, reviewed plans, Resources, Schedules and all Studios. Personal-host automation pins runs and jobs to the selected runner, retains pending occurrences while offline, and applies explicit wait/fail policy without managed fallback. T52 now also has direct domain planning and Governor-restart chaos coverage; occurrence identity and history survive replay without duplicate dispatch. The browser Git fixture handles early child-input closure, and the complete Studio publication flow passes.
+
+Evidence is in `artifacts/implementation/ui-first-acceptance/verification.json`: fast checks with domain 33/33, integration 206/206, security 75/75, chaos 35/35, certification 2/2 with all 110 scenarios covered, browser 162/162 across six viewport/theme projects, and all implementation-pack checks pass. E093/E097/E101–E110 are covered. Live Anthropic/customer-system qualification for T25 and T41–T43 and independent release certification remain separate; runtime gates were not manually promoted.
+
+## Autonomous capitalization — 31 October
+
+T57 connects accepted independent evidence to provenance-scoped L0 capture, durable L1 extraction and deduplicated, tested L2 candidates. Candidates retain typed shapes, effect class, existing alternatives and original evidence. L3 publication requires explicit human review and the exact active configuration release; no extraction path automatically publishes shared memory or executable authority. Knowledge Studio exposes the complete flow, and interrupted runs resume without duplicates.
+
+Evidence is in `artifacts/implementation/autonomous-capitalization/verification.json`: fast checks, integration 204/204, security 75/75, chaos 34/34, certification 2/2, browser 150/150 and all implementation-pack checks pass. Biome retains only the pre-existing automation unused-parameter warning. Runtime gates were not promoted.
+
+## Configuration Studio and publication — 31 October
+
+T56 adds immutable configuration drafts and revisions, restricted YAML, visual `spec.jobs` authoring, validation and structural tests, deterministic diffs and impact analysis. Publication uses the TypeScript Git client to clone, commit and push the exact draft documents, then compiles those committed bytes into a staged release. Activation remains a separate compare-and-swap command. The Studio UI supports the entire create → validate → test → publish → activate pipeline without direct active mutation.
+
+Evidence is in `artifacts/implementation/configuration-studio/verification.json`: integration 201/201, security 72/72, chaos 33/33 and browser 144/144 across all six viewport/theme projects. Publication proof uses a real Git smart-HTTP backend fixture. Pack readiness now lacks only T57 capitalization DTOs.
+
+## TypeScript Git protocol integrations — 30 October
+
+T55 uses the pinned pure-TypeScript `isomorphic-git` client rather than hosting-provider APIs. Each connection is one Git remote verified through `listServerRefs` read and push negotiation. Optional HTTP credentials are encrypted at rest and never returned in DTOs. Configuration and project bindings remain separate, and actual ref transitions create deduplicated inert proposals. The administration UI supports the complete remote → verify → bind → proposal workflow. The earlier GitHub App/GitLab-specific implementation was removed, including its webhook endpoint.
+
+Evidence is in `artifacts/implementation/git-integrations/verification.json`: integration 200/200, security 70/70, chaos 33/33 and browser 138/138 across all six viewport/theme projects. Live customer remotes were not contacted; tests use a real loopback Git smart-HTTP fixture. Pack readiness now lacks only T56 Studio commands.
+
+## Workspace documents and resources — 30 October
+
+T54 adds workspace-private document upload, immutable content-addressed versions, safe text/download-only preview, scoped WorkItem/objective/session/run associations and current-revision FTS search. Revocation removes current visibility without deleting history. CAS sweep retains every document version, and upload/indexing never creates shared-memory publications. The Resources screen supports the complete workflow without YAML or terminal commands.
+
+Evidence is in `artifacts/implementation/documents/verification.json`: integration 198/198, security 67/67, chaos 33/33 and the E107 browser scenario in all six viewport/theme projects. Pack readiness is now blocked only by future T55–T56 screen actions without command DTOs; Biome still reports only the pre-existing automation unused parameter.
+
+## Native sessions and collaboration — 30 October
+
+T53 now provides native and managed `BrainSession` records, durable WorkItem messages, portable checkpoint resume as a new session, and bounded cross-agent delegation. Managed sessions bind to real workflow attempts and execution links. Delegation enforces narrowed paths/tools, aggregate child budgets, depth three, distinct active worktrees and independent human review backed by child-job evidence from a different evaluator attempt. The session detail screen exposes lineage, ownership, budget and checkpoint facts; OpenCode is an explicit ACP adapter selection. Late attempt events no longer reopen terminal sessions.
+
+Executed evidence is in `artifacts/implementation/session-collaboration/verification.json`: focused T53 5/5, integration 194/194, security 64/64, chaos 33/33, certification 2/2 and browser 126/126 across six viewport/theme projects, including the production build. Live OpenCode model qualification was not run. Biome remains red on a pre-existing unused parameter in `modules/jobs/automation.ts:319`; pack readiness remains red because future T54–T56 screen actions have no command DTOs. These limitations do not change the independently derived G01–G08 statuses.
+
+## End-user setup and operations — 29 October
+
+Fresh checkout startup now generates `admin@brain.local` with the default local
+password `admin-password` and no forced replacement, creates My workspace, and activates two
+ordinary starter tasks with their governed tools. `BRAIN_ADMIN_EMAIL` and
+`BRAIN_ADMIN_PASSWORD` provide custom initial credentials; explicit temporary-password
+flows retain their replacement protection. Browser model setup pairs scoped
+local runners. Five primary areas lead to shared task review/start from a catalog,
+private conversation proposal, or linked work item. Results present workflow-level
+status and independent evidence, with technical diagnostics collapsed.
+
+The source-checkout commands support start/stop/status/logs, verified backup/restore,
+and registered-instance reset with confirmation, ownership/path checks and writer
+exclusion. Restore keeps execution suspended. User documentation starts in README
+and docs/howto/use-brain.md; advanced configuration has a separate reference.
+
+Current UX evidence is in artifacts/implementation/ux-complete/verification.json.
+It distinguishes the full automated suite, live model runs and recovery proof from
+model variability, unrun representative-human usability sessions and independent
+release certification. Those results do not promote historical G01–G08 evidence or
+qualify semantic/model accuracy.
+
 ## Operational-product continuation — 28 October
 
 The operator milestone supersedes the earlier fixture-only engine and forced-TOTP descriptions below. The root [README](../../README.md) is the supported startup, release-authoring and troubleshooting guide. Pi/Claude adapters now consume pinned agent instructions/tasks and report actual terminal output; the supervisor uploads outputs and submits author evidence for independent deterministic validation. Claude requires explicit configured endpoint proof when selected. Pi/Claude adapters now expose release-pinned custom tools as native bindings through the governed broker: the supervisor re-checks the Agent allowlist digest, pinned target and input schema, requires an effect permit for non-read classes, executes only launcher-sandboxed pinned bytes, uploads the output as an attempt artifact and records the tool release plus a `governed-tool-result` effect event in the evidence bundle. The starter Operations Assistant calls only the read-only `operations.context` tool; the Support Analyst remains tool-free. Task-oriented guides were added under [`docs/howto/`](../howto/README.md).

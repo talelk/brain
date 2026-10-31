@@ -24,11 +24,15 @@
           "type": "agent",
           "release": {
             "id": "operations-assistant",
-            "digest": "sha256:3efd66c8ebced8337f0b3418af7474ccb1896e272f37f4d30e686ca394a75931"
+            "digest": "sha256:4a7714cb3bf1967c135208d03c7af6e9e53d11d129deb7b1df57cf6f5b7da87d"
           }
         },
         "runsOn": {
           "group": "agents",
+          "engine": {
+            "anyOf": ["pi"],
+            "features": ["sessions"]
+          },
           "all": [
             "os:linux"
           ],
@@ -66,6 +70,10 @@
         },
         "runsOn": {
           "group": "evaluators",
+          "engine": {
+            "anyOf": ["claude"],
+            "features": ["sessions"]
+          },
           "all": [
             "os:linux",
             "tool:bash",
@@ -95,6 +103,16 @@
       }
     },
     "failFast": true,
-    "deadlineSeconds": 300
+    "deadlineSeconds": 300,
+    "presentation": {
+      "title": "Investigate an operational issue",
+      "description": "Get a concise analysis, missing facts and safe next checks.",
+      "examples": [
+        {
+          "situation": "Error rates increased after a deployment. No rollback has been attempted."
+        }
+      ],
+      "system": false
+    }
   }
 }

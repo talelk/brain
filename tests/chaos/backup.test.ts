@@ -84,26 +84,22 @@ describe("local backup integrity and confinement", () => {
   it("normal restart retains sessions; each new restore revokes them exactly once", async () => {
     const source = temp(); let brain = new Brain({ dataDir: source });
     const boot = seedOrganization(brain, { organizationId: "org-restart", ownerId: "owner-restart" });
-    const signup = await brain.auth.handler(new Request("http://127.0.0.1:3000/api/auth/sign-up/email", {
-      method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "restore@example.test", password: "restore-test-password", name: "Restore" }),
-    }));
-    expect(signup.status).toBe(200);
-    const cookieHeaders = new Headers({ cookie: signup.headers.get("set-cookie")! });
-    const vendorUser = (await brain.auth.readSession(cookieHeaders))?.userId;
+    const account = await brain.auth.bootstrapAccount({ email: "restore@example.test", password: "restore-test-password", name: "Restore" });
+    const sessionHeaders = new Headers({ authorization: `Bearer ${account.token}` });
+    const vendorUser = (await brain.auth.readSession(sessionHeaders))?.userId;
     expect(vendorUser).toBeTruthy();
     brain.close();
     brain = new Brain({ dataDir: source });
     const headers = new Headers({ authorization: `Bearer ${boot.sessionToken}` });
     expect((await brain.resolveActor(headers)).actor.actorId).toBe(boot.ownerPrincipalId);
-    expect((await brain.auth.readSession(cookieHeaders))?.userId).toBe(vendorUser); brain.close();
+    expect((await brain.auth.readSession(sessionHeaders))?.userId).toBe(vendorUser); brain.close();
     const first = join(temp(), "first"); await createBackup(source, first);
     const restored = join(temp(), "data"); restoreBackup(first, restored);
     // A filesystem acknowledgement is never authority to skip the transaction.
     writeFileSync(join(restored, "RESTORED-APPLIED.json"), "{}");
     brain = new Brain({ dataDir: restored });
     await expect(brain.resolveActor(headers)).rejects.toThrow();
-    expect(await brain.auth.readSession(cookieHeaders)).toBeNull();
+    expect(await brain.auth.readSession(sessionHeaders)).toBeNull();
     const generation = () => (brain.store.control.prepare("SELECT revocation_generation AS n FROM organizations").get() as { n: number }).n;
     expect(generation()).toBe(2); brain.close();
     unlinkSync(join(restored, "RESTORED-APPLIED.json"));

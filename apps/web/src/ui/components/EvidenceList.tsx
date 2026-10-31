@@ -6,6 +6,7 @@ import type { EvidenceBundle, VerificationVerdict } from "@brain/contracts";
 import { evidenceQuery } from "../../data/governor";
 import { ArtifactContent } from "./ArtifactContent";
 import { DigestValue } from "./DigestValue";
+import { StatusBadge, statusHeaderTheme, statusTheme } from "./StatusBadge";
 
 /**
  * Evidence is what makes "done" mean something (document 25).
@@ -49,7 +50,7 @@ export function EvidenceList(props: {
       <Show when={bundle()} fallback={<Alert theme="amber" variant="outline" title="No accepted evidence" description={error()} />}>
         <div class="flex flex-col gap-field-gap">
           <div class="flex flex-wrap items-center gap-control-gap">
-            <Badge theme={current() ? (current()!.outcome === "verified" ? "green" : "red") : "gray"} label={current() ? `Verdict: ${current()!.outcome}` : "Pending verification"} />
+            <Badge theme={current() ? statusTheme("evidence", current()!.outcome) : "gray"} label={current() ? `Verdict: ${current()!.outcome}` : "Pending verification"} />
             <span class="text-caption text-ink-gray-7">
               {bundle()!.jobId ? `job ${bundle()!.jobId}` : "record"} · {bundle()!.artifacts.length} artifacts
             </span>
@@ -58,13 +59,13 @@ export function EvidenceList(props: {
           <KeyValue label="Source revision" value={<DigestValue value={bundle()!.sourceRevision} label="Source revision" />} orientation="vertical" />
           <KeyValue label="Pinned primitives" value={`${Object.keys(bundle()!.primitiveVersions).length} pinned`} />
           <Show when={current()}>
-            <Alert theme={current()!.outcome === "verified" ? "green" : "red"} variant="outline"
+            <Alert theme={statusHeaderTheme("evidence", current()!.outcome)} variant="outline"
               title={`Independent verdict: ${current()!.outcome}`}
               description={`Evaluator attempt ${current()!.evaluatorAttemptId} · independence ${current()!.independence} · ${current()!.checks.filter((c) => c.status === "passed").length}/${current()!.checks.length} checks passed`} />
             <For each={current()!.checks}>{(check) => (
               <div class="flex items-center justify-between gap-2 border-b border-outline-gray-1 py-1">
                 <span class="truncate text-base text-ink-gray-9">{check.criterionId ?? check.checkId}</span>
-                <Badge theme={check.status === "passed" ? "green" : check.status === "missing" ? "amber" : "red"} label={check.status} />
+                <StatusBadge kind="check" status={check.status} />
               </div>
             )}</For>
           </Show>

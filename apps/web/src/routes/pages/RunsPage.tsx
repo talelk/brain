@@ -1,7 +1,7 @@
 import type { JSX } from "solid-js";
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { createSignal } from "solid-js";
-import type { JobSnapshot, RunnerSnapshot, SessionView } from "@brain/contracts";
+import type { JobSnapshot, RunnerSnapshot, BrainSession } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { jobsQuery, runnersQuery, sessionsQuery } from "../../data/governor";
@@ -15,7 +15,7 @@ export default function RunsPage(props: { initialTab?: "runs" | "sessions" | "ru
   const filter = () => typeof searchParams.q === "string" ? searchParams.q : "";
   const runState = () => typeof searchParams.state === "string" ? searchParams.state : "";
   const cursor = () => typeof searchParams.cursor === "string" ? searchParams.cursor : "";
-  const runs = createScopedRead<{ jobs: JobSnapshot[]; sessions: SessionView[]; runners: RunnerSnapshot[]; nextCursor: string; total: number }>({
+  const runs = createScopedRead<{ jobs: JobSnapshot[]; sessions: BrainSession[]; runners: RunnerSnapshot[]; nextCursor: string; total: number }>({
     scope: app.scope,
     load: async (scope, signal) => {
       const [j, s, r] = await Promise.all([

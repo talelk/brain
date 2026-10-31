@@ -1,0 +1,60 @@
+{
+  "recordedAt": "2026-10-31T00:40:00+01:00",
+  "task": "T56",
+  "scenario": "E109",
+  "implementation": "complete",
+  "sourceInputFingerprint": "ad49bdb08535997b2cb1fe0ddc41277d5f5095fcfe5d2feb0b99af0aef529258",
+  "checks": {
+    "focused": {
+      "command": "rtk pnpm exec vitest run tests/domain/configuration-drafts.test.ts tests/integration/studio.test.ts tests/security/studio-authorization.test.ts tests/contracts",
+      "exitCode": 0,
+      "tests": 10
+    },
+    "focusedBrowser": {
+      "command": "rtk pnpm exec playwright test tests/browser/studio.spec.ts --project=1440-light --forbid-only --update-snapshots=none",
+      "exitCode": 0,
+      "tests": 1
+    },
+    "integration": { "command": "rtk pnpm test:integration", "exitCode": 0, "files": 45, "tests": 201 },
+    "security": { "command": "rtk pnpm test:security", "exitCode": 0, "files": 23, "tests": 72 },
+    "chaos": { "command": "rtk pnpm test:chaos", "exitCode": 0, "files": 10, "tests": 33 },
+    "certification": { "command": "rtk pnpm test:certification", "exitCode": 0, "tests": 2 },
+    "staticAndFastRemainder": {
+      "commands": [
+        "rtk pnpm lint",
+        "rtk pnpm check:knip",
+        "rtk pnpm typecheck",
+        "rtk pnpm typecheck:web",
+        "rtk pnpm typecheck:browser",
+        "rtk pnpm check:boundaries",
+        "rtk pnpm --filter @brain/governor auth:schema --check",
+        "rtk pnpm test:contracts",
+        "rtk pnpm test:domain"
+      ],
+      "exitCode": 0,
+      "contractTests": 5,
+      "domainTests": 29
+    },
+    "fullBrowserMatrix": {
+      "command": "rtk pnpm test:browser",
+      "exitCode": 0,
+      "testsPassed": 144,
+      "duration": "5.3m",
+      "projects": ["390-light", "390-dark", "768-light", "768-dark", "1440-light", "1440-dark"]
+    }
+  },
+  "observedBehavior": [
+    "Immutable draft revisions use confined YAML and canonical spec.jobs visual authoring with optional advanced YAML.",
+    "Validation and structural tests compile the exact current revision with the active document baseline.",
+    "Diff and impact views identify changed definitions and references requiring revalidation.",
+    "Publication clones, commits and pushes through isomorphic-git, then compiles the exact committed bytes into a staged release.",
+    "Activation remains a separate explicit config.activate command with compare-and-swap protection.",
+    "The Studio UI covers create, edit, validate, test, diff, publish and activation without direct active mutation."
+  ],
+  "limitations": [
+    "Biome remains red only on the pre-existing unused db parameter in apps/governor/src/modules/jobs/automation.ts:319.",
+    "Pack readiness remains red only for future T57 capitalization DTOs.",
+    "No live customer Git remote was contacted; publication proof used a real Git smart-HTTP backend fixture.",
+    "Historical G01-G08 and independent release certification are not promoted by this task evidence."
+  ]
+}

@@ -1,14 +1,11 @@
-import type {
-  ApprovalRequest, AuditEntry, BoardView, ConfigExplanation, DeliveryDossier,
-  DecisionHistoryEntry, IdentityView, IncidentDetail, IncidentSummary, JobSnapshot,
-  JsonValue, MemberGrantView, MemoryQuery, PlacementExplanation, QueryRequest,
-  QueryResponse, RunnerSnapshot, SessionView, SLASummary, TicketDetail, TicketSummary,
-  TodayItem, ToolCatalogEntry, WorkspaceContext, WorkspaceSummary, HealthView,
-  CommandReceipt,
-} from "@brain/contracts";
-import { command, governor, GovernorError, query } from "./client";
+import type { CommandReceipt, DeliveryDossier, IdentityView, MemoryQuery, OrganizationDirectorySnapshot, QueryRequest, QueryResponse } from "@brain/contracts";
+import { command, governor, query } from "./client";
 
-export { GovernorError, command, governor };
+export { command };
+
+export async function identity(signal?: AbortSignal): Promise<IdentityView> {
+  return governor<IdentityView>("/v1/identity", undefined, signal);
+}
 
 /** A query response plus the authority facts every screen must bind to. */
 export interface Loaded<T> {
@@ -21,27 +18,28 @@ export interface Loaded<T> {
   readonly totalEstimate?: number;
 }
 
-/**
- * Cache identity (document 21): organization, workspace, principal
- * authorization generation, query type and filters. A scope switch must not be
- * able to serve a row from another scope, so every key is checked here.
- */
-export interface QueryKey {
-  readonly organizationId: string;
-  readonly workspaceId: string;
-  readonly generation: number;
-  readonly queryType: string;
-  readonly filters?: Record<string, string | number | boolean | undefined>;
+/** Typed access to one declared query kind with the server's own watermark. */
+function withEstimate<T>(snapshot: T): { totalEstimate?: number } {
+  if (snapshot !== null && typeof snapshot === "object" && "totalEstimate" in snapshot && typeof snapshot.totalEstimate === "number") return { totalEstimate: snapshot.totalEstimate };
+  return {};
 }
 
-/** Typed access to one declared query kind with the server's own watermark. */
 async function fetchView<K extends QueryRequest["queryType"], R extends QueryResponse & { queryType: K }>(
   request: Extract<QueryRequest, { queryType: K }>,
   signal?: AbortSignal,
 ): Promise<Loaded<R["snapshot"]>> {
   const response = await query<R>(request, signal);
-  return { snapshot: response.snapshot as R["snapshot"], asOf: response.asOf, sourceWatermark: response.sourceWatermark,
-    cursor: response.cursor, ...("totalEstimate" in response.snapshot ? { totalEstimate: response.snapshot.totalEstimate } : {}) };
+  const snapshot = response.snapshot as R["snapshot"];
+  return { snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark,
+    cursor: response.cursor, ...withEstimate(snapshot) };
+}
+
+async function fetchOrganizationView(request: QueryRequest, signal?: AbortSignal): Promise<Loaded<OrganizationDirectorySnapshot>> {
+  const response = await query<QueryResponse>(request, signal);
+  if (!response.queryType.startsWith("organization.")) throw new Error("Unexpected organization query response");
+  const snapshot = response.snapshot as OrganizationDirectorySnapshot;
+  return { snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark,
+    cursor: response.cursor, ...withEstimate(snapshot) };
 }
 
 export const todayQuery = (request: { workspaceId?: string; limit?: number; states?: string[] }, signal?: AbortSignal) =>
@@ -102,33 +100,14 @@ export const membersQuery = (workspaceId: string, signal?: AbortSignal) =>
   fetchView({ queryType: "members.list", workspaceId }, signal);
 export const auditQuery = (workspaceId: string, signal?: AbortSignal) =>
   fetchView({ queryType: "audit.list", workspaceId }, signal);
-export const commandStatusQuery = (commandId: string, signal?: AbortSignal) =>
-  fetchView({ queryType: "command.get", commandId }, signal);
-
-export type {
-  ApprovalRequest, AuditEntry, BoardView, ConfigExplanation, DeliveryDossier,
-  DecisionHistoryEntry, HealthView, IncidentDetail, IncidentSummary, JobSnapshot,
-  MemberGrantView, PlacementExplanation, RunnerSnapshot, SessionView, SLASummary,
-  TicketDetail, TicketSummary, TodayItem, ToolCatalogEntry, WorkspaceContext,
-  WorkspaceSummary,
-};
-export type { IdentityView, CommandReceipt, JsonValue };
-export { identity, setupStatus };
-
-async function identity(signal?: AbortSignal): Promise<IdentityView> {
-  return governor<IdentityView>("/v1/identity", undefined, signal);
-}
-async function setupStatus(): Promise<{ setupRequired: boolean; initialized: boolean }> {
-  return governor("/v1/setup/status");
-}
-
-/** The exact decision-status read used by approval recovery (never a re-POST). */
-export async function decisionStatus(approvalId: string, idempotencyKey: string): Promise<string> {
-  const result = await governor<{ status: string }>(`/v1/approvals/${approvalId}/decision-status`, { idempotencyKey });
-  return result.status;
-}
-
-/** One authoritative command; the receipt's outcome is the confirmation. */
+export const organizationMembersQuery = (request: { search?: string; cursor?: string; limit?: number } = {}, signal?: AbortSignal) =>
+  fetchOrganizationView({ queryType: "organization.members.list", ...request }, signal);
+export const organizationMemberQuery = (resourceId: string, signal?: AbortSignal) =>
+  fetchOrganizationView({ queryType: "organization.member.get", resourceId }, signal);
+export const organizationInvitationsQuery = (request: { search?: string; cursor?: string; limit?: number } = {}, signal?: AbortSignal) =>
+  fetchOrganizationView({ queryType: "organization.invitations.list", ...request }, signal);
+export const organizationAuthPolicyQuery = (signal?: AbortSignal) =>
+  fetchOrganizationView({ queryType: "organization.auth-policy.get" }, signal);
 export async function runCommand<TEnv extends import("@brain/contracts").CommandEnvelope>(
   envelope: Omit<TEnv, "contractVersion" | "commandId" | "commandType" | "idempotencyKey"> & {
     commandType: TEnv["commandType"];
@@ -143,11 +122,4 @@ export async function runCommand<TEnv extends import("@brain/contracts").Command
     ...envelope,
   } as unknown as TEnv;
   return command<CommandReceipt>(full);
-}
-
-/** Step-up: the challenge is bound to the exact approval subject digest. */
-export async function stepUpVerify(approvalId: string, subjectDigest: string, code: string): Promise<string> {
-  const challenge = await governor<{ challengeId: string }>("/v1/step-up/challenges", { approvalId, subjectDigest });
-  const evidence = await governor<{ evidenceId: string }>("/v1/step-up/verify", { challengeId: challenge.challengeId, code });
-  return evidence.evidenceId;
 }

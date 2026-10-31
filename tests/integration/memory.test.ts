@@ -72,6 +72,19 @@ describe("reviewed memory publication (T39)", () => {
     }
   });
 
+  it("fails remote searches without silently substituting local memory", async () => {
+    world = setupWorld();
+    const w = world;
+    const previous = process.env["BRAIN_TENCENTDB_URL"];
+    process.env["BRAIN_TENCENTDB_URL"] = "http://127.0.0.1:1";
+    try {
+      await expect(w.brain.searchMemoryAsync(w.owner, w.workspaceId, mq(w))).rejects.toThrow(/does not fall back to local memory/);
+    } finally {
+      if (previous === undefined) delete process.env["BRAIN_TENCENTDB_URL"];
+      else process.env["BRAIN_TENCENTDB_URL"] = previous;
+    }
+  });
+
   it("rejects self-review, unknown reviewer, missing evidence and undeclared redaction profiles", () => {
     world = setupWorld();
     const w = world;

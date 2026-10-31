@@ -1,4 +1,6 @@
-import { operationalReadiness } from "../modules/operations/index";
+import { assertHumanIdentity } from "../modules/identity/index";
+import { TaskExperience } from "../modules/workflows/index";
+import { localRuntimeStatus, connectLocalModel, restoreLocalRuntimeHandoff, operationalReadiness } from "../modules/operations/index";
 import type { RuntimeConfig } from "../runtime-config";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { gzipSync } from "node:zlib";
@@ -10,6 +12,7 @@ import { validate } from "@brain/contracts/validate";
 import type { ActorContext, HumanApprovalDecision, IdentityView, RunnerVerdictRequest } from "@brain/contracts";
 import { Brain } from "../application/brain";
 import { scopesForPrincipal } from "../application/authz";
+import { executeOrganizationCommand, executeOrganizationQuery, isOrganizationCommand, isOrganizationQuery, listIdentitySessions, revokeIdentitySession } from "../application/organization-admin";
 import { BrainDomainError, brainError, statusForCode } from "../domain/errors";
 import { newId } from "../domain/clock";
 import type { GovernorHandle } from "../container";
@@ -29,6 +32,8 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
   if (allowTestActor && process.env["NODE_ENV"] === "production") throw new Error("test actor refused in production");
   const brain = new Brain({ dataDir, allowTestActor, ...(opts?.runtime ? { runtime: opts.runtime } : {}) });
   await brain.auth.ready();
+  try { restoreLocalRuntimeHandoff(brain.store); } catch (error) { brain.close(); throw error; }
+  const tasks = new TaskExperience(brain.store, { query: (actor, query) => brain.executeQuery(actor, query), dispatch: (actor, command) => brain.executeCommand(actor, command, "task-experience") });
   const app = new Hono();
   const bodies = new BodyReader();
   const readJson = async (c: { req: { raw: Request } }, limit = MAX_JSON) => parseJson(await bodies.read(c.req.raw, limit));
@@ -46,7 +51,11 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
   };
   app.onError((error, c) => fail(c as never,error));
 
-  const actorFor = (c: { req: { raw: Request } }, workspaceId?: string) => brain.resolveActor(c.req.raw.headers, workspaceId);
+  const actorFor = async (c: { req: { raw: Request } }, workspaceId?: string) => {
+    const identity = await brain.resolveActor(c.req.raw.headers, workspaceId);
+    if (identity.humanSession?.passwordChangeRequired && new URL(c.req.raw.url).pathname !== "/v1/identity") throw new BrainDomainError("FORBIDDEN", "Change your temporary password before using Brain");
+    return identity;
+  };
 
   // E005: cookie-authenticated mutations must be same-origin. Bearer-token
   // requests are not ambient credentials and are exempt.
@@ -77,6 +86,25 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     return next();
   });
 
+  app.use("/api/auth/*", async (c, next) => {
+    const path = c.req.path;
+    const privilegedOrganization = new Set([
+      "/api/auth/organization/invite-member",
+      "/api/auth/organization/cancel-invitation",
+      "/api/auth/organization/remove-member",
+      "/api/auth/organization/update-member-role",
+      "/api/auth/organization/add-member",
+      "/api/auth/organization/create",
+      "/api/auth/organization/update",
+      "/api/auth/organization/delete",
+    ]);
+    const tokenSession = new Set(["/api/auth/list-sessions", "/api/auth/revoke-session", "/api/auth/revoke-sessions", "/api/auth/revoke-other-sessions"]);
+    if (path.startsWith("/api/auth/admin/") || privilegedOrganization.has(path) || tokenSession.has(path)) {
+      return c.json(brainError("FORBIDDEN", "use the Governor identity administration API", correlation(c)), 403);
+    }
+    return next();
+  });
+
   // Better Auth credential plane (users, sessions, organizations, TOTP enrollment).
   app.get("/api/auth/*", (c) => {
     const cb = new URL(c.req.url).searchParams.get("callbackURL");
@@ -101,8 +129,11 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       const allowed = new Set([new URL(c.req.url).origin, `http://${c.req.header("host")}`, `https://${c.req.header("host")}`, ...(publicOrigin ? [publicOrigin] : [])]);
       if (!allowed.has(origin)) return c.json(brainError("FORBIDDEN", "cross-origin auth mutation refused", correlation(c as never)), 403);
     }
+    const session = await brain.auth.readSession(c.req.raw.headers);
+    if (session?.passwordChangeRequired && !["/api/auth/change-password", "/api/auth/sign-out"].includes(new URL(c.req.url).pathname)) return c.json(brainError("FORBIDDEN", "Change your temporary password first", correlation(c)), 403);
     const bytes=await bodies.read(c.req.raw,MAX_JSON);
-    const parsed = parseJson(bytes) as { callbackURL?: unknown }; // native JSON endpoints share the same structural limits
+    const parsed = parseJson(bytes) as { callbackURL?: unknown; currentPassword?: unknown; newPassword?: unknown };
+    if (session?.passwordChangeRequired && new URL(c.req.url).pathname === "/api/auth/change-password" && parsed.currentPassword === parsed.newPassword) return c.json(brainError("INVALID_CONTRACT", "Choose a different password", correlation(c)), 400); // native JSON endpoints share the same structural limits
     // Redirect audience (T47): the vendor echoes callbackURL back to the
     // client as a navigation target. A foreign absolute callback would turn
     // a successful sign-in into an open redirect, so refuse it here.
@@ -132,8 +163,25 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     try {
       const identity = await actorFor(c);
       const workspaces = brain.store.control.prepare("SELECT DISTINCT w.id AS workspaceId,w.slug AS name,w.status FROM workspaces w JOIN workspace_memberships m ON m.workspace_id=w.id AND m.organization_id=w.organization_id WHERE w.organization_id=? AND m.principal_id=? AND m.revoked_at_ms IS NULL ORDER BY w.slug,w.id LIMIT 1000").all(identity.actor.organizationId, identity.principalId) as Array<{ workspaceId: string; name: string; status: string }>;
-      const view: IdentityView = { actor: identity.actor, displayName: identity.humanSession?.displayName ?? identity.principalId, totpEnrolled: !!identity.humanSession?.factorDigest, recoveryRequired: identity.humanSession?.recoveryRequired ?? false, requireTwoFactor: brain.runtime.requireTwoFactor, integrations: { memoryUiUrl: brain.runtime.memoryUiUrl, betterAuthAdminUiUrl: identity.actor.scopes.includes("config:activate") ? brain.runtime.betterAuthAdminUiUrl : null }, workspaces };
+      const view: IdentityView = { passwordChangeRequired: identity.humanSession?.passwordChangeRequired ?? false, actor: identity.actor, displayName: identity.humanSession?.displayName ?? identity.principalId, totpEnrolled: !!identity.humanSession?.factorDigest, recoveryRequired: identity.humanSession?.recoveryRequired ?? false, requireTwoFactor: brain.runtime.requireTwoFactor, integrations: { memoryUiUrl: brain.runtime.memoryUiUrl }, workspaces };
       return c.json(view);
+    } catch (e) { return fail(c as never, e); }
+  });
+
+  app.get("/v1/identity/sessions", async (c) => {
+    try {
+      const identity = await actorFor(c);
+      return c.json({ items: await listIdentitySessions(brain.auth, identity, c.req.raw.headers) });
+    } catch (e) { return fail(c as never, e); }
+  });
+
+  app.post("/v1/identity/sessions/revoke", async (c) => {
+    try {
+      const identity = await actorFor(c);
+      const body = await readJson(c) as { mode?: "one" | "others" | "all"; sessionId?: string };
+      if (!body.mode || !["one", "others", "all"].includes(body.mode)) throw new BrainDomainError("INVALID_ARGUMENT", "revocation mode must be one, others or all");
+      await revokeIdentitySession(brain.auth, identity, c.req.raw.headers, body.mode, body.sessionId);
+      return new Response(null, { status: 204 });
     } catch (e) { return fail(c as never, e); }
   });
 
@@ -159,6 +207,73 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       const { actor } = await actorFor(c);
       brain.createWorkspace(actor, body);
       return c.json({ workspaceId: body.workspaceId }, 201);
+    } catch (e) { return fail(c as never, e); }
+  });
+
+  app.get("/v1/task-context", async (c) => {
+    try {
+      const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId);
+      const origin = { kind: c.req.query("kind"), id: c.req.query("id") }; requireBody("TaskOrigin", origin);
+      return c.json(tasks.context(actor, workspaceId, origin as import("@brain/contracts").TaskOrigin));
+    } catch (e) { return fail(c as never, e); }
+  });
+  app.post("/v1/tasks/drafts", async (c) => {
+    try { const body = await readJson(c); requireBody("TaskPrepareRequest", body); const input = body as import("@brain/contracts").TaskPrepareRequest; const { actor } = await actorFor(c, input.workspaceId); return c.json(tasks.prepare(actor, input), 201); }
+    catch (e) { return fail(c as never, e); }
+  });
+  app.get("/v1/tasks/drafts/:id", async (c) => {
+    try { const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId); return c.json(tasks.getDraft(actor, workspaceId, c.req.param("id"))); }
+    catch (e) { return fail(c as never, e); }
+  });
+  app.post("/v1/tasks/drafts/:id/start", async (c) => {
+    try { const body = await readJson(c); requireBody("WorkspaceRequest", body); const { workspaceId } = body as { workspaceId: string }; const { actor } = await actorFor(c, workspaceId); return c.json(tasks.start(actor, workspaceId, c.req.param("id"))); }
+    catch (e) { return fail(c as never, e); }
+  });
+  app.get("/v1/conversations", async (c) => {
+    try { const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId); return c.json(tasks.conversations(actor, workspaceId)); }
+    catch (e) { return fail(c as never, e); }
+  });
+  app.post("/v1/conversations", async (c) => {
+    try { const body = await readJson(c); requireBody("ConversationCreateRequest", body); const input = body as import("@brain/contracts").ConversationCreateRequest; const { actor } = await actorFor(c, input.workspaceId); return c.json(tasks.createConversation(actor, input.workspaceId, input.id), 201); }
+    catch (e) { return fail(c as never, e); }
+  });
+  app.get("/v1/conversations/:id", async (c) => {
+    try { const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId); return c.json(tasks.conversation(actor, workspaceId, c.req.param("id"))); }
+    catch (e) { return fail(c as never, e); }
+  });
+  app.post("/v1/conversations/:id/messages", async (c) => {
+    try { const body = await readJson(c); requireBody("ConversationMessageRequest", body); const input = body as import("@brain/contracts").ConversationMessageRequest; const { actor } = await actorFor(c, input.workspaceId); return c.json(tasks.message(actor, input.workspaceId, c.req.param("id"), input.id, input.text)); }
+    catch (e) { return fail(c as never, e); }
+  });
+  app.post("/v1/plans", async (c) => {
+    try { const body = await readJson(c); requireBody("ObjectivePlanRequest", body); const input = body as import("@brain/contracts").ObjectivePlanRequest; const { actor } = await actorFor(c, input.workspaceId); return c.json(tasks.startObjectivePlan(actor, input), 202); }
+    catch (e) { return fail(c as never, e); }
+  });
+  app.get("/v1/plans/:id", async (c) => {
+    try { const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId); return c.json(tasks.objectivePlan(actor, workspaceId, c.req.param("id"))); }
+    catch (e) { return fail(c as never, e); }
+  });
+  app.get("/v1/diagnostics", async (c) => {
+    try {
+      const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId);
+      if (actor.kind !== "human" || !actor.scopes.includes("config:activate") || !actor.scopes.includes("runner:admin")) throw new BrainDomainError("FORBIDDEN", "Diagnostics export requires organization administration");
+      const readiness = operationalReadiness(brain.store, actor, workspaceId);
+      return c.json({ format: "brain.redacted-diagnostics/v1", exportedAt: brain.store.nowIso(), correlationId: correlation(c), configDigest: readiness.configDigest, ready: readiness.ready, smokeVerified: readiness.smokeVerified, checks: readiness.checks.map((check) => ({ id: check.id, status: check.status, action: check.action })), memoryMode: readiness.memoryMode });
+    } catch (e) { return fail(c as never, e); }
+  });
+
+  app.get("/v1/local-runtime", async (c) => {
+    try { const { actor } = await actorFor(c); return c.json(localRuntimeStatus(brain.store, actor)); }
+    catch (e) { return fail(c as never, e); }
+  });
+  app.post("/v1/local-runtime/connect", async (c) => {
+    try {
+      const identity = await actorFor(c);
+      assertHumanIdentity(brain.store, brain.auth, identity, brain.runtime.requireTwoFactor);
+      const { actor } = identity;
+      const body = await readJson(c);
+      requireBody("LocalModelConnectionRequest", body);
+      return c.json(await connectLocalModel(brain.store, actor, body as import("@brain/contracts").LocalModelConnectionRequest, fetch, async () => { const current = await actorFor(c); assertHumanIdentity(brain.store, brain.auth, current, brain.runtime.requireTwoFactor); return current.actor; }));
     } catch (e) { return fail(c as never, e); }
   });
 
@@ -211,7 +326,9 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       const raw = await readJson(c);
       const wsId = (raw as { workspaceId?: string }).workspaceId;
       const { actor } = await actorFor(c, wsId);
-      const { receipt, status } = brain.executeCommand(actor, raw, correlation(c));
+      const { receipt, status } = isOrganizationCommand(raw)
+        ? await executeOrganizationCommand(brain.store, brain.auth, actor, raw, c.req.raw.headers)
+        : brain.executeCommand(actor, raw, correlation(c));
       return c.json(receipt, status as 200);
     } catch (e) { return fail(c as never, e); }
   });
@@ -221,6 +338,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       const raw = await readJson(c);
       const wsId = (raw as { workspaceId?: string }).workspaceId;
       const { actor } = await actorFor(c, wsId);
+      if (isOrganizationQuery(raw)) return c.json(await executeOrganizationQuery(brain.store, brain.auth, actor, raw, c.req.raw.headers) as never);
       // Re-scope actor with workspace scopes when a workspace is named.
       const scoped: ActorContext = wsId ? { ...actor, scopes: scopesForPrincipal(brain.store, actor.actorId, actor.organizationId, wsId) } : actor;
       if ((raw as { queryType?: string }).queryType === "memory.search" && wsId) {
@@ -399,8 +517,9 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
   app.post("/v1/runner-tokens", async (c) => {
     try {
       const body = (await readJson(c)) as { groupId: string };
-      const { actor } = await actorFor(c);
-      return c.json(brain.issueEnrollment(actor, body.groupId), 201);
+      const identity = await actorFor(c);
+      assertHumanIdentity(brain.store, brain.auth, identity, brain.runtime.requireTwoFactor);
+      return c.json(brain.issueEnrollment(identity.actor, body.groupId), 201);
     } catch (e) { return fail(c as never, e); }
   });
 
@@ -628,6 +747,11 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     try { brain.expireLeases(); brain.projectOutbox(); } catch { /* timers never authorize */ }
     // Cron dispatch runs on its own cadence; a pass is idempotent and cheap.
     try { brain.runScheduledDispatch(); } catch { /* a bad release must not break expiry */ }
+    // T52 automation occurrences share the pass discipline: idempotent, cheap.
+    try { brain.runAutomationDispatch(); } catch { /* a bad automation must not break expiry */ }
+    brain.runCapitalization();
+    void brain.integrations.verifyPending().catch(() => undefined);
+    void brain.drafts.publishPending().catch(() => undefined);
   }, 5000).unref();
     },
     async close() {

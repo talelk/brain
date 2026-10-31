@@ -3,7 +3,7 @@
  "sessionId": "01a17c54-5ef0-7fa0-9a11-f39579a3def8",
  "inputFingerprint": "sha256:abb7ef68836d772bc439fda8a0a47b7e3b44bd1062d3b8c45d8cab86e2daad46",
  "policyDigest": "sha256:6199e7e07edcc6fd4b1fae74fe1894a887b736115a4ce17b7ef59ae72f7ef816",
- "updatedAt": "2026-10-28T22:50:00Z",
+ "updatedAt": "2026-10-31T14:30:37Z",
  "tasks": [
   {
    "id": "T01",
@@ -55,9 +55,15 @@
     "tests/security/setup.test.ts",
     "tests/integration/cli.test.ts",
     "docs/implementation/24-native-identity.md",
-    "apps/governor/src/modules/identity/options.ts"
+    "apps/governor/src/modules/identity/options.ts",
+    "artifacts/implementation/ux-complete/verification.json",
+    "artifacts/implementation/local-setup-1793277724189/run.json",
+    "tests/security/organization-admin.test.ts",
+    "tests/security/auth-rate-limit.test.ts",
+    "tests/browser/identity-administration.spec.ts",
+    "artifacts/implementation/identity-admin/verification.json"
    ],
-   "nextAction": "Passed: native Better Auth identity, invitations via durable outbox with invited-account-only acceptance, password rotation, TOTP lifecycle and exact-origin guard proven in tests/security/identity.test.ts."
+   "nextAction": "Better Auth admin/passkey, tenant-safe administration, invitations and token-free sessions complete. pnpm verify:full passed all suites and 126/126 browser scenarios. External email delivery and physical authenticator validation remain environment-specific follow-up."
   },
   {
    "id": "T06",
@@ -213,7 +219,7 @@
     "artifacts/runtime/G01/manifest.json",
     "tests/"
    ],
-   "nextAction": "RE-PROMOTED 2026-10-28: runner→launcher Unix-socket path real: token auth, create/exec/stop, image digest pins, registry reconcile; verified by tests/probes/sandbox/launcher.test.ts, launcher-exec.test.ts and tests/security/sandbox.test.ts."
+   "nextAction": "RE-PROMOTED 2026-10-28: runner\u2192launcher Unix-socket path real: token auth, create/exec/stop, image digest pins, registry reconcile; verified by tests/probes/sandbox/launcher.test.ts, launcher-exec.test.ts and tests/security/sandbox.test.ts."
   },
   {
    "id": "T22",
@@ -347,7 +353,7 @@
     "tests/",
     "artifacts/runtime/G01/manifest.json"
    ],
-   "nextAction": "Exact NewUI primitives/tokens render across 390/768/1440 in both schemes with visible focus and live theme switching (tests/browser/primitives.spec.ts). | 2026-10-28: all 22 contract routes rewired onto the generated route index with the shared screen compositions (ScreenRegion 8-state, RunDetail, SessionFeed, EvidenceList, PlacementPanel); full Playwright matrix (390/768/1440 × light/dark) passes against a real Governor."
+   "nextAction": "Exact NewUI primitives/tokens render across 390/768/1440 in both schemes with visible focus and live theme switching (tests/browser/primitives.spec.ts). | 2026-10-28: all 22 contract routes rewired onto the generated route index with the shared screen compositions (ScreenRegion 8-state, RunDetail, SessionFeed, EvidenceList, PlacementPanel); full Playwright matrix (390/768/1440 \u00d7 light/dark) passes against a real Governor."
   },
   {
    "id": "T34",
@@ -358,9 +364,11 @@
     "artifacts/implementation/verification-run.json",
     "README.md",
     "artifacts/implementation/operational-verification-20261028/full-run.json",
-    "artifacts/implementation/operational-verification-20261028/report.json"
+    "artifacts/implementation/operational-verification-20261028/report.json",
+    "artifacts/implementation/ux-complete/verification.json",
+    "artifacts/implementation/local-setup-1793277724189/run.json"
    ],
-   "nextAction": "The current route authority has 24 screens. Agents/Workflows catalogs, schema-driven dispatch, guided artifact selection, operational checklist, structured output/evidence and per-route chunks are implemented. The full six-project browser matrix passed with 94 tests; two pre-existing 390px pointer-drag cases remain skipped. E092 bounded DOM, scroll and selection preservation passed all six projects."
+   "nextAction": "Approved UX behavior implemented and verified by final-source full suite and live lifecycle proof. Representative-human usability and independent release certification remain separate; model-format rejection cases are retained in ux-complete/verification.json."
   },
   {
    "id": "T35",
@@ -397,7 +405,7 @@
     "tests/browser/board.spec.ts",
     "apps/web/src/ui/components/ApprovalReview.tsx"
    ],
-   "nextAction": "KanbanBoard with screen-reader move controls on every viewport, pointer drag where columns are side-by-side, and Done-with-bound-verified-evidence through the real UI (tests/browser/board.spec.ts). | 2026-10-28: all 22 contract routes rewired onto the generated route index with the shared screen compositions (ScreenRegion 8-state, RunDetail, SessionFeed, EvidenceList, PlacementPanel); full Playwright matrix (390/768/1440 × light/dark) passes against a real Governor."
+   "nextAction": "KanbanBoard with screen-reader move controls on every viewport, pointer drag where columns are side-by-side, and Done-with-bound-verified-evidence through the real UI (tests/browser/board.spec.ts). | 2026-10-28: all 22 contract routes rewired onto the generated route index with the shared screen compositions (ScreenRegion 8-state, RunDetail, SessionFeed, EvidenceList, PlacementPanel); full Playwright matrix (390/768/1440 \u00d7 light/dark) passes against a real Governor."
   },
   {
    "id": "T38",
@@ -475,7 +483,7 @@
     "tests/",
     "artifacts/runtime/G01/manifest.json"
    ],
-   "nextAction": "Static-only PWA cache + TV principal + full Web Push: VAPID (RFC 8292) and aes128gcm (RFC 8291) delivery proven against a mock push service with independent decryption and JWT verification; subscriptions encrypted at rest (tests/integration/push.test.ts). | 2026-10-28: all 22 contract routes rewired onto the generated route index with the shared screen compositions (ScreenRegion 8-state, RunDetail, SessionFeed, EvidenceList, PlacementPanel); full Playwright matrix (390/768/1440 × light/dark) passes against a real Governor."
+   "nextAction": "Static-only PWA cache + TV principal + full Web Push: VAPID (RFC 8292) and aes128gcm (RFC 8291) delivery proven against a mock push service with independent decryption and JWT verification; subscriptions encrypted at rest (tests/integration/push.test.ts). | 2026-10-28: all 22 contract routes rewired onto the generated route index with the shared screen compositions (ScreenRegion 8-state, RunDetail, SessionFeed, EvidenceList, PlacementPanel); full Playwright matrix (390/768/1440 \u00d7 light/dark) passes against a real Governor."
   },
   {
    "id": "T46",
@@ -509,9 +517,15 @@
     "artifacts/runtime/G01/manifest.json",
     "README.md",
     "artifacts/implementation/operational-verification-20261028/full-run.json",
-    "artifacts/implementation/operational-verification-20261028/report.json"
+    "artifacts/implementation/operational-verification-20261028/report.json",
+    "tests/integration/local-runtime.test.ts",
+    "tests/browser/model-setup.spec.ts",
+    "artifacts/implementation/local-setup-1793270507852/run.json",
+    "artifacts/implementation/ux-model-setup/verification.json",
+    "artifacts/implementation/ux-complete/verification.json",
+    "artifacts/implementation/local-setup-1793277724189/run.json"
    ],
-   "nextAction": "Root README, real-agent/fixture startup profiles, private native-session runner enrollment, preflight and Bash/Python sandbox image are implemented. Disposable detached startup/CLI/Docker walkthrough passed all three starter workflows. Current real Pi, launcher/Docker evaluation and checkpoint/resume evidence is artifacts/implementation/operational-1793224435202/run.json. Final verify:full passed 286 non-browser and 94 browser tests, with 2 existing skips; these are repository self-verification, not production deployment, external-memory restore or independent certification."
+   "nextAction": "Approved UX behavior implemented and verified by final-source full suite and live lifecycle proof. Representative-human usability and independent release certification remain separate; model-format rejection cases are retained in ux-complete/verification.json."
   },
   {
    "id": "T49",
@@ -549,6 +563,117 @@
    "nextAction": "RE-PROMOTED 2026-10-28: certification matrix maps all 100 scenarios exactly once and every covered row names a suite that tags the scenario (tests/certification/matrix.test.ts green; E092 now has tests/browser/sse-logviewer.spec.ts)."
   },
   {
+   "id": "T51",
+   "status": "passed",
+   "evidencePaths": [
+    "apps/governor/src/modules/work/",
+    "apps/web/src/routes/pages/PlansPage.tsx",
+    "tests/domain/work-plan.test.ts",
+    "tests/integration/work-plans.test.ts",
+    "tests/browser/plans.spec.ts",
+    "artifacts/implementation/ui-first-acceptance/verification.json"
+   ],
+   "nextAction": "Objectives, immutable reviewed PlanVersions, exact WorkItem materialization, dependency/evidence gates and lossless replanning are implemented. E101-E103 covered; plan scenarios pass in all six browser projects."
+  },
+  {
+   "id": "T52",
+   "status": "passed",
+   "evidencePaths": [
+    "apps/governor/src/modules/jobs/automation.ts",
+    "apps/web/src/routes/pages/SchedulesPage.tsx",
+    "tests/domain/automation.test.ts",
+    "tests/integration/automation.test.ts",
+    "tests/integration/personal-host-schedule.test.ts",
+    "tests/chaos/automation-restart.test.ts",
+    "tests/browser/schedules.spec.ts",
+    "artifacts/implementation/ui-first-acceptance/verification.json"
+   ],
+   "nextAction": "Durable typed automation, server previews, complete occurrence history, restart-safe identity and managed/personal-host execution with explicit offline wait/fail are implemented. E104-E105 covered; chaos 35 and all schedule browser scenarios pass."
+  },
+  {
+   "id": "T53",
+   "status": "passed",
+   "evidencePaths": [
+    "apps/governor/src/modules/sessions/service.ts",
+    "apps/runner/src/engines/opencode.ts",
+    "tests/integration/session-collaboration.test.ts",
+    "tests/security/delegation.test.ts",
+    "artifacts/implementation/session-collaboration/verification.json"
+   ],
+   "nextAction": "Native/managed sessions, portable checkpoint resume, WorkItem messages, bounded delegation and independent child-evidence review are implemented. E106 covered; integration 194, security 64, chaos 33 and browser 126 pass. Continue T54 workspace documents/resources. Live OpenCode model qualification and independent release gates remain separate."
+  },
+  {
+   "id": "T54",
+   "status": "passed",
+   "evidencePaths": [
+    "apps/governor/src/modules/resources/service.ts",
+    "apps/web/src/routes/pages/ResourcesPage.tsx",
+    "tests/integration/documents.test.ts",
+    "tests/security/document-access.test.ts",
+    "tests/browser/resources.spec.ts",
+    "artifacts/implementation/documents/verification.json"
+   ],
+   "nextAction": "Workspace-private immutable document versions, safe preview, scoped associations, current-revision FTS search and revocation are implemented with CAS retention. E107 covered in all six browser projects; integration 198, security 67 and chaos 33 pass. Continue T55 GitHub/GitLab integration studio."
+  },
+  {
+   "id": "T55",
+   "status": "passed",
+   "evidencePaths": [
+    "apps/governor/src/modules/integrations/providers.ts",
+    "apps/governor/src/modules/integrations/service.ts",
+    "apps/web/src/routes/administration/IntegrationsPage.tsx",
+    "tests/integration/git-integrations.test.ts",
+    "tests/security/integration-secrets.test.ts",
+    "tests/browser/integrations.spec.ts",
+    "artifacts/implementation/git-integrations/verification.json"
+   ],
+   "nextAction": "TypeScript isomorphic-git remote verification, encrypted HTTP credentials, repository-class bindings and deduplicated ref-change proposals are implemented. E108 covered; integration 200, security 70 and chaos 33 pass. Continue T56 configuration draft/diff/publish core and Studios."
+  },
+  {
+   "id": "T56",
+   "status": "passed",
+   "evidencePaths": [
+    "apps/governor/src/modules/configuration/drafts.ts",
+    "apps/web/src/ui/studio/StudioPages.tsx",
+    "tests/domain/configuration-drafts.test.ts",
+    "tests/integration/studio.test.ts",
+    "tests/security/studio-authorization.test.ts",
+    "tests/browser/studio.spec.ts",
+    "artifacts/implementation/configuration-studio/verification.json"
+   ],
+   "nextAction": "Immutable configuration drafts, visual spec.jobs authoring, validation, diffs/impact, exact Git commit publication and separate activation are implemented. E109 covered; integration 201, security 72, chaos 33 and browser 144 pass. Continue T57 autonomous capitalization L0-L3."
+  },
+  {
+   "id": "T57",
+   "status": "passed",
+   "evidencePaths": [
+    "apps/governor/src/modules/capabilities/service.ts",
+    "apps/web/src/ui/studio/CapitalizationStudio.tsx",
+    "tests/integration/capitalization.test.ts",
+    "tests/security/capitalization-scope.test.ts",
+    "tests/chaos/capitalization-restart.test.ts",
+    "tests/browser/capitalization.spec.ts",
+    "artifacts/implementation/autonomous-capitalization/verification.json"
+   ],
+   "nextAction": "Autonomous L0-L2 capture/extraction/candidates and governed L3 review/release are implemented with restart-safe provenance. E110 covered; fast checks, integration 204, security 75, chaos 34, certification 2, browser 150 and the full implementation pack pass. Continue T58 final six-area acceptance and E105."
+  },
+  {
+   "id": "T58",
+   "status": "passed",
+   "evidencePaths": [
+    "apps/web/src/app.tsx",
+    "apps/web/src/routes/pages/PlansPage.tsx",
+    "apps/web/src/routes/pages/SchedulesPage.tsx",
+    "apps/web/src/ui/studio/",
+    "tests/browser/navigation.spec.ts",
+    "tests/browser/plans.spec.ts",
+    "tests/browser/schedules.spec.ts",
+    "tests/certification/coverage.json",
+    "artifacts/implementation/ui-first-acceptance/verification.json"
+   ],
+   "nextAction": "Six-area UI-first acceptance is complete, including personal-host offline wait/fail and restart-safe scheduling. E093/E097/E101-E110 covered; integration 206, security 75, chaos 35, certification 2, browser 162 and the full implementation pack pass. Live Anthropic/customer-system qualification and independent release certification remain external follow-up."
+  },
+  {
    "id": "G01",
    "status": "passed",
    "evidencePaths": [
@@ -557,7 +682,7 @@
     "artifacts/runtime/G01/manifest.json",
     "docs/implementation/23-runtime-status.md"
    ],
-   "nextAction": "RE-PROMOTED 2026-10-28: gate backed by executed evidence — verify:fast + contracts/domain suites green (run-record.json)."
+   "nextAction": "RE-PROMOTED 2026-10-28: gate backed by executed evidence \u2014 verify:fast + contracts/domain suites green (run-record.json)."
   },
   {
    "id": "G02",
@@ -568,7 +693,7 @@
     "artifacts/runtime/G02/manifest.json",
     "docs/implementation/23-runtime-status.md"
    ],
-   "nextAction": "RE-PROMOTED 2026-10-28: gate backed by executed evidence — integration 149/149 incl golden wire test (run-record.json)."
+   "nextAction": "RE-PROMOTED 2026-10-28: gate backed by executed evidence \u2014 integration 149/149 incl golden wire test (run-record.json)."
   },
   {
    "id": "G03",
@@ -579,7 +704,7 @@
     "artifacts/runtime/G03/manifest.json",
     "docs/implementation/23-runtime-status.md"
    ],
-   "nextAction": "RE-PROMOTED 2026-10-28: gate backed by executed evidence — golden workflow + scheduler + browser matrix (run-record.json)."
+   "nextAction": "RE-PROMOTED 2026-10-28: gate backed by executed evidence \u2014 golden workflow + scheduler + browser matrix (run-record.json)."
   },
   {
    "id": "G04",
@@ -590,7 +715,7 @@
     "artifacts/runtime/G04/manifest.json",
     "docs/implementation/23-runtime-status.md"
    ],
-   "nextAction": "RE-PROMOTED 2026-10-28: gate backed by executed evidence — security 51 + chaos 33 + trust/restore suites (run-record.json)."
+   "nextAction": "RE-PROMOTED 2026-10-28: gate backed by executed evidence \u2014 security 51 + chaos 33 + trust/restore suites (run-record.json)."
   },
   {
    "id": "G05",
@@ -601,7 +726,7 @@
     "artifacts/runtime/G05/manifest.json",
     "docs/implementation/23-runtime-status.md"
    ],
-   "nextAction": "RE-PROMOTED 2026-10-28: gate backed by executed evidence — harness conformance matrix (fixture/pi/muse/acp) + pi checkpoint probe (run-record.json)."
+   "nextAction": "RE-PROMOTED 2026-10-28: gate backed by executed evidence \u2014 harness conformance matrix (fixture/pi/muse/acp) + pi checkpoint probe (run-record.json)."
   },
   {
    "id": "G06",
@@ -612,7 +737,7 @@
     "artifacts/runtime/G06/manifest.json",
     "docs/implementation/23-runtime-status.md"
    ],
-   "nextAction": "RE-PROMOTED 2026-10-28: gate backed by executed evidence — launcher probes: token auth, exec, digest pins, E065 kill-with-sandbox (run-record.json)."
+   "nextAction": "RE-PROMOTED 2026-10-28: gate backed by executed evidence \u2014 launcher probes: token auth, exec, digest pins, E065 kill-with-sandbox (run-record.json)."
   },
   {
    "id": "G07",
@@ -623,7 +748,7 @@
     "tests/chaos/backup.test.ts",
     "tests/chaos/restore.test.ts"
    ],
-   "nextAction": "RE-PROMOTED 2026-10-28: gate backed by executed evidence — steady trials 3x10min ALL BUDGETS PASS + model qualification (run-record.json)."
+   "nextAction": "RE-PROMOTED 2026-10-28: gate backed by executed evidence \u2014 steady trials 3x10min ALL BUDGETS PASS + model qualification (run-record.json)."
   },
   {
    "id": "G08",
@@ -635,7 +760,7 @@
     "benchmarks/steady.ts",
     "tests/browser/vitals.spec.ts"
    ],
-   "nextAction": "RE-PROMOTED 2026-10-28: gate backed by executed evidence — scenario audit 100/100 observed-pass; browser matrix 16 specs (run-record.json)."
+   "nextAction": "RE-PROMOTED 2026-10-28: gate backed by executed evidence \u2014 scenario audit 100/100 observed-pass; browser matrix 16 specs (run-record.json)."
   }
  ]
 }

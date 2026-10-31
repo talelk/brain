@@ -14,19 +14,16 @@ describe("G01 better-auth probe", () => {
     expect(tables).toContain("user");
     expect(tables).toContain("organization");
     expect(tables).toContain("twoFactor");
-    const signup = await auth.handler(new Request("http://127.0.0.1:3100/api/auth/sign-up/email", {
+    expect(tables).toContain("passkey");
+    expect(tables).toContain("rateLimit");
+    const publicSignup = await auth.handler(new Request("http://127.0.0.1:3100/api/auth/sign-up/email", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ email: "a@example.test", password: "password1234", name: "Probe" }),
     }));
-    expect(signup.status).toBeLessThan(400);
-    const signin = await auth.handler(new Request("http://127.0.0.1:3100/api/auth/sign-in/email", {
-      method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "a@example.test", password: "password1234" }),
-    }));
-    expect(signin.status).toBeLessThan(400);
-    const cookie = signin.headers.get("set-cookie") ?? "";
-    const uid = (await auth.readSession(new Headers({ cookie })))?.userId;
-    expect(uid).toBeTruthy();
+    expect(publicSignup.status).toBe(403);
+    const account = await auth.bootstrapAccount({ email: "a@example.test", password: "password1234", name: "Probe" });
+    const uid = (await auth.readSession(new Headers({ authorization: `Bearer ${account.token}` })))?.userId;
+    expect(uid).toBe(account.userId);
     db.close();
   });
 });

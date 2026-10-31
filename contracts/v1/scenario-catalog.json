@@ -1209,7 +1209,8 @@
         "T33",
         "T34",
         "T37",
-        "T50"
+        "T50",
+        "T58"
       ]
     },
     {
@@ -1265,7 +1266,8 @@
         "T34",
         "T37",
         "T48",
-        "T50"
+        "T50",
+        "T58"
       ]
     },
     {
@@ -1303,6 +1305,149 @@
         "T26",
         "T48",
         "T50"
+      ]
+    },
+    {
+      "id": "E101",
+      "trigger": "Natural-language objective produces an unreviewed agent plan",
+      "requiredObservation": "Plan and tasks remain inert until explicit review; confirmation creates the exact WorkItems and dependencies",
+      "suites": [
+        "INTEGRATION",
+        "BROWSER"
+      ],
+      "owners": [
+        "T50",
+        "T51",
+        "T58"
+      ]
+    },
+    {
+      "id": "E102",
+      "trigger": "Replan after executions and partial completion",
+      "requiredObservation": "New PlanVersion; unchanged work retained, changed work replaced, abandoned history and old execution links preserved",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T50",
+        "T51",
+        "T58"
+      ]
+    },
+    {
+      "id": "E103",
+      "trigger": "WorkItem dependency or Done attempted without accepted evidence",
+      "requiredObservation": "Transition denied; no automatic completion from model text; verified dependencies release Ready work",
+      "suites": [
+        "DOMAIN",
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T50",
+        "T51",
+        "T58"
+      ]
+    },
+    {
+      "id": "E104",
+      "trigger": "Schedule pause/run-now/DST/misfire/overlap plus Governor restart and lost response",
+      "requiredObservation": "Preview is server-derived; one durable occurrence per identity, no duplicate run, complete history",
+      "suites": [
+        "DOMAIN",
+        "INTEGRATION",
+        "CHAOS",
+        "BROWSER"
+      ],
+      "owners": [
+        "T50",
+        "T52",
+        "T58"
+      ]
+    },
+    {
+      "id": "E105",
+      "trigger": "Personal host is offline for scheduled work",
+      "requiredObservation": "Explicit wait/fail policy; no silent managed fallback or fictional native resume",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T50",
+        "T52",
+        "T58"
+      ]
+    },
+    {
+      "id": "E106",
+      "trigger": "Agent delegates beyond scope/budget or writers share a worktree",
+      "requiredObservation": "Delegation narrowed/denied and bounded; isolated writes and independent review; parent/WorkItem links intact",
+      "suites": [
+        "SECURITY",
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T50",
+        "T53",
+        "T58"
+      ]
+    },
+    {
+      "id": "E107",
+      "trigger": "Document uploaded, associated, indexed, revised or revoked across memberships",
+      "requiredObservation": "Immutable bytes/versions and safe preview; scoped associations/search; no automatic shared-memory publication",
+      "suites": [
+        "SECURITY",
+        "INTEGRATION",
+        "BROWSER"
+      ],
+      "owners": [
+        "T50",
+        "T54",
+        "T58"
+      ]
+    },
+    {
+      "id": "E108",
+      "trigger": "Git credentials, webhook replay and configuration/project repository binding",
+      "requiredObservation": "Secrets never leave backend; exact rights verified; replay deduplicated; repository classes and permissions stay separate",
+      "suites": [
+        "SECURITY",
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T50",
+        "T55",
+        "T58"
+      ]
+    },
+    {
+      "id": "E109",
+      "trigger": "Studio draft validation, advanced YAML, diff, PR/MR, compile and activation",
+      "requiredObservation": "No direct active mutation; exact reviewed commit compiles; impacted references revalidate; explicit activation required",
+      "suites": [
+        "SECURITY",
+        "INTEGRATION",
+        "BROWSER"
+      ],
+      "owners": [
+        "T50",
+        "T56",
+        "T58"
+      ]
+    },
+    {
+      "id": "E110",
+      "trigger": "Autonomous capitalization finds duplicates and prepares executable candidates",
+      "requiredObservation": "L0–L2 idempotent and provenance-scoped; no shared or executable L3 promotion without required review/release",
+      "suites": [
+        "INTEGRATION",
+        "SECURITY",
+        "CHAOS"
+      ],
+      "owners": [
+        "T50",
+        "T57",
+        "T58"
       ]
     }
   ],
