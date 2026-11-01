@@ -13,7 +13,7 @@
 | AC-07 crash after production call | E056/E057 | T18/T23/T46 |
 | AC-08 stale fence | E038/E042 | T18 |
 | AC-09 worktrees/merge | E058/E059/E065/E071 | T21/T23/T24 |
-| AC-10 Pi/Claude parity | E062 | T24/T25 |
+| AC-10 Pi/Claude parity | E062 | T24/T26 |
 | AC-11 unsupported ACP/steer | E061/E100 | T26/T36 |
 | AC-12 channel-equivalent denial | E001–E005/E066/E067 | T06/T12/T22/T32 |
 | AC-13/14 three independent successes, not retries | E076/E077 | T40 |
@@ -50,13 +50,13 @@
 | Presentation pages | Behavior | Decision for new product |
 |---|---|---|
 | 3–6 | Morning briefing, Today and multi-workspace Bridge | T34; prioritized facts/actions, configurable timezone and notification |
-| 7–10 | SRE, support, SLA and exact approvals | T35/T42/T43; read-only investigation and governed publication/remediation |
+| 7–10 | SRE, support, SLA and exact approvals | T35/T58; read-only investigation and governed publication/remediation |
 | 11–12 | Decisions, boards and live sessions | T31/T36/T37; verbatim decisions, verified Done and honest capabilities |
 | 13–14, 38 | Runner lanes/capabilities and keeper | T19/T20/T46; fair house/work and owned-file reconciliation |
 | 15–17 | TV, mobile alerts and platform health | T45/T48; scoped kiosk, PWA fallback and measured service health |
-| 18 onward | Knowledge, onboarding, roles/director/workspace specialists | T24/T38–T41; declarative roles and bounded delegation, source evidence |
+| 18 onward | Knowledge, onboarding, roles/director/workspace specialists | T24/T38–T40; declarative roles and bounded delegation, source evidence |
 | 39–40 | Exact action/target approval, injection and self-modification controls | T12–T14/T21–T23; server identity/ledger replaces text-block trust |
-| 41–44 | Support/SRE/Delivery/Eval and generic business workspaces | T41–T44; extensible packs and connectors, no client-specific core constants |
+| 41–44 | Support/SRE/Delivery/Eval and generic business workspaces | T44; extensible packs and connectors, no client-specific core constants |
 | 46/50 | Earlier Helm/HA/Planka/MinIO/Qdrant topology | Explicitly superseded by v4 single Governor/Compose/native board/CAS/TencentDB |
 | 48–52 | Historical deployment counts, cost and quality measurements | Context only, not new-product performance evidence or acceptance results |
 

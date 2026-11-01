@@ -6,7 +6,8 @@ import { knownDefinitions, validate } from "@brain/contracts/validate";
 
 describe("contracts (T02)", () => {
   it("exposes the full registry", () => {
-    expect(COMMANDS.size).toBe(57);
+    expect(COMMANDS.size).toBe(60);
+    expect([...COMMANDS.keys()]).toEqual(expect.arrayContaining(["runner.control", "workspace.update", "workspace.control"]));
     expect([...QUERIES]).toEqual(expect.arrayContaining(["agents.list", "agents.get", "workflows.list", "workflows.get", "organization.members.list", "organization.member.get", "organization.invitations.list", "organization.auth-policy.get"]));
     expect(EVENTS.size).toBeGreaterThan(50);
     const canonical = JSON.parse(readFileSync(join(process.cwd(), "contracts/v1/brain.schema.json"), "utf8")) as { $defs: Record<string,unknown> };

@@ -1,6 +1,8 @@
 import { createSignal, For, onMount, Show } from "solid-js";
 import type { JSX } from "solid-js";
-import { useSearchParams } from "@solidjs/router";
+import { A, useSearchParams } from "@solidjs/router";
+import { WorkspaceSection } from "./Domain";
+import { StatusBadge } from "./StatusBadge";
 import { Button, KeyValue, TextInput } from "@talelk/newui-atoms";
 import { Alert, Dialog, Select } from "@talelk/newui-molecules";
 import { DataTable, Section } from "@talelk/newui-organisms";
@@ -8,9 +10,9 @@ import type { OrganizationAdminCommand, OrganizationDirectorySnapshot, Organizat
 import { organizationAuthPolicyQuery, organizationInvitationsQuery, organizationMemberQuery, organizationMembersQuery } from "../../data/governor";
 import { createScopedRead } from "../../data/screens";
 import { useApp } from "../app-context";
-import { PageStack } from "./PageLayout";
+import { PageStack, TechnicalDetails } from "./PageLayout";
 import { ScreenRegion } from "../screen-region";
-import { count, formatDateTime } from "../format";
+import { count } from "../format";
 import { DateText } from "../screen-region";
 
 const roleOptions = [
@@ -145,31 +147,30 @@ export function OrganizationInvitations(): JSX.Element {
     finally { setBusy(false); }
   }
 
-  return <PageStack><Section title="Invitations" description="Track acceptance and delivery honestly. A pending outbox record is not confirmation of external email delivery." surface="card">
-    <ScreenRegion state={read.state()} skeleton="rows" emptyTitle="No invitations" emptyDescription="Organization invitations will appear here." onRetry={() => void read.refresh({ force: true })}>
+  return <PageStack><WorkspaceSection title="Invitation lifecycle" description="Intended role, acceptance and delivery are separate facts. A pending outbox record is not confirmation of external email delivery.">
+    <ScreenRegion state={read.state()} skeleton="rows" emptyTitle="No invitations" emptyDescription="There are no pending, accepted or expired invitations. Use People to start the supported invite-only onboarding flow." emptyAction={<A href="/settings?tab=people" class="inline-flex min-h-11 items-center rounded-control border border-outline-gray-2 px-3 text-interface font-medium text-ink-blue-link">Open People to invite</A>} onRetry={() => void read.refresh({ force: true })}>
       <div class="mb-4 grid gap-3 md:grid-cols-2"><TextInput label="Search invitations" value={search()} onInput={(event) => setSearch(event.currentTarget.value)} placeholder="Email" /><Select label="Invitation to manage" value={selectedId() || null} options={invitations().map((invitation) => ({ value: invitation.id, label: invitation.email, description: `${invitation.status} · ${invitation.deliveryState}` }))} onValueChange={(value) => setSelectedId(value ?? "")} /></div>
-      <DataTable title="Organization invitations" selectable={false} hideSearch cardBreakpoint="lg" rows={invitations().map((invitation) => ({ id: invitation.id, email: invitation.email, status: invitation.status, delivery: invitation.deliveryState, attempts: String(invitation.deliveryAttempts), expires: formatDateTime(invitation.expiresAt) }))} columns={[
-        { id: "email", header: "Email", accessorKey: "email", meta: { mobile: "title" } },
-        { id: "status", header: "Invitation", accessorKey: "status", meta: { mobile: "status" } },
-        { id: "delivery", header: "Delivery", accessorKey: "delivery", meta: { mobile: "meta" } },
-        { id: "attempts", header: "Attempts", accessorKey: "attempts", meta: { mobile: "meta" } },
-        { id: "expires", header: "Expires", accessorKey: "expires", meta: { mobile: "subtitle" } },
-      ]} caption={count(invitations().length, "invitation")} />
+      <div class="grid gap-4 md:grid-cols-2"><For each={invitations()}>{(invitation) => <article class="rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-4"><div class="flex items-start justify-between gap-3"><div><h3 class="break-words text-base-medium">{invitation.email}</h3><p class="mt-1 text-caption text-ink-gray-6">Invited by {invitation.inviterId}</p></div><StatusBadge status={invitation.status} /></div><dl class="mt-4 grid grid-cols-2 gap-3 text-caption"><div><dt class="text-ink-gray-6">Intended role</dt><dd class="mt-1 text-interface">{invitation.role}</dd></div><div><dt class="text-ink-gray-6">Delivery</dt><dd class="mt-1 text-interface">{invitation.deliveryState} · {invitation.deliveryAttempts} attempts</dd></div><div><dt class="text-ink-gray-6">Created</dt><dd class="mt-1"><DateText value={invitation.createdAt} /></dd></div><div><dt class="text-ink-gray-6">Expires</dt><dd class="mt-1"><DateText value={invitation.expiresAt} /></dd></div></dl><Button size="lg" variant="ghost" class="mt-3" onClick={() => setSelectedId(invitation.id)}>Manage invitation</Button></article>}</For></div>
     </ScreenRegion>
-    <Show when={selected()}>{(invitation) => <div class="mt-4 flex flex-col gap-3 rounded-card border border-outline-gray-1 p-card-pad"><p>{invitation().email} · {invitation().status} · {invitation().deliveryState}{invitation().lastError ? ` · ${invitation().lastError}` : ""}</p><TextInput label="Action reason" value={reason()} onInput={(event) => setReason(event.currentTarget.value)} /><div class="flex flex-wrap gap-2"><Show when={invitation().status === "pending"}><Button size="lg" variant="outline" theme="red" loading={busy()} disabled={!reason().trim()} onClick={() => void run("organization.invitation.cancel")}>Cancel invitation</Button></Show><Show when={invitation().status === "pending" && invitation().deliveryState !== "delivered"}><Button size="lg" variant="outline" loading={busy()} disabled={!reason().trim()} onClick={() => void run("organization.invitation.retry")}>Retry delivery</Button></Show></div></div>}</Show>
+    <Show when={selected()}>{(invitation) => <div class="mt-4 flex flex-col gap-3 border-y border-outline-gray-1 py-4"><p>{invitation().email} · {invitation().status} · {invitation().deliveryState}{invitation().lastError ? ` · ${invitation().lastError}` : ""}</p><TextInput label="Action reason" value={reason()} onInput={(event) => setReason(event.currentTarget.value)} /><div class="flex flex-wrap gap-2"><Show when={invitation().status === "pending"}><Button size="lg" variant="outline" theme="red" loading={busy()} disabled={!reason().trim()} onClick={() => void run("organization.invitation.cancel")}>Cancel invitation</Button></Show><Show when={invitation().status === "pending" && invitation().deliveryState !== "delivered"}><Button size="lg" variant="outline" loading={busy()} disabled={!reason().trim()} onClick={() => void run("organization.invitation.retry")}>Retry delivery</Button></Show></div></div>}</Show>
     <Show when={message()}><Alert theme="green" variant="outline" title="Invitation updated" description={message()} /></Show><Show when={error()}><Alert theme="red" variant="outline" title="Invitation action failed" description={error()} /></Show>
-  </Section></PageStack>;
+  </WorkspaceSection></PageStack>;
 }
 
 export function OrganizationAuthPolicy(): JSX.Element {
   const app = useApp();
   const read = createScopedRead<OrganizationDirectorySnapshot>({ scope: app.scope, load: (_scope, signal) => organizationAuthPolicyQuery(signal), isEmpty: (data) => !data.policy });
   const policy = () => read.state().data?.policy;
-  return <Section title="Authentication policy" description="Effective non-secret policy reported by Governor. Runtime secrets are never returned. Changes use reviewed configuration releases, not a second write path." surface="card">
+  return <PageStack><Alert theme="blue" variant="outline" title="View-only effective policy" description="These values come from Governor runtime. Changes require the reviewed configuration path; this screen exposes no bypass control or secrets." />
     <ScreenRegion state={read.state()} skeleton="rows" emptyTitle="Policy unavailable" emptyDescription="Governor did not return authentication policy." onRetry={() => void read.refresh({ force: true })}>
-      <Show when={policy()}>{(value) => <div class="grid gap-4 sm:grid-cols-2"><KeyValue label="Password sign-in" value={value().passwordEnabled ? "Enabled · invited users only" : "Disabled"} /><KeyValue label="Passkeys" value={value().passkeyEnabled ? "Enabled · sign-in only" : "Disabled"} /><KeyValue label="OIDC" value={value().oidcEnabled ? "Configured · existing users only" : "Not configured"} /><KeyValue label="Two-factor requirement" value={value().requireTwoFactor ? "Required" : "Optional · exact approvals retain step-up"} /><KeyValue label="Session lifetime" value={`${value().sessionExpiresInSeconds / 3600} hours`} /><KeyValue label="Fresh session window" value={`${value().sessionFreshAgeSeconds} seconds`} /><KeyValue label="Rate-limit storage" value={value().rateLimitStorage} /><KeyValue label="Configuration source" value={value().configurationSource} /></div>}</Show>
+      <Show when={policy()}>{(value) => <PageStack>
+        <WorkspaceSection title="Identity and enrollment" description="Who can sign in and which second factors are available."><div class="grid gap-4 sm:grid-cols-2"><KeyValue label="Password sign-in" value={value().passwordEnabled ? "Enabled · invited users only" : "Disabled"} /><KeyValue label="Passkeys" value={value().passkeyEnabled ? "Enabled · sign-in only" : "Disabled"} /><KeyValue label="OIDC" value={value().oidcEnabled ? "Configured · existing users only" : "Not configured"} /><KeyValue label="Two-factor requirement" value={value().requireTwoFactor ? "Required" : "Optional · exact approvals retain step-up"} /></div></WorkspaceSection>
+        <WorkspaceSection title="Sessions and abuse controls" description="Current session freshness and rate-limit posture."><div class="grid gap-4 sm:grid-cols-2"><KeyValue label="Session lifetime" value={`${value().sessionExpiresInSeconds / 3600} hours`} /><KeyValue label="Fresh session window" value={`${value().sessionFreshAgeSeconds} seconds`} /><KeyValue label="Rate-limit storage" value={value().rateLimitStorage} /><KeyValue label="Configuration source" value={value().configurationSource} /></div></WorkspaceSection>
+        <WorkspaceSection title="Effect authorization" description="Authentication policy is distinct from exact effect approval."><p class="brain-prose text-interface text-ink-gray-7">Exact approvals retain one-use evidence bound to the current subject, session and authorization generation. {value().requireTwoFactor ? "This organization also requires authenticator step-up." : "Authenticator step-up is optional for sign-in; it does not remove exact approval evidence."}</p></WorkspaceSection>
+        <TechnicalDetails label="Raw effective policy"><pre class="whitespace-pre-wrap text-caption">{JSON.stringify(value(), null, 2)}</pre></TechnicalDetails>
+      </PageStack>}</Show>
     </ScreenRegion>
-  </Section>;
+  </PageStack>;
 }
 
 export function OrganizationMemberSelect(props: { value: string; onChange: (principalId: string) => void }): JSX.Element {

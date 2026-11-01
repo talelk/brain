@@ -203,7 +203,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
 
   app.post("/v1/setup/workspace", async (c) => {
     try {
-      const body = (await readJson(c)) as { workspaceId: string; slug: string };
+      const body = (await readJson(c)) as { workspaceId: string; slug: string; description?: string; ownerId?: string; tags?: string[] };
       const { actor } = await actorFor(c);
       brain.createWorkspace(actor, body);
       return c.json({ workspaceId: body.workspaceId }, 201);

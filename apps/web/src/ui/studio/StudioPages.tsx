@@ -55,7 +55,7 @@ export function StudioListPage(): JSX.Element {
   return <BrainPage title={`${kind()} Studio`} description="Create immutable configuration revisions, validate them and publish exact Git commits without editing the active release.">
     <PageStack>
       <Show when={error()}><Alert theme="red" variant="outline" title="Draft creation failed" description={error()} /></Show>
-      <Section title="New draft" description="Start with a visual Workflow draft or edit the restricted YAML afterward." surface="card">
+      <Section title="New draft" description={kind() === "Workflow" ? "Start with visual jobs or restricted YAML. Publication never edits the active release directly." : kind() === "Agent" ? "Start with the agent contract and versioned instructions, then validate the complete release before publication." : "Author a reviewed definition with restricted YAML, validation, diff and explicit publication."} surface="card">
         <div class="flex flex-wrap items-end gap-3">
           <div class="min-w-64 flex-1"><TextInput label="Definition title" value={title()} onInput={(event) => setTitle(event.currentTarget.value)} placeholder="Operations workflow" /></div>
           <Button size="lg" theme="blue" loading={busy()} disabled={busy() || !title().trim()} onClick={() => void create()}>Create draft</Button>
@@ -63,7 +63,7 @@ export function StudioListPage(): JSX.Element {
       </Section>
       <Section title="Drafts" surface="card">
         <ScreenRegion state={drafts.state()} onRetry={() => void drafts.refresh()} emptyTitle="No configuration drafts" emptyDescription="Create a draft to start an immutable authoring and publication pipeline.">
-          <div class="flex flex-col gap-2"><For each={drafts.state().data?.items}>{(draft) => <a class="rounded-control border border-outline-gray-2 p-3 focus-visible:focus-ring" href={`/studio/${encodeURIComponent(draft.kind)}/${encodeURIComponent(draft.draftId)}`}>
+          <div class="flex flex-col gap-2"><For each={drafts.state().data?.items.filter((draft) => draft.kind === kind())}>{(draft) => <a class="rounded-control border border-outline-gray-2 p-3 focus-visible:focus-ring" href={`/studio/${encodeURIComponent(draft.kind)}/${encodeURIComponent(draft.draftId)}`}>
             <div class="flex flex-wrap items-center justify-between gap-2"><strong>{draft.title}</strong><Badge theme={draft.state === "published" ? "green" : draft.state === "invalid" || draft.state === "failed" ? "red" : "amber"} label={draft.state} /></div>
             <span class="text-caption text-ink-gray-6">{draft.kind} · revision record v{draft.version}</span>
           </a>}</For></div>
@@ -78,6 +78,7 @@ export function StudioEditorPage(): JSX.Element {
   const params = useParams();
   const draftId = () => params.draftId ?? "";
   const [content, setContent] = createSignal("");
+  const [instructions, setInstructions] = createSignal("");
   const [jobs, setJobs] = createSignal<JobRow[]>([]);
   const [mode, setMode] = createSignal<"visual" | "yaml">("visual");
   const [dirty, setDirty] = createSignal(false);
@@ -108,6 +109,8 @@ export function StudioEditorPage(): JSX.Element {
     const document = revision.documents[0];
     if (!document) return;
     setContent(document.text);
+    setInstructions(revision.assets.find((asset) => asset.path.endsWith(".md"))?.text ?? "");
+    setMode(detail.state().data?.draft.kind === "Workflow" ? "visual" : "yaml");
     setBindingId(detail.state().data?.draft.bindingId ?? "");
     try {
       const value = parse(document.text) as { spec?: { jobs?: Record<string, Record<string, unknown>> } };
@@ -134,8 +137,10 @@ export function StudioEditorPage(): JSX.Element {
     setBusy(true); setError("");
     try {
       if (mode() === "visual") applyJobs();
+      const revision = current()!;
       const updated = await app.run("configDraft.update", {
-        draftId: draft.draftId, source: mode(), documents: [{ path: current()!.documents[0]!.path, text: content() }, ...current()!.documents.slice(1)],
+        draftId: draft.draftId, source: mode(), documents: [{ path: revision.documents[0]!.path, text: content() }, ...revision.documents.slice(1)],
+        assets: revision.assets.map((asset) => asset.path.endsWith(".md") ? { ...asset, text: instructions() } : asset),
       }, { expectedVersion: draft.version });
       if (!updated.accepted) throw new Error(updated.detail);
       setDirty(false);
@@ -187,8 +192,8 @@ export function StudioEditorPage(): JSX.Element {
       <Show when={error()}><Alert theme="red" variant="outline" title="Studio action failed" description={error()} /></Show>
       <ScreenRegion state={detail.state()} onRetry={() => void detail.refresh()} emptyTitle="Draft not found" emptyDescription="The draft may belong to another workspace or no longer exist.">
         <div class="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <Section title="Definition editor" description="Visual jobs use canonical spec.jobs. Advanced YAML follows the same restricted grammar." surface="card">
-            <div class="mb-3 flex flex-wrap gap-2"><Button size="sm" variant={mode() === "visual" ? "solid" : "outline"} onClick={() => setMode("visual")}>Visual jobs</Button><Button size="sm" variant={mode() === "yaml" ? "solid" : "outline"} onClick={() => setMode("yaml")}>Advanced YAML</Button></div>
+          <Section title="Definition editor" description={detail.state().data?.draft.kind === "Workflow" ? "Visual jobs use canonical spec.jobs. Advanced YAML follows the same restricted grammar." : "The restricted declaration and pinned assets remain immutable once published."} surface="card">
+            <Show when={detail.state().data?.draft.kind === "Workflow"}><div class="mb-3 flex flex-wrap gap-2"><Button size="sm" variant={mode() === "visual" ? "solid" : "outline"} onClick={() => setMode("visual")}>Visual jobs</Button><Button size="sm" variant={mode() === "yaml" ? "solid" : "outline"} onClick={() => setMode("yaml")}>Advanced YAML</Button></div></Show>
             <Show when={mode() === "visual"} fallback={<Textarea label="Restricted YAML" value={content()} onInput={(event) => { setContent(event.currentTarget.value); setDirty(true); }} class="min-h-[32rem] font-mono" />}>
               <div class="flex flex-col gap-3"><For each={jobs()}>{(job, index) => <div class="grid gap-3 rounded-card border border-outline-gray-2 p-3 lg:grid-cols-3">
                 <TextInput label="Job id" value={job.id} onInput={(event) => updateJob(index(), "id", event.currentTarget.value)} />
@@ -198,6 +203,7 @@ export function StudioEditorPage(): JSX.Element {
               </div>}</For></div>
               <Button size="sm" variant="outline" onClick={() => { setJobs((rows) => [...rows, { id: `job-${rows.length + 1}`, kind: "dispatch", needs: "", value: {} }]); setDirty(true); }}>Add job</Button>
             </Show>
+            <Show when={detail.state().data?.draft.kind === "Agent"}><div class="mt-4 border-t border-outline-gray-1 pt-4"><Textarea label="Versioned instructions (Markdown)" value={instructions()} onInput={(event) => { setInstructions(event.currentTarget.value); setDirty(true); }} class="min-h-64" /><p class="mt-2 text-caption text-ink-gray-6">Attempts keep their pinned instructions and tools. This candidate has no effect until its exact release is activated.</p></div></Show>
             <div class="mt-3 flex flex-wrap gap-2"><Button size="lg" theme="blue" loading={busy()} disabled={busy() || !dirty()} onClick={() => void save()}>Save immutable revision</Button><Show when={dirty()}><Badge theme="amber" label="unsaved" /></Show></div>
           </Section>
 

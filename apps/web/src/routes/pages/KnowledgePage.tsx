@@ -1,5 +1,6 @@
 import { Show, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
+import { TabButtons } from "@talelk/newui-molecules";
 import type { MemoryResult, ToolCatalogEntry } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
@@ -12,6 +13,7 @@ import { ActionFeedback } from "../../ui/components/ActionFeedback";
 export default function KnowledgePage(): JSX.Element {
   const app = useApp();
   const [searchText, setSearchText] = createSignal("");
+  const [journey, setJourney] = createSignal("find");
   const knowledge = createScopedRead<{ results: MemoryResult[]; degraded: boolean; tools: ToolCatalogEntry[] }>({
     scope: app.scope,
     load: async (scope, signal) => {
@@ -49,28 +51,27 @@ export default function KnowledgePage(): JSX.Element {
   const emptyCapitalization = { assets: [], candidates: [], runs: [] } satisfies CapitalizationSnapshot;
   return <div class="flex flex-col gap-field-gap">
     <ActionFeedback message={message()} />
-    <Show when={app.identity()?.integrations.memoryUiUrl}><a href={app.identity()!.integrations.memoryUiUrl!} target="_blank" rel="noopener noreferrer">Open Memory UI</a></Show>
-    <CapitalizationStudio snapshot={capitalization.state().data ?? emptyCapitalization} canRun={app.canPublish()} canReview={app.identity()?.actor.scopes.includes("tool:publish") ?? false}
-      onRun={async () => { try { const result = await app.run("capitalization.run", {}); setMessage(result.detail); await capitalization.refresh({ force: true }); } catch (error) { setMessage(error instanceof Error ? error.message : "Capitalization failed."); } }}
-      onReview={async (candidate, decision) => { try { const result = await app.run("capability.review", { candidateId: candidate.candidateId, decision, reason: decision === "approve" ? "Verified provenance and tests reviewed" : "Candidate rejected after review" }); setMessage(result.detail); await capitalization.refresh({ force: true }); } catch (error) { setMessage(error instanceof Error ? error.message : "Review failed."); } }}
-      onPublish={async (candidate) => { try { const result = await app.run("tool.publish", { release: candidate.release, evidence: [...candidate.evidenceDigests] }); setMessage(result.detail); await Promise.all([capitalization.refresh({ force: true }), knowledge.refresh({ force: true })]); } catch (error) { setMessage(error instanceof Error ? error.message : "Publication failed."); } }} />
-    <KnowledgeScreen workspaceId={app.workspaceId()} tools={knowledge.state().data?.tools ?? []}
-      state={knowledge.state()} searched={searchText().trim().length > 0} onRefresh={() => void knowledge.refresh({ force: true })}
-      onSearch={(text) => { setSearchText(text); void knowledge.refresh({ force: true }); }}
-      onPublish={async (publication: MemoryPublicationInput) => {
-        try {
-          const result = await app.run("memory.publish", publication);
-          setMessage(result.detail);
-          await knowledge.refresh({ force: true });
-        } catch (e) { setMessage(e instanceof Error ? e.message : "Publication failed."); }
-      }}
-      onRevoke={async (sourceId, reason) => {
-        try {
-          const result = await app.run("memory.revoke", { sourceId, reason });
-          setMessage(result.detail);
-          await knowledge.refresh({ force: true });
-        } catch (e) { setMessage(e instanceof Error ? e.message : "Revocation failed."); }
-      }}
-      canPublish={app.canPublish()} />
+    <TabButtons label="Knowledge journeys" value={journey()} options={[{ value: "find", label: "Find & publish knowledge" }, { value: "review", label: "Review capability candidates" }]} onValueChange={setJourney} />
+    <Show when={journey() === "find"}>
+      <Show when={app.identity()?.integrations.memoryUiUrl}><a class="inline-flex min-h-11 items-center text-interface font-medium text-ink-blue-link" href={app.identity()!.integrations.memoryUiUrl!} target="_blank" rel="noopener noreferrer">Open Memory UI</a></Show>
+      <KnowledgeScreen workspaceId={app.workspaceId()} tools={knowledge.state().data?.tools ?? []}
+        state={knowledge.state()} searched={searchText().trim().length > 0} onRefresh={() => void knowledge.refresh({ force: true })}
+        onSearch={(text) => { setSearchText(text); void knowledge.refresh({ force: true }); }}
+        onPublish={async (publication: MemoryPublicationInput) => {
+          try { const result = await app.run("memory.publish", publication); setMessage(result.detail); await knowledge.refresh({ force: true }); }
+          catch (e) { setMessage(e instanceof Error ? e.message : "Publication failed."); }
+        }}
+        onRevoke={async (sourceId, reason) => {
+          try { const result = await app.run("memory.revoke", { sourceId, reason }); setMessage(result.detail); await knowledge.refresh({ force: true }); }
+          catch (e) { setMessage(e instanceof Error ? e.message : "Revocation failed."); }
+        }}
+        canPublish={app.canPublish()} />
+    </Show>
+    <Show when={journey() === "review"}>
+      <CapitalizationStudio snapshot={capitalization.state().data ?? emptyCapitalization} canRun={app.canPublish()} canReview={app.identity()?.actor.scopes.includes("tool:publish") ?? false}
+        onRun={async () => { try { const result = await app.run("capitalization.run", {}); setMessage(result.detail); await capitalization.refresh({ force: true }); } catch (error) { setMessage(error instanceof Error ? error.message : "Capitalization failed."); } }}
+        onReview={async (candidate, decision) => { try { const result = await app.run("capability.review", { candidateId: candidate.candidateId, decision, reason: decision === "approve" ? "Verified provenance and tests reviewed" : "Candidate rejected after review" }); setMessage(result.detail); await capitalization.refresh({ force: true }); } catch (error) { setMessage(error instanceof Error ? error.message : "Review failed."); } }}
+        onPublish={async (candidate) => { try { const result = await app.run("tool.publish", { release: candidate.release, evidence: [...candidate.evidenceDigests] }); setMessage(result.detail); await Promise.all([capitalization.refresh({ force: true }), knowledge.refresh({ force: true })]); } catch (error) { setMessage(error instanceof Error ? error.message : "Publication failed."); } }} />
+    </Show>
   </div>;
 }

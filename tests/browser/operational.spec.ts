@@ -22,13 +22,13 @@ test("optional-factor operator inspects a release, activates it, dispatches both
   await expect(page.getByRole("region",{name:"Authenticator setup"})).toHaveCount(0);
   await capture("today");
   await page.goto(`${governor.url}/settings`);
-  await expect(page.getByRole("heading",{name:"Security",exact:true})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"Authenticator and recovery",exact:true})).toBeVisible();
   await capture("settings-security");
   await page.goto(`${governor.url}/settings?tab=people`);
-  await expect(page.getByRole("heading",{name:"People",exact:true})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"People",exact:true,level:1})).toBeVisible();
   await expect(page.getByText("operator@example.test",{exact:true}).locator("visible=true").first()).toBeVisible();
   await page.goto(`${governor.url}/settings?tab=invitations`);
-  await expect(page.getByRole("heading",{name:"Invitations",exact:true})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"Invitations",exact:true,level:1})).toBeVisible();
   await page.goto(`${governor.url}/settings?tab=policy`);
   await expect(page.getByRole("heading",{name:"Authentication policy",exact:true})).toBeVisible();
   await expect(page.getByText("Enabled · sign-in only",{exact:true})).toBeVisible();
@@ -55,12 +55,12 @@ test("optional-factor operator inspects a release, activates it, dispatches both
   const evalSession=await enrollAndHello(evaluator,brain.issueEnrollment(actor,"evaluators").token);
   for (const id of ["operations-triage","support-draft"]) {
     await page.goto(`${governor.url}/w/operations/workflows`);
-    await page.getByRole("region",{name:"Workflows",exact:true}).getByRole("button",{name:`Start task: ${id}`,exact:true}).click();
+    await page.getByRole("region",{name:"Task catalog",exact:true}).getByRole("button",{name:`Start task: ${id}`,exact:true}).click();
     if (id === "operations-triage") await page.getByLabel(/^Situation/).fill("Latency increased after deployment");
     else { await page.getByLabel(/^Title/).fill("Session expired"); await page.getByLabel(/^Body/).fill("I cannot sign in"); }
     await capture(`workflow-${id}`);
     await page.getByRole("button",{name:"Review task",exact:true}).click();
-    await page.getByRole("heading",{name:"Review before starting",exact:true}).locator("..").getByRole("button",{name:"Start task",exact:true}).click();
+    await page.getByRole("button",{name:"Start task",exact:true}).click();
     await page.waitForURL(/\/jobs\//);
     expect(await runOnce(author,authorSession.sessionToken,authorSession.epoch)).toBe(true);
     expect(await runOnce(evaluator,evalSession.sessionToken,evalSession.epoch)).toBe(true);

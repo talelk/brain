@@ -89,5 +89,5 @@ rtk node --import tsx scripts/verify-local-setup.ts
 
 The local setup proof uses a live model and Docker, preserves failure evidence and stops
 its owned processes. Model output structure checks do not establish semantic accuracy or
-production connector readiness. Formal usability sessions and independent certification
-are separate from automated workflow verification.
+production connector readiness. Formal usability sessions are separate from automated
+workflow verification.

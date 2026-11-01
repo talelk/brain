@@ -42,12 +42,12 @@ test("all task entry points require shared review, recover timeout and retain wo
   db.prepare("INSERT INTO plan_versions(id,objective_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-entry','obj-entry',1,?,'confirmed','manual',?,'[]',?)").run(`sha256:${"b".repeat(64)}`, identity.actor.actorId, seedNow);
   db.prepare("INSERT INTO work_items(id,objective_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('entry-card','obj-entry','plan-entry','investigate','Investigate latency','ready','[]','Start this task',?,?)").run(seedNow, seedNow);
   await page.goto(`${governor.url}/w/operations/board`);
-  await page.getByText("Manage Investigate latency", { exact: true }).click();
+  await page.getByRole("button", { name: "Manage Investigate latency" }).click();
   await page.getByRole("button", { name: "Start a task for this item", exact: true }).click();
   await expect(page.getByLabel(/^Situation/)).toHaveValue(/Investigate latency/);
   await page.getByRole("button", { name: "Review task", exact: true }).click();
   await page.getByRole("button", { name: "Start task", exact: true }).click(); await page.waitForURL(/\/jobs\//);
-  await page.goto(`${governor.url}/w/operations/board`); await page.getByText("Manage Investigate latency", { exact: true }).click();
+  await page.goto(`${governor.url}/w/operations/board`); await page.getByRole("button", { name: "Manage Investigate latency" }).click();
   await expect(page.getByRole("button", { name: "View result", exact: true })).toBeVisible();
   await page.goto(`${governor.url}/w/operations/workflows?mode=catalog`);
   await expect(page.getByRole("row").filter({ hasText: "Ask Brain" })).toHaveCount(0);

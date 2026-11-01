@@ -1,0 +1,1270 @@
+{
+  "config": {
+    "argv": [
+      "/home/talel/.nvm/versions/node/v24.12.0/bin/node",
+      "/home/talel/dev/rd2026/brain/node_modules/@playwright/test/cli.js",
+      "test",
+      "tests/browser/ui-accessibility.spec.ts",
+      "tests/browser/vitals.spec.ts",
+      "--reporter=json",
+      "--output=artifacts/ui-revamp/test-output/a11y-vitals"
+    ],
+    "configFile": "/home/talel/dev/rd2026/brain/playwright.config.ts",
+    "rootDir": "/home/talel/dev/rd2026/brain/tests/browser",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/home/talel/dev/rd2026/brain/artifacts/ui-revamp/test-output/a11y-vitals",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "390-light",
+        "name": "390-light",
+        "testDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/home/talel/dev/rd2026/brain/artifacts/ui-revamp/test-output/a11y-vitals",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "390-dark",
+        "name": "390-dark",
+        "testDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/home/talel/dev/rd2026/brain/artifacts/ui-revamp/test-output/a11y-vitals",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "768-light",
+        "name": "768-light",
+        "testDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/home/talel/dev/rd2026/brain/artifacts/ui-revamp/test-output/a11y-vitals",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "768-dark",
+        "name": "768-dark",
+        "testDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/home/talel/dev/rd2026/brain/artifacts/ui-revamp/test-output/a11y-vitals",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "1440-light",
+        "name": "1440-light",
+        "testDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/home/talel/dev/rd2026/brain/artifacts/ui-revamp/test-output/a11y-vitals",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "1440-dark",
+        "name": "1440-dark",
+        "testDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/talel/dev/rd2026/brain/artifacts/ui-revamp/test-output/a11y-vitals",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "390-light",
+        "testDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "snapshotDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 60000,
+        "use": {
+          "trace": "off",
+          "viewport": {
+            "width": 390,
+            "height": 900
+          },
+          "colorScheme": "light"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "390-light"
+      },
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/talel/dev/rd2026/brain/artifacts/ui-revamp/test-output/a11y-vitals",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "390-dark",
+        "testDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "snapshotDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 60000,
+        "use": {
+          "trace": "off",
+          "viewport": {
+            "width": 390,
+            "height": 900
+          },
+          "colorScheme": "dark"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "390-dark"
+      },
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/talel/dev/rd2026/brain/artifacts/ui-revamp/test-output/a11y-vitals",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "768-light",
+        "testDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "snapshotDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 60000,
+        "use": {
+          "trace": "off",
+          "viewport": {
+            "width": 768,
+            "height": 900
+          },
+          "colorScheme": "light"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "768-light"
+      },
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/talel/dev/rd2026/brain/artifacts/ui-revamp/test-output/a11y-vitals",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "768-dark",
+        "testDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "snapshotDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 60000,
+        "use": {
+          "trace": "off",
+          "viewport": {
+            "width": 768,
+            "height": 900
+          },
+          "colorScheme": "dark"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "768-dark"
+      },
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/talel/dev/rd2026/brain/artifacts/ui-revamp/test-output/a11y-vitals",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "1440-light",
+        "testDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "snapshotDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 60000,
+        "use": {
+          "trace": "off",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "1440-light"
+      },
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/talel/dev/rd2026/brain/artifacts/ui-revamp/test-output/a11y-vitals",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "1440-dark",
+        "testDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "snapshotDir": "/home/talel/dev/rd2026/brain/tests/browser",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 60000,
+        "use": {
+          "trace": "off",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "dark"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "1440-dark"
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "ui-accessibility.spec.ts",
+      "file": "ui-accessibility.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "keyboard, 200% zoom, French input, RTL and reduced motion remain contained",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "390-light",
+              "projectName": "390-light",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1472,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:29:54.734Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "24daab1d49704ab9eb2d-4d8c1931d98be861488a",
+          "file": "ui-accessibility.spec.ts",
+          "line": 21,
+          "column": 1
+        },
+        {
+          "title": "loading, no-access, stale, partial failure and retry states use real response outcomes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "390-light",
+              "projectName": "390-light",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2123,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:29:56.309Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "24daab1d49704ab9eb2d-42e6bc061308675f01d4",
+          "file": "ui-accessibility.spec.ts",
+          "line": 52,
+          "column": 1
+        },
+        {
+          "title": "keyboard, 200% zoom, French input, RTL and reduced motion remain contained",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "390-dark",
+              "projectName": "390-dark",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1499,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:01.688Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "24daab1d49704ab9eb2d-5fcec516abce7435e4ed",
+          "file": "ui-accessibility.spec.ts",
+          "line": 21,
+          "column": 1
+        },
+        {
+          "title": "loading, no-access, stale, partial failure and retry states use real response outcomes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "390-dark",
+              "projectName": "390-dark",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2222,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:03.281Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "24daab1d49704ab9eb2d-7cfaf19728062f75a131",
+          "file": "ui-accessibility.spec.ts",
+          "line": 52,
+          "column": 1
+        },
+        {
+          "title": "keyboard, 200% zoom, French input, RTL and reduced motion remain contained",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "768-light",
+              "projectName": "768-light",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1425,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:08.974Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "24daab1d49704ab9eb2d-6db7066553cf94423763",
+          "file": "ui-accessibility.spec.ts",
+          "line": 21,
+          "column": 1
+        },
+        {
+          "title": "loading, no-access, stale, partial failure and retry states use real response outcomes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "768-light",
+              "projectName": "768-light",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2375,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:10.486Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "24daab1d49704ab9eb2d-ccd8a6207e8ae71cd6d9",
+          "file": "ui-accessibility.spec.ts",
+          "line": 52,
+          "column": 1
+        },
+        {
+          "title": "keyboard, 200% zoom, French input, RTL and reduced motion remain contained",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "768-dark",
+              "projectName": "768-dark",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1491,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:16.389Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "24daab1d49704ab9eb2d-4819562ee02d24bded95",
+          "file": "ui-accessibility.spec.ts",
+          "line": 21,
+          "column": 1
+        },
+        {
+          "title": "loading, no-access, stale, partial failure and retry states use real response outcomes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "768-dark",
+              "projectName": "768-dark",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2348,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:17.966Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "24daab1d49704ab9eb2d-7a7226cf84f53564bb42",
+          "file": "ui-accessibility.spec.ts",
+          "line": 52,
+          "column": 1
+        },
+        {
+          "title": "keyboard, 200% zoom, French input, RTL and reduced motion remain contained",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "1440-light",
+              "projectName": "1440-light",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1650,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:23.798Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "24daab1d49704ab9eb2d-fd63440618cec9b10c19",
+          "file": "ui-accessibility.spec.ts",
+          "line": 21,
+          "column": 1
+        },
+        {
+          "title": "loading, no-access, stale, partial failure and retry states use real response outcomes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "1440-light",
+              "projectName": "1440-light",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2462,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:25.539Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "24daab1d49704ab9eb2d-80d9b9b9fd3ec0f97968",
+          "file": "ui-accessibility.spec.ts",
+          "line": 52,
+          "column": 1
+        },
+        {
+          "title": "keyboard, 200% zoom, French input, RTL and reduced motion remain contained",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "1440-dark",
+              "projectName": "1440-dark",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1701,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:31.537Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "24daab1d49704ab9eb2d-bde70e0837d8d89fb1c5",
+          "file": "ui-accessibility.spec.ts",
+          "line": 21,
+          "column": 1
+        },
+        {
+          "title": "loading, no-access, stale, partial failure and retry states use real response outcomes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "1440-dark",
+              "projectName": "1440-dark",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2499,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:33.331Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "24daab1d49704ab9eb2d-22369855ab459f30b77b",
+          "file": "ui-accessibility.spec.ts",
+          "line": 52,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "vitals.spec.ts",
+      "file": "vitals.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "web vitals: shell LCP, interaction latency, JS budget (E099 browser)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "vitals",
+                  "description": "{\"lcp\":96,\"inp\":0,\"longTasks\":0,\"jsBytes\":136065,\"domInteractive\":7.699999988079071}"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "390-light",
+              "projectName": "390-light",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 920,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:29:58.454Z",
+                  "annotations": [
+                    {
+                      "type": "vitals",
+                      "description": "{\"lcp\":96,\"inp\":0,\"longTasks\":0,\"jsBytes\":136065,\"domInteractive\":7.699999988079071}"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bc487b036a00f2afd487-5bd8a77be2a5fb34981c",
+          "file": "vitals.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "today vitals: authenticated LCP, interaction latency and initial JS budget",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "today-vitals",
+                  "description": "{\"lcp\":100,\"inp\":0,\"longTasks\":0,\"jsBytes\":212593,\"domInteractive\":10.199999988079071}"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "390-light",
+              "projectName": "390-light",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1291,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:29:59.385Z",
+                  "annotations": [
+                    {
+                      "type": "today-vitals",
+                      "description": "{\"lcp\":100,\"inp\":0,\"longTasks\":0,\"jsBytes\":212593,\"domInteractive\":10.199999988079071}"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bc487b036a00f2afd487-e77ec103871a4e0d49ba",
+          "file": "vitals.spec.ts",
+          "line": 40,
+          "column": 1
+        },
+        {
+          "title": "web vitals: shell LCP, interaction latency, JS budget (E099 browser)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "vitals",
+                  "description": "{\"lcp\":116,\"inp\":0,\"longTasks\":0,\"jsBytes\":136065,\"domInteractive\":11.900000005960464}"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "390-dark",
+              "projectName": "390-dark",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 952,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:05.532Z",
+                  "annotations": [
+                    {
+                      "type": "vitals",
+                      "description": "{\"lcp\":116,\"inp\":0,\"longTasks\":0,\"jsBytes\":136065,\"domInteractive\":11.900000005960464}"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bc487b036a00f2afd487-1291712bd1a24fe0c6c8",
+          "file": "vitals.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "today vitals: authenticated LCP, interaction latency and initial JS budget",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "today-vitals",
+                  "description": "{\"lcp\":104,\"inp\":0,\"longTasks\":0,\"jsBytes\":212593,\"domInteractive\":7.699999988079071}"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "390-dark",
+              "projectName": "390-dark",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1312,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:06.493Z",
+                  "annotations": [
+                    {
+                      "type": "today-vitals",
+                      "description": "{\"lcp\":104,\"inp\":0,\"longTasks\":0,\"jsBytes\":212593,\"domInteractive\":7.699999988079071}"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bc487b036a00f2afd487-4b39d0439a2dd7bbe844",
+          "file": "vitals.spec.ts",
+          "line": 40,
+          "column": 1
+        },
+        {
+          "title": "web vitals: shell LCP, interaction latency, JS budget (E099 browser)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "vitals",
+                  "description": "{\"lcp\":120,\"inp\":0,\"longTasks\":0,\"jsBytes\":136065,\"domInteractive\":9}"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "768-light",
+              "projectName": "768-light",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 964,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:12.889Z",
+                  "annotations": [
+                    {
+                      "type": "vitals",
+                      "description": "{\"lcp\":120,\"inp\":0,\"longTasks\":0,\"jsBytes\":136065,\"domInteractive\":9}"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bc487b036a00f2afd487-407669bcd4c3fa141cee",
+          "file": "vitals.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "today vitals: authenticated LCP, interaction latency and initial JS budget",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "today-vitals",
+                  "description": "{\"lcp\":120,\"inp\":0,\"longTasks\":0,\"jsBytes\":212593,\"domInteractive\":10.400000005960464}"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "768-light",
+              "projectName": "768-light",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1306,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:13.862Z",
+                  "annotations": [
+                    {
+                      "type": "today-vitals",
+                      "description": "{\"lcp\":120,\"inp\":0,\"longTasks\":0,\"jsBytes\":212593,\"domInteractive\":10.400000005960464}"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bc487b036a00f2afd487-d2278ff9e31f9472a079",
+          "file": "vitals.spec.ts",
+          "line": 40,
+          "column": 1
+        },
+        {
+          "title": "web vitals: shell LCP, interaction latency, JS budget (E099 browser)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "vitals",
+                  "description": "{\"lcp\":108,\"inp\":0,\"longTasks\":0,\"jsBytes\":136065,\"domInteractive\":8}"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "768-dark",
+              "projectName": "768-dark",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 953,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:20.343Z",
+                  "annotations": [
+                    {
+                      "type": "vitals",
+                      "description": "{\"lcp\":108,\"inp\":0,\"longTasks\":0,\"jsBytes\":136065,\"domInteractive\":8}"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bc487b036a00f2afd487-d52180440043297f01ef",
+          "file": "vitals.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "today vitals: authenticated LCP, interaction latency and initial JS budget",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "today-vitals",
+                  "description": "{\"lcp\":108,\"inp\":0,\"longTasks\":0,\"jsBytes\":212593,\"domInteractive\":12.100000023841858}"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "768-dark",
+              "projectName": "768-dark",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1297,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:21.308Z",
+                  "annotations": [
+                    {
+                      "type": "today-vitals",
+                      "description": "{\"lcp\":108,\"inp\":0,\"longTasks\":0,\"jsBytes\":212593,\"domInteractive\":12.100000023841858}"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bc487b036a00f2afd487-a4d3cd2af6240e4c22fe",
+          "file": "vitals.spec.ts",
+          "line": 40,
+          "column": 1
+        },
+        {
+          "title": "web vitals: shell LCP, interaction latency, JS budget (E099 browser)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "vitals",
+                  "description": "{\"lcp\":128,\"inp\":0,\"longTasks\":0,\"jsBytes\":136065,\"domInteractive\":9.099999994039536}"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "1440-light",
+              "projectName": "1440-light",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 956,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:28.028Z",
+                  "annotations": [
+                    {
+                      "type": "vitals",
+                      "description": "{\"lcp\":128,\"inp\":0,\"longTasks\":0,\"jsBytes\":136065,\"domInteractive\":9.099999994039536}"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bc487b036a00f2afd487-f170d179d6124cf4826e",
+          "file": "vitals.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "today vitals: authenticated LCP, interaction latency and initial JS budget",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "today-vitals",
+                  "description": "{\"lcp\":128,\"inp\":0,\"longTasks\":0,\"jsBytes\":212593,\"domInteractive\":10.300000011920929}"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "1440-light",
+              "projectName": "1440-light",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1330,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:28.996Z",
+                  "annotations": [
+                    {
+                      "type": "today-vitals",
+                      "description": "{\"lcp\":128,\"inp\":0,\"longTasks\":0,\"jsBytes\":212593,\"domInteractive\":10.300000011920929}"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bc487b036a00f2afd487-cb816284e47810a01368",
+          "file": "vitals.spec.ts",
+          "line": 40,
+          "column": 1
+        },
+        {
+          "title": "web vitals: shell LCP, interaction latency, JS budget (E099 browser)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "vitals",
+                  "description": "{\"lcp\":112,\"inp\":0,\"longTasks\":0,\"jsBytes\":136065,\"domInteractive\":10.5}"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "1440-dark",
+              "projectName": "1440-dark",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 934,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:35.850Z",
+                  "annotations": [
+                    {
+                      "type": "vitals",
+                      "description": "{\"lcp\":112,\"inp\":0,\"longTasks\":0,\"jsBytes\":136065,\"domInteractive\":10.5}"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bc487b036a00f2afd487-1b15e73a6188c4cdd5aa",
+          "file": "vitals.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "today vitals: authenticated LCP, interaction latency and initial JS budget",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "today-vitals",
+                  "description": "{\"lcp\":120,\"inp\":0,\"longTasks\":0,\"jsBytes\":212593,\"domInteractive\":11.400000005960464}"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "1440-dark",
+              "projectName": "1440-dark",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1305,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-01T03:30:36.795Z",
+                  "annotations": [
+                    {
+                      "type": "today-vitals",
+                      "description": "{\"lcp\":120,\"inp\":0,\"longTasks\":0,\"jsBytes\":212593,\"domInteractive\":11.400000005960464}"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bc487b036a00f2afd487-a345ddd16c89c484b08d",
+          "file": "vitals.spec.ts",
+          "line": 40,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-01T03:29:52.711Z",
+    "duration": 45445.737,
+    "expected": 24,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

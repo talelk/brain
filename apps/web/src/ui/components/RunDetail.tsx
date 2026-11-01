@@ -3,8 +3,8 @@ import type { JSX } from "solid-js";
 import { For, Show, createSignal } from "solid-js";
 import { Button, KeyValue } from "@talelk/newui-atoms";
 import { Alert, TabButtons, Timeline } from "@talelk/newui-molecules";
-import { DetailHeader, Section } from "@talelk/newui-organisms";
-import type { JobSnapshot, PlacementExplanation } from "@brain/contracts";
+import { DetailHeader } from "@talelk/newui-organisms";
+import type { EngineEvent, JobSnapshot, PlacementExplanation } from "@brain/contracts";
 import { DateText, ScreenRegion } from "../screen-region";
 import type { ScreenState } from "../../data/screens";
 import { EvidenceList } from "./EvidenceList";
@@ -16,11 +16,16 @@ import { StructuredOutputView } from "./StructuredOutputView";
 import { BrainPage, PageStack, TechnicalDetails } from "./PageLayout";
 import { ReasonDialog } from "./ReasonDialog";
 import { RefreshButton } from "./primitives";
+import { DetailAside, FactStrip, WorkspaceSection } from "./Domain";
 
 const TABS = [
   { value: "summary", label: "Summary" }, { value: "attempts", label: "Attempts" },
   { value: "timeline", label: "Timeline" }, { value: "evidence", label: "Evidence" }, { value: "placement", label: "Placement" },
 ];
+
+function eventTitle(event: EngineEvent): string {
+  return event.kind.replaceAll(".", " · ").replaceAll("-", " ");
+}
 
 export function RunDetail(props: {
   jobId: string;
@@ -39,6 +44,12 @@ export function RunDetail(props: {
   const job = () => props.job;
   const state = () => job()?.workflowState ?? job()?.state;
   const unknown = () => job()?.state === "outcome_unknown";
+  const latestEvent = () => job()?.engineEvents?.at(-1);
+  const engine = () => job()?.engineEvents?.find((event) => event.kind === "session.started");
+  const engineId = () => {
+    const current = engine();
+    return current?.kind === "session.started" ? current.payload.engine.id : "Not reported";
+  };
   async function confirm() {
     const kind = reasonOpen();
     if (!kind || !reason().trim()) return;
@@ -49,49 +60,67 @@ export function RunDetail(props: {
       setReason(""); setReasonOpen(false);
     } finally { setBusy(false); }
   }
-  return <BrainPage title="Run detail" description="Follow progress, review the result, and inspect independent evidence and placement."
+  return <BrainPage title="Run detail" description="See what the run is doing, what it produced, what proves the result, and what is safe to do next."
     breadcrumbs={[{ label: "Activity" }, { label: "Run detail" }]}
-    actions={<><RefreshButton onClick={props.onRefresh} label="Refresh" /><Show when={unknown()}><Button size="lg" variant="solid" theme="blue" onClick={() => { setReasonOpen("reconcile"); setReason(""); }}>Reconcile outcome</Button></Show><Show when={!["succeeded", "failed", "cancelled"].includes(state() ?? "")}><Button size="lg" variant="outline" theme="red" onClick={() => { setReasonOpen("cancel"); setReason(""); }}>Cancel run</Button></Show></>}>
+    actions={<><RefreshButton onClick={props.onRefresh} label="Refresh" /><Show when={unknown()}><Button size="lg" variant="solid" theme="blue" onClick={() => { setReasonOpen("reconcile"); setReason(""); }}>Reconcile outcome</Button></Show><Show when={!unknown() && !["succeeded", "failed", "cancelled"].includes(state() ?? "")}><Button size="lg" variant="outline" theme="red" onClick={() => { setReasonOpen("cancel"); setReason(""); }}>Cancel run</Button></Show></>}>
     <ScreenRegion state={props.state} skeleton="rows" emptyTitle="Run not found" emptyDescription="It may belong to another workspace, or it was removed." emptyAction={<Button size="lg" onClick={props.onRefresh}>Reload</Button>} onRetry={props.onRefresh}>
       <PageStack>
         <DetailHeader title={job()?.workflowTitle ?? "Task run"} headingLevel={2}
-          subtitle={job()?.origin ? "A run connected to an originating work item." : "Authoritative execution and verification detail."}
+          subtitle={job()?.origin ? "Execution linked to an originating work item." : "Authoritative execution, output and independent verification."}
           status={{ label: state() === "succeeded" ? job()?.workflowState ? "Completed and verified" : "Step completed" : (state() ?? "unknown").replaceAll("_", " "), theme: statusHeaderTheme("job", state() ?? "") }} />
-        <Show when={unknown()}><Alert theme="amber" variant="outline" title="Effect outcome is unknown" description="The effect may already have applied. Reconcile against the target system before retrying; Retry stays unavailable." /></Show>
+        <Show when={unknown()}><Alert theme="amber" variant="outline" title="Effect outcome is unknown" description="The effect may already have applied. Reconcile against the target system before considering another attempt; generic Retry is intentionally unavailable." /></Show>
         <Show when={job()?.origin}>{(origin) => <A class="inline-flex w-fit items-center gap-2 rounded-control text-interface font-medium text-ink-blue-link focus-visible:focus-ring" href={origin().kind === "work-item" ? `/w/${job()?.workspaceId}/board?card=${encodeURIComponent(origin().id)}` : origin().kind === "ticket" ? `/tickets/${origin().id}` : `/incidents/${origin().id}`}><span class="lucide-arrow-left size-4" aria-hidden="true" />Back to originating work item</A>}</Show>
-        <TechnicalDetails label="Technical references"><p class="break-all">Run {job()?.workflowRunId ?? props.jobId} · step {job()?.jobId} · version {job()?.version} · configuration {job()?.configDigest}</p></TechnicalDetails>
-        <TabButtons label="Run detail" options={TABS} value={tab()} onValueChange={setTab} />
-        <Show when={tab() === "summary"}><PageStack>
-          <Section title="Progress" surface="card"><div class="grid gap-field-gap sm:grid-cols-2">
-            <KeyValue label="State" value={<StatusBadge kind="job" status={state() ?? "unknown"} label={state() ?? "—"} />} />
-            <KeyValue label="Created" value={<DateText value={job()?.createdAt} />} />
-            <KeyValue label="Queue reasons" value={queueReasonLabel(job()?.queueReasons ?? [])} />
-            <KeyValue label="Workspace" value={job()?.workspaceId ?? "—"} />
-          </div></Section>
-          <Show when={Object.keys(job()?.runOutputs ?? {}).length}>
-            <Section title="Structured output" description="Readable values with exact JSON available on demand." surface="card"><div class="flex flex-col gap-5">
-              <For each={Object.entries(job()?.runOutputs ?? {}).filter(([step]) => step !== "validate")}>{([step, output]) => <div><h3 class="mb-2 text-base-medium">{step === "respond" ? "Result" : step.replaceAll("-", " ")}</h3><StructuredOutputView value={output} /></div>}</For>
-            </div></Section>
-          </Show>
-          <Show when={(job()?.engineEvents ?? []).some((event) => event.kind === "artifact")}>
-            <Section title="Run artifacts" surface="card"><div class="flex flex-col gap-3"><For each={(job()?.engineEvents ?? []).filter((event) => event.kind === "artifact")}>{(event) => <ArtifactContent artifact={"artifact" in event.payload ? event.payload.artifact : undefined} compact />}</For></div></Section>
-          </Show>
-        </PageStack></Show>
-        <Show when={tab() === "attempts"}><Section title="Attempts" surface="card">
-          <Show when={(job()?.attempts.length ?? 0) > 0} fallback={<p class="brain-empty-inline">No attempts recorded yet.</p>}><Timeline items={[...(job()?.attempts ?? [])].map((attempt) => ({
-            title: `Attempt ${attempt.number} on ${attempt.runnerId}`,
-            description: `State: ${attempt.state}${attempt.leaseExpiresAt ? ` · lease until ${formatDateTime(attempt.leaseExpiresAt)}` : ""}`,
-            tone: (attempt.state === "succeeded" ? "green" : attempt.state === "failed" ? "red" : "blue") as "green" | "red" | "blue",
-            timestamp: <DateText value={attempt.leaseExpiresAt} />,
-          }))} /></Show>
-        </Section></Show>
-        <Show when={tab() === "timeline"}><Section title="Authoritative events" surface="card"><PageStack>
-          <Show when={(job()?.attempts.length ?? 0) > 0} fallback={<p>No authoritative events yet for this run.</p>}><Timeline items={[...(job()?.attempts ?? [])].map((attempt) => ({ title: `${attempt.state} — attempt ${attempt.number}`, description: `Runner ${attempt.runnerId}`, tone: "gray" as const }))} /></Show>
-          <For each={job()?.engineEvents ?? []}>{(event) => <div class="border-b border-outline-gray-1 py-3 last:border-0"><strong>{event.kind}</strong><pre class="brain-readable mt-2 whitespace-pre-wrap break-words rounded-control bg-surface-gray-1 p-3 text-caption">{JSON.stringify(event.payload, null, 2)}</pre></div>}</For>
-          <Show when={props.onOpenSession && (job()?.attempts.length ?? 0) > 0}><Button size="lg" variant="outline" iconRight="lucide-arrow-right" class="self-start" onClick={() => { const first = job()?.attempts[0]; if (first) props.onOpenSession?.(first.attemptId); }}>Open live session</Button></Show>
-        </PageStack></Section></Show>
-        <Show when={tab() === "evidence"}><Section title="Independent evidence" surface="card"><EvidenceList bundleDigest={job()?.evidenceDigest} workspaceId={job()?.workspaceId} /></Section></Show>
-        <Show when={tab() === "placement"}><Section title="Placement explanation" surface="card"><PlacementPanel explanation={props.explanation} /></Section></Show>
+        <FactStrip label="Run summary" items={[
+          { label: "Current state", value: <StatusBadge kind="job" status={state() ?? "unknown"} />, hint: "Authoritative workflow state", icon: "lucide-activity" },
+          { label: "Attempts", value: String(job()?.attempts.length ?? 0), hint: "Recorded execution attempts", icon: "lucide-repeat-2" },
+          { label: "Evidence", value: job()?.evidenceDigest ? "Bundle attached" : "Not complete", hint: job()?.evidenceDigest ? "Inspect independent verification" : "Author output alone is insufficient", icon: "lucide-badge-check" },
+          { label: "Created", value: <DateText value={job()?.createdAt} />, hint: `Workspace ${job()?.workspaceId ?? "—"}`, icon: "lucide-clock-3" },
+        ]} />
+        <div class="brain-run-layout">
+          <div class="brain-detail-stack">
+            <TabButtons label="Run detail" options={TABS} value={tab()} onValueChange={setTab} />
+            <Show when={tab() === "summary"}><PageStack>
+              <WorkspaceSection title="What is happening" description="The latest authoritative condition, not a model's claim of completion.">
+                <Show when={latestEvent()} keyed fallback={<p class="text-interface text-ink-gray-7">{job()?.queueReasons.length ? queueReasonLabel(job()!.queueReasons) : "No engine event has been recorded yet. Placement and attempt details below explain the current wait."}</p>}>
+                  {(event) => <div class="flex items-start gap-3 border-y border-outline-gray-1 py-4"><span class="mt-1 grid size-9 shrink-0 place-items-center rounded-control bg-surface-blue-2 text-ink-blue-8"><span class="lucide-activity size-4" aria-hidden="true" /></span><div><h3 class="text-base-medium capitalize">{eventTitle(event)}</h3><p class="mt-1 text-caption text-ink-gray-6">Latest engine event · <DateText value={event.occurredAt} /></p></div></div>}
+                </Show>
+                <Show when={job()?.queueReasons.length}><Alert theme="amber" variant="outline" title="Why the run is waiting" description={queueReasonLabel(job()!.queueReasons)} /></Show>
+              </WorkspaceSection>
+              <Show when={Object.keys(job()?.runOutputs ?? {}).length}>
+                <WorkspaceSection title="Structured output" description="Readable author output; independent evidence is checked separately."><div class="flex flex-col gap-5">
+                  <For each={Object.entries(job()?.runOutputs ?? {}).filter(([step]) => step !== "validate")}>{([step, output]) => <div><h3 class="mb-2 text-base-medium capitalize">{step === "respond" ? "Result" : step.replaceAll("-", " ")}</h3><StructuredOutputView value={output} /></div>}</For>
+                </div></WorkspaceSection>
+              </Show>
+              <Show when={(job()?.engineEvents ?? []).some((event) => event.kind === "artifact")}>
+                <WorkspaceSection title="Run artifacts" description="Immutable outputs uploaded by the executing attempt."><div class="flex flex-col gap-3"><For each={(job()?.engineEvents ?? []).filter((event) => event.kind === "artifact")}>{(event) => <ArtifactContent artifact={"artifact" in event.payload ? event.payload.artifact : undefined} compact />}</For></div></WorkspaceSection>
+              </Show>
+            </PageStack></Show>
+            <Show when={tab() === "attempts"}><WorkspaceSection title="Execution attempts" description="Runner, lease and terminal state for each admitted attempt.">
+              <Show when={(job()?.attempts.length ?? 0) > 0} fallback={<p class="brain-empty-inline">No attempts recorded yet.</p>}><Timeline items={[...(job()?.attempts ?? [])].map((attempt) => ({
+                title: `Attempt ${attempt.number} on ${attempt.runnerId}`,
+                description: `State: ${attempt.state}${attempt.leaseExpiresAt ? ` · lease until ${formatDateTime(attempt.leaseExpiresAt)}` : ""}`,
+                tone: (attempt.state === "succeeded" ? "green" : attempt.state === "failed" ? "red" : "blue") as "green" | "red" | "blue",
+                timestamp: <DateText value={attempt.leaseExpiresAt} />,
+              }))} /></Show>
+            </WorkspaceSection></Show>
+            <Show when={tab() === "timeline"}><WorkspaceSection title="Execution timeline" description="Attempts and actual engine events in authoritative order.">
+              <Show when={(job()?.attempts.length ?? 0) > 0}><Timeline items={[...(job()?.attempts ?? [])].map((attempt) => ({ title: `${attempt.state} — attempt ${attempt.number}`, description: `Runner ${attempt.runnerId}`, tone: "gray" as const }))} /></Show>
+              <Show when={(job()?.engineEvents?.length ?? 0) > 0} fallback={<p class="text-interface text-ink-gray-7">No engine events have been recorded for this run.</p>}><For each={job()?.engineEvents ?? []}>{(event) => <details class="border-b border-outline-gray-1 py-3 last:border-0"><summary class="cursor-pointer text-base-medium capitalize">{eventTitle(event)}<span class="ms-2 text-caption font-normal text-ink-gray-6"><DateText value={event.occurredAt} /></span></summary><pre class="brain-readable mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-control bg-surface-gray-1 p-3 text-caption">{JSON.stringify(event.payload, null, 2)}</pre></details>}</For></Show>
+              <Show when={props.onOpenSession && (job()?.attempts.length ?? 0) > 0}><Button size="lg" variant="outline" iconRight="lucide-arrow-right" class="self-start" onClick={() => { const first = job()?.attempts[0]; if (first) props.onOpenSession?.(first.attemptId); }}>Open live session</Button></Show>
+            </WorkspaceSection></Show>
+            <Show when={tab() === "evidence"}><WorkspaceSection title="Independent evidence" description="Verification is accepted only from the independent evaluator authority."><EvidenceList bundleDigest={job()?.evidenceDigest} workspaceId={job()?.workspaceId} /></WorkspaceSection></Show>
+            <Show when={tab() === "placement"}><WorkspaceSection title="Placement explanation" description="Why this run can or cannot be assigned to a runner."><PlacementPanel explanation={props.explanation} /></WorkspaceSection></Show>
+          </div>
+          <DetailAside title="Run context" description="Placement and provenance beside the result." sticky>
+            <KeyValue label="State" value={<StatusBadge kind="job" status={state() ?? "unknown"} />} orientation="vertical" />
+            <KeyValue label="Workspace" value={job()?.workspaceId ?? "—"} orientation="vertical" />
+            <KeyValue label="Engine" value={engineId()} orientation="vertical" />
+            <KeyValue label="Runner" value={job()?.attempts.at(-1)?.runnerId ?? "Not assigned"} orientation="vertical" />
+            <KeyValue label="Attempt" value={job()?.attempts.length ? `${job()!.attempts.length} recorded` : "None yet"} orientation="vertical" />
+            <KeyValue label="Cost / budget" value="Actual cost is not supplied by this run read model." orientation="vertical" />
+            <TechnicalDetails label="Technical references"><p class="break-all">Run {job()?.workflowRunId ?? props.jobId} · step {job()?.jobId} · version {job()?.version} · configuration {job()?.configDigest}</p></TechnicalDetails>
+          </DetailAside>
+        </div>
       </PageStack>
       <ReasonDialog open={reasonOpen() !== false} onClose={() => setReasonOpen(false)}
         title={reasonOpen() === "reconcile" ? "Reconcile unknown outcome" : "Cancel this run"}

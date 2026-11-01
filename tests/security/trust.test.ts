@@ -15,7 +15,7 @@ describe("trust-domain verifier (T28/L2)", () => {
     brain.store.control.prepare("INSERT OR REPLACE INTO organization_authorizations(organization_id, principal_id, role, granted_by, granted_at_ms) VALUES (?, 'sec-op', 'security-admin', 'owner-1', ?)")
       .run(w.org, brain.store.now());
     const owner = w.actor("owner-1");
-    const { token } = brain.issueEnrollment(owner, "fixture");
+    const { token } = brain.issueEnrollment(owner, "fixture-tools");
     const { publicKey } = generateKeyPairSync("ed25519");
     const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
     brain.enrollRunner({ token, publicKeyPem, runnerId: "runner-trust-1" });

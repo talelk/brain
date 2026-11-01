@@ -20,7 +20,7 @@ import { nextCronFire, parseCron } from "../workflows/index";
  */
 
 type AutomationRow = {
-  id: string; title: string; state: "active" | "paused"; revision: number;
+  id: string; title: string; state: "active" | "paused" | "retired"; revision: number;
   target_kind: "workflow" | "workItem"; target_id: string;
   trigger_kind: "cron" | "once" | "manual"; cron: string | null; timezone: string | null;
   scheduled_at_ms: number | null; input_json: string | null;
@@ -185,6 +185,7 @@ export class AutomationService {
     }
     const existing = this.row(actor, workspaceId, existingId);
     assertExpectedVersion(existing.version, expectedVersion);
+    if (existing.state === "retired") throw new BrainDomainError("CONFLICT", "retired automations cannot be revised; duplicate them instead");
     this.store.inTx(db, () => {
       db.prepare(`UPDATE automations SET title=?,target_kind=?,target_id=?,trigger_kind=?,cron=?,timezone=?,scheduled_at_ms=?,input_json=?,overlap=?,misfire=?,execution_mode=?,runner_id=?,offline_policy=?,revision=revision+1,revision_created_at_ms=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?`)
         .run(String(payload["title"] ?? existing.title), target.kind, target.id, kind, cron, timezone, scheduledAtMs, input, overlap, misfire, executionMode, runnerId, offlinePolicy, now, now, existing.id, existing.version);
@@ -197,14 +198,16 @@ export class AutomationService {
     const automation = this.row(actor, workspaceId, String(payload["automationId"]));
     assertExpectedVersion(automation.version, expectedVersion);
     const action = String(payload["action"]);
-    if (action !== "pause" && action !== "resume" && action !== "runNow") throw new BrainDomainError("INVALID_ARGUMENT", "action must be pause, resume or runNow");
+    if (action !== "pause" && action !== "resume" && action !== "runNow" && action !== "retire") throw new BrainDomainError("INVALID_ARGUMENT", "action must be pause, resume, runNow or retire");
     const db = this.db(actor, workspaceId);
-    if (action === "pause" || action === "resume") {
-      const next = action === "pause" ? "paused" : "active";
+    if (automation.state === "retired" && action !== "retire") throw new BrainDomainError("CONFLICT", "retired automations preserve history and cannot run or resume");
+    if (action === "pause" || action === "resume" || action === "retire") {
+      if (action === "retire" && !String(payload["reason"] ?? "").trim()) throw new BrainDomainError("INVALID_ARGUMENT", "retirement requires a reason");
+      const next = action === "pause" ? "paused" : action === "resume" ? "active" : "retired";
       if (automation.state !== next) {
         this.store.inTx(db, () => {
           db.prepare("UPDATE automations SET state=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?").run(next, this.store.now(), automation.id, automation.version);
-          this.store.emit(db, { aggregateType: "automation", aggregateId: automation.id, eventType: `automation.${action}d`, payload: { automationId: automation.id } });
+          this.store.emit(db, { aggregateType: "automation", aggregateId: automation.id, eventType: action === "retire" ? "automation.retired" : `automation.${action}d`, payload: { automationId: automation.id, ...(action === "retire" ? { reason: String(payload["reason"]) } : {}) } });
         });
       }
       return automation.id;

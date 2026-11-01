@@ -18,7 +18,7 @@ test("native people, invitation, verification, acceptance, and workspace access"
   const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.message));
   await bootstrapOwner(page, governor);
   await page.goto(`${governor.url}/settings?tab=people`);
-  await expect(page.getByRole("heading", { name: "People", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "People", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByText("owner@example.test", { exact: true }).locator("visible=true").first()).toBeVisible();
   await page.getByRole("button", { name: "Invite person", exact: true }).click();
   await page.getByRole("textbox", { name: "Email", exact: true }).fill("invited@example.test");
@@ -28,9 +28,9 @@ test("native people, invitation, verification, acceptance, and workspace access"
   expect(invitation.url).toContain("/accept-invitation/");
 
   await page.goto(`${governor.url}/settings?tab=invitations`);
-  await expect(page.getByRole("heading", { name: "Invitations", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Invitations", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByText("invited@example.test", { exact: true }).locator("visible=true").first()).toBeVisible();
-  await expect(page.getByText("pending", { exact: true }).locator("visible=true").first()).toBeVisible();
+  await expect(page.getByText("Pending", { exact: true }).locator("visible=true").first()).toBeVisible();
 
   const invitedContext = await browser.newContext();
   const invited = await invitedContext.newPage();
@@ -87,7 +87,7 @@ test("passkey registration and passwordless sign-in with an emulated authenticat
   await page.getByRole("menuitem", { name: "Sign out", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Sign in to Keyrus Brain", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Sign in with a passkey", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Administration", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Security center", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByText("Owner laptop", { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
   await cdp.send("WebAuthn.removeVirtualAuthenticator", { authenticatorId });

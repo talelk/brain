@@ -6,6 +6,7 @@ import { Section } from "@talelk/newui-organisms";
 import type { LocalRuntimeStatus } from "@brain/contracts";
 import { governor } from "../../data/client";
 import { OperationalChecklist } from "./OperationalChecklist";
+import { FactStrip } from "./Domain";
 
 export function LocalModelSetup() {
   const app = useApp(); const navigate = useNavigate();
@@ -38,8 +39,14 @@ export function LocalModelSetup() {
     } catch (e) { if (!disposed) setError(e instanceof Error ? e.message : "Could not connect to the model."); }
     finally { if (!disposed) setBusy(false); }
   }
+  const taskRunnerReady = () => Boolean(status()?.runners.some((runner) => !runner.id.includes("evaluators") && runner.applied));
   return <div class="flex flex-col gap-field-gap">
-    <Section actions={<Button size="lg" variant="outline" onClick={() => void navigate(`/w/${app.workspaceId()}/workflows?mode=catalog`)}>Explore starter tasks</Button>} title="Connect your local model" description="Use your self-hosted OpenAI-compatible model API with Pi. The starter release assumes no model usage charges. Paid providers require explicit budgets in your authored release." surface="card">
+    <Section actions={<div class="flex flex-wrap gap-2"><Button size="lg" variant="outline" onClick={() => void navigate(`/w/${app.workspaceId()}/workflows?mode=catalog`)}>Explore starter tasks</Button><Button size="lg" theme="blue" disabled={!taskRunnerReady()} onClick={() => void navigate(`/w/${app.workspaceId()}/workflows?selected=agent-smoke`)}>Run read-only smoke task</Button></div>} title="Models & Providers" description="Configure the local OpenAI-compatible connection, verify the exact model, then check engine and runner readiness separately. Saved credentials are never returned to the browser." surface="card">
+      <FactStrip label="Model readiness" items={[
+        { label: "Configured", value: status()?.configured ? "Saved" : "Not configured", hint: status()?.modelId ?? "Enter an exact provider model ID", icon: "lucide-settings-2" },
+        { label: "Endpoint", value: status()?.testedAt ? "Model verified" : "Not tested", hint: status()?.testedAt ? `Verified ${new Date(status()!.testedAt!).toLocaleString()}` : "HTTP health alone is not execution proof", icon: "lucide-plug-zap" },
+        { label: "Engine / runner", value: taskRunnerReady() ? "Pi ready" : "Not ready", hint: taskRunnerReady() ? "Fresh runner capability confirms the applied connection" : "Wait for signed hello and fresh runner capabilities", icon: "lucide-cpu" },
+      ]} />
       <Show when={status()?.enabled} fallback={<p>Guided local setup is available when this installation starts with <code>pnpm brain start</code>. Other deployments use their configured runner connections.</p>}>
         <form onSubmit={connect} class="flex max-w-2xl flex-col gap-4">
           <TextInput label="Model API URL" placeholder="http://localhost:8000/v1" description="Use the address reachable from this host, including /v1 when required." value={url()} onInput={(e) => setUrl(e.currentTarget.value)} required disabled={busy()} />

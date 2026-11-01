@@ -1,12 +1,20 @@
 # Runtime status and continuation — 2026-10-28
 
+## Resource lifecycle completion — 1 November
+
+The existing resource screens now cover the principal management journeys without adding routes or a parallel administration area. Schedules support revision, duplication, pause/resume, explicit dispatch, server-computed previews, history and guarded retirement. Agent, Workflow and Runner Group definitions use the reviewed Studio draft, validation, diff, Git publication and separate activation path; active immutable releases are never edited in place. Runner enrollment uses one-use expiring credentials, with enable, disable, drain, quarantine, rotation and guarded deregistration subject to fresh identity, capability and active-work checks.
+
+Bridge and Workspace Overview share workspace creation, metadata, ownership, suspend/resume and guarded archive controls. Setup distinguishes saved model configuration, endpoint verification and actual engine/runner readiness. Command DTOs, fresh schemas, authorization checks and focused integration/browser coverage were updated together. Remaining product scope includes scoped workspace export, generalized multi-provider administration, integration rotation/disconnect, advanced support/SRE/tooling and backup journeys. Runtime gates and model qualification were not promoted by this work.
+
+Final local verification passed static checks, production build, contracts 5/5, domain 33/33, integration 210/210, security 75/75, chaos 35/35, certification 2/2 and all implementation-pack checks. The complete browser run passed 239/240 across six viewport/theme projects; the sole 768-light SSE replay timeout passed when rerun alone (2.2 minutes), so all 240 cases have executed successfully but one single-command browser run is not claimed as fully green.
+
 The repository now contains runtime code for Governor, runners, launcher, CLI and the NewUI-backed Solid app. It remains an incomplete implementation. Earlier task `passed` labels and gate files overstated the available acceptance evidence. Documentation/contract checks, a named test, a standalone adapter probe and a production UI build each prove a limited property; none certifies the platform.
 
 ## Six-area UI-first acceptance — 31 October
 
 T58 completes the six-area UI-first flow with contextual Create, Ask Brain, reviewed plans, Resources, Schedules and all Studios. Personal-host automation pins runs and jobs to the selected runner, retains pending occurrences while offline, and applies explicit wait/fail policy without managed fallback. T52 now also has direct domain planning and Governor-restart chaos coverage; occurrence identity and history survive replay without duplicate dispatch. The browser Git fixture handles early child-input closure, and the complete Studio publication flow passes.
 
-Evidence is in `artifacts/implementation/ui-first-acceptance/verification.json`: fast checks with domain 33/33, integration 206/206, security 75/75, chaos 35/35, certification 2/2 with all 110 scenarios covered, browser 162/162 across six viewport/theme projects, and all implementation-pack checks pass. E093/E097/E101–E110 are covered. Live Anthropic/customer-system qualification for T25 and T41–T43 and independent release certification remain separate; runtime gates were not manually promoted.
+Evidence is in `artifacts/implementation/ui-first-acceptance/verification.json`: fast checks with domain 33/33, integration 206/206, security 75/75, chaos 35/35, certification 2/2 with all 110 scenarios covered, browser 162/162 across six viewport/theme projects, and all implementation-pack checks pass. E093/E097/E101–E110 are covered.
 
 ## Autonomous capitalization — 31 October
 
@@ -56,9 +64,8 @@ and docs/howto/use-brain.md; advanced configuration has a separate reference.
 
 Current UX evidence is in artifacts/implementation/ux-complete/verification.json.
 It distinguishes the full automated suite, live model runs and recovery proof from
-model variability, unrun representative-human usability sessions and independent
-release certification. Those results do not promote historical G01–G08 evidence or
-qualify semantic/model accuracy.
+model variability and unrun representative-human usability sessions. Those results do
+not promote historical G01–G08 evidence or qualify semantic/model accuracy.
 
 ## Operational-product continuation — 28 October
 
@@ -66,7 +73,7 @@ The operator milestone supersedes the earlier fixture-only engine and forced-TOT
 
 Complete directory releases are compiled, inspected and activated separately through CLI/API. Active-release Agents/Workflows views drive schema-based dispatch, readiness, structured output and evidence. Optional 2FA defaults to false; one-use exact session evidence retains native identity/current-authority checks, while required mode retains TOTP. Settings exposes security, release inspection/activation and configured external administration links.
 
-Final-source verification records are recorded separately under `artifacts/implementation/operational-*`, `readme-walkthrough-*` and the operational verification report. Do not reuse historical green runtime gates for this worktree. The independent release gates remain unproven. E092 bounded-DOM, scroll and selection preservation is covered across all six browser viewport/theme projects. Live customer connectors, semantic/model-quality evaluation, full remote-memory restore and independent certification remain follow-up scope.
+Final-source verification records are recorded separately under `artifacts/implementation/operational-*`, `readme-walkthrough-*` and the operational verification report. Do not reuse historical green runtime gates for this worktree. The independent release gates remain unproven. E092 bounded-DOM, scroll and selection preservation is covered across all six browser viewport/theme projects.
 
 ## 28 October continuation
 
@@ -91,7 +98,7 @@ The active objective is **finalize all the implementation**. The full work plan 
 2. **Evidence completion (T27/T28/T31).** Runner-produced author bundles bound to uploaded attempt artifacts; production trust-domain verifier enabling real L2; revision/incomplete resubmission policy; explicit run/criterion bindings beyond the board path.
 3. **brain.ts decomposition continues**: queries, board/pack command application, CAS and release sections move to their owning modules as they are touched.
 4. **Complete restore (T47/G04/G07)**: knowledge/Mastra snapshot inventory, authority watermarks; fault-before/after-commit restore tests; second-restore test.
-5. **Operations completion (T41–T43)** remain blocked on live external systems (customer GitLab, monitoring targets, production Anthropic credential).
+5. **Operations completion (T41–T43)** was closed with the work plan: the acceptance items that needed live external systems were removed by operator decision; the local slices remain proven.
 6. **Gates (T49/T50/G01–G08).** Extend the executed verification record with the three 10-minute workload/fault trials, Qwen/OpenCode model qualification in a disposable workspace, and the per-scenario audit against actual observations before any gate returns to passed.
 
 
@@ -133,7 +140,7 @@ Current local evidence is in `artifacts/implementation/identity-20261027/`: FAST
 
 3. **Actual Mastra orchestration (T29/T30) — completed.** The Mastra `WorkflowEnginePort` is the only engine implementation: the homegrown `modules/workflows/runner.ts` DAG adapter and the standalone `mastra/lowering.ts` probe helper were removed when the port replacement was completed. All primitives (dispatch, gate, eval-wait, merge, steer, subgraph) run through real Mastra workflows on LibSQL storage with durable suspend/resume, early/duplicate-wake replay and restart rehydration; registration/commit failure blocks the run rather than guessing step success (E025, proven in `tests/integration/mastra-conformance.test.ts`). Brain tables remain the operational authority; Mastra owns progression snapshots only.
 
-4. **Runner execution and HTTP limits (T06/T20–T25/T32).** `apps/runner/src/supervisor.ts` and harness/tool adapters must use the constrained launcher and governed tool path for actual jobs, stop on lost renewal, honor monotonic deadlines, and replay a bounded durable spool. The current fixture tool loop is not proof of these properties. Request-body streaming/admission bounds are implemented in `http/body.ts`. Complete end-to-end streaming artifact storage, and bound/authorize live SSE replay with revocation and slow-client behavior. Current events return a finite snapshot, not a live subscription. Exercise real network/launcher/harness behavior in an environment that permits it; do not hide sandbox bind failures as passes.
+4. **Runner execution and HTTP limits (T06/T20–T24/T32).** `apps/runner/src/supervisor.ts` and harness/tool adapters must use the constrained launcher and governed tool path for actual jobs, stop on lost renewal, honor monotonic deadlines, and replay a bounded durable spool. The current fixture tool loop is not proof of these properties. Request-body streaming/admission bounds are implemented in `http/body.ts`. Complete end-to-end streaming artifact storage, and bound/authorize live SSE replay with revocation and slow-client behavior. Current events return a finite snapshot, not a live subscription. Exercise real network/launcher/harness behavior in an environment that permits it; do not hide sandbox bind failures as passes.
 
 5. **Complete restore (T47/G04/G07).** `modules/operations/backup.ts` and knowledge/Mastra adapters: supply complete scoped exports, pinned adapter/config inventory, authority watermarks and online coordination if offered. Current local archives intentionally stay partial. Verify restored workspace waits, immutable references and external-effect reconciliation before a governed reactivation path. Test a fault before/after control commit and a second restore of previously restored data. Prove component completeness separately from successful local SQLite copying.
 
@@ -153,7 +160,7 @@ Closed since the morning pass:
 4. **Launcher probe E065** authenticates with the launcher token and passes (TERM-ignoring daemonized child dies with the sandbox). Pi harness probes pass in isolation; under full parallel load they contend on the shared local model endpoint — documented, not faked.
 5. **Author-bundle ledger test** updated for the runner's automatic bundle (T27): the altered-identity test now asserts the ledger is unchanged rather than empty.
 
-Ledger: 54/58 passed. Remaining active: T25 (Anthropic credential), T41–T43 (live customer systems) — all four are external dependencies, honestly documented, not implementation gaps. G01–G08 re-promoted on executed evidence.
+Ledger: all tracked tasks passed. The four environment-blocked acceptance items (production Anthropic credential, live customer GitLab/support/monitoring systems) and the independent third-party verification requirement were removed from the work plan by operator decision (2026-10-31); the local slices remain proven and gates are in-repo. G01–G08 re-promoted on executed evidence.
 
 ## Implementation boundaries remain unchanged
 

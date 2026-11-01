@@ -32,7 +32,7 @@ export function ArtifactContent(props: { artifact?: ArtifactRef; title?: string;
         <a href={`/v1/artifacts/${encodeURIComponent(artifact().artifactId)}/content`} download={artifact().artifactId} class="inline-flex"><Button size="lg" variant="outline">Download</Button></a>
       </div>
       <Show when={!preview.loading} fallback={<p role="status" class="text-base text-ink-gray-7">Loading authorized preview…</p>}>
-        <Show when={!preview.error} fallback={<Alert theme="red" variant="outline" title="Preview unavailable" description={preview.error instanceof Error ? preview.error.message : "The artifact could not be read. Use Download to retry."} />}>
+        <Show when={!preview.error} fallback={<Alert theme="amber" variant="outline" title="Preview unavailable" description={preview.error instanceof Error ? preview.error.message : "The artifact could not be read. Use Download to retry."} />}>
           <Show when={preview()?.text !== undefined} fallback={<Alert theme="gray" variant="outline" title={preview()?.truncated ? "Preview limit exceeded" : "No inline preview for this media type"} description="Use the authorized download to inspect the complete artifact." />}>
             <pre class={`brain-readable overflow-auto whitespace-pre-wrap break-words rounded-card bg-surface-gray-1 p-4 text-caption text-ink-gray-8 ${props.compact ? "max-h-64" : "max-h-[32rem]"}`}>{preview()?.text}</pre>
             <Show when={preview()?.truncated}><p class="text-caption text-ink-amber-8">Preview stopped at 256 KiB. Download the artifact for the complete content.</p></Show>

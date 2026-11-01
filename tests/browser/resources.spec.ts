@@ -35,7 +35,7 @@ test("resources: upload, safely preview, revise, associate, search and revoke wo
   const { ws } = await resourceWorld(page, governor);
 
   await page.getByLabel("Document title", { exact: true }).fill("Incident guide");
-  await page.getByLabel("Document file", { exact: true }).setInputFiles({ name: "guide.md", mimeType: "text/markdown", buffer: Buffer.from("# Guide\n<script>alert('safe')</script>\nold-browser-token") });
+  await page.locator('input[type="file"]').first().setInputFiles({ name: "guide.md", mimeType: "text/markdown", buffer: Buffer.from("# Guide\n<script>alert('safe')</script>\nold-browser-token") });
   await page.getByRole("button", { name: "Upload document", exact: true }).click();
   await expect.poll(() => (ws.prepare("SELECT COUNT(*) AS n FROM documents").get() as { n: number }).n).toBe(1);
   await expect(page.locator("pre")).toContainText("<script>alert('safe')</script>");
@@ -54,6 +54,7 @@ test("resources: upload, safely preview, revise, associate, search and revoke wo
   await expect(page.locator("pre")).toContainText("new-browser-token");
   await expect(page.locator("pre")).not.toContainText("old-browser-token");
   expect((ws.prepare("SELECT digest FROM document_versions WHERE revision=1").get() as { digest: string }).digest).toBe(firstDigest);
+  await page.getByText("Version history (2)", { exact: true }).click();
   await expect(page.getByText("v1", { exact: true })).toBeVisible();
   await expect(page.getByText("v2", { exact: true })).toBeVisible();
 
@@ -63,6 +64,7 @@ test("resources: upload, safely preview, revise, associate, search and revoke wo
   await page.getByLabel("Search documents", { exact: true }).fill("new-browser-token");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("Incident guide", { exact: true })).toBeVisible();
+  await page.getByText("Incident guide", { exact: true }).click();
   expect((ws.prepare("SELECT COUNT(*) AS n FROM memory_publications").get() as { n: number }).n).toBe(0);
 
   await page.getByLabel("Revocation reason", { exact: true }).fill("Retired for browser acceptance");

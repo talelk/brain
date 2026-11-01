@@ -1,5 +1,5 @@
 export {
-  issueEnrollment, enrollRunner, runnerChallenge, runnerHello, authRunner, heartbeat,
+  issueEnrollment, enrollRunner, operateRunner, runnerChallenge, runnerHello, authRunner, heartbeat,
 } from "./protocol";
 export {
   claim, loadAttempt, assertAttemptLive, ackAttempt, renewAttempt, attemptEvents,

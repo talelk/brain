@@ -25,6 +25,7 @@ test("knowledge studio: capitalize verified operations with governed L3 promotio
   for (const root of ["browser-cap-1", "browser-cap-2", "browser-cap-3"]) captureOperation(fixture, root);
 
   await page.goto(`${governor.url}/w/ws-capitalization/knowledge`);
+  await page.getByRole("radio", { name: "Review capability candidates", exact: true }).click();
   await expect(page.getByText("Knowledge Studio", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Run capitalization", exact: true }).click();
   expect(brain.runCapitalization()).toEqual({ processed: 4, failed: 0 });

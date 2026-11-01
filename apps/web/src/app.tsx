@@ -102,7 +102,7 @@ function Navigation(): AppSidebarGroup[] {
     const path = route.split("?")[0] ?? route;
     return new RegExp(`^${path.replace(/:id/gu, "[^/]+")}$`).test(location.pathname);
   };
-  const primary = PRIMARY_NAVIGATION.filter((entry) => entry.id !== "administration" || app.canAdminister()).map((entry) => ({
+  const primary = PRIMARY_NAVIGATION.filter((entry) => entry.id !== "administration").map((entry) => ({
     label: entry.label, icon: PRIMARY_ICONS[entry.id], active: areaForPath(href(entry.route)) === area(),
     onClick: () => void navigate(href(entry.route)),
   }));

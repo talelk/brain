@@ -41,6 +41,7 @@ const RUNNER: StatusMap = {
 
 const AUTOMATION: StatusMap = {
   active: { theme: "green", label: "Active" }, paused: { theme: "gray", label: "Paused" },
+  retired: { theme: "gray", label: "Retired" },
 };
 
 const OCCURRENCE: StatusMap = {
@@ -164,5 +165,9 @@ export function statusLabel(kind: StatusKind | undefined, value: string): string
 
 export function StatusBadge(props: { kind?: StatusKind; status: string; label?: string }): JSX.Element {
   const resolved = () => lookup(props.kind, props.status);
-  return <Badge size="lg" theme={resolved().theme} label={props.label ?? resolved().label} />;
+  const icon = () => resolved().theme === "green" ? "lucide-circle-check"
+    : resolved().theme === "red" ? "lucide-circle-alert"
+      : resolved().theme === "amber" ? "lucide-clock-3"
+        : resolved().theme === "blue" ? "lucide-activity" : "lucide-circle";
+  return <Badge size="lg" theme={resolved().theme} prefix={<span class={`${icon()} size-3`} aria-hidden="true" />} label={props.label ?? resolved().label} />;
 }

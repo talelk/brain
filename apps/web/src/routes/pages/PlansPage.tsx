@@ -2,15 +2,15 @@ import { createEffect, createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { useSearchParams } from "@solidjs/router";
 import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
-import { Section } from "@talelk/newui-organisms";
-import { Alert } from "@talelk/newui-molecules";
+import { Alert, Stepper } from "@talelk/newui-molecules";
 import type { ObjectivePlanView, PlanTask, WorkBoardView } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { governor, query } from "../../data/client";
 import { createScopedRead } from "../../data/screens";
 import { ScreenRegion } from "../../ui/screen-region";
-import { BrainPage, PageStack } from "../../ui/components/PageLayout";
+import { BrainPage, PageStack, TechnicalDetails } from "../../ui/components/PageLayout";
 import { SelectableListItem } from "../../ui/components/primitives";
+import { EmptyPreview, FactStrip, WorkspaceSection } from "../../ui/components/Domain";
 
 export default function PlansPage(): JSX.Element {
   const app = useApp();
@@ -92,46 +92,53 @@ export default function PlansPage(): JSX.Element {
     finally { setBusy(false); }
   }
 
-  return <BrainPage title="Plans" description="Describe an outcome, review the proposed strategy and turn one explicit version into tracked work."
-    actions={<Button size="lg" variant="outline" disabled={!selectedId() || busy()} onClick={() => void start(selectedId())}>Generate another strategy</Button>}>
+  const stage = () => !selectedId() ? "describe" : proposal.state().data?.plan ? "confirm" : "review";
+  return <BrainPage title="Plans" description="Describe the goal, review a concrete strategy, then explicitly confirm the version that becomes tracked work."
+    actions={<Show when={selectedId()}><Button size="lg" variant="outline" disabled={busy()} onClick={() => void start(selectedId())}>Generate another strategy</Button></Show>}>
     <PageStack>
-      <Section title="Ask Brain for a plan" description="The agent proposes tasks only. Nothing enters the board or starts execution before your confirmation." surface="card">
-        <div class="brain-field-grid">
-          <TextInput label="Objective" value={title()} onInput={(event) => setTitle(event.currentTarget.value)} placeholder="Stabilize authentication" />
-          <TextInput label="Success criteria" value={criteria()} onInput={(event) => setCriteria(event.currentTarget.value)} description="One criterion per line" placeholder="Sessions remain valid" />
+      <Stepper label="Planning stages" linear={false} value={stage()} steps={[{ value: "describe", label: "Describe goal", description: "Outcome and acceptance" }, { value: "review", label: "Review proposal", description: "Steps and dependencies" }, { value: "confirm", label: "Confirm work", description: "One explicit version" }]} />
+      <FactStrip label="Planning workspace summary" items={[
+        { label: "Objectives", value: String(board.state().data?.objectives.length ?? 0), hint: "Authorized workspace goals", icon: "lucide-target" },
+        { label: "Current stage", value: stage() === "describe" ? "Describe" : stage() === "review" ? "Review" : "Confirm", hint: "AI proposals stay separate from tracked work", icon: "lucide-list-tree" },
+        { label: "Unsaved edits", value: dirty() ? "Yes" : "None", hint: dirty() ? "Confirmation creates a new plan version" : "Current proposal is unchanged", icon: "lucide-file-pen-line" },
+      ]} />
+      <div class="brain-studio-layout">
+        <div class="brain-detail-stack">
+          <WorkspaceSection title="Describe the goal" description="Brain proposes a strategy only. Nothing enters the board or executes before your confirmation.">
+            <div class="brain-field-grid"><TextInput label="Objective" value={title()} onInput={(event) => setTitle(event.currentTarget.value)} placeholder="Stabilize authentication" /><TextInput label="Success criteria" value={criteria()} onInput={(event) => setCriteria(event.currentTarget.value)} description="One criterion per line" placeholder="Sessions remain valid" /></div>
+            <Textarea label="What do you want to accomplish?" value={intent()} onInput={(event) => setIntent(event.currentTarget.value)} placeholder="Analyze the application, distribute the investigation and verify the results." />
+            <Button size="lg" theme="blue" loading={busy()} disabled={busy() || !title().trim() || !intent().trim() || !criteria().trim() || !app.canDispatch()} onClick={() => void start()}>Prepare plan proposal</Button>
+          </WorkspaceSection>
+          <Show when={error()}><Alert theme="red" variant="outline" title="Planning action failed" description={error()} /></Show>
+          <WorkspaceSection title="Existing objectives" description="Return to a durable objective without losing its planning history.">
+            <ScreenRegion state={board.state()} onRetry={() => void board.refresh()} emptyTitle="No objectives yet" emptyDescription="Describe the first goal above. Brain will prepare a reviewable strategy.">
+              <div class="flex flex-col gap-2"><For each={board.state().data?.objectives}>{(objective) => <SelectableListItem selected={selectedId() === objective.objectiveId} onClick={() => { setDirty(false); setParams({ objective: objective.objectiveId }); void proposal.refresh({ force: true }); }}>
+                <strong>{objective.title}</strong><span class="mt-1 block text-caption text-ink-gray-6">v{objective.version} · {objective.successCriteria.length} success criteria</span>
+              </SelectableListItem>}</For></div>
+            </ScreenRegion>
+          </WorkspaceSection>
         </div>
-        <Textarea label="What do you want to accomplish?" value={intent()} onInput={(event) => setIntent(event.currentTarget.value)} placeholder="Analyze the application, distribute the investigation and verify the results." />
-        <Button size="lg" theme="blue" loading={busy()} disabled={busy() || !title().trim() || !intent().trim() || !criteria().trim() || !app.canDispatch()} onClick={() => void start()}>Create the work</Button>
-      </Section>
-
-      <Show when={error()}><Alert theme="red" variant="outline" title="Planning action failed" description={error()} /></Show>
-      <ScreenRegion state={board.state()} onRetry={() => void board.refresh()} emptyTitle="No objectives yet" emptyDescription="Start with an intention above. Brain will prepare a reviewable strategy.">
-        <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-          <Section title="Objectives" description="Select an objective to inspect its current proposal." surface="card">
-            <div class="flex flex-col gap-2"><For each={board.state().data?.objectives}>{(objective) => <SelectableListItem onClick={() => { setDirty(false); setParams({ objective: objective.objectiveId }); void proposal.refresh({ force: true }); }}>
-              <strong>{objective.title}</strong><span class="mt-1 block text-caption text-ink-gray-6">v{objective.version} · {objective.successCriteria.length} success criteria</span>
-            </SelectableListItem>}</For></div>
-          </Section>
-          <Section title="Plan proposal" description="Edit titles, criteria and dependencies before confirming this version." surface="card">
-            <Show when={selectedId()} fallback={<p class="text-ink-gray-7">Choose an objective or create a new plan.</p>}>
-              <ScreenRegion state={proposal.state()} onRetry={() => void proposal.refresh()} emptyTitle="No planning request" emptyDescription="Generate a strategy for this objective.">
-                <Show when={proposal.state().data?.state === "running"}><p role="status">Brain is preparing and independently validating a plan. The objective is durable; no tasks have been created.</p></Show>
-                <Show when={proposal.state().data?.state === "failed"}><Alert theme="amber" variant="outline" title="No validated proposal yet" description={proposal.state().data?.error} /></Show>
-                <Show when={proposal.state().data?.plan} keyed>{(plan) => <div class="flex flex-col gap-4">
-                  <p class="text-ink-gray-7">{plan.summary}</p>
-                  <For each={editedTasks()}>{(task, index) => <article class="grid gap-3 rounded-card border border-outline-gray-2 p-4 lg:grid-cols-2">
-                    <TextInput label={`Task ${index() + 1}`} value={task.title} onInput={(event) => updateTask(index(), "title", event.currentTarget.value)} />
-                    <TextInput label="Depends on" value={task.dependsOn.join(", ")} description="Comma-separated task IDs" onInput={(event) => updateTask(index(), "dependsOn", event.currentTarget.value)} />
-                    <Textarea label="Success criteria" value={task.criteria.join("\n")} onInput={(event) => updateTask(index(), "criteria", event.currentTarget.value)} />
-                    <div class="flex flex-wrap content-start gap-2"><Badge theme="gray" label={task.id} /><Show when={task.assignment}><Badge theme="blue" label={`${task.assignment?.kind}: ${task.assignment?.id}`} /></Show><Show when={task.workflowId}><Badge theme="gray" label={task.workflowId} /></Show></div>
-                  </article>}</For>
-                  <div class="flex flex-wrap gap-3"><Button size="lg" theme="blue" loading={busy()} disabled={busy() || !editedTasks().length} onClick={() => void confirm()}>Confirm this plan</Button><Button size="lg" variant="outline" onClick={() => { setDirty(false); setEditedTasks(plan.tasks.map((task) => ({ ...task }))); }}>Reset edits</Button></div>
-                </div>}</Show>
-              </ScreenRegion>
-            </Show>
-          </Section>
-        </div>
-      </ScreenRegion>
+        <WorkspaceSection title="Proposal canvas" description="Review each expected outcome, acceptance criterion and dependency before confirming tracked work.">
+          <Show when={selectedId()} fallback={<EmptyPreview icon="lucide-list-tree" title="Your strategy will take shape here" description="Choose an existing objective or describe a new goal. The proposal will include editable steps, dependencies and acceptance criteria—not a blank panel." />}>
+            <ScreenRegion state={proposal.state()} onRetry={() => void proposal.refresh()} emptyTitle="No planning request" emptyDescription="Generate a strategy for this objective.">
+              <Show when={proposal.state().data?.state === "running"}><Alert theme="blue" variant="outline" title="Preparing a validated proposal" description="The objective is durable. No tasks have been created and no execution has started." /></Show>
+              <Show when={proposal.state().data?.state === "failed"}><Alert theme="amber" variant="outline" title="No validated proposal yet" description={proposal.state().data?.error} /></Show>
+              <Show when={proposal.state().data?.plan} keyed>{(plan) => <PageStack>
+                <Alert theme={plan.state === "confirmed" ? "green" : "blue"} variant="outline" title={plan.state === "confirmed" ? "Human-confirmed tracked work" : "AI or manual proposal—not yet tracked"} description={plan.state === "confirmed" ? "This version has been confirmed. Its work items and acceptance evidence are managed on the board." : "Review and edit this strategy. Confirmation is a separate, explicit command against the objective's current version."} />
+                <div><div class="flex flex-wrap items-center gap-2"><Badge variant="outline" theme="blue" label={`Plan revision ${plan.revision}`} /><Badge variant="outline" theme={plan.state === "confirmed" ? "green" : "gray"} label={plan.state} /><Show when={dirty()}><Badge theme="amber" label="Unsaved edits" /></Show></div><p class="brain-prose mt-3 text-interface text-ink-gray-7">{plan.summary}</p></div>
+                <div class="flex flex-col gap-4"><For each={editedTasks()}>{(task, index) => <article class="border-y border-outline-gray-1 py-4">
+                  <div class="mb-3 flex flex-wrap items-center gap-2"><span class="grid size-7 place-items-center rounded-full bg-surface-blue-2 text-caption font-medium text-ink-blue-8">{index() + 1}</span><Badge variant="outline" theme="gray" label={task.id} /><Show when={task.workflowId}><Badge variant="outline" theme="blue" label={task.workflowId} /></Show><Show when={task.estimatedMinutes}><Badge variant="outline" theme="gray" label={`${task.estimatedMinutes} min estimate`} /></Show></div>
+                  <div class="grid gap-3 lg:grid-cols-2"><TextInput label={`Step ${index() + 1} expected outcome`} value={task.title} onInput={(event) => updateTask(index(), "title", event.currentTarget.value)} /><TextInput label="Depends on" value={task.dependsOn.join(", ")} description="Comma-separated task IDs; no dependency graph is inferred when empty" onInput={(event) => updateTask(index(), "dependsOn", event.currentTarget.value)} /></div>
+                  <Textarea label="Acceptance criteria" value={task.criteria.join("\n")} onInput={(event) => updateTask(index(), "criteria", event.currentTarget.value)} />
+                  <Show when={task.assignment}><p class="mt-2 text-caption text-ink-gray-6">Proposed assignment: {task.assignment?.kind} {task.assignment?.id} · {task.assignment?.role}</p></Show>
+                </article>}</For></div>
+                <div class="flex flex-wrap gap-3 border-t border-outline-gray-1 pt-4"><Button size="lg" theme="blue" loading={busy()} disabled={busy() || !editedTasks().length || (plan.state === "confirmed" && !dirty())} onClick={() => void confirm()}>Confirm this plan</Button><Button size="lg" variant="outline" disabled={!dirty()} onClick={() => { setDirty(false); setEditedTasks(plan.tasks.map((task) => ({ ...task }))); }}>Reset edits</Button></div>
+                <TechnicalDetails label="Plan version"><p class="break-all">{plan.planVersionId} · digest {plan.digest} · origin {plan.origin}</p></TechnicalDetails>
+              </PageStack>}</Show>
+            </ScreenRegion>
+          </Show>
+        </WorkspaceSection>
+      </div>
     </PageStack>
   </BrainPage>;
 }

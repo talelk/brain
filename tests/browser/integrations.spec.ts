@@ -45,6 +45,7 @@ test("integrations: connect a TypeScript Git remote, bind repository classes and
     await page.getByRole("button", { name: "Verify remote", exact: true }).click();
     expect(await brain.integrations.verifyPending()).toEqual({ verified: 1, failed: 0 });
     await page.getByRole("button", { name: "Refresh", exact: true }).click();
+    await page.getByText("Git ref proposals", { exact: true }).click();
     await expect(page.getByText(/refs\/heads\/main@/).first()).toBeVisible();
     expect((brain.store.control.prepare("SELECT COUNT(*) AS n FROM git_proposals").get() as { n: number }).n).toBe(1);
     expect((brain.store.control.prepare("SELECT state FROM git_proposals").get() as { state: string }).state).toBe("proposed");

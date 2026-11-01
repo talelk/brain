@@ -25,7 +25,7 @@ import { acceptAttemptArtifact } from "../modules/evidence/index";
 import {
   ackAttempt as jobsAckAttempt, attemptEvents as jobsAttemptEvents, authRunner, claim as jobsClaim,
   completeAttempt as jobsCompleteAttempt, enrollRunner, expireLeases as jobsExpireLeases, heartbeat,
-  issueEnrollment, readExecutionArtifact as jobsReadExecutionArtifact, releaseAttempt as jobsReleaseAttempt,
+  issueEnrollment, operateRunner, readExecutionArtifact as jobsReadExecutionArtifact, releaseAttempt as jobsReleaseAttempt,
   releaseReservation as jobsReleaseReservation, renewAttempt as jobsRenewAttempt, runnerChallenge,
   runScheduledDispatch,
   runnerHello, runnerView as jobsRunnerView,
@@ -75,8 +75,16 @@ export class Brain {
           const row = this.store.control.prepare("SELECT r.source_documents_json FROM active_config a JOIN config_releases r ON r.digest=a.release_digest WHERE a.organization_id=?").get(organizationId) as { source_documents_json: string } | undefined;
           return row ? JSON.parse(row.source_documents_json) as import("../modules/configuration/compiler").SourceDoc[] : [];
         },
+        activeAssets: (organizationId) => {
+          const row = this.store.control.prepare("SELECT r.digest,r.manifest_json FROM active_config a JOIN config_releases r ON r.digest=a.release_digest WHERE a.organization_id=?").get(organizationId) as { digest: string; manifest_json: string } | undefined;
+          if (!row) return [];
+          const stored = JSON.parse(row.manifest_json) as { schemas?: Record<string, unknown> };
+          const schemas = Object.entries(stored.schemas ?? {}).map(([path, schema]) => ({ path, text: `${JSON.stringify(schema, null, 2)}\n` }));
+          const files = this.store.control.prepare("SELECT entrypoint,digest FROM release_files WHERE release_digest=?").all(row.digest) as Array<{ entrypoint: string; digest: string }>;
+          return [...schemas, ...files.map((file) => ({ path: file.entrypoint, text: readFileSync(this.casPath(file.digest), "utf8") }))];
+        },
         publishConfiguration: (actor, bindingId, documents, message) => this.integrations.publishConfiguration(actor, bindingId, documents, message),
-        stageRelease: (actor, documents, sourceRevision) => this.stageRelease(actor, documents, sourceRevision),
+        stageRelease: (actor, documents, assets, sourceRevision) => this.stageRelease(actor, documents, sourceRevision, assets.scripts, assets.instructions, assets.schemas),
       });
       this.workflows = new MastraWorkflowEngine(this.store, this, join(this.store.dataDir, "mastra"));
       this.automation = new AutomationService(this.store, this.automationDeps());
@@ -128,15 +136,17 @@ export class Brain {
     return resolveActor(this.store, this.auth, headers, workspaceId);
   }
 
-  createWorkspace(actor: ActorContext, input: { workspaceId: string; slug: string }): void {
+  createWorkspace(actor: ActorContext, input: { workspaceId: string; slug: string; description?: string; ownerId?: string; tags?: string[] }): void {
     const s = this.store;
     if (!actor.scopes.includes("config:activate") && !actor.scopes.includes("workspace:import")) {
       // Bootstrap owner path: organization-admin creates workspaces.
       throw new BrainDomainError("FORBIDDEN", "workspace creation requires organization administration");
     }
+    const ownerId = input.ownerId ?? actor.actorId;
+    if (!s.control.prepare("SELECT 1 FROM principals WHERE id=? AND organization_id=? AND kind='human' AND disabled_at_ms IS NULL").get(ownerId, actor.organizationId)) throw new BrainDomainError("NOT_FOUND", "workspace owner must be an active organization member");
     s.inTx(s.control, () => {
-      s.control.prepare("INSERT INTO workspaces(id, organization_id, slug, status) VALUES (?,?,?, 'active')")
-        .run(input.workspaceId, actor.organizationId, input.slug);
+      s.control.prepare("INSERT INTO workspaces(id, organization_id, slug, status, description, owner_id, tags_json) VALUES (?,?,?, 'active',?,?,?)")
+        .run(input.workspaceId, actor.organizationId, input.slug, input.description ?? "", ownerId, JSON.stringify(input.tags ?? []));
       s.control.prepare("INSERT INTO workspace_memberships(workspace_id, organization_id, principal_id, role, version, granted_by, granted_at_ms) VALUES (?,?,?,?,1,?,?)")
         .run(input.workspaceId, actor.organizationId, actor.actorId, "workspace-lead", actor.actorId, s.now());
     });
@@ -483,6 +493,9 @@ export class Brain {
         s.control.prepare("UPDATE effect_permits SET state='revoked' WHERE approval_id=? AND state='issued'").run(String(p["approvalId"]));
         return String(p["approvalId"]);
       }
+      case "runner.control": {
+        return operateRunner(s, actor, { runnerId: String(p["runnerId"]), action: String(p["action"]), reason: String(p["reason"]) });
+      }
       case "runner.drain": case "runner.quarantine": {
         const next = cmd.commandType === "runner.drain" ? "draining" : "quarantined";
         const changed = s.control.prepare("UPDATE runners SET admin_state=? WHERE id=? AND organization_id=?").run(next, String(p["runnerId"]), actor.organizationId);
@@ -513,6 +526,49 @@ export class Brain {
         s.control.prepare("UPDATE organizations SET revocation_generation=revocation_generation+1 WHERE id=?").run(actor.organizationId);
         s.emit(s.control, { organizationId: actor.organizationId, workspaceId: wsId, aggregateType: "membership", aggregateId: principalId, eventType: cmd.commandType === "member.grant" ? "membership.granted" : "membership.revoked", payload: { principalId, role } });
         return principalId;
+      }
+      case "workspace.update": {
+        if (!wsId || String(p["workspaceId"]) !== wsId) throw new BrainDomainError("INVALID_ARGUMENT", "workspace scope mismatch");
+        const workspace = s.control.prepare("SELECT version FROM workspaces WHERE id=? AND organization_id=?").get(wsId, actor.organizationId) as { version: number } | undefined;
+        if (!workspace) throw new BrainDomainError("NOT_FOUND", "workspace not found");
+        assertExpectedVersion(workspace.version, (cmd as { expectedVersion?: number }).expectedVersion);
+        const ownerId = String(p["ownerId"]);
+        if (!s.control.prepare("SELECT 1 FROM principals WHERE id=? AND organization_id=? AND kind='human' AND disabled_at_ms IS NULL").get(ownerId, actor.organizationId)) throw new BrainDomainError("NOT_FOUND", "workspace owner must be an active organization member");
+        const displayName = String(p["displayName"]).trim();
+        if (!displayName) throw new BrainDomainError("INVALID_ARGUMENT", "display name is required");
+        const changed = s.control.prepare("UPDATE workspaces SET slug=?,description=?,owner_id=?,tags_json=?,version=version+1 WHERE id=? AND organization_id=? AND version=?")
+          .run(displayName, String(p["description"] ?? ""), ownerId, JSON.stringify(p["tags"] ?? []), wsId, actor.organizationId, workspace.version);
+        if (changed.changes !== 1) throw new BrainDomainError("CONFLICT", "workspace changed during editing");
+        s.emit(s.control, { organizationId: actor.organizationId, workspaceId: wsId, aggregateType: "workspace", aggregateId: wsId, eventType: "workspace.updated", payload: { workspaceId: wsId, ownerId, displayName } });
+        return wsId;
+      }
+      case "workspace.control": {
+        if (!wsId || String(p["workspaceId"]) !== wsId) throw new BrainDomainError("INVALID_ARGUMENT", "workspace scope mismatch");
+        const action = String(p["action"]);
+        const reason = String(p["reason"] ?? "").trim();
+        if (!reason) throw new BrainDomainError("INVALID_ARGUMENT", "workspace lifecycle changes require a reason");
+        const workspace = s.control.prepare("SELECT status,version FROM workspaces WHERE id=? AND organization_id=?").get(wsId, actor.organizationId) as { status: string; version: number } | undefined;
+        if (!workspace) throw new BrainDomainError("NOT_FOUND", "workspace not found");
+        assertExpectedVersion(workspace.version, (cmd as { expectedVersion?: number }).expectedVersion);
+        if (action === "resume") {
+          if (workspace.status !== "suspended") throw new BrainDomainError("CONFLICT", "only a suspended workspace can resume");
+          if (!s.control.prepare("SELECT 1 FROM active_config WHERE organization_id=?").get(actor.organizationId)) throw new BrainDomainError("CONFLICT", "an active configuration release is required before resume");
+          const unresolved = s.control.prepare("SELECT COUNT(*) AS count FROM jobs WHERE workspace_id=? AND state='outcome_unknown'").get(wsId) as { count: number };
+          if (unresolved.count > 0) throw new BrainDomainError("CONFLICT", "reconcile unknown outcomes before resuming the workspace");
+        } else if (action === "suspend") {
+          if (workspace.status !== "active") throw new BrainDomainError("CONFLICT", "only an active workspace can suspend");
+        } else if (action === "archive") {
+          if (workspace.status === "archived") return wsId;
+          const active = s.control.prepare("SELECT COUNT(*) AS count FROM jobs WHERE workspace_id=? AND state IN ('queued','offered','running','verifying','blocked','outcome_unknown')").get(wsId) as { count: number };
+          if (active.count > 0) throw new BrainDomainError("CONFLICT", "archive requires no active, blocked or unresolved work");
+        } else {
+          throw new BrainDomainError("INVALID_ARGUMENT", "workspace action must be suspend, resume or archive");
+        }
+        const status = action === "suspend" ? "suspended" : action === "resume" ? "active" : "archived";
+        const changed = s.control.prepare("UPDATE workspaces SET status=?,version=version+1 WHERE id=? AND organization_id=? AND version=?").run(status, wsId, actor.organizationId, workspace.version);
+        if (changed.changes !== 1) throw new BrainDomainError("CONFLICT", "workspace changed during the lifecycle operation");
+        s.emit(s.control, { organizationId: actor.organizationId, workspaceId: wsId, aggregateType: "workspace", aggregateId: wsId, eventType: `workspace.${action}d`, payload: { workspaceId: wsId, reason } });
+        return wsId;
       }
       case "workspace.suspend": {
         if (!wsId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
@@ -1499,6 +1555,7 @@ export class Brain {
         return this.envelope(q.queryType, {
           workspace: {
             workspaceId: q.workspaceId, displayName: String(wsRow["slug"]), status: String(wsRow["status"]),
+            description: String(wsRow["description"] ?? ""), ...(wsRow["owner_id"] ? { ownerId: String(wsRow["owner_id"]) } : {}), tags: JSON.parse(String(wsRow["tags_json"] ?? "[]")), version: Number(wsRow["version"]),
             health: blockedJobs > 0 ? "degraded" : "healthy", observedAt: s.nowIso(),
             activeJobs: jobCounts.active ?? 0, pendingApprovals: pendingApprovals.c, blockedJobs, dailyMicroUsd: 0,
           },
@@ -1588,11 +1645,13 @@ export class Brain {
       case "runners.list": case "runner.get": {
         const ids = q.queryType === "runner.get"
           ? [String(q.resourceId)]
-          : (s.control.prepare("SELECT id FROM runners WHERE organization_id=? ORDER BY id LIMIT ?").all(actor.organizationId, limit) as Array<{ id: string }>).map((r) => r.id);
+          : (s.control.prepare("SELECT id FROM runners WHERE organization_id=? AND deregistered_at_ms IS NULL ORDER BY id LIMIT ?").all(actor.organizationId, limit) as Array<{ id: string }>).map((r) => r.id);
         const items = ids.map((id) => {
+          const meta = s.control.prepare("SELECT last_heartbeat_ms,deregistered_at_ms FROM runners WHERE id=? AND organization_id=?").get(id, actor.organizationId) as { last_heartbeat_ms: number | null; deregistered_at_ms: number | null } | undefined;
           const v = this.runnerView(id);
-          if (!v) return null;
+          if (!v || !meta) return null;
           const display = v.adminState === "disabled" ? "disabled" : v.adminState === "quarantined" ? "quarantined" : v.adminState === "draining" ? "draining" : !v.online ? "offline" : v.reserved.slots > 0 ? "busy" : "idle";
+          const activeAttemptIds = (s.control.prepare("SELECT id FROM job_attempts WHERE runner_id=? AND state IN ('offered','running','uploading','cancelling','verifying','outcome_unknown') ORDER BY id LIMIT 1024").all(id) as Array<{ id: string }>).map((attempt) => attempt.id);
           return {
             runnerId: id, group: v.groupId, adminState: v.adminState, connectivity: v.online ? "online" : "offline",
             health: v.health, displayStatus: display, capacity: v.capacity,
@@ -1600,7 +1659,8 @@ export class Brain {
             observedFree: { cpuMillicores: Math.max(0, v.capacity.cpuMillicores - v.reserved.cpuMillicores), memoryMb: Math.max(0, v.capacity.memoryMb - v.reserved.memoryMb), diskMb: Math.max(0, v.capacity.diskMb - v.reserved.diskMb), slots: Math.max(0, v.capacity.slots - v.reserved.slots) },
             capabilities: [...v.capabilities.entries()].map(([capability, c]) => ({ capability, observedAt: s.nowIso(), source: "runner-probe", verified: c.verified, expiresAt: iso(c.expiresAtMs) })),
             engines: v.engines.map((e) => ({ id: e, version: "1", adapterDigest: `sha256:${"0".repeat(64)}`, features: [] })),
-            activeAttemptIds: [], lastSeenAt: s.nowIso(),
+            activeAttemptIds, lastSeenAt: iso(meta.last_heartbeat_ms ?? 0),
+            ...(meta.deregistered_at_ms ? { deregisteredAt: iso(meta.deregistered_at_ms) } : {}),
           };
         }).filter(Boolean);
         if (q.queryType === "runner.get") {
@@ -1744,7 +1804,7 @@ export class Brain {
           // The contract's WorkspaceSummary: per-workspace counts the Bridge
           // screen renders, derived from the same rows workspace.context uses.
           const summaries = allowed.slice(0, 25).map((id) => {
-            const wsRow = s.control.prepare("SELECT slug, status FROM workspaces WHERE id=? AND organization_id=?").get(id, actor.organizationId) as { slug: string; status: string } | undefined;
+            const wsRow = s.control.prepare("SELECT * FROM workspaces WHERE id=? AND organization_id=?").get(id, actor.organizationId) as Record<string, unknown> | undefined;
             const counts = s.control.prepare(`SELECT
               SUM(CASE WHEN state IN ('queued','leased','running','verifying') THEN 1 ELSE 0 END) AS active,
               SUM(CASE WHEN state='blocked' THEN 1 ELSE 0 END) AS blocked
@@ -1753,6 +1813,7 @@ export class Brain {
             const blocked = counts.blocked ?? 0;
             return {
               workspaceId: id, displayName: String(wsRow?.slug ?? id), status: String(wsRow?.status ?? "active"),
+              description: String(wsRow?.["description"] ?? ""), ...(wsRow?.["owner_id"] ? { ownerId: String(wsRow["owner_id"]) } : {}), tags: JSON.parse(String(wsRow?.["tags_json"] ?? "[]")), version: Number(wsRow?.["version"] ?? 1),
               health: blocked > 0 ? "degraded" : "healthy", observedAt: s.nowIso(),
               activeJobs: counts.active ?? 0, pendingApprovals: pending.c, blockedJobs: blocked, dailyMicroUsd: 0,
             };

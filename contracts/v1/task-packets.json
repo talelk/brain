@@ -757,39 +757,9 @@
       ],
       "oracleIds": []
     },
-    "T25": {
-      "id": "T25",
-      "dependencies": "T24",
-      "targetFiles": "apps/runner/src/engines/claude.ts",
-      "behavior": "Independent Claude adapter; same port behavior, vendor authentication",
-      "verify": "tests/integration/claude-conformance.test.ts; E061–E064; G05 parity",
-      "read": [
-        "docs/implementation/01-architecture-and-modules.md",
-        "docs/implementation/07-harnesses-and-tools.md",
-        "docs/implementation/20-golden-oracles-and-integrations.md",
-        "contracts/v1/module-layout.json"
-      ],
-      "evidenceDirectory": "artifacts/runtime/T25",
-      "contractDefinitions": [
-        "EngineSessionSpec",
-        "EngineEvent",
-        "EngineInfo"
-      ],
-      "ownerModule": "runner",
-      "scenarioIds": [
-        "E061",
-        "E062",
-        "E063",
-        "E064"
-      ],
-      "verificationCommands": [
-        "rtk pnpm test:integration -- tests/integration/claude-conformance.test.ts"
-      ],
-      "oracleIds": []
-    },
     "T26": {
       "id": "T26",
-      "dependencies": "T25",
+      "dependencies": "T24",
       "targetFiles": "apps/runner/src/engines/acp.ts",
       "behavior": "Stable v1 handshake/features; no implicit experimental methods",
       "verify": "tests/integration/acp-conformance.test.ts; E061/E063/E100; optional feature disabled if unmet",
@@ -1257,102 +1227,9 @@
         "O12"
       ]
     },
-    "T41": {
-      "id": "T41",
-      "dependencies": "T19,T39",
-      "targetFiles": "apps/governor/src/modules/packs/{connector,manifest}.ts; apps/governor/src/modules/packs/onboarding/",
-      "behavior": "Typed connector/pack contract, read-only fact discovery and Git proposal",
-      "verify": "tests/integration/onboarding.test.ts; E012/E018/E082",
-      "read": [
-        "docs/implementation/01-architecture-and-modules.md",
-        "docs/implementation/08-evidence-and-memory.md",
-        "docs/implementation/20-golden-oracles-and-integrations.md",
-        "contracts/v1/module-layout.json"
-      ],
-      "evidenceDirectory": "artifacts/runtime/T41",
-      "contractDefinitions": [
-        "Connector",
-        "Pack"
-      ],
-      "ownerModule": "packs",
-      "scenarioIds": [
-        "E012",
-        "E018",
-        "E082"
-      ],
-      "verificationCommands": [
-        "rtk pnpm test:integration -- tests/integration/onboarding.test.ts"
-      ],
-      "oracleIds": []
-    },
-    "T42": {
-      "id": "T42",
-      "dependencies": "T41,T35",
-      "targetFiles": "apps/governor/src/modules/packs/support/; apps/web/src/routes/support/",
-      "behavior": "Dedupe diagnosis/drafts, approved publication, exact text and SLA intervals",
-      "verify": "tests/integration/support.test.ts; E051/E082–E084",
-      "read": [
-        "docs/implementation/01-architecture-and-modules.md",
-        "docs/implementation/08-evidence-and-memory.md",
-        "docs/implementation/20-golden-oracles-and-integrations.md",
-        "contracts/v1/module-layout.json"
-      ],
-      "evidenceDirectory": "artifacts/runtime/T42",
-      "contractDefinitions": [
-        "TicketSummary",
-        "TicketDetail",
-        "SLASummary"
-      ],
-      "ownerModule": "packs",
-      "scenarioIds": [
-        "E051",
-        "E082",
-        "E083",
-        "E084"
-      ],
-      "verificationCommands": [
-        "rtk pnpm test:integration -- tests/integration/support.test.ts"
-      ],
-      "oracleIds": [
-        "O07"
-      ]
-    },
-    "T43": {
-      "id": "T43",
-      "dependencies": "T41,T23",
-      "targetFiles": "apps/governor/src/modules/packs/sre/; apps/web/src/routes/sre/",
-      "behavior": "Freshness-aware health, debounce, safe proposed remediation",
-      "verify": "tests/integration/sre.test.ts; E034/E055–E057/E082",
-      "read": [
-        "docs/implementation/01-architecture-and-modules.md",
-        "docs/implementation/08-evidence-and-memory.md",
-        "docs/implementation/20-golden-oracles-and-integrations.md",
-        "contracts/v1/module-layout.json"
-      ],
-      "evidenceDirectory": "artifacts/runtime/T43",
-      "contractDefinitions": [
-        "IncidentSummary",
-        "IncidentDetail"
-      ],
-      "ownerModule": "packs",
-      "scenarioIds": [
-        "E034",
-        "E055",
-        "E056",
-        "E057",
-        "E082"
-      ],
-      "verificationCommands": [
-        "rtk pnpm test:integration -- tests/integration/sre.test.ts"
-      ],
-      "oracleIds": [
-        "O07",
-        "O08"
-      ]
-    },
     "T44": {
       "id": "T44",
-      "dependencies": "T41,T28",
+      "dependencies": "T28",
       "targetFiles": "apps/governor/src/modules/packs/delivery/; apps/governor/src/modules/packs/eval/; delivery route",
       "behavior": "Evidence dossier/rubric, deterministic golden cases and optional calibrated judge",
       "verify": "tests/integration/delivery.test.ts; E073–E075; recommendation separate from approval",
@@ -1534,9 +1411,9 @@
     },
     "T50": {
       "id": "T50",
-      "dependencies": "T42–T49,T58",
+      "dependencies": "T44–T49,T58",
       "targetFiles": "tests/scenarios/; release manifest and operator runbooks",
-      "behavior": "Complete acceptance traceability, independent review and release certification",
+      "behavior": "Complete acceptance traceability and release certification",
       "verify": "FULL + RELEASE, all required E001–E110, no hidden skips",
       "read": [
         "docs/implementation/01-architecture-and-modules.md",
@@ -1747,7 +1624,7 @@
     },
     "T53": {
       "id": "T53",
-      "dependencies": "T24,T25,T26,T51",
+      "dependencies": "T24,T26,T51",
       "targetFiles": "apps/governor/src/modules/sessions/; apps/runner/src/engines/opencode.ts; apps/web/src/routes/sessions/",
       "behavior": "Native/managed BrainSessions, portable checkpoints, WorkItem messages and bounded cross-agent delegation/review",
       "verify": "tests/integration/session-collaboration.test.ts; tests/security/delegation.test.ts; E106 and harness feature matrix",
@@ -1801,7 +1678,7 @@
     },
     "T55": {
       "id": "T55",
-      "dependencies": "T41,T54",
+      "dependencies": "T54",
       "targetFiles": "apps/governor/src/modules/integrations/; apps/web/src/routes/administration/integrations/",
       "behavior": "UI-first TypeScript Git protocol connections, encrypted HTTP credentials, configuration/project repository bindings and ref-change proposals",
       "verify": "tests/integration/git-integrations.test.ts; tests/security/integration-secrets.test.ts; tests/browser/integrations.spec.ts; E108; disposable live-provider checks when credentials exist",

@@ -32,6 +32,7 @@ describe("runner enrollment and hello security (T15)", () => {
     const w = setupWorld();
     const intruder = w.actor("mallory", w.workspaceId);
     expect(() => w.brain.issueEnrollment(intruder, "fixture-tools")).toThrow(/runner:admin/);
+    expect(() => w.brain.issueEnrollment(w.owner, "unreviewed-group")).toThrow(/not declared/);
     const { token } = w.brain.issueEnrollment(w.owner, "fixture-tools");
     const { publicKey } = generateKeyPairSync("ed25519");
     const pem = publicKey.export({ type: "spki", format: "pem" }).toString();

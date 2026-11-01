@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import { join } from "node:path";
 import { test, expect } from "./fixtures";
+import { fixtureStarter } from "../support/starter";
 
 test.use({ localRuntime: true });
 test("administrator connects a model and both local runners enroll without a human session", async ({ page, governor }) => {
@@ -22,8 +23,11 @@ test("administrator connects a model and both local runners enroll without a hum
     const result = await bootstrap.json();
     const identity = await governor.app.brain.resolveActor(new Headers({ authorization: `Bearer ${result.sessionToken}` }));
     governor.app.brain.createWorkspace(identity.actor, { workspaceId: "operations", slug: "My workspace" });
+    const starter = fixtureStarter();
+    const release = governor.app.brain.stageRelease(identity.actor, starter.documents, starter.sourceRevision, starter.scripts, starter.instructions, starter.schemas);
+    governor.app.brain.activateRelease(identity.actor, release.digest);
     await page.goto(`${governor.url}/settings?tab=setup`);
-    await expect(page.getByRole("heading", { name: "Connect your local model", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Models & Providers", exact: true })).toBeVisible();
     for (const group of ["agents", "evaluators"]) {
       const id = `runner-${group}-1`;
       const claude = group === "evaluators" ? { BRAIN_ANTHROPIC_BASE_URL: `http://127.0.0.1:${address.port}`, BRAIN_CLAUDE_MODEL: "local-browser-model", ANTHROPIC_API_KEY: "test-model-key" } : {};

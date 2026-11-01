@@ -33,7 +33,7 @@ def check():
         assert set(screen['queries'])<=set(registry['queries'])
         assert set(screen['actions'])<={c['type'] for c in registry['commands']}|set(screens['specialActions'])
     packets=load('contracts/v1/task-packets.json')['tasks']
-    assert set(packets)=={f'T{i:02}' for i in range(1,59)}
+    assert set(packets)==set(load('contracts/v1/work-plan.json')['tasks'])
     for packet in packets.values():
         assert all((ROOT/p).is_file() for p in packet['read'])
         assert packet['behavior'] and packet['verify'] and packet['targetFiles']
@@ -109,7 +109,7 @@ def sql_authorization_checks():
         db=sqlite3.connect(Path(temp)/'control.db');db.executescript((ROOT/'sql/reference/control.sql').read_text())
         for n in [1,2]:
             db.execute('INSERT INTO organizations VALUES (?,?,1)',('o'+str(n),'a'+str(n)))
-            db.execute("INSERT INTO workspaces VALUES (?,?,'workspace','active',1)",('w'+str(n),'o'+str(n)))
+            db.execute("INSERT INTO workspaces(id,organization_id,slug,status,version) VALUES (?,?,'workspace','active',1)",('w'+str(n),'o'+str(n)))
             db.execute("INSERT INTO principals VALUES (?,?,'human',?,NULL)",('p'+str(n),'o'+str(n),'u'+str(n)))
         def denied(sql,args):
             try:db.execute(sql,args)

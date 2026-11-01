@@ -102,6 +102,26 @@ describe("automation occurrences (T52, E104)", () => {
     expect(afterWindow.items.some((row) => row.state === "dispatched")).toBe(true);
   });
 
+  it("retirement stops future fires and manual dispatch while preserving occurrence history", () => {
+    let now = 1_700_000_040_000;
+    const clock = { nowMs: () => now };
+    const w = autoWorld(clock);
+    const id = w.service.apply(w.actor, { commandType: "automation.upsert", workspaceId: w.workspaceId, payload: { title: "Retire safely", target: { kind: "workflow", id: "operations-triage" }, trigger: { kind: "manual" } } });
+    w.service.apply(w.actor, { commandType: "automation.control", workspaceId: w.workspaceId, expectedVersion: 1, payload: { automationId: id, action: "runNow" } });
+    expect(w.starts).toHaveLength(1);
+    expect(() => w.service.apply(w.actor, { commandType: "automation.control", workspaceId: w.workspaceId, expectedVersion: 1, payload: { automationId: id, action: "retire" } })).toThrow(/reason/);
+    w.service.apply(w.actor, { commandType: "automation.control", workspaceId: w.workspaceId, expectedVersion: 1, payload: { automationId: id, action: "retire", reason: "Replaced by a reviewed schedule" } });
+    now += 60_000;
+    expect(w.service.dispatchAll().dispatched).toBe(0);
+    expect(() => w.service.apply(w.actor, { commandType: "automation.control", workspaceId: w.workspaceId, expectedVersion: 2, payload: { automationId: id, action: "runNow" } })).toThrow(/retired/);
+    expect(() => w.service.apply(w.actor, { commandType: "automation.upsert", workspaceId: w.workspaceId, expectedVersion: 2, payload: { automationId: id, target: { kind: "workflow", id: "operations-triage" }, trigger: { kind: "manual" } } })).toThrow(/duplicate them/);
+    const list = w.service.query(w.actor, "automations.list", w.workspaceId) as { items: Array<{ state: string; version: number }> };
+    const history = w.service.query(w.actor, "automations.occurrences", w.workspaceId, id) as { items: Array<{ state: string }> };
+    expect(list.items[0]).toMatchObject({ state: "retired", version: 2 });
+    expect(history.items).toHaveLength(1);
+    expect(history.items[0]!.state).toBe("dispatched");
+  });
+
   it("overlap skip refuses a new fire while the previous run is unfinished", () => {
     let now = 1_700_000_040_000;
     const clock = { nowMs: () => now };

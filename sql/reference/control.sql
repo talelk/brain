@@ -17,6 +17,7 @@ CREATE TABLE organizations (
 CREATE TABLE workspaces (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id),
   slug TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('draft','discovering','configured','verifying','active','suspended','exporting','archived','restore_pending','restore_blocked')),
+  description TEXT NOT NULL DEFAULT '', owner_id TEXT, tags_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(tags_json)),
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   UNIQUE(organization_id, slug), UNIQUE(id, organization_id)
 ) STRICT;
@@ -44,6 +45,7 @@ CREATE TABLE runners (
   memory_reserved INTEGER NOT NULL DEFAULT 0 CHECK(memory_reserved >= 0 AND memory_reserved <= memory_capacity),
   disk_reserved INTEGER NOT NULL DEFAULT 0 CHECK(disk_reserved >= 0 AND disk_reserved <= disk_capacity),
   slots_reserved INTEGER NOT NULL DEFAULT 0 CHECK(slots_reserved >= 0 AND slots_reserved <= slot_capacity),
+  deregistered_at_ms INTEGER,
   UNIQUE(id, organization_id)
 ) STRICT;
 CREATE TABLE runner_capabilities (

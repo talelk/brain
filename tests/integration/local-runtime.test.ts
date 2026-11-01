@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, expect, it, vi } from "vitest";
 import { setupWorld } from "../helpers";
+import { fixtureStarter } from "../support/starter";
 import { connectLocalModel, localRuntimeStatus, restoreLocalRuntimeHandoff, localRunnerSettingsCurrent } from "../../apps/governor/src/modules/operations/index";
 import { readLocalConfiguration } from "../../apps/runner/src/local-configuration";
 
@@ -12,6 +13,9 @@ function world() {
   const runtime = mkdtempSync(join(tmpdir(), "brain-local-runtime-"));
   vi.stubEnv("BRAIN_LOCAL_RUNTIME_DIR", runtime);
   const w = setupWorld();
+  const bundle = fixtureStarter();
+  const release = w.brain.stageRelease(w.owner, bundle.documents, bundle.sourceRevision, bundle.scripts, bundle.instructions, bundle.schemas);
+  w.brain.activateRelease(w.owner, release.digest);
   cleanup.push(() => { w.brain.close(); rmSync(w.dir, { recursive: true, force: true }); rmSync(runtime, { recursive: true, force: true }); });
   return { ...w, runtime };
 }

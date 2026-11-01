@@ -68,3 +68,61 @@ test("schedules: personal-host offline wait, recovery and fail are explicit (T58
   expect((brain.store.control.prepare("SELECT COUNT(*) AS count FROM jobs").get() as { count: number }).count).toBe(1);
   expect(errors).toEqual([]);
 });
+
+test("schedules: revise, duplicate and retire without deleting occurrence history", async ({ page, governor }) => {
+  test.setTimeout(120_000);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(governor.url);
+  await page.getByLabel(/^Setup credential/).fill(governor.credential);
+  await page.getByLabel(/^Organization name/).fill("Schedule lifecycle organization");
+  await page.getByLabel(/^Email/).fill("schedule-lifecycle@example.test");
+  await page.getByLabel(/^Password/).fill("browser-password-1234");
+  await page.getByRole("button", { name: "Create organization", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
+  const brain = governor.app.brain;
+  const cookies = await page.context().cookies();
+  const actor = (await brain.resolveActor(new Headers({ cookie: cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ") }))).actor;
+  brain.createWorkspace(actor, { workspaceId: "ws-schedule-lifecycle", slug: "schedule-lifecycle" });
+  const release = brain.stageRelease(actor, goldenDocs(), "sha256:6dd84c7f907477ea38ad355392cf876b39c122adf8038762894d56cc160956b4");
+  brain.activateRelease(actor, release.digest);
+
+  await page.goto(`${governor.url}/w/ws-schedule-lifecycle/schedules`);
+  await page.getByLabel("Title", { exact: true }).fill("Lifecycle original");
+  await page.getByLabel("Target id", { exact: true }).fill("fixture-workflow");
+  await page.getByLabel("Trigger", { exact: true }).click();
+  await page.getByRole("option", { name: "Manual (Run now)", exact: true }).click();
+  await page.getByLabel("Workflow input (JSON, optional)", { exact: true }).fill('{"message":"scheduled"}');
+  await page.getByRole("button", { name: "Create automation", exact: true }).click();
+  let original = page.locator("article").filter({ hasText: "Lifecycle original" });
+  await expect(original).toContainText("revision 1");
+
+  await original.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByLabel("Title", { exact: true }).fill("Lifecycle revised");
+  await page.getByRole("button", { name: "Save new revision", exact: true }).click();
+  original = page.locator("article").filter({ hasText: "Lifecycle revised" });
+  await expect(original).toContainText("revision 2");
+  await original.getByRole("button", { name: "Run now", exact: true }).click();
+  await original.getByRole("button", { name: "History", exact: true }).click();
+  await expect(original).toContainText(/dispatched/i);
+
+  await original.getByRole("button", { name: "Duplicate", exact: true }).click();
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Copy of Lifecycle revised");
+  await page.getByLabel("Title", { exact: true }).fill("Lifecycle duplicate");
+  await page.getByRole("button", { name: "Create duplicate", exact: true }).click();
+  const duplicate = page.locator("article").filter({ hasText: "Lifecycle duplicate" });
+  await expect(duplicate).toContainText("revision 1");
+  await original.getByRole("button", { name: "Hide history", exact: true }).click();
+
+  await original.getByRole("button", { name: "Retire", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel(/^Retirement reason/).fill("Replaced by the duplicate");
+  await dialog.getByRole("button", { name: "Retire schedule", exact: true }).click();
+  await expect(original).toContainText("Retired");
+  await expect(original.getByRole("button", { name: "Run now", exact: true })).toBeDisabled();
+  await original.getByRole("button", { name: "History", exact: true }).click();
+  await expect(original).toContainText(/dispatched/i);
+  const states = brain.store.workspaceDb("ws-schedule-lifecycle", actor.organizationId).prepare("SELECT state,COUNT(*) AS count FROM automations GROUP BY state").all() as Array<{ state: string; count: number }>;
+  expect(states).toEqual(expect.arrayContaining([{ state: "active", count: 1 }, { state: "retired", count: 1 }]));
+  expect(errors).toEqual([]);
+});

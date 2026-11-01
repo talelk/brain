@@ -4,17 +4,20 @@ import { createScopedRead } from "../data/screens";
 import { configExplainQuery } from "../data/governor";
 import type { JSX } from "solid-js";
 import { For, Show, createSignal } from "solid-js";
-import { Badge, Button, TextInput } from "@talelk/newui-atoms";
+import { A } from "@solidjs/router";
+import { Badge, Button, KeyValue, TextInput, createMediaQuery as mediaQuery } from "@talelk/newui-atoms";
 import { Alert, Dialog, Select } from "@talelk/newui-molecules";
-import { DataTable, Section } from "@talelk/newui-organisms";
+import { PaneLayout } from "@talelk/newui-templates";
 import type { Classification, MemoryResult, MemoryScope, ToolCatalogEntry, ToolCandidateView } from "@brain/contracts";
 import { ScreenRegion, DateText } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
-import { count, shortDigest } from "../ui/format";
-import { BrainPage, PageStack } from "../ui/components/PageLayout";
+import { shortDigest } from "../ui/format";
+import { BrainPage, PageStack, TechnicalDetails } from "../ui/components/PageLayout";
 import { StatusBadge } from "../ui/components/StatusBadge";
 import { ReasonDialog } from "../ui/components/ReasonDialog";
-import { CardTile, RefreshButton } from "../ui/components/primitives";
+import { ArtifactContent } from "../ui/components/ArtifactContent";
+import { RefreshButton } from "../ui/components/primitives";
+import { EmptyPreview, FactStrip, QueueRow, WorkspaceSection } from "../ui/components/Domain";
 
 export interface MemoryPublicationInput {
   candidateId: string;
@@ -24,6 +27,13 @@ export interface MemoryPublicationInput {
   evidenceDigests: string[];
   reviewerId: string;
   redactionProfile: { id: string; digest: string };
+}
+
+function scopeLabel(scope: MemoryScope): string {
+  if (scope.visibility === "global-approved") return "Approved organization-wide";
+  if (scope.visibility === "team") return `Team ${scope.teamId}`;
+  if (scope.visibility === "private") return `Private · ${scope.ownerId}`;
+  return `Workspace · ${scope.workspaceId}`;
 }
 
 export function KnowledgeScreen(props: {
@@ -44,6 +54,7 @@ export function KnowledgeScreen(props: {
     return { ...loaded, snapshot: Array.isArray(documents) ? (documents as { kind: string; id: string; digest: string }[]).filter((document) => document.kind === "Policy") : [] };
   } });
   const [text, setText] = createSignal("");
+  const [scopeFilter, setScopeFilter] = createSignal("all");
   const [revokeReason, setRevokeReason] = createSignal("");
   const [revokeFor, setRevokeFor] = createSignal<string>();
   const [publishOpenFor, setPublishOpenFor] = createSignal<string>();
@@ -54,64 +65,44 @@ export function KnowledgeScreen(props: {
   const [profileId, setProfileId] = createSignal("");
   const [profileDigest, setProfileDigest] = createSignal("");
   const [evidenceText, setEvidenceText] = createSignal("");
-  const results = () => props.state.data?.results ?? [];
+  const results = () => (props.state.data?.results ?? []).filter((result) => scopeFilter() === "all" || result.scope.visibility === scopeFilter());
   const publishing = () => results().find((result) => result.sourceId === publishOpenFor());
   const evidenceDigests = () => evidenceText().split(/[\s,]+/u).map((digest) => digest.trim()).filter(Boolean);
   const publishReady = () => contentDigest().trim().length > 0 && Number(contentBytes()) > 0 && reviewerId().trim().length > 0 && profileId().trim().length > 0 && profileDigest().trim().length > 0 && evidenceDigests().length > 0 && publishOpenFor() !== undefined;
   const canMutate = () => props.canPublish && !props.state.data?.degraded;
 
-  return <BrainPage title="Knowledge" description="Search scoped facts and publish reviewed knowledge with explicit evidence and provenance.">
+  return <BrainPage title="Knowledge" description="Find scoped knowledge with provenance and trust visible; review and publication remain separate governed journeys.">
     <PageStack>
-      <Section title="Scoped memory search" description="Search only the workspaces and review states available to your account." surface="card">
-        <form class="flex flex-wrap items-end gap-control-gap" onSubmit={(event) => { event.preventDefault(); if (text().trim()) props.onSearch(text().trim()); }}>
-          <div class="min-w-64 flex-1"><TextInput label="Search memory" value={text()} placeholder="Find a fact, decision, or operational detail…" onInput={(event) => setText(event.currentTarget.value)} /></div>
+      <WorkspaceSection title="Find knowledge" description="Search only the current workspace and review states authorized to your account. Results cannot change agent policy or execute tools.">
+        <form class="grid items-end gap-3 lg:grid-cols-[minmax(0,1fr)_15rem_auto]" onSubmit={(event) => { event.preventDefault(); if (text().trim()) props.onSearch(text().trim()); }}>
+          <TextInput label="Search scoped knowledge" value={text()} placeholder="Find a fact, decision, or operational detail…" onInput={(event) => setText(event.currentTarget.value)} />
+          <Select label="Result scope" value={scopeFilter()} options={[{ value: "all", label: "All returned scopes" }, { value: "workspace", label: "Workspace" }, { value: "private", label: "Private" }, { value: "team", label: "Team" }, { value: "global-approved", label: "Approved organization-wide" }]} onValueChange={(value) => setScopeFilter(value ?? "all")} />
           <Button size="lg" type="submit" variant="solid" theme="blue" iconLeft="lucide-search" disabled={!text().trim()}>Search</Button>
         </form>
-        <Show when={props.state.data?.degraded}><Alert theme="amber" variant="outline" title="Memory is running in degraded mode" description="Results come from the local scoped store. Publish and revoke actions are unavailable until the knowledge service is healthy." /></Show>
-        <div class="mt-4">
-          <ScreenRegion state={props.state} skeleton="rows"
-            emptyTitle={props.searched ? "No memory matches" : "Search your scoped knowledge"}
-            emptyDescription={props.searched ? "Try a different query, or publish a reviewed candidate so it becomes searchable." : "Enter a search above to find scoped facts. Unverified and stale results stay clearly labelled."}
-            emptyAction={props.searched ? <Button size="lg" onClick={props.onRefresh}>Run search again</Button> : undefined} onRetry={props.onRefresh}>
-            <div class="grid gap-3">
-              <For each={results()}>{(result) => <CardTile class="flex flex-col gap-4">
-                <div class="flex flex-wrap items-center gap-2"><StatusBadge kind="knowledge" status={result.status} /><Badge variant="outline" theme="blue" label={result.classification} /><span class="text-caption text-ink-gray-6">v{result.sourceVersion} · updated <DateText value={result.updatedAt} /> · {result.provenance.length} sources</span></div>
-                <p class="brain-readable whitespace-pre-wrap break-words text-interface text-ink-gray-8">{result.content}</p>
-                <Show when={props.canPublish}><div class="flex flex-wrap gap-2 border-t border-outline-gray-1 pt-3">
-                  <Button size="lg" variant="outline" iconLeft="lucide-upload" disabled={!canMutate()} onClick={() => setPublishOpenFor(result.sourceId)}>Publish under review…</Button>
-                  <Button size="lg" variant="ghost" theme="red" iconLeft="lucide-trash-2" disabled={!canMutate()} onClick={() => setRevokeFor(result.sourceId)}>Revoke</Button>
-                </div></Show>
-              </CardTile>}</For>
-            </div>
-          </ScreenRegion>
-        </div>
-      </Section>
-      <Section title="Trusted tool catalog" description="Declared in the active release. Effects, not descriptions, decide trust." surface="card">
-        <DataTable title="Tools" selectable={false} hideSearch cardBreakpoint="lg" rows={props.tools.map((tool) => ({ id: tool.id, name: tool.id, status: tool.status, effect: tool.effectClass, release: shortDigest(tool.release.digest) }))} columns={[
-          { id: "name", header: "Tool", accessorKey: "name", meta: { mobile: "title" } },
-          { id: "status", header: "Status", accessorKey: "status", meta: { mobile: "status" } },
-          { id: "effect", header: "Effect class", accessorKey: "effect", meta: { mobile: "meta" } },
-          { id: "release", header: "Release digest", accessorKey: "release", meta: { mobile: "subtitle" } },
-        ]} caption={count(props.tools.length, "declared tool")} />
-      </Section>
+        <Show when={props.state.data?.degraded}><Alert theme="amber" variant="outline" title="Knowledge service is degraded" description="Results come from the local scoped store. Publish and revoke actions are unavailable until the knowledge service is healthy." /></Show>
+        <ScreenRegion state={props.state} skeleton="rows"
+          emptyTitle={props.searched ? "No knowledge matches" : "Search your scoped knowledge"}
+          emptyDescription={props.searched ? "Try a different query or scope, or publish a reviewed candidate so it becomes searchable." : "Enter a search above. Unverified and stale results stay clearly labelled and never gain execution authority."}
+          emptyAction={props.searched ? <Button size="lg" onClick={props.onRefresh}>Run search again</Button> : undefined} onRetry={props.onRefresh}>
+          <Show when={results().length} fallback={<EmptyPreview icon="lucide-filter" title="No results in this scope" description="Choose another returned scope or run a broader search." />}>
+            <div class="grid gap-4"><For each={results()}>{(result) => <article class="border-y border-outline-gray-1 py-4">
+              <div class="flex flex-wrap items-center gap-2"><StatusBadge kind="knowledge" status={result.status} /><Badge variant="outline" theme="blue" label={result.classification} /><Badge variant="outline" theme="gray" label={scopeLabel(result.scope)} /></div>
+              <p class="brain-prose mt-3 whitespace-pre-wrap break-words text-interface text-ink-gray-8">{result.content}</p>
+              <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-ink-gray-6"><span>Source v{result.sourceVersion}</span><span>Updated <DateText value={result.updatedAt} /></span><span>{result.provenance.length} provenance references</span></div>
+              <Show when={props.canPublish}><div class="mt-3 flex flex-wrap gap-2 border-t border-outline-gray-1 pt-3"><Button size="lg" variant="outline" iconLeft="lucide-upload" disabled={!canMutate()} onClick={() => setPublishOpenFor(result.sourceId)}>Review publication…</Button><Button size="lg" variant="ghost" theme="red" iconLeft="lucide-trash-2" disabled={!canMutate()} onClick={() => setRevokeFor(result.sourceId)}>Revoke</Button></div></Show>
+            </article>}</For></div>
+          </Show>
+        </ScreenRegion>
+      </WorkspaceSection>
+      <WorkspaceSection title="Trusted capabilities" description="Knowledge instructions and executable tools are different authorities. Inspect tool trust, effect class and evidence in the registry." actions={<A href="/tools" class="inline-flex min-h-11 items-center rounded-control border border-outline-gray-2 px-3 text-interface font-medium text-ink-blue-link focus-visible:focus-ring">Open tool registry</A>}>
+        <div class="brain-queue"><For each={props.tools.slice(0, 4)}>{(tool) => <div class="flex flex-wrap items-center justify-between gap-3 border-b border-outline-gray-1 py-3"><div><p class="text-base-medium">{tool.id}</p><p class="mt-1 text-caption text-ink-gray-6">{tool.effectClass} effect · {tool.status} · release {shortDigest(tool.release.digest)}</p></div><StatusBadge status={tool.status} /></div>}</For></div>
+      </WorkspaceSection>
       <Dialog.Root open={Boolean(publishing())} onOpenChange={(open) => { if (!open) setPublishOpenFor(undefined); }}><Dialog.Content>
-        <Dialog.Header><Dialog.Title>Publish knowledge for review</Dialog.Title><Dialog.Description>Bind a real content artifact, independent reviewer, evidence, and a release-declared redaction profile.</Dialog.Description></Dialog.Header>
-        <Show when={publishing()} keyed>{(result) => <div class="my-4 flex max-h-[55dvh] flex-col gap-4 overflow-y-auto pe-1">
-          <Alert theme="blue" variant="outline" title="Reviewed publication" description={`Candidate ${result.sourceId} · target scope ${result.scope}`} />
-          <ArtifactSelector label="Content artifact" maxBytes={262144} onSelect={(artifact) => { setContentArtifactId(artifact.artifactId); setContentDigest(artifact.digest); setContentBytes(String(artifact.bytes)); }} />
-          <Select label="Reviewer" value={reviewerId()} options={(members.state().data ?? []).filter((member) => !member.revoked && member.principalId !== app.identity()?.actor.actorId).map((member) => ({ value: member.principalId, label: member.principalId }))} onValueChange={(id) => setReviewerId(id ?? "")} />
-          <Select label="Redaction policy" value={profileId()} options={(profiles.state().data ?? []).map((profile) => ({ value: profile.id, label: profile.id }))} onValueChange={(id) => { const profile = profiles.state().data?.find((entry) => entry.id === id); setProfileId(profile?.id ?? ""); setProfileDigest(profile?.digest ?? ""); }} />
-          <EvidenceSelector onSelect={(digests) => setEvidenceText(digests.join(" "))} />
-        </div>}</Show>
-        <Dialog.Footer class="justify-end border-t border-outline-gray-1 pt-4"><Button size="lg" variant="outline" onClick={() => setPublishOpenFor(undefined)}>Cancel</Button><Button size="lg" variant="solid" theme="blue" disabled={!publishReady()} onClick={() => { const result = publishing(); if (!result) return; void props.onPublish({ candidateId: result.sourceId, sourceWorkspaceId: props.workspaceId, targetScope: result.scope,
-          content: { artifactId: contentArtifactId().trim() || contentDigest().trim().slice(0, 12), digest: contentDigest().trim(), bytes: Number(contentBytes()), mediaType: "text/plain", classification: result.classification },
-          evidenceDigests: evidenceDigests(), reviewerId: reviewerId().trim(), redactionProfile: { id: profileId().trim(), digest: profileDigest().trim() },
-        }); setPublishOpenFor(undefined); }}>Publish for review</Button></Dialog.Footer>
+        <Dialog.Header><Dialog.Title>Review knowledge publication</Dialog.Title><Dialog.Description>Bind a real content artifact, independent reviewer, evidence, and a release-declared redaction profile. This is not tool publication.</Dialog.Description></Dialog.Header>
+        <Show when={publishing()} keyed>{(result) => <div class="my-4 flex max-h-[55dvh] flex-col gap-4 overflow-y-auto pe-1"><Alert theme="blue" variant="outline" title="Reviewed publication" description={`Candidate ${result.sourceId} · target scope ${scopeLabel(result.scope)}`} /><ArtifactSelector label="Content artifact" maxBytes={262144} onSelect={(artifact) => { setContentArtifactId(artifact.artifactId); setContentDigest(artifact.digest); setContentBytes(String(artifact.bytes)); }} /><Select label="Reviewer" value={reviewerId()} options={(members.state().data ?? []).filter((member) => !member.revoked && member.principalId !== app.identity()?.actor.actorId).map((member) => ({ value: member.principalId, label: member.principalId }))} onValueChange={(id) => setReviewerId(id ?? "")} /><Select label="Redaction policy" value={profileId()} options={(profiles.state().data ?? []).map((profile) => ({ value: profile.id, label: profile.id }))} onValueChange={(id) => { const profile = profiles.state().data?.find((entry) => entry.id === id); setProfileId(profile?.id ?? ""); setProfileDigest(profile?.digest ?? ""); }} /><EvidenceSelector onSelect={(digests) => setEvidenceText(digests.join(" "))} /></div>}</Show>
+        <Dialog.Footer class="justify-end border-t border-outline-gray-1 pt-4"><Button size="lg" variant="outline" onClick={() => setPublishOpenFor(undefined)}>Cancel</Button><Button size="lg" variant="solid" theme="blue" disabled={!publishReady()} onClick={() => { const result = publishing(); if (!result) return; void props.onPublish({ candidateId: result.sourceId, sourceWorkspaceId: props.workspaceId, targetScope: result.scope, content: { artifactId: contentArtifactId().trim() || contentDigest().trim().slice(0, 12), digest: contentDigest().trim(), bytes: Number(contentBytes()), mediaType: "text/plain", classification: result.classification }, evidenceDigests: evidenceDigests(), reviewerId: reviewerId().trim(), redactionProfile: { id: profileId().trim(), digest: profileDigest().trim() } }); setPublishOpenFor(undefined); }}>Publish for review</Button></Dialog.Footer>
       </Dialog.Content></Dialog.Root>
-      <ReasonDialog open={Boolean(revokeFor())} onClose={() => { setRevokeFor(undefined); setRevokeReason(""); }}
-        title="Revoke knowledge" description="Revocation is an explicit scoped command and requires a named reason."
-        reason={revokeReason()} onReason={setRevokeReason} reasonLabel="Revocation reason" multiline={false} confirmLabel="Revoke knowledge" tone="red"
-        onConfirm={(value) => { const sourceId = revokeFor(); if (sourceId) void props.onRevoke(sourceId, value); setRevokeFor(undefined); setRevokeReason(""); }} />
+      <ReasonDialog open={Boolean(revokeFor())} onClose={() => { setRevokeFor(undefined); setRevokeReason(""); }} title="Revoke knowledge" description="Revocation is an explicit scoped command and requires a named reason." reason={revokeReason()} onReason={setRevokeReason} reasonLabel="Revocation reason" multiline={false} confirmLabel="Revoke knowledge" tone="red" onConfirm={(value) => { const sourceId = revokeFor(); if (sourceId) void props.onRevoke(sourceId, value); setRevokeFor(undefined); setRevokeReason(""); }} />
     </PageStack>
   </BrainPage>;
 }
@@ -130,6 +121,8 @@ export function ToolsScreen(props: {
   onPropose: (proposal: ToolProposalInput) => Promise<void>;
   onPublish: (release: { id: string; digest: string }, evidence: string[]) => Promise<void>;
 }): JSX.Element {
+  const desktop = mediaQuery("(min-width: 1024px)");
+  const [selectedId, setSelectedId] = createSignal("");
   const [proposeOpen, setProposeOpen] = createSignal(false);
   const [publishOpen, setPublishOpen] = createSignal(false);
   const [packageArtifactId, setPackageArtifactId] = createSignal("");
@@ -141,33 +134,30 @@ export function ToolsScreen(props: {
   const [releaseDigest, setReleaseDigest] = createSignal("");
   const [publishEvidence, setPublishEvidence] = createSignal("");
   const digests = (text: string) => text.split(/[\s,]+/u).map((digest) => digest.trim()).filter(Boolean);
-  return <BrainPage title="Tool catalog" description="Inspect trusted capabilities and publish new tool releases only through reviewed evidence."
+  const current = () => props.tools.find((tool) => tool.id === selectedId()) ?? (desktop() ? props.tools[0] : undefined);
+  return <BrainPage title="Trusted capability registry" description="Inspect what each tool can do, its effect class, typed contracts and proof before proposal or publication."
     actions={<><RefreshButton onClick={props.onRefresh} label="Refresh" /><Show when={props.canPublish}><Button size="lg" variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setProposeOpen(true)}>Propose tool</Button></Show></>}>
     <PageStack>
-      <Section title="Trusted tools" description="Effect class is the trust boundary; privileged tools always run offline under a permit." surface="card">
-        <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No tools declared" emptyDescription="Tools appear here once a release declares them or a proposal is accepted."
-          emptyAction={props.canPublish ? <Button size="lg" onClick={() => setProposeOpen(true)}>Propose tool</Button> : undefined} onRetry={props.onRefresh}>
-          <DataTable title="Tools" selectable={false} hideSearch cardBreakpoint="lg" rows={props.tools.map((tool) => ({ id: tool.id, name: tool.release.id, status: tool.status, effect: tool.effectClass, release: shortDigest(tool.release.digest) }))} columns={[
-            { id: "name", header: "Tool", accessorKey: "name", meta: { mobile: "title" } },
-            { id: "status", header: "Status", accessorKey: "status", meta: { mobile: "status" } },
-            { id: "effect", header: "Effect class", accessorKey: "effect", meta: { mobile: "meta" } },
-            { id: "release", header: "Release digest", accessorKey: "release", meta: { mobile: "subtitle" } },
-          ]} caption={count(props.tools.length, "tool")} />
-        </ScreenRegion>
-      </Section>
-      <Show when={props.canPublish}><Section title="Publish a reviewed release" description="Publishing requires the Rule of Three: independent evidence for the exact release." surface="card">
-        <p class="mb-4 text-interface text-ink-gray-7">Select a reviewed candidate and bind its evidence in a focused publication step.</p><Button size="lg" variant="outline" iconLeft="lucide-upload" onClick={() => setPublishOpen(true)}>Publish reviewed release</Button>
-      </Section></Show>
-      <Dialog.Root open={proposeOpen()} onOpenChange={setProposeOpen}><Dialog.Content>
-        <Dialog.Header><Dialog.Title>Propose a tool package</Dialog.Title><Dialog.Description>A proposal is a pinned package artifact plus evidence; review happens before any publish.</Dialog.Description></Dialog.Header>
-        <div class="my-4 flex max-h-[55dvh] flex-col gap-4 overflow-y-auto pe-1"><ArtifactSelector label="Tool package" onSelect={(artifact) => { setPackageArtifactId(artifact.artifactId); setPackageDigest(artifact.digest); setPackageBytes(String(artifact.bytes)); setPackageClassification(artifact.classification); }} /><EvidenceSelector onSelect={(selected) => setProposeEvidence(selected.join(" "))} /></div>
-        <Dialog.Footer class="justify-end"><Button size="lg" variant="outline" onClick={() => setProposeOpen(false)}>Cancel</Button><Button size="lg" variant="solid" theme="blue" disabled={!packageDigest().trim() || Number(packageBytes()) <= 0 || digests(proposeEvidence()).length === 0} onClick={() => { void props.onPropose({ package: { artifactId: packageArtifactId(), digest: packageDigest().trim(), bytes: Number(packageBytes()), mediaType: "application/octet-stream", classification: packageClassification() }, evidence: digests(proposeEvidence()) }); setProposeOpen(false); }}>Submit proposal</Button></Dialog.Footer>
-      </Dialog.Content></Dialog.Root>
-      <Dialog.Root open={publishOpen()} onOpenChange={setPublishOpen}><Dialog.Content>
-        <Dialog.Header><Dialog.Title>Publish reviewed tool release</Dialog.Title><Dialog.Description>Choose the exact candidate and bind the independent evidence required by the Rule of Three.</Dialog.Description></Dialog.Header>
-        <div class="my-4 flex max-h-[55dvh] flex-col gap-4 overflow-y-auto pe-1"><Select label="Reviewed tool candidate" value={releaseId()} options={props.candidates.map((candidate) => ({ value: candidate.release.id, label: `${candidate.release.id} · ${candidate.state}` }))} onValueChange={(id) => { const candidate = props.candidates.find((entry) => entry.release.id === id); setReleaseId(candidate?.release.id ?? ""); setReleaseDigest(candidate?.release.digest ?? ""); }} /><EvidenceSelector onSelect={(selected) => setPublishEvidence(selected.join(" "))} /></div>
-        <Dialog.Footer class="justify-end"><Button size="lg" variant="outline" onClick={() => setPublishOpen(false)}>Cancel</Button><Button size="lg" variant="solid" theme="blue" disabled={!releaseId().trim() || !releaseDigest().trim() || digests(publishEvidence()).length === 0} onClick={() => { void props.onPublish({ id: releaseId().trim(), digest: releaseDigest().trim() }, digests(publishEvidence())); setPublishOpen(false); }}>Publish release</Button></Dialog.Footer>
-      </Dialog.Content></Dialog.Root>
+      <FactStrip label="Tool registry summary" items={[
+        { label: "Trusted", value: String(props.tools.filter((tool) => tool.status === "trusted").length), hint: "Currently trusted definitions", icon: "lucide-shield-check" },
+        { label: "Review candidates", value: String(props.tools.filter((tool) => tool.status === "candidate" || tool.status === "reviewing").length), hint: "Not automatically live authority", icon: "lucide-scan-search" },
+        { label: "Write / privileged", value: String(props.tools.filter((tool) => tool.effectClass !== "read").length), hint: "Effect permit required at execution", icon: "lucide-shield-alert" },
+      ]} />
+      <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No tools declared" emptyDescription="Tools appear here once a release declares them or a proposal is accepted." emptyAction={props.canPublish ? <Button size="lg" onClick={() => setProposeOpen(true)}>Propose tool</Button> : undefined} onRetry={props.onRefresh}>
+        <PaneLayout class="brain-list-detail" startSize={40} minStartSize={30} maxStartSize={58} active={current() ? "end" : "start"} start={<WorkspaceSection title="Capability registry" description="Select a tool to inspect its contracts and evidence.">
+          <div class="brain-queue"><For each={props.tools}>{(tool) => <QueueRow title={tool.id} description={`${tool.effectClass} effect · ${tool.evidence.length} evidence artifacts`} icon={tool.effectClass === "read" ? "lucide-scan-search" : "lucide-wrench"} tone={tool.effectClass === "read" ? "blue" : "amber"} eyebrow={tool.status} meta={<span>Release {shortDigest(tool.release.digest)}</span>} trailing={<StatusBadge status={tool.status} />} selected={current()?.id === tool.id} onClick={() => setSelectedId(tool.id)} />}</For></div>
+        </WorkspaceSection>} end={<Show when={current()} keyed fallback={<EmptyPreview icon="lucide-wrench" title="Select a tool" description="Its effect, typed schemas, target-independent risk and test evidence will appear here." />}>{(tool) => <PageStack>
+          <Button size="lg" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={() => setSelectedId("")}>Back to registry</Button>
+          <div><StatusBadge status={tool.status} /><h2 class="mt-3 text-section">{tool.id}</h2><p class="mt-2 text-interface text-ink-gray-7">This read model does not expose a TOOL.md summary or supported runner targets. Those facts are not inferred; exact contracts and evidence are below.</p></div>
+          <dl class="grid gap-4 border-y border-outline-gray-1 py-4 sm:grid-cols-2"><KeyValue label="Effect class" value={<Badge variant="outline" theme={tool.effectClass === "read" ? "blue" : "amber"} label={tool.effectClass} />} orientation="vertical" /><KeyValue label="Publication" value={tool.status} orientation="vertical" /><KeyValue label="Input schema" value={tool.inputSchemaRef} orientation="vertical" /><KeyValue label="Output schema" value={tool.outputSchemaRef} orientation="vertical" /></dl>
+          <Alert theme={tool.effectClass === "read" ? "blue" : "amber"} variant="outline" title={tool.effectClass === "read" ? "Read capability" : "Governed effect capability"} description={tool.effectClass === "read" ? "The declared effect class is read-only. Actual runner permission still depends on current placement and policy." : "Execution requires the exact permit and current authorization. A trusted definition is not blanket permission to run anywhere."} />
+          <WorkspaceSection title="Test and evidence" description="Actual artifacts attached to this registry entry."><Show when={tool.evidence.length} fallback={<p class="text-interface text-ink-gray-7">No evidence artifacts are attached. Do not infer test success from publication status alone.</p>}><div class="flex flex-col gap-3"><For each={tool.evidence}>{(artifact) => <ArtifactContent artifact={artifact} compact />}</For></div></Show></WorkspaceSection>
+          <TechnicalDetails label="Manifest and release"><pre class="max-h-96 overflow-auto whitespace-pre-wrap break-words text-caption">{JSON.stringify(tool, null, 2)}</pre></TechnicalDetails>
+        </PageStack>}</Show>} />
+      </ScreenRegion>
+      <Show when={props.canPublish}><WorkspaceSection title="Governed publication" description="Proposal and publication are separate. Rule of Three creates a review candidate, not a trusted live tool automatically."><Button size="lg" variant="outline" iconLeft="lucide-upload" onClick={() => setPublishOpen(true)}>Publish reviewed release</Button></WorkspaceSection></Show>
+      <Dialog.Root open={proposeOpen()} onOpenChange={setProposeOpen}><Dialog.Content><Dialog.Header><Dialog.Title>Propose a tool package</Dialog.Title><Dialog.Description>A proposal is a pinned package artifact plus evidence; review happens before any publish.</Dialog.Description></Dialog.Header><div class="my-4 flex max-h-[55dvh] flex-col gap-4 overflow-y-auto pe-1"><ArtifactSelector label="Tool package" onSelect={(artifact) => { setPackageArtifactId(artifact.artifactId); setPackageDigest(artifact.digest); setPackageBytes(String(artifact.bytes)); setPackageClassification(artifact.classification); }} /><EvidenceSelector onSelect={(selected) => setProposeEvidence(selected.join(" "))} /></div><Dialog.Footer class="justify-end"><Button size="lg" variant="outline" onClick={() => setProposeOpen(false)}>Cancel</Button><Button size="lg" variant="solid" theme="blue" disabled={!packageDigest().trim() || Number(packageBytes()) <= 0 || digests(proposeEvidence()).length === 0} onClick={() => { void props.onPropose({ package: { artifactId: packageArtifactId(), digest: packageDigest().trim(), bytes: Number(packageBytes()), mediaType: "application/octet-stream", classification: packageClassification() }, evidence: digests(proposeEvidence()) }); setProposeOpen(false); }}>Submit proposal</Button></Dialog.Footer></Dialog.Content></Dialog.Root>
+      <Dialog.Root open={publishOpen()} onOpenChange={setPublishOpen}><Dialog.Content><Dialog.Header><Dialog.Title>Publish reviewed tool release</Dialog.Title><Dialog.Description>Choose the exact candidate and bind the independent evidence required by the Rule of Three.</Dialog.Description></Dialog.Header><div class="my-4 flex max-h-[55dvh] flex-col gap-4 overflow-y-auto pe-1"><Select label="Reviewed tool candidate" value={releaseId()} options={props.candidates.map((candidate) => ({ value: candidate.release.id, label: `${candidate.release.id} · ${candidate.state}` }))} onValueChange={(id) => { const candidate = props.candidates.find((entry) => entry.release.id === id); setReleaseId(candidate?.release.id ?? ""); setReleaseDigest(candidate?.release.digest ?? ""); }} /><EvidenceSelector onSelect={(selected) => setPublishEvidence(selected.join(" "))} /></div><Dialog.Footer class="justify-end"><Button size="lg" variant="outline" onClick={() => setPublishOpen(false)}>Cancel</Button><Button size="lg" variant="solid" theme="blue" disabled={!releaseId().trim() || !releaseDigest().trim() || digests(publishEvidence()).length === 0} onClick={() => { void props.onPublish({ id: releaseId().trim(), digest: releaseDigest().trim() }, digests(publishEvidence())); setPublishOpen(false); }}>Publish release</Button></Dialog.Footer></Dialog.Content></Dialog.Root>
     </PageStack>
   </BrainPage>;
 }

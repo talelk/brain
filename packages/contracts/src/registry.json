@@ -250,6 +250,15 @@
       ]
     },
     {
+      "type": "runner.control",
+      "schema": "RunnerControlCommand",
+      "scope": "runner:admin",
+      "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "board.create",
       "schema": "BoardCreateCommand",
       "scope": "board:write",
@@ -293,6 +302,24 @@
       "schema": "ConfigActivateCommand",
       "scope": "config:activate",
       "authority": "global",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "workspace.update",
+      "schema": "WorkspaceUpdateCommand",
+      "scope": "workspace:admin",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "workspace.control",
+      "schema": "WorkspaceControlCommand",
+      "scope": "workspace:admin",
+      "authority": "workspace",
       "actors": [
         "human"
       ]

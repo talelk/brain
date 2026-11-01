@@ -30,9 +30,9 @@ test("default administrator changes password and discovers populated starter tas
   await expect(page.getByLabel(/^New password/)).toHaveValue("changed-browser-password-456");
   await page.getByLabel(/^Temporary password/).fill(temporary);
   await page.getByRole("button", { name: "Save password and continue" }).click();
-  await expect(page.getByRole("heading", { name: "Connect your local model", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Models & Providers", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Explore starter tasks", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Choose a task", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Task catalog", exact: true })).toBeVisible();
   await expect(page.getByText("Investigate an operational issue").filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("Draft a support response").filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "Agent smoke" })).toHaveCount(0);
@@ -42,6 +42,6 @@ test("default administrator changes password and discovers populated starter tas
   await page.getByLabel(/^Email/).fill("admin@brain.local");
   await page.getByLabel(/^Password/).fill("changed-browser-password-456");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Choose a task", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Task catalog", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Welcome to Brain" })).toHaveCount(0);
 });

@@ -178,10 +178,11 @@ def main():
         scenarios=(ROOT/'docs/implementation/11-acceptance-and-edge-cases.md').read_text()
         tasks=(ROOT/'docs/implementation/12-implementation-tasks.md').read_text()
         assert set(re.findall(r'^\| (E\d{3}) \|',scenarios,re.M))=={f'E{i:03}' for i in range(1,111)}
-        assert set(re.findall(r'^\| (T\d{2}) /',tasks,re.M))=={f'T{i:02}' for i in range(1,59)}
+        expected_tasks=set(load_json(ROOT/'contracts/v1/work-plan.json')['tasks'])
+        assert set(re.findall(r'^\| (T\d{2}) /',tasks,re.M))==expected_tasks
         libraries=load_json(ROOT/'contracts/v1/library-register.json')['dependencies']
         assert all(x['exactProductVersion'] is None or (isinstance(x['exactProductVersion'],str) and x['exactProductVersion'].strip()) for x in libraries)
-        return f'{len(libraries)} dependency decisions; 110 scenarios; 58 work cards'
+        return f'{len(libraries)} dependency decisions; 110 scenarios; {len(expected_tasks)} work cards'
     checked('documentation-inventory',documentation_inventory)
     def implementation_policy():
         policy=load_json(ROOT/'contracts/v1/implementation-policy.json')
@@ -336,8 +337,8 @@ def sql_checks():
         workspace=sqlite3.connect(Path(temp)/'workspace.db');workspace.executescript((ROOT/'sql/reference/workspace.sql').read_text())
         db.execute("INSERT INTO organizations VALUES ('o1','auth1',1)")
         db.execute("INSERT INTO organizations VALUES ('o2','auth2',1)")
-        db.execute("INSERT INTO workspaces VALUES ('w1','o1','one','active',1)")
-        db.execute("INSERT INTO workspaces VALUES ('w2','o2','two','active',1)")
+        db.execute("INSERT INTO workspaces(id,organization_id,slug,status,version) VALUES ('w1','o1','one','active',1)")
+        db.execute("INSERT INTO workspaces(id,organization_id,slug,status,version) VALUES ('w2','o2','two','active',1)")
         db.execute("INSERT INTO config_releases VALUES ('d1','o1','sha1:fixture','compiler','{}',0)")
         db.execute("INSERT INTO runners(id,organization_id,group_id,identity_key_digest,admin_state,session_epoch,health,config_digest,cpu_capacity,memory_capacity,disk_capacity,slot_capacity) VALUES ('r1','o1','agents','key','enabled',1,'healthy','d1',2000,4096,4096,1)")
         def job(id,org='o1',ws='w1'):

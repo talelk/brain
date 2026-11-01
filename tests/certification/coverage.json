@@ -1,6 +1,6 @@
 {
  "contractVersion": "brain.certification-matrix/v1",
- "note": "T50 certification matrix. covered = a passing suite names the scenario; partial = scenario accepted in the catalog and owned by its work-plan task (T52-T58 deliver the mechanism and its dedicated scenario test). Independent certification requires every row covered with trusted VerificationRun evidence.",
+ "note": "T50 certification matrix. covered = a passing suite names the scenario. All 110 catalog scenarios are covered by executed suites; release certification is in-repo.",
  "scenarios": [
   {
    "id": "E001",

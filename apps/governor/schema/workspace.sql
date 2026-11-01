@@ -59,7 +59,7 @@ CREATE TABLE execution_links (
 ) STRICT;
 CREATE TABLE automations (
   id TEXT PRIMARY KEY, title TEXT NOT NULL,
-  state TEXT NOT NULL CHECK(state IN ('active','paused')),
+  state TEXT NOT NULL CHECK(state IN ('active','paused','retired')),
   revision INTEGER NOT NULL CHECK(revision > 0),
   target_kind TEXT NOT NULL CHECK(target_kind IN ('workflow','workItem')),
   target_id TEXT NOT NULL,

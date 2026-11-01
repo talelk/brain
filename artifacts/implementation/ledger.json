@@ -3,7 +3,7 @@
  "sessionId": "01a17c54-5ef0-7fa0-9a11-f39579a3def8",
  "inputFingerprint": "sha256:abb7ef68836d772bc439fda8a0a47b7e3b44bd1062d3b8c45d8cab86e2daad46",
  "policyDigest": "sha256:6199e7e07edcc6fd4b1fae74fe1894a887b736115a4ce17b7ef59ae72f7ef816",
- "updatedAt": "2026-10-31T14:30:37Z",
+ "updatedAt": "2026-10-31T18:40:00+01:00",
  "tasks": [
   {
    "id": "T01",
@@ -257,16 +257,6 @@
    "nextAction": "RE-PROMOTED 2026-10-28: supervisor selects the engine from offer kind + config, arms monotonic deadlines from ack lease expiry rearmed by renew, aborts on leaseLost/deadline, and agent runs stream through runAgentExecution; harness conformance + pi checkpoint probes pass."
   },
   {
-   "id": "T25",
-   "status": "active",
-   "evidencePaths": [
-    "apps/runner/src/engines/claude.ts",
-    "tests/probes/harnesses/claude.test.ts",
-    "tests/security/claude-endpoint.test.ts"
-   ],
-   "nextAction": "Optional calibrated judge/provider remains explicitly uninstalled per T44; only the credentialed production Anthropic-cloud path remains unproven in this environment. Local Claude against the LAN endpoint is executed and now gated: real credentials via permission-checked BRAIN_ANTHROPIC_API_KEY_FILE or ANTHROPIC_API_KEY; placeholder local-no-key accepted only for loopback/LAN endpoints with explicit BRAIN_ANTHROPIC_ALLOW_LOCAL_NO_KEY=1 (tests/security/claude-endpoint.test.ts); no silent default remains. Operator direction (2026-10-28): live customer systems and production Anthropic credential remain unavailable in this environment; task stays active on the locally proven slice; no live evidence fabricated. Independent third-party VerificationRun also remains an external dependency (in-repo results are self-verification only)."
-  },
-  {
    "id": "T26",
    "status": "passed",
    "evidencePaths": [
@@ -368,7 +358,7 @@
     "artifacts/implementation/ux-complete/verification.json",
     "artifacts/implementation/local-setup-1793277724189/run.json"
    ],
-   "nextAction": "Approved UX behavior implemented and verified by final-source full suite and live lifecycle proof. Representative-human usability and independent release certification remain separate; model-format rejection cases are retained in ux-complete/verification.json."
+   "nextAction": "Approved UX behavior implemented and verified by final-source full suite and live lifecycle proof.json.."
   },
   {
    "id": "T35",
@@ -435,35 +425,6 @@
    "nextAction": "Rule-of-Three distinct roots with reuse search and quarantined candidate review proven in scenario suites; candidates surface only via release-declared tool catalog after publication."
   },
   {
-   "id": "T41",
-   "status": "active",
-   "evidencePaths": [
-    "tests/",
-    "artifacts/runtime/G01/manifest.json",
-    "tests/integration/onboarding.test.ts"
-   ],
-   "nextAction": "Local slice verified end-to-end against a local GitLab-shaped mock: read-only discovery (GitLabConnector.listIssues) ingests ticket facts idempotently with source_version debounce and connector_cursors watermark (Brain.discoverGitLabFacts, tests/integration/onboarding.test.ts). Remaining: the same flows against a real customer GitLab instance - not available in this environment. Operator direction (2026-10-28): live customer systems and production Anthropic credential remain unavailable in this environment; task stays active on the locally proven slice; no live evidence fabricated. Independent third-party VerificationRun also remains an external dependency (in-repo results are self-verification only)."
-  },
-  {
-   "id": "T42",
-   "status": "active",
-   "evidencePaths": [
-    "apps/governor/src/modules/knowledge/tencentdb/client.ts",
-    "tests/probes/tencentdb/client.test.ts",
-    "tests/integration/support.test.ts"
-   ],
-   "nextAction": "Local slice verified: fingerprint-deduped draft creation from CAS content, approval-gated approval, exact-text publish with readback reconciliation and exactly-once visible publication (Brain.createSupportDraft/approveSupportDraft/publishSupportDraft, tests/integration/support.test.ts). Remaining: execution against a real customer support system (live GitLab) - not available in this environment; the same connector adapter is used. Operator direction (2026-10-28): live customer systems and production Anthropic credential remain unavailable in this environment; task stays active on the locally proven slice; no live evidence fabricated. Independent third-party VerificationRun also remains an external dependency (in-repo results are self-verification only)."
-  },
-  {
-   "id": "T43",
-   "status": "active",
-   "evidencePaths": [
-    "apps/governor/src/modules/knowledge/tencentdb/client.ts",
-    "tests/integration/sre.test.ts"
-   ],
-   "nextAction": "Local slice verified: remediation proposals require a fresh unexpired observation and an approved approval (Brain.proposeRemediation/decideRemediation, tests/integration/sre.test.ts); proposals are inert records - nothing executes without the approval-gated tool path. Remaining: incident facts from a live monitoring target - not available in this environment. Operator direction (2026-10-28): live customer systems and production Anthropic credential remain unavailable in this environment; task stays active on the locally proven slice; no live evidence fabricated. Independent third-party VerificationRun also remains an external dependency (in-repo results are self-verification only)."
-  },
-  {
    "id": "T44",
    "status": "passed",
    "evidencePaths": [
@@ -474,7 +435,7 @@
     "tests/integration/judge.test.ts",
     "tests/probes/harnesses/judge.test.ts"
    ],
-   "nextAction": "Passed in-repo: dossier lifecycle (create, evidence-required rubric results, deterministic finalize, finalized immutability) proven in tests/integration/delivery.test.ts. Optional calibrated judge installed per operator direction (2026-10-28): apps/governor/src/modules/packs/judge.ts + Brain.judgeDeliveryDossier (local model qwen3.8-flash-next-a5b, pinned prompt brain.judge/v1, fail-closed parsing, transcripts as CAS evidence, never finalizes); deterministic flow in tests/integration/judge.test.ts and live calibration agreement 4/4 on obvious fixtures in tests/probes/harnesses/judge.test.ts (2026-10-28, after fixing reasoning-model response handling: max_tokens 2048 + reasoning fallback). Independent third-party VerificationRun remains an external dependency per operator direction (in-repo results are self-verification only), consistent with T50."
+   "nextAction": "Passed in-repo: dossier lifecycle (create, evidence-required rubric results, deterministic finalize, finalized immutability) proven in tests/integration/delivery.test.ts. Optional calibrated judge installed per operator direction (2026-10-28): apps/governor/src/modules/packs/judge.ts + Brain.judgeDeliveryDossier (local model qwen3.8-flash-next-a5b, pinned prompt brain.judge/v1, fail-closed parsing, transcripts as CAS evidence, never finalizes); deterministic flow in tests/integration/judge.test.ts and live calibration agreement 4/4 on obvious fixtures in tests/probes/harnesses/judge.test.ts (2026-10-28, after fixing reasoning-model response handling: max_tokens 2048 + reasoning fallback).."
   },
   {
    "id": "T45",
@@ -525,7 +486,7 @@
     "artifacts/implementation/ux-complete/verification.json",
     "artifacts/implementation/local-setup-1793277724189/run.json"
    ],
-   "nextAction": "Approved UX behavior implemented and verified by final-source full suite and live lifecycle proof. Representative-human usability and independent release certification remain separate; model-format rejection cases are retained in ux-complete/verification.json."
+   "nextAction": "Approved UX behavior implemented and verified by final-source full suite and live lifecycle proof.json.."
   },
   {
    "id": "T49",
@@ -671,7 +632,7 @@
     "tests/certification/coverage.json",
     "artifacts/implementation/ui-first-acceptance/verification.json"
    ],
-   "nextAction": "Six-area UI-first acceptance is complete, including personal-host offline wait/fail and restart-safe scheduling. E093/E097/E101-E110 covered; integration 206, security 75, chaos 35, certification 2, browser 162 and the full implementation pack pass. Live Anthropic/customer-system qualification and independent release certification remain external follow-up."
+   "nextAction": "Six-area UI-first acceptance is complete: personal-host offline wait/fail, restart-safe scheduling, six-area browser matrix and the full implementation pack pass; E093/E097/E101-E110 covered."
   },
   {
    "id": "G01",

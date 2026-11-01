@@ -11,11 +11,51 @@ import type { Store } from "../../application/store";
  */
 export function issueEnrollment(s: Store, actor: { scopes: readonly string[]; actorId: string; organizationId: string }, groupId: string): { token: string; expiresAt: string } {
   if (!actor.scopes.includes("runner:admin")) throw new BrainDomainError("FORBIDDEN", "runner enrollment requires runner:admin");
+  const release = s.control.prepare("SELECT r.manifest_json FROM active_config a JOIN config_releases r ON r.digest=a.release_digest WHERE a.organization_id=?").get(actor.organizationId) as { manifest_json: string } | undefined;
+  const documents = release ? (JSON.parse(release.manifest_json) as { manifest?: { documents?: Array<{ kind?: string; id?: string }> } }).manifest?.documents ?? [] : [];
+  if (!documents.some((document) => document.kind === "RunnerGroup" && document.id === groupId)) throw new BrainDomainError("NOT_FOUND", `runner group ${groupId} is not declared in the active release`);
   const token = randomBytes(32).toString("base64url");
   const expires = s.now() + 10 * 60_000;
   s.control.prepare("INSERT INTO enrollment_tokens(token_digest, organization_id, group_id, expires_at_ms, created_by) VALUES (?,?,?,?,?)")
     .run(s.tokenDigest("enroll", token), actor.organizationId, groupId, expires, actor.actorId);
   return { token, expiresAt: iso(expires) };
+}
+
+export function operateRunner(s: Store, actor: { scopes: readonly string[]; actorId: string; organizationId: string }, input: { runnerId: string; action: string; reason: string }): string {
+  if (!actor.scopes.includes("runner:admin")) throw new BrainDomainError("FORBIDDEN", "runner administration requires runner:admin");
+  if (!input.reason.trim()) throw new BrainDomainError("INVALID_ARGUMENT", "runner operations require a reason");
+  const runner = s.control.prepare("SELECT admin_state,health,last_heartbeat_ms,deregistered_at_ms FROM runners WHERE id=? AND organization_id=?").get(input.runnerId, actor.organizationId) as
+    | { admin_state: string; health: string; last_heartbeat_ms: number | null; deregistered_at_ms: number | null } | undefined;
+  if (!runner) throw new BrainDomainError("NOT_FOUND", "runner not found");
+  if (runner.deregistered_at_ms) throw new BrainDomainError("CONFLICT", "runner is already deregistered");
+  if (runner.admin_state === "quarantined" && input.action === "enable" && !actor.scopes.includes("runner:security")) {
+    throw new BrainDomainError("FORBIDDEN", "re-enabling a quarantined runner requires runner:security");
+  }
+  const active = s.control.prepare("SELECT COUNT(*) AS count FROM job_attempts WHERE runner_id=? AND state IN ('offered','running','uploading','cancelling','verifying','outcome_unknown')").get(input.runnerId) as { count: number };
+  if ((input.action === "rotate" || input.action === "deregister") && active.count > 0) throw new BrainDomainError("CONFLICT", "runner still has active or unresolved attempts");
+  s.inTx(s.control, () => {
+    const now = s.now();
+    if (input.action === "enable") {
+      const capability = s.control.prepare("SELECT 1 AS ok FROM runner_capabilities WHERE runner_id=? AND verified=1 AND expires_at_ms>? LIMIT 1").get(input.runnerId, now);
+      if (runner.health === "unhealthy" || Number(runner.last_heartbeat_ms ?? 0) <= now - 45_000 || !capability) {
+        throw new BrainDomainError("CONFLICT", "runner needs a current heartbeat, non-unhealthy status and a fresh verified capability before enable");
+      }
+      s.control.prepare("UPDATE runners SET admin_state='enabled' WHERE id=?").run(input.runnerId);
+    } else if (input.action === "disable") {
+      s.control.prepare("UPDATE runners SET admin_state='disabled' WHERE id=?").run(input.runnerId);
+    } else if (input.action === "rotate" || input.action === "deregister") {
+      s.control.prepare("UPDATE runners SET admin_state='disabled',session_epoch=session_epoch+1,boot_nonce=NULL,deregistered_at_ms=CASE WHEN ?='deregister' THEN ? ELSE deregistered_at_ms END WHERE id=?")
+        .run(input.action, now, input.runnerId);
+      s.control.prepare("UPDATE runner_sessions SET revoked_at_ms=? WHERE runner_id=? AND revoked_at_ms IS NULL").run(now, input.runnerId);
+      s.control.prepare("UPDATE runner_identity_credentials SET revoked_at_ms=? WHERE runner_id=? AND revoked_at_ms IS NULL").run(now, input.runnerId);
+      if (input.action === "deregister") s.control.prepare("DELETE FROM runner_capabilities WHERE runner_id=?").run(input.runnerId);
+      s.control.prepare("UPDATE organizations SET revocation_generation=revocation_generation+1 WHERE id=?").run(actor.organizationId);
+    } else {
+      throw new BrainDomainError("INVALID_ARGUMENT", "runner action must be enable, disable, rotate or deregister");
+    }
+    s.emit(s.control, { organizationId: actor.organizationId, aggregateType: "runner", aggregateId: input.runnerId, eventType: `runner.${input.action}d`, payload: { runnerId: input.runnerId, reason: input.reason, actorId: actor.actorId } });
+  });
+  return input.runnerId;
 }
 
 export function enrollRunner(s: Store, input: { token: string; publicKeyPem: string; runnerId: string }): { credential: string } {
@@ -25,9 +65,19 @@ export function enrollRunner(s: Store, input: { token: string; publicKeyPem: str
     const row = s.control.prepare("SELECT organization_id, group_id, expires_at_ms, consumed_at_ms FROM enrollment_tokens WHERE token_digest=?")
       .get(s.tokenDigest("enroll", input.token)) as { organization_id: string; group_id: string; expires_at_ms: number; consumed_at_ms: number | null } | undefined;
     if (!row || row.consumed_at_ms || row.expires_at_ms <= s.now()) throw new BrainDomainError("FORBIDDEN", "enrollment token invalid, expired, or replayed");
-    s.control.prepare(`INSERT INTO runners(id, organization_id, group_id, identity_key_digest, admin_state, health, config_digest, cpu_capacity, memory_capacity, disk_capacity, slot_capacity)
-      VALUES (?,?,?,?,'enabled','healthy','sha256:${"0".repeat(64)}',0,0,0,1)`)
-      .run(input.runnerId, row.organization_id, row.group_id, s.tokenDigest("pubkey", input.publicKeyPem));
+    const existing = s.control.prepare("SELECT organization_id,admin_state,deregistered_at_ms FROM runners WHERE id=?").get(input.runnerId) as { organization_id: string; admin_state: string; deregistered_at_ms: number | null } | undefined;
+    if (existing && (existing.organization_id !== row.organization_id || existing.admin_state !== "disabled" || existing.deregistered_at_ms)) {
+      throw new BrainDomainError("CONFLICT", "runner identity already exists; rotate a disabled runner before re-enrollment");
+    }
+    if (existing) {
+      s.control.prepare("UPDATE runners SET group_id=?,identity_key_digest=?,session_epoch=session_epoch+1,boot_nonce=NULL,last_heartbeat_ms=NULL,config_digest=? WHERE id=?")
+        .run(row.group_id, s.tokenDigest("pubkey", input.publicKeyPem), `sha256:${"0".repeat(64)}`, input.runnerId);
+      s.control.prepare("DELETE FROM runner_identity_credentials WHERE runner_id=?").run(input.runnerId);
+    } else {
+      s.control.prepare(`INSERT INTO runners(id, organization_id, group_id, identity_key_digest, admin_state, health, config_digest, cpu_capacity, memory_capacity, disk_capacity, slot_capacity)
+        VALUES (?,?,?,?,'enabled','healthy','sha256:${"0".repeat(64)}',0,0,0,1)`)
+        .run(input.runnerId, row.organization_id, row.group_id, s.tokenDigest("pubkey", input.publicKeyPem));
+    }
     s.control.prepare("INSERT INTO runner_identity_credentials(runner_id, public_key_spki_pem, credential_digest, expires_at_ms) VALUES (?,?,?,?)")
       .run(input.runnerId, input.publicKeyPem, s.tokenDigest("runner-cred", credential), s.now() + 365 * 24 * 3600_000);
     s.control.prepare("UPDATE enrollment_tokens SET consumed_at_ms=?, runner_id=? WHERE token_digest=?").run(s.now(), input.runnerId, s.tokenDigest("enroll", input.token));

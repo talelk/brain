@@ -7657,11 +7657,12 @@
         "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
         "digest": { "$ref": "#/$defs/Digest" },
         "documents": { "type": "array", "items": { "$ref": "#/$defs/ConfigurationDocument" }, "minItems": 1, "maxItems": 100 },
+        "assets": { "type": "array", "items": { "$ref": "#/$defs/ConfigurationDocument" }, "maxItems": 200 },
         "source": { "type": "string", "enum": ["visual", "yaml"] },
         "createdBy": { "$ref": "#/$defs/Id" },
         "createdAt": { "$ref": "#/$defs/Timestamp" }
       },
-      "required": ["revisionId", "draftId", "revision", "digest", "documents", "source", "createdBy", "createdAt"],
+      "required": ["revisionId", "draftId", "revision", "digest", "documents", "assets", "source", "createdBy", "createdAt"],
       "additionalProperties": false
     },
     "ValidationDiagnostic": {
@@ -7759,7 +7760,18 @@
         "title": { "type": "string", "minLength": 1, "maxLength": 256 },
         "kind": { "type": "string", "minLength": 1, "maxLength": 64 },
         "bindingId": { "$ref": "#/$defs/Id" },
-        "documents": { "type": "array", "items": { "$ref": "#/$defs/ConfigurationDocument" }, "minItems": 1, "maxItems": 100 }
+        "documents": { "type": "array", "items": { "$ref": "#/$defs/ConfigurationDocument" }, "minItems": 1, "maxItems": 100 },
+        "assets": { "type": "array", "items": { "$ref": "#/$defs/ConfigurationDocument" }, "maxItems": 200 },
+        "sourceDefinition": {
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string", "enum": ["Agent", "Workflow", "RunnerGroup", "Policy"] },
+            "id": { "$ref": "#/$defs/ConfigId" },
+            "mode": { "type": "string", "enum": ["edit", "duplicate"] }
+          },
+          "required": ["kind", "id", "mode"],
+          "additionalProperties": false
+        }
       },
       "required": ["title"],
       "additionalProperties": false
@@ -7783,6 +7795,7 @@
       "properties": {
         "draftId": { "$ref": "#/$defs/Id" },
         "documents": { "type": "array", "items": { "$ref": "#/$defs/ConfigurationDocument" }, "minItems": 1, "maxItems": 100 },
+        "assets": { "type": "array", "items": { "$ref": "#/$defs/ConfigurationDocument" }, "maxItems": 200 },
         "source": { "type": "string", "enum": ["visual", "yaml"] }
       },
       "required": ["draftId", "documents"],
@@ -8586,6 +8599,29 @@
       ],
       "additionalProperties": false
     },
+    "RunnerControlCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": { "type": "string", "const": "brain.command/v1" },
+        "commandId": { "$ref": "#/$defs/Id" },
+        "commandType": { "type": "string", "const": "runner.control" },
+        "workspaceId": { "$ref": "#/$defs/Id" },
+        "idempotencyKey": { "$ref": "#/$defs/Id" },
+        "expectedVersion": { "$ref": "#/$defs/Counter" },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "runnerId": { "$ref": "#/$defs/Id" },
+            "action": { "type": "string", "enum": ["enable", "disable", "rotate", "deregister"] },
+            "reason": { "type": "string", "minLength": 1, "maxLength": 512 }
+          },
+          "required": ["runnerId", "action", "reason"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["contractVersion", "commandId", "commandType", "idempotencyKey", "payload"],
+      "additionalProperties": false
+    },
     "BoardCreateCommand": {
       "type": "object",
       "properties": {
@@ -8876,6 +8912,54 @@
         "idempotencyKey",
         "payload"
       ],
+      "additionalProperties": false
+    },
+    "WorkspaceUpdateCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": { "type": "string", "const": "brain.command/v1" },
+        "commandId": { "$ref": "#/$defs/Id" },
+        "commandType": { "type": "string", "const": "workspace.update" },
+        "workspaceId": { "$ref": "#/$defs/Id" },
+        "idempotencyKey": { "$ref": "#/$defs/Id" },
+        "expectedVersion": { "$ref": "#/$defs/Counter" },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "workspaceId": { "$ref": "#/$defs/Id" },
+            "displayName": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "description": { "type": "string", "maxLength": 4000 },
+            "ownerId": { "$ref": "#/$defs/Id" },
+            "tags": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 64 }, "maxItems": 32, "uniqueItems": true }
+          },
+          "required": ["workspaceId", "displayName", "description", "ownerId", "tags"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["contractVersion", "commandId", "commandType", "workspaceId", "idempotencyKey", "payload"],
+      "additionalProperties": false
+    },
+    "WorkspaceControlCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": { "type": "string", "const": "brain.command/v1" },
+        "commandId": { "$ref": "#/$defs/Id" },
+        "commandType": { "type": "string", "const": "workspace.control" },
+        "workspaceId": { "$ref": "#/$defs/Id" },
+        "idempotencyKey": { "$ref": "#/$defs/Id" },
+        "expectedVersion": { "$ref": "#/$defs/Counter" },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "workspaceId": { "$ref": "#/$defs/Id" },
+            "action": { "type": "string", "enum": ["suspend", "resume", "archive"] },
+            "reason": { "type": "string", "minLength": 1, "maxLength": 1000 }
+          },
+          "required": ["workspaceId", "action", "reason"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["contractVersion", "commandId", "commandType", "workspaceId", "idempotencyKey", "payload"],
       "additionalProperties": false
     },
     "WorkspaceSuspendCommand": {
@@ -9309,6 +9393,9 @@
           "$ref": "#/$defs/RunnerQuarantineCommand"
         },
         {
+          "$ref": "#/$defs/RunnerControlCommand"
+        },
+        {
           "$ref": "#/$defs/BoardCreateCommand"
         },
         {
@@ -9322,6 +9409,12 @@
         },
         {
           "$ref": "#/$defs/ConfigActivateCommand"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceUpdateCommand"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceControlCommand"
         },
         {
           "$ref": "#/$defs/WorkspaceSuspendCommand"
@@ -12666,6 +12759,9 @@
         },
         "lastSeenAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "deregisteredAt": {
+          "$ref": "#/$defs/Timestamp"
         }
       },
       "required": [
@@ -12800,7 +12896,11 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991
-        }
+        },
+        "description": { "type": "string", "maxLength": 4000 },
+        "ownerId": { "$ref": "#/$defs/Id" },
+        "tags": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 64 }, "maxItems": 32, "uniqueItems": true },
+        "version": { "$ref": "#/$defs/Counter" }
       },
       "required": [
         "workspaceId",
@@ -17347,7 +17447,8 @@
           "type": "string",
           "enum": [
             "active",
-            "paused"
+            "paused",
+            "retired"
           ]
         },
         "revision": {
@@ -17487,6 +17588,9 @@
         "idempotencyKey": {
           "$ref": "#/$defs/Id"
         },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
         "payload": {
           "type": "object",
           "properties": {
@@ -17576,7 +17680,8 @@
               "enum": [
                 "pause",
                 "resume",
-                "runNow"
+                "runNow",
+                "retire"
               ]
             },
             "reason": {

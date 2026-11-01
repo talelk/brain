@@ -5,6 +5,7 @@ import { test, expect } from "./fixtures";
 // long the transcript is) and scroll selection preserved while new events
 // stream in above the reader's position.
 test("long SSE transcript: bounded DOM, scroll and selection survive new events (E092)", async ({ page, governor }) => {
+  test.setTimeout(180_000);
   await page.goto(governor.url);
   await expect(page.getByRole("heading", { name: "Set up Keyrus Brain" })).toBeVisible();
   await page.getByLabel(/^Setup credential/).fill(governor.credential);
@@ -14,7 +15,7 @@ test("long SSE transcript: bounded DOM, scroll and selection survive new events 
   await page.getByRole("button", { name: "Create organization", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
 
-  // Seed a running session with a 1200-event transcript through the real store.
+  // Seed a running session with a 10000-event transcript through the real store.
   const cookies = await page.context().cookies();
   const brain = governor.app.brain;
   const resolved = await brain.resolveActor(new Headers({ cookie: cookies.map((c) => `${c.name}=${c.value}`).join("; ") }));
@@ -26,8 +27,8 @@ test("long SSE transcript: bounded DOM, scroll and selection survive new events 
     .run(`sha256:${"0".repeat(64)}`, Date.now());
   const insert = s.control.prepare(`INSERT INTO events(event_id, organization_id, workspace_id, aggregate_type, aggregate_id, aggregate_seq, event_type, payload_json, payload_digest, created_at_ms)
     VALUES (?,?,?,?,?,?,?,?,?,?)`);
-  const base = Date.now() - 1200 * 1000;
-  for (let i = 1; i <= 1200; i++) {
+  const base = Date.now() - 10000 * 1000;
+  for (let i = 1; i <= 10000; i++) {
     insert.run(`evt-seed-${i}`, actor.organizationId, "ws-perf", "session", `evt-${i}`, i,
       i % 2 === 0 ? "tool.exec" : "session.message", JSON.stringify({ n: i }), `sha256:${"a".repeat(64)}`, base + i * 1000);
   }
@@ -38,11 +39,11 @@ test("long SSE transcript: bounded DOM, scroll and selection survive new events 
   await expect(page.locator('[data-slot="virtual-list"] li').first()).toBeVisible({ timeout: 20000 });
 
   // Bounded client memory: the virtualiser mounts a viewport-sized window,
-  // not the 1200-row transcript.
+  // not the 10000-row transcript.
   const rowCount = await page.locator('[data-slot="virtual-list"] li').count();
   expect(rowCount, `mounted rows ${rowCount}`).toBeLessThan(150);
   const finalCursor = (s.control.prepare("SELECT MAX(cursor) AS cursor FROM events WHERE organization_id=?").get(actor.organizationId) as { cursor: number }).cursor;
-  await expect(page.getByText(`${finalCursor} events`, { exact: false })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText(`${finalCursor} events`, { exact: false })).toBeVisible({ timeout: 120_000 });
 
   // Scroll only after the full replay exists; otherwise the browser clamps the
   // requested position to the short list's current maximum.
@@ -80,11 +81,11 @@ test("long SSE transcript: bounded DOM, scroll and selection survive new events 
 
   // 40 fresh events stream in while the reader is scrolled away.
   for (let i = 1; i <= 40; i++) {
-    insert.run(`evt-live-${i}`, actor.organizationId, "ws-perf", "session", `evt-live-${i}`, 1200 + i,
-      "session.message", JSON.stringify({ n: 1200 + i }), `sha256:${"b".repeat(64)}`, Date.now());
+    insert.run(`evt-live-${i}`, actor.organizationId, "ws-perf", "session", `evt-live-${i}`, 10000 + i,
+      "session.message", JSON.stringify({ n: 10000 + i }), `sha256:${"b".repeat(64)}`, Date.now());
   }
   await expect(page.getByRole("button", { name: /Jump to newest \(\d+\)/ })).toBeVisible({ timeout: 10000 });
-  await page.waitForTimeout(1200); // SSE tick + coalesce settle
+  await page.waitForTimeout(10000); // SSE tick + coalesce settle
 
   // The reader's view is pinned: same row at the same position, selection intact.
   const visibleAfter = await page.evaluate(() => {

@@ -39,7 +39,7 @@ async function openBoard(page: Page) {
   await expect(page.getByRole("heading", { name: "Work board", exact: true, level: 1 })).toBeVisible();
 }
 
-test("board: work items render by state, move applies, Done without evidence is refused in UI (T37)", async ({ page, governor }) => {
+test("board: work items render by state, move applies, Done is disabled without verified evidence (T37)", async ({ page, governor }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(governor.url);
@@ -70,7 +70,7 @@ test("board: work items render by state, move applies, Done without evidence is 
   await expect(page.getByText("Ship the fixture", { exact: true })).toBeVisible();
   expect(new URL(page.url()).pathname).toBe("/w/ws-board/board");
 
-  await page.getByText("Manage Ship the fixture",{exact:true}).click();
+  await page.getByRole("button", { name: "Manage Ship the fixture" }).click();
   await page.getByLabel("Move Ship the fixture", { exact: true }).click();
   await page.getByRole("option", { name: "In Progress", exact: true }).click();
   await page.getByRole("button", { name: "Move work item", exact: true }).click();
@@ -81,11 +81,9 @@ test("board: work items render by state, move applies, Done without evidence is 
   await expect.poll(() => (ws.prepare("SELECT state FROM work_items WHERE id='work-ui-1'").get() as { state: string }).state).toBe("review");
 
   await page.getByLabel("Move Ship the fixture", { exact: true }).click();
-  await page.getByRole("option", { name: "Done", exact: true }).click();
-  await page.getByRole("button", { name: "Move work item", exact: true }).click();
-  // The refusal alert sits behind the open dialog for assistive tech; close the dialog to read it.
+  await expect(page.getByRole("option", { name: "Done", exact: true })).toHaveAttribute("aria-disabled", "true");
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("alert")).toContainText(/evidence/i);
+  await expect(page.getByText("Evidence required for Done", { exact: true })).toBeVisible();
   expect((ws.prepare("SELECT state FROM work_items WHERE id='work-ui-1'").get() as { state: string }).state).toBe("review");
   expect(errors).toEqual([]);
 });
@@ -108,15 +106,15 @@ test("board: Done succeeds with explicitly bound verified evidence (T37)", async
 
   await openBoard(page);
   await expect(page.getByText("Verify the fixture", { exact: true })).toBeVisible();
-  await page.getByText("Manage Verify the fixture",{exact:true}).click();
+  await page.getByRole("button", { name: "Manage Verify the fixture" }).click();
   await page.getByLabel("Verified evidence for Verify the fixture", { exact: true }).click();
   await page.getByRole("option", { name: /1 passed criteria/ }).click();
   await page.getByLabel("Move Verify the fixture", { exact: true }).click();
   await page.getByRole("option", { name: "Done", exact: true }).click();
   await page.getByRole("button", { name: "Move work item", exact: true }).click();
   await expect.poll(() => (ws.prepare("SELECT state FROM work_items WHERE id='work-ui-2'").get() as { state: string }).state).toBe("done");
+  await expect(page.getByText(/verified evidence bound/i).first()).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByText(/evidence attached/i)).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -128,7 +126,7 @@ test("board: desktop drag and compact controls move a work item across columns (
   seedWorkItem(ws, "work-drag-1", "Drag the fixture", "ready");
   await openBoard(page);
   if (info.project.name.startsWith("390")) {
-    await page.getByText("Manage Drag the fixture", { exact: true }).click();
+    await page.getByRole("button", { name: "Manage Drag the fixture" }).click();
     await page.getByLabel("Move Drag the fixture", { exact: true }).click();
     await page.getByRole("option", { name: "In Progress", exact: true }).click();
     await page.getByRole("button", { name: "Move work item", exact: true }).click();

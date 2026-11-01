@@ -32,7 +32,7 @@ export default function ApprovalDetailPage(): JSX.Element {
   const [message, setMessage] = createSignal("");
   return <div class="flex flex-col gap-field-gap">
     <ActionFeedback message={message()} />
-    <ApprovalDetailScreen approval={approval.state().data} state={approval.state()} asOf={approval.state().asOf}
+    <ApprovalDetailScreen approval={approval.state().data} state={approval.state()} asOf={approval.state().asOf} active={app.canApprove()}
       onRefresh={() => void approval.refresh({ force: true })} onBack={() => void navigate("/approvals")}
       history={history.state().data ?? []}
       onRevoke={async (reason) => {

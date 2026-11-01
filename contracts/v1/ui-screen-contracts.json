@@ -1,767 +1,869 @@
 {
-  "contractVersion": "brain.ui-screen-contracts/v1",
-  "foundation": "NewUI",
-  "recipe": "examples/v1/web/BrainRecipes.tsx",
-  "compileStatus": "not-run",
-  "states": [
-    "loading",
-    "empty-authorized",
-    "ready",
-    "no-access",
-    "stale",
-    "partial-failure",
-    "retry",
-    "offline"
-  ],
-  "viewports": [
-    390,
-    768,
-    1440
-  ],
-  "themes": [
-    "light",
-    "dark"
-  ],
-  "screens": [
-    {
-      "route": "/today",
-      "queries": [
-        "today"
-      ],
-      "actions": [
-        "workflow.dispatch"
-      ],
-      "content": [
-        "priority",
-        "workspace",
-        "task",
-        "reason",
-        "freshness"
-      ],
-      "owner": "T34",
-      "navigationGroup": "today",
-      "task": "Handle prioritized work and return to the originating list",
-      "title": "Today"
-    },
-    {
-      "route": "/bridge",
-      "queries": [
-        "bridge"
-      ],
-      "actions": [],
-      "content": [
-        "workspace",
-        "health",
-        "attention",
-        "freshness"
-      ],
-      "owner": "T34",
-      "navigationGroup": "today",
-      "task": "Handle prioritized work and return to the originating list",
-      "title": "Bridge"
-    },
-    {
-      "route": "/w/:id/overview",
-      "queries": [
-        "workspace.context",
-        "jobs.list"
-      ],
-      "actions": [
-        "workflow.dispatch"
-      ],
-      "content": [
-        "state",
-        "outcomes",
-        "pending",
-        "connectivity"
-      ],
-      "owner": "T34",
-      "navigationGroup": "work",
-      "task": "Review workspace work and pack details",
-      "title": "Overview"
-    },
-    {
-      "route": "/w/:id/board",
-      "queries": [
-        "board.get"
-      ],
-      "actions": [
-        "board.create",
-        "board.move",
-        "board.comment"
-      ],
-      "content": [
-        "title",
-        "state",
-        "criteria",
-        "evidence"
-      ],
-      "owner": "T37",
-      "navigationGroup": "work",
-      "task": "Review workspace work and pack details",
-      "title": "Board"
-    },
-    {
-      "route": "/w/:id/decisions",
-      "queries": [
-        "decisions.list"
-      ],
-      "actions": [
-        "decision.record"
-      ],
-      "content": [
-        "decision",
-        "actor",
-        "note",
-        "time"
-      ],
-      "owner": "T37",
-      "navigationGroup": "work",
-      "task": "Review workspace work and pack details",
-      "title": "Decisions"
-    },
-    {
-      "route": "/approvals",
-      "queries": [
-        "approvals.list"
-      ],
-      "actions": [],
-      "content": [
-        "action",
-        "workspace",
-        "target",
-        "expiry",
-        "evidence"
-      ],
-      "owner": "T35",
-      "navigationGroup": "approvals",
-      "task": "Review exact proposed effects and recover submitted decisions",
-      "title": "Approvals"
-    },
-    {
-      "route": "/approvals/:id",
-      "queries": [
-        "approval.get"
-      ],
-      "actions": [
-        "approval.decision",
-        "approval.revoke",
-        "approval.decision-status"
-      ],
-      "content": [
-        "exactContent",
-        "precondition",
-        "subjectDigest",
-        "history"
-      ],
-      "owner": "T35",
-      "navigationGroup": "approvals",
-      "task": "Review exact proposed effects and recover submitted decisions",
-      "title": "Approval review"
-    },
-    {
-      "route": "/jobs/:id",
-      "queries": [
-        "job.get",
-        "job.explain"
-      ],
-      "actions": [
-        "workflow.cancel",
-        "job.reconcile"
-      ],
-      "content": [
-        "state",
-        "attempts",
-        "blocker",
-        "evidence"
-      ],
-      "owner": "T36",
-      "navigationGroup": "runs",
-      "task": "Inspect a run, its attempts, events and evidence",
-      "title": "Run detail"
-    },
-    {
-      "route": "/runners",
-      "queries": [
-        "runners.list"
-      ],
-      "actions": [
-        "runner.drain",
-        "runner.quarantine"
-      ],
-      "content": [
-        "group",
-        "trust",
-        "health",
-        "capacity",
-        "freshness"
-      ],
-      "owner": "T36",
-      "navigationGroup": "runs",
-      "task": "Inspect a run, its attempts, events and evidence",
-      "title": "Runners"
-    },
-    {
-      "route": "/runners/:id",
-      "queries": [
-        "runner.get"
-      ],
-      "actions": [
-        "runner.drain",
-        "runner.quarantine"
-      ],
-      "content": [
-        "capabilities",
-        "attempts",
-        "reservations"
-      ],
-      "owner": "T36",
-      "navigationGroup": "runs",
-      "task": "Inspect a run, its attempts, events and evidence",
-      "title": "Runner detail"
-    },
-    {
-      "route": "/sessions/:id",
-      "queries": [
-        "session.get"
-      ],
-      "actions": [
-        "session.steer",
-        "session.stop"
-      ],
-      "content": [
-        "task",
-        "tools",
-        "usage",
-        "timeline"
-      ],
-      "owner": "T36",
-      "navigationGroup": "runs",
-      "task": "Inspect a run, its attempts, events and evidence",
-      "title": "Live session"
-    },
-    {
-      "route": "/w/:id/support",
-      "queries": [
-        "tickets.list",
-        "sla.summary"
-      ],
-      "actions": [
-        "workflow.dispatch"
-      ],
-      "content": [
-        "priority",
-        "ticket",
-        "state",
-        "sla"
-      ],
-      "owner": "T42",
-      "navigationGroup": "work",
-      "task": "Review workspace work and pack details",
-      "title": "Support"
-    },
-    {
-      "route": "/tickets/:id",
-      "queries": [
-        "ticket.get"
-      ],
-      "actions": [
-        "workflow.dispatch"
-      ],
-      "content": [
-        "body",
-        "draft",
-        "evidence",
-        "approval"
-      ],
-      "owner": "T42",
-      "navigationGroup": "work",
-      "task": "Review workspace work and pack details",
-      "title": "Ticket detail"
-    },
-    {
-      "route": "/w/:id/sre",
-      "queries": [
-        "incidents.list"
-      ],
-      "actions": [
-        "workflow.dispatch"
-      ],
-      "content": [
-        "severity",
-        "target",
-        "state",
-        "freshness"
-      ],
-      "owner": "T43",
-      "navigationGroup": "work",
-      "task": "Review workspace work and pack details",
-      "title": "Incidents"
-    },
-    {
-      "route": "/incidents/:id",
-      "queries": [
-        "incident.get"
-      ],
-      "actions": [
-        "workflow.dispatch"
-      ],
-      "content": [
-        "observations",
-        "remediation",
-        "evidence"
-      ],
-      "owner": "T43",
-      "navigationGroup": "work",
-      "task": "Review workspace work and pack details",
-      "title": "Incident detail"
-    },
-    {
-      "route": "/w/:id/delivery",
-      "queries": [
-        "delivery.list",
-        "delivery.get"
-      ],
-      "actions": [
-        "decision.record"
-      ],
-      "content": [
-        "source",
-        "criteria",
-        "risks",
-        "evidence"
-      ],
-      "owner": "T44",
-      "navigationGroup": "work",
-      "task": "Review workspace work and pack details",
-      "title": "Delivery"
-    },
-    {
-      "route": "/w/:id/knowledge",
-      "queries": [
-        "memory.search",
-        "knowledgeAssets.list",
-        "capabilityCandidates.list",
-        "capitalizationRuns.list"
-      ],
-      "actions": [
-        "memory.publish",
-        "memory.revoke",
-        "capitalization.run",
-        "capability.review",
-        "tool.publish"
-      ],
-      "content": [
-        "source",
-        "scope",
-        "freshness",
-        "review",
-        "capitalization",
-        "provenance",
-        "candidateTests",
-        "releaseGate"
-      ],
-      "owner": "T39",
-      "navigationGroup": "knowledge",
-      "task": "Find scoped facts and inspect trusted capabilities",
-      "title": "Knowledge"
-    },
-    {
-      "route": "/tools",
-      "queries": [
-        "tools.list"
-      ],
-      "actions": [
-        "tool.propose",
-        "tool.publish"
-      ],
-      "content": [
-        "name",
-        "state",
-        "effect",
-        "release",
-        "evidence"
-      ],
-      "owner": "T40",
-      "navigationGroup": "knowledge",
-      "task": "Find scoped facts and inspect trusted capabilities",
-      "title": "Tool catalog"
-    },
-    {
-      "route": "/settings",
-      "queries": [
-        "members.list",
-        "audit.list",
-        "platform.health",
-        "config.explain",
-        "organization.members.list",
-        "organization.member.get",
-        "organization.invitations.list",
-        "organization.auth-policy.get"
-      ],
-      "actions": [
-        "member.grant",
-        "member.revoke",
-        "config.activate",
-        "organization.invitation.create",
-        "organization.invitation.cancel",
-        "organization.invitation.retry",
-        "organization.member.role-grant",
-        "organization.member.role-revoke",
-        "organization.member.suspend",
-        "organization.member.reactivate",
-        "organization.session.revoke"
-      ],
-      "content": [
-        "members",
-        "people",
-        "invitations",
-        "access",
-        "authenticationPolicy",
-        "audit",
-        "health"
-      ],
-      "owner": "T48",
-      "navigationGroup": "settings",
-      "task": "Manage explicitly authorized administration",
-      "title": "Administration"
-    },
-    {
-      "route": "/accept-invitation/:id",
-      "queries": [],
-      "actions": [],
-      "content": ["invitedSignUp", "emailVerification", "explicitAcceptance"],
-      "owner": "T05",
-      "navigationGroup": "settings",
-      "task": "Verify an invited account and accept organization membership",
-      "title": "Accept invitation"
-    },
-    {
-      "route": "/tv/support",
-      "queries": [
-        "tickets.list",
-        "sla.summary"
-      ],
-      "actions": [],
-      "content": [
-        "aggregateStatus",
-        "freshness"
-      ],
-      "owner": "T45",
-      "navigationGroup": "tv",
-      "task": "Read scoped redacted monitoring",
-      "title": "Support board"
-    },
-    {
-      "route": "/tv/sre",
-      "queries": [
-        "incidents.list"
-      ],
-      "actions": [],
-      "content": [
-        "aggregateStatus",
-        "freshness"
-      ],
-      "owner": "T45",
-      "navigationGroup": "tv",
-      "task": "Read scoped redacted monitoring",
-      "title": "SRE board"
-    },
-    {
-      "route": "/w/:id/runs",
-      "queries": [
-        "jobs.list",
-        "sessions.list",
-        "runners.list"
-      ],
-      "actions": [
-        "workflow.dispatch"
-      ],
-      "content": [
-        "jobs",
-        "sessions",
-        "runners"
-      ],
-      "owner": "T36",
-      "navigationGroup": "runs",
-      "task": "Inspect a run, its attempts, events and evidence",
-      "title": "Activity"
-    },
-    {
-      "route": "/w/:id/agents",
-      "queries": [
-        "agents.list",
-        "agents.get"
-      ],
-      "actions": [
-        "workflow.dispatch"
-      ],
-      "content": [
-        "release",
-        "instructions",
-        "engine",
-        "limits"
-      ],
-      "owner": "T34",
-      "navigationGroup": "work",
-      "task": "Inspect active agent and workflow definitions and dispatch schema-validated inputs",
-      "title": "Agents"
-    },
-    {
-      "route": "/w/:id/workflows",
-      "queries": ["workflows.list", "workflows.get"],
-      "actions": ["workflow.dispatch"],
-      "content": ["release", "input-schema", "engine", "dependencies"],
-      "owner": "T34",
-      "navigationGroup": "work",
-      "task": "Inspect active agent and workflow definitions and dispatch schema-validated inputs",
-      "title": "Start work"
-    },
-    {
-      "route": "/w/:id/plans",
-      "queries": ["objectives.list", "workBoard.get"],
-      "actions": ["objective.create", "plan.propose", "plan.confirm"],
-      "content": ["objective", "planVersion", "tasks", "dependencies", "assignments"],
-      "owner": "T51",
-      "navigationGroup": "work",
-      "task": "Turn an intention into a reviewed plan and versioned work",
-      "title": "Plans"
-    },
-    {
-      "route": "/w/:id/schedules",
-      "queries": ["automations.list", "automations.occurrences"],
-      "actions": ["automation.upsert", "automation.control"],
-      "content": ["target", "trigger", "nextOccurrences", "overlap", "misfire", "history"],
-      "owner": "T52",
-      "navigationGroup": "work",
-      "task": "Schedule and control task and workflow occurrences",
-      "title": "Schedules"
-    },
-    {
-      "route": "/w/:id/resources",
-      "queries": ["documents.list", "documents.get", "documents.search"],
-      "actions": ["document.upload", "document.revise", "document.associate", "document.delete"],
-      "content": ["documents", "versions", "preview", "scope", "associations", "indexing"],
-      "owner": "T54",
-      "navigationGroup": "work",
-      "task": "Manage and use workspace documents",
-      "title": "Resources"
-    },
-    {
-      "route": "/studio/:kind",
-      "queries": ["configDrafts.list"],
-      "actions": ["configDraft.create"],
-      "content": ["definitions", "drafts", "validation", "dependencies"],
-      "owner": "T56",
-      "navigationGroup": "knowledge",
-      "task": "Create and validate a capability without editing YAML",
-      "title": "Studio"
-    },
-    {
-      "route": "/studio/:kind/:draftId",
-      "queries": ["configDrafts.get", "configDrafts.impact"],
-      "actions": ["configDraft.update", "configDraft.validate", "configDraft.test", "configDraft.publish"],
-      "content": ["editor", "diagnostics", "diff", "tests", "publication"],
-      "owner": "T56",
-      "navigationGroup": "knowledge",
-      "task": "Edit, test, review and publish an immutable definition",
-      "title": "Configuration Studio"
-    },
-    {
-      "route": "/administration/integrations",
-      "queries": ["integrations.list", "integrations.repositories"],
-      "actions": ["integration.connect", "integration.bind", "integration.verify"],
-      "content": ["providers", "organizations", "repositories", "permissions", "webhooks", "status"],
-      "owner": "T55",
-      "navigationGroup": "administration",
-      "task": "Connect Git providers and bind repositories to workspaces",
-      "title": "Integrations"
-    }
-  ],
-  "specialActions": [
+ "contractVersion": "brain.ui-screen-contracts/v1",
+ "foundation": "NewUI",
+ "recipe": "examples/v1/web/BrainRecipes.tsx",
+ "compileStatus": "not-run",
+ "states": [
+  "loading",
+  "empty-authorized",
+  "ready",
+  "no-access",
+  "stale",
+  "partial-failure",
+  "retry",
+  "offline"
+ ],
+ "viewports": [
+  390,
+  768,
+  1440
+ ],
+ "themes": [
+  "light",
+  "dark"
+ ],
+ "screens": [
+  {
+   "route": "/today",
+   "queries": [
+    "today"
+   ],
+   "actions": [
+    "workflow.dispatch"
+   ],
+   "content": [
+    "priority",
+    "workspace",
+    "task",
+    "reason",
+    "freshness"
+   ],
+   "owner": "T34",
+   "navigationGroup": "today",
+   "task": "Handle prioritized work and return to the originating list",
+   "title": "Today"
+  },
+  {
+   "route": "/bridge",
+   "queries": [
+    "bridge"
+   ],
+   "actions": [
+    "workspace.update",
+    "workspace.control"
+   ],
+   "content": [
+    "workspace",
+    "health",
+    "attention",
+    "freshness"
+   ],
+   "owner": "T34",
+   "navigationGroup": "today",
+   "task": "Handle prioritized work and return to the originating list",
+   "title": "Bridge"
+  },
+  {
+   "route": "/w/:id/overview",
+   "queries": [
+    "workspace.context",
+    "jobs.list"
+   ],
+   "actions": [
+    "workflow.dispatch",
+    "workspace.update",
+    "workspace.control"
+   ],
+   "content": [
+    "state",
+    "outcomes",
+    "pending",
+    "connectivity"
+   ],
+   "owner": "T34",
+   "navigationGroup": "work",
+   "task": "Review workspace work and pack details",
+   "title": "Overview"
+  },
+  {
+   "route": "/w/:id/board",
+   "queries": [
+    "board.get"
+   ],
+   "actions": [
+    "board.create",
+    "board.move",
+    "board.comment"
+   ],
+   "content": [
+    "title",
+    "state",
+    "criteria",
+    "evidence"
+   ],
+   "owner": "T37",
+   "navigationGroup": "work",
+   "task": "Review workspace work and pack details",
+   "title": "Board"
+  },
+  {
+   "route": "/w/:id/decisions",
+   "queries": [
+    "decisions.list"
+   ],
+   "actions": [
+    "decision.record"
+   ],
+   "content": [
+    "decision",
+    "actor",
+    "note",
+    "time"
+   ],
+   "owner": "T37",
+   "navigationGroup": "work",
+   "task": "Review workspace work and pack details",
+   "title": "Decisions"
+  },
+  {
+   "route": "/approvals",
+   "queries": [
+    "approvals.list"
+   ],
+   "actions": [],
+   "content": [
+    "action",
+    "workspace",
+    "target",
+    "expiry",
+    "evidence"
+   ],
+   "owner": "T35",
+   "navigationGroup": "approvals",
+   "task": "Review exact proposed effects and recover submitted decisions",
+   "title": "Approvals"
+  },
+  {
+   "route": "/approvals/:id",
+   "queries": [
+    "approval.get"
+   ],
+   "actions": [
     "approval.decision",
+    "approval.revoke",
     "approval.decision-status"
-  ],
-  "readOnlyPrincipals": {
-    "kiosk": "server-redacted aggregate view; never private ticket bodies or mutation"
+   ],
+   "content": [
+    "exactContent",
+    "precondition",
+    "subjectDigest",
+    "history"
+   ],
+   "owner": "T35",
+   "navigationGroup": "approvals",
+   "task": "Review exact proposed effects and recover submitted decisions",
+   "title": "Approval review"
   },
-  "primaryNavigation": [
-    {
-      "id": "today",
-      "label": "Today",
-      "entryRoute": "/today"
-    },
-    {
-      "id": "work",
-      "label": "Work",
-      "entryRoute": "/w/:id/board"
-    },
-    {
-      "id": "runs",
-      "label": "Activity",
-      "entryRoute": "/w/:id/runs"
-    },
-    {
-      "id": "approvals",
-      "label": "Approvals",
-      "entryRoute": "/approvals"
-    },
-    {
-      "id": "knowledge",
-      "label": "Knowledge",
-      "entryRoute": "/w/:id/knowledge"
-    },
-    {
-      "id": "administration",
-      "label": "Administration",
-      "entryRoute": "/settings"
-    }
-  ],
-  "secondaryNavigation": {
-    "settings": "account-menu",
-    "tv": "dedicated-kiosk-entry"
-  },
-  "sharedRunDetail": [
-    "summary",
+  {
+   "route": "/jobs/:id",
+   "queries": [
+    "job.get",
+    "job.explain"
+   ],
+   "actions": [
+    "workflow.cancel",
+    "job.reconcile"
+   ],
+   "content": [
+    "state",
     "attempts",
-    "timeline",
-    "evidence",
-    "placement"
-  ],
-  "approvalRecovery": {
-    "statuses": [
-      "review",
-      "submitting",
-      "unknown",
-      "checking",
-      "confirmed",
-      "stale",
-      "denied"
-    ],
-    "unknownAction": "Check decision",
-    "idempotencyKey": "one captured key per exact request; recovery reuses it",
-    "effectSuccessImpliedByDecision": false
+    "blocker",
+    "evidence"
+   ],
+   "owner": "T36",
+   "navigationGroup": "runs",
+   "task": "Inspect a run, its attempts, events and evidence",
+   "title": "Run detail"
   },
-  "areaNavigation": {
-    "today": [
-      {
-        "label": "Today",
-        "route": "/today"
-      },
-      {
-        "label": "Bridge",
-        "route": "/bridge"
-      }
-    ],
-    "work": [
-      {
-        "label": "Overview",
-        "route": "/w/:id/overview"
-      },
-      {
-        "label": "Plans",
-        "route": "/w/:id/plans"
-      },
-      {
-        "label": "Board",
-        "route": "/w/:id/board"
-      },
-      {
-        "label": "Tasks",
-        "route": "/w/:id/workflows"
-      },
-      {
-        "label": "Schedules",
-        "route": "/w/:id/schedules"
-      },
-      {
-        "label": "Resources",
-        "route": "/w/:id/resources"
-      },
-      {
-        "label": "Support",
-        "route": "/w/:id/support"
-      },
-      {
-        "label": "Incidents",
-        "route": "/w/:id/sre"
-      },
-      {
-        "label": "Delivery",
-        "route": "/w/:id/delivery"
-      },
-      {
-        "label": "Decisions",
-        "route": "/w/:id/decisions"
-      }
-    ],
-    "administration": [
-      {
-        "label": "Setup",
-        "route": "/settings?tab=setup",
-        "adminOnly": true,
-        "organizationOnly": true
-      },
-      {
-        "label": "Security",
-        "route": "/settings?tab=security"
-      },
-      {
-        "label": "Integrations",
-        "route": "/administration/integrations",
-        "adminOnly": true,
-        "organizationOnly": true
-      },
-      {
-        "label": "Releases",
-        "route": "/settings?tab=release",
-        "adminOnly": true,
-        "organizationOnly": true
-      },
-      {
-        "label": "Agents",
-        "route": "/w/:id/agents",
-        "adminOnly": true
-      },
-      {
-        "label": "Tools",
-        "route": "/tools",
-        "adminOnly": true
-      },
-      {
-        "label": "Runners",
-        "route": "/runners",
-        "adminOnly": true
-      },
-      {
-        "label": "People",
-        "route": "/settings?tab=people",
-        "adminOnly": true,
-        "identityOnly": true
-      },
-      {
-        "label": "Invitations",
-        "route": "/settings?tab=invitations",
-        "adminOnly": true,
-        "identityOnly": true
-      },
-      {
-        "label": "Access",
-        "route": "/settings?tab=members",
-        "adminOnly": true
-      },
-      {
-        "label": "Authentication",
-        "route": "/settings?tab=policy",
-        "adminOnly": true,
-        "identityOnly": true
-      },
-      {
-        "label": "Health",
-        "route": "/settings?tab=health",
-        "adminOnly": true,
-        "organizationOnly": true
-      }
-    ]
+  {
+   "route": "/runners",
+   "queries": [
+    "runners.list"
+   ],
+   "actions": [
+    "runner.drain",
+    "runner.quarantine",
+    "runner.control"
+   ],
+   "content": [
+    "group",
+    "trust",
+    "health",
+    "capacity",
+    "freshness"
+   ],
+   "owner": "T36",
+   "navigationGroup": "runs",
+   "task": "Inspect a run, its attempts, events and evidence",
+   "title": "Runners"
+  },
+  {
+   "route": "/runners/:id",
+   "queries": [
+    "runner.get"
+   ],
+   "actions": [
+    "runner.drain",
+    "runner.quarantine",
+    "runner.control"
+   ],
+   "content": [
+    "capabilities",
+    "attempts",
+    "reservations"
+   ],
+   "owner": "T36",
+   "navigationGroup": "runs",
+   "task": "Inspect a run, its attempts, events and evidence",
+   "title": "Runner detail"
+  },
+  {
+   "route": "/sessions/:id",
+   "queries": [
+    "session.get"
+   ],
+   "actions": [
+    "session.steer",
+    "session.stop"
+   ],
+   "content": [
+    "task",
+    "tools",
+    "usage",
+    "timeline"
+   ],
+   "owner": "T36",
+   "navigationGroup": "runs",
+   "task": "Inspect a run, its attempts, events and evidence",
+   "title": "Live session"
+  },
+  {
+   "route": "/w/:id/support",
+   "queries": [
+    "tickets.list",
+    "sla.summary"
+   ],
+   "actions": [
+    "workflow.dispatch"
+   ],
+   "content": [
+    "priority",
+    "ticket",
+    "state",
+    "sla"
+   ],
+   "owner": "T58",
+   "navigationGroup": "work",
+   "task": "Review workspace work and pack details",
+   "title": "Support"
+  },
+  {
+   "route": "/tickets/:id",
+   "queries": [
+    "ticket.get"
+   ],
+   "actions": [
+    "workflow.dispatch"
+   ],
+   "content": [
+    "body",
+    "draft",
+    "evidence",
+    "approval"
+   ],
+   "owner": "T58",
+   "navigationGroup": "work",
+   "task": "Review workspace work and pack details",
+   "title": "Ticket detail"
+  },
+  {
+   "route": "/w/:id/sre",
+   "queries": [
+    "incidents.list"
+   ],
+   "actions": [
+    "workflow.dispatch"
+   ],
+   "content": [
+    "severity",
+    "target",
+    "state",
+    "freshness"
+   ],
+   "owner": "T58",
+   "navigationGroup": "work",
+   "task": "Review workspace work and pack details",
+   "title": "Incidents"
+  },
+  {
+   "route": "/incidents/:id",
+   "queries": [
+    "incident.get"
+   ],
+   "actions": [
+    "workflow.dispatch"
+   ],
+   "content": [
+    "observations",
+    "remediation",
+    "evidence"
+   ],
+   "owner": "T58",
+   "navigationGroup": "work",
+   "task": "Review workspace work and pack details",
+   "title": "Incident detail"
+  },
+  {
+   "route": "/w/:id/delivery",
+   "queries": [
+    "delivery.list",
+    "delivery.get"
+   ],
+   "actions": [
+    "decision.record"
+   ],
+   "content": [
+    "source",
+    "criteria",
+    "risks",
+    "evidence"
+   ],
+   "owner": "T44",
+   "navigationGroup": "work",
+   "task": "Review workspace work and pack details",
+   "title": "Delivery"
+  },
+  {
+   "route": "/w/:id/knowledge",
+   "queries": [
+    "memory.search",
+    "knowledgeAssets.list",
+    "capabilityCandidates.list",
+    "capitalizationRuns.list"
+   ],
+   "actions": [
+    "memory.publish",
+    "memory.revoke",
+    "capitalization.run",
+    "capability.review",
+    "tool.publish"
+   ],
+   "content": [
+    "source",
+    "scope",
+    "freshness",
+    "review",
+    "capitalization",
+    "provenance",
+    "candidateTests",
+    "releaseGate"
+   ],
+   "owner": "T39",
+   "navigationGroup": "knowledge",
+   "task": "Find scoped facts and inspect trusted capabilities",
+   "title": "Knowledge"
+  },
+  {
+   "route": "/tools",
+   "queries": [
+    "tools.list"
+   ],
+   "actions": [
+    "tool.propose",
+    "tool.publish"
+   ],
+   "content": [
+    "name",
+    "state",
+    "effect",
+    "release",
+    "evidence"
+   ],
+   "owner": "T40",
+   "navigationGroup": "knowledge",
+   "task": "Find scoped facts and inspect trusted capabilities",
+   "title": "Tool catalog"
+  },
+  {
+   "route": "/settings",
+   "queries": [
+    "members.list",
+    "audit.list",
+    "platform.health",
+    "config.explain",
+    "organization.members.list",
+    "organization.member.get",
+    "organization.invitations.list",
+    "organization.auth-policy.get"
+   ],
+   "actions": [
+    "member.grant",
+    "member.revoke",
+    "config.activate",
+    "organization.invitation.create",
+    "organization.invitation.cancel",
+    "organization.invitation.retry",
+    "organization.member.role-grant",
+    "organization.member.role-revoke",
+    "organization.member.suspend",
+    "organization.member.reactivate",
+    "organization.session.revoke"
+   ],
+   "content": [
+    "members",
+    "people",
+    "invitations",
+    "access",
+    "authenticationPolicy",
+    "audit",
+    "health"
+   ],
+   "owner": "T48",
+   "navigationGroup": "settings",
+   "task": "Manage explicitly authorized administration",
+   "title": "Administration"
+  },
+  {
+   "route": "/accept-invitation/:id",
+   "queries": [],
+   "actions": [],
+   "content": [
+    "invitedSignUp",
+    "emailVerification",
+    "explicitAcceptance"
+   ],
+   "owner": "T05",
+   "navigationGroup": "settings",
+   "task": "Verify an invited account and accept organization membership",
+   "title": "Accept invitation"
+  },
+  {
+   "route": "/tv/support",
+   "queries": [
+    "tickets.list",
+    "sla.summary"
+   ],
+   "actions": [],
+   "content": [
+    "aggregateStatus",
+    "freshness"
+   ],
+   "owner": "T45",
+   "navigationGroup": "tv",
+   "task": "Read scoped redacted monitoring",
+   "title": "Support board"
+  },
+  {
+   "route": "/tv/sre",
+   "queries": [
+    "incidents.list"
+   ],
+   "actions": [],
+   "content": [
+    "aggregateStatus",
+    "freshness"
+   ],
+   "owner": "T45",
+   "navigationGroup": "tv",
+   "task": "Read scoped redacted monitoring",
+   "title": "SRE board"
+  },
+  {
+   "route": "/w/:id/runs",
+   "queries": [
+    "jobs.list",
+    "sessions.list",
+    "runners.list"
+   ],
+   "actions": [
+    "workflow.dispatch"
+   ],
+   "content": [
+    "jobs",
+    "sessions",
+    "runners"
+   ],
+   "owner": "T36",
+   "navigationGroup": "runs",
+   "task": "Inspect a run, its attempts, events and evidence",
+   "title": "Activity"
+  },
+  {
+   "route": "/w/:id/agents",
+   "queries": [
+    "agents.list",
+    "agents.get"
+   ],
+   "actions": [
+    "workflow.dispatch",
+    "configDraft.create"
+   ],
+   "content": [
+    "release",
+    "instructions",
+    "engine",
+    "limits"
+   ],
+   "owner": "T34",
+   "navigationGroup": "work",
+   "task": "Inspect active agent and workflow definitions and dispatch schema-validated inputs",
+   "title": "Agents"
+  },
+  {
+   "route": "/w/:id/workflows",
+   "queries": [
+    "workflows.list",
+    "workflows.get"
+   ],
+   "actions": [
+    "workflow.dispatch",
+    "configDraft.create"
+   ],
+   "content": [
+    "release",
+    "input-schema",
+    "engine",
+    "dependencies"
+   ],
+   "owner": "T34",
+   "navigationGroup": "work",
+   "task": "Inspect active agent and workflow definitions and dispatch schema-validated inputs",
+   "title": "Start work"
+  },
+  {
+   "route": "/w/:id/plans",
+   "queries": [
+    "objectives.list",
+    "workBoard.get"
+   ],
+   "actions": [
+    "objective.create",
+    "plan.propose",
+    "plan.confirm"
+   ],
+   "content": [
+    "objective",
+    "planVersion",
+    "tasks",
+    "dependencies",
+    "assignments"
+   ],
+   "owner": "T51",
+   "navigationGroup": "work",
+   "task": "Turn an intention into a reviewed plan and versioned work",
+   "title": "Plans"
+  },
+  {
+   "route": "/w/:id/schedules",
+   "queries": [
+    "automations.list",
+    "automations.occurrences"
+   ],
+   "actions": [
+    "automation.upsert",
+    "automation.control"
+   ],
+   "content": [
+    "target",
+    "trigger",
+    "nextOccurrences",
+    "overlap",
+    "misfire",
+    "history"
+   ],
+   "owner": "T52",
+   "navigationGroup": "work",
+   "task": "Schedule and control task and workflow occurrences",
+   "title": "Schedules"
+  },
+  {
+   "route": "/w/:id/resources",
+   "queries": [
+    "documents.list",
+    "documents.get",
+    "documents.search"
+   ],
+   "actions": [
+    "document.upload",
+    "document.revise",
+    "document.associate",
+    "document.delete"
+   ],
+   "content": [
+    "documents",
+    "versions",
+    "preview",
+    "scope",
+    "associations",
+    "indexing"
+   ],
+   "owner": "T54",
+   "navigationGroup": "work",
+   "task": "Manage and use workspace documents",
+   "title": "Resources"
+  },
+  {
+   "route": "/studio/:kind",
+   "queries": [
+    "configDrafts.list"
+   ],
+   "actions": [
+    "configDraft.create"
+   ],
+   "content": [
+    "definitions",
+    "drafts",
+    "validation",
+    "dependencies"
+   ],
+   "owner": "T56",
+   "navigationGroup": "knowledge",
+   "task": "Create and validate a capability without editing YAML",
+   "title": "Studio"
+  },
+  {
+   "route": "/studio/:kind/:draftId",
+   "queries": [
+    "configDrafts.get",
+    "configDrafts.impact"
+   ],
+   "actions": [
+    "configDraft.update",
+    "configDraft.validate",
+    "configDraft.test",
+    "configDraft.publish"
+   ],
+   "content": [
+    "editor",
+    "diagnostics",
+    "diff",
+    "tests",
+    "publication"
+   ],
+   "owner": "T56",
+   "navigationGroup": "knowledge",
+   "task": "Edit, test, review and publish an immutable definition",
+   "title": "Configuration Studio"
+  },
+  {
+   "route": "/administration/integrations",
+   "queries": [
+    "integrations.list",
+    "integrations.repositories"
+   ],
+   "actions": [
+    "integration.connect",
+    "integration.bind",
+    "integration.verify"
+   ],
+   "content": [
+    "providers",
+    "organizations",
+    "repositories",
+    "permissions",
+    "webhooks",
+    "status"
+   ],
+   "owner": "T55",
+   "navigationGroup": "administration",
+   "task": "Connect Git providers and bind repositories to workspaces",
+   "title": "Integrations"
   }
+ ],
+ "specialActions": [
+  "approval.decision",
+  "approval.decision-status"
+ ],
+ "readOnlyPrincipals": {
+  "kiosk": "server-redacted aggregate view; never private ticket bodies or mutation"
+ },
+ "primaryNavigation": [
+  {
+   "id": "today",
+   "label": "Today",
+   "entryRoute": "/today"
+  },
+  {
+   "id": "work",
+   "label": "Work",
+   "entryRoute": "/w/:id/board"
+  },
+  {
+   "id": "runs",
+   "label": "Activity",
+   "entryRoute": "/w/:id/runs"
+  },
+  {
+   "id": "approvals",
+   "label": "Approvals",
+   "entryRoute": "/approvals"
+  },
+  {
+   "id": "knowledge",
+   "label": "Knowledge",
+   "entryRoute": "/w/:id/knowledge"
+  },
+  {
+   "id": "administration",
+   "label": "Administration",
+   "entryRoute": "/settings"
+  }
+ ],
+ "secondaryNavigation": {
+  "settings": "account-menu",
+  "tv": "dedicated-kiosk-entry"
+ },
+ "sharedRunDetail": [
+  "summary",
+  "attempts",
+  "timeline",
+  "evidence",
+  "placement"
+ ],
+ "approvalRecovery": {
+  "statuses": [
+   "review",
+   "submitting",
+   "unknown",
+   "checking",
+   "confirmed",
+   "stale",
+   "denied"
+  ],
+  "unknownAction": "Check decision",
+  "idempotencyKey": "one captured key per exact request; recovery reuses it",
+  "effectSuccessImpliedByDecision": false
+ },
+ "areaNavigation": {
+  "today": [
+   {
+    "label": "Today",
+    "route": "/today"
+   },
+   {
+    "label": "Bridge",
+    "route": "/bridge"
+   }
+  ],
+  "work": [
+   {
+    "label": "Overview",
+    "route": "/w/:id/overview"
+   },
+   {
+    "label": "Plans",
+    "route": "/w/:id/plans"
+   },
+   {
+    "label": "Board",
+    "route": "/w/:id/board"
+   },
+   {
+    "label": "Tasks",
+    "route": "/w/:id/workflows"
+   },
+   {
+    "label": "Schedules",
+    "route": "/w/:id/schedules"
+   },
+   {
+    "label": "Resources",
+    "route": "/w/:id/resources"
+   },
+   {
+    "label": "Support",
+    "route": "/w/:id/support"
+   },
+   {
+    "label": "Incidents",
+    "route": "/w/:id/sre"
+   },
+   {
+    "label": "Delivery",
+    "route": "/w/:id/delivery"
+   },
+   {
+    "label": "Decisions",
+    "route": "/w/:id/decisions"
+   }
+  ],
+  "administration": [
+   {
+    "label": "Setup",
+    "route": "/settings?tab=setup",
+    "adminOnly": true,
+    "organizationOnly": true
+   },
+   {
+    "label": "Security",
+    "route": "/settings?tab=security"
+   },
+   {
+    "label": "Integrations",
+    "route": "/administration/integrations",
+    "adminOnly": true,
+    "organizationOnly": true
+   },
+   {
+    "label": "Releases",
+    "route": "/settings?tab=release",
+    "adminOnly": true,
+    "organizationOnly": true
+   },
+   {
+    "label": "Agents",
+    "route": "/w/:id/agents",
+    "adminOnly": true
+   },
+   {
+    "label": "Tools",
+    "route": "/tools",
+    "adminOnly": true
+   },
+   {
+    "label": "Runners",
+    "route": "/runners",
+    "adminOnly": true
+   },
+   {
+    "label": "People",
+    "route": "/settings?tab=people",
+    "adminOnly": true,
+    "identityOnly": true
+   },
+   {
+    "label": "Invitations",
+    "route": "/settings?tab=invitations",
+    "adminOnly": true,
+    "identityOnly": true
+   },
+   {
+    "label": "Access",
+    "route": "/settings?tab=members",
+    "adminOnly": true
+   },
+   {
+    "label": "Authentication",
+    "route": "/settings?tab=policy",
+    "adminOnly": true,
+    "identityOnly": true
+   },
+   {
+    "label": "Health",
+    "route": "/settings?tab=health",
+    "adminOnly": true,
+    "organizationOnly": true
+   }
+  ]
+ }
 }

@@ -11,14 +11,14 @@ import type { CommandReceipt, OrganizationAdminCommand, PlanTask, WorkItemState 
  */
 export type CommandKind =
   | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop"
-  | "board.create" | "board.move" | "board.comment" | "decision.record" | "runner.drain" | "runner.quarantine"
+  | "board.create" | "board.move" | "board.comment" | "decision.record" | "runner.drain" | "runner.quarantine" | "runner.control"
   | "objective.create" | "plan.propose" | "plan.confirm" | "workItem.transition" | "workItem.comment"
   | "automation.upsert" | "automation.control"
   | "document.upload" | "document.revise" | "document.associate" | "document.delete"
   | "integration.connect" | "integration.verify" | "integration.bind"
   | "configDraft.create" | "configDraft.update" | "configDraft.validate" | "configDraft.test" | "configDraft.publish"
   | "member.grant" | "member.revoke" | "config.activate" | "memory.publish" | "memory.revoke"
-  | "tool.propose" | "tool.publish" | "capitalization.run" | "capability.review" | "approval.revoke" | "workspace.suspend" | "workspace.export" | "workspace.import"
+  | "tool.propose" | "tool.publish" | "capitalization.run" | "capability.review" | "approval.revoke" | "workspace.update" | "workspace.control" | "workspace.suspend" | "workspace.export" | "workspace.import"
   | OrganizationAdminCommand["commandType"];
 
 export interface CommandContext {
@@ -45,7 +45,8 @@ export type PayloadFor<K extends CommandKind> =
                 : K extends "board.comment" ? { cardId: string; text: string }
                   : K extends "decision.record" ? { cardId: string; decision: "go" | "no" | "not-now" | "need-more-data"; note: string }
                     : K extends "runner.drain" | "runner.quarantine" ? { runnerId: string; reason: string }
-                      : K extends "member.grant" ? { principalId: string; role: string; reason: string }
+                      : K extends "runner.control" ? { runnerId: string; action: "enable" | "disable" | "rotate" | "deregister"; reason: string }
+                        : K extends "member.grant" ? { principalId: string; role: string; reason: string }
                         : K extends "member.revoke" ? { principalId: string; role: string; reason: string }
                           : K extends "config.activate" ? { configDigest: string; expectedActiveDigest: string | null }
                             : K extends "memory.publish" ? { candidateId: string; sourceWorkspaceId: string; targetScope: unknown; content: unknown; evidenceDigests: string[]; reviewerId: string; redactionProfile: unknown }
@@ -55,11 +56,13 @@ export type PayloadFor<K extends CommandKind> =
                                     : K extends "capitalization.run" ? Record<string, never>
                                       : K extends "capability.review" ? { candidateId: string; decision: "approve" | "reject"; reason: string }
                                         : K extends "approval.revoke" ? { approvalId: string; reason: string }
-                                      : K extends "workspace.suspend" ? { workspaceId: string; reason: string }
-                                        : K extends "workspace.export" ? { workspaceId: string }
+                                      : K extends "workspace.update" ? { workspaceId: string; displayName: string; description: string; ownerId: string; tags: string[] }
+                                          : K extends "workspace.control" ? { workspaceId: string; action: "suspend" | "resume" | "archive"; reason: string }
+                                            : K extends "workspace.suspend" ? { workspaceId: string; reason: string }
+                                              : K extends "workspace.export" ? { workspaceId: string }
                                           : K extends "workspace.import" ? { workspaceId: string; bundle: unknown }
                                             : K extends "automation.upsert" ? { automationId?: string; title?: string; target: { kind: "workflow" | "workItem"; id: string }; trigger: { kind: "cron"; cron: string; timezone: string } | { kind: "once"; scheduledAt: string } | { kind: "manual" }; input?: unknown; overlap?: "skip" | "queue-one"; misfire?: "skip" | "coalesce"; execution?: { mode: "managed" } | { mode: "personal-host"; runnerId: string; offlinePolicy: "wait" | "fail" } }
-                                              : K extends "automation.control" ? { automationId: string; action: "pause" | "resume" | "runNow"; reason?: string }
+                                              : K extends "automation.control" ? { automationId: string; action: "pause" | "resume" | "runNow" | "retire"; reason?: string }
                                                 : K extends "document.upload" ? { title: string; fileName: string; mediaType: string; bytesBase64: string }
                                                   : K extends "document.revise" ? { documentId: string; title: string; fileName: string; mediaType: string; bytesBase64: string }
                                                     : K extends "document.associate" ? { documentId: string; resource: { kind: "workItem" | "objective" | "session" | "run"; id: string } }
@@ -67,8 +70,8 @@ export type PayloadFor<K extends CommandKind> =
                                                         : K extends "integration.connect" ? { name: string; repositoryUrl: string; username?: string; token?: string }
                                                           : K extends "integration.verify" ? { connectionId: string }
                                                             : K extends "integration.bind" ? { connectionId: string; workspaceId: string; kind: "configuration" | "project"; repositoryKey: string; access: "read" | "write" }
-                                                              : K extends "configDraft.create" ? { title: string; kind?: string; bindingId?: string; documents?: Array<{ path: string; text: string }> }
-                                                                : K extends "configDraft.update" ? { draftId: string; documents: Array<{ path: string; text: string }>; source?: "visual" | "yaml" }
+                                                              : K extends "configDraft.create" ? { title: string; kind?: string; bindingId?: string; documents?: Array<{ path: string; text: string }>; assets?: Array<{ path: string; text: string }>; sourceDefinition?: { kind: "Agent" | "Workflow" | "RunnerGroup" | "Policy"; id: string; mode: "edit" | "duplicate" } }
+                                                                : K extends "configDraft.update" ? { draftId: string; documents: Array<{ path: string; text: string }>; assets?: Array<{ path: string; text: string }>; source?: "visual" | "yaml" }
                                                                   : K extends "configDraft.validate" | "configDraft.test" ? { draftId: string }
                                                                     : K extends "configDraft.publish" ? { draftId: string; bindingId?: string }
                                                                       : K extends OrganizationAdminCommand["commandType"] ? OrganizationAdminCommand["payload"]

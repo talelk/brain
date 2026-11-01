@@ -7,6 +7,7 @@ import { createApp } from "../../apps/governor/src/http/app";
 import { issueMachineSession } from "../../apps/governor/src/application/authz";
 import { setupCredential, setupWorld, DIGEST_A } from "../helpers";
 import { totpCode } from "../support/totp";
+import { fixtureStarter } from "../support/starter";
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const close of cleanup.splice(0)) await close(); vi.restoreAllMocks(); });
@@ -262,5 +263,10 @@ it("required 2FA gates both runner-token issuance and guided local pairing", asy
   const secret = new URL((await enabled.json() as { totpURI: string }).totpURI).searchParams.get("secret")!;
   const verified = await send("/api/auth/two-factor/verify-totp", { code: totpCode(secret, Date.now()), trustDevice: false }, boot.sessionToken);
   expect(verified.status).toBe(200);
-  expect((await send("/v1/runner-tokens", { groupId: "agents" }, verified.headers.get("set-auth-token")!)).status).toBe(201);
+  const token = verified.headers.get("set-auth-token")!;
+  const identity = await app.brain.resolveActor(new Headers({ authorization: `Bearer ${token}` }));
+  const bundle = fixtureStarter();
+  const release = app.brain.stageRelease(identity.actor, bundle.documents, bundle.sourceRevision, bundle.scripts, bundle.instructions, bundle.schemas);
+  app.brain.activateRelease(identity.actor, release.digest);
+  expect((await send("/v1/runner-tokens", { groupId: "agents" }, token)).status).toBe(201);
 });

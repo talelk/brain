@@ -1,10 +1,11 @@
 import { createEffect, createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
-import { Badge, Button, TextInput } from "@talelk/newui-atoms";
+import { Badge, Button, createMediaQuery, TextInput } from "@talelk/newui-atoms";
 import { Alert, Dialog, Select } from "@talelk/newui-molecules";
 import { KanbanBoard } from "@talelk/newui-organisms";
 import type { KanbanColumn, KanbanTone } from "@talelk/newui-organisms";
+import { PaneLayout } from "@talelk/newui-templates";
 import type { WorkBoardView, WorkItem, WorkItemState } from "@brain/contracts";
 import type { ScreenState } from "../../data/screens";
 import { ScreenRegion } from "../screen-region";
@@ -12,6 +13,7 @@ import { BrainPage, PageStack } from "./PageLayout";
 import { WorkItemTasks } from "./WorkItemTasks";
 import { EvidenceBundleSelector } from "./ArtifactSelectors";
 import { EvidenceList } from "./EvidenceList";
+import { EmptyPreview, WorkspaceSection } from "./Domain";
 
 const CARD_ACCENT: Record<WorkItemState, string> = {
   backlog: "border-s-outline-gray-3", ready: "border-s-outline-blue-3", "in-progress": "border-s-outline-blue-3",
@@ -24,6 +26,41 @@ const STATES: readonly { id: WorkItemState; name: string; theme: KanbanTone }[] 
   { id: "review", name: "Review", theme: "amber" }, { id: "done", name: "Done", theme: "green" },
 ];
 
+function WorkItemDetail(props: {
+  item: WorkItem;
+  objective: string;
+  comment: string;
+  evidence: string;
+  move: string;
+  reason: string;
+  onComment: (value: string) => void;
+  onEvidence: (value: string) => void;
+  onMove: (value: string) => void;
+  onReason: (value: string) => void;
+  onAddComment: () => void;
+  onTransition: () => void;
+  onBack: () => void;
+}): JSX.Element {
+  const item = () => props.item;
+  const verified = () => Boolean(item().evidenceDigest || props.evidence);
+  const doneBlocked = () => props.move === "done" && !verified();
+  return <PageStack>
+    <WorkspaceSection title={item().title} description={`${props.objective} · record v${item().version}`} actions={<Button size="lg" variant="ghost" iconLeft="lucide-arrow-left" onClick={props.onBack}>Back to board</Button>}>
+      <div class="flex flex-wrap gap-2"><Badge variant="outline" theme="blue" label={item().state} /><Badge variant="outline" theme={item().evidenceDigest ? "green" : "gray"} label={item().evidenceDigest ? "Verified evidence bound" : "Evidence required for Done"} /></div>
+    </WorkspaceSection>
+    <div class="border-y border-outline-gray-1 py-4"><h3 class="text-base-medium">Next action</h3><p class="mt-1 text-interface text-ink-gray-7">{item().nextAction}</p><Show when={item().blockedReason}><Alert theme="amber" variant="outline" title="Blocked" description={item().blockedReason} /></Show></div>
+    <div><h3 class="text-base-medium">Acceptance criteria</h3><ul class="mt-2 list-disc ps-5 text-interface text-ink-gray-7"><For each={item().criteria}>{(criterion) => <li>{criterion}</li>}</For></ul></div>
+    <Show when={item().evidenceDigest}><EvidenceList bundleDigest={item().evidenceDigest} /></Show>
+    <WorkItemTasks origin={{ kind: "work-item", id: item().workItemId }} />
+    <EvidenceBundleSelector label={`Verified evidence for ${item().title}`} onSelect={props.onEvidence} />
+    <Select label={`Move ${item().title}`} value={props.move || null} options={STATES.filter((state) => state.id !== item().state).map((state) => ({ value: state.id, label: state.name, disabled: state.id === "done" && !verified() }))} onValueChange={(state) => props.onMove(state ?? "")} />
+    <Show when={props.move === "blocked"}><TextInput label="Blocking reason" value={props.reason} onInput={(event) => props.onReason(event.currentTarget.value)} required /></Show>
+    <Show when={doneBlocked()}><Alert theme="amber" variant="outline" title="Verified evidence is required" description="Choose an independently verified evidence bundle before selecting Done. Author output alone cannot complete this work." /></Show>
+    <TextInput label="Add a comment" value={props.comment} onInput={(event) => props.onComment(event.currentTarget.value)} />
+    <div class="flex flex-wrap gap-2 border-t border-outline-gray-1 pt-4"><Button size="lg" variant="outline" disabled={!props.comment.trim()} onClick={props.onAddComment}>Add comment</Button><Button size="lg" theme="blue" disabled={!props.move || doneBlocked() || (props.move === "blocked" && !props.reason.trim())} onClick={props.onTransition}>Move work item</Button></div>
+  </PageStack>;
+}
+
 export function WorkBoard(props: {
   board?: WorkBoardView;
   selectedId?: string;
@@ -35,6 +72,7 @@ export function WorkBoard(props: {
   onComment: (item: WorkItem, text: string) => Promise<void>;
 }): JSX.Element {
   const navigate = useNavigate();
+  const desktop = createMediaQuery("(min-width: 1024px)");
   const [comment, setComment] = createSignal("");
   const [evidence, setEvidence] = createSignal("");
   const [move, setMove] = createSignal("");
@@ -45,45 +83,34 @@ export function WorkBoard(props: {
   createEffect(() => { if (props.selectedId) { setComment(""); setEvidence(""); setMove(""); setReason(""); } });
   const columns = (): KanbanColumn<BoardCard>[] => STATES.map((state) => ({ id: state.id, name: state.name, theme: state.theme, items: cards().filter((item) => item.state === state.id) }));
   const objective = (item: WorkItem) => props.board?.objectives.find((entry) => entry.objectiveId === item.objectiveId)?.title ?? item.objectiveId;
-  return <BrainPage title="Work board" description="The operational view of reviewed plans, assignments, dependencies, executions and verified outcomes."
+  const detail = (item: WorkItem, onBack: () => void) => <WorkItemDetail item={item} objective={objective(item)} comment={comment()} evidence={evidence()} move={move()} reason={reason()}
+    onComment={setComment} onEvidence={setEvidence} onMove={setMove} onReason={setReason} onBack={onBack}
+    onAddComment={() => void props.onComment(item, comment().trim()).then(() => setComment(""))}
+    onTransition={() => void props.onTransition(item, move() as WorkItemState, evidence().trim() || undefined, reason().trim() || undefined)} />;
+  const board = <div class="brain-kanban-fit"><KanbanBoard columns={columns()} label="Work items" itemLabel={(item) => item.title} onMove={(next) => {
+    const item = next.item;
+    if (next.to.column === "done" && !item.evidenceDigest) { props.onSelected(item.workItemId); setMove("done"); return; }
+    if (next.to.column !== item.state) void props.onTransition(item, next.to.column as WorkItemState, item.evidenceDigest);
+  }}>
+    {(item) => <div class={`flex flex-col gap-2 rounded-control border-s-2 p-1 ${CARD_ACCENT[item.state]} ${selected()?.workItemId === item.workItemId ? "bg-surface-blue-1" : ""}`}>
+      <div><p class="text-base-medium text-ink-gray-9">{item.title}</p><p class="mt-1 truncate text-caption text-ink-gray-6">{objective(item)}</p></div>
+      <p class="text-caption text-ink-gray-7">{item.blockedReason ?? item.nextAction}</p>
+      <div class="flex flex-wrap gap-1.5"><Show when={item.assignment}><Badge size="sm" theme="blue" label={item.assignment?.kind === "human" ? item.assignment?.id : `${item.assignment?.kind}: ${item.assignment?.id}`} /></Show><Show when={item.dependsOn.length}><Badge size="sm" theme="gray" label={`${item.dependsOn.length} dependencies`} /></Show><Badge size="sm" variant="outline" theme={item.evidenceDigest ? "green" : "gray"} label={item.evidenceDigest ? "Evidence ready" : `${item.criteria.length} criteria`} /></div>
+      <Button variant="ghost" size="sm" iconRight="lucide-arrow-right" class="self-start" aria-label={`Manage ${item.title}`} onClick={() => props.onSelected(item.workItemId)}>Manage</Button>
+    </div>}
+  </KanbanBoard></div>;
+
+  return <BrainPage title="Work board" description="Move reviewed work through clear states; Done remains gated by independently verified evidence."
     actions={<Button size="lg" theme="blue" iconLeft="lucide-plus" onClick={() => void navigate(`/w/${props.board?.workspaceId}/plans`)}>New objective</Button>}>
     <PageStack>
-      <Show when={props.conflict}><Alert theme="amber" variant="outline" title="This work changed" description={props.conflict} /></Show>
+      <Show when={props.conflict}><Alert theme="amber" variant="outline" title="This work changed; your intended move is preserved" description={props.conflict} /></Show>
       <ScreenRegion state={props.state} skeleton="cards" emptyTitle="No planned work" emptyDescription="Create an objective and confirm a plan to populate the board." onRetry={props.onRefresh}>
-        <KanbanBoard columns={columns()} label="Work items" onMove={(next) => {
-          const item = next.item;
-          if (next.to.column !== item.state) void props.onTransition(item, next.to.column as WorkItemState, item.evidenceDigest);
-        }}>
-          {(item) => <div class={`flex flex-col gap-2 border-s-2 ${CARD_ACCENT[item.state]}`}>
-            <div><p class="text-base-medium text-ink-gray-9">{item.title}</p><p class="mt-1 text-caption text-ink-gray-6">{objective(item)}</p></div>
-            <p class="text-caption text-ink-gray-7">{item.nextAction}</p>
-            <div class="flex flex-wrap gap-2"><Show when={item.assignment}><Badge theme="blue" label={item.assignment?.kind === "human" ? item.assignment?.id : `${item.assignment?.kind}: ${item.assignment?.id}`} /></Show><Show when={item.dependsOn.length}><Badge theme="gray" label={`${item.dependsOn.length} dependencies`} /></Show><Show when={item.evidenceDigest}><Badge theme="green" label="Evidence attached" /></Show></div>
-            <Button variant="ghost" size="sm" iconRight="lucide-arrow-right" class="self-start" onClick={() => props.onSelected(item.workItemId)}>Manage {item.title}</Button>
-          </div>}
-        </KanbanBoard>
+        <Show when={desktop()} fallback={<>{board}<Dialog.Root open={Boolean(selected())} onOpenChange={(open) => { if (!open) props.onSelected(); }}>
+          <Dialog.Content size="lg" class="max-sm:fixed max-sm:inset-0 max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none"><Show when={selected()} keyed>{(item) => <div class="my-4 max-h-[80dvh] overflow-y-auto pe-1">{detail(item, () => props.onSelected())}</div>}</Show></Dialog.Content>
+        </Dialog.Root></>}>
+          <PaneLayout class="brain-list-detail" startSize={selected() ? 68 : 100} minStartSize={45} maxStartSize={100} active={selected() ? "end" : "start"} start={board} end={<Show when={selected()} keyed fallback={<EmptyPreview icon="lucide-kanban-square" title="Select a work item" description="Review its criteria, evidence, linked runs and safe transitions without losing the board." />}>{(item) => detail(item, () => props.onSelected())}</Show>} />
+        </Show>
       </ScreenRegion>
-
-      <Dialog.Root open={Boolean(selected())} onOpenChange={(open) => { if (!open) props.onSelected(); }}>
-        <Dialog.Content size="lg" class="max-sm:fixed max-sm:inset-0 max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none">
-          <Show when={selected()} keyed>{(item) => <>
-            <Dialog.Header><Dialog.Title>{item.title}</Dialog.Title><Dialog.Description>{objective(item)} · plan {item.planVersionId} · record v{item.version}</Dialog.Description></Dialog.Header>
-            <div class="my-4 flex max-h-[60dvh] flex-col gap-4 overflow-y-auto pe-1">
-              <div><strong>Next action</strong><p>{item.nextAction}</p><Show when={item.blockedReason}><Alert theme="amber" variant="outline" title="Blocked" description={item.blockedReason} /></Show></div>
-              <div><strong>Success criteria</strong><ul class="mt-2 list-disc ps-5"><For each={item.criteria}>{(criterion) => <li>{criterion}</li>}</For></ul></div>
-              <Show when={item.evidenceDigest}><EvidenceList bundleDigest={item.evidenceDigest} /></Show>
-              <WorkItemTasks origin={{ kind: "work-item", id: item.workItemId }} />
-              <EvidenceBundleSelector label={`Verified evidence for ${item.title}`} onSelect={setEvidence} />
-              <Select label={`Move ${item.title}`} value={move() || null} options={STATES.filter((state) => state.id !== item.state).map((state) => ({ value: state.id, label: state.name }))} onValueChange={(state) => setMove(state ?? "")} />
-              <Show when={move() === "blocked"}><TextInput label="Blocking reason" value={reason()} onInput={(event) => setReason(event.currentTarget.value)} required /></Show>
-              <TextInput label="Add a comment" value={comment()} onInput={(event) => setComment(event.currentTarget.value)} />
-            </div>
-            <Dialog.Footer class="flex-wrap justify-end border-t border-outline-gray-1 pt-4">
-              <Button size="lg" variant="outline" disabled={!comment().trim()} onClick={() => void props.onComment(item, comment().trim()).then(() => setComment(""))}>Add comment</Button>
-              <Button size="lg" theme="blue" disabled={!move() || (move() === "blocked" && !reason().trim())} onClick={() => void props.onTransition(item, move() as WorkItemState, evidence().trim() || undefined, reason().trim() || undefined)}>Move work item</Button>
-            </Dialog.Footer>
-          </>}</Show>
-        </Dialog.Content>
-      </Dialog.Root>
     </PageStack>
   </BrainPage>;
 }

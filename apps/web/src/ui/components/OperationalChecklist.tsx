@@ -1,14 +1,14 @@
-import { For } from "solid-js";
+import { For, Show } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Button } from "@talelk/newui-atoms";
-import { Section } from "@talelk/newui-organisms";
 import type { OperationalReadiness } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { governor } from "../../data/client";
 import { createScopedRead } from "../../data/screens";
-import { ScreenRegion } from "../screen-region";
+import { DateText, ScreenRegion } from "../screen-region";
 import { titleize } from "../format";
-
+import { StatusBadge } from "./StatusBadge";
+import { FactStrip, WorkspaceSection } from "./Domain";
 
 export function OperationalChecklist() {
   const app = useApp();
@@ -26,13 +26,21 @@ export function OperationalChecklist() {
     if (item.action === "release") return "/settings?tab=release";
     return `/w/${app.workspaceId()}/workflows?selected=${encodeURIComponent(item.workflowId ?? "")}${item.action === "smoke" ? "&diagnostics=true" : ""}`;
   };
+  const group = (item: OperationalReadiness["checks"][number]) => item.action === "model" ? "Supported model" : item.action === "runners" ? "Runners" : item.action === "release" ? "Configuration release" : "Workflow verification";
+  const actionLabel = (item: OperationalReadiness["checks"][number]) => item.status === "ready" ? "View issue" : item.action === "model" || item.action === "release" ? "Configure" : item.action === "smoke" ? "Test" : "View issue";
 
-  return <Section title="Setup checklist" description="Each check leads to the place where you can resolve it." surface="card">
+  return <WorkspaceSection title="Workspace and platform setup" description="Readiness is verified per prerequisite. Each action opens the owning flow instead of repeating a generic Resolve control.">
     <ScreenRegion state={check.state()} onRetry={() => void check.refresh()} emptyTitle="Readiness unavailable" emptyDescription="Select an accessible workspace.">
-      <For each={check.state().data?.checks}>{(item) => <div class="flex flex-wrap items-center justify-between gap-control-gap border-b border-outline-gray-1 py-3 last:border-0">
-        <div class="min-w-0 max-w-2xl"><strong>{titleize(item.id)}</strong><p class="text-base text-ink-gray-7">{item.detail}</p><p class="text-caption text-ink-gray-6">{item.nextAction}</p></div>
-        <Button size="lg" variant="outline" disabled={needsAdministrator(item)} onClick={() => void navigate(action(item))}>{needsAdministrator(item) ? "Administrator needed" : item.status === "ready" ? "Inspect" : "Resolve"}</Button>
-      </div>}</For>
+      <FactStrip label="Current readiness" items={[
+        { label: "Ready checks", value: String(check.state().data?.checks.filter((item) => item.status === "ready").length ?? 0), hint: "Verified by Governor", icon: "lucide-circle-check" },
+        { label: "Missing gates", value: String(check.state().data?.checks.filter((item) => item.status === "missing").length ?? 0), hint: "Setup cannot be called ready", icon: "lucide-circle-alert" },
+        { label: "Unverified", value: String(check.state().data?.checks.filter((item) => item.status === "unverified").length ?? 0), hint: "Requires real verification", icon: "lucide-circle-help" },
+        { label: "Checked", value: <DateText value={check.state().data?.asOf} />, hint: "Governor observation time", icon: "lucide-clock-3" },
+      ]} />
+      <For each={["Identity and workspace", "Supported model", "Runners", "Configuration release", "Workflow verification"]}>{(name) => {
+        const items = () => (check.state().data?.checks ?? []).filter((item) => name === "Identity and workspace" ? !item.action : group(item) === name);
+        return <Show when={items().length}><section aria-label={name}><h3 class="mb-2 text-caption font-semibold uppercase tracking-wider text-ink-gray-6">{name}</h3><div class="brain-queue"><For each={items()}>{(item) => <div class="grid gap-3 border-b border-outline-gray-1 py-4 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center"><StatusBadge kind="check" status={item.status === "ready" ? "passed" : item.status} /><div class="min-w-0"><h4 class="text-base-medium">{titleize(item.id)}</h4><p class="mt-1 text-interface text-ink-gray-7">{item.detail}</p><p class="mt-1 text-caption text-ink-gray-6">Next: {item.nextAction}</p></div><Button size="lg" variant="outline" disabled={needsAdministrator(item)} onClick={() => void navigate(action(item))}>{needsAdministrator(item) ? "Administrator needed" : actionLabel(item)}</Button></div>}</For></div></section></Show>;
+      }}</For>
     </ScreenRegion>
-  </Section>;
+  </WorkspaceSection>;
 }

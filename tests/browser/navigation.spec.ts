@@ -35,7 +35,7 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
   await page.getByRole("button", { name: "Approvals", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Approvals", exact: true, level: 1 })).toBeVisible();
   const approvalList = page.getByRole("region", { name: "Approvals", exact: true });
-  await expect(approvalList.getByText("apr-nav-1", { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(approvalList.getByRole("button", { name: "Review: apr-nav-1", exact: true })).toBeVisible();
   await approvalList.getByRole("button", { name: "Review: apr-nav-1", exact: true }).click();
 
   const reviewButton = page.getByRole("button", { name: "Review action", exact: true });

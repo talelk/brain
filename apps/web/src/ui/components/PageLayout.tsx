@@ -9,10 +9,6 @@ export function PageStack(props: ParentProps): JSX.Element {
   return <div class="brain-page-stack">{props.children}</div>;
 }
 
-export function ActionBar(props: ParentProps<{ label?: string }>): JSX.Element {
-  return <fieldset class="brain-action-bar" aria-label={props.label ?? "Actions"}>{props.children}</fieldset>;
-}
-
 export function TechnicalDetails(props: ParentProps<{ label?: string }>): JSX.Element {
   return <details class="brain-technical-details">
     <summary class="cursor-pointer rounded-control text-caption font-medium text-ink-gray-7 focus-visible:focus-ring">{props.label ?? "Technical details"}</summary>

@@ -155,7 +155,7 @@ function createEffectOn<T>(source: Accessor<T>, fn: () => void): void {
  * re-read, and the mounted store is capped so a 10,000-event session cannot
  * grow the DOM without bound.
  */
-export interface StreamEvent { readonly id: string; readonly type: string; readonly aggregateId?: string; readonly at: string; }
+export interface StreamEvent { readonly id: string; readonly type: string; readonly aggregateId?: string; readonly at: string; readonly payload?: unknown; }
 
 export function createEventStream(input: {
   /** Re-authorized on every (re)connect; a revoked session loses the stream. */
@@ -185,12 +185,12 @@ export function createEventStream(input: {
     source = new EventSource(`/v1/events?live=1${after ? `&after=${after}` : ""}`, { withCredentials: true });
     source.onopen = () => setConnected(true);
     const ingest = (event: MessageEvent<string>) => {
-      let parsed: { cursor?: number; type?: string; eventId?: string; aggregateId?: string; createdAt?: string };
+      let parsed: { cursor?: number; type?: string; eventId?: string; aggregateId?: string; createdAt?: string; payload?: unknown };
       try { parsed = JSON.parse(event.data) as typeof parsed; } catch { return; }
       const cursor = Number(parsed.cursor ?? 0);
       if (cursor <= lastSequence()) return; // duplicate wake/duplicate replay
       setLastSequence(cursor);
-      buffer.push({ id: parsed.eventId ?? String(cursor), type: String(parsed.type ?? ""), aggregateId: parsed.aggregateId, at: parsed.createdAt ?? new Date().toISOString() });
+      buffer.push({ id: parsed.eventId ?? String(cursor), type: String(parsed.type ?? ""), aggregateId: parsed.aggregateId, at: parsed.createdAt ?? new Date().toISOString(), payload: parsed.payload });
       // Coalesce bursts into one state update, so a 10k-event stream is bounded.
       if (!coalesce) coalesce = setTimeout(() => {
         const merged = [...buffer]; buffer = []; coalesce = undefined;
