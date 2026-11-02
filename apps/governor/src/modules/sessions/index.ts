@@ -1,1 +1,1 @@
-export { SessionService, recordAttemptSession } from "./service";
+export { SessionService, recordAttemptSession, continuationFacts } from "./service";

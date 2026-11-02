@@ -9,7 +9,7 @@ import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { ZodError } from "zod";
 import { validate } from "@brain/contracts/validate";
-import type { ActorContext, HumanApprovalDecision, IdentityView, RunnerVerdictRequest } from "@brain/contracts";
+import type { ActorContext, HumanApprovalDecision, IdentityView, JsonValue, RunnerVerdictRequest } from "@brain/contracts";
 import { Brain } from "../application/brain";
 import { scopesForPrincipal } from "../application/authz";
 import { executeOrganizationCommand, executeOrganizationQuery, isOrganizationCommand, isOrganizationQuery, listIdentitySessions, revokeIdentitySession } from "../application/organization-admin";
@@ -351,20 +351,38 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
   app.get("/v1/events", async (c) => {
     try {
       const identity = await actorFor(c);
-      const after = Number(c.req.header("last-event-id") ?? c.req.query("after") ?? 0);
+      const url = new URL(c.req.url);
+      const after = Number(c.req.header("last-event-id") ?? url.searchParams.get("after") ?? 0);
       const startCursor = Number.isFinite(after) && after > 0 ? Math.floor(after) : 0;
+      // Server-authoritative filters: scoped in SQL before any page limit, so
+      // severity/emitter selection can never widen authorization.
+      const csv = (name: string): string[] | undefined => {
+        const raw = url.searchParams.get(name);
+        return raw ? raw.split(",").map((entry) => entry.trim()).filter(Boolean).slice(0, 7) : undefined;
+      };
+      const severities = csv("severity");
+      const emitters = csv("emitter");
+      const filters = {
+        ...(url.searchParams.get("workspace") ? { workspaceId: url.searchParams.get("workspace")! } : {}),
+        ...(url.searchParams.get("session") ? { sessionId: url.searchParams.get("session")! } : {}),
+        ...(url.searchParams.get("job") ? { jobId: url.searchParams.get("job")! } : {}),
+        ...(url.searchParams.get("run") ? { runId: url.searchParams.get("run")! } : {}),
+        ...(severities ? { severities } : {}),
+        ...(emitters ? { emitters } : {}),
+      };
       // Data frames go on the default `message` channel (the client parses the
       // type from the JSON payload); only control frames like `reset` are named.
-      const frame = (e: { cursor: number; type: string }) => `id: ${e.cursor}\ndata: ${JSON.stringify(e)}\n\n`;
+      // The cursor is stream_seq — the one global cursor of the execution stream.
+      const frame = (e: Record<string, JsonValue>) => `id: ${String(e["streamSeq"])}\ndata: ${JSON.stringify(e)}\n\n`;
       if (c.req.query("live") !== "1") {
-        const events = brain.listEvents(identity.actor, startCursor) as unknown as Array<{ cursor: number; eventId: string; type: string }>;
+        const events = brain.listEvents(identity.actor, startCursor, filters, 500);
         return new Response(events.map(frame).join("") + ": keepalive\n\n", { headers: { "content-type": "text/event-stream", "cache-control": "no-cache", "x-accel-buffering": "no" } });
       }
-      // Live subscription (T06): replay from the cursor, then stream new
-      // authorized events. Authorization is re-resolved periodically so a
+      // Live subscription (T06): replay from the stream cursor, then stream new
+      // authorized records. Authorization is re-resolved periodically so a
       // revoked session loses the stream; a client that falls too far behind
       // receives a reset frame and must resync from a snapshot.
-      const maxLag = Math.min(20_000, Math.max(100, Number(c.req.query("maxLag") ?? 5000) || 5000));
+      const maxLag = Math.min(20_000, Math.max(100, Number(url.searchParams.get("maxLag") ?? 5000) || 5000));
       const headers = c.req.raw.headers;
       const encoder = new TextEncoder();
       let cursor = startCursor;
@@ -387,15 +405,15 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
                 lastAuthCheck = Date.now();
                 await brain.resolveActor(headers);
               }
-              const head = brain.listEvents(identity.actor, cursor, 200) as unknown as Array<{ cursor: number; eventId: string; type: string }>;
+              const head = brain.listEvents(identity.actor, cursor, filters, 200);
               if (head.length > 0) {
-                const newest = head[head.length - 1]!.cursor;
+                const newest = head[head.length - 1]!["streamSeq"] as number;
                 if (newest - cursor > maxLag) {
                   controller.enqueue(encoder.encode(`event: reset\ndata: ${JSON.stringify({ reason: "cursor-lag", after: cursor })}\n\n`));
                   close();
                   return;
                 }
-                for (const e of head) controller.enqueue(encoder.encode(frame(e)));
+                for (const e of head) controller.enqueue(encoder.encode(frame(e as { streamSeq: number })));
                 cursor = newest;
                 lastHeartbeat = Date.now();
               } else if (Date.now() - lastHeartbeat > 5000) {
@@ -414,6 +432,39 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
         cancel() { closed = true; if (timer) clearInterval(timer); },
       });
       return new Response(stream, { headers: { "content-type": "text/event-stream", "cache-control": "no-cache", "x-accel-buffering": "no" } });
+    } catch (e) { return fail(c as never, e); }
+  });
+
+  // Bounded sanitized log-segment export (NDJSON attachment). Authorization is
+  // identical to stream reads; payloads travel only as references.
+  app.get("/v1/stream/export", async (c) => {
+    try {
+      const url = new URL(c.req.url);
+      const identity = await actorFor(c, url.searchParams.get("workspaceId") ?? undefined);
+      const csv = (name: string): string[] | undefined => {
+        const raw = url.searchParams.get(name);
+        return raw ? raw.split(",").map((entry) => entry.trim()).filter(Boolean).slice(0, 7) : undefined;
+      };
+      const severities = csv("severity");
+      const emitters = csv("emitter");
+      const filters = {
+        ...(url.searchParams.get("workspaceId") ? { workspaceId: url.searchParams.get("workspaceId")! } : {}),
+        ...(url.searchParams.get("sessionId") ? { sessionId: url.searchParams.get("sessionId")! } : {}),
+        ...(url.searchParams.get("jobId") ? { jobId: url.searchParams.get("jobId")! } : {}),
+        ...(url.searchParams.get("runId") ? { runId: url.searchParams.get("runId")! } : {}),
+        ...(url.searchParams.get("attemptId") ? { attemptId: url.searchParams.get("attemptId")! } : {}),
+        ...(severities ? { severities } : {}),
+        ...(emitters ? { emitters } : {}),
+        ...(Number(url.searchParams.get("after")) > 0 ? { after: Math.floor(Number(url.searchParams.get("after"))) } : {}),
+      };
+      const exported = brain.stream.exportSegment(identity.actor, filters, Number(url.searchParams.get("limit") ?? 1000));
+      return new Response(exported.body, {
+        headers: {
+          "content-type": "application/x-ndjson",
+          "content-disposition": `attachment; filename="${exported.filename}"`,
+          "cache-control": "no-store",
+        },
+      });
     } catch (e) { return fail(c as never, e); }
   });
 
@@ -731,20 +782,25 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     fetch: (request: Request) => app.fetch(request),
     async listen() {
       const port = Number(process.env["PORT"] ?? 3000);
+      // Containers publish the port through their own interface binding, so the
+      // process binds 0.0.0.0 there; hosts default to loopback only.
+      const hostname = process.env["BRAIN_BIND_HOST"] ?? "127.0.0.1";
       const tls = tlsMaterialFromEnv();
       if (tls) {
         const { createServer: createHttpsServer } = await import("node:https");
-        server = serve({ fetch: app.fetch, port, hostname: "127.0.0.1", createServer: createHttpsServer, serverOptions: { cert: tls.cert, key: tls.key } } as never) as typeof server;
-        console.log(`Brain Governor listening on https://127.0.0.1:${port}`);
+        server = serve({ fetch: app.fetch, port, hostname, createServer: createHttpsServer, serverOptions: { cert: tls.cert, key: tls.key } } as never) as typeof server;
+        console.log(`Brain Governor listening on https://${hostname}:${port}`);
       } else {
-        server = serve({ fetch: app.fetch, port, hostname: "127.0.0.1" });
-        console.log(`Brain Governor listening on http://127.0.0.1:${port}`);
+        server = serve({ fetch: app.fetch, port, hostname });
+        console.log(`Brain Governor listening on http://${hostname}:${port}`);
       }
       const stop = () => { server?.close(); brain.close(); process.exit(0); };
       process.on("SIGTERM", stop);
       process.on("SIGINT", stop);
       setInterval(() => {
     try { brain.expireLeases(); brain.projectOutbox(); } catch { /* timers never authorize */ }
+    // Execution stream: backstop projection plus the throttled retention sweep.
+    try { brain.stream.project(); brain.stream.sweep(); } catch { /* a projection failure must not break expiry */ }
     // Cron dispatch runs on its own cadence; a pass is idempotent and cheap.
     try { brain.runScheduledDispatch(); } catch { /* a bad release must not break expiry */ }
     // T52 automation occurrences share the pass discipline: idempotent, cheap.

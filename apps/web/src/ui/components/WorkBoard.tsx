@@ -13,6 +13,7 @@ import { BrainPage, PageStack } from "./PageLayout";
 import { WorkItemTasks } from "./WorkItemTasks";
 import { EvidenceBundleSelector } from "./ArtifactSelectors";
 import { EvidenceList } from "./EvidenceList";
+import { StatusBadge } from "./StatusBadge";
 import { EmptyPreview, WorkspaceSection } from "./Domain";
 
 const CARD_ACCENT: Record<WorkItemState, string> = {
@@ -46,18 +47,20 @@ function WorkItemDetail(props: {
   const doneBlocked = () => props.move === "done" && !verified();
   return <PageStack>
     <WorkspaceSection title={item().title} description={`${props.objective} · record v${item().version}`} actions={<Button size="lg" variant="ghost" iconLeft="lucide-arrow-left" onClick={props.onBack}>Back to board</Button>}>
-      <div class="flex flex-wrap gap-2"><Badge variant="outline" theme="blue" label={item().state} /><Badge variant="outline" theme={item().evidenceDigest ? "green" : "gray"} label={item().evidenceDigest ? "Verified evidence bound" : "Evidence required for Done"} /></div>
+      <div class="flex flex-wrap gap-2"><StatusBadge kind="workItem" status={item().state} /><Badge variant="outline" theme={item().evidenceDigest ? "green" : "gray"} label={item().evidenceDigest ? "Verified evidence bound" : "Evidence required for Done"} /></div>
     </WorkspaceSection>
     <div class="border-y border-outline-gray-1 py-4"><h3 class="text-base-medium">Next action</h3><p class="mt-1 text-interface text-ink-gray-7">{item().nextAction}</p><Show when={item().blockedReason}><Alert theme="amber" variant="outline" title="Blocked" description={item().blockedReason} /></Show></div>
     <div><h3 class="text-base-medium">Acceptance criteria</h3><ul class="mt-2 list-disc ps-5 text-interface text-ink-gray-7"><For each={item().criteria}>{(criterion) => <li>{criterion}</li>}</For></ul></div>
     <Show when={item().evidenceDigest}><EvidenceList bundleDigest={item().evidenceDigest} /></Show>
     <WorkItemTasks origin={{ kind: "work-item", id: item().workItemId }} />
-    <EvidenceBundleSelector label={`Verified evidence for ${item().title}`} onSelect={props.onEvidence} />
-    <Select label={`Move ${item().title}`} value={props.move || null} options={STATES.filter((state) => state.id !== item().state).map((state) => ({ value: state.id, label: state.name, disabled: state.id === "done" && !verified() }))} onValueChange={(state) => props.onMove(state ?? "")} />
-    <Show when={props.move === "blocked"}><TextInput label="Blocking reason" value={props.reason} onInput={(event) => props.onReason(event.currentTarget.value)} required /></Show>
+    <div class="brain-field-grid">
+      <EvidenceBundleSelector label={`Verified evidence for ${item().title}`} onSelect={props.onEvidence} />
+      <Select label={`Move ${item().title}`} value={props.move || null} options={STATES.filter((state) => state.id !== item().state).map((state) => ({ value: state.id, label: state.name, disabled: state.id === "done" && !verified() }))} onValueChange={(state) => props.onMove(state ?? "")} />
+      <Show when={props.move === "blocked"}><TextInput label="Blocking reason" value={props.reason} onInput={(event) => props.onReason(event.currentTarget.value)} required /></Show>
+    </div>
     <Show when={doneBlocked()}><Alert theme="amber" variant="outline" title="Verified evidence is required" description="Choose an independently verified evidence bundle before selecting Done. Author output alone cannot complete this work." /></Show>
     <TextInput label="Add a comment" value={props.comment} onInput={(event) => props.onComment(event.currentTarget.value)} />
-    <div class="flex flex-wrap gap-2 border-t border-outline-gray-1 pt-4"><Button size="lg" variant="outline" disabled={!props.comment.trim()} onClick={props.onAddComment}>Add comment</Button><Button size="lg" theme="blue" disabled={!props.move || doneBlocked() || (props.move === "blocked" && !props.reason.trim())} onClick={props.onTransition}>Move work item</Button></div>
+    <div class="flex flex-wrap gap-2 border-t border-outline-gray-1 pt-4"><Button size="md" variant="outline" iconLeft="lucide-message-square" disabled={!props.comment.trim()} onClick={props.onAddComment}>Add comment</Button><Button size="lg" theme="blue" iconLeft="lucide-arrow-right-left" disabled={!props.move || doneBlocked() || (props.move === "blocked" && !props.reason.trim())} onClick={props.onTransition}>Move work item</Button></div>
   </PageStack>;
 }
 
@@ -93,10 +96,10 @@ export function WorkBoard(props: {
     if (next.to.column !== item.state) void props.onTransition(item, next.to.column as WorkItemState, item.evidenceDigest);
   }}>
     {(item) => <div class={`flex flex-col gap-2 rounded-control border-s-2 p-1 ${CARD_ACCENT[item.state]} ${selected()?.workItemId === item.workItemId ? "bg-surface-blue-1" : ""}`}>
-      <div><p class="text-base-medium text-ink-gray-9">{item.title}</p><p class="mt-1 truncate text-caption text-ink-gray-6">{objective(item)}</p></div>
-      <p class="text-caption text-ink-gray-7">{item.blockedReason ?? item.nextAction}</p>
+      <div><p class="break-words text-base-medium text-ink-gray-9">{item.title}</p><p class="mt-1 truncate text-caption text-ink-gray-6">{objective(item)}</p></div>
+      <p class="break-words text-caption text-ink-gray-7">{item.blockedReason ?? item.nextAction}</p>
       <div class="flex flex-wrap gap-1.5"><Show when={item.assignment}><Badge size="sm" theme="blue" label={item.assignment?.kind === "human" ? item.assignment?.id : `${item.assignment?.kind}: ${item.assignment?.id}`} /></Show><Show when={item.dependsOn.length}><Badge size="sm" theme="gray" label={`${item.dependsOn.length} dependencies`} /></Show><Badge size="sm" variant="outline" theme={item.evidenceDigest ? "green" : "gray"} label={item.evidenceDigest ? "Evidence ready" : `${item.criteria.length} criteria`} /></div>
-      <Button variant="ghost" size="sm" iconRight="lucide-arrow-right" class="self-start" aria-label={`Manage ${item.title}`} onClick={() => props.onSelected(item.workItemId)}>Manage</Button>
+      <Button variant="ghost" size="md" iconRight="lucide-arrow-right" class="self-start" aria-label={`Manage ${item.title}`} onClick={() => props.onSelected(item.workItemId)}>Manage</Button>
     </div>}
   </KanbanBoard></div>;
 

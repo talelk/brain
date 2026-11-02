@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "properties": {
+    "summary": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "tasks": {
+      "type": "array", "minItems": 1, "maxItems": 12,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9.-]*$" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "criteria": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 1024 }, "minItems": 1, "maxItems": 100 },
+          "dependsOn": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-z0-9.-]*$" }, "uniqueItems": true },
+          "workflowId": { "type": "string", "pattern": "^[a-z][a-z0-9.-]*$" },
+          "estimatedMinutes": { "type": "integer", "minimum": 1, "maximum": 10080 },
+          "maxMicroUsd": { "type": "integer", "minimum": 0 },
+          "assignment": {
+            "type": "object",
+            "properties": {
+              "kind": { "enum": ["human", "agent", "workflow"] },
+              "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "role": { "enum": ["coordinator", "specialist", "reviewer", "synthesizer"] }
+            },
+            "required": ["kind", "id", "role"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["id", "title", "criteria", "dependsOn"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["summary", "tasks"],
+  "additionalProperties": false
+}

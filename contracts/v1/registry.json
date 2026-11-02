@@ -581,7 +581,14 @@
     "integrations.repositories",
     "knowledgeAssets.list",
     "capabilityCandidates.list",
-    "capitalizationRuns.list"
+    "capitalizationRuns.list",
+    "stream.tail",
+    "stream.search",
+    "stream.context",
+    "stream.compare",
+    "live.status",
+    "artifacts.history",
+    "artifacts.diff"
   ],
   "events": [
     {

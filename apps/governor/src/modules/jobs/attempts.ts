@@ -20,6 +20,12 @@ export function casPathOf(dataDir: string, digest: string): string {
   return join(dataDir, "cas", hex.slice(0, 2), hex);
 }
 
+/** Engine probe features from a batch-level engine object; absent → none. */
+function engineFeaturesFromBody(engine: { features?: unknown } | undefined): string[] {
+  const features = engine?.features;
+  return Array.isArray(features) ? features.filter((entry): entry is string => typeof entry === "string") : [];
+}
+
 export function runnerView(s: Store, runnerId: string): RunnerView | undefined {
   const r = s.control.prepare(`SELECT id, group_id, admin_state, health, last_heartbeat_ms, cpu_capacity, memory_capacity, disk_capacity, slot_capacity,
     cpu_reserved, memory_reserved, disk_reserved, slots_reserved FROM runners WHERE id=?`).get(runnerId) as Record<string, unknown> | undefined;
@@ -229,7 +235,7 @@ export function ackAttempt(s: Store, runner: { runnerId: string; epoch: number }
     s.control.prepare("UPDATE job_attempts SET state='running', lease_expires_at_ms=? WHERE id=?").run(expires, attemptId);
     s.control.prepare("UPDATE jobs SET state='running', version=version+1 WHERE id=?").run(String(row["job_id"]));
     {
-      const engine = body["engine"] as { id?: string; adapterDigest?: string } | undefined;
+      const engine = body["engine"] as { id?: string; adapterDigest?: string; features?: unknown } | undefined;
       const ws = s.workspaceDb(String(row["workspace_id"]), String(row["organization_id"]));
       const link = ws.prepare("SELECT session_id FROM execution_links WHERE run_id=? AND session_id IS NOT NULL ORDER BY created_at_ms DESC LIMIT 1").get(String(row["workflow_run_id"])) as { session_id: string | null } | undefined;
       const sessionId = link?.session_id ?? undefined;
@@ -237,6 +243,7 @@ export function ackAttempt(s: Store, runner: { runnerId: string; epoch: number }
         organizationId: String(row["organization_id"]), workspaceId: String(row["workspace_id"]),
         jobId: String(row["job_id"]), attemptId,
         engineId: String(engine?.id ?? "unknown"), adapterDigest: String(engine?.adapterDigest ?? `sha256:${"0".repeat(64)}`),
+        features: engineFeaturesFromBody(engine),
         ...(sessionId ? { sessionId } : {}),
       });
     }
@@ -289,10 +296,11 @@ export function attemptEvents(s: Store, runner: { runnerId: string; epoch: numbe
     // authoritative sequence instead of replaying the whole transcript.
     const ws = s.workspaceDb(String(row["workspace_id"]), String(row["organization_id"]));
     ws.prepare("UPDATE sessions SET event_sequence=MAX(event_sequence,?), state=CASE WHEN state IN ('stopped','failed') THEN state ELSE 'running' END, updated_at_ms=? WHERE attempt_id=?").run(lastSeq, s.now(), attemptId);
-    const eng = body["engine"] as { id?: unknown; adapterDigest?: unknown } | undefined;
+    const eng = body["engine"] as { id?: unknown; adapterDigest?: unknown; features?: unknown } | undefined;
     if (eng && typeof eng.id === "string" && eng.id.length > 0) {
-      ws.prepare("UPDATE sessions SET engine_id=?, adapter_digest=?, updated_at_ms=? WHERE attempt_id=?")
-        .run(eng.id, typeof eng.adapterDigest === "string" ? eng.adapterDigest : `sha256:${"0".repeat(64)}`, s.now(), attemptId);
+      const features = engineFeaturesFromBody(eng);
+      ws.prepare("UPDATE sessions SET engine_id=?, adapter_digest=?, engine_features=CASE WHEN ?='[]' THEN engine_features ELSE ? END, updated_at_ms=? WHERE attempt_id=?")
+        .run(eng.id, typeof eng.adapterDigest === "string" ? eng.adapterDigest : `sha256:${"0".repeat(64)}`, JSON.stringify(features), JSON.stringify(features), s.now(), attemptId);
     }
   });
   return { attemptId, lastCommittedSequence: lastSeq } as unknown as JsonValue;

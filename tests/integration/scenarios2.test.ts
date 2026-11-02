@@ -552,14 +552,14 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
   it("SSE replay resumes strictly after the cursor with no duplicates or gaps (E091)", async () => {
     const w = setupWorld();
     dispatchGolden(w, "sse-1");
-    const all = w.brain.listEvents(w.owner, 0, 500) as unknown as Array<{ cursor: number }>;
+    const all = w.brain.listEvents(w.owner, 0, {}, 500) as unknown as Array<{ streamSeq: number }>;
     expect(all.length).toBeGreaterThan(2);
-    const mid = all[1]!.cursor;
-    const resumed = w.brain.listEvents(w.owner, mid, 500) as unknown as Array<{ cursor: number }>;
-    expect(resumed.every((e) => e.cursor > mid)).toBe(true);
-    expect([...all.slice(0, 2).map((e) => e.cursor), ...resumed.map((e) => e.cursor)]).toEqual(all.map((e) => e.cursor));
+    const mid = all[1]!.streamSeq;
+    const resumed = w.brain.listEvents(w.owner, mid, {}, 500) as unknown as Array<{ streamSeq: number }>;
+    expect(resumed.every((e) => e.streamSeq > mid)).toBe(true);
+    expect([...all.slice(0, 2).map((e) => e.streamSeq), ...resumed.map((e) => e.streamSeq)]).toEqual(all.map((e) => e.streamSeq));
     const otherOrgActor = { ...w.owner, organizationId: "org-elsewhere" };
-    expect(w.brain.listEvents(otherOrgActor, 0, 500)).toEqual([]);
+    expect(w.brain.listEvents(otherOrgActor, 0, {}, 500)).toEqual([]);
     w.brain.close();
   });
 });

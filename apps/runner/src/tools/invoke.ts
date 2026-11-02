@@ -132,7 +132,7 @@ export async function executeToolPayload(
     }
     const profile = effectClass === "privileged" ? "privileged-tool" as const : offer.execution.kind === "eval" ? "evaluator" as const : "agent" as const;
     try {
-      const { sandboxId } = await launcher.createSandbox({ profile, requestId: `exec-${offer.execution.kind}-${Math.random().toString(36).slice(2, 10)}`, toolsDir: sandboxToolsDir ?? toolsRoot(cfg), network: "none" });
+      const { sandboxId } = await launcher.createSandbox({ profile, requestId: `exec-${offer.execution.kind}-${Math.random().toString(36).slice(2, 10)}`, toolsDir: sandboxToolsDir ?? toolsRoot(cfg), network: "none", ...(cfg.dataMounts ? { dataMounts: cfg.dataMounts } : {}) });
       try {
         const inContainer = sandboxToolsDir ? join("/tools", "run.sh") : join("/tools", rel);
         const result = await launcher.exec(sandboxId, inContainer, stdin, 60_000);

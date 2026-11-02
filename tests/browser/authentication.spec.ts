@@ -12,7 +12,7 @@ test("native setup, enrollment and second-factor sign-in (E093/E094 partial)",as
   await page.getByLabel(/^Email/).fill("browser@example.test");
   await page.getByLabel(/^Password/).fill("browser-password-1234");
   await page.getByRole("button",{name:"Create organization",exact:true}).click();
-  await expect(page.getByRole("heading",{name:"Today",exact:true})).toBeVisible();
+  await expect(page.getByRole("region",{name:"Authenticator setup"})).toBeVisible();
   await expect(page.getByRole("region",{name:"Create your first workspace"})).toHaveCount(0);
   await page.getByLabel(/^Confirm password/).fill("browser-password-1234");
   await page.getByRole("button",{name:"Begin setup",exact:true}).click();
@@ -39,7 +39,7 @@ test("native setup, enrollment and second-factor sign-in (E093/E094 partial)",as
   await expect(page.getByRole("heading",{name:"Verify your sign-in",exact:true})).toBeVisible();
   await page.getByLabel(/^Authenticator code/).fill(totpCode(secret,Date.now()));
   await page.getByRole("button",{name:"Verify and continue",exact:true}).click();
-  await expect(page.getByRole("heading",{name:"Today",exact:true})).toBeVisible();
+  await expect(page.getByRole("region",{name:"Create your first workspace"})).toBeVisible();
   expect(errors).toEqual([]);
   await info.attach("native-authenticated-screen",{body:await page.screenshot({fullPage:true}),contentType:"image/png"});
 });

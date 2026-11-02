@@ -1,0 +1,58 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Workflow",
+  "metadata": { "id": "plan-guide", "version": "1.0.0" },
+  "spec": {
+    "inputSchemaRef": "schemas/plan-guide-input.json",
+    "outputSchemaRef": "schemas/workflow-output.json",
+    "jobs": {
+      "propose": {
+        "kind": "dispatch",
+        "needs": [],
+        "input": {
+          "title": { "source": "input", "pointer": "/title" },
+          "intent": { "source": "input", "pointer": "/intent" },
+          "successCriteria": { "source": "input", "pointer": "/successCriteria" },
+          "capabilities": { "source": "input", "pointer": "/capabilities" }
+        },
+        "outputSchemaRef": "schemas/plan-guide-output.json",
+        "timeoutSeconds": 180,
+        "uses": { "type": "agent", "release": { "id": "plan-guide-assistant", "digest": "sha256:ce2a173fc1bdd82e8e9e1ba5bb9c6fcd9ac556ca66bb7503e7b005723d12752b" } },
+        "runsOn": {
+          "group": "agents",
+          "engine": { "anyOf": ["pi"], "features": ["sessions"] },
+          "all": ["os:linux"],
+          "resources": { "cpuMillicores": 500, "memoryMb": 256, "diskMb": 256, "slots": 1 },
+          "isolation": "ephemeral-container"
+        },
+        "effectClass": "read"
+      },
+      "validate": {
+        "kind": "eval",
+        "needs": ["propose"],
+        "input": {
+          "kind": { "source": "literal", "value": "plan-guide" },
+          "report": { "source": "job", "jobId": "propose", "pointer": "" }
+        },
+        "outputSchemaRef": "schemas/validation-output.json",
+        "timeoutSeconds": 30,
+        "evaluator": { "id": "operations-validator", "digest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f" },
+        "runsOn": {
+          "group": "evaluators",
+          "engine": { "anyOf": ["claude"], "features": ["sessions"] },
+          "all": ["os:linux", "tool:bash", "tool:python3"],
+          "resources": { "cpuMillicores": 500, "memoryMb": 256, "diskMb": 256, "slots": 1 },
+          "isolation": "ephemeral-container"
+        },
+        "independence": "L1"
+      }
+    },
+    "outputs": {
+      "plan": { "source": "job", "jobId": "propose", "pointer": "" },
+      "passed": { "source": "job", "jobId": "validate", "pointer": "/passed" }
+    },
+    "failFast": true,
+    "deadlineSeconds": 300,
+    "presentation": { "title": "Plan an objective", "description": "Generate a plan proposal for explicit human review.", "system": true }
+  }
+}

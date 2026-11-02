@@ -1,0 +1,406 @@
+import { For, Match, Show, Switch, createEffect, createResource, onCleanup } from "solid-js";
+import { Dynamic } from "solid-js/web";
+import type { JSX } from "solid-js";
+import { Button } from "@talelk/newui-atoms";
+import { Alert } from "@talelk/newui-molecules";
+import { shortDigest } from "../format";
+import { MEDIA_EMBED_LIMIT, TEXT_PREVIEW_LIMIT, artifactObjectUrl, decodeArtifactText, readArtifactBytes } from "./artifact-bytes";
+import type { ArtifactRef } from "../../data/exec-outputs";
+
+/**
+ * The single artifact preview policy (plan T61). Download is an action beside
+ * the preview — never the only way to read an artifact. Previews are native
+ * per media type: rendered markdown, plain text/code, pretty-printed JSON,
+ * CSV as a table, colored diffs, images and embedded PDFs — all through the
+ * one authorized read in artifact-bytes.ts, bounded so a huge artifact can
+ * never flood the DOM. Embedded call sites (evidence, tickets, dossiers) and
+ * the Output Browser render the same component, so preview policy cannot
+ * drift per surface again.
+ */
+
+export type ArtifactPreviewKind = "markdown" | "csv" | "json" | "diff" | "text" | "image" | "pdf" | "none";
+
+const CODE_MEDIA = /^(application\/(x-ndjson|xml|yaml|x-yaml|javascript|typescript|sql))$/u;
+
+/** The native preview kind for a media type; "none" offers download only. */
+export function previewKindOf(mediaType: string): ArtifactPreviewKind {
+  const kind = mediaType.toLowerCase();
+  if (kind.includes("markdown")) return "markdown";
+  if (kind.includes("csv")) return "csv";
+  if (kind.includes("json")) return "json";
+  if (kind.includes("diff") || kind.includes("patch")) return "diff";
+  if (kind.startsWith("image/")) return "image";
+  if (kind.includes("pdf")) return "pdf";
+  if (kind.startsWith("text/") || kind === "application/xml" || CODE_MEDIA.test(kind) || /\+(json|xml)$/u.test(kind)) return "text";
+  return "none";
+}
+
+/** Row label for the preview kind, shown beside the media type. */
+export function previewKindLabel(kind: ArtifactPreviewKind): string {
+  return { markdown: "Markdown", csv: "Table", json: "JSON", diff: "Diff", text: "Text", image: "Image", pdf: "PDF", none: "Download only" }[kind];
+}
+
+interface LoadedPreview {
+  kind: ArtifactPreviewKind;
+  text?: string;
+  objectUrl?: string;
+  /** The full artifact exceeds the inline bound; the shown content is clipped. */
+  truncated: boolean;
+  /**
+   * A failed authorized read, carried as data so the preview resource never
+   * rejects: callers render "Preview unavailable" with the authorized download
+   * still at hand, and no page-level unhandled rejection fires.
+   */
+  error?: string;
+}
+
+/**
+ * Loads the bytes for one preview. Read failures come back as `error` data —
+ * never as a rejected fetcher promise.
+ */
+async function loadPreview(artifact: ArtifactRef): Promise<LoadedPreview> {
+  const kind = previewKindOf(artifact.mediaType);
+  if (kind === "none") return { kind, truncated: false };
+  const maxBytes = kind === "image" || kind === "pdf" ? MEDIA_EMBED_LIMIT : TEXT_PREVIEW_LIMIT;
+  try {
+    const bytes = await readArtifactBytes(artifact.artifactId, { maxBytes });
+    if (kind === "image" || kind === "pdf") return { kind, objectUrl: artifactObjectUrl(bytes, artifact.mediaType), truncated: artifact.bytes > maxBytes };
+    let text = decodeArtifactText(bytes, maxBytes);
+    if (kind === "json") {
+      try {
+        text = JSON.stringify(JSON.parse(text) as unknown, null, 2);
+      } catch {
+        /* invalid JSON stays visible as source text */
+      }
+    }
+    return { kind, text, truncated: artifact.bytes > TEXT_PREVIEW_LIMIT };
+  } catch (e) {
+    return { kind, truncated: false, error: e instanceof Error ? e.message : "The artifact could not be read. Use Download to inspect it." };
+  }
+}
+
+export function ArtifactView(props: { artifact?: ArtifactRef; title?: string; compact?: boolean }): JSX.Element {
+  const [preview] = createResource(
+    () => props.artifact,
+    (artifact) => loadPreview(artifact),
+  );
+  // Blob URLs are revoked as soon as they are replaced or the view unmounts.
+  let lastUrl: string | undefined;
+  createEffect(() => {
+    const url = preview()?.objectUrl;
+    if (lastUrl && lastUrl !== url) URL.revokeObjectURL(lastUrl);
+    lastUrl = url;
+  });
+  onCleanup(() => {
+    if (lastUrl) URL.revokeObjectURL(lastUrl);
+  });
+
+  const heading = () => props.title ?? props.artifact?.artifactId ?? "";
+  const maxHeight = () => (props.compact ? "max-h-64" : "max-h-[32rem]");
+  return (
+    <Show when={props.artifact} fallback={<p class="text-base text-ink-gray-7">No artifact is attached.</p>}>
+      {(artifact) => (
+        <div class="brain-detail-stack">
+          <div class="flex flex-wrap items-center justify-between gap-control-gap">
+            <div class="min-w-0">
+              <h3 class="text-base-medium break-words text-ink-gray-9">{heading()}</h3>
+              <p class="text-caption text-ink-gray-6">
+                {previewKindLabel(previewKindOf(artifact().mediaType))} · {artifact().mediaType} · {artifact().bytes.toLocaleString()} bytes ·{" "}
+                {artifact().classification} · <span title={artifact().digest}>{shortDigest(artifact().digest)}</span>
+              </p>
+            </div>
+            <a href={`/v1/artifacts/${encodeURIComponent(artifact().artifactId)}/content`} download={artifact().artifactId} class="inline-flex">
+              <Button size="lg" variant="outline" iconLeft="lucide-download">
+                Download
+              </Button>
+            </a>
+          </div>
+          <Show
+            when={!preview.loading}
+            fallback={
+              <p role="status" class="text-base text-ink-gray-7">
+                Loading authorized preview…
+              </p>
+            }
+          >
+            <Show when={preview()} keyed>
+              {(loaded) =>
+                loaded.error ? (
+                  <Alert theme="amber" variant="outline" title="Preview unavailable" description={loaded.error} />
+                ) : (
+                  <PreviewBody artifact={artifact()} preview={loaded} maxHeight={maxHeight()} />
+                )}
+            </Show>
+          </Show>
+        </div>
+      )}
+    </Show>
+  );
+}
+
+function PreviewBody(props: { artifact: ArtifactRef; preview: LoadedPreview; maxHeight: string }): JSX.Element {
+  return (
+    <Switch>
+      <Match when={props.preview.kind === "markdown"}>
+        <MarkdownPreview preview={props.preview} maxHeight={props.maxHeight} />
+      </Match>
+      <Match when={props.preview.kind === "csv"}>
+        <TablePreview preview={props.preview} maxHeight={props.maxHeight} />
+      </Match>
+      <Match when={props.preview.kind === "diff"}>
+        <DiffPreview preview={props.preview} maxHeight={props.maxHeight} />
+      </Match>
+      <Match when={props.preview.kind === "image"}>
+        <img
+          src={props.preview.objectUrl}
+          alt={`Preview of ${props.artifact.artifactId}`}
+          class="max-h-[32rem] w-auto max-w-full rounded-card border border-outline-gray-1"
+        />
+      </Match>
+      <Match when={props.preview.kind === "pdf"}>
+        <iframe
+          src={props.preview.objectUrl}
+          title={`PDF preview of ${props.artifact.artifactId}`}
+          class="h-[32rem] w-full rounded-card border border-outline-gray-1"
+        />
+      </Match>
+      <Match when={props.preview.kind === "none"}>{NO_PREVIEW_FALLBACK}</Match>
+      <Match when={true}>
+        <TextFamilyPreview preview={props.preview} maxHeight={props.maxHeight} />
+      </Match>
+    </Switch>
+  );
+}
+
+const NO_PREVIEW_FALLBACK = (
+  <Alert
+    theme="gray"
+    variant="outline"
+    title="No inline preview for this media type"
+    description="Use the authorized download to inspect the complete artifact."
+  />
+);
+
+function TextFamilyPreview(props: { preview: LoadedPreview; maxHeight: string }): JSX.Element {
+  return (
+    <Show when={props.preview.text !== undefined && props.preview.text.length > 0} fallback={NO_PREVIEW_FALLBACK}>
+      <pre
+        class={`brain-readable overflow-auto whitespace-pre-wrap break-words rounded-card bg-surface-gray-1 p-4 text-caption text-ink-gray-8 ${props.maxHeight}`}
+      >
+        {props.preview.text}
+      </pre>
+    </Show>
+  );
+}
+
+/** A unified-diff artifact renders with per-line add/remove tone; pure presentation, no diff engine. */
+function DiffPreview(props: { preview: LoadedPreview; maxHeight: string }): JSX.Element {
+  const lines = () => (props.preview.text ?? "").split("\n");
+  const lineClass = (line: string) =>
+    line.startsWith("+") && !line.startsWith("+++")
+      ? "bg-surface-green-2 text-ink-green-9"
+      : line.startsWith("-") && !line.startsWith("---")
+        ? "bg-surface-red-2 text-ink-red-9"
+        : line.startsWith("@@")
+          ? "text-ink-blue-8"
+          : "text-ink-gray-8";
+  return (
+    <Show when={props.preview.text !== undefined} fallback={NO_PREVIEW_FALLBACK}>
+      <pre class={`brain-exec-log overflow-auto rounded-card bg-surface-gray-1 p-4 text-caption ${props.maxHeight}`}>
+        <For each={lines()}>{(line) => <span class={`block whitespace-pre ${lineClass(line)}`}>{line || " "}</span>}</For>
+      </pre>
+    </Show>
+  );
+}
+
+/** Bounded block-level markdown rendering: headings, lists, quotes, fenced code. Text nodes only — a preview never injects HTML. */
+function MarkdownPreview(props: { preview: LoadedPreview; maxHeight: string }): JSX.Element {
+  return (
+    <Show when={props.preview.text !== undefined} fallback={NO_PREVIEW_FALLBACK}>
+      <div class={`brain-readable overflow-auto rounded-card bg-surface-gray-1 p-4 text-caption text-ink-gray-8 ${props.maxHeight}`}>
+        <For each={markdownBlocks(props.preview.text ?? "")}>
+          {(block) => {
+            if (block.kind === "code") return <pre class="brain-exec-log my-2 overflow-auto rounded-control bg-surface-elevation-1 p-3">{block.text}</pre>;
+            if (block.kind === "heading")
+              // Preview headings stay below the page's own h1/h2 so a
+              // document never re-shapes the app outline.
+              return (
+                <Dynamic
+                  component={block.level === 1 ? "h3" : block.level === 2 ? "h4" : "h5"}
+                  class={`mb-1 mt-3 font-semibold text-ink-gray-9 ${block.level <= 2 ? "text-section" : "text-base-medium"}`}
+                >
+                  {block.text}
+                </Dynamic>
+              );
+            if (block.kind === "quote") return <blockquote class="my-2 border-s-2 border-outline-blue-3 ps-3 text-ink-gray-7">{block.text}</blockquote>;
+            if (block.kind === "list")
+              return (
+                <ul class="my-2 list-disc ps-5">
+                  <For each={block.items}>{(item) => <li class="my-0.5">{item}</li>}</For>
+                </ul>
+              );
+            if (block.kind === "hr") return <hr class="my-3 border-outline-gray-2" />;
+            return <p class="my-1.5 whitespace-pre-wrap">{block.text}</p>;
+          }}
+        </For>
+      </div>
+    </Show>
+  );
+}
+
+type MarkdownBlock =
+  | { kind: "heading"; level: number; text: string }
+  | { kind: "paragraph"; text: string }
+  | { kind: "quote"; text: string }
+  | { kind: "code"; text: string }
+  | { kind: "list"; items: string[] }
+  | { kind: "hr" };
+
+/** Line-based block parse of the markdown subset Brain previews; input is already bounded by the preview limit. */
+function markdownBlocks(text: string): MarkdownBlock[] {
+  const blocks: MarkdownBlock[] = [];
+  const lines = text.split("\n");
+  let paragraph: string[] = [];
+  const flush = () => {
+    if (paragraph.length > 0) {
+      blocks.push({ kind: "paragraph", text: paragraph.join("\n") });
+      paragraph = [];
+    }
+  };
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index] ?? "";
+    if (/^```/u.test(line)) {
+      flush();
+      const body: string[] = [];
+      for (index += 1; index < lines.length; index += 1) {
+        const next = lines[index] ?? "";
+        if (/^```/u.test(next)) break;
+        body.push(next);
+      }
+      blocks.push({ kind: "code", text: body.join("\n") });
+      index += 1;
+      continue;
+    }
+    const heading = /^(#{1,6})\s+(.*)$/u.exec(line);
+    if (heading) {
+      flush();
+      blocks.push({ kind: "heading", level: heading[1]?.length ?? 1, text: heading[2] ?? "" });
+      index += 1;
+      continue;
+    }
+    if (/^(-{3,}|\*{3,})$/u.test(line.trim())) {
+      flush();
+      blocks.push({ kind: "hr" });
+      index += 1;
+      continue;
+    }
+    const quote = /^>\s?(.*)$/u.exec(line);
+    if (quote) {
+      flush();
+      blocks.push({ kind: "quote", text: quote[1] ?? "" });
+      index += 1;
+      continue;
+    }
+    if (/^\s*[-*]\s+/u.test(line)) {
+      flush();
+      const items: string[] = [];
+      for (; index < lines.length; index += 1) {
+        const next = lines[index] ?? "";
+        if (!/^\s*[-*]\s+/u.test(next)) break;
+        items.push(next.replace(/^\s*[-*]\s+/u, ""));
+      }
+      blocks.push({ kind: "list", items });
+      continue;
+    }
+    if (line.trim() === "") flush();
+    else paragraph.push(line);
+    index += 1;
+  }
+  flush();
+  return blocks;
+}
+
+const CSV_PREVIEW_ROWS = 50;
+
+/** Bounded CSV parse: RFC 4180 quoting, first row as the header, first CSV_PREVIEW_ROWS records shown. */
+function parseCsvRows(text: string): { header: readonly string[]; rows: readonly string[][]; totalRecords: number } {
+  const records: string[][] = [];
+  let field = "";
+  let record: string[] = [];
+  let inQuotes = false;
+  const endField = () => {
+    record.push(field);
+    field = "";
+  };
+  const endRecord = () => {
+    endField();
+    records.push(record);
+    record = [];
+  };
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (inQuotes) {
+      if (char === '"') {
+        if (text[index + 1] === '"') {
+          field += '"';
+          index += 1;
+        } else inQuotes = false;
+      } else field += char;
+      continue;
+    }
+    if (char === '"') {
+      inQuotes = true;
+      continue;
+    }
+    if (char === ",") {
+      endField();
+      continue;
+    }
+    if (char === "\n" || char === "\r") {
+      if (char === "\r" && text[index + 1] === "\n") index += 1;
+      endRecord();
+      // Bound the parse work: the preview table never needs the whole file.
+      if (records.length > CSV_PREVIEW_ROWS) break;
+      continue;
+    }
+    field += char;
+  }
+  if (field !== "" || record.length > 0) endRecord();
+  const totalRecords = records.length;
+  const clipped = records.slice(0, CSV_PREVIEW_ROWS + 1);
+  return { header: clipped[0] ?? [], rows: clipped.slice(1), totalRecords };
+}
+
+function TablePreview(props: { preview: LoadedPreview; maxHeight: string }): JSX.Element {
+  const parsed = () => parseCsvRows(props.preview.text ?? "");
+  return (
+    <Show when={props.preview.text !== undefined && parsed().header.length > 0} fallback={NO_PREVIEW_FALLBACK}>
+      <figure class="m-0">
+        <div class={`overflow-auto rounded-card border border-outline-gray-1 ${props.maxHeight}`}>
+          <table class="w-full border-collapse text-caption">
+            <thead class="sticky top-0 bg-surface-gray-1">
+              <tr>
+                <For each={parsed().header}>
+                  {(cell) => <th class="border-b border-outline-gray-2 px-3 py-2 text-start font-medium text-ink-gray-7">{cell}</th>}
+                </For>
+              </tr>
+            </thead>
+            <tbody>
+              <For each={parsed().rows}>
+                {(row) => (
+                  <tr class="hover:bg-surface-gray-1">
+                    <For each={row}>{(cell) => <td class="whitespace-pre-wrap border-b border-outline-gray-1 px-3 py-1.5 text-ink-gray-8">{cell}</td>}</For>
+                  </tr>
+                )}
+              </For>
+            </tbody>
+          </table>
+        </div>
+        <figcaption class="mt-1 text-caption text-ink-gray-6">
+          First {parsed().rows.length.toLocaleString()} data rows of {Math.max(0, parsed().totalRecords - 1).toLocaleString()}.
+        </figcaption>
+      </figure>
+    </Show>
+  );
+}

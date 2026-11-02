@@ -10,7 +10,7 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
   await page.getByLabel(/^Email/).fill("nav@example.test");
   await page.getByLabel(/^Password/).fill("browser-password-1234");
   await page.getByRole("button", { name: "Create organization", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Create your first workspace" })).toBeVisible();
 
   // Seed a workspace + pending approval through the real Governor surface.
   const cookies = await page.context().cookies();
@@ -63,10 +63,16 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(reviewButton).toBeFocused();
 
-  // One navigation model across areas: Runs list renders its bounded window.
+  // Execution-console IA: the primary Live entry lands on /w/:id/live, and the
+  // execution area carries Logs, Outputs and Runs beside it.
   if (await navToggle.isVisible()) await navToggle.click();
-  await page.getByRole("button", { name: "Activity", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Activity", exact: true, level: 1 })).toBeVisible();
-  await expect(page.getByText("No runs match", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Live", exact: true }).click();
+  await expect(page).toHaveURL(/\/w\/ws-nav\/live/);
+  await expect(page.getByRole("heading", { name: "The execution console is ready" })).toBeVisible();
+  if (await navToggle.isVisible()) await navToggle.click();
+  await expect(page.getByRole("button", { name: "Logs", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Outputs", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Runs", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "No runs in this view" })).toBeVisible();
   expect(errors).toEqual([]);
 });

@@ -14,7 +14,7 @@ test("operations: drain and quarantine a runner from settings (T36)", async ({ p
   await page.getByLabel(/^Email/).fill("ops@example.test");
   await page.getByLabel(/^Password/).fill("browser-password-1234");
   await page.getByRole("button", { name: "Create organization", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Create your first workspace" })).toBeVisible();
 
   const cookies = await page.context().cookies();
   const brain = governor.app.brain;
@@ -60,7 +60,7 @@ test("operations: issue a one-use enrollment token and enroll an outbound runner
   await page.getByLabel(/^Email/).fill("enrollment@example.test");
   await page.getByLabel(/^Password/).fill("browser-password-1234");
   await page.getByRole("button", { name: "Create organization", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Create your first workspace" })).toBeVisible();
   const brain = governor.app.brain;
   const cookies = await page.context().cookies();
   const actor = (await brain.resolveActor(new Headers({ cookie: cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ") }))).actor;

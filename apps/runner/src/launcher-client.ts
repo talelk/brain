@@ -64,12 +64,13 @@ export class LauncherClient {
     return { docker: r.json["docker"] === true };
   }
 
-  async createSandbox(input: { profile: "agent" | "privileged-tool" | "evaluator"; requestId: string; toolsDir?: string; network?: "none" | "internal"; cpuMillicores?: number; memoryMb?: number }): Promise<{ sandboxId: string }> {
+  async createSandbox(input: { profile: "agent" | "privileged-tool" | "evaluator"; requestId: string; toolsDir?: string; network?: "none" | "internal"; cpuMillicores?: number; memoryMb?: number; dataMounts?: readonly string[] }): Promise<{ sandboxId: string }> {
     const image = input.profile === "privileged-tool" ? "brain-sandbox-tool" : input.profile === "evaluator" ? "brain-sandbox-evaluator" : "brain-sandbox-agent";
     const r = await this.call("POST", "/v1/sandboxes", {
       profile: input.profile, image, requestId: input.requestId,
       network: input.network ?? "none", toolsDir: input.toolsDir,
       cpuMillicores: input.cpuMillicores ?? 1000, memoryMb: input.memoryMb ?? 1024,
+      ...(input.dataMounts && input.dataMounts.length > 0 ? { dataMounts: [...input.dataMounts] } : {}),
     });
     if (r.status !== 201 && r.status !== 200) throw new Error(`sandbox create failed ${r.status}: ${String(r.json["error"] ?? "")}`);
     return { sandboxId: String(r.json["sandboxId"]) };

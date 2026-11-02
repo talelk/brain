@@ -399,3 +399,35 @@ CREATE TABLE notification_deliveries (
   attempt_count INTEGER NOT NULL DEFAULT 0 CHECK(attempt_count>=0), next_attempt_at_ms INTEGER NOT NULL,
   PRIMARY KEY(event_id,subscription_id)
 ) STRICT;
+
+-- Unified Execution Stream: one projected read model over control.events,
+-- workspace.events and attempt_events. Derived data — the three source logs
+-- remain the authority and the projection is rebuildable from watermarks.
+-- Large payloads stay in attempt_events/CAS; rows carry bounded summaries and
+-- pointer references only.
+CREATE TABLE execution_stream (
+  stream_seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id TEXT NOT NULL UNIQUE,
+  organization_id TEXT NOT NULL, workspace_id TEXT,
+  source TEXT NOT NULL CHECK(source IN ('control','workspace','attempt')),
+  emitter TEXT NOT NULL CHECK(emitter IN ('agent','tool','runner','governor','evaluator','connector','system')),
+  aggregate_type TEXT NOT NULL, aggregate_id TEXT NOT NULL, aggregate_seq INTEGER NOT NULL,
+  event_type TEXT NOT NULL,
+  severity TEXT CHECK(severity IN ('debug','info','warning','error','critical')),
+  occurred_at_ms INTEGER NOT NULL,
+  ts_approximate INTEGER NOT NULL DEFAULT 0 CHECK(ts_approximate IN (0,1)),
+  run_id TEXT, job_id TEXT, attempt_id TEXT, session_id TEXT, work_item_id TEXT,
+  invocation_id TEXT, proposal_id TEXT,
+  summary_json TEXT NOT NULL CHECK(json_valid(summary_json) AND length(summary_json) <= 4096),
+  payload_ref_json TEXT NOT NULL CHECK(json_valid(payload_ref_json))
+) STRICT;
+CREATE INDEX stream_scope ON execution_stream(organization_id, workspace_id, stream_seq);
+CREATE INDEX stream_corr ON execution_stream(session_id, stream_seq);
+CREATE INDEX stream_job ON execution_stream(job_id, stream_seq);
+-- Standalone-content FTS (document_fts precedent): execution_stream has no
+-- 'text' column, so an external-content FTS5 table could not map columns.
+CREATE VIRTUAL TABLE execution_stream_fts USING fts5(text, stream_seq UNINDEXED, tokenize='unicode61');
+CREATE TABLE stream_watermarks (
+  source TEXT NOT NULL, key TEXT NOT NULL, cursor INTEGER NOT NULL,
+  PRIMARY KEY(source,key)
+) STRICT;

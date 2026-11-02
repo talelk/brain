@@ -233,6 +233,16 @@ export class ClaudeEngine implements EngineAdapter {
     return { terminationConfirmed: true };
   }
 
+  /**
+   * The Claude adapter drives one SDK query per session and the SDK exposes no
+   * injection point into a running query, so steering genuinely cannot apply —
+   * refused with the typed unsupported error instead of silently dropping the
+   * message. The probe therefore does not advertise "steer".
+   */
+  async steer(sessionId: string, _messageId: string, _message: string): Promise<void> {
+    throw Object.assign(new Error(`Claude sessions cannot accept steering mid-query (session ${sessionId})`), { code: "UNSUPPORTED_CAPABILITY" });
+  }
+
   async checkpoint(): Promise<never> {
     throw Object.assign(new Error("Claude checkpoint mapping is not supported"), { code: "UNSUPPORTED_CAPABILITY" });
   }

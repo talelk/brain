@@ -160,6 +160,16 @@ export class AcpEngine implements EngineAdapter {
     return { terminationConfirmed: true };
   }
 
+  /**
+   * The ACP session protocol this adapter speaks (prompt → single turn →
+   * cancel) has no message-injection primitive, so steering genuinely cannot
+   * apply — refused with the typed unsupported error. The probe does not
+   * advertise "steer".
+   */
+  async steer(sessionId: string, _messageId: string, _message: string): Promise<void> {
+    throw Object.assign(new Error(`ACP sessions cannot accept steering mid-prompt (session ${sessionId})`), { code: "UNSUPPORTED_CAPABILITY" });
+  }
+
   async checkpoint(): Promise<never> {
     throw Object.assign(new Error("ACP checkpoint not exposed by agent"), { code: "UNSUPPORTED_CAPABILITY" });
   }

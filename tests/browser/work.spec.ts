@@ -11,7 +11,7 @@ test("work area shows decisions, tickets, incidents and delivery (T34)", async (
   await page.getByLabel(/^Email/).fill("worker@example.test");
   await page.getByLabel(/^Password/).fill("browser-password-1234");
   await page.getByRole("button", { name: "Create organization", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Create your first workspace" })).toBeVisible();
 
   const cookies = await page.context().cookies();
   const brain = governor.app.brain;

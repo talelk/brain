@@ -1,0 +1,22 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Evaluator",
+  "metadata": {
+    "id": "cv-validator",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "tool": {
+      "id": "cv.verify",
+      "digest": "sha256:e7bbad805bd86bfd59d58e6b9a2e51f894cebc6fc4a346227816fb7460445f76"
+    },
+    "requiredChecks": [
+      "report-shape",
+      "freshness-claim",
+      "empty-table-claims",
+      "orphan-claims",
+      "actionable-next-actions"
+    ],
+    "independence": "L1"
+  }
+}

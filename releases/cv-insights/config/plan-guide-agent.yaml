@@ -1,0 +1,15 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Agent",
+  "metadata": { "id": "plan-guide-assistant", "version": "1.0.0" },
+  "spec": {
+    "instructionsPath": "agents/plan-guide.md",
+    "tools": [],
+    "engine": { "anyOf": ["pi", "claude"], "features": ["sessions"] },
+    "maxTurns": 3,
+    "maxChildren": 0,
+    "maxDepth": 0,
+    "maxTokens": 32768,
+    "maxMicroUsd": 0
+  }
+}

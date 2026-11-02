@@ -88,11 +88,11 @@ Governor module folders share this one deployment:
 | work | `apps/governor/src/modules/work` | Objectives, immutable plan versions, WorkItems, dependencies, assignments, business decisions and execution links |
 | sessions | `apps/governor/src/modules/sessions` | Native and managed BrainSessions, durable messages, portable checkpoints and cross-agent collaboration |
 | capabilities | `apps/governor/src/modules/capabilities` | Capability discovery, private candidates, packaging, tests and governed publication |
-| workspaces | `apps/governor/src/modules/workspaces` | Workspace settings, source associations, context, quotas and available capabilities |
 | resources | `apps/governor/src/modules/resources` | Documents, immutable versions, preview, associations, classification and storage lifecycle |
 | integrations | `apps/governor/src/modules/integrations` | GitHub/GitLab connections, secret references, repository bindings, webhooks and change proposals |
 | packs | `apps/governor/src/modules/packs` | Compiled onboarding/support/SRE/delivery/eval modules and connector adapters |
 | operations | `apps/governor/src/modules/operations` | Health, bounded timers, backup/restore, audit and notifications |
+| stream | `apps/governor/src/modules/stream` | Unified Execution Stream read model: watermark-guarded projection over the authoritative source logs, permission-scoped reads, FTS search, correlation context, attempt comparison, retention sweep and bounded sanitized export |
 <!-- END GENERATED LAYOUT -->
 
 Pure reducers live in Governor `src/domain`; use cases in `src/application` coordinate module public functions. Connection lifecycle/current schema/inbox/outbox live in `src/infrastructure/persistence`. A table has one writer owner. A synchronous local transaction may coordinate modules through injected transaction functions; no network, model call or human wait belongs inside it. Cross-file work still uses durable outbox/inbox.

@@ -6,6 +6,26 @@ import type { ScreenState } from "../data/screens";
 import { formatRelative } from "./format";
 
 /**
+ * Execution-stream severity presentation, shared by every execution surface
+ * (Live console, Logs, inspector). The severity vocabulary is the projector's
+ * (stream/classify.ts): debug | info | warning | error | critical.
+ */
+export function severityLabel(severity: string | null | undefined): string {
+  return severity ? severity.charAt(0).toUpperCase() + severity.slice(1) : "Log";
+}
+
+/** Filled-dot class per severity, for log rows and filter chips. */
+export function severityDotClass(severity: string | null | undefined): string {
+  switch (severity) {
+    case "info": return "bg-surface-blue-7";
+    case "warning": return "bg-surface-amber-7";
+    case "error":
+    case "critical": return "bg-surface-red-7";
+    default: return "bg-surface-gray-2";
+  }
+}
+
+/**
  * The one region contract for every data screen (document 21).
  *
  * Each of the eight declared statuses renders a distinct, task-specific

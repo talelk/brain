@@ -40,6 +40,7 @@
    ],
    "owner": "T34",
    "navigationGroup": "today",
+   "icon": "lucide-inbox",
    "task": "Handle prioritized work and return to the originating list",
    "title": "Today"
   },
@@ -60,8 +61,97 @@
    ],
    "owner": "T34",
    "navigationGroup": "today",
+   "icon": "lucide-network",
    "task": "Handle prioritized work and return to the originating list",
    "title": "Bridge"
+  },
+  {
+   "route": "/w/:id/live",
+   "queries": [
+    "sessions.list",
+    "jobs.list",
+    "session.get",
+    "live.status"
+   ],
+   "actions": [
+    "session.steer",
+    "session.stop",
+    "workflow.dispatch",
+    "job.reconcile"
+   ],
+   "content": [
+    "sessions",
+    "console",
+    "outputs",
+    "controls"
+   ],
+   "owner": "T60",
+   "navigationGroup": "execution",
+   "icon": "lucide-radio",
+   "task": "Run, steer and inspect live agent sessions without losing session state",
+   "title": "Live"
+  },
+  {
+   "route": "/w/:id/logs",
+   "queries": [
+    "stream.tail",
+    "stream.search",
+    "stream.context",
+    "stream.compare"
+   ],
+   "actions": [],
+   "content": [
+    "records",
+    "filters",
+    "search",
+    "correlation"
+   ],
+   "owner": "T61",
+   "navigationGroup": "execution",
+   "icon": "lucide-scroll-text",
+   "task": "Search execution and platform logs and jump between correlated contexts",
+   "title": "Logs"
+  },
+  {
+   "route": "/w/:id/outputs",
+   "queries": [
+    "artifacts.list",
+    "artifacts.history",
+    "workBoard.get"
+   ],
+   "actions": [],
+   "content": [
+    "artifacts",
+    "preview",
+    "history",
+    "diff"
+   ],
+   "owner": "T61",
+   "navigationGroup": "execution",
+   "icon": "lucide-package",
+   "task": "Browse authorized generated artifacts with previews, diffs and history",
+   "title": "Outputs"
+  },
+  {
+   "route": "/artifacts/:id",
+   "queries": [
+    "artifacts.history",
+    "artifacts.diff",
+    "workBoard.get"
+   ],
+   "actions": [],
+   "content": [
+    "preview",
+    "metadata",
+    "verification",
+    "history",
+    "diff"
+   ],
+   "owner": "T61",
+   "navigationGroup": "execution",
+   "icon": "lucide-file-search",
+   "task": "Inspect one artifact: preview, verification, versions and diffs",
+   "title": "Artifact"
   },
   {
    "route": "/w/:id/overview",
@@ -82,6 +172,7 @@
    ],
    "owner": "T34",
    "navigationGroup": "work",
+   "icon": "lucide-layout-dashboard",
    "task": "Review workspace work and pack details",
    "title": "Overview"
   },
@@ -103,6 +194,7 @@
    ],
    "owner": "T37",
    "navigationGroup": "work",
+   "icon": "lucide-kanban-square",
    "task": "Review workspace work and pack details",
    "title": "Board"
   },
@@ -122,6 +214,7 @@
    ],
    "owner": "T37",
    "navigationGroup": "work",
+   "icon": "lucide-scale",
    "task": "Review workspace work and pack details",
    "title": "Decisions"
   },
@@ -140,6 +233,7 @@
    ],
    "owner": "T35",
    "navigationGroup": "approvals",
+   "icon": "lucide-shield-check",
    "task": "Review exact proposed effects and recover submitted decisions",
    "title": "Approvals"
   },
@@ -161,6 +255,7 @@
    ],
    "owner": "T35",
    "navigationGroup": "approvals",
+   "icon": "lucide-shield-check",
    "task": "Review exact proposed effects and recover submitted decisions",
    "title": "Approval review"
   },
@@ -180,10 +275,11 @@
     "blocker",
     "evidence"
    ],
-   "owner": "T36",
-   "navigationGroup": "runs",
-   "task": "Inspect a run, its attempts, events and evidence",
-   "title": "Run detail"
+   "owner": "T60",
+   "navigationGroup": "execution",
+   "icon": "lucide-search-check",
+   "task": "Inspect one run's state, attempts, evidence and links without duplicating the console, logs or outputs",
+   "title": "Run inspector"
   },
   {
    "route": "/runners",
@@ -203,7 +299,8 @@
     "freshness"
    ],
    "owner": "T36",
-   "navigationGroup": "runs",
+   "navigationGroup": "execution",
+   "icon": "lucide-server",
    "task": "Inspect a run, its attempts, events and evidence",
    "title": "Runners"
   },
@@ -223,7 +320,8 @@
     "reservations"
    ],
    "owner": "T36",
-   "navigationGroup": "runs",
+   "navigationGroup": "execution",
+   "icon": "lucide-server",
    "task": "Inspect a run, its attempts, events and evidence",
    "title": "Runner detail"
   },
@@ -237,15 +335,16 @@
     "session.stop"
    ],
    "content": [
+    "console",
     "task",
-    "tools",
     "usage",
-    "timeline"
+    "context"
    ],
-   "owner": "T36",
-   "navigationGroup": "runs",
-   "task": "Inspect a run, its attempts, events and evidence",
-   "title": "Live session"
+   "owner": "T60",
+   "navigationGroup": "execution",
+   "icon": "lucide-square-terminal",
+   "task": "Open one session in the Live console: active and historical are state, not layout",
+   "title": "Live console"
   },
   {
    "route": "/w/:id/support",
@@ -264,6 +363,7 @@
    ],
    "owner": "T58",
    "navigationGroup": "work",
+   "icon": "lucide-headset",
    "task": "Review workspace work and pack details",
    "title": "Support"
   },
@@ -283,6 +383,7 @@
    ],
    "owner": "T58",
    "navigationGroup": "work",
+   "icon": "lucide-ticket",
    "task": "Review workspace work and pack details",
    "title": "Ticket detail"
   },
@@ -302,6 +403,7 @@
    ],
    "owner": "T58",
    "navigationGroup": "work",
+   "icon": "lucide-siren",
    "task": "Review workspace work and pack details",
    "title": "Incidents"
   },
@@ -320,6 +422,7 @@
    ],
    "owner": "T58",
    "navigationGroup": "work",
+   "icon": "lucide-siren",
    "task": "Review workspace work and pack details",
    "title": "Incident detail"
   },
@@ -340,6 +443,7 @@
    ],
    "owner": "T44",
    "navigationGroup": "work",
+   "icon": "lucide-package-check",
    "task": "Review workspace work and pack details",
    "title": "Delivery"
   },
@@ -370,6 +474,7 @@
    ],
    "owner": "T39",
    "navigationGroup": "knowledge",
+   "icon": "lucide-book-open",
    "task": "Find scoped facts and inspect trusted capabilities",
    "title": "Knowledge"
   },
@@ -391,6 +496,8 @@
    ],
    "owner": "T40",
    "navigationGroup": "knowledge",
+   "area": "administration",
+   "icon": "lucide-wrench",
    "task": "Find scoped facts and inspect trusted capabilities",
    "title": "Tool catalog"
   },
@@ -430,6 +537,8 @@
    ],
    "owner": "T48",
    "navigationGroup": "settings",
+   "area": "administration",
+   "icon": "lucide-settings",
    "task": "Manage explicitly authorized administration",
    "title": "Administration"
   },
@@ -444,6 +553,8 @@
    ],
    "owner": "T05",
    "navigationGroup": "settings",
+   "area": "administration",
+   "icon": "lucide-mail-check",
    "task": "Verify an invited account and accept organization membership",
    "title": "Accept invitation"
   },
@@ -460,6 +571,7 @@
    ],
    "owner": "T45",
    "navigationGroup": "tv",
+   "icon": "lucide-monitor",
    "task": "Read scoped redacted monitoring",
    "title": "Support board"
   },
@@ -475,28 +587,26 @@
    ],
    "owner": "T45",
    "navigationGroup": "tv",
+   "icon": "lucide-monitor",
    "task": "Read scoped redacted monitoring",
    "title": "SRE board"
   },
   {
    "route": "/w/:id/runs",
    "queries": [
-    "jobs.list",
-    "sessions.list",
-    "runners.list"
+    "jobs.list"
    ],
    "actions": [
     "workflow.dispatch"
    ],
    "content": [
-    "jobs",
-    "sessions",
-    "runners"
+    "runs"
    ],
-   "owner": "T36",
-   "navigationGroup": "runs",
-   "task": "Inspect a run, its attempts, events and evidence",
-   "title": "Activity"
+   "owner": "T60",
+   "navigationGroup": "execution",
+   "icon": "lucide-list",
+   "task": "Index historical and active runs; sessions live in the console rail, runners have their own screen",
+   "title": "Runs"
   },
   {
    "route": "/w/:id/agents",
@@ -516,6 +626,7 @@
    ],
    "owner": "T34",
    "navigationGroup": "work",
+   "icon": "lucide-bot",
    "task": "Inspect active agent and workflow definitions and dispatch schema-validated inputs",
    "title": "Agents"
   },
@@ -537,6 +648,7 @@
    ],
    "owner": "T34",
    "navigationGroup": "work",
+   "icon": "lucide-play",
    "task": "Inspect active agent and workflow definitions and dispatch schema-validated inputs",
    "title": "Start work"
   },
@@ -560,6 +672,7 @@
    ],
    "owner": "T51",
    "navigationGroup": "work",
+   "icon": "lucide-list-tree",
    "task": "Turn an intention into a reviewed plan and versioned work",
    "title": "Plans"
   },
@@ -583,6 +696,7 @@
    ],
    "owner": "T52",
    "navigationGroup": "work",
+   "icon": "lucide-calendar-clock",
    "task": "Schedule and control task and workflow occurrences",
    "title": "Schedules"
   },
@@ -609,6 +723,7 @@
    ],
    "owner": "T54",
    "navigationGroup": "work",
+   "icon": "lucide-files",
    "task": "Manage and use workspace documents",
    "title": "Resources"
   },
@@ -628,6 +743,7 @@
    ],
    "owner": "T56",
    "navigationGroup": "knowledge",
+   "icon": "lucide-flask-conical",
    "task": "Create and validate a capability without editing YAML",
    "title": "Studio"
   },
@@ -652,6 +768,7 @@
    ],
    "owner": "T56",
    "navigationGroup": "knowledge",
+   "icon": "lucide-flask-conical",
    "task": "Edit, test, review and publish an immutable definition",
    "title": "Configuration Studio"
   },
@@ -676,6 +793,7 @@
    ],
    "owner": "T55",
    "navigationGroup": "administration",
+   "icon": "lucide-plug",
    "task": "Connect Git providers and bind repositories to workspaces",
    "title": "Integrations"
   }
@@ -694,14 +812,14 @@
    "entryRoute": "/today"
   },
   {
+   "id": "execution",
+   "label": "Live",
+   "entryRoute": "/w/:id/live"
+  },
+  {
    "id": "work",
    "label": "Work",
    "entryRoute": "/w/:id/board"
-  },
-  {
-   "id": "runs",
-   "label": "Activity",
-   "entryRoute": "/w/:id/runs"
   },
   {
    "id": "approvals",
@@ -726,7 +844,6 @@
  "sharedRunDetail": [
   "summary",
   "attempts",
-  "timeline",
   "evidence",
   "placement"
  ],
@@ -753,6 +870,29 @@
    {
     "label": "Bridge",
     "route": "/bridge"
+   }
+  ],
+  "execution": [
+   {
+    "label": "Live",
+    "route": "/w/:id/live"
+   },
+   {
+    "label": "Logs",
+    "route": "/w/:id/logs"
+   },
+   {
+    "label": "Outputs",
+    "route": "/w/:id/outputs"
+   },
+   {
+    "label": "Runs",
+    "route": "/w/:id/runs"
+   },
+   {
+    "label": "Runners",
+    "route": "/runners",
+    "adminOnly": true
    }
   ],
   "work": [

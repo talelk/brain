@@ -9,7 +9,7 @@ import { query } from "../../data/client";
 import { DateText, ScreenRegion } from "../../ui/screen-region";
 import { BrainPage, PageStack, TechnicalDetails } from "../../ui/components/PageLayout";
 import { StatusBadge } from "../../ui/components/StatusBadge";
-import { RefreshButton } from "../../ui/components/primitives";
+import { IconTile, RefreshButton } from "../../ui/components/primitives";
 import { EmptyPreview, FactStrip, WorkspaceSection } from "../../ui/components/Domain";
 
 interface IntegrationView {
@@ -104,18 +104,21 @@ export default function IntegrationsPage(): JSX.Element {
       <div class="brain-studio-layout"><div class="brain-detail-stack">
         <WorkspaceSection title="Configured connections" description="Configured, authenticated and workflow-usable are different states. Verification uses the real server response.">
           <ScreenRegion state={integrations.state()} onRetry={() => void integrations.refresh()} emptyTitle="No Git connections" emptyDescription="Use the guided New Git remote flow. Credentials stay hidden after creation.">
-            <div class="brain-queue"><For each={integrations.state().data?.connections}>{(connection) => <article class="border-b border-outline-gray-1 py-4">
-              <div class="flex flex-wrap items-start justify-between gap-2"><div><h3 class="text-base-medium">{connection.name}</h3><p class="mt-1 break-all text-caption text-ink-gray-6">{connection.repositoryUrl}</p></div><StatusBadge kind="connection" status={connection.status} /></div>
+            <div class="brain-queue"><For each={integrations.state().data?.connections}>{(connection) => <article class="flex gap-3 border-b border-outline-gray-1 py-4">
+              <IconTile icon="lucide-git-branch" tone={connection.status === "verified" ? "green" : connection.status === "failed" ? "red" : "amber"} />
+              <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0"><h3 class="break-words text-base-medium">{connection.name}</h3><p class="mt-1 break-all text-caption text-ink-gray-6">{connection.repositoryUrl}</p></div><StatusBadge kind="connection" status={connection.status} /></div>
               <dl class="mt-3 grid gap-3 text-interface sm:grid-cols-2"><div><dt class="text-caption text-ink-gray-6">Last checked</dt><dd class="mt-1"><Show when={connection.lastVerifiedAt} fallback="Not verified"><DateText value={connection.lastVerifiedAt} /></Show></dd></div><div><dt class="text-caption text-ink-gray-6">Authorized scope</dt><dd class="mt-1">Remote credentials encrypted; never returned to browser</dd></div></dl>
               <Show when={connection.detail}><Alert theme="red" variant="outline" title="Connection check failed" description={connection.detail} /></Show>
-              <div class="mt-3 flex flex-wrap gap-2"><Button size="lg" variant="outline" disabled={busy()} onClick={() => void verify(connection.connectionId)}>Verify remote</Button><Button size="lg" variant="ghost" onClick={() => { setSelectedConnection(connection.connectionId); setRepositoryKey(""); void repositories.refresh({ force: true }); }}>Bind repository</Button></div>
+              <div class="mt-3 flex flex-wrap gap-2"><Button size="md" variant="outline" disabled={busy()} onClick={() => void verify(connection.connectionId)}>Verify remote</Button><Button size="md" variant="ghost" onClick={() => { setSelectedConnection(connection.connectionId); setRepositoryKey(""); void repositories.refresh({ force: true }); }}>Bind repository</Button></div>
+              </div>
             </article>}</For></div>
           </ScreenRegion>
         </WorkspaceSection>
         <Show when={selectedConnection()}><WorkspaceSection title="Bind a verified repository" description="Configuration and project bindings are separate authority classes. No binding activates a release or mutates Git.">
           <ScreenRegion state={repositories.state()} onRetry={() => void repositories.refresh()} emptyTitle="No verified remote" emptyDescription="Test the connection successfully to inspect protocol refs and push capability.">
             <div class="brain-field-grid"><Select label="Repository" value={repositoryKey()} options={(repositories.state().data?.items ?? []).map((repository) => ({ value: repository.repositoryKey, label: `${repository.displayName} · ${repository.defaultBranch}` }))} onValueChange={(value) => setRepositoryKey(value ?? "")} /><Select label="Binding class" value={kind()} options={[{ value: "configuration", label: "Configuration" }, { value: "project", label: "Project" }]} onValueChange={(value) => setKind((value ?? "configuration") as "configuration" | "project")} /><Select label="Required access" value={access()} options={[{ value: "read", label: "Read only" }, { value: "write", label: "Read and write" }]} onValueChange={(value) => setAccess((value ?? "read") as "read" | "write")} /><TextInput label="Workspace" value={app.workspaceId()} readonly /></div>
-            <Button size="lg" theme="blue" disabled={busy() || !repositoryKey() || repositories.state().data?.status !== "verified"} onClick={() => void bind()}>Bind repository</Button>
+            <Button size="lg" variant="outline" theme="blue" disabled={busy() || !repositoryKey() || repositories.state().data?.status !== "verified"} onClick={() => void bind()}>Bind repository</Button>
           </ScreenRegion>
         </WorkspaceSection></Show>
         <WorkspaceSection title="Repository bindings" description="Meaningful target, scope and state for existing relationships.">
@@ -125,7 +128,7 @@ export default function IntegrationsPage(): JSX.Element {
       </div><WorkspaceSection title="New Git remote" description="One connection per remote repository. Optional HTTP credentials are encrypted at rest and never returned.">
         <div class="brain-field-grid"><TextInput label="Connection name" value={name()} onInput={(event) => setName(event.currentTarget.value)} placeholder="Configuration repository" /><TextInput label="Remote repository URL" value={repositoryUrl()} onInput={(event) => setRepositoryUrl(event.currentTarget.value)} placeholder="https://git.example.test/team/brain.git" /><TextInput label="HTTP username (optional)" value={username()} onInput={(event) => setUsername(event.currentTarget.value)} /><TextInput label="HTTP token (optional)" type="password" value={token()} onInput={(event) => setToken(event.currentTarget.value)} /></div>
         <Alert theme="blue" variant="outline" title="Credential boundary" description="The token is used only for the server-side Git connection. It is not displayed again or shared with workflows without an explicit binding." />
-        <Button size="lg" theme="blue" loading={busy()} disabled={busy() || !name().trim() || !repositoryUrl().trim()} onClick={() => void connect()}>Connect remote</Button>
+        <Button size="lg" theme="blue" iconLeft="lucide-plus" loading={busy()} disabled={busy() || !name().trim() || !repositoryUrl().trim()} onClick={() => void connect()}>Connect remote</Button>
       </WorkspaceSection></div>
     </PageStack>
   </BrainPage>;

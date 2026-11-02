@@ -14,9 +14,14 @@ import { ThemeToggle } from "./ui/components/ThemeToggle";
 import { GlobalSearchDialog } from "./ui/components/GlobalSearch";
 import { BrandMark } from "./ui/components/primitives";
 import { PageHeaderProvider, usePageHeader } from "./ui/page-context";
-import { PRIMARY_NAVIGATION, AREA_NAVIGATION, ROUTES } from "./routes/index.gen";
+import { LandingRedirect } from "./ui/LandingRedirect";
+import { PRIMARY_NAVIGATION, AREA_NAVIGATION, ICONS, ROUTES } from "./routes/index.gen";
 
 const PAGE_LOADERS = {
+  LivePage: () => import('./routes/pages/LivePage'),
+  LogsPage: () => import('./routes/pages/LogsPage'),
+  OutputsPage: () => import('./routes/pages/OutputsPage'),
+  ArtifactDetailPage: () => import('./routes/pages/ArtifactDetailPage'),
   AgentsPage: () => import('./routes/catalog').then((m) => ({ default: m.AgentsPage })),
   WorkflowsPage: () => import('./routes/catalog').then((m) => ({ default: m.WorkflowsPage })),
   TodayPage: () => import('./routes/pages/TodayPage'),
@@ -65,32 +70,20 @@ const workspacePage = (key: PageKey) => {
   return () => <WorkspaceSync><Page /></WorkspaceSync>;
 };
 
-function titleForLocation(pathname: string): string {
-  const match = ROUTES.find((route) => new RegExp(`^${route.route.replace(/:id/gu, "[^/]+")}$`).test(pathname));
-  return match?.title ?? "Today";
+function routeForPath(pathname: string) {
+  const path = pathname.split("?")[0] ?? pathname;
+  return ROUTES.find((route) => new RegExp(`^${route.route.replace(/:[A-Za-z0-9_]+/gu, "[^/]+")}$`).test(path));
 }
 
 function areaForPath(pathname: string): string {
-  const path = pathname.split("?")[0] ?? pathname;
-  // The tool catalog lives in the administration chrome (AREA_NAVIGATION) even though its contract group is knowledge.
-  if (path === "/tools") return "administration";
-  const match = ROUTES.find((route) => new RegExp(`^${route.route.replace(/:id/gu, "[^/]+")}$`).test(path));
+  // The chrome area is contract-declared (area, defaulting to navigationGroup);
+  // the shell carries no route special cases.
+  const match = routeForPath(pathname);
   if (!match) return "";
-  return match.navigationGroup === "settings" ? "administration" : match.navigationGroup;
+  return match.area ?? match.navigationGroup;
 }
 
-const PRIMARY_ICONS: Record<string, string> = {
-  today: "lucide-inbox", work: "lucide-kanban-square", runs: "lucide-activity", approvals: "lucide-shield-check", knowledge: "lucide-book-open", administration: "lucide-settings",
-};
-const AREA_ICONS: Record<string, string> = {
-  "/today": "lucide-inbox", "/bridge": "lucide-network", "/w/:id/overview": "lucide-layout-dashboard", "/w/:id/plans": "lucide-list-tree",
-  "/w/:id/board": "lucide-kanban-square", "/w/:id/workflows": "lucide-play", "/w/:id/schedules": "lucide-calendar-clock",
-  "/w/:id/resources": "lucide-files", "/w/:id/support": "lucide-headset", "/w/:id/sre": "lucide-siren", "/w/:id/delivery": "lucide-package-check",
-  "/w/:id/decisions": "lucide-scale", "/settings?tab=setup": "lucide-wand-sparkles", "/settings?tab=security": "lucide-shield",
-  "/administration/integrations": "lucide-plug", "/settings?tab=release": "lucide-git-branch", "/w/:id/agents": "lucide-bot",
-  "/tools": "lucide-wrench", "/runners": "lucide-server", "/settings?tab=people": "lucide-users", "/settings?tab=invitations": "lucide-mail-plus",
-  "/settings?tab=members": "lucide-key-round", "/settings?tab=policy": "lucide-shield-check", "/settings?tab=health": "lucide-heart-pulse",
-};
+const FALLBACK_ICON = "lucide-circle";
 
 function Navigation(): AppSidebarGroup[] {
   const app = useApp();
@@ -100,17 +93,17 @@ function Navigation(): AppSidebarGroup[] {
   const href = (route: string) => route.replace(":id", app.workspaceId());
   const active = (route: string) => {
     const path = route.split("?")[0] ?? route;
-    return new RegExp(`^${path.replace(/:id/gu, "[^/]+")}$`).test(location.pathname);
+    return new RegExp(`^${path.replace(/:[A-Za-z0-9_]+/gu, "[^/]+")}$`).test(location.pathname);
   };
   const primary = PRIMARY_NAVIGATION.filter((entry) => entry.id !== "administration").map((entry) => ({
-    label: entry.label, icon: PRIMARY_ICONS[entry.id], active: areaForPath(href(entry.route)) === area(),
+    label: entry.label, icon: ICONS[entry.route] ?? FALLBACK_ICON, active: areaForPath(href(entry.route)) === area(),
     onClick: () => void navigate(href(entry.route)),
   }));
   const primaryRoutes = new Set(PRIMARY_NAVIGATION.map((entry) => href(entry.route)));
   const contextual = (AREA_NAVIGATION[area()] ?? []).filter((entry) =>
     (!entry.adminOnly || app.canAdminister() || Boolean(entry.identityOnly && app.identity()?.actor.scopes.includes("identity:read"))) && (!entry.organizationOnly || Boolean(app.identity()?.actor.scopes.includes("config:activate"))) && (!entry.identityOnly || Boolean(app.identity()?.actor.scopes.includes("identity:read"))),
   ).filter((entry) => !primaryRoutes.has(href(entry.route))).map((entry) => ({
-    label: entry.label, icon: AREA_ICONS[entry.route], active: active(entry.route), onClick: () => void navigate(href(entry.route)),
+    label: entry.label, icon: ICONS[entry.route] ?? FALLBACK_ICON, active: active(entry.route), onClick: () => void navigate(href(entry.route)),
   }));
   return [
     { label: "Brain", items: primary },
@@ -146,7 +139,6 @@ function AccountMenu(props: { compact?: boolean }): JSX.Element {
 function ShellLayout(props: RouteSectionProps): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
-  const location = useLocation();
   const header = usePageHeader();
   const [searchOpen, setSearchOpen] = createSignal(false);
   onMount(() => {
@@ -156,14 +148,16 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
     window.addEventListener("keydown", shortcut);
     onCleanup(() => window.removeEventListener("keydown", shortcut));
   });
+  // Static fallback: a lazy page that has not yet mounted BrainPage leaves the
+  // header signal undefined, and the title must never blank.
   return <AppShell
     brand={<BrandMark />}
     brandCollapsed={<BrandMark collapsed />}
-    title={header()?.title ?? titleForLocation(location.pathname)}
+    title={header()?.title ?? "Brain"}
     description={header()?.description}
     breadcrumbs={header()?.breadcrumbs}
     actions={header()?.actions}
-    mobileTitle={header()?.title ?? titleForLocation(location.pathname)}
+    mobileTitle={header()?.title ?? "Brain"}
     headerActions={<><Button size="lg" variant="ghost" iconLeft="lucide-search" aria-label="Search Brain (Control K)" onClick={() => setSearchOpen(true)}><span class="max-sm:hidden">Search</span></Button><ThemeToggle /></>}
     tenant={<div data-keep-drawer><Dropdown aria-label="Choose workspace" class="w-full justify-start" options={app.workspaceOptions().map((option) => ({ ...option, icon: "lucide-building-2" }))}
       onSelect={(value) => { if (value) { app.selectWorkspace(value); void navigate(`/w/${value}/overview`); } }}>
@@ -233,9 +227,13 @@ export function App(): JSX.Element {
     <Route path="/tv/sre" component={page("TvSrePage")} />
     <Route path="/accept-invitation/:id" component={InvitationAcceptancePage} />
     <Route path="/" component={ShellLayout}>
-      <Route path="/" component={() => <Navigate href="/today" />} />
+      {/* Default landing: live.status routes active work to the console (never a deep link). */}
+      <Route path="/" component={LandingRedirect} />
       <Route path="/today" component={page("TodayPage")} />
       <Route path="/bridge" component={page("BridgePage")} />
+      <Route path="/w/:id/live" component={workspacePage("LivePage")} />
+      <Route path="/w/:id/logs" component={workspacePage("LogsPage")} />
+      <Route path="/w/:id/outputs" component={workspacePage("OutputsPage")} />
       <Route path="/w/:id/agents" component={workspacePage("AgentsPage")} />
       <Route path="/w/:id/workflows" component={workspacePage("WorkflowsPage")} />
       <Route path="/w/:id/overview" component={workspacePage("WorkspaceOverviewPage")} />
@@ -255,6 +253,7 @@ export function App(): JSX.Element {
       <Route path="/runners" component={page("RunnersPage")} />
       <Route path="/runners/:id" component={page("RunnersDetailPage")} />
       <Route path="/sessions/:id" component={page("SessionDetailPage")} />
+      <Route path="/artifacts/:id" component={page("ArtifactDetailPage")} />
       <Route path="/tickets/:id" component={page("TicketDetailPage")} />
       <Route path="/incidents/:id" component={page("IncidentDetailPage")} />
       <Route path="/tools" component={workspacePage("ToolsPage")} />

@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onCleanup } from "solid-js";
+import { createEffect, createSignal, onCleanup, untrack } from "solid-js";
 import type { Accessor } from "solid-js";
 import { GovernorError } from "./client";
 import type { Loaded } from "./governor";
@@ -42,7 +42,13 @@ export interface ScreenState<T> {
 export function createScopedRead<T>(input: {
   /** Re-read when any of these change; also the abort/clear trigger. */
   scope: Accessor<{ organizationId: string; workspaceId: string; generation: number }>;
-  load: (scope: { organizationId: string; workspaceId: string; generation: number }, signal: AbortSignal) => Promise<Loaded<T>>;
+  /**
+   * Optional detail key (artifact/session/event id) re-read inside the scope.
+   * A resource switch aborts and reloads but keeps the previous body visible
+   * instead of clearing it — kept-mounted panes would flash empty otherwise.
+   */
+  resource?: Accessor<string | undefined>;
+  load: (scope: { organizationId: string; workspaceId: string; generation: number }, signal: AbortSignal, resource?: string) => Promise<Loaded<T>>;
   /** Empty is meaningful here, not an error; screens render their own explanation. */
   isEmpty?: (data: T) => boolean;
   /** Poll while the region should stay fresh; 0 disables live refresh. */
@@ -56,9 +62,11 @@ export function createScopedRead<T>(input: {
   let controller: AbortController | undefined;
   let lastGood: { value: T; asOf: string } | undefined;
   let isOffline = false;
+  let lastScope = "";
 
   async function load(force = false): Promise<void> {
     const scope = input.scope();
+    const resource = input.resource?.();
     // Without a scope there is nothing authorized to read yet.
     if (!scope.organizationId || scope.generation === 0) { setState({ status: "loading", clearedProtected: false, canMutate: false }); return; }
     controller?.abort();
@@ -70,7 +78,7 @@ export function createScopedRead<T>(input: {
       clearedProtected: false, canMutate: false,
     });
     try {
-      const loaded = await input.load(scope, controller.signal);
+      const loaded = await input.load(scope, controller.signal, resource);
       if (current !== generation) return; // superseded by a newer scope/read
       lastGood = { value: loaded.snapshot, asOf: loaded.asOf };
       const empty = input.isEmpty ? input.isEmpty(loaded.snapshot) : false;
@@ -128,15 +136,21 @@ export function createScopedRead<T>(input: {
   }
 
   // A scope change (workspace, organization or revoked auth) clears immediately
-  // and re-reads; the first run also performs the initial load.
-  let lastScope = "";
-  createEffectOn(input.scope, () => {
-    const next = JSON.stringify(input.scope());
-    if (next === lastScope) return;
-    lastScope = next;
+  // and re-reads; the first run also performs the initial load. A resource
+  // change inside the same scope re-reads but keeps the previous body shown.
+  createEffectOn(() => `${JSON.stringify(input.scope())}\u0000${input.resource?.() ?? ""}`, () => {
+    const scope = JSON.stringify(input.scope());
+    const resourceChanged = lastScope !== "" && scope === lastScope.split("\u0000")[0];
+    lastScope = `${scope}\u0000${input.resource?.() ?? ""}`;
     controller?.abort();
-    lastGood = undefined;
-    setState({ status: "loading", clearedProtected: false, canMutate: false });
+    if (!resourceChanged) lastGood = undefined;
+    setState((previous) => ({
+      status: "loading",
+      data: resourceChanged ? previous.data : undefined,
+      asOf: resourceChanged ? previous.asOf : undefined,
+      clearedProtected: false,
+      canMutate: false,
+    }));
     void load();
   });
 
@@ -148,24 +162,54 @@ function createEffectOn<T>(source: Accessor<T>, fn: () => void): void {
 }
 
 /**
- * A bounded, durable event replay (document 21 session oracle).
- *
- * SSE is Brain's replay path, not a library's realtime client: the stream
- * carries coalesced authoritative events, a reset frame forces a snapshot
- * re-read, and the mounted store is capped so a 10,000-event session cannot
- * grow the DOM without bound.
+ * The unified execution stream's SSE frame (GET /v1/events). The cursor is
+ * `stream_seq` — the one global cursor — and every record carries its
+ * projection-time severity/emitter/source classification.
  */
-export interface StreamEvent { readonly id: string; readonly type: string; readonly aggregateId?: string; readonly at: string; readonly payload?: unknown; }
+export type ExecSeverity = "debug" | "info" | "warning" | "error" | "critical";
+export type ExecEmitter = "agent" | "tool" | "runner" | "governor" | "evaluator" | "connector" | "system";
+export type ExecSource = "control" | "workspace" | "attempt";
+
+export interface StreamEvent {
+  /** Durable event id; the SSE `id:` line carries the stream_seq cursor. */
+  readonly id: string;
+  readonly streamSeq?: number;
+  readonly eventId?: string;
+  readonly type: string;
+  readonly severity?: ExecSeverity | null;
+  readonly emitter?: ExecEmitter;
+  readonly source?: ExecSource;
+  readonly aggregateId?: string;
+  readonly workspaceId?: string;
+  readonly at: string;
+  readonly correlation?: Record<string, string>;
+  /** Bounded summary projected by the server (never the raw high-volume payload). */
+  readonly summary?: unknown;
+  readonly payload?: unknown;
+}
+
+/** Server-authoritative SSE filters, scoped in SQL before any page limit. */
+export interface StreamEventFilters {
+  workspace?: string;
+  session?: string;
+  job?: string;
+  run?: string;
+  severity?: readonly string[];
+  emitter?: readonly string[];
+}
 
 export function createEventStream(input: {
   /** Re-authorized on every (re)connect; a revoked session loses the stream. */
   enabled: Accessor<boolean>;
+  /** stream_seq to replay from (session.get streamCursor — never an attempt sequence). */
   after?: number;
+  /** Re-read on every (re)connect; a change reconnects from the same cursor. */
+  filters?: () => StreamEventFilters | undefined;
 }): {
   events: Accessor<StreamEvent[]>;
   connected: Accessor<boolean>;
   resetRequired: Accessor<boolean>;
-  /** Sequence number of the newest authoritative event seen. */
+  /** Newest stream_seq seen. */
   lastSequence: Accessor<number>;
   newSince: (since: number) => number;
 } {
@@ -177,20 +221,48 @@ export function createEventStream(input: {
   let source: EventSource | undefined;
   let coalesce: ReturnType<typeof setTimeout> | undefined;
   let buffer: StreamEvent[] = [];
+  let filterSignature = "";
+
+  function url(): string {
+    const filters = input.filters?.();
+    const params = new URLSearchParams();
+    if (lastSequence() > 0) params.set("after", String(lastSequence()));
+    if (filters?.workspace) params.set("workspace", filters.workspace);
+    if (filters?.session) params.set("session", filters.session);
+    if (filters?.job) params.set("job", filters.job);
+    if (filters?.run) params.set("run", filters.run);
+    if (filters?.severity?.length) params.set("severity", filters.severity.join(","));
+    if (filters?.emitter?.length) params.set("emitter", filters.emitter.join(","));
+    return `/v1/events?live=1${params.size > 0 ? `&${params.toString()}` : ""}`;
+  }
 
   function connect() {
     if (!input.enabled() || typeof EventSource === "undefined") return;
     source?.close();
-    const after = lastSequence();
-    source = new EventSource(`/v1/events?live=1${after ? `&after=${after}` : ""}`, { withCredentials: true });
+    filterSignature = JSON.stringify(input.filters?.() ?? null);
+    source = new EventSource(url(), { withCredentials: true });
     source.onopen = () => setConnected(true);
     const ingest = (event: MessageEvent<string>) => {
-      let parsed: { cursor?: number; type?: string; eventId?: string; aggregateId?: string; createdAt?: string; payload?: unknown };
+      let parsed: { streamSeq?: number; cursor?: number; eventId?: string; type?: string; severity?: ExecSeverity | null; emitter?: ExecEmitter; source?: ExecSource; aggregateId?: string; workspaceId?: string; at?: string; correlation?: Record<string, string>; summary?: unknown };
       try { parsed = JSON.parse(event.data) as typeof parsed; } catch { return; }
-      const cursor = Number(parsed.cursor ?? 0);
+      const cursor = Number(parsed.streamSeq ?? parsed.cursor ?? 0);
       if (cursor <= lastSequence()) return; // duplicate wake/duplicate replay
       setLastSequence(cursor);
-      buffer.push({ id: parsed.eventId ?? String(cursor), type: String(parsed.type ?? ""), aggregateId: parsed.aggregateId, at: parsed.createdAt ?? new Date().toISOString(), payload: parsed.payload });
+      buffer.push({
+        id: String(cursor),
+        streamSeq: cursor,
+        eventId: parsed.eventId,
+        type: String(parsed.type ?? ""),
+        severity: parsed.severity ?? null,
+        emitter: parsed.emitter,
+        source: parsed.source,
+        aggregateId: parsed.aggregateId,
+        workspaceId: parsed.workspaceId,
+        at: parsed.at ?? new Date().toISOString(),
+        correlation: parsed.correlation,
+        summary: parsed.summary,
+        payload: parsed.summary,
+      });
       // Coalesce bursts into one state update, so a 10k-event stream is bounded.
       if (!coalesce) coalesce = setTimeout(() => {
         const merged = [...buffer]; buffer = []; coalesce = undefined;
@@ -204,12 +276,23 @@ export function createEventStream(input: {
     source.onerror = () => {
       setConnected(false);
       source?.close();
-      if (input.enabled()) setTimeout(connect, 2000); // durable reconnect
+      if (input.enabled()) setTimeout(() => untrack(connect), 2000); // durable reconnect
     };
   }
 
   const stop = () => { source?.close(); source = undefined; setConnected(false); if (coalesce) clearTimeout(coalesce); };
-  createEffectOn(input.enabled, () => { if (input.enabled()) connect(); else stop(); });
+  // connect() reads reactive state (lastSequence, filter axes) to build its URL;
+  // those reads are consequences of connecting, not triggers. Only the tracked
+  // source may re-run an effect, or every delivered frame would tear down and
+  // reopen the connection.
+  createEffectOn(input.enabled, () => { if (input.enabled()) untrack(connect); else untrack(stop); });
+  // A filter change reconnects from the current cursor; the enabled effect owns
+  // the first connection, so skip while nothing is open yet.
+  createEffectOn(() => JSON.stringify(input.filters?.() ?? null), () => {
+    if (!source) return;
+    if (JSON.stringify(input.filters?.() ?? null) === filterSignature) return;
+    untrack(connect);
+  });
   onCleanup(stop);
 
   return {

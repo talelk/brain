@@ -1,14 +1,27 @@
-import { mkdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test, expect } from "./fixtures";
 import { fixtureStarter } from "../support/starter";
 
 const DIGEST = `sha256:${"a".repeat(64)}`;
+const BUNDLE_DIGEST = `sha256:${"b".repeat(64)}`;
+
+/** Content-addressed CAS write so a seeded artifact's digest matches its bytes. */
+function seedCasBytes(brain: { casPath(digest: string): string }, bytes: Buffer): string {
+  const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+  const path = brain.casPath(digest);
+  mkdirSync(join(path, ".."), { recursive: true });
+  writeFileSync(path, bytes);
+  return digest;
+}
 
 interface ScreenTarget {
   id: string;
   route: string;
   heading: string | RegExp;
+  /** Execution-console screens render app chrome, not a document h1. */
+  testid?: string;
 }
 
 function targets(jobId: string, approvalId: string): ScreenTarget[] {
@@ -21,8 +34,12 @@ function targets(jobId: string, approvalId: string): ScreenTarget[] {
     { id: "06-schedules", route: "/w/operations/schedules", heading: "Schedules" },
     { id: "07-resources", route: "/w/operations/resources", heading: "Resources" },
     { id: "08-start-work", route: "/w/operations/workflows?mode=catalog", heading: "Start work" },
-    { id: "09-activity", route: "/w/operations/runs", heading: "Activity" },
-    { id: "10-run-detail", route: `/jobs/${jobId}`, heading: "Run detail" },
+    { id: "09-runs", route: "/w/operations/runs", heading: "Runs" },
+    { id: "10-run-inspector", route: `/jobs/${jobId}`, heading: "Run inspector" },
+    { id: "10b-live", route: "/w/operations/live", heading: "Sessions & runs", testid: "console-rail" },
+    { id: "10c-logs", route: "/w/operations/logs", heading: "Logs" },
+    { id: "10d-outputs", route: "/w/operations/outputs", heading: "Outputs" },
+    { id: "10e-artifact", route: "/artifacts/artifact-visual", heading: "Artifact" },
     { id: "11-agents", route: "/w/operations/agents", heading: "Agents" },
     { id: "12-support", route: "/w/operations/support", heading: "Support" },
     { id: "13-ticket-detail", route: "/tickets/ticket-visual", heading: "Ticket casework" },
@@ -43,14 +60,14 @@ function targets(jobId: string, approvalId: string): ScreenTarget[] {
     { id: "28-settings-members", route: "/settings?tab=members", heading: "Workspace access" },
     { id: "29-settings-invitations", route: "/settings?tab=invitations", heading: "Invitations" },
     { id: "30-settings-policy", route: "/settings?tab=policy", heading: "Authentication policy" },
-    { id: "31-session-detail", route: "/sessions/session-visual", heading: "Live session" },
+    { id: "31-session-detail", route: "/sessions/session-visual", heading: "Sessions & runs", testid: "console-rail" },
     { id: "32-settings-health", route: "/settings?tab=health", heading: "Platform operations" },
     { id: "33-tv-support", route: "/tv/support", heading: /Support/ },
     { id: "34-tv-sre", route: "/tv/sre", heading: /SRE/ },
   ];
 }
 
-test("all 34 revamped screens have browser screenshots and page-level containment", async ({ page, governor }, info) => {
+test("all 38 revamped screens have browser screenshots and page-level containment", async ({ page, governor }, info) => {
   test.setTimeout(300_000);
   const brain = governor.app.brain;
   const response = await page.request.post(`${governor.url}/v1/setup`, { headers: { authorization: `Setup ${governor.credential}` }, data: { email: "visual@example.test", password: "visual-password-123", name: "Visual Operator", organizationId: "org-visual" } });
@@ -95,6 +112,22 @@ test("all 34 revamped screens have browser screenshots and page-level containmen
   ws.prepare("INSERT INTO observations(id,connector_id,target_key,incident_id,observation_digest,source_event_id,observed_at_ms,expires_at_ms) VALUES ('observation-visual','monitoring','sso-production','incident-visual',?,'visual-observation',?,?)").run(DIGEST, now, now + 3600_000);
   ws.prepare("INSERT INTO delivery_dossiers(id,source_revision,manifest_digest,rubric_digest,state,version,created_at_ms) VALUES ('delivery-visual',?,?,?,'evaluating',1,?)").run(DIGEST, DIGEST, DIGEST, now);
   ws.prepare("INSERT INTO sessions(id,job_id,attempt_id,engine_id,adapter_digest,state,event_sequence,updated_at_ms) VALUES ('session-visual',?,'attempt-visual','fixture',?,'running',0,?)").run(job.id, DIGEST, now);
+  // Authorized final artifacts so the Output Browser deep link has real data:
+  // two comparable versions of one output with CAS-backed bytes, an accepted
+  // verification verdict and a work-item execution link.
+  const artifactV1 = Buffer.from("# SSO guide\nCheck issuer, callback URL, session freshness and independent evidence.");
+  const artifactV2 = Buffer.from("# SSO guide\nCheck issuer, callback URL, session freshness and independent evidence.\n\n## Verified correction\nRotating the signing key resolved the regression; the verifier reproduced the success criterion independently.");
+  const digestV1 = seedCasBytes(brain, artifactV1);
+  const digestV2 = seedCasBytes(brain, artifactV2);
+  const insertArtifact = ws.prepare("INSERT INTO artifacts(id,digest,bytes,media_type,classification,state,created_at_ms) VALUES (?,?,?,?,?,'verified',?)");
+  insertArtifact.run("artifact-visual", digestV1, artifactV1.length, "text/markdown", "internal", now);
+  insertArtifact.run("artifact-visual-v2", digestV2, artifactV2.length, "text/markdown", "internal", now + 1);
+  const insertAssociation = brain.store.control.prepare("INSERT INTO artifact_associations(artifact_id,organization_id,workspace_id,digest,owner_kind,owner_id,classification,verified_at_ms) VALUES (?,?,?,?, 'job',?, 'internal', ?)");
+  insertAssociation.run("artifact-visual", actor.organizationId, "operations", digestV1, job.id, now);
+  insertAssociation.run("artifact-visual-v2", actor.organizationId, "operations", digestV2, job.id, now);
+  ws.prepare("INSERT INTO evidence_bundles(digest,bundle_id,job_id,attempt_id,state,manifest_json,created_at_ms) VALUES (?,?,?,?, 'verified', ?, ?)").run(BUNDLE_DIGEST, "bundle-visual", job.id, "attempt-visual", JSON.stringify({ artifacts: [{ digest: digestV1 }, { digest: digestV2 }] }), now);
+  ws.prepare("INSERT INTO verification_verdicts(id,bundle_digest,evaluator_attempt_id,evaluator_digest,outcome,manifest_json,created_at_ms) VALUES (?,?,?,?, 'verified', ?, ?)").run("verdict-visual", BUNDLE_DIGEST, "attempt-visual", DIGEST, JSON.stringify({ checks: [] }), now);
+  ws.prepare("INSERT INTO execution_links(work_item_id,run_id,job_id,attempt_id,created_at_ms) VALUES ('work-inspect','visual-run',?,'attempt-visual',?)").run(job.id, now);
   const insertEvent = brain.store.control.prepare("INSERT INTO events(event_id,organization_id,workspace_id,aggregate_type,aggregate_id,aggregate_seq,event_type,payload_json,payload_digest,created_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?)");
   insertEvent.run("visual-event-1", actor.organizationId, "operations", "session", "visual-model-1", 1, "session.message", JSON.stringify({ text: "Inspecting the sign-in flow and current observations" }), DIGEST, now);
   insertEvent.run("visual-event-2", actor.organizationId, "operations", "session", "visual-tool-1", 2, "tool.proposed", JSON.stringify({ proposalId: "visual-tool-1", tool: { id: "operations.context", digest: DIGEST }, input: { target: "sso-production" } }), DIGEST, now + 1);
@@ -112,7 +145,10 @@ test("all 34 revamped screens have browser screenshots and page-level containmen
   await page.emulateMedia({ reducedMotion: "reduce" });
   for (const target of targets(job.id, approvalId)) {
     await page.goto(`${governor.url}${target.route}`);
-    await expect(page.getByRole("heading", { name: target.heading, level: 1 }).first()).toBeVisible({ timeout: 20_000 });
+    const landmark = target.testid
+      ? page.getByTestId(target.testid).getByRole("heading", { name: target.heading })
+      : page.getByRole("heading", { name: target.heading, level: 1 });
+    await expect(landmark.first()).toBeVisible({ timeout: 20_000 });
     await page.waitForTimeout(150);
     const containment = await page.evaluate(() => ({ viewport: window.innerWidth, document: document.documentElement.scrollWidth }));
     expect(containment.document, `${target.id} page-level horizontal containment`).toBeLessThanOrEqual(containment.viewport + 1);

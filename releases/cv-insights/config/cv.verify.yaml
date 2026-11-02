@@ -1,0 +1,25 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Tool",
+  "metadata": {
+    "id": "cv.verify",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "effectClass": "read",
+    "inputSchemaRef": "schemas/cv-verify-input.json",
+    "outputSchemaRef": "schemas/cv-validation-output.json",
+    "requiredCapabilities": [
+      "tool:bash",
+      "tool:python3"
+    ],
+    "timeoutSeconds": 60,
+    "maxOutputBytes": 1048576,
+    "allowedEnvironments": [
+      "cv-insights"
+    ],
+    "owner": "keyrus_talent_intel",
+    "license": "LicenseRef-Internal",
+    "entrypoint": "run.sh"
+  }
+}

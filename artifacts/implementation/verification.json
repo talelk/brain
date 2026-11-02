@@ -1,13 +1,13 @@
 {
   "status": "passed",
   "scope": "documentation-contract-pack-only",
-  "inputFingerprint": "56d1c51caffe259b3078c7d300b6f86d4ec403114fd43456c73bad2432ba3c57",
-  "checkedAt": "2026-11-01T14:45:25.157421+00:00",
+  "inputFingerprint": "c83bcd81c0f3c6eb5b547bf3b9c832fa8e4910b5195f537ef34b50c78db17dd8",
+  "checkedAt": "2026-11-02T13:14:05.432616+00:00",
   "checks": [
     {
       "name": "schema-meta",
       "status": "passed",
-      "detail": 312
+      "detail": 341
     },
     {
       "name": "schema-local-references",
@@ -47,7 +47,7 @@
     {
       "name": "openapi-structure-and-refs",
       "status": "passed",
-      "detail": "49 operations; structural/reference checks (not full OpenAPI certification)"
+      "detail": "50 operations; structural/reference checks (not full OpenAPI certification)"
     },
     {
       "name": "state-machine-parity",
@@ -72,7 +72,7 @@
     {
       "name": "documentation-inventory",
       "status": "passed",
-      "detail": "52 dependency decisions; 110 scenarios; 54 work cards"
+      "detail": "52 dependency decisions; 110 scenarios; 57 work cards"
     },
     {
       "name": "implementation-policy-and-prompt",
@@ -92,7 +92,7 @@
     {
       "name": "implementation-readiness-contracts-and-fixtures",
       "status": "passed",
-      "detail": "54 generated task packets; 110 scenarios; 15 traces; crypto/golden fixtures; 31 screens in six areas; monolith/auth/recovery/evidence checks"
+      "detail": "57 generated task packets; 110 scenarios; 15 traces; crypto/golden fixtures; 35 screens in six areas; monolith/auth/recovery/evidence checks"
     },
     {
       "name": "generated-implementation-indexes-fresh",

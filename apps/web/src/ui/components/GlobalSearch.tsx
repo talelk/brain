@@ -26,8 +26,11 @@ export function GlobalSearchDialog(props: { open: boolean; onOpenChange: (open: 
     onCleanup(() => { clearTimeout(timer); controller.abort(); });
   });
   function destination(item: SearchItem): string {
+    // Workspace-free execution deep links keep the console one hop from any hit.
     if (item.category === "run") return `/jobs/${item.resourceId}`;
     if (item.category === "approval") return `/approvals/${item.resourceId}`;
+    if (item.category === "session") return `/sessions/${item.resourceId}`;
+    if (item.category === "artifact") return `/artifacts/${item.resourceId}`;
     if (item.category === "agent") return `/w/${item.workspaceId}/agents?selected=${encodeURIComponent(item.resourceId)}`;
     if (item.category === "workflow") return `/w/${item.workspaceId}/workflows?selected=${encodeURIComponent(item.resourceId)}`;
     return "/today";
@@ -38,7 +41,7 @@ export function GlobalSearchDialog(props: { open: boolean; onOpenChange: (open: 
         <Dialog.Title>Find work anywhere</Dialog.Title>
         <Dialog.Description>Search only the workspaces and records you are authorized to read.</Dialog.Description>
       </Dialog.Header>
-      <Combobox label="Search Brain" placeholder="Try a run, approval, Agent or Workflow" query={term()} onQueryChange={setTerm}
+      <Combobox label="Search Brain" placeholder="Try a session, run, approval, output, Agent or Workflow" query={term()} onQueryChange={setTerm}
         filterable={false} loading={loading()} error={error() || undefined} emptyText={term().trim().length < 2 ? "Type at least two characters." : "No authorized records match."}
         options={items().map((item) => ({ value: `${item.category}:${item.workspaceId}:${item.resourceId}`, label: item.title, description: `${item.category} · ${item.workspaceId} · ${item.reason}` }))}
         onValueChange={(value) => {

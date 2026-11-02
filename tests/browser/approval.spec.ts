@@ -14,7 +14,7 @@ test("approval decision: exact review, TOTP step-up, recorded decision (T35)", a
   await page.getByLabel(/^Email/).fill("approver@example.test");
   await page.getByLabel(/^Password/).fill("browser-password-1234");
   await page.getByRole("button", { name: "Create organization", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Authenticator setup" })).toBeVisible();
   await page.getByLabel(/^Confirm password/).fill("browser-password-1234");
   await page.getByRole("button", { name: "Begin setup", exact: true }).click();
   const link = page.getByRole("link", { name: "Keyrus Brain to your authenticator", exact: true });

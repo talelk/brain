@@ -1,0 +1,43 @@
+# Keyrus Brain demo deployment for demos.mykeyrus.tn (brain.mykeyrus.tn).
+# Layout: /srv/demos/brain/{docker-compose.yml,.env,src/}. Data lives in the
+# brain-data volume; deploys rebuild the image and recreate the container only.
+# Never run `docker compose down -v` or `brain reset` against this project.
+services:
+  governor:
+    build: ./src
+    pull_policy: missing
+    image: brain-governor:demo
+    restart: unless-stopped
+    environment:
+      BRAIN_DATA_DIR: /data
+      PORT: "3100"
+      BRAIN_BASE_URL: ${BRAIN_BASE_URL:-http://127.0.0.1:3100}
+      BRAIN_GOVERNOR_URL: http://127.0.0.1:3100
+      BRAIN_ADMIN_EMAIL: ${BRAIN_ADMIN_EMAIL:-admin@brain.local}
+      BRAIN_ADMIN_PASSWORD: ${BRAIN_ADMIN_PASSWORD:-admin-password}
+      BRAIN_AUTH_REQUIRE_2FA: ${BRAIN_AUTH_REQUIRE_2FA:-false}
+      BRAIN_TENCENTDB_URL: ${BRAIN_TENCENTDB_URL:-}
+      BRAIN_TENCENTDB_API_KEY: ${BRAIN_TENCENTDB_API_KEY:-}
+      BRAIN_MEMORY_UI_URL: ${BRAIN_MEMORY_UI_URL:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:${BRAIN_HOST_PORT:-3100}:3100"
+    volumes:
+      - brain-data:/data
+    networks:
+      - default
+      - tdai-memory-stack
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 30s
+
+volumes:
+  brain-data:
+
+networks:
+  tdai-memory-stack:
+    external: true

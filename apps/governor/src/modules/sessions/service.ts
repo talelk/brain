@@ -16,7 +16,8 @@ export interface SessionCommand {
 type SessionRow = {
   id: string; job_id: string | null; attempt_id: string | null; mode: BrainSession["mode"];
   work_item_id: string | null; parent_session_id: string | null; root_session_id: string | null;
-  agent_id: string; task: string; engine_id: string; adapter_digest: string; state: BrainSession["state"];
+  agent_id: string; task: string; engine_id: string; adapter_digest: string; engine_features: string | null;
+  state: BrainSession["state"];
   checkpoint_digest: string | null; checkpoint_json: string | null; event_sequence: number;
   delegation_depth: number; budget_json: string; scope_json: string; worktree_id: string;
   created_by: string; version: number; created_at_ms: number; updated_at_ms: number;
@@ -94,7 +95,7 @@ export class SessionService {
       ...(row.work_item_id ? { workItemId: row.work_item_id } : {}),
       ...(row.parent_session_id ? { parentSessionId: row.parent_session_id } : {}),
       rootSessionId: row.root_session_id ?? row.id, agentId: row.agent_id, task: row.task,
-      engine: { id: row.engine_id, version: row.mode === "managed" && !row.attempt_id ? "unbound" : "1", adapterDigest: row.adapter_digest, features: [] },
+      engine: { id: row.engine_id, version: row.mode === "managed" && !row.attempt_id ? "unbound" : "1", adapterDigest: row.adapter_digest, features: engineFeaturesOf(row.engine_features) },
       state: row.state, usedTokens: 0, usedMicroUsd: Number(budget?.settled_micro_usd ?? 0), reservedMicroUsd: Number(budget?.micro_usd ?? 0),
       lastEventSequence: row.event_sequence, delegationDepth: row.delegation_depth,
       budget: JSON.parse(row.budget_json) as SessionBudget, scope: JSON.parse(row.scope_json) as SessionScope,
@@ -321,21 +322,88 @@ export class SessionService {
 
 export function recordAttemptSession(store: Store, input: {
   organizationId: string; workspaceId: string; jobId: string; attemptId: string;
-  engineId: string; adapterDigest: string; sessionId?: string;
+  engineId: string; adapterDigest: string; features?: readonly string[]; sessionId?: string;
 }): void {
   const db = store.workspaceDb(input.workspaceId, input.organizationId);
   const now = store.now();
+  const features = JSON.stringify(input.features ?? []);
   if (input.sessionId) {
-    const updated = db.prepare(`UPDATE sessions SET job_id=?,attempt_id=?,engine_id=?,adapter_digest=?,state='running',version=version+1,updated_at_ms=?
+    const updated = db.prepare(`UPDATE sessions SET job_id=?,attempt_id=?,engine_id=?,adapter_digest=?,engine_features=?,state='running',version=version+1,updated_at_ms=?
       WHERE id=? AND mode='managed' AND job_id IS NULL AND state IN ('waiting','starting')`)
-      .run(input.jobId, input.attemptId, input.engineId, input.adapterDigest, now, input.sessionId);
+      .run(input.jobId, input.attemptId, input.engineId, input.adapterDigest, features, now, input.sessionId);
     if (updated.changes !== 1) throw new BrainDomainError("CONFLICT", "managed session cannot bind this attempt");
     db.prepare("UPDATE execution_links SET job_id=?,attempt_id=? WHERE session_id=?").run(input.jobId, input.attemptId, input.sessionId);
     return;
   }
   const id = `ses-${input.jobId}`;
-  db.prepare(`INSERT INTO sessions(id,job_id,attempt_id,mode,agent_id,task,engine_id,adapter_digest,state,root_session_id,worktree_id,created_by,created_at_ms,updated_at_ms)
-    VALUES (?,?,?,'native','',?, ?,?,'running',?,?,?, ?,?)
-    ON CONFLICT(id) DO UPDATE SET attempt_id=excluded.attempt_id,engine_id=excluded.engine_id,adapter_digest=excluded.adapter_digest,state='running',updated_at_ms=excluded.updated_at_ms`)
-    .run(id, input.jobId, input.attemptId, `job ${input.jobId}`, input.engineId, input.adapterDigest, id, `read-only:${input.workspaceId}`, "runner", now, now);
+  db.prepare(`INSERT INTO sessions(id,job_id,attempt_id,mode,agent_id,task,engine_id,adapter_digest,engine_features,state,root_session_id,worktree_id,created_by,created_at_ms,updated_at_ms)
+    VALUES (?,?,?,'native','',?, ?,?,?,'running',?,?,?, ?,?)
+    ON CONFLICT(id) DO UPDATE SET attempt_id=excluded.attempt_id,engine_id=excluded.engine_id,adapter_digest=excluded.adapter_digest,engine_features=excluded.engine_features,state='running',updated_at_ms=excluded.updated_at_ms`)
+    .run(id, input.jobId, input.attemptId, `job ${input.jobId}`, input.engineId, input.adapterDigest, features, id, `read-only:${input.workspaceId}`, "runner", now, now);
+}
+
+/** Engine feature advertisement persisted by the runner's event batches. */
+export function engineFeaturesOf(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : [];
+  } catch { return []; }
+}
+
+/**
+ * Interruption semantics (read model): exactly which operation applies after
+ * an interruption. These facts are not interchangeable — the console renders
+ * one suggested operation and enables only commands that exist:
+ * reconnect → session.steer; resume checkpoint / continue native →
+ * session.create(resumeFromSessionId); restart → workflow.dispatch;
+ * reconcile → job.reconcile.
+ */
+export interface SessionContinuation {
+  /** Session is live on a runner (running/waiting with an active attempt). */
+  reconnectable: boolean;
+  /** A verified checkpoint exists and no active writer holds the session. */
+  resumable: boolean;
+  /** The engine advertises native resume (continue the same session). */
+  continueNative: boolean;
+  /** The underlying work item can be dispatched again as a new run. */
+  restartable: boolean;
+  /** The job ended outcome_unknown with unresolved effects — reconcile first. */
+  reconcileRequired: boolean;
+}
+
+export function continuationFacts(store: Store, input: {
+  organizationId: string; workspaceId: string; sessionId: string;
+}): SessionContinuation {
+  const db = store.workspaceDb(input.workspaceId, input.organizationId);
+  const row = db.prepare("SELECT * FROM sessions WHERE id=?").get(input.sessionId) as (SessionRow & Record<string, unknown>) | undefined;
+  if (!row) throw new BrainDomainError("NOT_FOUND", "session not found");
+  const features = engineFeaturesOf(row.engine_features);
+  const liveAttempt = row.attempt_id
+    ? store.control.prepare("SELECT 1 AS ok FROM job_attempts WHERE id=? AND state IN ('offered','running','uploading','cancelling')").get(row.attempt_id)
+    : undefined;
+  const reconnectable = (row.state === "running" || row.state === "waiting") && liveAttempt !== undefined;
+  const resumable = !!row.checkpoint_digest && ["waiting", "stopped", "failed"].includes(row.state);
+  const continueNative = features.includes("resume");
+  let restartable = false;
+  if (row.work_item_id) {
+    const item = db.prepare("SELECT state FROM work_items WHERE id=?").get(row.work_item_id) as { state: string } | undefined;
+    if (item && item.state !== "abandoned" && item.state !== "done") {
+      const activeWriter = db.prepare("SELECT 1 AS ok FROM sessions WHERE root_session_id=? AND worktree_id=? AND state IN ('starting','running','stopping') LIMIT 1")
+        .get(row.root_session_id ?? row.id, row.worktree_id);
+      restartable = activeWriter === undefined;
+    }
+  }
+  let reconcileRequired = false;
+  if (row.job_id) {
+    const job = store.control.prepare("SELECT state FROM jobs WHERE id=?").get(row.job_id) as { state: string } | undefined;
+    if (job?.state === "outcome_unknown") {
+      const unresolvedLease = store.control.prepare(`SELECT 1 AS ok FROM resource_leases l JOIN job_attempts a ON a.id=l.attempt_id
+        WHERE a.job_id=? AND l.unresolved_effect=1 LIMIT 1`).get(row.job_id);
+      const unresolvedPermit = store.control.prepare(`SELECT 1 AS ok FROM effect_permits p JOIN job_attempts a ON a.id=p.attempt_id
+        WHERE a.job_id=? AND p.state IN ('started','unknown','conflicting') LIMIT 1`).get(row.job_id);
+      reconcileRequired = unresolvedLease !== undefined || unresolvedPermit !== undefined;
+    }
+  }
+  return { reconnectable, resumable, continueNative, restartable, reconcileRequired };
 }

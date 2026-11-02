@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "probeTarget": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}

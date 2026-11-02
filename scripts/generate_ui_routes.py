@@ -4,7 +4,9 @@
 The screen contract is the authority for route ownership, so the route table
 that the browser router compiles is generated here instead of being edited in
 two places. Each entry keeps its owner and declared queries so a missing typed
-read is visible in code review rather than hidden in JSX.
+read is visible in code review rather than hidden in JSX. Icons and the chrome
+area are contract-declared too (area defaults to navigationGroup), so the shell
+carries no literal icon or area maps that can drift from this file.
 """
 
 import json
@@ -32,15 +34,17 @@ def main() -> None:
         "  readonly queries: readonly string[];",
         "  readonly actions: readonly string[];",
         "  readonly navigationGroup: string;",
+        "  /** Chrome area; defaults to navigationGroup when undeclared. */",
+        "  readonly area?: string;",
+        "  readonly icon?: string;",
         "  readonly task: string;",
         "}",
         "",
         "export const ROUTES: readonly RouteSpec[] = [",
     ]
     for screen in screens:
-        route = screen["route"]
-        fields = {
-            "route": route,
+        fields: dict[str, object] = {
+            "route": screen["route"],
             "title": screen["title"],
             "owner": screen["owner"],
             "queries": screen["queries"],
@@ -48,8 +52,17 @@ def main() -> None:
             "navigationGroup": screen["navigationGroup"],
             "task": screen["task"],
         }
-        lines.append("  { " + ", ".join(f"{key}: {json.dumps(value)}" for key, value in fields.items()) + " },")
+        if "area" in screen:
+            fields["area"] = screen["area"]
+        if "icon" in screen:
+            fields["icon"] = screen["icon"]
+        ordered = {key: fields[key] for key in ["route", "title", "owner", "queries", "actions", "navigationGroup", "area", "icon", "task"] if key in fields}
+        lines.append("  { " + ", ".join(f"{key}: {json.dumps(value)}" for key, value in ordered.items()) + " },")
     lines.append("]")
+    lines.append("")
+    lines.append("/** Route pattern → contract-declared sidebar icon. */")
+    lines.append("export const ICONS: Readonly<Record<string, string>> = " + json.dumps(
+        {screen["route"]: screen["icon"] for screen in screens if "icon" in screen}) + ";")
     lines.append("")
     lines.append("/** Primary product areas; personal settings remain in the account menu. */")
     lines.append(f"export const PRIMARY_NAVIGATION: readonly {{ id: string; label: string; route: string }}[] = {json.dumps([{ 'id': n['id'], 'label': n['label'], 'route': n['entryRoute']} for n in primary])};")

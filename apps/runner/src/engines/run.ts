@@ -40,6 +40,11 @@ export interface AgentExecutionInput {
   maxTurns?: number;
   allowedTools?: readonly ReleaseRef[];
   executeTool?: (proposal: { proposalId: string; tool: ReleaseRef; input: JsonValue; target: { targetId: string; environmentId: string; preconditionDigest: string }; inputDigest: string }) => Promise<EngineToolExecutionResult>;
+  /**
+   * Called once the engine session exists: live controls (steer) bind to this
+   * handle. Steering is feature-gated on the adapter's probe features.
+   */
+  onSession?: (handle: { sessionId: string; features: readonly string[]; steer: (messageId: string, message: string) => Promise<void> }) => void;
   emit: (kind: string, payload: unknown) => Promise<void>;
   signal: AbortSignal;
 }
@@ -126,6 +131,14 @@ export async function runAgentExecution(input: AgentExecutionInput): Promise<Age
     const started = await bounded(pendingStart);
     sessionId = started.sessionId;
     startPending = false;
+    input.onSession?.({
+      sessionId,
+      features: probe.features,
+      steer: (messageId, message) => {
+        if (!engine.steer) return Promise.reject(Object.assign(new Error(`${engine.id} does not support steering`), { code: "UNSUPPORTED_CAPABILITY" }));
+        return engine.steer(sessionId, messageId, message);
+      },
+    });
     const events = engine.events(sessionId, 0, signal)[Symbol.asyncIterator]();
     for (;;) {
       const next = await bounded(events.next());

@@ -168,7 +168,71 @@ export function authRunner(s: Store, headers: Headers): { runnerId: string; epoc
   return { runnerId: row.runner_id, epoch: row.runner_epoch, organizationId: row.organization_id };
 }
 
-export function heartbeat(s: Store, runner: { runnerId: string; epoch: number }, body: Record<string, unknown>): { acceptedSequence: number } {
+/**
+ * A command handed to the runner in the heartbeat ack. Delivery is
+ * at-most-once: session_controls rows are deleted when the ack is built, so a
+ * lost heartbeat response loses the control — acceptable because stop remains
+ * reachable via lease expiry and steer is advisory.
+ */
+export interface HeartbeatCommand {
+  commandId: string;
+  type: "stop-attempt" | "steer";
+  attemptId?: string;
+  text?: string;
+}
+
+const MAX_HEARTBEAT_COMMANDS = 100;
+const MAX_DRAIN_ATTEMPTS = 10;
+
+/**
+ * Resolve the runner's active attempts (≤ capacity, hard cap), map them to
+ * their bound sessions, and drain due session_controls rows workspace by
+ * workspace in one short transaction per workspace DB.
+ */
+function drainSessionControls(s: Store, runner: { runnerId: string; epoch: number }): HeartbeatCommand[] {
+  const attempts = s.control.prepare(`SELECT a.id AS attempt_id, a.job_id, j.workspace_id, j.organization_id
+    FROM job_attempts a JOIN jobs j ON j.id=a.job_id
+    WHERE a.runner_id=? AND a.runner_epoch=? AND a.state IN ('offered','running','uploading','cancelling')
+    ORDER BY a.id LIMIT ?`).all(runner.runnerId, runner.epoch, MAX_DRAIN_ATTEMPTS) as Array<Record<string, unknown>>;
+  if (attempts.length === 0) return [];
+  const sessionAttempts = new Map<string, { attemptId: string; workspaceId: string; organizationId: string }>();
+  for (const attempt of attempts) {
+    const wsDb = s.workspaceDb(String(attempt["workspace_id"]), String(attempt["organization_id"]));
+    const session = wsDb.prepare("SELECT id FROM sessions WHERE attempt_id=? LIMIT 1").get(String(attempt["attempt_id"])) as { id: string } | undefined;
+    if (session) {
+      sessionAttempts.set(session.id, {
+        attemptId: String(attempt["attempt_id"]),
+        workspaceId: String(attempt["workspace_id"]),
+        organizationId: String(attempt["organization_id"]),
+      });
+    }
+  }
+  const commands: HeartbeatCommand[] = [];
+  for (const [sessionId, binding] of sessionAttempts) {
+    if (commands.length >= MAX_HEARTBEAT_COMMANDS) break;
+    const wsDb = s.workspaceDb(binding.workspaceId, binding.organizationId);
+    const hasControls = !!wsDb.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='session_controls'").get();
+    if (!hasControls) continue;
+    s.inTx(wsDb, () => {
+      const rows = wsDb.prepare("SELECT id, kind, payload FROM session_controls WHERE session_id=? ORDER BY created_at_ms LIMIT ?")
+        .all(sessionId, MAX_HEARTBEAT_COMMANDS - commands.length) as Array<{ id: string; kind: string; payload: string }>;
+      for (const row of rows) {
+        let payload: Record<string, unknown> = {};
+        try { payload = JSON.parse(row.payload) as Record<string, unknown>; } catch { payload = {}; }
+        if (row.kind === "session.stop") {
+          commands.push({ commandId: row.id, type: "stop-attempt", attemptId: binding.attemptId });
+        } else if (row.kind === "session.steer") {
+          const text = String(payload["message"] ?? "");
+          commands.push({ commandId: row.id, type: "steer", attemptId: binding.attemptId, text });
+        }
+        wsDb.prepare("DELETE FROM session_controls WHERE id=?").run(row.id);
+      }
+    });
+  }
+  return commands.slice(0, MAX_HEARTBEAT_COMMANDS);
+}
+
+export function heartbeat(s: Store, runner: { runnerId: string; epoch: number }, body: Record<string, unknown>): { acceptedSequence: number; serverTime: string; commands: HeartbeatCommand[] } {
   const seq = Number(body["sequence"] ?? 0);
   const digest = domainDigest("brain:heartbeat:v1", body as unknown as JsonValue);
   s.inTx(s.control, () => {
@@ -177,7 +241,12 @@ export function heartbeat(s: Store, runner: { runnerId: string; epoch: number },
     if (!row || row.session_epoch !== runner.epoch) throw new BrainDomainError("LEASE_LOST", "runner epoch fenced");
     if (seq === row.heartbeat_seq && row.heartbeat_digest === digest) return;
     if (seq <= row.heartbeat_seq) throw new BrainDomainError("CONFLICT", "heartbeat sequence regression or changed payload");
-    s.control.prepare("UPDATE runners SET heartbeat_seq=?, heartbeat_digest=?, last_heartbeat_ms=? WHERE id=?").run(seq, digest, s.now(), runner.runnerId);
+    const health = body["health"];
+    if (health === "healthy" || health === "degraded" || health === "unhealthy") {
+      s.control.prepare("UPDATE runners SET heartbeat_seq=?, heartbeat_digest=?, last_heartbeat_ms=?, health=? WHERE id=?").run(seq, digest, s.now(), health, runner.runnerId);
+    } else {
+      s.control.prepare("UPDATE runners SET heartbeat_seq=?, heartbeat_digest=?, last_heartbeat_ms=? WHERE id=?").run(seq, digest, s.now(), runner.runnerId);
+    }
     if (Array.isArray(body["capabilities"])) {
       if (body["capabilities"].length > 128) throw new BrainDomainError("INVALID_CONTRACT", "too many capability observations");
       s.control.prepare("DELETE FROM runner_capabilities WHERE runner_id=? AND source='runner-probe'").run(runner.runnerId);
@@ -189,5 +258,6 @@ export function heartbeat(s: Store, runner: { runnerId: string; epoch: number },
       }
     }
   });
-  return { acceptedSequence: seq };
+  const commands = drainSessionControls(s, runner);
+  return { acceptedSequence: seq, serverTime: s.nowIso(), commands };
 }

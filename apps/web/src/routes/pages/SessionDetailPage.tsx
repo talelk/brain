@@ -1,39 +1,30 @@
-import { createSignal } from "solid-js";
 import type { JSX } from "solid-js";
-import { useParams } from "@solidjs/router";
-import type { BrainSession } from "@brain/contracts";
+import { useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { useApp } from "../../ui/app-context";
-import { createScopedRead } from "../../data/screens";
-import { sessionQuery } from "../../data/governor";
-import { SessionFeed } from "../../ui/components/SessionFeed";
-import { ActionFeedback } from "../../ui/components/ActionFeedback";
+import { readExecFilters, writeExecFilters, type ExecLogFilters } from "../../ui/exec/exec-filters";
+import { ConsoleScreen } from "../../ui/console/ConsoleLayout";
 
+/**
+ * `/sessions/:id` — the workspace-free deep link into the Live console (T60).
+ * It renders exactly the same three-pane console as `/w/:id/live`; active
+ * versus historical is state and available controls, not a second layout.
+ * Switching sessions from here navigates within this route, keeping filters.
+ */
 export default function SessionDetailPage(): JSX.Element {
   const app = useApp();
+  const navigate = useNavigate();
   const params = useParams();
-  const sessionId = () => params.id ?? "";
-  const session = createScopedRead<BrainSession>({
-    scope: app.scope,
-    load: (scope, signal) => sessionQuery(scope.workspaceId, sessionId(), signal),
-    refreshMs: 5_000,
-  });
-  const [message, setMessage] = createSignal("");
-  return <div class="flex flex-col gap-field-gap">
-    <ActionFeedback message={message()} />
-    <SessionFeed sessionId={sessionId()} session={session.state().data} state={session.state()}
-      onRefresh={() => void session.refresh({ force: true })}
-      onSteer={async (messageText) => {
-        try {
-          const result = await app.run("session.steer", { sessionId: sessionId(), message: messageText });
-          setMessage(result.detail);
-        } catch (e) { setMessage(e instanceof Error ? e.message : "Steering was refused."); }
-      }}
-      onStop={async (reason) => {
-        try {
-          const result = await app.run("session.stop", { sessionId: sessionId(), reason });
-          setMessage(result.detail);
-          await session.refresh({ force: true });
-        } catch (e) { setMessage(e instanceof Error ? e.message : "Stop was refused."); }
-      }} />
-  </div>;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filters = () => readExecFilters(searchParams);
+  const patchUrl = (patch: Partial<ExecLogFilters>): void => {
+    setSearchParams({ session: params.id, ...writeExecFilters({ ...filters(), ...patch }) });
+  };
+  return <ConsoleScreen workspaceId={app.workspaceId()} requestedSession={params.id}
+    filters={filters()} onFiltersChange={patchUrl}
+    onSessionChange={(sessionId) => {
+      if (!sessionId) return;
+      const written = Object.entries(writeExecFilters({ ...filters(), session: undefined })).filter((entry): entry is [string, string] => entry[1] !== undefined);
+      const query = new URLSearchParams(written).toString();
+      void navigate(`/sessions/${sessionId}${query ? `?${query}` : ""}`);
+    }} />;
 }

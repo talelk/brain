@@ -8,6 +8,8 @@ import type { CommandKind, PayloadFor } from "../data/commands";
 import { send } from "../data/commands";
 import type { IdentityView, MemberGrantView, SetupStatus } from "@brain/contracts";
 import type { ApprovalIntent, ApprovalOutcome } from "./approval-controller";
+import { liveStatusQuery } from "../data/exec-console";
+import type { LiveStatus } from "../data/exec-console";
 
 /**
  * The one session/authority context (document 21).
@@ -48,6 +50,12 @@ export interface AppContextValue {
   checkDecision: (intent: { approvalId: string; idempotencyKey: string }) => Promise<"confirmed" | "pending">;
   /** Members read used for role gating; also the authority for can* flags. */
   useMembers: () => { state: Accessor<ScreenState<MemberGrantView[]>>; refresh: (options?: { force?: boolean }) => Promise<void> };
+  /**
+   * The shared `live.status` read (cheap landing gate): one poll per workspace
+   * for every consumer — the default route, the Runs index and the shell — so
+   * the landing rule never multiplies fetches.
+   */
+  useLiveStatus: () => { state: Accessor<ScreenState<LiveStatus>>; refresh: (options?: { force?: boolean }) => Promise<void> };
 }
 
 const AppContext = createContext<AppContextValue>();
@@ -96,6 +104,14 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
       ?.roles.map(String) ?? [];
   };
   const hasRole = (role: string) => myRoles().includes(role) || myRoles().includes("workspace-lead");
+
+  // The one live.status read: the default route, the Runs index and any shell
+  // presence indicator share it instead of polling separately.
+  const liveStatus = createScopedRead<LiveStatus>({
+    scope,
+    load: (scopeValue, signal) => liveStatusQuery(scopeValue.workspaceId, signal),
+    refreshMs: 15_000,
+  });
 
   async function reloadIdentity() {
     setGeneration((g) => g + 1);
@@ -203,6 +219,7 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
     selectWorkspace, start, reloadIdentity, signOut, run,
     verifyIdentity, submitDecision, checkDecision,
     useMembers: () => ({ state: members.state, refresh: members.refresh }),
+    useLiveStatus: () => ({ state: liveStatus.state, refresh: liveStatus.refresh }),
   };
 
   onMount(() => { void start(); });

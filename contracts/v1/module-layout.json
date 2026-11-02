@@ -85,10 +85,6 @@
       "path": "apps/governor/src/modules/capabilities",
       "owns": "Capability discovery, private candidates, packaging, tests and governed publication"
     },
-    "workspaces": {
-      "path": "apps/governor/src/modules/workspaces",
-      "owns": "Workspace settings, source associations, context, quotas and available capabilities"
-    },
     "resources": {
       "path": "apps/governor/src/modules/resources",
       "owns": "Documents, immutable versions, preview, associations, classification and storage lifecycle"
@@ -104,6 +100,10 @@
     "operations": {
       "path": "apps/governor/src/modules/operations",
       "owns": "Health, bounded timers, backup/restore, audit and notifications"
+    },
+    "stream": {
+      "path": "apps/governor/src/modules/stream",
+      "owns": "Unified Execution Stream read model: watermark-guarded projection over the authoritative source logs, permission-scoped reads, FTS search, correlation context, attempt comparison, retention sweep and bounded sanitized export"
     }
   },
   "governorSharedFolders": {

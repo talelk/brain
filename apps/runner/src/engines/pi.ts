@@ -39,7 +39,8 @@ export class PiEngine implements EngineAdapter {
     } catch { version = "unavailable"; }
     return {
       id: "pi", version: reachable ? version : `${version}-model-unreachable`,
-      adapterDigest: sha256Digest(new Uint8Array(readFileSync(new URL(import.meta.url)))), features: reachable ? ["sessions", "checkpoint"] : [],
+      adapterDigest: sha256Digest(new Uint8Array(readFileSync(new URL(import.meta.url)))),
+      features: reachable ? ["sessions", "checkpoint", "resume", "steer"] : [],
     };
   }
 
@@ -175,6 +176,23 @@ export class PiEngine implements EngineAdapter {
   async toolResult(_sessionId: string, result: EngineToolExecutionResult): Promise<void> {
     if (!this.toolCalls) throw new Error("Pi tool broker is not initialized");
     this.toolCalls.complete(result);
+  }
+
+  /**
+   * Pi steering: the message is injected into the live vendor session; the
+   * engine applies it at its next turn boundary. Without a live session there
+   * is nothing to steer — refused with the typed unsupported error instead of
+   * queueing a message no turn will ever pick up.
+   */
+  async steer(sessionId: string, messageId: string, message: string): Promise<void> {
+    if (!this.session || this.sessionId !== sessionId) {
+      throw Object.assign(new Error(`Pi steering requires the live session, not ${sessionId}`), { code: "UNSUPPORTED_CAPABILITY" });
+    }
+    try {
+      await this.session.prompt(`[steer:${messageId}] ${message}`);
+    } catch (e) {
+      throw Object.assign(new Error(`Pi session refused the steering message: ${e instanceof Error ? e.message : String(e)}`), { code: "UNSUPPORTED_CAPABILITY" });
+    }
   }
 
   async cancel(_sessionId?: string, _reason?: string) {

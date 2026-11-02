@@ -24,7 +24,7 @@ function withEstimate<T>(snapshot: T): { totalEstimate?: number } {
   return {};
 }
 
-async function fetchView<K extends QueryRequest["queryType"], R extends QueryResponse & { queryType: K }>(
+export async function fetchView<K extends QueryRequest["queryType"], R extends QueryResponse & { queryType: K }>(
   request: Extract<QueryRequest, { queryType: K }>,
   signal?: AbortSignal,
 ): Promise<Loaded<R["snapshot"]>> {
@@ -41,6 +41,12 @@ async function fetchOrganizationView(request: QueryRequest, signal?: AbortSignal
   return { snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark,
     cursor: response.cursor, ...withEstimate(snapshot) };
 }
+
+/**
+ * Typed access to one declared query kind; every query kind — including the
+ * execution-console kinds (stream.*, live.status, artifacts.*) — is generated
+ * from contracts/v1/brain.schema.json and implemented by the Governor.
+ */
 
 export const todayQuery = (request: { workspaceId?: string; limit?: number; states?: string[] }, signal?: AbortSignal) =>
   fetchView({ queryType: "today", ...request }, signal);
@@ -60,8 +66,6 @@ export const runnerQuery = (resourceId: string, signal?: AbortSignal) =>
   fetchView({ queryType: "runner.get", resourceId }, signal);
 export const sessionsQuery = (request: { workspaceId?: string } = {}, signal?: AbortSignal) =>
   fetchView({ queryType: "sessions.list", ...request }, signal);
-export const sessionQuery = (workspaceId: string, resourceId: string, signal?: AbortSignal) =>
-  fetchView({ queryType: "session.get", workspaceId, resourceId }, signal);
 export const approvalsQuery = (request: { workspaceId?: string } = {}, signal?: AbortSignal) =>
   fetchView({ queryType: "approvals.list", ...request }, signal);
 export const approvalQuery = (resourceId: string, signal?: AbortSignal) =>

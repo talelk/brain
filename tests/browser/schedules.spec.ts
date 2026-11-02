@@ -11,7 +11,7 @@ test("schedules: personal-host offline wait, recovery and fail are explicit (T58
   await page.getByLabel(/^Email/).fill("schedules@example.test");
   await page.getByLabel(/^Password/).fill("browser-password-1234");
   await page.getByRole("button", { name: "Create organization", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Create your first workspace" })).toBeVisible();
   const brain = governor.app.brain;
   const cookies = await page.context().cookies();
   const actor = (await brain.resolveActor(new Headers({ cookie: cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ") }))).actor;
@@ -79,7 +79,7 @@ test("schedules: revise, duplicate and retire without deleting occurrence histor
   await page.getByLabel(/^Email/).fill("schedule-lifecycle@example.test");
   await page.getByLabel(/^Password/).fill("browser-password-1234");
   await page.getByRole("button", { name: "Create organization", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Create your first workspace" })).toBeVisible();
   const brain = governor.app.brain;
   const cookies = await page.context().cookies();
   const actor = (await brain.resolveActor(new Headers({ cookie: cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ") }))).actor;

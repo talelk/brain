@@ -128,6 +128,7 @@ CREATE TABLE sessions (
   work_item_id TEXT REFERENCES work_items(id), parent_session_id TEXT REFERENCES sessions(id), root_session_id TEXT,
   agent_id TEXT NOT NULL DEFAULT '', task TEXT NOT NULL DEFAULT '',
   engine_id TEXT NOT NULL, adapter_digest TEXT NOT NULL,
+  engine_features TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(engine_features)),
   state TEXT NOT NULL CHECK(state IN ('starting','running','waiting','stopping','stopped','failed')),
   checkpoint_digest TEXT, checkpoint_json TEXT CHECK(checkpoint_json IS NULL OR json_valid(checkpoint_json)),
   event_sequence INTEGER NOT NULL DEFAULT 0 CHECK(event_sequence >= 0),

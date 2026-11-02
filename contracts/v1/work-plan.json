@@ -693,8 +693,8 @@
    "id": "T36",
    "dependencies": "T34,T18,T24",
    "targetFiles": "apps/web/src/routes/{jobs,runners,sessions}/",
-   "behavior": "Explain blockers, drain/quarantine, grouped live stream and controls",
-   "verify": "tests/browser/operations.spec.ts; E035/E045/E061/E092",
+   "behavior": "Explain blockers, drain/quarantine, grouped live stream and controls. The job/session route surfaces it owned are superseded by T60 (run inspector, Live console) and T61 (Log Explorer); E092 moved to T61",
+   "verify": "tests/browser/operations.spec.ts; E035/E045/E061",
    "read": [
     "docs/implementation/01-architecture-and-modules.md",
     "docs/implementation/09-ux-and-ui.md",
@@ -1059,7 +1059,7 @@
    "id": "T58",
    "dependencies": "T52,T53,T54,T55,T56,T57",
    "targetFiles": "apps/web/src/{app.tsx,routes/,ui/}; contracts/v1/ui-screen-contracts.json; browser acceptance",
-   "behavior": "Six-area UI-first experience with contextual Create, Ask Brain, all Studios and accessible responsive operation without YAML or terminal",
+   "behavior": "Six-area UI-first experience with contextual Create, Ask Brain, all Studios and accessible responsive operation without YAML or terminal. Parent plan of the execution-console work; its web route set is superseded for live sessions by T60",
    "verify": "tests/browser/navigation.spec.ts; tests/browser/plans.spec.ts; tests/browser/schedules.spec.ts; tests/browser/resources.spec.ts; tests/browser/integrations.spec.ts; tests/browser/studio.spec.ts; E093/E097/E101\u2013E110 at 390/768/1440 in both themes",
    "read": [
     "docs/implementation/09-ux-and-ui.md",
@@ -1072,6 +1072,71 @@
     "ConfigurationDraft",
     "Document",
     "Automation"
+   ],
+   "ownerModule": "experience"
+  },
+  "T59": {
+   "id": "T59",
+   "dependencies": "T36,T53",
+   "targetFiles": "apps/governor/src/modules/stream/; apps/governor/src/application/brain.ts; apps/governor/src/http/app.ts; apps/governor/schema/{control,workspace}.sql; apps/governor/src/modules/{jobs/{attempts,protocol},sessions/service}.ts; apps/runner/src/{supervisor.ts,engines/}; contracts/v1/{brain.schema.json,registry.json,openapi.json}",
+   "behavior": "Unified Execution Stream read model projected over the authoritative source logs (control.events, workspace.events, attempt_events) with one global stream_seq cursor, SQL-scoped authorized reads, FTS search, correlation context, attempt comparison, bounded sanitized export, retention sweep, engine feature negotiation and heartbeat-delivered steer/stop controls",
+   "verify": "tests/integration/stream.test.ts; tests/integration/sse.test.ts; tests/integration/responses.test.ts; tests/integration/storage.test.ts; tests/security/authz.test.ts",
+   "read": [
+    "docs/implementation/01-architecture-and-modules.md",
+    "docs/implementation/04-persistence-and-recovery.md",
+    "docs/implementation/06-runners-and-scheduling.md",
+    "docs/implementation/11-acceptance-and-edge-cases.md"
+   ],
+   "evidenceDirectory": "artifacts/runtime/T59",
+   "contractDefinitions": [
+    "StreamRecord",
+    "StreamContextBundle",
+    "StreamCompareResult",
+    "LiveStatus",
+    "SessionContinuation",
+    "ArtifactHistory",
+    "ArtifactDiffResult"
+   ],
+   "ownerModule": "jobs"
+  },
+  "T60": {
+   "id": "T60",
+   "dependencies": "T34,T59",
+   "targetFiles": "apps/web/src/routes/pages/{LivePage,SessionDetailPage,JobDetailPage,RunsPage}.tsx; apps/web/src/ui/console/; apps/web/src/ui/components/RunDetail.tsx; apps/web/src/ui/{LandingRedirect.tsx,app-context.tsx}; contracts/v1/ui-screen-contracts.json",
+   "behavior": "The Live console: resizable three-pane desktop layout with session selection, feed, steering/stop/attach/inspect controls, the interruption chooser driven by server continuation facts, contextual evidence and approval panels, and the run inspector linking out to console/logs/outputs without reproducing them. Supersedes the T36 session/run-detail surfaces and the T53 web session routes; active vs historical is state, not layout",
+   "verify": "tests/browser/operations.spec.ts; tests/browser/exec-console.spec.ts; tests/browser/navigation.spec.ts",
+   "read": [
+    "docs/implementation/09-ux-and-ui.md",
+    "docs/implementation/11-acceptance-and-edge-cases.md",
+    "docs/implementation/21-ui-recipes-and-screen-oracles.md"
+   ],
+   "evidenceDirectory": "artifacts/runtime/T60",
+   "contractDefinitions": [
+    "BrainSession",
+    "JobSnapshot",
+    "SessionDetail",
+    "LiveStatus",
+    "StreamContextBundle"
+   ],
+   "ownerModule": "experience"
+  },
+  "T61": {
+   "id": "T61",
+   "dependencies": "T59,T60",
+   "targetFiles": "apps/web/src/routes/pages/{LogsPage,OutputsPage,ArtifactDetailPage}.tsx; apps/web/src/ui/logs/; apps/web/src/ui/outputs/; apps/web/src/ui/exec/; apps/web/src/data/{exec-logs,exec-outputs}.ts",
+   "behavior": "The independent Log Explorer (live tail with pause/unread, emitter and severity filters, full-text search, correlation jumps, tool-call grouping, raw mode, attempt comparison, bounded export, error navigation) and the Output Browser (previews, diff, history, verification status). Supersedes the in-run-detail logs and artifact views owned by T36; E092 targets this surface",
+   "verify": "tests/browser/sse-logviewer.spec.ts; tests/browser/exec-console.spec.ts",
+   "read": [
+    "docs/implementation/09-ux-and-ui.md",
+    "docs/implementation/11-acceptance-and-edge-cases.md"
+   ],
+   "evidenceDirectory": "artifacts/runtime/T61",
+   "contractDefinitions": [
+    "StreamRecord",
+    "StreamTailPage",
+    "StreamSearchPage",
+    "ArtifactHistory",
+    "ArtifactDiffResult"
    ],
    "ownerModule": "experience"
   }

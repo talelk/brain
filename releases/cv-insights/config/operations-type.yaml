@@ -1,0 +1,16 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "WorkspaceType",
+  "metadata": {
+    "id": "operations-type",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "defaultPolicy": {
+      "id": "operations-policy",
+      "digest": "sha256:bbd7fe7098a681fcedeb4b6308bf1d6eeb4ff52bc57dd77418638807f0008baa"
+    },
+    "packs": [],
+    "maxConcurrentJobs": 2
+  }
+}

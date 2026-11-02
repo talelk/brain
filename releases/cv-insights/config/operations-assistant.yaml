@@ -1,0 +1,31 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Agent",
+  "metadata": {
+    "id": "operations-assistant",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "instructionsPath": "agents/operations-assistant.md",
+    "tools": [
+      {
+        "id": "operations.context",
+        "digest": "sha256:34fa8bce5467157d60b19931112a7a946b1ebebfd10748421826cd531424403b"
+      }
+    ],
+    "engine": {
+      "anyOf": [
+        "pi",
+        "claude"
+      ],
+      "features": [
+        "sessions"
+      ]
+    },
+    "maxTurns": 3,
+    "maxChildren": 0,
+    "maxDepth": 0,
+    "maxTokens": 8192,
+    "maxMicroUsd": 0
+  }
+}

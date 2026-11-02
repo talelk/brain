@@ -1,5 +1,6 @@
 import { generateKeyPairSync, sign } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { cpus, freemem } from "node:os";
 import { join } from "node:path";
 import { domainDigest, sha256Digest } from "@brain/contracts";
 import type { Agent, ArtifactRef, EngineToolBinding, EvaluationAssignment, JsonValue, ReleaseRef, VerificationVerdict } from "@brain/contracts";
@@ -17,6 +18,27 @@ export interface RunnerConfig {
   readonly engines?: readonly string[];
   readonly groupToolsDir?: string;
   readonly transport?: typeof fetch;
+  /**
+   * Operator-declared read-only data mounts offered to sandboxed tools, by
+   * name. This is host configuration, not workflow configuration: a workflow
+   * spec cannot add a mount it was not given.
+   */
+  readonly dataMounts?: readonly string[];
+}
+
+/**
+ * Live controls delivered through heartbeat acks. Stop aborts the current
+ * attempt through the existing watchdog path; steer is queued and handed to
+ * the engine adapter at the next turn boundary (feature-gated).
+ */
+export interface RunnerControls {
+  stopRequests: Set<string>;
+  steerQueue: Array<{ attemptId: string; messageId: string; message: string }>;
+  activeAttemptId?: string | undefined;
+}
+
+export function newRunnerControls(): RunnerControls {
+  return { stopRequests: new Set(), steerQueue: [] };
 }
 
 async function req(cfg: RunnerConfig, token: string | undefined, path: string, body?: unknown): Promise<{ status: number; json: unknown }> {
@@ -114,13 +136,14 @@ export async function refreshSession(cfg: RunnerConfig): Promise<{ sessionToken:
   return challengeHello(cfg, credential);
 }
 
-export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpoch = 1): Promise<boolean> {
+export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpoch = 1, controls: RunnerControls = newRunnerControls()): Promise<boolean> {
   const claim = await req(cfg, sessionToken, "/runner/v1/claim", { requestId: `claim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
   if (claim.status === 204) return false;
   if (claim.status !== 200) throw new Error(`claim failed ${claim.status}: ${JSON.stringify(claim.json)}`);
   const offer = claim.json as { attemptId: string; jobId: string; workspaceId: string; organizationId?: string; workflowRunId?: string; attemptNumber?: number; sourceRevision?: string; leaseId: string; jobFence: number; configDigest: string; toolPins?: Record<string, string>; authorEvidence?: { toolReleases: { id: string; digest: string }[]; claimedChecks: unknown[] }; execution: { kind: string; artifact: { artifactId: string; digest: string; bytes: number } } };
+  controls.activeAttemptId = offer.attemptId;
   const ackBody: Record<string, unknown> = { leaseId: offer.leaseId, jobFence: offer.jobFence };
-  if (offer.execution.kind === "tool") ackBody["engine"] = { id: "tool-broker", adapterDigest: sha256Digest(new TextEncoder().encode("tool-broker:v1")) };
+  if (offer.execution.kind === "tool") ackBody["engine"] = { id: "tool-broker", adapterDigest: sha256Digest(new TextEncoder().encode("tool-broker:v1")), features: [] as string[] };
   const ack = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/ack`, ackBody);
   if (ack.status !== 200) throw new Error(`ack failed ${ack.status}`);
   // Execution input travels as a digest-pinned CAS artifact, never inline.
@@ -151,8 +174,9 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
   const spool = DurableEventSpool.load(join(cfg.stateDir, "spool", `${offer.attemptId}.jsonl`));
   let eventSeq = spool.stats().lastSequence;
   // The engine that actually executes the attempt; reported with the event
-  // batches so the Governor's session view names the real adapter, not a guess.
-  let engineInfo: { id: string; adapterDigest: string } | undefined;
+  // batches so the Governor's session view names the real adapter and its
+  // probe features, not a guess.
+  let engineInfo: { id: string; adapterDigest: string; features: string[] } | undefined;
   // A failed events POST leaves the journal untouched: the same batch replays
   // on the next flush, in order, after the Governor acknowledges the batch.
   const flushEvents = async (): Promise<void> => {
@@ -168,8 +192,10 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
   };
   const emit = async (kind: string, eventPayload: unknown): Promise<void> => {
     if (kind === "engine") {
-      const event = eventPayload as { kind?: string; payload?: { engine?: { id: string; adapterDigest: string } } };
-      if (event.kind === "session.started" && event.payload?.engine) engineInfo = event.payload.engine;
+      const event = eventPayload as { kind?: string; payload?: { engine?: { id: string; adapterDigest: string; features?: string[] } } };
+      if (event.kind === "session.started" && event.payload?.engine) {
+        engineInfo = { id: event.payload.engine.id, adapterDigest: event.payload.engine.adapterDigest, features: event.payload.engine.features ?? [] };
+      }
     }
     eventSeq += 1;
     const pushed = spool.push({ sequence: eventSeq, kind, payload: eventPayload });
@@ -189,6 +215,13 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
   }, 15_000);
   const watchdog = setInterval(() => {
     if (abortReason) return;
+    if (controls.stopRequests.has(offer.attemptId)) {
+      // Governor-requested stop: abort through the same cancellation path; the
+      // adapter's confirmed termination decides the cleanup outcome.
+      controls.stopRequests.delete(offer.attemptId);
+      controller.abort(new Error("stop requested"));
+      return;
+    }
     if (leaseLost) { abortReason = "lease"; controller.abort(new Error("lease lost")); return; }
     if (monoDeadline && performance.now() >= monoDeadline) {
       abortReason = "deadline";
@@ -232,12 +265,27 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
       const engine = selectEngine(engineConfigured, asset.toolBindings);
       if (!engine) throw new Error(`none of the required engines (${asset.agent.spec.engine.anyOf.join(", ")}) is configured on this runner`);
       const engineProbe = await engine.probe();
-      engineInfo = { id: engineProbe.id, adapterDigest: engineProbe.adapterDigest };
+      engineInfo = { id: engineProbe.id, adapterDigest: engineProbe.adapterDigest, features: [...engineProbe.features] };
       const task = step.task ?? JSON.stringify(payload.input ?? {});
       const launcher = LauncherClient.configured() ? LauncherClient.fromEnv() : undefined;
       const toolPins = (offer as { toolPins?: Record<string, string> }).toolPins;
       const ajv = new Ajv2020({ allErrors: true, strict: true });
       let invocationCount = 0;
+      // Steer delivery: heartbeat acks queue steering requests; the drain hands
+      // them to the adapter at the next turn boundary, gated on the engine's
+      // advertised features.
+      let steer: ((messageId: string, message: string) => Promise<void>) | undefined;
+      const steerDrain = setInterval(() => {
+        if (!steer) return;
+        for (let index = controls.steerQueue.length - 1; index >= 0; index--) {
+          const request = controls.steerQueue[index]!;
+          if (request.attemptId !== offer.attemptId) continue;
+          controls.steerQueue.splice(index, 1);
+          void steer(request.messageId, request.message).catch((error: unknown) => {
+            void emit("progress", { phase: "steer-refused", detail: error instanceof Error ? error.message : String(error) });
+          });
+        }
+      }, 500);
       const agentResult = await runAgentExecution({
         engine, attemptId: offer.attemptId, jobFence: offer.jobFence, leaseId: offer.leaseId,
         runnerId: cfg.runnerId, runnerEpoch, organizationId: offer.organizationId ?? "", workspaceId: offer.workspaceId,
@@ -245,6 +293,11 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
         instructions, task, modelId: process.env["BRAIN_LOCAL_MODEL_ID"], timeoutMs: (step.timeoutSeconds ?? 300) * 1000,
         maxTurns: asset.agent.spec.maxTurns, maxTokens: asset.agent.spec.maxTokens,
         maxMicroUsd: asset.agent.spec.maxMicroUsd, allowedTools: asset.agent.spec.tools,
+        onSession: (handle) => {
+          steer = handle.features.includes("steer")
+            ? (messageId, message) => handle.steer(messageId, message)
+            : undefined;
+        },
         executeTool: async (proposal) => {
           if (++invocationCount > asset.agent.spec.maxTurns) throw new Error("Agent tool-call budget exhausted");
           const binding = asset.toolBindings.find((candidate) => candidate.release.id === proposal.tool.id && candidate.release.digest === proposal.tool.digest);
@@ -305,6 +358,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
         await emit("effect", { phase: "output-pinned", artifact: uploaded.json });
       }
       result = agentResult;
+      clearInterval(steerDrain);
     } else {
     const launcher = LauncherClient.configured() ? LauncherClient.fromEnv() : undefined;
     const toolPins = (offer as { toolPins?: Record<string, string> }).toolPins;
@@ -383,6 +437,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
   } finally {
     clearInterval(renew);
     clearInterval(watchdog);
+    if (controls.activeAttemptId === offer.attemptId) controls.activeAttemptId = undefined;
   }
 }
 
@@ -393,6 +448,7 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
     stateDir: process.env["BRAIN_RUNNER_STATE_DIR"] ?? join(process.cwd(), ".runner-state"),
     capabilities: (process.env["BRAIN_RUNNER_CAPABILITIES"] ?? "os:linux,arch:amd64,tool:fixture.echo,tool:fixture.verify,isolation:ephemeral-container").split(","),
     engines: (process.env["BRAIN_RUNNER_ENGINE"] ?? "fixture").split(",").map((id) => id.trim()).filter(Boolean),
+    dataMounts: (process.env["BRAIN_TOOL_DATA_MOUNTS"] ?? "").split(",").map((s) => s.trim()).filter(Boolean),
   };
   const enrollToken = process.env["BRAIN_RUNNER_ENROLL_TOKEN"] ?? "";
   const initial = await enrollAndHello(cfg, enrollToken);
@@ -410,20 +466,47 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
     console.log(`Brain runner ${cfg.runnerId} session refreshed (epoch ${next.epoch})`);
   };
   let seq = 0;
+  const controls = newRunnerControls();
   const heartbeatTimer = setInterval(() => {
     seq += 1;
-    void availableEngines(cfg).then((engines) => req(cfg, session.token, "/runner/v1/heartbeat", { sequence: seq,
+    void availableEngines(cfg).then((engines) => req(cfg, session.token, "/runner/v1/heartbeat", {
+      // Full RunnerHeartbeat body: command delivery sits on the declared shape.
+      runnerId: cfg.runnerId,
+      runnerEpoch: session.epoch,
+      sequence: seq,
+      health: "healthy",
+      observedFree: {
+        cpuMillicores: cpus().length * 1000,
+        memoryMb: Math.floor(freemem() / 1_048_576),
+        diskMb: 0,
+        slots: controls.activeAttemptId ? 0 : 1,
+      },
+      activeAttemptIds: controls.activeAttemptId ? [controls.activeAttemptId] : [],
+      observedAt: new Date().toISOString(),
       capabilities: [...cfg.capabilities.filter((cap) => !/^engine(:|-feature:)/u.test(cap)), ...engines.map((engine) => `engine:${engine.id}`), ...engines.flatMap((engine) => engine.features.map((feature) => `engine-feature:${engine.id}:${feature}`))]
         .map((capability) => ({ capability, verified: true, source: "runner-probe", observedAt: new Date().toISOString(), expiresAt: new Date(Date.now()+300000).toISOString() })),
     })).then((r) => {
       if (r.status === 401) session.stale = true;
+      else if (r.status === 200) {
+        // At-most-once delivery: the Governor deleted the control rows when it
+        // built this ack. Stop joins the watchdog path; steer waits in the
+        // queue for the attempt's turn boundary.
+        for (const command of (r.json as { commands?: Array<{ type?: string; commandId?: string; attemptId?: string; text?: string }> }).commands ?? []) {
+          if (command.type === "stop-attempt" && command.attemptId) {
+            controls.stopRequests.add(command.attemptId);
+            console.log(`Brain runner ${cfg.runnerId} stop requested for attempt ${command.attemptId}`);
+          } else if (command.type === "steer" && command.attemptId) {
+            controls.steerQueue.push({ attemptId: command.attemptId, messageId: command.commandId ?? `steer-${seq}`, message: command.text ?? "" });
+          }
+        }
+      }
     }, () => { /* transient; claim loop surfaces errors */ });
   }, 15_000).unref();
   try { for (;;) {
     try {
       if (configurationChanged?.()) return;
       if (session.stale || Date.now() - session.sinceMs > 10 * 60_000) await refresh();
-      const worked = await runOnce(cfg, session.token, session.epoch);
+      const worked = await runOnce(cfg, session.token, session.epoch, controls);
       if (!worked) await new Promise((r) => setTimeout(r, 2000));
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

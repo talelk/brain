@@ -13,7 +13,7 @@ async function world(page: Page, governor: GovernorFixture, workspaceId = "ws-ed
   await page.getByLabel(/^Email/).fill("authority-edge@example.test");
   await page.getByLabel(/^Password/).fill("browser-password-1234");
   await page.getByRole("button", { name: "Create organization", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Create your first workspace" })).toBeVisible();
   const brain = governor.app.brain;
   const actor = (await brain.resolveActor(new Headers({ cookie: (await page.context().cookies()).map((cookie) => `${cookie.name}=${cookie.value}`).join("; ") }))).actor;
   brain.createWorkspace(actor, { workspaceId, slug: "Edge workspace" });

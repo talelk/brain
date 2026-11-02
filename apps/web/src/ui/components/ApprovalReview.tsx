@@ -90,12 +90,12 @@ export function ApprovalReview(props: {
           <p role="status" aria-live="polite" class="min-h-5 text-interface text-ink-gray-7">{message()}</p>
         </div>
         <Dialog.Footer class="flex-wrap justify-end border-t border-outline-gray-1 pt-4">
-          <Button size="lg" variant="outline" onClick={() => setOpen(false)} disabled={busy()}>Back</Button>
-          <Button size="lg" variant="outline" onClick={reviewCurrent} disabled={busy() || !(canReviewAgain() || (state().status === "review" && !sameProposal()))}>Review current proposal</Button>
-          <Button size="lg" variant="outline" onClick={check} loading={state().status === "checking"} disabled={state().status !== "unknown"}>Check decision</Button>
-          <Button size="lg" variant="outline" onClick={() => void submit("request-changes")} disabled={!canSubmit() || busy() || !note().trim()}>Request changes</Button>
-          <Button size="lg" variant="outline" onClick={() => void submit("reject")} disabled={!canSubmit() || busy() || !note().trim()} theme="red">Reject</Button>
-          <Button size="lg" variant="solid" theme="blue" onClick={() => void submit()} loading={busy()} disabled={!canSubmit() || busy() || (!!props.requireTwoFactor && !/^\d{6}$/u.test(code()))}>{props.requireTwoFactor ? "Verify identity and approve" : "Approve exact action"}</Button>
+          <Button size="md" variant="outline" onClick={() => setOpen(false)} disabled={busy()}>Back</Button>
+          <Button size="md" variant="outline" onClick={reviewCurrent} disabled={busy() || !(canReviewAgain() || (state().status === "review" && !sameProposal()))}>Review current proposal</Button>
+          <Button size="md" variant="outline" onClick={check} loading={state().status === "checking"} disabled={state().status !== "unknown"}>Check decision</Button>
+          <Button size="md" variant="outline" onClick={() => void submit("request-changes")} disabled={!canSubmit() || busy() || !note().trim()}>Request changes</Button>
+          <Button size="md" variant="outline" onClick={() => void submit("reject")} disabled={!canSubmit() || busy() || !note().trim()} theme="red">Reject</Button>
+          <Button size="md" variant="solid" theme="blue" onClick={() => void submit()} loading={busy()} disabled={!canSubmit() || busy() || (!!props.requireTwoFactor && !/^\d{6}$/u.test(code()))}>{props.requireTwoFactor ? "Verify identity and approve" : "Approve exact action"}</Button>
         </Dialog.Footer>
       </Dialog.Content>
     </Dialog.Root>

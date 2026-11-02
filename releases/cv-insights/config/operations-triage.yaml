@@ -1,0 +1,118 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Workflow",
+  "metadata": {
+    "id": "operations-triage",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "inputSchemaRef": "schemas/operations-input.json",
+    "outputSchemaRef": "schemas/workflow-output.json",
+    "jobs": {
+      "respond": {
+        "kind": "dispatch",
+        "needs": [],
+        "input": {
+          "situation": {
+            "source": "input",
+            "pointer": "/situation"
+          }
+        },
+        "outputSchemaRef": "schemas/operations-output.json",
+        "timeoutSeconds": 120,
+        "uses": {
+          "type": "agent",
+          "release": {
+            "id": "operations-assistant",
+            "digest": "sha256:4a7714cb3bf1967c135208d03c7af6e9e53d11d129deb7b1df57cf6f5b7da87d"
+          }
+        },
+        "runsOn": {
+          "group": "agents",
+          "engine": {
+            "anyOf": ["pi"],
+            "features": ["sessions"]
+          },
+          "all": [
+            "os:linux"
+          ],
+          "resources": {
+            "cpuMillicores": 500,
+            "memoryMb": 256,
+            "diskMb": 256,
+            "slots": 1
+          },
+          "isolation": "ephemeral-container"
+        },
+        "effectClass": "read"
+      },
+      "validate": {
+        "kind": "eval",
+        "needs": [
+          "respond"
+        ],
+        "input": {
+          "kind": {
+            "source": "literal",
+            "value": "operations-triage"
+          },
+          "report": {
+            "source": "job",
+            "jobId": "respond",
+            "pointer": ""
+          }
+        },
+        "outputSchemaRef": "schemas/validation-output.json",
+        "timeoutSeconds": 30,
+        "evaluator": {
+          "id": "operations-validator",
+          "digest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f"
+        },
+        "runsOn": {
+          "group": "evaluators",
+          "engine": {
+            "anyOf": ["claude"],
+            "features": ["sessions"]
+          },
+          "all": [
+            "os:linux",
+            "tool:bash",
+            "tool:python3"
+          ],
+          "resources": {
+            "cpuMillicores": 500,
+            "memoryMb": 256,
+            "diskMb": 256,
+            "slots": 1
+          },
+          "isolation": "ephemeral-container"
+        },
+        "independence": "L1"
+      }
+    },
+    "outputs": {
+      "response": {
+        "source": "job",
+        "jobId": "respond",
+        "pointer": ""
+      },
+      "passed": {
+        "source": "job",
+        "jobId": "validate",
+        "pointer": "/passed"
+      }
+    },
+    "failFast": true,
+    "deadlineSeconds": 300,
+    "presentation": {
+      "title": "Investigate an operational issue",
+      "description": "Get a concise analysis, missing facts and safe next checks.",
+      "examples": [
+        {
+          "situation": "Error rates increased after a deployment. No rollback has been attempted."
+        }
+      ],
+      "system": false
+    }
+  }
+}

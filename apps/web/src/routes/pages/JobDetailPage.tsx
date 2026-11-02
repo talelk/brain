@@ -1,19 +1,18 @@
 import { createSignal } from "solid-js";
 import type { JSX } from "solid-js";
-import { useNavigate, useParams } from "@solidjs/router";
-import type { JobSnapshot, PlacementExplanation, BrainSession } from "@brain/contracts";
+import { useParams } from "@solidjs/router";
+import type { PlacementExplanation } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
-import { jobExplainQuery, jobQuery, sessionsQuery } from "../../data/governor";
-import { RunDetail } from "../../ui/components/RunDetail";
+import { jobExplainQuery, jobQuery } from "../../data/governor";
+import { RunDetail, type RunJobSnapshot } from "../../ui/components/RunDetail";
 import { ActionFeedback } from "../../ui/components/ActionFeedback";
 
 export default function JobDetailPage(): JSX.Element {
   const app = useApp();
-  const navigate = useNavigate();
   const params = useParams();
   const jobId = () => params.id ?? "";
-  const job = createScopedRead<JobSnapshot>({
+  const job = createScopedRead<RunJobSnapshot>({
     scope: app.scope,
     load: (scope, signal) => jobQuery(scope.workspaceId, jobId(), signal),
     refreshMs: 10_000,
@@ -22,20 +21,11 @@ export default function JobDetailPage(): JSX.Element {
     scope: app.scope,
     load: (scope, signal) => jobExplainQuery(scope.workspaceId, jobId(), signal),
   });
-  const sessions = createScopedRead<BrainSession[]>({
-    scope: app.scope,
-    load: async (scope, signal) => {
-      const loaded = await sessionsQuery({ workspaceId: scope.workspaceId }, signal);
-      return { ...loaded, snapshot: [...loaded.snapshot.items] };
-    },
-  });
   const [message, setMessage] = createSignal("");
-  const jobSession = () => (sessions.state().data ?? []).find((s) => s.jobId === job.state().data?.jobId);
   return <div class="flex flex-col gap-field-gap">
     <ActionFeedback message={message()} />
     <RunDetail jobId={jobId()} job={job.state().data} explanation={explanation.state().data}
       state={job.state()} onRefresh={() => void job.refresh({ force: true })}
-      {...(jobSession() ? { onOpenSession: () => void navigate(`/sessions/${jobSession()!.sessionId}`) } : {})}
       onCancel={async (reason) => {
         const runId = job.state().data?.workflowRunId;
         if (!runId) { setMessage("No run is bound to this job yet."); return; }

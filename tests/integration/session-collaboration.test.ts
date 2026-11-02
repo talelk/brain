@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ActorContext, BrainSession, CommandReceipt, WorkBoardView, WorkItemMessage } from "@brain/contracts";
+import type { ActorContext, CommandReceipt, SessionDetail, WorkBoardView, WorkItemMessage } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import { createApp } from "../../apps/governor/src/http/app";
 import { enrollAndHello, runOnce } from "../../apps/runner/src/supervisor";
@@ -35,8 +35,8 @@ function sessionInput(workItemId: string, task = "Inspect the workspace"): Recor
   };
 }
 
-function session(w: TestWorld, id: string): BrainSession {
-  return (w.brain.executeQuery(w.owner, { queryType: "session.get", workspaceId: w.workspaceId, resourceId: id }) as { snapshot: BrainSession }).snapshot;
+function session(w: TestWorld, id: string): SessionDetail {
+  return (w.brain.executeQuery(w.owner, { queryType: "session.get", workspaceId: w.workspaceId, resourceId: id }) as { snapshot: SessionDetail }).snapshot;
 }
 
 describe("native and managed BrainSessions (T53)", () => {
@@ -48,7 +48,7 @@ describe("native and managed BrainSessions (T53)", () => {
     const parentId = run(w, "session.create", "session-create", input).resourceId!;
     expect(session(w, parentId)).toEqual(expect.objectContaining({ mode: "managed", state: "waiting", rootSessionId: parentId }));
     expect(session(w, parentId).jobId).toBeUndefined();
-    expect(validate("BrainSession", session(w, parentId))).toEqual({ ok: true, errors: [] });
+    expect(validate("SessionDetail", session(w, parentId))).toEqual({ ok: true, errors: [] });
     const checkpoint = {
       sourceRevision: "sha256:6dd84c7f907477ea38ad355392cf876b39c122adf8038762894d56cc160956b4",
       dirtyDiffDigest: `sha256:${"b".repeat(64)}`, completedCriteria: ["inspect"], outstandingFailures: ["verification pending"],

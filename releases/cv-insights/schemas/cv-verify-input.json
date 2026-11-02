@@ -1,0 +1,51 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "report": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 1024
+          }
+        },
+        "nextActions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 1024
+          }
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 1024
+          }
+        }
+      },
+      "required": [
+        "summary",
+        "findings",
+        "nextActions",
+        "observations"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "report"
+  ],
+  "additionalProperties": false
+}

@@ -17,15 +17,19 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 |---|---|---|---|
 | `/today` | today | Handle prioritized work and return to the originating list | priority, workspace, task, reason, freshness |
 | `/bridge` | today | Handle prioritized work and return to the originating list | workspace, health, attention, freshness |
+| `/w/:id/live` | execution | Run, steer and inspect live agent sessions without losing session state | sessions, console, outputs, controls |
+| `/w/:id/logs` | execution | Search execution and platform logs and jump between correlated contexts | records, filters, search, correlation |
+| `/w/:id/outputs` | execution | Browse authorized generated artifacts with previews, diffs and history | artifacts, preview, history, diff |
+| `/artifacts/:id` | execution | Inspect one artifact: preview, verification, versions and diffs | preview, metadata, verification, history, diff |
 | `/w/:id/overview` | work | Review workspace work and pack details | state, outcomes, pending, connectivity |
 | `/w/:id/board` | work | Review workspace work and pack details | title, state, criteria, evidence |
 | `/w/:id/decisions` | work | Review workspace work and pack details | decision, actor, note, time |
 | `/approvals` | approvals | Review exact proposed effects and recover submitted decisions | action, workspace, target, expiry, evidence |
 | `/approvals/:id` | approvals | Review exact proposed effects and recover submitted decisions | exactContent, precondition, subjectDigest, history |
-| `/jobs/:id` | runs | Inspect a run, its attempts, events and evidence | state, attempts, blocker, evidence |
-| `/runners` | runs | Inspect a run, its attempts, events and evidence | group, trust, health, capacity, freshness |
-| `/runners/:id` | runs | Inspect a run, its attempts, events and evidence | capabilities, attempts, reservations |
-| `/sessions/:id` | runs | Inspect a run, its attempts, events and evidence | task, tools, usage, timeline |
+| `/jobs/:id` | execution | Inspect one run's state, attempts, evidence and links without duplicating the console, logs or outputs | state, attempts, blocker, evidence |
+| `/runners` | execution | Inspect a run, its attempts, events and evidence | group, trust, health, capacity, freshness |
+| `/runners/:id` | execution | Inspect a run, its attempts, events and evidence | capabilities, attempts, reservations |
+| `/sessions/:id` | execution | Open one session in the Live console: active and historical are state, not layout | console, task, usage, context |
 | `/w/:id/support` | work | Review workspace work and pack details | priority, ticket, state, sla |
 | `/tickets/:id` | work | Review workspace work and pack details | body, draft, evidence, approval |
 | `/w/:id/sre` | work | Review workspace work and pack details | severity, target, state, freshness |
@@ -37,7 +41,7 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/accept-invitation/:id` | settings | Verify an invited account and accept organization membership | invitedSignUp, emailVerification, explicitAcceptance |
 | `/tv/support` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
 | `/tv/sre` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
-| `/w/:id/runs` | runs | Inspect a run, its attempts, events and evidence | jobs, sessions, runners |
+| `/w/:id/runs` | execution | Index historical and active runs; sessions live in the console rail, runners have their own screen | runs |
 | `/w/:id/agents` | work | Inspect active agent and workflow definitions and dispatch schema-validated inputs | release, instructions, engine, limits |
 | `/w/:id/workflows` | work | Inspect active agent and workflow definitions and dispatch schema-validated inputs | release, input-schema, engine, dependencies |
 | `/w/:id/plans` | work | Turn an intention into a reviewed plan and versioned work | objective, planVersion, tasks, dependencies, assignments |

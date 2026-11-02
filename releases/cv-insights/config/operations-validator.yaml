@@ -1,0 +1,19 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Evaluator",
+  "metadata": {
+    "id": "operations-validator",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "tool": {
+      "id": "operations.validate",
+      "digest": "sha256:68cdd50093346745e560e7f688a7773866c1075e0b1d653e66067c27c6efeeee"
+    },
+    "requiredChecks": [
+      "structure",
+      "safety"
+    ],
+    "independence": "L1"
+  }
+}

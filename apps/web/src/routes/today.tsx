@@ -97,9 +97,9 @@ export function TodayScreen(props: {
       <ScreenRegion state={props.state} skeleton="rows" emptyTitle="You’re all caught up"
         emptyDescription="No expiring approvals, blocked runs, open incidents, or decisions need your attention."
         emptyAction={<RefreshButton onClick={props.onRefresh} label="Check again" />} onRetry={props.onRefresh}>
-        <PaneLayout class="brain-list-detail" startSize={58} minStartSize={38} maxStartSize={68} start={list} end={<Show when={current()} keyed fallback={<EmptyPreview icon="lucide-inbox" title="Select an attention item" description="Its reason, freshness and next authorized action will appear here." />}>{(item) => <div class="flex flex-col gap-5">
+        <PaneLayout class="brain-list-detail" startSize={58} minStartSize={38} maxStartSize={68} start={list} end={<Show when={current()} keyed fallback={<EmptyPreview icon="lucide-inbox" title="Select an attention item" description="Its reason, freshness and next authorized action will appear here." />}>{(item) => <div class="flex min-w-0 flex-col gap-5">
           <div class="flex items-start justify-between gap-3"><IconTile icon={TYPE_ICON[item.type] ?? "lucide-circle"} tone={item.stale ? "amber" : "blue"} size="lg" /><StatusBadge kind="priority" status={String(item.priority)} label={PRIORITY_LABEL[item.priority] ?? "Attention"} /></div>
-          <div><p class="text-caption font-medium uppercase tracking-wider text-ink-gray-6">{TYPE_LABEL[item.type]} · {item.workspaceId}</p><h2 class="mt-2 text-section text-ink-gray-9">{item.title}</h2><p class="brain-prose mt-3 text-interface text-ink-gray-7">{item.detail}</p></div>
+          <div class="min-w-0"><p class="text-caption font-medium uppercase tracking-wider text-ink-gray-6">{TYPE_LABEL[item.type]} · {item.workspaceId}</p><h2 class="mt-2 break-words text-section text-ink-gray-9">{item.title}</h2><p class="brain-prose mt-3 text-interface text-ink-gray-7">{item.detail}</p></div>
           <dl class="grid gap-4 border-y border-outline-gray-1 py-4 sm:grid-cols-2">
             <KeyValue label="Why it needs you" value={ACTION_LABEL[item.nextAction] ?? "Inspect the current record"} orientation="vertical" />
             <KeyValue label="Last source update" value={<DateText value={item.updatedAt} asOf={props.asOf} />} orientation="vertical" />
@@ -134,7 +134,7 @@ export function BridgeScreen(props: {
       <WorkspaceSection title="Workspace control" description="Actionable workspaces are first. Quiet workspaces remain available without implying systemwide health.">
         <ScreenRegion state={props.state} skeleton="cards" emptyTitle="No workspaces assigned"
           emptyDescription="Ask an organization administrator to grant you workspace access."
-          emptyAction={<Button size="lg" onClick={props.onRefresh}>Reload</Button>} onRetry={props.onRefresh}>
+          emptyAction={<Button size="md" onClick={props.onRefresh}>Reload</Button>} onRetry={props.onRefresh}>
           <div class={`grid gap-4 ${ordered().length === 1 ? "max-w-3xl" : "md:grid-cols-2"}`}>
             <For each={ordered()}>{(ws) => {
               const attention = ws.pendingApprovals + ws.blockedJobs;
@@ -149,7 +149,7 @@ export function BridgeScreen(props: {
                   <div><dt class="text-caption text-ink-gray-6">Blocked</dt><dd class="mt-1 text-base-medium tabular-nums">{ws.blockedJobs}</dd></div>
                   <div><dt class="text-caption text-ink-gray-6">Spend today</dt><dd class="mt-1 text-base-medium tabular-nums">{formatMicroUsd(ws.dailyMicroUsd)}</dd></div>
                 </dl>
-                <div class="flex flex-wrap items-center justify-between gap-3"><Freshness value={ws.observedAt} stale={ws.health === "unknown"} /><div class="flex flex-wrap gap-2"><Show when={app.canAdminister()}><Button size="lg" variant="ghost" onClick={() => setManaging(ws)}>Manage</Button></Show><Button size="lg" variant={attention ? "solid" : "outline"} theme="blue" iconRight="lucide-arrow-right" onClick={() => props.onOpen(ws.workspaceId)}>Open workspace</Button></div></div>
+                <div class="flex flex-wrap items-center justify-between gap-3"><Freshness value={ws.observedAt} stale={ws.health === "unknown"} /><div class="flex flex-wrap gap-2"><Show when={app.canAdminister()}><Button size="md" variant="ghost" onClick={() => setManaging(ws)}>Manage</Button></Show><Button size="md" variant={attention ? "solid" : "outline"} theme="blue" iconRight="lucide-arrow-right" onClick={() => props.onOpen(ws.workspaceId)}>Open workspace</Button></div></div>
               </CardTile>;
             }}</For>
           </div>

@@ -10,9 +10,9 @@ import type { CommandReceipt, OrganizationAdminCommand, PlanTask, WorkItemState 
  * newer server state.
  */
 export type CommandKind =
-  | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop"
+  | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop" | "session.create"
   | "board.create" | "board.move" | "board.comment" | "decision.record" | "runner.drain" | "runner.quarantine" | "runner.control"
-  | "objective.create" | "plan.propose" | "plan.confirm" | "workItem.transition" | "workItem.comment"
+  | "objective.create" | "plan.propose" | "plan.confirm" | "workItem.transition" | "workItem.comment" | "workItem.message"
   | "automation.upsert" | "automation.control"
   | "document.upload" | "document.revise" | "document.associate" | "document.delete"
   | "integration.connect" | "integration.verify" | "integration.bind"
@@ -35,12 +35,14 @@ export type PayloadFor<K extends CommandKind> =
       : K extends "plan.confirm" ? { planVersionId: string }
         : K extends "workItem.transition" ? { workItemId: string; state: WorkItemState; evidenceDigest?: string; reason?: string }
           : K extends "workItem.comment" ? { workItemId: string; text: string }
+            : K extends "workItem.message" ? { workItemId: string; sessionId?: string; body: string; correctionOf?: string }
             : K extends "workflow.dispatch" ? { workflow: { id: string; digest: string }; input: Record<string, unknown>; workItemId?: string }
     : K extends "workflow.cancel" ? { runId: string; reason: string }
       : K extends "job.reconcile" ? { jobId: string; reason: string }
         : K extends "session.steer" ? { sessionId: string; message: string }
           : K extends "session.stop" ? { sessionId: string; reason: string }
-            : K extends "board.create" ? { title: string; criteria: string[] }
+            : K extends "session.create" ? { workItemId: string; agentId: string; engineId: string; task: string; budget: { maxTokens: number; maxMicroUsd: number; maxTurns: number }; scope: { allowedPaths: string[]; prohibitedPaths: string[]; allowedTools: string[] }; worktreeId: string; resumeFromSessionId?: string }
+              : K extends "board.create" ? { title: string; criteria: string[] }
               : K extends "board.move" ? { cardId: string; status: string; evidenceDigest?: string }
                 : K extends "board.comment" ? { cardId: string; text: string }
                   : K extends "decision.record" ? { cardId: string; decision: "go" | "no" | "not-now" | "need-more-data"; note: string }

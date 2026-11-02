@@ -2540,6 +2540,7 @@
                 "type": "string",
                 "enum": [
                   "stop-attempt",
+                  "steer",
                   "drain",
                   "quarantine",
                   "refresh-inventory"
@@ -2547,6 +2548,11 @@
               },
               "attemptId": {
                 "$ref": "#/$defs/Id"
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8192
               }
             },
             "required": [
@@ -9528,6 +9534,969 @@
         }
       ]
     },
+    "StreamSeverity": {
+      "type": "string",
+      "enum": [
+        "debug",
+        "info",
+        "warning",
+        "error",
+        "critical"
+      ]
+    },
+    "StreamEmitter": {
+      "type": "string",
+      "enum": [
+        "agent",
+        "tool",
+        "runner",
+        "governor",
+        "evaluator",
+        "connector",
+        "system"
+      ]
+    },
+    "StreamSource": {
+      "type": "string",
+      "enum": [
+        "control",
+        "workspace",
+        "attempt"
+      ]
+    },
+    "StreamCorrelation": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "jobId": {
+          "$ref": "#/$defs/Id"
+        },
+        "runId": {
+          "$ref": "#/$defs/Id"
+        },
+        "attemptId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "invocationId": {
+          "$ref": "#/$defs/Id"
+        },
+        "proposalId": {
+          "$ref": "#/$defs/Id"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "StreamPayloadRef": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "attempt"
+            },
+            "attemptId": {
+              "$ref": "#/$defs/Id"
+            },
+            "seq": {
+              "$ref": "#/$defs/Counter"
+            }
+          },
+          "required": [
+            "kind",
+            "attemptId",
+            "seq"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "cas"
+            },
+            "digest": {
+              "$ref": "#/$defs/Digest"
+            }
+          },
+          "required": [
+            "kind",
+            "digest"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "inline"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "StreamRecord": {
+      "type": "object",
+      "properties": {
+        "streamSeq": {
+          "$ref": "#/$defs/Counter"
+        },
+        "eventId": {
+          "$ref": "#/$defs/Id"
+        },
+        "source": {
+          "$ref": "#/$defs/StreamSource"
+        },
+        "emitter": {
+          "$ref": "#/$defs/StreamEmitter"
+        },
+        "severity": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/StreamSeverity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "eventType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "aggregateType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "aggregateId": {
+          "$ref": "#/$defs/Id"
+        },
+        "aggregateSeq": {
+          "$ref": "#/$defs/Counter"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "tsApproximate": {
+          "type": "boolean"
+        },
+        "correlation": {
+          "$ref": "#/$defs/StreamCorrelation"
+        },
+        "summary": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "payloadRef": {
+          "$ref": "#/$defs/StreamPayloadRef"
+        }
+      },
+      "required": [
+        "streamSeq",
+        "eventId",
+        "source",
+        "emitter",
+        "severity",
+        "eventType",
+        "aggregateType",
+        "aggregateId",
+        "aggregateSeq",
+        "at",
+        "tsApproximate",
+        "summary",
+        "payloadRef"
+      ],
+      "additionalProperties": false
+    },
+    "StreamFrame": {
+      "type": "object",
+      "properties": {
+        "streamSeq": {
+          "$ref": "#/$defs/Counter"
+        },
+        "eventId": {
+          "$ref": "#/$defs/Id"
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "severity": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/StreamSeverity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "emitter": {
+          "$ref": "#/$defs/StreamEmitter"
+        },
+        "source": {
+          "$ref": "#/$defs/StreamSource"
+        },
+        "aggregateId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "correlation": {
+          "$ref": "#/$defs/StreamCorrelation"
+        },
+        "summary": {
+          "$ref": "#/$defs/JsonValue"
+        }
+      },
+      "required": [
+        "streamSeq",
+        "eventId",
+        "type",
+        "severity",
+        "emitter",
+        "source",
+        "aggregateId",
+        "at",
+        "summary"
+      ],
+      "additionalProperties": false
+    },
+    "StreamTailPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StreamRecord"
+          },
+          "minItems": 0,
+          "maxItems": 200
+        },
+        "head": {
+          "$ref": "#/$defs/Counter"
+        },
+        "next": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Counter"
+            },
+            {
+              "enum": [""]
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "head",
+        "next"
+      ],
+      "additionalProperties": false
+    },
+    "StreamSearchPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StreamRecord"
+          },
+          "minItems": 0,
+          "maxItems": 50
+        },
+        "totalEstimate": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "nextCursor": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Counter"
+            },
+            {
+              "enum": [""]
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "totalEstimate",
+        "nextCursor"
+      ],
+      "additionalProperties": false
+    },
+    "StreamContextSession": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "agentId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "engineId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "jobId": {
+          "$ref": "#/$defs/Id"
+        },
+        "attemptId": {
+          "$ref": "#/$defs/Id"
+        }
+      },
+      "required": [
+        "sessionId",
+        "state",
+        "agentId",
+        "engineId"
+      ],
+      "additionalProperties": false
+    },
+    "StreamContextJob": {
+      "type": "object",
+      "properties": {
+        "jobId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "runId": {
+          "$ref": "#/$defs/Id"
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "jobId",
+        "workspaceId",
+        "runId",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "StreamContextRun": {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "$ref": "#/$defs/Id"
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "runId",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "StreamContextAttempt": {
+      "type": "object",
+      "properties": {
+        "attemptId": {
+          "$ref": "#/$defs/Id"
+        },
+        "jobId": {
+          "$ref": "#/$defs/Id"
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "number": {
+          "$ref": "#/$defs/Counter"
+        }
+      },
+      "required": [
+        "attemptId",
+        "jobId",
+        "state",
+        "number"
+      ],
+      "additionalProperties": false
+    },
+    "StreamContextInvocation": {
+      "type": "object",
+      "properties": {
+        "invocationId": {
+          "$ref": "#/$defs/Id"
+        },
+        "permitId": {
+          "$ref": "#/$defs/Id"
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "approvalId": {
+          "$ref": "#/$defs/Id"
+        },
+        "attemptId": {
+          "$ref": "#/$defs/Id"
+        }
+      },
+      "required": [
+        "invocationId",
+        "permitId",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "StreamContextApproval": {
+      "type": "object",
+      "properties": {
+        "approvalId": {
+          "$ref": "#/$defs/Id"
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "approvalId",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "StreamContextArtifact": {
+      "type": "object",
+      "properties": {
+        "artifactId": {
+          "$ref": "#/$defs/Id"
+        },
+        "digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "mediaType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "classification": {
+          "type": "string",
+          "enum": [
+            "public",
+            "internal",
+            "confidential",
+            "restricted"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "artifactId",
+        "digest",
+        "bytes",
+        "mediaType",
+        "classification",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "StreamContextBundle": {
+      "type": "object",
+      "properties": {
+        "record": {
+          "$ref": "#/$defs/StreamFrame"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "session": {
+          "$ref": "#/$defs/StreamContextSession"
+        },
+        "job": {
+          "$ref": "#/$defs/StreamContextJob"
+        },
+        "run": {
+          "$ref": "#/$defs/StreamContextRun"
+        },
+        "attempt": {
+          "$ref": "#/$defs/StreamContextAttempt"
+        },
+        "invocation": {
+          "$ref": "#/$defs/StreamContextInvocation"
+        },
+        "approval": {
+          "$ref": "#/$defs/StreamContextApproval"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StreamContextArtifact"
+          },
+          "minItems": 0,
+          "maxItems": 20
+        }
+      },
+      "required": [
+        "record",
+        "artifacts"
+      ],
+      "additionalProperties": false
+    },
+    "StreamCompareAttempt": {
+      "type": "object",
+      "properties": {
+        "attemptId": {
+          "$ref": "#/$defs/Id"
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "number": {
+          "$ref": "#/$defs/Counter"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StreamRecord"
+          },
+          "minItems": 0,
+          "maxItems": 500
+        }
+      },
+      "required": [
+        "attemptId",
+        "state",
+        "number",
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "StreamCompareResult": {
+      "type": "object",
+      "properties": {
+        "jobId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "attempts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StreamCompareAttempt"
+          },
+          "minItems": 1,
+          "maxItems": 4
+        }
+      },
+      "required": [
+        "jobId",
+        "workspaceId",
+        "attempts"
+      ],
+      "additionalProperties": false
+    },
+    "SessionContinuation": {
+      "type": "object",
+      "properties": {
+        "reconnectable": {
+          "type": "boolean"
+        },
+        "resumable": {
+          "type": "boolean"
+        },
+        "continueNative": {
+          "type": "boolean"
+        },
+        "restartable": {
+          "type": "boolean"
+        },
+        "reconcileRequired": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "reconnectable",
+        "resumable",
+        "continueNative",
+        "restartable",
+        "reconcileRequired"
+      ],
+      "additionalProperties": false
+    },
+    "SessionDetail": {
+      "type": "object",
+      "description": "session.get snapshot: the BrainSession record extended with the execution-stream cursor and the interruption continuation facts.",
+      "properties": {
+        "sessionId": { "$ref": "#/$defs/Id" },
+        "workspaceId": { "$ref": "#/$defs/Id" },
+        "mode": { "type": "string", "enum": ["native", "managed"] },
+        "jobId": { "$ref": "#/$defs/Id" },
+        "attemptId": { "$ref": "#/$defs/Id" },
+        "workItemId": { "$ref": "#/$defs/Id" },
+        "parentSessionId": { "$ref": "#/$defs/Id" },
+        "rootSessionId": { "$ref": "#/$defs/Id" },
+        "agentId": { "type": "string", "maxLength": 256 },
+        "task": { "type": "string", "maxLength": 4000 },
+        "engine": { "$ref": "#/$defs/EngineInfo" },
+        "state": { "type": "string", "enum": ["starting", "running", "waiting", "stopping", "stopped", "failed"] },
+        "usedTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "usedMicroUsd": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "reservedMicroUsd": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "lastEventSequence": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "delegationDepth": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "budget": { "$ref": "#/$defs/SessionBudget" },
+        "scope": { "$ref": "#/$defs/SessionScope" },
+        "worktreeId": { "type": "string", "maxLength": 512 },
+        "checkpoint": { "$ref": "#/$defs/PortableCheckpoint" },
+        "version": { "$ref": "#/$defs/Counter" },
+        "createdAt": { "$ref": "#/$defs/Timestamp" },
+        "updatedAt": { "$ref": "#/$defs/Timestamp" },
+        "streamCursor": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "continuation": { "$ref": "#/$defs/SessionContinuation" }
+      },
+      "required": ["sessionId", "workspaceId", "mode", "rootSessionId", "agentId", "task", "engine", "state", "usedTokens", "usedMicroUsd", "reservedMicroUsd", "lastEventSequence", "delegationDepth", "budget", "scope", "worktreeId", "version", "createdAt", "updatedAt", "streamCursor", "continuation"],
+      "additionalProperties": false
+    },
+    "LiveStatus": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "activeSessions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "activeRuns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "needsAttention": {
+          "type": "boolean"
+        },
+        "pendingApprovals": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "unknownJobs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "defaultRoute": {
+          "type": "string",
+          "enum": [
+            "live",
+            "today"
+          ]
+        },
+        "observedAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "workspaceId",
+        "activeSessions",
+        "activeRuns",
+        "needsAttention",
+        "pendingApprovals",
+        "unknownJobs",
+        "defaultRoute",
+        "observedAt"
+      ],
+      "additionalProperties": false
+    },
+    "ArtifactVersion": {
+      "type": "object",
+      "properties": {
+        "bundleId": {
+          "$ref": "#/$defs/Id"
+        },
+        "bundleDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "jobId": {
+          "$ref": "#/$defs/Id"
+        },
+        "attemptId": {
+          "$ref": "#/$defs/Id"
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "verification": {
+          "type": "object",
+          "properties": {
+            "outcome": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            },
+            "at": {
+              "$ref": "#/$defs/Timestamp"
+            }
+          },
+          "required": [
+            "outcome",
+            "at"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "bundleId",
+        "bundleDigest",
+        "jobId",
+        "attemptId",
+        "state",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "ArtifactProducer": {
+      "type": "object",
+      "properties": {
+        "attemptId": {
+          "$ref": "#/$defs/Id"
+        },
+        "jobId": {
+          "$ref": "#/$defs/Id"
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "number": {
+          "$ref": "#/$defs/Counter"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ArtifactHistory": {
+      "type": "object",
+      "properties": {
+        "artifactId": {
+          "$ref": "#/$defs/Id"
+        },
+        "digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "mediaType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "classification": {
+          "type": "string",
+          "enum": [
+            "public",
+            "internal",
+            "confidential",
+            "restricted"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "producer": {
+          "$ref": "#/$defs/ArtifactProducer"
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArtifactVersion"
+          },
+          "minItems": 0,
+          "maxItems": 50
+        }
+      },
+      "required": [
+        "artifactId",
+        "digest",
+        "bytes",
+        "mediaType",
+        "classification",
+        "state",
+        "createdAt",
+        "workspaceId",
+        "history"
+      ],
+      "additionalProperties": false
+    },
+    "DiffOp": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "context",
+            "add",
+            "del"
+          ]
+        },
+        "text": {
+          "type": "string"
+        },
+        "a": {
+          "$ref": "#/$defs/Counter"
+        },
+        "b": {
+          "$ref": "#/$defs/Counter"
+        }
+      },
+      "required": [
+        "type",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "DiffHunk": {
+      "type": "object",
+      "properties": {
+        "header": {
+          "type": "string"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DiffOp"
+          }
+        }
+      },
+      "required": [
+        "header",
+        "lines"
+      ],
+      "additionalProperties": false
+    },
+    "ArtifactDiffSide": {
+      "type": "object",
+      "properties": {
+        "artifactId": {
+          "$ref": "#/$defs/Id"
+        },
+        "digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "mediaType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      },
+      "required": [
+        "artifactId",
+        "digest",
+        "bytes",
+        "mediaType"
+      ],
+      "additionalProperties": false
+    },
+    "ArtifactDiffResult": {
+      "type": "object",
+      "properties": {
+        "left": {
+          "$ref": "#/$defs/ArtifactDiffSide"
+        },
+        "right": {
+          "$ref": "#/$defs/ArtifactDiffSide"
+        },
+        "maxBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "hunks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DiffHunk"
+          }
+        }
+      },
+      "required": [
+        "left",
+        "right",
+        "maxBytes",
+        "hunks"
+      ],
+      "additionalProperties": false
+    },
     "QueryRequest": {
       "oneOf": [
         {
@@ -10610,6 +11579,33 @@
             },
             "workspaceId": {
               "$ref": "#/$defs/Id"
+            },
+            "jobId": {
+              "$ref": "#/$defs/Id"
+            },
+            "runId": {
+              "$ref": "#/$defs/Id"
+            },
+            "workItemId": {
+              "$ref": "#/$defs/Id"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "uploading",
+                "verified",
+                "quarantined",
+                "deleted"
+              ]
+            },
+            "classification": {
+              "type": "string",
+              "enum": [
+                "public",
+                "internal",
+                "confidential",
+                "restricted"
+              ]
             }
           },
           "required": [
@@ -10670,6 +11666,239 @@
             "queryType"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "stream.tail"
+            },
+            "workspaceId": {
+              "$ref": "#/$defs/Id"
+            },
+            "sessionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "jobId": {
+              "$ref": "#/$defs/Id"
+            },
+            "runId": {
+              "$ref": "#/$defs/Id"
+            },
+            "attemptId": {
+              "$ref": "#/$defs/Id"
+            },
+            "emitters": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/StreamEmitter"
+              },
+              "minItems": 1,
+              "maxItems": 7,
+              "uniqueItems": true
+            },
+            "severities": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/StreamSeverity"
+              },
+              "minItems": 1,
+              "maxItems": 5,
+              "uniqueItems": true
+            },
+            "after": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          "required": [
+            "queryType"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "stream.search"
+            },
+            "workspaceId": {
+              "$ref": "#/$defs/Id"
+            },
+            "search": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "sessionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "jobId": {
+              "$ref": "#/$defs/Id"
+            },
+            "runId": {
+              "$ref": "#/$defs/Id"
+            },
+            "attemptId": {
+              "$ref": "#/$defs/Id"
+            },
+            "emitters": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/StreamEmitter"
+              },
+              "minItems": 1,
+              "maxItems": 7,
+              "uniqueItems": true
+            },
+            "severities": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/StreamSeverity"
+              },
+              "minItems": 1,
+              "maxItems": 5,
+              "uniqueItems": true
+            },
+            "after": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "before": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          "required": [
+            "queryType",
+            "search"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "stream.context"
+            },
+            "eventId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "queryType",
+            "eventId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "stream.compare"
+            },
+            "jobId": {
+              "$ref": "#/$defs/Id"
+            },
+            "attemptIds": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Id"
+              },
+              "minItems": 1,
+              "maxItems": 4,
+              "uniqueItems": true
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          "required": [
+            "queryType",
+            "jobId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "live.status"
+            },
+            "workspaceId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "queryType",
+            "workspaceId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "artifacts.history"
+            },
+            "artifactId": {
+              "$ref": "#/$defs/Id"
+            },
+            "digest": {
+              "$ref": "#/$defs/Digest"
+            }
+          },
+          "required": [
+            "queryType"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "artifacts.diff"
+            },
+            "leftId": {
+              "$ref": "#/$defs/Id"
+            },
+            "rightId": {
+              "$ref": "#/$defs/Id"
+            },
+            "maxBytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 262144
+            }
+          },
+          "required": [
+            "queryType",
+            "leftId",
+            "rightId"
+          ],
+          "additionalProperties": false
         }
       ]
     },
@@ -10700,7 +11929,9 @@
                           "agent",
                           "workflow",
                           "run",
-                          "approval"
+                          "approval",
+                          "session",
+                          "artifact"
                         ]
                       },
                       "title": {
@@ -11321,7 +12552,7 @@
               "const": "session.get"
             },
             "snapshot": {
-              "$ref": "#/$defs/BrainSession"
+              "$ref": "#/$defs/SessionDetail"
             },
             "cursor": {
               "type": "string",
@@ -12498,6 +13729,279 @@
             "projectionLagMs"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "stream.tail"
+            },
+            "snapshot": {
+              "$ref": "#/$defs/StreamTailPage"
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            },
+            "sourceWatermark": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "asOf": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "projectionLagMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "queryType",
+            "snapshot",
+            "cursor",
+            "sourceWatermark",
+            "asOf",
+            "projectionLagMs"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "stream.search"
+            },
+            "snapshot": {
+              "$ref": "#/$defs/StreamSearchPage"
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            },
+            "sourceWatermark": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "asOf": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "projectionLagMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "queryType",
+            "snapshot",
+            "cursor",
+            "sourceWatermark",
+            "asOf",
+            "projectionLagMs"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "stream.context"
+            },
+            "snapshot": {
+              "$ref": "#/$defs/StreamContextBundle"
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            },
+            "sourceWatermark": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "asOf": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "projectionLagMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "queryType",
+            "snapshot",
+            "cursor",
+            "sourceWatermark",
+            "asOf",
+            "projectionLagMs"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "stream.compare"
+            },
+            "snapshot": {
+              "$ref": "#/$defs/StreamCompareResult"
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            },
+            "sourceWatermark": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "asOf": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "projectionLagMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "queryType",
+            "snapshot",
+            "cursor",
+            "sourceWatermark",
+            "asOf",
+            "projectionLagMs"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "live.status"
+            },
+            "snapshot": {
+              "$ref": "#/$defs/LiveStatus"
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            },
+            "sourceWatermark": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "asOf": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "projectionLagMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "queryType",
+            "snapshot",
+            "cursor",
+            "sourceWatermark",
+            "asOf",
+            "projectionLagMs"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "artifacts.history"
+            },
+            "snapshot": {
+              "$ref": "#/$defs/ArtifactHistory"
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            },
+            "sourceWatermark": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "asOf": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "projectionLagMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "queryType",
+            "snapshot",
+            "cursor",
+            "sourceWatermark",
+            "asOf",
+            "projectionLagMs"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "artifacts.diff"
+            },
+            "snapshot": {
+              "$ref": "#/$defs/ArtifactDiffResult"
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            },
+            "sourceWatermark": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "asOf": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "projectionLagMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "queryType",
+            "snapshot",
+            "cursor",
+            "sourceWatermark",
+            "asOf",
+            "projectionLagMs"
+          ],
+          "additionalProperties": false
         }
       ]
     },
@@ -12662,6 +14166,9 @@
         },
         "origin": {
           "$ref": "#/$defs/TaskOrigin"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/Id"
         }
       },
       "required": [

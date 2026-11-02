@@ -1,0 +1,119 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Workflow",
+  "metadata": {
+    "id": "cv-health",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "inputSchemaRef": "schemas/cv-health-input.json",
+    "outputSchemaRef": "schemas/cv-health-output.json",
+    "jobs": {
+      "inspect": {
+        "kind": "dispatch",
+        "needs": [],
+        "input": {},
+        "outputSchemaRef": "schemas/cv-health-output.json",
+        "timeoutSeconds": 180,
+        "uses": {
+          "type": "agent",
+          "release": {
+            "id": "cv-health-agent",
+            "digest": "sha256:ccd58b4de0526c0225312c7eb73cb7351d275846d8dad2b0661e3688bd10931e"
+          }
+        },
+        "runsOn": {
+          "group": "agents",
+          "engine": {
+            "anyOf": [
+              "pi"
+            ],
+            "features": [
+              "sessions"
+            ]
+          },
+          "all": [
+            "os:linux"
+          ],
+          "resources": {
+            "cpuMillicores": 500,
+            "memoryMb": 512,
+            "diskMb": 256,
+            "slots": 1
+          },
+          "isolation": "ephemeral-container"
+        },
+        "effectClass": "read"
+      },
+      "validate": {
+        "kind": "eval",
+        "needs": [
+          "inspect"
+        ],
+        "input": {
+          "kind": {
+            "source": "literal",
+            "value": "cv-health"
+          },
+          "report": {
+            "source": "job",
+            "jobId": "inspect",
+            "pointer": ""
+          }
+        },
+        "outputSchemaRef": "schemas/cv-validation-output.json",
+        "timeoutSeconds": 120,
+        "evaluator": {
+          "id": "cv-validator",
+          "digest": "sha256:d687520447de86c20e63d3edbe950e23449a2c8d5b02d9077fd92df5edff0a10"
+        },
+        "runsOn": {
+          "group": "evaluators",
+          "engine": {
+            "anyOf": [
+              "claude"
+            ],
+            "features": [
+              "sessions"
+            ]
+          },
+          "all": [
+            "os:linux",
+            "tool:bash",
+            "tool:python3"
+          ],
+          "resources": {
+            "cpuMillicores": 500,
+            "memoryMb": 512,
+            "diskMb": 256,
+            "slots": 1
+          },
+          "isolation": "ephemeral-container"
+        },
+        "independence": "L1"
+      }
+    },
+    "outputs": {
+      "response": {
+        "source": "job",
+        "jobId": "inspect",
+        "pointer": ""
+      },
+      "passed": {
+        "source": "job",
+        "jobId": "validate",
+        "pointer": "/passed"
+      }
+    },
+    "failFast": true,
+    "deadlineSeconds": 400,
+    "presentation": {
+      "title": "CV Insights health check",
+      "description": "Read the deployed read model and report freshness, completeness and integrity.",
+      "examples": [
+        {}
+      ],
+      "system": false
+    }
+  }
+}

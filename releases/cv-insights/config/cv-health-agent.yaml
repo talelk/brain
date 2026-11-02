@@ -1,0 +1,34 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Agent",
+  "metadata": {
+    "id": "cv-health-agent",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "instructionsPath": "agents/cv-health-agent.md",
+    "tools": [
+      {
+        "id": "cv.warehouse",
+        "digest": "sha256:eeac4ec6333ad458101f0d29450f5ff0cccc96c23a4ebe53a8db8c92e68c3277"
+      },
+      {
+        "id": "cv.integrity",
+        "digest": "sha256:7202b3747f357eab1814d148f96f540d99ec80989246078cd8a62a2eb3ebebb9"
+      }
+    ],
+    "engine": {
+      "anyOf": [
+        "pi"
+      ],
+      "features": [
+        "sessions"
+      ]
+    },
+    "maxTurns": 8,
+    "maxChildren": 0,
+    "maxDepth": 0,
+    "maxTokens": 40000,
+    "maxMicroUsd": 0
+  }
+}

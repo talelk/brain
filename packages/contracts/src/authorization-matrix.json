@@ -474,7 +474,14 @@
     "integrations.repositories": { "scope": "platform:read", "scopeMode": "organization", "redactPrivilegedDetails": true },
     "knowledgeAssets.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
     "capabilityCandidates.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "capitalizationRuns.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false }
+    "capitalizationRuns.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "stream.tail": { "scope": "workspace:read", "scopeMode": "authorized-workspace-union", "redactPrivilegedDetails": false },
+    "stream.search": { "scope": "workspace:read", "scopeMode": "authorized-workspace-union", "redactPrivilegedDetails": false },
+    "stream.context": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "stream.compare": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "live.status": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "artifacts.history": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
+    "artifacts.diff": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false }
   },
   "commandRecoveryRule": {
     "query": "command.get",

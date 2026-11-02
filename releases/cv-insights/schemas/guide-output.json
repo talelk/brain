@@ -1,0 +1,34 @@
+{
+  "type": "object",
+  "properties": {
+    "reply": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "workflowId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "input": {
+      "type": "object"
+    },
+    "questions": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "string",
+        "maxLength": 500
+      }
+    }
+  },
+  "required": [
+    "reply",
+    "workflowId",
+    "input",
+    "questions"
+  ],
+  "additionalProperties": false
+}

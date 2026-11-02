@@ -229,6 +229,97 @@
   background: var(--surface-gray-1);
 }
 
+/* Execution console shell (Live): resizable three panes plus any nested split.
+   Pane sizes are inline styles owned by the consumer (ConsoleStore); these
+   classes only fix the layout mechanics, divider affordance and scroll bounds. */
+.brain-exec-console {
+  display: flex;
+  min-height: 0;
+  height: 100%;
+  align-items: stretch;
+}
+
+.brain-exec-console[data-split="column"] {
+  flex-direction: column;
+}
+
+.brain-exec-pane {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.brain-exec-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.brain-exec-divider {
+  position: relative;
+  flex: none;
+  z-index: 10;
+  padding: 0;
+  border: none;
+  appearance: none;
+  touch-action: none;
+  background: transparent;
+}
+
+.brain-exec-divider[data-orientation="row"] {
+  width: var(--spacing-1, 0.25rem);
+  margin-inline: calc(-1 * var(--spacing-1, 0.25rem));
+  cursor: col-resize;
+}
+
+.brain-exec-divider[data-orientation="column"] {
+  height: var(--spacing-1, 0.25rem);
+  margin-block: calc(-1 * var(--spacing-1, 0.25rem));
+  cursor: row-resize;
+}
+
+.brain-exec-divider::after {
+  content: "";
+  position: absolute;
+  border-radius: 9999px;
+  background: var(--outline-gray-2);
+  transition: background-color var(--duration-fast, 120ms);
+}
+
+.brain-exec-divider[data-orientation="row"]::after {
+  inset-block: var(--spacing-6, 1.5rem);
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+.brain-exec-divider[data-orientation="column"]::after {
+  inset-inline: var(--spacing-6, 1.5rem);
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+}
+
+.brain-exec-divider:hover::after,
+.brain-exec-divider[data-dragging="true"]::after {
+  background: var(--outline-blue-5);
+}
+
+.brain-exec-divider:focus-visible {
+  outline: 2px solid var(--outline-blue-5);
+  outline-offset: -2px;
+}
+
+/* Log/output records render in a bounded monospace surface. */
+.brain-exec-log {
+  font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .brain-wallboard {
   min-height: 100dvh;
   background: var(--surface-gray-1);

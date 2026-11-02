@@ -1,7 +1,7 @@
 import { createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Badge, Button, TextInput } from "@talelk/newui-atoms";
-import { Alert, FileUploader, Select } from "@talelk/newui-molecules";
+import { Alert, FileUploader, Pagination, Select } from "@talelk/newui-molecules";
 import { PaneLayout } from "@talelk/newui-templates";
 import type { Document as BrainDocument, DocumentView, ResourceAssociation } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
@@ -14,6 +14,7 @@ import { RefreshButton, SelectableListItem } from "../../ui/components/primitive
 import { EmptyPreview, FactStrip, WorkspaceSection } from "../../ui/components/Domain";
 
 const MEDIA_TYPES = new Set(["text/plain", "text/markdown", "text/csv", "application/json", "application/pdf", "application/octet-stream"]);
+const LIBRARY_PAGE_SIZE = 25;
 
 async function base64(file: File): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -34,8 +35,13 @@ export default function ResourcesPage(): JSX.Element {
   const [reason, setReason] = createSignal("");
   const [search, setSearch] = createSignal("");
   const [appliedSearch, setAppliedSearch] = createSignal("");
+  const [libraryPage, setLibraryPage] = createSignal(1);
   const [error, setError] = createSignal("");
   const [busy, setBusy] = createSignal(false);
+  const libraryItems = () => documents.state().data?.items ?? [];
+  const libraryPageCount = () => Math.max(1, Math.ceil(libraryItems().length / LIBRARY_PAGE_SIZE));
+  const currentLibraryPage = () => Math.min(libraryPage(), libraryPageCount());
+  const libraryRows = () => libraryItems().slice((currentLibraryPage() - 1) * LIBRARY_PAGE_SIZE, currentLibraryPage() * LIBRARY_PAGE_SIZE);
 
   const documents = createScopedRead<{ items: BrainDocument[] }>({
     scope: app.scope,
@@ -134,7 +140,7 @@ export default function ResourcesPage(): JSX.Element {
     <PageStack>
       <Show when={error()}><Alert theme="red" variant="outline" title="Document action failed" description={error()} /></Show>
       <WorkspaceSection title="Add source material" description="Use operational guides, incident notes and reference documents. Upload never publishes shared memory or crosses workspace scope.">
-        <div class="grid items-end gap-4 lg:grid-cols-[minmax(14rem,0.7fr)_minmax(0,1.3fr)_auto]"><TextInput label="Document title" value={title()} onInput={(event) => setTitle(event.currentTarget.value)} placeholder="Operations guide" /><FileUploader label="Document file" value={file()} accept={[".txt", ".md", ".csv", ".json", ".pdf"]} onValueChange={(value) => setFile(value instanceof File ? value : null)} /><Button size="lg" theme="blue" loading={busy()} disabled={busy() || !title().trim() || !file()} onClick={() => void upload()}>Upload document</Button></div>
+        <div class="grid items-end gap-4 lg:grid-cols-[minmax(14rem,0.7fr)_minmax(0,1.3fr)_auto]"><TextInput label="Document title" value={title()} onInput={(event) => setTitle(event.currentTarget.value)} placeholder="Operations guide" /><FileUploader label="Document file" value={file()} accept={[".txt", ".md", ".csv", ".json", ".pdf"]} onValueChange={(value) => setFile(value instanceof File ? value : null)} /><Button size="lg" theme="blue" iconLeft="lucide-upload" loading={busy()} disabled={busy() || !title().trim() || !file()} onClick={() => void upload()}>Upload document</Button></div>
         <Show when={busy()}><p role="status" class="text-caption text-ink-gray-6">Validating and uploading the selected immutable version…</p></Show>
       </WorkspaceSection>
       <FactStrip label="Resource library summary" items={[
@@ -142,14 +148,18 @@ export default function ResourcesPage(): JSX.Element {
         { label: "Scope", value: "Workspace private", hint: app.workspaceId(), icon: "lucide-lock-keyhole" },
         { label: "Selection", value: selectedId() ? "Document open" : "None", hint: "Preview reflects one immutable current version", icon: "lucide-file-search" },
       ]} />
-      <form class="flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); setSelectedId(""); setAppliedSearch(search().trim()); void documents.refresh({ force: true }); }}>
-        <div class="min-w-64 flex-1"><TextInput label="Search documents" value={search()} onInput={(event) => setSearch(event.currentTarget.value)} placeholder="Search titles and safely extracted text…" /></div><Button size="lg" type="submit" variant="outline">Search</Button><Show when={appliedSearch()}><Button size="lg" variant="ghost" onClick={() => { setSearch(""); setAppliedSearch(""); void documents.refresh({ force: true }); }}>Clear</Button></Show>
+      <form class="flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); setSelectedId(""); setLibraryPage(1); setAppliedSearch(search().trim()); void documents.refresh({ force: true }); }}>
+        <div class="min-w-64 flex-1"><TextInput label="Search documents" value={search()} onInput={(event) => setSearch(event.currentTarget.value)} placeholder="Search titles and safely extracted text…" /></div><Button size="md" type="submit" variant="outline">Search</Button><Show when={appliedSearch()}><Button size="md" variant="ghost" onClick={() => { setSearch(""); setAppliedSearch(""); setLibraryPage(1); void documents.refresh({ force: true }); }}>Clear</Button></Show>
       </form>
       <PaneLayout class="brain-list-detail" startSize={34} minStartSize={25} maxStartSize={52} active={selectedId() ? "end" : "start"} start={<WorkspaceSection title="Document library" description="Select a document for its safe preview and provenance.">
         <ScreenRegion state={documents.state()} onRetry={() => void documents.refresh()} emptyTitle={appliedSearch() ? "No matching documents" : "No documents yet"} emptyDescription={appliedSearch() ? "Try a different current-title or content search." : "Upload the first workspace document above."}>
-          <div class="flex flex-col gap-2"><For each={documents.state().data?.items}>{(item) => <SelectableListItem selected={selectedId() === item.documentId} onClick={() => { setRevisionTitle(item.title); setSelectedId(item.documentId); void detail.refresh({ force: true }); }}>
-            <strong>{item.title}</strong><span class="mt-1 block break-words text-caption text-ink-gray-6">Updated <DateText value={item.updatedAt} /> · record v{item.version}</span>
+          <div class="flex flex-col gap-2"><For each={libraryRows()}>{(item) => <SelectableListItem selected={selectedId() === item.documentId} onClick={() => { setRevisionTitle(item.title); setSelectedId(item.documentId); void detail.refresh({ force: true }); }}>
+            <strong class="block break-words">{item.title}</strong><span class="mt-1 block break-words text-caption text-ink-gray-6">Updated <DateText value={item.updatedAt} /> · record v{item.version}</span>
           </SelectableListItem>}</For></div>
+          <Show when={libraryPageCount() > 1}><Pagination.Root aria-label="Document library pagination" class="mt-3 flex-wrap items-center justify-between gap-3 border-t border-outline-gray-1 pt-3" count={libraryItems().length} pageSize={LIBRARY_PAGE_SIZE} page={currentLibraryPage()} onPageChange={setLibraryPage}>
+            <Pagination.Range />
+            <div class="flex items-center gap-1"><Pagination.PrevTrigger /><Pagination.Pages /><Pagination.NextTrigger /></div>
+          </Pagination.Root></Show>
         </ScreenRegion>
       </WorkspaceSection>} end={<WorkspaceSection title="Document preview" description="Scope, current bytes and immutable version history.">
         <Show when={selectedId()} fallback={<EmptyPreview icon="lucide-file-search" title="Select a document" description="Its safe preview, source metadata, versions and work associations will appear here." />}>
@@ -157,15 +167,15 @@ export default function ResourcesPage(): JSX.Element {
             <Show when={detail.state().data} keyed>{(current) => {
               const version = () => current.versions.find((entry) => entry.documentVersionId === current.document.currentVersionId);
               return <PageStack>
-                <div class="flex flex-wrap items-center justify-between gap-2"><div class="flex flex-wrap items-center gap-2"><StatusBadge status={current.document.state} /><Badge variant="outline" theme="blue" label="Workspace private" /></div><Button size="lg" variant="ghost" iconLeft="lucide-arrow-left" onClick={() => setSelectedId("")}>Back to library</Button></div>
+                <div class="flex flex-wrap items-center justify-between gap-2"><div class="flex flex-wrap items-center gap-2"><StatusBadge status={current.document.state} /><Badge variant="outline" theme="blue" label="Workspace private" /></div><Button size="md" variant="ghost" iconLeft="lucide-arrow-left" onClick={() => setSelectedId("")}>Back to library</Button></div>
                 <dl class="grid gap-4 border-y border-outline-gray-1 py-4 sm:grid-cols-2 lg:grid-cols-4"><div><dt class="text-caption text-ink-gray-6">Source file</dt><dd class="mt-1 break-words text-interface">{version()?.fileName ?? "—"}</dd></div><div><dt class="text-caption text-ink-gray-6">Size</dt><dd class="mt-1 text-interface tabular-nums">{version()?.bytes.toLocaleString() ?? "—"} bytes</dd></div><div><dt class="text-caption text-ink-gray-6">Extraction</dt><dd class="mt-1 text-interface">{version()?.extractionStatus ?? "—"}</dd></div><div><dt class="text-caption text-ink-gray-6">Created by</dt><dd class="mt-1 break-words text-interface">{current.document.createdBy}</dd></div></dl>
                 <Show when={current.preview.kind === "text"} fallback={<Alert theme="gray" variant="outline" title="Download-only preview" description="This binary media type is never rendered as active content. Its immutable bytes and metadata remain available to authorized members." />}>
                   <pre class="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-control bg-surface-gray-1 p-4 text-interface text-ink-gray-8">{(current.preview as { text: string }).text}</pre><Show when={(current.preview as { truncated: boolean }).truncated}><p class="text-caption text-ink-gray-6">Preview truncated; extraction metadata still refers to the complete immutable file.</p></Show>
                 </Show>
-                <WorkspaceSection title="Create a new version" description="Revision creates new bytes and a new version ID; previous versions remain unchanged."><div class="brain-field-grid"><TextInput label="Current title" value={revisionTitle()} onInput={(event) => setRevisionTitle(event.currentTarget.value)} /><label class="flex flex-col gap-1 text-base-medium">New version file<input aria-label="New version file" class="min-h-11 rounded-control border border-outline-gray-2 p-2 text-base font-normal" type="file" accept=".txt,.md,.csv,.json,.pdf" onChange={(event) => setRevisionFile(event.currentTarget.files?.[0] ?? null)} /></label></div><Button size="lg" theme="blue" loading={busy()} disabled={busy() || !revisionTitle().trim() || !revisionFile()} onClick={() => void revise()}>Create new version</Button></WorkspaceSection>
-                <WorkspaceSection title="Work associations" description="Targets must exist in this same workspace."><div class="brain-field-grid"><Select label="Resource kind" value={resourceKind()} options={[{ value: "workItem", label: "Work item" }, { value: "objective", label: "Objective" }, { value: "session", label: "Session" }, { value: "run", label: "Run" }]} onValueChange={(value) => setResourceKind((value ?? "workItem") as ResourceAssociation["resourceKind"])} /><TextInput label="Resource id" value={resourceId()} onInput={(event) => setResourceId(event.currentTarget.value)} placeholder="work item id" /></div><Button size="lg" variant="outline" disabled={busy() || !resourceId().trim()} onClick={() => void associate()}>Associate document</Button><ul class="mt-3 flex flex-col gap-1 text-caption text-ink-gray-7"><For each={current.associations}>{(association) => <li>{association.resourceKind} · {association.resourceId}</li>}</For></ul></WorkspaceSection>
+                <WorkspaceSection title="Create a new version" description="Revision creates new bytes and a new version ID; previous versions remain unchanged."><div class="brain-field-grid"><TextInput label="Current title" value={revisionTitle()} onInput={(event) => setRevisionTitle(event.currentTarget.value)} /><label class="flex flex-col gap-1 text-base-medium">New version file<input aria-label="New version file" class="min-h-11 rounded-control border border-outline-gray-2 p-2 text-base font-normal" type="file" accept=".txt,.md,.csv,.json,.pdf" onChange={(event) => setRevisionFile(event.currentTarget.files?.[0] ?? null)} /></label></div><Button size="lg" variant="outline" theme="blue" iconLeft="lucide-history" loading={busy()} disabled={busy() || !revisionTitle().trim() || !revisionFile()} onClick={() => void revise()}>Create new version</Button></WorkspaceSection>
+                <WorkspaceSection title="Work associations" description="Targets must exist in this same workspace."><div class="brain-field-grid"><Select label="Resource kind" value={resourceKind()} options={[{ value: "workItem", label: "Work item" }, { value: "objective", label: "Objective" }, { value: "session", label: "Session" }, { value: "run", label: "Run" }]} onValueChange={(value) => setResourceKind((value ?? "workItem") as ResourceAssociation["resourceKind"])} /><TextInput label="Resource id" value={resourceId()} onInput={(event) => setResourceId(event.currentTarget.value)} placeholder="work item id" /></div><Button size="md" variant="outline" iconRight="lucide-link" disabled={busy() || !resourceId().trim()} onClick={() => void associate()}>Associate document</Button><ul class="mt-3 flex flex-col gap-1 break-words text-caption text-ink-gray-7"><For each={current.associations}>{(association) => <li class="break-all">{association.resourceKind} · {association.resourceId}</li>}</For></ul></WorkspaceSection>
                 <TechnicalDetails label={`Version history (${current.versions.length})`}><ul class="flex flex-col gap-3"><For each={current.versions}>{(entry) => <li class="break-words text-caption text-ink-gray-7"><Badge theme={entry.documentVersionId === current.document.currentVersionId ? "blue" : "gray"} label={`v${entry.revision}`} /> {entry.fileName} · {entry.mediaType} · {entry.bytes} bytes · {entry.extractionStatus}<br /><span class="text-ink-gray-6">{entry.digest} · {entry.documentVersionId}</span></li>}</For></ul></TechnicalDetails>
-                <WorkspaceSection title="Revoke document" description="Revocation removes current visibility while preserving immutable history."><TextInput label="Revocation reason" value={reason()} onInput={(event) => setReason(event.currentTarget.value)} placeholder="No longer approved for current work" /><Button size="lg" theme="red" variant="outline" disabled={busy() || !reason().trim()} onClick={() => void revoke()}>Revoke document</Button></WorkspaceSection>
+                <WorkspaceSection title="Revoke document" description="Revocation removes current visibility while preserving immutable history."><TextInput label="Revocation reason" value={reason()} onInput={(event) => setReason(event.currentTarget.value)} placeholder="No longer approved for current work" /><Button size="md" theme="red" variant="outline" disabled={busy() || !reason().trim()} onClick={() => void revoke()}>Revoke document</Button></WorkspaceSection>
               </PageStack>;
             }}</Show>
           </ScreenRegion>

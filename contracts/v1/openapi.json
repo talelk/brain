@@ -2296,9 +2296,94 @@
       "humanSession": []
      }
     ],
+    "parameters": [
+     {
+      "name": "after",
+      "in": "query",
+      "description": "execution_stream stream_seq cursor; the sole replay position",
+      "schema": {
+       "type": "integer",
+       "minimum": 1
+      }
+     },
+     {
+      "name": "live",
+      "in": "query",
+      "description": "1 subscribes to the live stream; any other value replays one bounded page",
+      "schema": {
+       "type": "string",
+       "enum": ["1"]
+      }
+     },
+     {
+      "name": "workspace",
+      "in": "query",
+      "description": "workspace id filter, resolved in SQL before any page limit",
+      "schema": {
+       "$ref": "./brain.schema.json#/$defs/Id"
+      }
+     },
+     {
+      "name": "session",
+      "in": "query",
+      "schema": {
+       "$ref": "./brain.schema.json#/$defs/Id"
+      }
+     },
+     {
+      "name": "job",
+      "in": "query",
+      "schema": {
+       "$ref": "./brain.schema.json#/$defs/Id"
+      }
+     },
+     {
+      "name": "run",
+      "in": "query",
+      "schema": {
+       "$ref": "./brain.schema.json#/$defs/Id"
+      }
+     },
+     {
+      "name": "severity",
+      "in": "query",
+      "description": "comma-separated severities (max 5)",
+      "schema": {
+       "type": "string",
+       "maxLength": 64
+      }
+     },
+     {
+      "name": "emitter",
+      "in": "query",
+      "description": "comma-separated emitters (max 7)",
+      "schema": {
+       "type": "string",
+       "maxLength": 64
+      }
+     },
+     {
+      "name": "maxLag",
+      "in": "query",
+      "description": "live streams falling further behind than this receive a reset frame (default 5000)",
+      "schema": {
+       "type": "integer",
+       "minimum": 100,
+       "maximum": 20000
+      }
+     },
+     {
+      "name": "Last-Event-ID",
+      "in": "header",
+      "schema": {
+       "type": "string",
+       "maxLength": 2048
+      }
+     }
+    ],
     "responses": {
      "200": {
-      "description": "Authorized durable event replay and live stream",
+      "description": "Authorized execution-stream frames: {streamSeq, eventId, type, severity, emitter, source, aggregateId, workspaceId?, at, correlation?, summary} on the default message channel; `reset` is the only named control frame",
       "content": {
        "text/event-stream": {
         "schema": {
@@ -2407,17 +2492,136 @@
        }
       }
      }
-    },
+    }
+   }
+  },
+  "/v1/stream/export": {
+   "get": {
+    "operationId": "get_v1_stream_export",
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
     "parameters": [
      {
-      "name": "Last-Event-ID",
-      "in": "header",
+      "name": "workspaceId",
+      "in": "query",
+      "schema": {
+       "$ref": "./brain.schema.json#/$defs/Id"
+      }
+     },
+     {
+      "name": "sessionId",
+      "in": "query",
+      "schema": {
+       "$ref": "./brain.schema.json#/$defs/Id"
+      }
+     },
+     {
+      "name": "jobId",
+      "in": "query",
+      "schema": {
+       "$ref": "./brain.schema.json#/$defs/Id"
+      }
+     },
+     {
+      "name": "runId",
+      "in": "query",
+      "schema": {
+       "$ref": "./brain.schema.json#/$defs/Id"
+      }
+     },
+     {
+      "name": "attemptId",
+      "in": "query",
+      "schema": {
+       "$ref": "./brain.schema.json#/$defs/Id"
+      }
+     },
+     {
+      "name": "severity",
+      "in": "query",
+      "description": "comma-separated severities (max 5)",
       "schema": {
        "type": "string",
-       "maxLength": 2048
+       "maxLength": 64
+      }
+     },
+     {
+      "name": "emitter",
+      "in": "query",
+      "description": "comma-separated emitters (max 7)",
+      "schema": {
+       "type": "string",
+       "maxLength": 64
+      }
+     },
+     {
+      "name": "after",
+      "in": "query",
+      "description": "stream_seq lower bound (exclusive)",
+      "schema": {
+       "type": "integer",
+       "minimum": 1
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "description": "bounded sanitized segment size (max 10000)",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 10000
       }
      }
-    ]
+    ],
+    "responses": {
+     "200": {
+      "description": "Bounded sanitized NDJSON log segment as an attachment: one record per line with {streamSeq, eventId, emitter, eventType, severity, at, correlation?, summary}; payloads travel only as references. Authorization is identical to stream reads",
+      "content": {
+       "application/x-ndjson": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Structured error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/BrainError"
+        }
+       }
+      }
+     }
+    }
    }
   },
   "/runner/v1/challenges": {

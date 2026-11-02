@@ -11,7 +11,7 @@ export class FixtureEngine implements EngineAdapter {
   private stream = new EngineEventStream();
 
   async probe() {
-    return { id: "fixture", version: "1", adapterDigest: sha256Digest(new Uint8Array(readFileSync(new URL(import.meta.url)))), features: ["sessions"] };
+    return { id: "fixture", version: "1", adapterDigest: sha256Digest(new Uint8Array(readFileSync(new URL(import.meta.url)))), features: ["sessions", "steer"] };
   }
 
   private push(kind: EngineEvent["kind"], payload: EngineEvent["payload"]): void {
@@ -74,6 +74,18 @@ export class FixtureEngine implements EngineAdapter {
   async cancel(_sessionId?: string, _reason?: string) {
     this.stream.close();
     return { terminationConfirmed: true };
+  }
+
+  /**
+   * Fixture steering: a trivial append to the engine transcript. The message
+   * lands as a diagnostic text record so it never pollutes captured output;
+   * steering an unknown session is refused.
+   */
+  async steer(sessionId: string, messageId: string, message: string): Promise<void> {
+    if (this.sessionId !== sessionId) {
+      throw Object.assign(new Error(`Fixture steering requires the live session, not ${sessionId}`), { code: "UNSUPPORTED_CAPABILITY" });
+    }
+    this.push("text", { text: `[steer:${messageId}] ${message}`, channel: "diagnostic", provisional: true });
   }
 
   async checkpoint(): Promise<never> {

@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
 import { mkdirSync, unlinkSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 import { execa } from "execa";
 
 interface Sandbox { id: string; containerId: string; profile: string; requestHash: string }
@@ -69,6 +69,14 @@ export async function startLauncher(): Promise<void> {
     const eq = pair.indexOf("=");
     if (eq > 0) imagePins.set(pair.slice(0, eq), pair.slice(eq + 1));
   }
+  // Operator-declared read-only data mounts (doc 20): "name=/host/path,...".
+  // A sandbox request names a mount; it never supplies a host path, so a
+  // workflow cannot smuggle a filesystem view the operator did not publish.
+  const dataMounts = new Map<string, string>();
+  for (const pair of (process.env["BRAIN_LAUNCHER_DATA_MOUNTS"] ?? "").split(",").map((s) => s.trim()).filter(Boolean)) {
+    const eq = pair.indexOf("=");
+    if (eq > 0) dataMounts.set(pair.slice(0, eq).trim(), resolve(pair.slice(eq + 1).trim()));
+  }
   mkdirSync(dirname(socket), { recursive: true });
   if (existsSync(socket)) unlinkSync(socket);
   const server = createServer(async (req, res) => {
@@ -77,7 +85,7 @@ export async function startLauncher(): Promise<void> {
       if (req.method === "GET" && url === "/v1/health") {
         let docker = false;
         try { const r = await execa("docker", ["version", "--format", "{{.Server.Version}}"], { timeout: 5000 }); docker = r.exitCode === 0; } catch { docker = false; }
-        json(res, 200, { docker, profiles: [...PROFILES], images: [...IMAGES], pinnedImages: [...imagePins.keys()] });
+        json(res, 200, { docker, profiles: [...PROFILES], images: [...IMAGES], pinnedImages: [...imagePins.keys()], dataMounts: [...dataMounts.keys()] });
         return;
       }
       const auth = req.headers.authorization ?? "";
@@ -90,9 +98,20 @@ export async function startLauncher(): Promise<void> {
         if (!PROFILES.has(profile)) { json(res, 422, { error: "unknown profile" }); return; }
         if (!IMAGES.has(image)) { json(res, 422, { error: "image not preinstalled" }); return; }
         // No arbitrary argv/mounts/env: reject smuggled fields. toolsDir is the
-        // one permitted mount and is always read-only at /tools inside.
+        // one permitted tool mount (read-only at /tools); dataMounts may only
+        // name an operator-declared path and is always mounted read-only.
         for (const k of Object.keys(b)) {
-          if (!["profile", "image", "requestId", "worktreeId", "cpuMillicores", "memoryMb", "network", "toolsDir"].includes(k)) { json(res, 422, { error: `field ${k} forbidden` }); return; }
+          if (!["profile", "image", "requestId", "worktreeId", "cpuMillicores", "memoryMb", "network", "toolsDir", "dataMounts"].includes(k)) { json(res, 422, { error: `field ${k} forbidden` }); return; }
+        }
+        const requestedMounts = Array.isArray(b["dataMounts"]) ? b["dataMounts"].map((m) => String(m)) : [];
+        if (requestedMounts.length > 8) { json(res, 422, { error: "too many dataMounts" }); return; }
+        const mounts: string[] = [];
+        for (const name of requestedMounts) {
+          if (!/^[a-z][a-z0-9-]*$/u.test(name)) { json(res, 422, { error: `dataMount name ${name} invalid` }); return; }
+          const host = dataMounts.get(name);
+          if (!host) { json(res, 422, { error: `dataMount ${name} is not operator-declared` }); return; }
+          if (!existsSync(host)) { json(res, 409, { error: `dataMount ${name} path is absent on this host` }); return; }
+          mounts.push("-v", `${host}:/data/${name}:ro`);
         }
         const pin = imagePins.get(image);
         if (pin) {
@@ -125,7 +144,7 @@ export async function startLauncher(): Promise<void> {
         const toolsDir = typeof b["toolsDir"] === "string" && b["toolsDir"] ? ["-v", `${String(b["toolsDir"])}:/tools:ro`] : [];
         const args = ["run", "-d", "--name", name, "--network", network, ...proxyEnv, "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
           "--cpus", String(Math.max(0.1, Number(b["cpuMillicores"] ?? 500) / 1000)), "--memory", `${Number(b["memoryMb"] ?? 512)}m`, "--pids-limit", "128",
-          "--label", `brain.launcher=request:${requestId}`, ...toolsDir, image, "sleep", "infinity"];
+          "--label", `brain.launcher=request:${requestId}`, ...toolsDir, ...mounts, image, "sleep", "infinity"];
         const created = await execa("docker", args, { timeout: 60_000, reject: false });
         if (created.exitCode !== 0) { json(res, 503, { error: `docker run failed: ${String(created.stderr).slice(0, 500)}` }); return; }
         const containerId = String(created.stdout).trim();

@@ -1,11 +1,15 @@
 import { test, expect } from "./fixtures";
 
-// E092: slow SSE log viewer with a long transcript. Required observation:
-// bounded server/client memory (the mounted DOM stays windowed no matter how
-// long the transcript is) and scroll selection preserved while new events
-// stream in above the reader's position.
-test("long SSE transcript: bounded DOM, scroll and selection survive new events (E092)", async ({ page, governor }) => {
-  test.setTimeout(180_000);
+// E092 retargeted to the Log Explorer (/w/:id/logs) over the Unified Execution
+// Stream. Required observations: bounded server/client memory (the mounted DOM
+// stays windowed no matter how long the transcript is), scroll and selection
+// preserved while new records stream in, pause/resume with an unread counter,
+// full-text search across the retained logs (not only the mounted window), and
+// reconnect-from-cursor after the server's hard close. Seeding goes through the
+// source logs (workspace.events + a session row); projection-on-read must make
+// them visible without a maintenance tick.
+test("Log Explorer: bounded DOM, scroll and selection survive streaming, pause/unread, search, reconnect (E092)", async ({ page, governor }) => {
+  test.setTimeout(300_000);
   await page.goto(governor.url);
   await expect(page.getByRole("heading", { name: "Set up Keyrus Brain" })).toBeVisible();
   await page.getByLabel(/^Setup credential/).fill(governor.credential);
@@ -13,57 +17,97 @@ test("long SSE transcript: bounded DOM, scroll and selection survive new events 
   await page.getByLabel(/^Email/).fill("transcript@example.test");
   await page.getByLabel(/^Password/).fill("browser-password-1234");
   await page.getByRole("button", { name: "Create organization", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
 
-  // Seed a running session with a 10000-event transcript through the real store.
+  // First run provisions no workspace: create one through the UI when the
+  // shell offers it. The shell gates every page behind a selected workspace,
+  // so the explorer needs this before any deep link can render.
+  const createWorkspace = page.getByRole("button", { name: "Create workspace", exact: true });
+  await createWorkspace.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+  if (await createWorkspace.isVisible().catch(() => false)) {
+    await page.getByLabel("Display name").fill("Perf");
+    await createWorkspace.click();
+  }
+  await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible({ timeout: 30_000 });
+
+  // Seed through the source logs: one running session plus a 10000-record
+  // workspace transcript. The stream projector tails these on every read.
   const cookies = await page.context().cookies();
   const brain = governor.app.brain;
   const resolved = await brain.resolveActor(new Headers({ cookie: cookies.map((c) => `${c.name}=${c.value}`).join("; ") }));
   const actor = resolved.actor;
-  brain.createWorkspace(actor, { workspaceId: "ws-perf", slug: "perf" });
   const s = brain.store;
-  const ws = s.workspaceDb("ws-perf", actor.organizationId);
-  ws.prepare("INSERT INTO sessions(id, job_id, attempt_id, engine_id, adapter_digest, state, event_sequence, updated_at_ms) VALUES ('ses-perf','job-perf','att-perf','fixture',?,'running',0,?)")
+  const workspaceId = (s.control.prepare("SELECT id FROM workspaces WHERE organization_id=? ORDER BY id LIMIT 1").get(actor.organizationId) as { id: string }).id;
+  const ws = s.workspaceDb(workspaceId, actor.organizationId);
+  ws.prepare("INSERT INTO sessions(id, job_id, attempt_id, engine_id, adapter_digest, engine_features, state, event_sequence, updated_at_ms) VALUES ('ses-perf','job-perf','att-perf','fixture',?, '[\"sessions\"]','running',0,?)")
     .run(`sha256:${"0".repeat(64)}`, Date.now());
-  const insert = s.control.prepare(`INSERT INTO events(event_id, organization_id, workspace_id, aggregate_type, aggregate_id, aggregate_seq, event_type, payload_json, payload_digest, created_at_ms)
-    VALUES (?,?,?,?,?,?,?,?,?,?)`);
+  const insert = ws.prepare(`INSERT INTO events(event_id, aggregate_type, aggregate_id, aggregate_seq, event_type, payload_json, payload_digest, created_at_ms)
+    VALUES (?,?,?,?,?,?,?,?)`);
   const base = Date.now() - 10000 * 1000;
+  const digest = `sha256:${"a".repeat(64)}`;
   for (let i = 1; i <= 10000; i++) {
-    insert.run(`evt-seed-${i}`, actor.organizationId, "ws-perf", "session", `evt-${i}`, i,
-      i % 2 === 0 ? "tool.exec" : "session.message", JSON.stringify({ n: i }), `sha256:${"a".repeat(64)}`, base + i * 1000);
+    const even = i % 2 === 0;
+    const payload = even
+      ? { channel: "assistant", provisional: true, text: `Transcript line ${i}` }
+      : { proposalId: `prop-${i}`, invocationId: `inv-${i}`, receipt: { invocationId: `inv-${i}`, result: "succeeded" } };
+    // i === 9900 fails inside the visible newest-200 window so the error jump
+    // has a target; i in 9910..9919 repeats one identical line (collapse group).
+    // The collapse group shares one event type — the projector classifies
+    // type+emitter per event type, so mixed types would never collapse.
+    const failing = i === 9900;
+    const repeated = i >= 9910 && i <= 9919;
+    const type = repeated || even ? "text" : "tool.result";
+    const body = failing
+      ? { proposalId: `prop-${i}`, invocationId: `inv-${i}`, receipt: { invocationId: `inv-${i}`, result: "failed", exitCode: 1 } }
+      : repeated
+        ? { channel: "diagnostic", text: "heartbeat tick" }
+        : payload;
+    insert.run(`evt-seed-${i}`, "session", "ses-perf", i, type, JSON.stringify(body), digest, base + i * 1000);
   }
 
-  await page.goto(`${governor.url}/sessions/ses-perf`);
-  const list = page.locator('[data-slot="virtual-list"]');
-  await expect(list).toBeVisible();
-  await expect(page.locator('[data-slot="virtual-list"] li').first()).toBeVisible({ timeout: 20000 });
+  await page.goto(`${governor.url}/w/${workspaceId}/logs`);
+  const list = page.locator('[data-testid="log-list"] ul');
+  await expect(list).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('[data-testid="log-list"] li').first()).toBeVisible({ timeout: 30_000 });
+
+  // Projection-on-read: the whole seeded transcript surfaced. The global head
+  // counts every projected record — the seeded 10000 plus the organization
+  // bootstrap record the unified stream carries alongside session events.
+  await expect(page.getByText(/head 10\d{3}/)).toBeVisible({ timeout: 60_000 });
 
   // Bounded client memory: the virtualiser mounts a viewport-sized window,
-  // not the 10000-row transcript.
-  const rowCount = await page.locator('[data-slot="virtual-list"] li').count();
+  // not the 10000-record transcript.
+  const rowCount = await page.locator('[data-testid="log-list"] li').count();
   expect(rowCount, `mounted rows ${rowCount}`).toBeLessThan(150);
-  const finalCursor = (s.control.prepare("SELECT MAX(cursor) AS cursor FROM events WHERE organization_id=?").get(actor.organizationId) as { cursor: number }).cursor;
-  await expect(page.getByText(`${finalCursor} events`, { exact: false })).toBeVisible({ timeout: 120_000 });
 
-  // Scroll only after the full replay exists; otherwise the browser clamps the
-  // requested position to the short list's current maximum.
+  // Grouping: the consecutive identical diagnostics collapse into one row.
+  // The list virtualizes, so bring the repeat group (seed records 9910-9919,
+  // roughly one third into the newest-200 seed window) into the mounted window.
   await page.evaluate(() => {
-    const el = document.querySelector('[data-slot="virtual-list"]') as HTMLElement;
-    el.scrollTop = 64 * 120;
+    const el = document.querySelector('[data-testid="log-list"] ul') as HTMLElement;
+    el.scrollTop = 100 * 32;
   });
-  await expect.poll(() => page.locator('[data-slot="virtual-list"]').evaluate((el) => el.scrollTop)).toBe(64 * 120);
-  await expect(page.getByRole("button", { name: /^Jump to newest/ })).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('[data-testid="log-list"] li [data-row-kind="repeat"]').first()).toBeVisible({ timeout: 15_000 });
+
+  // Scroll away from the newest end; the requested offset must survive.
+  const ROW = 32;
+  await page.evaluate((offset) => {
+    const el = document.querySelector('[data-testid="log-list"] ul') as HTMLElement;
+    el.scrollTop = offset;
+  }, 64 * ROW);
+  await expect.poll(() => page.locator('[data-testid="log-list"] ul').evaluate((el) => el.scrollTop)).toBe(64 * ROW);
+
+  // Text selection inside a row, and the row pinned at the viewport top.
   const selection = await page.evaluate(() => {
-    const el = document.querySelector('[data-slot="virtual-list"]') as HTMLElement;
+    const el = document.querySelector('[data-testid="log-list"] ul') as HTMLElement;
     const er = el.getBoundingClientRect();
-    const ps = [...el.querySelectorAll("li p")] as HTMLElement[];
-    const target = ps.find((p) => {
-      const r = p.getBoundingClientRect();
-      return r.top > er.top && r.bottom < er.bottom && p.firstChild?.nodeType === 3 && (p.firstChild as Text).data.length > 3;
+    const rows = [...el.querySelectorAll("li")] as HTMLElement[];
+    const target = rows.find((li) => {
+      const r = li.getBoundingClientRect();
+      return r.top > er.top && r.bottom < er.bottom;
     });
     if (!target) return "";
     const range = document.createRange();
-    range.selectNodeContents(target.firstChild as Text);
+    range.selectNodeContents(target);
     const sel = window.getSelection();
     sel?.removeAllRanges();
     sel?.addRange(range);
@@ -71,7 +115,7 @@ test("long SSE transcript: bounded DOM, scroll and selection survive new events 
   });
   expect(selection.length).toBeGreaterThan(0);
   const visibleBefore = await page.evaluate(() => {
-    const el = document.querySelector('[data-slot="virtual-list"]') as HTMLElement;
+    const el = document.querySelector('[data-testid="log-list"] ul') as HTMLElement;
     const r = el.getBoundingClientRect();
     const rows = [...el.querySelectorAll("li")] as HTMLElement[];
     const hit = rows.find((li) => { const b = li.getBoundingClientRect(); return b.top >= r.top - 1 && b.top < r.bottom; });
@@ -79,17 +123,20 @@ test("long SSE transcript: bounded DOM, scroll and selection survive new events 
   });
   expect(visibleBefore.length).toBeGreaterThan(0);
 
-  // 40 fresh events stream in while the reader is scrolled away.
-  for (let i = 1; i <= 40; i++) {
-    insert.run(`evt-live-${i}`, actor.organizationId, "ws-perf", "session", `evt-live-${i}`, 10000 + i,
-      "session.message", JSON.stringify({ n: 10000 + i }), `sha256:${"b".repeat(64)}`, Date.now());
-  }
-  await expect(page.getByRole("button", { name: /Jump to newest \(\d+\)/ })).toBeVisible({ timeout: 10000 });
-  await page.waitForTimeout(10000); // SSE tick + coalesce settle
+  // 40 fresh records stream in while the reader is scrolled away.
+  const inject = (from: number, to: number): void => {
+    for (let i = from; i <= to; i++) {
+      insert.run(`evt-live-${i}`, "session", "ses-perf", i, "text",
+        JSON.stringify({ channel: "assistant", provisional: true, text: `Live line ${i}` }), digest, Date.now());
+    }
+  };
+  inject(10001, 10040);
+  await expect(page.getByRole("button", { name: /Jump to newest \(\d+\)/ })).toBeVisible({ timeout: 15_000 });
+  await page.waitForTimeout(10_000); // SSE ticks + coalesce settle
 
   // The reader's view is pinned: same row at the same position, selection intact.
   const visibleAfter = await page.evaluate(() => {
-    const el = document.querySelector('[data-slot="virtual-list"]') as HTMLElement;
+    const el = document.querySelector('[data-testid="log-list"] ul') as HTMLElement;
     const r = el.getBoundingClientRect();
     const rows = [...el.querySelectorAll("li")] as HTMLElement[];
     const hit = rows.find((li) => { const b = li.getBoundingClientRect(); return b.top >= r.top - 1 && b.top < r.bottom; });
@@ -100,11 +147,39 @@ test("long SSE transcript: bounded DOM, scroll and selection survive new events 
   expect(selectionAfter).toBe(selection);
 
   // Still bounded after the burst.
-  const rowCountAfter = await page.locator('[data-slot="virtual-list"] li').count();
+  const rowCountAfter = await page.locator('[data-testid="log-list"] li').count();
   expect(rowCountAfter, `mounted rows after ${rowCountAfter}`).toBeLessThan(150);
 
-  // Jump to newest returns to the current end of the transcript.
+  // Pause: arrivals are counted, not shown; resume flushes the unread counter.
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  inject(10041, 10080);
+  await expect(page.getByRole("button", { name: /Resume \(40 new\)/ })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: /Resume \(40 new\)/ }).click();
   await page.getByRole("button", { name: /Jump to newest/ }).click();
-  const atTop = await page.evaluate(() => (document.querySelector('[data-slot="virtual-list"]') as HTMLElement).scrollTop);
-  expect(atTop).toBeLessThanOrEqual(1);
+  await expect(page.getByText("Live line 10080", { exact: false })).toBeVisible({ timeout: 15_000 });
+  // The flush is proven above (newest record visible, jump control gone); the
+  // windowed list stays bounded after the resumed burst.
+  const resumedRows = await page.locator('[data-testid="log-list"] li').count();
+  expect(resumedRows, `mounted rows after resume ${resumedRows}`).toBeLessThan(150);
+  await expect(page.getByRole("button", { name: /Jump to newest/ })).toBeHidden();
+
+  // Long-stream regression: one SSE connection serves far more than the
+  // client's 500-frame window over its lifetime. The tail must keep consuming
+  // across window trims — with an absolute consumption index it silently
+  // stalls at the 500th frame and the reconnect assertion at the end of this
+  // test would never see its record.
+  inject(10101, 10620);
+  await expect(page.getByText("Live line 10620", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
+
+  // Full-text search reaches the whole retained transcript, not only the
+  // mounted window: record 7778 sits far outside the newest-200 seed.
+  await page.getByLabel("Search retained logs (full text)").fill("Transcript line 7778");
+  await expect(page.getByText("Transcript line 7778", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
+  await page.getByLabel("Search retained logs (full text)").fill("");
+
+  // Reconnect-from-cursor: the server hard-closes the stream after 55s; the
+  // client must reconnect from the last seen stream_seq and keep delivering.
+  await page.waitForTimeout(57_000);
+  inject(10081, 10100);
+  await expect(page.getByText("Live line 10100", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
 });

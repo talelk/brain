@@ -1,0 +1,342 @@
+import { For, Show, createEffect, createSignal } from "solid-js";
+import type { Accessor, JSX } from "solid-js";
+import { Button, KeyValue, Textarea } from "@talelk/newui-atoms";
+import type { ArtifactRef, ApprovalRequest, JobSnapshot } from "@brain/contracts";
+import { createScopedRead } from "../../data/screens";
+import { approvalQuery } from "../../data/governor";
+import { artifactsListQuery } from "../../data/exec-outputs";
+import type { SessionContinuation, SessionDetail } from "../../data/exec-console";
+import { execLogsUrl } from "../exec/exec-filters";
+import { CorrelationLink } from "../exec/CorrelationLink";
+import { streamSummaryText } from "../exec/StreamEventRow";
+import type { FeedEntry } from "./ConsoleFeed";
+import { ArtifactView } from "../outputs/ArtifactView";
+import { EvidenceList } from "../components/EvidenceList";
+import { ReasonDialog } from "../components/ReasonDialog";
+import { StatusBadge } from "../components/StatusBadge";
+import { DateText } from "../screen-region";
+import { formatMicroUsd } from "../format";
+
+/** The read scope every contextual panel reads through (no fabricated scopes). */
+type ConsoleScope = Accessor<{ organizationId: string; workspaceId: string; generation: number }>;
+
+/**
+ * The console's intervention surface (plan §3 action → command map, exact):
+ * Steer → session.steer; Stop → session.stop; Attach context →
+ * workItem.message; Open tool result / Inspect current output → the feed's
+ * record inspection and the job-scoped artifacts read; See related approval →
+ * the invocation→approval linkage of stream.context. After an interruption the
+ * chooser names exactly one recovery operation (reconnect / continue native /
+ * resume from verified checkpoint / restart / reconcile) — they are not
+ * interchangeable, and the UI enables only the commands that exist.
+ */
+
+export function ConsoleToolbar(props: {
+  workspaceId: string;
+  sessionId: string;
+  session?: SessionDetail;
+  canOperate: boolean;
+  feedback: string;
+  selected?: FeedEntry;
+  onRefresh: () => void;
+  onSteer: (message: string) => Promise<void>;
+  onStop: (reason: string) => Promise<void>;
+  onAttach: (body: string) => Promise<void>;
+  onOpenToolResult: () => void;
+  onInspectOutput: () => void;
+  onFindApproval: () => Promise<void>;
+}): JSX.Element {
+  const [dialog, setDialog] = createSignal<"none" | "steer" | "stop" | "attach" | "reconcile">("none");
+  const [reason, setReason] = createSignal("");
+  const [busy, setBusy] = createSignal(false);
+
+  const session = () => props.session;
+  const terminal = () => session()?.state === "stopping" || session()?.state === "stopped" || session()?.state === "failed";
+  const live = () => session()?.state === "running" || session()?.state === "starting" || session()?.state === "waiting";
+  const features = () => session()?.engine.features ?? [];
+  const canSteer = () => live() && props.canOperate && features().includes("steer");
+  const canStop = () => !terminal() && props.canOperate;
+  const canAttach = () => (live() || terminal()) && props.canOperate && !!session()?.workItemId;
+
+  async function submit(kind: "steer" | "stop" | "attach"): Promise<void> {
+    setBusy(true);
+    try {
+      if (kind === "steer" && reason().trim()) await props.onSteer(reason().trim());
+      if (kind === "stop" && reason().trim()) await props.onStop(reason().trim());
+      if (kind === "attach" && reason().trim()) await props.onAttach(reason().trim());
+      setDialog("none"); setReason("");
+    } finally { setBusy(false); }
+  }
+
+  return <div class="flex flex-col gap-2 border-b border-outline-gray-1 px-3 py-2">
+    <div class="flex flex-wrap items-center gap-2">
+      <StatusBadge status={session()?.state ?? "unknown"} />
+      <span class="text-caption text-ink-gray-6" title="Engine negotiation decides which controls exist">
+        {session()?.engine.id ?? "engine unavailable"}<Show when={features().length > 0}> · {features().join(", ")}</Show>
+      </span>
+      <div class="ms-auto flex flex-wrap items-center gap-1.5">
+        <Show when={canSteer()}>
+          <Button size="sm" variant="outline" theme="blue" iconLeft="lucide-corner-down-right"
+            title="Applies at the engine's next turn boundary" onClick={() => { setDialog("steer"); setReason(""); }}>
+            Steer{session()?.continuation.reconnectable ? " (reconnect)" : ""}
+          </Button>
+        </Show>
+        <Show when={canAttach()}>
+          <Button size="sm" variant="outline" iconLeft="lucide-paperclip" onClick={() => { setDialog("attach"); setReason(""); }}>Attach context</Button>
+        </Show>
+        <Button size="sm" variant="outline" disabled={!props.selected || props.selected.kind !== "tool"}
+          title={props.selected?.kind === "tool" ? "Resolve this tool call's authorized artifacts" : "Select a tool call in the feed first"}
+          onClick={() => props.onOpenToolResult()}>Open tool result</Button>
+        <Button size="sm" variant="outline" iconLeft="lucide-package" onClick={() => props.onInspectOutput()}>Inspect current output</Button>
+        <Button size="sm" variant="outline" iconLeft="lucide-shield-check" onClick={() => void props.onFindApproval()}>See related approval</Button>
+        <Show when={canStop()}>
+          <Button size="sm" variant="outline" theme="red" iconLeft="lucide-square" onClick={() => { setDialog("stop"); setReason(""); }}>Stop</Button>
+        </Show>
+        <Button size="sm" variant="ghost" iconLeft="lucide-refresh-cw" aria-label="Refresh session" onClick={props.onRefresh} />
+        <a class="inline-flex items-center gap-1 rounded-control px-2 py-1 text-caption text-ink-blue-link hover:bg-surface-blue-1 focus-visible:focus-ring"
+          href={execLogsUrl(props.workspaceId, { session: props.sessionId, severity: [], emitter: [] })}>Open in Logs</a>
+      </div>
+    </div>
+    <Show when={terminal()}><p class="text-caption text-ink-gray-6">Stop requested or session closed — steering is unavailable while stop is pending or after the session becomes terminal.</p></Show>
+    <Show when={!canSteer() && live()}><p class="text-caption text-ink-gray-6">This engine did not negotiate steering (engine features: {features().length > 0 ? features().join(", ") : "none"}), so reconnect-by-steer is unavailable.</p></Show>
+    <Show when={props.feedback}><p role="status" class="text-caption text-ink-gray-7">{props.feedback}</p></Show>
+
+    <Show when={dialog() === "steer"}>
+      <div class="rounded-control border border-outline-blue-2 bg-surface-blue-1 p-3">
+        <Textarea label="Steering message" value={reason()} placeholder="Add context or redirect the next step…"
+          onInput={(event) => setReason(event.currentTarget.value)} />
+        <div class="mt-2 flex items-center gap-2">
+          <Button size="sm" variant="solid" theme="blue" disabled={!reason().trim() || busy()} loading={busy()} onClick={() => void submit("steer")}>Send steering</Button>
+          <span class="text-caption text-ink-gray-6">Applies at the engine's next turn boundary — not a rewrite of past turns.</span>
+        </div>
+      </div>
+    </Show>
+    <Show when={dialog() === "attach"}>
+      <div class="rounded-control border border-outline-gray-2 bg-surface-gray-1 p-3">
+        <Textarea label="Context for the work item and session" value={reason()} placeholder="Paste the exact context the agent should use…"
+          onInput={(event) => setReason(event.currentTarget.value)} />
+        <div class="mt-2 flex items-center gap-2">
+          <Button size="sm" variant="solid" theme="blue" disabled={!reason().trim() || busy()} loading={busy()} onClick={() => void submit("attach")}>Attach to work item</Button>
+          <span class="text-caption text-ink-gray-6">Routes to session {props.sessionId} through its work item (workItem.message).</span>
+        </div>
+      </div>
+    </Show>
+    <ReasonDialog open={dialog() === "stop"} onClose={() => setDialog("none")}
+      title="Stop this session" description="Stopping is an authoritative command. A named reason is recorded against the exact session."
+      reason={reason()} onReason={setReason} reasonLabel="Stop reason" confirmLabel="Stop session" tone="red" busy={busy()}
+      onConfirm={(value) => { setReason(value); void submit("stop"); }} />
+  </div>;
+}
+
+/** Exactly one suggested recovery operation, derived from server continuation facts. */
+export function interruptionOperation(continuation: SessionContinuation): {
+  operation: "continue-native" | "resume-checkpoint" | "restart" | "reconcile" | "none";
+  label: string; description: string; command: string;
+} {
+  if (continuation.reconcileRequired) {
+    return {
+      operation: "reconcile", command: "job.reconcile",
+      label: "Reconcile the unknown external effect",
+      description: "The run ended with an unknown outcome and unresolved effects. Reconcile against the target system before any retry — resume and restart are intentionally unavailable until this is settled.",
+    };
+  }
+  if (continuation.continueNative && continuation.resumable) {
+    return {
+      operation: "continue-native", command: "session.create (resumeFromSessionId)",
+      label: "Continue the native session",
+      description: "The engine advertises native resume and a verified checkpoint exists. Brain continues the same session under the harness and pinned version that recorded the checkpoint.",
+    };
+  }
+  if (continuation.resumable) {
+    return {
+      operation: "resume-checkpoint", command: "session.create (resumeFromSessionId)",
+      label: "Resume from the verified checkpoint as a new attempt",
+      description: "A verified checkpoint exists and no live attempt holds the session. Brain resumes a new attempt from it — it does not reconnect to the old process.",
+    };
+  }
+  if (continuation.restartable) {
+    return {
+      operation: "restart", command: "workflow.dispatch",
+      label: "Restart the task as a new dispatch",
+      description: "No checkpoint applies. Brain dispatches the task again as a new run through the Start work flow, which validates the workflow input schema.",
+    };
+  }
+  return {
+    operation: "none", command: "—",
+    label: "No recovery operation applies",
+    description: "The session is closed with no verified checkpoint, its work item cannot be re-dispatched, and no unknown effect awaits reconciliation.",
+  };
+}
+
+export function InterruptionChooser(props: {
+  session: SessionDetail;
+  canOperate: boolean;
+  onResume: () => Promise<void>;
+  onReconcile: (reason: string) => Promise<void>;
+  onRestart: () => void;
+}): JSX.Element {
+  const [busy, setBusy] = createSignal(false);
+  const [dialog, setDialog] = createSignal<"none" | "reconcile">("none");
+  const [reason, setReason] = createSignal("");
+  const [feedback, setFeedback] = createSignal("");
+  const suggested = () => interruptionOperation(props.session.continuation);
+  const actionable = () => props.canOperate && suggested().operation !== "none"
+    && (suggested().operation !== "continue-native" && suggested().operation !== "resume-checkpoint" || !!props.session.workItemId);
+
+  async function run(action: () => Promise<void>): Promise<void> {
+    setBusy(true);
+    try { await action(); } finally { setBusy(false); }
+  }
+
+  return <Show when={props.session.continuation.reconnectable === false}
+    fallback={<p class="border-b border-outline-gray-1 bg-surface-gray-1 px-3 py-1.5 text-caption text-ink-gray-7">Session is live on its runner — the feed reconnects automatically; Steer is the reconnect operation.</p>}>
+    <div class="border-b border-outline-gray-1 bg-surface-amber-1 px-3 py-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="lucide-heart-crack size-4 text-ink-amber-8" aria-hidden="true" />
+        <strong class="text-caption font-medium text-ink-gray-9">Interruption — Brain will perform: {suggested().label}</strong>
+        <Show when={actionable()}>
+          <Button size="sm" variant="solid" theme="blue" disabled={busy()} loading={busy() && suggested().operation !== "restart"}
+            onClick={() => {
+              if (suggested().operation === "restart") { props.onRestart(); return; }
+              if (suggested().operation === "reconcile") { setDialog("reconcile"); return; }
+              void run(props.onResume);
+            }}>{suggested().label}</Button>
+        </Show>
+      </div>
+      <p class="mt-1 text-caption text-ink-gray-6">{suggested().description}</p>
+      <Show when={!actionable() && suggested().operation !== "none"}>
+        <p class="mt-1 text-caption text-ink-gray-6">This operation needs an operator authorization{props.session.workItemId ? "" : " and a work item binding (the resume payload requires it)"}.</p>
+      </Show>
+      <Show when={feedback}><p role="status" class="mt-1 text-caption text-ink-gray-7">{feedback()}</p></Show>
+      <ReasonDialog open={dialog() === "reconcile"} onClose={() => setDialog("none")}
+        title="Reconcile the unknown outcome" description="A named reason is recorded against the exact run and cannot be empty."
+        reason={reason()} onReason={setReason} reasonLabel="Reconciliation reason" confirmLabel="Request reconciliation" busy={busy()}
+        onConfirm={(value) => {
+          setReason(value);
+          void run(async () => { await props.onReconcile(value); setDialog("none"); setFeedback("Reconciliation request recorded."); });
+        }} />
+    </div>
+  </Show>;
+}
+
+/** Right pane: outputs plus contextual inspection (facts, evidence, approval). */
+export function ConsoleInspection(props: {
+  workspaceId: string;
+  scope: ConsoleScope;
+  session?: SessionDetail;
+  job?: JobSnapshot;
+  approvalId?: string;
+  inspectToken: number;
+}): JSX.Element {
+  const [previewId, setPreviewId] = createSignal<string | undefined>();
+  const [inspectSeen, setInspectSeen] = createSignal(0);
+  const scopeFilter = () => props.session?.jobId ? { jobId: props.session.jobId } : props.session?.workItemId ? { workItemId: props.session.workItemId } : undefined;
+  const artifacts = createScopedRead<{ items: readonly { artifactId: string; digest: string; bytes: number; mediaType: string; classification: string }[] }>({
+    scope: props.scope,
+    // Re-read when the session's producer binding (run or work item) changes.
+    resource: () => props.session?.jobId ?? props.session?.workItemId ?? "",
+    load: async (_scope, signal) => {
+      const filter = scopeFilter();
+      if (!filter) return { snapshot: { items: [] }, asOf: "", sourceWatermark: 0 };
+      const loaded = await artifactsListQuery({ workspaceId: props.workspaceId, ...filter }, signal);
+      return { ...loaded, snapshot: { items: [...loaded.snapshot.items] } };
+    },
+    refreshMs: 15_000,
+  });
+  createEffect(() => {
+    // "Inspect current output": reveal the newest artifact's preview.
+    if (props.inspectToken === inspectSeen()) return;
+    setInspectSeen(props.inspectToken);
+    const first = artifacts.state().data?.items[0];
+    if (first) setPreviewId(first.artifactId);
+  });
+  const previewed = () => artifacts.state().data?.items.find((item) => item.artifactId === previewId());
+
+  return <div class="brain-exec-scroll flex flex-col gap-4 p-3" data-testid="console-inspection">
+    <section class="flex flex-col gap-2" aria-label="Session facts">
+      <h3 class="text-base-medium text-ink-gray-9">Session facts</h3>
+      <KeyValue label="State" value={<StatusBadge status={props.session?.state ?? "unknown"} />} orientation="vertical" />
+      <KeyValue label="Engine" value={`${props.session?.engine.id ?? "—"} ${props.session?.engine.version ?? ""}`} orientation="vertical" />
+      <KeyValue label="Usage" value={`${(props.session?.usedTokens ?? 0).toLocaleString()} tokens · ${formatMicroUsd(props.session?.usedMicroUsd)}`} orientation="vertical" />
+      <KeyValue label="Budget" value={`${props.session?.budget.maxTurns ?? "—"} turns · ${(props.session?.budget.maxTokens ?? 0).toLocaleString()} tokens`} orientation="vertical" />
+      <Show when={props.session?.workItemId}>
+        <KeyValue label="Work item" value={<a class="text-caption text-ink-blue-link hover:underline focus-visible:focus-ring" href={`/w/${props.workspaceId}/board?card=${encodeURIComponent(props.session!.workItemId!)}`}>{props.session!.workItemId}</a>} orientation="vertical" />
+      </Show>
+      <Show when={props.session?.jobId}>
+        <KeyValue label="Run" value={<CorrelationLink target={{ kind: "job", jobId: props.session!.jobId! }} label={props.session!.jobId!} icon="lucide-workflow" />} orientation="vertical" />
+      </Show>
+      <KeyValue label="Updated" value={<DateText value={props.session?.updatedAt} />} orientation="vertical" />
+    </section>
+
+    <section class="flex flex-col gap-2" aria-label="Working outputs">
+      <div class="flex items-center justify-between gap-2">
+        <h3 class="text-base-medium text-ink-gray-9">Outputs</h3>
+        <Show when={scopeFilter()} fallback={<span class="text-caption text-ink-gray-6">Session is not bound to a run or work item.</span>}>
+          <a class="text-caption text-ink-blue-link hover:underline focus-visible:focus-ring" href={`/w/${props.workspaceId}/outputs?${props.session?.jobId ? `job=${props.session.jobId}` : `workItem=${props.session?.workItemId}`}`}>Open in Outputs</a>
+        </Show>
+      </div>
+      <Show when={(artifacts.state().data?.items.length ?? 0) > 0} fallback={
+        <p class="text-caption text-ink-gray-6">{scopeFilter() ? "No verified artifact is bound yet. Final artifacts bind on completion with their digest and verification status." : "Bind this session to a run or work item to see its outputs."}</p>}>
+        <div class="flex flex-col gap-1">
+          <For each={artifacts.state().data?.items.slice(0, 12)}>{(artifact) => (
+            <button type="button" aria-pressed={previewId() === artifact.artifactId}
+              class={`flex w-full cursor-pointer items-center justify-between gap-2 rounded-control border px-2 py-1.5 text-start text-caption focus-visible:focus-ring ${previewId() === artifact.artifactId ? "border-outline-blue-2 bg-surface-blue-1" : "border-outline-gray-1 hover:bg-surface-gray-1"}`}
+              onClick={() => setPreviewId((current) => (current === artifact.artifactId ? undefined : artifact.artifactId))}>
+              <span class="min-w-0 flex-1 truncate text-ink-gray-8" title={artifact.digest}>{artifact.mediaType}</span>
+              <span class="shrink-0 text-ink-gray-6">{artifact.bytes.toLocaleString()} B</span>
+            </button>
+          )}</For>
+        </div>
+        <Show when={previewed()} keyed>{(artifact) => <div class="rounded-control border border-outline-gray-1 p-2">
+          <ArtifactView artifact={artifact as unknown as ArtifactRef} compact />
+        </div>}</Show>
+      </Show>
+    </section>
+
+    <Show when={props.job}>
+      <section class="flex flex-col gap-2" aria-label="Verification">
+        <h3 class="text-base-medium text-ink-gray-9">Verification</h3>
+        <EvidenceList bundleDigest={props.job!.evidenceDigest} workspaceId={props.workspaceId}
+          emptyHint="No evidence bundle is bound to this run yet. Independent verification — not agent output — decides completion." />
+      </section>
+    </Show>
+
+    <Show when={props.approvalId} keyed>{(approvalId) => <ApprovalPanel scope={props.scope} approvalId={approvalId} />}</Show>
+  </div>;
+}
+
+/**
+ * The contextual approval panel (P1): exact-action review without leaving the
+ * session. It copies the approvals screen's no-auto-refresh invariant — one
+ * explicit fetch plus manual refresh — because a poll would replace the row
+ * objects and destroy an open exact-review mid-decision.
+ */
+function ApprovalPanel(props: { scope: ConsoleScope; approvalId: string }): JSX.Element {
+  const approval = createScopedRead<ApprovalRequest>({
+    scope: props.scope,
+    resource: () => props.approvalId,
+    load: async (_scope, signal, approvalId) => approvalQuery(approvalId!, signal),
+  });
+  const request = () => approval.state().data;
+  const subject = () => request()?.subject;
+  return <section class="flex flex-col gap-2 rounded-card border border-outline-blue-2 bg-surface-blue-1 p-3" aria-label="Related approval" data-testid="console-approval-panel">
+    <div class="flex items-center justify-between gap-2">
+      <h3 class="text-base-medium text-ink-gray-9">Related approval</h3>
+      <CorrelationLink target={{ kind: "approval", approvalId: props.approvalId }} label="Open full review" icon="lucide-shield-check" />
+    </div>
+    <Show when={request()} keyed fallback={<p class="text-caption text-ink-gray-6">Loading the approval request…</p>}>
+      {(request) => <div class="flex flex-col gap-2">
+        <div class="flex items-center gap-2">
+          <StatusBadge kind="approval" status={request.state} />
+          <span class="text-caption text-ink-gray-6"><DateText value={request.createdAt} /></span>
+        </div>
+        <p class="text-caption text-ink-gray-8">{subject()?.operation ?? "Requested effect"} → {subject()?.target?.targetId ?? "declared target"}</p>
+        <details class="rounded-control bg-surface-elevation-1 p-2">
+          <summary class="cursor-pointer text-caption font-medium focus-visible:focus-ring">Exact proposed effect</summary>
+          <pre class="brain-exec-log mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words text-caption text-ink-gray-7">{streamSummaryText(JSON.stringify(subject() ?? {}, null, 2), 4_000) || "{}"}</pre>
+        </details>
+        <Button size="sm" variant="outline" onClick={() => void approval.refresh({ force: true })}>Refresh (no auto-poll by design)</Button>
+      </div>}
+    </Show>
+  </section>;
+}

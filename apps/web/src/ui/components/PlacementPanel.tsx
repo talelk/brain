@@ -1,7 +1,7 @@
 import type { JSX } from "solid-js";
-import { For, Show } from "solid-js";
+import { For, Show, createSignal } from "solid-js";
 import { Badge, KeyValue } from "@talelk/newui-atoms";
-import { Alert } from "@talelk/newui-molecules";
+import { Alert, Pagination } from "@talelk/newui-molecules";
 import { StatGrid } from "@talelk/newui-organisms";
 import type { PlacementExplanation } from "@brain/contracts";
 import { statusTheme } from "./StatusBadge";
@@ -13,6 +13,8 @@ const REASON_COPY: Record<string, string> = {
   INSUFFICIENT_CAPACITY: "Registered runners are reserved beyond this job's demand.",
 };
 
+const PAGE_SIZE = 25;
+
 /**
  * Why a run is where it is (document 21 "job placement explanations").
  *
@@ -22,6 +24,11 @@ const REASON_COPY: Record<string, string> = {
  */
 export function PlacementPanel(props: { explanation?: PlacementExplanation; error?: string }): JSX.Element {
   const explanation = () => props.explanation;
+  const [page, setPage] = createSignal(1);
+  const runners = () => [...explanation()?.runners ?? []];
+  const pageCount = () => Math.max(1, Math.ceil(runners().length / PAGE_SIZE));
+  const currentPage = () => Math.min(Math.max(1, page()), pageCount());
+  const visibleRunners = () => runners().slice((currentPage() - 1) * PAGE_SIZE, currentPage() * PAGE_SIZE);
   return (
     <Show when={explanation()} fallback={<Alert theme="gray" variant="outline" title="Placement not evaluated" description={props.error ?? "The Governor has not returned a placement for this run yet."} />}>
       <div class="flex flex-col gap-field-gap">
@@ -38,15 +45,21 @@ export function PlacementPanel(props: { explanation?: PlacementExplanation; erro
               <th scope="col" class="py-1">Runner</th><th scope="col" class="py-1">Eligible</th><th scope="col" class="py-1">Reasons</th>
             </tr></thead>
             <tbody>
-              <For each={[...explanation()!.runners]}>{(runner) => (
+              <For each={visibleRunners()}>{(runner) => (
                 <tr class="border-b border-outline-gray-1">
-                  <td class="py-1"><code>{runner.runnerId}</code></td>
-                  <td><Badge theme={runner.eligible ? "green" : "gray"} label={runner.eligible ? "yes" : "no"} /></td>
-                  <td class="py-1 text-caption text-ink-gray-7">{runner.reasons.join(", ") || "none"}</td>
+                  <td class="py-1"><code class="break-all">{runner.runnerId}</code></td>
+                  <td><Badge theme={runner.eligible ? "green" : "gray"} label={runner.eligible ? "Yes" : "No"} /></td>
+                  <td class="py-1 text-caption text-ink-gray-7"><span class="break-words">{runner.reasons.join(", ") || "none"}</span></td>
                 </tr>
               )}</For>
             </tbody>
           </table>
+          <Show when={runners().length > PAGE_SIZE}>
+            <Pagination.Root aria-label="Runner eligibility pages" count={runners().length} pageSize={PAGE_SIZE} page={currentPage()} onPageChange={setPage} class="mt-4 flex-wrap items-center gap-3">
+              <Pagination.Range class="me-auto" />
+              <Pagination.PrevTrigger /><Pagination.Pages /><Pagination.NextTrigger />
+            </Pagination.Root>
+          </Show>
         </Show>
       </div>
     </Show>

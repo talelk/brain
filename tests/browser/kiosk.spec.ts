@@ -13,7 +13,7 @@ test("tv kiosk renders read-only board; ticket detail opens exact record (T34)",
   await page.getByLabel(/^Email/).fill("kiosk@example.test");
   await page.getByLabel(/^Password/).fill("browser-password-1234");
   await page.getByRole("button", { name: "Create organization", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Create your first workspace" })).toBeVisible();
 
   const cookies = await page.context().cookies();
   const brain = governor.app.brain;

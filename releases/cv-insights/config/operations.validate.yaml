@@ -1,0 +1,26 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Tool",
+  "metadata": {
+    "id": "operations.validate",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "effectClass": "read",
+    "inputSchemaRef": "schemas/validation-input.json",
+    "outputSchemaRef": "schemas/validation-output.json",
+    "requiredCapabilities": [
+      "tool:bash",
+      "tool:python3"
+    ],
+    "timeoutSeconds": 10,
+    "maxOutputBytes": 1048576,
+    "allowedEnvironments": [
+      "local"
+    ],
+    "owner": "team_operations",
+    "license": "LicenseRef-Internal",
+    "entrypoint": "run.sh",
+    "testEntrypoint": "test.sh"
+  }
+}
