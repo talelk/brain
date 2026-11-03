@@ -66,10 +66,10 @@ export function ToolCallGroup(props: { group: Extract<LogRowModel, { kind: "tool
   const stderrRef = () => artifactRefOf(receipt()?.stderr);
   const resultArtifacts = () => context.state().data?.artifacts ?? [];
 
-  return <div class="flex flex-col gap-3" data-testid="tool-call-group">
-    <div class="flex flex-wrap items-center gap-2">
-      <span class="lucide-wrench size-4 text-ink-blue-8" aria-hidden="true" />
-      <span class="brain-exec-log text-base-medium text-ink-gray-9">{toolIdentity(proposed() ?? result())}</span>
+  return <div class="flex min-w-0 flex-col gap-3" data-testid="tool-call-group">
+    <div class="flex min-w-0 flex-wrap items-center gap-2">
+      <span class="lucide-wrench size-4 shrink-0 text-ink-blue-8" aria-hidden="true" />
+      <span class="brain-exec-log min-w-0 break-all text-base-medium text-ink-gray-9">{toolIdentity(proposed() ?? result())}</span>
       <Show when={receipt()?.result}><Badge size="sm" variant="outline" theme={receipt()?.result === "succeeded" ? "green" : receipt()?.result === "failed" ? "red" : "amber"} label={receipt()?.result ?? ""} /></Show>
       <Show when={toolIdentity(proposed() ?? result()) === "tool invocation"}><span class="text-caption text-ink-gray-6">identity arrives with the proposal record</span></Show>
     </div>
@@ -145,9 +145,9 @@ export function ToolCallGroup(props: { group: Extract<LogRowModel, { kind: "tool
         <ul class="brain-exec-log mt-2 list-none p-0">
           <For each={receipt()?.effects}>{(effect, index) => {
             const view = (effect ?? {}) as Record<string, unknown>;
-            return <li class="flex items-center gap-2 border-b border-outline-gray-1 py-1" data-testid={`tool-effect-${index()}`}>
-              <span class="w-48 shrink-0 truncate text-ink-gray-8" title={String(view["operation"] ?? "")}>{String(view["operation"] ?? "effect")}</span>
-              <span class="text-ink-gray-7">{String(view["outcome"] ?? "unknown")}</span>
+            return <li class="flex min-w-0 items-center gap-2 border-b border-outline-gray-1 py-1" data-testid={`tool-effect-${index()}`}>
+              <span class="min-w-0 flex-1 break-all text-ink-gray-8" title={String(view["operation"] ?? "")}>{String(view["operation"] ?? "effect")}</span>
+              <span class="shrink-0 text-ink-gray-7">{String(view["outcome"] ?? "unknown")}</span>
             </li>;
           }}</For>
         </ul>

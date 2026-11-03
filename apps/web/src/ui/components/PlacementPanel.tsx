@@ -39,21 +39,23 @@ export function PlacementPanel(props: { explanation?: PlacementExplanation; erro
           { label: "Eligible runners", value: String(explanation()!.runners.filter((r) => r.eligible).length) },
         ]} />
         <Show when={explanation()!.runners.length} fallback={<Alert theme="amber" variant="outline" title="No runners registered" description="Enroll a runner that matches this job's capability and resource demand." />}>
-          <table class="w-full text-left text-base">
-            <caption class="sr-only">Runner eligibility for this placement</caption>
-            <thead><tr class="border-b border-outline-gray-2 text-caption text-ink-gray-7">
-              <th scope="col" class="py-1">Runner</th><th scope="col" class="py-1">Eligible</th><th scope="col" class="py-1">Reasons</th>
-            </tr></thead>
-            <tbody>
-              <For each={visibleRunners()}>{(runner) => (
-                <tr class="border-b border-outline-gray-1">
-                  <td class="py-1"><code class="break-all">{runner.runnerId}</code></td>
-                  <td><Badge theme={runner.eligible ? "green" : "gray"} label={runner.eligible ? "Yes" : "No"} /></td>
-                  <td class="py-1 text-caption text-ink-gray-7"><span class="break-words">{runner.reasons.join(", ") || "none"}</span></td>
-                </tr>
-              )}</For>
-            </tbody>
-          </table>
+          <div class="max-w-full overflow-x-auto rounded-control border border-outline-gray-1">
+            <table class="w-full min-w-[28rem] border-collapse text-left text-interface">
+              <caption class="sr-only">Runner eligibility for this placement</caption>
+              <thead><tr class="border-b border-outline-gray-2 bg-surface-gray-1 text-caption text-ink-gray-7">
+                <th scope="col" class="px-2 py-1.5 font-medium">Runner</th><th scope="col" class="px-2 py-1.5 font-medium">Eligible</th><th scope="col" class="px-2 py-1.5 font-medium">Reasons</th>
+              </tr></thead>
+              <tbody>
+                <For each={visibleRunners()}>{(runner) => (
+                  <tr class="border-b border-outline-gray-1 last:border-0">
+                    <td class="px-2 py-1.5"><code class="break-all">{runner.runnerId}</code></td>
+                    <td class="px-2 py-1.5"><Badge size="sm" theme={runner.eligible ? "green" : "gray"} label={runner.eligible ? "Yes" : "No"} /></td>
+                    <td class="px-2 py-1.5 text-caption text-ink-gray-7"><span class="break-words">{runner.reasons.join(", ") || "none"}</span></td>
+                  </tr>
+                )}</For>
+              </tbody>
+            </table>
+          </div>
           <Show when={runners().length > PAGE_SIZE}>
             <Pagination.Root aria-label="Runner eligibility pages" count={runners().length} pageSize={PAGE_SIZE} page={currentPage()} onPageChange={setPage} class="mt-4 flex-wrap items-center gap-3">
               <Pagination.Range class="me-auto" />

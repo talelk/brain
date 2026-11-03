@@ -10,8 +10,7 @@ import type { ScreenState } from "../data/screens";
 import { BrainPage, PageStack } from "../ui/components/PageLayout";
 import { StatusBadge } from "../ui/components/StatusBadge";
 import { queueReasonLabel } from "../ui/format";
-import { RefreshButton } from "../ui/components/primitives";
-import { EmptyPreview, FactStrip, QueueRow } from "../ui/components/Domain";
+import { EmptyPreview, QueueRow } from "../ui/components/Domain";
 import { execLiveUrl } from "../ui/exec/exec-filters";
 import { CorrelationLink } from "../ui/exec/CorrelationLink";
 
@@ -94,13 +93,13 @@ export function RunsScreen(props: {
       : viewOf() === "intervention" ? props.jobs.filter((job) => INTERVENTION.includes(job.state)) : props.jobs;
   const rows = paged(visibleJobs, page);
   return <BrainPage title="Runs" description="Every historical and active run, with its console, logs and outputs one click away."
-    actions={<><RefreshButton onClick={props.onRefresh} label="Refresh" /><Show when={props.canDispatch}><Button size="lg" variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Start work</Button></Show></>}>
+    actions={<><Button size="md" variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button><Show when={props.canDispatch}><Button size="md" variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Start work</Button></Show></>}>
     <PageStack>
-      <FactStrip label="Runs summary" items={[
-        { label: "Active on this page", value: String(props.jobs.filter((job) => ACTIVE.includes(job.state)).length), hint: "Queued, offered, running or verifying", icon: "lucide-activity" },
-        { label: "Needs intervention", value: String(props.jobs.filter((job) => INTERVENTION.includes(job.state)).length), hint: "Blocked, failed or outcome unknown on this page", icon: "lucide-circle-pause" },
-        { label: "Runs in this authorized view", value: String(props.totalRuns), hint: props.liveSummary ? `${props.liveSummary.activeSessions} live sessions in the console` : "One bounded server page at a time", icon: "lucide-list" },
-      ]} />
+      <dl class="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-outline-gray-1 py-2 text-caption" aria-label="Runs summary">
+        <div class="flex items-center gap-2" title="Queued, offered, running or verifying on this page"><dt class="text-ink-gray-6">Active</dt><dd class="font-medium tabular-nums text-ink-gray-9">{props.jobs.filter((job) => ACTIVE.includes(job.state)).length}</dd></div>
+        <div class="flex items-center gap-2" title="Blocked, failed or outcome unknown on this page"><dt class="text-ink-gray-6">Needs intervention</dt><dd class="font-medium tabular-nums text-ink-gray-9">{props.jobs.filter((job) => INTERVENTION.includes(job.state)).length}</dd></div>
+        <div class="flex items-center gap-2" title={props.liveSummary ? `${props.liveSummary.activeSessions} live sessions in the console` : "One bounded server page at a time"}><dt class="text-ink-gray-6">Authorized runs</dt><dd class="font-medium tabular-nums text-ink-gray-9">{props.totalRuns}</dd></div>
+      </dl>
       <FilterBar resultCount={visibleJobs().length}
         query={{ value: props.filter, placeholder: "Search task, workflow, or run…", onInput: (value) => props.onFiltersChange(value, props.runState, props.view) }}
         selects={[{ label: "Exact state", value: props.runState || undefined, options: [
@@ -113,11 +112,11 @@ export function RunsScreen(props: {
           ...(props.filter ? [{ label: `Search: ${props.filter}`, onRemove: () => props.onFiltersChange("", props.runState, props.view) }] : []),
         ]}
         onClearAll={props.filter || props.runState ? () => props.onFiltersChange("", "", props.view) : undefined} />
-      <fieldset class="m-0 flex flex-wrap items-center gap-1 border-0 p-0">
+      <fieldset class="m-0 inline-flex max-w-full flex-wrap self-start overflow-hidden rounded-control border border-outline-gray-2 p-0">
         <legend class="sr-only">Run views</legend>
-        <For each={views}>{(view) => (
+        <For each={views}>{(view, index) => (
           <button type="button" aria-pressed={viewOf() === view.value}
-            class={`rounded-control border px-2.5 py-1 text-caption focus-visible:focus-ring ${viewOf() === view.value ? "border-outline-blue-3 bg-surface-blue-1 text-ink-blue-8" : "border-outline-gray-2 text-ink-gray-7 hover:bg-surface-gray-1"}`}
+            class={`px-2.5 py-1 text-caption focus-visible:focus-ring ${index() > 0 ? "border-s border-outline-gray-2" : ""} ${viewOf() === view.value ? "bg-surface-blue-1 text-ink-blue-8" : "text-ink-gray-7 hover:bg-surface-gray-1"}`}
             onClick={() => props.onFiltersChange(props.filter, props.runState, view.value)}>{view.label}</button>
         )}</For>
       </fieldset>
@@ -130,28 +129,28 @@ export function RunsScreen(props: {
             action={props.liveSummary && props.liveSummary.activeSessions > 0
               ? <Button size="md" variant="outline" onClick={() => void navigate(execLiveUrl(props.workspaceId))}>Open the Live console</Button>
               : <Button size="md" variant="outline" onClick={() => props.onFiltersChange(props.filter, props.runState, "history")}>View history</Button>} />}>
-          <div class="brain-queue"><For each={rows.visible()}>{(job) => <div class="grid grid-cols-[minmax(0,1fr)_auto] items-stretch gap-2">
+          <div class="brain-queue [&_.brain-queue-row]:py-2.5"><For each={rows.visible()}>{(job) => <div class="grid grid-cols-1 items-stretch gap-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-2">
             <QueueRow icon="lucide-activity" tone={runTone(job)}
               title={job.workflowTitle ?? "Workflow run"} description={`${job.jobId} · ${job.workspaceId}`}
               meta={<>
                 <span>{job.attempts.length} {job.attempts.length === 1 ? "attempt" : "attempts"}</span>
                 <span>Created <DateText value={job.createdAt} /></span>
-                <span>{job.queueReasons.length ? queueReasonLabel(job.queueReasons) : nextRunAction(job)}</span>
-                <Show when={job.attempts.at(-1)?.runnerId}><span>Runner {job.attempts.at(-1)?.runnerId}</span></Show>
+                <span class="min-w-0 break-words">{job.queueReasons.length ? queueReasonLabel(job.queueReasons) : nextRunAction(job)}</span>
+                <Show when={job.attempts.at(-1)?.runnerId}><span class="min-w-0 break-all">Runner {job.attempts.at(-1)?.runnerId}</span></Show>
               </>}
               trailing={<StatusBadge kind="job" status={job.workflowState ?? job.state} />}
               label={`Open run inspector: ${job.workflowTitle ?? job.jobId}`}
               onClick={() => props.onOpenJob(job.jobId)} />
-            <div class="flex flex-col justify-center gap-1 pe-1">
+            <div class="flex flex-row items-center justify-end gap-1 px-2 pb-2 sm:flex-col sm:justify-center sm:px-0 sm:pb-0 sm:pe-1">
               <Show when={job.sessionId} keyed>{(sessionId) => <CorrelationLink target={{ kind: "session", sessionId }} label="Console" icon="lucide-square-terminal" />}</Show>
               <CorrelationLink target={{ kind: "logs", workspaceId: props.workspaceId, filters: { job: job.jobId, severity: [], emitter: [] } }} label="Logs" icon="lucide-scroll-text" />
             </div>
           </div>}</For></div>
-          <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <Button size="md" variant="outline" iconLeft="lucide-chevron-left" disabled={!props.hasPrevious || props.state.status === "loading"} onClick={props.onPrevious}>Previous</Button>
+          <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <Button size="sm" variant="outline" iconLeft="lucide-chevron-left" disabled={!props.hasPrevious || props.state.status === "loading"} onClick={props.onPrevious}>Previous</Button>
             <Show when={rows.pageCount() > 1}><Pager label="Run pages" count={visibleJobs().length} page={rows.current()} onPageChange={setPage} /></Show>
             <span class="text-caption text-ink-gray-6">Server page · {rows.visible().length} shown</span>
-            <Button size="md" variant="outline" iconRight="lucide-chevron-right" disabled={!props.nextCursor || props.state.status === "loading"} onClick={props.onNext}>Next</Button>
+            <Button size="sm" variant="outline" iconRight="lucide-chevron-right" disabled={!props.nextCursor || props.state.status === "loading"} onClick={props.onNext}>Next</Button>
           </div>
         </Show>
       </ScreenRegion>

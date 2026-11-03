@@ -63,10 +63,10 @@ function DiffBody(props: { diff?: ArtifactDiffResult; error: string; onClose?: (
       <Show when={props.diff} fallback={<p class="text-base text-ink-gray-7">No comparison result.</p>}>
         {(diff) => (
           <div class="brain-detail-stack">
-            <div class="flex flex-wrap items-center justify-between gap-control-gap text-caption text-ink-gray-6">
-              <span class="flex flex-wrap items-center gap-2">
+            <div class="flex min-w-0 flex-wrap items-center justify-between gap-control-gap text-caption text-ink-gray-6">
+              <span class="flex min-w-0 flex-wrap items-center gap-1.5">
                 <VersionChip side={diff().left} label="Left" />
-                <span class="lucide-arrow-right size-4" aria-hidden="true" />
+                <span class="lucide-arrow-right size-3.5 shrink-0" aria-hidden="true" />
                 <VersionChip side={diff().right} label="Right" />
               </span>
               <Show when={props.onClose}>
@@ -93,7 +93,7 @@ function DiffBody(props: { diff?: ArtifactDiffResult; error: string; onClose?: (
 function VersionChip(props: { side: { artifactId: string; digest: string; bytes: number; mediaType: string }; label: string }): JSX.Element {
   return (
     <span
-      class="inline-flex min-w-0 items-center gap-1 rounded-control border border-outline-gray-2 px-2 py-0.5"
+      class="inline-flex min-w-0 max-w-full items-center gap-1 rounded-control border border-outline-gray-2 px-1.5 py-0.5"
       title={`${props.side.artifactId} · ${props.side.digest}`}
     >
       <span class="shrink-0 font-medium text-ink-gray-7">{props.label}</span>

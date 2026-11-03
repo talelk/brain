@@ -454,8 +454,8 @@ export function ConsoleFeed(props: {
           <div class="brain-exec-scroll p-3">
             <Show when={selected()} keyed>{(entry) => <div class="flex flex-col gap-3">
               <div class="flex items-center justify-between gap-2">
-                <h3 class="text-base-medium text-ink-gray-9">{entry.title}</h3>
-                <Button size="sm" variant="ghost" onClick={() => setSelectedKey(undefined)}>Close</Button>
+                <h3 class="min-w-0 break-all text-base-medium text-ink-gray-9">{entry.title}</h3>
+                <Button class="shrink-0" size="sm" variant="ghost" onClick={() => setSelectedKey(undefined)}>Close</Button>
               </div>
               <div class="flex flex-wrap items-center gap-2 text-caption text-ink-gray-6">
                 <RelativeTime value={entry.at} /> <span>{entry.type}</span>

@@ -100,17 +100,17 @@ export function ArtifactView(props: { artifact?: ArtifactRef; title?: string; co
   return (
     <Show when={props.artifact} fallback={<p class="text-base text-ink-gray-7">No artifact is attached.</p>}>
       {(artifact) => (
-        <div class="brain-detail-stack">
-          <div class="flex flex-wrap items-center justify-between gap-control-gap">
+        <div class="flex min-w-0 flex-col gap-3">
+          <div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
             <div class="min-w-0">
-              <h3 class="text-base-medium break-words text-ink-gray-9">{heading()}</h3>
-              <p class="text-caption text-ink-gray-6">
-                {previewKindLabel(previewKindOf(artifact().mediaType))} · {artifact().mediaType} · {artifact().bytes.toLocaleString()} bytes ·{" "}
-                {artifact().classification} · <span title={artifact().digest}>{shortDigest(artifact().digest)}</span>
+              <h3 class="break-words text-base-medium text-ink-gray-9">{heading()}</h3>
+              <p class="break-words text-caption text-ink-gray-6">
+                {previewKindLabel(previewKindOf(artifact().mediaType))} · {artifact().mediaType} · {artifact().bytes.toLocaleString()} B ·{" "}
+                {artifact().classification} · <span class="brain-exec-log" title={artifact().digest}>{shortDigest(artifact().digest)}</span>
               </p>
             </div>
-            <a href={`/v1/artifacts/${encodeURIComponent(artifact().artifactId)}/content`} download={artifact().artifactId} class="inline-flex">
-              <Button size="lg" variant="outline" iconLeft="lucide-download">
+            <a href={`/v1/artifacts/${encodeURIComponent(artifact().artifactId)}/content`} download={artifact().artifactId} class="inline-flex shrink-0">
+              <Button size="sm" variant="outline" iconLeft="lucide-download">
                 Download
               </Button>
             </a>
@@ -185,7 +185,7 @@ function TextFamilyPreview(props: { preview: LoadedPreview; maxHeight: string })
   return (
     <Show when={props.preview.text !== undefined && props.preview.text.length > 0} fallback={NO_PREVIEW_FALLBACK}>
       <pre
-        class={`brain-readable overflow-auto whitespace-pre-wrap break-words rounded-card bg-surface-gray-1 p-4 text-caption text-ink-gray-8 ${props.maxHeight}`}
+        class={`brain-readable min-w-0 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-card bg-surface-gray-1 p-3 text-caption text-ink-gray-8 ${props.maxHeight}`}
       >
         {props.preview.text}
       </pre>
@@ -376,8 +376,8 @@ function TablePreview(props: { preview: LoadedPreview; maxHeight: string }): JSX
   const parsed = () => parseCsvRows(props.preview.text ?? "");
   return (
     <Show when={props.preview.text !== undefined && parsed().header.length > 0} fallback={NO_PREVIEW_FALLBACK}>
-      <figure class="m-0">
-        <div class={`overflow-auto rounded-card border border-outline-gray-1 ${props.maxHeight}`}>
+      <figure class="m-0 min-w-0 max-w-full">
+        <div class={`max-w-full overflow-auto rounded-card border border-outline-gray-1 ${props.maxHeight}`}>
           <table class="w-full border-collapse text-caption">
             <thead class="sticky top-0 bg-surface-gray-1">
               <tr>

@@ -6,7 +6,7 @@ import type { BadgeTheme } from "@talelk/newui-atoms";
 import type { ExecutionLink } from "@brain/contracts";
 import { DateText, RelativeTime } from "../screen-region";
 import { shortDigest } from "../format";
-import { EmptyPreview, FactStrip } from "../components/Domain";
+import { EmptyPreview } from "../components/Domain";
 import type { ArtifactHistory, ArtifactVersion } from "../../data/exec-outputs";
 
 /**
@@ -69,38 +69,21 @@ export function ArtifactMetaStrip(props: {
       fallback={
         <Show when={!props.error} fallback={<Alert theme="amber" variant="outline" title="Metadata unavailable" description={props.error} />}>
           <Show when={props.history} fallback={<p class="text-base text-ink-gray-7">No artifact is identified yet.</p>}>
-            <FactStrip
-              label="Artifact metadata"
-              items={[
-                { label: "Source workspace", value: props.history!.workspaceId, icon: "lucide-folder" },
-                {
-                  label: "Version (digest)",
-                  value: <span title={props.history!.digest}>{shortDigest(props.history!.digest)}</span>,
-                  hint: "Immutable content address",
-                  icon: "lucide-fingerprint",
-                },
-                { label: "Producer", value: <ProducerLinks history={props.history!} />, icon: "lucide-workflow" },
-                { label: "Generated", value: <DateText value={props.history!.createdAt} />, icon: "lucide-clock" },
-                { label: "Size", value: `${props.history!.bytes.toLocaleString()} bytes`, icon: "lucide-database" },
-                {
-                  label: "Verification",
-                  value: <Badge theme={verification().theme} label={verification().label} />,
-                  hint: verification().detail,
-                  icon: "lucide-badge-check",
-                },
-                {
-                  label: "Work item",
-                  value: (
-                    <Show when={link()} fallback={<span class="text-ink-gray-6">Not linked to a work item yet</span>}>
-                      <a class="text-ink-blue-7 underline focus-visible:focus-ring" href={workItemBoardUrl(props.history!.workspaceId, link()!.workItemId)}>
-                        Work item {shortDigest(link()!.workItemId, 10)}
-                      </a>
-                    </Show>
-                  ),
-                  icon: "lucide-list-todo",
-                },
-              ]}
-            />
+            <dl class="grid grid-cols-2 border-y border-outline-gray-1 text-caption sm:grid-cols-3 xl:grid-cols-7" aria-label="Artifact metadata">
+              <MetaFact label="Workspace" value={props.history!.workspaceId} />
+              <MetaFact label="Digest" value={<span class="brain-exec-log" title={props.history!.digest}>{shortDigest(props.history!.digest)}</span>} title="Immutable content address" />
+              <MetaFact label="Producer" value={<ProducerLinks history={props.history!} />} />
+              <MetaFact label="Generated" value={<DateText value={props.history!.createdAt} />} />
+              <MetaFact label="Size" value={`${props.history!.bytes.toLocaleString()} B`} />
+              <MetaFact label="Verification" value={<Badge size="sm" theme={verification().theme} label={verification().label} />} title={verification().detail} />
+              <MetaFact label="Work item" value={
+                <Show when={link()} fallback={<span class="text-ink-gray-6">Not linked</span>}>
+                  <a class="break-all text-ink-blue-7 hover:underline focus-visible:focus-ring" href={workItemBoardUrl(props.history!.workspaceId, link()!.workItemId)}>
+                    {shortDigest(link()!.workItemId, 10)}
+                  </a>
+                </Show>
+              } />
+            </dl>
           </Show>
         </Show>
       }
@@ -110,6 +93,10 @@ export function ArtifactMetaStrip(props: {
       </p>
     </Show>
   );
+}
+
+function MetaFact(props: { label: string; value: JSX.Element; title?: string }): JSX.Element {
+  return <div class="min-w-0 border-outline-gray-1 px-2 py-2 first:pl-0 sm:border-l sm:first:border-l-0" title={props.title}><dt class="text-ink-gray-6">{props.label}</dt><dd class="mt-1 min-w-0 break-words font-medium text-ink-gray-9">{props.value}</dd></div>;
 }
 
 function ProducerLinks(props: { history: ArtifactHistory }): JSX.Element {
@@ -187,9 +174,9 @@ export function OutputHistory(props: { history: ArtifactHistory | undefined; loa
 function VersionRow(props: { version: ArtifactVersion }): JSX.Element {
   const outcome = () => props.version.verification?.outcome;
   return (
-    <li class="flex flex-wrap items-center justify-between gap-control-gap border-b border-outline-gray-1 py-2 last:border-0">
-      <span class="flex min-w-0 flex-wrap items-center gap-control-gap text-base text-ink-gray-8">
-        <Badge theme={versionTheme(props.version.state)} label={props.version.state} />
+    <li class="flex flex-wrap items-center justify-between gap-2 border-b border-outline-gray-1 py-1.5 last:border-0">
+      <span class="flex min-w-0 flex-wrap items-center gap-2 text-interface text-ink-gray-8">
+        <Badge size="sm" theme={versionTheme(props.version.state)} label={props.version.state} />
         <span class="text-caption text-ink-gray-6" title={props.version.bundleDigest}>
           bundle {shortDigest(props.version.bundleDigest)}
         </span>

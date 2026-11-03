@@ -82,7 +82,7 @@ export default function ArtifactDetailPage(): JSX.Element {
             {(current) => (
               <Show when={current.workspaceId}>
                 <Button
-                  size="md"
+                  size="sm"
                   variant="ghost"
                   iconLeft="lucide-arrow-left"
                   onClick={() => void navigate(execOutputsUrl(current.workspaceId, { jobId: current.producer?.jobId }))}
@@ -93,7 +93,7 @@ export default function ArtifactDetailPage(): JSX.Element {
             )}
           </Show>
           <Show when={diffMode()}>
-            <Button size="md" variant="outline" iconLeft="lucide-x" onClick={() => setSearchParams({ left: undefined, right: undefined })}>
+            <Button size="sm" variant="outline" iconLeft="lucide-x" onClick={() => setSearchParams({ left: undefined, right: undefined })}>
               Exit comparison
             </Button>
           </Show>
@@ -137,7 +137,7 @@ export default function ArtifactDetailPage(): JSX.Element {
           <div class="brain-detail-stack">
             <WorkspaceSection
               title="Version comparison"
-              description={`Unified diff of ${leftId()} → ${rightId()}; text, JSON, code and CSV compare within the byte bound.`}
+              description="Unified diff of the selected versions; text, JSON, code and CSV compare within the byte bound."
             >
               <OutputDiff leftId={leftId()} rightId={rightId()} />
             </WorkspaceSection>

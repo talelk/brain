@@ -99,9 +99,9 @@ export function AttemptCompare(props: { jobId: string; onOpenAttempt: (attemptId
     }
   };
 
-  return <div class="flex flex-col gap-3 rounded-card border border-outline-gray-1 p-card-pad" data-testid="attempt-compare">
-    <div>
-      <h2 class="text-section text-ink-gray-9">Compare attempts of job {props.jobId}</h2>
+  return <div class="flex min-w-0 flex-col gap-3 rounded-card border border-outline-gray-1 p-card-pad" data-testid="attempt-compare">
+    <div class="min-w-0">
+      <h2 class="break-all text-section text-ink-gray-9">Compare attempts of job {props.jobId}</h2>
       <p class="mt-1 text-interface text-ink-gray-6">Pick up to {MAX_ATTEMPTS} attempts; each column shows its bounded retained window with the first failed operation marked.</p>
     </div>
     <ScreenRegion state={attempts.state()} skeleton="rows"
@@ -113,11 +113,11 @@ export function AttemptCompare(props: { jobId: string; onOpenAttempt: (attemptId
             disabled={!selected().includes(attempt.attemptId) && selected().length >= MAX_ATTEMPTS}
             onCheckedChange={() => toggle(attempt.attemptId)} />
         )}</For>
-        <Button size="md" variant="solid" theme="blue" loading={busy()} disabled={selected().length === 0} onClick={() => void run()}>
+        <Button size="sm" variant="solid" theme="blue" loading={busy()} disabled={selected().length === 0} onClick={() => void run()}>
           Compare ({selected().length})
         </Button>
         <Show when={selected().length > 0}>
-          <Button size="md" variant="ghost" theme="gray" onClick={() => props.onOpenAttempt(selected()[0]!)}>Open first selection in Logs</Button>
+          <Button size="sm" variant="ghost" theme="gray" onClick={() => props.onOpenAttempt(selected()[0]!)}>Open first selection in Logs</Button>
         </Show>
       </div>
       <Show when={error()}><p role="alert" class="text-base text-ink-red-8">{error()}</p></Show>

@@ -1,6 +1,6 @@
 import type { JSX } from "solid-js";
 import { For, Show, createSignal, createEffect } from "solid-js";
-import { Badge, KeyValue, Progress } from "@talelk/newui-atoms";
+import { Badge, Progress } from "@talelk/newui-atoms";
 import { Alert } from "@talelk/newui-molecules";
 import type { EvidenceBundle, VerificationVerdict } from "@brain/contracts";
 import { evidenceQuery } from "../../data/governor";
@@ -55,19 +55,21 @@ export function EvidenceList(props: { bundleDigest?: string; workspaceId?: strin
   return (
     <Show when={status() !== "loading"} fallback={<Progress indeterminate label="Loading evidence" />}>
       <Show when={bundle()} fallback={<Alert theme="amber" variant="outline" title="No accepted evidence" description={error()} />}>
-        <div class="flex flex-col gap-field-gap">
-          <div class="flex flex-wrap items-center gap-control-gap">
-            <Badge
+        <div class="flex min-w-0 flex-col gap-3">
+          <div class="flex min-w-0 flex-wrap items-center gap-2">
+            <Badge size="sm"
               theme={current() ? statusTheme("evidence", current()!.outcome) : "gray"}
               label={current() ? `Verdict: ${current()!.outcome}` : "Pending verification"}
             />
-            <span class="text-caption text-ink-gray-7">
+            <span class="min-w-0 break-all text-caption text-ink-gray-7">
               {bundle()!.jobId ? `job ${bundle()!.jobId}` : "record"} · {bundle()!.artifacts.length} artifacts
             </span>
           </div>
-          <KeyValue label="Configuration digest" value={<DigestValue value={bundle()!.configDigest} label="Configuration digest" />} orientation="vertical" />
-          <KeyValue label="Source revision" value={<DigestValue value={bundle()!.sourceRevision} label="Source revision" />} orientation="vertical" />
-          <KeyValue label="Pinned primitives" value={`${Object.keys(bundle()!.primitiveVersions).length} pinned`} />
+          <dl class="grid grid-cols-1 gap-2 border-y border-outline-gray-1 py-2 text-caption sm:grid-cols-3">
+            <div class="min-w-0"><dt class="text-ink-gray-6">Configuration</dt><dd class="mt-1"><DigestValue value={bundle()!.configDigest} label="Configuration digest" /></dd></div>
+            <div class="min-w-0"><dt class="text-ink-gray-6">Source revision</dt><dd class="mt-1"><DigestValue value={bundle()!.sourceRevision} label="Source revision" /></dd></div>
+            <div class="min-w-0"><dt class="text-ink-gray-6">Pinned primitives</dt><dd class="mt-1 font-medium text-ink-gray-9">{Object.keys(bundle()!.primitiveVersions).length}</dd></div>
+          </dl>
           <Show when={current()}>
             <Alert
               theme={statusHeaderTheme("evidence", current()!.outcome)}
@@ -78,14 +80,14 @@ export function EvidenceList(props: { bundleDigest?: string; workspaceId?: strin
             <For each={current()!.checks}>
               {(check) => (
                 <div class="flex items-center justify-between gap-2 border-b border-outline-gray-1 py-1">
-                  <span class="truncate text-base text-ink-gray-9">{check.criterionId ?? check.checkId}</span>
+                  <span class="min-w-0 truncate text-interface text-ink-gray-9" title={check.criterionId ?? check.checkId}>{check.criterionId ?? check.checkId}</span>
                   <StatusBadge kind="check" status={check.status} />
                 </div>
               )}
             </For>
           </Show>
           <Show when={bundle()!.artifacts.length}>
-            <div class="flex flex-col gap-field-gap">
+            <div class="flex min-w-0 flex-col gap-3">
               <For each={bundle()!.artifacts}>{(artifact) => <ArtifactView artifact={artifact} compact />}</For>
             </div>
           </Show>

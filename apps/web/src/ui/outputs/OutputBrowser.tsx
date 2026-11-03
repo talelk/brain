@@ -7,7 +7,7 @@ import type { ExecutionLink } from "@brain/contracts";
 import { ScreenRegion } from "../screen-region";
 import type { ScreenState } from "../../data/screens";
 import { shortDigest } from "../format";
-import { LIST_PAGE_SIZE, IconTile, Pager, RefreshButton } from "../components/primitives";
+import { LIST_PAGE_SIZE, Pager } from "../components/primitives";
 import { EmptyPreview, WorkspaceSection } from "../components/Domain";
 import { PageStack } from "../components/PageLayout";
 import type { ArtifactHistory, ArtifactRef } from "../../data/exec-outputs";
@@ -146,7 +146,7 @@ export function OutputBrowser(props: {
                 <ArtifactView artifact={artifact()} />
                 <OutputHistory history={props.detail.history} loading={props.detail.loading} error={props.detail.error} />
                 <div>
-                  <Button size="md" variant="outline" iconRight="lucide-external-link" onClick={() => props.onOpenDetail(artifact().artifactId)}>
+                  <Button size="sm" variant="outline" iconRight="lucide-external-link" onClick={() => props.onOpenDetail(artifact().artifactId)}>
                     Open workspace-free detail
                   </Button>
                 </div>
@@ -192,7 +192,7 @@ export function OutputBrowser(props: {
           </fieldset>
         </Show>
         <span class="ms-auto">
-          <RefreshButton onClick={props.onRefresh} />
+          <Button size="sm" variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button>
         </span>
       </div>
       <Show
@@ -204,10 +204,10 @@ export function OutputBrowser(props: {
           const right = props.compareIds[1] ?? "";
           return (
             <div
-              class="flex flex-wrap items-center gap-control-gap rounded-card border border-outline-blue-3 bg-surface-blue-1 p-card-pad"
+              class="flex min-w-0 flex-wrap items-center gap-2 rounded-card border border-outline-blue-3 bg-surface-blue-1 p-2"
               data-testid="outputs-compare-bar"
             >
-              <span class="text-base text-ink-gray-8">
+              <span class="min-w-0 break-all text-caption text-ink-gray-8">
                 <For each={props.compareIds}>
                   {(id, index) => (
                     <>
@@ -221,12 +221,12 @@ export function OutputBrowser(props: {
                 {props.compareIds.length === 2 ? "" : " — pick one more version"}
               </span>
               <Show when={props.compareIds.length === 2}>
-                <Button size="md" variant="solid" theme="blue" iconLeft="lucide-columns-2" onClick={() => props.onCompare(left, right)}>
+                <Button size="sm" variant="solid" theme="blue" iconLeft="lucide-columns-2" onClick={() => props.onCompare(left, right)}>
                   Open diff
                 </Button>
               </Show>
               <Button
-                size="md"
+                size="sm"
                 variant="ghost"
                 onClick={() => {
                   for (const id of [...props.compareIds]) props.onToggleCompare(id);
@@ -260,21 +260,21 @@ function ArtifactRow(props: {
 }): JSX.Element {
   const kind = () => previewKindOf(props.artifact.mediaType);
   return (
-    <div class={`flex items-stretch gap-2 rounded-control border ${props.selected ? "border-outline-blue-3 bg-surface-blue-1" : "border-outline-gray-2"} p-2`}>
+    <div class={`flex items-stretch gap-1.5 rounded-control border ${props.selected ? "border-outline-blue-3 bg-surface-blue-1" : "border-outline-gray-2"} p-1.5`}>
       <button
         type="button"
-        class="flex min-w-0 flex-1 items-start gap-3 text-start focus-visible:focus-ring"
+        class="flex min-w-0 flex-1 items-center gap-2.5 text-start focus-visible:focus-ring"
         onClick={props.onSelect}
         aria-pressed={props.selected}
       >
-        <IconTile icon={KIND_ICONS[kind()]} />
-        <span class="min-w-0">
-          <span class="block break-all text-base-medium text-ink-gray-9">{props.artifact.artifactId}</span>
-          <span class="mt-0.5 block break-words text-caption text-ink-gray-6">
-            {props.artifact.mediaType} · {props.artifact.bytes.toLocaleString()} bytes · {props.artifact.classification}
+        <span class="grid size-8 shrink-0 place-items-center rounded-control bg-surface-blue-2 text-ink-blue-8"><span class={`${KIND_ICONS[kind()]} size-4`} aria-hidden="true" /></span>
+        <span class="min-w-0 flex-1">
+          <span class="block truncate text-interface font-medium text-ink-gray-9" title={props.artifact.artifactId}>{props.artifact.artifactId}</span>
+          <span class="mt-0.5 block truncate text-caption text-ink-gray-6" title={`${props.artifact.mediaType} · ${props.artifact.bytes.toLocaleString()} bytes · ${props.artifact.classification}`}>
+            {props.artifact.mediaType} · {props.artifact.bytes.toLocaleString()} B · {props.artifact.classification}
           </span>
-          <span class="mt-0.5 block text-caption text-ink-gray-6" title={props.artifact.digest}>
-            version {shortDigest(props.artifact.digest)}
+          <span class="mt-0.5 block truncate text-caption text-ink-gray-6" title={props.artifact.digest}>
+            {shortDigest(props.artifact.digest)}
           </span>
         </span>
       </button>
@@ -282,10 +282,10 @@ function ArtifactRow(props: {
         type="button"
         aria-pressed={props.comparePicked}
         title={props.comparePicked ? "Remove from comparison" : "Pick for comparison"}
-        class={`mt-1 inline-flex size-9 shrink-0 items-center justify-center rounded-control border focus-visible:focus-ring ${props.comparePicked ? "border-outline-blue-4 bg-surface-blue-2 text-ink-blue-8" : "border-outline-gray-2 text-ink-gray-6 hover:bg-surface-gray-1"}`}
+        class={`inline-flex size-8 shrink-0 items-center justify-center self-center rounded-control border focus-visible:focus-ring ${props.comparePicked ? "border-outline-blue-4 bg-surface-blue-2 text-ink-blue-8" : "border-outline-gray-2 text-ink-gray-6 hover:bg-surface-gray-1"}`}
         onClick={props.onToggleCompare}
       >
-        <span class="lucide-columns-2 size-4" aria-hidden="true" />
+        <span class="lucide-columns-2 size-3.5" aria-hidden="true" />
         <span class="sr-only">{props.comparePicked ? "Remove from comparison" : "Pick for comparison"}</span>
       </button>
     </div>
@@ -299,7 +299,7 @@ function OpenDetailHint(props: { artifactId: string; onOpenDetail: (artifactId: 
       title="Artifact outside this page"
       description="The linked artifact is not in the current list. Open it in the workspace-free artifact detail view."
       action={
-        <Button size="md" variant="outline" onClick={() => props.onOpenDetail(props.artifactId)}>
+        <Button size="sm" variant="outline" onClick={() => props.onOpenDetail(props.artifactId)}>
           Open artifact detail
         </Button>
       }

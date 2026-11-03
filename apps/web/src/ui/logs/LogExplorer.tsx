@@ -11,7 +11,6 @@ import { readExecFilters, writeExecFilters } from "../exec/exec-filters";
 import type { ExecLogFilters } from "../exec/exec-filters";
 import { CorrelationChips, CorrelationLink } from "../exec/CorrelationLink";
 import { VirtualLogList } from "../exec/VirtualLogList";
-import { FactStrip } from "../components/Domain";
 import { DisclosureCard } from "../components/primitives";
 import { severityLabel } from "../screen-region";
 import { useApp } from "../app-context";
@@ -233,29 +232,20 @@ function TailSurface(props: SurfaceProps): JSX.Element {
       onToggleCompare={props.onToggleCompare}
     />
 
-    <FactStrip label="Log explorer status" items={[
-      {
-        label: searchActive() ? "Search matches" : "Records shown",
-        value: searchActive() ? `${search.state().data?.totalEstimate ?? rows().length}` : `${rows().length}`,
-        hint: searchActive()
-          ? `${shownMatches()} of ~${search.state().data?.totalEstimate ?? shownMatches()} estimated matches; "Load older matches" pages deeper into the retained logs`
-          : `bounded window of the stream (head ${tail.head()})`,
-        icon: "lucide-scroll-text",
-      },
-      {
-        label: "Stream",
-        value: <Badge size="sm" variant="outline" theme={statusTheme("connection", tail.connected() ? "connected" : "reconnecting")}
-          label={tail.connected() ? "Live" : searchActive() ? "Search view" : "Connecting"} />,
-        hint: "cursor = stream_seq; reconnects from the last seen record",
-        icon: "lucide-radio",
-      },
-      ...(tail.unread() > 0 ? [{
-        label: "Unread",
-        value: `${tail.unread()}`,
-        hint: tail.droppedPending() > 0 ? `${tail.droppedPending()} older arrivals were dropped from the paused buffer` : "records that arrived while paused",
-        icon: "lucide-bell",
-      }] : []),
-    ]} />
+    <dl class="flex flex-wrap items-center gap-x-5 gap-y-1.5 border-y border-outline-gray-1 py-1.5 text-caption" aria-label="Log explorer status">
+      <div class="flex items-center gap-2" title={searchActive() ? `${shownMatches()} of ~${search.state().data?.totalEstimate ?? shownMatches()} estimated matches; older matches page deeper into retained logs` : `Bounded stream window; head ${tail.head()}`}>
+        <dt class="text-ink-gray-6">{searchActive() ? "Search matches" : "Records"}</dt>
+        <dd class="font-medium tabular-nums text-ink-gray-9">{searchActive() ? search.state().data?.totalEstimate ?? rows().length : rows().length}</dd>
+        <dd class="text-ink-gray-6">head {tail.head()}</dd>
+      </div>
+      <div class="flex items-center gap-2" title="Cursor stream_seq; reconnects from the last seen record">
+        <dt class="text-ink-gray-6">Stream</dt>
+        <dd><Badge size="sm" variant="outline" theme={statusTheme("connection", tail.connected() ? "connected" : "reconnecting")} label={tail.connected() ? "Live" : searchActive() ? "Search view" : "Connecting"} /></dd>
+      </div>
+      <Show when={tail.unread() > 0}>
+        <div class="flex items-center gap-2" title={tail.droppedPending() > 0 ? `${tail.droppedPending()} older arrivals were dropped from the paused buffer` : "Records that arrived while paused"}><dt class="text-ink-gray-6">Unread</dt><dd class="font-medium tabular-nums text-ink-gray-9">{tail.unread()}</dd></div>
+      </Show>
+    </dl>
 
     <Show when={tail.status() === "error"}>
       <Alert theme="red" variant="outline" title="The log read could not complete" description={tail.error()}
@@ -290,25 +280,25 @@ function TailSurface(props: SurfaceProps): JSX.Element {
         </div>
         <div class="mt-2 flex flex-wrap items-center gap-2">
           <Show when={!follow() || awayCount() > 0}>
-            <Button size="md" variant="solid" theme="blue" data-testid="log-jump-newest" onClick={jumpToNewest}>
+            <Button size="sm" variant="solid" theme="blue" data-testid="log-jump-newest" onClick={jumpToNewest}>
               Jump to newest{awayCount() > 0 ? ` (${awayCount()})` : ""}
             </Button>
           </Show>
-          <Button size="md" variant={tail.paused() ? "solid" : "outline"} theme={tail.paused() ? "blue" : "gray"}
+          <Button size="sm" variant={tail.paused() ? "solid" : "outline"} theme={tail.paused() ? "blue" : "gray"}
             iconLeft={tail.paused() ? "lucide-play" : "lucide-pause"}
             data-testid={tail.paused() ? "log-resume" : "log-pause"}
             onClick={togglePause}>
             {tail.paused() ? `Resume${tail.unread() > 0 ? ` (${tail.unread()} new)` : ""}` : "Pause"}
           </Button>
           <Show when={searchActive() && typeof oldestCursor() === "number"}>
-            <Button size="md" variant="outline" theme="gray" iconLeft="lucide-arrow-down-to-line"
+            <Button size="sm" variant="outline" theme="gray" iconLeft="lucide-arrow-down-to-line"
               data-testid="log-older" disabled={older().busy} loading={older().busy}
               onClick={() => void loadOlder()}>
               {`Load older matches${remainingMatches() > 0 ? ` (${remainingMatches()} more)` : ""}`}
             </Button>
           </Show>
           <Show when={jump()}>
-            <Button size="md" variant="outline" theme="red" iconLeft="lucide-circle-alert"
+            <Button size="sm" variant="outline" theme="red" iconLeft="lucide-circle-alert"
               data-testid="log-jump-failure" onClick={jumpToFailure}>
               Jump to first failure
             </Button>

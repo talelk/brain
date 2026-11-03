@@ -33,7 +33,7 @@ export function execTargetHref(target: ExecCorrelationTarget): string {
   }
 }
 
-const chip = "brain-exec-log inline-flex max-w-48 items-center gap-1 truncate rounded-control border border-outline-gray-2 px-1.5 py-0.5 text-xs text-ink-blue-8 hover:border-outline-blue-3 hover:bg-surface-blue-1 focus-visible:focus-ring";
+const chip = "brain-exec-log inline-flex min-w-0 max-w-48 items-center gap-1 truncate rounded-control border border-outline-gray-2 px-1.5 py-0.5 text-xs text-ink-blue-8 hover:border-outline-blue-3 hover:bg-surface-blue-1 focus-visible:focus-ring";
 
 /** One correlation jump rendered as a navigable chip. */
 export function CorrelationLink(props: { target: ExecCorrelationTarget; label: string; icon?: string; class?: string }): JSX.Element {

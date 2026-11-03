@@ -42,7 +42,7 @@ function ModeToggle(props: { mode: LogViewMode; onMode: (mode: LogViewMode) => v
   return <fieldset class="m-0 flex overflow-hidden rounded-control border border-outline-gray-2 p-0" aria-label="Log presentation mode">
     <For each={(["readable", "raw"] as const)}>{(mode) => (
       <button type="button" aria-pressed={props.mode === mode}
-        class={`px-2 py-1 text-base capitalize focus-visible:focus-ring ${props.mode === mode ? "bg-surface-blue-1 text-ink-blue-8" : "text-ink-gray-7 hover:bg-surface-gray-1"}`}
+        class={`px-2 py-0.5 text-caption capitalize focus-visible:focus-ring ${props.mode === mode ? "bg-surface-blue-1 text-ink-blue-8" : "text-ink-gray-7 hover:bg-surface-gray-1"}`}
         onClick={() => props.onMode(mode)}>{mode}</button>
     )}</For>
   </fieldset>;
@@ -84,16 +84,16 @@ export function LogFilters(props: {
             placeholder="Scope by session id…"
             onInput={(event) => setSessionDraft(event.currentTarget.value)}
             onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitSession(); } }} />
-          <Button size="md" variant="outline" theme="gray" disabled={!sessionDraft().trim()} onClick={commitSession}>Scope</Button>
+          <Button size="sm" variant="outline" theme="gray" disabled={!sessionDraft().trim()} onClick={commitSession}>Scope</Button>
         </span>
       </Show>
       <ModeToggle mode={props.mode} onMode={props.onMode} />
       <Show when={props.compareAvailable}>
-        <Button size="md" variant={props.compareOpen ? "solid" : "outline"} theme={props.compareOpen ? "blue" : "gray"}
+        <Button size="sm" variant={props.compareOpen ? "solid" : "outline"} theme={props.compareOpen ? "blue" : "gray"}
           iconLeft="lucide-columns-2" onClick={props.onToggleCompare}>Compare attempts</Button>
       </Show>
       <a href={props.exportUrl} download="" data-testid="log-export"
-        class="inline-flex items-center gap-1.5 rounded-control border border-outline-gray-2 px-2 py-1 text-base text-ink-gray-8 hover:border-outline-blue-3 hover:bg-surface-blue-1 focus-visible:focus-ring"
+        class="inline-flex items-center gap-1 rounded-control border border-outline-gray-2 px-2 py-0.5 text-caption text-ink-gray-8 hover:border-outline-blue-3 hover:bg-surface-blue-1 focus-visible:focus-ring"
         title="Download the bounded sanitized NDJSON segment of the current filtered view (source and time included)">
         <span class="lucide-download size-4" aria-hidden="true" />
         Export

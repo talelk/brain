@@ -8,7 +8,6 @@ import { query } from "../../data/client";
 import { artifactsHistoryQuery, artifactsListQuery } from "../../data/exec-outputs";
 import type { ArtifactHistory, ArtifactRef, ArtifactState } from "../../data/exec-outputs";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
-import { FactStrip } from "../../ui/components/Domain";
 import { OutputBrowser } from "../../ui/outputs/OutputBrowser";
 import type { OutputScope } from "../../ui/outputs/OutputBrowser";
 import { execArtifactUrl } from "../../ui/exec/exec-filters";
@@ -101,36 +100,15 @@ export default function OutputsPage(): JSX.Element {
       description="Authorized generated artifacts with native previews, final vs provisional states, verification status, diffs and history."
     >
       <PageStack>
-        <FactStrip
-          label="Output browser summary"
-          items={[
-            {
-              label: "Artifacts",
-              value: String(artifacts.state().data?.length ?? 0),
-              hint: stateFilter() === "verified" ? "Final, digest-bound outputs" : "Filtered by artifact state",
-              icon: "lucide-package",
-            },
-            { label: "Workspace", value: app.workspaceId() || "—", hint: "Authorization scope of every row", icon: "lucide-folder" },
-            {
-              label: "Scope",
-              value: (
-                <Show when={scope().jobId || scope().runId || scope().workItemId} fallback={<span>Whole workspace</span>}>
-                  <span class="flex flex-wrap gap-1">
-                    <For each={[scope().jobId, scope().runId, scope().workItemId]}>
-                      {(id) => (
-                        <Show when={id}>
-                          <code class="break-all">{id}</code>
-                        </Show>
-                      )}
-                    </For>
-                  </span>
-                </Show>
-              ),
-              hint: "From the deep-link filters",
-              icon: "lucide-filter",
-            },
-          ]}
-        />
+        <dl class="flex min-w-0 flex-wrap items-center gap-x-6 gap-y-2 border-y border-outline-gray-1 py-2 text-caption" aria-label="Output browser summary">
+          <div class="flex items-center gap-2" title={stateFilter() === "verified" ? "Final, digest-bound outputs" : "Filtered by artifact state"}><dt class="text-ink-gray-6">Artifacts</dt><dd class="font-medium tabular-nums text-ink-gray-9">{artifacts.state().data?.length ?? 0}</dd></div>
+          <div class="flex min-w-0 items-center gap-2" title="Authorization scope of every row"><dt class="text-ink-gray-6">Workspace</dt><dd class="break-all font-medium text-ink-gray-9">{app.workspaceId() || "—"}</dd></div>
+          <div class="flex min-w-0 items-start gap-2" title="From the deep-link filters"><dt class="shrink-0 text-ink-gray-6">Scope</dt><dd class="min-w-0 font-medium text-ink-gray-9">
+            <Show when={scope().jobId || scope().runId || scope().workItemId} fallback={<span>Whole workspace</span>}>
+              <span class="flex flex-wrap gap-x-2 gap-y-1"><For each={[scope().jobId, scope().runId, scope().workItemId]}>{(id) => <Show when={id}><code class="break-all text-caption">{id}</code></Show>}</For></span>
+            </Show>
+          </dd></div>
+        </dl>
         <OutputBrowser
           artifacts={artifacts.state().data ?? []}
           state={artifacts.state()}

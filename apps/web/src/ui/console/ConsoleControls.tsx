@@ -1,6 +1,6 @@
 import { For, Show, createEffect, createSignal } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
-import { Button, KeyValue, Textarea } from "@talelk/newui-atoms";
+import { Button, Textarea } from "@talelk/newui-atoms";
 import type { ArtifactRef, ApprovalRequest, JobSnapshot } from "@brain/contracts";
 import { createScopedRead } from "../../data/screens";
 import { approvalQuery } from "../../data/governor";
@@ -68,13 +68,18 @@ export function ConsoleToolbar(props: {
     } finally { setBusy(false); }
   }
 
-  return <div class="flex flex-col gap-2 border-b border-outline-gray-1 px-3 py-2">
-    <div class="flex flex-wrap items-center gap-2">
-      <StatusBadge status={session()?.state ?? "unknown"} />
-      <span class="text-caption text-ink-gray-6" title="Engine negotiation decides which controls exist">
-        {session()?.engine.id ?? "engine unavailable"}<Show when={features().length > 0}> · {features().join(", ")}</Show>
-      </span>
-      <div class="ms-auto flex flex-wrap items-center gap-1.5">
+  return <div class="flex flex-col gap-1.5 border-b border-outline-gray-1 px-2.5 py-2">
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+      <div class="min-w-0 flex-1 basis-48">
+        <div class="flex min-w-0 items-center gap-2">
+          <h2 class="min-w-0 truncate text-base-medium text-ink-gray-9" title={session()?.task || props.sessionId}>{session()?.task || props.sessionId}</h2>
+          <StatusBadge status={session()?.state ?? "unknown"} />
+        </div>
+        <p class="truncate text-caption text-ink-gray-6" title={`${props.sessionId} · engine negotiation decides which controls exist`}>
+          {props.sessionId} · {session()?.engine.id ?? "engine unavailable"}<Show when={features().length > 0}> · {features().join(", ")}</Show>
+        </p>
+      </div>
+      <div class="ms-auto flex flex-wrap items-center gap-1">
         <Show when={canSteer()}>
           <Button size="sm" variant="outline" theme="blue" iconLeft="lucide-corner-down-right"
             title="Applies at the engine's next turn boundary" onClick={() => { setDialog("steer"); setReason(""); }}>
@@ -82,19 +87,19 @@ export function ConsoleToolbar(props: {
           </Button>
         </Show>
         <Show when={canAttach()}>
-          <Button size="sm" variant="outline" iconLeft="lucide-paperclip" onClick={() => { setDialog("attach"); setReason(""); }}>Attach context</Button>
+          <Button size="sm" variant="outline" iconLeft="lucide-paperclip" aria-label="Attach context" onClick={() => { setDialog("attach"); setReason(""); }}>Attach</Button>
         </Show>
-        <Button size="sm" variant="outline" disabled={!props.selected || props.selected.kind !== "tool"}
+        <Button size="sm" variant="outline" aria-label="Open tool result" disabled={!props.selected || props.selected.kind !== "tool"}
           title={props.selected?.kind === "tool" ? "Resolve this tool call's authorized artifacts" : "Select a tool call in the feed first"}
-          onClick={() => props.onOpenToolResult()}>Open tool result</Button>
-        <Button size="sm" variant="outline" iconLeft="lucide-package" onClick={() => props.onInspectOutput()}>Inspect current output</Button>
-        <Button size="sm" variant="outline" iconLeft="lucide-shield-check" onClick={() => void props.onFindApproval()}>See related approval</Button>
+          onClick={() => props.onOpenToolResult()}>Tool result</Button>
+        <Button size="sm" variant="outline" iconLeft="lucide-package" aria-label="Inspect current output" onClick={() => props.onInspectOutput()}>Output</Button>
+        <Button size="sm" variant="outline" iconLeft="lucide-shield-check" aria-label="See related approval" onClick={() => void props.onFindApproval()}>Approval</Button>
         <Show when={canStop()}>
           <Button size="sm" variant="outline" theme="red" iconLeft="lucide-square" onClick={() => { setDialog("stop"); setReason(""); }}>Stop</Button>
         </Show>
         <Button size="sm" variant="ghost" iconLeft="lucide-refresh-cw" aria-label="Refresh session" onClick={props.onRefresh} />
-        <a class="inline-flex items-center gap-1 rounded-control px-2 py-1 text-caption text-ink-blue-link hover:bg-surface-blue-1 focus-visible:focus-ring"
-          href={execLogsUrl(props.workspaceId, { session: props.sessionId, severity: [], emitter: [] })}>Open in Logs</a>
+        <a class="inline-flex items-center gap-1 rounded-control px-1.5 py-1 text-caption text-ink-blue-link hover:bg-surface-blue-1 focus-visible:focus-ring" aria-label="Open in Logs"
+          href={execLogsUrl(props.workspaceId, { session: props.sessionId, severity: [], emitter: [] })}>Logs</a>
       </div>
     </div>
     <Show when={terminal()}><p class="text-caption text-ink-gray-6">Stop requested or session closed — steering is unavailable while stop is pending or after the session becomes terminal.</p></Show>
@@ -252,20 +257,18 @@ export function ConsoleInspection(props: {
   });
   const previewed = () => artifacts.state().data?.items.find((item) => item.artifactId === previewId());
 
-  return <div class="brain-exec-scroll flex flex-col gap-4 p-3" data-testid="console-inspection">
+  return <div class="brain-exec-scroll flex flex-col gap-3 p-2.5" data-testid="console-inspection">
     <section class="flex flex-col gap-2" aria-label="Session facts">
       <h3 class="text-base-medium text-ink-gray-9">Session facts</h3>
-      <KeyValue label="State" value={<StatusBadge status={props.session?.state ?? "unknown"} />} orientation="vertical" />
-      <KeyValue label="Engine" value={`${props.session?.engine.id ?? "—"} ${props.session?.engine.version ?? ""}`} orientation="vertical" />
-      <KeyValue label="Usage" value={`${(props.session?.usedTokens ?? 0).toLocaleString()} tokens · ${formatMicroUsd(props.session?.usedMicroUsd)}`} orientation="vertical" />
-      <KeyValue label="Budget" value={`${props.session?.budget.maxTurns ?? "—"} turns · ${(props.session?.budget.maxTokens ?? 0).toLocaleString()} tokens`} orientation="vertical" />
-      <Show when={props.session?.workItemId}>
-        <KeyValue label="Work item" value={<a class="text-caption text-ink-blue-link hover:underline focus-visible:focus-ring" href={`/w/${props.workspaceId}/board?card=${encodeURIComponent(props.session!.workItemId!)}`}>{props.session!.workItemId}</a>} orientation="vertical" />
-      </Show>
-      <Show when={props.session?.jobId}>
-        <KeyValue label="Run" value={<CorrelationLink target={{ kind: "job", jobId: props.session!.jobId! }} label={props.session!.jobId!} icon="lucide-workflow" />} orientation="vertical" />
-      </Show>
-      <KeyValue label="Updated" value={<DateText value={props.session?.updatedAt} />} orientation="vertical" />
+      <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-caption">
+        <div class="min-w-0"><dt class="text-ink-gray-6">State</dt><dd class="mt-0.5"><StatusBadge status={props.session?.state ?? "unknown"} /></dd></div>
+        <div class="min-w-0"><dt class="text-ink-gray-6">Engine</dt><dd class="mt-0.5 break-words text-ink-gray-9">{props.session?.engine.id ?? "—"} {props.session?.engine.version ?? ""}</dd></div>
+        <div class="min-w-0"><dt class="text-ink-gray-6">Usage</dt><dd class="mt-0.5 break-words text-ink-gray-9">{(props.session?.usedTokens ?? 0).toLocaleString()} tokens · {formatMicroUsd(props.session?.usedMicroUsd)}</dd></div>
+        <div class="min-w-0"><dt class="text-ink-gray-6">Budget</dt><dd class="mt-0.5 break-words text-ink-gray-9">{props.session?.budget.maxTurns ?? "—"} turns · {(props.session?.budget.maxTokens ?? 0).toLocaleString()} tokens</dd></div>
+        <Show when={props.session?.workItemId}><div class="col-span-2 min-w-0"><dt class="text-ink-gray-6">Work item</dt><dd class="mt-0.5 break-all"><a class="text-ink-blue-link hover:underline focus-visible:focus-ring" href={`/w/${props.workspaceId}/board?card=${encodeURIComponent(props.session!.workItemId!)}`}>{props.session!.workItemId}</a></dd></div></Show>
+        <Show when={props.session?.jobId}><div class="col-span-2 min-w-0"><dt class="text-ink-gray-6">Run</dt><dd class="mt-0.5"><CorrelationLink target={{ kind: "job", jobId: props.session!.jobId! }} label={props.session!.jobId!} icon="lucide-workflow" class="max-w-full" /></dd></div></Show>
+        <div class="col-span-2 min-w-0"><dt class="text-ink-gray-6">Updated</dt><dd class="mt-0.5 text-ink-gray-9"><DateText value={props.session?.updatedAt} /></dd></div>
+      </dl>
     </section>
 
     <section class="flex flex-col gap-2" aria-label="Working outputs">
@@ -330,7 +333,7 @@ function ApprovalPanel(props: { scope: ConsoleScope; approvalId: string }): JSX.
           <StatusBadge kind="approval" status={request.state} />
           <span class="text-caption text-ink-gray-6"><DateText value={request.createdAt} /></span>
         </div>
-        <p class="text-caption text-ink-gray-8">{subject()?.operation ?? "Requested effect"} → {subject()?.target?.targetId ?? "declared target"}</p>
+        <p class="break-words text-caption text-ink-gray-8">{subject()?.operation ?? "Requested effect"} → {subject()?.target?.targetId ?? "declared target"}</p>
         <details class="rounded-control bg-surface-elevation-1 p-2">
           <summary class="cursor-pointer text-caption font-medium focus-visible:focus-ring">Exact proposed effect</summary>
           <pre class="brain-exec-log mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words text-caption text-ink-gray-7">{streamSummaryText(JSON.stringify(subject() ?? {}, null, 2), 4_000) || "{}"}</pre>
