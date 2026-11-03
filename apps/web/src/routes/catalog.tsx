@@ -69,7 +69,7 @@ export function WorkflowsPage() {
     if (target.sessionId) void navigate(`/w/${app.workspaceId()}/live?session=${encodeURIComponent(target.sessionId)}`);
     else void navigate(`/jobs/${target.runId}`);
   };
-  return <BrainPage title="Start work" description="Pick or describe the work, choose a published recipe, review the exact inputs, then dispatch." actions={<Show when={canConfigure()}><div class="flex flex-wrap gap-2"><Button size="lg" variant="outline" iconLeft="lucide-file-pen" onClick={() => void navigate("/studio/Workflow")}>Workflow drafts</Button><Button size="lg" variant="outline" iconLeft="lucide-copy" disabled={!current() || busy()} onClick={() => void author("duplicate")}>Clone as candidate</Button><Button size="lg" variant="outline" iconLeft="lucide-square-pen" disabled={!current() || busy()} onClick={() => void author("edit")}>Edit as candidate</Button></div></Show>}>
+  return <BrainPage title="Start work" description="Pick or describe the work, choose a published recipe, review the exact inputs, then dispatch." actions={<Show when={canConfigure()}><div class="flex flex-wrap gap-2"><Button size="md" variant="outline" iconLeft="lucide-file-pen" onClick={() => void navigate("/studio/Workflow")}>Workflow drafts</Button><Button size="md" variant="outline" iconLeft="lucide-copy" disabled={!current() || busy()} onClick={() => void author("duplicate")}>Clone as candidate</Button><Button size="md" variant="outline" iconLeft="lucide-square-pen" disabled={!current() || busy()} onClick={() => void author("edit")}>Edit as candidate</Button></div></Show>}>
     <ActionFeedback tone="error" message={error()} />
     <TaskEntry workflows={read.state().data ?? []} onStarted={handoff} catalog={<PageStack>
       <ScreenRegion state={read.state()} onRetry={() => void read.refresh()} emptyTitle="No published recipes" emptyDescription="Compile and activate a release in Settings; published recipes appear here.">
@@ -129,7 +129,7 @@ function AgentDetail(props: { agent: AgentCatalogEntry; onBack: () => void }) {
   };
   return <PageStack>
     <DetailHeader title={titleize(props.agent.release.id)} headingLevel={2}
-      subtitle="Active definition—not an executing agent session. Readiness is rechecked at dispatch and placement."
+      subtitle="Active definition. Dispatch and placement recheck readiness."
       actions={[{ label: "Back to Agents", onClick: props.onBack }, ...(app.identity()?.actor.scopes.includes("config:activate") ? [{ label: "Clone", onClick: () => void author("duplicate") }, { label: "Edit candidate", onClick: () => void author("edit") }] : []), ...(related()[0] ? [{ label: "Start a task", onClick: startRecipe }] : [])]} />
     <ActionFeedback tone="error" message={error()} />
     <FactStrip label="Agent capability summary" items={[
@@ -166,7 +166,7 @@ export function AgentsPage() {
   const agentPageSafe = () => Math.min(agentPage(), Math.max(1, Math.ceil(agents().length / PAGE_SIZE)));
   const pagedAgents = () => agents().slice((agentPageSafe() - 1) * PAGE_SIZE, agentPageSafe() * PAGE_SIZE);
   createEffect(() => { if (selected() && read.state().data && !read.state().data?.some((item) => item.release.id === selected())) select(""); });
-  return <BrainPage title="Agents" description="Inspect responsibilities, engine requirements, tool authority and release limits before dispatching an agent definition." actions={<Show when={app.identity()?.actor.scopes.includes("config:activate")}><div class="flex flex-wrap gap-2"><Button size="lg" variant="outline" iconLeft="lucide-file-pen" onClick={() => void navigate("/studio/Agent")}>Agent drafts</Button><Button size="lg" theme="blue" iconLeft="lucide-plus" onClick={() => void navigate("/studio/Agent")}>Propose new agent</Button></div></Show>}>
+  return <BrainPage title="Agents" description="Inspect responsibilities, engine requirements, tool authority and release limits before dispatching an agent definition." actions={<Show when={app.identity()?.actor.scopes.includes("config:activate")}><div class="flex flex-wrap gap-2"><Button size="md" variant="outline" iconLeft="lucide-file-pen" onClick={() => void navigate("/studio/Agent")}>Agent drafts</Button><Button size="md" theme="blue" iconLeft="lucide-plus" onClick={() => void navigate("/studio/Agent")}>Propose new agent</Button></div></Show>}>
     <ScreenRegion state={read.state()} onRetry={() => void read.refresh()} emptyTitle="No active Agents" emptyDescription="Activate the complete starter release in Settings.">
       <PaneLayout class="brain-list-detail" startSize={40} minStartSize={30} maxStartSize={58} active={current() ? "end" : "start"} start={<WorkspaceSection title="Capability catalog" description="Definitions in the active release. An active definition is not a running session.">
         <Show when={agents().length} fallback={<EmptyPreview icon="lucide-bot" title="No agent definitions" description="Activated agent definitions appear here; propose a draft to create the first one." />}>

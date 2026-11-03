@@ -1,7 +1,6 @@
 import { For, Show } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Button } from "@talelk/newui-atoms";
-import { Section } from "@talelk/newui-organisms";
 import type { JobSnapshot, TaskContext, TaskOrigin } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
@@ -9,6 +8,7 @@ import { governor } from "../../data/client";
 import { jobsQuery } from "../../data/governor";
 import { ScreenRegion } from "../screen-region";
 import { StatusBadge } from "./StatusBadge";
+import { WorkspaceSection } from "./Domain";
 
 /** Run correlation row: job and session ids as the server resolved them. The
  * sessionId field trails in the generated contract until contract
@@ -34,12 +34,12 @@ export function WorkItemTasks(props: { origin: TaskOrigin }) {
     isEmpty: (items) => !items.length,
   });
   const bindingFor = (runId: string) => bindings.state().data?.find((binding) => binding.runId === runId);
-  return <Section title="Tasks for this item" surface="card" actions={<Show when={app.canDispatch()}><Button size="lg" iconLeft="lucide-play" onClick={() => void navigate(`/w/${app.workspaceId()}/workflows?mode=catalog&originKind=${props.origin.kind}&originId=${encodeURIComponent(props.origin.id)}`)}>Start a task for this item</Button></Show>}>
+  return <WorkspaceSection title="Tasks for this item" actions={<Show when={app.canDispatch()}><Button size="md" variant="outline" iconLeft="lucide-play" onClick={() => void navigate(`/w/${app.workspaceId()}/workflows?mode=catalog&originKind=${props.origin.kind}&originId=${encodeURIComponent(props.origin.id)}`)}>Start a task for this item</Button></Show>}>
     <ScreenRegion state={context.state()} onRetry={() => void context.refresh()} emptyTitle="No related tasks" emptyDescription="Start a task to link its progress and results to this work item.">
       <Show when={context.state().data?.runs.length} fallback={<p class="text-interface text-ink-gray-6">No tasks started for this item yet.</p>}>
         <div class="brain-queue"><For each={context.state().data?.runs}>{(run) => {
           const binding = () => bindingFor(run.runId);
-          return <div class="flex flex-wrap items-center justify-between gap-2 border-b border-outline-gray-1 px-2 py-4">
+          return <div class="flex flex-wrap items-center justify-between gap-2 border-b border-outline-gray-1 px-2 py-3">
             <span class="flex min-w-0 flex-wrap items-center gap-2"><span class="break-words text-base-medium text-ink-gray-9">{run.title}</span><StatusBadge kind="job" status={run.state} /></span>
             <span class="flex flex-wrap items-center gap-1.5">
               <Show when={binding()?.sessionId}><Button size="md" variant="ghost" iconLeft="lucide-radio" onClick={() => void navigate(`/w/${app.workspaceId()}/live?session=${encodeURIComponent(binding()?.sessionId ?? "")}`)}>Console</Button></Show>
@@ -51,5 +51,5 @@ export function WorkItemTasks(props: { origin: TaskOrigin }) {
         }}</For></div>
       </Show>
     </ScreenRegion>
-  </Section>;
+  </WorkspaceSection>;
 }

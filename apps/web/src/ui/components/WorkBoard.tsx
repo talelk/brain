@@ -46,10 +46,10 @@ function WorkItemDetail(props: {
   const verified = () => Boolean(item().evidenceDigest || props.evidence);
   const doneBlocked = () => props.move === "done" && !verified();
   return <PageStack>
-    <WorkspaceSection title={item().title} description={`${props.objective} · record v${item().version}`} actions={<Button size="lg" variant="ghost" iconLeft="lucide-arrow-left" onClick={props.onBack}>Back to board</Button>}>
+    <WorkspaceSection title={item().title} description={`${props.objective} · record v${item().version}`} actions={<Button size="md" variant="ghost" iconLeft="lucide-arrow-left" onClick={props.onBack}>Back to board</Button>}>
       <div class="flex flex-wrap gap-2"><StatusBadge kind="workItem" status={item().state} /><Badge variant="outline" theme={item().evidenceDigest ? "green" : "gray"} label={item().evidenceDigest ? "Verified evidence bound" : "Evidence required for Done"} /></div>
     </WorkspaceSection>
-    <div class="border-y border-outline-gray-1 py-4"><h3 class="text-base-medium">Next action</h3><p class="mt-1 text-interface text-ink-gray-7">{item().nextAction}</p><Show when={item().blockedReason}><Alert theme="amber" variant="outline" title="Blocked" description={item().blockedReason} /></Show></div>
+    <div class="border-y border-outline-gray-1 py-3"><h3 class="text-base-medium">Next action</h3><p class="mt-1 text-interface text-ink-gray-7">{item().nextAction}</p><Show when={item().blockedReason}><Alert theme="amber" variant="outline" title="Blocked" description={item().blockedReason} /></Show></div>
     <div><h3 class="text-base-medium">Acceptance criteria</h3><ul class="mt-2 list-disc ps-5 text-interface text-ink-gray-7"><For each={item().criteria}>{(criterion) => <li>{criterion}</li>}</For></ul></div>
     <Show when={item().evidenceDigest}><EvidenceList bundleDigest={item().evidenceDigest} /></Show>
     <WorkItemTasks origin={{ kind: "work-item", id: item().workItemId }} />
@@ -60,7 +60,7 @@ function WorkItemDetail(props: {
     </div>
     <Show when={doneBlocked()}><Alert theme="amber" variant="outline" title="Verified evidence is required" description="Choose an independently verified evidence bundle before selecting Done. Author output alone cannot complete this work." /></Show>
     <TextInput label="Add a comment" value={props.comment} onInput={(event) => props.onComment(event.currentTarget.value)} />
-    <div class="flex flex-wrap gap-2 border-t border-outline-gray-1 pt-4"><Button size="md" variant="outline" iconLeft="lucide-message-square" disabled={!props.comment.trim()} onClick={props.onAddComment}>Add comment</Button><Button size="lg" theme="blue" iconLeft="lucide-arrow-right-left" disabled={!props.move || doneBlocked() || (props.move === "blocked" && !props.reason.trim())} onClick={props.onTransition}>Move work item</Button></div>
+    <div class="flex flex-wrap gap-2 border-t border-outline-gray-1 pt-3"><Button size="md" variant="outline" iconLeft="lucide-message-square" disabled={!props.comment.trim()} onClick={props.onAddComment}>Add comment</Button><Button size="md" theme="blue" iconLeft="lucide-arrow-right-left" disabled={!props.move || doneBlocked() || (props.move === "blocked" && !props.reason.trim())} onClick={props.onTransition}>Move work item</Button></div>
   </PageStack>;
 }
 
@@ -90,21 +90,32 @@ export function WorkBoard(props: {
     onComment={setComment} onEvidence={setEvidence} onMove={setMove} onReason={setReason} onBack={onBack}
     onAddComment={() => void props.onComment(item, comment().trim()).then(() => setComment(""))}
     onTransition={() => void props.onTransition(item, move() as WorkItemState, evidence().trim() || undefined, reason().trim() || undefined)} />;
-  const board = <div class="brain-kanban-fit"><KanbanBoard columns={columns()} label="Work items" itemLabel={(item) => item.title} onMove={(next) => {
-    const item = next.item;
-    if (next.to.column === "done" && !item.evidenceDigest) { props.onSelected(item.workItemId); setMove("done"); return; }
-    if (next.to.column !== item.state) void props.onTransition(item, next.to.column as WorkItemState, item.evidenceDigest);
-  }}>
-    {(item) => <div class={`flex flex-col gap-2 rounded-control border-s-2 p-1 ${CARD_ACCENT[item.state]} ${selected()?.workItemId === item.workItemId ? "bg-surface-blue-1" : ""}`}>
-      <div><p class="break-words text-base-medium text-ink-gray-9">{item.title}</p><p class="mt-1 truncate text-caption text-ink-gray-6">{objective(item)}</p></div>
-      <p class="break-words text-caption text-ink-gray-7">{item.blockedReason ?? item.nextAction}</p>
-      <div class="flex flex-wrap gap-1.5"><Show when={item.assignment}><Badge size="sm" theme="blue" label={item.assignment?.kind === "human" ? item.assignment?.id : `${item.assignment?.kind}: ${item.assignment?.id}`} /></Show><Show when={item.dependsOn.length}><Badge size="sm" theme="gray" label={`${item.dependsOn.length} dependencies`} /></Show><Badge size="sm" variant="outline" theme={item.evidenceDigest ? "green" : "gray"} label={item.evidenceDigest ? "Evidence ready" : `${item.criteria.length} criteria`} /></div>
-      <Button variant="ghost" size="md" iconRight="lucide-arrow-right" class="self-start" aria-label={`Manage ${item.title}`} onClick={() => props.onSelected(item.workItemId)}>Manage</Button>
-    </div>}
-  </KanbanBoard></div>;
+  const board = <div class="brain-kanban-fit brain-work-board">
+    <style>{`
+      .brain-work-board [data-kanban-card] { padding: var(--spacing-2); }
+      @media (max-width: 1439px) and (min-width: 640px) {
+        .brain-work-board [data-kanban-column] { width: 15rem; min-width: 15rem; }
+      }
+      @media (max-width: 639px) {
+        .brain-work-board [data-kanban-column] { width: min(78vw, 17rem); min-width: min(78vw, 17rem); }
+      }
+    `}</style>
+    <KanbanBoard columns={columns()} label="Work items" itemLabel={(item) => item.title} onMove={(next) => {
+      const item = next.item;
+      if (next.to.column === "done" && !item.evidenceDigest) { props.onSelected(item.workItemId); setMove("done"); return; }
+      if (next.to.column !== item.state) void props.onTransition(item, next.to.column as WorkItemState, item.evidenceDigest);
+    }}>
+      {(item) => <div class={`flex flex-col gap-1.5 rounded-control border-s-2 p-1 ${CARD_ACCENT[item.state]} ${selected()?.workItemId === item.workItemId ? "bg-surface-blue-1" : ""}`}>
+        <div><p class="break-words text-caption font-semibold text-ink-gray-9">{item.title}</p><p class="mt-0.5 truncate text-caption text-ink-gray-6" title={objective(item)}>{objective(item)}</p></div>
+        <p class="line-clamp-2 break-words text-caption text-ink-gray-7">{item.blockedReason ?? item.nextAction}</p>
+        <div class="flex flex-wrap gap-1"><Show when={item.assignment}><Badge size="sm" theme="blue" label={item.assignment?.kind === "human" ? item.assignment?.id : `${item.assignment?.kind}: ${item.assignment?.id}`} /></Show><Show when={item.dependsOn.length}><Badge size="sm" theme="gray" label={`${item.dependsOn.length} dependencies`} /></Show><Badge size="sm" variant="outline" theme={item.evidenceDigest ? "green" : "gray"} label={item.evidenceDigest ? "Evidence ready" : `${item.criteria.length} criteria`} /></div>
+        <Button variant="ghost" size="md" icon="lucide-arrow-right" class="self-end" aria-label={`Manage ${item.title}`} onClick={() => props.onSelected(item.workItemId)} />
+      </div>}
+    </KanbanBoard>
+  </div>;
 
   return <BrainPage title="Work board" description="Move reviewed work through clear states; Done remains gated by independently verified evidence."
-    actions={<Button size="lg" theme="blue" iconLeft="lucide-plus" onClick={() => void navigate(`/w/${props.board?.workspaceId}/plans`)}>New objective</Button>}>
+    actions={<Button size="md" theme="blue" iconLeft="lucide-plus" onClick={() => void navigate(`/w/${props.board?.workspaceId}/plans`)}>New objective</Button>}>
     <PageStack>
       <Show when={props.conflict}><Alert theme="amber" variant="outline" title="This work changed; your intended move is preserved" description={props.conflict} /></Show>
       <ScreenRegion state={props.state} skeleton="cards" emptyTitle="No planned work" emptyDescription="Create an objective and confirm a plan to populate the board." onRetry={props.onRefresh}>

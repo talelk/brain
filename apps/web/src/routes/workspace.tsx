@@ -58,12 +58,12 @@ export function WorkspaceOverview(props: {
         <>
           <RefreshButton onClick={props.onRefresh} label="Refresh" />
           <Show when={props.onManage}>
-            <Button size="lg" variant="outline" iconLeft="lucide-settings-2" onClick={props.onManage}>
+            <Button size="md" variant="outline" iconLeft="lucide-settings-2" onClick={props.onManage}>
               Manage workspace
             </Button>
           </Show>
           <Show when={props.canDispatch}>
-            <Button size="lg" variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onBrowseWorkflows}>
+            <Button size="md" variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onBrowseWorkflows}>
               Start work
             </Button>
           </Show>
@@ -100,16 +100,16 @@ export function WorkspaceOverview(props: {
           <div class="brain-run-layout">
             <div class="brain-detail-stack">
               <WorkspaceSection title="Next useful action" description="Derived from current workspace exceptions, not a generic dashboard recommendation.">
-                <div class="flex flex-col gap-4 border-y border-outline-gray-1 py-5 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex flex-col gap-3 border-y border-outline-gray-1 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <div class="flex items-center gap-3">
-                    <IconTile icon={next().icon} size="lg" tone={ctx()?.workspace.blockedJobs ? "amber" : "blue"} />
+                    <IconTile icon={next().icon} size="md" tone={ctx()?.workspace.blockedJobs ? "amber" : "blue"} />
                     <div>
                       <h3 class="text-base-medium">{next().label}</h3>
                       <p class="mt-1 max-w-xl text-interface text-ink-gray-6">{next().detail}</p>
                     </div>
                   </div>
                   <Button
-                    size="lg"
+                    size="md"
                     variant="solid"
                     theme="blue"
                     iconRight="lucide-arrow-right"
@@ -133,7 +133,7 @@ export function WorkspaceOverview(props: {
                       description="Start a declared task to see its queue, placement and verification here."
                       action={
                         props.canDispatch ? (
-                          <Button size="lg" onClick={props.onBrowseWorkflows}>
+                          <Button size="md" onClick={props.onBrowseWorkflows}>
                             Choose a task
                           </Button>
                         ) : undefined
@@ -170,16 +170,16 @@ export function WorkspaceOverview(props: {
                 <Freshness value={ctx()?.workspace.observedAt} stale={ctx()?.workspace.health === "unknown"} />
               </div>
               <div class="grid grid-cols-2 gap-2">
-                <Button size="lg" variant="outline" onClick={() => void navigate(`/w/${props.workspaceId}/board`)}>
+                <Button size="md" variant="outline" onClick={() => void navigate(`/w/${props.workspaceId}/board`)}>
                   Board
                 </Button>
-                <Button size="lg" variant="outline" onClick={() => void navigate(`/w/${props.workspaceId}/agents`)}>
+                <Button size="md" variant="outline" onClick={() => void navigate(`/w/${props.workspaceId}/agents`)}>
                   Agents
                 </Button>
-                <Button size="lg" variant="outline" onClick={() => void navigate(`/w/${props.workspaceId}/schedules`)}>
+                <Button size="md" variant="outline" onClick={() => void navigate(`/w/${props.workspaceId}/schedules`)}>
                   Schedules
                 </Button>
-                <Button size="lg" variant="outline" onClick={() => void navigate(`/w/${props.workspaceId}/resources`)}>
+                <Button size="md" variant="outline" onClick={() => void navigate(`/w/${props.workspaceId}/resources`)}>
                   Resources
                 </Button>
               </div>
@@ -252,7 +252,7 @@ export function RunnerDetailScreen(props: {
       description="Diagnose verified capacity, active reservations and probe freshness before changing fleet state."
       breadcrumbs={[{ label: "Activity" }, { label: "Runners" }]}
       actions={
-        <Button size="lg" variant="outline" iconLeft="lucide-arrow-left" onClick={props.onBack}>
+        <Button size="md" variant="outline" iconLeft="lucide-arrow-left" onClick={props.onBack}>
           Back to runners
         </Button>
       }
@@ -490,7 +490,7 @@ export function TicketDetailScreen(props: {
       description="Read the customer issue, investigation and draft as separate stages before exact publication approval."
       breadcrumbs={[{ label: "Work" }, { label: "Support" }]}
       actions={
-        <Button size="lg" variant="outline" iconLeft="lucide-arrow-left" onClick={props.onBack}>
+        <Button size="md" variant="outline" iconLeft="lucide-arrow-left" onClick={props.onBack}>
           Back to tickets
         </Button>
       }
@@ -542,7 +542,7 @@ export function TicketDetailScreen(props: {
                     label={ticket()?.evidenceReady ? "Draft evidence ready" : "Evidence not ready"}
                   />
                   <Show when={ticket()?.approvalId}>
-                    <Button size="lg" variant="solid" theme="blue" iconRight="lucide-arrow-right" onClick={() => props.onOpenApproval?.(ticket()!.approvalId!)}>
+                    <Button size="md" variant="solid" theme="blue" iconRight="lucide-arrow-right" onClick={() => props.onOpenApproval?.(ticket()!.approvalId!)}>
                       Review exact publication approval
                     </Button>
                   </Show>
@@ -582,7 +582,7 @@ export function IncidentDetailScreen(props: {
       description="Correlate actual observations and freshness before separating read-only diagnosis from governed remediation."
       breadcrumbs={[{ label: "Work" }, { label: "Incidents" }]}
       actions={
-        <Button size="lg" variant="outline" iconLeft="lucide-arrow-left" onClick={props.onBack}>
+        <Button size="md" variant="outline" iconLeft="lucide-arrow-left" onClick={props.onBack}>
           Back to incidents
         </Button>
       }
@@ -656,7 +656,7 @@ export function IncidentDetailScreen(props: {
                         description={`${action().operation} on ${action().target.targetId}. This proposal does not prove execution or resolution.`}
                       />
                       <TechnicalDetails label="Exact proposed subject">
-                        <pre class="whitespace-pre-wrap text-caption">{JSON.stringify(action(), null, 2)}</pre>
+                        <pre class="overflow-x-auto whitespace-pre-wrap break-all text-caption">{JSON.stringify(action(), null, 2)}</pre>
                       </TechnicalDetails>
                     </div>
                   )}

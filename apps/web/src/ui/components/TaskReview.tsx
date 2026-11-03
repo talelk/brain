@@ -61,7 +61,7 @@ export function TaskReview(props: { workflow: WorkflowCatalogEntry; initialInput
     finally { setBusy(false); }
   }
   return <PageStack>
-    <WorkspaceSection title={title()} description={presentation()?.description ?? "Complete the validated inputs, review the exact task, then start it."} actions={<Button size="lg" variant="ghost" iconLeft="lucide-arrow-left" onClick={props.onBack}>Back</Button>}>
+    <WorkspaceSection title={title()} description={presentation()?.description ?? "Complete the validated inputs, review the exact task, then start it."} actions={<Button size="md" variant="ghost" iconLeft="lucide-arrow-left" onClick={props.onBack}>Back</Button>}>
       <div class="flex flex-wrap gap-2"><Badge variant="outline" theme={external() ? "amber" : "blue"} label={external() ? "Governed external effects" : "Read / draft outcome"} /><Show when={props.origin}><Badge variant="outline" theme="blue" label={`Linked ${props.origin?.kind}: ${props.origin?.id}`} /></Show></div>
     </WorkspaceSection>
     <FactStrip label="Task launch facts" items={[
@@ -76,10 +76,10 @@ export function TaskReview(props: { workflow: WorkflowCatalogEntry; initialInput
       <Show when={presentation()?.examples?.length}><div class="mb-4 flex flex-wrap gap-2"><For each={presentation()?.examples}>{(example, index) => <Button size="md" variant="outline" onClick={() => { setSeed(example); setRevision((value) => value + 1); }}>Use example {index() + 1}</Button>}</For></div></Show>
       <SchemaForm schema={(props.workflow.inputSchema ?? {}) as InputSchema} schemaKey={`${props.workflow.release.digest}:${revision()}`} initialInput={seed()} submitLabel="Review task" busy={busy()} disabled={!app.canDispatch()} error={error()} onSubmit={prepare} />
     </WorkspaceSection>}>{(review) => <WorkspaceSection title="Review before starting" description="This is the exact reviewed draft. Starting it once recovers the same run if the response is lost.">
-      <div class="border-y border-outline-gray-1 py-4"><StructuredOutputView value={review.input} /></div>
+      <div class="border-y border-outline-gray-1 py-3"><StructuredOutputView value={review.input} /></div>
       <Alert theme="blue" variant="outline" title="Queued does not mean complete" description="After durable acceptance you will open the actual run. Queue, placement, author output and independent verification remain separate states." />
       <ActionFeedback tone="error" message={error()} />
-      <div class="flex flex-wrap gap-2"><Button size="lg" disabled={!app.canDispatch() || busy()} loading={busy()} iconLeft="lucide-play" onClick={() => void start()}>Start task</Button><Button size="md" variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => { setSeed(review.input); setDraft(undefined); setRevision((value) => value + 1); setError(""); }}>Edit inputs</Button></div>
+      <div class="flex flex-wrap gap-2"><Button size="md" disabled={!app.canDispatch() || busy()} loading={busy()} iconLeft="lucide-play" onClick={() => void start()}>Start task</Button><Button size="md" variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => { setSeed(review.input); setDraft(undefined); setRevision((value) => value + 1); setError(""); }}>Edit inputs</Button></div>
     </WorkspaceSection>}</Show>
     <Show when={!app.canDispatch()}><Alert theme="gray" variant="outline" title="Read-only access" description="Your current role can inspect this task but cannot start it." /></Show>
     <TechnicalDetails label="Release, output schema, and execution declarations"><p class="break-all">Release: {props.workflow.configDigest}</p><h3 class="mt-3 text-base-medium">Output schema</h3><pre class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words text-caption">{JSON.stringify(props.workflow.outputSchema, null, 2)}</pre><h3 class="mt-3 text-base-medium">Declared steps</h3><pre class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words text-caption">{JSON.stringify(props.workflow.definition.spec.jobs, null, 2)}</pre></TechnicalDetails>

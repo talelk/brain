@@ -92,8 +92,8 @@ export function WorkspaceManagementDialog(props: {
   return <>
     <Dialog.Root open={props.open} onOpenChange={(open) => { if (!open) props.onClose(); }}><Dialog.Content size="lg">
       <Dialog.Header><Dialog.Title>{props.workspace ? `Manage ${props.workspace.displayName}` : "Create workspace"}</Dialog.Title><Dialog.Description>{props.workspace ? "Operational metadata and state live here. Runner groups, policies and other desired behavior still change through reviewed configuration releases." : "Create an operational workspace and grant yourself workspace-lead access. Configuration is activated separately."}</Dialog.Description></Dialog.Header>
-      <div class="my-4 grid max-h-[65dvh] gap-5 overflow-y-auto pe-1 lg:grid-cols-2">
-        <section class="flex flex-col gap-4" aria-label="Workspace general settings">
+      <div class="my-3 grid max-h-[70dvh] gap-4 overflow-y-auto pe-1 lg:grid-cols-2">
+        <section class="flex flex-col gap-3" aria-label="Workspace general settings">
           <h3 class="text-base-medium">General</h3>
           <Show when={!props.workspace}><TextInput id={fieldId("id")} label="Logical workspace ID" value={workspaceId()} readonly description="Immutable organization-scoped identity" /></Show>
           <TextInput id={fieldId("name")} label="Display name" value={displayName()} onInput={(event) => setDisplayName(event.currentTarget.value)} required disabled={busy()} />

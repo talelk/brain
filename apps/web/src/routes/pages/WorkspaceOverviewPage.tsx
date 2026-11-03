@@ -22,7 +22,7 @@ export default function WorkspaceOverviewPage(): JSX.Element {
     },
     refreshMs: 30_000,
   });
-  return <div class="flex flex-col gap-field-gap">
+  return <div class="flex flex-col gap-3">
     <Show when={app.canAdminister()}><DisclosureCard label="Installation status"><OperationalChecklist /></DisclosureCard></Show>
     <WorkspaceOverview onBrowseWorkflows={() => void navigate(`/w/${app.workspaceId()}/workflows`)} workspaceId={app.workspaceId()} context={context.state().data?.context} recentJobs={context.state().data?.jobs ?? []} canDispatch={app.canDispatch()}
       onOpenJob={(jobId) => void navigate(`/jobs/${jobId}`)} state={context.state()} onRefresh={() => void context.refresh({ force: true })}

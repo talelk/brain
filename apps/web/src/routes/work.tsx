@@ -87,7 +87,7 @@ export function DecisionsScreen(props: {
     } catch (reason) { setError(reason instanceof Error ? reason.message : "The decision was refused."); }
   }
   return <BrainPage title="Decisions" description="Read the business decision, rationale and provenance without confusing it with production-effect approval."
-    actions={<Button size="lg" variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setOpen(true)}>Record decision</Button>}>
+    actions={<Button size="md" variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setOpen(true)}>Record decision</Button>}>
     <PageStack>
       <FilterBar query={{ value: query(), placeholder: "Search rationale, work, or decision maker…", onInput: (value) => { setQuery(value); setPage(1); } }} resultCount={visible().length} selects={[{ label: "Outcome", value: outcome(), options: [{ value: "all", label: "All outcomes" }, { value: "go", label: "Go" }, { value: "no", label: "No" }, { value: "not-now", label: "Not now" }, { value: "need-more-data", label: "Need more data" }], onValueChange: (value) => { setOutcome(value ?? "all"); setPage(1); } }]} />
       <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No recorded decisions yet" emptyDescription="Record the go/no-go decision for a card when you make it." onRetry={props.onRefresh}>
@@ -97,15 +97,15 @@ export function DecisionsScreen(props: {
             <ListPager count={visible().length} page={page()} onPageChange={setPage} label="Decision register pagination" />
           </Show>
         </WorkspaceSection>} end={<Show when={selected()} keyed fallback={<EmptyPreview icon="lucide-scale" title="Select a decision" description="Its complete rationale, context, actor and linked work will appear here." />}>{(entry) => <PageStack>
-          <Button size="lg" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={selection.dismiss}>Back to register</Button>
+          <Button size="md" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={selection.dismiss}>Back to register</Button>
           <div><StatusBadge kind="decision" status={entry.decision} /><h2 class="brain-prose mt-3 text-section text-ink-gray-9">{entry.note}</h2></div>
-          <dl class="grid gap-4 border-y border-outline-gray-1 py-4 sm:grid-cols-2"><KeyValue label="Decision maker" value={actorName(entry.actorId)} orientation="vertical" /><KeyValue label="Recorded" value={<DateText value={entry.createdAt} />} orientation="vertical" /><KeyValue label="Linked work" value={entry.cardId} orientation="vertical" /><KeyValue label="Decision type" value="Business outcome, not an exact production-effect approval" orientation="vertical" /></dl>
+          <dl class="grid gap-3 border-y border-outline-gray-1 py-3 sm:grid-cols-2"><KeyValue label="Decision maker" value={actorName(entry.actorId)} orientation="vertical" /><KeyValue label="Recorded" value={<DateText value={entry.createdAt} />} orientation="vertical" /><KeyValue label="Linked work" value={<span class="break-all">{entry.cardId}</span>} orientation="vertical" /><KeyValue label="Decision type" value="Business outcome, not an exact production-effect approval" orientation="vertical" /></dl>
           <TechnicalDetails label="Decision reference"><p class="break-all">{entry.id} · actor {entry.actorId}</p></TechnicalDetails>
         </PageStack>}</Show>} />
       </ScreenRegion>
       <Dialog.Root open={open()} onOpenChange={setOpen}><Dialog.Content size="md">
         <Dialog.Header><Dialog.Title>Record a decision</Dialog.Title><Dialog.Description>Append the exact rationale. Historical decisions are not overwritten, and this does not approve a production effect.</Dialog.Description></Dialog.Header>
-        <div class="my-4 flex flex-col gap-4"><div class="brain-field-grid"><TextInput label="Card id" value={cardId()} onInput={(event) => setCardId(event.currentTarget.value)} description={props.cardIds.length ? `Known cards: ${props.cardIds.slice(0, 4).join(", ")}` : undefined} /><TabButtons label="Decision" options={[{ value: "go", label: "Go" }, { value: "no", label: "No" }, { value: "not-now", label: "Not now" }, { value: "need-more-data", label: "Need more data" }]} value={decision()} onValueChange={(value) => setDecision(value as Decision | "")} /></div><Textarea label="Note" value={note()} onInput={(event) => setNote(event.currentTarget.value)} /><Show when={error()}><Alert theme="red" variant="outline" title="Decision refused" description={error()} /></Show></div>
+        <div class="my-4 flex flex-col gap-3"><div class="brain-field-grid"><TextInput label="Card id" value={cardId()} onInput={(event) => setCardId(event.currentTarget.value)} description={props.cardIds.length ? `Known cards: ${props.cardIds.slice(0, 4).join(", ")}` : undefined} /><TabButtons label="Decision" options={[{ value: "go", label: "Go" }, { value: "no", label: "No" }, { value: "not-now", label: "Not now" }, { value: "need-more-data", label: "Need more data" }]} value={decision()} onValueChange={(value) => setDecision(value as Decision | "")} /></div><Textarea label="Note" value={note()} onInput={(event) => setNote(event.currentTarget.value)} /><Show when={error()}><Alert theme="red" variant="outline" title="Decision refused" description={error()} /></Show></div>
         <Dialog.Footer class="justify-end"><Button size="md" variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button size="md" variant="solid" theme="blue" iconLeft="lucide-check" disabled={!cardId().trim() || !note().trim() || !decision()} onClick={() => void record()}>Record decision</Button></Dialog.Footer>
       </Dialog.Content></Dialog.Root>
     </PageStack>
@@ -135,7 +135,7 @@ export function SupportScreen(props: {
   const selection = useMasterDetail(rows, () => paged()[0]);
   const selected = selection.selected;
   return <BrainPage title="Support" description="Triage customer requests by urgency and review readiness; drafts never publish themselves."
-    actions={<Show when={props.canDispatch}><Button size="lg" variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Run support workflow</Button></Show>}>
+    actions={<Show when={props.canDispatch}><Button size="md" variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Run support workflow</Button></Show>}>
     <PageStack>
       <Show when={props.sla} keyed>{(sla) => <FactStrip label="Measured support service levels" items={[
         { label: "Keyrus response time", value: formatSlaMinutes(sla.keyrusMs), hint: `${sla.responseMet} responses met of ${sla.sampleCount} samples`, icon: "lucide-timer" },
@@ -150,9 +150,9 @@ export function SupportScreen(props: {
             <ListPager count={rows().length} page={page()} onPageChange={setPage} label="Support triage pagination" />
           </Show>
         </WorkspaceSection>} end={<Show when={selected()} keyed fallback={<EmptyPreview icon="lucide-headset" title="Select a customer request" description="Review its current state, evidence readiness and next valid action without losing the queue." />}>{(ticket) => <PageStack>
-          <Button size="lg" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={selection.dismiss}>Back to tickets</Button>
+          <Button size="md" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={selection.dismiss}>Back to tickets</Button>
           <div><StatusBadge kind="ticket" status={ticket.state} /><h2 class="mt-3 text-section">{ticket.title}</h2><p class="mt-2 text-interface text-ink-gray-7">Open the complete customer request, investigation artifacts, reviewable draft and exact publication approval.</p></div>
-          <dl class="grid gap-4 border-y border-outline-gray-1 py-4 sm:grid-cols-2"><KeyValue label="Priority" value={<StatusBadge kind="severity" status={ticket.priority} />} orientation="vertical" /><KeyValue label="Evidence" value={ticket.evidenceReady ? "Draft evidence ready" : "Not ready"} orientation="vertical" /><KeyValue label="Created" value={<DateText value={ticket.createdAt} />} orientation="vertical" /><KeyValue label="Source version" value={ticket.sourceVersion} orientation="vertical" /></dl>
+          <dl class="grid gap-3 border-y border-outline-gray-1 py-3 sm:grid-cols-2"><KeyValue label="Priority" value={<StatusBadge kind="severity" status={ticket.priority} />} orientation="vertical" /><KeyValue label="Evidence" value={ticket.evidenceReady ? "Draft evidence ready" : "Not ready"} orientation="vertical" /><KeyValue label="Created" value={<DateText value={ticket.createdAt} />} orientation="vertical" /><KeyValue label="Source version" value={ticket.sourceVersion} orientation="vertical" /></dl>
           <Alert theme="blue" variant="outline" title="Workflow does not publish" description="Running support analysis can prepare a draft. Customer publication still requires its exact approved effect and independent evidence." />
           <Button size="md" variant="solid" theme="blue" iconRight="lucide-arrow-right" class="self-start" onClick={() => props.onOpenTicket(ticket.id)}>Open casework</Button>
         </PageStack>}</Show>} />
@@ -182,7 +182,7 @@ export function SreScreen(props: {
   const selection = useMasterDetail(incidents, () => paged()[0]);
   const selected = selection.selected;
   return <BrainPage title="Incidents" description="Prioritize observed operational issues by severity and telemetry freshness; missing evidence never looks healthy."
-    actions={<Show when={props.canDispatch}><Button size="lg" variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Run SRE workflow</Button></Show>}>
+    actions={<Show when={props.canDispatch}><Button size="md" variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Run SRE workflow</Button></Show>}>
     <PageStack>
       <FactStrip label="Incident queue summary" items={[
         { label: "Critical", value: String(props.incidents.filter((incident) => incident.severity === "critical").length), hint: "Critical observed incidents in this queue", icon: "lucide-siren" },
@@ -200,10 +200,10 @@ export function SreScreen(props: {
             <ListPager count={incidents().length} page={page()} onPageChange={setPage} label="Incident queue pagination" />
           </Show>
         </WorkspaceSection>} end={<Show when={selected()} keyed fallback={<EmptyPreview icon="lucide-siren" title="Select an incident" description="Review the observation, freshness and next safe action before opening the investigation." />}>{(incident) => <PageStack>
-          <Button size="lg" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={selection.dismiss}>Back to incidents</Button>
+          <Button size="md" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={selection.dismiss}>Back to incidents</Button>
           <div><StatusBadge kind="severity" status={incident.severity} /><h2 class="mt-3 text-section">{incident.title}</h2><p class="mt-2 text-interface text-ink-gray-7">{incident.targetKey}</p></div>
           <Alert theme={isFreshFromServer(incident.expiresAt, props.state.asOf) ? "blue" : "amber"} variant="outline" title={isFreshFromServer(incident.expiresAt, props.state.asOf) ? "Observation window is valid" : "Telemetry is stale"} description={isFreshFromServer(incident.expiresAt, props.state.asOf) ? "Investigate the pinned evidence before proposing remediation." : "Do not render this target as healthy or remediate from an expired observation."} />
-          <dl class="grid gap-4 border-y border-outline-gray-1 py-4 sm:grid-cols-2"><KeyValue label="First recorded" value={<DateText value={incident.createdAt} />} orientation="vertical" /><KeyValue label="Latest observation" value={<DateText value={incident.observedAt} />} orientation="vertical" /><KeyValue label="Current state" value={<StatusBadge kind="incident" status={incident.state} />} orientation="vertical" /><KeyValue label="Next safe action" value="Inspect the observation timeline" orientation="vertical" /></dl>
+          <dl class="grid gap-3 border-y border-outline-gray-1 py-3 sm:grid-cols-2"><KeyValue label="First recorded" value={<DateText value={incident.createdAt} />} orientation="vertical" /><KeyValue label="Latest observation" value={<DateText value={incident.observedAt} />} orientation="vertical" /><KeyValue label="Current state" value={<StatusBadge kind="incident" status={incident.state} />} orientation="vertical" /><KeyValue label="Next safe action" value="Inspect the observation timeline" orientation="vertical" /></dl>
           <Button size="md" variant="solid" theme="blue" iconRight="lucide-arrow-right" class="self-start" onClick={() => props.onOpenIncident(incident.id)}>Open investigation</Button>
         </PageStack>}</Show>} />
       </ScreenRegion>
@@ -236,11 +236,11 @@ export function DeliveryScreen(props: {
           <ListPager count={props.dossiers.length} page={page()} onPageChange={setPage} label="Release dossier pagination" />
         </Show>
       </WorkspaceSection>} end={<Show when={selected()} keyed fallback={<EmptyPreview icon="lucide-package-check" title="Select a release dossier" description="Its readiness criteria, evidence and business decision will appear here." />}>{(dossier) => <WorkspaceSection title="Readiness cockpit" description="Required checks and evidence for one substantial dossier.">
-        <Button size="lg" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={selection.dismiss}>Back to dossiers</Button>
+        <Button size="md" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={selection.dismiss}>Back to dossiers</Button>
         <div class="flex flex-wrap items-center gap-2"><StatusBadge kind="evidence" status={dossier.state} /><Badge variant="outline" theme="blue" label={`${dossier.criteria.filter((criterion) => criterion.status === "passed").length}/${dossier.criteria.length} criteria passed`} /></div>
         <div class="brain-queue"><For each={dossier.criteria}>{(criterion) => <div class="border-b border-outline-gray-1 py-3"><div class="flex flex-wrap items-center gap-2"><StatusBadge kind="check" status={criterion.status === "inconclusive" ? "missing" : criterion.status} /><strong class="break-words">{criterion.criterionId}</strong></div><p class="mt-1 break-words text-interface text-ink-gray-7">{criterion.detail}</p></div>}</For></div>
         <TechnicalDetails label="Source and rubric"><p class="break-all">Source {dossier.sourceRevision} · rubric {dossier.rubric.id} · {dossier.rubric.digest}</p></TechnicalDetails>
-        <div class="flex flex-wrap gap-2"><Button size="lg" variant="outline" iconRight="lucide-arrow-right" onClick={() => props.onOpen(dossier.id)}>Inspect evidence dossier</Button><Button size="lg" variant="solid" theme="blue" iconLeft="lucide-scale" onClick={() => void props.onDecide(dossier.id, `Accepted against delivery dossier ${dossier.id}`)}>Record Go decision</Button></div>
+        <div class="flex flex-wrap gap-2"><Button size="md" variant="outline" iconRight="lucide-arrow-right" onClick={() => props.onOpen(dossier.id)}>Inspect evidence dossier</Button><Button size="md" variant="solid" theme="blue" iconLeft="lucide-scale" onClick={() => void props.onDecide(dossier.id, `Accepted against delivery dossier ${dossier.id}`)}>Record Go decision</Button></div>
         <p class="text-caption text-ink-gray-6">A business Go decision does not approve any production effect. Deferred or NO-GO outcomes can be recorded from the decision register.</p>
       </WorkspaceSection>}</Show>} />
     </ScreenRegion>

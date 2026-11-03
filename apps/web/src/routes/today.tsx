@@ -58,7 +58,7 @@ export function TodayScreen(props: {
   };
 
   const list = <WorkspaceSection title="Attention inbox" description={`Ordered by operational urgency · verified ${props.asOf ? formatDateTime(props.asOf) : "by Governor"}`}>
-    <Show when={visible().length} fallback={<EmptyPreview icon="lucide-filter" title="No matching attention" description="Clear the search or type filter to return to the authorized inbox." action={<Button size="lg" variant="outline" onClick={() => { setFilter(""); setType(undefined); }}>Clear filters</Button>} />}>
+    <Show when={visible().length} fallback={<EmptyPreview icon="lucide-filter" title="No matching attention" description="Clear the search or type filter to return to the authorized inbox." action={<Button size="md" variant="outline" onClick={() => { setFilter(""); setType(undefined); }}>Clear filters</Button>} />}>
       <For each={(["Now", "Soon", "Monitoring"] as const)}>{(group) => {
         const items = () => visible().filter((item) => attentionGroup(item) === group);
         return <Show when={items().length}><section class="mb-5 last:mb-0" aria-label={`${group} attention`}>
@@ -77,7 +77,7 @@ export function TodayScreen(props: {
 
   return <BrainPage title="Today"
     description="Decide what needs your attention next, with the reason and current source close at hand."
-    actions={<><RefreshButton onClick={props.onRefresh} label="Refresh" /><Show when={props.onStart}><Button size="lg" variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onStart}>Start a task</Button></Show></>}>
+    actions={<><RefreshButton onClick={props.onRefresh} label="Refresh" /><Show when={props.onStart}><Button size="md" variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onStart}>Start a task</Button></Show></>}>
     <PageStack>
       <Show when={staleCount() > 0}>
         <Alert theme="amber" variant="outline" title="Fresh review required"
@@ -97,15 +97,15 @@ export function TodayScreen(props: {
       <ScreenRegion state={props.state} skeleton="rows" emptyTitle="You’re all caught up"
         emptyDescription="No expiring approvals, blocked runs, open incidents, or decisions need your attention."
         emptyAction={<RefreshButton onClick={props.onRefresh} label="Check again" />} onRetry={props.onRefresh}>
-        <PaneLayout class="brain-list-detail" startSize={58} minStartSize={38} maxStartSize={68} start={list} end={<Show when={current()} keyed fallback={<EmptyPreview icon="lucide-inbox" title="Select an attention item" description="Its reason, freshness and next authorized action will appear here." />}>{(item) => <div class="flex min-w-0 flex-col gap-5">
-          <div class="flex items-start justify-between gap-3"><IconTile icon={TYPE_ICON[item.type] ?? "lucide-circle"} tone={item.stale ? "amber" : "blue"} size="lg" /><StatusBadge kind="priority" status={String(item.priority)} label={PRIORITY_LABEL[item.priority] ?? "Attention"} /></div>
+        <PaneLayout class="brain-list-detail" startSize={58} minStartSize={38} maxStartSize={68} start={list} end={<Show when={current()} keyed fallback={<EmptyPreview icon="lucide-inbox" title="Select an attention item" description="Its reason, freshness and next authorized action will appear here." />}>{(item) => <div class="flex min-w-0 flex-col gap-4">
+          <div class="flex items-start justify-between gap-3"><IconTile icon={TYPE_ICON[item.type] ?? "lucide-circle"} tone={item.stale ? "amber" : "blue"} size="md" /><StatusBadge kind="priority" status={String(item.priority)} label={PRIORITY_LABEL[item.priority] ?? "Attention"} /></div>
           <div class="min-w-0"><p class="text-caption font-medium uppercase tracking-wider text-ink-gray-6">{TYPE_LABEL[item.type]} · {item.workspaceId}</p><h2 class="mt-2 break-words text-section text-ink-gray-9">{item.title}</h2><p class="brain-prose mt-3 text-interface text-ink-gray-7">{item.detail}</p></div>
-          <dl class="grid gap-4 border-y border-outline-gray-1 py-4 sm:grid-cols-2">
+          <dl class="grid gap-3 border-y border-outline-gray-1 py-3 sm:grid-cols-2">
             <KeyValue label="Why it needs you" value={ACTION_LABEL[item.nextAction] ?? "Inspect the current record"} orientation="vertical" />
             <KeyValue label="Last source update" value={<DateText value={item.updatedAt} asOf={props.asOf} />} orientation="vertical" />
           </dl>
           <p class="text-interface text-ink-gray-6">Evidence, policy and the current authorization state are checked on the source record. This inbox does not infer completion.</p>
-          <Button size="lg" variant="solid" theme="blue" iconRight="lucide-arrow-right" class="self-start" onClick={() => props.onOpen(item)}>{ACTION_LABEL[item.nextAction] ?? "Open current record"}</Button>
+          <Button size="md" variant="solid" theme="blue" iconRight="lucide-arrow-right" class="self-start" onClick={() => props.onOpen(item)}>{ACTION_LABEL[item.nextAction] ?? "Open current record"}</Button>
           <TechnicalDetails label="Source reference"><p class="break-all">Item {item.id} · source {item.resourceId} · workspace {item.workspaceId}</p></TechnicalDetails>
         </div>}</Show>} />
       </ScreenRegion>
@@ -125,7 +125,7 @@ export function BridgeScreen(props: {
   const total = () => props.workspaces.reduce((sum, ws) => sum + ws.pendingApprovals + ws.blockedJobs, 0);
   const ordered = () => [...props.workspaces].sort((a, b) => (b.pendingApprovals + b.blockedJobs) - (a.pendingApprovals + a.blockedJobs) || a.displayName.localeCompare(b.displayName));
   return <BrainPage title="Bridge" description="Enter the workspace that needs you first; health stays scoped to its own observations."
-    actions={<><RefreshButton onClick={props.onRefresh} label="Refresh" /><Show when={app.identity()?.actor.scopes.includes("config:activate")}><Button size="lg" theme="blue" iconLeft="lucide-plus" onClick={() => setCreateOpen(true)}>Create workspace</Button></Show></>}>
+    actions={<><RefreshButton onClick={props.onRefresh} label="Refresh" /><Show when={app.identity()?.actor.scopes.includes("config:activate")}><Button size="md" theme="blue" iconLeft="lucide-plus" onClick={() => setCreateOpen(true)}>Create workspace</Button></Show></>}>
     <PageStack>
       <FactStrip label="Workspace access summary" items={[
         { label: "Readable workspaces", value: String(props.workspaces.length), hint: "Authorized to your account", icon: "lucide-building-2" },
@@ -135,15 +135,15 @@ export function BridgeScreen(props: {
         <ScreenRegion state={props.state} skeleton="cards" emptyTitle="No workspaces assigned"
           emptyDescription="Ask an organization administrator to grant you workspace access."
           emptyAction={<Button size="md" onClick={props.onRefresh}>Reload</Button>} onRetry={props.onRefresh}>
-          <div class={`grid gap-4 ${ordered().length === 1 ? "max-w-3xl" : "md:grid-cols-2"}`}>
+          <div class={`grid gap-3 ${ordered().length === 1 ? "max-w-3xl" : "md:grid-cols-2 xl:grid-cols-3"}`}>
             <For each={ordered()}>{(ws) => {
               const attention = ws.pendingApprovals + ws.blockedJobs;
-              return <CardTile wide class="flex min-w-0 flex-col gap-5">
+              return <CardTile wide class="flex min-w-0 flex-col gap-3">
                 <div class="flex items-start justify-between gap-3">
-                  <div class="flex min-w-0 items-center gap-3"><IconTile icon="lucide-building-2" tone={attention ? "amber" : "gray"} size="lg" /><div class="min-w-0"><h3 class="break-words text-section text-ink-gray-9">{ws.displayName}</h3><p class="mt-1 text-caption text-ink-gray-6">{attention ? `${attention} items need attention` : "No approval or blocked-run exceptions"}</p></div></div>
+                  <div class="flex min-w-0 items-center gap-3"><IconTile icon="lucide-building-2" tone={attention ? "amber" : "gray"} size="md" /><div class="min-w-0"><h3 class="break-words text-section text-ink-gray-9">{ws.displayName}</h3><p class="mt-1 text-caption text-ink-gray-6">{attention ? `${attention} items need attention` : "No approval or blocked-run exceptions"}</p></div></div>
                   <StatusBadge kind="health" status={ws.health} />
                 </div>
-                <dl class="grid grid-cols-2 gap-4 border-y border-outline-gray-1 py-4 text-interface sm:grid-cols-4">
+                <dl class="grid grid-cols-2 gap-3 border-y border-outline-gray-1 py-3 text-interface sm:grid-cols-4">
                   <div><dt class="text-caption text-ink-gray-6">Active runs</dt><dd class="mt-1 text-base-medium tabular-nums">{ws.activeJobs}</dd></div>
                   <div><dt class="text-caption text-ink-gray-6">Approvals</dt><dd class="mt-1 text-base-medium tabular-nums">{ws.pendingApprovals}</dd></div>
                   <div><dt class="text-caption text-ink-gray-6">Blocked</dt><dd class="mt-1 text-base-medium tabular-nums">{ws.blockedJobs}</dd></div>
