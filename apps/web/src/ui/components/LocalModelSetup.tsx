@@ -40,25 +40,25 @@ export function LocalModelSetup() {
     finally { if (!disposed) setBusy(false); }
   }
   const taskRunnerReady = () => Boolean(status()?.runners.some((runner) => !runner.id.includes("evaluators") && runner.applied));
-  return <div class="flex flex-col gap-field-gap">
-    <Section actions={<div class="flex flex-wrap gap-2"><Button size="lg" variant="outline" onClick={() => void navigate(`/w/${app.workspaceId()}/workflows?mode=catalog`)}>Explore starter tasks</Button><Button size="lg" theme="blue" disabled={!taskRunnerReady()} onClick={() => void navigate(`/w/${app.workspaceId()}/workflows?selected=agent-smoke`)}>Run read-only smoke task</Button></div>} title="Models & Providers" description="Configure the local OpenAI-compatible connection, verify the exact model, then check engine and runner readiness separately. Saved credentials are never returned to the browser." surface="card">
+  return <div class="flex flex-col gap-4">
+    <Section actions={<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap"><Button size="md" variant="outline" class="w-full sm:w-auto" onClick={() => void navigate(`/w/${app.workspaceId()}/workflows?mode=catalog`)}>Explore starter tasks</Button><Button size="md" theme="blue" class="w-full sm:w-auto" disabled={!taskRunnerReady()} onClick={() => void navigate(`/w/${app.workspaceId()}/workflows?selected=agent-smoke`)}>Run read-only smoke task</Button></div>} title="Models & Providers" description="Configure the local OpenAI-compatible connection, verify the exact model, then check engine and runner readiness separately. Saved credentials are never returned to the browser." surface="card">
       <FactStrip label="Model readiness" items={[
-        { label: "Configured", value: status()?.configured ? "Saved" : "Not configured", hint: status()?.modelId ?? "Enter an exact provider model ID", icon: "lucide-settings-2" },
+        { label: "Configured", value: <span class="break-all">{status()?.configured ? `Saved · ${status()?.modelId ?? "model"}` : "Not configured"}</span>, hint: "Exact provider model ID", icon: "lucide-settings-2" },
         { label: "Endpoint", value: status()?.testedAt ? "Model verified" : "Not tested", hint: status()?.testedAt ? `Verified ${new Date(status()!.testedAt!).toLocaleString()}` : "HTTP health alone is not execution proof", icon: "lucide-plug-zap" },
         { label: "Engine / runner", value: taskRunnerReady() ? "Pi ready" : "Not ready", hint: taskRunnerReady() ? "Fresh runner capability confirms the applied connection" : "Wait for signed hello and fresh runner capabilities", icon: "lucide-cpu" },
       ]} />
-      <Show when={status()?.enabled} fallback={<p>Guided local setup is available when this installation starts with <code>pnpm brain start</code>. Other deployments use their configured runner connections.</p>}>
-        <form onSubmit={connect} class="flex max-w-2xl flex-col gap-4">
+      <Show when={status()?.enabled} fallback={<p class="brain-readable text-interface text-ink-gray-7">Guided local setup is available when this installation starts with <code>pnpm brain start</code>. Other deployments use their configured runner connections.</p>}>
+        <form onSubmit={connect} class="grid max-w-4xl gap-3 lg:grid-cols-2">
           <TextInput label="Model API URL" placeholder="http://localhost:8000/v1" description="Use the address reachable from this host, including /v1 when required." value={url()} onInput={(e) => setUrl(e.currentTarget.value)} required disabled={busy()} />
           <TextInput label="Model ID" description="Enter the exact ID advertised by your model server." value={model()} onInput={(e) => setModel(e.currentTarget.value)} required disabled={busy()} />
-          <TextInput label="Model API key" type="password" autocomplete="off" description={status()?.hasApiKey ? "A key is saved. Leave blank to retain it for the same endpoint." : "Optional for a local endpoint without authentication."} value={key()} onInput={(e) => { setKey(e.currentTarget.value); setRemoveKey(false); }} disabled={busy()} />
-          <Show when={status()?.hasApiKey}><Button size="lg" type="button" variant="ghost" onClick={() => { setKey(""); setRemoveKey(!removeKey()); }}>{removeKey() ? "Keep saved key" : "Remove saved key on connect"}</Button></Show>
-          <Button size="lg" type="submit" loading={busy()} disabled={busy() || !url().trim() || !model().trim()}>Test connection and start runners</Button>
+          <div class="lg:col-span-2"><TextInput label="Model API key" type="password" autocomplete="off" description={status()?.hasApiKey ? "A key is saved. Leave blank to retain it for the same endpoint." : "Optional for a local endpoint without authentication."} value={key()} onInput={(e) => { setKey(e.currentTarget.value); setRemoveKey(false); }} disabled={busy()} /></div>
+          <Show when={status()?.hasApiKey}><Button size="sm" type="button" variant="ghost" class="justify-self-start lg:col-span-2" onClick={() => { setKey(""); setRemoveKey(!removeKey()); }}>{removeKey() ? "Keep saved key" : "Remove saved key on connect"}</Button></Show>
+          <Button size="md" type="submit" class="justify-self-start lg:col-span-2" loading={busy()} disabled={busy() || !url().trim() || !model().trim()}>Test connection and start runners</Button>
         </form>
-        <Show when={status()?.configured}><div class="mt-4"><h3 class="text-base-medium">Local execution</h3><For each={status()?.runners}>{(runner) => <p>{runner.id.includes("evaluators") ? "Independent validator" : "Task runner"}: {runner.applied ? "Ready" : runner.connected ? "Applying model settings after the current attempt" : "Waiting for connection"}</p>}</For></div></Show>
+        <Show when={status()?.configured}><div class="mt-3 border-t border-outline-gray-1 pt-3"><h3 class="text-base-medium">Local execution</h3><div class="mt-2 grid gap-1.5"><For each={status()?.runners}>{(runner) => <p class="break-words text-interface text-ink-gray-7">{runner.id.includes("evaluators") ? "Independent validator" : "Task runner"}: {runner.applied ? "Ready" : runner.connected ? "Applying model settings after the current attempt" : "Waiting for connection"}</p>}</For></div></div></Show>
       </Show>
-      <Show when={message()}><p role="status" class="mt-4">{message()}</p></Show>
-      <Show when={error()}><p role="alert" class="mt-4">{error()}</p></Show>
+      <Show when={message()}><p role="status" class="brain-readable mt-3 text-interface">{message()}</p></Show>
+      <Show when={error()}><p role="alert" class="brain-readable mt-3 text-interface text-ink-red-7">{error()}</p></Show>
     </Section>
     <OperationalChecklist />
   </div>;

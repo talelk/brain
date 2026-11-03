@@ -37,7 +37,7 @@ export default function RunnerDetailPage(): JSX.Element {
       await runner.refresh({ force: true });
     } catch (e) { setMessage(e instanceof Error ? e.message : "Runner operation failed."); }
   }
-  return <div class="flex flex-col gap-field-gap">
+  return <div class="flex flex-col gap-3">
     <ActionFeedback message={message()} />
     <RunnerDetailScreen runner={runner.state().data} state={runner.state()}
       onRefresh={() => void runner.refresh({ force: true })} onBack={() => void navigate("/runners")}

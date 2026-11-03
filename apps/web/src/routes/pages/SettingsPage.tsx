@@ -35,7 +35,7 @@ export default function SettingsPage(): JSX.Element {
     load: (scope, signal) => configExplainQuery(scope.workspaceId, "/workflows", signal),
   });
   const [message, setMessage] = createSignal("");
-  return <div class="flex flex-col gap-field-gap">
+  return <div class="flex flex-col gap-3">
     <ActionFeedback message={message()} />
     <SettingsScreen workspaceId={app.workspaceId()}
       members={settings.state().data?.members ?? []} audit={settings.state().data?.audit ?? []}

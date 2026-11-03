@@ -27,7 +27,7 @@ export default function ToolsPage(): JSX.Element {
     },
   });
   const [message, setMessage] = createSignal("");
-  return <div class="flex flex-col gap-field-gap">
+  return <div class="flex flex-col gap-3">
     <ActionFeedback message={message()} />
     <ToolsScreen candidates={candidates.state().data ?? []} tools={tools.state().data ?? []} state={tools.state()}
       onRefresh={() => void tools.refresh({ force: true })} canPublish={app.canPublish()}
