@@ -55,18 +55,21 @@ export function StudioListPage(): JSX.Element {
   return <BrainPage title={`${kind()} Studio`} description="Create immutable configuration revisions, validate them and publish exact Git commits without editing the active release.">
     <PageStack>
       <Show when={error()}><Alert theme="red" variant="outline" title="Draft creation failed" description={error()} /></Show>
-      <Section title="New draft" description={kind() === "Workflow" ? "Start with visual jobs or restricted YAML. Publication never edits the active release directly." : kind() === "Agent" ? "Start with the agent contract and versioned instructions, then validate the complete release before publication." : "Author a reviewed definition with restricted YAML, validation, diff and explicit publication."} surface="card">
-        <div class="flex flex-wrap items-end gap-3">
-          <div class="min-w-64 flex-1"><TextInput label="Definition title" value={title()} onInput={(event) => setTitle(event.currentTarget.value)} placeholder="Operations workflow" /></div>
-          <Button size="lg" theme="blue" loading={busy()} disabled={busy() || !title().trim()} onClick={() => void create()}>Create draft</Button>
+      <Section title="New draft" description={kind() === "Workflow" ? "Start with visual jobs or restricted YAML. Publication never edits the active release directly." : kind() === "Agent" ? "Start with the agent contract and versioned instructions, then validate the complete release before publication." : "Author a reviewed definition with restricted YAML, validation, diff and explicit publication."} surface="card" density="compact" class="p-3 sm:p-4">
+        <div class="flex min-w-0 flex-wrap items-end gap-2">
+          <div class="min-w-0 flex-1 basis-64"><TextInput label="Definition title" value={title()} onInput={(event) => setTitle(event.currentTarget.value)} placeholder="Operations workflow" /></div>
+          <Button size="sm" class="w-full sm:w-auto" theme="blue" loading={busy()} disabled={busy() || !title().trim()} onClick={() => void create()}>Create draft</Button>
         </div>
       </Section>
-      <Section title="Drafts" surface="card">
+      <Section title="Drafts" surface="card" density="compact" class="p-3 sm:p-4">
         <ScreenRegion state={drafts.state()} onRetry={() => void drafts.refresh()} emptyTitle="No configuration drafts" emptyDescription="Create a draft to start an immutable authoring and publication pipeline.">
-          <div class="flex flex-col gap-2"><For each={drafts.state().data?.items.filter((draft) => draft.kind === kind())}>{(draft) => <a class="rounded-control border border-outline-gray-2 p-3 focus-visible:focus-ring" href={`/studio/${encodeURIComponent(draft.kind)}/${encodeURIComponent(draft.draftId)}`}>
-            <div class="flex flex-wrap items-center justify-between gap-2"><strong>{draft.title}</strong><Badge theme={draft.state === "published" ? "green" : draft.state === "invalid" || draft.state === "failed" ? "red" : "amber"} label={draft.state} /></div>
-            <span class="text-caption text-ink-gray-6">{draft.kind} · revision record v{draft.version}</span>
-          </a>}</For></div>
+          <Show when={drafts.state().data?.items.some((draft) => draft.kind === kind())} fallback={<div class="border-y border-outline-gray-1 py-4"><p class="text-interface font-medium text-ink-gray-8">No {kind()} drafts</p><p class="mt-1 text-caption text-ink-gray-6">Create a {kind().toLowerCase()} draft to start an immutable authoring and publication pipeline.</p></div>}>
+            <div class="min-w-0 divide-y divide-outline-gray-1 border-y border-outline-gray-1"><For each={drafts.state().data?.items.filter((draft) => draft.kind === kind())}>{(draft) => <a class="group flex min-w-0 flex-col gap-1 py-3 first:pt-0 last:pb-0 focus-visible:focus-ring" href={`/studio/${encodeURIComponent(draft.kind)}/${encodeURIComponent(draft.draftId)}`}>
+              <div class="flex min-w-0 flex-wrap items-center justify-between gap-2"><strong class="min-w-0 break-words text-base-medium group-hover:text-ink-blue-link">{draft.title}</strong><Badge size="sm" theme={draft.state === "published" ? "green" : draft.state === "invalid" || draft.state === "failed" ? "red" : "amber"} label={draft.state} /></div>
+              <span class="text-caption text-ink-gray-6">{draft.kind} · revision record v{draft.version}</span>
+              <code class="break-all text-caption text-ink-gray-6">{draft.draftId}</code>
+            </a>}</For></div>
+          </Show>
         </ScreenRegion>
       </Section>
     </PageStack>
@@ -187,42 +190,43 @@ export function StudioEditorPage(): JSX.Element {
   }
 
   return <BrainPage title={detail.state().data?.draft.title ?? "Configuration Studio"} description="Edit immutable revisions, run structural checks, publish an exact Git commit, then activate it explicitly."
-    actions={<><Button size="lg" variant="outline" disabled={busy()} onClick={() => void run("validate")}>Validate</Button><Button size="lg" variant="outline" disabled={busy()} onClick={() => void run("test")}>Run structural test</Button></>}>
+    actions={<><Button size="sm" variant="outline" disabled={busy()} onClick={() => void run("validate")}>Validate</Button><Button size="sm" variant="outline" disabled={busy()} onClick={() => void run("test")}>Run structural test</Button></>}>
     <PageStack>
       <Show when={error()}><Alert theme="red" variant="outline" title="Studio action failed" description={error()} /></Show>
       <ScreenRegion state={detail.state()} onRetry={() => void detail.refresh()} emptyTitle="Draft not found" emptyDescription="The draft may belong to another workspace or no longer exist.">
-        <div class="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <Section title="Definition editor" description={detail.state().data?.draft.kind === "Workflow" ? "Visual jobs use canonical spec.jobs. Advanced YAML follows the same restricted grammar." : "The restricted declaration and pinned assets remain immutable once published."} surface="card">
-            <Show when={detail.state().data?.draft.kind === "Workflow"}><div class="mb-3 flex flex-wrap gap-2"><Button size="sm" variant={mode() === "visual" ? "solid" : "outline"} onClick={() => setMode("visual")}>Visual jobs</Button><Button size="sm" variant={mode() === "yaml" ? "solid" : "outline"} onClick={() => setMode("yaml")}>Advanced YAML</Button></div></Show>
-            <Show when={mode() === "visual"} fallback={<Textarea label="Restricted YAML" value={content()} onInput={(event) => { setContent(event.currentTarget.value); setDirty(true); }} class="min-h-[32rem] font-mono" />}>
-              <div class="flex flex-col gap-3"><For each={jobs()}>{(job, index) => <div class="grid gap-3 rounded-card border border-outline-gray-2 p-3 lg:grid-cols-3">
+        <div class="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <Section title="Definition editor" description={detail.state().data?.draft.kind === "Workflow" ? "Visual jobs use canonical spec.jobs. Advanced YAML follows the same restricted grammar." : "The restricted declaration and pinned assets remain immutable once published."} surface="card" density="compact" class="p-3 sm:p-4">
+            <Show when={detail.state().data?.draft.kind === "Workflow"}><div class="mb-2 flex flex-wrap gap-1.5"><Button size="sm" variant={mode() === "visual" ? "solid" : "outline"} onClick={() => setMode("visual")}>Visual jobs</Button><Button size="sm" variant={mode() === "yaml" ? "solid" : "outline"} onClick={() => setMode("yaml")}>Advanced YAML</Button></div></Show>
+            <Show when={mode() === "visual"} fallback={<Textarea label="Restricted YAML" value={content()} onInput={(event) => { setContent(event.currentTarget.value); setDirty(true); }} class="min-h-[28rem] min-w-0 max-w-full font-mono text-caption" />}>
+              <div class="min-w-0 divide-y divide-outline-gray-1 border-y border-outline-gray-1"><For each={jobs()}>{(job, index) => <div class="grid min-w-0 gap-2 py-3 first:pt-0 last:pb-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] lg:items-end">
                 <TextInput label="Job id" value={job.id} onInput={(event) => updateJob(index(), "id", event.currentTarget.value)} />
                 <Select label="Kind" value={job.kind} options={["dispatch", "gate", "eval", "merge", "subgraph", "steer"].map((value) => ({ value, label: value }))} onValueChange={(value) => updateJob(index(), "kind", value ?? "dispatch")} />
                 <TextInput label="Needs (comma separated)" value={job.needs} onInput={(event) => updateJob(index(), "needs", event.currentTarget.value)} />
-                <div class="lg:col-span-3"><Button size="sm" variant="ghost" theme="red" onClick={() => { setJobs((rows) => rows.filter((_row, position) => position !== index())); setDirty(true); }}>Remove job</Button></div>
+                <Button size="sm" class="justify-self-start" variant="ghost" theme="red" iconLeft="lucide-x" onClick={() => { setJobs((rows) => rows.filter((_row, position) => position !== index())); setDirty(true); }}>Remove job</Button>
               </div>}</For></div>
-              <Button size="sm" variant="outline" onClick={() => { setJobs((rows) => [...rows, { id: `job-${rows.length + 1}`, kind: "dispatch", needs: "", value: {} }]); setDirty(true); }}>Add job</Button>
+              <Show when={!jobs().length}><p class="py-3 text-caption text-ink-gray-6">No jobs defined. Add a job or use Advanced YAML.</p></Show>
+              <Button size="sm" class="mt-2" variant="outline" iconLeft="lucide-plus" onClick={() => { setJobs((rows) => [...rows, { id: `job-${rows.length + 1}`, kind: "dispatch", needs: "", value: {} }]); setDirty(true); }}>Add job</Button>
             </Show>
-            <Show when={detail.state().data?.draft.kind === "Agent"}><div class="mt-4 border-t border-outline-gray-1 pt-4"><Textarea label="Versioned instructions (Markdown)" value={instructions()} onInput={(event) => { setInstructions(event.currentTarget.value); setDirty(true); }} class="min-h-64" /><p class="mt-2 text-caption text-ink-gray-6">Attempts keep their pinned instructions and tools. This candidate has no effect until its exact release is activated.</p></div></Show>
-            <div class="mt-3 flex flex-wrap gap-2"><Button size="lg" theme="blue" loading={busy()} disabled={busy() || !dirty()} onClick={() => void save()}>Save immutable revision</Button><Show when={dirty()}><Badge theme="amber" label="unsaved" /></Show></div>
+            <Show when={detail.state().data?.draft.kind === "Agent"}><div class="mt-3 border-t border-outline-gray-1 pt-3"><Textarea label="Versioned instructions (Markdown)" value={instructions()} onInput={(event) => { setInstructions(event.currentTarget.value); setDirty(true); }} class="min-h-64 min-w-0 max-w-full" /><p class="mt-2 text-caption text-ink-gray-6">Attempts keep their pinned instructions and tools. This candidate has no effect until its exact release is activated.</p></div></Show>
+            <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-outline-gray-1 pt-3"><Button size="sm" theme="blue" loading={busy()} disabled={busy() || !dirty()} onClick={() => void save()}>Save immutable revision</Button><Show when={dirty()}><Badge size="sm" theme="amber" label="unsaved" /></Show></div>
           </Section>
 
           <PageStack>
-            <Section title="Validation and publication" description="Publication requires a passing current revision and a verified configuration write binding." surface="card">
-              <Show when={detail.state().data?.validations[0]}>{(validation) => <div class="mb-3"><Badge theme={validation().status === "passed" ? "green" : "red"} label={validation().status} /><ul class="mt-2 flex flex-col gap-1 text-caption"><For each={validation().diagnostics}>{(diagnostic) => <li class={diagnostic.severity === "error" ? "text-ink-red-7" : "text-ink-gray-7"}>{diagnostic.code}: {diagnostic.message}</li>}</For></ul></div>}</Show>
+            <Section title="Validation and publication" description="Publication requires a passing current revision and a verified configuration write binding." surface="card" density="compact" class="p-3 sm:p-4">
+              <Show when={detail.state().data?.validations[0]}>{(validation) => <div class="mb-2 min-w-0"><Badge size="sm" theme={validation().status === "passed" ? "green" : "red"} label={validation().status} /><ul class="mt-2 flex min-w-0 flex-col gap-1 text-caption"><For each={validation().diagnostics}>{(diagnostic) => <li class={`break-words ${diagnostic.severity === "error" ? "text-ink-red-7" : "text-ink-gray-7"}`}><code>{diagnostic.code}</code>: {diagnostic.message}</li>}</For></ul></div>}</Show>
               <TextInput label="Configuration write binding ID" value={bindingId()} onInput={(event) => setBindingId(event.currentTarget.value)} description="Created and verified under Administration → Integrations" />
-              <Button size="lg" theme="blue" loading={busy()} disabled={busy() || !bindingId().trim() || detail.state().data?.draft.state === "publishing"} onClick={() => void publish()}>Publish and compile commit</Button>
-              <Show when={latestPublication()}>{(publication) => <div class="mt-3 flex flex-col gap-2"><Badge theme={publication().state === "compiled" ? "green" : publication().state === "failed" ? "red" : "amber"} label={publication().state} /><p class="break-all text-caption text-ink-gray-6">commit {publication().commitOid}<br />release {publication().releaseDigest}</p><Show when={publication().error}><p class="text-caption text-ink-red-7">{publication().error}</p></Show><Show when={publication().releaseDigest && activeDigest() !== publication().releaseDigest}><Button size="lg" variant="outline" disabled={busy()} onClick={() => void activate()}>Activate this release</Button></Show></div>}</Show>
+              <Button size="sm" class="mt-2 max-w-full" theme="blue" loading={busy()} disabled={busy() || !bindingId().trim() || detail.state().data?.draft.state === "publishing"} onClick={() => void publish()}>Publish and compile commit</Button>
+              <Show when={latestPublication()}>{(publication) => <div class="mt-3 flex min-w-0 flex-col items-start gap-2 border-t border-outline-gray-1 pt-3"><Badge size="sm" theme={publication().state === "compiled" ? "green" : publication().state === "failed" ? "red" : "amber"} label={publication().state} /><dl class="grid min-w-0 gap-1 text-caption"><dt class="text-ink-gray-6">Commit</dt><dd class="min-w-0"><code class="break-all text-ink-gray-7">{publication().commitOid}</code></dd><dt class="mt-1 text-ink-gray-6">Release</dt><dd class="min-w-0"><code class="break-all text-ink-gray-7">{publication().releaseDigest}</code></dd></dl><Show when={publication().error}><p class="break-words text-caption text-ink-red-7">{publication().error}</p></Show><Show when={publication().releaseDigest && activeDigest() !== publication().releaseDigest}><Button size="sm" variant="outline" disabled={busy()} onClick={() => void activate()}>Activate this release</Button></Show></div>}</Show>
             </Section>
 
-            <Section title="Impact" surface="card">
+            <Section title="Impact" surface="card" density="compact" class="p-3 sm:p-4">
               <p class="text-caption text-ink-gray-7">{detail.state().data?.impact.changedDefinitions.length ?? 0} changed definitions · {detail.state().data?.impact.impactedReferences.length ?? 0} impacted references</p>
-              <Show when={detail.state().data?.impact.revalidationRequired}><Badge theme="amber" label="revalidation required" /></Show>
+              <Show when={detail.state().data?.impact.revalidationRequired}><Badge size="sm" theme="amber" label="revalidation required" /></Show>
             </Section>
 
-            <Section title="Diff" surface="card">
-              <Show when={detail.state().data?.diff.length} fallback={<p class="text-ink-gray-7">No changes from the active document set.</p>}>
-                <For each={detail.state().data?.diff}>{(entry) => <details class="mb-2 rounded-control border border-outline-gray-2 p-2"><summary class="cursor-pointer text-base-medium">{entry.path}</summary><pre class="mt-2 max-h-96 overflow-auto whitespace-pre-wrap text-caption">{entry.unified}</pre></details>}</For>
+            <Section title="Diff" surface="card" density="compact" class="p-3 sm:p-4">
+              <Show when={detail.state().data?.diff.length} fallback={<p class="text-interface text-ink-gray-7">No changes from the active document set.</p>}>
+                <For each={detail.state().data?.diff}>{(entry) => <details class="mb-2 min-w-0 max-w-full overflow-hidden rounded-control border border-outline-gray-2 p-2 last:mb-0"><summary class="cursor-pointer break-all text-base-medium">{entry.path}</summary><pre class="mt-2 max-h-96 min-w-0 max-w-full overflow-auto whitespace-pre text-caption">{entry.unified}</pre></details>}</For>
               </Show>
             </Section>
           </PageStack>

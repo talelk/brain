@@ -114,7 +114,7 @@ export function KnowledgeScreen(props: {
           description="Search only the current workspace and review states authorized to your account. Results cannot change agent policy or execute tools."
         >
           <form
-            class="grid items-end gap-3 lg:grid-cols-[minmax(0,1fr)_15rem_auto]"
+            class="grid min-w-0 items-end gap-2 md:grid-cols-[minmax(0,1fr)_12rem_auto]"
             onSubmit={(event) => {
               event.preventDefault();
               if (text().trim()) props.onSearch(text().trim());
@@ -138,7 +138,7 @@ export function KnowledgeScreen(props: {
               ]}
               onValueChange={(value) => setScopeFilter(value ?? "all")}
             />
-            <Button size="lg" type="submit" variant="solid" theme="blue" iconLeft="lucide-search" disabled={!text().trim()}>
+            <Button size="sm" class="w-full md:w-auto" type="submit" variant="solid" theme="blue" iconLeft="lucide-search" disabled={!text().trim()}>
               Search
             </Button>
           </form>
@@ -161,7 +161,7 @@ export function KnowledgeScreen(props: {
             }
             emptyAction={
               props.searched ? (
-                <Button size="md" onClick={props.onRefresh}>
+                <Button size="sm" onClick={props.onRefresh}>
                   Run search again
                 </Button>
               ) : undefined
@@ -174,30 +174,34 @@ export function KnowledgeScreen(props: {
                 <EmptyPreview icon="lucide-filter" title="No results in this scope" description="Choose another returned scope or run a broader search." />
               }
             >
-              <div class="grid gap-4">
+              <div class="min-w-0 divide-y divide-outline-gray-1 border-y border-outline-gray-1">
                 <For each={results()}>
                   {(result) => (
-                    <article class="border-y border-outline-gray-1 py-4">
-                      <div class="flex flex-wrap items-center gap-2">
+                    <article class="min-w-0 py-3 first:pt-0 last:pb-0">
+                      <div class="flex min-w-0 flex-wrap items-center gap-1.5">
                         <StatusBadge kind="knowledge" status={result.status} />
-                        <Badge variant="outline" theme="blue" label={result.classification} />
-                        <Badge variant="outline" theme="gray" label={scopeLabel(result.scope)} />
+                        <Badge size="sm" variant="outline" theme="blue" label={result.classification} />
+                        <Badge size="sm" variant="outline" theme="gray" label={scopeLabel(result.scope)} />
                       </div>
-                      <p class="brain-prose mt-3 whitespace-pre-wrap break-words text-interface text-ink-gray-8">{result.content}</p>
-                      <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-ink-gray-6">
-                        <span>Source v{result.sourceVersion}</span>
-                        <span>
-                          Updated <DateText value={result.updatedAt} />
-                        </span>
+                      <p class="brain-prose mt-2 whitespace-pre-wrap break-words text-interface text-ink-gray-8">{result.content}</p>
+                      <div class="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-caption text-ink-gray-6">
+                        <span class="min-w-0 break-all">Source <code class="text-ink-gray-7">{result.sourceId}</code> · v{result.sourceVersion}</span>
+                        <span>Updated <DateText value={result.updatedAt} /></span>
                         <span>{result.provenance.length} provenance references</span>
                       </div>
+                      <Show when={result.provenance.length}>
+                        <details class="mt-2 min-w-0">
+                          <summary class="cursor-pointer text-caption font-medium text-ink-gray-6">Provenance references</summary>
+                          <ul class="mt-1 flex min-w-0 flex-col gap-1"><For each={result.provenance}>{(reference) => <li><code class="break-all text-caption text-ink-gray-7">{reference}</code></li>}</For></ul>
+                        </details>
+                      </Show>
                       <Show when={props.canPublish}>
-                        <div class="mt-3 flex flex-wrap gap-2 border-t border-outline-gray-1 pt-3">
-                          <Button size="md" variant="outline" iconLeft="lucide-upload" disabled={!canMutate()} onClick={() => openPublish(result.sourceId)}>
+                        <div class="mt-3 flex flex-wrap gap-2 border-t border-outline-gray-1 pt-2">
+                          <Button size="sm" variant="outline" iconLeft="lucide-upload" disabled={!canMutate()} onClick={() => openPublish(result.sourceId)}>
                             Review publication…
                           </Button>
                           <Button
-                            size="md"
+                            size="sm"
                             variant="ghost"
                             theme="red"
                             iconLeft="lucide-trash-2"
@@ -221,9 +225,9 @@ export function KnowledgeScreen(props: {
           actions={
             <A
               href="/tools"
-              class="inline-flex min-h-11 items-center rounded-control border border-outline-gray-2 px-3 text-interface font-medium text-ink-blue-link focus-visible:focus-ring"
+              class="inline-flex min-h-8 items-center gap-1.5 rounded-control border border-outline-gray-2 px-2.5 text-caption font-medium text-ink-blue-link hover:bg-surface-gray-1 focus-visible:focus-ring"
             >
-              Open tool registry
+              Open tool registry<span class="lucide-arrow-up-right size-3.5" aria-hidden="true" />
             </A>
           }
         >
@@ -258,12 +262,12 @@ export function KnowledgeScreen(props: {
             </Dialog.Header>
             <Show when={publishing()} keyed>
               {(result) => (
-                <div class="my-4 flex max-h-[55dvh] flex-col gap-4 overflow-y-auto pe-1">
+                <div class="my-3 flex min-w-0 max-h-[55dvh] flex-col gap-3 overflow-y-auto pe-1">
                   <Alert
                     theme="blue"
                     variant="outline"
                     title="Reviewed publication"
-                    description={`Candidate ${result.sourceId} · target scope ${scopeLabel(result.scope)}`}
+                    description={<span class="break-words">Candidate <code class="break-all">{result.sourceId}</code> · target scope {scopeLabel(result.scope)}</span>}
                   />
                   <ArtifactSelector
                     label="Content artifact"
@@ -296,12 +300,12 @@ export function KnowledgeScreen(props: {
                 </div>
               )}
             </Show>
-            <Dialog.Footer class="justify-end border-t border-outline-gray-1 pt-4">
-              <Button size="md" variant="outline" onClick={() => setPublishOpenFor(undefined)}>
+            <Dialog.Footer class="flex-wrap justify-end gap-2 border-t border-outline-gray-1 pt-3">
+              <Button size="sm" variant="outline" onClick={() => setPublishOpenFor(undefined)}>
                 Cancel
               </Button>
               <Button
-                size="md"
+                size="sm"
                 variant="solid"
                 theme="blue"
                 disabled={!publishReady()}

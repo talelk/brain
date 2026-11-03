@@ -9,6 +9,7 @@ import { memorySearchQuery, toolsQuery } from "../../data/governor";
 import { KnowledgeScreen, type MemoryPublicationInput } from "../knowledge";
 import { CapitalizationStudio, type CapitalizationSnapshot } from "../../ui/studio/CapitalizationStudio";
 import { ActionFeedback } from "../../ui/components/ActionFeedback";
+import { BrainPage } from "../../ui/components/PageLayout";
 
 export default function KnowledgePage(): JSX.Element {
   const app = useApp();
@@ -49,11 +50,17 @@ export default function KnowledgePage(): JSX.Element {
   });
   const [message, setMessage] = createSignal("");
   const emptyCapitalization = { assets: [], candidates: [], runs: [] } satisfies CapitalizationSnapshot;
-  return <div class="flex flex-col gap-field-gap">
+  return <div class="flex min-w-0 flex-col gap-3">
     <ActionFeedback message={message()} />
-    <TabButtons label="Knowledge journeys" value={journey()} options={[{ value: "find", label: "Find & publish knowledge" }, { value: "review", label: "Review capability candidates" }]} onValueChange={setJourney} />
+    <div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
+      <TabButtons label="Knowledge journeys" value={journey()} options={[{ value: "find", label: "Find & publish knowledge" }, { value: "review", label: "Review capability candidates" }]} onValueChange={setJourney} wrap />
+      <Show when={journey() === "find" && app.identity()?.integrations.memoryUiUrl}>
+        <a class="inline-flex min-h-8 items-center gap-1.5 rounded-control px-2 text-caption font-medium text-ink-blue-link hover:bg-surface-gray-2 focus-visible:focus-ring" href={app.identity()!.integrations.memoryUiUrl!} target="_blank" rel="noopener noreferrer">
+          <span class="lucide-external-link size-3.5" aria-hidden="true" />Open Memory UI
+        </a>
+      </Show>
+    </div>
     <Show when={journey() === "find"}>
-      <Show when={app.identity()?.integrations.memoryUiUrl}><a class="inline-flex min-h-11 items-center text-interface font-medium text-ink-blue-link" href={app.identity()!.integrations.memoryUiUrl!} target="_blank" rel="noopener noreferrer">Open Memory UI</a></Show>
       <KnowledgeScreen workspaceId={app.workspaceId()} tools={knowledge.state().data?.tools ?? []}
         state={knowledge.state()} searched={searchText().trim().length > 0} onRefresh={() => void knowledge.refresh({ force: true })}
         onSearch={(text) => { setSearchText(text); void knowledge.refresh({ force: true }); }}
@@ -68,10 +75,12 @@ export default function KnowledgePage(): JSX.Element {
         canPublish={app.canPublish()} />
     </Show>
     <Show when={journey() === "review"}>
-      <CapitalizationStudio snapshot={capitalization.state().data ?? emptyCapitalization} canRun={app.canPublish()} canReview={app.identity()?.actor.scopes.includes("tool:publish") ?? false}
-        onRun={async () => { try { const result = await app.run("capitalization.run", {}); setMessage(result.detail); await capitalization.refresh({ force: true }); } catch (error) { setMessage(error instanceof Error ? error.message : "Capitalization failed."); } }}
-        onReview={async (candidate, decision) => { try { const result = await app.run("capability.review", { candidateId: candidate.candidateId, decision, reason: decision === "approve" ? "Verified provenance and tests reviewed" : "Candidate rejected after review" }); setMessage(result.detail); await capitalization.refresh({ force: true }); } catch (error) { setMessage(error instanceof Error ? error.message : "Review failed."); } }}
-        onPublish={async (candidate) => { try { const result = await app.run("tool.publish", { release: candidate.release, evidence: [...candidate.evidenceDigests] }); setMessage(result.detail); await Promise.all([capitalization.refresh({ force: true }), knowledge.refresh({ force: true })]); } catch (error) { setMessage(error instanceof Error ? error.message : "Publication failed."); } }} />
+      <BrainPage title="Knowledge" description="Find scoped knowledge with provenance and trust visible; review and publication remain separate governed journeys.">
+        <CapitalizationStudio snapshot={capitalization.state().data ?? emptyCapitalization} canRun={app.canPublish()} canReview={app.identity()?.actor.scopes.includes("tool:publish") ?? false}
+          onRun={async () => { try { const result = await app.run("capitalization.run", {}); setMessage(result.detail); await capitalization.refresh({ force: true }); } catch (error) { setMessage(error instanceof Error ? error.message : "Capitalization failed."); } }}
+          onReview={async (candidate, decision) => { try { const result = await app.run("capability.review", { candidateId: candidate.candidateId, decision, reason: decision === "approve" ? "Verified provenance and tests reviewed" : "Candidate rejected after review" }); setMessage(result.detail); await capitalization.refresh({ force: true }); } catch (error) { setMessage(error instanceof Error ? error.message : "Review failed."); } }}
+          onPublish={async (candidate) => { try { const result = await app.run("tool.publish", { release: candidate.release, evidence: [...candidate.evidenceDigests] }); setMessage(result.detail); await Promise.all([capitalization.refresh({ force: true }), knowledge.refresh({ force: true })]); } catch (error) { setMessage(error instanceof Error ? error.message : "Publication failed."); } }} />
+      </BrainPage>
     </Show>
   </div>;
 }
