@@ -28,10 +28,10 @@ test("primitives and tokens render across widths and themes (T33)", async ({ pag
   const bareInputs = await page.locator("input:not([class])").count();
   expect(bareInputs).toBe(0);
 
-  // Page actions share NewUI's lg metrics and header icons really render.
+  // Page actions share NewUI's compact md metrics and header icons really render.
   const refreshBox = await page.getByRole("button", { name: "Refresh", exact: true }).boundingBox();
   const startBox = await page.getByRole("button", { name: "Start a task", exact: true }).boundingBox();
-  expect(refreshBox?.height).toBe(40);
+  expect(refreshBox?.height).toBe(32);
   expect(startBox?.height).toBe(refreshBox?.height);
   const searchIcon = page.locator("header .lucide-search");
   await expect(searchIcon).toBeVisible();

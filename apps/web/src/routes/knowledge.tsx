@@ -404,7 +404,7 @@ export function ToolsScreen(props: {
         <>
           <RefreshButton onClick={props.onRefresh} label="Refresh" />
           <Show when={props.canPublish}>
-            <Button size="lg" variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setProposeOpen(true)}>
+            <Button size="md" variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setProposeOpen(true)}>
               Propose tool
             </Button>
           </Show>
@@ -490,7 +490,7 @@ export function ToolsScreen(props: {
               >
                 {(tool) => (
                   <PageStack>
-                    <Button size="lg" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={() => setSelectedId("")}>
+                    <Button size="md" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={() => setSelectedId("")}>
                       Back to registry
                     </Button>
                     <div>
@@ -549,7 +549,7 @@ export function ToolsScreen(props: {
             title="Governed publication"
             description="Proposal and publication are separate. Rule of Three creates a review candidate, not a trusted live tool automatically."
             actions={
-              <Button size="lg" variant="outline" iconLeft="lucide-upload" onClick={() => setPublishOpen(true)}>
+              <Button size="md" variant="outline" iconLeft="lucide-upload" onClick={() => setPublishOpen(true)}>
                 Publish reviewed release
               </Button>
             }

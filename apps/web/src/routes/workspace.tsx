@@ -273,12 +273,13 @@ export function RunnerDetailScreen(props: {
           <DetailHeader
             title={runner()?.runnerId ?? "Runner"}
             headingLevel={2}
-            subtitle={`Group ${runner()?.group ?? "—"} · ${runner()?.connectivity ?? "unknown"} · heartbeat ${runner()?.lastSeenAt ?? "unknown"}`}
+            subtitle={`Group ${runner()?.group ?? "—"} · ${runner()?.connectivity ?? "unknown"}`}
             status={{
               label: runner()?.deregisteredAt ? "deregistered" : (runner()?.displayStatus ?? "unknown"),
               theme: statusHeaderTheme("runner", runner()?.displayStatus ?? ""),
             }}
           />
+          <p class="-mt-2 text-caption text-ink-gray-6 break-all">heartbeat {runner()?.lastSeenAt ?? "unknown"}</p>
           <Show when={runner()?.deregisteredAt}>
             <Alert
               theme="gray"
