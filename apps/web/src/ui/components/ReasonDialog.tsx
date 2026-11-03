@@ -29,15 +29,15 @@ export function ReasonDialog(props: {
   };
   return <Dialog.Root open={props.open} onOpenChange={(open) => { if (!open) props.onClose(); }}>
     <Dialog.Content size="md">
-      <Dialog.Header><Dialog.Title>{props.title}</Dialog.Title><Dialog.Description>{props.description}</Dialog.Description></Dialog.Header>
-      <div class="my-4">
+      <Dialog.Header class="min-w-0"><Dialog.Title>{props.title}</Dialog.Title><Dialog.Description class="break-words [overflow-wrap:anywhere]">{props.description}</Dialog.Description></Dialog.Header>
+      <div class="my-3 min-w-0">
         <Show when={props.multiline ?? true} fallback={<TextInput label={props.reasonLabel ?? "Reason"} value={props.reason} onInput={(event) => props.onReason(event.currentTarget.value)} required />}>
-          <Textarea label={props.reasonLabel ?? "Reason"} value={props.reason} onInput={(event) => props.onReason(event.currentTarget.value)} required />
+          <Textarea label={props.reasonLabel ?? "Reason"} value={props.reason} onInput={(event) => props.onReason(event.currentTarget.value)} required rows={3} />
         </Show>
       </div>
-      <Dialog.Footer class="justify-end">
-        <Button size="md" variant="outline" disabled={props.busy} onClick={props.onClose}>{props.cancelLabel ?? "Cancel"}</Button>
-        <Button size="md" variant="solid" theme={props.tone ?? "red"} loading={props.busy} disabled={!props.reason.trim()} onClick={confirm}>{props.confirmLabel}</Button>
+      <Dialog.Footer class="flex-wrap justify-end gap-2">
+        <Button size="sm" variant="outline" disabled={props.busy} onClick={props.onClose}>{props.cancelLabel ?? "Cancel"}</Button>
+        <Button size="sm" variant="solid" theme={props.tone ?? "red"} loading={props.busy} disabled={!props.reason.trim()} onClick={confirm}>{props.confirmLabel}</Button>
       </Dialog.Footer>
     </Dialog.Content>
   </Dialog.Root>;

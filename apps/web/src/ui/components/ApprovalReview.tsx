@@ -8,6 +8,7 @@ import {
 
 export function ApprovalReview(props: {
   active: boolean;
+  class?: string;
   requireTwoFactor?: boolean;
   approvalId: string;
   targetLabel: string;
@@ -78,24 +79,27 @@ export function ApprovalReview(props: {
     denied: "Decision denied. Review authorization and the current proposal.",
   })[state().status];
   return <>
-    <Button size="lg" variant="solid" theme="blue" iconLeft="lucide-shield-check" disabled={!props.active || !props.fresh} onClick={openReview}>Review action</Button>
+    <Button size="md" class={props.class} variant="solid" theme="blue" iconLeft="lucide-shield-check" disabled={!props.active || !props.fresh} onClick={openReview}>Review action</Button>
     <Dialog.Root open={open()} onOpenChange={setOpen} dismissible={!busy()}>
-      <Dialog.Content class="max-sm:fixed max-sm:inset-0 max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none">
-        <Dialog.Header><Dialog.Title>Authorize action</Dialog.Title><Dialog.Description>{reviewed().targetLabel} · the decision binds this exact content and version.</Dialog.Description></Dialog.Header>
-        <div class="my-4 flex max-h-[55dvh] flex-col gap-4 overflow-y-auto pe-1">
-          <div><p class="mb-2 text-caption font-medium text-ink-gray-7">Exact proposal</p><pre class="brain-readable max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-card border border-outline-gray-1 bg-surface-gray-1 p-card-pad text-caption">{reviewed().exactContent}</pre></div>
-          <Textarea id={noteId} label="Decision note" value={note()} description="Required to reject or request changes; optional for approval." disabled={state().status !== "review"} onInput={(event) => setNote(event.currentTarget.value)} />
-          <Show when={props.requireTwoFactor}><TextInput label="Authenticator code" description="Six digits from your enrolled authenticator." autocomplete="one-time-code" inputmode="numeric" maxlength={6} pattern="[0-9]{6}" value={code()} onInput={(event) => setCode(event.currentTarget.value)} disabled={busy() || state().status !== "review"} /></Show>
+      <Dialog.Content size="2xl" class="flex max-h-[calc(100dvh-2rem)] flex-col max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none">
+        <Dialog.Header class="min-w-0"><Dialog.Title>Authorize action</Dialog.Title><Dialog.Description class="break-words [overflow-wrap:anywhere]">{reviewed().targetLabel} · the decision binds this exact content and version.</Dialog.Description></Dialog.Header>
+        <div class="my-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pe-1">
+          <div class="min-w-0">
+            <div class="mb-1.5 flex items-center justify-between gap-3"><p class="text-caption font-medium text-ink-gray-7">Exact proposal</p><span class="shrink-0 text-caption text-ink-gray-6">Version {reviewed().expectedVersion}</span></div>
+            <pre class="brain-readable max-h-48 max-w-full min-w-0 overflow-auto whitespace-pre-wrap break-all rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3 text-caption">{reviewed().exactContent}</pre>
+          </div>
+          <Textarea id={noteId} label="Decision note" value={note()} description="Required to reject or request changes; optional for approval." disabled={state().status !== "review"} onInput={(event) => setNote(event.currentTarget.value)} rows={3} />
+          <Show when={props.requireTwoFactor}><div class="rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3"><p class="mb-2 text-caption font-medium text-ink-gray-7">Identity confirmation</p><TextInput label="Authenticator code" description="Six digits, verified for this exact subject." autocomplete="one-time-code" inputmode="numeric" maxlength={6} pattern="[0-9]{6}" value={code()} onInput={(event) => setCode(event.currentTarget.value)} disabled={busy() || state().status !== "review"} /></div></Show>
           <Show when={identityError()}><Alert theme="red" variant="outline" title="Identity verification failed" description={identityError()} /></Show>
-          <p role="status" aria-live="polite" class="min-h-5 text-interface text-ink-gray-7">{message()}</p>
+          <p role="status" aria-live="polite" class="min-h-5 break-words text-interface text-ink-gray-7">{message()}</p>
         </div>
-        <Dialog.Footer class="flex-wrap justify-end border-t border-outline-gray-1 pt-4">
-          <Button size="md" variant="outline" onClick={() => setOpen(false)} disabled={busy()}>Back</Button>
-          <Button size="md" variant="outline" onClick={reviewCurrent} disabled={busy() || !(canReviewAgain() || (state().status === "review" && !sameProposal()))}>Review current proposal</Button>
-          <Button size="md" variant="outline" onClick={check} loading={state().status === "checking"} disabled={state().status !== "unknown"}>Check decision</Button>
-          <Button size="md" variant="outline" onClick={() => void submit("request-changes")} disabled={!canSubmit() || busy() || !note().trim()}>Request changes</Button>
-          <Button size="md" variant="outline" onClick={() => void submit("reject")} disabled={!canSubmit() || busy() || !note().trim()} theme="red">Reject</Button>
-          <Button size="md" variant="solid" theme="blue" onClick={() => void submit()} loading={busy()} disabled={!canSubmit() || busy() || (!!props.requireTwoFactor && !/^\d{6}$/u.test(code()))}>{props.requireTwoFactor ? "Verify identity and approve" : "Approve exact action"}</Button>
+        <Dialog.Footer class="grid grid-cols-2 gap-2 border-t border-outline-gray-1 pt-3 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+          <Button size="sm" class="col-span-2 sm:me-auto" variant="outline" onClick={() => setOpen(false)} disabled={busy()}>Back</Button>
+          <Show when={canReviewAgain() || (state().status === "review" && !sameProposal())}><Button size="sm" class="col-span-2" variant="outline" onClick={reviewCurrent} disabled={busy()}>Review current proposal</Button></Show>
+          <Show when={state().status === "unknown" || state().status === "checking"}><Button size="sm" class="col-span-2" variant="outline" onClick={check} loading={state().status === "checking"} disabled={state().status !== "unknown"}>Check decision</Button></Show>
+          <Button size="sm" variant="outline" onClick={() => void submit("request-changes")} disabled={!canSubmit() || busy() || !note().trim()}>Request changes</Button>
+          <Button size="sm" variant="outline" onClick={() => void submit("reject")} disabled={!canSubmit() || busy() || !note().trim()} theme="red">Reject</Button>
+          <Button size="sm" class="col-span-2" variant="solid" theme="blue" onClick={() => void submit()} loading={busy()} disabled={!canSubmit() || busy() || (!!props.requireTwoFactor && !/^\d{6}$/u.test(code()))}>{props.requireTwoFactor ? "Verify identity and approve" : "Approve exact action"}</Button>
         </Dialog.Footer>
       </Dialog.Content>
     </Dialog.Root>
