@@ -36,8 +36,8 @@ export function GlobalSearchDialog(props: { open: boolean; onOpenChange: (open: 
     return "/today";
   }
   return <Dialog.Root open={props.open} onOpenChange={props.onOpenChange}>
-    <Dialog.Content size="2xl" position="top">
-      <Dialog.Header>
+    <Dialog.Content size="2xl" position="top" class="brain-search-dialog">
+      <Dialog.Header class="mb-3">
         <Dialog.Title>Find work anywhere</Dialog.Title>
         <Dialog.Description>Search only the workspaces and records you are authorized to read.</Dialog.Description>
       </Dialog.Header>

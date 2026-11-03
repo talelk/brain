@@ -169,5 +169,5 @@ export function StatusBadge(props: { kind?: StatusKind; status: string; label?: 
     : resolved().theme === "red" ? "lucide-circle-alert"
       : resolved().theme === "amber" ? "lucide-clock-3"
         : resolved().theme === "blue" ? "lucide-activity" : "lucide-circle";
-  return <Badge size="lg" theme={resolved().theme} prefix={<span class={`${icon()} size-3`} aria-hidden="true" />} label={props.label ?? resolved().label} />;
+  return <Badge size="md" theme={resolved().theme} prefix={<span class={`${icon()} size-2.5`} aria-hidden="true" />} label={props.label ?? resolved().label} />;
 }

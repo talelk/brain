@@ -25,6 +25,6 @@ export function KeyValueGrid(props: { items: { label: string; value: JSX.Element
 export function ErrorSummary(props: { title?: string; errors: string[] }): JSX.Element {
   return <Show when={props.errors.length}>
     <Alert theme="red" variant="outline" title={props.title ?? "Review the highlighted information"}
-      description={<ul class="ml-4 list-disc"><For each={props.errors}>{(error) => <li>{error}</li>}</For></ul>} />
+      description={<ul class="ml-4 min-w-0 list-disc break-words"><For each={props.errors}>{(error) => <li>{error}</li>}</For></ul>} />
   </Show>;
 }

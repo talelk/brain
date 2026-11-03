@@ -72,8 +72,8 @@ export function Authentication(props: { setupRequired: boolean; onAuthenticated:
   return <AuthLayout brand={<span class="text-heading font-semibold">Keyrus Brain</span>} header={<ThemeToggle />}>
     <AuthCard title={verificationSent() ? "Verify your email" : title()}
       description={verificationSent() ? "Open the verification link sent to your email address, then return to this invitation." : props.setupRequired ? "Create the first organization with your private setup credential." : props.invitationId ? "Sign in or create the invited account. Email verification is required before acceptance." : "Use your organization account."} error={error() || undefined}>
-      <Show when={!verificationSent()} fallback={<div class="flex flex-col gap-4"><p>Your account was created. Membership is not granted until you verify your email and explicitly accept the invitation.</p><Button size="lg" variant="outline" loading={busy()} onClick={() => void resendVerification()}>Resend verification email</Button></div>}>
-        <form onSubmit={submit} class="flex flex-col gap-4">
+      <Show when={!verificationSent()} fallback={<div class="flex flex-col gap-3"><p>Your account was created. Membership is not granted until you verify your email and explicitly accept the invitation.</p><Button size="md" variant="outline" loading={busy()} onClick={() => void resendVerification()}>Resend verification email</Button></div>}>
+        <form onSubmit={submit} class="flex flex-col gap-3">
           <Show when={props.setupRequired && !needsCode()}>
             <TextInput label="Setup credential" type="password" autocomplete="off" value={credential()} onInput={(e) => setCredential(e.currentTarget.value)} required disabled={busy()} />
             <TextInput label="Organization name" value={name()} onInput={(e) => setName(e.currentTarget.value)} required maxlength={100} disabled={busy()} />
@@ -85,14 +85,14 @@ export function Authentication(props: { setupRequired: boolean; onAuthenticated:
               <TextInput label="Recovery code" value={code()} onInput={(e) => setCode(e.currentTarget.value)} autocomplete="off" maxlength={128} required disabled={busy()} />
               <p>Recover account access, then replace your authenticator before reviewing actions.</p>
             </Show>
-            <Button size="lg" type="button" onClick={() => {setCode("");setRecovery(!recovery());}} disabled={busy()}>{recovery() ? "Use authenticator" : "Use a recovery code"}</Button>
+            <Button size="md" type="button" onClick={() => {setCode("");setRecovery(!recovery());}} disabled={busy()}>{recovery() ? "Use authenticator" : "Use a recovery code"}</Button>
           </>}>
             <TextInput label="Email" type="email" autocomplete="username webauthn" value={email()} onInput={(e) => setEmail(e.currentTarget.value)} required disabled={busy()} />
             <TextInput label="Password" type="password" autocomplete={props.setupRequired || signUp() ? "new-password" : "current-password webauthn"} value={password()} onInput={(e) => setPassword(e.currentTarget.value)} minlength={12} maxlength={128} required disabled={busy()} />
           </Show>
-          <Button size="lg" type="submit" variant="solid" theme="blue" loading={busy()} disabled={busy()}>{props.setupRequired ? "Create organization" : needsCode() ? recovery() ? "Recover account" : "Verify and continue" : signUp() ? "Create account and send verification" : "Sign in"}</Button>
-          <Show when={!props.setupRequired && !needsCode() && !signUp()}><Button size="lg" type="button" variant="outline" iconLeft="lucide-key-round" onClick={() => void passkeySignIn()} disabled={busy()}>Sign in with a passkey</Button></Show>
-          <Show when={props.invitationId && !needsCode()}><Button size="lg" type="button" variant="ghost" onClick={() => { setSignUp(!signUp()); setError(""); }} disabled={busy()}>{signUp() ? "Use an existing account" : "New to Brain? Create the invited account"}</Button></Show>
+          <Button size="md" type="submit" variant="solid" theme="blue" loading={busy()} disabled={busy()}>{props.setupRequired ? "Create organization" : needsCode() ? recovery() ? "Recover account" : "Verify and continue" : signUp() ? "Create account and send verification" : "Sign in"}</Button>
+          <Show when={!props.setupRequired && !needsCode() && !signUp()}><Button size="md" type="button" variant="outline" iconLeft="lucide-key-round" onClick={() => void passkeySignIn()} disabled={busy()}>Sign in with a passkey</Button></Show>
+          <Show when={props.invitationId && !needsCode()}><Button size="md" type="button" variant="ghost" onClick={() => { setSignUp(!signUp()); setError(""); }} disabled={busy()}>{signUp() ? "Use an existing account" : "New to Brain? Create the invited account"}</Button></Show>
         </form>
       </Show>
     </AuthCard>
@@ -130,7 +130,7 @@ export function InvitationAcceptancePage() {
     <Show when={app.ready() && sessionReady()} fallback={<AuthCard title="Loading invitation"><p>Checking your account…</p></AuthCard>}>
       <Show when={app.identity() || vendorSession()} fallback={<Authentication setupRequired={false} invitationId={params.id} onAuthenticated={async () => { await app.reloadIdentity(); await loadSession(); }} />}>
         <AuthCard title={accepted() ? "Invitation accepted" : "Accept organization invitation"} description={accepted() ? "Your organization membership is ready. Workspace access is granted separately by an administrator." : "Confirm this invitation with your verified account."} error={error() || undefined}>
-          <Show when={accepted()} fallback={<Button size="lg" variant="solid" theme="blue" loading={busy()} onClick={() => void accept()}>Accept invitation</Button>}>
+          <Show when={accepted()} fallback={<Button size="md" variant="solid" theme="blue" loading={busy()} onClick={() => void accept()}>Accept invitation</Button>}>
             <a class="text-ink-blue-link underline" href="/today">Continue to Brain</a>
           </Show>
         </AuthCard>
@@ -171,7 +171,7 @@ export function AuthenticatorEnrollment(props: { recoveryRequired: boolean; onEn
         <pre class="whitespace-pre-wrap break-words">{backupCodes().join("\n")}</pre>
         <TextInput label="Authenticator code" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{6}" maxlength={6} value={code()} onInput={(e) => setCode(e.currentTarget.value)} required disabled={busy()} />
       </Show>
-      <Button size="lg" type="submit" variant="solid" theme="blue" loading={busy()} disabled={busy()}>{uri() ? "Verify authenticator" : "Begin setup"}</Button>
+      <Button size="md" type="submit" variant="solid" theme="blue" loading={busy()} disabled={busy()}>{uri() ? "Verify authenticator" : "Begin setup"}</Button>
     </form>
   </section>;
 }
@@ -194,10 +194,10 @@ export function InitialPasswordChange(props: { onChanged: () => Promise<void> })
     finally { setBusy(false); }
   }
   return <AuthLayout brand="Keyrus Brain"><AuthCard title="Welcome to Brain" description="Your workspace and starter tasks are prepared. Replace your temporary password to continue." error={error() || undefined}>
-    <form onSubmit={submit} class="flex flex-col gap-4" novalidate>
+    <form onSubmit={submit} class="flex flex-col gap-3" novalidate>
       <TextInput description="Enter the temporary password you used to sign in, not your new password." label="Temporary password" type="password" autocomplete="current-password" value={current()} onInput={(e) => setCurrent(e.currentTarget.value)} required disabled={busy()} />
       <TextInput label="New password" description="Use 12–128 characters. Spaces are allowed. Choose a different password from your temporary one." type="password" autocomplete="new-password" minlength={12} maxlength={128} value={password()} onInput={(e) => setPassword(e.currentTarget.value)} required disabled={busy()} />
-      <Button size="lg" type="submit" variant="solid" theme="blue" loading={busy()} disabled={busy()}>Save password and continue</Button>
+      <Button size="md" type="submit" variant="solid" theme="blue" loading={busy()} disabled={busy()}>Save password and continue</Button>
     </form>
   </AuthCard></AuthLayout>;
 }

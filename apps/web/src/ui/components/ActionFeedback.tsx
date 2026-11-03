@@ -12,7 +12,7 @@ export type FeedbackTone = "info" | "success" | "warning" | "error";
 export function ActionFeedback(props: { message?: string | undefined; tone?: FeedbackTone; title?: string }): JSX.Element {
   const problem = () => props.tone === "error" || props.tone === "warning";
   return <Show when={props.message}>
-    <Show when={problem()} fallback={<p role="status" class="text-base text-ink-gray-7">{props.message}</p>}>
+    <Show when={problem()} fallback={<p role="status" class="min-w-0 break-words text-interface text-ink-gray-7">{props.message}</p>}>
       <Alert theme={props.tone === "error" ? "red" : "amber"} variant="outline" title={props.title ?? (props.tone === "error" ? "Action failed" : "Needs attention")} description={props.message} />
     </Show>
   </Show>;

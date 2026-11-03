@@ -71,7 +71,7 @@ export function Freshness(props: { value?: string; label?: string; stale?: boole
 }
 
 export function EmptyPreview(props: { icon: string; title: string; description: string; action?: JSX.Element }): JSX.Element {
-  return <div class="flex min-h-56 flex-col items-start justify-center gap-3 py-8">
+  return <div class="flex min-h-40 min-w-0 flex-col items-start justify-center gap-2.5 py-6">
     <IconTile icon={props.icon} size="lg" tone="gray" />
     <div><h2 class="text-section text-ink-gray-8">{props.title}</h2><p class="mt-1 max-w-md text-interface text-ink-gray-6">{props.description}</p></div>
     <Show when={props.action}>{props.action}</Show>

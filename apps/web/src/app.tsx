@@ -158,7 +158,7 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
     breadcrumbs={header()?.breadcrumbs}
     actions={header()?.actions}
     mobileTitle={header()?.title ?? "Brain"}
-    headerActions={<><Button size="lg" variant="ghost" iconLeft="lucide-search" aria-label="Search Brain (Control K)" onClick={() => setSearchOpen(true)}><span class="max-sm:hidden">Search</span></Button><ThemeToggle /></>}
+    headerActions={<><Button size="md" variant="ghost" iconLeft="lucide-search" aria-label="Search Brain (Control K)" onClick={() => setSearchOpen(true)}><span class="max-sm:hidden">Search</span></Button><ThemeToggle /></>}
     tenant={<div data-keep-drawer><Dropdown aria-label="Choose workspace" class="w-full justify-start" options={app.workspaceOptions().map((option) => ({ ...option, icon: "lucide-building-2" }))}
       onSelect={(value) => { if (value) { app.selectWorkspace(value); void navigate(`/w/${value}/overview`); } }}>
       <span class="flex min-w-0 items-center gap-2"><span class="lucide-building-2 size-4 shrink-0" aria-hidden="true" /><span class="truncate">{app.workspaceOptions().find((option) => option.value === app.workspaceId())?.label ?? "Choose workspace"}</span></span>
@@ -194,12 +194,12 @@ function NoWorkspaceCard(): JSX.Element {
       app.selectWorkspace(workspaceId());
     } catch (e) { setError(e instanceof Error ? e.message : "Workspace creation failed."); } finally { setBusy(false); }
   }
-  return <Show when={app.canAdminister()} fallback={<section class="p-6"><h2 class="text-heading">No workspace access</h2><p>Ask your administrator to grant access to a workspace.</p></section>}><section aria-label="Create your first workspace" class="mx-auto mt-8 flex max-w-md flex-col gap-3 rounded-card border border-outline-gray-2 p-6">
+  return <Show when={app.canAdminister()} fallback={<section class="p-6"><h2 class="text-heading">No workspace access</h2><p>Ask your administrator to grant access to a workspace.</p></section>}><section aria-label="Create your first workspace" class="mx-auto mt-6 flex min-w-0 max-w-md flex-col gap-3 rounded-card border border-outline-gray-1 p-4">
     <h2 class="text-heading">Create your first workspace</h2>
     <p class="text-base text-ink-gray-7">This account can read no workspace yet. Create one to start dispatching work.</p>
     <TextInput label="Display name" value={slug()} onInput={(e) => setSlug(e.currentTarget.value)} required disabled={busy()} />
     <Show when={error()}><p role="alert" class="text-base text-ink-red-8">{error()}</p></Show>
-    <Button size="lg" disabled={!valid() || busy()} loading={busy()} onClick={() => void create()}>Create workspace</Button>
+    <Button size="md" disabled={!valid() || busy()} loading={busy()} onClick={() => void create()}>Create workspace</Button>
   </section></Show>;
 }
 
