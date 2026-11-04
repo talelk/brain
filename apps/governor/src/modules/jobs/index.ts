@@ -8,3 +8,6 @@ export {
 } from "./attempts";
 export { runScheduledDispatch } from "./scheduler";
 export { AutomationService, type AutomationDispatchDeps } from "./automation";
+export {
+  explainJob, getJob, getRunner, listJobs, listRunners, searchJobs,
+} from "./read";

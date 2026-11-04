@@ -9,11 +9,11 @@ import { approvalSubjectDigest, domainDigest, isKnownQuery, sha256Digest } from 
 import { payloadValidator, validate } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
 import { assertExpectedVersion, assertTransition } from "../domain/states";
-import { evaluateRunner, rankRunners, type RunnerView } from "../domain/placement";
 import { iso } from "../domain/clock";
 import { Store, type BrainOptions } from "./store";
 import { authorizeCommand, hasWorkspaceMembership, resolveActor, requireWorkspaceRead, scopesForPrincipal, type ResolvedActor } from "./authz";
 import { commitReceipt, priorReceipt, requestDigestOf, type CommandContext } from "./command-envelope";
+import { orgWorkspaces, textMatcher } from "./query";
 import { executeOrganizationCommand, executeOrganizationQuery, isOrganizationCommand, isOrganizationQuery } from "./organization-admin";
 import { compileRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
 import { MastraWorkflowEngine, type WorkflowEnginePort } from "../modules/workflows/index";
@@ -25,13 +25,27 @@ import { EvidenceService } from "../modules/evidence/index";
 import { readReleaseAgentInstructions, readReleaseToolScript } from "../modules/configuration/index";
 import { acceptAttemptArtifact } from "../modules/evidence/index";
 import {
+  activeRelease as configActiveRelease, configExplain, releaseDefinitions, searchReleaseDocuments,
+} from "../modules/configuration/index";
+import {
+  explainJob, getJob, getRunner, listJobs, listRunners, searchJobs,
+} from "../modules/jobs/index";
+import {
+  commandReceipt, getApproval, listApprovals, searchApprovals,
+} from "../modules/governance/index";
+import { liveStatus, platformHealth, workspaceContext } from "../modules/operations/index";
+import { getPack, listPack, slaSummary } from "../modules/packs/index";
+import { artifactHistory, diffArtifacts, listArtifacts, readArtifactBytes, searchArtifacts } from "../modules/evidence/index";
+import { bridge, today } from "../modules/work/index";
+import { searchSessions } from "../modules/sessions/index";
+import {
   ackAttempt as jobsAckAttempt, attemptEvents as jobsAttemptEvents, authRunner, claim as jobsClaim,
   completeAttempt as jobsCompleteAttempt, enrollRunner, expireLeases as jobsExpireLeases,
   heartbeat as jobsHeartbeat,
   issueEnrollment, operateRunner, readExecutionArtifact as jobsReadExecutionArtifact, releaseAttempt as jobsReleaseAttempt,
   releaseReservation as jobsReleaseReservation, renewAttempt as jobsRenewAttempt, runnerChallenge,
   runScheduledDispatch,
-  runnerHello, runnerView as jobsRunnerView,
+  runnerHello,
 } from "../modules/jobs/index";
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
@@ -269,9 +283,7 @@ export class Brain {
   }
 
   activeRelease(organizationId: string): { digest: string; manifest: string } | undefined {
-    const row = this.store.control.prepare(`SELECT r.digest AS digest, r.manifest_json AS manifest FROM active_config a JOIN config_releases r ON r.digest=a.release_digest WHERE a.organization_id=?`)
-      .get(organizationId) as { digest: string; manifest: string } | undefined;
-    return row;
+    return configActiveRelease(this.store, organizationId);
   }
 
   private requireConfigurationAdmin(actor: ActorContext): void {
@@ -866,10 +878,6 @@ export class Brain {
     return jobsHeartbeat(this.store, runner, body);
   }
 
-  private runnerView(runnerId: string): RunnerView | undefined {
-    return jobsRunnerView(this.store, runnerId);
-  }
-
   claim(runner: { runnerId: string; epoch: number; organizationId: string }, requestId: string): JsonValue | null {
     return jobsClaim(this.store, { isRunnerCurrent: (id) => localRunnerSettingsCurrent(this.store, runner.organizationId, id), isEvaluatorEligible: (runnerId, jobId) => this.evidence.evaluatorEligible(runnerId, jobId) }, runner, requestId);
   }
@@ -1059,16 +1067,7 @@ export class Brain {
   }
 
   readArtifact(actor: ActorContext, artifactId: string): Uint8Array {
-    const s = this.store;
-    const row = s.control.prepare("SELECT workspace_id, digest FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(artifactId, actor.organizationId) as
-      | { workspace_id: string; digest: string } | undefined;
-    if (!row) throw new BrainDomainError("NOT_FOUND", "artifact not found");
-    requireWorkspaceRead(s, actor, row.workspace_id);
-    const path = this.casPath(row.digest);
-    if (!existsSync(path)) throw new BrainDomainError("EVIDENCE_MISSING", "artifact bytes missing");
-    const bytes = readFileSync(path);
-    if (sha256Digest(bytes) !== row.digest) throw new BrainDomainError("EVIDENCE_MISSING", "artifact bytes corrupted");
-    return bytes;
+    return readArtifactBytes(this.store, actor, artifactId);
   }
 
   // E090: CAS garbage collection. Evidence/upload references and every
@@ -1418,65 +1417,17 @@ export class Brain {
   }
 
   // --- queries ---
-  private envelope(queryType: string, snapshot: JsonValue): JsonValue {
+  /** The standard query envelope: every read model is wrapped here, once. */
+  private envelope(queryType: string, snapshot: JsonValue, cursor = ""): JsonValue {
     const wm = this.store.control.prepare("SELECT COALESCE(MAX(cursor),0) AS m FROM events").get() as { m: number };
-    return { queryType, snapshot, cursor: "", sourceWatermark: wm.m, asOf: this.store.nowIso(), projectionLagMs: 0 } as unknown as JsonValue;
-  }
-
-  private jobSnapshot(row: Record<string, unknown>): JsonValue {
-    const attempts = this.store.control.prepare("SELECT id, runner_id, attempt_no, state, lease_expires_at_ms FROM job_attempts WHERE job_id=? ORDER BY attempt_no").all(String(row["id"])) as Array<Record<string, unknown>>;
-    const ws = this.store.workspaceDb(String(row["workspace_id"]),String(row["organization_id"]));
-    // Server-resolved session binding: the inspector links to the live console
-    // without guessing session ids from attempt ids.
-    const boundSession = ws.prepare("SELECT id FROM sessions WHERE job_id=? ORDER BY updated_at_ms DESC LIMIT 1").get(String(row["id"])) as { id: string } | undefined;
-    const runId = String(row["workflow_run_id"]);
-    const workflowState = ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string } | undefined;
-    const hasInputs = ws.prepare("SELECT 1 FROM sqlite_master WHERE name='run_inputs'").get();
-    const workflow = hasInputs ? ws.prepare("SELECT json_extract(workflow_json,'$.spec.presentation.title') AS title,json_extract(workflow_json,'$.metadata.id') AS id FROM run_inputs WHERE run_id=?").get(runId) as { title: string | null; id: string } | undefined : undefined;
-    const origin = ws.prepare("SELECT origin_json FROM task_drafts WHERE run_id=? AND origin_json IS NOT NULL LIMIT 1").get(runId) as { origin_json: string } | undefined;
-    const hasOutputs = ws.prepare("SELECT 1 FROM sqlite_master WHERE name='step_outputs'").get();
-    const outputs = hasOutputs ? ws.prepare("SELECT step_id,output_json FROM step_outputs WHERE run_id=?").all(runId) as {step_id:string;output_json:string}[] : [];
-    const hasEvents = this.store.control.prepare("SELECT 1 FROM sqlite_master WHERE name='attempt_events'").get();
-    const events = hasEvents ? this.store.control.prepare("SELECT e.event_json FROM attempt_events e JOIN job_attempts a ON a.id=e.attempt_id JOIN jobs j ON j.id=a.job_id WHERE j.organization_id=? AND j.workflow_run_id=? AND json_extract(e.event_json,'$.kind')='engine' ORDER BY j.created_at_ms DESC,e.seq DESC LIMIT 200").all(String(row["organization_id"]),runId) as {event_json:string}[] : [];
-    const bundle = ws.prepare("SELECT digest FROM evidence_bundles WHERE json_extract(manifest_json,'$.workflowRunId')=? ORDER BY created_at_ms DESC LIMIT 1").get(runId) as {digest:string}|undefined;
-    return {
-      ...(workflowState ? { workflowState: workflowState.state } : {}),
-      ...(workflow ? { workflowTitle: workflow.title ?? workflow.id.replaceAll("-", " ") } : {}),
-      ...(origin ? { origin: JSON.parse(origin.origin_json) } : {}),
-      runOutputs: Object.fromEntries(outputs.map((entry) => [entry.step_id,JSON.parse(entry.output_json)])),
-      engineEvents: events.reverse().map((entry) => {
-        const payload = (JSON.parse(entry.event_json) as { payload: JsonValue }).payload as { kind?: string; artifact?: { artifactId: string; digest: string } };
-        if (payload.kind === "artifact" && payload.artifact) {
-          const stored = ws.prepare("SELECT id FROM artifacts WHERE digest=? ORDER BY created_at_ms DESC LIMIT 1").get(payload.artifact.digest) as { id: string } | undefined;
-          if (stored) return { ...payload, artifact: { ...payload.artifact, artifactId: stored.id } };
-        }
-        return payload;
-      }),
-      ...(bundle ? { evidenceDigest: bundle.digest } : {}),
-      ...(boundSession ? { sessionId: boundSession.id } : {}),
-      jobId: String(row["id"]), organizationId: String(row["organization_id"]), workspaceId: String(row["workspace_id"]),
-      workflowRunId: String(row["workflow_run_id"]), state: String(row["state"]), version: Number(row["version"]),
-      queueReasons: ["queued","blocked"].includes(String(row["state"])) && row["queue_reason"] ? [String(row["queue_reason"])] : [],
-      placement: JSON.parse(String(row["placement_json"])),
-      attempts: attempts.map((a) => ({
-        attemptId: String(a["id"]), number: Number(a["attempt_no"]), runnerId: String(a["runner_id"]), state: String(a["state"]),
-        ...(a["lease_expires_at_ms"] != null ? { leaseExpiresAt: iso(Number(a["lease_expires_at_ms"])) } : {}),
-      })),
-      configDigest: String(row["config_digest"]), createdAt: iso(Number(row["created_at_ms"])),
-    } as unknown as JsonValue;
+    return { queryType, snapshot, cursor, sourceWatermark: wm.m, asOf: this.store.nowIso(), projectionLagMs: 0 } as unknown as JsonValue;
   }
 
   /**
-   * Resolve a /jobs/:id resource: a job id names one row, and a workflow run id
-   * resolves to that run's current (newest) job — dispatch receipts name the
-   * run, so a deep link opens the work and follows it across steps.
+   * The single query entry: contract validation, registry gating, limit clamps
+   * and organization routing stay here; every read model is module-owned and
+   * reached by a one-line dispatch.
    */
-  private jobRowFor(actor: ActorContext, resourceId: string): Record<string, unknown> | undefined {
-    return this.store.control.prepare(
-      "SELECT * FROM jobs WHERE organization_id=? AND (id=? OR workflow_run_id=?) ORDER BY created_at_ms DESC, id DESC LIMIT 1",
-    ).get(actor.organizationId, resourceId, resourceId) as Record<string, unknown> | undefined;
-  }
-
   async executeQuery(actor: ActorContext, raw: unknown, headers?: Headers): Promise<JsonValue> {
     const s = this.store;
     const check = validate("QueryRequest", raw);
@@ -1489,176 +1440,37 @@ export class Brain {
     const limit = q.queryType.startsWith("stream.")
       ? Math.max(Math.floor(Number(q.limit ?? 100)) || 100, 1)
       : Math.min(Math.max(q.limit ?? 50, 1), 100);
-    const orgWorkspaces = (): string[] => (s.control.prepare(
-      "SELECT workspace_id FROM workspace_memberships WHERE organization_id=? AND principal_id=? AND revoked_at_ms IS NULL",
-    ).all(actor.organizationId, actor.actorId) as Array<{ workspace_id: string }>).map((r) => r.workspace_id);
+    const workspaces = (): string[] => (q.workspaceId ? [q.workspaceId] : orgWorkspaces(s, actor));
+    const requireRead = (): void => { if (q.workspaceId) requireWorkspaceRead(s, actor, q.workspaceId); };
     switch (q.queryType) {
-      case "platform.health": {
-        const pending = s.control.prepare("SELECT COUNT(*) AS c FROM outbox_deliveries WHERE state IN ('pending','processing')").get() as { c: number };
-        const memory = this.memoryProbe;
-        const services = [
-          { id: "governor", status: "healthy", checkedAt: s.nowIso(), detail: "control.db reachable" },
-          { id: "memory-local", status: memory.status, checkedAt: memory.checkedAt || s.nowIso(), detail: memory.detail },
-        ];
-        const status = services.some((svc) => svc.status === "unavailable") ? "degraded" : "healthy";
-        return this.envelope(q.queryType, {
-          status, services, pendingOutbox: pending.c, oldestOutboxAgeMs: 0, schemaVersion: "1",
-        } as unknown as JsonValue);
-      }
+      case "platform.health":
+        return this.envelope(q.queryType, platformHealth(s, this.memoryProbe));
       case "workspace.context": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         requireWorkspaceRead(s, actor, q.workspaceId);
-        const wsRow = s.control.prepare("SELECT id, slug, status, version FROM workspaces WHERE id=?").get(q.workspaceId) as Record<string, unknown>;
-        const rel = this.activeRelease(actor.organizationId);
-        if (!rel) throw new BrainDomainError("DEPENDENCY_UNAVAILABLE", "No active configuration release — stage and activate one in Settings to use this workspace.");
-        const stored = JSON.parse(rel.manifest) as { manifest?: Record<string, unknown> };
-        const m = stored.manifest ?? {};
-        if (!m["irArtifact"] || !m["assets"] || !m["primitiveVersions"] || !m["compilerDigest"]) {
-          throw new BrainDomainError("DEPENDENCY_UNAVAILABLE", "active release predates the current manifest shape; restage the release");
-        }
-        const relRow = s.control.prepare("SELECT source_revision, compiler_digest FROM config_releases WHERE digest=? AND organization_id=?").get(rel.digest, actor.organizationId) as { source_revision: string; compiler_digest: string };
-        const jobCounts = s.control.prepare(`SELECT
-          SUM(CASE WHEN state IN ('queued','leased','running','verifying') THEN 1 ELSE 0 END) AS active,
-          SUM(CASE WHEN state='blocked' THEN 1 ELSE 0 END) AS blocked
-          FROM jobs WHERE organization_id=? AND workspace_id=?`).get(actor.organizationId, q.workspaceId) as { active: number | null; blocked: number | null };
-        const pendingApprovals = s.control.prepare("SELECT COUNT(*) AS c FROM approval_requests WHERE organization_id=? AND workspace_id=? AND state='pending'").get(actor.organizationId, q.workspaceId) as { c: number };
-        const blockedJobs = jobCounts.blocked ?? 0;
-        return this.envelope(q.queryType, {
-          workspace: {
-            workspaceId: q.workspaceId, displayName: String(wsRow["slug"]), status: String(wsRow["status"]),
-            description: String(wsRow["description"] ?? ""), ...(wsRow["owner_id"] ? { ownerId: String(wsRow["owner_id"]) } : {}), tags: JSON.parse(String(wsRow["tags_json"] ?? "[]")), version: Number(wsRow["version"]),
-            health: blockedJobs > 0 ? "degraded" : "healthy", observedAt: s.nowIso(),
-            activeJobs: jobCounts.active ?? 0, pendingApprovals: pendingApprovals.c, blockedJobs, dailyMicroUsd: 0,
-          },
-          release: {
-            releaseId: `rel-${rel.digest.slice(7, 23)}`, sourceRevision: relRow.source_revision,
-            configDigest: rel.digest, compilerDigest: relRow.compiler_digest,
-            irArtifact: m["irArtifact"], assets: m["assets"], primitiveVersions: m["primitiveVersions"],
-          },
-          allowedCommands: [...new Set(actor.scopes)],
-          features: { web: "enabled", memory: "degraded", mastra: "enabled", tencentdb: process.env["BRAIN_TENCENTDB_URL"] ? "enabled" : "blocked" },
-          ui: (() => {
-            // Byte-bound to the release's declared BrainConfig document when
-            // present; otherwise to the exact builtin defaults being served.
-            const declared = (m["ui"] ?? null) as Record<string, unknown> | null;
-            const docs = (m["documents"] ?? []) as Array<Record<string, unknown>>;
-            const brainConfigDoc = docs.find((d) => d["kind"] === "BrainConfig");
-            const defaults = { defaultTheme: "system", density: "compact", supportedLocales: ["en", "fr"], defaultLocale: "en", enabledChannels: ["web"] };
-            const served = declared ? {
-              defaultTheme: String(declared["defaultTheme"] ?? defaults.defaultTheme),
-              density: String(declared["density"] ?? defaults.density),
-              supportedLocales: (declared["supportedLocales"] as string[] | undefined) ?? defaults.supportedLocales,
-              defaultLocale: String(declared["defaultLocale"] ?? defaults.defaultLocale),
-              enabledChannels: (declared["enabledChannels"] as string[] | undefined) ?? defaults.enabledChannels,
-            } : defaults;
-            return {
-              foundation: "newui",
-              foundationManifestDigest: typeof declared?.["foundationManifestDigest"] === "string" ? String(declared["foundationManifestDigest"]) : brainConfigDoc ? String(brainConfigDoc["digest"]) : domainDigest("brain:ui-foundation:v1", served as unknown as JsonValue),
-              ...served,
-            };
-          })(),
-        } as unknown as JsonValue);
+        return this.envelope(q.queryType, workspaceContext(s, actor, q.workspaceId));
       }
       case "jobs.list": {
-        const allowed = q.workspaceId ? [q.workspaceId] : orgWorkspaces();
-        if (q.workspaceId) requireWorkspaceRead(s, actor, q.workspaceId);
-        if (allowed.length === 0) return this.envelope(q.queryType, { items: [] } as unknown as JsonValue);
+        requireRead();
         const filters = q as typeof q & { states?: string[]; search?: string; cursor?: string };
-        const marks = allowed.map(() => "?").join(",");
-        const clauses = [`organization_id=?`, `workspace_id IN (${marks})`];
-        const parameters: Array<string | number> = [actor.organizationId, ...allowed];
-        if (filters.states?.length) { clauses.push(`state IN (${filters.states.map(() => "?").join(",")})`); parameters.push(...filters.states); }
-        if (filters.search) { clauses.push("(LOWER(id) LIKE ? OR LOWER(workflow_run_id) LIKE ?)"); const search = `%${filters.search.toLowerCase()}%`; parameters.push(search, search); }
-        if (filters.cursor) {
-          try {
-            const position = JSON.parse(Buffer.from(filters.cursor, "base64url").toString("utf8")) as { createdAt: number; id: string };
-            clauses.push("(created_at_ms<? OR (created_at_ms=? AND id<?))"); parameters.push(position.createdAt, position.createdAt, position.id);
-          } catch { throw new BrainDomainError("INVALID_ARGUMENT", "invalid jobs cursor"); }
-        }
-        const where = clauses.join(" AND ");
-        const rows = s.control.prepare(`SELECT * FROM jobs WHERE ${where} ORDER BY created_at_ms DESC, id DESC LIMIT ?`).all(...parameters, limit + 1) as Array<Record<string, unknown>>;
-        const page = rows.slice(0, limit);
-        const last = page.at(-1);
-        const nextCursor = rows.length > limit && last ? Buffer.from(JSON.stringify({ createdAt: Number(last["created_at_ms"]), id: String(last["id"]) })).toString("base64url") : "";
-        const total = s.control.prepare(`SELECT COUNT(*) AS count FROM jobs WHERE ${clauses.filter((clause) => !clause.startsWith("(created_at_ms")).join(" AND ")}`).get(...parameters.slice(0, parameters.length - (filters.cursor ? 3 : 0))) as { count: number };
-        const response = this.envelope(q.queryType, { items: page.map((row) => this.jobSnapshot(row)), totalEstimate: total.count } as unknown as JsonValue) as Record<string, JsonValue>;
-        response["cursor"] = nextCursor;
-        return response;
+        const page = listJobs(s, actor, workspaces(), limit, { states: filters.states, search: filters.search, cursor: filters.cursor });
+        return this.envelope(q.queryType, page.snapshot, page.cursor);
       }
-      case "job.get": {
-        const row = this.jobRowFor(actor, String(q.resourceId));
-        if (!row) throw new BrainDomainError("NOT_FOUND", "job or run not found");
-        requireWorkspaceRead(s, actor, String(row["workspace_id"]));
-        return this.envelope(q.queryType, this.jobSnapshot(row));
+      case "job.get":
+        return this.envelope(q.queryType, getJob(s, actor, String(q.resourceId)));
+      case "job.explain":
+        return this.envelope(q.queryType, explainJob(s, actor, String(q.resourceId)) as unknown as JsonValue);
+      case "runners.list":
+        return this.envelope(q.queryType, listRunners(s, actor, limit));
+      case "runner.get":
+        return this.envelope(q.queryType, getRunner(s, actor, String(q.resourceId)));
+      case "approvals.list": {
+        requireRead();
+        return this.envelope(q.queryType, listApprovals(s, actor, workspaces(), limit));
       }
-      case "job.explain": {
-        const row = this.jobRowFor(actor, String(q.resourceId));
-        if (!row) throw new BrainDomainError("NOT_FOUND", "job or run not found");
-        requireWorkspaceRead(s, actor, String(row["workspace_id"]));
-        const placement = JSON.parse(String(row["placement_json"])) as import("@brain/contracts").Placement;
-        const demand = placement.resources ?? { cpuMillicores: 500, memoryMb: 512, diskMb: 512, slots: 1 };
-        const runners = (s.control.prepare("SELECT id FROM runners WHERE organization_id=?").all(actor.organizationId) as Array<{ id: string }>)
-          .map((r) => this.runnerView(r.id)).filter((v): v is RunnerView => !!v)
-          .sort(rankRunners)
-          .map((v) => { const verdict = evaluateRunner(placement, demand, v, s.now()); return { runnerId: v.id, eligible: verdict.eligible, reasons: verdict.reasons }; });
-        const anyEligible = runners.some((r) => r.eligible);
-        // The primary reason derives from actual eligibility. A job that is
-        // executing or verifying still reports the truth about the fleet: if no
-        // runner is eligible right now, claiming READY would contradict the
-        // eligibility table shown directly below it.
-        const allOffline = runners.length > 0 && runners.every((r) => r.reasons.includes("runner-offline"));
-        const primary = anyEligible ? "READY" : runners.length === 0 ? "WAITING_FOR_RUNNER" : allOffline ? "RUNNER_OFFLINE" : "INSUFFICIENT_CAPACITY";
-        return this.envelope(q.queryType, {
-          jobId: String(row["id"]), jobVersion: Number(row["version"]), evaluatedAt: s.nowIso(),
-          primaryReason: primary, reasons: [primary], runners,
-        } as unknown as JsonValue);
-      }
-      case "runners.list": case "runner.get": {
-        const ids = q.queryType === "runner.get"
-          ? [String(q.resourceId)]
-          : (s.control.prepare("SELECT id FROM runners WHERE organization_id=? AND deregistered_at_ms IS NULL ORDER BY id LIMIT ?").all(actor.organizationId, limit) as Array<{ id: string }>).map((r) => r.id);
-        const items = ids.map((id) => {
-          const meta = s.control.prepare("SELECT last_heartbeat_ms,deregistered_at_ms FROM runners WHERE id=? AND organization_id=?").get(id, actor.organizationId) as { last_heartbeat_ms: number | null; deregistered_at_ms: number | null } | undefined;
-          const v = this.runnerView(id);
-          if (!v || !meta) return null;
-          const display = v.adminState === "disabled" ? "disabled" : v.adminState === "quarantined" ? "quarantined" : v.adminState === "draining" ? "draining" : !v.online ? "offline" : v.reserved.slots > 0 ? "busy" : "idle";
-          const activeAttemptIds = (s.control.prepare("SELECT id FROM job_attempts WHERE runner_id=? AND state IN ('offered','running','uploading','cancelling','verifying','outcome_unknown') ORDER BY id LIMIT 1024").all(id) as Array<{ id: string }>).map((attempt) => attempt.id);
-          return {
-            runnerId: id, group: v.groupId, adminState: v.adminState, connectivity: v.online ? "online" : "offline",
-            health: v.health, displayStatus: display, capacity: v.capacity,
-            reserved: { cpuMillicores: v.reserved.cpuMillicores, memoryMb: v.reserved.memoryMb, diskMb: v.reserved.diskMb, slots: v.reserved.slots },
-            observedFree: { cpuMillicores: Math.max(0, v.capacity.cpuMillicores - v.reserved.cpuMillicores), memoryMb: Math.max(0, v.capacity.memoryMb - v.reserved.memoryMb), diskMb: Math.max(0, v.capacity.diskMb - v.reserved.diskMb), slots: Math.max(0, v.capacity.slots - v.reserved.slots) },
-            capabilities: [...v.capabilities.entries()].map(([capability, c]) => ({ capability, observedAt: s.nowIso(), source: "runner-probe", verified: c.verified, expiresAt: iso(c.expiresAtMs) })),
-            engines: v.engines.map((e) => ({ id: e, version: "1", adapterDigest: `sha256:${"0".repeat(64)}`, features: [] })),
-            activeAttemptIds, lastSeenAt: iso(meta.last_heartbeat_ms ?? 0),
-            ...(meta.deregistered_at_ms ? { deregisteredAt: iso(meta.deregistered_at_ms) } : {}),
-          };
-        }).filter(Boolean);
-        if (q.queryType === "runner.get") {
-          if (items.length === 0) throw new BrainDomainError("NOT_FOUND", "runner not found");
-          return this.envelope(q.queryType, items[0] as JsonValue);
-        }
-        return this.envelope(q.queryType, { items } as unknown as JsonValue);
-      }
-      case "approvals.list": case "approval.get": {
-        const allowed = q.workspaceId ? [q.workspaceId] : orgWorkspaces();
-        if (q.workspaceId) requireWorkspaceRead(s, actor, q.workspaceId);
-        if (allowed.length === 0 && q.queryType === "approvals.list") return this.envelope(q.queryType, { items: [] } as unknown as JsonValue);
-        const marks = allowed.map(() => "?").join(",");
-        const rows = (q.queryType === "approval.get"
-          ? s.control.prepare("SELECT * FROM approval_requests WHERE id=? AND organization_id=?").all(String(q.resourceId), actor.organizationId)
-          : s.control.prepare(`SELECT * FROM approval_requests WHERE organization_id=? AND workspace_id IN (${marks}) ORDER BY expires_at_ms ASC LIMIT ?`).all(actor.organizationId, ...allowed, limit)) as Array<Record<string, unknown>>;
-        const items = rows.map((r) => ({
-          approvalId: String(r["id"]), organizationId: actor.organizationId, workspaceId: String(r["workspace_id"]),
-          subject: JSON.parse(String(r["subject_json"])), subjectDigest: String(r["subject_digest"]),
-          state: String(r["state"]), version: Number(r["version"]), requestedBy: String(r["requested_by"]),
-          createdAt: iso(Number(r["created_at_ms"])), expiresAt: iso(Number(r["expires_at_ms"])),
-        }));
-        if (q.queryType === "approval.get") {
-          if (items.length === 0 || !allowed.includes(String(rows[0]?.["workspace_id"]))) throw new BrainDomainError("NOT_FOUND", "approval not found");
-          return this.envelope(q.queryType, items[0] as JsonValue);
-        }
-        return this.envelope(q.queryType, { items } as unknown as JsonValue);
+      case "approval.get": {
+        requireRead();
+        return this.envelope(q.queryType, getApproval(s, actor, workspaces(), String(q.resourceId)));
       }
       case "configDrafts.list": case "configDrafts.get": case "configDrafts.impact": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
@@ -1702,10 +1514,7 @@ export class Brain {
       }
       case "command.get": {
         const commandId = String((raw as { commandId?: string }).commandId ?? q.resourceId ?? "");
-        const row = s.control.prepare("SELECT receipt_json FROM command_idempotency WHERE organization_id=? AND command_id=?").get(actor.organizationId, commandId) as { receipt_json: string } | undefined;
-        const own = s.control.prepare("SELECT actor_id FROM command_idempotency WHERE organization_id=? AND command_id=?").get(actor.organizationId, commandId) as { actor_id: string } | undefined;
-        if (!row || !own || own.actor_id !== actor.actorId) throw new BrainDomainError("NOT_FOUND", "command not found");
-        return this.envelope(q.queryType, { commandId, receipt: JSON.parse(row.receipt_json), state: "applied" } as unknown as JsonValue);
+        return this.envelope(q.queryType, commandReceipt(s, actor, commandId));
       }
       case "memory.search": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
@@ -1715,116 +1524,44 @@ export class Brain {
         return this.envelope(q.queryType, found as unknown as JsonValue);
       }
       case "search.global": {
-        const allowed = q.workspaceId ? [q.workspaceId] : orgWorkspaces();
-        if (q.workspaceId) requireWorkspaceRead(s, actor, q.workspaceId);
-        const needle = (q as typeof q & { search: string }).search.trim().toLowerCase();
-        const matches = (value: unknown) => String(value ?? "").toLowerCase().includes(needle);
+        requireRead();
+        const matches = textMatcher((q as typeof q & { search: string }).search.trim());
         const results: Array<Record<string, JsonValue>> = [];
-        const release = this.activeRelease(actor.organizationId);
-        const documents = release
-          ? (JSON.parse(release.manifest) as { manifest?: { documents?: Array<{ id: string; kind: string }> } }).manifest?.documents ?? []
-          : [];
-        for (const workspaceId of allowed.slice(0, 25)) {
-          const jobs = s.control.prepare("SELECT id,workflow_run_id,state,created_at_ms FROM jobs WHERE organization_id=? AND workspace_id=? ORDER BY created_at_ms DESC LIMIT 100").all(actor.organizationId, workspaceId) as Array<{ id: string; workflow_run_id: string; state: string; created_at_ms: number }>;
-          for (const job of jobs) {
-            if (matches(job.id) || matches(job.workflow_run_id) || matches(job.state)) results.push({ category: "run", title: `Run ${job.workflow_run_id}`, reason: `${job.state} · job ${job.id}`, resourceId: job.id, workspaceId, updatedAt: iso(job.created_at_ms) });
-          }
-          const approvals = s.control.prepare("SELECT id,subject_json,state,expires_at_ms FROM approval_requests WHERE organization_id=? AND workspace_id=? ORDER BY expires_at_ms ASC LIMIT 100").all(actor.organizationId, workspaceId) as Array<{ id: string; subject_json: string; state: string; expires_at_ms: number }>;
-          for (const approval of approvals) {
-            const subject = JSON.parse(approval.subject_json) as { operation?: string; target?: { targetId?: string } };
-            if (matches(approval.id) || matches(subject.operation) || matches(subject.target?.targetId) || matches(approval.state)) results.push({ category: "approval", title: subject.operation ?? "Approval request", reason: `${approval.state} · ${subject.target?.targetId ?? approval.id}`, resourceId: approval.id, workspaceId, updatedAt: iso(approval.expires_at_ms) });
-          }
-          const ws = s.workspaceDb(workspaceId, actor.organizationId);
-          const sessions = ws.prepare("SELECT id, task, agent_id, state, updated_at_ms FROM sessions ORDER BY updated_at_ms DESC, id LIMIT 100").all() as Array<{ id: string; task: string; agent_id: string; state: string; updated_at_ms: number }>;
-          for (const session of sessions) {
-            if (matches(session.id) || matches(session.task) || matches(session.agent_id) || matches(session.state)) {
-              results.push({ category: "session", title: session.task ? session.task.slice(0, 80) : `Session ${session.id}`, reason: `${session.state} · ${session.agent_id || "agent"}`, resourceId: session.id, workspaceId, updatedAt: iso(session.updated_at_ms) });
-            }
-          }
-          const artifacts = ws.prepare("SELECT id, digest, media_type, created_at_ms FROM artifacts WHERE state='verified' ORDER BY created_at_ms DESC, id LIMIT 100").all() as Array<{ id: string; digest: string; media_type: string; created_at_ms: number }>;
-          for (const artifact of artifacts) {
-            if (matches(artifact.id) || matches(artifact.digest) || matches(artifact.media_type)) {
-              results.push({ category: "artifact", title: artifact.id, reason: `${artifact.media_type} · ${artifact.digest.slice(7, 19)}`, resourceId: artifact.id, workspaceId, updatedAt: iso(artifact.created_at_ms) });
-            }
-          }
-          for (const document of documents) {
-            if ((document.kind === "Agent" || document.kind === "Workflow") && (matches(document.id) || matches(document.kind))) results.push({ category: document.kind === "Agent" ? "agent" : "workflow", title: document.id.replaceAll("-", " "), reason: `${document.kind} in the active release`, resourceId: document.id, workspaceId, updatedAt: s.nowIso() });
-          }
+        for (const workspaceId of workspaces().slice(0, 25)) {
+          results.push(
+            ...searchJobs(s, actor.organizationId, workspaceId, matches),
+            ...searchApprovals(s, actor.organizationId, workspaceId, matches),
+            ...searchSessions(s, actor.organizationId, workspaceId, matches),
+            ...searchArtifacts(s, actor.organizationId, workspaceId, matches),
+            ...searchReleaseDocuments(s, actor.organizationId, workspaceId, matches, s.nowIso()),
+          );
         }
         return this.envelope(q.queryType, { items: results.slice(0, limit) } as unknown as JsonValue);
       }
-      case "today": case "bridge": {
-        const allowed = orgWorkspaces();
-        const items: JsonValue[] = [];
-        for (const wsId of allowed.slice(0, 25)) {
-          const pending = s.control.prepare("SELECT id FROM approval_requests WHERE organization_id=? AND workspace_id=? AND state='pending' ORDER BY expires_at_ms LIMIT 5").all(actor.organizationId, wsId) as Array<{ id: string }>;
-          for (const a of pending) {
-            (items as unknown[]).push({ id: a.id, workspaceId: wsId, type: "approval", priority: 1, title: "Approval awaiting review", detail: a.id, resourceId: a.id, updatedAt: s.nowIso(), stale: false, nextAction: "review" });
-          }
-          const unknownJobs = s.control.prepare("SELECT id FROM jobs WHERE organization_id=? AND workspace_id=? AND state='outcome_unknown' LIMIT 5").all(actor.organizationId, wsId) as Array<{ id: string }>;
-          for (const j of unknownJobs) {
-            (items as unknown[]).push({ id: j.id, workspaceId: wsId, type: "job", priority: 1, title: "Outcome unknown — reconcile before retry", detail: j.id, resourceId: j.id, updatedAt: s.nowIso(), stale: false, nextAction: "reconcile" });
-          }
-        }
-        if (q.queryType === "bridge") {
-          // The contract's WorkspaceSummary: per-workspace counts the Bridge
-          // screen renders, derived from the same rows workspace.context uses.
-          const summaries = allowed.slice(0, 25).map((id) => {
-            const wsRow = s.control.prepare("SELECT * FROM workspaces WHERE id=? AND organization_id=?").get(id, actor.organizationId) as Record<string, unknown> | undefined;
-            const counts = s.control.prepare(`SELECT
-              SUM(CASE WHEN state IN ('queued','leased','running','verifying') THEN 1 ELSE 0 END) AS active,
-              SUM(CASE WHEN state='blocked' THEN 1 ELSE 0 END) AS blocked
-              FROM jobs WHERE organization_id=? AND workspace_id=?`).get(actor.organizationId, id) as { active: number | null; blocked: number | null };
-            const pending = s.control.prepare("SELECT COUNT(*) AS c FROM approval_requests WHERE organization_id=? AND workspace_id=? AND state='pending'").get(actor.organizationId, id) as { c: number };
-            const blocked = counts.blocked ?? 0;
-            return {
-              workspaceId: id, displayName: String(wsRow?.slug ?? id), status: String(wsRow?.status ?? "active"),
-              description: String(wsRow?.["description"] ?? ""), ...(wsRow?.["owner_id"] ? { ownerId: String(wsRow["owner_id"]) } : {}), tags: JSON.parse(String(wsRow?.["tags_json"] ?? "[]")), version: Number(wsRow?.["version"] ?? 1),
-              health: blocked > 0 ? "degraded" : "healthy", observedAt: s.nowIso(),
-              activeJobs: counts.active ?? 0, pendingApprovals: pending.c, blockedJobs: blocked, dailyMicroUsd: 0,
-            };
-          });
-          return this.envelope(q.queryType, { items: summaries } as unknown as JsonValue);
-        }
-        return this.envelope(q.queryType, { items: items.slice(0, limit) } as unknown as JsonValue);
-      }
+      case "today":
+        return this.envelope(q.queryType, today(s, actor, orgWorkspaces(s, actor), limit));
+      case "bridge":
+        return this.envelope(q.queryType, bridge(s, actor, orgWorkspaces(s, actor)));
       case "tools.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.capitalization.query(actor, q.queryType, q.workspaceId, limit));
       }
       case "tickets.list": case "incidents.list": case "delivery.list": case "decisions.list": case "members.list": case "audit.list": {
-        if (q.workspaceId) requireWorkspaceRead(s, actor, q.workspaceId);
-        return this.listPackQuery(actor, q.queryType, q.workspaceId);
+        requireRead();
+        return this.envelope(q.queryType, listPack(s, actor, q.queryType, q.workspaceId));
       }
-      case "ticket.get": case "incident.get": case "delivery.get": case "evidence.get": {
-        return this.getPackQuery(actor, q.queryType, q.workspaceId, String(q.resourceId ?? ""));
+      case "ticket.get": case "incident.get": case "delivery.get":
+        return this.envelope(q.queryType, getPack(s, actor, q.queryType, q.workspaceId, String(q.resourceId ?? "")));
+      case "evidence.get": {
+        requireRead();
+        return this.envelope(q.queryType, getPack(s, actor, q.queryType, q.workspaceId, String(q.resourceId ?? "")));
       }
       case "sla.summary": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         requireWorkspaceRead(s, actor, q.workspaceId);
-        const ws = s.workspaceDb(q.workspaceId, actor.organizationId);
         const periodStart = Date.parse(String((raw as { periodStart?: string }).periodStart ?? "")) || 0;
         const periodEnd = Date.parse(String((raw as { periodEnd?: string }).periodEnd ?? "")) || s.now();
-        const intervals = (ws.prepare("SELECT responsibility, started_at_ms, ended_at_ms, calendar_digest FROM sla_intervals").all() as Array<Record<string, unknown>>)
-          .filter((i) => Number(i["started_at_ms"]) < periodEnd && Number(i["ended_at_ms"] ?? periodEnd) > periodStart);
-        const now = s.now();
-        const sumFor = (resp: string) => intervals.filter((i) => i["responsibility"] === resp)
-          .reduce((acc, i) => acc + Math.max(0, Number(i["ended_at_ms"] ?? now) - Number(i["started_at_ms"])), 0);
-        const starts = intervals.map((i) => Number(i["started_at_ms"]));
-        const ends = intervals.map((i) => Number(i["ended_at_ms"] ?? now));
-        return this.envelope(q.queryType, {
-          workspaceId: q.workspaceId,
-          calendarDigest: intervals[0] ? String(intervals[0]["calendar_digest"]) : domainDigest("brain:sla-calendar:v1", { intervals: 0 }),
-          periodStart: iso(starts.length ? Math.min(...starts) : periodStart || now),
-          periodEnd: iso(ends.length ? Math.max(...ends) : periodEnd),
-          sampleCount: intervals.length,
-          // No SLA target thresholds are declared in configuration yet, so
-          // met-counts stay 0 rather than claiming attainment.
-          responseMet: 0, resolutionMet: 0,
-          keyrusMs: sumFor("keyrus"), clientWaitMs: sumFor("client"), hubWaitMs: sumFor("hub"),
-          incompleteRecords: intervals.filter((i) => i["ended_at_ms"] == null).length,
-          sourceWatermark: ends.length ? Math.max(...ends) : 0,
-        } as unknown as JsonValue);
+        return this.envelope(q.queryType, slaSummary(s, actor, q.workspaceId, periodStart, periodEnd));
       }
       case "stream.tail": case "stream.search": case "stream.context": case "stream.compare": {
         // Projection-on-read: seeded source rows surface without waiting for
@@ -1853,121 +1590,38 @@ export class Brain {
       case "live.status": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         requireWorkspaceRead(s, actor, q.workspaceId);
-        const ws = s.workspaceDb(q.workspaceId, actor.organizationId);
-        const activeSessions = (ws.prepare("SELECT COUNT(*) AS c FROM sessions WHERE state IN ('starting','running','waiting','stopping')").get() as { c: number }).c;
-        const activeRuns = (s.control.prepare("SELECT COUNT(*) AS c FROM jobs WHERE organization_id=? AND workspace_id=? AND state IN ('queued','offered','running','verifying')").get(actor.organizationId, q.workspaceId) as { c: number }).c;
-        const pendingApprovals = (s.control.prepare("SELECT COUNT(*) AS c FROM approval_requests WHERE organization_id=? AND workspace_id=? AND state='pending'").get(actor.organizationId, q.workspaceId) as { c: number }).c;
-        const unknownJobs = (s.control.prepare("SELECT COUNT(*) AS c FROM jobs WHERE organization_id=? AND workspace_id=? AND state IN ('outcome_unknown','blocked','failed')").get(actor.organizationId, q.workspaceId) as { c: number }).c;
-        return this.envelope(q.queryType, {
-          workspaceId: q.workspaceId,
-          activeSessions,
-          activeRuns,
-          needsAttention: pendingApprovals > 0 || unknownJobs > 0,
-          pendingApprovals,
-          unknownJobs,
-          // Default-landing rule: active sessions/runs open the Live console.
-          defaultRoute: activeSessions > 0 || activeRuns > 0 ? "live" : "today",
-          observedAt: s.nowIso(),
-        } as unknown as JsonValue);
+        return this.envelope(q.queryType, liveStatus(s, actor, q.workspaceId));
       }
       case "artifacts.list": {
-        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT","workspaceId required");
-        requireWorkspaceRead(s,actor,q.workspaceId);
-        const ws=s.workspaceDb(q.workspaceId,actor.organizationId);
-        const listFilters = raw as { jobId?: string; runId?: string; workItemId?: string; state?: string; classification?: string };
-        const clauses: string[] = [];
-        const parameters: Array<string | number> = [];
-        if (listFilters.state) {
-          if (!["uploading","verified","quarantined","deleted"].includes(listFilters.state)) throw new BrainDomainError("INVALID_ARGUMENT", "invalid artifact state filter");
-          clauses.push("state=?"); parameters.push(listFilters.state);
-        } else {
-          clauses.push("state='verified'");
-        }
-        if (listFilters.classification) {
-          if (!["public","internal","confidential","restricted"].includes(listFilters.classification)) throw new BrainDomainError("INVALID_ARGUMENT", "invalid artifact classification filter");
-          clauses.push("classification=?"); parameters.push(listFilters.classification);
-        }
-        let ids: string[] | undefined;
-        if (listFilters.jobId || listFilters.runId || listFilters.workItemId) {
-          const jobIds = new Set<string>();
-          if (listFilters.workItemId) {
-            for (const link of s.control.prepare("SELECT job_id FROM execution_links WHERE work_item_id=?").all(listFilters.workItemId) as Array<{ job_id: string | null }>) {
-              if (link.job_id) jobIds.add(link.job_id);
-            }
-            for (const link of s.control.prepare("SELECT run_id FROM execution_links WHERE work_item_id=?").all(listFilters.workItemId) as Array<{ run_id: string }>) {
-              for (const job of s.control.prepare("SELECT id FROM jobs WHERE workflow_run_id=? AND organization_id=?").all(link.run_id, actor.organizationId) as Array<{ id: string }>) jobIds.add(job.id);
-            }
-          }
-          if (listFilters.runId) {
-            for (const job of s.control.prepare("SELECT id FROM jobs WHERE workflow_run_id=? AND organization_id=?").all(listFilters.runId, actor.organizationId) as Array<{ id: string }>) jobIds.add(job.id);
-          }
-          if (listFilters.jobId) jobIds.add(listFilters.jobId);
-          const attemptIds: string[] = [];
-          if (jobIds.size > 0) {
-            const marks = [...jobIds].map(() => "?").join(",");
-            for (const attempt of s.control.prepare(`SELECT id FROM job_attempts WHERE job_id IN (${marks})`).all(...jobIds) as Array<{ id: string }>) attemptIds.push(attempt.id);
-          }
-          const ownerClauses: string[] = [];
-          const ownerParams: Array<string | number> = [actor.organizationId, q.workspaceId];
-          if (attemptIds.length > 0) { ownerClauses.push(`(owner_kind='attempt' AND owner_id IN (${attemptIds.map(() => "?").join(",")}))`); ownerParams.push(...attemptIds); }
-          if (jobIds.size > 0) { ownerClauses.push(`(owner_kind='job' AND owner_id IN (${[...jobIds].map(() => "?").join(",")}))`); ownerParams.push(...jobIds); }
-          ids = ownerClauses.length === 0 ? [] : (s.control.prepare(`SELECT artifact_id FROM artifact_associations WHERE organization_id=? AND workspace_id=? AND (${ownerClauses.join(" OR ")})`).all(...ownerParams) as Array<{ artifact_id: string }>).map((r) => r.artifact_id);
-          const boundedIds = ids.slice(0, 400);
-          if (boundedIds.length === 0) return this.envelope(q.queryType, { items: [] } as unknown as JsonValue);
-          clauses.push(`id IN (${boundedIds.map(() => "?").join(",")})`);
-          parameters.push(...boundedIds);
-        }
-        const rows = ws.prepare(`SELECT id,digest,bytes,media_type,classification FROM artifacts WHERE ${clauses.join(" AND ")} ORDER BY created_at_ms DESC,id LIMIT 100`).all(...parameters) as {id:string;digest:string;bytes:number;media_type:string;classification:string}[];
-        return this.envelope(q.queryType,{items:rows.map((row)=>({artifactId:row.id,digest:row.digest,bytes:row.bytes,mediaType:row.media_type,classification:row.classification}))} as unknown as JsonValue);
-      }
-      case "artifacts.history": {
-        return this.envelope(q.queryType, this.artifactHistory(actor, raw));
-      }
-      case "artifacts.diff": {
-        return this.envelope(q.queryType, this.artifactDiff(actor, raw));
-      }
-      case "agents.list": case "agents.get": case "workflows.list": case "workflows.get": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         requireWorkspaceRead(s, actor, q.workspaceId);
-        const release = this.activeRelease(actor.organizationId);
-        if (!release) throw new BrainDomainError("DEPENDENCY_UNAVAILABLE", "activate a configuration release first");
-        const stored = JSON.parse(release.manifest) as { schemas?: Record<string, JsonValue>; agents?: Record<string, import("@brain/contracts").Agent>; workflows?: Record<string, import("@brain/contracts").Workflow>; manifest: { documents: Array<{ id: string; kind: string; digest: string }> } };
-        const isAgent = q.queryType.startsWith("agents.");
-        const entries = Object.values(isAgent ? stored.agents ?? {} : stored.workflows ?? {}).sort((a, b) => a.metadata.id.localeCompare(b.metadata.id));
-        const items = entries.map((definition) => {
-          const id = definition.metadata.id;
-          const document = stored.manifest.documents.find((doc) => doc.kind === (isAgent ? "Agent" : "Workflow") && doc.id === id)!;
-          const asset = isAgent ? readReleaseAgentInstructions(s, actor.organizationId, release.digest, id) : undefined;
-          return { release: { id, digest: document.digest }, configDigest: release.digest, definition,
-            ...(!isAgent ? { inputSchema: stored.schemas?.[(definition as import("@brain/contracts").Workflow).spec.inputSchemaRef] ?? null, outputSchema: stored.schemas?.[(definition as import("@brain/contracts").Workflow).spec.outputSchemaRef] ?? null } : {}),
-            ...(asset ? { instructions: new TextDecoder().decode(asset.bytes), instructionsDigest: asset.instructionsDigest } : {}) };
-        });
-        if (q.queryType.endsWith(".list")) return this.envelope(q.queryType, { items } as unknown as JsonValue);
-        const item = items.find((item) => item.release.id === q.resourceId);
-        if (!item) throw new BrainDomainError("NOT_FOUND", "definition not found in the active release");
-        return this.envelope(q.queryType, item as unknown as JsonValue);
+        const f = raw as { jobId?: string; runId?: string; workItemId?: string; state?: string; classification?: string };
+        return this.envelope(q.queryType, listArtifacts(s, actor, q.workspaceId, f));
+      }
+      case "artifacts.history": {
+        const h = raw as { artifactId?: string; digest?: string; resourceId?: string };
+        const ref = (h.artifactId ?? h.resourceId) ? { artifactId: String(h.artifactId ?? h.resourceId) } : h.digest ? { digest: h.digest } : {};
+        return this.envelope(q.queryType, artifactHistory(s, actor, ref));
+      }
+      case "artifacts.diff": {
+        const d = raw as { leftId?: string; rightId?: string; maxBytes?: number };
+        if (!d.leftId || !d.rightId) throw new BrainDomainError("INVALID_ARGUMENT", "leftId and rightId required");
+        return this.envelope(q.queryType, diffArtifacts(s, actor, d.leftId, d.rightId, Number(d.maxBytes ?? 262_144)));
+      }
+      case "agents.list": case "workflows.list": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        requireWorkspaceRead(s, actor, q.workspaceId);
+        return this.envelope(q.queryType, releaseDefinitions(s, actor.organizationId, q.queryType.startsWith("agents.") ? "agents" : "workflows"));
+      }
+      case "agents.get": case "workflows.get": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        requireWorkspaceRead(s, actor, q.workspaceId);
+        return this.envelope(q.queryType, releaseDefinitions(s, actor.organizationId, q.queryType.startsWith("agents.") ? "agents" : "workflows", String(q.resourceId)));
       }
       case "config.explain": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         requireWorkspaceRead(s, actor, q.workspaceId);
-        const rel = this.activeRelease(actor.organizationId);
-        if (!rel) throw new BrainDomainError("DEPENDENCY_UNAVAILABLE", "config explain requires an active release");
-        const pointer = String((raw as { pointer?: string }).pointer ?? "");
-        const stored = JSON.parse(rel.manifest) as Record<string, unknown>;
-        const segments = pointer.split("/").filter(Boolean).map((seg) => seg.replace(/~1/g, "/").replace(/~0/g, "~"));
-        let effective: unknown = stored;
-        for (const seg of segments) {
-          effective = (effective as Record<string, unknown> | undefined)?.[seg];
-          if (effective === undefined) break;
-        }
-        const docs = ((stored["manifest"] as Record<string, unknown> | undefined)?.["documents"] ?? []) as Array<Record<string, unknown>>;
-        const doc = docs.find((d) => segments.includes(String(d["id"])));
-        return this.envelope(q.queryType, {
-          pointer,
-          effective: (effective ?? null) as JsonValue,
-          sources: [{ path: doc ? String(doc["path"] ?? "active-release") : "active-release", line: 1, value: (effective ?? null) as JsonValue, rule: effective === undefined ? "absent-in-active-release" : "declared-in-active-release" }],
-          configDigest: rel.digest,
-        } as unknown as JsonValue);
+        return this.envelope(q.queryType, configExplain(s, actor.organizationId, String((raw as { pointer?: string }).pointer ?? "")));
       }
       default:
         throw new BrainDomainError("UNSUPPORTED_CAPABILITY", `query ${q.queryType} not implemented`);
@@ -1993,262 +1647,6 @@ export class Brain {
       // nextCursor) is the exclusive upper bound of the next, older page.
       ...(typeof q.before === "number" && Number.isFinite(q.before) && q.before > 0 ? { before: Math.floor(q.before) } : {}),
     };
-  }
-
-  /** Resolve one artifact by id or digest within the actor's organization. */
-  private artifactRowFor(actor: ActorContext, ref: { artifactId?: string; digest?: string }): { workspaceId: string; row: Record<string, unknown> } {
-    const s = this.store;
-    if (ref.artifactId) {
-      const assoc = s.control.prepare("SELECT workspace_id FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(ref.artifactId, actor.organizationId) as { workspace_id: string } | undefined;
-      if (!assoc) throw new BrainDomainError("NOT_FOUND", "artifact not found");
-      requireWorkspaceRead(s, actor, assoc.workspace_id);
-      const row = s.workspaceDb(assoc.workspace_id, actor.organizationId).prepare("SELECT id, digest, bytes, media_type, classification, state, created_at_ms FROM artifacts WHERE id=?").get(ref.artifactId) as Record<string, unknown> | undefined;
-      if (!row) throw new BrainDomainError("NOT_FOUND", "artifact not found");
-      return { workspaceId: assoc.workspace_id, row };
-    }
-    if (ref.digest) {
-      const assocs = s.control.prepare("SELECT workspace_id, artifact_id FROM artifact_associations WHERE digest=? AND organization_id=?").all(ref.digest, actor.organizationId) as Array<{ workspace_id: string; artifact_id: string }>;
-      for (const assoc of assocs) {
-        try {
-          requireWorkspaceRead(s, actor, assoc.workspace_id);
-          const row = s.workspaceDb(assoc.workspace_id, actor.organizationId).prepare("SELECT id, digest, bytes, media_type, classification, state, created_at_ms FROM artifacts WHERE id=?").get(assoc.artifact_id) as Record<string, unknown> | undefined;
-          if (row) return { workspaceId: assoc.workspace_id, row };
-        } catch { /* no membership for this workspace; try the next association */ }
-      }
-      throw new BrainDomainError("NOT_FOUND", "artifact not found");
-    }
-    throw new BrainDomainError("INVALID_ARGUMENT", "artifactId or digest required");
-  }
-
-  private artifactHistory(actor: ActorContext, raw: unknown): JsonValue {
-    const q = raw as { artifactId?: string; digest?: string; resourceId?: string };
-    const ref: { artifactId?: string; digest?: string } = (q.artifactId ?? q.resourceId)
-      ? { artifactId: String(q.artifactId ?? q.resourceId) }
-      : (q.digest ? { digest: q.digest } : {});
-    const { workspaceId, row } = this.artifactRowFor(actor, ref);
-    const digest = String(row["digest"]);
-    const ws = this.store.workspaceDb(workspaceId, actor.organizationId);
-    // Producer fallback join: the association owner binds the producing
-    // attempt (or job for execution artifacts) when no bundle pins the digest.
-    const producerAssoc = this.store.control.prepare(`SELECT owner_kind, owner_id FROM artifact_associations
-      WHERE artifact_id=? AND organization_id=? AND owner_kind IN ('attempt','job')
-      ORDER BY CASE owner_kind WHEN 'attempt' THEN 0 ELSE 1 END LIMIT 1`).get(String(row["id"]), actor.organizationId) as { owner_kind: string; owner_id: string } | undefined;
-    let producer: JsonValue | undefined;
-    if (producerAssoc?.owner_kind === "attempt") {
-      const attempt = this.store.control.prepare("SELECT id, job_id, state, attempt_no FROM job_attempts WHERE id=?").get(producerAssoc.owner_id) as Record<string, unknown> | undefined;
-      if (attempt) producer = { attemptId: String(attempt["id"]), jobId: String(attempt["job_id"]), state: String(attempt["state"]), number: Number(attempt["attempt_no"]) } as unknown as JsonValue;
-    } else if (producerAssoc?.owner_kind === "job") {
-      producer = { jobId: producerAssoc.owner_id } as unknown as JsonValue;
-    }
-    // Verification lookup (stated): evidence bundles pinning the digest in
-    // manifest_json, with the bundle state and the latest verdict outcome.
-    const bundles = ws.prepare(`SELECT digest, bundle_id, job_id, attempt_id, state, created_at_ms FROM evidence_bundles
-      WHERE EXISTS (SELECT 1 FROM json_each(evidence_bundles.manifest_json,'$.artifacts') item WHERE json_extract(item.value,'$.digest')=?)
-      ORDER BY created_at_ms DESC LIMIT 50`).all(digest) as Array<Record<string, unknown>>;
-    const history = bundles.map((bundle) => {
-      const verdict = ws.prepare("SELECT outcome, created_at_ms FROM verification_verdicts WHERE bundle_digest=? ORDER BY created_at_ms DESC LIMIT 1").get(String(bundle["digest"])) as { outcome: string; created_at_ms: number } | undefined;
-      return {
-        bundleId: String(bundle["bundle_id"]), bundleDigest: String(bundle["digest"]),
-        jobId: String(bundle["job_id"]), attemptId: String(bundle["attempt_id"]),
-        state: String(bundle["state"]), createdAt: iso(Number(bundle["created_at_ms"])),
-        ...(verdict ? { verification: { outcome: verdict.outcome, at: iso(Number(verdict.created_at_ms)) } as unknown as JsonValue } : {}),
-      } as unknown as JsonValue;
-    });
-    return {
-      artifactId: String(row["id"]), digest, bytes: Number(row["bytes"]), mediaType: String(row["media_type"]),
-      classification: String(row["classification"]), state: String(row["state"]), createdAt: iso(Number(row["created_at_ms"])),
-      workspaceId, ...(producer ? { producer } : {}), history,
-    } as unknown as JsonValue;
-  }
-
-  private diffableArtifact(actor: ActorContext, artifactId: string, maxBytes: number): { ref: Record<string, JsonValue>; text: string } {
-    const { row } = this.artifactRowFor(actor, { artifactId });
-    const bytes = this.readArtifact(actor, String(row["id"]));
-    if (bytes.length > maxBytes) throw new BrainDomainError("PAYLOAD_TOO_LARGE", `artifact exceeds the diff byte bound (${maxBytes})`);
-    const mediaType = String(row["media_type"]);
-    const textLike = /^text\//u.test(mediaType) || /\+(json|xml)$/u.test(mediaType)
-      || /^(application\/(json|x-ndjson|xml|yaml|x-yaml|javascript|typescript|sql))$/u.test(mediaType);
-    const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
-    if (!textLike || text.includes("\u0000")) {
-      throw new BrainDomainError("INVALID_ARGUMENT", `artifact ${artifactId} (${mediaType || "unknown"}) is binary; diffs cover text, json, code and csv only`);
-    }
-    return { ref: { artifactId: String(row["id"]), digest: String(row["digest"]), bytes: Number(row["bytes"]), mediaType }, text };
-  }
-
-  private artifactDiff(actor: ActorContext, raw: unknown): JsonValue {
-    const q = raw as { leftId?: string; rightId?: string; maxBytes?: number };
-    if (!q.leftId || !q.rightId) throw new BrainDomainError("INVALID_ARGUMENT", "leftId and rightId required");
-    const maxBytes = Math.min(Math.max(Math.floor(Number(q.maxBytes ?? 262_144)) || 262_144, 1), 262_144);
-    const left = this.diffableArtifact(actor, q.leftId, maxBytes);
-    const right = this.diffableArtifact(actor, q.rightId, maxBytes);
-    return {
-      left: left.ref as unknown as JsonValue,
-      right: right.ref as unknown as JsonValue,
-      maxBytes,
-      hunks: unifiedHunks(left.text.split("\n"), right.text.split("\n")) as unknown as JsonValue,
-    } as unknown as JsonValue;
-  }
-
-  // --- pack view mappers (contract views derived from stored rows only) ---
-  private artifactRef(ws: ReturnType<Store["workspaceDb"]>, digest: string, fallbackId: string): Record<string, unknown> | undefined {
-    const row = ws.prepare("SELECT id, bytes, media_type, classification FROM artifacts WHERE digest=? ORDER BY created_at_ms LIMIT 1").get(digest) as Record<string, unknown> | undefined;
-    if (!row) return undefined;
-    return { artifactId: String(row["id"] ?? fallbackId), digest, bytes: Number(row["bytes"]), mediaType: String(row["media_type"]), classification: String(row["classification"]) };
-  }
-
-  private ticketView(workspaceId: string, r: Record<string, unknown>, detail: boolean, ws: ReturnType<Store["workspaceDb"]>): Record<string, unknown> {
-    const observed = Number(r["observed_at_ms"]);
-    const created = Number(r["created_at_ms"] ?? 0) || observed;
-    const states = ["open", "pending", "resolved", "closed"];
-    const base: Record<string, unknown> = {
-      id: String(r["id"]), workspaceId, version: Number(r["version"] ?? 1), updatedAt: iso(observed),
-      title: String(r["title"]), state: states.includes(String(r["state"])) ? String(r["state"]) : "open",
-      priority: String(r["priority"] ?? "normal"), sourceVersion: String(r["source_version"]),
-      // Evidence is ready only when a reviewed draft exists for this ticket.
-      evidenceReady: !!ws.prepare("SELECT 1 FROM support_drafts WHERE ticket_id=? AND approval_id IS NOT NULL LIMIT 1").get(String(r["id"])),
-      createdAt: iso(created),
-    };
-    if (detail) {
-      const body = this.artifactRef(ws, String(r["body_digest"]), `ticket-body-${String(r["id"])}`);
-      base["body"] = body ?? { artifactId: `ticket-body-${String(r["id"])}`, digest: String(r["body_digest"]), bytes: 0, mediaType: "text/plain", classification: "internal" };
-      const draft = ws.prepare("SELECT content_digest, approval_id FROM support_drafts WHERE ticket_id=? ORDER BY version DESC LIMIT 1").get(String(r["id"])) as Record<string, unknown> | undefined;
-      if (draft) {
-        const ref = this.artifactRef(ws, String(draft["content_digest"]), `draft-${String(r["id"])}`);
-        if (ref) base["draft"] = ref;
-        if (draft["approval_id"]) base["approvalId"] = String(draft["approval_id"]);
-      }
-    }
-    return base;
-  }
-
-  private incidentView(workspaceId: string, r: Record<string, unknown>, detail: boolean, ws: ReturnType<Store["workspaceDb"]>): Record<string, unknown> {
-    const opened = Number(r["opened_at_ms"]);
-    const latest = ws.prepare("SELECT MAX(observed_at_ms) AS observed, MAX(expires_at_ms) AS expires FROM observations WHERE incident_id=?").get(String(r["id"])) as { observed: number | null; expires: number | null };
-    const observedAt = latest.observed ?? opened;
-    const expiresAt = latest.expires ?? observedAt;
-    const resolved = r["resolved_at_ms"] == null ? null : Number(r["resolved_at_ms"]);
-    const title = String(r["title"] ?? "") || `${String(r["severity"])} incident: ${String(r["target_key"])}`;
-    const base: Record<string, unknown> = {
-      id: String(r["id"]), workspaceId, version: Number(r["version"]), updatedAt: iso(resolved ?? observedAt),
-      title, state: String(r["state"]), severity: String(r["severity"]), targetKey: String(r["target_key"]),
-      observedAt: iso(observedAt), expiresAt: iso(expiresAt), createdAt: iso(opened),
-    };
-    if (detail) {
-      const obs = ws.prepare("SELECT observation_digest FROM observations WHERE incident_id=? ORDER BY observed_at_ms LIMIT 100").all(String(r["id"])) as Array<{ observation_digest: string }>;
-      base["observations"] = obs.map((o) => this.artifactRef(ws, o.observation_digest, `observation-${o.observation_digest.slice(7, 19)}`)).filter(Boolean);
-    }
-    return base;
-  }
-
-  private deliveryView(workspaceId: string, r: Record<string, unknown>, ws: ReturnType<Store["workspaceDb"]>): Record<string, unknown> {
-    const results = ws.prepare("SELECT criterion_id, outcome, evidence_digest FROM rubric_results WHERE dossier_id=?").all(String(r["id"])) as Array<Record<string, unknown>>;
-    const statusMap: Record<string, string> = { passed: "passed", failed: "failed", incomplete: "inconclusive" };
-    const evidenceDigests = [...new Set(results.map((x) => String(x["evidence_digest"])))];
-    return {
-      id: String(r["id"]), workspaceId, version: Number(r["version"]), updatedAt: iso(Number(r["created_at_ms"])),
-      sourceRevision: String(r["source_revision"]), state: String(r["state"]),
-      rubric: { id: "rubric", digest: String(r["rubric_digest"]) },
-      criteria: results.map((x) => ({
-        criterionId: String(x["criterion_id"]), checkId: String(x["criterion_id"]),
-        status: statusMap[String(x["outcome"])] ?? "inconclusive", oracleDigest: String(r["rubric_digest"]),
-        artifacts: [this.artifactRef(ws, String(x["evidence_digest"]), "rubric-evidence")].filter(Boolean),
-        detail: `rubric outcome: ${String(x["outcome"])}`,
-      })),
-      evidence: evidenceDigests.map((dg) => this.artifactRef(ws, dg, "dossier-evidence")).filter(Boolean),
-      createdAt: iso(Number(r["created_at_ms"])),
-    };
-  }
-
-  private listPackQuery(actor: ActorContext, queryType: string, workspaceId?: string): JsonValue {
-    const s = this.store;
-    if (!workspaceId) return this.envelope(queryType, { items: [] } as unknown as JsonValue);
-    const ws = s.workspaceDb(workspaceId, actor.organizationId);
-    const table = { "tickets.list": "tickets", "incidents.list": "incidents", "delivery.list": "delivery_dossiers", "tools.list": "tool_candidates", "decisions.list": "decisions", "members.list": "", "audit.list": "" }[queryType] ?? "";
-    if (queryType === "members.list") {
-      const rows = s.control.prepare("SELECT principal_id, role, version, granted_at_ms, revoked_at_ms FROM workspace_memberships WHERE workspace_id=?").all(workspaceId) as Array<Record<string, unknown>>;
-      const byPrincipal = new Map<string, { roles: string[]; version: number; createdAtMs: number; revoked: boolean }>();
-      for (const r of rows) {
-        const pid = String(r["principal_id"]);
-        const cur = byPrincipal.get(pid) ?? { roles: [], version: 0, createdAtMs: Number(r["granted_at_ms"]), revoked: true };
-        if (r["revoked_at_ms"] == null) { cur.roles.push(String(r["role"])); cur.revoked = false; }
-        cur.version = Math.max(cur.version, Number(r["version"]));
-        cur.createdAtMs = Math.min(cur.createdAtMs, Number(r["granted_at_ms"]));
-        byPrincipal.set(pid, cur);
-      }
-      const items = [...byPrincipal.entries()].map(([principalId, g]) => ({
-        id: `grant-${workspaceId}-${principalId}`, workspaceId, principalId,
-        roles: g.roles, version: g.version, revoked: g.revoked, createdAt: iso(g.createdAtMs),
-      }));
-      return this.envelope(queryType, { items } as unknown as JsonValue);
-    }
-    if (queryType === "audit.list") {
-      const rows = s.control.prepare("SELECT cursor, event_id, event_type, aggregate_id, payload_json, payload_digest, created_at_ms FROM events WHERE organization_id=? AND workspace_id=? ORDER BY cursor DESC LIMIT 50").all(actor.organizationId, workspaceId) as Array<Record<string, unknown>>;
-      return this.envelope(queryType, { items: rows.map((r) => {
-        let actorId = "system";
-        try {
-          const payload = JSON.parse(String(r["payload_json"])) as Record<string, unknown>;
-          actorId = String(payload["actorId"] ?? payload["actorRef"] ?? payload["requestedBy"] ?? "system");
-        } catch { /* payload is digest-bound; actor stays system */ }
-        return { id: String(r["event_id"]), cursor: Number(r["cursor"]), actorId, action: String(r["event_type"]), resourceId: String(r["aggregate_id"]), occurredAt: iso(Number(r["created_at_ms"])), payloadDigest: String(r["payload_digest"]) };
-      }) } as unknown as JsonValue);
-    }
-    if (queryType === "tools.list") {
-      // The catalog is the active release's declared Tool documents.
-      const rel = this.activeRelease(actor.organizationId);
-      if (!rel) return this.envelope(queryType, { items: [] } as unknown as JsonValue);
-      const stored = JSON.parse(rel.manifest) as { manifest?: { tools?: Array<Record<string, unknown>> } };
-      const created = s.control.prepare("SELECT created_at_ms FROM config_releases WHERE digest=? AND organization_id=?").get(rel.digest, actor.organizationId) as { created_at_ms: number } | undefined;
-      const items = (stored.manifest?.tools ?? []).map((t) => ({
-        id: String(t["id"]), release: { id: String(t["id"]), digest: String(t["digest"]) }, status: "trusted",
-        effectClass: String(t["effectClass"]), inputSchemaRef: String(t["inputSchemaRef"]), outputSchemaRef: String(t["outputSchemaRef"]),
-        evidence: [], createdAt: iso(created?.created_at_ms ?? s.now()),
-      }));
-      return this.envelope(queryType, { items } as unknown as JsonValue);
-    }
-    if (!table) return this.envelope(queryType, { items: [] } as unknown as JsonValue);
-    const rows = ws.prepare(`SELECT * FROM ${table} LIMIT 50`).all() as Array<Record<string, unknown>>;
-    const mapRow = (r: Record<string, unknown>): Record<string, unknown> => {
-      switch (queryType) {
-        case "tickets.list": return this.ticketView(workspaceId, r, false, ws);
-        case "incidents.list": return this.incidentView(workspaceId, r, false, ws);
-        case "delivery.list": return this.deliveryView(workspaceId, r, ws);
-        case "decisions.list": return {
-          id: String(r["id"]), workspaceId, workItemId: String(r["work_item_id"]), actorId: String(r["actor_id"]),
-          decision: String(r["decision"]), note: String(r["note"] ?? ""), createdAt: iso(Number(r["created_at_ms"])),
-        };
-        default: return r;
-      }
-    };
-    return this.envelope(queryType, { items: rows.map(mapRow) } as unknown as JsonValue);
-  }
-
-  private getPackQuery(actor: ActorContext, queryType: string, workspaceId: string | undefined, resourceId: string): JsonValue {
-    const s = this.store;
-    if (queryType === "evidence.get") {
-      // resourceId is a bundle digest or bundle id; search caller workspaces.
-      const candidates = workspaceId ? [workspaceId] : (s.control.prepare("SELECT workspace_id FROM workspace_memberships WHERE organization_id=? AND principal_id=? AND revoked_at_ms IS NULL").all(actor.organizationId, actor.actorId) as Array<{ workspace_id: string }>).map((r) => r.workspace_id);
-      for (const wsId of candidates) {
-        const ws = s.workspaceDb(wsId, actor.organizationId);
-        const row = ws.prepare("SELECT manifest_json FROM evidence_bundles WHERE digest=? OR bundle_id=?").get(resourceId, resourceId) as { manifest_json: string } | undefined;
-        if (row) {
-          const verdict = ws.prepare("SELECT manifest_json FROM verification_verdicts WHERE bundle_digest=? ORDER BY created_at_ms DESC LIMIT 1").get(resourceId) as { manifest_json: string } | undefined;
-          return this.envelope(queryType, { bundle: JSON.parse(row.manifest_json), ...(verdict ? { verdict: JSON.parse(verdict.manifest_json) } : {}) } as unknown as JsonValue);
-        }
-      }
-      throw new BrainDomainError("NOT_FOUND", "evidence not found");
-    }
-    if (!workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
-    requireWorkspaceRead(s, actor, workspaceId);
-    const ws = s.workspaceDb(workspaceId, actor.organizationId);
-    const table = { "ticket.get": "tickets", "incident.get": "incidents", "delivery.get": "delivery_dossiers" }[queryType] ?? "";
-    if (!table) throw new BrainDomainError("NOT_FOUND", "resource not found");
-    const row = ws.prepare(`SELECT * FROM ${table} WHERE id=?`).get(resourceId) as Record<string, unknown> | undefined;
-    if (!row) throw new BrainDomainError("NOT_FOUND", "resource not found");
-    const view = queryType === "ticket.get" ? this.ticketView(workspaceId, row, true, ws)
-      : queryType === "incident.get" ? this.incidentView(workspaceId, row, true, ws)
-      : queryType === "delivery.get" ? this.deliveryView(workspaceId, row, ws)
-      : row;
-    return this.envelope(queryType, view as unknown as JsonValue);
   }
 
   // --- outbox projector + events feed ---
@@ -2331,72 +1729,4 @@ export class Brain {
     const found = this.memory.search(mq, { organizationId: actor.organizationId, workspaceId });
     return this.envelope("memory.search", { ...found, degraded: true, reason: "TencentDB not configured; local scoped store used" } as unknown as import("@brain/contracts").JsonValue);
   }
-}
-
-interface DiffOp {
-  type: "context" | "add" | "del";
-  text: string;
-  a?: number;
-  b?: number;
-}
-
-/** LCS line diff with a table guard; oversized inputs fall back to replace-all. */
-function lineDiff(a: readonly string[], b: readonly string[]): DiffOp[] {
-  const n = a.length;
-  const m = b.length;
-  if (n * m > 4_000_000) {
-    return [
-      ...a.map((text, index) => ({ type: "del" as const, text, a: index + 1 })),
-      ...b.map((text, index) => ({ type: "add" as const, text, b: index + 1 })),
-    ];
-  }
-  const table: Uint32Array[] = Array.from({ length: n + 1 }, () => new Uint32Array(m + 1));
-  for (let i = n - 1; i >= 0; i--) {
-    for (let j = m - 1; j >= 0; j--) {
-      table[i]![j] = a[i] === b[j] ? table[i + 1]![j + 1]! + 1 : Math.max(table[i + 1]![j]!, table[i]![j + 1]!);
-    }
-  }
-  const ops: DiffOp[] = [];
-  let i = 0;
-  let j = 0;
-  while (i < n && j < m) {
-    if (a[i] === b[j]) {
-      ops.push({ type: "context", text: a[i]!, a: i + 1, b: j + 1 });
-      i += 1; j += 1;
-    } else if (table[i + 1]![j]! >= table[i]![j + 1]!) {
-      ops.push({ type: "del", text: a[i]!, a: i + 1 });
-      i += 1;
-    } else {
-      ops.push({ type: "add", text: b[j]!, b: j + 1 });
-      j += 1;
-    }
-  }
-  while (i < n) { ops.push({ type: "del", text: a[i]!, a: i + 1 }); i += 1; }
-  while (j < m) { ops.push({ type: "add", text: b[j]!, b: j + 1 }); j += 1; }
-  return ops;
-}
-
-/** Group a line diff into unified hunks with the given context size. */
-function unifiedHunks(a: readonly string[], b: readonly string[], context = 3): Array<{ header: string; lines: DiffOp[] }> {
-  const ops = lineDiff(a, b);
-  const changes = ops.map((op, index) => (op.type === "context" ? -1 : index)).filter((index) => index >= 0);
-  if (changes.length === 0) return [];
-  const groups: Array<[number, number]> = [];
-  let start = changes[0]!;
-  let end = changes[0]!;
-  for (const index of changes.slice(1)) {
-    if (index - end <= context * 2) end = index;
-    else { groups.push([start, end]); start = index; end = index; }
-  }
-  groups.push([start, end]);
-  return groups.map(([changeStart, changeEnd]) => {
-    const from = Math.max(0, changeStart - context);
-    const to = Math.min(ops.length, changeEnd + context + 1);
-    const lines = ops.slice(from, to);
-    const aLines = lines.filter((op) => op.type !== "add");
-    const bLines = lines.filter((op) => op.type !== "del");
-    const aStart = aLines[0]?.a ?? 0;
-    const bStart = bLines[0]?.b ?? 0;
-    return { header: `@@ -${aStart},${aLines.length} +${bStart},${bLines.length} @@`, lines };
-  });
 }

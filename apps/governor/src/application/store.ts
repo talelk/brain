@@ -64,6 +64,12 @@ export class Store {
   nowIso(): string { return iso(this.now()); }
   id(prefix: string): string { return newId(prefix); }
 
+  /** The single content-addressed storage path for a digest. */
+  casPath(digest: string): string {
+    const hex = digest.replace("sha256:", "");
+    return join(this.dataDir, "cas", hex.slice(0, 2), hex);
+  }
+
   tokenDigest(purpose: string, token: string): string {
     return createHmac("sha256", this.pepper).update(`${purpose}\n${token}`).digest("hex");
   }

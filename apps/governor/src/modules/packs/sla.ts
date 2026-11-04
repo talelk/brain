@@ -7,12 +7,17 @@ export interface SlaInterval {
   readonly endedAtMs: number | null;
 }
 
-export function computeSlaMinutes(intervals: readonly SlaInterval[], responsibility: string, nowMs: number): number {
+/** The single interval-summation implementation: milliseconds of ownership. */
+export function sumIntervalMs(intervals: readonly SlaInterval[], responsibility: string, nowMs: number): number {
   let total = 0;
   for (const iv of intervals) {
     if (iv.responsibility !== responsibility) continue;
     const end = iv.endedAtMs ?? nowMs;
     total += Math.max(0, end - iv.startedAtMs);
   }
-  return Math.floor(total / 60_000);
+  return total;
+}
+
+export function computeSlaMinutes(intervals: readonly SlaInterval[], responsibility: string, nowMs: number): number {
+  return Math.floor(sumIntervalMs(intervals, responsibility, nowMs) / 60_000);
 }
