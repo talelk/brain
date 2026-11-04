@@ -17,9 +17,9 @@ function seedRunner(w: TestWorld, id: string): { runnerId: string; epoch: number
   return { runnerId: id, epoch: 1, organizationId: w.org };
 }
 
-function unknownJob(w: TestWorld, key: string): { jobId: string; version: number } {
+async function unknownJob(w: TestWorld, key: string): Promise<{ jobId: string; version: number }> {
   const digest = w.brain.activeRelease(w.org)!.digest;
-  w.brain.executeCommand(w.owner, {
+  await w.brain.executeCommand(w.owner, {
     contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "workflow.dispatch",
     workspaceId: w.workspaceId, idempotencyKey: key,
     payload: { workflow: { id: "fixture-workflow", digest }, input: { message: key } },
@@ -35,11 +35,11 @@ function unknownJob(w: TestWorld, key: string): { jobId: string; version: number
 }
 
 describe("drift reconciler (T46)", () => {
-  it("absent outcome frees the job for a fresh attempt; conflicting keeps the guard", () => {
+  it("absent outcome frees the job for a fresh attempt; conflicting keeps the guard", async () => {
     const w = setupWorld();
     const s = w.brain.store;
-    const a = unknownJob(w, "rec-a");
-    w.brain.executeCommand(w.owner, {
+    const a = await unknownJob(w, "rec-a");
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-reconcile-a", commandType: "job.reconcile",
       workspaceId: w.workspaceId, idempotencyKey: "rec-a", expectedVersion: a.version,
       payload: { jobId: a.jobId, reason: "runner vanished mid-effect" },
@@ -48,8 +48,8 @@ describe("drift reconciler (T46)", () => {
     expect((s.control.prepare("SELECT state FROM jobs WHERE id=?").get(a.jobId) as { state: string }).state).toBe("queued");
     expect((s.control.prepare("SELECT state FROM reconciliation_requests WHERE command_id='cmd-reconcile-a'").get() as { state: string }).state).toBe("resolved");
 
-    const b = unknownJob(w, "rec-b");
-    w.brain.executeCommand(w.owner, {
+    const b = await unknownJob(w, "rec-b");
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-reconcile-b", commandType: "job.reconcile",
       workspaceId: w.workspaceId, idempotencyKey: "rec-b", expectedVersion: b.version,
       payload: { jobId: b.jobId, reason: "conflicting readback" },
@@ -60,27 +60,27 @@ describe("drift reconciler (T46)", () => {
     w.brain.close();
   });
 
-  it("reconcile is refused for known-state jobs, stale versions and unauthorized actors", () => {
+  it("reconcile is refused for known-state jobs, stale versions and unauthorized actors", async () => {
     const w = setupWorld();
-    const a = unknownJob(w, "rec-c");
-    expect(() => w.brain.executeCommand(w.owner, {
+    const a = await unknownJob(w, "rec-c");
+    await expect(Promise.resolve().then(() => w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-reconcile-c1", commandType: "job.reconcile",
       workspaceId: w.workspaceId, idempotencyKey: "rec-c1", expectedVersion: a.version + 5,
       payload: { jobId: a.jobId, reason: "stale view" },
-    }, "rec-c1")).toThrow(/version/);
+    }, "rec-c1"))).rejects.toThrow(/version/);
     const outsider = w.actor("mallory", w.workspaceId);
-    expect(() => w.brain.executeCommand(outsider, {
+    await expect(Promise.resolve().then(() => w.brain.executeCommand(outsider, {
       contractVersion: "brain.command/v1", commandId: "cmd-reconcile-c2", commandType: "job.reconcile",
       workspaceId: w.workspaceId, idempotencyKey: "rec-c2", expectedVersion: a.version,
       payload: { jobId: a.jobId, reason: "no authority" },
-    }, "rec-c2")).toThrow();
+    }, "rec-c2"))).rejects.toThrow();
     w.brain.reconcileJob({ organizationId: w.org, jobId: a.jobId, outcome: "absent", evidenceDigest: DIGEST_A });
     const after = w.brain.store.control.prepare("SELECT version FROM jobs WHERE id=?").get(a.jobId) as { version: number };
-    expect(() => w.brain.executeCommand(w.owner, {
+    await expect(Promise.resolve().then(() => w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-reconcile-c3", commandType: "job.reconcile",
       workspaceId: w.workspaceId, idempotencyKey: "rec-c3", expectedVersion: after.version,
       payload: { jobId: a.jobId, reason: "already known" },
-    }, "rec-c3")).toThrow(/only outcome_unknown/);
+    }, "rec-c3"))).rejects.toThrow(/only outcome_unknown/);
     w.brain.close();
   });
 });

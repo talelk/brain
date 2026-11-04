@@ -256,14 +256,14 @@ describe("automation authorization and workspace isolation", () => {
     cleanup.push(async () => { await app.close(); rmSync(dir, { recursive: true, force: true }); });
     const w = setupWorld(app.brain);
     const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
-    const created = w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: "auto-1", idempotencyKey: "auto-1", commandType: "automation.upsert", workspaceId: w.workspaceId, payload: { title: "Governed", target: { kind: "workItem", id: "no-such-item" }, trigger: { kind: "manual" } } }, "auto-test");
+    const created = await w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: "auto-1", idempotencyKey: "auto-1", commandType: "automation.upsert", workspaceId: w.workspaceId, payload: { title: "Governed", target: { kind: "workItem", id: "no-such-item" }, trigger: { kind: "manual" } } }, "auto-test");
     expect(created.receipt.accepted).toBe(true);
     // Agents may not create automations; viewers lack the dispatch scope; other workspaces are invisible.
     const agent = { ...w.owner, kind: "agent" as const, actorId: "agent-1", scopes: ["workspace:read", "workflow:dispatch"] };
-    expect(() => w.brain.executeCommand(agent, { contractVersion: "brain.command/v1", commandId: "auto-2", idempotencyKey: "auto-2", commandType: "automation.upsert", workspaceId: w.workspaceId, payload: { title: "Agent", target: { kind: "workItem", id: "x" }, trigger: { kind: "manual" } } }, "auto-test")).toThrow();
+    await expect(Promise.resolve().then(() => w.brain.executeCommand(agent, { contractVersion: "brain.command/v1", commandId: "auto-2", idempotencyKey: "auto-2", commandType: "automation.upsert", workspaceId: w.workspaceId, payload: { title: "Agent", target: { kind: "workItem", id: "x" }, trigger: { kind: "manual" } } }, "auto-test"))).rejects.toThrow();
     const viewer = { ...w.owner, actorId: "viewer-1", scopes: ["workspace:read"] };
-    expect(() => w.brain.executeCommand(viewer, { contractVersion: "brain.command/v1", commandId: "auto-3", idempotencyKey: "auto-3", commandType: "automation.upsert", workspaceId: w.workspaceId, payload: { title: "Viewer", target: { kind: "workItem", id: "x" }, trigger: { kind: "manual" } } }, "auto-test")).toThrow();
-    expect(() => w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: "auto-4", idempotencyKey: "auto-4", commandType: "automation.control", workspaceId: w.workspaceId, payload: { automationId: "missing-automation", action: "pause" } }, "auto-test")).toThrow(/not found/);
+    await expect(Promise.resolve().then(() => w.brain.executeCommand(viewer, { contractVersion: "brain.command/v1", commandId: "auto-3", idempotencyKey: "auto-3", commandType: "automation.upsert", workspaceId: w.workspaceId, payload: { title: "Viewer", target: { kind: "workItem", id: "x" }, trigger: { kind: "manual" } } }, "auto-test"))).rejects.toThrow();
+    await expect(Promise.resolve().then(() => w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: "auto-4", idempotencyKey: "auto-4", commandType: "automation.control", workspaceId: w.workspaceId, payload: { automationId: "missing-automation", action: "pause" } }, "auto-test"))).rejects.toThrow(/not found/);
     void db;
   });
 });

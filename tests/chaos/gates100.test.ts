@@ -76,7 +76,7 @@ describe("G03 brain durability: 100 suspended gates", () => {
 
     const runIds: string[] = [];
     for (let i = 0; i < 100; i++) {
-      const { receipt } = w.brain.executeCommand(w.owner, {
+      const { receipt } = await w.brain.executeCommand(w.owner, {
         contractVersion: "brain.command/v1", commandId: `gate-cmd-${i}`, commandType: "workflow.dispatch",
         workspaceId: w.workspaceId, idempotencyKey: `gate-${i}`,
         payload: { workflow: { id: "gate-workflow", digest }, input: { message: "Brain fixture" } },

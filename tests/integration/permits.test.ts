@@ -16,9 +16,9 @@ function seedRunner(w: World, runnerId: string) {
 }
 
 interface Offer { attemptId: string; leaseId: string; jobFence: number; jobId: string }
-function runningAttempt(w: World, key: string, runnerId: string) {
+async function runningAttempt(w: World, key: string, runnerId: string) {
   const digest = w.brain.activeRelease(w.org)!.digest;
-  w.brain.executeCommand(w.owner, {
+  await w.brain.executeCommand(w.owner, {
     contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "workflow.dispatch",
     workspaceId: w.workspaceId, idempotencyKey: key,
     payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "Brain fixture" } },
@@ -38,7 +38,7 @@ async function approve(w: World, key: string): Promise<{ approvalId: string; dig
     artifactDigest: DIGEST_A, policyDigest: DIGEST_A, configDigest: DIGEST_A,
     effectBounds: {}, expiresAt: new Date(Date.now() + 3600000).toISOString(), nonce: `n-${key}`,
   };
-  const req = w.brain.executeCommand(w.owner, {
+  const req = await w.brain.executeCommand(w.owner, {
     contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "approval.request",
     workspaceId: w.workspaceId, idempotencyKey: key, payload: { subject },
   }, key);
@@ -55,7 +55,7 @@ async function approve(w: World, key: string): Promise<{ approvalId: string; dig
 describe("effect permits (T14)", () => {
   it("a permit is bound to its attempt and invocation; replay is exact and current-only", async () => {
     const w = setupWorld();
-    const a = runningAttempt(w, "perm-a", "runner-pa");
+    const a = await runningAttempt(w, "perm-a", "runner-pa");
     const approved = await approve(w, "perm-apr");
     const issued = w.brain.issuePermit(a.runner, a.offer.attemptId, { invocationId: "perm-inv-1", subjectDigest: approved.digest, approvalId: approved.approvalId, resourceKeys: ["target:perm"] }) as unknown as { permitId: string; token: string };
     expect(w.brain.validatePermit(issued.token, "perm-inv-1")).toBe(true);
@@ -66,7 +66,7 @@ describe("effect permits (T14)", () => {
     expect(replay.permitId).toBe(issued.permitId);
     expect(replay.token).toBe(issued.token);
     // The same invocation from another attempt is forbidden, even with approval.
-    const b = runningAttempt(w, "perm-b", "runner-pb");
+    const b = await runningAttempt(w, "perm-b", "runner-pb");
     expect(() => w.brain.issuePermit(b.runner, b.offer.attemptId, { invocationId: "perm-inv-1", subjectDigest: approved.digest, approvalId: approved.approvalId, resourceKeys: [] })).toThrow(/different attempt/);
     // Fencing the first attempt (newer claim on its job is impossible while
     // running; expiry to outcome_unknown) makes its token non-current.

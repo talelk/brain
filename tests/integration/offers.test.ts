@@ -4,11 +4,11 @@ import { validate } from "@brain/contracts/validate";
 import { setupWorld, DIGEST_A } from "../helpers";
 
 describe("JobOffer runtime conformance (T02)", () => {
-  it("claim returns a schema-valid JobOffer whose execution artifact is fetchable and digest-true", () => {
+  it("claim returns a schema-valid JobOffer whose execution artifact is fetchable and digest-true", async () => {
     const w = setupWorld();
     const s = w.brain.store;
     const digest = w.brain.activeRelease(w.org)!.digest;
-    w.brain.executeCommand(w.owner, {
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-offer", commandType: "workflow.dispatch",
       workspaceId: w.workspaceId, idempotencyKey: "offer-1",
       payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "Brain fixture" } },

@@ -15,8 +15,8 @@ function seedRunner(w: ReturnType<typeof setupWorld>, runnerId: string, group = 
   return { runnerId, epoch: 1, organizationId: w.org };
 }
 
-function dispatchGolden(w: ReturnType<typeof setupWorld>, key: string, digest: string): string {
-  const { receipt } = w.brain.executeCommand(w.owner, {
+async function dispatchGolden(w: ReturnType<typeof setupWorld>, key: string, digest: string): Promise<string> {
+  const { receipt } = await w.brain.executeCommand(w.owner, {
     contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "workflow.dispatch",
     workspaceId: w.workspaceId, idempotencyKey: key,
     payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "Brain fixture" } },
@@ -32,8 +32,8 @@ describe("scenario gaps (T50 batch 1)", () => {
       contractVersion: "brain.command/v1", commandId: "cmd-shared-1", commandType: "objective.create",
       workspaceId: w.workspaceId, idempotencyKey: "shared-key", payload: { title: "A", intent: "first", successCriteria: ["x"] },
     };
-    const r1 = w.brain.executeCommand(w.owner, cmd, "c1");
-    const r2 = w.brain.executeCommand(other.actor, { ...cmd, commandId: "cmd-shared-2", payload: { title: "B", intent: "second", successCriteria: ["y"] } }, "c2");
+    const r1 = await w.brain.executeCommand(w.owner, cmd, "c1");
+    const r2 = await w.brain.executeCommand(other.actor, { ...cmd, commandId: "cmd-shared-2", payload: { title: "B", intent: "second", successCriteria: ["y"] } }, "c2");
     expect((r1.receipt as { resourceId?: string }).resourceId).not.toBe((r2.receipt as { resourceId?: string }).resourceId);
     w.brain.close();
   });
@@ -63,7 +63,7 @@ describe("scenario gaps (T50 batch 1)", () => {
   it("two runners cannot both win one queued job; duplicate ACK is stable (E031/E037)", async () => {
     const w = setupWorld();
     const d = w.brain.activeRelease(w.org)!.digest;
-    dispatchGolden(w, "claim-race", d);
+    await dispatchGolden(w, "claim-race", d);
     const r1 = seedRunner(w, "runner-race-1");
     const r2 = seedRunner(w, "runner-race-2");
     const o1 = w.brain.claim(r1, "req-race-1") as unknown as { attemptId: string; leaseId: string; jobFence: number } | null;
@@ -80,7 +80,7 @@ describe("scenario gaps (T50 batch 1)", () => {
   it("offer expiry requeues the job for another runner (E036)", async () => {
     const w = setupWorld();
     const d = w.brain.activeRelease(w.org)!.digest;
-    dispatchGolden(w, "offer-expire", d);
+    await dispatchGolden(w, "offer-expire", d);
     const r1 = seedRunner(w, "runner-exp-1");
     const offer = w.brain.claim(r1, "req-exp-1") as unknown as { attemptId: string } | null;
     expect(offer).toBeTruthy();
@@ -104,7 +104,7 @@ describe("scenario gaps (T50 batch 1)", () => {
   it("stale-fence completion is quarantined, never finalizing (E042)", async () => {
     const w = setupWorld();
     const d = w.brain.activeRelease(w.org)!.digest;
-    dispatchGolden(w, "stale-fence", d);
+    await dispatchGolden(w, "stale-fence", d);
     const r1 = seedRunner(w, "runner-stale-1");
     const offer = w.brain.claim(r1, "req-stale-1") as unknown as { attemptId: string; leaseId: string; jobFence: number };
     w.brain.ackAttempt(r1, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
@@ -118,7 +118,7 @@ describe("scenario gaps (T50 batch 1)", () => {
     const w = setupWorld();
     const d = w.brain.activeRelease(w.org)!.digest;
     const approver = await w.grantApprover("permit-approver");
-    dispatchGolden(w, "permit-flow", d);
+    await dispatchGolden(w, "permit-flow", d);
     const r1 = seedRunner(w, "runner-permit-1");
     const offer = w.brain.claim(r1, "req-permit-1") as unknown as { attemptId: string; leaseId: string; jobFence: number };
     w.brain.ackAttempt(r1, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
@@ -129,7 +129,7 @@ describe("scenario gaps (T50 batch 1)", () => {
       artifactDigest: DIGEST_A, policyDigest: DIGEST_A, configDigest: DIGEST_A,
       effectBounds: {}, expiresAt: new Date(Date.now() + 3600000).toISOString(), nonce: "permit-1",
     };
-    const req = w.brain.executeCommand(w.owner, {
+    const req = await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-permit-apr", commandType: "approval.request",
       workspaceId: w.workspaceId, idempotencyKey: "permit-apr", payload: { subject },
     }, "c1");
@@ -158,10 +158,10 @@ describe("scenario gaps (T50 batch 1)", () => {
     w.brain.store.control.prepare("INSERT INTO workspace_memberships(workspace_id, organization_id, principal_id, role, version, granted_by, granted_at_ms) VALUES (?, ?, 'tv-1', 'viewer', 1, 'owner-1', ?)")
       .run(w.workspaceId, w.org, w.brain.store.now());
     const kiosk = w.actor("tv-1", w.workspaceId);
-    expect(() => w.brain.executeCommand({ ...kiosk, kind: "kiosk" }, {
+    await expect(Promise.resolve().then(() => w.brain.executeCommand({ ...kiosk, kind: "kiosk" }, {
       contractVersion: "brain.command/v1", commandId: "cmd-tv", commandType: "objective.create",
       workspaceId: w.workspaceId, idempotencyKey: "tv-1", payload: { title: "x", intent: "y", successCriteria: ["z"] },
-    }, "c1")).toThrow();
+    }, "c1"))).rejects.toThrow();
     w.brain.close();
   });
 

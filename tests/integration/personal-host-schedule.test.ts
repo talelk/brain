@@ -16,18 +16,18 @@ function seedRunner(world: TestWorld, runnerId: string) {
 }
 
 describe("personal-host schedule execution (E105)", () => {
-  it("pins the run and every job to the selected runner, never a managed alternative", () => {
+  it("pins the run and every job to the selected runner, never a managed alternative", async () => {
     world = setupWorld();
     const w = world;
     const personal = seedRunner(w, "personal-selected");
     const managed = seedRunner(w, "managed-alternative");
-    w.brain.executeCommand(w.owner, {
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-personal-create", commandType: "automation.upsert",
       workspaceId: w.workspaceId, idempotencyKey: "personal-create",
       payload: { title: "Personal only", target: { kind: "workflow", id: "fixture-workflow" }, trigger: { kind: "manual" }, input: { message: "personal run" }, execution: { mode: "personal-host", runnerId: personal.runnerId, offlinePolicy: "wait" } },
     }, "personal-create");
     const automation = w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT id FROM automations").get() as { id: string };
-    w.brain.executeCommand(w.owner, {
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-personal-run", commandType: "automation.control",
       workspaceId: w.workspaceId, idempotencyKey: "personal-run", expectedVersion: 1,
       payload: { automationId: automation.id, action: "runNow" },

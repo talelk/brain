@@ -10,7 +10,7 @@ import { join } from "node:path";
 describe("chaos / recovery", () => {
   it("same-version restart preserves board and approvals (T04/G07 partial)", async () => {
     const w = setupWorld();
-    w.brain.executeCommand(w.owner, {
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-r1", commandType: "objective.create",
       workspaceId: w.workspaceId, idempotencyKey: "kr-1", payload: { title: "Survive restart", intent: "Recovery proof", successCriteria: ["ok"] },
     }, "c1");

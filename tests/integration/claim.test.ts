@@ -16,9 +16,9 @@ function seedRunner(w: TestWorld, id: string, slots = 1): { runnerId: string; ep
   return { runnerId: id, epoch: 1, organizationId: w.org };
 }
 
-function dispatch(w: TestWorld, key: string): void {
+async function dispatch(w: TestWorld, key: string): Promise<void> {
   const digest = w.brain.activeRelease(w.org)!.digest;
-  w.brain.executeCommand(w.owner, {
+  await w.brain.executeCommand(w.owner, {
     contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "workflow.dispatch",
     workspaceId: w.workspaceId, idempotencyKey: key,
     payload: { workflow: { id: "fixture-workflow", digest }, input: { message: key } },
@@ -26,9 +26,9 @@ function dispatch(w: TestWorld, key: string): void {
 }
 
 describe("atomic claim, capacity and fences (T17)", () => {
-  it("exactly one of two racing runners wins; replayed request returns the same offer", () => {
+  it("exactly one of two racing runners wins; replayed request returns the same offer", async () => {
     const w = setupWorld();
-    dispatch(w, "claim-race");
+    await dispatch(w, "claim-race");
     const r1 = seedRunner(w, "runner-a");
     const r2 = seedRunner(w, "runner-b");
     const o1 = w.brain.claim(r1, "req-1") as Offer | null;
@@ -44,10 +44,10 @@ describe("atomic claim, capacity and fences (T17)", () => {
     w.brain.close();
   });
 
-  it("slot capacity is hard: a second job is not offered until capacity frees", () => {
+  it("slot capacity is hard: a second job is not offered until capacity frees", async () => {
     const w = setupWorld();
-    dispatch(w, "claim-cap-1");
-    dispatch(w, "claim-cap-2");
+    await dispatch(w, "claim-cap-1");
+    await dispatch(w, "claim-cap-2");
     const r = seedRunner(w, "runner-cap", 1);
     const first = w.brain.claim(r, "req-cap-1") as Offer | null;
     expect(first).toBeTruthy();
@@ -55,9 +55,9 @@ describe("atomic claim, capacity and fences (T17)", () => {
     w.brain.close();
   });
 
-  it("lease expiry re-offers the job with a strictly greater fence", () => {
+  it("lease expiry re-offers the job with a strictly greater fence", async () => {
     const w = setupWorld();
-    dispatch(w, "claim-fence");
+    await dispatch(w, "claim-fence");
     const r = seedRunner(w, "runner-fence");
     const first = w.brain.claim(r, "req-fence-1") as Offer | null;
     expect(first).toBeTruthy();

@@ -12,7 +12,7 @@ import { validate } from "@brain/contracts/validate";
 import type { ActorContext, HumanApprovalDecision, IdentityView, JsonValue, RunnerVerdictRequest } from "@brain/contracts";
 import { Brain } from "../application/brain";
 import { scopesForPrincipal } from "../application/authz";
-import { executeOrganizationCommand, executeOrganizationQuery, isOrganizationCommand, isOrganizationQuery, listIdentitySessions, revokeIdentitySession } from "../application/organization-admin";
+import { listIdentitySessions, revokeIdentitySession } from "../application/organization-admin";
 import { BrainDomainError, brainError, statusForCode } from "../domain/errors";
 import { newId } from "../domain/clock";
 import type { GovernorHandle } from "../container";
@@ -33,7 +33,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
   const brain = new Brain({ dataDir, allowTestActor, ...(opts?.runtime ? { runtime: opts.runtime } : {}) });
   await brain.auth.ready();
   try { restoreLocalRuntimeHandoff(brain.store); } catch (error) { brain.close(); throw error; }
-  const tasks = new TaskExperience(brain.store, { query: (actor, query) => brain.executeQuery(actor, query), dispatch: (actor, command) => brain.executeCommand(actor, command, "task-experience") });
+  const tasks = new TaskExperience(brain.store, { query: (actor, query) => brain.executeQuery(actor, query), dispatch: async (actor, command) => ({ receipt: (await brain.executeCommand(actor, command, "task-experience")).receipt }) });
   const app = new Hono();
   const bodies = new BodyReader();
   const readJson = async (c: { req: { raw: Request } }, limit = MAX_JSON) => parseJson(await bodies.read(c.req.raw, limit));
@@ -214,43 +214,43 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     try {
       const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId);
       const origin = { kind: c.req.query("kind"), id: c.req.query("id") }; requireBody("TaskOrigin", origin);
-      return c.json(tasks.context(actor, workspaceId, origin as import("@brain/contracts").TaskOrigin));
+      return c.json(await tasks.context(actor, workspaceId, origin as import("@brain/contracts").TaskOrigin));
     } catch (e) { return fail(c as never, e); }
   });
   app.post("/v1/tasks/drafts", async (c) => {
-    try { const body = await readJson(c); requireBody("TaskPrepareRequest", body); const input = body as import("@brain/contracts").TaskPrepareRequest; const { actor } = await actorFor(c, input.workspaceId); return c.json(tasks.prepare(actor, input), 201); }
+    try { const body = await readJson(c); requireBody("TaskPrepareRequest", body); const input = body as import("@brain/contracts").TaskPrepareRequest; const { actor } = await actorFor(c, input.workspaceId); return c.json(await tasks.prepare(actor, input), 201); }
     catch (e) { return fail(c as never, e); }
   });
   app.get("/v1/tasks/drafts/:id", async (c) => {
-    try { const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId); return c.json(tasks.getDraft(actor, workspaceId, c.req.param("id"))); }
+    try { const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId); return c.json(await tasks.getDraft(actor, workspaceId, c.req.param("id"))); }
     catch (e) { return fail(c as never, e); }
   });
   app.post("/v1/tasks/drafts/:id/start", async (c) => {
-    try { const body = await readJson(c); requireBody("WorkspaceRequest", body); const { workspaceId } = body as { workspaceId: string }; const { actor } = await actorFor(c, workspaceId); return c.json(tasks.start(actor, workspaceId, c.req.param("id"))); }
+    try { const body = await readJson(c); requireBody("WorkspaceRequest", body); const { workspaceId } = body as { workspaceId: string }; const { actor } = await actorFor(c, workspaceId); return c.json(await tasks.start(actor, workspaceId, c.req.param("id"))); }
     catch (e) { return fail(c as never, e); }
   });
   app.get("/v1/conversations", async (c) => {
-    try { const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId); return c.json(tasks.conversations(actor, workspaceId)); }
+    try { const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId); return c.json(await tasks.conversations(actor, workspaceId)); }
     catch (e) { return fail(c as never, e); }
   });
   app.post("/v1/conversations", async (c) => {
-    try { const body = await readJson(c); requireBody("ConversationCreateRequest", body); const input = body as import("@brain/contracts").ConversationCreateRequest; const { actor } = await actorFor(c, input.workspaceId); return c.json(tasks.createConversation(actor, input.workspaceId, input.id), 201); }
+    try { const body = await readJson(c); requireBody("ConversationCreateRequest", body); const input = body as import("@brain/contracts").ConversationCreateRequest; const { actor } = await actorFor(c, input.workspaceId); return c.json(await tasks.createConversation(actor, input.workspaceId, input.id), 201); }
     catch (e) { return fail(c as never, e); }
   });
   app.get("/v1/conversations/:id", async (c) => {
-    try { const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId); return c.json(tasks.conversation(actor, workspaceId, c.req.param("id"))); }
+    try { const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId); return c.json(await tasks.conversation(actor, workspaceId, c.req.param("id"))); }
     catch (e) { return fail(c as never, e); }
   });
   app.post("/v1/conversations/:id/messages", async (c) => {
-    try { const body = await readJson(c); requireBody("ConversationMessageRequest", body); const input = body as import("@brain/contracts").ConversationMessageRequest; const { actor } = await actorFor(c, input.workspaceId); return c.json(tasks.message(actor, input.workspaceId, c.req.param("id"), input.id, input.text)); }
+    try { const body = await readJson(c); requireBody("ConversationMessageRequest", body); const input = body as import("@brain/contracts").ConversationMessageRequest; const { actor } = await actorFor(c, input.workspaceId); return c.json(await tasks.message(actor, input.workspaceId, c.req.param("id"), input.id, input.text)); }
     catch (e) { return fail(c as never, e); }
   });
   app.post("/v1/plans", async (c) => {
-    try { const body = await readJson(c); requireBody("ObjectivePlanRequest", body); const input = body as import("@brain/contracts").ObjectivePlanRequest; const { actor } = await actorFor(c, input.workspaceId); return c.json(tasks.startObjectivePlan(actor, input), 202); }
+    try { const body = await readJson(c); requireBody("ObjectivePlanRequest", body); const input = body as import("@brain/contracts").ObjectivePlanRequest; const { actor } = await actorFor(c, input.workspaceId); return c.json(await tasks.startObjectivePlan(actor, input), 202); }
     catch (e) { return fail(c as never, e); }
   });
   app.get("/v1/plans/:id", async (c) => {
-    try { const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId); return c.json(tasks.objectivePlan(actor, workspaceId, c.req.param("id"))); }
+    try { const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId); return c.json(await tasks.objectivePlan(actor, workspaceId, c.req.param("id"))); }
     catch (e) { return fail(c as never, e); }
   });
   app.get("/v1/diagnostics", async (c) => {
@@ -326,9 +326,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       const raw = await readJson(c);
       const wsId = (raw as { workspaceId?: string }).workspaceId;
       const { actor } = await actorFor(c, wsId);
-      const { receipt, status } = isOrganizationCommand(raw)
-        ? await executeOrganizationCommand(brain.store, brain.auth, actor, raw, c.req.raw.headers)
-        : brain.executeCommand(actor, raw, correlation(c));
+      const { receipt, status } = await brain.executeCommand(actor, raw, correlation(c), c.req.raw.headers);
       return c.json(receipt, status as 200);
     } catch (e) { return fail(c as never, e); }
   });
@@ -338,13 +336,12 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       const raw = await readJson(c);
       const wsId = (raw as { workspaceId?: string }).workspaceId;
       const { actor } = await actorFor(c, wsId);
-      if (isOrganizationQuery(raw)) return c.json(await executeOrganizationQuery(brain.store, brain.auth, actor, raw, c.req.raw.headers) as never);
       // Re-scope actor with workspace scopes when a workspace is named.
       const scoped: ActorContext = wsId ? { ...actor, scopes: scopesForPrincipal(brain.store, actor.actorId, actor.organizationId, wsId) } : actor;
       if ((raw as { queryType?: string }).queryType === "memory.search" && wsId) {
         return c.json((await brain.searchMemoryAsync(scoped, wsId, (raw as { memoryQuery: never }).memoryQuery)) as never);
       }
-      return c.json(brain.executeQuery(scoped, raw) as never);
+      return c.json(await brain.executeQuery(scoped, raw, c.req.raw.headers) as never);
     } catch (e) { return fail(c as never, e); }
   });
 
@@ -728,10 +725,10 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       if (raw.params?.command) {
         const type = (raw.params.command as { commandType?: string }).commandType ?? "";
         if (type.startsWith("approval.") && type !== "approval.request") throw new BrainDomainError("FORBIDDEN", "approval decisions are not available over MCP");
-        const { receipt } = brain.executeCommand(actor, raw.params.command, correlation(c));
+        const { receipt } = await brain.executeCommand(actor, raw.params.command, correlation(c), c.req.raw.headers);
         return c.json({ jsonrpc: "2.0", id: raw.id ?? null, result: receipt });
       }
-      if (raw.params?.query) return c.json({ jsonrpc: "2.0", id: raw.id ?? null, result: brain.executeQuery(actor, raw.params.query) });
+      if (raw.params?.query) return c.json({ jsonrpc: "2.0", id: raw.id ?? null, result: await brain.executeQuery(actor, raw.params.query, c.req.raw.headers) });
       throw new BrainDomainError("INVALID_ARGUMENT", "MCP params.command or params.query required");
     } catch (e) { return fail(c as never, e); }
   });

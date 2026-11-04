@@ -218,7 +218,7 @@ describe("unified execution stream", () => {
     }
   });
 
-  it("pages search matches past the first page with the before cursor", () => {
+  it("pages search matches past the first page with the before cursor", async () => {
     const w = setupWorld();
     try {
       const s = w.brain.store;
@@ -248,7 +248,7 @@ describe("unified execution stream", () => {
       expect(second.nextCursor).toBe("");
       // The cursor rides the public query envelope: the contract accepts
       // `before` and the brain-level read returns the same older page.
-      const envelope = w.brain.executeQuery(w.owner, { queryType: "stream.search", workspaceId: w.workspaceId, search: "paging probe", before: first.nextCursor as number, limit: 50 }) as { snapshot: { items: Array<{ streamSeq: number }> } };
+      const envelope = (await w.brain.executeQuery(w.owner, { queryType: "stream.search", workspaceId: w.workspaceId, search: "paging probe", before: first.nextCursor as number, limit: 50 })) as { snapshot: { items: Array<{ streamSeq: number }> } };
       expect(envelope.snapshot.items.map((item) => item.streamSeq)).toEqual(second.items.map((item) => item.streamSeq));
     } finally {
       w.brain.close();
@@ -417,7 +417,7 @@ describe("unified execution stream", () => {
     }
   });
 
-  it("persists engine features from event batches and exposes continuation facts", () => {
+  it("persists engine features from event batches and exposes continuation facts", async () => {
     const w = setupWorld();
     try {
       const s = w.brain.store;
@@ -433,8 +433,8 @@ describe("unified execution stream", () => {
       const ws = s.workspaceDb(w.workspaceId, w.org);
       const features = (ws.prepare("SELECT engine_features FROM sessions WHERE id='ses-stream-10'").get() as { engine_features: string }).engine_features;
       expect(JSON.parse(features)).toEqual(["sessions", "steer"]);
-      const envelopeOf = (query: Record<string, unknown>) => w.brain.executeQuery(w.owner, { queryType: "session.get", workspaceId: w.workspaceId, resourceId: "ses-stream-10", ...query }) as unknown as { snapshot: Record<string, unknown> };
-      const snapshot = envelopeOf({}) as unknown as { snapshot: {
+      const envelopeOf = async (query: Record<string, unknown>) => (await w.brain.executeQuery(w.owner, { queryType: "session.get", workspaceId: w.workspaceId, resourceId: "ses-stream-10", ...query })) as unknown as { snapshot: Record<string, unknown> };
+      const snapshot = (await envelopeOf({})) as unknown as { snapshot: {
         engine: { features: string[] }; streamCursor: number;
         continuation: { reconnectable: boolean; resumable: boolean; continueNative: boolean; restartable: boolean; reconcileRequired: boolean };
       } };
@@ -444,10 +444,10 @@ describe("unified execution stream", () => {
       expect(snapshot.snapshot.streamCursor).toBeGreaterThan(0);
       // resume advertisement flips the continue-native fact.
       ws.prepare("UPDATE sessions SET engine_features='[\"sessions\",\"steer\",\"resume\"]' WHERE id='ses-stream-10'").run();
-      const after = envelopeOf({}) as unknown as { snapshot: { continuation: { continueNative: boolean } } };
+      const after = (await envelopeOf({})) as unknown as { snapshot: { continuation: { continueNative: boolean } } };
       expect(after.snapshot.continuation.continueNative).toBe(true);
       // Job snapshot names its bound session server-side.
-      const job = w.brain.executeQuery(w.owner, { queryType: "job.get", resourceId: "job-stream-10" }) as unknown as { snapshot: { sessionId?: string } };
+      const job = (await w.brain.executeQuery(w.owner, { queryType: "job.get", resourceId: "job-stream-10" })) as unknown as { snapshot: { sessionId?: string } };
       expect(job.snapshot.sessionId).toBe("ses-stream-10");
     } finally {
       w.brain.close();

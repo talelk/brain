@@ -86,7 +86,7 @@ describe("scenario gaps (T50 batch 3: connectors, tools, storage)", () => {
     // a fixture without a session cannot certify checkpoint production.
     const w = setupWorld();
     const s = w.brain.store;
-    const { receipt } = w.brain.executeCommand(w.owner, {
+    const { receipt } = await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-cp-1", commandType: "workflow.dispatch",
       workspaceId: w.workspaceId, idempotencyKey: "cp-1",
       payload: { workflow: { id: "fixture-workflow", digest: w.brain.activeRelease(w.org)!.digest }, input: { message: "x" } },
@@ -117,12 +117,12 @@ describe("scenario gaps (T50 batch 3: connectors, tools, storage)", () => {
       contractVersion: "brain.command/v1", commandId: "cmd-busy", commandType: "objective.create",
       workspaceId: w.workspaceId, idempotencyKey: "busy-1", payload: { title: "busy", intent: "busy test", successCriteria: ["x"] },
     };
-    expect(() => w.brain.executeCommand(w.owner, cmd, "busy")).toThrow();
+    await expect(Promise.resolve().then(() => w.brain.executeCommand(w.owner, cmd, "busy"))).rejects.toThrow();
     locker.exec("ROLLBACK");
     locker.close();
     const row = w.brain.store.control.prepare("SELECT command_id FROM command_idempotency WHERE idempotency_key='busy-1'").get();
     expect(row).toBeUndefined(); // nothing half-committed under the busy failure
-    const ok = w.brain.executeCommand(w.owner, cmd, "busy-retry");
+    const ok = await w.brain.executeCommand(w.owner, cmd, "busy-retry");
     expect(ok.receipt.accepted).toBe(true);
     w.brain.close();
   });

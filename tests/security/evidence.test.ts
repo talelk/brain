@@ -15,9 +15,9 @@ function seedRunner(w: World, runnerId: string) {
 }
 
 interface Offer { attemptId: string; leaseId: string; jobFence: number; jobId: string }
-function completedAttempt(w: World, key: string, runnerId: string) {
+async function completedAttempt(w: World, key: string, runnerId: string) {
   const digest = w.brain.activeRelease(w.org)!.digest;
-  w.brain.executeCommand(w.owner, {
+  await w.brain.executeCommand(w.owner, {
     contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "workflow.dispatch",
     workspaceId: w.workspaceId, idempotencyKey: key,
     payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "Brain fixture" } },
@@ -30,9 +30,9 @@ function completedAttempt(w: World, key: string, runnerId: string) {
 }
 
 describe("evidence admission security (T28)", () => {
-  it("rejects bundles with invented fences, foreign attempts, and self-verdicts", () => {
+  it("rejects bundles with invented fences, foreign attempts, and self-verdicts", async () => {
     const w = setupWorld();
-    const { runner, offer } = completedAttempt(w, "ev-sec", "runner-evsec");
+    const { runner, offer } = await completedAttempt(w, "ev-sec", "runner-evsec");
     const bundle = bundleForAttempt(w.brain, w.org, w.workspaceId, offer.attemptId, "bundle-sec-1");
     expect(() => w.brain.submitEvidence(runner, { ...bundle, jobFence: offer.jobFence + 99 } as never)).toThrow();
     const foreign = seedRunner(w, "runner-foreign");

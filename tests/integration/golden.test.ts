@@ -55,7 +55,7 @@ describe("golden workflow end-to-end (T29/T30, G03 smoke)", () => {
       const toolSession = await enrollAndHello(toolCfg, toolToken.token);
       const evalSession = await enrollAndHello(evalCfg, evalToken.token);
 
-      const { receipt } = brain.executeCommand(ownerWs, {
+      const { receipt } = await brain.executeCommand(ownerWs, {
         contractVersion: "brain.command/v1", commandId: "cmd-dispatch-1", commandType: "workflow.dispatch",
         workspaceId: "ws-golden", idempotencyKey: "dispatch-1",
         payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "Brain fixture" } },

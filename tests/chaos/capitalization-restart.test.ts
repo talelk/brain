@@ -6,7 +6,7 @@ import { setupWorld } from "../helpers";
 import { captureOperation } from "../support/capitalization";
 
 describe("capitalization restart recovery (E110)", () => {
-  it("resumes queued and interrupted runs without duplicate assets, candidates or events", () => {
+  it("resumes queued and interrupted runs without duplicate assets, candidates or events", async () => {
     const world = setupWorld();
     let reopened: Brain | undefined;
     try {
@@ -20,8 +20,8 @@ describe("capitalization restart recovery (E110)", () => {
       expect(reopened.runCapitalization()).toEqual({ processed: 3, failed: 0 });
       expect(reopened.runCapitalization()).toEqual({ processed: 0, failed: 0 });
       const actor: ActorContext = { ...world.owner, scopes: scopesForPrincipal(reopened.store, world.owner.actorId, world.org, world.workspaceId) };
-      const assets = (reopened.executeQuery(actor, { queryType: "knowledgeAssets.list", workspaceId: world.workspaceId }) as unknown as { snapshot: { items: KnowledgeAsset[] } }).snapshot.items;
-      const candidates = (reopened.executeQuery(actor, { queryType: "capabilityCandidates.list", workspaceId: world.workspaceId }) as unknown as { snapshot: { items: CapabilityCandidate[] } }).snapshot.items;
+      const assets = ((await reopened.executeQuery(actor, { queryType: "knowledgeAssets.list", workspaceId: world.workspaceId })) as unknown as { snapshot: { items: KnowledgeAsset[] } }).snapshot.items;
+      const candidates = ((await reopened.executeQuery(actor, { queryType: "capabilityCandidates.list", workspaceId: world.workspaceId })) as unknown as { snapshot: { items: CapabilityCandidate[] } }).snapshot.items;
       expect(assets).toHaveLength(1);
       expect(candidates).toHaveLength(1);
       expect(candidates[0]!.state).toBe("quarantined");

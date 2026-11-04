@@ -5,11 +5,11 @@ import { setupWorld, DIGEST_A } from "../helpers";
 // projections is idempotent (replay-safe), and a digest collision parks the
 // delivery instead of corrupting the projection.
 describe("outbox projections (T07)", () => {
-  it("job.queued projects into the workspace exactly once across replays", () => {
+  it("job.queued projects into the workspace exactly once across replays", async () => {
     const w = setupWorld();
     const s = w.brain.store;
     const digest = w.brain.activeRelease(w.org)!.digest;
-    w.brain.executeCommand(w.owner, {
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-proj", commandType: "workflow.dispatch",
       workspaceId: w.workspaceId, idempotencyKey: "proj-1",
       payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "project me" } },
@@ -34,11 +34,11 @@ describe("outbox projections (T07)", () => {
     w.brain.close();
   });
 
-  it("a digest collision parks the delivery and leaves the projection untouched", () => {
+  it("a digest collision parks the delivery and leaves the projection untouched", async () => {
     const w = setupWorld();
     const s = w.brain.store;
     const digest = w.brain.activeRelease(w.org)!.digest;
-    w.brain.executeCommand(w.owner, {
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-park", commandType: "workflow.dispatch",
       workspaceId: w.workspaceId, idempotencyKey: "park-1",
       payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "park me" } },

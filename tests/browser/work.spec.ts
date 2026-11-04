@@ -28,7 +28,7 @@ test("work area shows decisions, tickets, incidents and delivery (T34)", async (
   wdb.prepare("INSERT INTO plan_versions(id,objective_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms,confirmed_at_ms) VALUES ('plan-work','obj-work',1,?,'confirmed','manual',?,?,?,?)")
     .run(`sha256:${"d".repeat(64)}`, actor.actorId, JSON.stringify([{ id: "golden", title: "Golden workflow", criteria: ["c1"], dependsOn: [] }]), seeded, seeded);
   wdb.prepare("INSERT INTO work_items(id,objective_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('work-golden','obj-work','plan-work','golden','Golden workflow','review','[\"c1\"]','Review acceptance and evidence',?,?)").run(seeded, seeded);
-  brain.executeCommand(actor, {
+  await brain.executeCommand(actor, {
     contractVersion: "brain.command/v1", commandId: "cmd-work-2", commandType: "decision.record",
     workspaceId: "ws-work", idempotencyKey: "work-2", expectedVersion: 1,
     payload: { workItemId: "work-golden", decision: "go", note: "ship the golden workflow" },

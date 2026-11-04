@@ -157,7 +157,7 @@ describe("Mastra WorkflowEnginePort conformance (T29/T30)", () => {
     const w = setupWorld(brain);
     const s = brain.store;
     const digest = brain.activeRelease(w.org)!.digest;
-    const { receipt } = brain.executeCommand(w.owner, {
+    const { receipt } = await brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-mm", commandType: "workflow.dispatch",
       workspaceId: w.workspaceId, idempotencyKey: "mm-1",
       payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "Brain fixture" } },

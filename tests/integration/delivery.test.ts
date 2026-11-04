@@ -8,7 +8,7 @@ import { sha256Digest } from "@brain/contracts";
 // reading a dossier never transitions its state — recommendation and
 // approval stay separate. The optional calibrated judge remains uninstalled.
 describe("delivery dossier rubric rendering (T44)", () => {
-  it("maps rubric outcomes faithfully and never auto-advances state", () => {
+  it("maps rubric outcomes faithfully and never auto-advances state", async () => {
     const w = setupWorld();
     const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
     const now = w.brain.store.now();
@@ -18,7 +18,7 @@ describe("delivery dossier rubric rendering (T44)", () => {
     ws.prepare("INSERT INTO rubric_results(dossier_id, criterion_id, evaluator_attempt_id, outcome, evidence_digest) VALUES ('dos-9','docs-complete','att-e','incomplete',?)").run(DIGEST_A);
     ws.prepare("INSERT INTO rubric_results(dossier_id, criterion_id, evaluator_attempt_id, outcome, evidence_digest) VALUES ('dos-9','no-secrets','att-e','failed',?)").run(DIGEST_A);
 
-    const res = w.brain.executeQuery(w.owner, { queryType: "delivery.get", workspaceId: w.workspaceId, resourceId: "dos-9" }) as unknown as {
+    const res = (await w.brain.executeQuery(w.owner, { queryType: "delivery.get", workspaceId: w.workspaceId, resourceId: "dos-9" })) as unknown as {
       snapshot: { state: string; criteria: Array<{ criterionId: string; status: string; artifacts: unknown[] }>; rubric: { digest: string } };
     };
     const byId = Object.fromEntries(res.snapshot.criteria.map((c) => [c.criterionId, c.status]));

@@ -13,6 +13,8 @@ import { evaluateRunner, rankRunners, type RunnerView } from "../domain/placemen
 import { iso } from "../domain/clock";
 import { Store, type BrainOptions } from "./store";
 import { authorizeCommand, hasWorkspaceMembership, resolveActor, requireWorkspaceRead, scopesForPrincipal, type ResolvedActor } from "./authz";
+import { commitReceipt, priorReceipt, requestDigestOf, type CommandContext } from "./command-envelope";
+import { executeOrganizationCommand, executeOrganizationQuery, isOrganizationCommand, isOrganizationQuery } from "./organization-admin";
 import { compileRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
 import { MastraWorkflowEngine, type WorkflowEnginePort } from "../modules/workflows/index";
 import { MemoryStore, TencentDbClient } from "../modules/knowledge/index";
@@ -421,12 +423,22 @@ export class Brain {
   }
 
   // --- command bus ---
-  executeCommand(actor: ActorContext, raw: unknown, correlationId: string): { receipt: CommandReceipt; status: number } {
+  /**
+   * The single command funnel. Every declared command — workspace,
+   * organization administration and (via the same envelope helpers) human
+   * approval decisions — is validated, authorized, deduplicated and applied
+   * through this one async path; there is no second entry point. The
+   * correlation id belongs to the transport boundary (error envelopes and
+   * access logs), not to the command envelope, so it is not part of the
+   * durable receipt.
+   */
+  async executeCommand(actor: ActorContext, raw: unknown, _correlationId: string, headers?: Headers): Promise<{ receipt: CommandReceipt; status: number }> {
     const s = this.store;
     const check = validate("CommandEnvelope", raw);
     if (!check.ok) throw new BrainDomainError("INVALID_CONTRACT", `command invalid: ${check.errors.join("; ")}`);
     const cmd = raw as CommandEnvelope & { workspaceId?: string; payload: Record<string, unknown> };
     authorizeCommand(actor, cmd.commandType);
+    if (isOrganizationCommand(cmd)) return executeOrganizationCommand(s, this.auth, actor, cmd, headers ?? new Headers());
     const workspaceId = (cmd as { workspaceId?: string }).workspaceId;
     if (workspaceId) requireWorkspaceRead(s, actor, workspaceId);
     if (workspaceId && cmd.commandType === "workflow.dispatch") s.assertWorkspaceActive(workspaceId, actor.organizationId);
@@ -440,25 +452,17 @@ export class Brain {
         if (!result.ok) throw new BrainDomainError("INVALID_ARGUMENT", result.errors.join("; "));
       }
     }
-    const requestDigest = domainDigest("brain:command:v1", raw as JsonValue);
+    const requestDigest = requestDigestOf(raw);
+    const ctx: CommandContext = { organizationId: actor.organizationId, actorId: actor.actorId, commandType: cmd.commandType, idempotencyKey: cmd.idempotencyKey, commandId: cmd.commandId, requestJson: JSON.stringify(raw), ...(workspaceId ? { workspaceId } : {}) };
     let receipt: CommandReceipt | undefined;
     let replayed = false;
     s.inTx(s.control, () => {
-      const prior = s.control.prepare("SELECT request_digest, receipt_json FROM command_idempotency WHERE organization_id=? AND actor_id=? AND command_type=? AND idempotency_key=?")
-        .get(actor.organizationId, actor.actorId, cmd.commandType, cmd.idempotencyKey) as { request_digest: string; receipt_json: string } | undefined;
-      if (prior) {
-        if (prior.request_digest !== requestDigest) throw new BrainDomainError("IDEMPOTENCY_CONFLICT", "same idempotency key with different payload");
-        receipt = JSON.parse(prior.receipt_json) as CommandReceipt;
-        replayed = true;
-        return;
-      }
-      const resourceId = this.applyCommand(actor, cmd);
-      receipt = { commandId: cmd.commandId, accepted: true, outcome: workspaceId ? "queued" : "applied", ...(resourceId ? { resourceId } : {}) };
-      s.control.prepare("INSERT INTO command_intents(command_id, workspace_id, request_json, state, created_at_ms) VALUES (?,?,?,?,?)")
-        .run(cmd.commandId, workspaceId ?? null, JSON.stringify(raw), "applied", s.now());
-      s.control.prepare("INSERT INTO command_idempotency(organization_id, actor_id, command_type, idempotency_key, request_digest, command_id, receipt_json, created_at_ms) VALUES (?,?,?,?,?,?,?,?)")
-        .run(actor.organizationId, actor.actorId, cmd.commandType, cmd.idempotencyKey, requestDigest, cmd.commandId, JSON.stringify(receipt), s.now());
-      void correlationId;
+      const committed = commitReceipt(s, ctx, requestDigest, () => {
+        const resourceId = this.applyCommand(actor, cmd);
+        return { ...(resourceId ? { resourceId } : {}) };
+      }, workspaceId ? "queued" : "applied");
+      receipt = committed.receipt;
+      replayed = committed.replayed;
     });
     if (!receipt) throw new BrainDomainError("INTERNAL_ERROR", "command produced no receipt");
     // Workspace effects that must happen outside the control transaction.
@@ -770,15 +774,17 @@ export class Brain {
     const check = validate("HumanApprovalDecision", body);
     if (!check.ok) throw new BrainDomainError("INVALID_CONTRACT", check.errors.join("; "));
     const requestDigest = domainDigest("brain:approval-decision:v1", body as unknown as JsonValue);
+    // The decision's own id doubles as the command id; replay goes through the
+    // shared command-envelope like every other command (issue #2 funnel work).
+    const commandId = s.id("dec-human");
+    const ctx: CommandContext = { organizationId: actor.organizationId, actorId: actor.actorId, commandType: "approval.decision", idempotencyKey: body.idempotencyKey, commandId, requestJson: JSON.stringify(body), workspaceId: wsRow.workspace_id };
     let decisionId = "";
     let newState = "";
     let workspaceId = "";
     s.inTx(s.control, () => {
-      const prior = s.control.prepare("SELECT request_digest, receipt_json FROM command_idempotency WHERE organization_id=? AND actor_id=? AND command_type='approval.decision' AND idempotency_key=?")
-        .get(actor.organizationId, actor.actorId, body.idempotencyKey) as { request_digest: string; receipt_json: string } | undefined;
+      const prior = priorReceipt(s, ctx, requestDigest);
       if (prior) {
-        if (prior.request_digest !== requestDigest) throw new BrainDomainError("IDEMPOTENCY_CONFLICT", "decision key reused with different payload");
-        const saved = JSON.parse(prior.receipt_json) as { decisionId: string; state: string };
+        const saved = prior as unknown as { decisionId: string; state: string };
         decisionId = saved.decisionId; newState = saved.state;
         const wr = s.control.prepare("SELECT workspace_id FROM approval_requests WHERE id=?").get(approvalId) as { workspace_id: string } | undefined;
         workspaceId = wr?.workspace_id ?? "";
@@ -810,15 +816,13 @@ export class Brain {
           throw new BrainDomainError("FORBIDDEN", "step-up evidence invalid, expired, or already used");
         }
       }
-      decisionId = s.id("dec-human");
+      decisionId = commandId;
       newState = body.decision === "approve" ? "approved" : "rejected";
       s.control.prepare("INSERT INTO approval_decisions(id, approval_id, expected_version, actor_id, auth_evidence_ref, subject_digest, decision, note, created_at_ms) VALUES (?,?,?,?,?,?,?,?,?)")
         .run(decisionId, approvalId, body.expectedVersion, actor.actorId, body.stepUpEvidenceId ?? "session", body.subjectDigest, body.decision, body.note, s.now());
       if (body.stepUpEvidenceId) s.control.prepare("UPDATE step_up_evidence SET decision_id=? WHERE id=?").run(decisionId, body.stepUpEvidenceId);
       s.control.prepare("UPDATE approval_requests SET state=?, version=version+1 WHERE id=? AND version=?").run(newState, approvalId, body.expectedVersion);
-      const receipt = { commandId: decisionId, accepted: true, outcome: "applied", resourceId: approvalId };
-      s.control.prepare("INSERT INTO command_idempotency(organization_id, actor_id, command_type, idempotency_key, request_digest, command_id, receipt_json, created_at_ms) VALUES (?,?, 'approval.decision', ?,?,?,?,?)")
-        .run(actor.organizationId, actor.actorId, body.idempotencyKey, requestDigest, decisionId, JSON.stringify({ ...receipt, decisionId, state: newState, subjectDigest: body.subjectDigest }), s.now());
+      commitReceipt(s, ctx, requestDigest, () => ({ resourceId: approvalId, receiptExtra: { decisionId, state: newState, subjectDigest: body.subjectDigest } }), "applied");
       s.emit(s.control, { organizationId: actor.organizationId, workspaceId: row.workspace_id, aggregateType: "approval", aggregateId: approvalId, eventType: body.decision === "approve" ? "approval.approved" : "approval.rejected", payload: { approvalId, decisionId } });
     });
     if (workspaceId) this.workflows.wakeGate(actor.organizationId, workspaceId, approvalId, newState === "approved");
@@ -1473,11 +1477,12 @@ export class Brain {
     ).get(actor.organizationId, resourceId, resourceId) as Record<string, unknown> | undefined;
   }
 
-  executeQuery(actor: ActorContext, raw: unknown): JsonValue {
+  async executeQuery(actor: ActorContext, raw: unknown, headers?: Headers): Promise<JsonValue> {
     const s = this.store;
     const check = validate("QueryRequest", raw);
     if (!check.ok) throw new BrainDomainError("INVALID_CONTRACT", check.errors.join("; "));
     const q = raw as { queryType: string; workspaceId?: string; resourceId?: string; limit?: number; commandId?: string };
+    if (isOrganizationQuery(q)) return executeOrganizationQuery(s, this.auth, actor, raw, headers ?? new Headers());
     if (!isKnownQuery(q.queryType)) throw new BrainDomainError("INVALID_CONTRACT", `unknown query ${q.queryType}`);
     // stream.* queries own their clamps (tail ≤ 200, search ≤ 50, compare
     // ≤ 500×4); the generic clamp would silently cap stream.tail at 100.

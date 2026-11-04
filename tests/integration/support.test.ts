@@ -23,23 +23,23 @@ describe("support SLA and draft gates (T42)", () => {
     expect(computeSlaMinutes([], "keyrus", t0)).toBe(0);
   });
 
-  it("evidenceReady requires an approved draft; sla.summary aggregates stored intervals", () => {
+  it("evidenceReady requires an approved draft; sla.summary aggregates stored intervals", async () => {
     const w = setupWorld();
     const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
     const now = w.brain.store.now();
     ws.prepare("INSERT INTO tickets(id, connector_id, remote_id, state, title, body_digest, source_version, observed_at_ms, created_at_ms) VALUES ('tkt-s','gitlab','9','open','Cannot login',?,'v1',?,?)").run(DIGEST_A, now, now);
     ws.prepare("INSERT INTO support_drafts(id, ticket_id, version, content_digest, source_fingerprint, evidence_digest, author_principal_id, approval_id, created_at_ms) VALUES ('dr-1','tkt-s',1,?,?,?,'owner-1',NULL,?)").run(DIGEST_A, DIGEST_A, DIGEST_A, now);
-    const ticketList = () => (w.brain.executeQuery(w.owner, { queryType: "tickets.list", workspaceId: w.workspaceId }) as unknown as { snapshot: { items: Array<{ id: string; evidenceReady: boolean }> } }).snapshot.items;
-    expect(ticketList().find((t) => t.id === "tkt-s")?.evidenceReady).toBe(false);
+    const ticketList = async () => ((await w.brain.executeQuery(w.owner, { queryType: "tickets.list", workspaceId: w.workspaceId })) as unknown as { snapshot: { items: Array<{ id: string; evidenceReady: boolean }> } }).snapshot.items;
+    expect((await ticketList()).find((t) => t.id === "tkt-s")?.evidenceReady).toBe(false);
     ws.prepare("UPDATE support_drafts SET approval_id='apr-1' WHERE id='dr-1'").run();
-    expect(ticketList().find((t) => t.id === "tkt-s")?.evidenceReady).toBe(true);
+    expect((await ticketList()).find((t) => t.id === "tkt-s")?.evidenceReady).toBe(true);
 
     ws.prepare("INSERT INTO sla_intervals(id, ticket_id, event_id, responsibility, started_at_ms, ended_at_ms, calendar_digest) VALUES ('si-1','tkt-s','ev-1','keyrus',?,?,?)").run(now - 3600_000, now - 1800_000, DIGEST_A);
     ws.prepare("INSERT INTO sla_intervals(id, ticket_id, event_id, responsibility, started_at_ms, ended_at_ms, calendar_digest) VALUES ('si-2','tkt-s','ev-2','client',?,?,?)").run(now - 1800_000, now - 600_000, DIGEST_A);
-    const sla = (w.brain.executeQuery(w.owner, {
+    const sla = ((await w.brain.executeQuery(w.owner, {
       queryType: "sla.summary", workspaceId: w.workspaceId,
       periodStart: new Date(now - 7200_000).toISOString(), periodEnd: new Date(now + 60_000).toISOString(),
-    }) as unknown as { snapshot: { keyrusMs: number; clientWaitMs: number; sampleCount: number; calendarDigest: string } }).snapshot;
+    })) as unknown as { snapshot: { keyrusMs: number; clientWaitMs: number; sampleCount: number; calendarDigest: string } }).snapshot;
     expect(sla.keyrusMs).toBe(1800_000);
     expect(sla.clientWaitMs).toBe(1200_000);
     expect(sla.sampleCount).toBe(2);

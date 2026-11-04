@@ -20,9 +20,9 @@ function seedRunner(w: World, runnerId: string, group = "fixture-tools", caps = 
   return { runnerId, epoch: 1, organizationId: w.org };
 }
 
-function dispatchGolden(w: World, key: string): string {
+async function dispatchGolden(w: World, key: string): Promise<string> {
   const digest = w.brain.activeRelease(w.org)!.digest;
-  const { receipt } = w.brain.executeCommand(w.owner, {
+  const { receipt } = await w.brain.executeCommand(w.owner, {
     contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "workflow.dispatch",
     workspaceId: w.workspaceId, idempotencyKey: key,
     payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "Brain fixture" } },
@@ -31,8 +31,8 @@ function dispatchGolden(w: World, key: string): string {
 }
 
 interface Offer { attemptId: string; leaseId: string; jobFence: number; jobId: string; workspaceId: string }
-function runningAttempt(w: World, key: string, runnerId: string): { runner: ReturnType<typeof seedRunner>; offer: Offer } {
-  dispatchGolden(w, key);
+async function runningAttempt(w: World, key: string, runnerId: string): Promise<{ runner: ReturnType<typeof seedRunner>; offer: Offer }> {
+  await dispatchGolden(w, key);
   const runner = seedRunner(w, runnerId);
   const offer = w.brain.claim(runner, `req-${key}`) as unknown as Offer;
   expect(offer).toBeTruthy();
@@ -53,7 +53,7 @@ function baseSubject(w: World, nonce: string, extra: Record<string, unknown> = {
 
 async function approveSubject(w: World, subject: Record<string, unknown>, key: string, approverName = `apr-${key}`): Promise<{ approvalId: string; digest: string }> {
   const approver = await w.grantApprover(approverName);
-  const req = w.brain.executeCommand(w.owner, {
+  const req = await w.brain.executeCommand(w.owner, {
     contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "approval.request",
     workspaceId: w.workspaceId, idempotencyKey: key, payload: { subject },
   }, key);
@@ -75,7 +75,7 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
   it.each(["session", "native-membership", "factor", "workspace-role", "principal"])("rejects stale reviewer %s before consuming approval or creating fences", async (changed) => {
     const w=setupWorld();
     try {
-      const attempt=runningAttempt(w,`stale-${changed}`,`runner-${changed}`);
+      const attempt=await runningAttempt(w,`stale-${changed}`,`runner-${changed}`);
       const approval=await approveSubject(w,baseSubject(w,`stale-${changed}`),`approve-stale-${changed}`);
       const reviewer=w.brain.store.control.prepare("SELECT d.actor_id,e.auth_session_id,e.auth_user_id FROM approval_decisions d JOIN step_up_evidence e ON e.id=d.auth_evidence_ref WHERE d.approval_id=?").get(approval.approvalId) as {actor_id:string;auth_session_id:string;auth_user_id:string};
       const db=w.brain.store.control;
@@ -94,7 +94,7 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
   it("rechecks current reviewer and runner epoch on online validation and permit replay", async () => {
     const w=setupWorld();
     try{
-      const attempt=runningAttempt(w,"validate-current","runner-current");
+      const attempt=await runningAttempt(w,"validate-current","runner-current");
       const approval=await approveSubject(w,baseSubject(w,"validate-current"),"approve-validate-current");
       const request={invocationId:"inv-current",approvalId:approval.approvalId,subjectDigest:approval.digest,resourceKeys:["target:current"]};
       const permit=w.brain.issuePermit(attempt.runner,attempt.offer.attemptId,request) as {token:string};
@@ -113,7 +113,7 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
 
   it("suspended/running run keeps its pinned config digest after a new activation (E026)", async () => {
     const w = setupWorld();
-    const runId = dispatchGolden(w, "pin-run");
+    const runId = await dispatchGolden(w, "pin-run");
     const pinned = w.brain.activeRelease(w.org)!.digest;
     const changed = goldenDocs().map((d) => d.path.includes("fixture-workflow") ? { ...d, text: `${d.text}\n# v2\n` } : d);
     const { digest: next } = w.brain.stageRelease(w.owner, changed, "sha256:c64a4543ce76fcbcade5797b53bedc08e6d81e9e031a72380c03a07cb788efce");
@@ -129,15 +129,15 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
 
   it("cancel tombstones the run; replayed dispatch cannot resurrect it (E028)", async () => {
     const w = setupWorld();
-    const runId = dispatchGolden(w, "cancel-run");
-    w.brain.executeCommand(w.owner, {
+    const runId = await dispatchGolden(w, "cancel-run");
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-cancel-run-x", commandType: "workflow.cancel",
       workspaceId: w.workspaceId, idempotencyKey: "cancel-run-x", payload: { runId, reason: "stop" },
     }, "cx");
     const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
     expect((ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string }).state).toBe("cancelled");
     const jobsBefore = (w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM jobs WHERE workflow_run_id=?").get(runId) as { n: number }).n;
-    const replayRun = dispatchGolden(w, "cancel-run");
+    const replayRun = await dispatchGolden(w, "cancel-run");
     expect(replayRun).toBe(runId);
     expect((w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM jobs WHERE workflow_run_id=?").get(runId) as { n: number }).n).toBe(jobsBefore);
     expect((ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string }).state).toBe("cancelled");
@@ -146,12 +146,12 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
 
   it("past-deadline jobs are never claimed; failed runs stay failed (E029)", async () => {
     const w = setupWorld();
-    dispatchGolden(w, "deadline-run");
+    await dispatchGolden(w, "deadline-run");
     w.brain.store.control.prepare("UPDATE jobs SET deadline_ms=?").run(Date.now() - 1000);
     const r = seedRunner(w, "runner-dl");
     expect(w.brain.claim(r, "req-dl")).toBeNull();
     const w2 = setupWorld();
-    const { runner, offer } = runningAttempt(w2, "fail-run", "runner-fail");
+    const { runner, offer } = await runningAttempt(w2, "fail-run", "runner-fail");
     w2.brain.completeAttempt(runner, offer.attemptId, { result: "failed", output: {}, jobFence: offer.jobFence, cleanupConfirmed: true });
     expect(jobState(w2, offer.jobId)).toBe("failed");
     const ws = w2.brain.store.workspaceDb(w2.workspaceId, w2.org);
@@ -162,8 +162,8 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
 
   it("atomic reservations prevent oversubscription of one runner (E032)", async () => {
     const w = setupWorld();
-    dispatchGolden(w, "cap-1");
-    dispatchGolden(w, "cap-2");
+    await dispatchGolden(w, "cap-1");
+    await dispatchGolden(w, "cap-2");
     const r = seedRunner(w, "runner-cap", "fixture-tools", { cpu: 4000, mem: 8192, disk: 20480, slots: 1 });
     expect(w.brain.claim(r, "req-cap-1")).toBeTruthy();
     expect(w.brain.claim(r, "req-cap-2")).toBeNull();
@@ -206,7 +206,7 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
 
   it("zero-capacity runner admits nothing (E040)", async () => {
     const w = setupWorld();
-    dispatchGolden(w, "zero-cap");
+    await dispatchGolden(w, "zero-cap");
     const r = seedRunner(w, "runner-zero", "fixture-tools", { cpu: 500, mem: 1024, disk: 512, slots: 1 });
     // Observed free capacity is zero: every dimension fully reserved.
     w.brain.store.control.prepare("UPDATE runners SET cpu_reserved=cpu_capacity, memory_reserved=memory_capacity, disk_reserved=disk_capacity, slots_reserved=slot_capacity WHERE id=?").run("runner-zero");
@@ -216,7 +216,7 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
 
   it("disconnect beyond lease becomes outcome_unknown, never blind-requeued (E041)", async () => {
     const w = setupWorld();
-    const { offer } = runningAttempt(w, "lost-runner", "runner-lost");
+    const { offer } = await runningAttempt(w, "lost-runner", "runner-lost");
     w.brain.store.control.prepare("UPDATE job_attempts SET lease_expires_at_ms=? WHERE id=?").run(Date.now() - 1000, offer.attemptId);
     expect(w.brain.expireLeases()).toBeGreaterThan(0);
     expect(jobState(w, offer.jobId)).toBe("outcome_unknown");
@@ -227,12 +227,12 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
 
   it("resource fence counter strictly increases across lease deletion (E043)", async () => {
     const w = setupWorld();
-    const a = runningAttempt(w, "fence-1", "runner-f1");
+    const a = await runningAttempt(w, "fence-1", "runner-f1");
     const s1 = await approveSubject(w, baseSubject(w, "fence-n1"), "fence-apr-1");
     w.brain.issuePermit(a.runner, a.offer.attemptId, { invocationId: "fence-inv-1", subjectDigest: s1.digest, approvalId: s1.approvalId, resourceKeys: ["target:fence"] });
     const fence1 = (w.brain.store.control.prepare("SELECT counter FROM resource_fences WHERE resource_key='target:fence'").get() as { counter: number }).counter;
     w.brain.store.control.prepare("DELETE FROM resource_leases WHERE resource_key='target:fence'").run();
-    const b = runningAttempt(w, "fence-2", "runner-f2");
+    const b = await runningAttempt(w, "fence-2", "runner-f2");
     const s2 = await approveSubject(w, baseSubject(w, "fence-n2"), "fence-apr-2");
     w.brain.issuePermit(b.runner, b.offer.attemptId, { invocationId: "fence-inv-2", subjectDigest: s2.digest, approvalId: s2.approvalId, resourceKeys: ["target:fence"] });
     const fence2 = (w.brain.store.control.prepare("SELECT counter FROM resource_fences WHERE resource_key='target:fence'").get() as { counter: number }).counter;
@@ -243,13 +243,13 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
 
   it("unresolved guard survives lease expiry and blocks competing effects (E044)", async () => {
     const w = setupWorld();
-    const a = runningAttempt(w, "guard-1", "runner-g1");
+    const a = await runningAttempt(w, "guard-1", "runner-g1");
     const s1 = await approveSubject(w, baseSubject(w, "guard-n1"), "guard-apr-1");
     w.brain.issuePermit(a.runner, a.offer.attemptId, { invocationId: "guard-inv-1", subjectDigest: s1.digest, approvalId: s1.approvalId, resourceKeys: ["target:guarded"] });
     w.brain.store.control.prepare("UPDATE job_attempts SET lease_expires_at_ms=? WHERE id=?").run(Date.now() - 1000, a.offer.attemptId);
     w.brain.expireLeases();
     expect(jobState(w, a.offer.jobId)).toBe("outcome_unknown");
-    const b = runningAttempt(w, "guard-2", "runner-g2");
+    const b = await runningAttempt(w, "guard-2", "runner-g2");
     const s2 = await approveSubject(w, baseSubject(w, "guard-n2"), "guard-apr-2");
     expect(() => w.brain.issuePermit(b.runner, b.offer.attemptId, { invocationId: "guard-inv-2", subjectDigest: s2.digest, approvalId: s2.approvalId, resourceKeys: ["target:guarded"] })).toThrow(/guarded/);
     w.brain.close();
@@ -257,12 +257,12 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
 
   it("draining runner takes no new claims but finishes owned work (E045)", async () => {
     const w = setupWorld();
-    const a = runningAttempt(w, "drain-1", "runner-drain");
-    w.brain.executeCommand(w.owner, {
+    const a = await runningAttempt(w, "drain-1", "runner-drain");
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-drain", commandType: "runner.drain",
       idempotencyKey: "drain-1", payload: { runnerId: "runner-drain", reason: "maintenance" },
     }, "cd");
-    dispatchGolden(w, "drain-2");
+    await dispatchGolden(w, "drain-2");
     expect(w.brain.claim(a.runner, "req-drain-2")).toBeNull();
     const done = w.brain.completeAttempt(a.runner, a.offer.attemptId, { result: "succeeded", output: { message: "x" }, jobFence: a.offer.jobFence, cleanupConfirmed: true }) as unknown as { jobState: string };
     expect(done.jobState).toBe("verifying");
@@ -271,11 +271,11 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
 
   it("quarantine mid-job revokes permit validity and blocks new permits (E046)", async () => {
     const w = setupWorld();
-    const a = runningAttempt(w, "quar-1", "runner-quar");
+    const a = await runningAttempt(w, "quar-1", "runner-quar");
     const s1 = await approveSubject(w, baseSubject(w, "quar-n1"), "quar-apr");
     const p = w.brain.issuePermit(a.runner, a.offer.attemptId, { invocationId: "quar-inv", subjectDigest: s1.digest, approvalId: s1.approvalId, resourceKeys: [] }) as unknown as { token: string };
     expect(w.brain.validatePermit(p.token, "quar-inv")).toBe(true);
-    w.brain.executeCommand(w.owner, {
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-quar", commandType: "runner.quarantine",
       idempotencyKey: "quar-1", payload: { runnerId: "runner-quar", reason: "compromised" },
     }, "cq");
@@ -316,7 +316,7 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
   it("inflated priority cannot starve another workspace with fewer in-flight jobs (E048)", async () => {
     const w = setupWorld();
     w.brain.createWorkspace(w.actor("owner-1"), { workspaceId: "ws-other", slug: "other" });
-    const a = runningAttempt(w, "greedy-0", "runner-greedy-0");
+    const a = await runningAttempt(w, "greedy-0", "runner-greedy-0");
     void a;
     insertJob(w, { id: "job-greedy", workspaceId: w.workspaceId, priority: 3 }); // schema caps priority at 3
     insertJob(w, { id: "job-other", workspaceId: "ws-other", priority: 1 });
@@ -343,7 +343,7 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
     const w = setupWorld();
     const approver = await w.grantApprover("exp-approver");
     const subject = baseSubject(w, "exp-n1");
-    const req = w.brain.executeCommand(w.owner, {
+    const req = await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-exp-1", commandType: "approval.request",
       workspaceId: w.workspaceId, idempotencyKey: "exp-1", payload: { subject },
     }, "ce1");
@@ -354,7 +354,7 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
       contractVersion: "brain.approval-decision/v1", idempotencyKey: "exp-dec", decision: "reject",
       subjectDigest: digest, expectedVersion: 1, note: "late",
     })).toThrow(/expired/);
-    const a = runningAttempt(w, "exp-run", "runner-exp");
+    const a = await runningAttempt(w, "exp-run", "runner-exp");
     const ok = await approveSubject(w, baseSubject(w, "exp-n2"), "exp-2");
     w.brain.store.control.prepare("UPDATE approval_requests SET expires_at_ms=? WHERE id=?").run(Date.now() - 1, ok.approvalId);
     expect(() => w.brain.issuePermit(a.runner, a.offer.attemptId, { invocationId: "exp-inv", subjectDigest: ok.digest, approvalId: ok.approvalId, resourceKeys: [] })).toThrow(/expired/);
@@ -363,11 +363,11 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
 
   it("revoke between issuance and effect invalidates the permit at validation (E055)", async () => {
     const w = setupWorld();
-    const a = runningAttempt(w, "rev-1", "runner-rev");
+    const a = await runningAttempt(w, "rev-1", "runner-rev");
     const s1 = await approveSubject(w, baseSubject(w, "rev-n1"), "rev-apr");
     const p = w.brain.issuePermit(a.runner, a.offer.attemptId, { invocationId: "rev-inv", subjectDigest: s1.digest, approvalId: s1.approvalId, resourceKeys: [] }) as unknown as { token: string };
     expect(w.brain.validatePermit(p.token, "rev-inv")).toBe(true);
-    w.brain.executeCommand(w.owner, {
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-rev", commandType: "approval.revoke",
       workspaceId: w.workspaceId, idempotencyKey: "rev-1", payload: { approvalId: s1.approvalId, reason: "changed mind" },
     }, "cr");
@@ -377,13 +377,13 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
 
   it("crash after mutation: outcome unknown blocks retry until reconciliation (E056)", async () => {
     const w = setupWorld();
-    const a = runningAttempt(w, "crash-1", "runner-crash");
+    const a = await runningAttempt(w, "crash-1", "runner-crash");
     w.brain.completeAttempt(a.runner, a.offer.attemptId, { result: "unknown-outcome", output: {}, jobFence: a.offer.jobFence, cleanupConfirmed: false });
     expect(jobState(w, a.offer.jobId)).toBe("outcome_unknown");
     const r2 = seedRunner(w, "runner-crash-2");
     expect(w.brain.claim(r2, "req-crash-2")).toBeNull();
     const jobVersion = (w.brain.store.control.prepare("SELECT version FROM jobs WHERE id=?").get(a.offer.jobId) as { version: number }).version;
-    w.brain.executeCommand(w.owner, {
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-rec", commandType: "job.reconcile",
       workspaceId: w.workspaceId, idempotencyKey: "rec-1", expectedVersion: jobVersion, payload: { jobId: a.offer.jobId, reason: "probe" },
     }, "crec");
@@ -397,7 +397,7 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
 
   it("changed target precondition after approval blocks the permit (E058)", async () => {
     const w = setupWorld();
-    const a = runningAttempt(w, "pre-1", "runner-pre");
+    const a = await runningAttempt(w, "pre-1", "runner-pre");
     const approved = await approveSubject(w, baseSubject(w, "pre-n1"), "pre-apr");
     const moved = baseSubject(w, "pre-n1", { target: { targetId: "t-1", environmentId: "prod", preconditionDigest: `sha256:${"b".repeat(64)}` } });
     const movedDigest = approvalSubjectDigest(moved as unknown as JsonValue);
@@ -408,10 +408,10 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
 
   it("two aliases of one physical target share one canonical conflict key (E059)", async () => {
     const w = setupWorld();
-    const a = runningAttempt(w, "alias-1", "runner-a1");
+    const a = await runningAttempt(w, "alias-1", "runner-a1");
     const s1 = await approveSubject(w, baseSubject(w, "alias-n1"), "alias-apr-1");
     w.brain.issuePermit(a.runner, a.offer.attemptId, { invocationId: "alias-inv-1", subjectDigest: s1.digest, approvalId: s1.approvalId, resourceKeys: ["Target:Prod-DB/"] });
-    const b = runningAttempt(w, "alias-2", "runner-a2");
+    const b = await runningAttempt(w, "alias-2", "runner-a2");
     const s2 = await approveSubject(w, baseSubject(w, "alias-n2"), "alias-apr-2");
     expect(() => w.brain.issuePermit(b.runner, b.offer.attemptId, { invocationId: "alias-inv-2", subjectDigest: s2.digest, approvalId: s2.approvalId, resourceKeys: ["target:prod-db"] })).toThrow(/guarded/);
     w.brain.close();
@@ -419,7 +419,7 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
 
   it("malformed, duplicate and oversized harness events are contained (E063/E072)", async () => {
     const w = setupWorld();
-    const a = runningAttempt(w, "ev-1", "runner-ev");
+    const a = await runningAttempt(w, "ev-1", "runner-ev");
     const body = { leaseId: a.offer.leaseId, jobFence: a.offer.jobFence };
     const ok = w.brain.attemptEvents(a.runner, a.offer.attemptId, { ...body, events: [{ sequence: 1, text: "a" }, { sequence: 2, text: "b" }] }) as unknown as { lastCommittedSequence: number };
     expect(ok.lastCommittedSequence).toBe(2);
@@ -435,7 +435,7 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
 
   it("changed verdict for the same bundle conflicts; identical replay is stable (E075)", async () => {
     const w = setupWorld();
-    const a = runningAttempt(w, "verd-1", "runner-verd");
+    const a = await runningAttempt(w, "verd-1", "runner-verd");
     w.brain.completeAttempt(a.runner, a.offer.attemptId, { result: "succeeded", output: { message: "Brain fixture" }, jobFence: a.offer.jobFence, cleanupConfirmed: true });
     const bundle=bundleForAttempt(w.brain,w.org,w.workspaceId,a.offer.attemptId,"bundle-verd");
     const submitted = w.brain.submitEvidence(a.runner,bundle) as {digest:string};
@@ -533,25 +533,25 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
   it("repeated identical approval requests share one signature request (E083)", async () => {
     const w = setupWorld();
     const subject = baseSubject(w, "shared-n1");
-    const ask = (k: string) => (w.brain.executeCommand(w.owner, {
+    const ask = async (k: string) => ((await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: `cmd-${k}`, commandType: "approval.request",
       workspaceId: w.workspaceId, idempotencyKey: k, payload: { subject },
-    }, k).receipt as { resourceId?: string }).resourceId;
-    const first = ask("shared-1");
-    const second = ask("shared-2");
+    }, k)).receipt as { resourceId?: string }).resourceId;
+    const first = await ask("shared-1");
+    const second = await ask("shared-2");
     expect(second).toBe(first);
     const changed = baseSubject(w, "shared-n2");
-    const third = (w.brain.executeCommand(w.owner, {
+    const third = ((await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-shared-3", commandType: "approval.request",
       workspaceId: w.workspaceId, idempotencyKey: "shared-3", payload: { subject: changed },
-    }, "shared-3").receipt as { resourceId?: string }).resourceId;
+    }, "shared-3")).receipt as { resourceId?: string }).resourceId;
     expect(third).not.toBe(first); // changed draft requires its own fresh approval
     w.brain.close();
   });
 
   it("SSE replay resumes strictly after the cursor with no duplicates or gaps (E091)", async () => {
     const w = setupWorld();
-    dispatchGolden(w, "sse-1");
+    await dispatchGolden(w, "sse-1");
     const all = w.brain.listEvents(w.owner, 0, {}, 500) as unknown as Array<{ streamSeq: number }>;
     expect(all.length).toBeGreaterThan(2);
     const mid = all[1]!.streamSeq;

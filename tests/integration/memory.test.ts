@@ -57,7 +57,7 @@ describe("reviewed memory publication (T39)", () => {
     const prev = process.env["BRAIN_TENCENTDB_URL"];
     delete process.env["BRAIN_TENCENTDB_URL"];
     try {
-      const { receipt } = w.brain.executeCommand(w.owner, publishCommand(w), "mem-1");
+      const { receipt } = await w.brain.executeCommand(w.owner, publishCommand(w), "mem-1");
       expect((receipt as { resourceId?: string }).resourceId).toBeTruthy();
       const found = (await w.brain.searchMemoryAsync(w.owner, w.workspaceId, mq(w))) as unknown as {
         snapshot: { results: Array<{ sourceId: string; provenance: string[]; status: string; content: string }>; degraded: boolean; reason?: string };
@@ -85,26 +85,26 @@ describe("reviewed memory publication (T39)", () => {
     }
   });
 
-  it("rejects self-review, unknown reviewer, missing evidence and undeclared redaction profiles", () => {
+  it("rejects self-review, unknown reviewer, missing evidence and undeclared redaction profiles", async () => {
     world = setupWorld();
     const w = world;
     withReviewer(w);
     const selfReview = publishCommand(w, { reviewerId: "owner-1" });
-    expect(() => w.brain.executeCommand(w.owner, { ...selfReview, commandId: "cmd-mem-a", idempotencyKey: "mem-a" }, "mem-a")).toThrow(/reviewer must differ/);
+    await expect(Promise.resolve().then(() => w.brain.executeCommand(w.owner, { ...selfReview, commandId: "cmd-mem-a", idempotencyKey: "mem-a" }, "mem-a"))).rejects.toThrow(/reviewer must differ/);
     const ghost = publishCommand(w, { reviewerId: "ghost" });
-    expect(() => w.brain.executeCommand(w.owner, { ...ghost, commandId: "cmd-mem-b", idempotencyKey: "mem-b" }, "mem-b")).toThrow(/not a principal/);
+    await expect(Promise.resolve().then(() => w.brain.executeCommand(w.owner, { ...ghost, commandId: "cmd-mem-b", idempotencyKey: "mem-b" }, "mem-b"))).rejects.toThrow(/not a principal/);
     const noEvidence = publishCommand(w, { evidenceDigests: [`sha256:${"7".repeat(64)}`] });
-    expect(() => w.brain.executeCommand(w.owner, { ...noEvidence, commandId: "cmd-mem-c", idempotencyKey: "mem-c" }, "mem-c")).toThrow(/evidence artifact/);
+    await expect(Promise.resolve().then(() => w.brain.executeCommand(w.owner, { ...noEvidence, commandId: "cmd-mem-c", idempotencyKey: "mem-c" }, "mem-c"))).rejects.toThrow(/evidence artifact/);
     const badProfile = publishCommand(w, { redactionProfile: { id: "invented", digest: `sha256:${"6".repeat(64)}` } });
-    expect(() => w.brain.executeCommand(w.owner, { ...badProfile, commandId: "cmd-mem-d", idempotencyKey: "mem-d" }, "mem-d")).toThrow(/not declared in the active release/);
+    await expect(Promise.resolve().then(() => w.brain.executeCommand(w.owner, { ...badProfile, commandId: "cmd-mem-d", idempotencyKey: "mem-d" }, "mem-d"))).rejects.toThrow(/not declared in the active release/);
   });
 
   it("revoke removes retrieval; export stays honestly partial; outsiders cannot search", async () => {
     world = setupWorld();
     const w = world;
     withReviewer(w);
-    w.brain.executeCommand(w.owner, publishCommand(w), "mem-1");
-    w.brain.executeCommand(w.owner, {
+    await w.brain.executeCommand(w.owner, publishCommand(w), "mem-1");
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-mem-rev", commandType: "memory.revoke",
       workspaceId: w.workspaceId, idempotencyKey: "mem-rev",
       payload: { sourceId: "golden-doc", reason: "superseded checklist" },

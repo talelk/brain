@@ -19,12 +19,12 @@ describe("core integration", () => {
     try {
       await w.brain.auth.ready();
       const digest = w.brain.activeRelease(w.org)!.digest;
-      const result = w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: "status-dispatch", idempotencyKey: "status-dispatch", commandType: "workflow.dispatch", workspaceId: w.workspaceId, payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "Status check" } } }, "status-check");
+      const result = await w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: "status-dispatch", idempotencyKey: "status-dispatch", commandType: "workflow.dispatch", workspaceId: w.workspaceId, payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "Status check" } } }, "status-check");
       const runId = result.receipt.resourceId!;
       const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
       w.brain.store.control.prepare("UPDATE jobs SET state='succeeded' WHERE workflow_run_id=?").run(runId);
       ws.prepare("UPDATE workflow_runs SET state='failed' WHERE id=?").run(runId);
-      const detail = w.brain.executeQuery(w.owner, { queryType: "job.get", workspaceId: w.workspaceId, resourceId: runId }) as unknown as { snapshot: { state: string; workflowState: string } };
+      const detail = (await w.brain.executeQuery(w.owner, { queryType: "job.get", workspaceId: w.workspaceId, resourceId: runId })) as unknown as { snapshot: { state: string; workflowState: string } };
       expect(detail.snapshot).toMatchObject({ state: "succeeded", workflowState: "failed" });
     } finally { w.brain.close(); }
   });
@@ -35,53 +35,53 @@ describe("core integration", () => {
       contractVersion: "brain.command/v1", commandId: "cmd-1", commandType: "objective.create",
       workspaceId: w.workspaceId, idempotencyKey: "k-1", payload: { title: "Objective", intent: "works", successCriteria: ["works"] },
     };
-    const r1 = w.brain.executeCommand(w.owner, cmd, "c1");
-    const r2 = w.brain.executeCommand(w.owner, cmd, "c2");
+    const r1 = await w.brain.executeCommand(w.owner, cmd, "c1");
+    const r2 = await w.brain.executeCommand(w.owner, cmd, "c2");
     expect(r1.receipt).toEqual(r2.receipt);
     const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
     expect((ws.prepare("SELECT COUNT(*) AS c FROM objectives").get() as { c: number }).c).toBe(1);
-    expect(() => w.brain.executeCommand(w.owner, { ...cmd, payload: { title: "Other", intent: "other", successCriteria: [] } }, "c3")).toThrow();
+    await expect(Promise.resolve().then(() => w.brain.executeCommand(w.owner, { ...cmd, payload: { title: "Other", intent: "other", successCriteria: [] } }, "c3"))).rejects.toThrow();
     w.brain.close();
   });
 
   it("work item Done requires evidence; stale version conflicts (E009)", async () => {
     const w = setupWorld();
-    const objectiveId = (w.brain.executeCommand(w.owner, {
+    const objectiveId = ((await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-b1", commandType: "objective.create",
       workspaceId: w.workspaceId, idempotencyKey: "kb-1", payload: { title: "Ship", intent: "Ship the release", successCriteria: ["golden passes"] },
-    }, "c1").receipt as { resourceId?: string }).resourceId ?? "";
-    const planId = (w.brain.executeCommand(w.owner, {
+    }, "c1")).receipt as { resourceId?: string }).resourceId ?? "";
+    const planId = ((await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-b1p", commandType: "plan.propose",
       workspaceId: w.workspaceId, idempotencyKey: "kb-1p",
       payload: { objectiveId, origin: "manual", summary: "single task", tasks: [{ id: "ship", title: "Ship", criteria: ["golden passes"], dependsOn: [], assignment: { kind: "agent", id: "pi", role: "specialist" } }] },
-    }, "c1b").receipt as { resourceId?: string }).resourceId ?? "";
-    w.brain.executeCommand(w.owner, {
+    }, "c1b")).receipt as { resourceId?: string }).resourceId ?? "";
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-b1c", commandType: "plan.confirm",
       workspaceId: w.workspaceId, idempotencyKey: "kb-1c", expectedVersion: 1, payload: { planVersionId: planId },
     }, "c1c");
-    const board = (w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId }) as { snapshot: { items: Array<{ workItemId: string; version: number }> } }).snapshot;
+    const board = ((await w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId })) as { snapshot: { items: Array<{ workItemId: string; version: number }> } }).snapshot;
     const item = board.items[0]!;
-    expect(() => w.brain.executeCommand(w.owner, {
+    await expect(Promise.resolve().then(() => w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-stale", commandType: "workItem.transition",
       workspaceId: w.workspaceId, idempotencyKey: "kb-stale", expectedVersion: item.version + 90,
       payload: { workItemId: item.workItemId, state: "in-progress" },
-    }, "c2")).toThrow();
-    const start = w.brain.executeCommand(w.owner, {
+    }, "c2"))).rejects.toThrow();
+    const start = (await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-start", commandType: "workItem.transition",
       workspaceId: w.workspaceId, idempotencyKey: "kb-start", expectedVersion: item.version,
       payload: { workItemId: item.workItemId, state: "in-progress" },
-    }, "c3").receipt;
+    }, "c3")).receipt;
     expect(start.accepted).toBe(true);
-    w.brain.executeCommand(w.owner, {
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-review", commandType: "workItem.transition",
       workspaceId: w.workspaceId, idempotencyKey: "kb-review", expectedVersion: item.version + 1,
       payload: { workItemId: item.workItemId, state: "review" },
     }, "c4");
-    expect(() => w.brain.executeCommand(w.owner, {
+    await expect(Promise.resolve().then(() => w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-done", commandType: "workItem.transition",
       workspaceId: w.workspaceId, idempotencyKey: "kb-done", expectedVersion: item.version + 2,
       payload: { workItemId: item.workItemId, state: "done" },
-    }, "c5")).toThrow(/evidence/i);
+    }, "c5"))).rejects.toThrow(/evidence/i);
     w.brain.close();
   });
 
@@ -89,7 +89,7 @@ describe("core integration", () => {
     const w = setupWorld();
     const approver = await w.grantApprover("approver-1");
     const subj = subject(w, "n-1");
-    const req = w.brain.executeCommand(w.owner, {
+    const req = await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-a1", commandType: "approval.request",
       workspaceId: w.workspaceId, idempotencyKey: "ka-1", payload: { subject: subj },
     }, "c1");
@@ -112,7 +112,7 @@ describe("core integration", () => {
   it("agent cannot decide approvals; requester cannot self-approve (E004/E060)", async () => {
     const w = setupWorld();
     const subj = subject(w, "n-9");
-    const req = w.brain.executeCommand(w.owner, {
+    const req = await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-a9", commandType: "approval.request",
       workspaceId: w.workspaceId, idempotencyKey: "ka-9", payload: { subject: subj },
     }, "c1");
@@ -129,7 +129,7 @@ describe("core integration", () => {
   it("cross-tenant workspace access is hidden as not found (E002)", async () => {
     const w = setupWorld();
     const stranger = { ...w.owner, organizationId: "org-other", actorId: "someone-else" };
-    expect(() => w.brain.executeQuery(stranger, { queryType: "workspace.context", workspaceId: w.workspaceId })).toThrow();
+    await expect(Promise.resolve().then(() => w.brain.executeQuery(stranger, { queryType: "workspace.context", workspaceId: w.workspaceId }))).rejects.toThrow();
     w.brain.close();
   });
 

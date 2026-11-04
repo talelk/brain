@@ -16,7 +16,7 @@ async function fixture() {
   const env: NodeJS.ProcessEnv = { BRAIN_GOVERNOR_URL:"http://127.0.0.1:3000", BRAIN_CLI_STATE_DIR:join(root,"state"), BRAIN_EMAIL:"cli@example.test", BRAIN_PASSWORD:"cli-test-password-123" };
   let output = ""; let errors = "";
   const run = async (args: string[]) => { output="";errors="";return runCli(args,{ env, fetch: async (request) => app.fetch(request), stdout: (text) => { output+=text; }, stderr: (text) => { errors+=text; } }); };
-  const setup = () => run(["setup","--local","--org","org-cli","--name","CLI","--setup-token-file",join(root,"data","setup.token"),"--json"]);
+  const setup = async () => await run(["setup","--local","--org","org-cli","--name","CLI","--setup-token-file",join(root,"data","setup.token"),"--json"]);
   return { root,app,env,run,setup,output:()=>output,errors:()=>errors, credentials:credentialStore("http://127.0.0.1:3000",env) };
 }
 

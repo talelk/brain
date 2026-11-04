@@ -36,7 +36,7 @@ describe("live SSE replay (T06)", () => {
       expect(res.status).toBe(200);
       expect(res.headers.get("content-type")).toContain("text/event-stream");
       const reader = res.body!.getReader();
-      brain.executeCommand(w.owner, {
+      await brain.executeCommand(w.owner, {
         contractVersion: "brain.command/v1", commandId: "cmd-sse-1", commandType: "workflow.dispatch",
         workspaceId: w.workspaceId, idempotencyKey: "sse-1",
         payload: { workflow: { id: "fixture-workflow", digest: brain.activeRelease(w.org)!.digest }, input: { message: "live" } },

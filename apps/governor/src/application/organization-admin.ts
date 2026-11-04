@@ -1,6 +1,6 @@
 import { validate } from "@brain/contracts/validate";
-import { domainDigest } from "@brain/contracts";
-import { authorizeCommand, type ResolvedActor } from "./authz";
+import type { ResolvedActor } from "./authz";
+import { commitReceipt, priorReceipt, requestDigestOf, type CommandContext } from "./command-envelope";
 import type { Store } from "./store";
 import type { BrainAuth, VendorSession } from "../modules/identity/index";
 import type { ActorContext, CommandReceipt, JsonValue, OrganizationAdminCommand, OrganizationAdminEventPayload, OrganizationAuthPolicyView, OrganizationDirectorySnapshot, OrganizationInvitationView, OrganizationMemberView, OrganizationSessionView } from "@brain/contracts";
@@ -158,17 +158,15 @@ export async function executeOrganizationQuery(store: Store, auth: BrainAuth, ac
 }
 
 export async function executeOrganizationCommand(store: Store, auth: BrainAuth, actor: ActorContext, raw: unknown, headers: Headers): Promise<{ receipt: CommandReceipt; status: number }> {
-  const check = validate("CommandEnvelope", raw);
-  if (!check.ok) throw new BrainDomainError("INVALID_CONTRACT", `command invalid: ${check.errors.join("; ")}`);
+  // Entered through the command funnel: schema validation and authorization
+  // already happened there. This function owns the organization-specific
+  // effects; the replay/commit envelope is the shared command-envelope.
   const cmd = raw as OrganizationCommand;
-  authorizeCommand(actor, cmd.commandType);
   const p = cmd.payload;
-  const requestDigest = domainDigest("brain:command:v1", raw as JsonValue);
-  const prior = store.control.prepare("SELECT request_digest,receipt_json FROM command_idempotency WHERE organization_id=? AND actor_id=? AND command_type=? AND idempotency_key=?").get(actor.organizationId, actor.actorId, cmd.commandType, cmd.idempotencyKey) as { request_digest: string; receipt_json: string } | undefined;
-  if (prior) {
-    if (prior.request_digest !== requestDigest) throw new BrainDomainError("IDEMPOTENCY_CONFLICT", "same idempotency key with different payload");
-    return { receipt: JSON.parse(prior.receipt_json) as CommandReceipt, status: 200 };
-  }
+  const requestDigest = requestDigestOf(raw);
+  const ctx: CommandContext = { organizationId: actor.organizationId, actorId: actor.actorId, commandType: cmd.commandType, idempotencyKey: cmd.idempotencyKey, commandId: cmd.commandId, requestJson: JSON.stringify(raw) };
+  const replay = priorReceipt(store, ctx, requestDigest);
+  if (replay) return { receipt: replay, status: 200 };
   const org = organization(store, actor);
   assertExpectedVersion(org.revocation_generation, cmd.expectedVersion);
   let resourceId = String(p.principalId ?? p.invitationId ?? p.sessionId ?? "");
@@ -229,41 +227,35 @@ export async function executeOrganizationCommand(store: Store, auth: BrainAuth, 
   store.inTx(store.control, () => {
     const current = organization(store, actor);
     assertExpectedVersion(current.revocation_generation, cmd.expectedVersion);
-    const repeated = store.control.prepare("SELECT request_digest,receipt_json FROM command_idempotency WHERE organization_id=? AND actor_id=? AND command_type=? AND idempotency_key=?").get(actor.organizationId, actor.actorId, cmd.commandType, cmd.idempotencyKey) as { request_digest: string; receipt_json: string } | undefined;
-    if (repeated) {
-      if (repeated.request_digest !== requestDigest) throw new BrainDomainError("IDEMPOTENCY_CONFLICT", "same idempotency key with different payload");
-      receipt = JSON.parse(repeated.receipt_json) as CommandReceipt;
-      return;
-    }
-    if (cmd.commandType === "organization.member.role-grant" || cmd.commandType === "organization.member.role-revoke") {
-      if (cmd.commandType === "organization.member.role-grant") {
-        store.control.prepare("INSERT INTO organization_authorizations(organization_id,principal_id,role,granted_by,granted_at_ms,revoked_at_ms) VALUES (?,?,?,?,?,NULL) ON CONFLICT(organization_id,principal_id,role) DO UPDATE SET revoked_at_ms=NULL,granted_by=excluded.granted_by,granted_at_ms=excluded.granted_at_ms").run(actor.organizationId, p.principalId, p.role, actor.actorId, store.now());
-      } else {
-        store.control.prepare("UPDATE organization_authorizations SET revoked_at_ms=? WHERE organization_id=? AND principal_id=? AND role=? AND revoked_at_ms IS NULL").run(store.now(), actor.organizationId, p.principalId, p.role);
+    receipt = commitReceipt(store, ctx, requestDigest, () => {
+      if (cmd.commandType === "organization.member.role-grant" || cmd.commandType === "organization.member.role-revoke") {
+        if (cmd.commandType === "organization.member.role-grant") {
+          store.control.prepare("INSERT INTO organization_authorizations(organization_id,principal_id,role,granted_by,granted_at_ms,revoked_at_ms) VALUES (?,?,?,?,?,NULL) ON CONFLICT(organization_id,principal_id,role) DO UPDATE SET revoked_at_ms=NULL,granted_by=excluded.granted_by,granted_at_ms=excluded.granted_at_ms").run(actor.organizationId, p.principalId, p.role, actor.actorId, store.now());
+        } else {
+          store.control.prepare("UPDATE organization_authorizations SET revoked_at_ms=? WHERE organization_id=? AND principal_id=? AND role=? AND revoked_at_ms IS NULL").run(store.now(), actor.organizationId, p.principalId, p.role);
+        }
+        auth.administration.syncVendorAdmin(String(p.principalId));
       }
-      auth.administration.syncVendorAdmin(String(p.principalId));
-    }
-    if (cmd.commandType === "organization.member.suspend" || cmd.commandType === "organization.member.reactivate") {
-      const suspended = cmd.commandType === "organization.member.suspend";
-      store.control.prepare("UPDATE principals SET disabled_at_ms=? WHERE id=? AND organization_id=?").run(suspended ? store.now() : null, p.principalId, actor.organizationId);
-      if (suspended) store.control.prepare("DELETE FROM session WHERE userId=? AND activeOrganizationId=?").run(p.principalId, org.auth_organization_id);
-    }
-    if (cmd.commandType === "organization.invitation.cancel") store.control.prepare("UPDATE auth_email_outbox SET state='cancelled',updated_at_ms=? WHERE id=?").run(store.now(), `invitation:${String(p.invitationId)}`);
-    if (cmd.commandType === "organization.invitation.retry") auth.administration.retryInvitation(String(p.invitationId));
-    store.control.prepare("UPDATE organizations SET revocation_generation=revocation_generation+1 WHERE id=?").run(actor.organizationId);
-    const generation = current.revocation_generation + 1;
-    const payload: OrganizationAdminEventPayload = {
-      ...(p.principalId ? { principalId: p.principalId } : {}),
-      ...(p.invitationId || cmd.commandType === "organization.invitation.create" ? { invitationId: p.invitationId ?? resourceId } : {}),
-      ...(p.sessionId ? { sessionId: p.sessionId } : {}),
-      ...(p.role ? { role: p.role } : {}),
-      reason: p.reason,
-      revocationGeneration: generation,
-    };
-    store.emit(store.control, { organizationId: actor.organizationId, aggregateType: "identity", aggregateId: resourceId || actor.actorId, eventType: cmd.commandType, payload });
-    receipt = { commandId: cmd.commandId, accepted: true, outcome: "applied", ...(resourceId ? { resourceId } : {}) };
-    store.control.prepare("INSERT OR REPLACE INTO command_intents(command_id,workspace_id,request_json,state,created_at_ms) VALUES (?,NULL,?,?,?)").run(cmd.commandId, JSON.stringify(raw), "applied", store.now());
-    store.control.prepare("INSERT INTO command_idempotency(organization_id,actor_id,command_type,idempotency_key,request_digest,command_id,receipt_json,created_at_ms) VALUES (?,?,?,?,?,?,?,?)").run(actor.organizationId, actor.actorId, cmd.commandType, cmd.idempotencyKey, requestDigest, cmd.commandId, JSON.stringify(receipt), store.now());
+      if (cmd.commandType === "organization.member.suspend" || cmd.commandType === "organization.member.reactivate") {
+        const suspended = cmd.commandType === "organization.member.suspend";
+        store.control.prepare("UPDATE principals SET disabled_at_ms=? WHERE id=? AND organization_id=?").run(suspended ? store.now() : null, p.principalId, actor.organizationId);
+        if (suspended) store.control.prepare("DELETE FROM session WHERE userId=? AND activeOrganizationId=?").run(p.principalId, org.auth_organization_id);
+      }
+      if (cmd.commandType === "organization.invitation.cancel") store.control.prepare("UPDATE auth_email_outbox SET state='cancelled',updated_at_ms=? WHERE id=?").run(store.now(), `invitation:${String(p.invitationId)}`);
+      if (cmd.commandType === "organization.invitation.retry") auth.administration.retryInvitation(String(p.invitationId));
+      store.control.prepare("UPDATE organizations SET revocation_generation=revocation_generation+1 WHERE id=?").run(actor.organizationId);
+      const generation = current.revocation_generation + 1;
+      const payload: OrganizationAdminEventPayload = {
+        ...(p.principalId ? { principalId: p.principalId } : {}),
+        ...(p.invitationId || cmd.commandType === "organization.invitation.create" ? { invitationId: p.invitationId ?? resourceId } : {}),
+        ...(p.sessionId ? { sessionId: p.sessionId } : {}),
+        ...(p.role ? { role: p.role } : {}),
+        reason: p.reason,
+        revocationGeneration: generation,
+      };
+      store.emit(store.control, { organizationId: actor.organizationId, aggregateType: "identity", aggregateId: resourceId || actor.actorId, eventType: cmd.commandType, payload });
+      return { ...(resourceId ? { resourceId } : {}) };
+    }, "applied").receipt;
   });
   return { receipt, status: 200 };
 }

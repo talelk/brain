@@ -38,7 +38,7 @@ describe("sre observations and incident freshness (T43)", () => {
     ws.prepare("INSERT INTO incidents(id, target_key, severity, title, state, version, opened_at_ms) VALUES ('inc-9','api','critical','API down','investigating',3,?)").run(t0);
     ws.prepare("INSERT INTO observations(id, connector_id, target_key, incident_id, observation_digest, source_event_id, observed_at_ms, expires_at_ms) VALUES ('o1','probe','api','inc-9',?,'e1',?,?)").run(DIGEST_A, t0 + 1000, t0 + 2000);
     ws.prepare("INSERT INTO observations(id, connector_id, target_key, incident_id, observation_digest, source_event_id, observed_at_ms, expires_at_ms) VALUES ('o2','probe','api','inc-9',?,'e2',?,?)").run(DIGEST_A, t0 + 5000, t0 + 9000);
-    const res = w.brain.executeQuery(w.owner, { queryType: "incident.get", workspaceId: w.workspaceId, resourceId: "inc-9" }) as unknown as {
+    const res = (await w.brain.executeQuery(w.owner, { queryType: "incident.get", workspaceId: w.workspaceId, resourceId: "inc-9" })) as unknown as {
       snapshot: { observedAt: string; expiresAt: string; state: string; severity: string };
     };
     expect(res.snapshot.observedAt).toBe(new Date(t0 + 5000).toISOString());

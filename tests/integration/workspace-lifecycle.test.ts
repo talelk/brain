@@ -8,11 +8,11 @@ import { DIGEST_A, setupWorld, type TestWorld } from "../helpers";
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await close(); });
 
-function run(w: TestWorld, key: string, commandType: "workspace.update" | "workspace.control", payload: Record<string, unknown>, expectedVersion: number) {
-  return w.brain.executeCommand(w.owner, {
+async function run(w: TestWorld, key: string, commandType: "workspace.update" | "workspace.control", payload: Record<string, unknown>, expectedVersion: number) {
+  return (await w.brain.executeCommand(w.owner, {
     contractVersion: "brain.command/v1", commandId: key, idempotencyKey: key, commandType,
     workspaceId: w.workspaceId, expectedVersion, payload,
-  }, key).receipt;
+  }, key)).receipt;
 }
 
 function insertJob(w: TestWorld, state: "queued" | "outcome_unknown") {
@@ -31,19 +31,19 @@ describe("workspace metadata and operational lifecycle", () => {
     w.brain.createWorkspace(w.owner, { workspaceId: "ws-metadata", slug: "Metadata workspace", description: "Scoped operations", ownerId: "owner-1", tags: ["support", "local"] });
     expect(w.brain.store.control.prepare("SELECT description,owner_id,tags_json FROM workspaces WHERE id='ws-metadata'").get()).toEqual({ description: "Scoped operations", owner_id: "owner-1", tags_json: '["support","local"]' });
 
-    expect(run(w, "update-workspace", "workspace.update", { workspaceId: w.workspaceId, displayName: "Governed workspace", description: "Production support", ownerId: "owner-1", tags: ["support"] }, 1).accepted).toBe(true);
-    expect(() => run(w, "update-stale", "workspace.update", { workspaceId: w.workspaceId, displayName: "Stale overwrite", description: "", ownerId: "owner-1", tags: [] }, 1)).toThrow();
-    expect(run(w, "suspend-workspace", "workspace.control", { workspaceId: w.workspaceId, action: "suspend", reason: "Planned operational pause" }, 2).accepted).toBe(true);
+    expect((await run(w, "update-workspace", "workspace.update", { workspaceId: w.workspaceId, displayName: "Governed workspace", description: "Production support", ownerId: "owner-1", tags: ["support"] }, 1)).accepted).toBe(true);
+    await expect(Promise.resolve().then(async () => await run(w, "update-stale", "workspace.update", { workspaceId: w.workspaceId, displayName: "Stale overwrite", description: "", ownerId: "owner-1", tags: [] }, 1))).rejects.toThrow();
+    expect((await run(w, "suspend-workspace", "workspace.control", { workspaceId: w.workspaceId, action: "suspend", reason: "Planned operational pause" }, 2)).accepted).toBe(true);
     insertJob(w, "outcome_unknown");
-    expect(() => run(w, "resume-unresolved", "workspace.control", { workspaceId: w.workspaceId, action: "resume", reason: "Attempt unsafe resume" }, 3)).toThrow(/reconcile unknown outcomes/);
+    await expect(Promise.resolve().then(async () => await run(w, "resume-unresolved", "workspace.control", { workspaceId: w.workspaceId, action: "resume", reason: "Attempt unsafe resume" }, 3))).rejects.toThrow(/reconcile unknown outcomes/);
     w.brain.store.control.prepare("DELETE FROM jobs WHERE id='job-workspace-lifecycle'").run();
-    expect(run(w, "resume-workspace", "workspace.control", { workspaceId: w.workspaceId, action: "resume", reason: "Configuration and outcomes checked" }, 3).accepted).toBe(true);
+    expect((await run(w, "resume-workspace", "workspace.control", { workspaceId: w.workspaceId, action: "resume", reason: "Configuration and outcomes checked" }, 3)).accepted).toBe(true);
     insertJob(w, "queued");
-    expect(() => run(w, "archive-active", "workspace.control", { workspaceId: w.workspaceId, action: "archive", reason: "Attempt early archive" }, 4)).toThrow(/requires no active/);
+    await expect(Promise.resolve().then(async () => await run(w, "archive-active", "workspace.control", { workspaceId: w.workspaceId, action: "archive", reason: "Attempt early archive" }, 4))).rejects.toThrow(/requires no active/);
     w.brain.store.control.prepare("DELETE FROM jobs WHERE id='job-workspace-lifecycle'").run();
-    expect(run(w, "archive-workspace", "workspace.control", { workspaceId: w.workspaceId, action: "archive", reason: "Retained for audit" }, 4).accepted).toBe(true);
+    expect((await run(w, "archive-workspace", "workspace.control", { workspaceId: w.workspaceId, action: "archive", reason: "Retained for audit" }, 4)).accepted).toBe(true);
 
-    const bridge = w.brain.executeQuery(w.owner, { queryType: "bridge" }) as { snapshot: { items: Array<{ displayName: string; description: string; tags: string[]; status: string; version: number }> } };
+    const bridge = (await w.brain.executeQuery(w.owner, { queryType: "bridge" })) as { snapshot: { items: Array<{ displayName: string; description: string; tags: string[]; status: string; version: number }> } };
     expect(bridge.snapshot.items.find((workspace) => workspace.displayName === "Governed workspace")).toMatchObject({ description: "Production support", tags: ["support"], status: "archived", version: 5 });
   });
 });

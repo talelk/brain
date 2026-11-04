@@ -20,13 +20,13 @@ test("studio: edit spec.jobs, validate, publish exact commit and activate separa
     const resolved = await brain.resolveActor(new Headers({ cookie: cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ") }));
     const actor = resolved.actor;
     brain.createWorkspace(actor, { workspaceId: "ws-studio", slug: "studio" });
-    const run = (commandType: string, key: string, payload: Record<string, unknown>) => brain.executeCommand(actor, {
+    const run = async (commandType: string, key: string, payload: Record<string, unknown>) => (await brain.executeCommand(actor, {
       contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType,
       workspaceId: "ws-studio", idempotencyKey: key, payload,
-    } as never, key).receipt;
-    const connectionId = run("integration.connect", "browser-studio-connect", { name: "Studio remote", repositoryUrl: remote.remote }).resourceId!;
+    } as never, key)).receipt;
+    const connectionId = (await run("integration.connect", "browser-studio-connect", { name: "Studio remote", repositoryUrl: remote.remote })).resourceId!;
     expect(await brain.integrations.verifyPending()).toEqual({ verified: 1, failed: 0 });
-    const bindingId = run("integration.bind", "browser-studio-bind", { connectionId, workspaceId: "ws-studio", kind: "configuration", repositoryKey: remote.remote, access: "write" }).resourceId!;
+    const bindingId = (await run("integration.bind", "browser-studio-bind", { connectionId, workspaceId: "ws-studio", kind: "configuration", repositoryKey: remote.remote, access: "write" })).resourceId!;
     expect(await brain.integrations.verifyPending()).toEqual({ verified: 1, failed: 0 });
     const activeBefore = brain.activeRelease(actor.organizationId);
 

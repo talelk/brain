@@ -1,6 +1,5 @@
 import { For, Show } from "solid-js";
 import type { JSX, ParentProps } from "solid-js";
-import { KeyValue } from "@talelk/newui-atoms";
 import { Alert } from "@talelk/newui-molecules";
 
 export { BrainPage } from "../page-context";
@@ -14,12 +13,6 @@ export function TechnicalDetails(props: ParentProps<{ label?: string }>): JSX.El
     <summary class="cursor-pointer rounded-control text-caption font-medium text-ink-gray-7 focus-visible:focus-ring">{props.label ?? "Technical details"}</summary>
     <div class="mt-3 min-w-0 text-caption text-ink-gray-7">{props.children}</div>
   </details>;
-}
-
-export function KeyValueGrid(props: { items: { label: string; value: JSX.Element }[] }): JSX.Element {
-  return <dl class="brain-key-value-grid">
-    <For each={props.items}>{(item) => <KeyValue label={item.label} value={item.value} orientation="vertical" />}</For>
-  </dl>;
 }
 
 export function ErrorSummary(props: { title?: string; errors: string[] }): JSX.Element {

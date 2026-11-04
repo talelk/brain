@@ -21,9 +21,9 @@ describe("starter agent dispatch through real Governor and supervisor", () => {
       const b = fixtureStarter();
       const { digest } = world.brain.stageRelease(world.owner, b.documents, b.sourceRevision, b.scripts, b.instructions, b.schemas);
       world.brain.activateRelease(world.owner, digest);
-      const catalog = world.brain.executeQuery(world.owner, { queryType: "agents.list", workspaceId: world.workspaceId });
+      const catalog = await world.brain.executeQuery(world.owner, { queryType: "agents.list", workspaceId: world.workspaceId });
       expect(validate("QueryResponse", catalog)).toEqual({ ok: true, errors: [] });
-      const workflows = world.brain.executeQuery(world.owner, { queryType: "workflows.list", workspaceId: world.workspaceId });
+      const workflows = await world.brain.executeQuery(world.owner, { queryType: "workflows.list", workspaceId: world.workspaceId });
       expect(validate("QueryResponse", workflows)).toEqual({ ok: true, errors: [] });
       const transport: typeof fetch = async (input, init) => app.fetch(new Request(input, init));
       const caps = ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"];
@@ -31,7 +31,7 @@ describe("starter agent dispatch through real Governor and supervisor", () => {
       const author = cfg("agents"); const evaluator = cfg("evaluators");
       const authorSession = await enrollAndHello(author, world.brain.issueEnrollment(world.owner, "agents").token);
       const evalSession = await enrollAndHello(evaluator, world.brain.issueEnrollment(world.owner, "evaluators").token);
-      const { receipt } = world.brain.executeCommand(world.owner, {
+      const { receipt } = await world.brain.executeCommand(world.owner, {
         contractVersion: "brain.command/v1", commandType: "workflow.dispatch", commandId: "cmd-agent-smoke", idempotencyKey: "agent-smoke",
         workspaceId: world.workspaceId, payload: { workflow: { id: "agent-smoke", digest }, input: { message: "BRAIN_OK" } },
       }, "corr-agent-smoke");

@@ -25,7 +25,7 @@ describe("lease contention across processes (T18)", () => {
       const brain = app.brain;
       const w = setupWorld(brain);
       const digest = brain.activeRelease(w.org)!.digest;
-      brain.executeCommand(w.owner, {
+      await brain.executeCommand(w.owner, {
         contractVersion: "brain.command/v1", commandId: "cmd-lease", commandType: "workflow.dispatch",
         workspaceId: w.workspaceId, idempotencyKey: "lease-1",
         payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "contended" } },

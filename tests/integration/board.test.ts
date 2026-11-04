@@ -4,27 +4,27 @@ import { setupWorld, DIGEST_A } from "../helpers";
 
 type World = ReturnType<typeof setupWorld>;
 
-function run(w: World, commandType: string, key: string, payload: Record<string, unknown>, expectedVersion?: number): CommandReceipt {
-  return w.brain.executeCommand(w.owner, {
+async function run(w: World, commandType: string, key: string, payload: Record<string, unknown>, expectedVersion?: number): Promise<CommandReceipt> {
+  return (await w.brain.executeCommand(w.owner, {
     contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType,
     workspaceId: w.workspaceId, idempotencyKey: key, ...(expectedVersion ? { expectedVersion } : {}), payload,
-  } as never, key).receipt;
+  } as never, key)).receipt;
 }
 
 /** One work item with the given criteria, materialized through the canonical plan path. */
-function createWorkItem(w: World, key: string, criteria: string[]): WorkItem {
-  const objectiveId = run(w, "objective.create", `${key}-obj`, { title: key, intent: "board test", successCriteria: ["done well"] }).resourceId ?? "";
-  const planId = run(w, "plan.propose", `${key}-plan`, {
+async function createWorkItem(w: World, key: string, criteria: string[]): Promise<WorkItem> {
+  const objectiveId = (await run(w, "objective.create", `${key}-obj`, { title: key, intent: "board test", successCriteria: ["done well"] })).resourceId ?? "";
+  const planId = (await run(w, "plan.propose", `${key}-plan`, {
     objectiveId, origin: "agent", summary: "single task",
     tasks: [{ id: "task", title: key, criteria, dependsOn: [], assignment: { kind: "agent", id: "pi", role: "specialist" } }],
-  }).resourceId ?? "";
-  run(w, "plan.confirm", `${key}-confirm`, { planVersionId: planId }, 1);
-  const listed = w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId }) as { snapshot: { items: WorkItem[] } };
+  })).resourceId ?? "";
+  await run(w, "plan.confirm", `${key}-confirm`, { planVersionId: planId }, 1);
+  const listed = (await w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId })) as { snapshot: { items: WorkItem[] } };
   return listed.snapshot.items.find((item) => item.title === key)!;
 }
 
-function transition(w: World, key: string, workItemId: string, state: string, version: number, evidenceDigest?: string) {
-  return run(w, "workItem.transition", key, { workItemId, state, ...(evidenceDigest ? { evidenceDigest } : {}) }, version);
+async function transition(w: World, key: string, workItemId: string, state: string, version: number, evidenceDigest?: string) {
+  return await run(w, "workItem.transition", key, { workItemId, state, ...(evidenceDigest ? { evidenceDigest } : {}) }, version);
 }
 
 function seedBundle(w: World, digest: string, state: string, checks: Array<{ criterionId: string; checkId: string; status: string }>): void {
@@ -47,30 +47,30 @@ function seedBundle(w: World, digest: string, state: string, checks: Array<{ cri
 const D = (ch: string) => `sha256:${ch.repeat(64)}`;
 
 describe("work item Done requires explicit verified criterion evidence (T31/T37)", () => {
-  it("binds a work item to a verified bundle only when every criterion passed", () => {
+  it("binds a work item to a verified bundle only when every criterion passed", async () => {
     const w = setupWorld();
-    const item = createWorkItem(w, "work-1", ["echo", "bytes"]);
+    const item = await createWorkItem(w, "work-1", ["echo", "bytes"]);
     expect(item.state).toBe("ready");
     // ready -> done is not a legal transition; the path runs through in-progress and review.
-    expect(() => transition(w, "t-skip", item.workItemId, "done", item.version)).toThrow(/illegal transition/i);
-    transition(w, "t-start", item.workItemId, "in-progress", item.version);
-    const started = w.brain.executeQuery(w.owner, { queryType: "workItems.get", workspaceId: w.workspaceId, resourceId: item.workItemId }) as { snapshot: WorkItem };
+    await expect(Promise.resolve().then(async () => await transition(w, "t-skip", item.workItemId, "done", item.version))).rejects.toThrow(/illegal transition/i);
+    await transition(w, "t-start", item.workItemId, "in-progress", item.version);
+    const started = (await w.brain.executeQuery(w.owner, { queryType: "workItems.get", workspaceId: w.workspaceId, resourceId: item.workItemId })) as { snapshot: WorkItem };
     expect(started.snapshot.state).toBe("in-progress");
-    transition(w, "t-review", item.workItemId, "review", started.snapshot.version);
-    const reviewing = w.brain.executeQuery(w.owner, { queryType: "workItems.get", workspaceId: w.workspaceId, resourceId: item.workItemId }) as { snapshot: WorkItem };
+    await transition(w, "t-review", item.workItemId, "review", started.snapshot.version);
+    const reviewing = (await w.brain.executeQuery(w.owner, { queryType: "workItems.get", workspaceId: w.workspaceId, resourceId: item.workItemId })) as { snapshot: WorkItem };
     const reviewVersion = reviewing.snapshot.version;
-    expect(() => transition(w, "t-noev", item.workItemId, "done", reviewVersion)).toThrow(/evidence/i);
-    expect(() => transition(w, "t-unknown", item.workItemId, "done", reviewVersion, D("f"))).toThrow(/verified/i);
+    await expect(Promise.resolve().then(async () => await transition(w, "t-noev", item.workItemId, "done", reviewVersion))).rejects.toThrow(/evidence/i);
+    await expect(Promise.resolve().then(async () => await transition(w, "t-unknown", item.workItemId, "done", reviewVersion, D("f")))).rejects.toThrow(/verified/i);
     seedBundle(w, D("a"), "submitted", [{ criterionId: "echo", checkId: "c1", status: "passed" }, { criterionId: "bytes", checkId: "c2", status: "passed" }]);
-    expect(() => transition(w, "t-unverified", item.workItemId, "done", reviewVersion, D("a"))).toThrow(/verified/i);
+    await expect(Promise.resolve().then(async () => await transition(w, "t-unverified", item.workItemId, "done", reviewVersion, D("a")))).rejects.toThrow(/verified/i);
     seedBundle(w, D("b"), "verified", [{ criterionId: "echo", checkId: "c1", status: "passed" }]);
-    expect(() => transition(w, "t-partial", item.workItemId, "done", reviewVersion, D("b"))).toThrow(/criter/);
+    await expect(Promise.resolve().then(async () => await transition(w, "t-partial", item.workItemId, "done", reviewVersion, D("b")))).rejects.toThrow(/criter/);
     seedBundle(w, D("c"), "verified", [{ criterionId: "echo", checkId: "c1", status: "passed" }, { criterionId: "bytes", checkId: "c2", status: "failed" }]);
-    expect(() => transition(w, "t-failed", item.workItemId, "done", reviewVersion, D("c"))).toThrow(/criter/);
+    await expect(Promise.resolve().then(async () => await transition(w, "t-failed", item.workItemId, "done", reviewVersion, D("c")))).rejects.toThrow(/criter/);
     seedBundle(w, D("d"), "verified", [{ criterionId: "echo", checkId: "c1", status: "passed" }, { criterionId: "bytes", checkId: "c2", status: "passed" }]);
     const listed = w.brain.listVerifiedEvidence(w.owner, w.workspaceId) as { items: { digest: string; passedCriteria: string[] }[] };
     expect(listed.items.find((bundle) => bundle.digest === D("d"))?.passedCriteria).toEqual(["echo", "bytes"]);
-    transition(w, "t-done", item.workItemId, "done", reviewVersion, D("d"));
+    await transition(w, "t-done", item.workItemId, "done", reviewVersion, D("d"));
     const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
     const row = ws.prepare("SELECT state, evidence_digest FROM work_items WHERE id=?").get(item.workItemId) as { state: string; evidence_digest: string };
     expect(row.state).toBe("done");
@@ -78,22 +78,22 @@ describe("work item Done requires explicit verified criterion evidence (T31/T37)
     w.brain.close();
   });
 
-  it("concurrent comments from two actors both land; missing work item is NOT_FOUND (T31)", () => {
+  it("concurrent comments from two actors both land; missing work item is NOT_FOUND (T31)", async () => {
     const w = setupWorld();
-    const item = createWorkItem(w, "work-comments", ["c1"]);
-    const comment = (actor: World["owner"], key: string, text: string, target = item.workItemId) => w.brain.executeCommand(actor, {
+    const item = await createWorkItem(w, "work-comments", ["c1"]);
+    const comment = async (actor: World["owner"], key: string, text: string, target = item.workItemId) => await w.brain.executeCommand(actor, {
       contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "workItem.comment",
       workspaceId: w.workspaceId, idempotencyKey: key, payload: { workItemId: target, text },
     } as never, key);
     const other = w.actor("owner-1", w.workspaceId);
-    comment(w.owner, "cmt-1", "first note");
-    comment(other, "cmt-2", "second note");
+    await comment(w.owner, "cmt-1", "first note");
+    await comment(other, "cmt-2", "second note");
     // Idempotent replay of the first comment does not duplicate it.
-    comment(w.owner, "cmt-1", "first note");
+    await comment(w.owner, "cmt-1", "first note");
     const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
     const rows = ws.prepare("SELECT body FROM work_item_comments WHERE work_item_id=? ORDER BY created_at_ms, id").all(item.workItemId) as Array<{ body: string }>;
     expect(rows.map((r) => r.body)).toEqual(["first note", "second note"]);
-    expect(() => comment(w.owner, "cmt-3", "orphan", "work-missing")).toThrow(/not found/i);
+    await expect(Promise.resolve().then(async () => await comment(w.owner, "cmt-3", "orphan", "work-missing"))).rejects.toThrow(/not found/i);
     w.brain.close();
   });
 });

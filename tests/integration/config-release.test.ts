@@ -27,10 +27,10 @@ describe("config release staging and activation (T11)", () => {
     w.brain.close();
   });
 
-  it("activation is CAS-guarded and existing runs keep their pinned release digest", () => {
+  it("activation is CAS-guarded and existing runs keep their pinned release digest", async () => {
     const w = setupWorld();
     const activeA = w.brain.activeRelease(w.org)!.digest;
-    w.brain.executeCommand(w.owner, {
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-pin", commandType: "workflow.dispatch",
       workspaceId: w.workspaceId, idempotencyKey: "pin-1",
       payload: { workflow: { id: "fixture-workflow", digest: activeA }, input: { message: "pinned" } },

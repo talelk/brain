@@ -17,7 +17,7 @@ function subject(w: World, nonce: string) {
 
 async function request(w: World, key: string, nonce: string): Promise<{ approvalId: string; digest: string; subj: ReturnType<typeof subject> }> {
   const subj = subject(w, nonce);
-  const req = w.brain.executeCommand(w.owner, {
+  const req = await w.brain.executeCommand(w.owner, {
     contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "approval.request",
     workspaceId: w.workspaceId, idempotencyKey: key, payload: { subject: subj },
   }, key);

@@ -13,7 +13,7 @@ describe("G07 restore: hash-verified backup, suspended history, dead authority (
     const w = setupWorld();
     const s = w.brain.store;
     const digest = w.brain.activeRelease(w.org)!.digest;
-    w.brain.executeCommand(w.owner, {
+    await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-g07-run", commandType: "workflow.dispatch",
       workspaceId: w.workspaceId, idempotencyKey: "g07-run",
       payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "restore me" } },
@@ -34,7 +34,7 @@ describe("G07 restore: hash-verified backup, suspended history, dead authority (
       effectBounds: {}, expiresAt: new Date(Date.now() + 3600000).toISOString(), nonce: "g07-n1",
     };
     const approver = await w.grantApprover("g07-approver");
-    const req = w.brain.executeCommand(w.owner, {
+    const req = await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-g07-apr", commandType: "approval.request",
       workspaceId: w.workspaceId, idempotencyKey: "g07-apr", payload: { subject },
     }, "g07a");

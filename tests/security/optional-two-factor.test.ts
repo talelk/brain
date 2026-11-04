@@ -25,8 +25,8 @@ describe("optional and required two-factor approval policy", () => {
         target: { targetId: "target-optional", environmentId: "prod", preconditionDigest: DIGEST_A }, artifactDigest: DIGEST_A, policyDigest: DIGEST_A, configDigest: DIGEST_A,
         effectBounds: {}, expiresAt: new Date(Date.now()+3600000).toISOString(), nonce: "optional" };
       const subjectDigest = approvalSubjectDigest(subject);
-      const request = (id: string) => w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandType: "approval.request", commandId: id, idempotencyKey: id, workspaceId: w.workspaceId, payload: { subject } }, id).receipt.resourceId!;
-      const first = request("optional-1");
+      const request = async (id: string) => (await w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandType: "approval.request", commandId: id, idempotencyKey: id, workspaceId: w.workspaceId, payload: { subject } }, id)).receipt.resourceId!;
+      const first = await request("optional-1");
       const second = w.brain.createApprovalForGate({ organizationId: w.org, workspaceId: w.workspaceId, runId: "test-run", stepId: "test-gate", subject, expiresAtMs: Date.now()+3600000, requestedBy: w.owner.actorId });
       const challenge = w.brain.stepUp.createChallenge(identity, first, subjectDigest);
       const { evidenceId } = await w.brain.stepUp.verify(identity, challenge.challengeId, "", headers);

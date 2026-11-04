@@ -22,7 +22,7 @@ async function world(executeAuthor = false) {
   const author={runnerId:authorConfig.runnerId,epoch:authorSession.epoch,organizationId:w.org};
   const evaluator={runnerId:evaluatorConfig.runnerId,epoch:evaluatorSession.epoch,organizationId:w.org};
   const digest=w.brain.activeRelease(w.org)!.digest;
-  w.brain.executeCommand(w.owner,{contractVersion:"brain.command/v1",commandId:"dispatch-evidence",commandType:"workflow.dispatch",workspaceId:w.workspaceId,idempotencyKey:"dispatch-evidence",
+  await w.brain.executeCommand(w.owner,{contractVersion:"brain.command/v1",commandId:"dispatch-evidence",commandType:"workflow.dispatch",workspaceId:w.workspaceId,idempotencyKey:"dispatch-evidence",
     payload:{workflow:{id:"fixture-workflow",digest},input:{message:"Brain fixture"}}},"corr-evidence");
   if (executeAuthor) {
     await runOnce(authorConfig,authorSession.sessionToken,authorSession.epoch);
@@ -157,7 +157,7 @@ describe("authenticated immutable evidence and real evaluator admission",()=>{
   it("does not accept a new verdict after cancellation",async()=>{
     const w=await admitted();
     try {
-      w.brain.executeCommand(w.owner,{contractVersion:"brain.command/v1",commandId:"cancel-evidence",commandType:"workflow.cancel",workspaceId:w.workspaceId,idempotencyKey:"cancel-evidence",payload:{runId:w.bundle.workflowRunId,reason:"Stop evaluation"}},"cancel-evidence");
+      await w.brain.executeCommand(w.owner,{contractVersion:"brain.command/v1",commandId:"cancel-evidence",commandType:"workflow.cancel",workspaceId:w.workspaceId,idempotencyKey:"cancel-evidence",payload:{runId:w.bundle.workflowRunId,reason:"Stop evaluation"}},"cancel-evidence");
       expect(()=>w.brain.acceptVerdict(w.evaluator,w.workspaceId,w.verdict)).toThrow(/terminal workflow/);
       expect(w.brain.store.workspaceDb(w.workspaceId,w.org).prepare("SELECT COUNT(*) AS n FROM verification_verdicts").get()).toEqual({n:0});
     } finally {await w.app.close();}
