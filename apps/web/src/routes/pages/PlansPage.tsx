@@ -3,7 +3,7 @@ import type { JSX } from "solid-js";
 import { useSearchParams } from "@solidjs/router";
 import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Pagination, Stepper } from "@talelk/newui-molecules";
-import type { ObjectivePlanView, PlanTask, WorkBoardView } from "@brain/contracts";
+import type { ObjectivePlanView, PlanTask, BoardView } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { governor, query } from "../../data/client";
 import { createScopedRead } from "../../data/screens";
@@ -27,10 +27,10 @@ export default function PlansPage(): JSX.Element {
   const [error, setError] = createSignal("");
   const [busy, setBusy] = createSignal(false);
 
-  const board = createScopedRead<WorkBoardView>({
+  const board = createScopedRead<BoardView>({
     scope: app.scope,
     load: async (scope, signal) => {
-      const response = await query<{ snapshot: WorkBoardView; asOf: string; sourceWatermark: number }>({ queryType: "workBoard.get", workspaceId: scope.workspaceId }, signal);
+      const response = await query<{ snapshot: BoardView; asOf: string; sourceWatermark: number }>({ queryType: "board.get", workspaceId: scope.workspaceId }, signal);
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     isEmpty: (view) => view.objectives.length === 0,

@@ -109,7 +109,7 @@ The launcher has exactly the preinstalled `agent`, `privileged-tool` and `evalua
 
 `control.db`: identities through Better Auth, organization/workspace directory, active config pointers, runners, jobs, attempts, capacity reservations, approval requests/decisions/consumption, effect permits, resource fencing counters, revocations, audit, global inbox/outbox and command idempotency.
 
-`workspace.db`: cards, decisions, ticket/incident history, SLA intervals, workflow business state, step/output references, session indexes, evidence and evaluation indexes, memory publication candidates, connector cursors, workspace inbox/outbox. It contains a projection of global job state, clearly marked with a source cursor.
+`workspace.db`: work items, decisions, ticket/incident history, SLA intervals, workflow business state, step/output references, session indexes, evidence and evaluation indexes, memory publication candidates, connector cursors, workspace inbox/outbox. It contains a projection of global job state, clearly marked with a source cursor.
 
 `workspace.mastra.db`: private engine snapshots and definitions. No hand-authored SQL touches its tables. Missing snapshots block unsafe continuation; business truth and receipts remain in Brain tables.
 

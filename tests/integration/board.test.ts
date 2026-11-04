@@ -1,22 +1,30 @@
 import { describe, expect, it } from "vitest";
+import type { CommandReceipt, WorkItem } from "@brain/contracts";
 import { setupWorld, DIGEST_A } from "../helpers";
 
 type World = ReturnType<typeof setupWorld>;
 
-function createCard(w: World, key: string, criteria: string[]): string {
-  const { receipt } = w.brain.executeCommand(w.owner, {
-    contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "board.create",
-    workspaceId: w.workspaceId, idempotencyKey: key, payload: { title: key, criteria },
-  }, key);
-  return (receipt as { resourceId?: string }).resourceId ?? "";
+function run(w: World, commandType: string, key: string, payload: Record<string, unknown>, expectedVersion?: number): CommandReceipt {
+  return w.brain.executeCommand(w.owner, {
+    contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType,
+    workspaceId: w.workspaceId, idempotencyKey: key, ...(expectedVersion ? { expectedVersion } : {}), payload,
+  } as never, key).receipt;
 }
 
-function move(w: World, key: string, cardId: string, status: string, version: number, evidenceDigest?: string) {
-  return w.brain.executeCommand(w.owner, {
-    contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "board.move",
-    workspaceId: w.workspaceId, idempotencyKey: key, expectedVersion: version,
-    payload: { cardId, status, ...(evidenceDigest ? { evidenceDigest } : {}) },
-  }, key);
+/** One work item with the given criteria, materialized through the canonical plan path. */
+function createWorkItem(w: World, key: string, criteria: string[]): WorkItem {
+  const objectiveId = run(w, "objective.create", `${key}-obj`, { title: key, intent: "board test", successCriteria: ["done well"] }).resourceId ?? "";
+  const planId = run(w, "plan.propose", `${key}-plan`, {
+    objectiveId, origin: "agent", summary: "single task",
+    tasks: [{ id: "task", title: key, criteria, dependsOn: [], assignment: { kind: "agent", id: "pi", role: "specialist" } }],
+  }).resourceId ?? "";
+  run(w, "plan.confirm", `${key}-confirm`, { planVersionId: planId }, 1);
+  const listed = w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId }) as { snapshot: { items: WorkItem[] } };
+  return listed.snapshot.items.find((item) => item.title === key)!;
+}
+
+function transition(w: World, key: string, workItemId: string, state: string, version: number, evidenceDigest?: string) {
+  return run(w, "workItem.transition", key, { workItemId, state, ...(evidenceDigest ? { evidenceDigest } : {}) }, version);
 }
 
 function seedBundle(w: World, digest: string, state: string, checks: Array<{ criterionId: string; checkId: string; status: string }>): void {
@@ -38,46 +46,54 @@ function seedBundle(w: World, digest: string, state: string, checks: Array<{ cri
 
 const D = (ch: string) => `sha256:${ch.repeat(64)}`;
 
-describe("board Done requires explicit verified criterion evidence (T31/T37)", () => {
-  it("binds a card to a verified bundle only when every criterion passed", () => {
+describe("work item Done requires explicit verified criterion evidence (T31/T37)", () => {
+  it("binds a work item to a verified bundle only when every criterion passed", () => {
     const w = setupWorld();
-    const cardId = createCard(w, "card-1", ["echo", "bytes"]);
-    expect(() => move(w, "m1", cardId, "done", 1)).toThrow(/evidence/i);
-    expect(() => move(w, "m2", cardId, "done", 1, D("f"))).toThrow();
+    const item = createWorkItem(w, "work-1", ["echo", "bytes"]);
+    expect(item.state).toBe("ready");
+    // ready -> done is not a legal transition; the path runs through in-progress and review.
+    expect(() => transition(w, "t-skip", item.workItemId, "done", item.version)).toThrow(/illegal transition/i);
+    transition(w, "t-start", item.workItemId, "in-progress", item.version);
+    const started = w.brain.executeQuery(w.owner, { queryType: "workItems.get", workspaceId: w.workspaceId, resourceId: item.workItemId }) as { snapshot: WorkItem };
+    expect(started.snapshot.state).toBe("in-progress");
+    transition(w, "t-review", item.workItemId, "review", started.snapshot.version);
+    const reviewing = w.brain.executeQuery(w.owner, { queryType: "workItems.get", workspaceId: w.workspaceId, resourceId: item.workItemId }) as { snapshot: WorkItem };
+    const reviewVersion = reviewing.snapshot.version;
+    expect(() => transition(w, "t-noev", item.workItemId, "done", reviewVersion)).toThrow(/evidence/i);
+    expect(() => transition(w, "t-unknown", item.workItemId, "done", reviewVersion, D("f"))).toThrow(/verified/i);
     seedBundle(w, D("a"), "submitted", [{ criterionId: "echo", checkId: "c1", status: "passed" }, { criterionId: "bytes", checkId: "c2", status: "passed" }]);
-    expect(() => move(w, "m3", cardId, "done", 1, D("a"))).toThrow(/verified/i);
+    expect(() => transition(w, "t-unverified", item.workItemId, "done", reviewVersion, D("a"))).toThrow(/verified/i);
     seedBundle(w, D("b"), "verified", [{ criterionId: "echo", checkId: "c1", status: "passed" }]);
-    expect(() => move(w, "m4", cardId, "done", 1, D("b"))).toThrow(/criter/);
+    expect(() => transition(w, "t-partial", item.workItemId, "done", reviewVersion, D("b"))).toThrow(/criter/);
     seedBundle(w, D("c"), "verified", [{ criterionId: "echo", checkId: "c1", status: "passed" }, { criterionId: "bytes", checkId: "c2", status: "failed" }]);
-    expect(() => move(w, "m5", cardId, "done", 1, D("c"))).toThrow(/criter/);
+    expect(() => transition(w, "t-failed", item.workItemId, "done", reviewVersion, D("c"))).toThrow(/criter/);
     seedBundle(w, D("d"), "verified", [{ criterionId: "echo", checkId: "c1", status: "passed" }, { criterionId: "bytes", checkId: "c2", status: "passed" }]);
     const listed = w.brain.listVerifiedEvidence(w.owner, w.workspaceId) as { items: { digest: string; passedCriteria: string[] }[] };
     expect(listed.items.find((bundle) => bundle.digest === D("d"))?.passedCriteria).toEqual(["echo", "bytes"]);
-    move(w, "m6", cardId, "verifying", 1);
-    move(w, "m7", cardId, "done", 2, D("d"));
+    transition(w, "t-done", item.workItemId, "done", reviewVersion, D("d"));
     const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
-    const card = ws.prepare("SELECT state, evidence_digest FROM cards WHERE id=?").get(cardId) as { state: string; evidence_digest: string };
-    expect(card.state).toBe("done");
-    expect(card.evidence_digest).toBe(D("d"));
+    const row = ws.prepare("SELECT state, evidence_digest FROM work_items WHERE id=?").get(item.workItemId) as { state: string; evidence_digest: string };
+    expect(row.state).toBe("done");
+    expect(row.evidence_digest).toBe(D("d"));
     w.brain.close();
   });
 
-  it("concurrent comments from two actors both land; missing card is NOT_FOUND (T31)", () => {
+  it("concurrent comments from two actors both land; missing work item is NOT_FOUND (T31)", () => {
     const w = setupWorld();
-    const cardId = createCard(w, "card-comments", ["c1"]);
-    const comment = (actor: World["owner"], key: string, text: string, target = cardId) => w.brain.executeCommand(actor, {
-      contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "board.comment",
-      workspaceId: w.workspaceId, idempotencyKey: key, payload: { cardId: target, text },
-    }, key);
+    const item = createWorkItem(w, "work-comments", ["c1"]);
+    const comment = (actor: World["owner"], key: string, text: string, target = item.workItemId) => w.brain.executeCommand(actor, {
+      contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "workItem.comment",
+      workspaceId: w.workspaceId, idempotencyKey: key, payload: { workItemId: target, text },
+    } as never, key);
     const other = w.actor("owner-1", w.workspaceId);
     comment(w.owner, "cmt-1", "first note");
     comment(other, "cmt-2", "second note");
     // Idempotent replay of the first comment does not duplicate it.
     comment(w.owner, "cmt-1", "first note");
     const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
-    const rows = ws.prepare("SELECT body FROM card_comments WHERE card_id=? ORDER BY created_at_ms, id").all(cardId) as Array<{ body: string }>;
+    const rows = ws.prepare("SELECT body FROM work_item_comments WHERE work_item_id=? ORDER BY created_at_ms, id").all(item.workItemId) as Array<{ body: string }>;
     expect(rows.map((r) => r.body)).toEqual(["first note", "second note"]);
-    expect(() => comment(w.owner, "cmt-3", "orphan", "card-missing")).toThrow(/not found/i);
+    expect(() => comment(w.owner, "cmt-3", "orphan", "work-missing")).toThrow(/not found/i);
     w.brain.close();
   });
 });

@@ -73,8 +73,8 @@ Special endpoint rules, enforced server-side rather than by the UI:
   immediately before execution.
 - **Governed tool broker** — the only path for agent tool calls. Native Pi/Claude
   host tools stay disabled; only release-pinned tools cross the broker.
-- **Work items** — boards with cards, support tickets, incidents. Tasks start from
-  them and runs stay linked back.
+- **Work items** — the units the board shows, plus support tickets and incidents.
+  Tasks start from them and runs stay linked back.
 - **Audit + outbox** — every state transition writes audit and outbox entries
   atomically with the mutation, expected-version checked.
 
@@ -142,7 +142,7 @@ Fallback: if the conversational model is unavailable, choose a task directly (UF
 
 ### UF-04 Start a task from a work item
 
-Open a board card, support ticket, or incident detail page and select **Start a task
+Open a work item, support ticket, or incident detail page and select **Start a task
 for this item**. The form opens with known item information prefilled; review and
 start remain mandatory. The run records the originating item; the item page lists all
 related runs with current state, each linking back.

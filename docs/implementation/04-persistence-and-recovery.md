@@ -27,7 +27,7 @@ Policy, membership and revocation facts used for effects must come from authorit
 
 ## Workspace transactions
 
-Workspace command application updates cards/workflow business state, increments aggregate version, inserts inbox receipt and workspace outbox in one local transaction. It never writes global job status as authority. A task's Done transition checks a verified evidence record and source authority watermark; if global acceptance is pending, show Verifying.
+Workspace command application updates work items/workflow business state, increments aggregate version, inserts inbox receipt and workspace outbox in one local transaction. It never writes global job status as authority. A task's Done transition checks a verified evidence record and source authority watermark; if global acceptance is pending, show Verifying.
 
 Reference SQL includes foundational tables and constraints for the target. Better Auth tables are generated from the pinned plugin configuration; required pack tables belong in the current schema definition. Track current schema identity and initialization status, not a historical upgrade chain. An existing unsupported database is rejected/preserved rather than automatically converted or reset. No reference SQL file is represented as a complete production database.
 

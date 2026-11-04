@@ -3677,76 +3677,6 @@
             "eventType": {
               "type": "string",
               "enum": [
-                "board.created",
-                "board.moved",
-                "board.commented"
-              ]
-            },
-            "organizationId": {
-              "$ref": "#/$defs/Id"
-            },
-            "workspaceId": {
-              "$ref": "#/$defs/Id"
-            },
-            "aggregateType": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 64
-            },
-            "aggregateId": {
-              "$ref": "#/$defs/Id"
-            },
-            "sequence": {
-              "$ref": "#/$defs/Counter"
-            },
-            "correlationId": {
-              "$ref": "#/$defs/Id"
-            },
-            "causationId": {
-              "$ref": "#/$defs/Id"
-            },
-            "occurredAt": {
-              "$ref": "#/$defs/Timestamp"
-            },
-            "actorRef": {
-              "$ref": "#/$defs/Id"
-            },
-            "configDigest": {
-              "$ref": "#/$defs/Digest"
-            },
-            "payload": {
-              "$ref": "#/$defs/BoardEventPayload"
-            }
-          },
-          "required": [
-            "contractVersion",
-            "eventId",
-            "eventType",
-            "organizationId",
-            "aggregateType",
-            "aggregateId",
-            "sequence",
-            "correlationId",
-            "causationId",
-            "occurredAt",
-            "actorRef",
-            "payload"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "contractVersion": {
-              "type": "string",
-              "const": "brain.event/v1"
-            },
-            "eventId": {
-              "$ref": "#/$defs/Id"
-            },
-            "eventType": {
-              "type": "string",
-              "enum": [
                 "decision.recorded"
               ]
             },
@@ -6671,42 +6601,6 @@
       ],
       "additionalProperties": false
     },
-    "WorkBoardView": {
-      "type": "object",
-      "properties": {
-        "workspaceId": {
-          "$ref": "#/$defs/Id"
-        },
-        "objectives": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Objective"
-          },
-          "maxItems": 100
-        },
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/WorkItem"
-          },
-          "maxItems": 1000
-        },
-        "executions": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/ExecutionLink"
-          },
-          "maxItems": 1000
-        }
-      },
-      "required": [
-        "workspaceId",
-        "objectives",
-        "items",
-        "executions"
-      ],
-      "additionalProperties": false
-    },
     "ObjectiveCreateCommand": {
       "type": "object",
       "properties": {
@@ -7171,7 +7065,6 @@
             "plans.get",
             "workItems.list",
             "workItems.get",
-            "workBoard.get",
             "automations.list",
             "automations.occurrences",
             "delegations.list",
@@ -7221,7 +7114,6 @@
             "plans.get",
             "workItems.list",
             "workItems.get",
-            "workBoard.get",
             "automations.list",
             "automations.occurrences",
             "delegations.list",
@@ -8628,179 +8520,6 @@
       "required": ["contractVersion", "commandId", "commandType", "idempotencyKey", "payload"],
       "additionalProperties": false
     },
-    "BoardCreateCommand": {
-      "type": "object",
-      "properties": {
-        "contractVersion": {
-          "type": "string",
-          "const": "brain.command/v1"
-        },
-        "commandId": {
-          "$ref": "#/$defs/Id"
-        },
-        "commandType": {
-          "type": "string",
-          "const": "board.create"
-        },
-        "workspaceId": {
-          "$ref": "#/$defs/Id"
-        },
-        "idempotencyKey": {
-          "$ref": "#/$defs/Id"
-        },
-        "expectedVersion": {
-          "$ref": "#/$defs/Counter"
-        },
-        "payload": {
-          "type": "object",
-          "properties": {
-            "title": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 256
-            },
-            "criteria": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 1024
-              },
-              "minItems": 1,
-              "maxItems": 100
-            }
-          },
-          "required": [
-            "title",
-            "criteria"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "required": [
-        "contractVersion",
-        "commandId",
-        "commandType",
-        "idempotencyKey",
-        "payload",
-        "workspaceId"
-      ],
-      "additionalProperties": false
-    },
-    "BoardMoveCommand": {
-      "type": "object",
-      "properties": {
-        "contractVersion": {
-          "type": "string",
-          "const": "brain.command/v1"
-        },
-        "commandId": {
-          "$ref": "#/$defs/Id"
-        },
-        "commandType": {
-          "type": "string",
-          "const": "board.move"
-        },
-        "workspaceId": {
-          "$ref": "#/$defs/Id"
-        },
-        "idempotencyKey": {
-          "$ref": "#/$defs/Id"
-        },
-        "expectedVersion": {
-          "$ref": "#/$defs/Counter"
-        },
-        "payload": {
-          "type": "object",
-          "properties": {
-            "cardId": {
-              "$ref": "#/$defs/Id"
-            },
-            "status": {
-              "type": "string",
-              "enum": [
-                "to-decide",
-                "todo",
-                "in-progress",
-                "verifying",
-                "done",
-                "blocked"
-              ]
-            },
-            "evidenceDigest": {
-              "$ref": "#/$defs/Digest"
-            }
-          },
-          "required": [
-            "cardId",
-            "status"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "required": [
-        "contractVersion",
-        "commandId",
-        "commandType",
-        "idempotencyKey",
-        "payload",
-        "workspaceId",
-        "expectedVersion"
-      ],
-      "additionalProperties": false
-    },
-    "BoardCommentCommand": {
-      "type": "object",
-      "properties": {
-        "contractVersion": {
-          "type": "string",
-          "const": "brain.command/v1"
-        },
-        "commandId": {
-          "$ref": "#/$defs/Id"
-        },
-        "commandType": {
-          "type": "string",
-          "const": "board.comment"
-        },
-        "workspaceId": {
-          "$ref": "#/$defs/Id"
-        },
-        "idempotencyKey": {
-          "$ref": "#/$defs/Id"
-        },
-        "expectedVersion": {
-          "$ref": "#/$defs/Counter"
-        },
-        "payload": {
-          "type": "object",
-          "properties": {
-            "cardId": {
-              "$ref": "#/$defs/Id"
-            },
-            "text": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 8000
-            }
-          },
-          "required": [
-            "cardId",
-            "text"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "required": [
-        "contractVersion",
-        "commandId",
-        "commandType",
-        "idempotencyKey",
-        "payload",
-        "workspaceId"
-      ],
-      "additionalProperties": false
-    },
     "DecisionRecordCommand": {
       "type": "object",
       "properties": {
@@ -8827,7 +8546,7 @@
         "payload": {
           "type": "object",
           "properties": {
-            "cardId": {
+            "workItemId": {
               "$ref": "#/$defs/Id"
             },
             "decision": {
@@ -8846,7 +8565,7 @@
             }
           },
           "required": [
-            "cardId",
+            "workItemId",
             "decision",
             "note"
           ],
@@ -9400,15 +9119,6 @@
         },
         {
           "$ref": "#/$defs/RunnerControlCommand"
-        },
-        {
-          "$ref": "#/$defs/BoardCreateCommand"
-        },
-        {
-          "$ref": "#/$defs/BoardMoveCommand"
-        },
-        {
-          "$ref": "#/$defs/BoardCommentCommand"
         },
         {
           "$ref": "#/$defs/DecisionRecordCommand"
@@ -14468,109 +14178,45 @@
       ],
       "additionalProperties": false
     },
-    "CardView": {
-      "type": "object",
-      "properties": {
-        "cardId": {
-          "$ref": "#/$defs/Id"
-        },
-        "title": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "state": {
-          "type": "string",
-          "enum": [
-            "to-decide",
-            "todo",
-            "in-progress",
-            "verifying",
-            "done",
-            "blocked"
-          ]
-        },
-        "version": {
-          "$ref": "#/$defs/Counter"
-        },
-        "criteria": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "$ref": "#/$defs/ConfigId"
-              },
-              "text": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 1024
-              },
-              "status": {
-                "type": "string",
-                "enum": [
-                  "pending",
-                  "passed",
-                  "failed",
-                  "missing"
-                ]
-              }
-            },
-            "required": [
-              "id",
-              "text",
-              "status"
-            ],
-            "additionalProperties": false
-          },
-          "minItems": 1,
-          "maxItems": 100
-        },
-        "evidenceDigest": {
-          "$ref": "#/$defs/Digest"
-        },
-        "updatedAt": {
-          "$ref": "#/$defs/Timestamp"
-        }
-      },
-      "required": [
-        "cardId",
-        "title",
-        "state",
-        "version",
-        "criteria",
-        "updatedAt"
-      ],
-      "additionalProperties": false
-    },
     "BoardView": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "workspaceId": {
           "$ref": "#/$defs/Id"
         },
-        "cards": {
+        "objectives": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/CardView"
+            "$ref": "#/$defs/Objective"
           },
           "minItems": 0,
           "maxItems": 100
         },
-        "totalCards": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorkItem"
+          },
+          "minItems": 0,
+          "maxItems": 1000
+        },
+        "executions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExecutionLink"
+          },
+          "minItems": 0,
+          "maxItems": 1000
         }
       },
       "required": [
         "workspaceId",
-        "cards",
-        "totalCards"
-      ],
-      "additionalProperties": false
-    },
-    "SLASummary": {
+        "objectives",
+        "items",
+        "executions"
+      ]
+    },    "SLASummary": {
       "type": "object",
       "properties": {
         "workspaceId": {
@@ -15080,35 +14726,6 @@
       "additionalProperties": false
     },
     "ReconciliationEventPayload": {
-      "type": "object",
-      "properties": {
-        "resourceId": {
-          "$ref": "#/$defs/Id"
-        },
-        "version": {
-          "$ref": "#/$defs/Counter"
-        },
-        "state": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 64
-        },
-        "reason": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "artifact": {
-          "$ref": "#/$defs/ArtifactRef"
-        }
-      },
-      "required": [
-        "resourceId",
-        "version"
-      ],
-      "additionalProperties": false
-    },
-    "BoardEventPayload": {
       "type": "object",
       "properties": {
         "resourceId": {
@@ -16556,7 +16173,7 @@
         "workspaceId": {
           "$ref": "#/$defs/Id"
         },
-        "cardId": {
+        "workItemId": {
           "$ref": "#/$defs/Id"
         },
         "actorId": {
@@ -16582,7 +16199,7 @@
       "required": [
         "id",
         "workspaceId",
-        "cardId",
+        "workItemId",
         "actorId",
         "decision",
         "note",

@@ -29,11 +29,11 @@ describe("scenario gaps (T50 batch 1)", () => {
     const w = setupWorld();
     const other = await w.grantApprover("actor-two");
     const cmd = {
-      contractVersion: "brain.command/v1", commandId: "cmd-shared-1", commandType: "board.create",
-      workspaceId: w.workspaceId, idempotencyKey: "shared-key", payload: { title: "A", criteria: ["x"] },
+      contractVersion: "brain.command/v1", commandId: "cmd-shared-1", commandType: "objective.create",
+      workspaceId: w.workspaceId, idempotencyKey: "shared-key", payload: { title: "A", intent: "first", successCriteria: ["x"] },
     };
     const r1 = w.brain.executeCommand(w.owner, cmd, "c1");
-    const r2 = w.brain.executeCommand(other.actor, { ...cmd, commandId: "cmd-shared-2", payload: { title: "B", criteria: ["y"] } }, "c2");
+    const r2 = w.brain.executeCommand(other.actor, { ...cmd, commandId: "cmd-shared-2", payload: { title: "B", intent: "second", successCriteria: ["y"] } }, "c2");
     expect((r1.receipt as { resourceId?: string }).resourceId).not.toBe((r2.receipt as { resourceId?: string }).resourceId);
     w.brain.close();
   });
@@ -159,8 +159,8 @@ describe("scenario gaps (T50 batch 1)", () => {
       .run(w.workspaceId, w.org, w.brain.store.now());
     const kiosk = w.actor("tv-1", w.workspaceId);
     expect(() => w.brain.executeCommand({ ...kiosk, kind: "kiosk" }, {
-      contractVersion: "brain.command/v1", commandId: "cmd-tv", commandType: "board.create",
-      workspaceId: w.workspaceId, idempotencyKey: "tv-1", payload: { title: "x", criteria: ["y"] },
+      contractVersion: "brain.command/v1", commandId: "cmd-tv", commandType: "objective.create",
+      workspaceId: w.workspaceId, idempotencyKey: "tv-1", payload: { title: "x", intent: "y", successCriteria: ["z"] },
     }, "c1")).toThrow();
     w.brain.close();
   });

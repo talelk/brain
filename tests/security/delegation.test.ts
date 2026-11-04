@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { ActorContext, BrainSession, CommandReceipt, Delegation, WorkBoardView } from "@brain/contracts";
+import type { ActorContext, BrainSession, CommandReceipt, Delegation, BoardView } from "@brain/contracts";
 import { recordAttemptSession } from "../../apps/governor/src/modules/sessions/index";
 import { setupWorld, DIGEST_A, type TestWorld } from "../helpers";
 
@@ -23,7 +23,7 @@ function workItem(w: TestWorld): string {
   const objectiveId = run(w, "objective.create", "delegation-objective", { title: "Bounded collaboration", intent: "Delegate independent work", successCriteria: ["Reviewed"] }).resourceId!;
   const planId = run(w, "plan.propose", "delegation-plan", { objectiveId, origin: "manual", tasks: [{ id: "task", title: "Implement", criteria: ["verified"], dependsOn: [] }] }).resourceId!;
   run(w, "plan.confirm", "delegation-confirm", { planVersionId: planId }, w.owner, 1);
-  const board = (w.brain.executeQuery(w.owner, { queryType: "workBoard.get", workspaceId: w.workspaceId }) as { snapshot: WorkBoardView }).snapshot;
+  const board = (w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId }) as { snapshot: BoardView }).snapshot;
   return board.items[0]!.workItemId;
 }
 

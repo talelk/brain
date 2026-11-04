@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate, useSearchParams } from "@solidjs/router";
-import type { ExecutionLink, WorkBoardView } from "@brain/contracts";
+import type { ExecutionLink, BoardView } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
@@ -66,8 +66,8 @@ export default function OutputsPage(): JSX.Element {
   const executions = createScopedRead<ExecutionLink[]>({
     scope: app.scope,
     load: async (readScope, signal) => {
-      const response = await query<{ snapshot: WorkBoardView; asOf: string; sourceWatermark: number }>(
-        { queryType: "workBoard.get", workspaceId: readScope.workspaceId },
+      const response = await query<{ snapshot: BoardView; asOf: string; sourceWatermark: number }>(
+        { queryType: "board.get", workspaceId: readScope.workspaceId },
         signal,
       );
       return { snapshot: [...response.snapshot.executions], asOf: response.asOf, sourceWatermark: response.sourceWatermark };

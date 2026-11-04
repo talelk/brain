@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { ActorContext, CommandReceipt, Document, DocumentView, WorkBoardView } from "@brain/contracts";
+import type { ActorContext, CommandReceipt, Document, DocumentView, BoardView } from "@brain/contracts";
 import { sha256Digest } from "@brain/contracts";
 import { setupWorld, type TestWorld } from "../helpers";
 
@@ -31,7 +31,7 @@ function workItem(w: TestWorld): string {
   const objectiveId = run(w, "objective.create", "document-objective", { title: "Document-backed work", intent: "Use scoped resources", successCriteria: ["Verified"] }).resourceId!;
   const planId = run(w, "plan.propose", "document-plan", { objectiveId, origin: "manual", tasks: [{ id: "task", title: "Use the guide", criteria: ["verified"], dependsOn: [] }] }).resourceId!;
   run(w, "plan.confirm", "document-confirm", { planVersionId: planId }, w.owner, 1);
-  const board = (w.brain.executeQuery(w.owner, { queryType: "workBoard.get", workspaceId: w.workspaceId }) as { snapshot: WorkBoardView }).snapshot;
+  const board = (w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId }) as { snapshot: BoardView }).snapshot;
   return board.items[0]!.workItemId;
 }
 

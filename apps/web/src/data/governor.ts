@@ -70,8 +70,6 @@ export const approvalsQuery = (request: { workspaceId?: string } = {}, signal?: 
   fetchView({ queryType: "approvals.list", ...request }, signal);
 export const approvalQuery = (resourceId: string, signal?: AbortSignal) =>
   fetchView({ queryType: "approval.get", resourceId }, signal);
-export const boardQuery = (workspaceId: string, signal?: AbortSignal) =>
-  fetchView({ queryType: "board.get", workspaceId }, signal);
 export const evidenceQuery = (resourceId: string, workspaceId?: string, signal?: AbortSignal) =>
   fetchView({ queryType: "evidence.get", resourceId, ...(workspaceId ? { workspaceId } : {}) }, signal);
 export const memorySearchQuery = (workspaceId: string, memoryQuery: MemoryQuery, signal?: AbortSignal) =>

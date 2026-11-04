@@ -7,7 +7,7 @@ import { sha256Digest } from "@brain/contracts";
 import { createApp } from "../../apps/governor/src/http/app";
 import { enrollAndHello, runOnce, type RunnerConfig } from "../../apps/runner/src/supervisor";
 import { normalizeEvaluation } from "../../apps/runner/src/tools/invoke";
-import { setupWorld } from "../helpers";
+import { setupWorld, seedWorkItem } from "../helpers";
 import { attestDomain, bundleForAttempt } from "../support/evidence";
 
 async function world(executeAuthor = false) {
@@ -71,14 +71,14 @@ describe("authenticated immutable evidence and real evaluator admission",()=>{
     const w=await world(true);
     try {
       const ws=w.brain.store.workspaceDb(w.workspaceId,w.org);
-      ws.prepare("INSERT INTO cards(id,title,state,criteria_json,created_at_ms) VALUES ('unrelated','Unrelated','verifying','[\"other\"]',?)").run(w.brain.store.now());
+      seedWorkItem(w.brain, w.org, w.workspaceId, "unrelated", "review", ["other"]);
       w.brain.submitEvidence(w.author,w.bundle);
       expect(await runOnce(w.evaluatorConfig,w.evaluatorSession.sessionToken)).toBe(false); // hello is not trust attestation
       attestDomain(w.brain,w.author.runnerId,"author-host");attestDomain(w.brain,w.evaluator.runnerId,"evaluator-host");
       expect(await runOnce(w.evaluatorConfig,w.evaluatorSession.sessionToken)).toBe(true);
       expect((ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(w.bundle.workflowRunId) as {state:string}).state).toBe("succeeded");
       expect(w.brain.store.control.prepare("SELECT state FROM jobs ORDER BY step_id").all()).toEqual([{state:"succeeded"},{state:"succeeded"}]);
-      expect(ws.prepare("SELECT evidence_digest FROM cards WHERE id='unrelated'").get()).toEqual({evidence_digest:null});
+      expect((ws.prepare("SELECT evidence_digest FROM work_items WHERE id='unrelated'").get())).toEqual({evidence_digest:null});
       // Job events project into the workspace (T07); a second drain is a no-op.
       expect(w.brain.projectOutbox()).toBeGreaterThanOrEqual(1);
       expect(w.brain.projectOutbox()).toBe(0);

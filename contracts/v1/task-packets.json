@@ -921,7 +921,7 @@
       ],
       "evidenceDirectory": "artifacts/runtime/T31",
       "contractDefinitions": [
-        "CardView",
+        "WorkItem",
         "BoardView",
         "DecisionRecordCommand",
         "DecisionHistoryEntry"
@@ -1773,7 +1773,7 @@
       ],
       "evidenceDirectory": "artifacts/runtime/T58",
       "contractDefinitions": [
-        "WorkBoardView",
+        "BoardView",
         "ConfigurationDraft",
         "Document",
         "Automation"

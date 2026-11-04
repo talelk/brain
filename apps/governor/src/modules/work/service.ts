@@ -1,5 +1,5 @@
 import { domainDigest } from "@brain/contracts";
-import type { ActorContext, ExecutionLink, JsonValue, Objective, PlanAssignment, PlanTask, PlanVersion, WorkBoardView, WorkItem, WorkItemState } from "@brain/contracts";
+import type { ActorContext, JsonValue, Objective, PlanAssignment, PlanTask, PlanVersion, WorkItem, WorkItemState } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import { assertExpectedVersion, assertTransition } from "../../domain/states";
@@ -277,16 +277,14 @@ export class WorkService {
       return { items: rows.map((row) => this.workItem(actor, workspaceId, row)) } as unknown as JsonValue;
     }
     if (queryType === "workItems.get") return this.workItem(actor, workspaceId, this.workItemRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
-    if (queryType === "workBoard.get") {
-      const objectives = (db.prepare("SELECT * FROM objectives ORDER BY updated_at_ms DESC,id LIMIT 100").all() as ObjectiveRow[]).map((row) => this.objective(workspaceId, row));
-      const items = (db.prepare("SELECT * FROM work_items WHERE state!='abandoned' ORDER BY created_at_ms,id LIMIT 1000").all() as WorkItemRow[]).map((row) => this.workItem(actor, workspaceId, row));
-      const executions = (db.prepare("SELECT * FROM execution_links ORDER BY created_at_ms DESC,run_id LIMIT 1000").all() as Array<{ work_item_id: string; run_id: string; job_id: string | null; attempt_id: string | null; session_id: string | null; created_at_ms: number }>).map((row): ExecutionLink => ({
-        workItemId: row.work_item_id, runId: row.run_id,
-        ...(row.job_id ? { jobId: row.job_id } : {}), ...(row.attempt_id ? { attemptId: row.attempt_id } : {}),
-        ...(row.session_id ? { sessionId: row.session_id } : {}), createdAt: iso(row.created_at_ms),
-      }));
-      return { workspaceId, objectives, items, executions } satisfies WorkBoardView as unknown as JsonValue;
-    }
     throw new BrainDomainError("UNSUPPORTED_CAPABILITY", `unsupported work query ${queryType}`);
+  }
+
+  /** Board projection rows for the board module: objectives and live work items, in board order. */
+  projectBoard(actor: ActorContext, workspaceId: string): { objectives: Objective[]; items: WorkItem[] } {
+    const db = this.db(actor, workspaceId);
+    const objectives = (db.prepare("SELECT * FROM objectives ORDER BY updated_at_ms DESC,id LIMIT 100").all() as ObjectiveRow[]).map((row) => this.objective(workspaceId, row));
+    const items = (db.prepare("SELECT * FROM work_items WHERE state!='abandoned' ORDER BY created_at_ms,id LIMIT 1000").all() as WorkItemRow[]).map((row) => this.workItem(actor, workspaceId, row));
+    return { objectives, items };
   }
 }

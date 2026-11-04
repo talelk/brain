@@ -259,36 +259,6 @@
       ]
     },
     {
-      "type": "board.create",
-      "schema": "BoardCreateCommand",
-      "scope": "board:write",
-      "authority": "workspace",
-      "actors": [
-        "human",
-        "agent"
-      ]
-    },
-    {
-      "type": "board.move",
-      "schema": "BoardMoveCommand",
-      "scope": "board:write",
-      "authority": "workspace",
-      "actors": [
-        "human",
-        "agent"
-      ]
-    },
-    {
-      "type": "board.comment",
-      "schema": "BoardCommentCommand",
-      "scope": "board:write",
-      "authority": "workspace",
-      "actors": [
-        "human",
-        "agent"
-      ]
-    },
-    {
       "type": "decision.record",
       "schema": "DecisionRecordCommand",
       "scope": "decision:write",
@@ -566,7 +536,6 @@
     "plans.get",
     "workItems.list",
     "workItems.get",
-    "workBoard.get",
     "automations.list",
     "automations.occurrences",
     "delegations.list",
@@ -1015,24 +984,6 @@
       "type": "reconciliation.resolved",
       "envelope": "EventEnvelope",
       "payloadContract": "ReconciliationEventPayload",
-      "durable": true
-    },
-    {
-      "type": "board.created",
-      "envelope": "EventEnvelope",
-      "payloadContract": "BoardEventPayload",
-      "durable": true
-    },
-    {
-      "type": "board.moved",
-      "envelope": "EventEnvelope",
-      "payloadContract": "BoardEventPayload",
-      "durable": true
-    },
-    {
-      "type": "board.commented",
-      "envelope": "EventEnvelope",
-      "payloadContract": "BoardEventPayload",
       "durable": true
     },
     {

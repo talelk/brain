@@ -26,9 +26,9 @@ describe("channel parity (T32)", () => {
       body: JSON.stringify(body),
     }));
     const command = {
-      contractVersion: "brain.command/v1", commandId: "cmd-chan-1", commandType: "board.create",
+      contractVersion: "brain.command/v1", commandId: "cmd-chan-1", commandType: "objective.create",
       workspaceId: w.workspaceId, idempotencyKey: "chan-1",
-      payload: { title: "Channel parity card", criteria: ["c1"] },
+      payload: { title: "Channel parity objective", intent: "Prove channel parity", successCriteria: ["c1"] },
     };
 
     // Humans cannot use the MCP channel at all.
@@ -50,8 +50,8 @@ describe("channel parity (T32)", () => {
     const httpBody = (await viaHttp.json()) as { receipt?: Record<string, unknown> } & Record<string, unknown>;
     const httpReceipt = (httpBody["receipt"] ?? httpBody) as Record<string, unknown>;
     expect(httpReceipt["resourceId"]).toBe(mcpReceipt["resourceId"]);
-    const cards = brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT COUNT(*) AS c FROM cards WHERE title='Channel parity card'").get() as { c: number };
-    expect(cards.c).toBe(1);
+    const objectives = brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT COUNT(*) AS c FROM objectives WHERE title='Channel parity objective'").get() as { c: number };
+    expect(objectives.c).toBe(1);
 
     // Approval decisions are absent from MCP by design, even for agents.
     const decision = await call("/mcp", "agent-1", {

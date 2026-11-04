@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { validate } from "@brain/contracts/validate";
 import { createApp } from "../../apps/governor/src/http/app";
-import { seedHuman, setupWorld } from "../helpers";
+import { seedHuman, seedWorkItem, setupWorld } from "../helpers";
 
 // T02: every registered route is declared in the OpenAPI surface and every
 // declared non-parameterized GET round-trips with a JSON body (200 or an
@@ -88,8 +88,8 @@ describe("endpoint surface conformance (T02)", () => {
       ws.prepare("INSERT INTO observations(id, connector_id, target_key, incident_id, observation_digest, source_event_id, observed_at_ms, expires_at_ms) VALUES ('obs-1','probe','api','inc-1',?,'evt-1',?,?)").run(DIGEST, Date.now(), Date.now() + 3600_000);
       ws.prepare("INSERT INTO delivery_dossiers(id, source_revision, manifest_digest, rubric_digest, state, version, created_at_ms) VALUES ('dos-1',?,?,?,'evaluating',1,?)").run("sha256:" + "c".repeat(64), DIGEST, DIGEST, Date.now());
       ws.prepare("INSERT INTO rubric_results(dossier_id, criterion_id, evaluator_attempt_id, outcome, evidence_digest) VALUES ('dos-1','crit-1','att-1','passed',?)").run(DIGEST);
-      ws.prepare("INSERT INTO cards(id, title, state, criteria_json, created_at_ms) VALUES ('card-seed','Seed card','todo','[\"c1\"]',?)").run(Date.now());
-      ws.prepare("INSERT INTO decisions(id, card_id, actor_id, decision, note, created_at_ms) VALUES ('dec-1','card-seed','owner-1','go','seed decision',?)").run(Date.now());
+      seedWorkItem(app.brain, w.org, w.workspaceId, "work-seed", "review", ["c1"]);
+      ws.prepare("INSERT INTO decisions(id, work_item_id, actor_id, decision, note, created_at_ms) VALUES ('dec-1','work-seed','owner-1','go','seed decision',?)").run(Date.now());
       ws.prepare("INSERT INTO sla_intervals(id, ticket_id, event_id, responsibility, started_at_ms, ended_at_ms, calendar_digest) VALUES ('sla-1','tkt-1','evt-sla-1','keyrus',?,?,?)").run(Date.now() - 60000, Date.now(), DIGEST);
 
       const ask = async (payload: Record<string, unknown>) => {

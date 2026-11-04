@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CommandReceipt, Objective, PlanTask, PlanVersion, WorkBoardView } from "@brain/contracts";
+import type { CommandReceipt, Objective, PlanTask, PlanVersion, BoardView } from "@brain/contracts";
 import { setupWorld, DIGEST_A } from "../helpers";
 
 type World = ReturnType<typeof setupWorld>;
@@ -26,8 +26,8 @@ function propose(w: World, objectiveId: string, key = "plan-1", tasks?: PlanTask
   }).resourceId ?? "";
 }
 
-function board(w: World): WorkBoardView {
-  return (w.brain.executeQuery(w.owner, { queryType: "workBoard.get", workspaceId: w.workspaceId }) as { snapshot: WorkBoardView }).snapshot;
+function board(w: World): BoardView {
+  return (w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId }) as { snapshot: BoardView }).snapshot;
 }
 
 function seedEvidence(w: World, criteria: string[]): void {

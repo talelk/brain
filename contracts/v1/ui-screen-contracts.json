@@ -117,7 +117,7 @@
    "queries": [
     "artifacts.list",
     "artifacts.history",
-    "workBoard.get"
+    "board.get"
    ],
    "actions": [],
    "content": [
@@ -137,7 +137,7 @@
    "queries": [
     "artifacts.history",
     "artifacts.diff",
-    "workBoard.get"
+    "board.get"
    ],
    "actions": [],
    "content": [
@@ -182,9 +182,8 @@
     "board.get"
    ],
    "actions": [
-    "board.create",
-    "board.move",
-    "board.comment"
+    "workItem.transition",
+    "workItem.comment"
    ],
    "content": [
     "title",
@@ -656,7 +655,7 @@
    "route": "/w/:id/plans",
    "queries": [
     "objectives.list",
-    "workBoard.get"
+    "board.get"
    ],
    "actions": [
     "objective.create",

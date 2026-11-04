@@ -1,7 +1,7 @@
 import { useSearchParams } from "@solidjs/router";
 import { createSignal } from "solid-js";
 import type { JSX } from "solid-js";
-import type { WorkBoardView, WorkItemState } from "@brain/contracts";
+import type { BoardView, WorkItemState } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
@@ -10,10 +10,10 @@ import { WorkBoard } from "../../ui/components/WorkBoard";
 export default function BoardPage(): JSX.Element {
   const app = useApp();
   const [params, setParams] = useSearchParams();
-  const board = createScopedRead<WorkBoardView>({
+  const board = createScopedRead<BoardView>({
     scope: app.scope,
     load: async (scope, signal) => {
-      const response = await query<{ snapshot: WorkBoardView; asOf: string; sourceWatermark: number }>({ queryType: "workBoard.get", workspaceId: scope.workspaceId }, signal);
+      const response = await query<{ snapshot: BoardView; asOf: string; sourceWatermark: number }>({ queryType: "board.get", workspaceId: scope.workspaceId }, signal);
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     isEmpty: (view) => view.items.length === 0,

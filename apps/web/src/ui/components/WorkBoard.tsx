@@ -6,7 +6,7 @@ import { Alert, Dialog, Select } from "@talelk/newui-molecules";
 import { KanbanBoard } from "@talelk/newui-organisms";
 import type { KanbanColumn, KanbanTone } from "@talelk/newui-organisms";
 import { PaneLayout } from "@talelk/newui-templates";
-import type { WorkBoardView, WorkItem, WorkItemState } from "@brain/contracts";
+import type { BoardView, WorkItem, WorkItemState } from "@brain/contracts";
 import type { ScreenState } from "../../data/screens";
 import { ScreenRegion } from "../screen-region";
 import { BrainPage, PageStack } from "./PageLayout";
@@ -65,10 +65,10 @@ function WorkItemDetail(props: {
 }
 
 export function WorkBoard(props: {
-  board?: WorkBoardView;
+  board?: BoardView;
   selectedId?: string;
   onSelected: (id?: string) => void;
-  state: ScreenState<WorkBoardView>;
+  state: ScreenState<BoardView>;
   conflict?: string;
   onRefresh: () => void;
   onTransition: (item: WorkItem, state: WorkItemState, evidenceDigest?: string, reason?: string) => Promise<void>;

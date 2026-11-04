@@ -114,8 +114,8 @@ describe("scenario gaps (T50 batch 3: connectors, tools, storage)", () => {
     locker.pragma("busy_timeout = 5000");
     locker.exec("BEGIN EXCLUSIVE");
     const cmd = {
-      contractVersion: "brain.command/v1", commandId: "cmd-busy", commandType: "board.create",
-      workspaceId: w.workspaceId, idempotencyKey: "busy-1", payload: { title: "busy", criteria: ["x"] },
+      contractVersion: "brain.command/v1", commandId: "cmd-busy", commandType: "objective.create",
+      workspaceId: w.workspaceId, idempotencyKey: "busy-1", payload: { title: "busy", intent: "busy test", successCriteria: ["x"] },
     };
     expect(() => w.brain.executeCommand(w.owner, cmd, "busy")).toThrow();
     locker.exec("ROLLBACK");

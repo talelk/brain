@@ -1,8 +1,9 @@
 import type { JSX } from "solid-js";
-import type { BoardView, DecisionHistoryEntry } from "@brain/contracts";
+import type { DecisionHistoryEntry } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
-import { boardQuery, decisionsQuery } from "../../data/governor";
+import { createBoardModel } from "../../data/board";
+import { decisionsQuery } from "../../data/governor";
 import { DecisionsScreen } from "../work";
 
 export default function DecisionsPage(): JSX.Element {
@@ -16,17 +17,17 @@ export default function DecisionsPage(): JSX.Element {
     isEmpty: (items) => items.length === 0,
     refreshMs: 30_000,
   });
-  const board = createScopedRead<BoardView>({
-    scope: app.scope,
-    load: (scope, signal) => boardQuery(scope.workspaceId, signal),
-  });
-  return <DecisionsScreen decisions={decisions.state().data ?? []} state={decisions.state()} cardIds={(board.state().data?.cards ?? []).map((c) => c.cardId)}
+  const board = createBoardModel(app.scope);
+  return <DecisionsScreen decisions={decisions.state().data ?? []} state={decisions.state()} workItemIds={(board.state().data?.items ?? []).map((item) => item.workItemId)}
     viewerId={app.identity()?.actor.actorId} viewerName={app.identity()?.displayName}
     onRefresh={() => void decisions.refresh({ force: true })}
-    onRecord={async (cardId, decision, note) => {
-      const card = board.state().data?.cards.find((c) => c.cardId === cardId);
-      const result = await app.run("decision.record", { cardId, decision, note }, { expectedVersion: card?.version ?? 0 });
-      if (result.accepted) await decisions.refresh({ force: true });
+    onRecord={async (workItemId, decision, note) => {
+      const item = board.item(workItemId);
+      const result = await app.run("decision.record", { workItemId, decision, note }, { expectedVersion: item?.version ?? 0 });
+      if (result.accepted) {
+        await decisions.refresh({ force: true });
+        await board.refresh({ force: true });
+      }
     }}
     />;
 }

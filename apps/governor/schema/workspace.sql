@@ -9,13 +9,6 @@ CREATE TABLE workspace_identity (
   organization_id TEXT NOT NULL, schema_version INTEGER NOT NULL CHECK(schema_version > 0),
   schema_digest TEXT NOT NULL DEFAULT ''
 ) STRICT;
-CREATE TABLE cards (
-  id TEXT PRIMARY KEY, title TEXT NOT NULL,
-  state TEXT NOT NULL CHECK(state IN ('to-decide','todo','in-progress','verifying','done','blocked')),
-  criteria_json TEXT NOT NULL CHECK(json_valid(criteria_json)),
-  version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0), evidence_digest TEXT,
-  created_at_ms INTEGER NOT NULL, CHECK(state != 'done' OR evidence_digest IS NOT NULL)
-) STRICT;
 CREATE TABLE objectives (
   id TEXT PRIMARY KEY, title TEXT NOT NULL, intent TEXT NOT NULL,
   success_criteria_json TEXT NOT NULL CHECK(json_valid(success_criteria_json)),
@@ -94,12 +87,8 @@ CREATE TABLE work_item_comments (
   actor_id TEXT NOT NULL, body TEXT NOT NULL, correction_of TEXT REFERENCES work_item_comments(id),
   created_at_ms INTEGER NOT NULL
 ) STRICT;
-CREATE TABLE card_comments (
-  id TEXT PRIMARY KEY, card_id TEXT NOT NULL REFERENCES cards(id), actor_id TEXT NOT NULL,
-  body TEXT NOT NULL, correction_of TEXT REFERENCES card_comments(id), created_at_ms INTEGER NOT NULL
-) STRICT;
 CREATE TABLE decisions (
-  id TEXT PRIMARY KEY, card_id TEXT NOT NULL REFERENCES cards(id), actor_id TEXT NOT NULL,
+  id TEXT PRIMARY KEY, work_item_id TEXT NOT NULL REFERENCES work_items(id), actor_id TEXT NOT NULL,
   decision TEXT NOT NULL CHECK(decision IN ('go','no','not-now','need-more-data')),
   note TEXT NOT NULL, created_at_ms INTEGER NOT NULL
 ) STRICT;

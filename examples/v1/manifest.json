@@ -157,18 +157,6 @@
       "schema": "CommandEnvelope"
     },
     {
-      "path": "commands/board.create.json",
-      "schema": "CommandEnvelope"
-    },
-    {
-      "path": "commands/board.move.json",
-      "schema": "CommandEnvelope"
-    },
-    {
-      "path": "commands/board.comment.json",
-      "schema": "CommandEnvelope"
-    },
-    {
       "path": "commands/decision.record.json",
       "schema": "CommandEnvelope"
     },

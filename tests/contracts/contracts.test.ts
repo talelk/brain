@@ -6,7 +6,7 @@ import { knownDefinitions, validate } from "@brain/contracts/validate";
 
 describe("contracts (T02)", () => {
   it("exposes the full registry", () => {
-    expect(COMMANDS.size).toBe(60);
+    expect(COMMANDS.size).toBe(57);
     expect([...COMMANDS.keys()]).toEqual(expect.arrayContaining(["runner.control", "workspace.update", "workspace.control"]));
     expect([...QUERIES]).toEqual(expect.arrayContaining(["agents.list", "agents.get", "workflows.list", "workflows.get", "organization.members.list", "organization.member.get", "organization.invitations.list", "organization.auth-policy.get"]));
     expect(EVENTS.size).toBeGreaterThan(50);
@@ -15,7 +15,7 @@ describe("contracts (T02)", () => {
   });
 
   it("validates example commands and rejects invalid fixtures", () => {
-    const ex = JSON.parse(readFileSync(join(process.cwd(), "examples/v1/commands/board.create.json"), "utf8")) as unknown;
+    const ex = JSON.parse(readFileSync(join(process.cwd(), "examples/v1/commands/decision.record.json"), "utf8")) as unknown;
     expect(validate("CommandEnvelope", ex).ok).toBe(true);
     expect(validate("CommandEnvelope", { contractVersion: "brain.command/v1" }).ok).toBe(false);
     const bad = JSON.parse(readFileSync(join(process.cwd(), "examples/v1/invalid/unknown-command.json"), "utf8")) as unknown;

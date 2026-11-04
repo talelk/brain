@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ActorContext, CommandReceipt, SessionDetail, WorkBoardView, WorkItemMessage } from "@brain/contracts";
+import type { ActorContext, CommandReceipt, SessionDetail, BoardView, WorkItemMessage } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import { createApp } from "../../apps/governor/src/http/app";
 import { enrollAndHello, runOnce } from "../../apps/runner/src/supervisor";
@@ -22,7 +22,7 @@ function workItem(w: TestWorld, key: string): string {
   const objectiveId = run(w, "objective.create", `${key}-objective`, { title: "Collaborative work", intent: "Complete independent implementation and review", successCriteria: ["Verified result"] }).resourceId!;
   const planId = run(w, "plan.propose", `${key}-plan`, { objectiveId, origin: "manual", tasks: [{ id: "task", title: "Implement", criteria: ["verified"], dependsOn: [], workflowId: "fixture-workflow" }] }).resourceId!;
   run(w, "plan.confirm", `${key}-confirm`, { planVersionId: planId }, w.owner, 1);
-  const board = (w.brain.executeQuery(w.owner, { queryType: "workBoard.get", workspaceId: w.workspaceId }) as { snapshot: WorkBoardView }).snapshot;
+  const board = (w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId }) as { snapshot: BoardView }).snapshot;
   return board.items.find((item) => item.objectiveId === objectiveId)!.workItemId;
 }
 
@@ -91,7 +91,7 @@ describe("native and managed BrainSessions (T53)", () => {
     expect(bound).toEqual(expect.objectContaining({ sessionId, mode: "managed", state: "stopped", engine: expect.objectContaining({ id: "tool-broker" }) }));
     expect(bound.jobId).toBeTruthy();
     expect(bound.attemptId).toBeTruthy();
-    const board = (w.brain.executeQuery(w.owner, { queryType: "workBoard.get", workspaceId: w.workspaceId }) as { snapshot: WorkBoardView }).snapshot;
+    const board = (w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId }) as { snapshot: BoardView }).snapshot;
     expect(board.executions).toEqual(expect.arrayContaining([expect.objectContaining({ workItemId: item, runId, sessionId, jobId: bound.jobId })]));
   });
 });

@@ -34,6 +34,7 @@ import {
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
 import { WorkService } from "../modules/work/index";
+import { BoardService } from "../modules/board/index";
 import { SessionService, continuationFacts } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService } from "../modules/resources/index";
@@ -48,6 +49,7 @@ export class Brain {
   readonly store: Store;
   readonly workflows: WorkflowEnginePort;
   readonly work: WorkService;
+  readonly board: BoardService;
   readonly sessions: SessionService;
   readonly stream: StreamService;
   readonly documents: DocumentService;
@@ -70,6 +72,7 @@ export class Brain {
       this.stepUp = new StepUpService(this.store, this.auth);
       this.memory = new MemoryStore(this.store);
       this.work = new WorkService(this.store);
+      this.board = new BoardService(this.store, this.work);
       this.sessions = new SessionService(this.store);
       this.stream = createStreamService(this.store);
       this.documents = new DocumentService(this.store);
@@ -589,7 +592,7 @@ export class Brain {
           .run(id, String(p["jobId"]), cmd.commandId, (cmd as { expectedVersion?: number }).expectedVersion ?? job.version, s.now(), s.now());
         return id;
       }
-      case "workflow.dispatch": case "workflow.cancel": case "board.create": case "board.move": case "board.comment":
+      case "workflow.dispatch": case "workflow.cancel":
       case "objective.create": case "plan.propose": case "plan.confirm": case "workItem.transition": case "workItem.comment":
       case "automation.upsert": case "automation.control":
       case "decision.record": case "session.steer": case "session.stop": case "tool.propose": case "tool.publish":
@@ -670,62 +673,9 @@ export class Brain {
         setResource(String(p["runId"]));
         break;
       }
-      case "board.create": {
-        if (!wsId) break;
-        const ws = s.workspaceDb(wsId, actor.organizationId);
-        const cardId = s.id("card");
-        ws.prepare("INSERT INTO cards(id, title, state, criteria_json, created_at_ms) VALUES (?,?, 'todo', ?,?)")
-          .run(cardId, String(p["title"]), JSON.stringify(p["criteria"] ?? []), s.now());
-        setResource(cardId);
-        break;
-      }
-      case "board.move": {
-        if (!wsId) break;
-        const ws = s.workspaceDb(wsId, actor.organizationId);
-        const card = ws.prepare("SELECT state, version, evidence_digest, criteria_json FROM cards WHERE id=?").get(String(p["cardId"])) as { state: string; version: number; evidence_digest: string | null; criteria_json: string } | undefined;
-        if (!card) throw new BrainDomainError("NOT_FOUND", "card not found");
-        assertExpectedVersion(card.version, (cmd as { expectedVersion?: number }).expectedVersion);
-        const next = String(p["status"]);
-        // Explicit card↔evidence binding (T31/T37): Done requires naming a
-        // verified bundle whose passed checks cover every card criterion.
-        // Verdicts never attach to cards implicitly.
-        const requestedDigest = p["evidenceDigest"] ? String(p["evidenceDigest"]) : undefined;
-        const effectiveDigest = requestedDigest ?? card.evidence_digest ?? undefined;
-        if (requestedDigest || next === "done") {
-          if (!effectiveDigest) throw new BrainDomainError("EVIDENCE_MISSING", "Done requires verified evidence");
-          const bundle = ws.prepare("SELECT state, manifest_json FROM evidence_bundles WHERE digest=?").get(effectiveDigest) as { state: string; manifest_json: string } | undefined;
-          if (!bundle) throw new BrainDomainError("NOT_FOUND", "evidence bundle not found");
-          if (bundle.state !== "verified") throw new BrainDomainError("EVIDENCE_MISSING", "evidence bundle is not verified");
-          const verdict = ws.prepare("SELECT id FROM verification_verdicts WHERE bundle_digest=? AND outcome='verified' LIMIT 1").get(effectiveDigest);
-          if (!verdict) throw new BrainDomainError("EVIDENCE_MISSING", "evidence bundle has no verified verdict");
-          const manifest = JSON.parse(bundle.manifest_json) as { checks?: Array<{ criterionId: string; status: string }> };
-          const passed = new Set((manifest.checks ?? []).filter((c) => c.status === "passed").map((c) => c.criterionId));
-          const criteria = JSON.parse(card.criteria_json) as string[];
-          const missing = criteria.filter((c) => !passed.has(c));
-          if (missing.length > 0) throw new BrainDomainError("EVIDENCE_MISSING", `verified evidence does not cover criteria: ${missing.join(", ")}`);
-        }
-        ws.prepare("UPDATE cards SET state=?, evidence_digest=?, version=version+1 WHERE id=? AND version=?")
-          .run(next, effectiveDigest ?? null, String(p["cardId"]), card.version);
-        setResource(String(p["cardId"]));
-        break;
-      }
-      case "board.comment": {
-        if (!wsId) break;
-        const ws = s.workspaceDb(wsId, actor.organizationId);
-        if (!ws.prepare("SELECT 1 FROM cards WHERE id=?").get(String(p["cardId"]))) throw new BrainDomainError("NOT_FOUND", "card not found");
-        const id = s.id("cmt");
-        ws.prepare("INSERT INTO card_comments(id, card_id, actor_id, body, created_at_ms) VALUES (?,?,?,?,?)").run(id, String(p["cardId"]), actor.actorId, String(p["text"] ?? p["body"] ?? ""), s.now());
-        setResource(id);
-        break;
-      }
       case "decision.record": {
         if (!wsId) break;
-        const ws = s.workspaceDb(wsId, actor.organizationId);
-        if (!ws.prepare("SELECT 1 FROM cards WHERE id=?").get(String(p["cardId"]))) throw new BrainDomainError("NOT_FOUND", "card not found");
-        const id = s.id("dec");
-        ws.prepare("INSERT INTO decisions(id, card_id, actor_id, decision, note, created_at_ms) VALUES (?,?,?,?,?,?)")
-          .run(id, String(p["cardId"]), actor.actorId, String(p["decision"]), String(p["note"] ?? ""), s.now());
-        setResource(id);
+        setResource(this.board.apply(actor, cmd, wsId));
         break;
       }
       case "session.steer": case "session.stop": {
@@ -1736,40 +1686,14 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.automation.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
       }
-      case "objectives.list": case "objectives.get": case "plans.get": case "workItems.list": case "workItems.get": case "workBoard.get": {
+      case "objectives.list": case "objectives.get": case "plans.get": case "workItems.list": case "workItems.get": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.work.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
       }
       case "board.get": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         requireWorkspaceRead(s, actor, q.workspaceId);
-        const ws = s.workspaceDb(q.workspaceId, actor.organizationId);
-        const total = ws.prepare("SELECT COUNT(*) AS c FROM cards").get() as { c: number };
-        const cards = ws.prepare("SELECT id, title, state, criteria_json, version, evidence_digest, created_at_ms FROM cards ORDER BY created_at_ms LIMIT 100").all() as Array<Record<string, unknown>>;
-        return this.envelope(q.queryType, {
-          workspaceId: q.workspaceId,
-          totalCards: total.c,
-          cards: cards.map((c) => {
-            // Criterion status derives from the explicitly bound verified
-            // bundle's manifest when present; otherwise it stays pending.
-            let passed = new Set<string>();
-            if (c["evidence_digest"]) {
-              const bundle = ws.prepare("SELECT manifest_json, state FROM evidence_bundles WHERE digest=?").get(String(c["evidence_digest"])) as { manifest_json: string; state: string } | undefined;
-              if (bundle?.state === "verified") {
-                const manifest = JSON.parse(bundle.manifest_json) as { checks?: Array<{ criterionId: string; status: string }> };
-                passed = new Set((manifest.checks ?? []).filter((x) => x.status === "passed").map((x) => x.criterionId));
-              }
-            }
-            const criteria = JSON.parse(String(c["criteria_json"])) as string[];
-            return {
-              cardId: String(c["id"]), title: String(c["title"]), state: String(c["state"]),
-              criteria: criteria.map((id) => ({ id, text: id, status: passed.has(id) ? "passed" : "pending" })),
-              version: Number(c["version"]),
-              ...(c["evidence_digest"] ? { evidenceDigest: String(c["evidence_digest"]) } : {}),
-              updatedAt: iso(Number(c["created_at_ms"])),
-            };
-          }),
-        } as unknown as JsonValue);
+        return this.envelope(q.queryType, this.board.query(actor, q.workspaceId));
       }
       case "command.get": {
         const commandId = String((raw as { commandId?: string }).commandId ?? q.resourceId ?? "");
@@ -2284,7 +2208,7 @@ export class Brain {
         case "incidents.list": return this.incidentView(workspaceId, r, false, ws);
         case "delivery.list": return this.deliveryView(workspaceId, r, ws);
         case "decisions.list": return {
-          id: String(r["id"]), workspaceId, cardId: String(r["card_id"]), actorId: String(r["actor_id"]),
+          id: String(r["id"]), workspaceId, workItemId: String(r["work_item_id"]), actorId: String(r["actor_id"]),
           decision: String(r["decision"]), note: String(r["note"] ?? ""), createdAt: iso(Number(r["created_at_ms"])),
         };
         default: return r;

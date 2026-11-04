@@ -32,31 +32,56 @@ describe("core integration", () => {
   it("idempotent commands return one receipt; changed payload conflicts (E006/E007)", async () => {
     const w = setupWorld();
     const cmd = {
-      contractVersion: "brain.command/v1", commandId: "cmd-1", commandType: "board.create",
-      workspaceId: w.workspaceId, idempotencyKey: "k-1", payload: { title: "Card", criteria: ["works"] },
+      contractVersion: "brain.command/v1", commandId: "cmd-1", commandType: "objective.create",
+      workspaceId: w.workspaceId, idempotencyKey: "k-1", payload: { title: "Objective", intent: "works", successCriteria: ["works"] },
     };
     const r1 = w.brain.executeCommand(w.owner, cmd, "c1");
     const r2 = w.brain.executeCommand(w.owner, cmd, "c2");
     expect(r1.receipt).toEqual(r2.receipt);
     const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
-    expect((ws.prepare("SELECT COUNT(*) AS c FROM cards").get() as { c: number }).c).toBe(1);
-    expect(() => w.brain.executeCommand(w.owner, { ...cmd, payload: { title: "Other", criteria: [] } }, "c3")).toThrow();
+    expect((ws.prepare("SELECT COUNT(*) AS c FROM objectives").get() as { c: number }).c).toBe(1);
+    expect(() => w.brain.executeCommand(w.owner, { ...cmd, payload: { title: "Other", intent: "other", successCriteria: [] } }, "c3")).toThrow();
     w.brain.close();
   });
 
-  it("board Done requires evidence; stale version conflicts (E009)", async () => {
+  it("work item Done requires evidence; stale version conflicts (E009)", async () => {
     const w = setupWorld();
-    const created = w.brain.executeCommand(w.owner, {
-      contractVersion: "brain.command/v1", commandId: "cmd-b1", commandType: "board.create",
-      workspaceId: w.workspaceId, idempotencyKey: "kb-1", payload: { title: "Ship", criteria: ["golden passes"] },
-    }, "c1");
-    const cardId = (created.receipt as { resourceId?: string }).resourceId ?? "";
-    expect(cardId).toBeTruthy();
+    const objectiveId = (w.brain.executeCommand(w.owner, {
+      contractVersion: "brain.command/v1", commandId: "cmd-b1", commandType: "objective.create",
+      workspaceId: w.workspaceId, idempotencyKey: "kb-1", payload: { title: "Ship", intent: "Ship the release", successCriteria: ["golden passes"] },
+    }, "c1").receipt as { resourceId?: string }).resourceId ?? "";
+    const planId = (w.brain.executeCommand(w.owner, {
+      contractVersion: "brain.command/v1", commandId: "cmd-b1p", commandType: "plan.propose",
+      workspaceId: w.workspaceId, idempotencyKey: "kb-1p",
+      payload: { objectiveId, origin: "manual", summary: "single task", tasks: [{ id: "ship", title: "Ship", criteria: ["golden passes"], dependsOn: [], assignment: { kind: "agent", id: "pi", role: "specialist" } }] },
+    }, "c1b").receipt as { resourceId?: string }).resourceId ?? "";
+    w.brain.executeCommand(w.owner, {
+      contractVersion: "brain.command/v1", commandId: "cmd-b1c", commandType: "plan.confirm",
+      workspaceId: w.workspaceId, idempotencyKey: "kb-1c", expectedVersion: 1, payload: { planVersionId: planId },
+    }, "c1c");
+    const board = (w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId }) as { snapshot: { items: Array<{ workItemId: string; version: number }> } }).snapshot;
+    const item = board.items[0]!;
     expect(() => w.brain.executeCommand(w.owner, {
-      contractVersion: "brain.command/v1", commandId: "cmd-b2", commandType: "board.move",
-      workspaceId: w.workspaceId, idempotencyKey: "kb-2", expectedVersion: 1,
-      payload: { cardId, status: "done" },
+      contractVersion: "brain.command/v1", commandId: "cmd-stale", commandType: "workItem.transition",
+      workspaceId: w.workspaceId, idempotencyKey: "kb-stale", expectedVersion: item.version + 90,
+      payload: { workItemId: item.workItemId, state: "in-progress" },
     }, "c2")).toThrow();
+    const start = w.brain.executeCommand(w.owner, {
+      contractVersion: "brain.command/v1", commandId: "cmd-start", commandType: "workItem.transition",
+      workspaceId: w.workspaceId, idempotencyKey: "kb-start", expectedVersion: item.version,
+      payload: { workItemId: item.workItemId, state: "in-progress" },
+    }, "c3").receipt;
+    expect(start.accepted).toBe(true);
+    w.brain.executeCommand(w.owner, {
+      contractVersion: "brain.command/v1", commandId: "cmd-review", commandType: "workItem.transition",
+      workspaceId: w.workspaceId, idempotencyKey: "kb-review", expectedVersion: item.version + 1,
+      payload: { workItemId: item.workItemId, state: "review" },
+    }, "c4");
+    expect(() => w.brain.executeCommand(w.owner, {
+      contractVersion: "brain.command/v1", commandId: "cmd-done", commandType: "workItem.transition",
+      workspaceId: w.workspaceId, idempotencyKey: "kb-done", expectedVersion: item.version + 2,
+      payload: { workItemId: item.workItemId, state: "done" },
+    }, "c5")).toThrow(/evidence/i);
     w.brain.close();
   });
 

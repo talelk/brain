@@ -25,7 +25,7 @@
         "viewer"
       ],
       "operationKind": "command",
-      "operation": "board.create",
+      "operation": "workItem.transition",
       "facts": {
         "actorKind": "human",
         "organizationCurrent": true,
@@ -115,7 +115,7 @@
         "operator"
       ],
       "operationKind": "command",
-      "operation": "board.create",
+      "operation": "workItem.transition",
       "facts": {
         "actorKind": "human",
         "organizationCurrent": true,

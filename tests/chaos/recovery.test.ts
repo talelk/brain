@@ -11,13 +11,13 @@ describe("chaos / recovery", () => {
   it("same-version restart preserves board and approvals (T04/G07 partial)", async () => {
     const w = setupWorld();
     w.brain.executeCommand(w.owner, {
-      contractVersion: "brain.command/v1", commandId: "cmd-r1", commandType: "board.create",
-      workspaceId: w.workspaceId, idempotencyKey: "kr-1", payload: { title: "Survive restart", criteria: ["ok"] },
+      contractVersion: "brain.command/v1", commandId: "cmd-r1", commandType: "objective.create",
+      workspaceId: w.workspaceId, idempotencyKey: "kr-1", payload: { title: "Survive restart", intent: "Recovery proof", successCriteria: ["ok"] },
     }, "c1");
     w.brain.close();
     const reopened = new Brain({ dataDir: w.dir, allowTestActor: true });
     const ws = reopened.store.workspaceDb(w.workspaceId, w.org);
-    const row = ws.prepare("SELECT title FROM cards").get() as { title: string };
+    const row = ws.prepare("SELECT title FROM objectives").get() as { title: string };
     expect(row.title).toBe("Survive restart");
     reopened.close();
   });

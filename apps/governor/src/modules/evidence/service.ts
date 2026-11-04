@@ -252,8 +252,8 @@ export class EvidenceService {
       const output = this.s.control.prepare("SELECT output_json FROM job_outputs WHERE job_id=?").get(evaluator.job_id) as { output_json: string };
       this.host.completeStep(organizationId,workspaceId,evaluator.workflow_run_id,evaluator.step_id,JSON.parse(output.output_json) as JsonValue,allVerdicts.every((v) => v?.outcome === "verified"));
     }
-    // Card acceptance requires an explicit card/criteria binding. Never attach
-    // a verdict to all verifying cards in the workspace.
+    // Done requires an explicit work-item/criteria evidence binding. A verdict
+    // is never attached to every verifying work item in the workspace.
     ws.prepare("UPDATE verification_verdicts SET finalized_at_ms=? WHERE id=?").run(this.s.now(),verdictId);
   }
 }

@@ -2,10 +2,10 @@ import { For, Show, createEffect, createSignal, onCleanup } from "solid-js";
 import type { JSX } from "solid-js";
 import { Button, Spinner } from "@talelk/newui-atoms";
 import { Alert, Dialog } from "@talelk/newui-molecules";
-import type { BoardView, DeliveryDossier } from "@brain/contracts";
+import type { DeliveryDossier } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
-import { boardQuery, deliveryQuery } from "../../data/governor";
+import { deliveryQuery } from "../../data/governor";
 import { DeliveryScreen } from "../work";
 import { StatusBadge } from "../../ui/components/StatusBadge";
 import { ArtifactView } from "../../ui/outputs/ArtifactView";
@@ -23,8 +23,6 @@ export default function DeliveryPage(): JSX.Element {
     isEmpty: (items) => items.length === 0,
     refreshMs: 30_000,
   });
-  const board = createScopedRead<BoardView>({ scope: app.scope, load: (scope, signal) => boardQuery(scope.workspaceId, signal) });
-  const [message, setMessage] = createSignal("");
   const [selected, setSelected] = createSignal("");
   const [detail, setDetail] = createSignal<DeliveryDossier>();
   const [loading, setLoading] = createSignal(false);
@@ -47,20 +45,13 @@ export default function DeliveryPage(): JSX.Element {
     }
     onCleanup(() => controller.abort());
   });
-  const card = () => board.state().data?.cards.find((candidate) => candidate.cardId === selected());
   return (
     <div class="brain-detail-stack">
-      <ActionFeedback message={message()} />
       <DeliveryScreen
         dossiers={dossiers.state().data ?? []}
         state={dossiers.state()}
         onRefresh={() => void dossiers.refresh({ force: true })}
         onOpen={setSelected}
-        onDecide={async (cardId, note) => {
-          const current = board.state().data?.cards.find((candidate) => candidate.cardId === cardId);
-          const result = await app.run("decision.record", { cardId, decision: "go", note }, { expectedVersion: current?.version ?? 0 });
-          setMessage(result.detail);
-        }}
       />
       <Dialog.Root
         open={Boolean(selected())}
@@ -71,7 +62,7 @@ export default function DeliveryPage(): JSX.Element {
         <Dialog.Content size="4xl" position="top">
           <Dialog.Header>
             <Dialog.Title>Delivery dossier</Dialog.Title>
-            <Dialog.Description>Criteria, independent evidence and the exact source behind this delivery decision.</Dialog.Description>
+            <Dialog.Description>Criteria, independent evidence and the exact source behind this delivery dossier.</Dialog.Description>
           </Dialog.Header>
           <Show
             when={!loading()}
@@ -125,29 +116,6 @@ export default function DeliveryPage(): JSX.Element {
                         <For each={dossier.evidence}>{(artifact) => <ArtifactView artifact={artifact} compact />}</For>
                       </Show>
                     </section>
-                    <Show when={card()}>
-                      {(linked) => (
-                        <Button
-                          size="md"
-                          variant="solid"
-                          theme="blue"
-                          iconLeft="lucide-scale"
-                          onClick={() =>
-                            void (async () => {
-                              const result = await app.run(
-                                "decision.record",
-                                { cardId: linked().cardId, decision: "go", note: `Accepted against delivery dossier ${dossier.id}` },
-                                { expectedVersion: linked().version },
-                              );
-                              setMessage(result.detail);
-                              setSelected("");
-                            })()
-                          }
-                        >
-                          Record Go decision
-                        </Button>
-                      )}
-                    </Show>
                   </div>
                 )}
               </Show>

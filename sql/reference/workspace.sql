@@ -6,21 +6,89 @@ PRAGMA synchronous = FULL;
 PRAGMA busy_timeout = 100;
 CREATE TABLE workspace_identity (
   singleton INTEGER PRIMARY KEY CHECK(singleton=1), workspace_id TEXT NOT NULL UNIQUE,
-  organization_id TEXT NOT NULL, schema_version INTEGER NOT NULL CHECK(schema_version > 0)
+  organization_id TEXT NOT NULL, schema_version INTEGER NOT NULL CHECK(schema_version > 0),
+  schema_digest TEXT NOT NULL DEFAULT ''
 ) STRICT;
-CREATE TABLE cards (
-  id TEXT PRIMARY KEY, title TEXT NOT NULL,
-  state TEXT NOT NULL CHECK(state IN ('to-decide','todo','in-progress','verifying','done','blocked')),
+CREATE TABLE objectives (
+  id TEXT PRIMARY KEY, title TEXT NOT NULL, intent TEXT NOT NULL,
+  success_criteria_json TEXT NOT NULL CHECK(json_valid(success_criteria_json)),
+  owner_id TEXT NOT NULL, active_plan_version_id TEXT,
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
+  created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE TABLE plan_versions (
+  id TEXT PRIMARY KEY, objective_id TEXT NOT NULL REFERENCES objectives(id),
+  revision INTEGER NOT NULL CHECK(revision > 0), digest TEXT NOT NULL,
+  state TEXT NOT NULL CHECK(state IN ('proposed','confirmed','superseded')),
+  origin TEXT NOT NULL CHECK(origin IN ('manual','agent','template','capitalization')),
+  created_by TEXT NOT NULL, summary TEXT, tasks_json TEXT NOT NULL CHECK(json_valid(tasks_json)),
+  created_at_ms INTEGER NOT NULL, confirmed_at_ms INTEGER,
+  UNIQUE(objective_id,revision)
+) STRICT;
+CREATE TABLE work_items (
+  id TEXT PRIMARY KEY, objective_id TEXT NOT NULL REFERENCES objectives(id),
+  plan_version_id TEXT NOT NULL REFERENCES plan_versions(id), plan_task_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  state TEXT NOT NULL CHECK(state IN ('backlog','ready','in-progress','blocked','review','done','abandoned')),
   criteria_json TEXT NOT NULL CHECK(json_valid(criteria_json)),
-  version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0), evidence_digest TEXT,
-  created_at_ms INTEGER NOT NULL, CHECK(state != 'done' OR evidence_digest IS NOT NULL)
+  assignment_json TEXT, workflow_id TEXT, next_action TEXT NOT NULL, blocked_reason TEXT,
+  scheduled_at_ms INTEGER, evidence_digest TEXT,
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
+  created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
+  UNIQUE(plan_version_id,plan_task_id), CHECK(state != 'done' OR evidence_digest IS NOT NULL)
 ) STRICT;
-CREATE TABLE card_comments (
-  id TEXT PRIMARY KEY, card_id TEXT NOT NULL REFERENCES cards(id), actor_id TEXT NOT NULL,
-  body TEXT NOT NULL, correction_of TEXT REFERENCES card_comments(id), created_at_ms INTEGER NOT NULL
+CREATE INDEX work_items_board ON work_items(state,updated_at_ms,id);
+CREATE INDEX work_items_objective ON work_items(objective_id,plan_version_id,plan_task_id);
+CREATE TABLE work_item_dependencies (
+  work_item_id TEXT NOT NULL REFERENCES work_items(id),
+  depends_on_work_item_id TEXT NOT NULL REFERENCES work_items(id),
+  PRIMARY KEY(work_item_id,depends_on_work_item_id),
+  CHECK(work_item_id != depends_on_work_item_id)
+) STRICT;
+CREATE TABLE execution_links (
+  work_item_id TEXT NOT NULL REFERENCES work_items(id), run_id TEXT NOT NULL,
+  job_id TEXT, attempt_id TEXT, session_id TEXT, created_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(work_item_id,run_id)
+) STRICT;
+CREATE TABLE automations (
+  id TEXT PRIMARY KEY, title TEXT NOT NULL,
+  state TEXT NOT NULL CHECK(state IN ('active','paused','retired')),
+  revision INTEGER NOT NULL CHECK(revision > 0),
+  target_kind TEXT NOT NULL CHECK(target_kind IN ('workflow','workItem')),
+  target_id TEXT NOT NULL,
+  trigger_kind TEXT NOT NULL CHECK(trigger_kind IN ('cron','once','manual')),
+  cron TEXT, timezone TEXT, scheduled_at_ms INTEGER,
+  input_json TEXT CHECK(input_json IS NULL OR json_valid(input_json)),
+  overlap TEXT NOT NULL CHECK(overlap IN ('skip','queue-one')),
+  misfire TEXT NOT NULL CHECK(misfire IN ('skip','coalesce')),
+  execution_mode TEXT NOT NULL CHECK(execution_mode IN ('managed','personal-host')),
+  runner_id TEXT, offline_policy TEXT NOT NULL CHECK(offline_policy IN ('wait','fail')),
+  created_by TEXT NOT NULL, version INTEGER NOT NULL CHECK(version > 0),
+  revision_created_at_ms INTEGER NOT NULL,
+  created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE TABLE automation_occurrences (
+  id TEXT PRIMARY KEY,
+  automation_id TEXT NOT NULL REFERENCES automations(id),
+  revision INTEGER NOT NULL CHECK(revision > 0),
+  planned_at_ms INTEGER NOT NULL,
+  state TEXT NOT NULL CHECK(state IN ('pending','dispatched','skipped','failed')),
+  dispatch_ref TEXT, detail TEXT, fired_at_ms INTEGER
+) STRICT;
+CREATE INDEX automation_occurrences_history ON automation_occurrences(automation_id, planned_at_ms, id);
+CREATE TABLE planning_requests (
+  objective_id TEXT PRIMARY KEY REFERENCES objectives(id), actor_id TEXT NOT NULL,
+  run_id TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('running','ready','failed')),
+  plan_version_id TEXT REFERENCES plan_versions(id), error TEXT,
+  created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE TABLE work_item_comments (
+  id TEXT PRIMARY KEY, work_item_id TEXT NOT NULL REFERENCES work_items(id),
+  actor_id TEXT NOT NULL, body TEXT NOT NULL, correction_of TEXT REFERENCES work_item_comments(id),
+  created_at_ms INTEGER NOT NULL
 ) STRICT;
 CREATE TABLE decisions (
-  id TEXT PRIMARY KEY, card_id TEXT NOT NULL REFERENCES cards(id), actor_id TEXT NOT NULL,
+  id TEXT PRIMARY KEY, work_item_id TEXT NOT NULL REFERENCES work_items(id), actor_id TEXT NOT NULL,
   decision TEXT NOT NULL CHECK(decision IN ('go','no','not-now','need-more-data')),
   note TEXT NOT NULL, created_at_ms INTEGER NOT NULL
 ) STRICT;
@@ -44,10 +112,62 @@ CREATE TABLE job_projection (
   queue_reason TEXT, updated_at_ms INTEGER NOT NULL
 ) STRICT;
 CREATE TABLE sessions (
-  id TEXT PRIMARY KEY, job_id TEXT NOT NULL, attempt_id TEXT NOT NULL,
-  engine_id TEXT NOT NULL, adapter_digest TEXT NOT NULL, state TEXT NOT NULL,
-  checkpoint_digest TEXT, event_sequence INTEGER NOT NULL DEFAULT 0 CHECK(event_sequence >= 0)
+  id TEXT PRIMARY KEY, job_id TEXT, attempt_id TEXT,
+  mode TEXT NOT NULL DEFAULT 'native' CHECK(mode IN ('native','managed')),
+  work_item_id TEXT REFERENCES work_items(id), parent_session_id TEXT REFERENCES sessions(id), root_session_id TEXT,
+  agent_id TEXT NOT NULL DEFAULT '', task TEXT NOT NULL DEFAULT '',
+  engine_id TEXT NOT NULL, adapter_digest TEXT NOT NULL,
+  engine_features TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(engine_features)),
+  state TEXT NOT NULL CHECK(state IN ('starting','running','waiting','stopping','stopped','failed')),
+  checkpoint_digest TEXT, checkpoint_json TEXT CHECK(checkpoint_json IS NULL OR json_valid(checkpoint_json)),
+  event_sequence INTEGER NOT NULL DEFAULT 0 CHECK(event_sequence >= 0),
+  delegation_depth INTEGER NOT NULL DEFAULT 0 CHECK(delegation_depth BETWEEN 0 AND 3),
+  budget_json TEXT NOT NULL DEFAULT '{"maxTokens":100000,"maxMicroUsd":0,"maxTurns":10}' CHECK(json_valid(budget_json)),
+  scope_json TEXT NOT NULL DEFAULT '{"allowedPaths":[],"prohibitedPaths":[],"allowedTools":[]}' CHECK(json_valid(scope_json)),
+  worktree_id TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL DEFAULT '',
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
+  created_at_ms INTEGER NOT NULL DEFAULT 0, updated_at_ms INTEGER NOT NULL DEFAULT 0
 ) STRICT;
+CREATE INDEX sessions_work_item ON sessions(work_item_id,updated_at_ms,id);
+CREATE INDEX sessions_parent ON sessions(parent_session_id,state,id);
+CREATE TABLE delegations (
+  id TEXT PRIMARY KEY, parent_session_id TEXT NOT NULL REFERENCES sessions(id),
+  child_session_id TEXT NOT NULL UNIQUE REFERENCES sessions(id), work_item_id TEXT NOT NULL REFERENCES work_items(id),
+  state TEXT NOT NULL CHECK(state IN ('active','accepted','rejected')),
+  reviewer_id TEXT, evidence_digest TEXT, created_at_ms INTEGER NOT NULL, reviewed_at_ms INTEGER
+) STRICT;
+CREATE INDEX delegations_parent ON delegations(parent_session_id,state,id);
+CREATE TABLE work_item_messages (
+  id TEXT PRIMARY KEY, work_item_id TEXT NOT NULL REFERENCES work_items(id),
+  session_id TEXT REFERENCES sessions(id), sender_id TEXT NOT NULL,
+  sender_kind TEXT NOT NULL CHECK(sender_kind IN ('human','agent','workflow')),
+  body TEXT NOT NULL, correction_of TEXT REFERENCES work_item_messages(id), created_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX work_item_messages_item ON work_item_messages(work_item_id,created_at_ms,id);
+CREATE TABLE documents (
+  id TEXT PRIMARY KEY, title TEXT NOT NULL,
+  state TEXT NOT NULL CHECK(state IN ('active','revoked')),
+  current_version_id TEXT NOT NULL, created_by TEXT NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
+  created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE TABLE document_versions (
+  id TEXT PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id),
+  revision INTEGER NOT NULL CHECK(revision > 0), digest TEXT NOT NULL,
+  bytes INTEGER NOT NULL CHECK(bytes > 0), media_type TEXT NOT NULL, file_name TEXT NOT NULL,
+  extraction_status TEXT NOT NULL CHECK(extraction_status IN ('ready','unsupported','failed')),
+  extracted_text TEXT, created_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
+  UNIQUE(document_id,revision)
+) STRICT;
+CREATE INDEX document_versions_current ON document_versions(document_id,revision DESC);
+CREATE TABLE resource_associations (
+  id TEXT PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id),
+  resource_kind TEXT NOT NULL CHECK(resource_kind IN ('workItem','objective','session','run')),
+  resource_id TEXT NOT NULL, created_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
+  UNIQUE(document_id,resource_kind,resource_id)
+) STRICT;
+CREATE INDEX resource_associations_target ON resource_associations(resource_kind,resource_id,document_id);
+CREATE VIRTUAL TABLE document_fts USING fts5(document_id UNINDEXED,version_id UNINDEXED,title,content,tokenize='unicode61');
 CREATE TABLE artifacts (
   id TEXT PRIMARY KEY, digest TEXT NOT NULL, bytes INTEGER NOT NULL CHECK(bytes >= 0),
   media_type TEXT NOT NULL, classification TEXT NOT NULL,
@@ -131,6 +251,9 @@ CREATE TABLE tickets (
   id TEXT PRIMARY KEY, connector_id TEXT NOT NULL, remote_id TEXT NOT NULL,
   state TEXT NOT NULL, title TEXT NOT NULL, body_digest TEXT NOT NULL,
   source_version TEXT NOT NULL, observed_at_ms INTEGER NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version>0),
+  priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('low','normal','high','urgent')),
+  created_at_ms INTEGER NOT NULL DEFAULT 0,
   UNIQUE(connector_id,remote_id)
 ) STRICT;
 CREATE TABLE support_drafts (
@@ -148,7 +271,7 @@ CREATE TABLE sla_intervals (
   CHECK(ended_at_ms IS NULL OR ended_at_ms>=started_at_ms)
 ) STRICT;
 CREATE TABLE incidents (
-  id TEXT PRIMARY KEY, target_key TEXT NOT NULL, severity TEXT NOT NULL,
+  id TEXT PRIMARY KEY, target_key TEXT NOT NULL, severity TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', 
   state TEXT NOT NULL CHECK(state IN ('open','investigating','mitigated','resolved')),
   version INTEGER NOT NULL CHECK(version>0), opened_at_ms INTEGER NOT NULL, resolved_at_ms INTEGER
 ) STRICT;
@@ -159,6 +282,12 @@ CREATE TABLE observations (
   UNIQUE(connector_id,source_event_id), CHECK(expires_at_ms>observed_at_ms)
 ) STRICT;
 CREATE INDEX observations_target_freshness ON observations(target_key,expires_at_ms);
+CREATE TABLE remediation_proposals (
+  id TEXT PRIMARY KEY, incident_id TEXT NOT NULL REFERENCES incidents(id),
+  kind TEXT NOT NULL, detail TEXT NOT NULL,
+  state TEXT NOT NULL CHECK(state IN ('proposed','approved','rejected')),
+  approval_id TEXT, created_at_ms INTEGER NOT NULL
+) STRICT;
 CREATE TABLE delivery_dossiers (
   id TEXT PRIMARY KEY, source_revision TEXT NOT NULL, manifest_digest TEXT NOT NULL,
   rubric_digest TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('draft','evaluating','verified','rejected')),
@@ -179,3 +308,19 @@ CREATE TABLE connector_inbox (
   source_version TEXT NOT NULL, received_at_ms INTEGER NOT NULL, applied_at_ms INTEGER,
   PRIMARY KEY(connector_id,remote_event_id)
 ) STRICT;
+
+-- Human task preparation and conversation are durable UX state, never execution authority.
+CREATE TABLE task_drafts (
+ id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, workflow_id TEXT NOT NULL, workflow_json TEXT NOT NULL,
+ config_digest TEXT NOT NULL, input_json TEXT NOT NULL, origin_json TEXT, title TEXT NOT NULL,
+ command_id TEXT NOT NULL UNIQUE, conversation_id TEXT, state TEXT NOT NULL CHECK(state IN ('review','started')),
+ run_id TEXT, created_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX task_drafts_origin ON task_drafts(json_extract(origin_json,'$.kind'),json_extract(origin_json,'$.id'));
+CREATE TABLE conversations (id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, created_at_ms INTEGER NOT NULL) STRICT;
+CREATE TABLE conversation_messages (
+ id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id), role TEXT NOT NULL,
+ text TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('pending','done','failed')), run_id TEXT,
+ draft_id TEXT REFERENCES task_drafts(id), created_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX conversation_messages_thread ON conversation_messages(conversation_id,created_at_ms,id);
