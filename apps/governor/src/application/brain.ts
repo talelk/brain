@@ -38,15 +38,7 @@ import { getPack, listPack, slaSummary } from "../modules/packs/index";
 import { artifactHistory, diffArtifacts, listArtifacts, readArtifactBytes, searchArtifacts } from "../modules/evidence/index";
 import { bridge, today } from "../modules/work/index";
 import { searchSessions } from "../modules/sessions/index";
-import {
-  ackAttempt as jobsAckAttempt, attemptEvents as jobsAttemptEvents, authRunner, claim as jobsClaim,
-  completeAttempt as jobsCompleteAttempt, enrollRunner, expireLeases as jobsExpireLeases,
-  heartbeat as jobsHeartbeat,
-  issueEnrollment, operateRunner, readExecutionArtifact as jobsReadExecutionArtifact, releaseAttempt as jobsReleaseAttempt,
-  releaseReservation as jobsReleaseReservation, renewAttempt as jobsRenewAttempt, runnerChallenge,
-  runScheduledDispatch,
-  runnerHello,
-} from "../modules/jobs/index";
+import { JobProtocol } from "../modules/jobs/index";
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
 import { WorkService } from "../modules/work/index";
@@ -56,9 +48,7 @@ import { createStreamService, frameOf, type StreamFilters, type StreamService } 
 import { DocumentService } from "../modules/resources/index";
 import { IntegrationService } from "../modules/integrations/index";
 import { ConfigurationDraftService } from "../modules/configuration/index";
-import { AutomationService, type AutomationDispatchDeps } from "../modules/jobs/index";
 import { CapitalizationService } from "../modules/capabilities/index";
-// releaseReservation is used by reconcileJob above via the jobs module index.
 
 export class Brain {
   readonly runtime: RuntimeConfig;
@@ -71,7 +61,7 @@ export class Brain {
   readonly documents: DocumentService;
   readonly integrations: IntegrationService;
   readonly drafts: ConfigurationDraftService;
-  readonly automation: AutomationService;
+  readonly jobProtocol: JobProtocol;
   readonly capitalization: CapitalizationService;
   readonly memory: MemoryStore;
   readonly auth: BrainAuth;
@@ -110,7 +100,14 @@ export class Brain {
         stageRelease: (actor, documents, assets, sourceRevision) => this.stageRelease(actor, documents, sourceRevision, assets.scripts, assets.instructions, assets.schemas),
       });
       this.workflows = new MastraWorkflowEngine(this.store, this, join(this.store.dataDir, "mastra"));
-      this.automation = new AutomationService(this.store, this.automationDeps());
+      this.jobProtocol = new JobProtocol(this.store, {
+        completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.workflows.completeStep(organizationId, workspaceId, runId, stepId, output, ok),
+        evaluatorEligible: (runnerId, jobId) => this.evidence.evaluatorEligible(runnerId, jobId),
+        runnerCurrent: (organizationId, runnerId) => localRunnerSettingsCurrent(this.store, organizationId, runnerId),
+        activeRelease: (organizationId) => this.activeRelease(organizationId),
+        resolveWorkflow: (organizationId, workflowId) => this.workflowFromRelease(organizationId, workflowId),
+        startRun: (input) => this.workflows.startRun(input as Parameters<WorkflowEnginePort["startRun"]>[0]),
+      });
       this.capitalization = new CapitalizationService(this.store);
       this.evidence = new EvidenceService(this.store, this.workflows);
       quarantineRestoredAuthority(this.store, this.auth);
@@ -517,7 +514,7 @@ export class Brain {
         return String(p["approvalId"]);
       }
       case "runner.control": {
-        return operateRunner(s, actor, { runnerId: String(p["runnerId"]), action: String(p["action"]), reason: String(p["reason"]) });
+        return this.jobProtocol.controlRunner(actor, { runnerId: String(p["runnerId"]), action: String(p["action"]), reason: String(p["reason"]) });
       }
       case "runner.drain": case "runner.quarantine": {
         const next = cmd.commandType === "runner.drain" ? "draining" : "quarantined";
@@ -658,7 +655,7 @@ export class Brain {
       }
       case "automation.upsert": case "automation.control": {
         if (!wsId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
-        setResource(this.automation.apply(actor, cmd));
+        setResource(this.jobProtocol.automations.apply(actor, cmd));
         break;
       }
       case "workflow.dispatch": {
@@ -853,65 +850,13 @@ export class Brain {
     return { status: "confirmed", approvalId, decisionId: saved.decisionId ?? "", subjectDigest: row.subject_digest, state: row.state } as unknown as JsonValue;
   }
 
-  // --- runner protocol (delegates to modules/jobs) ---
-  issueEnrollment(actor: ActorContext, groupId: string): { token: string; expiresAt: string } {
-    return issueEnrollment(this.store, actor, groupId);
-  }
-
-  enrollRunner(input: { token: string; publicKeyPem: string; runnerId: string }): { credential: string } {
-    return enrollRunner(this.store, input);
-  }
-
-  runnerChallenge(runnerId: string, credential: string): { challengeId: string; nonce: string; expiresAt: string } {
-    return runnerChallenge(this.store, runnerId, credential);
-  }
-
-  runnerHello(hello: Record<string, unknown>): { sessionToken: string; epoch: number; serverTime: string } {
-    return runnerHello(this.store, hello);
-  }
-
-  authRunner(headers: Headers): { runnerId: string; epoch: number; organizationId: string } {
-    return authRunner(this.store, headers);
-  }
-
-  heartbeat(runner: { runnerId: string; epoch: number }, body: Record<string, unknown>): ReturnType<typeof jobsHeartbeat> {
-    return jobsHeartbeat(this.store, runner, body);
-  }
-
-  claim(runner: { runnerId: string; epoch: number; organizationId: string }, requestId: string): JsonValue | null {
-    return jobsClaim(this.store, { isRunnerCurrent: (id) => localRunnerSettingsCurrent(this.store, runner.organizationId, id), isEvaluatorEligible: (runnerId, jobId) => this.evidence.evaluatorEligible(runnerId, jobId) }, runner, requestId);
-  }
-
-  readExecutionArtifact(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string): Uint8Array {
-    return jobsReadExecutionArtifact(this.store, runner, attemptId);
-  }
-
-  ackAttempt(runner: { runnerId: string; epoch: number }, attemptId: string, body: Record<string, unknown>): JsonValue {
-    return jobsAckAttempt(this.store, runner, attemptId, body);
-  }
-
-  renewAttempt(runner: { runnerId: string; epoch: number }, attemptId: string, body: Record<string, unknown>): JsonValue {
-    return jobsRenewAttempt(this.store, runner, attemptId, body);
-  }
-
-  attemptEvents(runner: { runnerId: string; epoch: number }, attemptId: string, body: Record<string, unknown>): JsonValue {
-    return jobsAttemptEvents(this.store, runner, attemptId, body);
-  }
-
+  // --- runner-facing surfaces owned outside modules/jobs ---
   issuePermit(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, body: Record<string, unknown>): JsonValue {
     return governanceIssuePermit(this.store, { auth: this.auth }, runner, attemptId, body);
   }
 
   validatePermit(token: string, invocationId: string): boolean {
     return governanceValidatePermit(this.store, { auth: this.auth }, token, invocationId);
-  }
-
-  completeAttempt(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, body: Record<string, unknown>): JsonValue {
-    return jobsCompleteAttempt(this.store, { completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.workflows.completeStep(organizationId, workspaceId, runId, stepId, output, ok) }, runner, attemptId, body);
-  }
-
-  releaseAttempt(runner: { runnerId: string; epoch: number }, attemptId: string, body: Record<string, unknown>): JsonValue {
-    return jobsReleaseAttempt(this.store, runner, attemptId, body);
   }
 
   acceptAttemptArtifact(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, input: { digest: string; bytesBase64: string; mediaType?: string }): { artifactId: string; digest: string; bytes: number } {
@@ -939,33 +884,6 @@ export class Brain {
 
   revokeTrustDomain(actor: ActorContext, input: { runnerId: string; domain: string; reason: string }): void {
     revokeTrustDomain(this.store, actor, input);
-  }
-
-  expireLeases(): number {
-    return jobsExpireLeases(this.store);
-  }
-
-  // Declared Schedule documents in the active release, fired once per due
-  // minute; the maintenance loop calls this alongside lease expiry.
-  runScheduledDispatch(): { dispatched: number; skipped: number } {
-    return runScheduledDispatch(this.store, {
-      activeRelease: (organizationId) => this.activeRelease(organizationId),
-      resolveWorkflow: (organizationId, workflowId) => this.workflowFromRelease(organizationId, workflowId),
-      startRun: (input) => this.workflows.startRun(input as Parameters<WorkflowEnginePort["startRun"]>[0]),
-    });
-  }
-
-  private automationDeps(): AutomationDispatchDeps {
-    return {
-      resolveWorkflow: (organizationId, workflowId) => this.workflowFromRelease(organizationId, workflowId),
-      startRun: (input) => this.workflows.startRun(input as Parameters<WorkflowEnginePort["startRun"]>[0]),
-    };
-  }
-
-  // T52: due automation occurrences materialize and dispatch in the same
-  // maintenance pass as the declared-release cron schedules.
-  runAutomationDispatch(): { dispatched: number; skipped: number } {
-    return this.automation.dispatchAll();
   }
 
   // --- CAS artifacts ---
@@ -1139,7 +1057,7 @@ export class Brain {
         const stale = s.control.prepare("SELECT id FROM job_attempts WHERE job_id=? AND state='outcome_unknown'").all(input.jobId) as Array<{ id: string }>;
         s.control.prepare("UPDATE jobs SET state='queued', version=version+1 WHERE id=? AND state='outcome_unknown'").run(input.jobId);
         s.control.prepare("UPDATE job_attempts SET state='failed' WHERE job_id=? AND state='outcome_unknown'").run(input.jobId);
-        for (const a of stale) jobsReleaseReservation(this.store, a.id);
+        for (const a of stale) this.jobProtocol.releaseReservation(a.id);
         s.control.prepare("UPDATE resource_leases SET unresolved_effect=0, expires_at_ms=? WHERE attempt_id IN (SELECT id FROM job_attempts WHERE job_id=?)").run(s.now(), input.jobId);
       }
       // conflicting/unknown: guard remains, job stays outcome_unknown
@@ -1501,7 +1419,7 @@ export class Brain {
       }
       case "automations.list": case "automations.occurrences": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
-        return this.envelope(q.queryType, this.automation.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
+        return this.envelope(q.queryType, this.jobProtocol.automations.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
       }
       case "objectives.list": case "objectives.get": case "plans.get": case "workItems.list": case "workItems.get": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");

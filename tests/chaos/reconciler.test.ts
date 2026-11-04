@@ -25,7 +25,7 @@ async function unknownJob(w: TestWorld, key: string): Promise<{ jobId: string; v
     payload: { workflow: { id: "fixture-workflow", digest }, input: { message: key } },
   }, key);
   const runner = seedRunner(w, `runner-${key}`);
-  const offer = w.brain.claim(runner, `req-${key}`) as Offer | null;
+  const offer = w.brain.jobProtocol.claim(runner, `req-${key}`) as Offer | null;
   expect(offer).toBeTruthy();
   const s = w.brain.store;
   s.control.prepare("UPDATE job_attempts SET state='outcome_unknown' WHERE id=?").run(offer!.attemptId);

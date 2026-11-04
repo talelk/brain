@@ -24,8 +24,8 @@ async function runningAttempt(w: World, key: string, runnerId: string) {
     payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "Brain fixture" } },
   }, key);
   const runner = seedRunner(w, runnerId);
-  const offer = w.brain.claim(runner, `req-${key}`) as unknown as Offer;
-  w.brain.ackAttempt(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
+  const offer = w.brain.jobProtocol.claim(runner, `req-${key}`) as unknown as Offer;
+  w.brain.jobProtocol.ack(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
   return { runner, offer };
 }
 
@@ -71,7 +71,7 @@ describe("effect permits (T14)", () => {
     // Fencing the first attempt (newer claim on its job is impossible while
     // running; expiry to outcome_unknown) makes its token non-current.
     w.brain.store.control.prepare("UPDATE job_attempts SET lease_expires_at_ms=? WHERE id=?").run(Date.now() - 1, a.offer.attemptId);
-    w.brain.expireLeases();
+    w.brain.jobProtocol.expireLeases();
     expect(() => w.brain.issuePermit(a.runner, a.offer.attemptId, { invocationId: "perm-inv-9", subjectDigest: approved.digest, approvalId: approved.approvalId, resourceKeys: [] })).toThrow();
     w.brain.close();
   });

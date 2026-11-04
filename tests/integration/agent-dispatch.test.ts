@@ -29,8 +29,8 @@ describe("starter agent dispatch through real Governor and supervisor", () => {
       const caps = ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"];
       const cfg = (group: string) => ({ governorUrl: "http://127.0.0.1:3000", runnerId: `runner-${group}`, stateDir: join(root, group), capabilities: caps, engines: ["fixture"], transport });
       const author = cfg("agents"); const evaluator = cfg("evaluators");
-      const authorSession = await enrollAndHello(author, world.brain.issueEnrollment(world.owner, "agents").token);
-      const evalSession = await enrollAndHello(evaluator, world.brain.issueEnrollment(world.owner, "evaluators").token);
+      const authorSession = await enrollAndHello(author, world.brain.jobProtocol.issueEnrollment(world.owner, "agents").token);
+      const evalSession = await enrollAndHello(evaluator, world.brain.jobProtocol.issueEnrollment(world.owner, "evaluators").token);
       const { receipt } = await world.brain.executeCommand(world.owner, {
         contractVersion: "brain.command/v1", commandType: "workflow.dispatch", commandId: "cmd-agent-smoke", idempotencyKey: "agent-smoke",
         workspaceId: world.workspaceId, payload: { workflow: { id: "agent-smoke", digest }, input: { message: "BRAIN_OK" } },

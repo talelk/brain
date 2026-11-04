@@ -13,12 +13,8 @@ import type { Store } from "../../application/store";
 /**
  * Job/attempt lifecycle: fair claim, offers as pinned execution artifacts,
  * leases and fences, event ingest, completion receipts and expiry sweeps.
- * Private files; the public surface is the module index.
+ * Private files; the public surface is the module index (JobProtocol).
  */
-export function casPathOf(dataDir: string, digest: string): string {
-  const hex = digest.replace("sha256:", "");
-  return join(dataDir, "cas", hex.slice(0, 2), hex);
-}
 
 /** Engine probe features from a batch-level engine object; absent → none. */
 function engineFeaturesFromBody(engine: { features?: unknown } | undefined): string[] {
@@ -144,7 +140,7 @@ export function ensureExecutionArtifact(s: Store, jobId: string, organizationId:
     if (existing.digest !== digest) throw new BrainDomainError("CONFLICT", "job execution artifact already pinned to different bytes");
     return { artifactId, digest, bytes: bytes.length };
   }
-  const path = casPathOf(s.dataDir, digest);
+  const path = s.casPath(digest);
   mkdirSync(join(path, ".."), { recursive: true });
   if (!existsSync(path)) writeFileSync(path, bytes);
   s.control.prepare(`INSERT OR IGNORE INTO artifact_associations(artifact_id, organization_id, workspace_id, digest, owner_kind, owner_id, classification, verified_at_ms)
@@ -162,7 +158,7 @@ export function readExecutionArtifact(s: Store, runner: { runnerId: string; epoc
   const artifactId = `exec-${String(row["job_id"])}`;
   const assoc = s.control.prepare("SELECT digest FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(artifactId, runner.organizationId) as { digest: string } | undefined;
   if (!assoc) throw new BrainDomainError("EVIDENCE_MISSING", "execution artifact not materialized");
-  const path = casPathOf(s.dataDir, assoc.digest);
+  const path = s.casPath(assoc.digest);
   if (!existsSync(path)) throw new BrainDomainError("EVIDENCE_MISSING", "execution artifact bytes missing");
   const bytes = readFileSync(path);
   if (sha256Digest(bytes) !== assoc.digest) throw new BrainDomainError("EVIDENCE_MISSING", "execution artifact bytes corrupted");

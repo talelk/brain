@@ -34,8 +34,8 @@ describe("personal-host schedule execution (E105)", () => {
     }, "personal-run");
     const job = w.brain.store.control.prepare("SELECT id,placement_json FROM jobs").get() as { id: string; placement_json: string };
     expect(JSON.parse(job.placement_json).runnerId).toBe(personal.runnerId);
-    expect(w.brain.claim(managed, "managed-cannot-claim")).toBeNull();
-    const offer = w.brain.claim(personal, "personal-can-claim") as { jobId: string } | null;
+    expect(w.brain.jobProtocol.claim(managed, "managed-cannot-claim")).toBeNull();
+    const offer = w.brain.jobProtocol.claim(personal, "personal-can-claim") as { jobId: string } | null;
     expect(offer?.jobId).toBe(job.id);
   });
 });

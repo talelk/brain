@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ActorContext } from "@brain/contracts";
-import { AutomationService, occurrenceId, plannedInstants } from "../../apps/governor/src/modules/jobs/automation";
+import { JobProtocol } from "../../apps/governor/src/modules/jobs/index";
+import { occurrenceId, plannedInstants } from "../../apps/governor/src/modules/jobs/automation";
 import { Store } from "../../apps/governor/src/application/store";
 import { createApp } from "../../apps/governor/src/http/app";
 import { setupWorld } from "../helpers";
@@ -36,7 +37,14 @@ function autoWorld(clock: { nowMs: () => number }, opts: { insertRunRows?: boole
       return { runId };
     },
   };
-  const service = new AutomationService(store, deps);
+  const service = new JobProtocol(store, {
+    completeStep: () => undefined,
+    evaluatorEligible: () => true,
+    runnerCurrent: () => true,
+    activeRelease: () => undefined,
+    resolveWorkflow: deps.resolveWorkflow,
+    startRun: deps.startRun,
+  }).automations;
   const actor: ActorContext = { kind: "human", actorId: "operator-1", organizationId: org, workspaceId, scopes: ["workspace:read", "workflow:dispatch"], authMethod: "session", authGeneration: 1 };
   cleanup.push(async () => { store.close(); rmSync(dir, { recursive: true, force: true }); });
   return { store, service, actor, org, workspaceId, starts, db: () => store.workspaceDb(workspaceId, org) };

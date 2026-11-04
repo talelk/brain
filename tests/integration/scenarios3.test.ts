@@ -98,11 +98,11 @@ describe("scenario gaps (T50 batch 3: connectors, tools, storage)", () => {
       s.control.prepare("INSERT INTO runner_capabilities(runner_id, capability, verified, source, observed_at_ms, expires_at_ms) VALUES ('runner-cp', ?, 1, 'test', ?, ?)").run(cap, s.now(), s.now() + 3600000);
     }
     const runner = { runnerId: "runner-cp", epoch: 1, organizationId: w.org };
-    const offer = w.brain.claim(runner, "req-cp-1") as unknown as { attemptId: string; leaseId: string; jobFence: number; jobId: string; attemptNumber: number };
-    w.brain.ackAttempt(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
-    w.brain.completeAttempt(runner, offer.attemptId, { result: "unknown-outcome", output: {}, jobFence: offer.jobFence, cleanupConfirmed: false });
+    const offer = w.brain.jobProtocol.claim(runner, "req-cp-1") as unknown as { attemptId: string; leaseId: string; jobFence: number; jobId: string; attemptNumber: number };
+    w.brain.jobProtocol.ack(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
+    w.brain.jobProtocol.complete(runner, offer.attemptId, { result: "unknown-outcome", output: {}, jobFence: offer.jobFence, cleanupConfirmed: false });
     w.brain.reconcileJob({ organizationId: w.org, jobId: offer.jobId, outcome: "absent", evidenceDigest: DIGEST_A });
-    const next = w.brain.claim(runner, "req-cp-2") as unknown as { attemptNumber: number; jobFence: number };
+    const next = w.brain.jobProtocol.claim(runner, "req-cp-2") as unknown as { attemptNumber: number; jobFence: number };
     expect(next.attemptNumber).toBeGreaterThan(offer.attemptNumber);
     expect(next.jobFence).toBeGreaterThan(offer.jobFence); // new attempt, strictly newer fence: no ownership confusion
     w.brain.close();
@@ -173,8 +173,8 @@ describe("scenario gaps (T50 batch 3: connectors, tools, storage)", () => {
     db.close();
     expect(() => new Brain({ dataDir: w.dir, allowTestActor: true })).toThrow(/does not match current target/);
     const w2 = setupWorld();
-    expect(() => w2.brain.runnerHello({ contractVersion: "brain.runner/v2", runnerId: "x" })).toThrow(/unsupported/);
-    expect(() => w2.brain.runnerHello({ runnerId: "x" })).toThrow(/unsupported/);
+    expect(() => w2.brain.jobProtocol.hello({ contractVersion: "brain.runner/v2", runnerId: "x" })).toThrow(/unsupported/);
+    expect(() => w2.brain.jobProtocol.hello({ runnerId: "x" })).toThrow(/unsupported/);
     w2.brain.close();
   });
 });

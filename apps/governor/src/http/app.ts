@@ -567,7 +567,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       const body = (await readJson(c)) as { groupId: string };
       const identity = await actorFor(c);
       assertHumanIdentity(brain.store, brain.auth, identity, brain.runtime.requireTwoFactor);
-      return c.json(brain.issueEnrollment(identity.actor, body.groupId), 201);
+      return c.json(brain.jobProtocol.issueEnrollment(identity.actor, body.groupId), 201);
     } catch (e) { return fail(c as never, e); }
   });
 
@@ -575,66 +575,66 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
   app.post("/runner/v1/enroll", async (c) => {
     try {
       const body = (await readJson(c)) as { token: string; publicKey: string; runnerId: string };
-      return c.json(brain.enrollRunner({ token: body.token, publicKeyPem: body.publicKey, runnerId: body.runnerId }), 201);
+      return c.json(brain.jobProtocol.enrollRunner({ token: body.token, publicKeyPem: body.publicKey, runnerId: body.runnerId }), 201);
     } catch (e) { return fail(c as never, e); }
   });
   app.post("/runner/v1/challenges", async (c) => {
     try {
       const body = (await readJson(c)) as { runnerId: string; credential: string };
-      return c.json(brain.runnerChallenge(body.runnerId, body.credential), 201);
+      return c.json(brain.jobProtocol.challenge(body.runnerId, body.credential), 201);
     } catch (e) { return fail(c as never, e); }
   });
   app.post("/runner/v1/hello", async (c) => {
     try {
       const body = (await readJson(c)) as Record<string, unknown>;
-      return c.json(brain.runnerHello(body));
+      return c.json(brain.jobProtocol.hello(body));
     } catch (e) { return fail(c as never, e); }
   });
   app.post("/runner/v1/heartbeat", async (c) => {
     try {
-      const runner = brain.authRunner(c.req.raw.headers);
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
       const body = (await readJson(c)) as Record<string, unknown>;
-      return c.json(brain.heartbeat(runner, body));
+      return c.json(brain.jobProtocol.heartbeat(runner, body));
     } catch (e) { return fail(c as never, e); }
   });
   app.post("/runner/v1/claim", async (c) => {
     try {
-      const runner = brain.authRunner(c.req.raw.headers);
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
       const body = (await readJson(c)) as { requestId: string };
-      brain.expireLeases();
-      const offer = brain.claim(runner, body.requestId);
+      brain.jobProtocol.expireLeases();
+      const offer = brain.jobProtocol.claim(runner, body.requestId);
       if (!offer) return new Response(null, { status: 204 });
       return c.json(offer as never);
     } catch (e) { return fail(c as never, e); }
   });
   app.get("/runner/v1/attempts/:id/artifact", (c) => {
     try {
-      const runner = brain.authRunner(c.req.raw.headers);
-      const bytes = brain.readExecutionArtifact(runner, c.req.param("id"));
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      const bytes = brain.jobProtocol.executionArtifact(runner, c.req.param("id"));
       return new Response(bytes as BodyInit, { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store" } });
     } catch (e) { return fail(c as never, e); }
   });
   app.post("/runner/v1/attempts/:id/ack", async (c) => {
     try {
-      const runner = brain.authRunner(c.req.raw.headers);
-      return c.json(brain.ackAttempt(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      return c.json(brain.jobProtocol.ack(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
     } catch (e) { return fail(c as never, e); }
   });
   app.post("/runner/v1/attempts/:id/renew", async (c) => {
     try {
-      const runner = brain.authRunner(c.req.raw.headers);
-      return c.json(brain.renewAttempt(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      return c.json(brain.jobProtocol.renew(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
     } catch (e) { return fail(c as never, e); }
   });
   app.post("/runner/v1/attempts/:id/events", async (c) => {
     try {
-      const runner = brain.authRunner(c.req.raw.headers);
-      return c.json(brain.attemptEvents(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      return c.json(brain.jobProtocol.events(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
     } catch (e) { return fail(c as never, e); }
   });
   app.post("/runner/v1/attempts/:id/permit", async (c) => {
     try {
-      const runner = brain.authRunner(c.req.raw.headers);
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
       return c.json(brain.issuePermit(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
     } catch (e) { return fail(c as never, e); }
   });
@@ -655,7 +655,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
   });
   app.post("/runner/v1/permits/validate", async (c) => {
     try {
-      brain.authRunner(c.req.raw.headers);
+      brain.jobProtocol.authenticate(c.req.raw.headers);
       const body = (await readJson(c)) as { token?: string; invocationId?: string };
       const valid = brain.validatePermit(String(body.token ?? ""), String(body.invocationId ?? ""));
       return c.json({ valid });
@@ -663,7 +663,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
   });
   app.get("/runner/v1/releases/:digest/tools/:toolId", (c) => {
     try {
-      const runner = brain.authRunner(c.req.raw.headers);
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
       const tool = brain.readReleaseTool(runner, c.req.param("digest"), c.req.param("toolId"));
       return c.json({
         entrypoint: tool.entrypoint, entrypointDigest: tool.entrypointDigest,
@@ -673,7 +673,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
   });
   app.get("/runner/v1/releases/:digest/agents/:agentId/instructions", (c) => {
     try {
-      const runner = brain.authRunner(c.req.raw.headers);
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
       const asset = brain.readReleaseAgent(runner, c.req.param("digest"), c.req.param("agentId"));
       return c.json({
         agent: asset.agent, agentDigest: asset.agentDigest, path: asset.path,
@@ -683,31 +683,31 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
   });
   app.post("/runner/v1/attempts/:id/artifacts", async (c) => {
     try {
-      const runner = brain.authRunner(c.req.raw.headers);
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
       return c.json(brain.acceptAttemptArtifact(runner, c.req.param("id"), (await readJson(c,12*1024*1024)) as { digest: string; bytesBase64: string; mediaType?: string }) as never, 201);
     } catch (e) { return fail(c as never, e); }
   });
   app.post("/runner/v1/attempts/:id/complete", async (c) => {
     try {
-      const runner = brain.authRunner(c.req.raw.headers);
-      return c.json(brain.completeAttempt(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      return c.json(brain.jobProtocol.complete(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
     } catch (e) { return fail(c as never, e); }
   });
   app.post("/runner/v1/attempts/:id/release", async (c) => {
     try {
-      const runner = brain.authRunner(c.req.raw.headers);
-      return c.json(brain.releaseAttempt(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      return c.json(brain.jobProtocol.release(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
     } catch (e) { return fail(c as never, e); }
   });
   app.post("/runner/v1/evidence", async (c) => {
     try {
-      const runner = brain.authRunner(c.req.raw.headers);
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
       return c.json(brain.submitEvidence(runner, (await readJson(c)) as Record<string, unknown>) as never, 201);
     } catch (e) { return fail(c as never, e); }
   });
   app.post("/runner/v1/verdicts", async (c) => {
     try {
-      const runner = brain.authRunner(c.req.raw.headers);
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
       const body = await readJson(c);
       requireBody("RunnerVerdictRequest",body);
       const request=body as RunnerVerdictRequest;
@@ -795,13 +795,13 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       process.on("SIGTERM", stop);
       process.on("SIGINT", stop);
       setInterval(() => {
-    try { brain.expireLeases(); brain.projectOutbox(); } catch { /* timers never authorize */ }
+    try { brain.jobProtocol.expireLeases(); brain.projectOutbox(); } catch { /* timers never authorize */ }
     // Execution stream: backstop projection plus the throttled retention sweep.
     try { brain.stream.project(); brain.stream.sweep(); } catch { /* a projection failure must not break expiry */ }
     // Cron dispatch runs on its own cadence; a pass is idempotent and cheap.
-    try { brain.runScheduledDispatch(); } catch { /* a bad release must not break expiry */ }
+    try { brain.jobProtocol.dispatchSchedules(); } catch { /* a bad release must not break expiry */ }
     // T52 automation occurrences share the pass discipline: idempotent, cheap.
-    try { brain.runAutomationDispatch(); } catch { /* a bad automation must not break expiry */ }
+    try { brain.jobProtocol.dispatchAutomations(); } catch { /* a bad automation must not break expiry */ }
     brain.runCapitalization();
     void brain.integrations.verifyPending().catch(() => undefined);
     void brain.drafts.publishPending().catch(() => undefined);

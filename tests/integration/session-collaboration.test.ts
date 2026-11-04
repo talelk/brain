@@ -85,7 +85,7 @@ describe("native and managed BrainSessions (T53)", () => {
     })).resourceId!;
     const transport: typeof fetch = async (input, init) => app.fetch(new Request(input, init));
     const config = { governorUrl: "http://127.0.0.1:3000", runnerId: "session-runner", stateDir: join(dir, "runner"), transport, engines: ["fixture"], capabilities: ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"] };
-    const enrolled = await enrollAndHello(config, w.brain.issueEnrollment(w.owner, "fixture-tools").token);
+    const enrolled = await enrollAndHello(config, w.brain.jobProtocol.issueEnrollment(w.owner, "fixture-tools").token);
     expect(await runOnce(config, enrolled.sessionToken, enrolled.epoch)).toBe(true);
     const bound = await session(w, sessionId);
     expect(bound).toEqual(expect.objectContaining({ sessionId, mode: "managed", state: "stopped", engine: expect.objectContaining({ id: "tool-broker" }) }));

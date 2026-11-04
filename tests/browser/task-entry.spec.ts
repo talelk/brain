@@ -15,7 +15,7 @@ test("guided task entry: persisted modes, shared review, timeout recovery, conso
   const sessions = [];
   for (const group of ["agents", "evaluators"]) {
     const cfg = { governorUrl: governor.url, runnerId: `entry-${group}`, stateDir: join(brain.store.dataDir, group), engines: ["fixture"], capabilities: ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"] };
-    sessions.push({ cfg, ...await enrollAndHello(cfg, brain.issueEnrollment(identity.actor, group).token) });
+    sessions.push({ cfg, ...await enrollAndHello(cfg, brain.jobProtocol.issueEnrollment(identity.actor, group).token) });
   }
   const db = brain.store.workspaceDb("operations", identity.actor.organizationId);
 

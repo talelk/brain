@@ -54,7 +54,7 @@ it("conversation executes only the guide and offers an independently verified in
  const transport: typeof fetch = async (input, init) => w.app.fetch(new Request(input, init));
  for (const group of ["agents", "evaluators"]) {
   const config = { governorUrl: "http://127.0.0.1:3000", runnerId: `chat-${group}`, stateDir: join(w.dir, group), transport, engines: ["fixture"], capabilities: ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"] };
-  const session = await enrollAndHello(config, w.brain.issueEnrollment(w.owner, group).token);
+  const session = await enrollAndHello(config, w.brain.jobProtocol.issueEnrollment(w.owner, group).token);
   expect(await runOnce(config, session.sessionToken, session.epoch)).toBe(true);
  }
  const result = await w.tasks.conversation(w.owner, w.workspaceId, "thread-test");
@@ -72,7 +72,7 @@ it("turns an objective into an independently validated plan and materializes it 
  const transport: typeof fetch = async (input, init) => w.app.fetch(new Request(input, init));
  for (const group of ["agents", "evaluators"]) {
   const config = { governorUrl: "http://127.0.0.1:3000", runnerId: `plan-${group}`, stateDir: join(w.dir, group), transport, engines: ["fixture"], capabilities: ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"] };
-  const session = await enrollAndHello(config, w.brain.issueEnrollment(w.owner, group).token);
+  const session = await enrollAndHello(config, w.brain.jobProtocol.issueEnrollment(w.owner, group).token);
   expect(await runOnce(config, session.sessionToken, session.epoch)).toBe(true);
  }
  const proposal = await w.tasks.objectivePlan(w.owner, w.workspaceId, started.objectiveId);

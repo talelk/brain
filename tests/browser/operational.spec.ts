@@ -51,8 +51,8 @@ test("optional-factor operator inspects a release, activates it, dispatches both
   await expect(page).toHaveURL(/\/w\/operations\/workflows\?selected=operations-triage/);
   const cfg = (group:string) => ({ governorUrl:governor.url,runnerId:`runner-ui-${group}`,stateDir:join(brain.store.dataDir,`runner-${group}`),engines:["fixture"],capabilities:["os:linux","tool:bash","tool:python3","isolation:ephemeral-container"] });
   const author=cfg("agents"),evaluator=cfg("evaluators");
-  const authorSession=await enrollAndHello(author,brain.issueEnrollment(actor,"agents").token);
-  const evalSession=await enrollAndHello(evaluator,brain.issueEnrollment(actor,"evaluators").token);
+  const authorSession=await enrollAndHello(author,brain.jobProtocol.issueEnrollment(actor,"agents").token);
+  const evalSession=await enrollAndHello(evaluator,brain.jobProtocol.issueEnrollment(actor,"evaluators").token);
   for (const id of ["operations-triage","support-draft"]) {
     await page.goto(`${governor.url}/w/operations/workflows`);
     await page.getByRole("region",{name:"Task catalog",exact:true}).getByRole("button",{name:`Start task: ${id}`,exact:true}).click();

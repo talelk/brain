@@ -170,9 +170,9 @@ describe("Mastra WorkflowEnginePort conformance (T29/T30)", () => {
       s.control.prepare("INSERT INTO runner_capabilities(runner_id, capability, verified, source, observed_at_ms, expires_at_ms) VALUES ('runner-mm', ?, 1, 'test', ?, ?)").run(cap, s.now(), s.now() + 3600000);
     }
     const runner = { runnerId: "runner-mm", epoch: 1, organizationId: w.org };
-    const offer = brain.claim(runner, "req-mm") as unknown as { attemptId: string; leaseId: string; jobFence: number };
-    brain.ackAttempt(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
-    brain.completeAttempt(runner, offer.attemptId, { result: "failed", output: {}, jobFence: offer.jobFence, cleanupConfirmed: true });
+    const offer = brain.jobProtocol.claim(runner, "req-mm") as unknown as { attemptId: string; leaseId: string; jobFence: number };
+    brain.jobProtocol.ack(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
+    brain.jobProtocol.complete(runner, offer.attemptId, { result: "failed", output: {}, jobFence: offer.jobFence, cleanupConfirmed: true });
     await (brain.workflows as MastraWorkflowEngine).settle();
     const ws = s.workspaceDb(w.workspaceId, w.org);
     await waitFor(() => (ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string }).state === "failed");

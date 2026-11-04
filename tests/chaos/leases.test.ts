@@ -32,11 +32,11 @@ describe("lease contention across processes (T18)", () => {
       }, "lease");
       const tokens: string[] = [];
       for (const runnerId of ["runner-l1", "runner-l2", "runner-l3"]) {
-        const { token } = brain.issueEnrollment(w.owner, "fixture-tools");
+        const { token } = brain.jobProtocol.issueEnrollment(w.owner, "fixture-tools");
         const { publicKey, privateKey } = generateKeyPairSync("ed25519");
         const pem = publicKey.export({ type: "spki", format: "pem" }).toString();
-        const { credential } = brain.enrollRunner({ token, publicKeyPem: pem, runnerId });
-        const chal = brain.runnerChallenge(runnerId, credential);
+        const { credential } = brain.jobProtocol.enrollRunner({ token, publicKeyPem: pem, runnerId });
+        const chal = brain.jobProtocol.challenge(runnerId, credential);
         const body: Record<string, unknown> = {
           contractVersion: "brain.runner/v1", runnerId, bootNonce: `boot-${runnerId}`, configDigest: DIGEST_A,
           capacity: { cpuMillicores: 4000, memoryMb: 8192, diskMb: 20480, slots: 1 },
@@ -46,7 +46,7 @@ describe("lease contention across processes (T18)", () => {
         const helloDigest = domainDigest("brain:runner-hello:v1", body as unknown as JsonValue);
         const signed = JSON.stringify({ challengeId: chal.challengeId, nonce: chal.nonce, runnerId, bootNonce: body["bootNonce"], helloDigest });
         const signatureBase64url = sign(null, Buffer.from(signed, "utf8"), privateKey).toString("base64url");
-        const session = brain.runnerHello({ ...body, proof: { challengeId: chal.challengeId, signatureBase64url } });
+        const session = brain.jobProtocol.hello({ ...body, proof: { challengeId: chal.challengeId, signatureBase64url } });
         tokens.push(session.sessionToken);
       }
       const children = await Promise.all(tokens.map(async (token, i) => {

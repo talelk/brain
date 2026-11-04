@@ -17,8 +17,8 @@ async function world(executeAuthor = false) {
   const config=(runnerId:string):RunnerConfig=>({runnerId,governorUrl:"http://127.0.0.1:3000",stateDir:join(w.dir,runnerId),transport,
     capabilities:["os:linux","tool:bash","tool:python3","isolation:ephemeral-container","trust:domain:self-asserted"]});
   const authorConfig=config("author-runner");const evaluatorConfig=config("evaluator-runner");
-  const authorSession=await enrollAndHello(authorConfig,w.brain.issueEnrollment(w.owner,"fixture-tools").token);
-  const evaluatorSession=await enrollAndHello(evaluatorConfig,w.brain.issueEnrollment(w.owner,"fixture-evaluators").token);
+  const authorSession=await enrollAndHello(authorConfig,w.brain.jobProtocol.issueEnrollment(w.owner,"fixture-tools").token);
+  const evaluatorSession=await enrollAndHello(evaluatorConfig,w.brain.jobProtocol.issueEnrollment(w.owner,"fixture-evaluators").token);
   const author={runnerId:authorConfig.runnerId,epoch:authorSession.epoch,organizationId:w.org};
   const evaluator={runnerId:evaluatorConfig.runnerId,epoch:evaluatorSession.epoch,organizationId:w.org};
   const digest=w.brain.activeRelease(w.org)!.digest;
@@ -30,9 +30,9 @@ async function world(executeAuthor = false) {
     // Arrange a receipted author without submitting a bundle. Negative evidence
     // cases must begin before submission/admission; real supervisor submission
     // is covered separately below and by agent-dispatch.test.ts.
-    const offer=w.brain.claim(author,"author-claim") as unknown as {attemptId:string;leaseId:string;jobFence:number};
-    w.brain.ackAttempt(author,offer.attemptId,{leaseId:offer.leaseId,jobFence:offer.jobFence});
-    w.brain.completeAttempt(author,offer.attemptId,{result:"succeeded",output:{message:"Brain fixture",bytes:13},jobFence:offer.jobFence,cleanupConfirmed:true});
+    const offer=w.brain.jobProtocol.claim(author,"author-claim") as unknown as {attemptId:string;leaseId:string;jobFence:number};
+    w.brain.jobProtocol.ack(author,offer.attemptId,{leaseId:offer.leaseId,jobFence:offer.jobFence});
+    w.brain.jobProtocol.complete(author,offer.attemptId,{result:"succeeded",output:{message:"Brain fixture",bytes:13},jobFence:offer.jobFence,cleanupConfirmed:true});
   }
   const attempt=w.brain.store.control.prepare("SELECT a.id FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE j.step_id='echo'").get() as {id:string};
   const bundle=executeAuthor
@@ -55,12 +55,12 @@ async function admitted(prepare?: (w:World)=>void) {
   prepare?.(w);
   const submitted=w.brain.submitEvidence(w.author,w.bundle) as {digest:string};
   attestDomain(w.brain,w.author.runnerId,"author-host");attestDomain(w.brain,w.evaluator.runnerId,"evaluator-host");
-  const offer=w.brain.claim(w.evaluator,"claim-eval") as unknown as {attemptId:string;jobId:string;leaseId:string;jobFence:number};
+  const offer=w.brain.jobProtocol.claim(w.evaluator,"claim-eval") as unknown as {attemptId:string;jobId:string;leaseId:string;jobFence:number};
   expect(offer).toBeTruthy();
-  w.brain.ackAttempt(w.evaluator,offer.attemptId,{leaseId:offer.leaseId,jobFence:offer.jobFence});
-  const offerPayload=JSON.parse(new TextDecoder().decode(w.brain.readExecutionArtifact(w.evaluator,offer.attemptId))) as {evaluation:EvaluationAssignment};
+  w.brain.jobProtocol.ack(w.evaluator,offer.attemptId,{leaseId:offer.leaseId,jobFence:offer.jobFence});
+  const offerPayload=JSON.parse(new TextDecoder().decode(w.brain.jobProtocol.executionArtifact(w.evaluator,offer.attemptId))) as {evaluation:EvaluationAssignment};
   const output=normalizeEvaluation({passed:true,checks:[{id:"echo-message",passed:true},{id:"echo-bytes",passed:true}]},offerPayload.evaluation);
-  w.brain.completeAttempt(w.evaluator,offer.attemptId,{result:"succeeded",output,jobFence:offer.jobFence,cleanupConfirmed:true});
+  w.brain.jobProtocol.complete(w.evaluator,offer.attemptId,{result:"succeeded",output,jobFence:offer.jobFence,cleanupConfirmed:true});
   const verdict:VerificationVerdict={contractVersion:"brain.verdict/v1",bundleDigest:submitted.digest,evaluatorAttemptId:offer.attemptId,evaluatorRelease:offerPayload.evaluation.evaluatorRelease,
     independence:offerPayload.evaluation.independence,outcome:"verified",checks:(output as unknown as {checks:VerificationVerdict["checks"]}).checks,acceptedBy:w.evaluator.runnerId,createdAt:w.brain.store.nowIso()};
   return {...w,offer,verdict};
@@ -102,7 +102,7 @@ describe("authenticated immutable evidence and real evaluator admission",()=>{
   it("does not let another runner complete or submit the author's attempt (E073)",async()=>{
     const w=await world();
     try {
-      expect(()=>w.brain.completeAttempt(w.evaluator,w.bundle.attemptId,{result:"failed",output:{},jobFence:w.bundle.jobFence,cleanupConfirmed:true})).toThrow(/another runner/);
+      expect(()=>w.brain.jobProtocol.complete(w.evaluator,w.bundle.attemptId,{result:"failed",output:{},jobFence:w.bundle.jobFence,cleanupConfirmed:true})).toThrow(/another runner/);
       expect(()=>w.brain.submitEvidence(w.evaluator,w.bundle)).toThrow(/another runner/);
       expect((w.brain.store.control.prepare("SELECT state FROM jobs WHERE id=?").get(w.bundle.jobId) as {state:string}).state).toBe("verifying");
     } finally {await w.app.close();}

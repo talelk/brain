@@ -23,9 +23,9 @@ async function completedAttempt(w: World, key: string, runnerId: string) {
     payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "Brain fixture" } },
   }, key);
   const runner = seedRunner(w, runnerId);
-  const offer = w.brain.claim(runner, `req-${key}`) as unknown as Offer;
-  w.brain.ackAttempt(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
-  w.brain.completeAttempt(runner, offer.attemptId, { result: "succeeded", output: { message: "Brain fixture" }, jobFence: offer.jobFence, cleanupConfirmed: true });
+  const offer = w.brain.jobProtocol.claim(runner, `req-${key}`) as unknown as Offer;
+  w.brain.jobProtocol.ack(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
+  w.brain.jobProtocol.complete(runner, offer.attemptId, { result: "succeeded", output: { message: "Brain fixture" }, jobFence: offer.jobFence, cleanupConfirmed: true });
   return { runner, offer };
 }
 

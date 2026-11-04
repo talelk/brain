@@ -3,7 +3,6 @@ import { sha256Digest } from "@brain/contracts";
 import type { Agent } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import type { Store } from "../../application/store";
-import { casPathOf } from "../jobs/index";
 
 /**
  * Release-pinned tool scripts (T22): a runner fetches the exact entrypoint
@@ -26,7 +25,7 @@ export function readReleaseToolScript(
   const row = s.control.prepare("SELECT entrypoint, digest, bytes FROM release_files WHERE release_digest=? AND tool_id=?").get(releaseDigest, resolvedId) as
     | { entrypoint: string; digest: string; bytes: number } | undefined;
   if (!row) throw new BrainDomainError("NOT_FOUND", `tool ${toolId} has no pinned script in this release`);
-  const path = casPathOf(s.dataDir, row.digest);
+  const path = s.casPath(row.digest);
   if (!existsSync(path)) throw new BrainDomainError("EVIDENCE_MISSING", "tool script bytes missing from CAS");
   const bytes = new Uint8Array(readFileSync(path));
   if (sha256Digest(bytes) !== row.digest || bytes.length !== row.bytes) {
@@ -57,7 +56,7 @@ export function readReleaseAgentInstructions(
   if (!agent || !view || !row || view.instructions.digest !== row.digest || view.instructions.path !== row.entrypoint) {
     throw new BrainDomainError("EVIDENCE_MISSING", "agent instructions are not pinned in this release");
   }
-  const path = casPathOf(s.dataDir, row.digest);
+  const path = s.casPath(row.digest);
   if (!existsSync(path)) throw new BrainDomainError("EVIDENCE_MISSING", "agent instruction bytes missing from CAS");
   const bytes = new Uint8Array(readFileSync(path));
   if (sha256Digest(bytes) !== row.digest || bytes.length !== row.bytes) throw new BrainDomainError("EVIDENCE_MISSING", "agent instruction bytes do not match the pinned digest");

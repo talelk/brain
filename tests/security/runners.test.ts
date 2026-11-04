@@ -7,12 +7,12 @@ import { setupWorld, DIGEST_A, type TestWorld } from "../helpers";
 // monotonic epochs, and verified-observation boundaries (a hello can never
 // elevate its own trust).
 function enrolled(w: TestWorld, runnerId = "runner-sec"): { credential: string; privateKey: KeyObject; hello: (bootNonce: string, mutate?: (b: Record<string, unknown>) => void) => { sessionToken: string; epoch: number } } {
-  const { token } = w.brain.issueEnrollment(w.owner, "fixture-tools");
+  const { token } = w.brain.jobProtocol.issueEnrollment(w.owner, "fixture-tools");
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
   const pem = publicKey.export({ type: "spki", format: "pem" }).toString();
-  const { credential } = w.brain.enrollRunner({ token, publicKeyPem: pem, runnerId });
+  const { credential } = w.brain.jobProtocol.enrollRunner({ token, publicKeyPem: pem, runnerId });
   const hello = (bootNonce: string, mutate?: (b: Record<string, unknown>) => void) => {
-    const chal = w.brain.runnerChallenge(runnerId, credential);
+    const chal = w.brain.jobProtocol.challenge(runnerId, credential);
     const body: Record<string, unknown> = {
       contractVersion: "brain.runner/v1", runnerId, bootNonce, configDigest: DIGEST_A,
       capacity: { cpuMillicores: 4000, memoryMb: 8192, diskMb: 20480, slots: 1 },
@@ -22,7 +22,7 @@ function enrolled(w: TestWorld, runnerId = "runner-sec"): { credential: string; 
     const helloDigest = domainDigest("brain:runner-hello:v1", body as unknown as JsonValue);
     const signed = JSON.stringify({ challengeId: chal.challengeId, nonce: chal.nonce, runnerId, bootNonce, helloDigest });
     const signatureBase64url = sign(null, Buffer.from(signed, "utf8"), privateKey).toString("base64url");
-    return w.brain.runnerHello({ ...body, proof: { challengeId: chal.challengeId, signatureBase64url } });
+    return w.brain.jobProtocol.hello({ ...body, proof: { challengeId: chal.challengeId, signatureBase64url } });
   };
   return { credential, privateKey, hello };
 }
@@ -31,15 +31,15 @@ describe("runner enrollment and hello security (T15)", () => {
   it("enrollment tokens are single-use and scope-gated", () => {
     const w = setupWorld();
     const intruder = w.actor("mallory", w.workspaceId);
-    expect(() => w.brain.issueEnrollment(intruder, "fixture-tools")).toThrow(/runner:admin/);
-    expect(() => w.brain.issueEnrollment(w.owner, "unreviewed-group")).toThrow(/not declared/);
-    const { token } = w.brain.issueEnrollment(w.owner, "fixture-tools");
+    expect(() => w.brain.jobProtocol.issueEnrollment(intruder, "fixture-tools")).toThrow(/runner:admin/);
+    expect(() => w.brain.jobProtocol.issueEnrollment(w.owner, "unreviewed-group")).toThrow(/not declared/);
+    const { token } = w.brain.jobProtocol.issueEnrollment(w.owner, "fixture-tools");
     const { publicKey } = generateKeyPairSync("ed25519");
     const pem = publicKey.export({ type: "spki", format: "pem" }).toString();
-    w.brain.enrollRunner({ token, publicKeyPem: pem, runnerId: "runner-once" });
-    expect(() => w.brain.enrollRunner({ token, publicKeyPem: pem, runnerId: "runner-replay" })).toThrow(/replayed|invalid/);
-    expect(() => w.brain.enrollRunner({ token: "bogus", publicKeyPem: pem, runnerId: "runner-bogus" })).toThrow();
-    expect(() => w.brain.enrollRunner({ token: w.brain.issueEnrollment(w.owner, "fixture-tools").token, publicKeyPem: "not-a-pem", runnerId: "runner-x" })).toThrow(/PEM/);
+    w.brain.jobProtocol.enrollRunner({ token, publicKeyPem: pem, runnerId: "runner-once" });
+    expect(() => w.brain.jobProtocol.enrollRunner({ token, publicKeyPem: pem, runnerId: "runner-replay" })).toThrow(/replayed|invalid/);
+    expect(() => w.brain.jobProtocol.enrollRunner({ token: "bogus", publicKeyPem: pem, runnerId: "runner-bogus" })).toThrow();
+    expect(() => w.brain.jobProtocol.enrollRunner({ token: w.brain.jobProtocol.issueEnrollment(w.owner, "fixture-tools").token, publicKeyPem: "not-a-pem", runnerId: "runner-x" })).toThrow(/PEM/);
     w.brain.close();
   });
 
@@ -49,7 +49,7 @@ describe("runner enrollment and hello security (T15)", () => {
     const first = hello("boot-1");
     expect(first.epoch).toBe(1);
     // Wrong key: sign with a different keypair.
-    const chal = w.brain.runnerChallenge("runner-sec", credential);
+    const chal = w.brain.jobProtocol.challenge("runner-sec", credential);
     const body: Record<string, unknown> = {
       contractVersion: "brain.runner/v1", runnerId: "runner-sec", bootNonce: "boot-1", configDigest: DIGEST_A,
       capacity: { cpuMillicores: 4000, memoryMb: 8192, diskMb: 20480, slots: 1 }, capabilities: [],
@@ -57,11 +57,11 @@ describe("runner enrollment and hello security (T15)", () => {
     const helloDigest = domainDigest("brain:runner-hello:v1", body as unknown as JsonValue);
     const signed = JSON.stringify({ challengeId: chal.challengeId, nonce: chal.nonce, runnerId: "runner-sec", bootNonce: "boot-1", helloDigest });
     const forged = sign(null, Buffer.from(signed, "utf8"), generateKeyPairSync("ed25519").privateKey).toString("base64url");
-    expect(() => w.brain.runnerHello({ ...body, proof: { challengeId: chal.challengeId, signatureBase64url: forged } })).toThrow(/proof/);
+    expect(() => w.brain.jobProtocol.hello({ ...body, proof: { challengeId: chal.challengeId, signatureBase64url: forged } })).toThrow(/proof/);
     // Challenge replay: a consumed challenge cannot be reused even well-signed.
     const good = sign(null, Buffer.from(signed, "utf8"), privateKey).toString("base64url");
-    w.brain.runnerHello({ ...body, proof: { challengeId: chal.challengeId, signatureBase64url: good } });
-    expect(() => w.brain.runnerHello({ ...body, proof: { challengeId: chal.challengeId, signatureBase64url: good } })).toThrow(/replayed|invalid/);
+    w.brain.jobProtocol.hello({ ...body, proof: { challengeId: chal.challengeId, signatureBase64url: good } });
+    expect(() => w.brain.jobProtocol.hello({ ...body, proof: { challengeId: chal.challengeId, signatureBase64url: good } })).toThrow(/replayed|invalid/);
     w.brain.close();
   });
 
@@ -74,8 +74,8 @@ describe("runner enrollment and hello security (T15)", () => {
     const s2 = hello("boot-B");
     expect(s2.epoch).toBe(s1.epoch + 1);
     // Old-epoch session token no longer authenticates.
-    expect(() => w.brain.authRunner(new Headers({ authorization: `Bearer ${s1.sessionToken}` }))).toThrow();
-    expect(w.brain.authRunner(new Headers({ authorization: `Bearer ${s2.sessionToken}` })).epoch).toBe(s2.epoch);
+    expect(() => w.brain.jobProtocol.authenticate(new Headers({ authorization: `Bearer ${s1.sessionToken}` }))).toThrow();
+    expect(w.brain.jobProtocol.authenticate(new Headers({ authorization: `Bearer ${s2.sessionToken}` })).epoch).toBe(s2.epoch);
     // Privileged capability self-assertions are stored unverified.
     const cap = w.brain.store.control.prepare("SELECT verified FROM runner_capabilities WHERE runner_id='runner-sec' AND capability='privileged:root'").get() as { verified: number };
     expect(cap.verified).toBe(0);

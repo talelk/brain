@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { runScheduledDispatch } from "../../apps/governor/src/modules/jobs/scheduler";
+import { JobProtocol } from "../../apps/governor/src/modules/jobs/index";
 import { Store } from "../../apps/governor/src/application/store";
 import { domainDigest } from "@brain/contracts";
 
@@ -44,6 +44,16 @@ describe("durable cron dispatch (T19 runtime)", () => {
   let depsStore: Store;
   let depsStarts: Array<{ executionKey: string; workflowId: string }> = [];
 
+  // The dispatch loop reached through the module interface, with the same scripted ports.
+  const protocol = () => new JobProtocol(depsStore, {
+    completeStep: () => undefined,
+    evaluatorEligible: () => true,
+    runnerCurrent: () => true,
+    activeRelease: (organizationId) => deps.activeRelease(organizationId),
+    resolveWorkflow: (organizationId, workflowId) => deps.resolveWorkflow(organizationId, workflowId),
+    startRun: (input) => deps.startRun(input),
+  });
+
   it("anchors at first sight, fires once per minute coalesced, and is idempotent on replay", () => {
     let now = Date.now();
     const clock = { nowMs: () => now };
@@ -52,23 +62,23 @@ describe("durable cron dispatch (T19 runtime)", () => {
     depsStarts = [];
 
     // First sight anchors at now: nothing is due yet, and no historical catch-up.
-    expect(runScheduledDispatch(w.store, deps).dispatched).toBe(0);
+    expect(protocol().dispatchSchedules().dispatched).toBe(0);
 
     // 90 seconds later the every-minute schedule has coalesced to one fire.
     now += 90_000;
-    const first = runScheduledDispatch(w.store, deps);
+    const first = protocol().dispatchSchedules();
     expect(first.dispatched).toBe(1);
     expect(depsStarts).toHaveLength(1);
     const marker = w.store.control.prepare("SELECT dispatch_id FROM schedule_fires WHERE schedule_id='sched-every-minute' AND dispatch_id LIKE 'run-%'").all() as Array<{ dispatch_id: string }>;
     expect(marker).toHaveLength(1);
 
     // A replay at the same instant is fully idempotent.
-    expect(runScheduledDispatch(w.store, deps).dispatched).toBe(0);
+    expect(protocol().dispatchSchedules().dispatched).toBe(0);
     expect(depsStarts).toHaveLength(1);
 
     // One minute later exactly one further fire.
     now += 60_000;
-    expect(runScheduledDispatch(w.store, deps).dispatched).toBe(1);
+    expect(protocol().dispatchSchedules().dispatched).toBe(1);
     expect(depsStarts).toHaveLength(2);
     // Distinct execution keys per fire.
     expect(depsStarts[0]!.executionKey).not.toBe(depsStarts[1]!.executionKey);
@@ -93,7 +103,7 @@ describe("durable cron dispatch (T19 runtime)", () => {
       w.org,
     );
     now += 120_000;
-    const result = runScheduledDispatch(w.store, deps);
+    const result = protocol().dispatchSchedules();
     expect(result.dispatched).toBe(0);
     expect(result.skipped).toBeGreaterThanOrEqual(2);
     w.store.close();

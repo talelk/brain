@@ -52,7 +52,7 @@ test("schedules: personal-host offline wait, recovery and fail are explicit (T58
   expect((brain.store.control.prepare("SELECT COUNT(*) AS count FROM jobs").get() as { count: number }).count).toBe(0);
 
   brain.store.control.prepare("UPDATE runners SET last_heartbeat_ms=? WHERE id='personal-browser'").run(brain.store.now());
-  expect(brain.runAutomationDispatch().dispatched).toBe(1);
+  expect(brain.jobProtocol.dispatchAutomations().dispatched).toBe(1);
   await waiting.getByRole("button", { name: "Hide history", exact: true }).click();
   await waiting.getByRole("button", { name: "History", exact: true }).click();
   await expect(waiting).toContainText(/dispatched/i);

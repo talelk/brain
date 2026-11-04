@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { sha256Digest } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import type { Store } from "../../application/store";
-import { assertAttemptLive, casPathOf, loadAttempt } from "../jobs/index";
+import { assertAttemptLive, loadAttempt } from "../jobs/index";
 
 /**
  * Attempt-scoped artifact ingestion (T27): a runner pins its exact output
@@ -33,7 +33,7 @@ export function acceptAttemptArtifact(
   const artifactId = `att-${attemptId}-${identity.slice(7,31)}`;
   const existing = s.control.prepare("SELECT digest FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(artifactId, organizationId) as { digest: string } | undefined;
   if (existing && existing.digest !== digest) throw new BrainDomainError("CONFLICT", "attempt artifact id already pinned to different bytes");
-  const path = casPathOf(s.dataDir, digest);
+  const path = s.casPath(digest);
   mkdirSync(join(path, ".."), { recursive: true });
   if (!existsSync(path)) writeFileSync(path, bytes);
   if (!existing) {

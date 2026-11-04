@@ -15,10 +15,10 @@ describe("trust-domain verifier (T28/L2)", () => {
     brain.store.control.prepare("INSERT OR REPLACE INTO organization_authorizations(organization_id, principal_id, role, granted_by, granted_at_ms) VALUES (?, 'sec-op', 'security-admin', 'owner-1', ?)")
       .run(w.org, brain.store.now());
     const owner = w.actor("owner-1");
-    const { token } = brain.issueEnrollment(owner, "fixture-tools");
+    const { token } = brain.jobProtocol.issueEnrollment(owner, "fixture-tools");
     const { publicKey } = generateKeyPairSync("ed25519");
     const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
-    brain.enrollRunner({ token, publicKeyPem, runnerId: "runner-trust-1" });
+    brain.jobProtocol.enrollRunner({ token, publicKeyPem, runnerId: "runner-trust-1" });
     const runnerId = "runner-trust-1";
     const operator = await brain.resolveActor(new Headers({ authorization: `Bearer ${securitySession.token}` }));
     expect(operator.actor.scopes).toContain("runner:security");

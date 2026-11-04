@@ -24,8 +24,8 @@ describe("G07 restore: hash-verified backup, suspended history, dead authority (
       s.control.prepare("INSERT INTO runner_capabilities(runner_id, capability, verified, source, observed_at_ms, expires_at_ms) VALUES ('runner-g07', ?, 1, 'test', ?, ?)").run(cap, s.now(), s.now() + 3600000);
     }
     const runner = { runnerId: "runner-g07", epoch: 1, organizationId: w.org };
-    const offer = w.brain.claim(runner, "req-g07") as unknown as { attemptId: string; leaseId: string; jobFence: number; jobId: string };
-    w.brain.ackAttempt(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
+    const offer = w.brain.jobProtocol.claim(runner, "req-g07") as unknown as { attemptId: string; leaseId: string; jobFence: number; jobId: string };
+    w.brain.jobProtocol.ack(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
     const subject = {
       organizationId: w.org, workspaceId: w.workspaceId, operation: "fixture.publish",
       tool: { id: "fixture.echo", digest: DIGEST_A }, inputDigest: DIGEST_A,

@@ -31,16 +31,16 @@ describe("atomic claim, capacity and fences (T17)", () => {
     await dispatch(w, "claim-race");
     const r1 = seedRunner(w, "runner-a");
     const r2 = seedRunner(w, "runner-b");
-    const o1 = w.brain.claim(r1, "req-1") as Offer | null;
-    const o2 = w.brain.claim(r2, "req-2") as Offer | null;
+    const o1 = w.brain.jobProtocol.claim(r1, "req-1") as Offer | null;
+    const o2 = w.brain.jobProtocol.claim(r2, "req-2") as Offer | null;
     expect([o1, o2].filter(Boolean)).toHaveLength(1);
     const winner = o1 ?? o2;
     const winnerRunner = o1 ? r1 : r2;
-    const replay = w.brain.claim(winnerRunner, o1 ? "req-1" : "req-2") as Offer | null;
+    const replay = w.brain.jobProtocol.claim(winnerRunner, o1 ? "req-1" : "req-2") as Offer | null;
     expect(replay?.attemptId).toBe(winner!.attemptId);
     expect(replay?.leaseId).toBe(winner!.leaseId);
     // A fresh request from the loser still gets nothing while the lease lives.
-    expect(w.brain.claim(o1 ? r2 : r1, "req-3")).toBeNull();
+    expect(w.brain.jobProtocol.claim(o1 ? r2 : r1, "req-3")).toBeNull();
     w.brain.close();
   });
 
@@ -49,9 +49,9 @@ describe("atomic claim, capacity and fences (T17)", () => {
     await dispatch(w, "claim-cap-1");
     await dispatch(w, "claim-cap-2");
     const r = seedRunner(w, "runner-cap", 1);
-    const first = w.brain.claim(r, "req-cap-1") as Offer | null;
+    const first = w.brain.jobProtocol.claim(r, "req-cap-1") as Offer | null;
     expect(first).toBeTruthy();
-    expect(w.brain.claim(r, "req-cap-2")).toBeNull();
+    expect(w.brain.jobProtocol.claim(r, "req-cap-2")).toBeNull();
     w.brain.close();
   });
 
@@ -59,12 +59,12 @@ describe("atomic claim, capacity and fences (T17)", () => {
     const w = setupWorld();
     await dispatch(w, "claim-fence");
     const r = seedRunner(w, "runner-fence");
-    const first = w.brain.claim(r, "req-fence-1") as Offer | null;
+    const first = w.brain.jobProtocol.claim(r, "req-fence-1") as Offer | null;
     expect(first).toBeTruthy();
     // Force the offer deadline into the past, then run the expiry sweep.
     w.brain.store.control.prepare("UPDATE job_attempts SET offer_expires_at_ms=0, lease_expires_at_ms=0 WHERE id=?").run(first!.attemptId);
-    expect(w.brain.expireLeases()).toBeGreaterThanOrEqual(1);
-    const second = w.brain.claim(r, "req-fence-2") as Offer | null;
+    expect(w.brain.jobProtocol.expireLeases()).toBeGreaterThanOrEqual(1);
+    const second = w.brain.jobProtocol.claim(r, "req-fence-2") as Offer | null;
     expect(second).toBeTruthy();
     expect(second!.jobId).toBe(first!.jobId);
     expect(second!.jobFence).toBeGreaterThan(first!.jobFence);

@@ -75,7 +75,7 @@ test("operations: issue a one-use enrollment token and enroll an outbound runner
   await dialog.getByRole("button", { name: "Issue one-use token", exact: true }).click();
   const token = await dialog.getByLabel("One-use enrollment token", { exact: true }).inputValue();
   expect(token.length).toBeGreaterThan(20);
-  brain.enrollRunner({ token, publicKeyPem: "-----BEGIN PUBLIC KEY-----\nbrowser-runner\n-----END PUBLIC KEY-----", runnerId: "runner-browser-enrolled" });
+  brain.jobProtocol.enrollRunner({ token, publicKeyPem: "-----BEGIN PUBLIC KEY-----\nbrowser-runner\n-----END PUBLIC KEY-----", runnerId: "runner-browser-enrolled" });
   await dialog.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(page.getByText("runner-browser-enrolled", { exact: true })).toBeVisible();

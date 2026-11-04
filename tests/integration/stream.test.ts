@@ -1,9 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { createStreamService, emitterOf, severityOf, sweepStream } from "../../apps/governor/src/modules/stream/index";
-import { attemptEvents as jobsAttemptEvents, heartbeat as jobsHeartbeat } from "../../apps/governor/src/modules/jobs/index";
+import { JobProtocol } from "../../apps/governor/src/modules/jobs/index";
+import type { Store } from "../../apps/governor/src/application/store";
 import { seedHuman, setupWorld, type TestWorld } from "../helpers";
 
 const DAY = 24 * 3600_000;
+
+/** JobProtocol with scripted ports: heartbeat/event paths never reach the ports. */
+function jobsProtocol(s: Store): JobProtocol {
+  return new JobProtocol(s, {
+    completeStep: () => undefined,
+    evaluatorEligible: () => true,
+    runnerCurrent: () => true,
+    activeRelease: () => undefined,
+    resolveWorkflow: () => ({ workflow: {}, configDigest: `sha256:${"0".repeat(64)}` }),
+    startRun: () => ({ runId: "unused" }),
+  });
+}
 
 function seedRunner(w: TestWorld, runnerId: string): void {
   w.brain.store.control.prepare(`INSERT INTO runners(id, organization_id, group_id, identity_key_digest, admin_state, health, config_digest, cpu_capacity, memory_capacity, disk_capacity, slot_capacity, session_epoch)
@@ -399,17 +412,17 @@ describe("unified execution stream", () => {
         .run("ses-stream-9", JSON.stringify({ sessionId: "ses-stream-9", message: "focus on the failing diff" }), now);
       ws.prepare("INSERT INTO session_controls(id, session_id, kind, payload, created_at_ms) VALUES ('ctl-stop-9', ?, 'session.stop', ?, ?)")
         .run("ses-stream-9", JSON.stringify({ sessionId: "ses-stream-9", reason: "operator stop" }), now);
-      const first = jobsHeartbeat(s, { runnerId: "runner-stream-9", epoch: 1 }, { sequence: 1, health: "healthy" });
+      const first = jobsProtocol(s).heartbeat({ runnerId: "runner-stream-9", epoch: 1 }, { sequence: 1, health: "healthy" });
       expect(first.serverTime).toBeTruthy();
       expect(first.commands).toContainEqual(expect.objectContaining({ type: "steer", attemptId: "att-stream-9", text: "focus on the failing diff" }));
       expect(first.commands).toContainEqual(expect.objectContaining({ type: "stop-attempt", attemptId: "att-stream-9" }));
       expect((ws.prepare("SELECT COUNT(*) AS c FROM session_controls").get() as { c: number }).c).toBe(0);
       // A second heartbeat delivers nothing: rows were deleted with the ack.
-      const second = jobsHeartbeat(s, { runnerId: "runner-stream-9", epoch: 1 }, { sequence: 2, health: "healthy" });
+      const second = jobsProtocol(s).heartbeat({ runnerId: "runner-stream-9", epoch: 1 }, { sequence: 2, health: "healthy" });
       expect(second.commands).toEqual([]);
       // Unbound sessions (no live attempt) are not drained.
       ws.prepare("INSERT INTO session_controls(id, session_id, kind, payload, created_at_ms) VALUES ('ctl-idle-9', 'ses-idle', 'session.steer', '{}', ?)").run(now);
-      const third = jobsHeartbeat(s, { runnerId: "runner-stream-9", epoch: 1 }, { sequence: 3, health: "healthy" });
+      const third = jobsProtocol(s).heartbeat({ runnerId: "runner-stream-9", epoch: 1 }, { sequence: 3, health: "healthy" });
       expect(third.commands).toEqual([]);
       expect((ws.prepare("SELECT COUNT(*) AS c FROM session_controls").get() as { c: number }).c).toBe(1);
     } finally {
@@ -424,7 +437,7 @@ describe("unified execution stream", () => {
       seedRunner(w, "runner-stream-10");
       seedJob(w, "job-stream-10", "run-stream-10", "runner-stream-10", "att-stream-10");
       seedSession(w, "ses-stream-10", "job-stream-10", "att-stream-10", ["sessions"]);
-      const ack = jobsAttemptEvents(s, { runnerId: "runner-stream-10", epoch: 1 }, "att-stream-10", {
+      const ack = jobsProtocol(s).events({ runnerId: "runner-stream-10", epoch: 1 }, "att-stream-10", {
         leaseId: "lease-att-stream-10", jobFence: 1,
         engine: { id: "fixture", adapterDigest: `sha256:${"0".repeat(64)}`, features: ["sessions", "steer"] },
         events: [{ sequence: 1, kind: "engine", payload: engineEvent("att-stream-10", 1, "text", { text: "feature carrier", channel: "assistant", provisional: true }) }],

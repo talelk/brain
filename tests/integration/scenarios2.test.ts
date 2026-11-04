@@ -34,9 +34,9 @@ interface Offer { attemptId: string; leaseId: string; jobFence: number; jobId: s
 async function runningAttempt(w: World, key: string, runnerId: string): Promise<{ runner: ReturnType<typeof seedRunner>; offer: Offer }> {
   await dispatchGolden(w, key);
   const runner = seedRunner(w, runnerId);
-  const offer = w.brain.claim(runner, `req-${key}`) as unknown as Offer;
+  const offer = w.brain.jobProtocol.claim(runner, `req-${key}`) as unknown as Offer;
   expect(offer).toBeTruthy();
-  w.brain.ackAttempt(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
+  w.brain.jobProtocol.ack(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
   return { runner, offer };
 }
 
@@ -149,10 +149,10 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
     await dispatchGolden(w, "deadline-run");
     w.brain.store.control.prepare("UPDATE jobs SET deadline_ms=?").run(Date.now() - 1000);
     const r = seedRunner(w, "runner-dl");
-    expect(w.brain.claim(r, "req-dl")).toBeNull();
+    expect(w.brain.jobProtocol.claim(r, "req-dl")).toBeNull();
     const w2 = setupWorld();
     const { runner, offer } = await runningAttempt(w2, "fail-run", "runner-fail");
-    w2.brain.completeAttempt(runner, offer.attemptId, { result: "failed", output: {}, jobFence: offer.jobFence, cleanupConfirmed: true });
+    w2.brain.jobProtocol.complete(runner, offer.attemptId, { result: "failed", output: {}, jobFence: offer.jobFence, cleanupConfirmed: true });
     expect(jobState(w2, offer.jobId)).toBe("failed");
     const ws = w2.brain.store.workspaceDb(w2.workspaceId, w2.org);
     const run = ws.prepare("SELECT state FROM workflow_runs LIMIT 1").get() as { state: string };
@@ -165,8 +165,8 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
     await dispatchGolden(w, "cap-1");
     await dispatchGolden(w, "cap-2");
     const r = seedRunner(w, "runner-cap", "fixture-tools", { cpu: 4000, mem: 8192, disk: 20480, slots: 1 });
-    expect(w.brain.claim(r, "req-cap-1")).toBeTruthy();
-    expect(w.brain.claim(r, "req-cap-2")).toBeNull();
+    expect(w.brain.jobProtocol.claim(r, "req-cap-1")).toBeTruthy();
+    expect(w.brain.jobProtocol.claim(r, "req-cap-2")).toBeNull();
     const reserved = w.brain.store.control.prepare("SELECT slots_reserved FROM runners WHERE id=?").get("runner-cap") as { slots_reserved: number };
     expect(reserved.slots_reserved).toBe(1);
     w.brain.close();
@@ -174,12 +174,12 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
 
   it("new hello epoch fences the old runner session; privileged claims stay unverified (E038/E033)", async () => {
     const w = setupWorld();
-    const { token } = w.brain.issueEnrollment(w.owner, "fixture-tools");
+    const { token } = w.brain.jobProtocol.issueEnrollment(w.owner, "fixture-tools");
     const { publicKey, privateKey } = generateKeyPairSync("ed25519");
     const pem = publicKey.export({ type: "spki", format: "pem" }).toString();
-    const { credential } = w.brain.enrollRunner({ token, publicKeyPem: pem, runnerId: "runner-epoch" });
+    const { credential } = w.brain.jobProtocol.enrollRunner({ token, publicKeyPem: pem, runnerId: "runner-epoch" });
     const hello = (bootNonce: string) => {
-      const chal = w.brain.runnerChallenge("runner-epoch", credential);
+      const chal = w.brain.jobProtocol.challenge("runner-epoch", credential);
       const body: Record<string, unknown> = {
         contractVersion: "brain.runner/v1", runnerId: "runner-epoch", bootNonce, configDigest: DIGEST_A,
         capacity: { cpuMillicores: 4000, memoryMb: 8192, diskMb: 20480, slots: 1 },
@@ -188,14 +188,14 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
       const helloDigest = domainDigest("brain:runner-hello:v1", body as unknown as JsonValue);
       const signed = JSON.stringify({ challengeId: chal.challengeId, nonce: chal.nonce, runnerId: "runner-epoch", bootNonce, helloDigest });
       const signatureBase64url = sign(null, Buffer.from(signed, "utf8"), privateKey).toString("base64url");
-      return w.brain.runnerHello({ ...body, proof: { challengeId: chal.challengeId, signatureBase64url } });
+      return w.brain.jobProtocol.hello({ ...body, proof: { challengeId: chal.challengeId, signatureBase64url } });
     };
     const s1 = hello("boot-1");
     expect(s1.epoch).toBe(1);
     const s2 = hello("boot-2");
     expect(s2.epoch).toBe(2);
-    expect(() => w.brain.authRunner(new Headers({ authorization: `Bearer ${s1.sessionToken}` }))).toThrow();
-    expect(() => w.brain.heartbeat({ runnerId: "runner-epoch", epoch: 1 }, { sequence: 1 })).toThrow();
+    expect(() => w.brain.jobProtocol.authenticate(new Headers({ authorization: `Bearer ${s1.sessionToken}` }))).toThrow();
+    expect(() => w.brain.jobProtocol.heartbeat({ runnerId: "runner-epoch", epoch: 1 }, { sequence: 1 })).toThrow();
     // E033: self-asserted privileged capability from the same hellos is unverified.
     const cap = w.brain.store.control.prepare("SELECT verified FROM runner_capabilities WHERE runner_id=? AND capability='privileged:root'").get("runner-epoch") as { verified: number };
     expect(cap.verified).toBe(0);
@@ -210,7 +210,7 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
     const r = seedRunner(w, "runner-zero", "fixture-tools", { cpu: 500, mem: 1024, disk: 512, slots: 1 });
     // Observed free capacity is zero: every dimension fully reserved.
     w.brain.store.control.prepare("UPDATE runners SET cpu_reserved=cpu_capacity, memory_reserved=memory_capacity, disk_reserved=disk_capacity, slots_reserved=slot_capacity WHERE id=?").run("runner-zero");
-    expect(w.brain.claim(r, "req-zero")).toBeNull();
+    expect(w.brain.jobProtocol.claim(r, "req-zero")).toBeNull();
     w.brain.close();
   });
 
@@ -218,10 +218,10 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
     const w = setupWorld();
     const { offer } = await runningAttempt(w, "lost-runner", "runner-lost");
     w.brain.store.control.prepare("UPDATE job_attempts SET lease_expires_at_ms=? WHERE id=?").run(Date.now() - 1000, offer.attemptId);
-    expect(w.brain.expireLeases()).toBeGreaterThan(0);
+    expect(w.brain.jobProtocol.expireLeases()).toBeGreaterThan(0);
     expect(jobState(w, offer.jobId)).toBe("outcome_unknown");
     const r2 = seedRunner(w, "runner-other");
-    expect(w.brain.claim(r2, "req-other")).toBeNull();
+    expect(w.brain.jobProtocol.claim(r2, "req-other")).toBeNull();
     w.brain.close();
   });
 
@@ -247,7 +247,7 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
     const s1 = await approveSubject(w, baseSubject(w, "guard-n1"), "guard-apr-1");
     w.brain.issuePermit(a.runner, a.offer.attemptId, { invocationId: "guard-inv-1", subjectDigest: s1.digest, approvalId: s1.approvalId, resourceKeys: ["target:guarded"] });
     w.brain.store.control.prepare("UPDATE job_attempts SET lease_expires_at_ms=? WHERE id=?").run(Date.now() - 1000, a.offer.attemptId);
-    w.brain.expireLeases();
+    w.brain.jobProtocol.expireLeases();
     expect(jobState(w, a.offer.jobId)).toBe("outcome_unknown");
     const b = await runningAttempt(w, "guard-2", "runner-g2");
     const s2 = await approveSubject(w, baseSubject(w, "guard-n2"), "guard-apr-2");
@@ -263,8 +263,8 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
       idempotencyKey: "drain-1", payload: { runnerId: "runner-drain", reason: "maintenance" },
     }, "cd");
     await dispatchGolden(w, "drain-2");
-    expect(w.brain.claim(a.runner, "req-drain-2")).toBeNull();
-    const done = w.brain.completeAttempt(a.runner, a.offer.attemptId, { result: "succeeded", output: { message: "x" }, jobFence: a.offer.jobFence, cleanupConfirmed: true }) as unknown as { jobState: string };
+    expect(w.brain.jobProtocol.claim(a.runner, "req-drain-2")).toBeNull();
+    const done = w.brain.jobProtocol.complete(a.runner, a.offer.attemptId, { result: "succeeded", output: { message: "x" }, jobFence: a.offer.jobFence, cleanupConfirmed: true }) as unknown as { jobState: string };
     expect(done.jobState).toBe("verifying");
     w.brain.close();
   });
@@ -308,7 +308,7 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
     insertJob(w, { id: "job-big", workspaceId: w.workspaceId, priority: 3, cpu: 60_000, mem: 60_000 });
     insertJob(w, { id: "job-house", workspaceId: w.workspaceId, priority: 1, cpu: 100, mem: 128 });
     const r = seedRunner(w, "runner-fair1");
-    const offer = w.brain.claim(r, "req-fair1") as unknown as Offer;
+    const offer = w.brain.jobProtocol.claim(r, "req-fair1") as unknown as Offer;
     expect(offer.jobId).toBe("job-house");
     w.brain.close();
   });
@@ -321,7 +321,7 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
     insertJob(w, { id: "job-greedy", workspaceId: w.workspaceId, priority: 3 }); // schema caps priority at 3
     insertJob(w, { id: "job-other", workspaceId: "ws-other", priority: 1 });
     const r2 = seedRunner(w, "runner-fair2");
-    const offer = w.brain.claim(r2, "req-fair2") as unknown as Offer;
+    const offer = w.brain.jobProtocol.claim(r2, "req-fair2") as unknown as Offer;
     expect(offer.workspaceId).toBe("ws-other");
     expect(offer.jobId).toBe("job-other");
     w.brain.close();
@@ -334,7 +334,7 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
     }
     insertJob(w, { id: "job-eligible", workspaceId: w.workspaceId, priority: 0 });
     const r = seedRunner(w, "runner-page");
-    const offer = w.brain.claim(r, "req-page") as unknown as Offer;
+    const offer = w.brain.jobProtocol.claim(r, "req-page") as unknown as Offer;
     expect(offer.jobId).toBe("job-eligible");
     w.brain.close();
   });
@@ -378,10 +378,10 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
   it("crash after mutation: outcome unknown blocks retry until reconciliation (E056)", async () => {
     const w = setupWorld();
     const a = await runningAttempt(w, "crash-1", "runner-crash");
-    w.brain.completeAttempt(a.runner, a.offer.attemptId, { result: "unknown-outcome", output: {}, jobFence: a.offer.jobFence, cleanupConfirmed: false });
+    w.brain.jobProtocol.complete(a.runner, a.offer.attemptId, { result: "unknown-outcome", output: {}, jobFence: a.offer.jobFence, cleanupConfirmed: false });
     expect(jobState(w, a.offer.jobId)).toBe("outcome_unknown");
     const r2 = seedRunner(w, "runner-crash-2");
-    expect(w.brain.claim(r2, "req-crash-2")).toBeNull();
+    expect(w.brain.jobProtocol.claim(r2, "req-crash-2")).toBeNull();
     const jobVersion = (w.brain.store.control.prepare("SELECT version FROM jobs WHERE id=?").get(a.offer.jobId) as { version: number }).version;
     await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-rec", commandType: "job.reconcile",
@@ -391,7 +391,7 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
     expect(jobState(w, a.offer.jobId)).toBe("outcome_unknown");
     w.brain.reconcileJob({ organizationId: w.org, jobId: a.offer.jobId, outcome: "absent", evidenceDigest: DIGEST_A });
     expect(jobState(w, a.offer.jobId)).toBe("queued");
-    expect(w.brain.claim(r2, "req-crash-3")).toBeTruthy();
+    expect(w.brain.jobProtocol.claim(r2, "req-crash-3")).toBeTruthy();
     w.brain.close();
   });
 
@@ -421,14 +421,14 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
     const w = setupWorld();
     const a = await runningAttempt(w, "ev-1", "runner-ev");
     const body = { leaseId: a.offer.leaseId, jobFence: a.offer.jobFence };
-    const ok = w.brain.attemptEvents(a.runner, a.offer.attemptId, { ...body, events: [{ sequence: 1, text: "a" }, { sequence: 2, text: "b" }] }) as unknown as { lastCommittedSequence: number };
+    const ok = w.brain.jobProtocol.events(a.runner, a.offer.attemptId, { ...body, events: [{ sequence: 1, text: "a" }, { sequence: 2, text: "b" }] }) as unknown as { lastCommittedSequence: number };
     expect(ok.lastCommittedSequence).toBe(2);
-    const dup = w.brain.attemptEvents(a.runner, a.offer.attemptId, { ...body, events: [{ sequence: 1, text: "again" }, { sequence: 3, text: "c" }] }) as unknown as { lastCommittedSequence: number };
+    const dup = w.brain.jobProtocol.events(a.runner, a.offer.attemptId, { ...body, events: [{ sequence: 1, text: "again" }, { sequence: 3, text: "c" }] }) as unknown as { lastCommittedSequence: number };
     expect(dup.lastCommittedSequence).toBe(3);
-    expect(() => w.brain.attemptEvents(a.runner, a.offer.attemptId, { ...body, events: [{ sequence: "x" }] })).toThrow(/sequence/);
-    expect(() => w.brain.attemptEvents(a.runner, a.offer.attemptId, { ...body, events: ["truncated"] })).toThrow();
-    expect(() => w.brain.attemptEvents(a.runner, a.offer.attemptId, { ...body, events: Array.from({ length: 129 }, (_, i) => ({ sequence: 10 + i })) })).toThrow(/128/);
-    const after = w.brain.attemptEvents(a.runner, a.offer.attemptId, { ...body, events: [] }) as unknown as { lastCommittedSequence: number };
+    expect(() => w.brain.jobProtocol.events(a.runner, a.offer.attemptId, { ...body, events: [{ sequence: "x" }] })).toThrow(/sequence/);
+    expect(() => w.brain.jobProtocol.events(a.runner, a.offer.attemptId, { ...body, events: ["truncated"] })).toThrow();
+    expect(() => w.brain.jobProtocol.events(a.runner, a.offer.attemptId, { ...body, events: Array.from({ length: 129 }, (_, i) => ({ sequence: 10 + i })) })).toThrow(/128/);
+    const after = w.brain.jobProtocol.events(a.runner, a.offer.attemptId, { ...body, events: [] }) as unknown as { lastCommittedSequence: number };
     expect(after.lastCommittedSequence).toBe(3); // durable stream unharmed by rejects
     w.brain.close();
   });
@@ -436,14 +436,14 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
   it("changed verdict for the same bundle conflicts; identical replay is stable (E075)", async () => {
     const w = setupWorld();
     const a = await runningAttempt(w, "verd-1", "runner-verd");
-    w.brain.completeAttempt(a.runner, a.offer.attemptId, { result: "succeeded", output: { message: "Brain fixture" }, jobFence: a.offer.jobFence, cleanupConfirmed: true });
+    w.brain.jobProtocol.complete(a.runner, a.offer.attemptId, { result: "succeeded", output: { message: "Brain fixture" }, jobFence: a.offer.jobFence, cleanupConfirmed: true });
     const bundle=bundleForAttempt(w.brain,w.org,w.workspaceId,a.offer.attemptId,"bundle-verd");
     const submitted = w.brain.submitEvidence(a.runner,bundle) as {digest:string};
     const evaluator=seedRunner(w,"runner-verdict-eval","fixture-evaluators");
     attestDomain(w.brain,a.runner.runnerId,"author"); attestDomain(w.brain,evaluator.runnerId,"evaluator");
-    const offer=w.brain.claim(evaluator,"claim-verdict-eval") as unknown as Offer;
-    w.brain.ackAttempt(evaluator,offer.attemptId,{leaseId:offer.leaseId,jobFence:offer.jobFence});
-    w.brain.completeAttempt(evaluator,offer.attemptId,{result:"succeeded",output:{checks:bundle.checks},jobFence:offer.jobFence,cleanupConfirmed:true});
+    const offer=w.brain.jobProtocol.claim(evaluator,"claim-verdict-eval") as unknown as Offer;
+    w.brain.jobProtocol.ack(evaluator,offer.attemptId,{leaseId:offer.leaseId,jobFence:offer.jobFence});
+    w.brain.jobProtocol.complete(evaluator,offer.attemptId,{result:"succeeded",output:{checks:bundle.checks},jobFence:offer.jobFence,cleanupConfirmed:true});
     const assignment=w.brain.evidence.assignment(offer.jobId)!;
     const verdict = {contractVersion:"brain.verdict/v1",bundleDigest:submitted.digest,evaluatorAttemptId:offer.attemptId,evaluatorRelease:assignment.evaluatorRelease,
       independence:assignment.independence,outcome:"verified",checks:bundle.checks,acceptedBy:evaluator.runnerId,createdAt:w.brain.store.nowIso()};
