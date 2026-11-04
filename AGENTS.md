@@ -17,3 +17,17 @@ Fresh current-schema initialization, vendor-owned schema generation needed for t
 Read `IMPLEMENTATION_PROMPT.md` and `contracts/v1/implementation-policy.json` when implementation is requested. Later explicit user direction takes precedence; do not infer that a generic request to test, fix or continue reinstates compatibility, migration or incremental delivery obligations.
 
 For OpenCode use the native v2 root `opencode.json` and `docs/implementation/17-opencode-execution.md`. Explicitly read `/home/talel/.codex/RTK.md`; do not assume an assistant expands the `@file` line. Use focused task packets and the typed implementation ledger/checkpoint for context continuity, without turning them into incremental delivery restrictions. Do not mark model qualification or runtime integration gates passed from documentation checks.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `talelk/brain`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical roles, used as-is (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` at the root, ADRs under `docs/adr/`. See `docs/agents/domain.md`.

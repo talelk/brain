@@ -164,6 +164,16 @@ Live sessions support steering and stopping (`session:steer`, `session:stop`).
 **Cancel run** from the detail page (`workflow.cancel`); already-committed effects are
 not undone and require reconciliation (UF-06).
 
+Everything an operator can see about execution — control events, workspace events and
+attempt events — is projected into one **unified execution stream** with a single
+global cursor, read under the caller's own scope. **Logs** (`/w/:id/logs`) is the
+searchable view over it: live tail, source and severity filters, full-text search,
+correlation jumps, cross-attempt comparison and bounded sanitized export. **Outputs**
+(`/w/:id/outputs`) and **Artifact** (`/artifacts/:id`) expose the generated artifacts
+with previews, history and diffs. Steering is advisory and delivered at a turn
+boundary through the runner heartbeat; a stop aborts through the same cancellation
+path a watchdog would use, so neither depends on the model cooperating.
+
 Technical notes: the workflow machine allows `running → suspended` (for example while
 waiting on approval) and back; job states cycle `queued → offered → running →
 verifying → succeeded/failed/partial` with `outcome_unknown` as a first-class state.
