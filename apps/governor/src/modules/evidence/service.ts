@@ -22,6 +22,8 @@ interface PinnedRelease {
 }
 export interface EvidenceHost {
   completeStep(organizationId: string, workspaceId: string, runId: string, stepId: string, output: JsonValue, ok: boolean): void;
+  /** Concludes a job and attempt (jobs module); joins the caller's control transaction. */
+  concludeAttempt(input: { jobId: string; attemptId: string; state: "succeeded" | "failed"; jobFence?: number }): void;
 }
 
 export function pinnedEvaluator(s: Store, organizationId: string, configDigest: string, ref: { id: string; digest: string }): Evaluator {
@@ -234,13 +236,9 @@ export class EvidenceService {
       if (author.job_fence !== author.current_fence) throw new BrainDomainError("LEASE_LOST", "accepted verdict cannot finalize a newer attempt");
       if (verdict.outcome !== "incomplete") {
         const state = verdict.outcome === "verified" ? "succeeded" : "failed";
-        transitionState(this.s.control, "job", author.job_id, state, { bumpVersion: true, and: { job_fence: bundle.jobFence } });
-        transitionState(this.s.control, "attempt", author.id, state);
+        this.host.concludeAttempt({ jobId: author.job_id, attemptId: author.id, state, jobFence: bundle.jobFence });
       }
-      if (evaluationComplete) {
-        transitionState(this.s.control, "job", evaluator.job_id, "succeeded", { bumpVersion: true });
-        transitionState(this.s.control, "attempt", evaluator.id, "succeeded");
-      }
+      if (evaluationComplete) this.host.concludeAttempt({ jobId: evaluator.job_id, attemptId: evaluator.id, state: "succeeded" });
       // A general verdict proves checks. Resource effect guards are released
       // only by connector readback/reconciliation, never by a runner assertion.
       this.s.control.prepare("INSERT INTO inbox(source_id,event_id,payload_digest,applied_at_ms) VALUES ('evidence',?,?,?)").run(verdictId,digest,this.s.now());

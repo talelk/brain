@@ -4,6 +4,7 @@ import { authRunner, enrollRunner, heartbeat, issueEnrollment, operateRunner, ru
 import { ackAttempt, attemptEvents, claim, completeAttempt, expireLeases, readExecutionArtifact, releaseAttempt, releaseReservation, renewAttempt } from "./attempts";
 import { runScheduledDispatch } from "./scheduler";
 import { AutomationService } from "./automation";
+import { cancelJobsForRun, concludeAttempt, createJobForStep, resolveReconciliation, workspaceJobLoad, type CreateJobInput, type ReconciliationOutcome } from "./lifecycle";
 
 /**
  * The runner identity established by {@link JobProtocol.authenticate}; it
@@ -122,6 +123,33 @@ export class JobProtocol {
 
   releaseReservation(attemptId: string): void {
     releaseReservation(this.store, attemptId);
+  }
+
+  // --- Job lifecycle outside the runner protocol ---
+
+  /** Queues the job for a workflow step; a repeated execution key returns the same job. */
+  createForStep(input: CreateJobInput): string {
+    return createJobForStep(this.store, input);
+  }
+
+  /** Cancels the run's jobs that no runner holds yet. */
+  cancelForRun(runId: string): void {
+    cancelJobsForRun(this.store, runId);
+  }
+
+  /** Resolves an outcome_unknown job's reconciliation with target evidence. */
+  resolveReconciliation(input: { organizationId: string; jobId: string; outcome: ReconciliationOutcome; evidenceDigest: string }): { jobId: string; outcome: ReconciliationOutcome } {
+    return resolveReconciliation(this.store, input);
+  }
+
+  /** Concludes a job and attempt from an accepted verdict, inside the caller's transaction if any. */
+  concludeAttempt(input: { jobId: string; attemptId: string; state: "succeeded" | "failed"; jobFence?: number }): void {
+    concludeAttempt(this.store, input);
+  }
+
+  /** Unresolved (outcome_unknown) and active job counts for a workspace. */
+  workspaceJobLoad(workspaceId: string): { unresolved: number; active: number } {
+    return workspaceJobLoad(this.store, workspaceId);
   }
 
   // --- Dispatch loops ---

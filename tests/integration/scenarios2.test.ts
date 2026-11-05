@@ -386,9 +386,9 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
       contractVersion: "brain.command/v1", commandId: "cmd-rec", commandType: "job.reconcile",
       workspaceId: w.workspaceId, idempotencyKey: "rec-1", expectedVersion: jobVersion, payload: { jobId: a.offer.jobId, reason: "probe" },
     }, "crec");
-    w.brain.reconcileJob({ organizationId: w.org, jobId: a.offer.jobId, outcome: "unknown", evidenceDigest: DIGEST_A });
+    w.brain.jobProtocol.resolveReconciliation({ organizationId: w.org, jobId: a.offer.jobId, outcome: "unknown", evidenceDigest: DIGEST_A });
     expect(jobState(w, a.offer.jobId)).toBe("outcome_unknown");
-    w.brain.reconcileJob({ organizationId: w.org, jobId: a.offer.jobId, outcome: "absent", evidenceDigest: DIGEST_A });
+    w.brain.jobProtocol.resolveReconciliation({ organizationId: w.org, jobId: a.offer.jobId, outcome: "absent", evidenceDigest: DIGEST_A });
     expect(jobState(w, a.offer.jobId)).toBe("queued");
     expect(w.brain.jobProtocol.claim(r2, "req-crash-3")).toBeTruthy();
     w.brain.close();

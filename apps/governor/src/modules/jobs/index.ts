@@ -7,6 +7,7 @@
  * operations module reads runner views / issues enrollment tokens.
  */
 export { JobProtocol, type JobProtocolPorts } from "./job-protocol";
+export type { CreateJobInput } from "./lifecycle";
 export { issueEnrollment } from "./protocol";
 export { assertAttemptLive, loadAttempt, runnerView } from "./attempts";
 export {

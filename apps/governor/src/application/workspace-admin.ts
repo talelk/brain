@@ -4,12 +4,13 @@ import type { Store } from "./store";
 import { BrainDomainError } from "../domain/errors";
 import { assertExpectedVersion } from "../domain/states";
 import type { BrainAuth } from "../modules/identity/index";
+import type { JobProtocol } from "../modules/jobs/index";
 
 /**
  * Workspace administration commands: memberships and the workspace lifecycle.
  * All of them change control.db authority, so they commit with the receipt.
  */
-export function workspaceAdminCommands(store: Store, auth: BrainAuth): CommandHandlers {
+export function workspaceAdminCommands(store: Store, auth: BrainAuth, jobs: Pick<JobProtocol, "workspaceJobLoad">): CommandHandlers {
   const s = store;
   return {
     ...handlersFor(["member.grant", "member.revoke"], {
@@ -70,14 +71,12 @@ export function workspaceAdminCommands(store: Store, auth: BrainAuth): CommandHa
         if (action === "resume") {
           if (workspace.status !== "suspended") throw new BrainDomainError("CONFLICT", "only a suspended workspace can resume");
           if (!s.control.prepare("SELECT 1 FROM active_config WHERE organization_id=?").get(actor.organizationId)) throw new BrainDomainError("CONFLICT", "an active configuration release is required before resume");
-          const unresolved = s.control.prepare("SELECT COUNT(*) AS count FROM jobs WHERE workspace_id=? AND state='outcome_unknown'").get(workspaceId) as { count: number };
-          if (unresolved.count > 0) throw new BrainDomainError("CONFLICT", "reconcile unknown outcomes before resuming the workspace");
+          if (jobs.workspaceJobLoad(workspaceId).unresolved > 0) throw new BrainDomainError("CONFLICT", "reconcile unknown outcomes before resuming the workspace");
         } else if (action === "suspend") {
           if (workspace.status !== "active") throw new BrainDomainError("CONFLICT", "only an active workspace can suspend");
         } else if (action === "archive") {
           if (workspace.status === "archived") return { resourceId: workspaceId };
-          const active = s.control.prepare("SELECT COUNT(*) AS count FROM jobs WHERE workspace_id=? AND state IN ('queued','offered','running','verifying','blocked','outcome_unknown')").get(workspaceId) as { count: number };
-          if (active.count > 0) throw new BrainDomainError("CONFLICT", "archive requires no active, blocked or unresolved work");
+          if (jobs.workspaceJobLoad(workspaceId).active > 0) throw new BrainDomainError("CONFLICT", "archive requires no active, blocked or unresolved work");
         } else {
           throw new BrainDomainError("INVALID_ARGUMENT", "workspace action must be suspend, resume or archive");
         }

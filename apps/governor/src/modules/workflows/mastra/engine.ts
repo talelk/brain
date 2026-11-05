@@ -8,6 +8,7 @@ import { BrainDomainError } from "../../../domain/errors";
 import { bulkTransition, transitionState } from "../../../domain/states";
 import { compileWorkflowGraph, resolveBinding } from "../../configuration/index";
 import type { Store } from "../../../application/store";
+import type { Db } from "../../../infrastructure/persistence/open";
 import type { WorkflowEnginePort, WorkflowHost } from "../engine-port";
 import { pinnedEvaluator } from "../../evidence/index";
 
@@ -34,6 +35,12 @@ interface SharedMastra {
   };
   createWorkflow: typeof import("@mastra/core/workflows").createWorkflow;
   createStep: typeof import("@mastra/core/workflows").createStep;
+}
+
+/** The runner this run was pinned to at dispatch (run_inputs, owned here). */
+function runnerPin(ws: Db, runId: string): string | undefined {
+  const row = ws.prepare("SELECT runner_id FROM run_inputs WHERE run_id=?").get(runId) as { runner_id: string | null } | undefined;
+  return row?.runner_id ?? undefined;
 }
 
 export class MastraWorkflowEngine implements WorkflowEnginePort {
@@ -220,7 +227,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
       const executionDigest = domainDigest("brain:step-exec:v1", { stepId, bound } as unknown as JsonValue);
       const jobId = this.host.createJobForStep({
         organizationId, workspaceId, runId, stepId,
-        executionKey: `${runId}:${stepId}`, configDigest,
+        executionKey: `${runId}:${stepId}`, configDigest, runnerId: runnerPin(ws, runId),
         placementJson: JSON.stringify(placement ?? {}),
         executionDigest, effectClass, kind: job.kind,
         payload: { step: job as unknown as JsonValue, input: bound as unknown as JsonValue },
@@ -276,7 +283,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
       const bound = resolveBinding(step.input as unknown as Record<string, unknown>, input, outputs);
       const executionDigest = domainDigest("brain:step-exec:v1", { stepId, bound, evaluation } as unknown as JsonValue);
       const jobId = this.host.createJobForStep({
-        organizationId, workspaceId, runId, stepId, executionKey: `${runId}:${stepId}`, configDigest,
+        organizationId, workspaceId, runId, stepId, executionKey: `${runId}:${stepId}`, configDigest, runnerId: runnerPin(ws, runId),
         placementJson: JSON.stringify(step.runsOn), executionDigest, effectClass: "read", kind: "eval", payload: { step: step as unknown as JsonValue, input: bound, evaluation: evaluation as unknown as JsonValue },
       });
       ws.prepare("UPDATE workflow_steps SET state='running',job_id=? WHERE run_id=? AND step_id=? AND state='pending'").run(jobId, runId, stepId);
@@ -541,7 +548,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
           const executionDigest = domainDigest("brain:step-exec:v1", { stepId, bound } as unknown as JsonValue);
           const jobId = this.host.createJobForStep({
             organizationId, workspaceId, runId, stepId,
-            executionKey: `${runId}:${stepId}`, configDigest,
+            executionKey: `${runId}:${stepId}`, configDigest, runnerId: runnerPin(ws, runId),
             placementJson: JSON.stringify(placement ?? {}),
             executionDigest, effectClass, kind: job.kind,
             payload: { step: job as unknown as JsonValue, input: bound as unknown as JsonValue },

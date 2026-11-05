@@ -101,7 +101,7 @@ describe("scenario gaps (T50 batch 3: connectors, tools, storage)", () => {
     const offer = w.brain.jobProtocol.claim(runner, "req-cp-1") as unknown as { attemptId: string; leaseId: string; jobFence: number; jobId: string; attemptNumber: number };
     w.brain.jobProtocol.ack(runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
     w.brain.jobProtocol.complete(runner, offer.attemptId, { result: "unknown-outcome", output: {}, jobFence: offer.jobFence, cleanupConfirmed: false });
-    w.brain.reconcileJob({ organizationId: w.org, jobId: offer.jobId, outcome: "absent", evidenceDigest: DIGEST_A });
+    w.brain.jobProtocol.resolveReconciliation({ organizationId: w.org, jobId: offer.jobId, outcome: "absent", evidenceDigest: DIGEST_A });
     const next = w.brain.jobProtocol.claim(runner, "req-cp-2") as unknown as { attemptNumber: number; jobFence: number };
     expect(next.attemptNumber).toBeGreaterThan(offer.attemptNumber);
     expect(next.jobFence).toBeGreaterThan(offer.jobFence); // new attempt, strictly newer fence: no ownership confusion

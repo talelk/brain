@@ -22,6 +22,8 @@ export interface WorkflowHost {
     executionKey: string; configDigest: string; placementJson: string;
     executionDigest: string; effectClass: string; kind: string;
     payload: JsonValue;
+    /** The runner the run was pinned to at dispatch, if any. */
+    runnerId?: string | undefined;
   }): string;
   createApprovalForGate(input: {
     organizationId: string; workspaceId: string; runId: string; stepId: string;

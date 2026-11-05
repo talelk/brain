@@ -7,7 +7,7 @@ import type { ActorContext, CommandReceipt, HumanApprovalDecision, JsonValue,
 import { approvalSubjectDigest, domainDigest, isKnownQuery, sha256Digest } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
-import { assertExpectedVersion, transitionState } from "../domain/states";
+import { assertExpectedVersion } from "../domain/states";
 import { iso } from "../domain/clock";
 import { Store, type BrainOptions } from "./store";
 import { hasWorkspaceMembership, resolveActor, requireWorkspaceRead, scopesForPrincipal, type ResolvedActor } from "./authz";
@@ -38,7 +38,7 @@ import { getPack, listPack, slaSummary } from "../modules/packs/index";
 import { artifactHistory, diffArtifacts, listArtifacts, readArtifactBytes, searchArtifacts } from "../modules/evidence/index";
 import { bridge, today } from "../modules/work/index";
 import { searchSessions } from "../modules/sessions/index";
-import { jobCommands, JobProtocol } from "../modules/jobs/index";
+import { jobCommands, JobProtocol, type CreateJobInput } from "../modules/jobs/index";
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
 import { WorkService, workCommands } from "../modules/work/index";
@@ -110,7 +110,10 @@ export class Brain {
         startRun: (input) => this.workflows.startRun(input as Parameters<WorkflowEnginePort["startRun"]>[0]),
       });
       this.capitalization = new CapitalizationService(this.store);
-      this.evidence = new EvidenceService(this.store, this.workflows);
+      this.evidence = new EvidenceService(this.store, {
+        completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.workflows.completeStep(organizationId, workspaceId, runId, stepId, output, ok),
+        concludeAttempt: (input) => this.jobProtocol.concludeAttempt(input),
+      });
       this.commands = new CommandFunnel(this.store, [
         workCommands(this.work),
         boardCommands(this.board),
@@ -127,12 +130,13 @@ export class Brain {
           sessionWorkItem: (actor, workspaceId, sessionId) => this.sessions.workItemForDispatch(actor, workspaceId, sessionId),
           linkExecution: (actor, workspaceId, workItemId, runId) => this.work.linkExecution(actor, workspaceId, workItemId, runId),
           attachSessionRun: (actor, workspaceId, sessionId, runId) => this.sessions.attachRun(actor, workspaceId, sessionId, runId),
+          cancelJobs: (runId) => this.jobProtocol.cancelForRun(runId),
         }),
         knowledgeCommands(this.store, this.memory, {
           markKnowledgePublished: (org, ws, sourceId) => this.capitalization.markKnowledgePublished(org, ws, sourceId),
           markKnowledgeRevoked: (org, ws, sourceId) => this.capitalization.markKnowledgeRevoked(org, ws, sourceId),
         }),
-        workspaceAdminCommands(this.store, this.auth),
+        workspaceAdminCommands(this.store, this.auth, this.jobProtocol),
         organizationCommandHandlers(this.store, this.auth),
       ], { afterCommit: () => this.stream.project() });
       quarantineRestoredAuthority(this.store, this.auth);
@@ -316,39 +320,9 @@ export class Brain {
       .run(s.id("ctl"), payload.sessionId ?? input.runId, "session.steer", JSON.stringify({ ...payload, runId: input.runId, stepId: input.stepId }), s.now());
   }
 
-  // --- jobs (WorkflowHost + scheduler) ---
-  createJobForStep(input: {
-    organizationId: string; workspaceId: string; runId: string; stepId: string;
-    executionKey: string; configDigest: string; placementJson: string;
-    executionDigest: string; effectClass: string; kind: string; payload: JsonValue;
-  }): string {
-    const s = this.store;
-    let jobId = "";
-    s.inTx(s.control, () => {
-      s.assertWorkspaceActive(input.workspaceId, input.organizationId);
-      const existing = s.control.prepare("SELECT id FROM jobs WHERE organization_id=? AND execution_key=?").get(input.organizationId, input.executionKey) as { id: string } | undefined;
-      if (existing) { jobId = existing.id; return; }
-      jobId = s.id("job");
-      let placementJson = input.placementJson;
-      const step = (input.payload as { step?: { uses?: { type: string; release: { id: string } } } }).step;
-      if (step?.uses?.type === "agent") {
-        const release = s.control.prepare("SELECT manifest_json FROM config_releases WHERE digest=? AND organization_id=?").get(input.configDigest, input.organizationId) as { manifest_json: string };
-        const agent = (JSON.parse(release.manifest_json) as { agents: Record<string, import("@brain/contracts").Agent> }).agents[step.uses.release.id];
-        if (!agent) throw new BrainDomainError("INVALID_CONTRACT", "agent is absent from pinned release");
-        const placement = JSON.parse(placementJson) as import("@brain/contracts").Placement;
-        const anyOf = placement.engine ? agent.spec.engine.anyOf.filter((id) => placement.engine!.anyOf.includes(id)) : agent.spec.engine.anyOf;
-        if (!anyOf.length) throw new BrainDomainError("INVALID_CONTRACT", "agent and workflow engine requirements do not intersect");
-        placementJson = JSON.stringify({ ...placement, engine: { anyOf, features: [...new Set([...agent.spec.engine.features, ...(placement.engine?.features ?? [])])] } });
-      }
-      const runTarget = s.workspaceDb(input.workspaceId, input.organizationId).prepare("SELECT runner_id FROM run_inputs WHERE run_id=?").get(input.runId) as { runner_id: string | null } | undefined;
-      if (runTarget?.runner_id) placementJson = JSON.stringify({ ...(JSON.parse(placementJson) as import("@brain/contracts").Placement), runnerId: runTarget.runner_id });
-      s.control.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, queue_reason, created_at_ms, ready_at_ms, deadline_ms)
-        VALUES (?,?,?,?,?,?,'queued',?,?,?,?,'WAITING_FOR_RUNNER',?,?,?)`)
-        .run(jobId, input.organizationId, input.workspaceId, input.executionKey, input.runId, input.stepId, input.configDigest, placementJson, input.executionDigest, input.effectClass, s.now(), s.now(), s.now() + 7 * 24 * 3600_000);
-      s.control.prepare("INSERT INTO job_payloads(job_id, kind, payload_json) VALUES (?,?,?)").run(jobId, input.kind, JSON.stringify(input.payload));
-      s.emit(s.control, { organizationId: input.organizationId, workspaceId: input.workspaceId, aggregateType: "job", aggregateId: jobId, eventType: "job.queued", payload: { jobId, runId: input.runId, stepId: input.stepId }, destinations: [`workspace:${input.workspaceId}`] });
-    });
-    return jobId;
+  // --- jobs (WorkflowHost) ---
+  createJobForStep(input: CreateJobInput): string {
+    return this.jobProtocol.createForStep(input);
   }
 
   // --- web push (T45): subscriptions are encrypted at rest; delivery is
@@ -654,37 +628,6 @@ export class Brain {
     const result = this.evidence.accept(runner, workspaceId, raw);
     if (result.outcome === "verified") this.capitalization.captureVerifiedBundle(runner.organizationId, workspaceId, (raw as { bundleDigest: string }).bundleDigest);
     return result;
-  }
-
-  reconcileJob(input: { organizationId: string; jobId: string; outcome: "applied" | "absent" | "conflicting" | "unknown"; evidenceDigest: string }): JsonValue {
-    const s = this.store;
-    let workspaceId = ""; let runId = ""; let stepId = "";
-    s.inTx(s.control, () => {
-      const job = s.control.prepare("SELECT workspace_id, workflow_run_id, step_id, state FROM jobs WHERE id=? AND organization_id=?").get(input.jobId, input.organizationId) as
-        | { workspace_id: string; workflow_run_id: string; step_id: string; state: string } | undefined;
-      if (!job) throw new BrainDomainError("NOT_FOUND", "job not found");
-      workspaceId = job.workspace_id; runId = job.workflow_run_id; stepId = job.step_id;
-      s.control.prepare("UPDATE reconciliation_requests SET state=?, outcome=?, evidence_digest=? WHERE job_id=? AND state IN ('pending','observing')")
-        .run(input.outcome === "unknown" || input.outcome === "conflicting" ? "blocked" : "resolved", input.outcome, input.evidenceDigest, input.jobId);
-      if (input.outcome === "applied") {
-        for (const a of s.control.prepare("SELECT id FROM job_attempts WHERE job_id=? AND state='outcome_unknown'").all(input.jobId) as Array<{ id: string }>) {
-          transitionState(s.control, "attempt", a.id, "verifying");
-        }
-        transitionState(s.control, "job", input.jobId, "verifying", { bumpVersion: true });
-        s.control.prepare("UPDATE resource_leases SET unresolved_effect=0, expires_at_ms=? WHERE attempt_id IN (SELECT id FROM job_attempts WHERE job_id=?)").run(s.now(), input.jobId);
-      } else if (input.outcome === "absent") {
-        // The unknown attempt is terminally concluded (effect proven absent)
-        // so the one-active-attempt index frees the job for a fresh attempt.
-        const stale = s.control.prepare("SELECT id FROM job_attempts WHERE job_id=? AND state='outcome_unknown'").all(input.jobId) as Array<{ id: string }>;
-        for (const a of stale) transitionState(s.control, "attempt", a.id, "failed");
-        transitionState(s.control, "job", input.jobId, "queued", { bumpVersion: true });
-        for (const a of stale) this.jobProtocol.releaseReservation(a.id);
-        s.control.prepare("UPDATE resource_leases SET unresolved_effect=0, expires_at_ms=? WHERE attempt_id IN (SELECT id FROM job_attempts WHERE job_id=?)").run(s.now(), input.jobId);
-      }
-      // conflicting/unknown: guard remains, job stays outcome_unknown
-    });
-    void workspaceId; void runId; void stepId;
-    return { jobId: input.jobId, outcome: input.outcome } as unknown as JsonValue;
   }
 
   recordToolObservation(input: Parameters<CapitalizationService["capture"]>[0]): JsonValue {

@@ -2,7 +2,6 @@ import type { ActorContext, JsonValue, Workflow } from "@brain/contracts";
 import type { CommandHandlers } from "../../application/command-funnel";
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
-import { transitionState } from "../../domain/states";
 import type { WorkflowEnginePort } from "./engine-port";
 
 export interface WorkflowCommandPorts {
@@ -12,6 +11,8 @@ export interface WorkflowCommandPorts {
   sessionWorkItem(actor: ActorContext, workspaceId: string, sessionId: string): string;
   linkExecution(actor: ActorContext, workspaceId: string, workItemId: string, runId: string): void;
   attachSessionRun(actor: ActorContext, workspaceId: string, sessionId: string, runId: string): void;
+  /** Cancels the run's jobs that no runner holds yet (jobs module). */
+  cancelJobs(runId: string): void;
 }
 
 /**
@@ -61,9 +62,7 @@ export function workflowCommands(store: Store, ports: WorkflowCommandPorts): Com
         if (!workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         const runId = String(cmd.payload["runId"]);
         ports.engine.cancelRun(actor.organizationId, workspaceId, runId);
-        for (const job of s.control.prepare("SELECT id FROM jobs WHERE workflow_run_id=? AND state IN ('queued','offered')").all(runId) as Array<{ id: string }>) {
-          transitionState(s.control, "job", job.id, "cancelled", { bumpVersion: true });
-        }
+        ports.cancelJobs(runId);
         return { resourceId: runId };
       },
     },

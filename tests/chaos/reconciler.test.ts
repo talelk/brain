@@ -44,7 +44,7 @@ describe("drift reconciler (T46)", () => {
       workspaceId: w.workspaceId, idempotencyKey: "rec-a", expectedVersion: a.version,
       payload: { jobId: a.jobId, reason: "runner vanished mid-effect" },
     }, "rec-a");
-    w.brain.reconcileJob({ organizationId: w.org, jobId: a.jobId, outcome: "absent", evidenceDigest: DIGEST_A });
+    w.brain.jobProtocol.resolveReconciliation({ organizationId: w.org, jobId: a.jobId, outcome: "absent", evidenceDigest: DIGEST_A });
     expect((s.control.prepare("SELECT state FROM jobs WHERE id=?").get(a.jobId) as { state: string }).state).toBe("queued");
     expect((s.control.prepare("SELECT state FROM reconciliation_requests WHERE command_id='cmd-reconcile-a'").get() as { state: string }).state).toBe("resolved");
 
@@ -54,7 +54,7 @@ describe("drift reconciler (T46)", () => {
       workspaceId: w.workspaceId, idempotencyKey: "rec-b", expectedVersion: b.version,
       payload: { jobId: b.jobId, reason: "conflicting readback" },
     }, "rec-b");
-    w.brain.reconcileJob({ organizationId: w.org, jobId: b.jobId, outcome: "conflicting", evidenceDigest: DIGEST_A });
+    w.brain.jobProtocol.resolveReconciliation({ organizationId: w.org, jobId: b.jobId, outcome: "conflicting", evidenceDigest: DIGEST_A });
     expect((s.control.prepare("SELECT state FROM jobs WHERE id=?").get(b.jobId) as { state: string }).state).toBe("outcome_unknown");
     expect((s.control.prepare("SELECT state FROM reconciliation_requests WHERE command_id='cmd-reconcile-b'").get() as { state: string }).state).toBe("blocked");
     w.brain.close();
@@ -74,7 +74,7 @@ describe("drift reconciler (T46)", () => {
       workspaceId: w.workspaceId, idempotencyKey: "rec-c2", expectedVersion: a.version,
       payload: { jobId: a.jobId, reason: "no authority" },
     }, "rec-c2"))).rejects.toThrow();
-    w.brain.reconcileJob({ organizationId: w.org, jobId: a.jobId, outcome: "absent", evidenceDigest: DIGEST_A });
+    w.brain.jobProtocol.resolveReconciliation({ organizationId: w.org, jobId: a.jobId, outcome: "absent", evidenceDigest: DIGEST_A });
     const after = w.brain.store.control.prepare("SELECT version FROM jobs WHERE id=?").get(a.jobId) as { version: number };
     await expect(Promise.resolve().then(() => w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-reconcile-c3", commandType: "job.reconcile",
