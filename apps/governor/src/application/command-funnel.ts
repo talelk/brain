@@ -1,4 +1,4 @@
-import { domainDigest } from "@brain/contracts";
+import { commandDef, domainDigest } from "@brain/contracts";
 import type { ActorContext, CommandEnvelope, CommandReceipt, JsonValue } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
@@ -34,8 +34,6 @@ export interface HandlerResult {
   readonly outcome?: "applied" | "queued";
   readonly resourceId?: string;
   readonly receiptExtra?: Readonly<Record<string, JsonValue>>;
-  /** Runs once after the receipt commits; never on replay. */
-  readonly afterCommit?: () => void;
 }
 
 /**
@@ -70,11 +68,23 @@ interface Admitted {
 const statusOf = (receipt: CommandReceipt): number => (receipt.outcome === "queued" ? 202 : 200);
 
 export class CommandFunnel {
+  private readonly handlers: CommandHandlers;
+
+  /** Composes module handler maps; a command type registered twice is a wiring error. */
   constructor(
     private readonly store: Store,
-    private readonly handlers: CommandHandlers,
+    maps: readonly CommandHandlers[],
     private readonly hooks: { afterCommit(): void } = { afterCommit: () => undefined },
-  ) {}
+  ) {
+    const handlers: Record<string, CommandHandler> = {};
+    for (const map of maps) {
+      for (const [type, handler] of Object.entries(map)) {
+        if (handlers[type]) throw new Error(`command ${type} has more than one handler`);
+        handlers[type] = handler;
+      }
+    }
+    this.handlers = handlers;
+  }
 
   /** The registered command types, for the registry coverage check. */
   commandTypes(): string[] { return Object.keys(this.handlers); }
@@ -83,18 +93,19 @@ export class CommandFunnel {
   execute(actor: ActorContext, raw: unknown, opts: ExecuteOptions = {}): Promise<CommandOutcome> {
     const check = validate("CommandEnvelope", raw);
     if (!check.ok) throw new BrainDomainError("INVALID_CONTRACT", `command invalid: ${check.errors.join("; ")}`);
-    const cmd = raw as Command;
-    authorizeCommand(actor, cmd.commandType);
-    return this.run(actor, cmd, opts);
+    return this.run(actor, raw as Command, opts);
   }
 
   /**
    * Runs a command a route has already admitted under its own wire contract
-   * (the human approval decision). Replay, intent and commit are identical.
+   * (the human approval decision). Registry commands are always authorized
+   * against the registry here; a command outside the registry is authorized
+   * by the route that admitted it. Replay, intent and commit are identical.
    */
   async run(actor: ActorContext, cmd: Command, opts: ExecuteOptions = {}): Promise<CommandOutcome> {
     const handler = this.handlers[cmd.commandType];
     if (!handler) throw new BrainDomainError("INVALID_CONTRACT", `unknown command ${cmd.commandType}`);
+    if (commandDef(cmd.commandType)) authorizeCommand(actor, cmd.commandType);
     const workspaceId = cmd.workspaceId;
     if (workspaceId) requireWorkspaceRead(this.store, actor, workspaceId);
     if (handler.kind === "workspace" && !workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
@@ -114,7 +125,7 @@ export class CommandFunnel {
         result = handler.handle(call);
         receipt = this.commit(actor, admitted, result);
       });
-      return this.finish(receipt, result!);
+      return this.finish(receipt);
     }
     if (pending && handler.kind === "external") {
       throw new BrainDomainError("OUTCOME_UNKNOWN", "a previous attempt of this command has an unknown external outcome; reconcile before retrying");
@@ -130,7 +141,7 @@ export class CommandFunnel {
           result = this.store.inTx(ws, () => {
             const applied = handler.handle(call);
             ws.prepare("INSERT INTO command_effects(command_id, result_json, created_at_ms) VALUES (?,?,?)")
-              .run(cmd.commandId, JSON.stringify(markerOf(applied)), this.store.now());
+              .run(cmd.commandId, JSON.stringify(applied), this.store.now());
             return applied;
           });
         } else {
@@ -142,11 +153,10 @@ export class CommandFunnel {
       }
     }
     const receipt = this.store.inTx(this.store.control, () => this.commit(actor, admitted, result));
-    return this.finish(receipt, result);
+    return this.finish(receipt);
   }
 
-  private finish(receipt: CommandReceipt, result: HandlerResult): CommandOutcome {
-    result.afterCommit?.();
+  private finish(receipt: CommandReceipt): CommandOutcome {
     this.hooks.afterCommit();
     return { receipt, status: statusOf(receipt) };
   }
@@ -196,11 +206,6 @@ export class CommandFunnel {
       .run(actor.organizationId, actor.actorId, a.cmd.commandType, a.cmd.idempotencyKey, a.requestDigest, a.cmd.commandId, JSON.stringify(receipt), this.store.now());
     return receipt;
   }
-}
-
-function markerOf(result: HandlerResult): Omit<HandlerResult, "afterCommit"> {
-  const { afterCommit: _afterCommit, ...stored } = result;
-  return stored;
 }
 
 /** Shorthand for handler maps: many command types bound to one handler. */

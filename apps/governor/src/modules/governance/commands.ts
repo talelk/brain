@@ -10,8 +10,6 @@ import { assertHumanIdentity, type BrainAuth } from "../identity/index";
 
 export interface GovernanceCommandPorts {
   readonly auth: BrainAuth;
-  /** Resumes the workflow gate waiting on a decided approval. */
-  wakeGate(organizationId: string, workspaceId: string, approvalId: string, approved: boolean): void;
 }
 
 /**
@@ -109,11 +107,7 @@ export function governanceCommands(store: Store, ports: GovernanceCommandPorts):
         if (body.stepUpEvidenceId) s.control.prepare("UPDATE step_up_evidence SET decision_id=? WHERE id=?").run(decisionId, body.stepUpEvidenceId);
         transitionState(s.control, "approval", approvalId, newState, { bumpVersion: true, and: { version: body.expectedVersion } });
         s.emit(s.control, { organizationId: actor.organizationId, workspaceId: row.workspace_id, aggregateType: "approval", aggregateId: approvalId, eventType: body.decision === "approve" ? "approval.approved" : "approval.rejected", payload: { approvalId, decisionId } });
-        return {
-          resourceId: approvalId,
-          receiptExtra: { decisionId, state: newState, subjectDigest: body.subjectDigest },
-          afterCommit: () => ports.wakeGate(actor.organizationId, row.workspace_id, approvalId, newState === "approved"),
-        };
+        return { resourceId: approvalId, receiptExtra: { decisionId, state: newState, subjectDigest: body.subjectDigest } };
       },
     },
   };

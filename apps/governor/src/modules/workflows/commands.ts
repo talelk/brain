@@ -30,6 +30,13 @@ export function workflowCommands(store: Store, ports: WorkflowCommandPorts): Com
         const p = cmd.payload;
         const workflowId = (p["workflow"] as { id: string }).id;
         const sessionId = p["sessionId"] ? String(p["sessionId"]) : "";
+        // Retry of a dispatch that crashed after its session was attached: the
+        // run (keyed by the command id) and its session binding already exist.
+        const ws = s.workspaceDb(workspaceId, actor.organizationId);
+        const prior = ws.prepare("SELECT id FROM workflow_runs WHERE execution_key=?").get(cmd.commandId) as { id: string } | undefined;
+        if (prior && sessionId && ws.prepare("SELECT 1 FROM execution_links WHERE run_id=? AND session_id=?").get(prior.id, sessionId)) {
+          return { outcome: "queued", resourceId: prior.id };
+        }
         const sessionWorkItemId = sessionId ? ports.sessionWorkItem(actor, workspaceId, sessionId) : undefined;
         if (sessionWorkItemId && p["workItemId"] && sessionWorkItemId !== String(p["workItemId"])) throw new BrainDomainError("FORBIDDEN", "session and dispatch work item differ");
         const workItemId = sessionWorkItemId ?? (p["workItemId"] ? String(p["workItemId"]) : "");

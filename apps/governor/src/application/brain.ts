@@ -111,30 +111,30 @@ export class Brain {
       });
       this.capitalization = new CapitalizationService(this.store);
       this.evidence = new EvidenceService(this.store, this.workflows);
-      this.commands = new CommandFunnel(this.store, {
-        ...workCommands(this.work),
-        ...boardCommands(this.board),
-        ...sessionCommands(this.sessions),
-        ...documentCommands(this.documents),
-        ...integrationCommands(this.integrations),
-        ...configurationCommands(this.store, this.drafts),
-        ...capitalizationCommands(this.capitalization),
-        ...jobCommands(this.store, this.jobProtocol),
-        ...governanceCommands(this.store, { auth: this.auth, wakeGate: (org, ws, approvalId, approved) => this.workflows.wakeGate(org, ws, approvalId, approved) }),
-        ...workflowCommands(this.store, {
+      this.commands = new CommandFunnel(this.store, [
+        workCommands(this.work),
+        boardCommands(this.board),
+        sessionCommands(this.sessions),
+        documentCommands(this.documents),
+        integrationCommands(this.integrations),
+        configurationCommands(this.store, this.drafts),
+        capitalizationCommands(this.capitalization),
+        jobCommands(this.store, this.jobProtocol),
+        governanceCommands(this.store, { auth: this.auth }),
+        workflowCommands(this.store, {
           engine: this.workflows,
           loadWorkflow: (organizationId, workflowId) => this.workflowFromRelease(organizationId, workflowId),
           sessionWorkItem: (actor, workspaceId, sessionId) => this.sessions.workItemForDispatch(actor, workspaceId, sessionId),
           linkExecution: (actor, workspaceId, workItemId, runId) => this.work.linkExecution(actor, workspaceId, workItemId, runId),
           attachSessionRun: (actor, workspaceId, sessionId, runId) => this.sessions.attachRun(actor, workspaceId, sessionId, runId),
         }),
-        ...knowledgeCommands(this.store, this.memory, {
+        knowledgeCommands(this.store, this.memory, {
           markKnowledgePublished: (org, ws, sourceId) => this.capitalization.markKnowledgePublished(org, ws, sourceId),
           markKnowledgeRevoked: (org, ws, sourceId) => this.capitalization.markKnowledgeRevoked(org, ws, sourceId),
         }),
-        ...workspaceAdminCommands(this.store, this.auth),
-        ...organizationCommandHandlers(this.store, this.auth),
-      }, { afterCommit: () => this.stream.project() });
+        workspaceAdminCommands(this.store, this.auth),
+        organizationCommandHandlers(this.store, this.auth),
+      ], { afterCommit: () => this.stream.project() });
       quarantineRestoredAuthority(this.store, this.auth);
     } catch (e) {
       this.store.close();
@@ -451,6 +451,9 @@ export class Brain {
     const { actor, cmd } = admitApprovalDecision(this.store, this.auth, identity, approvalId, body);
     const { receipt } = await this.commands.run(actor, cmd, { identity });
     const saved = receipt as unknown as { decisionId: string; state: string };
+    // Waking the gate is idempotent (only a still-waiting step resumes), so a
+    // replayed decision re-wakes a gate a crash may have left asleep.
+    if (actor.workspaceId) this.workflows.wakeGate(actor.organizationId, actor.workspaceId, approvalId, saved.state === "approved");
     return { decisionId: saved.decisionId, state: saved.state };
   }
 
