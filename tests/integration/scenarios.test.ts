@@ -136,7 +136,7 @@ describe("scenario gaps (T50 batch 1)", () => {
     const approvalId = (req.receipt as { resourceId?: string }).resourceId ?? "";
     const digest = approvalSubjectDigest(subject as unknown as JsonValue);
     const evidenceId = await stepUp(w, approver, approvalId, digest);
-    w.brain.decideApproval(approver.identity, approvalId, {
+    await w.brain.decideApproval(approver.identity, approvalId, {
       contractVersion: "brain.approval-decision/v1", idempotencyKey: "permit-dec", decision: "approve",
       subjectDigest: digest, expectedVersion: 1, note: "ok", stepUpEvidenceId: evidenceId,
     });

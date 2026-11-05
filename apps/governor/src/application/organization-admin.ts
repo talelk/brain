@@ -1,9 +1,9 @@
 import { validate } from "@brain/contracts/validate";
 import type { ResolvedActor } from "./authz";
-import { commitReceipt, priorReceipt, requestDigestOf, type CommandContext } from "./command-envelope";
+import type { CommandHandler, CommandHandlers, HandlerResult } from "./command-funnel";
 import type { Store } from "./store";
 import type { BrainAuth, VendorSession } from "../modules/identity/index";
-import type { ActorContext, CommandReceipt, JsonValue, OrganizationAdminCommand, OrganizationAdminEventPayload, OrganizationAuthPolicyView, OrganizationDirectorySnapshot, OrganizationInvitationView, OrganizationMemberView, OrganizationSessionView } from "@brain/contracts";
+import type { ActorContext, JsonValue, OrganizationAdminCommand, OrganizationAdminEventPayload, OrganizationAuthPolicyView, OrganizationDirectorySnapshot, OrganizationInvitationView, OrganizationMemberView, OrganizationSessionView } from "@brain/contracts";
 import { BrainDomainError } from "../domain/errors";
 import { assertExpectedVersion } from "../domain/states";
 import type { IdentityAdministration } from "../modules/identity/index";
@@ -12,10 +12,6 @@ interface OrganizationCommand extends OrganizationAdminCommand { readonly payloa
 interface OrganizationQuery { readonly queryType: string; readonly resourceId?: string; readonly search?: string; readonly limit?: number; readonly cursor?: string }
 interface OrganizationRow { readonly id: string; readonly auth_organization_id: string; readonly revocation_generation: number }
 interface MemberRow { readonly userId: string; readonly role: string; readonly createdAt: Date | string | number }
-
-export function isOrganizationCommand(raw: unknown): boolean {
-  return typeof (raw as { commandType?: unknown } | null)?.commandType === "string" && (raw as { commandType: string }).commandType.startsWith("organization.");
-}
 
 export function isOrganizationQuery(raw: unknown): boolean {
   return typeof (raw as { queryType?: unknown } | null)?.queryType === "string" && (raw as { queryType: string }).queryType.startsWith("organization.");
@@ -157,53 +153,55 @@ export async function executeOrganizationQuery(store: Store, auth: BrainAuth, ac
   throw new BrainDomainError("INVALID_CONTRACT", `unknown organization query ${q.queryType}`);
 }
 
-export async function executeOrganizationCommand(store: Store, auth: BrainAuth, actor: ActorContext, raw: unknown, headers: Headers): Promise<{ receipt: CommandReceipt; status: number }> {
-  // Entered through the command funnel: schema validation and authorization
-  // already happened there. This function owns the organization-specific
-  // effects; the replay/commit envelope is the shared command-envelope.
-  const cmd = raw as OrganizationCommand;
-  const p = cmd.payload;
-  const requestDigest = requestDigestOf(raw);
-  const ctx: CommandContext = { organizationId: actor.organizationId, actorId: actor.actorId, commandType: cmd.commandType, idempotencyKey: cmd.idempotencyKey, commandId: cmd.commandId, requestJson: JSON.stringify(raw) };
-  const replay = priorReceipt(store, ctx, requestDigest);
-  if (replay) return { receipt: replay, status: 200 };
-  const org = organization(store, actor);
-  assertExpectedVersion(org.revocation_generation, cmd.expectedVersion);
-  let resourceId = String(p.principalId ?? p.invitationId ?? p.sessionId ?? "");
+/**
+ * Organization administration commands. Commands that call the identity
+ * provider asynchronously are external (ADR 0002): their provider effect runs
+ * outside any transaction and an unknown outcome is never retried blindly.
+ * Every command bumps the organization's revocation generation and emits its
+ * audit event in one control.db transaction.
+ */
+export function organizationCommandHandlers(store: Store, auth: BrainAuth): CommandHandlers {
+  /** The control.db authority change shared by every organization command. */
+  const commitChange = (actor: ActorContext, cmd: OrganizationCommand, resourceId: string, apply: (org: OrganizationRow) => void): HandlerResult => {
+    const p = cmd.payload;
+    const current = organization(store, actor);
+    assertExpectedVersion(current.revocation_generation, cmd.expectedVersion);
+    apply(current);
+    store.control.prepare("UPDATE organizations SET revocation_generation=revocation_generation+1 WHERE id=?").run(actor.organizationId);
+    const payload: OrganizationAdminEventPayload = {
+      ...(p.principalId ? { principalId: p.principalId } : {}),
+      ...(p.invitationId || cmd.commandType === "organization.invitation.create" ? { invitationId: p.invitationId ?? resourceId } : {}),
+      ...(p.sessionId ? { sessionId: p.sessionId } : {}),
+      ...(p.role ? { role: p.role } : {}),
+      reason: p.reason,
+      revocationGeneration: current.revocation_generation + 1,
+    };
+    store.emit(store.control, { organizationId: actor.organizationId, aggregateType: "identity", aggregateId: resourceId || actor.actorId, eventType: cmd.commandType, payload });
+    return { ...(resourceId ? { resourceId } : {}) };
+  };
+  const resourceOf = (p: OrganizationCommand["payload"]) => String(p.principalId ?? p.invitationId ?? p.sessionId ?? "");
+  const control = (prepare: (actor: ActorContext, cmd: OrganizationCommand, org: OrganizationRow) => (org: OrganizationRow) => void): CommandHandler => ({
+    kind: "control",
+    handle: ({ actor, cmd }) => {
+      const command = cmd as unknown as OrganizationCommand;
+      const apply = prepare(actor, command, organization(store, actor));
+      return commitChange(actor, command, resourceOf(command.payload), apply);
+    },
+  });
+  /** Provider call first (outside any transaction), then the authority change. */
+  const external = (effect: (actor: ActorContext, cmd: OrganizationCommand, org: OrganizationRow, headers: Headers) => Promise<string | undefined>, apply: (actor: ActorContext, cmd: OrganizationCommand) => (org: OrganizationRow) => void = () => () => undefined): CommandHandler => ({
+    kind: "external",
+    handle: async ({ actor, cmd, headers }) => {
+      const command = cmd as unknown as OrganizationCommand;
+      const org = organization(store, actor);
+      assertExpectedVersion(org.revocation_generation, command.expectedVersion);
+      const resourceId = (await effect(actor, command, org, headers)) ?? resourceOf(command.payload);
+      return store.inTx(store.control, () => commitChange(actor, command, resourceId, apply(actor, command)));
+    },
+  });
 
-  if (cmd.commandType === "organization.invitation.create") {
-    if (!p.email) throw new BrainDomainError("INVALID_ARGUMENT", "email required");
-    store.control.prepare("INSERT OR REPLACE INTO command_intents(command_id,workspace_id,request_json,state,created_at_ms) VALUES (?,NULL,?,?,?)").run(cmd.commandId, JSON.stringify(raw), "pending", store.now());
-    try {
-      const invitation = await auth.administration.createInvitation(headers, org.auth_organization_id, p.email.toLowerCase());
-      resourceId = invitation.id;
-    } catch (error) {
-      store.control.prepare("UPDATE command_intents SET state='failed' WHERE command_id=?").run(cmd.commandId);
-      throw error;
-    }
-  } else if (cmd.commandType === "organization.invitation.cancel") {
-    if (!p.invitationId) throw new BrainDomainError("INVALID_ARGUMENT", "invitationId required");
-    const owned = store.control.prepare("SELECT 1 AS owned FROM invitation WHERE id=? AND organizationId=?").get(p.invitationId, org.auth_organization_id);
-    if (!owned) throw new BrainDomainError("NOT_FOUND", "invitation not found");
-    store.control.prepare("INSERT OR REPLACE INTO command_intents(command_id,workspace_id,request_json,state,created_at_ms) VALUES (?,NULL,?,?,?)").run(cmd.commandId, JSON.stringify(raw), "pending", store.now());
-    try {
-      await auth.administration.cancelInvitation(headers, p.invitationId);
-    } catch (error) {
-      store.control.prepare("UPDATE command_intents SET state='failed' WHERE command_id=?").run(cmd.commandId);
-      throw error;
-    }
-  } else if (cmd.commandType === "organization.invitation.retry") {
-    if (!p.invitationId) throw new BrainDomainError("INVALID_ARGUMENT", "invitationId required");
-    const owned = store.control.prepare("SELECT status FROM invitation WHERE id=? AND organizationId=?").get(p.invitationId, org.auth_organization_id) as { status: string } | undefined;
-    if (!owned) throw new BrainDomainError("NOT_FOUND", "invitation not found");
-    if (owned.status !== "pending") throw new BrainDomainError("CONFLICT", "only a pending invitation can be retried");
-  } else if (cmd.commandType === "organization.session.revoke") {
-    if (!p.principalId || !p.sessionId) throw new BrainDomainError("INVALID_ARGUMENT", "principalId and sessionId required");
-    const target = principal(store, actor, p.principalId, true);
-    const session = (await auth.administration.listUserSessions(headers, target.auth_subject_id)).find((item) => item.id === p.sessionId && item.activeOrganizationId === org.auth_organization_id);
-    if (!session) throw new BrainDomainError("NOT_FOUND", "current-organization session not found");
-    await auth.administration.revokeUserSession(headers, session.token);
-  } else if (cmd.commandType === "organization.member.role-grant" || cmd.commandType === "organization.member.role-revoke") {
+  const roleChange = control((actor, cmd) => {
+    const p = cmd.payload;
     if (!p.principalId || !p.role) throw new BrainDomainError("INVALID_ARGUMENT", "principalId and role required");
     principal(store, actor, p.principalId);
     const held = store.control.prepare("SELECT 1 AS held FROM organization_authorizations WHERE organization_id=? AND principal_id=? AND role=? AND revoked_at_ms IS NULL").get(actor.organizationId, actor.actorId, p.role);
@@ -212,52 +210,69 @@ export async function executeOrganizationCommand(store: Store, auth: BrainAuth, 
       const admins = store.control.prepare("SELECT COUNT(*) AS count FROM organization_authorizations WHERE organization_id=? AND role='organization-admin' AND revoked_at_ms IS NULL").get(actor.organizationId) as { count: number };
       if (admins.count <= 1) throw new BrainDomainError("CONFLICT", "last organization administrator cannot be removed");
     }
-  } else if (cmd.commandType === "organization.member.suspend" || cmd.commandType === "organization.member.reactivate") {
+    return () => {
+      if (cmd.commandType === "organization.member.role-grant") {
+        store.control.prepare("INSERT INTO organization_authorizations(organization_id,principal_id,role,granted_by,granted_at_ms,revoked_at_ms) VALUES (?,?,?,?,?,NULL) ON CONFLICT(organization_id,principal_id,role) DO UPDATE SET revoked_at_ms=NULL,granted_by=excluded.granted_by,granted_at_ms=excluded.granted_at_ms").run(actor.organizationId, p.principalId, p.role, actor.actorId, store.now());
+      } else {
+        store.control.prepare("UPDATE organization_authorizations SET revoked_at_ms=? WHERE organization_id=? AND principal_id=? AND role=? AND revoked_at_ms IS NULL").run(store.now(), actor.organizationId, p.principalId, p.role);
+      }
+      auth.administration.syncVendorAdmin(String(p.principalId));
+    };
+  });
+  const memberState = control((actor, cmd) => {
+    const p = cmd.payload;
     if (!p.principalId) throw new BrainDomainError("INVALID_ARGUMENT", "principalId required");
     principal(store, actor, p.principalId, true);
-    if (cmd.commandType === "organization.member.suspend") {
+    const suspended = cmd.commandType === "organization.member.suspend";
+    if (suspended) {
       if (p.principalId === actor.actorId) throw new BrainDomainError("CONFLICT", "administrators cannot suspend themselves");
       const admins = store.control.prepare("SELECT COUNT(*) AS count FROM organization_authorizations WHERE organization_id=? AND role='organization-admin' AND revoked_at_ms IS NULL").get(actor.organizationId) as { count: number };
       const targetAdmin = store.control.prepare("SELECT 1 AS admin FROM organization_authorizations WHERE organization_id=? AND principal_id=? AND role='organization-admin' AND revoked_at_ms IS NULL").get(actor.organizationId, p.principalId);
       if (targetAdmin && admins.count <= 1) throw new BrainDomainError("CONFLICT", "last organization administrator cannot be suspended");
     }
-  }
-
-  let receipt!: CommandReceipt;
-  store.inTx(store.control, () => {
-    const current = organization(store, actor);
-    assertExpectedVersion(current.revocation_generation, cmd.expectedVersion);
-    receipt = commitReceipt(store, ctx, requestDigest, () => {
-      if (cmd.commandType === "organization.member.role-grant" || cmd.commandType === "organization.member.role-revoke") {
-        if (cmd.commandType === "organization.member.role-grant") {
-          store.control.prepare("INSERT INTO organization_authorizations(organization_id,principal_id,role,granted_by,granted_at_ms,revoked_at_ms) VALUES (?,?,?,?,?,NULL) ON CONFLICT(organization_id,principal_id,role) DO UPDATE SET revoked_at_ms=NULL,granted_by=excluded.granted_by,granted_at_ms=excluded.granted_at_ms").run(actor.organizationId, p.principalId, p.role, actor.actorId, store.now());
-        } else {
-          store.control.prepare("UPDATE organization_authorizations SET revoked_at_ms=? WHERE organization_id=? AND principal_id=? AND role=? AND revoked_at_ms IS NULL").run(store.now(), actor.organizationId, p.principalId, p.role);
-        }
-        auth.administration.syncVendorAdmin(String(p.principalId));
-      }
-      if (cmd.commandType === "organization.member.suspend" || cmd.commandType === "organization.member.reactivate") {
-        const suspended = cmd.commandType === "organization.member.suspend";
-        store.control.prepare("UPDATE principals SET disabled_at_ms=? WHERE id=? AND organization_id=?").run(suspended ? store.now() : null, p.principalId, actor.organizationId);
-        if (suspended) store.control.prepare("DELETE FROM session WHERE userId=? AND activeOrganizationId=?").run(p.principalId, org.auth_organization_id);
-      }
-      if (cmd.commandType === "organization.invitation.cancel") store.control.prepare("UPDATE auth_email_outbox SET state='cancelled',updated_at_ms=? WHERE id=?").run(store.now(), `invitation:${String(p.invitationId)}`);
-      if (cmd.commandType === "organization.invitation.retry") auth.administration.retryInvitation(String(p.invitationId));
-      store.control.prepare("UPDATE organizations SET revocation_generation=revocation_generation+1 WHERE id=?").run(actor.organizationId);
-      const generation = current.revocation_generation + 1;
-      const payload: OrganizationAdminEventPayload = {
-        ...(p.principalId ? { principalId: p.principalId } : {}),
-        ...(p.invitationId || cmd.commandType === "organization.invitation.create" ? { invitationId: p.invitationId ?? resourceId } : {}),
-        ...(p.sessionId ? { sessionId: p.sessionId } : {}),
-        ...(p.role ? { role: p.role } : {}),
-        reason: p.reason,
-        revocationGeneration: generation,
-      };
-      store.emit(store.control, { organizationId: actor.organizationId, aggregateType: "identity", aggregateId: resourceId || actor.actorId, eventType: cmd.commandType, payload });
-      return { ...(resourceId ? { resourceId } : {}) };
-    }, "applied").receipt;
+    return (org) => {
+      store.control.prepare("UPDATE principals SET disabled_at_ms=? WHERE id=? AND organization_id=?").run(suspended ? store.now() : null, p.principalId, actor.organizationId);
+      if (suspended) store.control.prepare("DELETE FROM session WHERE userId=? AND activeOrganizationId=?").run(p.principalId, org.auth_organization_id);
+    };
   });
-  return { receipt, status: 200 };
+
+  return {
+    "organization.invitation.create": external(async (_actor, cmd, org, headers) => {
+      if (!cmd.payload.email) throw new BrainDomainError("INVALID_ARGUMENT", "email required");
+      return (await auth.administration.createInvitation(headers, org.auth_organization_id, cmd.payload.email.toLowerCase())).id;
+    }),
+    "organization.invitation.cancel": external(async (_actor, cmd, org, headers) => {
+      const p = cmd.payload;
+      if (!p.invitationId) throw new BrainDomainError("INVALID_ARGUMENT", "invitationId required");
+      const owned = store.control.prepare("SELECT 1 AS owned FROM invitation WHERE id=? AND organizationId=?").get(p.invitationId, org.auth_organization_id);
+      if (!owned) throw new BrainDomainError("NOT_FOUND", "invitation not found");
+      await auth.administration.cancelInvitation(headers, p.invitationId);
+      return undefined;
+    }, (_actor, cmd) => () => {
+      store.control.prepare("UPDATE auth_email_outbox SET state='cancelled',updated_at_ms=? WHERE id=?").run(store.now(), `invitation:${String(cmd.payload.invitationId)}`);
+    }),
+    "organization.invitation.retry": control((_actor, cmd, org) => {
+      const p = cmd.payload;
+      if (!p.invitationId) throw new BrainDomainError("INVALID_ARGUMENT", "invitationId required");
+      const owned = store.control.prepare("SELECT status FROM invitation WHERE id=? AND organizationId=?").get(p.invitationId, org.auth_organization_id) as { status: string } | undefined;
+      if (!owned) throw new BrainDomainError("NOT_FOUND", "invitation not found");
+      if (owned.status !== "pending") throw new BrainDomainError("CONFLICT", "only a pending invitation can be retried");
+      return () => auth.administration.retryInvitation(String(p.invitationId));
+    }),
+    "organization.session.revoke": external(async (actor, cmd, org, headers) => {
+      const p = cmd.payload;
+      if (!p.principalId || !p.sessionId) throw new BrainDomainError("INVALID_ARGUMENT", "principalId and sessionId required");
+      const target = principal(store, actor, p.principalId, true);
+      const session = (await auth.administration.listUserSessions(headers, target.auth_subject_id)).find((item) => item.id === p.sessionId && item.activeOrganizationId === org.auth_organization_id);
+      if (!session) throw new BrainDomainError("NOT_FOUND", "current-organization session not found");
+      await auth.administration.revokeUserSession(headers, session.token);
+      return undefined;
+    }),
+    "organization.member.role-grant": roleChange,
+    "organization.member.role-revoke": roleChange,
+    "organization.member.suspend": memberState,
+    "organization.member.reactivate": memberState,
+  };
 }
 
 export async function listIdentitySessions(auth: BrainAuth, identity: ResolvedActor, headers: Headers): Promise<OrganizationSessionView[]> {

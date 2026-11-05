@@ -96,7 +96,7 @@ describe("core integration", () => {
     const approvalId = (req.receipt as { resourceId?: string }).resourceId ?? "";
     const digest = approvalSubjectDigest(subj as unknown as JsonValue);
     const evidenceId = await stepUp(w, approver, approvalId, digest);
-    const decided = w.brain.decideApproval(approver.identity, approvalId, {
+    const decided = await w.brain.decideApproval(approver.identity, approvalId, {
       contractVersion: "brain.approval-decision/v1", idempotencyKey: "dec-1", decision: "approve",
       subjectDigest: digest, expectedVersion: 1, note: "reviewed exact text", stepUpEvidenceId: evidenceId,
     });
@@ -119,10 +119,10 @@ describe("core integration", () => {
     const approvalId = (req.receipt as { resourceId?: string }).resourceId ?? "";
     const digest = approvalSubjectDigest(subj as unknown as JsonValue);
     const agentActor = { ...w.owner, kind: "agent" as const };
-    expect(() => w.brain.decideApproval({ actor: agentActor, principalId: agentActor.actorId, sessionDigest: "x", humanSession: null }, approvalId, {
+    await expect(w.brain.decideApproval({ actor: agentActor, principalId: agentActor.actorId, sessionDigest: "x", humanSession: null }, approvalId, {
       contractVersion: "brain.approval-decision/v1", idempotencyKey: "dec-9", decision: "approve",
       subjectDigest: digest, expectedVersion: 1, note: "ok",
-    })).toThrow();
+    })).rejects.toThrow();
     w.brain.close();
   });
 

@@ -41,7 +41,7 @@ describe("G07 restore: hash-verified backup, suspended history, dead authority (
     const approvalId = (req.receipt as { resourceId?: string }).resourceId ?? "";
     const sdigest = approvalSubjectDigest(subject as unknown as JsonValue);
     const evidenceId = await stepUp(w, approver, approvalId, sdigest);
-    w.brain.decideApproval(approver.identity, approvalId, {
+    await w.brain.decideApproval(approver.identity, approvalId, {
       contractVersion: "brain.approval-decision/v1", idempotencyKey: "g07-dec", decision: "approve",
       subjectDigest: sdigest, expectedVersion: 1, note: "ok", stepUpEvidenceId: evidenceId,
     });

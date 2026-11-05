@@ -107,7 +107,7 @@ describe("G03 brain durability: 100 suspended gates", () => {
       const subject = brain2.store.control.prepare("SELECT subject_json FROM approval_requests WHERE id=?").get(ap.id) as { subject_json: string };
       expect(approvalSubjectDigest(JSON.parse(subject.subject_json) as JsonValue)).toBe(subjDigest);
       const evidenceId = await stepUp(world2 as never, { actor: actor2 as never, token: approver.token, totp: approver.totp } as never, ap.id, subjDigest);
-      const decided = brain2.decideApproval({ ...approver.identity, actor: actor2 }, ap.id, {
+      const decided = await brain2.decideApproval({ ...approver.identity, actor: actor2 }, ap.id, {
         contractVersion: "brain.approval-decision/v1", idempotencyKey: `gate-dec-${idx}`, decision: "approve",
         subjectDigest: subjDigest, expectedVersion: 1, note: "ok", stepUpEvidenceId: evidenceId,
       });

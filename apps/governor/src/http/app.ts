@@ -487,7 +487,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     try {
       const body = (await readJson(c)) as HumanApprovalDecision;
       const identity = await actorFor(c);
-      return c.json(brain.decideApproval(identity, c.req.param("id"), body));
+      return c.json(await brain.decideApproval(identity, c.req.param("id"), body));
     } catch (e) { return fail(c as never, e); }
   });
 

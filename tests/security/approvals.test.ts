@@ -38,7 +38,7 @@ describe("approval security (T13)", () => {
     w.brain.store.control.prepare("INSERT INTO workspace_memberships(workspace_id, organization_id, principal_id, role, version, granted_by, granted_at_ms) VALUES (?, ?, 'owner-1', 'approver', 1, 'owner-1', ?)")
       .run(w.workspaceId, w.org, Date.now());
     const identity = await w.brain.resolveActor(new Headers({ authorization: `Bearer ${w.ownerToken}` }), w.workspaceId);
-    expect(() => w.brain.decideApproval(identity, approvalId, decision("self-dec", digest, "ev-any"))).toThrow(/separation of duties/);
+    await expect(w.brain.decideApproval(identity, approvalId, decision("self-dec", digest, "ev-any"))).rejects.toThrow(/separation of duties/);
     w.brain.close();
   });
 
@@ -46,14 +46,14 @@ describe("approval security (T13)", () => {
     const w = setupWorld();
     const approver = await w.grantApprover("sec-approver");
     const first = await request(w, "su-1", "su-n1");
-    expect(() => w.brain.decideApproval(approver.identity, first.approvalId, decision("su-dec-0", first.digest))).toThrow(/step-up/);
+    await expect(w.brain.decideApproval(approver.identity, first.approvalId, decision("su-dec-0", first.digest))).rejects.toThrow(/step-up/);
     const evidenceId = await stepUp(w, approver, first.approvalId, first.digest);
-    w.brain.decideApproval(approver.identity, first.approvalId, decision("su-dec-1", first.digest, evidenceId));
+    await w.brain.decideApproval(approver.identity, first.approvalId, decision("su-dec-1", first.digest, evidenceId));
     const second = await request(w, "su-2", "su-n2");
-    expect(() => w.brain.decideApproval(approver.identity, second.approvalId, decision("su-dec-2", second.digest, evidenceId))).toThrow(/step-up/);
+    await expect(w.brain.decideApproval(approver.identity, second.approvalId, decision("su-dec-2", second.digest, evidenceId))).rejects.toThrow(/step-up/);
     const expiredEvidence = await stepUp(w, approver, second.approvalId, second.digest);
     w.brain.store.control.prepare("UPDATE step_up_evidence SET expires_at_ms=? WHERE id=?").run(Date.now() - 1, expiredEvidence);
-    expect(() => w.brain.decideApproval(approver.identity, second.approvalId, decision("su-dec-3", second.digest, expiredEvidence))).toThrow(/step-up/);
+    await expect(w.brain.decideApproval(approver.identity, second.approvalId, decision("su-dec-3", second.digest, expiredEvidence))).rejects.toThrow(/step-up/);
     w.brain.close();
   });
 
@@ -62,7 +62,7 @@ describe("approval security (T13)", () => {
     const approver = await w.grantApprover("status-approver");
     const { approvalId, digest } = await request(w, "st-1", "st-n1");
     const evidenceId = await stepUp(w, approver, approvalId, digest);
-    w.brain.decideApproval(approver.identity, approvalId, decision("st-dec", digest, evidenceId));
+    await w.brain.decideApproval(approver.identity, approvalId, decision("st-dec", digest, evidenceId));
     const status = w.brain.decisionStatus(approver.actor, approvalId, "st-dec") as unknown as { status: string };
     expect(status.status).toBe("confirmed");
     const other = w.brain.decisionStatus(approver.actor, approvalId, "st-other") as unknown as { status: string };

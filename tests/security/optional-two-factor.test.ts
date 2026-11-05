@@ -31,8 +31,8 @@ describe("optional and required two-factor approval policy", () => {
       const challenge = w.brain.stepUp.createChallenge(identity, first, subjectDigest);
       const { evidenceId } = await w.brain.stepUp.verify(identity, challenge.challengeId, "", headers);
       const decision = { contractVersion: "brain.approval-decision/v1" as const, idempotencyKey: "optional-decision", decision: "approve" as const, subjectDigest, expectedVersion: 1, note: "reviewed", stepUpEvidenceId: evidenceId };
-      expect(() => w.brain.decideApproval(identity, second, decision)).toThrow(/step-up evidence/);
-      expect(w.brain.decideApproval(identity, first, decision).state).toBe("approved");
+      await expect(w.brain.decideApproval(identity, second, decision)).rejects.toThrow(/step-up evidence/);
+      expect((await w.brain.decideApproval(identity, first, decision)).state).toBe("approved");
       await expect(w.brain.stepUp.verify(identity, challenge.challengeId, "", headers)).rejects.toThrow(/already verified/);
       const bound = { approvalId: first, organizationId: w.org, workspaceId: w.workspaceId, subjectDigest };
       expect(approvalCurrentlyUsable(w.brain.store,w.brain.auth,bound)).toBe(true);
