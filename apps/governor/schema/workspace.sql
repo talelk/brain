@@ -356,3 +356,9 @@ CREATE TABLE parked_observations (
  source_id TEXT NOT NULL, external_id TEXT NOT NULL, payload_digest TEXT NOT NULL,
  payload_json TEXT NOT NULL, reason TEXT NOT NULL, created_at_ms INTEGER NOT NULL
 ) STRICT;
+-- Command funnel effect marker (ADR 0002): written in the same transaction as
+-- a workspace command's effect, so a retry after a crash reuses the result.
+CREATE TABLE command_effects (
+ command_id TEXT PRIMARY KEY, result_json TEXT NOT NULL CHECK(json_valid(result_json)),
+ created_at_ms INTEGER NOT NULL
+) STRICT;

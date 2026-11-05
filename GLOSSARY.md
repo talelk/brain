@@ -128,6 +128,12 @@ Resolving an unknown outcome using target-specific evidence and an authorized de
 There is no universal retry for an unknown effect.
 _Avoid_: retry, repair, recovery
 
+**Command intent**:
+The durable record that a command was accepted for execution: pending while its
+effect runs, then applied or failed. A command receipt exists only for an applied
+intent; a failed intent leaves its idempotency key free to retry.
+_Avoid_: command log, pending command, queued command
+
 **Idempotency key**:
 The per-actor key a command carries so that the same key and payload return the same
 resource, and key reuse with a changed payload conflicts.
