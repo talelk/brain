@@ -6,6 +6,7 @@ import { domainDigest } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
+import { transitionState } from "../../domain/states";
 
 export interface EvidenceRunner { runnerId: string; epoch: number; organizationId: string }
 interface Attempt {
@@ -200,7 +201,7 @@ export class EvidenceService {
     const verdictId = this.s.id("verdict");
     this.s.inTx(ws,() => {
       ws.prepare("INSERT INTO verification_verdicts(id,bundle_digest,evaluator_attempt_id,evaluator_digest,outcome,manifest_json,created_at_ms) VALUES (?,?,?,?,?,?,?)").run(verdictId,verdict.bundleDigest,evaluator.id,verdict.evaluatorRelease.digest,verdict.outcome,JSON.stringify(verdict),this.s.now());
-      ws.prepare("UPDATE evidence_bundles SET state=? WHERE digest=?").run(verdict.outcome,verdict.bundleDigest);
+      transitionState(ws, "evidence", verdict.bundleDigest, verdict.outcome);
     });
     // Workspace commit is the durable intent. A crash before/during either
     // projection is retried from finalized_at_ms=NULL, without cross-WAL atomicity.
@@ -233,12 +234,12 @@ export class EvidenceService {
       if (author.job_fence !== author.current_fence) throw new BrainDomainError("LEASE_LOST", "accepted verdict cannot finalize a newer attempt");
       if (verdict.outcome !== "incomplete") {
         const state = verdict.outcome === "verified" ? "succeeded" : "failed";
-        this.s.control.prepare("UPDATE jobs SET state=?,version=version+1 WHERE id=? AND state='verifying' AND job_fence=?").run(state,author.job_id,bundle.jobFence);
-        this.s.control.prepare("UPDATE job_attempts SET state=? WHERE id=? AND state='verifying'").run(state,author.id);
+        transitionState(this.s.control, "job", author.job_id, state, { bumpVersion: true, and: { job_fence: bundle.jobFence } });
+        transitionState(this.s.control, "attempt", author.id, state);
       }
       if (evaluationComplete) {
-        this.s.control.prepare("UPDATE jobs SET state='succeeded',version=version+1 WHERE id=? AND state='verifying'").run(evaluator.job_id);
-        this.s.control.prepare("UPDATE job_attempts SET state='succeeded' WHERE id=? AND state='verifying'").run(evaluator.id);
+        transitionState(this.s.control, "job", evaluator.job_id, "succeeded", { bumpVersion: true });
+        transitionState(this.s.control, "attempt", evaluator.id, "succeeded");
       }
       // A general verdict proves checks. Resource effect guards are released
       // only by connector readback/reconciliation, never by a runner assertion.

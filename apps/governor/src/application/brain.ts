@@ -8,7 +8,7 @@ import type {
 import { approvalSubjectDigest, domainDigest, isKnownQuery, sha256Digest } from "@brain/contracts";
 import { payloadValidator, validate } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
-import { assertExpectedVersion, assertTransition } from "../domain/states";
+import { assertExpectedVersion, assertTransition, transitionState } from "../domain/states";
 import { iso } from "../domain/clock";
 import { Store, type BrainOptions } from "./store";
 import { authorizeCommand, hasWorkspaceMembership, resolveActor, requireWorkspaceRead, scopesForPrincipal, type ResolvedActor } from "./authz";
@@ -506,8 +506,7 @@ export class Brain {
       case "approval.revoke": {
         const row = s.control.prepare("SELECT state, version FROM approval_requests WHERE id=? AND organization_id=?").get(String(p["approvalId"]), actor.organizationId) as { state: string; version: number } | undefined;
         if (!row) throw new BrainDomainError("NOT_FOUND", "approval not found");
-        if (row.state !== "pending" && row.state !== "approved") throw new BrainDomainError("CONFLICT", "approval cannot be revoked now");
-        s.control.prepare("UPDATE approval_requests SET state='revoked', version=version+1 WHERE id=?").run(String(p["approvalId"]));
+        transitionState(s.control, "approval", String(p["approvalId"]), "revoked", { bumpVersion: true });
         s.control.prepare("UPDATE effect_permits SET state='revoked' WHERE approval_id=? AND state='issued'").run(String(p["approvalId"]));
         return String(p["approvalId"]);
       }
@@ -680,7 +679,9 @@ export class Brain {
       case "workflow.cancel": {
         if (!wsId) break;
         this.workflows.cancelRun(actor.organizationId, wsId, String(p["runId"]));
-        s.control.prepare("UPDATE jobs SET state='cancelled', version=version+1 WHERE workflow_run_id=? AND state IN ('queued','offered')").run(String(p["runId"]));
+        for (const jobRow of s.control.prepare("SELECT id FROM jobs WHERE workflow_run_id=? AND state IN ('queued','offered')").all(String(p["runId"])) as Array<{ id: string }>) {
+          transitionState(s.control, "job", jobRow.id, "cancelled", { bumpVersion: true });
+        }
         setResource(String(p["runId"]));
         break;
       }
@@ -804,7 +805,7 @@ export class Brain {
       assertExpectedVersion(row.version, body.expectedVersion);
       if (row.subject_digest !== body.subjectDigest) throw new BrainDomainError("CONFLICT", "approval subject changed; refresh required");
       if (row.state === "pending" && row.expires_at_ms <= s.now()) {
-        s.control.prepare("UPDATE approval_requests SET state='expired', version=version+1 WHERE id=?").run(approvalId);
+        transitionState(s.control, "approval", approvalId, "expired", { bumpVersion: true });
         throw new BrainDomainError("APPROVAL_EXPIRED", "approval expired");
       }
       assertTransition("approval", row.state, body.decision === "approve" ? "approved" : "rejected");
@@ -827,8 +828,7 @@ export class Brain {
       s.control.prepare("INSERT INTO approval_decisions(id, approval_id, expected_version, actor_id, auth_evidence_ref, subject_digest, decision, note, created_at_ms) VALUES (?,?,?,?,?,?,?,?,?)")
         .run(decisionId, approvalId, body.expectedVersion, actor.actorId, body.stepUpEvidenceId ?? "session", body.subjectDigest, body.decision, body.note, s.now());
       if (body.stepUpEvidenceId) s.control.prepare("UPDATE step_up_evidence SET decision_id=? WHERE id=?").run(decisionId, body.stepUpEvidenceId);
-      s.control.prepare("UPDATE approval_requests SET state=?, version=version+1 WHERE id=? AND version=?").run(newState, approvalId, body.expectedVersion);
-      commitReceipt(s, ctx, requestDigest, () => ({ resourceId: approvalId, receiptExtra: { decisionId, state: newState, subjectDigest: body.subjectDigest } }), "applied");
+      transitionState(s.control, "approval", approvalId, newState, { bumpVersion: true, and: { version: body.expectedVersion } });      commitReceipt(s, ctx, requestDigest, () => ({ resourceId: approvalId, receiptExtra: { decisionId, state: newState, subjectDigest: body.subjectDigest } }), "applied");
       s.emit(s.control, { organizationId: actor.organizationId, workspaceId: row.workspace_id, aggregateType: "approval", aggregateId: approvalId, eventType: body.decision === "approve" ? "approval.approved" : "approval.rejected", payload: { approvalId, decisionId } });
     });
     if (workspaceId) this.workflows.wakeGate(actor.organizationId, workspaceId, approvalId, newState === "approved");
@@ -1045,15 +1045,17 @@ export class Brain {
       s.control.prepare("UPDATE reconciliation_requests SET state=?, outcome=?, evidence_digest=? WHERE job_id=? AND state IN ('pending','observing')")
         .run(input.outcome === "unknown" || input.outcome === "conflicting" ? "blocked" : "resolved", input.outcome, input.evidenceDigest, input.jobId);
       if (input.outcome === "applied") {
-        s.control.prepare("UPDATE jobs SET state='verifying', version=version+1 WHERE id=? AND state='outcome_unknown'").run(input.jobId);
-        s.control.prepare("UPDATE job_attempts SET state='verifying' WHERE job_id=? AND state='outcome_unknown'").run(input.jobId);
+        for (const a of s.control.prepare("SELECT id FROM job_attempts WHERE job_id=? AND state='outcome_unknown'").all(input.jobId) as Array<{ id: string }>) {
+          transitionState(s.control, "attempt", a.id, "verifying");
+        }
+        transitionState(s.control, "job", input.jobId, "verifying", { bumpVersion: true });
         s.control.prepare("UPDATE resource_leases SET unresolved_effect=0, expires_at_ms=? WHERE attempt_id IN (SELECT id FROM job_attempts WHERE job_id=?)").run(s.now(), input.jobId);
       } else if (input.outcome === "absent") {
         // The unknown attempt is terminally concluded (effect proven absent)
         // so the one-active-attempt index frees the job for a fresh attempt.
         const stale = s.control.prepare("SELECT id FROM job_attempts WHERE job_id=? AND state='outcome_unknown'").all(input.jobId) as Array<{ id: string }>;
-        s.control.prepare("UPDATE jobs SET state='queued', version=version+1 WHERE id=? AND state='outcome_unknown'").run(input.jobId);
-        s.control.prepare("UPDATE job_attempts SET state='failed' WHERE job_id=? AND state='outcome_unknown'").run(input.jobId);
+        for (const a of stale) transitionState(s.control, "attempt", a.id, "failed");
+        transitionState(s.control, "job", input.jobId, "queued", { bumpVersion: true });
         for (const a of stale) this.jobProtocol.releaseReservation(a.id);
         s.control.prepare("UPDATE resource_leases SET unresolved_effect=0, expires_at_ms=? WHERE attempt_id IN (SELECT id FROM job_attempts WHERE job_id=?)").run(s.now(), input.jobId);
       }

@@ -459,7 +459,6 @@
     "plans.get": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
     "workItems.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
     "workItems.get": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "board.get": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
     "automations.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
     "automations.occurrences": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
     "delegations.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },

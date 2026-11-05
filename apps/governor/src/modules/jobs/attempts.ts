@@ -6,6 +6,7 @@ import { releaseToolPins } from "../configuration/index";
 import { authorEvidenceFor, toolReleasesForPayload } from "../evidence/index";
 import { recordAttemptSession } from "../sessions/index";
 import { BrainDomainError } from "../../domain/errors";
+import { transitionState } from "../../domain/states";
 import { evaluateRunner, type RunnerView } from "../../domain/placement";
 import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
@@ -110,9 +111,9 @@ export function claim(s: Store, deps: { isEvaluatorEligible: (runnerId: string, 
         WHERE id=? AND cpu_capacity-500-cpu_reserved>=? AND memory_capacity-1024-memory_reserved>=? AND disk_capacity-disk_reserved>=? AND slot_capacity-slots_reserved>=?`)
         .run(demand.cpuMillicores, demand.memoryMb, demand.diskMb, demand.slots, runner.runnerId, demand.cpuMillicores, demand.memoryMb, demand.diskMb, demand.slots);
       if (upd.changes !== 1) continue;
-      const jobUpd = s.control.prepare("UPDATE jobs SET state='offered', attempt_counter=attempt_counter+1, job_fence=job_fence+1, version=version+1 WHERE id=? AND state='queued' AND version=?")
-        .run(String(job["id"]), Number(job["version"]));
-      if (jobUpd.changes !== 1) throw new BrainDomainError("CONFLICT", "job claim race lost; transaction rolled back");
+      transitionState(s.control, "job", String(job["id"]), "offered", {
+        rawSet: ["attempt_counter=attempt_counter+1", "job_fence=job_fence+1"], bumpVersion: true, and: { version: Number(job["version"]) },
+      });
       const fresh = s.control.prepare("SELECT attempt_counter, job_fence FROM jobs WHERE id=?").get(String(job["id"])) as { attempt_counter: number; job_fence: number };
       s.control.prepare(`INSERT INTO job_attempts(id, job_id, runner_id, runner_epoch, attempt_no, lease_id, job_fence, state, offer_expires_at_ms, lease_expires_at_ms)
         VALUES (?,?,?,?,?,?,?,'offered',?,?)`).run(attemptId, String(job["id"]), runner.runnerId, runner.epoch, fresh.attempt_counter, leaseId, fresh.job_fence, s.now() + 10_000, s.now() + 10_000);
@@ -228,8 +229,8 @@ export function ackAttempt(s: Store, runner: { runnerId: string; epoch: number }
     if (String(row["state"]) !== "offered") throw new BrainDomainError("CONFLICT", "attempt not offered");
     if (Number(row["offer_expires_at_ms"]) <= s.now()) throw new BrainDomainError("LEASE_LOST", "offer expired");
     const expires = s.now() + 60_000;
-    s.control.prepare("UPDATE job_attempts SET state='running', lease_expires_at_ms=? WHERE id=?").run(expires, attemptId);
-    s.control.prepare("UPDATE jobs SET state='running', version=version+1 WHERE id=?").run(String(row["job_id"]));
+    transitionState(s.control, "attempt", attemptId, "running", { set: { lease_expires_at_ms: expires } });
+    transitionState(s.control, "job", String(row["job_id"]), "running", { bumpVersion: true });
     {
       const engine = body["engine"] as { id?: string; adapterDigest?: string; features?: unknown } | undefined;
       const ws = s.workspaceDb(String(row["workspace_id"]), String(row["organization_id"]));
@@ -329,17 +330,17 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
     if (row["state"] !== "running" || row["job_state"] !== "running") throw new BrainDomainError("CONFLICT", "attempt cannot accept a new completion receipt");
     const cleanup = body["cleanupConfirmed"] === true ? 1 : 0;
     if (result === "unknown-outcome" || result === "unknown") {
-      s.control.prepare("UPDATE job_attempts SET state='outcome_unknown', receipt_digest=?, cleanup_confirmed=? WHERE id=?").run(receiptDigest, cleanup, attemptId);
-      s.control.prepare("UPDATE jobs SET state='outcome_unknown', version=version+1 WHERE id=?").run(String(row["job_id"]));
+      transitionState(s.control, "attempt", attemptId, "outcome_unknown", { set: { receipt_digest: receiptDigest, cleanup_confirmed: cleanup } });
+      transitionState(s.control, "job", String(row["job_id"]), "outcome_unknown", { bumpVersion: true });
       jobState = "outcome_unknown";
     } else if (result === "succeeded") {
-      s.control.prepare("UPDATE job_attempts SET state='verifying', receipt_digest=?, cleanup_confirmed=? WHERE id=?").run(receiptDigest, cleanup, attemptId);
-      s.control.prepare("UPDATE jobs SET state='verifying', version=version+1 WHERE id=?").run(String(row["job_id"]));
+      transitionState(s.control, "attempt", attemptId, "verifying", { set: { receipt_digest: receiptDigest, cleanup_confirmed: cleanup } });
+      transitionState(s.control, "job", String(row["job_id"]), "verifying", { bumpVersion: true });
       jobState = "verifying";
       s.control.prepare("INSERT OR REPLACE INTO job_outputs(job_id, output_json) VALUES (?,?)").run(String(row["job_id"]), JSON.stringify(output));
     } else {
-      s.control.prepare("UPDATE job_attempts SET state='failed', receipt_digest=?, cleanup_confirmed=? WHERE id=?").run(receiptDigest, cleanup, attemptId);
-      s.control.prepare("UPDATE jobs SET state='failed', version=version+1 WHERE id=?").run(String(row["job_id"]));
+      transitionState(s.control, "attempt", attemptId, "failed", { set: { receipt_digest: receiptDigest, cleanup_confirmed: cleanup } });
+      transitionState(s.control, "job", String(row["job_id"]), "failed", { bumpVersion: true });
       jobState = "failed";
     }
     if (cleanup === 1) releaseReservation(s, attemptId);
@@ -364,8 +365,8 @@ export function releaseAttempt(s: Store, runner: { runnerId: string; epoch: numb
     if (cleanup) s.control.prepare("UPDATE job_attempts SET cleanup_confirmed=1 WHERE id=?").run(attemptId);
     if (cleanup) releaseReservation(s, attemptId);
     if (String(row["state"]) === "offered") {
-      s.control.prepare("UPDATE job_attempts SET state='declined' WHERE id=?").run(attemptId);
-      s.control.prepare("UPDATE jobs SET state='queued', version=version+1 WHERE id=?").run(String(row["job_id"]));
+      transitionState(s.control, "attempt", attemptId, "declined");
+      transitionState(s.control, "job", String(row["job_id"]), "queued", { bumpVersion: true });
       releaseReservation(s, attemptId);
     }
   });
@@ -377,15 +378,15 @@ export function expireLeases(s: Store): number {
   s.inTx(s.control, () => {
     const offered = s.control.prepare("SELECT id, job_id FROM job_attempts WHERE state='offered' AND offer_expires_at_ms<=?").all(s.now()) as Array<{ id: string; job_id: string }>;
     for (const a of offered) {
-      s.control.prepare("UPDATE job_attempts SET state='expired' WHERE id=?").run(a.id);
-      s.control.prepare("UPDATE jobs SET state='queued', queue_reason='WAITING_FOR_RUNNER', version=version+1 WHERE id=? AND state='offered'").run(a.job_id);
+      transitionState(s.control, "attempt", a.id, "expired");
+      transitionState(s.control, "job", a.job_id, "queued", { set: { queue_reason: "WAITING_FOR_RUNNER" }, bumpVersion: true });
       releaseReservation(s, a.id);
       count++;
     }
     const running = s.control.prepare("SELECT id, job_id FROM job_attempts WHERE state='running' AND lease_expires_at_ms<=?").all(s.now()) as Array<{ id: string; job_id: string }>;
     for (const a of running) {
-      s.control.prepare("UPDATE job_attempts SET state='outcome_unknown' WHERE id=?").run(a.id);
-      s.control.prepare("UPDATE jobs SET state='outcome_unknown', version=version+1 WHERE id=? AND state='running'").run(a.job_id);
+      transitionState(s.control, "attempt", a.id, "outcome_unknown");
+      transitionState(s.control, "job", a.job_id, "outcome_unknown", { bumpVersion: true });
       count++;
     }
   });

@@ -2,7 +2,7 @@ import { domainDigest } from "@brain/contracts";
 import type { ActorContext, Automation, AutomationOccurrence, JsonValue } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
-import { assertExpectedVersion, assertTransition } from "../../domain/states";
+import { assertExpectedVersion, transitionState } from "../../domain/states";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { nextCronFire, parseCron } from "../workflows/index";
@@ -308,14 +308,13 @@ export class AutomationService {
         continue;
       }
       // workItem target: the scheduled start releases a waiting work item.
-      assertTransition("workItem", "backlog", "ready");
       const item = db.prepare("SELECT id,state FROM work_items WHERE id=?").get(automation.target_id) as { id: string; state: string } | undefined;
       if (!item || item.state !== "backlog") {
         this.finish(db, occurrence, "skipped", null, item ? `work item is ${item.state}` : "work item not found");
         skipped++;
         continue;
       }
-      db.prepare("UPDATE work_items SET state='ready',next_action='Start this task',version=version+1,updated_at_ms=? WHERE id=? AND state='backlog'").run(this.store.now(), item.id);
+      transitionState(db, "workItem", item.id, "ready", { set: { next_action: "Start this task", updated_at_ms: this.store.now() }, bumpVersion: true });
       this.finish(db, occurrence, "dispatched", item.id, null);
       dispatched++;
     }

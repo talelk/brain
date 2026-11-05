@@ -2,7 +2,7 @@ import { domainDigest } from "@brain/contracts";
 import type { ActorContext, JsonValue, Objective, PlanAssignment, PlanTask, PlanVersion, WorkItem, WorkItemState } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
-import { assertExpectedVersion, assertTransition } from "../../domain/states";
+import { assertExpectedVersion, assertTransition, transitionState } from "../../domain/states";
 import { assertPlanTasks } from "../../domain/work-plan";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
@@ -141,11 +141,7 @@ export class WorkService {
     const db = this.db(actor, workspaceId);
     this.store.inTx(db, () => {
       const priorActive = objective.active_plan_version_id;
-      if (priorActive) {
-        assertTransition("planVersion", "confirmed", "superseded");
-        db.prepare("UPDATE plan_versions SET state='superseded' WHERE id=? AND state='confirmed'").run(priorActive);
-      }
-      assertTransition("planVersion", plan.state, "confirmed");
+      if (priorActive) transitionState(db, "planVersion", priorActive, "superseded");
       const previous = db.prepare("SELECT * FROM work_items WHERE objective_id=? AND state!='abandoned' ORDER BY created_at_ms DESC,id DESC").all(objective.id) as WorkItemRow[];
       const latestByTask = new Map<string, WorkItemRow>();
       for (const item of previous) if (!latestByTask.has(item.plan_task_id)) latestByTask.set(item.plan_task_id, item);
@@ -169,8 +165,7 @@ export class WorkService {
       }
       for (const item of previous) {
         if (retained.has(item.id) || item.state === "done") continue;
-        db.prepare("UPDATE work_items SET state='abandoned',next_action=?,version=version+1,updated_at_ms=? WHERE id=?")
-          .run(`Superseded by plan revision ${plan.revision}`, now, item.id);
+        transitionState(db, "workItem", item.id, "abandoned", { set: { next_action: `Superseded by plan revision ${plan.revision}`, updated_at_ms: now }, bumpVersion: true });
       }
       for (const task of tasks) {
         const workItemId = selected.get(task.id);
@@ -181,7 +176,7 @@ export class WorkService {
           db.prepare("INSERT INTO work_item_dependencies(work_item_id,depends_on_work_item_id) VALUES (?,?)").run(workItemId, dependencyId);
         }
       }
-      db.prepare("UPDATE plan_versions SET state='confirmed',confirmed_at_ms=? WHERE id=?").run(now, plan.id);
+      transitionState(db, "planVersion", plan.id, "confirmed", { set: { confirmed_at_ms: now } });
       db.prepare("UPDATE objectives SET active_plan_version_id=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?")
         .run(plan.id, now, objective.id, objective.version);
       this.store.emit(db, { aggregateType: "plan", aggregateId: plan.id, eventType: "plan.confirmed", payload: { objectiveId: objective.id, planVersionId: plan.id, digest: plan.digest } });
@@ -210,8 +205,7 @@ export class WorkService {
       const evidenceDigest = payload["evidenceDigest"] ? String(payload["evidenceDigest"]) : item.evidence_digest;
       if (next === "done") this.assertEvidence(db, item, evidenceDigest);
       const nextAction = next === "done" ? "No further action" : next === "review" ? "Review verified results" : next === "blocked" ? reason ?? "Resolve blocker" : next === "ready" ? "Start this task" : next === "in-progress" ? "Complete and submit evidence" : next === "abandoned" ? "Superseded or abandoned" : "Wait for predecessor completion";
-      db.prepare("UPDATE work_items SET state=?,blocked_reason=?,evidence_digest=?,next_action=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?")
-        .run(next, next === "blocked" ? reason : null, evidenceDigest ?? null, nextAction, this.store.now(), item.id, item.version);
+      transitionState(db, "workItem", item.id, next, { set: { blocked_reason: next === "blocked" ? reason : null, evidence_digest: evidenceDigest ?? null, next_action: nextAction, updated_at_ms: this.store.now() }, bumpVersion: true, and: { version: item.version } });
       this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.transitioned", payload: { workItemId: item.id, state: next, ...(evidenceDigest ? { evidenceDigest } : {}) } });
       if (next === "done") this.releaseReadyItems(db, item.objective_id);
     });
@@ -239,7 +233,7 @@ export class WorkService {
     const candidates = db.prepare("SELECT id FROM work_items WHERE objective_id=? AND state IN ('backlog','blocked')").all(objectiveId) as Array<{ id: string }>;
     for (const candidate of candidates) {
       const pending = db.prepare("SELECT 1 FROM work_item_dependencies d JOIN work_items w ON w.id=d.depends_on_work_item_id WHERE d.work_item_id=? AND w.state!='done' LIMIT 1").get(candidate.id);
-      if (!pending) db.prepare("UPDATE work_items SET state='ready',blocked_reason=NULL,next_action='Start this task',version=version+1,updated_at_ms=? WHERE id=?").run(this.store.now(), candidate.id);
+      if (!pending) transitionState(db, "workItem", candidate.id, "ready", { set: { blocked_reason: null, next_action: "Start this task", updated_at_ms: this.store.now() }, bumpVersion: true });
     }
   }
 
@@ -259,7 +253,7 @@ export class WorkService {
       db.prepare("INSERT OR IGNORE INTO execution_links(work_item_id,run_id,created_at_ms) VALUES (?,?,?)").run(item.id, runId, this.store.now());
       if (item.state === "ready") {
         this.assertDependenciesDone(db, item.id);
-        db.prepare("UPDATE work_items SET state='in-progress',next_action='Complete and submit evidence',version=version+1,updated_at_ms=? WHERE id=?").run(this.store.now(), item.id);
+        transitionState(db, "workItem", item.id, "in-progress", { set: { next_action: "Complete and submit evidence", updated_at_ms: this.store.now() }, bumpVersion: true });
       }
     });
   }

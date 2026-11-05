@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { EvaluationAssignment, EvidenceBundle, JsonValue, Workflow } from "@brain/contracts";
 import { domainDigest } from "@brain/contracts";
 import { BrainDomainError } from "../../../domain/errors";
+import { bulkTransition, transitionState } from "../../../domain/states";
 import { compileWorkflowGraph, resolveBinding } from "../../configuration/index";
 import type { Store } from "../../../application/store";
 import type { WorkflowEnginePort, WorkflowHost } from "../engine-port";
@@ -119,7 +120,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     s.inTx(ws, () => {
       ws.prepare("UPDATE workflow_steps SET state=? WHERE run_id=? AND step_id=?").run(approved ? "succeeded" : "failed", row.run_id, row.step_id);
       ws.prepare("INSERT OR REPLACE INTO step_outputs(run_id, step_id, output_json) VALUES (?,?,?)").run(row.run_id, row.step_id, JSON.stringify({ approved }));
-      ws.prepare("UPDATE workflow_runs SET state=?, version=version+1 WHERE id=?").run(approved ? "running" : "failed", row.run_id);
+      transitionState(ws, "workflow", row.run_id, approved ? "running" : "failed", { bumpVersion: true });
     });
     if (approved) this.admit(organizationId, workspaceId, row.run_id);
     this.track(this.drive(organizationId, workspaceId, row.run_id, "resume", row.step_id));
@@ -127,7 +128,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
 
   cancelRun(organizationId: string, workspaceId: string, runId: string): void {
     const ws = this.store.workspaceDb(workspaceId, organizationId);
-    ws.prepare("UPDATE workflow_runs SET state='cancelled', version=version+1 WHERE id=? AND state NOT IN ('succeeded','failed','cancelled')").run(runId);
+    bulkTransition(ws, "workflow", "cancelled", { and: { id: runId }, bumpVersion: true });
     ws.prepare("UPDATE workflow_steps SET state='skipped' WHERE run_id=? AND state='pending'").run(runId);
     const pending = this.runs.get(runId);
     if (pending) this.track(pending.then((run) => run.cancel?.()).catch(() => undefined));
@@ -151,7 +152,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
       }
       ws.prepare("INSERT OR REPLACE INTO step_outputs(run_id, step_id, output_json) VALUES (?,?,?)").run(runId, stepId, JSON.stringify(output));
       ws.prepare("UPDATE workflow_steps SET state=?,output_digest=? WHERE run_id=? AND step_id=?").run(ok ? "succeeded" : "failed", digest, runId, stepId);
-      if (!ok) ws.prepare("UPDATE workflow_runs SET state='failed', version=version+1 WHERE id=?").run(runId);
+      if (!ok) transitionState(ws, "workflow", runId, "failed", { bumpVersion: true });
     });
   }
 
@@ -191,7 +192,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
           expiresAtMs: s.now() + ((job as { expiresAfterSeconds?: number }).expiresAfterSeconds ?? 3600) * 1000, requestedBy: actorId,
         });
         ws.prepare("UPDATE workflow_steps SET state='waiting', job_id=? WHERE run_id=? AND step_id=?").run(approvalId, runId, stepId);
-        ws.prepare("UPDATE workflow_runs SET state='suspended', wait_generation=wait_generation+1, version=version+1 WHERE id=?").run(runId);
+        transitionState(ws, "workflow", runId, "suspended", { rawSet: ["wait_generation=wait_generation+1"], bumpVersion: true });
         return;
       }
       if (job.kind === "subgraph") {
@@ -230,7 +231,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     const refreshed = ws.prepare("SELECT state FROM workflow_steps WHERE run_id=?").all(runId) as Array<{ state: string }>;
     if (refreshed.length > 0 && refreshed.every((r) => r.state === "succeeded" || r.state === "skipped")) {
       const anySkipped = refreshed.some((r) => r.state === "skipped");
-      ws.prepare("UPDATE workflow_runs SET state=?, version=version+1 WHERE id=?").run(anySkipped ? "partial" : "succeeded", runId);
+      transitionState(ws, "workflow", runId, anySkipped ? "partial" : "succeeded", { bumpVersion: true });
     }
   }
 
@@ -372,7 +373,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
         if (!["succeeded", "failed", "cancelled", "partial"].includes(state)) return;
       }
       const ws = this.store.workspaceDb(workspaceId, organizationId);
-      ws.prepare("UPDATE workflow_runs SET state='blocked', version=version+1 WHERE id=? AND state NOT IN ('succeeded','failed','cancelled','partial')").run(runId);
+      bulkTransition(ws, "workflow", "blocked", { and: { id: runId }, bumpVersion: true });
       if (process.env["BRAIN_DEBUG_ENGINE"]) console.error(`[mastra-engine] drive ${mode} ${runId} failed`, e);
     }
   }
@@ -386,9 +387,9 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
       if (mastraStatus === "success") {
         const steps = ws.prepare("SELECT state FROM workflow_steps WHERE run_id=?").all(runId) as Array<{ state: string }>;
         const anySkipped = steps.some((r) => r.state === "skipped");
-        ws.prepare("UPDATE workflow_runs SET state=?, version=version+1 WHERE id=?").run(anySkipped ? "partial" : "succeeded", runId);
+        transitionState(ws, "workflow", runId, anySkipped ? "partial" : "succeeded", { bumpVersion: true });
       } else {
-        ws.prepare("UPDATE workflow_runs SET state='failed', version=version+1 WHERE id=?").run(runId);
+        transitionState(ws, "workflow", runId, "failed", { bumpVersion: true });
       }
     }
     // Resume a parent subgraph step waiting on this child run.
@@ -515,7 +516,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
                 expiresAtMs: s.now() + ((job as { expiresAfterSeconds?: number }).expiresAfterSeconds ?? 3600) * 1000, requestedBy: actorId,
               });
               ws.prepare("UPDATE workflow_steps SET state='waiting', job_id=? WHERE run_id=? AND step_id=?").run(approvalId, runId, stepId);
-              ws.prepare("UPDATE workflow_runs SET state='suspended', wait_generation=wait_generation+1, version=version+1 WHERE id=?").run(runId);
+              transitionState(ws, "workflow", runId, "suspended", { rawSet: ["wait_generation=wait_generation+1"], bumpVersion: true });
             }
             return suspend({ stepId });
           }

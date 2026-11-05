@@ -6,6 +6,7 @@ import type {
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import { BrainDomainError } from "../../domain/errors";
+import { transitionState } from "../../domain/states";
 import { iso } from "../../domain/clock";
 import { looksLikeSecret } from "../knowledge/memory";
 
@@ -158,8 +159,10 @@ export class CapitalizationService {
           processed++;
         } catch (error) {
           failed++;
-          db.prepare("UPDATE capitalization_runs SET state='failed',error=?,completed_at_ms=? WHERE id=? AND state!='succeeded'")
-            .run(error instanceof Error ? error.message.slice(0, 1000) : "capitalization failed", this.store.now(), run.id);
+          const current = db.prepare("SELECT state FROM capitalization_runs WHERE id=?").get(run.id) as { state: string } | undefined;
+          if (current && current.state !== "succeeded") {
+            transitionState(db, "capitalizationRun", run.id, "failed", { set: { error: error instanceof Error ? error.message.slice(0, 1000) : "capitalization failed", completed_at_ms: this.store.now() } });
+          }
         }
       }
     }
@@ -172,7 +175,7 @@ export class CapitalizationService {
       const run = db.prepare("SELECT state FROM capitalization_runs WHERE id=?").get(runId) as { state: string } | undefined;
       if (!run || run.state === "succeeded" || run.state === "failed") return;
       const now = this.store.now();
-      db.prepare("UPDATE capitalization_runs SET state='running',started_at_ms=COALESCE(started_at_ms,?),error=NULL WHERE id=?").run(now, runId);
+      transitionState(db, "capitalizationRun", runId, "running", { rawSet: [`started_at_ms=COALESCE(started_at_ms,${now})`, "error=NULL"] });
       const signatures = db.prepare(`SELECT signature,operation_id,parameter_shape_json,effect_class,package_digest,COUNT(*) AS source_count
         FROM operation_observations WHERE verified_success=1 GROUP BY signature,operation_id,parameter_shape_json,effect_class,package_digest ORDER BY signature`).all() as Array<{
         signature: string; operation_id: string; parameter_shape_json: string; effect_class: "read" | "write" | "privileged"; package_digest: string; source_count: number;
@@ -211,8 +214,7 @@ export class CapitalizationService {
         candidates++;
       }
       const observed = (db.prepare("SELECT COUNT(*) AS count FROM operation_observations WHERE verified_success=1").get() as { count: number }).count;
-      db.prepare("UPDATE capitalization_runs SET state='succeeded',observed_count=?,extracted_count=?,candidate_count=?,completed_at_ms=? WHERE id=?")
-        .run(observed, extracted, candidates, now, runId);
+      transitionState(db, "capitalizationRun", runId, "succeeded", { set: { observed_count: observed, extracted_count: extracted, candidate_count: candidates, completed_at_ms: now } });
       this.store.emit(db, { workspaceId, aggregateType: "capitalization", aggregateId: runId, eventType: "capitalization.completed", payload: { resourceId: runId, workspaceId, state: "succeeded" } });
     });
   }
@@ -244,7 +246,7 @@ export class CapitalizationService {
       if (candidate.created_by === actor.actorId) throw new BrainDomainError("FORBIDDEN", "candidate author cannot review their own proposal");
       const state = decision === "approve" ? "reviewed" : "rejected";
       const now = this.store.now();
-      db.prepare("UPDATE tool_candidates SET state=?,reviewer_id=?,reviewed_at_ms=? WHERE id=?").run(state, actor.actorId, now, candidateId);
+      transitionState(db, "capabilityCandidate", candidateId, state, { set: { reviewer_id: actor.actorId, reviewed_at_ms: now } });
       this.store.emit(db, { workspaceId, aggregateType: "capability", aggregateId: candidateId, eventType: "capability.reviewed", payload: { resourceId: candidateId, workspaceId, state } });
     });
     return candidateId;
@@ -264,7 +266,7 @@ export class CapitalizationService {
       if (fixtures.length < 3 || fixtures.some((digest) => !evidence.has(digest))) throw new BrainDomainError("EVIDENCE_MISSING", "publication must bind all candidate test evidence");
       for (const digest of fixtures) this.assertVerifiedEvidence(actor.organizationId, workspaceId, digest);
       const now = this.store.now();
-      db.prepare("UPDATE tool_candidates SET state='published',published_at_ms=? WHERE id=?").run(now, candidate.id);
+      transitionState(db, "capabilityCandidate", candidate.id, "published", { set: { published_at_ms: now } });
       this.store.emit(db, { workspaceId, aggregateType: "capability", aggregateId: candidate.id, eventType: "capability.published", payload: { resourceId: candidate.id, workspaceId, state: "published" } });
     });
     return release.id;
