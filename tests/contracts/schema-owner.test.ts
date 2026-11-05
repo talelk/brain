@@ -78,8 +78,12 @@ describe("schema single owner", () => {
       if (/CREATE\s+TABLE/iu.test(readFileSync(file, "utf8"))) offenders.push(file);
     }
     // Tests and scripts may seed rows but never lazily create schema tables.
+    // scripts/repair-live-schema.ts is the designated in-place repair path
+    // (ADR 0001): it instantiates tables declared by the schema files, never
+    // inline definitions, so it is exempt from the IF NOT EXISTS scan.
     for (const dir of ["tests", "scripts"]) {
       for (const file of sourceFiles(join(process.cwd(), dir), [".ts", ".py"])) {
+        if (file.endsWith("repair-live-schema.ts")) continue;
         if (/CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS/iu.test(readFileSync(file, "utf8"))) offenders.push(file);
       }
     }

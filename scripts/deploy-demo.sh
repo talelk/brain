@@ -105,10 +105,15 @@ fi
 echo "==> Building the governor image (cached layers make repeat deploys fast)"
 $SSH "cd $REMOTE_DIR && docker compose build governor"
 
-echo "==> Rolling the container (stop -> initialize-if-empty -> up)"
+echo "==> Rolling the container (stop -> repair-if-needed -> initialize-if-empty -> up)"
 # initialize-local.ts needs exclusive ownership of the data directory and is
 # idempotent: with existing organizations it preserves everything and exits.
+# repair-live-schema.ts is likewise idempotent: on a current database it only
+# reports digests; on a database predating a schema-file change it creates the
+# declared tables the file added, verifies columns, and realigns digests.
+# Rows are never touched either way.
 $SSH "cd $REMOTE_DIR && docker compose stop governor \
+  && docker compose run --rm --no-deps governor node --import tsx scripts/repair-live-schema.ts \
   && docker compose run --rm --no-deps governor node --import tsx scripts/initialize-local.ts \
   && docker compose up -d governor"
 
