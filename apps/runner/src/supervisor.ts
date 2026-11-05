@@ -3,10 +3,11 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { cpus, freemem } from "node:os";
 import { join } from "node:path";
 import { domainDigest, sha256Digest } from "@brain/contracts";
-import type { Agent, ArtifactRef, EngineToolBinding, EvaluationAssignment, JsonValue, ReleaseRef, VerificationVerdict } from "@brain/contracts";
+import type { ArtifactRef, EvaluationAssignment, JsonValue, ReleaseRef, VerificationVerdict } from "@brain/contracts";
 import Ajv2020 from "ajv/dist/2020.js";
 import { executeToolPayload, normalizeEvaluation } from "./tools/invoke";
 import { DurableEventSpool } from "./spool-durable";
+import { GovernorClient, GovernorProtocolError } from "./governor-client";
 import { LauncherClient } from "./launcher-client";
 import { runAgentExecution, selectEngine } from "./engines/run";
 
@@ -41,26 +42,6 @@ export function newRunnerControls(): RunnerControls {
   return { stopRequests: new Set(), steerQueue: [] };
 }
 
-async function req(cfg: RunnerConfig, token: string | undefined, path: string, body?: unknown): Promise<{ status: number; json: unknown }> {
-  const res = await (cfg.transport ?? fetch)(`${cfg.governorUrl.replace(/\/$/, "")}${path}`, {
-    method: body === undefined ? "GET" : "POST",
-    headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    signal: AbortSignal.timeout(30_000),
-  });
-  const text = await res.text();
-  return { status: res.status, json: text ? (JSON.parse(text) as unknown) : null };
-}
-
-async function reqBytes(cfg: RunnerConfig, token: string, path: string): Promise<{ status: number; bytes: Uint8Array }> {
-  const res = await (cfg.transport ?? fetch)(`${cfg.governorUrl.replace(/\/$/, "")}${path}`, {
-    method: "GET",
-    headers: { authorization: `Bearer ${token}` },
-    signal: AbortSignal.timeout(30_000),
-  });
-  return { status: res.status, bytes: new Uint8Array(await res.arrayBuffer()) };
-}
-
 export function loadOrCreateKeys(stateDir: string): { publicKeyPem: string; privateKeyPem: string } {
   mkdirSync(stateDir, { recursive: true });
   const pubPath = join(stateDir, "runner.pub.pem");
@@ -89,9 +70,8 @@ async function availableEngines(cfg: RunnerConfig) {
 
 async function challengeHello(cfg: RunnerConfig, credential: string): Promise<{ sessionToken: string; epoch: number }> {
   const keys = loadOrCreateKeys(cfg.stateDir);
-  const chal = await req(cfg, undefined, "/runner/v1/challenges", { runnerId: cfg.runnerId, credential });
-  if (chal.status !== 201) throw new Error(`challenge failed ${chal.status}`);
-  const { challengeId, nonce } = chal.json as { challengeId: string; nonce: string };
+  const client = new GovernorClient(cfg);
+  const { challengeId, nonce } = await client.challenge(cfg.runnerId, credential);
   const bootNonce = `boot-${Date.now()}`;
   const engines = await availableEngines(cfg);
   const capabilities = [...new Set([...cfg.capabilities.filter((cap) => !/^engine(:|-feature:)/u.test(cap)), ...engines.map((engine) => `engine:${engine.id}`), ...engines.flatMap((engine) => engine.features.map((feature) => `engine-feature:${engine.id}:${feature}`))])];
@@ -106,9 +86,7 @@ async function challengeHello(cfg: RunnerConfig, credential: string): Promise<{ 
   const helloDigest = domainDigest("brain:runner-hello:v1", helloBody as unknown as JsonValue);
   const signed = JSON.stringify({ challengeId, nonce, runnerId: cfg.runnerId, bootNonce, helloDigest });
   const signature = sign(null, Buffer.from(signed, "utf8"), keys.privateKeyPem).toString("base64url");
-  const hello = await req(cfg, undefined, "/runner/v1/hello", { ...helloBody, proof: { challengeId, signatureBase64url: signature } });
-  if (hello.status !== 200) throw new Error(`hello failed ${hello.status}: ${JSON.stringify(hello.json)}`);
-  const { sessionToken, epoch } = hello.json as { sessionToken: string; epoch: number };
+  const { sessionToken, epoch } = await client.hello({ ...helloBody, proof: { challengeId, signatureBase64url: signature } });
   return { sessionToken, epoch };
 }
 
@@ -117,9 +95,8 @@ export async function enrollAndHello(cfg: RunnerConfig, enrollToken: string): Pr
   const credPath = join(cfg.stateDir, "credential.txt");
   let credential = existsSync(credPath) ? readFileSync(credPath, "utf8").trim() : "";
   if (!credential) {
-    const enrolled = await req(cfg, undefined, "/runner/v1/enroll", { token: enrollToken, publicKey: keys.publicKeyPem, runnerId: cfg.runnerId });
-    if (enrolled.status !== 201) throw new Error(`enroll failed ${enrolled.status}: ${JSON.stringify(enrolled.json)}`);
-    credential = (enrolled.json as { credential: string }).credential;
+    const enrolled = await new GovernorClient(cfg).enroll(enrollToken, keys.publicKeyPem, cfg.runnerId);
+    credential = enrolled.credential;
     writeFileSync(credPath, credential, { mode: 0o600 });
   }
   const { sessionToken, epoch } = await challengeHello(cfg, credential);
@@ -137,30 +114,21 @@ export async function refreshSession(cfg: RunnerConfig): Promise<{ sessionToken:
 }
 
 export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpoch = 1, controls: RunnerControls = newRunnerControls()): Promise<boolean> {
-  const claim = await req(cfg, sessionToken, "/runner/v1/claim", { requestId: `claim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
-  if (claim.status === 204) return false;
-  if (claim.status !== 200) throw new Error(`claim failed ${claim.status}: ${JSON.stringify(claim.json)}`);
-  const offer = claim.json as { attemptId: string; jobId: string; workspaceId: string; organizationId?: string; workflowRunId?: string; attemptNumber?: number; sourceRevision?: string; leaseId: string; jobFence: number; configDigest: string; toolPins?: Record<string, string>; authorEvidence?: { toolReleases: { id: string; digest: string }[]; claimedChecks: unknown[] }; execution: { kind: string; artifact: { artifactId: string; digest: string; bytes: number } } };
+  const client = new GovernorClient(cfg);
+  client.setToken(sessionToken);
+  const offer = await client.claim(`claim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  if (!offer) return false;
   controls.activeAttemptId = offer.attemptId;
   const ackBody: Record<string, unknown> = { leaseId: offer.leaseId, jobFence: offer.jobFence };
   if (offer.execution.kind === "tool") ackBody["engine"] = { id: "tool-broker", adapterDigest: sha256Digest(new TextEncoder().encode("tool-broker:v1")), features: [] as string[] };
-  const ack = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/ack`, ackBody);
-  if (ack.status !== 200) throw new Error(`ack failed ${ack.status}`);
+  const ack = await client.ack(offer.attemptId, ackBody);
   // Execution input travels as a digest-pinned CAS artifact, never inline.
-  const artifactRes = await reqBytes(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/artifact`);
-  if (artifactRes.status !== 200) throw new Error(`execution artifact fetch failed ${artifactRes.status}`);
-  if (sha256Digest(artifactRes.bytes) !== offer.execution.artifact.digest || artifactRes.bytes.length !== offer.execution.artifact.bytes) {
-    throw new Error("execution artifact digest/size mismatch; refusing to run");
-  }
-  const payload = JSON.parse(new TextDecoder().decode(artifactRes.bytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment };
+  const artifactBytes = await client.executionArtifact(offer.attemptId, offer.execution.artifact.digest, offer.execution.artifact.bytes);
+  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment };
   // The execution deadline is the lease: a monotonic clock (performance.now)
   // is armed from the ack's server lease expiry and refreshed by every
   // successful renewal, so wall-clock adjustments cannot extend the window.
-  let leaseExpiresAt = "";
-  {
-    const ackBody = ack.json as { leaseExpiresAt?: string };
-    leaseExpiresAt = ackBody.leaseExpiresAt ?? "";
-  }
+  const leaseExpiresAt = ack.leaseExpiresAt ?? "";
   let monoDeadline = 0;
   const armDeadline = (expiresAt: string): void => {
     const remaining = Date.parse(expiresAt) - Date.now();
@@ -182,13 +150,20 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
   const flushEvents = async (): Promise<void> => {
     const batch = spool.peek(128);
     if (batch.length === 0) return;
-    const sent = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/events`, {
-      leaseId: offer.leaseId, jobFence: offer.jobFence,
-      ...(engineInfo ? { engine: engineInfo } : {}),
-      events: batch.map((e) => ({ sequence: e.sequence, kind: e.kind, payload: e.payload })),
-    });
-    if (sent.status === 200) spool.commit(batch.map((e) => e.sequence));
-    else if (sent.status === 409 || sent.status === 410) spool.discard(); // attempt fenced server-side: journal is dead
+    try {
+      await client.events(offer.attemptId, {
+        leaseId: offer.leaseId, jobFence: offer.jobFence,
+        ...(engineInfo ? { engine: engineInfo } : {}),
+        events: batch.map((e) => ({ sequence: e.sequence, kind: e.kind, payload: e.payload })),
+      });
+      spool.commit(batch.map((e) => e.sequence));
+    } catch (error) {
+      if (error instanceof GovernorProtocolError) {
+        // 409/410: attempt fenced server-side, journal is dead. Other statuses
+        // are transient: the journal stays untouched and the batch replays.
+        if (error.status === 409 || error.status === 410) spool.discard();
+      } else throw error; // transport failure surfaces like a rejected round-trip did before
+    }
   };
   const emit = async (kind: string, eventPayload: unknown): Promise<void> => {
     if (kind === "engine") {
@@ -203,15 +178,8 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
     await flushEvents();
   };
   const renew = setInterval(() => {
-    void req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/renew`, { leaseId: offer.leaseId, jobFence: offer.jobFence })
-      .then((r) => {
-        if (r.status !== 200) leaseLost = true;
-        else {
-          const body = r.json as { leaseExpiresAt?: string };
-          if (body.leaseExpiresAt) armDeadline(body.leaseExpiresAt);
-        }
-      })
-      .catch(() => { leaseLost = true; });
+    void client.renew(offer.attemptId, offer.leaseId, offer.jobFence)
+      .then((r) => { if (r.leaseExpiresAt) armDeadline(r.leaseExpiresAt); }, () => { leaseLost = true; });
   }, 15_000);
   const watchdog = setInterval(() => {
     if (abortReason) return;
@@ -236,15 +204,13 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
     let permit: { token: string; permitId: string } | undefined;
     if (effectClass !== "read") {
       const step = (payload.step ?? {}) as { target?: { targetId?: string } };
-      const subjectDigest = sha256Digest(artifactRes.bytes);
+      const subjectDigest = sha256Digest(artifactBytes);
       const resourceKeys = [step.target?.targetId ? `target:${step.target.targetId}` : `ws:${offer.workspaceId}`];
-      const permitRes = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/permit`, {
+      const granted = await client.permit(offer.attemptId, {
         invocationId: `inv-${offer.attemptId}`, subjectDigest, resourceKeys,
       });
-      if (permitRes.status !== 200) throw new Error(`effect permit refused ${permitRes.status}: ${JSON.stringify(permitRes.json)}`);
-      const body = permitRes.json as { token: string; permitId: string; invocationId?: string };
-      permit = { token: body.token, permitId: body.invocationId ?? `inv-${offer.attemptId}` };
-      (payload as { invocationId?: string }).invocationId = body.invocationId ?? `inv-${offer.attemptId}`;
+      permit = { token: granted.token, permitId: granted.invocationId ?? `inv-${offer.attemptId}` };
+      (payload as { invocationId?: string }).invocationId = granted.invocationId ?? `inv-${offer.attemptId}`;
     }
     let result: { ok: boolean; output: JsonValue; cleanupConfirmed?: boolean };
     const toolArtifacts: ArtifactRef[] = [];
@@ -253,13 +219,8 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
       const step = (payload.step ?? {}) as { task?: string; timeoutSeconds?: number; uses?: { release?: { id: string; digest: string } } };
       const ref = step.uses?.release;
       if (!ref) throw new Error("agent job has no pinned agent release");
-      const assetResponse = await req(cfg, sessionToken, `/runner/v1/releases/${encodeURIComponent(offer.configDigest)}/agents/${encodeURIComponent(ref.id)}/instructions`);
-      if (assetResponse.status !== 200) throw new Error(`agent instruction fetch failed ${assetResponse.status}: ${JSON.stringify(assetResponse.json)}`);
-      const asset = assetResponse.json as { agent: Agent; agentDigest: string; path: string; instructionsDigest: string; bytesBase64: string; toolBindings: EngineToolBinding[] };
-      if (asset.agentDigest !== ref.digest || asset.agent.metadata.id !== ref.id || asset.path !== asset.agent.spec.instructionsPath) throw new Error("agent release identity does not match the job offer");
-      const instructionBytes = new Uint8Array(Buffer.from(asset.bytesBase64, "base64"));
-      if (sha256Digest(instructionBytes) !== asset.instructionsDigest) throw new Error("agent instruction digest mismatch");
-      const instructions = new TextDecoder().decode(instructionBytes);
+      const asset = await client.agentInstructions(offer.configDigest, ref.id, ref.digest);
+      const instructions = asset.instructions;
       const configured = cfg.engines ?? [process.env["BRAIN_RUNNER_ENGINE"] ?? "fixture"];
       const engineConfigured = asset.agent.spec.engine.anyOf.find((id) => configured.includes(id));
       const engine = selectEngine(engineConfigured, asset.toolBindings);
@@ -311,11 +272,9 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
           let nestedPermit: { token: string; permitId: string } | undefined;
           if (binding.effectClass !== "read") {
             const subjectDigest = domainDigest("brain:agent-tool:v1", { tool: proposal.tool, inputDigest: proposal.inputDigest, target: proposal.target, attemptId: offer.attemptId });
-            const permitRes = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/permit`, { invocationId, subjectDigest, resourceKeys: [`target:${binding.target.targetId}`] });
-            if (permitRes.status !== 200) throw new Error(`nested effect permit refused ${permitRes.status}: ${JSON.stringify(permitRes.json)}`);
-            const body = permitRes.json as { token: string; permitId: string; invocationId?: string };
-            invocationId = body.invocationId ?? invocationId;
-            nestedPermit = { token: body.token, permitId: invocationId };
+            const granted = await client.permit(offer.attemptId, { invocationId, subjectDigest, resourceKeys: [`target:${binding.target.targetId}`] });
+            invocationId = granted.invocationId ?? invocationId;
+            nestedPermit = { token: granted.token, permitId: invocationId };
           }
           const startedAt = new Date().toISOString();
           const executed = await executeToolPayload({
@@ -323,24 +282,12 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
               step: { uses: { type: "tool", release: proposal.tool }, effectClass: binding.effectClass, target: binding.target } },
               execution: { kind: "tool" }, workspaceId: offer.workspaceId },
             cfg, signal: controller.signal, launcher, permit: nestedPermit, toolPins,
-            validatePermit: async (token, id) => {
-              const validation = await req(cfg, sessionToken, "/runner/v1/permits/validate", { token, invocationId: id });
-              return validation.status === 200 && (validation.json as { valid?: boolean }).valid === true;
-            },
-            fetchPinnedTool: async (toolId, digest) => {
-              const fetched = await req(cfg, sessionToken, `/runner/v1/releases/${encodeURIComponent(offer.configDigest)}/tools/${encodeURIComponent(toolId)}`);
-              if (fetched.status !== 200) throw new Error(`tool script fetch failed ${fetched.status}: ${JSON.stringify(fetched.json)}`);
-              const body = fetched.json as { entrypoint: string; entrypointDigest: string; bytesBase64: string };
-              if (body.entrypointDigest !== digest) throw new Error("release tool digest disagrees with the offer pin");
-              return { entrypoint: body.entrypoint, bytes: new Uint8Array(Buffer.from(body.bytesBase64, "base64")) };
-            },
+            validatePermit: (token, id) => client.validatePermit(token, id),
+            fetchPinnedTool: (toolId, digest) => client.toolScript(offer.configDigest, toolId, digest),
           });
           const bytes = new TextEncoder().encode(JSON.stringify(executed.output));
-          const uploaded = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/artifacts`, {
-            digest: sha256Digest(bytes), mediaType: "application/json", bytesBase64: Buffer.from(bytes).toString("base64"),
-          });
-          if (uploaded.status !== 201) throw new Error(`tool output artifact upload failed ${uploaded.status}`);
-          const artifact = { ...(uploaded.json as { artifactId: string; digest: string; bytes: number }), mediaType: "application/json", classification: "internal" as const };
+          const uploaded = await client.uploadArtifact(offer.attemptId, bytes, "application/json");
+          const artifact = { ...uploaded, mediaType: "application/json", classification: "internal" as const };
           toolArtifacts.push(artifact);
           await emit("effect", { phase: "governed-tool-result", proposalId: proposal.proposalId, invocationId, artifact });
           return { proposalId: proposal.proposalId, invocationId,
@@ -351,11 +298,8 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
       });
       if (agentResult.ok) {
         const outputBytes = new TextEncoder().encode(agentResult.outputText);
-        const uploaded = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/artifacts`, {
-          digest: sha256Digest(outputBytes), mediaType: "text/plain", bytesBase64: Buffer.from(outputBytes).toString("base64"),
-        });
-        if (uploaded.status !== 201) throw new Error(`agent output artifact upload failed ${uploaded.status}`);
-        await emit("effect", { phase: "output-pinned", artifact: uploaded.json });
+        const uploaded = await client.uploadArtifact(offer.attemptId, outputBytes, "text/plain");
+        await emit("effect", { phase: "output-pinned", artifact: uploaded });
       }
       result = agentResult;
       clearInterval(steerDrain);
@@ -365,17 +309,8 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
     result = await executeToolPayload({
       offer: { payload, execution: offer.execution, workspaceId: offer.workspaceId },
       cfg, signal: controller.signal, launcher, permit, toolPins,
-      validatePermit: async (token, invocationId) => {
-        const r = await req(cfg, sessionToken, "/runner/v1/permits/validate", { token, invocationId });
-        return r.status === 200 && (r.json as { valid?: boolean }).valid === true;
-      },
-      fetchPinnedTool: async (toolId, digest) => {
-        const res = await req(cfg, sessionToken, `/runner/v1/releases/${encodeURIComponent(offer.configDigest)}/tools/${encodeURIComponent(toolId)}`);
-        if (res.status !== 200) throw new Error(`tool script fetch failed ${res.status}: ${JSON.stringify(res.json)}`);
-        const body = res.json as { entrypoint: string; entrypointDigest: string; bytesBase64: string };
-        if (body.entrypointDigest !== digest) throw new Error("release tool digest disagrees with the offer pin");
-        return { entrypoint: body.entrypoint, bytes: new Uint8Array(Buffer.from(body.bytesBase64, "base64")) };
-      },
+      validatePermit: (token, invocationId) => client.validatePermit(token, invocationId),
+      fetchPinnedTool: (toolId, digest) => client.toolScript(offer.configDigest, toolId, digest),
     });
     }
     const assignment = payload.evaluation;
@@ -385,18 +320,13 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
     let artifact: { artifactId: string; digest: string; bytes: number } | undefined;
     if (result.ok) {
       const outputBytes = new TextEncoder().encode(JSON.stringify(output));
-      const uploaded = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/artifacts`, {
-        digest: sha256Digest(outputBytes), mediaType: "application/json",
-        bytesBase64: Buffer.from(outputBytes).toString("base64"),
-      });
-      if (uploaded.status !== 201) throw new Error(`attempt artifact upload failed ${uploaded.status}: ${JSON.stringify(uploaded.json)}`);
-      artifact = uploaded.json as { artifactId: string; digest: string; bytes: number };
+      const uploaded = await client.uploadArtifact(offer.attemptId, outputBytes, "application/json");
+      artifact = uploaded;
       await emit("effect", { phase: "output-pinned", artifact });
     }
-    const done = await req(cfg, sessionToken, `/runner/v1/attempts/${offer.attemptId}/complete`, {
+    await client.complete(offer.attemptId, {
       result: outcomeUnknown ? "unknown-outcome" : result.ok ? "succeeded" : "failed", output, jobFence: offer.jobFence, cleanupConfirmed: result.cleanupConfirmed ?? true,
     });
-    if (done.status !== 200) throw new Error(`complete failed ${done.status}: ${JSON.stringify(done.json)}`);
     if (result.ok && !assignment && offer.authorEvidence && offer.workflowRunId && artifact) {
       const bundle = {
         contractVersion: "brain.evidence/v1",
@@ -418,9 +348,8 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
         effects: [],
         createdAt: new Date().toISOString(),
       };
-      const submitted = await req(cfg, sessionToken, "/runner/v1/evidence", bundle);
-      if (submitted.status !== 201) throw new Error(`evidence submit failed ${submitted.status}: ${JSON.stringify(submitted.json)}`);
-      await emit("effect", { phase: "author-bundle-submitted", bundleId: bundle.bundleId, digest: (submitted.json as { digest?: string }).digest });
+      const submitted = await client.submitEvidence(bundle);
+      await emit("effect", { phase: "author-bundle-submitted", bundleId: bundle.bundleId, digest: submitted.digest });
     }
     if (result.ok && assignment && !outcomeUnknown) {
       const checks = (output as unknown as { checks: VerificationVerdict["checks"] }).checks;
@@ -428,8 +357,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
       for (const bundleDigest of assignment.bundleDigests) {
         const verdict: VerificationVerdict = { contractVersion:"brain.verdict/v1",bundleDigest,evaluatorAttemptId:offer.attemptId,evaluatorRelease:assignment.evaluatorRelease,
           independence:assignment.independence,outcome,checks,acceptedBy:cfg.runnerId,createdAt:new Date().toISOString() };
-        const accepted = await req(cfg,sessionToken,"/runner/v1/verdicts",{workspaceId:offer.workspaceId,verdict});
-        if (accepted.status !== 200) throw new Error(`verdict not accepted ${accepted.status}: ${JSON.stringify(accepted.json)}`);
+        await client.submitVerdict(offer.workspaceId, verdict);
       }
     }
     spool.discard();
@@ -457,19 +385,22 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
   // Refresh happens only between runOnce calls so an in-flight attempt's
   // token is never revoked mid-flight; the heartbeat just flags staleness.
   const session = { token: initial.sessionToken, epoch: initial.epoch, sinceMs: Date.now(), stale: false };
+  const client = new GovernorClient(cfg);
+  client.setToken(initial.sessionToken);
   const refresh = async (): Promise<void> => {
     const next = await refreshSession(cfg);
     session.token = next.sessionToken;
     session.epoch = next.epoch;
     session.sinceMs = Date.now();
     session.stale = false;
+    client.setToken(next.sessionToken);
     console.log(`Brain runner ${cfg.runnerId} session refreshed (epoch ${next.epoch})`);
   };
   let seq = 0;
   const controls = newRunnerControls();
   const heartbeatTimer = setInterval(() => {
     seq += 1;
-    void availableEngines(cfg).then((engines) => req(cfg, session.token, "/runner/v1/heartbeat", {
+    void availableEngines(cfg).then((engines) => client.heartbeat({
       // Full RunnerHeartbeat body: command delivery sits on the declared shape.
       runnerId: cfg.runnerId,
       runnerEpoch: session.epoch,
@@ -485,22 +416,22 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
       observedAt: new Date().toISOString(),
       capabilities: [...cfg.capabilities.filter((cap) => !/^engine(:|-feature:)/u.test(cap)), ...engines.map((engine) => `engine:${engine.id}`), ...engines.flatMap((engine) => engine.features.map((feature) => `engine-feature:${engine.id}:${feature}`))]
         .map((capability) => ({ capability, verified: true, source: "runner-probe", observedAt: new Date().toISOString(), expiresAt: new Date(Date.now()+300000).toISOString() })),
-    })).then((r) => {
-      if (r.status === 401) session.stale = true;
-      else if (r.status === 200) {
-        // At-most-once delivery: the Governor deleted the control rows when it
-        // built this ack. Stop joins the watchdog path; steer waits in the
-        // queue for the attempt's turn boundary.
-        for (const command of (r.json as { commands?: Array<{ type?: string; commandId?: string; attemptId?: string; text?: string }> }).commands ?? []) {
-          if (command.type === "stop-attempt" && command.attemptId) {
-            controls.stopRequests.add(command.attemptId);
-            console.log(`Brain runner ${cfg.runnerId} stop requested for attempt ${command.attemptId}`);
-          } else if (command.type === "steer" && command.attemptId) {
-            controls.steerQueue.push({ attemptId: command.attemptId, messageId: command.commandId ?? `steer-${seq}`, message: command.text ?? "" });
-          }
+    })).then((ack) => {
+      // At-most-once delivery: the Governor deleted the control rows when it
+      // built this ack. Stop joins the watchdog path; steer waits in the
+      // queue for the attempt's turn boundary.
+      for (const command of ack.commands ?? []) {
+        if (command.type === "stop-attempt" && command.attemptId) {
+          controls.stopRequests.add(command.attemptId);
+          console.log(`Brain runner ${cfg.runnerId} stop requested for attempt ${command.attemptId}`);
+        } else if (command.type === "steer" && command.attemptId) {
+          controls.steerQueue.push({ attemptId: command.attemptId, messageId: command.commandId ?? `steer-${seq}`, message: command.text ?? "" });
         }
       }
-    }, () => { /* transient; claim loop surfaces errors */ });
+    }, (error) => {
+      if (error instanceof GovernorProtocolError && error.status === 401) session.stale = true;
+      else { /* transient; the claim loop surfaces errors */ }
+    });
   }, 15_000).unref();
   try { for (;;) {
     try {

@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { execa } from "execa";
 import type { CheckResult, EvaluationAssignment, JsonValue } from "@brain/contracts";
+import { sha256Digest } from "@brain/contracts";
 import type { RunnerConfig } from "../supervisor";
 import type { LauncherClient } from "../launcher-client";
 import { resolveSecretRefs, scrubSecrets } from "./secrets";
@@ -106,8 +107,7 @@ export async function executeToolPayload(
     script = join(cacheDir, "run.sh");
     if (!existsSync(script)) {
       const fetched = await tool.fetchPinnedTool(toolId, pin);
-      const digest = (await import("node:crypto")).createHash("sha256").update(fetched.bytes).digest("hex");
-      if (`sha256:${digest}` !== pin) {
+      if (sha256Digest(fetched.bytes) !== pin) {
         return { ok: false, output: { error: `pinned tool ${toolId} bytes do not match the offer digest; refusing` } as unknown as JsonValue };
       }
       mkdirSync(cacheDir, { recursive: true });

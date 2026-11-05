@@ -1,5 +1,4 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { sha256Digest } from "@brain/contracts";
 import type { ArtifactRef, Checkpoint, EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue } from "@brain/contracts";
@@ -209,7 +208,7 @@ export class PiEngine implements EngineAdapter {
       throw Object.assign(new Error("Pi session file unavailable for checkpoint"), { code: "UNSUPPORTED_CAPABILITY" });
     }
     const bytes = readFileSync(this.sessionFile);
-    const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+    const digest = sha256Digest(bytes);
     mkdirSync(this.checkpointsDir(), { recursive: true });
     const artifactId = `pi-checkpoint-${digest.slice(7, 23)}`;
     const dest = join(this.checkpointsDir(), `${digest.slice(7)}.jsonl`);
@@ -227,7 +226,7 @@ export class PiEngine implements EngineAdapter {
     const path = join(this.checkpointsDir(), `${checkpoint.digest.replace(/^sha256:/u, "")}.jsonl`);
     if (!existsSync(path)) throw Object.assign(new Error("Pi checkpoint artifact not present on this runner"), { code: "UNSUPPORTED_CAPABILITY" });
     const bytes = readFileSync(path);
-    const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+    const digest = sha256Digest(bytes);
     if (digest !== checkpoint.digest || bytes.length !== checkpoint.bytes) throw Object.assign(new Error("Pi checkpoint artifact digest mismatch"), { code: "UNSUPPORTED_CAPABILITY" });
     const { SessionManager } = (await import("@earendil-works/pi-coding-agent")) as typeof import("@earendil-works/pi-coding-agent");
     await this.session?.abort();
