@@ -7,6 +7,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { bulkTransition } from "../../domain/states";
 import { assertRegularFile } from "../../infrastructure/persistence/directory";
 import type { BrainAuth } from "../identity/index";
+import { quarantineJobsForRestore } from "../jobs/index";
 
 const markerSchema = z.object({
   format: z.literal("brain.restore/v1"), restoreId: z.uuid(), backupId: z.uuid(),
@@ -55,9 +56,7 @@ export function quarantineRestoredAuthority(s: Store, auth: Pick<BrainAuth, "rev
     s.control.prepare("UPDATE effect_permits SET state='revoked' WHERE state='issued'").run();
     // Started or ambiguous effects keep their guards until independent reconciliation.
     s.control.prepare("UPDATE resource_leases SET unresolved_effect=1").run();
-    bulkTransition(s.control, "attempt", "outcome_unknown");
-    bulkTransition(s.control, "job", "outcome_unknown", { bumpVersion: true });
-    bulkTransition(s.control, "job", "blocked", { set: { queue_reason: "restore_pending" }, bumpVersion: true });
+    quarantineJobsForRestore(s);
     s.control.prepare("UPDATE runners SET admin_state='quarantined', session_epoch=session_epoch+1").run();
     s.control.prepare("UPDATE workspaces SET status='restore_pending', version=version+1 WHERE status<>'archived'").run();
     s.control.prepare("UPDATE outbox_deliveries SET state='parked' WHERE state IN ('pending','processing')").run();

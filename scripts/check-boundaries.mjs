@@ -71,6 +71,15 @@ for (const { dir, name } of roots) {
           }
         }
       }
+      // Single writer: only the jobs module writes jobs and job attempts.
+      if (rel.includes("src/") && !rel.includes("/modules/jobs/") && !rel.includes("/infrastructure/persistence/")) {
+        const tableWrite = /(?:INTO|UPDATE|DELETE FROM)\s+(jobs|job_attempts|job_payloads|job_outputs)\b/g;
+        const stateWrite = /(?:transitionState|bulkTransition)\([\w.]+,\s*["'](job|attempt)["']/g;
+        for (const [re, what] of [[tableWrite, (m) => m[1]], [stateWrite, (m) => `${m[1]} state`]]) {
+          let w;
+          while ((w = re.exec(text)) !== null) failures.push(`${rel}: only modules/jobs writes ${what(w)}`);
+        }
+      }
       // Pure domain: no IO/vendor
       if (rel.includes("src/domain/")) {
         for (const spec of importsOf(file)) {

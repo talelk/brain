@@ -1,7 +1,7 @@
 import type { Agent, JsonValue, Placement } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
-import { transitionState } from "../../domain/states";
+import { bulkTransition, transitionState } from "../../domain/states";
 import { releaseReservation } from "./attempts";
 
 /**
@@ -106,6 +106,18 @@ export function concludeAttempt(s: Store, input: { jobId: string; attemptId: str
     transitionState(s.control, "job", input.jobId, input.state, { bumpVersion: true, ...(input.jobFence === undefined ? {} : { and: { job_fence: input.jobFence } }) });
     transitionState(s.control, "attempt", input.attemptId, input.state);
   });
+}
+
+/**
+ * Restore quarantine: every attempt that may have started an effect becomes
+ * outcome_unknown, and every live job is held (outcome_unknown or blocked
+ * pending restore) until independent reconciliation. Runs inside the
+ * caller's restore transaction.
+ */
+export function quarantineJobsForRestore(s: Store): void {
+  bulkTransition(s.control, "attempt", "outcome_unknown");
+  bulkTransition(s.control, "job", "outcome_unknown", { bumpVersion: true });
+  bulkTransition(s.control, "job", "blocked", { set: { queue_reason: "restore_pending" }, bumpVersion: true });
 }
 
 /** How much job work a workspace still carries. */
