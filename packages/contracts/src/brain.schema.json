@@ -8395,108 +8395,6 @@
       ],
       "additionalProperties": false
     },
-    "RunnerDrainCommand": {
-      "type": "object",
-      "properties": {
-        "contractVersion": {
-          "type": "string",
-          "const": "brain.command/v1"
-        },
-        "commandId": {
-          "$ref": "#/$defs/Id"
-        },
-        "commandType": {
-          "type": "string",
-          "const": "runner.drain"
-        },
-        "workspaceId": {
-          "$ref": "#/$defs/Id"
-        },
-        "idempotencyKey": {
-          "$ref": "#/$defs/Id"
-        },
-        "expectedVersion": {
-          "$ref": "#/$defs/Counter"
-        },
-        "payload": {
-          "type": "object",
-          "properties": {
-            "runnerId": {
-              "$ref": "#/$defs/Id"
-            },
-            "reason": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 512
-            }
-          },
-          "required": [
-            "runnerId",
-            "reason"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "required": [
-        "contractVersion",
-        "commandId",
-        "commandType",
-        "idempotencyKey",
-        "payload"
-      ],
-      "additionalProperties": false
-    },
-    "RunnerQuarantineCommand": {
-      "type": "object",
-      "properties": {
-        "contractVersion": {
-          "type": "string",
-          "const": "brain.command/v1"
-        },
-        "commandId": {
-          "$ref": "#/$defs/Id"
-        },
-        "commandType": {
-          "type": "string",
-          "const": "runner.quarantine"
-        },
-        "workspaceId": {
-          "$ref": "#/$defs/Id"
-        },
-        "idempotencyKey": {
-          "$ref": "#/$defs/Id"
-        },
-        "expectedVersion": {
-          "$ref": "#/$defs/Counter"
-        },
-        "payload": {
-          "type": "object",
-          "properties": {
-            "runnerId": {
-              "$ref": "#/$defs/Id"
-            },
-            "reason": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 512
-            }
-          },
-          "required": [
-            "runnerId",
-            "reason"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "required": [
-        "contractVersion",
-        "commandId",
-        "commandType",
-        "idempotencyKey",
-        "payload"
-      ],
-      "additionalProperties": false
-    },
     "RunnerControlCommand": {
       "type": "object",
       "properties": {
@@ -8510,7 +8408,7 @@
           "type": "object",
           "properties": {
             "runnerId": { "$ref": "#/$defs/Id" },
-            "action": { "type": "string", "enum": ["enable", "disable", "rotate", "deregister"] },
+            "action": { "type": "string", "enum": ["enable", "disable", "drain", "quarantine", "rotate", "deregister"] },
             "reason": { "type": "string", "minLength": 1, "maxLength": 512 }
           },
           "required": ["runnerId", "action", "reason"],
@@ -8685,54 +8583,6 @@
         }
       },
       "required": ["contractVersion", "commandId", "commandType", "workspaceId", "idempotencyKey", "payload"],
-      "additionalProperties": false
-    },
-    "WorkspaceSuspendCommand": {
-      "type": "object",
-      "properties": {
-        "contractVersion": {
-          "type": "string",
-          "const": "brain.command/v1"
-        },
-        "commandId": {
-          "$ref": "#/$defs/Id"
-        },
-        "commandType": {
-          "type": "string",
-          "const": "workspace.suspend"
-        },
-        "workspaceId": {
-          "$ref": "#/$defs/Id"
-        },
-        "idempotencyKey": {
-          "$ref": "#/$defs/Id"
-        },
-        "expectedVersion": {
-          "$ref": "#/$defs/Counter"
-        },
-        "payload": {
-          "type": "object",
-          "properties": {
-            "reason": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 512
-            }
-          },
-          "required": [
-            "reason"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "required": [
-        "contractVersion",
-        "commandId",
-        "commandType",
-        "idempotencyKey",
-        "payload",
-        "workspaceId"
-      ],
       "additionalProperties": false
     },
     "WorkspaceExportCommand": {
@@ -9112,12 +8962,6 @@
           "$ref": "#/$defs/ApprovalRevokeCommand"
         },
         {
-          "$ref": "#/$defs/RunnerDrainCommand"
-        },
-        {
-          "$ref": "#/$defs/RunnerQuarantineCommand"
-        },
-        {
           "$ref": "#/$defs/RunnerControlCommand"
         },
         {
@@ -9131,9 +8975,6 @@
         },
         {
           "$ref": "#/$defs/WorkspaceControlCommand"
-        },
-        {
-          "$ref": "#/$defs/WorkspaceSuspendCommand"
         },
         {
           "$ref": "#/$defs/WorkspaceExportCommand"

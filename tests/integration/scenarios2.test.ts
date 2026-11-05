@@ -60,7 +60,7 @@ async function approveSubject(w: World, subject: Record<string, unknown>, key: s
   const approvalId = (req.receipt as { resourceId?: string }).resourceId ?? "";
   const digest = approvalSubjectDigest(subject as unknown as JsonValue);
   const evidenceId = await stepUp(w, approver, approvalId, digest);
-  w.brain.decideApproval(approver.identity, approvalId, {
+  await w.brain.decideApproval(approver.identity, approvalId, {
     contractVersion: "brain.approval-decision/v1", idempotencyKey: `${key}-dec`, decision: "approve",
     subjectDigest: digest, expectedVersion: 1, note: "ok", stepUpEvidenceId: evidenceId,
   });
@@ -259,8 +259,8 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
     const w = setupWorld();
     const a = await runningAttempt(w, "drain-1", "runner-drain");
     await w.brain.executeCommand(w.owner, {
-      contractVersion: "brain.command/v1", commandId: "cmd-drain", commandType: "runner.drain",
-      idempotencyKey: "drain-1", payload: { runnerId: "runner-drain", reason: "maintenance" },
+      contractVersion: "brain.command/v1", commandId: "cmd-drain", commandType: "runner.control",
+      idempotencyKey: "drain-1", payload: { runnerId: "runner-drain", action: "drain", reason: "maintenance" },
     }, "cd");
     await dispatchGolden(w, "drain-2");
     expect(w.brain.jobProtocol.claim(a.runner, "req-drain-2")).toBeNull();
@@ -276,8 +276,8 @@ describe("scenario gaps (T50 batch 2: runs, scheduler, permits)", () => {
     const p = w.brain.issuePermit(a.runner, a.offer.attemptId, { invocationId: "quar-inv", subjectDigest: s1.digest, approvalId: s1.approvalId, resourceKeys: [] }) as unknown as { token: string };
     expect(w.brain.validatePermit(p.token, "quar-inv")).toBe(true);
     await w.brain.executeCommand(w.owner, {
-      contractVersion: "brain.command/v1", commandId: "cmd-quar", commandType: "runner.quarantine",
-      idempotencyKey: "quar-1", payload: { runnerId: "runner-quar", reason: "compromised" },
+      contractVersion: "brain.command/v1", commandId: "cmd-quar", commandType: "runner.control",
+      idempotencyKey: "quar-1", payload: { runnerId: "runner-quar", action: "quarantine", reason: "compromised" },
     }, "cq");
     expect(w.brain.validatePermit(p.token, "quar-inv")).toBe(false);
     expect(() => w.brain.issuePermit(a.runner, a.offer.attemptId, { invocationId: "quar-inv-2", subjectDigest: s1.digest, approvalId: s1.approvalId, resourceKeys: [] })).toThrow();
@@ -349,10 +349,10 @@ describe("scenario gaps (T50 batch 2b: fairness, approvals, evidence, memory)", 
     const approvalId = (req.receipt as { resourceId?: string }).resourceId ?? "";
     w.brain.store.control.prepare("UPDATE approval_requests SET expires_at_ms=? WHERE id=?").run(Date.now() - 1, approvalId);
     const digest = approvalSubjectDigest(subject as unknown as JsonValue);
-    expect(() => w.brain.decideApproval(approver.identity, approvalId, {
+    await expect(w.brain.decideApproval(approver.identity, approvalId, {
       contractVersion: "brain.approval-decision/v1", idempotencyKey: "exp-dec", decision: "reject",
       subjectDigest: digest, expectedVersion: 1, note: "late",
-    })).toThrow(/expired/);
+    })).rejects.toThrow(/expired/);
     const a = await runningAttempt(w, "exp-run", "runner-exp");
     const ok = await approveSubject(w, baseSubject(w, "exp-n2"), "exp-2");
     w.brain.store.control.prepare("UPDATE approval_requests SET expires_at_ms=? WHERE id=?").run(Date.now() - 1, ok.approvalId);

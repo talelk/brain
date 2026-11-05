@@ -21,9 +21,9 @@ export default function RunnerDetailPage(): JSX.Element {
   });
   const [message, setMessage] = createSignal("");
   const [enrollOpen, setEnrollOpen] = createSignal(false);
-  async function operate(action: "runner.drain" | "runner.quarantine", reason: string) {
+  async function operate(action: "drain" | "quarantine", reason: string) {
     try {
-      const result = await app.run(action, { runnerId: runnerId(), reason });
+      const result = await app.run("runner.control", { runnerId: runnerId(), action, reason });
       setMessage(result.detail);
       await runner.refresh({ force: true });
     } catch (e) { setMessage(e instanceof Error ? e.message : "Runner operation failed."); }
@@ -41,7 +41,7 @@ export default function RunnerDetailPage(): JSX.Element {
     <ActionFeedback message={message()} />
     <RunnerDetailScreen runner={runner.state().data} state={runner.state()}
       onRefresh={() => void runner.refresh({ force: true })} onBack={() => void navigate("/runners")}
-      onDrain={(reason) => operate("runner.drain", reason)} onQuarantine={(reason) => operate("runner.quarantine", reason)}
+      onDrain={(reason) => operate("drain", reason)} onQuarantine={(reason) => operate("quarantine", reason)}
       onControl={control} canOperate={Boolean(app.identity()?.actor.scopes.includes("runner:admin"))} />
     <RunnerEnrollmentDialog open={enrollOpen()} onClose={() => { setEnrollOpen(false); void runner.refresh({ force: true }); }} defaultGroup={runner.state().data?.group} runnerId={runnerId()} />
   </div>;

@@ -2,23 +2,23 @@ import { readRuntimeConfig, type RuntimeConfig } from "../runtime-config";
 import { createHash } from "node:crypto";
 import { createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type {
-  ActionSubject, ActorContext, CommandEnvelope, CommandReceipt, HumanApprovalDecision, JsonValue,
+import type { ActorContext, CommandReceipt, HumanApprovalDecision, JsonValue,
 } from "@brain/contracts";
 import { approvalSubjectDigest, domainDigest, isKnownQuery, sha256Digest } from "@brain/contracts";
-import { payloadValidator, validate } from "@brain/contracts/validate";
+import { validate } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
-import { assertExpectedVersion, assertTransition, transitionState } from "../domain/states";
+import { assertExpectedVersion, transitionState } from "../domain/states";
 import { iso } from "../domain/clock";
 import { Store, type BrainOptions } from "./store";
-import { authorizeCommand, hasWorkspaceMembership, resolveActor, requireWorkspaceRead, scopesForPrincipal, type ResolvedActor } from "./authz";
-import { commitReceipt, priorReceipt, requestDigestOf, type CommandContext } from "./command-envelope";
+import { hasWorkspaceMembership, resolveActor, requireWorkspaceRead, scopesForPrincipal, type ResolvedActor } from "./authz";
+import { CommandFunnel } from "./command-funnel";
+import { workspaceAdminCommands } from "./workspace-admin";
 import { orgWorkspaces, textMatcher } from "./query";
-import { executeOrganizationCommand, executeOrganizationQuery, isOrganizationCommand, isOrganizationQuery } from "./organization-admin";
-import { compileRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
-import { MastraWorkflowEngine, type WorkflowEnginePort } from "../modules/workflows/index";
-import { MemoryStore, TencentDbClient } from "../modules/knowledge/index";
-import { StepUpService } from "../modules/governance/index";
+import { executeOrganizationQuery, isOrganizationQuery, organizationCommandHandlers } from "./organization-admin";
+import { activateRelease, compileRelease, configurationCommands, requireConfigurationAdmin, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
+import { MastraWorkflowEngine, workflowCommands, type WorkflowEnginePort } from "../modules/workflows/index";
+import { knowledgeCommands, MemoryStore, TencentDbClient } from "../modules/knowledge/index";
+import { admitApprovalDecision, governanceCommands, StepUpService } from "../modules/governance/index";
 import { createBrainAuth, bootstrapIdentity, assertHumanIdentity, type BootstrapResult, type BrainAuth } from "../modules/identity/index";
 import { localRunnerSettingsCurrent, quarantineRestoredAuthority, loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscription, type VapidKeys } from "../modules/operations/index";
 import { EvidenceService } from "../modules/evidence/index";
@@ -38,17 +38,17 @@ import { getPack, listPack, slaSummary } from "../modules/packs/index";
 import { artifactHistory, diffArtifacts, listArtifacts, readArtifactBytes, searchArtifacts } from "../modules/evidence/index";
 import { bridge, today } from "../modules/work/index";
 import { searchSessions } from "../modules/sessions/index";
-import { JobProtocol } from "../modules/jobs/index";
+import { jobCommands, JobProtocol } from "../modules/jobs/index";
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
-import { WorkService } from "../modules/work/index";
-import { BoardService } from "../modules/board/index";
-import { SessionService, continuationFacts } from "../modules/sessions/index";
+import { WorkService, workCommands } from "../modules/work/index";
+import { BoardService, boardCommands } from "../modules/board/index";
+import { SessionService, continuationFacts, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
-import { DocumentService } from "../modules/resources/index";
-import { IntegrationService } from "../modules/integrations/index";
+import { DocumentService, documentCommands } from "../modules/resources/index";
+import { IntegrationService, integrationCommands } from "../modules/integrations/index";
 import { ConfigurationDraftService } from "../modules/configuration/index";
-import { CapitalizationService } from "../modules/capabilities/index";
+import { CapitalizationService, capitalizationCommands } from "../modules/capabilities/index";
 
 export class Brain {
   readonly runtime: RuntimeConfig;
@@ -67,6 +67,7 @@ export class Brain {
   readonly auth: BrainAuth;
   readonly stepUp: StepUpService;
   readonly evidence: EvidenceService;
+  readonly commands: CommandFunnel;
 
   constructor(opts: BrainOptions & { runtime?: RuntimeConfig }) {
     this.runtime = opts.runtime ?? readRuntimeConfig();
@@ -110,6 +111,30 @@ export class Brain {
       });
       this.capitalization = new CapitalizationService(this.store);
       this.evidence = new EvidenceService(this.store, this.workflows);
+      this.commands = new CommandFunnel(this.store, {
+        ...workCommands(this.work),
+        ...boardCommands(this.board),
+        ...sessionCommands(this.sessions),
+        ...documentCommands(this.documents),
+        ...integrationCommands(this.integrations),
+        ...configurationCommands(this.store, this.drafts),
+        ...capitalizationCommands(this.capitalization),
+        ...jobCommands(this.store, this.jobProtocol),
+        ...governanceCommands(this.store, { auth: this.auth, wakeGate: (org, ws, approvalId, approved) => this.workflows.wakeGate(org, ws, approvalId, approved) }),
+        ...workflowCommands(this.store, {
+          engine: this.workflows,
+          loadWorkflow: (organizationId, workflowId) => this.workflowFromRelease(organizationId, workflowId),
+          sessionWorkItem: (actor, workspaceId, sessionId) => this.sessions.workItemForDispatch(actor, workspaceId, sessionId),
+          linkExecution: (actor, workspaceId, workItemId, runId) => this.work.linkExecution(actor, workspaceId, workItemId, runId),
+          attachSessionRun: (actor, workspaceId, sessionId, runId) => this.sessions.attachRun(actor, workspaceId, sessionId, runId),
+        }),
+        ...knowledgeCommands(this.store, this.memory, {
+          markKnowledgePublished: (org, ws, sourceId) => this.capitalization.markKnowledgePublished(org, ws, sourceId),
+          markKnowledgeRevoked: (org, ws, sourceId) => this.capitalization.markKnowledgeRevoked(org, ws, sourceId),
+        }),
+        ...workspaceAdminCommands(this.store, this.auth),
+        ...organizationCommandHandlers(this.store, this.auth),
+      }, { afterCommit: () => this.stream.project() });
       quarantineRestoredAuthority(this.store, this.auth);
     } catch (e) {
       this.store.close();
@@ -180,7 +205,7 @@ export class Brain {
 
   // --- config releases ---
   stageRelease(actor: ActorContext, docs: readonly SourceDoc[], sourceRevision: string, scripts?: readonly ToolScript[], instructions: readonly AgentInstruction[] = [], schemas: readonly SourceDoc[] = []): { digest: string } {
-    this.requireConfigurationAdmin(actor);
+    requireConfigurationAdmin(this.store, actor);
     const request = validate("ReleaseStageRequest",{ documents: docs, sourceRevision, scripts, instructions, schemas });
     if (!request.ok) throw new BrainDomainError("INVALID_CONTRACT",request.errors.join("; "));
     if (!/^(sha1:[0-9a-f]{40}|sha256:[0-9a-f]{64})$/u.test(sourceRevision)) {
@@ -242,7 +267,7 @@ export class Brain {
   }
 
   listReleases(actor: ActorContext): JsonValue {
-    this.requireConfigurationAdmin(actor);
+    requireConfigurationAdmin(this.store, actor);
     const active = this.activeRelease(actor.organizationId);
     const rows = this.store.control.prepare("SELECT digest,source_revision,manifest_json,created_at_ms FROM config_releases WHERE organization_id=? ORDER BY created_at_ms DESC LIMIT 50").all(actor.organizationId) as Array<{ digest: string; source_revision: string; manifest_json: string; created_at_ms: number }>;
     return { items: rows.map((row) => {
@@ -255,7 +280,7 @@ export class Brain {
   }
 
   inspectRelease(actor: ActorContext, digest: string): JsonValue {
-    this.requireConfigurationAdmin(actor);
+    requireConfigurationAdmin(this.store, actor);
     const row = this.store.control.prepare("SELECT digest,source_revision,manifest_json FROM config_releases WHERE digest=? AND organization_id=?").get(digest, actor.organizationId) as { digest: string; source_revision: string; manifest_json: string } | undefined;
     if (!row) throw new BrainDomainError("NOT_FOUND", "config release not found");
     const active = this.activeRelease(actor.organizationId);
@@ -263,30 +288,11 @@ export class Brain {
   }
 
   activateRelease(actor: ActorContext, digest: string, expectedActiveDigest?: string | null): void {
-    this.requireConfigurationAdmin(actor);
-    const s = this.store;
-    s.inTx(s.control, () => {
-      const rel = s.control.prepare("SELECT digest FROM config_releases WHERE digest=? AND organization_id=?").get(digest, actor.organizationId);
-      if (!rel) throw new BrainDomainError("NOT_FOUND", "config release not found");
-      const cur = s.control.prepare("SELECT release_digest, version FROM active_config WHERE organization_id=?").get(actor.organizationId) as
-        | { release_digest: string; version: number } | undefined;
-      if (expectedActiveDigest !== undefined && (cur?.release_digest ?? null) !== expectedActiveDigest) {
-        throw new BrainDomainError("CONFLICT", "active config changed; CAS failed");
-      }
-      if (cur) s.control.prepare("UPDATE active_config SET release_digest=?, version=version+1 WHERE organization_id=?").run(digest, actor.organizationId);
-      else s.control.prepare("INSERT INTO active_config(organization_id, release_digest, version) VALUES (?,?,1)").run(actor.organizationId, digest);
-      s.emit(s.control, { organizationId: actor.organizationId, aggregateType: "config", aggregateId: digest, eventType: "config.activated", payload: { digest } });
-    });
+    activateRelease(this.store, actor, digest, expectedActiveDigest);
   }
 
   activeRelease(organizationId: string): { digest: string; manifest: string } | undefined {
     return configActiveRelease(this.store, organizationId);
-  }
-
-  private requireConfigurationAdmin(actor: ActorContext): void {
-    if (actor.kind !== "human" || !scopesForPrincipal(this.store, actor.actorId, actor.organizationId).includes("config:activate")) {
-      throw new BrainDomainError("FORBIDDEN", "configuration changes require current organization administration");
-    }
   }
 
   workflowFromRelease(organizationId: string, workflowId: string): { workflow: import("@brain/contracts").Workflow; configDigest: string } {
@@ -429,410 +435,23 @@ export class Brain {
     return approvalId;
   }
 
-  // --- command bus ---
+  // --- command funnel ---
   /**
-   * The single command funnel. Every declared command — workspace,
-   * organization administration and (via the same envelope helpers) human
-   * approval decisions — is validated, authorized, deduplicated and applied
-   * through this one async path; there is no second entry point. The
+   * Every declared command enters through the command funnel (ADR 0002). The
    * correlation id belongs to the transport boundary (error envelopes and
    * access logs), not to the command envelope, so it is not part of the
    * durable receipt.
    */
-  async executeCommand(actor: ActorContext, raw: unknown, _correlationId: string, headers?: Headers): Promise<{ receipt: CommandReceipt; status: number }> {
-    const s = this.store;
-    const check = validate("CommandEnvelope", raw);
-    if (!check.ok) throw new BrainDomainError("INVALID_CONTRACT", `command invalid: ${check.errors.join("; ")}`);
-    const cmd = raw as CommandEnvelope & { workspaceId?: string; payload: Record<string, unknown> };
-    authorizeCommand(actor, cmd.commandType);
-    if (isOrganizationCommand(cmd)) return executeOrganizationCommand(s, this.auth, actor, cmd, headers ?? new Headers());
-    const workspaceId = (cmd as { workspaceId?: string }).workspaceId;
-    if (workspaceId) requireWorkspaceRead(s, actor, workspaceId);
-    if (workspaceId && cmd.commandType === "workflow.dispatch") s.assertWorkspaceActive(workspaceId, actor.organizationId);
-    if (cmd.commandType === "workflow.dispatch") {
-      const p = cmd.payload as { workflow: { id: string }; input: JsonValue };
-      const { workflow, configDigest } = this.workflowFromRelease(actor.organizationId, p.workflow.id);
-      const release = s.control.prepare("SELECT manifest_json FROM config_releases WHERE digest=? AND organization_id=?").get(configDigest, actor.organizationId) as { manifest_json: string };
-      const schema = (JSON.parse(release.manifest_json) as { schemas?: Record<string, object> }).schemas?.[workflow.spec.inputSchemaRef];
-      if (schema) {
-        const result = payloadValidator(schema)(p.input);
-        if (!result.ok) throw new BrainDomainError("INVALID_ARGUMENT", result.errors.join("; "));
-      }
-    }
-    const requestDigest = requestDigestOf(raw);
-    const ctx: CommandContext = { organizationId: actor.organizationId, actorId: actor.actorId, commandType: cmd.commandType, idempotencyKey: cmd.idempotencyKey, commandId: cmd.commandId, requestJson: JSON.stringify(raw), ...(workspaceId ? { workspaceId } : {}) };
-    let receipt: CommandReceipt | undefined;
-    let replayed = false;
-    s.inTx(s.control, () => {
-      const committed = commitReceipt(s, ctx, requestDigest, () => {
-        const resourceId = this.applyCommand(actor, cmd);
-        return { ...(resourceId ? { resourceId } : {}) };
-      }, workspaceId ? "queued" : "applied");
-      receipt = committed.receipt;
-      replayed = committed.replayed;
-    });
-    if (!receipt) throw new BrainDomainError("INTERNAL_ERROR", "command produced no receipt");
-    // Workspace effects that must happen outside the control transaction.
-    if (!replayed) this.postApply(actor, cmd, receipt);
-    return { receipt, status: receipt.outcome === "queued" ? 202 : 200 };
-  }
-
-  private applyCommand(actor: ActorContext, cmd: CommandEnvelope & { payload: Record<string, unknown> }): string | undefined {
-    const s = this.store;
-    const p = cmd.payload;
-    const wsId = (cmd as { workspaceId?: string }).workspaceId;
-    switch (cmd.commandType) {
-      case "config.activate": {
-        this.activateRelease(actor, String(p["configDigest"]), p["expectedActiveDigest"] === null ? null : String(p["expectedActiveDigest"]));
-        return String(p["configDigest"]);
-      }
-      case "approval.request": {
-        if (!wsId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
-        const subject = p["subject"] as unknown as ActionSubject;
-        if (subject.organizationId !== actor.organizationId || subject.workspaceId !== wsId) throw new BrainDomainError("FORBIDDEN", "subject scope mismatch");
-        const digest = approvalSubjectDigest(subject as unknown as JsonValue);
-        // E083: one live request per exact subject signature — a repeated
-        // request for the identical subject returns the existing approval
-        // instead of minting a duplicate reviewers must re-triage.
-        const existing = s.control.prepare("SELECT id FROM approval_requests WHERE organization_id=? AND workspace_id=? AND subject_digest=? AND state='pending' ORDER BY created_at_ms ASC LIMIT 1")
-          .get(actor.organizationId, wsId, digest) as { id: string } | undefined;
-        if (existing) return existing.id;
-        const id = s.id("apr");
-        s.control.prepare(`INSERT INTO approval_requests(id, organization_id, workspace_id, requested_by, subject_digest, subject_json, state, expires_at_ms, created_at_ms) VALUES (?,?,?,?,?,?,'pending',?,?)`)
-          .run(id, actor.organizationId, wsId, actor.actorId, digest, JSON.stringify(subject), Date.parse(subject.expiresAt) || (s.now() + 3600_000), s.now());
-        s.emit(s.control, { organizationId: actor.organizationId, workspaceId: wsId, aggregateType: "approval", aggregateId: id, eventType: "approval.requested", payload: { approvalId: id, subjectDigest: digest } });
-        return id;
-      }
-      case "approval.revoke": {
-        const row = s.control.prepare("SELECT state, version FROM approval_requests WHERE id=? AND organization_id=?").get(String(p["approvalId"]), actor.organizationId) as { state: string; version: number } | undefined;
-        if (!row) throw new BrainDomainError("NOT_FOUND", "approval not found");
-        transitionState(s.control, "approval", String(p["approvalId"]), "revoked", { bumpVersion: true });
-        s.control.prepare("UPDATE effect_permits SET state='revoked' WHERE approval_id=? AND state='issued'").run(String(p["approvalId"]));
-        return String(p["approvalId"]);
-      }
-      case "runner.control": {
-        return this.jobProtocol.controlRunner(actor, { runnerId: String(p["runnerId"]), action: String(p["action"]), reason: String(p["reason"]) });
-      }
-      case "runner.drain": case "runner.quarantine": {
-        const next = cmd.commandType === "runner.drain" ? "draining" : "quarantined";
-        const changed = s.control.prepare("UPDATE runners SET admin_state=? WHERE id=? AND organization_id=?").run(next, String(p["runnerId"]), actor.organizationId);
-        if (changed.changes === 0) throw new BrainDomainError("NOT_FOUND", "runner not found");
-        if (next === "quarantined") {
-          s.control.prepare("UPDATE runner_sessions SET revoked_at_ms=? WHERE runner_id=? AND revoked_at_ms IS NULL").run(s.now(), String(p["runnerId"]));
-          s.control.prepare("UPDATE organizations SET revocation_generation=revocation_generation+1 WHERE id=?").run(actor.organizationId);
-        }
-        return String(p["runnerId"]);
-      }
-      case "member.grant": case "member.revoke": {
-        if (!wsId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
-        const principalId = String(p["principalId"]); const role = String(p["role"]);
-        const activePrincipal = s.control.prepare("SELECT 1 AS active FROM principals WHERE id=? AND organization_id=? AND kind='human' AND disabled_at_ms IS NULL").get(principalId, actor.organizationId);
-        if (!activePrincipal) throw new BrainDomainError("NOT_FOUND", "active organization member not found");
-        const authOrganization = s.control.prepare("SELECT auth_organization_id FROM organizations WHERE id=?").get(actor.organizationId) as { auth_organization_id: string };
-        if (!this.auth.hasMembership(principalId, authOrganization.auth_organization_id)) throw new BrainDomainError("FORBIDDEN", "current Better Auth organization membership required");
-        const wsRow = s.control.prepare("SELECT version FROM workspaces WHERE id=? AND organization_id=?").get(wsId, actor.organizationId) as { version: number } | undefined;
-        if (!wsRow) throw new BrainDomainError("NOT_FOUND", "workspace not found");
-        assertExpectedVersion(wsRow.version, (cmd as { expectedVersion?: number }).expectedVersion);
-        if (cmd.commandType === "member.grant") {
-          s.control.prepare("INSERT INTO workspace_memberships(workspace_id, organization_id, principal_id, role, version, granted_by, granted_at_ms) VALUES (?,?,?,?,1,?,?) ON CONFLICT(workspace_id,principal_id,role) DO UPDATE SET revoked_at_ms=NULL, version=workspace_memberships.version+1")
-            .run(wsId, actor.organizationId, principalId, role, actor.actorId, s.now());
-        } else {
-          s.control.prepare("UPDATE workspace_memberships SET revoked_at_ms=?, version=version+1 WHERE workspace_id=? AND principal_id=? AND role=?").run(s.now(), wsId, principalId, role);
-        }
-        s.control.prepare("UPDATE workspaces SET version=version+1 WHERE id=?").run(wsId);
-        s.control.prepare("UPDATE organizations SET revocation_generation=revocation_generation+1 WHERE id=?").run(actor.organizationId);
-        s.emit(s.control, { organizationId: actor.organizationId, workspaceId: wsId, aggregateType: "membership", aggregateId: principalId, eventType: cmd.commandType === "member.grant" ? "membership.granted" : "membership.revoked", payload: { principalId, role } });
-        return principalId;
-      }
-      case "workspace.update": {
-        if (!wsId || String(p["workspaceId"]) !== wsId) throw new BrainDomainError("INVALID_ARGUMENT", "workspace scope mismatch");
-        const workspace = s.control.prepare("SELECT version FROM workspaces WHERE id=? AND organization_id=?").get(wsId, actor.organizationId) as { version: number } | undefined;
-        if (!workspace) throw new BrainDomainError("NOT_FOUND", "workspace not found");
-        assertExpectedVersion(workspace.version, (cmd as { expectedVersion?: number }).expectedVersion);
-        const ownerId = String(p["ownerId"]);
-        if (!s.control.prepare("SELECT 1 FROM principals WHERE id=? AND organization_id=? AND kind='human' AND disabled_at_ms IS NULL").get(ownerId, actor.organizationId)) throw new BrainDomainError("NOT_FOUND", "workspace owner must be an active organization member");
-        const displayName = String(p["displayName"]).trim();
-        if (!displayName) throw new BrainDomainError("INVALID_ARGUMENT", "display name is required");
-        const changed = s.control.prepare("UPDATE workspaces SET slug=?,description=?,owner_id=?,tags_json=?,version=version+1 WHERE id=? AND organization_id=? AND version=?")
-          .run(displayName, String(p["description"] ?? ""), ownerId, JSON.stringify(p["tags"] ?? []), wsId, actor.organizationId, workspace.version);
-        if (changed.changes !== 1) throw new BrainDomainError("CONFLICT", "workspace changed during editing");
-        s.emit(s.control, { organizationId: actor.organizationId, workspaceId: wsId, aggregateType: "workspace", aggregateId: wsId, eventType: "workspace.updated", payload: { workspaceId: wsId, ownerId, displayName } });
-        return wsId;
-      }
-      case "workspace.control": {
-        if (!wsId || String(p["workspaceId"]) !== wsId) throw new BrainDomainError("INVALID_ARGUMENT", "workspace scope mismatch");
-        const action = String(p["action"]);
-        const reason = String(p["reason"] ?? "").trim();
-        if (!reason) throw new BrainDomainError("INVALID_ARGUMENT", "workspace lifecycle changes require a reason");
-        const workspace = s.control.prepare("SELECT status,version FROM workspaces WHERE id=? AND organization_id=?").get(wsId, actor.organizationId) as { status: string; version: number } | undefined;
-        if (!workspace) throw new BrainDomainError("NOT_FOUND", "workspace not found");
-        assertExpectedVersion(workspace.version, (cmd as { expectedVersion?: number }).expectedVersion);
-        if (action === "resume") {
-          if (workspace.status !== "suspended") throw new BrainDomainError("CONFLICT", "only a suspended workspace can resume");
-          if (!s.control.prepare("SELECT 1 FROM active_config WHERE organization_id=?").get(actor.organizationId)) throw new BrainDomainError("CONFLICT", "an active configuration release is required before resume");
-          const unresolved = s.control.prepare("SELECT COUNT(*) AS count FROM jobs WHERE workspace_id=? AND state='outcome_unknown'").get(wsId) as { count: number };
-          if (unresolved.count > 0) throw new BrainDomainError("CONFLICT", "reconcile unknown outcomes before resuming the workspace");
-        } else if (action === "suspend") {
-          if (workspace.status !== "active") throw new BrainDomainError("CONFLICT", "only an active workspace can suspend");
-        } else if (action === "archive") {
-          if (workspace.status === "archived") return wsId;
-          const active = s.control.prepare("SELECT COUNT(*) AS count FROM jobs WHERE workspace_id=? AND state IN ('queued','offered','running','verifying','blocked','outcome_unknown')").get(wsId) as { count: number };
-          if (active.count > 0) throw new BrainDomainError("CONFLICT", "archive requires no active, blocked or unresolved work");
-        } else {
-          throw new BrainDomainError("INVALID_ARGUMENT", "workspace action must be suspend, resume or archive");
-        }
-        const status = action === "suspend" ? "suspended" : action === "resume" ? "active" : "archived";
-        const changed = s.control.prepare("UPDATE workspaces SET status=?,version=version+1 WHERE id=? AND organization_id=? AND version=?").run(status, wsId, actor.organizationId, workspace.version);
-        if (changed.changes !== 1) throw new BrainDomainError("CONFLICT", "workspace changed during the lifecycle operation");
-        s.emit(s.control, { organizationId: actor.organizationId, workspaceId: wsId, aggregateType: "workspace", aggregateId: wsId, eventType: `workspace.${action}d`, payload: { workspaceId: wsId, reason } });
-        return wsId;
-      }
-      case "workspace.suspend": {
-        if (!wsId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
-        s.control.prepare("UPDATE workspaces SET status='suspended', version=version+1 WHERE id=? AND organization_id=?").run(wsId, actor.organizationId);
-        return wsId;
-      }
-      case "job.reconcile": {
-        const job = s.control.prepare("SELECT state, version FROM jobs WHERE id=? AND organization_id=?").get(String(p["jobId"]), actor.organizationId) as { state: string; version: number } | undefined;
-        if (!job) throw new BrainDomainError("NOT_FOUND", "job not found");
-        if (job.state !== "outcome_unknown") throw new BrainDomainError("CONFLICT", "only outcome_unknown jobs can be reconciled");
-        assertExpectedVersion(job.version, (cmd as { expectedVersion?: number }).expectedVersion);
-        const id = s.id("rec");
-        s.control.prepare("INSERT INTO reconciliation_requests(id, job_id, command_id, expected_version, state, next_observation_at_ms, created_at_ms) VALUES (?,?,?,?, 'pending', ?,?)")
-          .run(id, String(p["jobId"]), cmd.commandId, (cmd as { expectedVersion?: number }).expectedVersion ?? job.version, s.now(), s.now());
-        return id;
-      }
-      case "workflow.dispatch": case "workflow.cancel":
-      case "objective.create": case "plan.propose": case "plan.confirm": case "workItem.transition": case "workItem.comment":
-      case "automation.upsert": case "automation.control":
-      case "decision.record": case "session.steer": case "session.stop": case "tool.propose": case "tool.publish":
-      case "capitalization.run": case "capability.review":
-      case "session.create": case "session.checkpoint": case "session.delegate": case "delegation.review": case "workItem.message":
-      case "document.upload": case "document.revise": case "document.associate": case "document.delete":
-      case "integration.connect": case "integration.verify": case "integration.bind":
-      case "configDraft.create": case "configDraft.update": case "configDraft.validate": case "configDraft.test": case "configDraft.publish":
-      case "memory.publish": case "memory.revoke": case "workspace.export": case "workspace.import": {
-        // Applied in postApply (workspace DB / workflow start) to keep control tx short.
-        return undefined;
-      }
-      default:
-        throw new BrainDomainError("INVALID_CONTRACT", `unhandled command ${(cmd as { commandType: string }).commandType}`);
-    }
-  }
-
-  private postApply(actor: ActorContext, cmd: CommandEnvelope & { payload: Record<string, unknown> }, receipt: CommandReceipt): void {
-    const s = this.store;
-    const p = cmd.payload;
-    const wsId = (cmd as { workspaceId?: string }).workspaceId;
-    const setResource = (id: string) => {
-      (receipt as { resourceId?: string }).resourceId = id;
-      s.control.prepare("UPDATE command_idempotency SET receipt_json=? WHERE organization_id=? AND actor_id=? AND command_type=? AND idempotency_key=?")
-        .run(JSON.stringify(receipt), actor.organizationId, actor.actorId, cmd.commandType, cmd.idempotencyKey);
-    };
-    switch (cmd.commandType) {
-      case "objective.create": case "plan.propose": case "plan.confirm": case "workItem.transition": case "workItem.comment": {
-        setResource(this.work.apply(actor, cmd));
-        break;
-      }
-      case "session.create": case "session.checkpoint": case "session.delegate": case "delegation.review": case "workItem.message": {
-        setResource(this.sessions.apply(actor, cmd));
-        break;
-      }
-      case "document.upload": case "document.revise": case "document.associate": case "document.delete": {
-        setResource(this.documents.apply(actor, cmd));
-        break;
-      }
-      case "integration.connect": case "integration.verify": case "integration.bind": {
-        setResource(this.integrations.apply(actor, cmd));
-        break;
-      }
-      case "configDraft.create": case "configDraft.update": case "configDraft.validate": case "configDraft.test": case "configDraft.publish": {
-        setResource(this.drafts.apply(actor, cmd));
-        break;
-      }
-      case "automation.upsert": case "automation.control": {
-        if (!wsId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
-        setResource(this.jobProtocol.automations.apply(actor, cmd));
-        break;
-      }
-      case "workflow.dispatch": {
-        if (!wsId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
-        const wfRef = p["workflow"] as { id: string };
-        const sessionId = p["sessionId"] ? String(p["sessionId"]) : "";
-        const sessionWorkItemId = sessionId ? this.sessions.workItemForDispatch(actor, wsId, sessionId) : undefined;
-        if (sessionWorkItemId && p["workItemId"] && sessionWorkItemId !== String(p["workItemId"])) throw new BrainDomainError("FORBIDDEN", "session and dispatch work item differ");
-        const workItemId = sessionWorkItemId ?? (p["workItemId"] ? String(p["workItemId"]) : "");
-        const { workflow, configDigest } = this.workflowFromRelease(actor.organizationId, wfRef.id);
-        const { runId } = this.workflows.startRun({
-          organizationId: actor.organizationId, workspaceId: wsId, actorId: actor.actorId,
-          workflowId: wfRef.id, workflow, configDigest,
-          runInput: (p["input"] ?? null) as JsonValue, executionKey: cmd.commandId,
-        });
-        if (workItemId) this.work.linkExecution(actor, wsId, workItemId, runId);
-        if (sessionId) this.sessions.attachRun(actor, wsId, sessionId, runId);
-        // The receipt names the created aggregate: the run. The /jobs/:id
-        // route resolves a run id to the run's current job, so the dispatch
-        // deep link opens the work right away and follows it across steps.
-        setResource(runId);
-        break;
-      }
-      case "workflow.cancel": {
-        if (!wsId) break;
-        this.workflows.cancelRun(actor.organizationId, wsId, String(p["runId"]));
-        for (const jobRow of s.control.prepare("SELECT id FROM jobs WHERE workflow_run_id=? AND state IN ('queued','offered')").all(String(p["runId"])) as Array<{ id: string }>) {
-          transitionState(s.control, "job", jobRow.id, "cancelled", { bumpVersion: true });
-        }
-        setResource(String(p["runId"]));
-        break;
-      }
-      case "decision.record": {
-        if (!wsId) break;
-        setResource(this.board.apply(actor, cmd, wsId));
-        break;
-      }
-      case "session.steer": case "session.stop": {
-        // Live steer/stop requires a running harness session; record intent, runner applies on poll.
-        if (!wsId) break;
-        const ws = s.workspaceDb(wsId, actor.organizationId);
-        // Steering a session that does not exist would silently queue forever;
-        // refuse at intake so the sender sees the truth.
-        if (!ws.prepare("SELECT 1 FROM sessions WHERE id=?").get(String(p["sessionId"]))) {
-          throw new BrainDomainError("NOT_FOUND", `session ${String(p["sessionId"])} not found in this workspace`);
-        }
-        ws.prepare("INSERT INTO session_controls(id, session_id, kind, payload, created_at_ms) VALUES (?,?,?,?,?)")
-          .run(s.id("ctl"), String(p["sessionId"]), cmd.commandType, JSON.stringify(p), s.now());
-        setResource(String(p["sessionId"]));
-        break;
-      }
-      case "capitalization.run": case "capability.review": case "tool.propose": case "tool.publish": {
-        setResource(this.capitalization.apply(actor, cmd));
-        break;
-      }
-      case "memory.publish": {
-        // Reviewed publication (T39): content is a digest-pinned CAS artifact,
-        // backed by existing evidence artifacts, reviewed by a *different*
-        // principal, under a redaction profile declared in the active release.
-        const content = p["content"] as { artifactId: string; digest: string; bytes: number };
-        const sourceWorkspaceId = String(p["sourceWorkspaceId"]);
-        const reviewerId = String(p["reviewerId"]);
-        if (reviewerId === actor.actorId) throw new BrainDomainError("FORBIDDEN", "memory reviewer must differ from the publisher");
-        const reviewer = s.control.prepare("SELECT 1 FROM principals WHERE id=? AND organization_id=? AND disabled_at_ms IS NULL").get(reviewerId, actor.organizationId);
-        if (!reviewer) throw new BrainDomainError("NOT_FOUND", "memory reviewer is not a principal in this organization");
-        requireWorkspaceRead(s, actor, sourceWorkspaceId);
-        const sourceWs = s.workspaceDb(sourceWorkspaceId, actor.organizationId);
-        const contentRow = sourceWs.prepare("SELECT id, bytes FROM artifacts WHERE digest=?").get(content.digest) as { id: string; bytes: number } | undefined;
-        if (!contentRow || contentRow.bytes !== content.bytes) throw new BrainDomainError("NOT_FOUND", "memory content artifact not found in source workspace");
-        for (const evidenceDigest of (p["evidenceDigests"] as string[])) {
-          if (!sourceWs.prepare("SELECT 1 FROM artifacts WHERE digest=?").get(evidenceDigest)) {
-            throw new BrainDomainError("EVIDENCE_MISSING", `evidence artifact ${evidenceDigest} not found in source workspace`);
-          }
-        }
-        const profile = p["redactionProfile"] as { id: string; digest: string };
-        const rel = this.activeRelease(actor.organizationId);
-        const relDocs = rel ? (((JSON.parse(rel.manifest) as { manifest?: { documents?: Array<Record<string, unknown>> } }).manifest?.documents) ?? []) : [];
-        if (!relDocs.some((d) => d["id"] === profile.id && d["digest"] === profile.digest)) {
-          throw new BrainDomainError("INVALID_CONTRACT", "redaction profile is not declared in the active release");
-        }
-        const casBytes = readFileSync(this.casPath(content.digest));
-        if (sha256Digest(casBytes) !== content.digest) throw new BrainDomainError("CONFLICT", "memory content CAS digest mismatch");
-        if (casBytes.length > 256 * 1024) throw new BrainDomainError("PAYLOAD_TOO_LARGE", "memory content exceeds 256 KiB");
-        const scope = p["targetScope"] as { visibility: string; workspaceId?: string };
-        const targetWorkspaceId = scope.visibility === "global-approved" ? null
-          : scope.visibility === "workspace" ? String(scope.workspaceId)
-          : (() => { throw new BrainDomainError("UNSUPPORTED_CAPABILITY", `memory target scope ${scope.visibility} is not supported by the local store`); })();
-        if (targetWorkspaceId) requireWorkspaceRead(s, actor, targetWorkspaceId);
-        const id = this.memory.publish({
-          organizationId: actor.organizationId, workspaceId: targetWorkspaceId,
-          sourceId: String(p["candidateId"]), text: casBytes.toString("utf8"),
-        });
-        this.capitalization.markKnowledgePublished(actor.organizationId, sourceWorkspaceId, String(p["candidateId"]));
-        setResource(id);
-        break;
-      }
-      case "memory.revoke": {
-        if (!wsId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
-        this.memory.revoke(actor.organizationId, wsId, String(p["sourceId"]));
-        this.capitalization.markKnowledgeRevoked(actor.organizationId, wsId, String(p["sourceId"]));
-        setResource(String(p["sourceId"]));
-        break;
-      }
-      case "workspace.export": case "workspace.import": {
-        // Full bundle logic lives in operations backup; record an intent resource.
-        setResource(wsId ?? actor.organizationId);
-        break;
-      }
-      default: break;
-    }
-    // Applied commands can write source logs (workspace events, attempt
-    // rows); surface them in the execution stream immediately. The projection
-    // is watermark-guarded, so this is a no-op when nothing new exists.
-    this.stream.project();
+  executeCommand(actor: ActorContext, raw: unknown, _correlationId: string, headers?: Headers): Promise<{ receipt: CommandReceipt; status: number }> {
+    return this.commands.execute(actor, raw, headers ? { headers } : {});
   }
 
   // --- approvals + step-up ---
-  decideApproval(identity: ResolvedActor, approvalId: string, body: HumanApprovalDecision): { decisionId: string; state: string } {
-    const s = this.store;
-    assertHumanIdentity(this.store, this.auth, identity);
-    const { actor: actorIn, sessionDigest } = identity;
-    const wsRow = s.control.prepare("SELECT workspace_id FROM approval_requests WHERE id=? AND organization_id=?").get(approvalId, actorIn.organizationId) as { workspace_id: string } | undefined;
-    if (!wsRow) throw new BrainDomainError("NOT_FOUND", "approval not found");
-    const actor: ActorContext = { ...actorIn, workspaceId: wsRow.workspace_id, scopes: scopesForPrincipal(s, actorIn.actorId, actorIn.organizationId, wsRow.workspace_id) };
-    if (!actor.scopes.includes("approval:decide")) throw new BrainDomainError("FORBIDDEN", "missing approval:decide scope");
-    const check = validate("HumanApprovalDecision", body);
-    if (!check.ok) throw new BrainDomainError("INVALID_CONTRACT", check.errors.join("; "));
-    const requestDigest = domainDigest("brain:approval-decision:v1", body as unknown as JsonValue);
-    // The decision's own id doubles as the command id; replay goes through the
-    // shared command-envelope like every other command (issue #2 funnel work).
-    const commandId = s.id("dec-human");
-    const ctx: CommandContext = { organizationId: actor.organizationId, actorId: actor.actorId, commandType: "approval.decision", idempotencyKey: body.idempotencyKey, commandId, requestJson: JSON.stringify(body), workspaceId: wsRow.workspace_id };
-    let decisionId = "";
-    let newState = "";
-    let workspaceId = "";
-    s.inTx(s.control, () => {
-      const prior = priorReceipt(s, ctx, requestDigest);
-      if (prior) {
-        const saved = prior as unknown as { decisionId: string; state: string };
-        decisionId = saved.decisionId; newState = saved.state;
-        const wr = s.control.prepare("SELECT workspace_id FROM approval_requests WHERE id=?").get(approvalId) as { workspace_id: string } | undefined;
-        workspaceId = wr?.workspace_id ?? "";
-        return;
-      }
-      const row = s.control.prepare("SELECT subject_digest, subject_json, state, version, expires_at_ms, workspace_id, requested_by FROM approval_requests WHERE id=? AND organization_id=?")
-        .get(approvalId, actor.organizationId) as { subject_digest: string; subject_json: string; state: string; version: number; expires_at_ms: number; workspace_id: string; requested_by: string } | undefined;
-      if (!row) throw new BrainDomainError("NOT_FOUND", "approval not found");
-      workspaceId = row.workspace_id;
-      if (!hasWorkspaceMembership(s, actor.actorId, actor.organizationId, row.workspace_id)) throw new BrainDomainError("NOT_FOUND", "approval not found");
-      assertExpectedVersion(row.version, body.expectedVersion);
-      if (row.subject_digest !== body.subjectDigest) throw new BrainDomainError("CONFLICT", "approval subject changed; refresh required");
-      if (row.state === "pending" && row.expires_at_ms <= s.now()) {
-        transitionState(s.control, "approval", approvalId, "expired", { bumpVersion: true });
-        throw new BrainDomainError("APPROVAL_EXPIRED", "approval expired");
-      }
-      assertTransition("approval", row.state, body.decision === "approve" ? "approved" : "rejected");
-      // Separation of duties: author cannot approve own high-risk request.
-      const subject = JSON.parse(row.subject_json) as { operation?: string };
-      if (body.decision === "approve" && row.requested_by === actor.actorId) {
-        throw new BrainDomainError("FORBIDDEN", "separation of duties: requester cannot approve own action");
-      }
-      void subject;
-      if (body.decision === "approve") {
-        if (!body.stepUpEvidenceId) throw new BrainDomainError("APPROVAL_REQUIRED", "fresh step-up evidence required to approve");
-        const ev = s.control.prepare("SELECT e.actor_id,e.auth_session_digest,e.subject_digest,e.expires_at_ms,e.decision_id,e.revoked_at_ms,e.auth_session_id,e.auth_user_id,e.factor_digest,e.auth_generation,e.method,c.approval_id FROM step_up_evidence e JOIN step_up_challenges c ON c.id=e.challenge_id WHERE e.id=?").get(body.stepUpEvidenceId) as
-          | { actor_id: string; auth_session_digest: string; subject_digest: string; expires_at_ms: number; decision_id: string | null; revoked_at_ms: number | null; auth_session_id: string; auth_user_id: string; factor_digest: string | null; auth_generation: number; method: string; approval_id: string } | undefined;
-        if (!ev || ev.approval_id !== approvalId || (this.auth.requireTwoFactor && ev.method !== "totp") || ev.revoked_at_ms || ev.expires_at_ms <= s.now() || ev.actor_id !== actor.actorId || ev.auth_session_digest !== sessionDigest || ev.subject_digest !== body.subjectDigest || ev.decision_id || ev.auth_generation !== actor.authGeneration || !this.auth.isSessionCurrent(ev.auth_user_id, ev.auth_session_id, s.now(), ev.factor_digest)) {
-          throw new BrainDomainError("FORBIDDEN", "step-up evidence invalid, expired, or already used");
-        }
-      }
-      decisionId = commandId;
-      newState = body.decision === "approve" ? "approved" : "rejected";
-      s.control.prepare("INSERT INTO approval_decisions(id, approval_id, expected_version, actor_id, auth_evidence_ref, subject_digest, decision, note, created_at_ms) VALUES (?,?,?,?,?,?,?,?,?)")
-        .run(decisionId, approvalId, body.expectedVersion, actor.actorId, body.stepUpEvidenceId ?? "session", body.subjectDigest, body.decision, body.note, s.now());
-      if (body.stepUpEvidenceId) s.control.prepare("UPDATE step_up_evidence SET decision_id=? WHERE id=?").run(decisionId, body.stepUpEvidenceId);
-      transitionState(s.control, "approval", approvalId, newState, { bumpVersion: true, and: { version: body.expectedVersion } });      commitReceipt(s, ctx, requestDigest, () => ({ resourceId: approvalId, receiptExtra: { decisionId, state: newState, subjectDigest: body.subjectDigest } }), "applied");
-      s.emit(s.control, { organizationId: actor.organizationId, workspaceId: row.workspace_id, aggregateType: "approval", aggregateId: approvalId, eventType: body.decision === "approve" ? "approval.approved" : "approval.rejected", payload: { approvalId, decisionId } });
-    });
-    if (workspaceId) this.workflows.wakeGate(actor.organizationId, workspaceId, approvalId, newState === "approved");
-    return { decisionId, state: newState };
+  async decideApproval(identity: ResolvedActor, approvalId: string, body: HumanApprovalDecision): Promise<{ decisionId: string; state: string }> {
+    const { actor, cmd } = admitApprovalDecision(this.store, this.auth, identity, approvalId, body);
+    const { receipt } = await this.commands.run(actor, cmd, { identity });
+    const saved = receipt as unknown as { decisionId: string; state: string };
+    return { decisionId: saved.decisionId, state: saved.state };
   }
 
   decisionStatus(actor: ActorContext, approvalId: string, idempotencyKey: string): JsonValue {

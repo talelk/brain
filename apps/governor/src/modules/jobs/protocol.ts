@@ -31,6 +31,9 @@ export function operateRunner(s: Store, actor: { scopes: readonly string[]; acto
   if (runner.admin_state === "quarantined" && input.action === "enable" && !actor.scopes.includes("runner:security")) {
     throw new BrainDomainError("FORBIDDEN", "re-enabling a quarantined runner requires runner:security");
   }
+  if (input.action === "quarantine" && !actor.scopes.includes("runner:security")) {
+    throw new BrainDomainError("FORBIDDEN", "quarantining a runner requires runner:security");
+  }
   const active = s.control.prepare("SELECT COUNT(*) AS count FROM job_attempts WHERE runner_id=? AND state IN ('offered','running','uploading','cancelling','verifying','outcome_unknown')").get(input.runnerId) as { count: number };
   if ((input.action === "rotate" || input.action === "deregister") && active.count > 0) throw new BrainDomainError("CONFLICT", "runner still has active or unresolved attempts");
   s.inTx(s.control, () => {
@@ -43,6 +46,14 @@ export function operateRunner(s: Store, actor: { scopes: readonly string[]; acto
       s.control.prepare("UPDATE runners SET admin_state='enabled' WHERE id=?").run(input.runnerId);
     } else if (input.action === "disable") {
       s.control.prepare("UPDATE runners SET admin_state='disabled' WHERE id=?").run(input.runnerId);
+    } else if (input.action === "drain") {
+      // E045: a draining runner takes no new claims but finishes owned work.
+      s.control.prepare("UPDATE runners SET admin_state='draining' WHERE id=?").run(input.runnerId);
+    } else if (input.action === "quarantine") {
+      // E046: quarantine revokes the runner's sessions and every issued permit.
+      s.control.prepare("UPDATE runners SET admin_state='quarantined' WHERE id=?").run(input.runnerId);
+      s.control.prepare("UPDATE runner_sessions SET revoked_at_ms=? WHERE runner_id=? AND revoked_at_ms IS NULL").run(now, input.runnerId);
+      s.control.prepare("UPDATE organizations SET revocation_generation=revocation_generation+1 WHERE id=?").run(actor.organizationId);
     } else if (input.action === "rotate" || input.action === "deregister") {
       s.control.prepare("UPDATE runners SET admin_state='disabled',session_epoch=session_epoch+1,boot_nonce=NULL,deregistered_at_ms=CASE WHEN ?='deregister' THEN ? ELSE deregistered_at_ms END WHERE id=?")
         .run(input.action, now, input.runnerId);
@@ -51,9 +62,10 @@ export function operateRunner(s: Store, actor: { scopes: readonly string[]; acto
       if (input.action === "deregister") s.control.prepare("DELETE FROM runner_capabilities WHERE runner_id=?").run(input.runnerId);
       s.control.prepare("UPDATE organizations SET revocation_generation=revocation_generation+1 WHERE id=?").run(actor.organizationId);
     } else {
-      throw new BrainDomainError("INVALID_ARGUMENT", "runner action must be enable, disable, rotate or deregister");
+      throw new BrainDomainError("INVALID_ARGUMENT", "runner action must be enable, disable, drain, quarantine, rotate or deregister");
     }
-    s.emit(s.control, { organizationId: actor.organizationId, aggregateType: "runner", aggregateId: input.runnerId, eventType: `runner.${input.action}d`, payload: { runnerId: input.runnerId, reason: input.reason, actorId: actor.actorId } });
+    const eventType = input.action === "drain" ? "runner.draining" : input.action === "quarantine" ? "runner.quarantined" : `runner.${input.action}d`;
+    s.emit(s.control, { organizationId: actor.organizationId, aggregateType: "runner", aggregateId: input.runnerId, eventType, payload: { runnerId: input.runnerId, reason: input.reason, actorId: actor.actorId } });
   });
   return input.runnerId;
 }

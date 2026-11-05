@@ -232,24 +232,6 @@
       ]
     },
     {
-      "type": "runner.drain",
-      "schema": "RunnerDrainCommand",
-      "scope": "runner:admin",
-      "authority": "global",
-      "actors": [
-        "human"
-      ]
-    },
-    {
-      "type": "runner.quarantine",
-      "schema": "RunnerQuarantineCommand",
-      "scope": "runner:security",
-      "authority": "global",
-      "actors": [
-        "human"
-      ]
-    },
-    {
       "type": "runner.control",
       "schema": "RunnerControlCommand",
       "scope": "runner:admin",
@@ -290,15 +272,6 @@
       "schema": "WorkspaceControlCommand",
       "scope": "workspace:admin",
       "authority": "workspace",
-      "actors": [
-        "human"
-      ]
-    },
-    {
-      "type": "workspace.suspend",
-      "schema": "WorkspaceSuspendCommand",
-      "scope": "workspace:admin",
-      "authority": "global",
       "actors": [
         "human"
       ]

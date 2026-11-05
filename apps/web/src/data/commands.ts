@@ -11,14 +11,14 @@ import type { CommandReceipt, OrganizationAdminCommand, PlanTask, WorkItemState 
  */
 export type CommandKind =
   | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop" | "session.create"
-  | "decision.record" | "runner.drain" | "runner.quarantine" | "runner.control"
+  | "decision.record" | "runner.control"
   | "objective.create" | "plan.propose" | "plan.confirm" | "workItem.transition" | "workItem.comment" | "workItem.message"
   | "automation.upsert" | "automation.control"
   | "document.upload" | "document.revise" | "document.associate" | "document.delete"
   | "integration.connect" | "integration.verify" | "integration.bind"
   | "configDraft.create" | "configDraft.update" | "configDraft.validate" | "configDraft.test" | "configDraft.publish"
   | "member.grant" | "member.revoke" | "config.activate" | "memory.publish" | "memory.revoke"
-  | "tool.propose" | "tool.publish" | "capitalization.run" | "capability.review" | "approval.revoke" | "workspace.update" | "workspace.control" | "workspace.suspend" | "workspace.export" | "workspace.import"
+  | "tool.propose" | "tool.publish" | "capitalization.run" | "capability.review" | "approval.revoke" | "workspace.update" | "workspace.control" | "workspace.export" | "workspace.import"
   | OrganizationAdminCommand["commandType"];
 
 export interface CommandContext {
@@ -43,8 +43,7 @@ export type PayloadFor<K extends CommandKind> =
           : K extends "session.stop" ? { sessionId: string; reason: string }
             : K extends "session.create" ? { workItemId: string; agentId: string; engineId: string; task: string; budget: { maxTokens: number; maxMicroUsd: number; maxTurns: number }; scope: { allowedPaths: string[]; prohibitedPaths: string[]; allowedTools: string[] }; worktreeId: string; resumeFromSessionId?: string }
               : K extends "decision.record" ? { workItemId: string; decision: "go" | "no" | "not-now" | "need-more-data"; note: string }
-                    : K extends "runner.drain" | "runner.quarantine" ? { runnerId: string; reason: string }
-                      : K extends "runner.control" ? { runnerId: string; action: "enable" | "disable" | "rotate" | "deregister"; reason: string }
+                      : K extends "runner.control" ? { runnerId: string; action: "enable" | "disable" | "drain" | "quarantine" | "rotate" | "deregister"; reason: string }
                         : K extends "member.grant" ? { principalId: string; role: string; reason: string }
                         : K extends "member.revoke" ? { principalId: string; role: string; reason: string }
                           : K extends "config.activate" ? { configDigest: string; expectedActiveDigest: string | null }
@@ -57,7 +56,6 @@ export type PayloadFor<K extends CommandKind> =
                                         : K extends "approval.revoke" ? { approvalId: string; reason: string }
                                       : K extends "workspace.update" ? { workspaceId: string; displayName: string; description: string; ownerId: string; tags: string[] }
                                           : K extends "workspace.control" ? { workspaceId: string; action: "suspend" | "resume" | "archive"; reason: string }
-                                            : K extends "workspace.suspend" ? { workspaceId: string; reason: string }
                                               : K extends "workspace.export" ? { workspaceId: string }
                                           : K extends "workspace.import" ? { workspaceId: string; bundle: unknown }
                                             : K extends "automation.upsert" ? { automationId?: string; title?: string; target: { kind: "workflow" | "workItem"; id: string }; trigger: { kind: "cron"; cron: string; timezone: string } | { kind: "once"; scheduledAt: string } | { kind: "manual" }; input?: unknown; overlap?: "skip" | "queue-one"; misfire?: "skip" | "coalesce"; execution?: { mode: "managed" } | { mode: "personal-host"; runnerId: string; offlinePolicy: "wait" | "fail" } }

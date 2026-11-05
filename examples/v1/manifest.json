@@ -149,23 +149,11 @@
       "schema": "CommandEnvelope"
     },
     {
-      "path": "commands/runner.drain.json",
-      "schema": "CommandEnvelope"
-    },
-    {
-      "path": "commands/runner.quarantine.json",
-      "schema": "CommandEnvelope"
-    },
-    {
       "path": "commands/decision.record.json",
       "schema": "CommandEnvelope"
     },
     {
       "path": "commands/config.activate.json",
-      "schema": "CommandEnvelope"
-    },
-    {
-      "path": "commands/workspace.suspend.json",
       "schema": "CommandEnvelope"
     },
     {

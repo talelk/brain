@@ -286,8 +286,6 @@
     "runners.list"
    ],
    "actions": [
-    "runner.drain",
-    "runner.quarantine",
     "runner.control"
    ],
    "content": [
@@ -309,8 +307,6 @@
     "runner.get"
    ],
    "actions": [
-    "runner.drain",
-    "runner.quarantine",
     "runner.control"
    ],
    "content": [
