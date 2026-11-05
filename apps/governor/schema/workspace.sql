@@ -324,3 +324,35 @@ CREATE TABLE conversation_messages (
  draft_id TEXT REFERENCES task_drafts(id), created_at_ms INTEGER NOT NULL
 ) STRICT;
 CREATE INDEX conversation_messages_thread ON conversation_messages(conversation_id,created_at_ms,id);
+-- Session control intents recorded at intake; the runner heartbeat drains them.
+CREATE TABLE session_controls (
+ id TEXT PRIMARY KEY, session_id TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL,
+ created_at_ms INTEGER NOT NULL
+) STRICT;
+-- Workflow engine state: dispatch input, step outputs, child links, durable waits.
+CREATE TABLE run_inputs (
+ run_id TEXT PRIMARY KEY, input_json TEXT NOT NULL, workflow_json TEXT NOT NULL,
+ actor_id TEXT NOT NULL, runner_id TEXT
+) STRICT;
+CREATE TABLE step_outputs (
+ run_id TEXT NOT NULL, step_id TEXT NOT NULL, output_json TEXT NOT NULL,
+ PRIMARY KEY(run_id, step_id)
+) STRICT;
+CREATE TABLE engine_links (
+ child_run_id TEXT PRIMARY KEY, parent_run_id TEXT NOT NULL, parent_step_id TEXT NOT NULL,
+ parent_workspace_id TEXT NOT NULL
+) STRICT;
+CREATE TABLE engine_resumes (
+ run_id TEXT NOT NULL, step_id TEXT NOT NULL, output_json TEXT NOT NULL, ok INTEGER NOT NULL,
+ created_at_ms INTEGER NOT NULL, PRIMARY KEY(run_id, step_id)
+) STRICT;
+-- Connector observation intake: accepted facts and parked id-collisions.
+CREATE TABLE source_observations (
+ source_id TEXT NOT NULL, external_id TEXT NOT NULL, cursor TEXT NOT NULL,
+ payload_digest TEXT NOT NULL, payload_json TEXT NOT NULL, state TEXT NOT NULL,
+ created_at_ms INTEGER NOT NULL, PRIMARY KEY(source_id, external_id)
+) STRICT;
+CREATE TABLE parked_observations (
+ source_id TEXT NOT NULL, external_id TEXT NOT NULL, payload_digest TEXT NOT NULL,
+ payload_json TEXT NOT NULL, reason TEXT NOT NULL, created_at_ms INTEGER NOT NULL
+) STRICT;

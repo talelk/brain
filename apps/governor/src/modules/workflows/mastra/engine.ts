@@ -73,7 +73,6 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     s.inTx(ws, () => {
       ws.prepare(`INSERT INTO workflow_runs(id, execution_key, config_digest, workflow_digest, adapter_digest, engine_run_id, state, input_digest, created_at_ms)
         VALUES (?,?,?,?,?,?,?,?,?)`).run(runId, input.executionKey, input.configDigest, workflowDigest, domainDigest("brain:engine:v1", { engine: "mastra" }), runId, "running", inputDigest, s.now());
-      ws.prepare("CREATE TABLE IF NOT EXISTS run_inputs(run_id TEXT PRIMARY KEY, input_json TEXT NOT NULL, workflow_json TEXT NOT NULL, actor_id TEXT NOT NULL, runner_id TEXT) STRICT").run();
       ws.prepare("INSERT INTO run_inputs(run_id, input_json, workflow_json, actor_id, runner_id) VALUES (?,?,?,?,?)")
         .run(runId, JSON.stringify(input.runInput), JSON.stringify(input.workflow), input.actorId, input.runnerId ?? null);
       for (const stepId of order) {
@@ -119,7 +118,6 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     this.recordResume(organizationId, workspaceId, row.run_id, row.step_id, { output: { approved }, ok: approved });
     s.inTx(ws, () => {
       ws.prepare("UPDATE workflow_steps SET state=? WHERE run_id=? AND step_id=?").run(approved ? "succeeded" : "failed", row.run_id, row.step_id);
-      ws.prepare("CREATE TABLE IF NOT EXISTS step_outputs(run_id TEXT NOT NULL, step_id TEXT NOT NULL, output_json TEXT NOT NULL, PRIMARY KEY(run_id, step_id)) STRICT").run();
       ws.prepare("INSERT OR REPLACE INTO step_outputs(run_id, step_id, output_json) VALUES (?,?,?)").run(row.run_id, row.step_id, JSON.stringify({ approved }));
       ws.prepare("UPDATE workflow_runs SET state=?, version=version+1 WHERE id=?").run(approved ? "running" : "failed", row.run_id);
     });
@@ -141,7 +139,6 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     const s = this.store;
     s.assertWorkspaceActive(workspaceId, organizationId);
     const ws = s.workspaceDb(workspaceId, organizationId);
-    ws.prepare("CREATE TABLE IF NOT EXISTS step_outputs(run_id TEXT NOT NULL, step_id TEXT NOT NULL, output_json TEXT NOT NULL, PRIMARY KEY(run_id, step_id)) STRICT").run();
     s.inTx(ws, () => {
       const run = ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string } | undefined;
       if (!run || ["cancelled", "failed", "succeeded", "partial"].includes(run.state)) return;
@@ -205,7 +202,6 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
           organizationId, workspaceId, actorId, workflowId: ref, workflow: child.workflow,
           configDigest: child.configDigest, runInput: bound as unknown as JsonValue, executionKey: `${runId}:${stepId}:child`,
         });
-        ws.prepare(`CREATE TABLE IF NOT EXISTS engine_links(child_run_id TEXT PRIMARY KEY, parent_run_id TEXT NOT NULL, parent_step_id TEXT NOT NULL, parent_workspace_id TEXT NOT NULL) STRICT`).run();
         ws.prepare("INSERT OR REPLACE INTO engine_links(child_run_id, parent_run_id, parent_step_id, parent_workspace_id) VALUES (?,?,?,?)").run(childRunId, runId, stepId, workspaceId);
         ws.prepare("UPDATE workflow_steps SET state='running', job_id=? WHERE run_id=? AND step_id=?").run(childRunId, runId, stepId);
         return;
@@ -300,7 +296,6 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     const s = this.store;
     s.assertWorkspaceActive(workspaceId, organizationId);
     const ws = s.workspaceDb(workspaceId, organizationId);
-    ws.prepare(`CREATE TABLE IF NOT EXISTS engine_resumes(run_id TEXT NOT NULL, step_id TEXT NOT NULL, output_json TEXT NOT NULL, ok INTEGER NOT NULL, created_at_ms INTEGER NOT NULL, PRIMARY KEY(run_id, step_id)) STRICT`).run();
     const prior = ws.prepare("SELECT output_json, ok FROM engine_resumes WHERE run_id=? AND step_id=?").get(runId, stepId) as { output_json: string; ok: number } | undefined;
     if (prior) {
       if (prior.output_json !== JSON.stringify(record.output) || (prior.ok === 1) !== record.ok) {
@@ -314,7 +309,6 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
 
   private readResume(workspaceId: string, organizationId: string, runId: string, stepId: string): ResumeRecord | undefined {
     const ws = this.store.workspaceDb(workspaceId, organizationId);
-    ws.prepare(`CREATE TABLE IF NOT EXISTS engine_resumes(run_id TEXT NOT NULL, step_id TEXT NOT NULL, output_json TEXT NOT NULL, ok INTEGER NOT NULL, created_at_ms INTEGER NOT NULL, PRIMARY KEY(run_id, step_id)) STRICT`).run();
     const row = ws.prepare("SELECT output_json, ok FROM engine_resumes WHERE run_id=? AND step_id=?").get(runId, stepId) as { output_json: string; ok: number } | undefined;
     return row ? { output: JSON.parse(row.output_json) as JsonValue, ok: row.ok === 1 } : undefined;
   }
@@ -331,7 +325,6 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
 
   private readOutputs(workspaceId: string, organizationId: string, runId: string): Record<string, JsonValue> {
     const ws = this.store.workspaceDb(workspaceId, organizationId);
-    ws.prepare("CREATE TABLE IF NOT EXISTS step_outputs(run_id TEXT NOT NULL, step_id TEXT NOT NULL, output_json TEXT NOT NULL, PRIMARY KEY(run_id, step_id)) STRICT").run();
     const outputs: Record<string, JsonValue> = {};
     for (const r of ws.prepare("SELECT step_id, output_json FROM step_outputs WHERE run_id=?").all(runId) as Array<{ step_id: string; output_json: string }>) {
       outputs[r.step_id] = JSON.parse(r.output_json) as JsonValue;
@@ -342,7 +335,6 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
   private applyResume(workspaceId: string, organizationId: string, runId: string, stepId: string, record: ResumeRecord): JsonValue {
     const s = this.store;
     const ws = s.workspaceDb(workspaceId, organizationId);
-    ws.prepare("CREATE TABLE IF NOT EXISTS step_outputs(run_id TEXT NOT NULL, step_id TEXT NOT NULL, output_json TEXT NOT NULL, PRIMARY KEY(run_id, step_id)) STRICT").run();
     const digest = domainDigest("brain:step-output:v1", record.output);
     s.inTx(ws, () => {
       const prior = ws.prepare("SELECT state, output_digest FROM workflow_steps WHERE run_id=? AND step_id=?").get(runId, stepId) as { state: string; output_digest: string | null } | undefined;
@@ -400,7 +392,6 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
       }
     }
     // Resume a parent subgraph step waiting on this child run.
-    ws.prepare(`CREATE TABLE IF NOT EXISTS engine_links(child_run_id TEXT PRIMARY KEY, parent_run_id TEXT NOT NULL, parent_step_id TEXT NOT NULL, parent_workspace_id TEXT NOT NULL) STRICT`).run();
     const link = ws.prepare("SELECT parent_run_id, parent_step_id, parent_workspace_id FROM engine_links WHERE child_run_id=?").get(runId) as
       | { parent_run_id: string; parent_step_id: string; parent_workspace_id: string } | undefined;
     if (link) {
@@ -536,7 +527,6 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
               organizationId, workspaceId, actorId, workflowId: ref, workflow: child.workflow,
               configDigest: child.configDigest, runInput: bound as unknown as JsonValue, executionKey: `${runId}:${stepId}:child`,
             });
-            ws.prepare(`CREATE TABLE IF NOT EXISTS engine_links(child_run_id TEXT PRIMARY KEY, parent_run_id TEXT NOT NULL, parent_step_id TEXT NOT NULL, parent_workspace_id TEXT NOT NULL) STRICT`).run();
             ws.prepare("INSERT OR REPLACE INTO engine_links(child_run_id, parent_run_id, parent_step_id, parent_workspace_id) VALUES (?,?,?,?)").run(childRunId, runId, stepId, workspaceId);
             ws.prepare("UPDATE workflow_steps SET state='running', job_id=? WHERE run_id=? AND step_id=?").run(childRunId, runId, stepId);
             return suspend({ stepId });

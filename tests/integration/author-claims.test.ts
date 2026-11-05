@@ -21,7 +21,6 @@ describe("author evidence claims (T27)", () => {
         },
       }), brain.store.now());
     ws.prepare("INSERT INTO workflow_runs(id, execution_key, config_digest, workflow_digest, adapter_digest, engine_run_id, state, input_digest, created_at_ms) VALUES ('run-author-1', 'exec-author-1', ?, 'sha256:" + "5".repeat(64) + "', 'sha256:" + "7".repeat(64) + "', 'engine-1', 'running', 'sha256:" + "8".repeat(64) + "', ?)").run(digest, brain.store.now());
-    ws.prepare("CREATE TABLE IF NOT EXISTS run_inputs(run_id TEXT PRIMARY KEY REFERENCES workflow_runs(id), input_json TEXT NOT NULL, workflow_json TEXT NOT NULL, actor_id TEXT NOT NULL) STRICT").run();
     ws.prepare("INSERT INTO run_inputs(run_id, input_json, workflow_json, actor_id) VALUES ('run-author-1', '{}', ?, 'owner-1')").run(JSON.stringify({
       spec: { jobs: { verify: { kind: "eval", evaluator: { id: "fixture-evaluator", digest: "sha256:" + "6".repeat(64) } } } },
     }));

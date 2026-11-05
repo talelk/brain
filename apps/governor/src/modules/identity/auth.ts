@@ -38,21 +38,14 @@ const quote = (id: string) => `"${id.replaceAll('"', '""')}"`;
 
 export function createBrainAuth(db: Db, opts: { secret: string; baseURL: string; requireTwoFactor?: boolean; initialPasswordFile?: string }): BrainAuth {
   const sql = readFileSync(new URL("../../../schema/auth.sql", import.meta.url), "utf8");
-  const securitySql = "CREATE TABLE brain_auth_recovery(user_id TEXT PRIMARY KEY, factor_digest TEXT NOT NULL, recovered_at_ms INTEGER NOT NULL) STRICT";
-  const passwordSql = "CREATE TABLE brain_initial_password(user_id TEXT PRIMARY KEY, password_hash TEXT NOT NULL) STRICT";
-  const deliverySql = "CREATE TABLE auth_email_outbox(id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('verify-email','organization-invitation','password-reset')), email TEXT NOT NULL, url TEXT NOT NULL, organization_id TEXT, state TEXT NOT NULL CHECK(state IN ('pending','delivered','failed','cancelled')), attempt_count INTEGER NOT NULL DEFAULT 0, last_error TEXT, created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL) STRICT";
-  const securityEventsSql = "CREATE TABLE auth_security_events(id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL, user_id TEXT, auth_organization_id TEXT, occurred_at_ms INTEGER NOT NULL) STRICT";
-  const schemaDigest = `sha256:${createHash("sha256").update(sql).update(securitySql).update(passwordSql).update(deliverySql).update(securityEventsSql).digest("hex")}`;
+  const securitySql = readFileSync(new URL("../../../schema/auth-security.sql", import.meta.url), "utf8");
+  const schemaDigest = `sha256:${createHash("sha256").update(sql).update(securitySql).digest("hex")}`;
   // Only apply the vendor-generated initial schema to an empty auth namespace.
   // An existing, different schema is preserved and rejected, never converted.
   const existing = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='user'").get();
   if (!existing) db.transaction(() => {
     db.exec(sql);
     db.exec(securitySql);
-    db.exec(passwordSql);
-    db.exec(deliverySql);
-    db.exec(securityEventsSql);
-    db.exec("CREATE TABLE auth_schema_metadata(singleton INTEGER PRIMARY KEY CHECK(singleton=1), digest TEXT NOT NULL) STRICT");
     db.prepare("INSERT INTO auth_schema_metadata VALUES (1,?)").run(schemaDigest);
   }).immediate();
   else {

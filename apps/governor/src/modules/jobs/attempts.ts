@@ -280,7 +280,6 @@ export function attemptEvents(s: Store, runner: { runnerId: string; epoch: numbe
     const row = loadAttempt(s, attemptId);
     assertAttemptLive(s, runner, row, String(body["leaseId"] ?? row["lease_id"]), Number(body["jobFence"] ?? row["job_fence"]));
     lastSeq = Number(row["last_event_seq"]);
-    s.control.exec("CREATE TABLE IF NOT EXISTS attempt_events(attempt_id TEXT NOT NULL, seq INTEGER NOT NULL, event_json TEXT NOT NULL, PRIMARY KEY(attempt_id, seq)) STRICT");
     for (const ev of events) {
       const seq = Number((ev as { sequence?: number }).sequence ?? (lastSeq + 1));
       if (seq <= lastSeq) continue;
@@ -336,9 +335,8 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
     } else if (result === "succeeded") {
       s.control.prepare("UPDATE job_attempts SET state='verifying', receipt_digest=?, cleanup_confirmed=? WHERE id=?").run(receiptDigest, cleanup, attemptId);
       s.control.prepare("UPDATE jobs SET state='verifying', version=version+1 WHERE id=?").run(String(row["job_id"]));
-      s.control.exec("CREATE TABLE IF NOT EXISTS job_outputs(job_id TEXT PRIMARY KEY, output_json TEXT NOT NULL) STRICT");
-      s.control.prepare("INSERT OR REPLACE INTO job_outputs(job_id, output_json) VALUES (?,?)").run(String(row["job_id"]), JSON.stringify(output));
       jobState = "verifying";
+      s.control.prepare("INSERT OR REPLACE INTO job_outputs(job_id, output_json) VALUES (?,?)").run(String(row["job_id"]), JSON.stringify(output));
     } else {
       s.control.prepare("UPDATE job_attempts SET state='failed', receipt_digest=?, cleanup_confirmed=? WHERE id=?").run(receiptDigest, cleanup, attemptId);
       s.control.prepare("UPDATE jobs SET state='failed', version=version+1 WHERE id=?").run(String(row["job_id"]));

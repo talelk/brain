@@ -211,8 +211,6 @@ function drainSessionControls(s: Store, runner: { runnerId: string; epoch: numbe
   for (const [sessionId, binding] of sessionAttempts) {
     if (commands.length >= MAX_HEARTBEAT_COMMANDS) break;
     const wsDb = s.workspaceDb(binding.workspaceId, binding.organizationId);
-    const hasControls = !!wsDb.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='session_controls'").get();
-    if (!hasControls) continue;
     s.inTx(wsDb, () => {
       const rows = wsDb.prepare("SELECT id, kind, payload FROM session_controls WHERE session_id=? ORDER BY created_at_ms LIMIT ?")
         .all(sessionId, MAX_HEARTBEAT_COMMANDS - commands.length) as Array<{ id: string; kind: string; payload: string }>;

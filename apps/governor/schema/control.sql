@@ -431,3 +431,14 @@ CREATE TABLE stream_watermarks (
   source TEXT NOT NULL, key TEXT NOT NULL, cursor INTEGER NOT NULL,
   PRIMARY KEY(source,key)
 ) STRICT;
+-- Job payload sidecar, attempt event journal and accepted outputs: control-plane
+-- job state that outlives any single handler call.
+CREATE TABLE job_payloads (job_id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload_json TEXT NOT NULL) STRICT;
+CREATE TABLE attempt_events (attempt_id TEXT NOT NULL, seq INTEGER NOT NULL, event_json TEXT NOT NULL, PRIMARY KEY(attempt_id, seq)) STRICT;
+CREATE TABLE job_outputs (job_id TEXT PRIMARY KEY, output_json TEXT NOT NULL) STRICT;
+-- Local scoped memory assets behind the MemoryStore gateway port.
+CREATE TABLE memory_assets (
+ id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT,
+ source_id TEXT NOT NULL, body TEXT NOT NULL, acl_generation INTEGER NOT NULL,
+ revoked INTEGER NOT NULL DEFAULT 0, created_at_ms INTEGER NOT NULL
+) STRICT;

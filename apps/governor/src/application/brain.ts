@@ -306,7 +306,6 @@ export class Brain {
     const s = this.store;
     const ws = s.workspaceDb(input.workspaceId, input.organizationId);
     const payload = (input.payload ?? {}) as { sessionId?: string };
-    ws.prepare("CREATE TABLE IF NOT EXISTS session_controls(id TEXT PRIMARY KEY, session_id TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, created_at_ms INTEGER NOT NULL) STRICT").run();
     ws.prepare("INSERT INTO session_controls(id, session_id, kind, payload, created_at_ms) VALUES (?,?,?,?,?)")
       .run(s.id("ctl"), payload.sessionId ?? input.runId, "session.steer", JSON.stringify({ ...payload, runId: input.runId, stepId: input.stepId }), s.now());
   }
@@ -324,7 +323,6 @@ export class Brain {
       const existing = s.control.prepare("SELECT id FROM jobs WHERE organization_id=? AND execution_key=?").get(input.organizationId, input.executionKey) as { id: string } | undefined;
       if (existing) { jobId = existing.id; return; }
       jobId = s.id("job");
-      s.control.exec("CREATE TABLE IF NOT EXISTS job_payloads(job_id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload_json TEXT NOT NULL) STRICT");
       let placementJson = input.placementJson;
       const step = (input.payload as { step?: { uses?: { type: string; release: { id: string } } } }).step;
       if (step?.uses?.type === "agent") {
@@ -700,7 +698,6 @@ export class Brain {
         if (!ws.prepare("SELECT 1 FROM sessions WHERE id=?").get(String(p["sessionId"]))) {
           throw new BrainDomainError("NOT_FOUND", `session ${String(p["sessionId"])} not found in this workspace`);
         }
-        ws.prepare("CREATE TABLE IF NOT EXISTS session_controls(id TEXT PRIMARY KEY, session_id TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, created_at_ms INTEGER NOT NULL) STRICT").run();
         ws.prepare("INSERT INTO session_controls(id, session_id, kind, payload, created_at_ms) VALUES (?,?,?,?,?)")
           .run(s.id("ctl"), String(p["sessionId"]), cmd.commandType, JSON.stringify(p), s.now());
         setResource(String(p["sessionId"]));
@@ -1087,17 +1084,10 @@ export class Brain {
     const digest = domainDigest("brain:observation:v1", input.payload);
     let outcome = "accepted";
     s.inTx(ws, () => {
-      ws.prepare(`CREATE TABLE IF NOT EXISTS source_observations(
-        source_id TEXT NOT NULL, external_id TEXT NOT NULL, cursor TEXT NOT NULL,
-        payload_digest TEXT NOT NULL, payload_json TEXT NOT NULL, state TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
-        PRIMARY KEY(source_id, external_id)) STRICT`).run();
       const prior = ws.prepare("SELECT payload_digest, state FROM source_observations WHERE source_id=? AND external_id=?")
         .get(input.sourceId, input.externalId) as { payload_digest: string; state: string } | undefined;
       if (prior) {
         if (prior.payload_digest === digest) { outcome = "duplicate"; return; }
-        ws.prepare(`CREATE TABLE IF NOT EXISTS parked_observations(
-          source_id TEXT NOT NULL, external_id TEXT NOT NULL, payload_digest TEXT NOT NULL,
-          payload_json TEXT NOT NULL, reason TEXT NOT NULL, created_at_ms INTEGER NOT NULL) STRICT`).run();
         ws.prepare("INSERT INTO parked_observations(source_id, external_id, payload_digest, payload_json, reason, created_at_ms) VALUES (?,?,?,?,?,?)")
           .run(input.sourceId, input.externalId, digest, JSON.stringify(input.payload), "id-collision-different-payload", s.now());
         outcome = "parked";
@@ -1602,8 +1592,7 @@ export class Brain {
       }
       // A workspace evidence commit can precede evaluator job admission. Retry
       // the same execution key after a crash rather than create a second job.
-      const hasInputs=ws.prepare("SELECT 1 FROM sqlite_master WHERE name='run_inputs'").get();
-      if (hasInputs) for (const run of ws.prepare("SELECT DISTINCT r.id FROM workflow_runs r JOIN evidence_bundles b ON json_extract(b.manifest_json,'$.workflowRunId')=r.id WHERE r.state IN ('running','suspended') AND b.state='submitted' ORDER BY r.id LIMIT 100").all() as Array<{id:string}>) {
+      for (const run of ws.prepare("SELECT DISTINCT r.id FROM workflow_runs r JOIN evidence_bundles b ON json_extract(b.manifest_json,'$.workflowRunId')=r.id WHERE r.state IN ('running','suspended') AND b.state='submitted' ORDER BY r.id LIMIT 100").all() as Array<{id:string}>) {
         this.workflows.evidenceSubmitted(workspace.organization_id,workspace.id,run.id);
       }
     }

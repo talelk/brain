@@ -106,7 +106,7 @@ def golden_checks(schema):
     assert result.returncode==0 and json.loads(result.stdout)==manifest['expectedOutput']
 def sql_authorization_checks():
     with tempfile.TemporaryDirectory(prefix='brain-authority-') as temp:
-        db=sqlite3.connect(Path(temp)/'control.db');db.executescript((ROOT/'sql/reference/control.sql').read_text())
+        db=sqlite3.connect(Path(temp)/'control.db');db.executescript((ROOT/"apps/governor/schema/control.sql").read_text())
         for n in [1,2]:
             db.execute('INSERT INTO organizations VALUES (?,?,1)',('o'+str(n),'a'+str(n)))
             db.execute("INSERT INTO workspaces(id,organization_id,slug,status,version) VALUES (?,?,'workspace','active',1)",('w'+str(n),'o'+str(n)))

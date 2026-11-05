@@ -294,7 +294,6 @@ function insertJob(w: World, input: { id: string; workspaceId: string; priority:
     resources: { cpuMillicores: input.cpu ?? 500, memoryMb: input.mem ?? 256, diskMb: 256, slots: 1 },
   };
   const now = s.now() + (input.createdOffsetMs ?? 0);
-  s.control.exec("CREATE TABLE IF NOT EXISTS job_payloads(job_id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload_json TEXT NOT NULL) STRICT");
   const relDigest = w.brain.activeRelease(w.org)!.digest;
   s.control.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, queue_reason, priority, created_at_ms, ready_at_ms, deadline_ms)
     VALUES (?,?,?,?,?, 'echo', 'queued', ?, ?, ?, 'read', 'WAITING_FOR_RUNNER', ?, ?, ?, ?)`)

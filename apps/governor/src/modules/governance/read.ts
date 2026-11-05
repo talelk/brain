@@ -16,7 +16,7 @@ export interface ApprovalView {
   expiresAt: string;
 }
 
-function approvalView(store: Store, r: Record<string, unknown>, organizationId: string): ApprovalView {
+function approvalView(r: Record<string, unknown>, organizationId: string): ApprovalView {
   return {
     approvalId: String(r["id"]), organizationId, workspaceId: String(r["workspace_id"]),
     subject: JSON.parse(String(r["subject_json"])) as JsonValue, subjectDigest: String(r["subject_digest"]),
@@ -31,7 +31,7 @@ export function listApprovals(store: Store, actor: ActorContext, workspaceIds: r
   const marks = workspaceIds.map(() => "?").join(",");
   const rows = store.control.prepare(`SELECT * FROM approval_requests WHERE organization_id=? AND workspace_id IN (${marks}) ORDER BY expires_at_ms ASC LIMIT ?`)
     .all(actor.organizationId, ...workspaceIds, limit) as Array<Record<string, unknown>>;
-  return { items: rows.map((r) => approvalView(store, r, actor.organizationId)) } as unknown as JsonValue;
+  return { items: rows.map((r) => approvalView(r, actor.organizationId)) } as unknown as JsonValue;
 }
 
 /** approval.get: one approval, membership-checked against the allowed workspaces. */
@@ -39,7 +39,7 @@ export function getApproval(store: Store, actor: ActorContext, workspaceIds: rea
   const row = store.control.prepare("SELECT * FROM approval_requests WHERE id=? AND organization_id=?")
     .get(approvalId, actor.organizationId) as Record<string, unknown> | undefined;
   if (!row || !workspaceIds.includes(String(row["workspace_id"]))) throw new BrainDomainError("NOT_FOUND", "approval not found");
-  return approvalView(store, row, actor.organizationId) as unknown as JsonValue;
+  return approvalView(row, actor.organizationId) as unknown as JsonValue;
 }
 
 /** command.get: the idempotency receipt, readable only by its own actor. */

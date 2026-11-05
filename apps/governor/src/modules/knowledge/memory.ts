@@ -35,11 +35,6 @@ export class MemoryStore {
   private assets: Asset[] = [];
   private aclGeneration = 1;
   constructor(private readonly store: Store) {
-    store.control.exec(`CREATE TABLE IF NOT EXISTS memory_assets (
-      id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT,
-      source_id TEXT NOT NULL, body TEXT NOT NULL, acl_generation INTEGER NOT NULL,
-      revoked INTEGER NOT NULL DEFAULT 0, created_at_ms INTEGER NOT NULL
-    ) STRICT;`);
     const rows = store.control.prepare("SELECT id, organization_id, workspace_id, source_id, body, acl_generation, revoked, created_at_ms FROM memory_assets").all() as Array<Record<string, unknown>>;
     this.assets = rows.map((r) => ({
       id: String(r["id"]), organizationId: String(r["organization_id"]),

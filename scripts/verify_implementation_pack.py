@@ -202,7 +202,7 @@ def main():
         assert 'IMPLEMENTATION_PROMPT.md' in guide and 'IMPLEMENTATION_PROMPT.md' in tasks
         assert 'Implement Txx only.' not in tasks
         assert 'one bounded increment' not in tasks
-        sql=(ROOT/'sql/reference/control.sql').read_text()
+        sql=(ROOT/"apps/governor/schema/control.sql").read_text()
         assert 'CREATE TABLE schema_metadata' in sql and 'CREATE TABLE schema_migrations' not in sql
         return 'direct-target policy, persistent workspace instructions and packaged prompt agree; target safety/recovery retained'
     checked('implementation-policy-and-prompt',implementation_policy)
@@ -333,13 +333,13 @@ def link_checks():
 def sql_checks():
     with tempfile.TemporaryDirectory(prefix='brain-pack-') as temp:
         path=Path(temp)/'control.db';db=sqlite3.connect(path)
-        db.executescript((ROOT/'sql/reference/control.sql').read_text())
-        workspace=sqlite3.connect(Path(temp)/'workspace.db');workspace.executescript((ROOT/'sql/reference/workspace.sql').read_text())
+        db.executescript((ROOT/"apps/governor/schema/control.sql").read_text())
+        workspace=sqlite3.connect(Path(temp)/'workspace.db');workspace.executescript((ROOT/"apps/governor/schema/workspace.sql").read_text())
         db.execute("INSERT INTO organizations VALUES ('o1','auth1',1)")
         db.execute("INSERT INTO organizations VALUES ('o2','auth2',1)")
         db.execute("INSERT INTO workspaces(id,organization_id,slug,status,version) VALUES ('w1','o1','one','active',1)")
         db.execute("INSERT INTO workspaces(id,organization_id,slug,status,version) VALUES ('w2','o2','two','active',1)")
-        db.execute("INSERT INTO config_releases VALUES ('d1','o1','sha1:fixture','compiler','{}',0)")
+        db.execute("INSERT INTO config_releases(digest,organization_id,source_revision,compiler_digest,manifest_json,created_at_ms) VALUES ('d1','o1','sha1:fixture','compiler','{}',0)")
         db.execute("INSERT INTO runners(id,organization_id,group_id,identity_key_digest,admin_state,session_epoch,health,config_digest,cpu_capacity,memory_capacity,disk_capacity,slot_capacity) VALUES ('r1','o1','agents','key','enabled',1,'healthy','d1',2000,4096,4096,1)")
         def job(id,org='o1',ws='w1'):
             db.execute("INSERT INTO jobs(id,organization_id,workspace_id,execution_key,workflow_run_id,step_id,state,config_digest,placement_json,execution_digest,effect_class,created_at_ms,ready_at_ms,deadline_ms) VALUES (?,?,?,?, 'wf','step','queued','d1','{}','artifact','read',0,0,100000)",(id,org,ws,id))

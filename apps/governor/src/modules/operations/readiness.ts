@@ -26,8 +26,7 @@ export function operationalReadiness(s: Store, actor: ActorContext, workspaceId:
   }
   if (!Object.keys(release.workflows).length) checks.push({ id: "workflows", action: "release", status: "missing", detail: "No workflows are available", nextAction: "Activate the starter release" });
   const ws = s.workspaceDb(workspaceId,actor.organizationId);
-  const hasRuns = ws.prepare("SELECT 1 FROM sqlite_master WHERE name='run_inputs'").get();
-  const smoke = hasRuns ? ws.prepare("SELECT r.id,r.state,r.created_at_ms FROM workflow_runs r JOIN run_inputs i ON i.run_id=r.id WHERE json_extract(i.workflow_json,'$.metadata.id')='agent-smoke' AND r.config_digest=? ORDER BY r.created_at_ms DESC LIMIT 1").get(row?.digest ?? "") as { id: string; state: string; created_at_ms: number } | undefined : undefined;
+  const smoke = ws.prepare("SELECT r.id,r.state,r.created_at_ms FROM workflow_runs r JOIN run_inputs i ON i.run_id=r.id WHERE json_extract(i.workflow_json,'$.metadata.id')='agent-smoke' AND r.config_digest=? ORDER BY r.created_at_ms DESC LIMIT 1").get(row?.digest ?? "") as { id: string; state: string; created_at_ms: number } | undefined;
   const smokeVerified = smoke?.state === "succeeded" && smoke.created_at_ms >= (localModelTestedAt(s, actor.organizationId) ?? 0);
   checks.push({ id: "smoke", action: "smoke", workflowId: "agent-smoke", status: smokeVerified ? "ready" : "unverified", detail: smoke ? smokeVerified ? `${smoke.id}: verified for the current connection` : `${smoke.id}: ${smoke.state}; a verified test for the current connection is still required` : "No accepted smoke run for this release", nextAction: "Run agent-smoke with message BRAIN_OK and inspect independent evidence" });
   return { workspaceId, configDigest: row?.digest ?? null, ready: checks.every((check) => check.status === "ready"), smokeVerified, checks, memoryMode: process.env["BRAIN_TENCENTDB_URL"] ? "remote" : "local", asOf: s.nowIso() };

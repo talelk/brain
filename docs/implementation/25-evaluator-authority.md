@@ -15,7 +15,7 @@ This document describes the 27 October implementation, not full T27/T28/G03 cert
 | `apps/runner/src/tools/invoke.ts` | Normalize actual fixture-tool stdout into Brain checks |
 | `apps/runner/src/supervisor.ts` | Execute fixture tool, commit normalized receipt and submit assigned verdicts |
 | `contracts/v1/brain.schema.json`, `contracts/v1/openapi.json` | Canonical DTOs and runner operations |
-| `apps/governor/schema/workspace.sql`, `sql/reference/workspace.sql` | Current schema including verdict finalization marker |
+| `apps/governor/schema/workspace.sql` | Current schema including verdict finalization marker |
 
 `POST /runner/v1/evidence` accepts `EvidenceBundle` and returns `{digest}`. `POST /runner/v1/verdicts` accepts `{workspaceId, verdict}`, with a canonical `VerificationVerdict`, and returns `{verdictId, outcome}`. Browser cookies are rejected. Runner identity comes from the current session, never from an actor field in the body.
 

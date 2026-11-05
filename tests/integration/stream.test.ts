@@ -42,7 +42,6 @@ function seedSession(w: TestWorld, sessionId: string, jobId: string, attemptId: 
 }
 
 function seedAttemptEvent(w: TestWorld, attemptId: string, seq: number, wire: Record<string, unknown>): void {
-  w.brain.store.control.exec(`CREATE TABLE IF NOT EXISTS attempt_events(attempt_id TEXT NOT NULL, seq INTEGER NOT NULL, event_json TEXT NOT NULL, PRIMARY KEY(attempt_id, seq)) STRICT`);
   w.brain.store.control.prepare("INSERT OR IGNORE INTO attempt_events(attempt_id, seq, event_json) VALUES (?,?,?)")
     .run(attemptId, seq, JSON.stringify({ sequence: seq, kind: "engine", payload: wire }));
 }
@@ -407,7 +406,6 @@ describe("unified execution stream", () => {
       s.control.prepare(`INSERT INTO runner_sessions(token_digest, runner_id, runner_epoch, expires_at_ms, created_at_ms)
         VALUES ('token-digest-9', 'runner-stream-9', 1, ?, ?)`).run(now + 900_000, now);
       const ws = s.workspaceDb(w.workspaceId, w.org);
-      ws.exec("CREATE TABLE IF NOT EXISTS session_controls(id TEXT PRIMARY KEY, session_id TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, created_at_ms INTEGER NOT NULL) STRICT");
       ws.prepare("INSERT INTO session_controls(id, session_id, kind, payload, created_at_ms) VALUES ('ctl-steer-9', ?, 'session.steer', ?, ?)")
         .run("ses-stream-9", JSON.stringify({ sessionId: "ses-stream-9", message: "focus on the failing diff" }), now);
       ws.prepare("INSERT INTO session_controls(id, session_id, kind, payload, created_at_ms) VALUES ('ctl-stop-9', ?, 'session.stop', ?, ?)")

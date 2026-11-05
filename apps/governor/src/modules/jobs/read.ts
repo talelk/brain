@@ -47,13 +47,10 @@ export function jobSnapshot(store: Store, row: Record<string, unknown>): JobSnap
   const boundSession = ws.prepare("SELECT id FROM sessions WHERE job_id=? ORDER BY updated_at_ms DESC LIMIT 1").get(String(row["id"])) as { id: string } | undefined;
   const runId = String(row["workflow_run_id"]);
   const workflowState = ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string } | undefined;
-  const hasInputs = ws.prepare("SELECT 1 FROM sqlite_master WHERE name='run_inputs'").get();
-  const workflow = hasInputs ? ws.prepare("SELECT json_extract(workflow_json,'$.spec.presentation.title') AS title,json_extract(workflow_json,'$.metadata.id') AS id FROM run_inputs WHERE run_id=?").get(runId) as { title: string | null; id: string } | undefined : undefined;
+  const workflow = ws.prepare("SELECT json_extract(workflow_json,'$.spec.presentation.title') AS title,json_extract(workflow_json,'$.metadata.id') AS id FROM run_inputs WHERE run_id=?").get(runId) as { title: string | null; id: string } | undefined;
   const origin = ws.prepare("SELECT origin_json FROM task_drafts WHERE run_id=? AND origin_json IS NOT NULL LIMIT 1").get(runId) as { origin_json: string } | undefined;
-  const hasOutputs = ws.prepare("SELECT 1 FROM sqlite_master WHERE name='step_outputs'").get();
-  const outputs = hasOutputs ? ws.prepare("SELECT step_id,output_json FROM step_outputs WHERE run_id=?").all(runId) as { step_id: string; output_json: string }[] : [];
-  const hasEvents = store.control.prepare("SELECT 1 FROM sqlite_master WHERE name='attempt_events'").get();
-  const events = hasEvents ? store.control.prepare("SELECT e.event_json FROM attempt_events e JOIN job_attempts a ON a.id=e.attempt_id JOIN jobs j ON j.id=a.job_id WHERE j.organization_id=? AND j.workflow_run_id=? AND json_extract(e.event_json,'$.kind')='engine' ORDER BY j.created_at_ms DESC,e.seq DESC LIMIT 200").all(String(row["organization_id"]), runId) as { event_json: string }[] : [];
+  const outputs = ws.prepare("SELECT step_id,output_json FROM step_outputs WHERE run_id=?").all(runId) as { step_id: string; output_json: string }[];
+  const events = store.control.prepare("SELECT e.event_json FROM attempt_events e JOIN job_attempts a ON a.id=e.attempt_id JOIN jobs j ON j.id=a.job_id WHERE j.organization_id=? AND j.workflow_run_id=? AND json_extract(e.event_json,'$.kind')='engine' ORDER BY j.created_at_ms DESC,e.seq DESC LIMIT 200").all(String(row["organization_id"]), runId) as { event_json: string }[];
   const bundle = ws.prepare("SELECT digest FROM evidence_bundles WHERE json_extract(manifest_json,'$.workflowRunId')=? ORDER BY created_at_ms DESC LIMIT 1").get(runId) as { digest: string } | undefined;
   const view: JobSnapshotView = {
     jobId: String(row["id"]),

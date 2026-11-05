@@ -376,7 +376,6 @@ function projectAttemptTail(s: Store, organizationId: string): number {
  */
 export function projectStream(s: Store): { projected: number } {
   const control = s.control;
-  const hasAttempts = !!control.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='attempt_events'").get();
   let projected = 0;
   const correlator = new Correlator(s);
   for (const org of control.prepare("SELECT id FROM organizations ORDER BY id").all() as Array<{ id: string }>) {
@@ -384,7 +383,7 @@ export function projectStream(s: Store): { projected: number } {
     for (const ws of control.prepare("SELECT id FROM workspaces WHERE organization_id=? AND status='active' ORDER BY id").all(org.id) as Array<{ id: string }>) {
       projected += projectWorkspaceTail(s, correlator, org.id, ws.id);
     }
-    if (hasAttempts) projected += projectAttemptTail(s, org.id);
+    projected += projectAttemptTail(s, org.id);
   }
   return { projected };
 }

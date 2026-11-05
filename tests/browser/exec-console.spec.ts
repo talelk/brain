@@ -75,9 +75,8 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   insertWsEvent.run("evt-triage-1", "session", "ses-triage", 1, "text", JSON.stringify({ sessionId: "ses-triage", text: "Triage: two incidents need owners.", channel: "assistant", provisional: true }), DIGEST, now);
 
   // Source log 2: attempt_events — one tool invocation (proposed + result) with
-  // sanitized arguments, stdout artifact and exit status. The table exists once
-  // a runner writes its first batch; the seed uses the identical DDL.
-  s.control.exec("CREATE TABLE IF NOT EXISTS attempt_events(attempt_id TEXT NOT NULL, seq INTEGER NOT NULL, event_json TEXT NOT NULL, PRIMARY KEY(attempt_id, seq)) STRICT");
+  // sanitized arguments, stdout artifact and exit status. The schema file owns
+  // the table; the seed writes the same shape a runner batch would.
   const insertAttemptEvent = s.control.prepare("INSERT INTO attempt_events(attempt_id, seq, event_json) VALUES (?,?,?)");
   insertAttemptEvent.run("att-console", 1, JSON.stringify({
     kind: "engine",
