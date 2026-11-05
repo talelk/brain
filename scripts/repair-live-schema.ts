@@ -112,7 +112,6 @@ function setAuthDigest(db: Db, digest: string): void {
 }
 
 const controlPath = join(dataDir, "control.db");
-const authPath = join(dataDir, "auth.db");
 const wsDir = join(dataDir, "workspaces");
 
 if (existsSync(controlPath)) {
@@ -121,26 +120,20 @@ if (existsSync(controlPath)) {
     const digest = repairNamespace(db, loadSchemaSql("control.sql"), "control.db");
     setControlDigest(db, digest);
     console.log(`control.db repaired -> ${digest.slice(0, 18)}...`);
-  } finally { db.close(); }
-}
-
-if (existsSync(authPath)) {
-  const db = openDb(authPath);
-  try {
-    // Only an existing, populated auth namespace needs realignment; an empty
-    // database is initialized fully by createBrainAuth.
-    const populated = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='user'").get();
-    if (populated) {
+    // The auth namespace lives inside control.db (createBrainAuth binds to
+    // store.control); its digest binds auth.sql + auth-security.sql together.
+    const authPopulated = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='user'").get();
+    if (authPopulated) {
       const vendorSql = readFileSync(join(process.cwd(), "apps/governor/schema/auth.sql"), "utf8");
       const securitySql = readFileSync(join(process.cwd(), "apps/governor/schema/auth-security.sql"), "utf8");
-      const digest = `sha256:${createHash("sha256").update(vendorSql).update(securitySql).digest("hex")}`;
+      const authDigest = `sha256:${createHash("sha256").update(vendorSql).update(securitySql).digest("hex")}`;
       const metaTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='auth_schema_metadata'").get();
       const stored = metaTable ? (db.prepare("SELECT digest FROM auth_schema_metadata WHERE singleton=1").get() as { digest: string } | undefined) : undefined;
-      if (stored?.digest !== digest) {
-        repairNamespace(db, securitySql, "auth.db");
-        setAuthDigest(db, digest);
-        console.log(`auth.db repaired -> ${digest.slice(0, 18)}...`);
-      } else console.log("auth.db digest already current");
+      if (stored?.digest !== authDigest) {
+        repairNamespace(db, securitySql, "control.db/auth");
+        setAuthDigest(db, authDigest);
+        console.log(`control.db/auth repaired -> ${authDigest.slice(0, 18)}...`);
+      } else console.log("control.db/auth digest already current");
     }
   } finally { db.close(); }
 }
