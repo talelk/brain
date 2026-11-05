@@ -12,3 +12,4 @@ export { assertAttemptLive, loadAttempt, runnerView } from "./attempts";
 export {
   explainJob, getJob, getRunner, listJobs, listRunners, searchJobs,
 } from "./read";
+export { jobCommands } from "./commands";

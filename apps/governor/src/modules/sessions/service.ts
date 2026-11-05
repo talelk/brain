@@ -277,6 +277,21 @@ export class SessionService {
     return id;
   }
 
+  /**
+   * Records a steer/stop control for a live session; the runner applies it on
+   * its next heartbeat. Steering a session that does not exist would silently
+   * queue forever, so intake refuses it and the sender sees the truth.
+   */
+  enqueueControl(actor: ActorContext, workspaceId: string, sessionId: string, kind: "session.steer" | "session.stop", payload: JsonValue): string {
+    const db = this.db(actor, workspaceId);
+    if (!db.prepare("SELECT 1 FROM sessions WHERE id=?").get(sessionId)) {
+      throw new BrainDomainError("NOT_FOUND", `session ${sessionId} not found in this workspace`);
+    }
+    db.prepare("INSERT INTO session_controls(id, session_id, kind, payload, created_at_ms) VALUES (?,?,?,?,?)")
+      .run(this.store.id("ctl"), sessionId, kind, JSON.stringify(payload), this.store.now());
+    return sessionId;
+  }
+
   workItemForDispatch(actor: ActorContext, workspaceId: string, sessionId: string): string {
     const session = this.row(actor, workspaceId, sessionId);
     if (session.mode !== "managed" || session.state !== "waiting" || session.job_id || !session.work_item_id) throw new BrainDomainError("CONFLICT", "only an unbound managed session can be dispatched");
