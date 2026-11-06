@@ -5,6 +5,7 @@ import { requireWorkspaceRead } from "../../application/authz";
 import { assertExpectedVersion } from "../../domain/states";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
+import { enqueueSessionControl } from "./controls";
 
 export interface SessionCommand {
   readonly commandType: string;
@@ -283,12 +284,8 @@ export class SessionService {
    * queue forever, so intake refuses it and the sender sees the truth.
    */
   enqueueControl(actor: ActorContext, workspaceId: string, sessionId: string, kind: "session.steer" | "session.stop", payload: JsonValue): string {
-    const db = this.db(actor, workspaceId);
-    if (!db.prepare("SELECT 1 FROM sessions WHERE id=?").get(sessionId)) {
-      throw new BrainDomainError("NOT_FOUND", `session ${sessionId} not found in this workspace`);
-    }
-    db.prepare("INSERT INTO session_controls(id, session_id, kind, payload, created_at_ms) VALUES (?,?,?,?,?)")
-      .run(this.store.id("ctl"), sessionId, kind, JSON.stringify(payload), this.store.now());
+    requireWorkspaceRead(this.store, actor, workspaceId);
+    enqueueSessionControl(this.store, { organizationId: actor.organizationId, workspaceId, sessionId, kind, payload });
     return sessionId;
   }
 

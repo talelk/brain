@@ -215,11 +215,14 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
         return;
       }
       if (job.kind === "steer") {
-        this.host.recordSteer({ organizationId, workspaceId, runId, stepId, payload: bound as unknown as JsonValue });
-        ws.prepare("INSERT OR REPLACE INTO step_outputs(run_id, step_id, output_json) VALUES (?,?,?)").run(runId, stepId, JSON.stringify({ steered: true }));
-        ws.prepare("UPDATE workflow_steps SET state='succeeded' WHERE run_id=? AND step_id=?").run(runId, stepId);
-        outputs[stepId] = { steered: true };
-        byId.set(stepId, { ...row, state: "succeeded" });
+        const steered = this.steer(organizationId, workspaceId, job, input, outputs);
+        const stepState = steered.ok ? "succeeded" : "failed";
+        ws.prepare("INSERT OR REPLACE INTO step_outputs(run_id, step_id, output_json) VALUES (?,?,?)").run(runId, stepId, JSON.stringify(steered.output));
+        ws.prepare("UPDATE workflow_steps SET state=? WHERE run_id=? AND step_id=?").run(stepState, runId, stepId);
+        outputs[stepId] = steered.output;
+        byId.set(stepId, { ...row, state: stepState });
+        // A failed steer stops admission; the Mastra step replays the failure.
+        if (!steered.ok) return;
         continue;
       }
       const placement = "runsOn" in job ? (job as { runsOn: unknown }).runsOn : undefined;
@@ -338,6 +341,28 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
       outputs[r.step_id] = JSON.parse(r.output_json) as JsonValue;
     }
     return outputs;
+  }
+
+  /**
+   * Delivers a steer step: resolves its session and message bindings and
+   * queues the message for that session. A session that is absent from the
+   * workspace, or an empty message, fails the step instead of reporting a
+   * steer nobody receives.
+   */
+  private steer(organizationId: string, workspaceId: string, job: Workflow["spec"]["jobs"][string], input: JsonValue, outputs: Readonly<Record<string, JsonValue>>): ResumeRecord {
+    const { sessionFrom, messageFrom } = job as { sessionFrom: unknown; messageFrom: unknown };
+    try {
+      const target = resolveBinding({ sessionId: sessionFrom, message: messageFrom }, input, outputs);
+      const sessionId = target["sessionId"];
+      const message = target["message"];
+      if (typeof sessionId !== "string" || !sessionId) throw new BrainDomainError("INVALID_ARGUMENT", "steer step resolved no session id");
+      if (typeof message !== "string" || !message.trim()) throw new BrainDomainError("INVALID_ARGUMENT", "steer step resolved no message");
+      this.host.steerSession({ organizationId, workspaceId, sessionId, message });
+      return { output: { steered: true }, ok: true };
+    } catch (error) {
+      if (!(error instanceof BrainDomainError)) throw error;
+      return { output: { steered: false, error: { code: error.code, message: error.message } }, ok: false };
+    }
   }
 
   private applyResume(workspaceId: string, organizationId: string, runId: string, stepId: string, record: ResumeRecord): JsonValue {
@@ -505,10 +530,11 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
           if (admitted?.state === "skipped") return {} as Record<string, JsonValue>;
           const bound = resolveBinding(job.input as unknown as Record<string, unknown>, input, outputs);
           if (job.kind === "steer") {
-            if (outputs[stepId] === undefined) {
-              this.host.recordSteer({ organizationId, workspaceId, runId, stepId, payload: bound as unknown as JsonValue });
-            }
-            return this.applyResume(workspaceId, organizationId, runId, stepId, { output: { steered: true }, ok: true }) as Record<string, JsonValue>;
+            // Admission normally steered already; replay its recorded result.
+            const record: ResumeRecord = outputs[stepId] === undefined
+              ? this.steer(organizationId, workspaceId, job, input, outputs)
+              : { output: outputs[stepId], ok: admitted?.state !== "failed" };
+            return this.applyResume(workspaceId, organizationId, runId, stepId, record) as Record<string, JsonValue>;
           }
           const resumed = resumeData ?? this.readResume(workspaceId, organizationId, runId, stepId);
           if (resumed) {

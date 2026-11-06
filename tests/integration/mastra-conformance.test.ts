@@ -23,7 +23,7 @@ function fakeHost(): WorkflowHost & { jobs: string[]; approvals: string[]; steer
     createJobForStep(input: { stepId: string }) { host.jobs.push(input.stepId); return `job-${input.stepId}-${host.jobs.length}`; },
     createApprovalForGate(input: { stepId: string }) { const id = `apr-${input.stepId}-${host.approvals.length + 1}`; host.approvals.push(id); return id; },
     loadWorkflow() { throw new Error("no child workflows in fake host"); },
-    recordSteer() { host.steers += 1; },
+    steerSession() { host.steers += 1; },
   };
   return host as unknown as WorkflowHost & { jobs: string[]; approvals: string[]; steers: number };
 }
@@ -102,7 +102,7 @@ describe("Mastra WorkflowEnginePort conformance (T29/T30)", () => {
     (host as unknown as { loadWorkflow: unknown }).loadWorkflow = () => ({ workflow: child, configDigest: DIGEST_A });
     const engine = new MastraWorkflowEngine(brain.store, host, join(dir, "mastra-prim"));
     const workflow = wf("prim-flow", {
-      steerStep: { kind: "steer", needs: [], input: {}, message: "focus" },
+      steerStep: { kind: "steer", needs: [], input: {}, outputSchemaRef: "s", sessionFrom: { source: "literal", value: "ses-focus" }, messageFrom: { source: "literal", value: "focus" } },
       gateStep: gateJob(["steerStep"]),
       sub: { kind: "subgraph", needs: ["gateStep"], input: {}, outputSchemaRef: "s", workflow: { id: "child-flow", digest: DIGEST_A } },
       mergeStep: { kind: "merge", needs: ["sub"], input: {} },

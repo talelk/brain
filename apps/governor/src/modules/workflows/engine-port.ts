@@ -30,7 +30,6 @@ export interface WorkflowHost {
     subject: JsonValue; expiresAtMs: number; requestedBy: string;
   }): string;
   loadWorkflow(organizationId: string, workflowId: string): { workflow: Workflow; configDigest: string };
-  recordSteer(input: {
-    organizationId: string; workspaceId: string; runId: string; stepId: string; payload: JsonValue;
-  }): void;
+  /** Queues a steer message for a session in the workspace; NOT_FOUND when the session is absent. */
+  steerSession(input: { organizationId: string; workspaceId: string; sessionId: string; message: string }): void;
 }

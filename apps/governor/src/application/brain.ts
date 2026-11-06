@@ -43,7 +43,7 @@ import { issuePermit as governanceIssuePermit, validatePermit as governanceValid
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
 import { WorkService, workCommands } from "../modules/work/index";
 import { BoardService, boardCommands } from "../modules/board/index";
-import { SessionService, continuationFacts, sessionCommands } from "../modules/sessions/index";
+import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
 import { IntegrationService, integrationCommands } from "../modules/integrations/index";
@@ -312,12 +312,8 @@ export class Brain {
     return this.workflowFromRelease(organizationId, workflowId);
   }
 
-  recordSteer(input: { organizationId: string; workspaceId: string; runId: string; stepId: string; payload: JsonValue }): void {
-    const s = this.store;
-    const ws = s.workspaceDb(input.workspaceId, input.organizationId);
-    const payload = (input.payload ?? {}) as { sessionId?: string };
-    ws.prepare("INSERT INTO session_controls(id, session_id, kind, payload, created_at_ms) VALUES (?,?,?,?,?)")
-      .run(s.id("ctl"), payload.sessionId ?? input.runId, "session.steer", JSON.stringify({ ...payload, runId: input.runId, stepId: input.stepId }), s.now());
+  steerSession(input: { organizationId: string; workspaceId: string; sessionId: string; message: string }): void {
+    enqueueSessionControl(this.store, { ...input, kind: "session.steer", payload: { sessionId: input.sessionId, message: input.message } });
   }
 
   // --- jobs (WorkflowHost) ---
