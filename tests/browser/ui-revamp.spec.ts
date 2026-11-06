@@ -1,3 +1,4 @@
+import { casFilePath } from "../../apps/governor/src/modules/artifacts/index";
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -8,9 +9,9 @@ const DIGEST = `sha256:${"a".repeat(64)}`;
 const BUNDLE_DIGEST = `sha256:${"b".repeat(64)}`;
 
 /** Content-addressed CAS write so a seeded artifact's digest matches its bytes. */
-function seedCasBytes(brain: { casPath(digest: string): string }, bytes: Buffer): string {
+function seedCasBytes(brain: { store: Parameters<typeof casFilePath>[0] }, bytes: Buffer): string {
   const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
-  const path = brain.casPath(digest);
+  const path = casFilePath(brain.store, digest);
   mkdirSync(join(path, ".."), { recursive: true });
   writeFileSync(path, bytes);
   return digest;

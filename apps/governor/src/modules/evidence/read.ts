@@ -1,11 +1,10 @@
-import { existsSync, readFileSync } from "node:fs";
 import type { ActorContext, JsonValue } from "@brain/contracts";
-import { sha256Digest } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import { unifiedHunks } from "./diff";
+import { readVerified } from "../artifacts/index";
 
 /** Read one artifact's verified bytes; the CAS is content-addressed and re-checked. */
 export function readArtifactBytes(store: Store, actor: ActorContext, artifactId: string): Uint8Array {
@@ -13,11 +12,7 @@ export function readArtifactBytes(store: Store, actor: ActorContext, artifactId:
     | { workspace_id: string; digest: string } | undefined;
   if (!row) throw new BrainDomainError("NOT_FOUND", "artifact not found");
   requireWorkspaceRead(store, actor, row.workspace_id);
-  const path = store.casPath(row.digest);
-  if (!existsSync(path)) throw new BrainDomainError("EVIDENCE_MISSING", "artifact bytes missing");
-  const bytes = readFileSync(path);
-  if (sha256Digest(bytes) !== row.digest) throw new BrainDomainError("EVIDENCE_MISSING", "artifact bytes corrupted");
-  return bytes;
+  return readVerified(store, row.digest);
 }
 
 /** Resolve one artifact by id or digest within the actor's organization. */

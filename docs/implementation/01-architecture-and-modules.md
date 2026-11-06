@@ -83,7 +83,8 @@ Governor module folders share this one deployment:
 | configuration | `apps/governor/src/modules/configuration` | Restricted Git/YAML loading, release compilation and activation |
 | jobs | `apps/governor/src/modules/jobs` | Placement, admission, leases/fences, scheduling and reconciliation facts |
 | workflows | `apps/governor/src/modules/workflows` | Brain IR and Mastra adapter, primitive registry and durable wakes |
-| evidence | `apps/governor/src/modules/evidence` | Artifact associations, independent verification and completion acceptance |
+| evidence | `apps/governor/src/modules/evidence` | Evidence bundles, independent verification and completion acceptance |
+| artifacts | `apps/governor/src/modules/artifacts` | Content-addressed byte storage, artifact associations, uploads and storage sweep |
 | knowledge | `apps/governor/src/modules/knowledge` | Scoped memory gateway, TencentDB adapter, publication and export |
 | work | `apps/governor/src/modules/work` | Objectives, immutable plan versions, WorkItems, dependencies, assignments, business decisions and execution links |
 | sessions | `apps/governor/src/modules/sessions` | Native and managed BrainSessions, durable messages, portable checkpoints and cross-agent collaboration |

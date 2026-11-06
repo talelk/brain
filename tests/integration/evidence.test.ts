@@ -1,3 +1,4 @@
+import { casFilePath } from "../../apps/governor/src/modules/artifacts/index";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -131,14 +132,14 @@ describe("authenticated immutable evidence and real evaluator admission",()=>{
   it("rehashes durable artifacts before both submission and acceptance (E074)",async()=>{
     const w=await admitted(addArtifact);
     try {
-      writeFileSync(w.brain.casPath(w.bundle.artifacts[0]!.digest),"changed input");
+      writeFileSync(casFilePath(w.brain.store, w.bundle.artifacts[0]!.digest),"changed input");
       expect(()=>w.brain.acceptVerdict(w.evaluator,w.workspaceId,w.verdict)).toThrow(/artifact bytes/);
       expect(w.brain.store.workspaceDb(w.workspaceId,w.org).prepare("SELECT COUNT(*) AS n FROM verification_verdicts").get()).toEqual({n:0});
     } finally {await w.app.close();}
     const other=await world();
     try {
       const artifact=addArtifact(other);
-      writeFileSync(other.brain.casPath(artifact.digest),"changed before submission");
+      writeFileSync(casFilePath(other.brain.store, artifact.digest),"changed before submission");
       expect(()=>other.brain.submitEvidence(other.author,other.bundle)).toThrow(/artifact bytes/);
       expect(other.brain.store.workspaceDb(other.workspaceId,other.org).prepare("SELECT COUNT(*) AS n FROM evidence_bundles").get()).toEqual({n:0});
     } finally {await other.app.close();}

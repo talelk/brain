@@ -1,9 +1,8 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { sha256Digest } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import type { Store } from "../../application/store";
 import { assertAttemptLive, loadAttempt } from "../jobs/index";
+import { putBytes, registerArtifact } from "../artifacts/index";
 
 /**
  * Attempt-scoped artifact ingestion (T27): a runner pins its exact output
@@ -31,17 +30,7 @@ export function acceptAttemptArtifact(
   if (!/^[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+$/u.test(mediaType)) throw new BrainDomainError("INVALID_CONTRACT", "artifact media type malformed");
   const identity = sha256Digest(new TextEncoder().encode(JSON.stringify({ digest, mediaType })));
   const artifactId = `att-${attemptId}-${identity.slice(7,31)}`;
-  const existing = s.control.prepare("SELECT digest FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(artifactId, organizationId) as { digest: string } | undefined;
-  if (existing && existing.digest !== digest) throw new BrainDomainError("CONFLICT", "attempt artifact id already pinned to different bytes");
-  const path = s.casPath(digest);
-  mkdirSync(join(path, ".."), { recursive: true });
-  if (!existsSync(path)) writeFileSync(path, bytes);
-  if (!existing) {
-    s.control.prepare(`INSERT INTO artifact_associations(artifact_id, organization_id, workspace_id, digest, owner_kind, owner_id, classification, verified_at_ms)
-      VALUES (?,?,?,?,'attempt',?,'internal',?)`).run(artifactId, organizationId, workspaceId, digest, attemptId, s.now());
-    const ws = s.workspaceDb(workspaceId, organizationId);
-    ws.prepare("INSERT OR IGNORE INTO artifacts(id, digest, bytes, media_type, classification, state, created_at_ms) VALUES (?,?,?,?, 'internal','verified',?)")
-      .run(artifactId, digest, bytes.length, mediaType, s.now());
-  }
+  putBytes(s, bytes);
+  registerArtifact(s, { artifactId, organizationId, workspaceId, digest, bytes: bytes.length, mediaType, classification: "internal", owner: { kind: "attempt", id: attemptId } });
   return { artifactId, digest, bytes: bytes.length };
 }

@@ -1,46 +1,11 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { sha256Digest } from "@brain/contracts";
 import type { ActorContext, Document, DocumentVersion, DocumentView, JsonValue, ResourceAssociation } from "@brain/contracts";
 import type { Store } from "../../application/store";
+import { putBytes, readVerified, recordWorkspaceArtifact } from "../artifacts/index";
 import { requireWorkspaceRead } from "../../application/authz";
 import { assertExpectedVersion } from "../../domain/states";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
-
-export interface DocumentStorage {
-  put(digest: string, bytes: Uint8Array): void;
-  read(digest: string): Uint8Array;
-}
-
-export class LocalDocumentStorage implements DocumentStorage {
-  constructor(private readonly dataDir: string) {}
-
-  private path(digest: string): string {
-    const hex = digest.replace("sha256:", "");
-    return join(this.dataDir, "cas", hex.slice(0, 2), hex);
-  }
-
-  put(digest: string, bytes: Uint8Array): void {
-    if (sha256Digest(bytes) !== digest) throw new BrainDomainError("INVALID_CONTRACT", "document digest does not match its bytes");
-    const path = this.path(digest);
-    mkdirSync(join(path, ".."), { recursive: true });
-    if (existsSync(path)) {
-      const current = readFileSync(path);
-      if (sha256Digest(current) !== digest) throw new BrainDomainError("CONFLICT", "document CAS content is corrupted");
-      return;
-    }
-    writeFileSync(path, bytes, { flag: "wx" });
-  }
-
-  read(digest: string): Uint8Array {
-    const path = this.path(digest);
-    if (!existsSync(path)) throw new BrainDomainError("NOT_FOUND", "document bytes not found");
-    const bytes = readFileSync(path);
-    if (sha256Digest(bytes) !== digest) throw new BrainDomainError("CONFLICT", "document CAS content is corrupted");
-    return bytes;
-  }
-}
 
 export interface DocumentCommand {
   readonly commandType: string;
@@ -91,11 +56,7 @@ function safeFileName(value: string): string {
 }
 
 export class DocumentService {
-  private readonly storage: DocumentStorage;
-
-  constructor(private readonly store: Store, storage?: DocumentStorage) {
-    this.storage = storage ?? new LocalDocumentStorage(store.dataDir);
-  }
+  constructor(private readonly store: Store) {}
 
   private db(actor: ActorContext, workspaceId: string) {
     requireWorkspaceRead(this.store, actor, workspaceId);
@@ -153,7 +114,7 @@ export class DocumentService {
     const title = String(payload["title"]);
     const digest = sha256Digest(bytes);
     const extracted = extract(mediaType, bytes);
-    this.storage.put(digest, bytes);
+    putBytes(this.store, bytes);
     this.store.inTx(db, () => {
       const now = this.store.now();
       db.prepare("INSERT INTO documents(id,title,state,current_version_id,created_by,created_at_ms,updated_at_ms) VALUES (?,?,'active',?,?,?,?)")
@@ -177,7 +138,7 @@ export class DocumentService {
     const fileName = safeFileName(String(payload["fileName"]));
     const digest = sha256Digest(bytes);
     const extracted = extract(mediaType, bytes);
-    this.storage.put(digest, bytes);
+    putBytes(this.store, bytes);
     this.store.inTx(db, () => {
       const current = db.prepare("SELECT COALESCE(MAX(revision),0) AS revision FROM document_versions WHERE document_id=?").get(document.id) as { revision: number };
       const now = this.store.now();
@@ -194,8 +155,7 @@ export class DocumentService {
   private insertVersion(db: ReturnType<Store["workspaceDb"]>, id: string, documentId: string, revision: number, digest: string, bytes: Uint8Array, mediaType: string, fileName: string, extracted: { status: DocumentVersion["extractionStatus"]; text: string | null }, actorId: string, now: number): void {
     db.prepare(`INSERT INTO document_versions(id,document_id,revision,digest,bytes,media_type,file_name,extraction_status,extracted_text,created_by,created_at_ms)
       VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(id, documentId, revision, digest, bytes.length, mediaType, fileName, extracted.status, extracted.text, actorId, now);
-    db.prepare("INSERT INTO artifacts(id,digest,bytes,media_type,classification,state,created_at_ms) VALUES (?,?,?,?,'workspace','verified',?)")
-      .run(id, digest, bytes.length, mediaType, now);
+    recordWorkspaceArtifact(db, { artifactId: id, digest, bytes: bytes.length, mediaType, classification: "workspace" }, now);
   }
 
   private associate(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
@@ -246,7 +206,7 @@ export class DocumentService {
       const associations = db.prepare("SELECT * FROM resource_associations WHERE document_id=? ORDER BY created_at_ms,id LIMIT 100").all(document.id) as AssociationRow[];
       const current = versions.find((version) => version.id === document.current_version_id);
       if (!current) throw new BrainDomainError("INTERNAL_ERROR", "document current version is missing");
-      const bytes = this.storage.read(current.digest);
+      const bytes = readVerified(this.store, current.digest);
       const extracted = extract(current.media_type, bytes);
       if (extracted.status !== current.extraction_status || extracted.text !== current.extracted_text) throw new BrainDomainError("CONFLICT", "document extraction does not match immutable bytes");
       const view: DocumentView = {

@@ -1,6 +1,4 @@
 import { readRuntimeConfig, type RuntimeConfig } from "../runtime-config";
-import { createHash } from "node:crypto";
-import { createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ActorContext, CommandReceipt, HumanApprovalDecision, JsonValue,
 } from "@brain/contracts";
@@ -8,11 +6,11 @@ import { approvalSubjectDigest, domainDigest, isKnownQuery, sha256Digest } from 
 import { validate } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
 import { assertExpectedVersion } from "../domain/states";
-import { iso } from "../domain/clock";
 import { Store, type BrainOptions } from "./store";
 import { hasWorkspaceMembership, resolveActor, requireWorkspaceRead, scopesForPrincipal, type ResolvedActor } from "./authz";
 import { CommandFunnel } from "./command-funnel";
 import { workspaceAdminCommands } from "./workspace-admin";
+import { completeUpload, completeUploadStream, initUpload, readVerified, sweepStorage } from "../modules/artifacts/index";
 import { orgWorkspaces, textMatcher } from "./query";
 import { executeOrganizationQuery, isOrganizationQuery, organizationCommandHandlers } from "./organization-admin";
 import { activateRelease, activeReleaseAssets, activeSourceDocuments, activeWorkflow, configurationCommands, inspectRelease, listReleases, stageRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
@@ -394,141 +392,26 @@ export class Brain {
     revokeTrustDomain(this.store, actor, input);
   }
 
-  // --- CAS artifacts ---
-  casPath(digest: string): string {
-    const hex = digest.replace("sha256:", "");
-    return join(this.store.dataDir, "cas", hex.slice(0, 2), hex);
-  }
-
+  // --- artifacts (modules/artifacts) ---
   initUpload(actor: ActorContext, body: Record<string, unknown>): JsonValue {
-    const s = this.store;
-    const workspaceId = String(body["workspaceId"] ?? "");
-    requireWorkspaceRead(s, actor, workspaceId);
-    const id = s.id("upl");
-    s.control.prepare(`INSERT INTO artifact_uploads(id, organization_id, workspace_id, initiated_by, attempt_id, expected_digest, expected_bytes, state, expires_at_ms, created_at_ms)
-      VALUES (?,?,?,?,?,?,?,'open',?,?)`).run(id, actor.organizationId, workspaceId, actor.actorId, body["attemptId"] ? String(body["attemptId"]) : null,
-      String(body["expectedDigest"]), Number(body["expectedBytes"] ?? 0), s.now() + 24 * 3600_000, s.now());
-    return { uploadId: id, expiresAt: iso(s.now() + 24 * 3600_000) } as unknown as JsonValue;
-  }
-
-  private loadOpenUpload(actor: ActorContext, uploadId: string): { organization_id: string; workspace_id: string; expected_digest: string; expected_bytes: number } {
-    const s = this.store;
-    const row = s.control.prepare("SELECT organization_id, workspace_id, initiated_by, expected_digest, expected_bytes, state, expires_at_ms FROM artifact_uploads WHERE id=?").get(uploadId) as
-      | { organization_id: string; workspace_id: string; initiated_by: string; expected_digest: string; expected_bytes: number; state: string; expires_at_ms: number } | undefined;
-    // An upload is completable only by its initiator (T27 ownership).
-    if (!row || row.organization_id !== actor.organizationId || row.initiated_by !== actor.actorId) {
-      throw new BrainDomainError("NOT_FOUND", "upload not found");
-    }
-    if (row.state !== "open" || row.expires_at_ms <= s.now()) throw new BrainDomainError("CONFLICT", "upload closed or expired");
-    return row;
-  }
-
-  private finalizeUpload(uploadId: string, row: { organization_id: string; workspace_id: string }, digest: string, byteCount: number): JsonValue {
-    const s = this.store;
-    const artifactId = `art-${uploadId}`;
-    s.inTx(s.control, () => {
-      s.control.prepare("UPDATE artifact_uploads SET state='complete', received_bytes=? WHERE id=?").run(byteCount, uploadId);
-      s.control.prepare(`INSERT OR IGNORE INTO artifact_associations(artifact_id, organization_id, workspace_id, digest, owner_kind, owner_id, classification, verified_at_ms)
-        VALUES (?,?,?,?,'upload',?,'internal',?)`).run(artifactId, row.organization_id, row.workspace_id, digest, uploadId, s.now());
-    });
-    const ws = s.workspaceDb(row.workspace_id, row.organization_id);
-    ws.prepare("INSERT OR IGNORE INTO artifacts(id, digest, bytes, media_type, classification, state, created_at_ms) VALUES (?,?,?, 'application/octet-stream','internal','verified',?)")
-      .run(artifactId, digest, byteCount, s.now());
-    return { artifactId, digest, bytes: byteCount, mediaType: "application/octet-stream", classification: "internal" } as unknown as JsonValue;
+    return initUpload(this.store, actor, body);
   }
 
   putUpload(actor: ActorContext, uploadId: string, bytes: Uint8Array): JsonValue {
-    const s = this.store;
-    const row = this.loadOpenUpload(actor, uploadId);
-    if (bytes.length > 100 * 1024 * 1024) throw new BrainDomainError("PAYLOAD_TOO_LARGE", "artifact exceeds 100 MiB");
-    const digest = sha256Digest(bytes);
-    if (digest !== row.expected_digest || bytes.length !== row.expected_bytes) {
-      s.control.prepare("UPDATE artifact_uploads SET state='rejected' WHERE id=?").run(uploadId);
-      throw new BrainDomainError("INVALID_CONTRACT", "artifact digest/size mismatch");
-    }
-    const path = this.casPath(digest);
-    mkdirSync(join(path, ".."), { recursive: true });
-    if (!existsSync(path)) writeFileSync(path, bytes);
-    return this.finalizeUpload(uploadId, row, digest, bytes.length);
+    return completeUpload(this.store, actor, uploadId, bytes);
   }
 
-  // Streamed completion (T27): bytes go to a temp file with an incremental
-  // digest, so multi-megabyte artifacts never sit whole in memory. Oversize
-  // streams abort mid-flight and the upload is rejected.
-  async putUploadStream(actor: ActorContext, uploadId: string, chunks: AsyncIterable<Uint8Array>): Promise<JsonValue> {
-    const s = this.store;
-    const row = this.loadOpenUpload(actor, uploadId);
-    const limit = Math.min(100 * 1024 * 1024, row.expected_bytes);
-    const tmpDir = join(s.dataDir, "upload-tmp");
-    mkdirSync(tmpDir, { recursive: true });
-    const tmpPath = join(tmpDir, `${uploadId}.part`);
-    const hash = createHash("sha256");
-    let received = 0;
-    const out = createWriteStream(tmpPath);
-    try {
-      for await (const chunk of chunks) {
-        received += chunk.length;
-        if (received > limit) throw new BrainDomainError("PAYLOAD_TOO_LARGE", "artifact stream exceeds declared size");
-        hash.update(chunk);
-        if (!out.write(chunk)) await new Promise<void>((resolve) => out.once("drain", resolve));
-      }
-      await new Promise<void>((resolve, reject) => out.end((e?: Error | null) => (e ? reject(e) : resolve())));
-    } catch (e) {
-      out.destroy();
-      try { unlinkSync(tmpPath); } catch { /* already gone */ }
-      s.control.prepare("UPDATE artifact_uploads SET state='rejected' WHERE id=?").run(uploadId);
-      throw e;
-    }
-    const digest = `sha256:${hash.digest("hex")}`;
-    if (digest !== row.expected_digest || received !== row.expected_bytes) {
-      try { unlinkSync(tmpPath); } catch { /* already gone */ }
-      s.control.prepare("UPDATE artifact_uploads SET state='rejected' WHERE id=?").run(uploadId);
-      throw new BrainDomainError("INVALID_CONTRACT", "artifact digest/size mismatch");
-    }
-    const path = this.casPath(digest);
-    mkdirSync(join(path, ".."), { recursive: true });
-    if (existsSync(path)) unlinkSync(tmpPath);
-    else renameSync(tmpPath, path);
-    return this.finalizeUpload(uploadId, row, digest, received);
+  putUploadStream(actor: ActorContext, uploadId: string, chunks: AsyncIterable<Uint8Array>): Promise<JsonValue> {
+    return completeUploadStream(this.store, actor, uploadId, chunks);
   }
 
   readArtifact(actor: ActorContext, artifactId: string): Uint8Array {
     return readArtifactBytes(this.store, actor, artifactId);
   }
 
-  // E090: CAS garbage collection. Evidence/upload references and every
-  // immutable document version are always retained; only unreferenced files
-  // older than the grace window can be removed.
+  // E090: storage garbage collection (modules/artifacts).
   casSweep(graceMs = 24 * 3600_000): { scanned: number; removed: number; retained: number } {
-    const s = this.store;
-    const referenced = new Set<string>();
-    for (const r of s.control.prepare("SELECT digest FROM artifact_associations").all() as Array<{ digest: string }>) {
-      referenced.add(r.digest.replace("sha256:", ""));
-    }
-    for (const r of s.control.prepare("SELECT expected_digest FROM artifact_uploads WHERE state='open' AND expires_at_ms>?").all(s.now()) as Array<{ expected_digest: string }>) {
-      referenced.add(r.expected_digest.replace("sha256:", ""));
-    }
-    for (const workspace of s.control.prepare("SELECT id,organization_id FROM workspaces").all() as Array<{ id: string; organization_id: string }>) {
-      const db = s.workspaceDb(workspace.id, workspace.organization_id);
-      for (const version of db.prepare("SELECT digest FROM document_versions").all() as Array<{ digest: string }>) referenced.add(version.digest.replace("sha256:", ""));
-    }
-    const casDir = join(s.dataDir, "cas");
-    let scanned = 0, removed = 0, retained = 0;
-    if (!existsSync(casDir)) return { scanned, removed, retained };
-    for (const shard of readdirSync(casDir, { withFileTypes: true })) {
-      if (!shard.isDirectory()) continue;
-      const shardDir = join(casDir, shard.name);
-      for (const name of readdirSync(shardDir)) {
-        scanned++;
-        const full = join(shardDir, name);
-        if (referenced.has(name)) { retained++; continue; }
-        const age = s.now() - statSync(full).mtimeMs;
-        if (age < graceMs) { retained++; continue; }
-        unlinkSync(full);
-        removed++;
-      }
-    }
-    return { scanned, removed, retained };
+    return sweepStorage(this.store, graceMs);
   }
 
   // --- evidence & verdicts ---
@@ -670,8 +553,7 @@ export class Brain {
     if (!draft) throw new BrainDomainError("NOT_FOUND", "support draft not found");
     if (!draft.approval_id) throw new BrainDomainError("FORBIDDEN", "unapproved support drafts cannot be published");
     if (draft.connector_id !== "gitlab") throw new BrainDomainError("UNSUPPORTED_CAPABILITY", `publishing to ${draft.connector_id} is not installed`);
-    const textBytes = readFileSync(this.casPath(draft.content_digest));
-    if (sha256Digest(textBytes) !== draft.content_digest) throw new BrainDomainError("CONFLICT", "draft content CAS digest mismatch");
+    const textBytes = Buffer.from(readVerified(this.store, draft.content_digest));
     const { GitLabConnector } = await import("../modules/packs/index");
     const connector = new GitLabConnector(input.baseUrl, input.projectId, input.token);
     const iid = Number(draft.remote_id);
@@ -780,8 +662,7 @@ export class Brain {
     const { runLocalJudge, judgeModelId, JUDGE_PROMPT_VERSION } = await import("../modules/packs/index");
     const out: Array<{ criterionId: string; outcome: string; transcriptDigest: string }> = [];
     for (const criterion of input.criteria) {
-      const evPath = this.casPath(criterion.evidenceDigest);
-      const evidenceText = readFileSync(evPath).toString("utf8").slice(0, 32_768);
+      const evidenceText = Buffer.from(readVerified(this.store, criterion.evidenceDigest)).toString("utf8").slice(0, 32_768);
       let verdict;
       try {
         verdict = await runLocalJudge({ criterionText: criterion.criterionText, evidenceText });

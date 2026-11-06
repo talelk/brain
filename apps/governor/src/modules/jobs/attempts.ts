@@ -1,9 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import type { JsonValue } from "@brain/contracts";
 import { domainDigest, sha256Digest } from "@brain/contracts";
 import { releaseToolPins } from "../configuration/index";
 import { authorEvidenceFor, toolReleasesForPayload } from "../evidence/index";
+import { putBytes, readVerified, registerArtifact } from "../artifacts/index";
 import { endAttemptSession, recordAttemptProgress, recordAttemptSession } from "../sessions/index";
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
@@ -141,14 +140,8 @@ export function ensureExecutionArtifact(s: Store, jobId: string, organizationId:
     if (existing.digest !== digest) throw new BrainDomainError("CONFLICT", "job execution artifact already pinned to different bytes");
     return { artifactId, digest, bytes: bytes.length };
   }
-  const path = s.casPath(digest);
-  mkdirSync(join(path, ".."), { recursive: true });
-  if (!existsSync(path)) writeFileSync(path, bytes);
-  s.control.prepare(`INSERT OR IGNORE INTO artifact_associations(artifact_id, organization_id, workspace_id, digest, owner_kind, owner_id, classification, verified_at_ms)
-    VALUES (?,?,?,?,'job',?,'internal',?)`).run(artifactId, organizationId, workspaceId, digest, jobId, s.now());
-  const ws = s.workspaceDb(workspaceId, organizationId);
-  ws.prepare("INSERT OR IGNORE INTO artifacts(id, digest, bytes, media_type, classification, state, created_at_ms) VALUES (?,?,?, 'application/json','internal','verified',?)")
-    .run(artifactId, digest, bytes.length, s.now());
+  putBytes(s, bytes);
+  registerArtifact(s, { artifactId, organizationId, workspaceId, digest, bytes: bytes.length, mediaType: "application/json", classification: "internal", owner: { kind: "job", id: jobId } });
   return { artifactId, digest, bytes: bytes.length };
 }
 
@@ -159,11 +152,7 @@ export function readExecutionArtifact(s: Store, runner: { runnerId: string; epoc
   const artifactId = `exec-${String(row["job_id"])}`;
   const assoc = s.control.prepare("SELECT digest FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(artifactId, runner.organizationId) as { digest: string } | undefined;
   if (!assoc) throw new BrainDomainError("EVIDENCE_MISSING", "execution artifact not materialized");
-  const path = s.casPath(assoc.digest);
-  if (!existsSync(path)) throw new BrainDomainError("EVIDENCE_MISSING", "execution artifact bytes missing");
-  const bytes = readFileSync(path);
-  if (sha256Digest(bytes) !== assoc.digest) throw new BrainDomainError("EVIDENCE_MISSING", "execution artifact bytes corrupted");
-  return bytes;
+  return readVerified(s, assoc.digest);
 }
 
 export function offerJson(s: Store, attemptId: string): JsonValue {

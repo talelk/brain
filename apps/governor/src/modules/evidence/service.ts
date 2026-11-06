@@ -1,6 +1,3 @@
-import { createHash } from "node:crypto";
-import { closeSync, constants, fstatSync, openSync, readSync } from "node:fs";
-import { join } from "node:path";
 import type { ArtifactRef, CheckResult, EvaluationAssignment, Evaluator, EvidenceBundle, JsonValue, VerificationVerdict, Workflow } from "@brain/contracts";
 import { domainDigest } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
@@ -8,6 +5,7 @@ import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
 import { releaseRecord } from "../configuration/index";
+import { verifyStored } from "../artifacts/index";
 
 export interface EvidenceRunner { runnerId: string; epoch: number; organizationId: string }
 interface Attempt {
@@ -70,17 +68,7 @@ export class EvidenceService {
   }
 
   private verifyBytes(ref: ArtifactRef): void {
-    const hex = ref.digest.slice(7);
-    let fd: number | undefined;
-    try {
-      fd = openSync(join(this.s.dataDir, "cas", hex.slice(0, 2), hex), constants.O_RDONLY | constants.O_NOFOLLOW);
-      const stat = fstatSync(fd);
-      if (!stat.isFile() || stat.size !== ref.bytes || stat.size > 100 * 1024 * 1024) throw new Error("size");
-      const hash = createHash("sha256"); const buffer = Buffer.allocUnsafe(64 * 1024); let count = 0;
-      for (;;) { const read = readSync(fd, buffer); if (!read) break; count += read; if (count > ref.bytes) throw new Error("changed"); hash.update(buffer.subarray(0, read)); }
-      if (count !== ref.bytes || `sha256:${hash.digest("hex")}` !== ref.digest) throw new Error("digest");
-    } catch { throw new BrainDomainError("EVIDENCE_MISSING", "artifact bytes are missing or changed"); }
-    finally { if (fd !== undefined) closeSync(fd); }
+    verifyStored(this.s, ref.digest, ref.bytes);
   }
 
   private bundle(workspaceId: string, organizationId: string, digest: string): EvidenceBundle {

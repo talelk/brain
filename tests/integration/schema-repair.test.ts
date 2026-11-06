@@ -8,7 +8,24 @@ import { loadSchemaSql } from "../../apps/governor/src/infrastructure/persistenc
 
 // The live repair rebuilds the declared tables whose keys changed (releases
 // owned per organization) in place, keeping every row and index.
-const OLD_CONTROL_SQL = execFileSync("git", ["show", "2e6fe02:apps/governor/schema/control.sql"], { encoding: "utf8" });
+// The control schema as it was before releases were owned per organization:
+// derived from the current file by reversing exactly that change, so the test
+// fails loudly if the schema moves again.
+function previousControlSql(): string {
+  const reversals: Array<[string, string]> = [
+    ["digest TEXT NOT NULL, organization_id TEXT NOT NULL REFERENCES organizations(id),", "digest TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id),"],
+    ["created_at_ms INTEGER NOT NULL,\n  PRIMARY KEY(organization_id, digest)\n", "created_at_ms INTEGER NOT NULL\n"],
+    ["  release_digest TEXT NOT NULL,\n  version INTEGER NOT NULL CHECK(version > 0),\n  FOREIGN KEY(organization_id, release_digest) REFERENCES config_releases(organization_id, digest)\n", "  release_digest TEXT NOT NULL REFERENCES config_releases(digest),\n  version INTEGER NOT NULL CHECK(version > 0)\n"],
+    ["CHECK(version > 0), config_digest TEXT NOT NULL,", "CHECK(version > 0), config_digest TEXT NOT NULL REFERENCES config_releases(digest),"],
+    [",\n  FOREIGN KEY(organization_id, config_digest) REFERENCES config_releases(organization_id, digest)\n", "\n"],
+  ];
+  let sql = loadSchemaSql("control.sql");
+  for (const [current, previous] of reversals) {
+    expect(sql.split(current).length - 1, `schema no longer contains: ${current}`).toBe(1);
+    sql = sql.replace(current, previous);
+  }
+  return sql;
+}
 
 function repair(dataDir: string): string {
   return execFileSync("npx", ["tsx", "scripts/repair-live-schema.ts"], { env: { ...process.env, BRAIN_DATA_DIR: dataDir }, encoding: "utf8" });
@@ -24,7 +41,7 @@ describe("live schema repair", () => {
     try {
       const path = join(dataDir, "control.db");
       const old = new Database(path);
-      old.exec(OLD_CONTROL_SQL);
+      old.exec(previousControlSql());
       old.prepare("INSERT INTO organizations(id, auth_organization_id) VALUES ('org-a','org-a')").run();
       old.prepare("INSERT INTO workspaces(id, organization_id, slug, status) VALUES ('ws-a','org-a','a','active')").run();
       old.prepare("INSERT INTO config_releases(digest, organization_id, source_revision, compiler_digest, manifest_json, created_at_ms) VALUES ('sha256:r1','org-a','rev','cmp','{}',1)").run();

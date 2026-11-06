@@ -1,8 +1,8 @@
 {
   "status": "passed",
   "scope": "documentation-contract-pack-only",
-  "inputFingerprint": "59977930f543ba5a996bd79e402de28b0ae1e6c872d1b6370c0a9d0ab072ed95",
-  "checkedAt": "2026-11-06T09:35:05.958935+00:00",
+  "inputFingerprint": "b2550ef0d83b1e1b60db7cf070da4f1133bb3d3e31ca2125a4f7509f66d3dacd",
+  "checkedAt": "2026-11-06T09:44:51.755735+00:00",
   "checks": [
     {
       "name": "schema-meta",

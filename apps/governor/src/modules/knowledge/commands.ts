@@ -1,10 +1,9 @@
-import { readFileSync } from "node:fs";
-import { sha256Digest } from "@brain/contracts";
 import type { CommandHandlers } from "../../application/command-funnel";
 import { requireWorkspaceRead } from "../../application/authz";
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { activeRelease } from "../configuration/index";
+import { readVerified } from "../artifacts/index";
 import type { MemoryStore } from "./memory";
 
 export interface KnowledgeCommandPorts {
@@ -44,8 +43,7 @@ export function knowledgeCommands(store: Store, memory: MemoryStore, ports: Know
         if (!relDocs.some((d) => d["id"] === profile.id && d["digest"] === profile.digest)) {
           throw new BrainDomainError("INVALID_CONTRACT", "redaction profile is not declared in the active release");
         }
-        const casBytes = readFileSync(s.casPath(content.digest));
-        if (sha256Digest(casBytes) !== content.digest) throw new BrainDomainError("CONFLICT", "memory content CAS digest mismatch");
+        const casBytes = Buffer.from(readVerified(s, content.digest));
         if (casBytes.length > 256 * 1024) throw new BrainDomainError("PAYLOAD_TOO_LARGE", "memory content exceeds 256 KiB");
         const scope = p["targetScope"] as { visibility: string; workspaceId?: string };
         const targetWorkspaceId = scope.visibility === "global-approved" ? null

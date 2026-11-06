@@ -67,7 +67,11 @@
     },
     "evidence": {
       "path": "apps/governor/src/modules/evidence",
-      "owns": "Artifact associations, independent verification and completion acceptance"
+      "owns": "Evidence bundles, independent verification and completion acceptance"
+    },
+    "artifacts": {
+      "path": "apps/governor/src/modules/artifacts",
+      "owns": "Content-addressed byte storage, artifact associations, uploads and storage sweep"
     },
     "knowledge": {
       "path": "apps/governor/src/modules/knowledge",

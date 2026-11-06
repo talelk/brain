@@ -1,8 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
-import { sha256Digest } from "@brain/contracts";
 import type { Agent } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import type { Store } from "../../application/store";
+import { readVerified } from "../artifacts/index";
 
 /**
  * Release-pinned tool scripts (T22): a runner fetches the exact entrypoint
@@ -25,12 +24,7 @@ export function readReleaseToolScript(
   const row = s.control.prepare("SELECT entrypoint, digest, bytes FROM release_files WHERE release_digest=? AND tool_id=?").get(releaseDigest, resolvedId) as
     | { entrypoint: string; digest: string; bytes: number } | undefined;
   if (!row) throw new BrainDomainError("NOT_FOUND", `tool ${toolId} has no pinned script in this release`);
-  const path = s.casPath(row.digest);
-  if (!existsSync(path)) throw new BrainDomainError("EVIDENCE_MISSING", "tool script bytes missing from CAS");
-  const bytes = new Uint8Array(readFileSync(path));
-  if (sha256Digest(bytes) !== row.digest || bytes.length !== row.bytes) {
-    throw new BrainDomainError("EVIDENCE_MISSING", "tool script bytes do not match the pinned digest");
-  }
+  const bytes = readVerified(s, row.digest, row.bytes);
   return { entrypoint: row.entrypoint, entrypointDigest: row.digest, bytes };
 }
 
@@ -56,10 +50,7 @@ export function readReleaseAgentInstructions(
   if (!agent || !view || !row || view.instructions.digest !== row.digest || view.instructions.path !== row.entrypoint) {
     throw new BrainDomainError("EVIDENCE_MISSING", "agent instructions are not pinned in this release");
   }
-  const path = s.casPath(row.digest);
-  if (!existsSync(path)) throw new BrainDomainError("EVIDENCE_MISSING", "agent instruction bytes missing from CAS");
-  const bytes = new Uint8Array(readFileSync(path));
-  if (sha256Digest(bytes) !== row.digest || bytes.length !== row.bytes) throw new BrainDomainError("EVIDENCE_MISSING", "agent instruction bytes do not match the pinned digest");
+  const bytes = readVerified(s, row.digest, row.bytes);
   const toolBindings = agent.spec.tools.map((allowed) => {
     const tool = stored.tools?.find((candidate) => candidate.id === allowed.id && candidate.digest === allowed.digest);
     const inputSchema = tool ? stored.schemas?.[tool.inputSchemaRef] : undefined;

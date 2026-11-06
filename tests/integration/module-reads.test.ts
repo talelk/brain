@@ -1,3 +1,4 @@
+import { casFilePath } from "../../apps/governor/src/modules/artifacts/index";
 import { describe, expect, it } from "vitest";
 import { setupWorld, type TestWorld } from "../helpers";
 import { BrainDomainError } from "../../apps/governor/src/domain/errors";
@@ -160,7 +161,7 @@ describe("evidence module read surface", () => {
     const w = setupWorld();
     const bytes = Buffer.from("left text\nshared\n", "utf8");
     const digest = sha256Digest(bytes);
-    const casFile = w.brain.store.casPath(digest);
+    const casFile = casFilePath(w.brain.store, digest);
     mkdirSync(join(casFile, ".."), { recursive: true });
     writeFileSync(casFile, bytes);
     const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);

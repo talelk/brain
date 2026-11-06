@@ -1,3 +1,4 @@
+import { casFilePath } from "../../apps/governor/src/modules/artifacts/index";
 import { seedOrganization } from "../helpers";
 import { existsSync, mkdirSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -138,20 +139,20 @@ describe("scenario gaps (T50 batch 3: connectors, tools, storage)", () => {
     const put = w.brain.putUpload(w.owner, up.uploadId, bytes) as unknown as { artifactId: string };
     expect(Buffer.from(w.brain.readArtifact(w.owner, put.artifactId)).equals(Buffer.from(bytes))).toBe(true);
     // Age everything far beyond the grace window; referenced bytes must survive.
-    const casPath = w.brain.casPath(digest);
+    const casPath = casFilePath(w.brain.store, digest);
     const old = new Date(Date.now() - 90 * 24 * 3600_000);
     utimesSync(casPath, old, old);
     // An open upload names a second digest: its (pre-staged) bytes are in-flight and retained.
     const pendingBytes = new TextEncoder().encode("pending-bytes");
     const pendingDigest = sha256Digest(pendingBytes);
     w.brain.initUpload(w.owner, { workspaceId: w.workspaceId, expectedDigest: pendingDigest, expectedBytes: pendingBytes.length });
-    const pendingPath = w.brain.casPath(pendingDigest);
+    const pendingPath = casFilePath(w.brain.store, pendingDigest);
     mkdirSync(join(pendingPath, ".."), { recursive: true });
     writeFileSync(pendingPath, pendingBytes);
     utimesSync(pendingPath, old, old);
     // Orphan bytes neither referenced nor in-flight are collected.
     const orphanDigest = sha256Digest(new TextEncoder().encode("orphan"));
-    const orphanPath = w.brain.casPath(orphanDigest);
+    const orphanPath = casFilePath(w.brain.store, orphanDigest);
     mkdirSync(join(orphanPath, ".."), { recursive: true });
     writeFileSync(orphanPath, "orphan");
     utimesSync(orphanPath, old, old);

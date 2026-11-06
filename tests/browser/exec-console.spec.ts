@@ -1,3 +1,4 @@
+import { casFilePath } from "../../apps/governor/src/modules/artifacts/index";
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
@@ -105,7 +106,7 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   // Source log 3 support: artifacts — two versions of one output (CAS + rows +
   // job-scoped association) so history and diff have data.
   const writeCas = (digest: string, text: string) => {
-    const path = brain.casPath(digest);
+    const path = casFilePath(brain.store, digest);
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, text, "utf8");
   };

@@ -1,11 +1,9 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { sha256Digest } from "@brain/contracts";
 import type { ActorContext, Agent, Evaluator, JsonValue, Workflow } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
+import { putBytes, readVerified } from "../artifacts/index";
 import { requireConfigurationAdmin } from "./activation";
 import { compileRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "./compiler";
 
@@ -86,7 +84,7 @@ export function activeReleaseAssets(store: Store, organizationId: string): Array
   if (!active) return [];
   const schemas = Object.entries(active.release.schemas ?? {}).map(([path, schema]) => ({ path, text: `${JSON.stringify(schema, null, 2)}\n` }));
   const files = store.control.prepare("SELECT entrypoint,digest FROM release_files WHERE release_digest=?").all(active.digest) as Array<{ entrypoint: string; digest: string }>;
-  return [...schemas, ...files.map((file) => ({ path: file.entrypoint, text: readFileSync(store.casPath(file.digest), "utf8") }))];
+  return [...schemas, ...files.map((file) => ({ path: file.entrypoint, text: Buffer.from(readVerified(store, file.digest)).toString("utf8") }))];
 }
 
 /** The organization's 50 most recent releases, marking the active one. */
@@ -145,19 +143,13 @@ export function stageRelease(store: Store, actor: ActorContext, docs: readonly S
       .run(compiled.digest, actor.organizationId, sourceRevision, compilerDigest, JSON.stringify(docs), JSON.stringify({ manifest: compiled.manifest, workflows: compiled.workflows, agents: compiled.agents, evaluators: compiled.evaluators, tools: compiled.tools, schemas: compiled.schemas }), s.now());
     for (const script of scripts ?? []) {
       const bytes = new Uint8Array(Buffer.from(script.bytesBase64, "base64"));
-      const digest = sha256Digest(bytes);
-      const path = s.casPath(digest);
-      mkdirSync(join(path, ".."), { recursive: true });
-      if (!existsSync(path)) writeFileSync(path, bytes);
+      const digest = putBytes(s, bytes);
       s.control.prepare("INSERT OR REPLACE INTO release_files(release_digest, tool_id, entrypoint, digest, bytes, created_at_ms) VALUES (?,?,?,?,?,?)")
         .run(compiled.digest, script.toolId, script.entrypoint, digest, bytes.length, s.now());
     }
     for (const instruction of instructions) {
       const bytes = new TextEncoder().encode(instruction.text);
-      const digest = sha256Digest(bytes);
-      const path = s.casPath(digest);
-      mkdirSync(join(path, ".."), { recursive: true });
-      if (!existsSync(path)) writeFileSync(path, bytes);
+      const digest = putBytes(s, bytes);
       s.control.prepare("INSERT OR REPLACE INTO release_files(release_digest, tool_id, entrypoint, digest, bytes, created_at_ms) VALUES (?,?,?,?,?,?)")
         .run(compiled.digest, `agent:${instruction.agentId}`, instruction.path, digest, bytes.length, s.now());
     }
