@@ -42,7 +42,7 @@ $SSH "mkdir -p $REMOTE_DIR/src"
 rsync -az --delete --info=stats1 \
   -e "ssh -p $PORT" \
   --exclude .git/ --exclude node_modules/ --exclude test-results/ \
-  --exclude playwright-report/ --exclude artifacts/ --exclude screenshots/ \
+  --exclude playwright-report/ --exclude /artifacts/ --exclude screenshots/ \
   --exclude .pi-agent/ --exclude .vitest/ --exclude .zcode/ --exclude '*.log' \
   ./ "$USER_SSH@$HOST:$REMOTE_DIR/src/"
 
