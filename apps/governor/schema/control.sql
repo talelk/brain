@@ -87,15 +87,17 @@ CREATE TABLE publication_requests (
 ) STRICT;
 CREATE INDEX publication_requests_queue ON publication_requests(state,requested_at_ms,id);
 CREATE TABLE config_releases (
-  digest TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id),
+  digest TEXT NOT NULL, organization_id TEXT NOT NULL REFERENCES organizations(id),
   source_revision TEXT NOT NULL, compiler_digest TEXT NOT NULL,
   source_documents_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(source_documents_json)),
-  manifest_json TEXT NOT NULL CHECK(json_valid(manifest_json)), created_at_ms INTEGER NOT NULL
+  manifest_json TEXT NOT NULL CHECK(json_valid(manifest_json)), created_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(organization_id, digest)
 ) STRICT;
 CREATE TABLE active_config (
   organization_id TEXT PRIMARY KEY REFERENCES organizations(id),
-  release_digest TEXT NOT NULL REFERENCES config_releases(digest),
-  version INTEGER NOT NULL CHECK(version > 0)
+  release_digest TEXT NOT NULL,
+  version INTEGER NOT NULL CHECK(version > 0),
+  FOREIGN KEY(organization_id, release_digest) REFERENCES config_releases(organization_id, digest)
 ) STRICT;
 CREATE TABLE runners (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id),
@@ -124,7 +126,7 @@ CREATE TABLE jobs (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
   execution_key TEXT NOT NULL, workflow_run_id TEXT NOT NULL, step_id TEXT NOT NULL,
   state TEXT NOT NULL CHECK(state IN ('queued','offered','running','verifying','succeeded','partial','failed','cancelled','blocked','outcome_unknown')),
-  version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0), config_digest TEXT NOT NULL REFERENCES config_releases(digest),
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0), config_digest TEXT NOT NULL,
   placement_json TEXT NOT NULL CHECK(json_valid(placement_json)), execution_digest TEXT NOT NULL,
   effect_class TEXT NOT NULL CHECK(effect_class IN ('read','write','privileged')),
   queue_reason TEXT, priority INTEGER NOT NULL DEFAULT 0 CHECK(priority BETWEEN 0 AND 3),
@@ -132,7 +134,8 @@ CREATE TABLE jobs (
   attempt_counter INTEGER NOT NULL DEFAULT 0 CHECK(attempt_counter >= 0),
   job_fence INTEGER NOT NULL DEFAULT 0 CHECK(job_fence >= 0),
   UNIQUE(organization_id, execution_key),
-  FOREIGN KEY(workspace_id, organization_id) REFERENCES workspaces(id, organization_id)
+  FOREIGN KEY(workspace_id, organization_id) REFERENCES workspaces(id, organization_id),
+  FOREIGN KEY(organization_id, config_digest) REFERENCES config_releases(organization_id, digest)
 ) STRICT;
 CREATE INDEX jobs_ready ON jobs(state, ready_at_ms, priority, created_at_ms, id);
 CREATE INDEX jobs_workspace ON jobs(workspace_id, created_at_ms, id);

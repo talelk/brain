@@ -1,0 +1,68 @@
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import Database from "better-sqlite3";
+import { describe, expect, it } from "vitest";
+import { loadSchemaSql } from "../../apps/governor/src/infrastructure/persistence/open";
+
+// The live repair rebuilds the declared tables whose keys changed (releases
+// owned per organization) in place, keeping every row and index.
+const OLD_CONTROL_SQL = execFileSync("git", ["show", "2e6fe02:apps/governor/schema/control.sql"], { encoding: "utf8" });
+
+function repair(dataDir: string): string {
+  return execFileSync("npx", ["tsx", "scripts/repair-live-schema.ts"], { env: { ...process.env, BRAIN_DATA_DIR: dataDir }, encoding: "utf8" });
+}
+
+function indexes(db: Database.Database): string[] {
+  return (db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name IN ('config_releases','active_config','jobs') AND sql IS NOT NULL ORDER BY name").all() as Array<{ name: string }>).map((r) => r.name);
+}
+
+describe("live schema repair", () => {
+  it("rebuilds release-keyed tables in place, keeping rows, indexes and foreign keys", () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "brain-repair-"));
+    try {
+      const path = join(dataDir, "control.db");
+      const old = new Database(path);
+      old.exec(OLD_CONTROL_SQL);
+      old.prepare("INSERT INTO organizations(id, auth_organization_id) VALUES ('org-a','org-a')").run();
+      old.prepare("INSERT INTO workspaces(id, organization_id, slug, status) VALUES ('ws-a','org-a','a','active')").run();
+      old.prepare("INSERT INTO config_releases(digest, organization_id, source_revision, compiler_digest, manifest_json, created_at_ms) VALUES ('sha256:r1','org-a','rev','cmp','{}',1)").run();
+      old.prepare("INSERT INTO active_config(organization_id, release_digest, version) VALUES ('org-a','sha256:r1',3)").run();
+      old.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, created_at_ms, ready_at_ms, deadline_ms)
+        VALUES ('job-1','org-a','ws-a','run-1:s','run-1','s','queued','sha256:r1','{}','d','read',1,1,2)`).run();
+      const before = {
+        releases: old.prepare("SELECT * FROM config_releases").all(),
+        active: old.prepare("SELECT * FROM active_config").all(),
+        jobs: old.prepare("SELECT * FROM jobs").all(),
+      };
+      old.close();
+
+      const output = repair(dataDir);
+      expect(output).toMatch(/rebuilt table config_releases \(1 rows kept\)/);
+      expect(output).toMatch(/rebuilt table jobs \(1 rows kept\)/);
+
+      const db = new Database(path);
+      expect({
+        releases: db.prepare("SELECT * FROM config_releases").all(),
+        active: db.prepare("SELECT * FROM active_config").all(),
+        jobs: db.prepare("SELECT * FROM jobs").all(),
+      }).toEqual(before);
+      const pk = (db.prepare("PRAGMA table_info(config_releases)").all() as Array<{ name: string; pk: number }>).filter((c) => c.pk > 0).sort((a, b) => a.pk - b.pk).map((c) => c.name);
+      expect(pk).toEqual(["organization_id", "digest"]);
+      expect(db.prepare("PRAGMA foreign_key_check").all().filter((v) => ["config_releases", "active_config", "jobs"].includes((v as { table: string }).table))).toEqual([]);
+      const fresh = new Database(":memory:");
+      fresh.exec(loadSchemaSql("control.sql"));
+      expect(indexes(db)).toEqual(indexes(fresh));
+      // A second organization may now own the same release digest.
+      db.prepare("INSERT INTO organizations(id, auth_organization_id) VALUES ('org-b','org-b')").run();
+      db.prepare("INSERT INTO config_releases(digest, organization_id, source_revision, compiler_digest, manifest_json, created_at_ms) VALUES ('sha256:r1','org-b','rev','cmp','{}',2)").run();
+      db.close();
+      fresh.close();
+
+      expect(repair(dataDir)).not.toMatch(/rebuilt table/);
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+});

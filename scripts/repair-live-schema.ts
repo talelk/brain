@@ -9,14 +9,25 @@ import { loadSchemaSql, openDb, schemaDigest, type Db } from "../apps/governor/s
  * the single owner; when a database predates a schema-file change the digest
  * check refuses it. This script:
  *   1. creates every table the current schema file declares that the live
- *      database lacks (additive only — existing tables are never rewritten),
+ *      database lacks,
  *   2. verifies that the columns of every existing declared table match the
  *      file and refuses with a precise diff on structural divergence,
- *   3. realigns the stored schema digest so the current build accepts the
+ *   3. rebuilds the tables in REBUILDABLE whose definition (keys, foreign
+ *      keys, constraints) differs from the file, copying every row and
+ *      recreating their indexes, and rolls back if a foreign key check fails,
+ *   4. realigns the stored schema digest so the current build accepts the
  *      database.
- * Rows are never touched. Idempotent: exits 0 as a no-op when digests already
- * match. Run before initialize-local.ts on deploy.
+ * Apart from the declared rebuilds, which copy rows unchanged, existing
+ * tables and rows are never touched. Idempotent: a second run is a no-op.
+ * Run before initialize-local.ts on deploy.
  */
+
+/**
+ * Tables whose definition may change in place. Releases became owned per
+ * organization (primary key (organization_id, digest)); active_config and
+ * jobs reference them through that composite key. Parents come first.
+ */
+const REBUILDABLE = ["config_releases", "active_config", "jobs"];
 
 const dataDir = process.env["BRAIN_DATA_DIR"] ?? "/data";
 
@@ -77,9 +88,50 @@ function actualColumns(db: Db, table: string): string[] | undefined {
   return (db.prepare(`PRAGMA table_info("${table.replaceAll('"', '""')}")`).all() as Array<{ name: string }>).map((c) => c.name);
 }
 
-/** Creates missing tables, verifies existing ones, returns the digest to store. */
+const normalize = (text: string): string => text.replace(/\s+/gu, " ").replace(/\s*([(),])\s*/gu, "$1").trim();
+
+/** The body between the outer parentheses of the live CREATE TABLE statement. */
+function actualBody(db: Db, table: string): string {
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name=?").get(table) as { sql: string };
+  return row.sql.slice(row.sql.indexOf("(") + 1, row.sql.lastIndexOf(")"));
+}
+
+/** The schema file's CREATE INDEX statements for one table. */
+function indexStatements(sql: string, table: string): string[] {
+  return sql.split(";").map((s) => s.trim()).filter((s) => (s.startsWith("CREATE INDEX ") || s.startsWith("CREATE UNIQUE INDEX ")) && s.includes(` ON ${table}(`));
+}
+
+/** Rebuilds diverged REBUILDABLE tables from the file, keeping every row. */
+function rebuildTables(db: Db, sql: string, tables: DeclaredTable[], label: string): void {
+  // The pragma is a no-op inside a transaction, so it brackets it.
+  db.pragma("foreign_keys = OFF");
+  try {
+    db.transaction(() => {
+      for (const t of tables) {
+        const temp = `${t.name}__rebuild`;
+        const columns = t.columns.map((c) => `"${c}"`).join(",");
+        db.exec(`CREATE TABLE ${temp} (${t.body}) STRICT`);
+        db.exec(`INSERT INTO ${temp}(${columns}) SELECT ${columns} FROM ${t.name}`);
+        db.exec(`DROP TABLE ${t.name}`);
+        db.exec(`ALTER TABLE ${temp} RENAME TO ${t.name}`);
+        for (const statement of indexStatements(sql, t.name)) db.exec(statement);
+        const kept = (db.prepare(`SELECT COUNT(*) AS n FROM ${t.name}`).get() as { n: number }).n;
+        console.log(`  ${label}: rebuilt table ${t.name} (${kept} rows kept)`);
+      }
+      for (const t of tables) {
+        const violations = db.prepare(`PRAGMA foreign_key_check(${t.name})`).all();
+        if (violations.length) throw new Error(`${label}: rebuilt table ${t.name} has ${violations.length} foreign key violations; rolled back`);
+      }
+    })();
+  } finally {
+    db.pragma("foreign_keys = ON");
+  }
+}
+
+/** Creates missing tables, verifies existing ones, rebuilds declared ones, returns the digest to store. */
 function repairNamespace(db: Db, sql: string, label: string): string {
   const declared = parseTables(sql);
+  const rebuild: DeclaredTable[] = [];
   for (const t of declared) {
     const actual = actualColumns(db, t.name);
     if (!actual) {
@@ -91,8 +143,10 @@ function repairNamespace(db: Db, sql: string, label: string): string {
       if (missing.length || extra.length) {
         throw new Error(`${label}: table ${t.name} diverges from the schema file (missing: ${missing.join(",") || "-"}; extra: ${extra.join(",") || "-"}); refusing to realign`);
       }
+      if (REBUILDABLE.includes(t.name) && normalize(actualBody(db, t.name)) !== normalize(t.body)) rebuild.push(t);
     }
   }
+  if (rebuild.length) rebuildTables(db, sql, rebuild.sort((a, b) => REBUILDABLE.indexOf(a.name) - REBUILDABLE.indexOf(b.name)), label);
   return schemaDigest(sql);
 }
 
