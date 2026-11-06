@@ -1,6 +1,7 @@
 import { domainDigest } from "@brain/contracts";
 import type { JsonValue } from "@brain/contracts";
 import type { Store } from "../../application/store";
+import { organizationsWithActiveRelease } from "../configuration/index";
 import { cronFireId, dueCronFires, parseCron } from "../workflows/index";
 
 /**
@@ -22,8 +23,7 @@ export function runScheduledDispatch(
   let dispatched = 0;
   let skipped = 0;
   const now = s.now();
-  const orgs = s.control.prepare("SELECT organization_id FROM active_config").all() as Array<{ organization_id: string }>;
-  for (const { organization_id: organizationId } of orgs) {
+  for (const organizationId of organizationsWithActiveRelease(s)) {
     const rel = deps.activeRelease(organizationId);
     if (!rel) continue;
     let parsed: { documents?: Array<Record<string, unknown>> };

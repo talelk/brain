@@ -12,7 +12,7 @@ export interface ActiveRelease {
 /** The single source of the organization's active-release pointer. */
 export function activeRelease(store: Store, organizationId: string): ActiveRelease | undefined {
   return store.control.prepare(
-    "SELECT r.digest AS digest, r.manifest_json AS manifest FROM active_config a JOIN config_releases r ON r.digest=a.release_digest WHERE a.organization_id=?",
+    "SELECT r.digest AS digest, r.manifest_json AS manifest FROM active_config a JOIN config_releases r ON r.organization_id=a.organization_id AND r.digest=a.release_digest WHERE a.organization_id=?",
   ).get(organizationId) as ActiveRelease | undefined;
 }
 

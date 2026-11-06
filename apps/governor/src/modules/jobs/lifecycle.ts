@@ -1,5 +1,6 @@
-import type { Agent, JsonValue, Placement } from "@brain/contracts";
+import type { JsonValue, Placement } from "@brain/contracts";
 import type { Store } from "../../application/store";
+import { releaseRecord } from "../configuration/index";
 import { BrainDomainError } from "../../domain/errors";
 import { bulkTransition, transitionState } from "../../domain/states";
 import { releaseReservation } from "./attempts";
@@ -29,8 +30,7 @@ const ACTIVE_STATES = ["queued", "offered", "running", "verifying", "blocked", "
 function agentPlacement(s: Store, input: CreateJobInput): string {
   const step = (input.payload as { step?: { uses?: { type: string; release: { id: string } } } }).step;
   if (step?.uses?.type !== "agent") return input.placementJson;
-  const release = s.control.prepare("SELECT manifest_json FROM config_releases WHERE digest=? AND organization_id=?").get(input.configDigest, input.organizationId) as { manifest_json: string };
-  const agent = (JSON.parse(release.manifest_json) as { agents: Record<string, Agent> }).agents[step.uses.release.id];
+  const agent = releaseRecord(s, input.organizationId, input.configDigest)?.release.agents?.[step.uses.release.id];
   if (!agent) throw new BrainDomainError("INVALID_CONTRACT", "agent is absent from pinned release");
   const placement = JSON.parse(input.placementJson) as Placement;
   const anyOf = placement.engine ? agent.spec.engine.anyOf.filter((id) => placement.engine!.anyOf.includes(id)) : agent.spec.engine.anyOf;

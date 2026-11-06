@@ -1,6 +1,7 @@
 import type { CommandHandlers } from "./command-funnel";
 import { handlersFor } from "./command-funnel";
 import type { Store } from "./store";
+import { activeReleaseRecord } from "../modules/configuration/index";
 import { BrainDomainError } from "../domain/errors";
 import { assertExpectedVersion } from "../domain/states";
 import type { BrainAuth } from "../modules/identity/index";
@@ -70,7 +71,7 @@ export function workspaceAdminCommands(store: Store, auth: BrainAuth, jobs: Pick
         assertExpectedVersion(workspace.version, cmd.expectedVersion);
         if (action === "resume") {
           if (workspace.status !== "suspended") throw new BrainDomainError("CONFLICT", "only a suspended workspace can resume");
-          if (!s.control.prepare("SELECT 1 FROM active_config WHERE organization_id=?").get(actor.organizationId)) throw new BrainDomainError("CONFLICT", "an active configuration release is required before resume");
+          if (!activeReleaseRecord(s, actor.organizationId)) throw new BrainDomainError("CONFLICT", "an active configuration release is required before resume");
           if (jobs.workspaceJobLoad(workspaceId).unresolved > 0) throw new BrainDomainError("CONFLICT", "reconcile unknown outcomes before resuming the workspace");
         } else if (action === "suspend") {
           if (workspace.status !== "active") throw new BrainDomainError("CONFLICT", "only an active workspace can suspend");

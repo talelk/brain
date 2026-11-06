@@ -4,6 +4,7 @@ import type {
   KnowledgeAsset, ReleaseRef, ToolCatalogEntry,
 } from "@brain/contracts";
 import type { Store } from "../../application/store";
+import { activeReleaseRecord } from "../configuration/index";
 import { requireWorkspaceRead } from "../../application/authz";
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
@@ -283,11 +284,9 @@ export class CapitalizationService {
   }
 
   private activeTools(organizationId: string): ToolCatalogEntry[] {
-    const row = this.store.control.prepare(`SELECT r.manifest_json,r.digest FROM active_config a JOIN config_releases r ON r.digest=a.release_digest
-      WHERE a.organization_id=?`).get(organizationId) as { manifest_json: string; digest: string } | undefined;
-    if (!row) return [];
-    const stored = JSON.parse(row.manifest_json) as { manifest?: { tools?: Array<{ id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string }> } };
-    return (stored.manifest?.tools ?? []).map((tool) => ({
+    const active = activeReleaseRecord(this.store, organizationId);
+    if (!active) return [];
+    return (active.release.manifest.tools ?? []).map((tool) => ({
       id: tool.id, release: { id: tool.id, digest: tool.digest }, status: "trusted", effectClass: tool.effectClass,
       inputSchemaRef: tool.inputSchemaRef, outputSchemaRef: tool.outputSchemaRef, evidence: [], createdAt: this.store.nowIso(),
     }));

@@ -183,7 +183,7 @@ export async function createBackup(dataDir: string, outDir: string): Promise<Loc
             let primitiveVersions = 0;
             const releaseDigest = activeByOrg.get(o.id) ?? null;
             if (releaseDigest) {
-              const rel = control.prepare("SELECT manifest_json FROM config_releases WHERE digest=?").get(releaseDigest) as { manifest_json: string } | undefined;
+              const rel = control.prepare("SELECT manifest_json FROM config_releases WHERE organization_id=? AND digest=?").get(o.id, releaseDigest) as { manifest_json: string } | undefined;
               try {
                 const parsed = JSON.parse(rel?.manifest_json ?? "{}") as { manifest?: { primitiveVersions?: Record<string, string> } };
                 primitiveVersions = Object.keys(parsed.manifest?.primitiveVersions ?? {}).length;

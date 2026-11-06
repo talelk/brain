@@ -1,6 +1,7 @@
 import { localModelConfigured, localModelTestedAt, localRunnerSettingsCurrent } from "./local-runtime";
 import type { ActorContext, Agent, OperationalReadiness, Workflow } from "@brain/contracts";
 import type { Store } from "../../application/store";
+import { activeReleaseRecord } from "../configuration/index";
 import { requireWorkspaceRead } from "../../application/authz";
 import { runnerView } from "../jobs/index";
 import { evaluateRunner } from "../../domain/placement";
@@ -10,9 +11,9 @@ export function operationalReadiness(s: Store, actor: ActorContext, workspaceId:
   const checks: OperationalReadiness["checks"][number][] = [];
   const modelConfigured = localModelConfigured(s, actor.organizationId);
   if (modelConfigured !== null) checks.push({ id: "model", action: "model", status: modelConfigured ? "ready" : "missing", detail: modelConfigured ? "Local model connection configured" : "Connect a model to run the starter tasks", nextAction: "Open Administration → Setup" });
-  const row = s.control.prepare("SELECT r.digest,r.manifest_json FROM active_config a JOIN config_releases r ON r.digest=a.release_digest WHERE a.organization_id=?").get(actor.organizationId) as { digest: string; manifest_json: string } | undefined;
+  const row = activeReleaseRecord(s, actor.organizationId);
   checks.push({ id: "release", action: "release", status: row ? "ready" : "missing", detail: row?.digest ?? "No active configuration release", nextAction: row ? "Inspect Agents and Workflows" : "Compile, inspect, and activate examples/v1/starter-release" });
-  const release = row ? JSON.parse(row.manifest_json) as { agents: Record<string, Agent>; workflows: Record<string, Workflow> } : { agents: {}, workflows: {} };
+  const release = { agents: row?.release.agents ?? {} as Record<string, Agent>, workflows: row?.release.workflows ?? {} as Record<string, Workflow> };
   const runners = (s.control.prepare("SELECT id FROM runners WHERE organization_id=?").all(actor.organizationId) as { id: string }[]).map(({ id }) => runnerView(s,id)).filter((view) => view !== undefined).filter((view) => localRunnerSettingsCurrent(s, actor.organizationId, view.id));
   for (const [id, workflow] of Object.entries(release.workflows)) {
     const missing: string[] = [];

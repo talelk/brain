@@ -6,7 +6,7 @@ import type { EvaluationAssignment, EvidenceBundle, JsonValue, Workflow } from "
 import { domainDigest } from "@brain/contracts";
 import { BrainDomainError } from "../../../domain/errors";
 import { bulkTransition, transitionState } from "../../../domain/states";
-import { compileWorkflowGraph, resolveBinding } from "../../configuration/index";
+import { compileWorkflowGraph, releaseRecord, resolveBinding } from "../../configuration/index";
 import type { Store } from "../../../application/store";
 import type { Db } from "../../../infrastructure/persistence/open";
 import type { WorkflowEnginePort, WorkflowHost } from "../engine-port";
@@ -109,9 +109,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
   }
 
   private validatePayload(organizationId: string, configDigest: string, ref: string, value: JsonValue): void {
-    const row = this.store.control.prepare("SELECT manifest_json FROM config_releases WHERE digest=? AND organization_id=?").get(configDigest, organizationId) as { manifest_json: string } | undefined;
-    const schemas = row ? (JSON.parse(row.manifest_json) as { schemas?: Record<string, JsonValue> }).schemas : undefined;
-    const schema = schemas?.[ref];
+    const schema = releaseRecord(this.store, organizationId, configDigest)?.release.schemas?.[ref];
     if (!schema) return;
     const result = payloadValidator(schema as object)(value);
     if (!result.ok) throw new BrainDomainError("INVALID_ARGUMENT", `${ref}: ${result.errors.join("; ")}`);

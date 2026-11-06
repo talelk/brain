@@ -4,6 +4,7 @@ import { domainDigest } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
+import { activeReleaseRecord } from "../configuration/index";
 import { drainSessionControls, type LiveAttempt, type SessionControlDelivery } from "../sessions/index";
 
 /**
@@ -12,8 +13,7 @@ import { drainSessionControls, type LiveAttempt, type SessionControlDelivery } f
  */
 export function issueEnrollment(s: Store, actor: { scopes: readonly string[]; actorId: string; organizationId: string }, groupId: string): { token: string; expiresAt: string } {
   if (!actor.scopes.includes("runner:admin")) throw new BrainDomainError("FORBIDDEN", "runner enrollment requires runner:admin");
-  const release = s.control.prepare("SELECT r.manifest_json FROM active_config a JOIN config_releases r ON r.digest=a.release_digest WHERE a.organization_id=?").get(actor.organizationId) as { manifest_json: string } | undefined;
-  const documents = release ? (JSON.parse(release.manifest_json) as { manifest?: { documents?: Array<{ kind?: string; id?: string }> } }).manifest?.documents ?? [] : [];
+  const documents = activeReleaseRecord(s, actor.organizationId)?.release.manifest.documents ?? [];
   if (!documents.some((document) => document.kind === "RunnerGroup" && document.id === groupId)) throw new BrainDomainError("NOT_FOUND", `runner group ${groupId} is not declared in the active release`);
   const token = randomBytes(32).toString("base64url");
   const expires = s.now() + 10 * 60_000;

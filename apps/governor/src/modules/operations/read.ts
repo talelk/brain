@@ -1,7 +1,7 @@
 import type { ActorContext, JsonValue } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import type { Store } from "../../application/store";
-import { activeRelease, assertCurrentManifestShape, uiFoundationFromRelease } from "../configuration/read";
+import { activeRelease, assertCurrentManifestShape, releaseRecord, uiFoundationFromRelease } from "../configuration/index";
 
 export interface MemoryProbe {
   status: "healthy" | "unavailable" | "disabled";
@@ -59,14 +59,14 @@ export function workspaceContext(store: Store, actor: ActorContext, workspaceId:
   const rel = activeRelease(store, actor.organizationId);
   if (!rel) throw new BrainDomainError("DEPENDENCY_UNAVAILABLE", "No active configuration release — stage and activate one in Settings to use this workspace.");
   assertCurrentManifestShape(rel);
-  const relRow = store.control.prepare("SELECT source_revision, compiler_digest FROM config_releases WHERE digest=? AND organization_id=?").get(rel.digest, actor.organizationId) as { source_revision: string; compiler_digest: string };
+  const relRow = releaseRecord(store, actor.organizationId, rel.digest)!;
   const summary = workspaceSummary(store, actor.organizationId, workspaceId);
   const m = (JSON.parse(rel.manifest) as { manifest?: Record<string, unknown> }).manifest ?? {};
   return {
     workspace: { ...summary, workspaceId, displayName: String(wsRow["slug"]), status: String(wsRow["status"]), version: Number(wsRow["version"]) },
     release: {
-      releaseId: `rel-${rel.digest.slice(7, 23)}`, sourceRevision: relRow.source_revision,
-      configDigest: rel.digest, compilerDigest: relRow.compiler_digest,
+      releaseId: `rel-${rel.digest.slice(7, 23)}`, sourceRevision: relRow.sourceRevision,
+      configDigest: rel.digest, compilerDigest: relRow.compilerDigest,
       irArtifact: m["irArtifact"] as JsonValue,
       assets: m["assets"] as JsonValue,
       primitiveVersions: m["primitiveVersions"] as JsonValue,

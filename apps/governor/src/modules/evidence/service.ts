@@ -7,6 +7,7 @@ import { validate } from "@brain/contracts/validate";
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
+import { releaseRecord } from "../configuration/index";
 
 export interface EvidenceRunner { runnerId: string; epoch: number; organizationId: string }
 interface Attempt {
@@ -16,10 +17,6 @@ interface Attempt {
   job_state: string; session_epoch: number; admin_state: string; group_id: string;
   effect_class: string;
 }
-interface PinnedRelease {
-  source_revision: string;
-  manifest_json: string;
-}
 export interface EvidenceHost {
   completeStep(organizationId: string, workspaceId: string, runId: string, stepId: string, output: JsonValue, ok: boolean): void;
   /** Concludes a job and attempt (jobs module); joins the caller's control transaction. */
@@ -27,8 +24,7 @@ export interface EvidenceHost {
 }
 
 export function pinnedEvaluator(s: Store, organizationId: string, configDigest: string, ref: { id: string; digest: string }): Evaluator {
-  const row = s.control.prepare("SELECT manifest_json FROM config_releases WHERE digest=? AND organization_id=?").get(configDigest, organizationId) as { manifest_json: string } | undefined;
-  const release = row ? JSON.parse(row.manifest_json) as { evaluators?: Record<string, Evaluator>; manifest: { documents: Array<{ kind: string; id: string; digest: string }> } } : undefined;
+  const release = releaseRecord(s, organizationId, configDigest)?.release;
   const evaluator = release?.evaluators?.[ref.id];
   const entry = release?.manifest.documents.find((d) => d.kind === "Evaluator" && d.id === ref.id && d.digest === ref.digest);
   if (!evaluator || !entry) throw new BrainDomainError("POLICY_DENIED", "evaluator is not pinned in the run's configuration release");
@@ -105,13 +101,13 @@ export class EvidenceService {
     if (author.state !== "verifying" || author.job_state !== "verifying" || !author.receipt_digest || author.cleanup_confirmed !== 1) throw new BrainDomainError("EVIDENCE_MISSING", "author receipt and confirmed cleanup must precede evidence");
     const ws = this.s.workspaceDb(bundle.workspaceId, bundle.organizationId);
     const run = ws.prepare("SELECT workflow_digest,state FROM workflow_runs WHERE id=?").get(bundle.workflowRunId) as { workflow_digest: string; state: string } | undefined;
-    const release = this.s.control.prepare("SELECT source_revision,manifest_json FROM config_releases WHERE digest=? AND organization_id=?").get(bundle.configDigest, bundle.organizationId) as PinnedRelease | undefined;
-    if (!run || !release || run.workflow_digest !== bundle.workflowDigest || release.source_revision !== bundle.sourceRevision || ["cancelled", "failed", "succeeded"].includes(run.state)) throw new BrainDomainError("EVIDENCE_MISSING", "bundle run, workflow or source revision is not current");
+    const release = releaseRecord(this.s, bundle.organizationId, bundle.configDigest);
+    if (!run || !release || run.workflow_digest !== bundle.workflowDigest || release.sourceRevision !== bundle.sourceRevision || ["cancelled", "failed", "succeeded"].includes(run.state)) throw new BrainDomainError("EVIDENCE_MISSING", "bundle run, workflow or source revision is not current");
     if (new Set(bundle.checks.map((c) => `${c.criterionId}\n${c.checkId}`)).size !== bundle.checks.length) throw new BrainDomainError("INVALID_CONTRACT", "duplicate evidence check");
     const payload=this.s.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(author.job_id) as {payload_json:string};
     const step=(JSON.parse(payload.payload_json) as {step:{uses?:{type?:string;release:{id:string;digest:string}}}}).step;
     const admitted = step.uses?.type === "agent"
-      ? [step.uses.release, ...(((JSON.parse(release.manifest_json) as { agents?: Record<string, { spec: { tools: { id: string; digest: string }[] } }> }).agents?.[step.uses.release.id]?.spec.tools) ?? [])]
+      ? [step.uses.release, ...(release.release.agents?.[step.uses.release.id]?.spec.tools ?? [])]
       : step.uses ? [step.uses.release] : [];
     if (step.uses && !bundle.toolReleases.every((actual) => admitted.some((tool) => same(actual, tool)))) throw new BrainDomainError("FORBIDDEN", "bundle tool release does not match the admitted execution");
     for (const effect of bundle.effects) {

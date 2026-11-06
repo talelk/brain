@@ -15,7 +15,7 @@ import { CommandFunnel } from "./command-funnel";
 import { workspaceAdminCommands } from "./workspace-admin";
 import { orgWorkspaces, textMatcher } from "./query";
 import { executeOrganizationQuery, isOrganizationQuery, organizationCommandHandlers } from "./organization-admin";
-import { activateRelease, compileRelease, configurationCommands, requireConfigurationAdmin, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
+import { activateRelease, activeReleaseAssets, activeSourceDocuments, activeWorkflow, configurationCommands, inspectRelease, listReleases, stageRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
 import { MastraWorkflowEngine, workflowCommands, type WorkflowEnginePort } from "../modules/workflows/index";
 import { knowledgeCommands, MemoryStore, TencentDbClient } from "../modules/knowledge/index";
 import { admitApprovalDecision, governanceCommands, StepUpService } from "../modules/governance/index";
@@ -85,18 +85,8 @@ export class Brain {
       this.documents = new DocumentService(this.store);
       this.integrations = new IntegrationService(this.store);
       this.drafts = new ConfigurationDraftService(this.store, {
-        activeDocuments: (organizationId) => {
-          const row = this.store.control.prepare("SELECT r.source_documents_json FROM active_config a JOIN config_releases r ON r.digest=a.release_digest WHERE a.organization_id=?").get(organizationId) as { source_documents_json: string } | undefined;
-          return row ? JSON.parse(row.source_documents_json) as import("../modules/configuration/compiler").SourceDoc[] : [];
-        },
-        activeAssets: (organizationId) => {
-          const row = this.store.control.prepare("SELECT r.digest,r.manifest_json FROM active_config a JOIN config_releases r ON r.digest=a.release_digest WHERE a.organization_id=?").get(organizationId) as { digest: string; manifest_json: string } | undefined;
-          if (!row) return [];
-          const stored = JSON.parse(row.manifest_json) as { schemas?: Record<string, unknown> };
-          const schemas = Object.entries(stored.schemas ?? {}).map(([path, schema]) => ({ path, text: `${JSON.stringify(schema, null, 2)}\n` }));
-          const files = this.store.control.prepare("SELECT entrypoint,digest FROM release_files WHERE release_digest=?").all(row.digest) as Array<{ entrypoint: string; digest: string }>;
-          return [...schemas, ...files.map((file) => ({ path: file.entrypoint, text: readFileSync(this.casPath(file.digest), "utf8") }))];
-        },
+        activeDocuments: (organizationId) => activeSourceDocuments(this.store, organizationId),
+        activeAssets: (organizationId) => activeReleaseAssets(this.store, organizationId),
         publishConfiguration: (actor, bindingId, documents, message) => this.integrations.publishConfiguration(actor, bindingId, documents, message),
         stageRelease: (actor, documents, assets, sourceRevision) => this.stageRelease(actor, documents, sourceRevision, assets.scripts, assets.instructions, assets.schemas),
       });
@@ -106,7 +96,7 @@ export class Brain {
         evaluatorEligible: (runnerId, jobId) => this.evidence.evaluatorEligible(runnerId, jobId),
         runnerCurrent: (organizationId, runnerId) => localRunnerSettingsCurrent(this.store, organizationId, runnerId),
         activeRelease: (organizationId) => this.activeRelease(organizationId),
-        resolveWorkflow: (organizationId, workflowId) => this.workflowFromRelease(organizationId, workflowId),
+        resolveWorkflow: (organizationId, workflowId) => this.loadWorkflow(organizationId, workflowId),
         startRun: (input) => this.workflows.startRun(input as Parameters<WorkflowEnginePort["startRun"]>[0]),
       });
       this.capitalization = new CapitalizationService(this.store);
@@ -126,7 +116,7 @@ export class Brain {
         governanceCommands(this.store, { auth: this.auth }),
         workflowCommands(this.store, {
           engine: this.workflows,
-          loadWorkflow: (organizationId, workflowId) => this.workflowFromRelease(organizationId, workflowId),
+          loadWorkflow: (organizationId, workflowId) => this.loadWorkflow(organizationId, workflowId),
           sessionWorkItem: (actor, workspaceId, sessionId) => this.sessions.workItemForDispatch(actor, workspaceId, sessionId),
           linkExecution: (actor, workspaceId, workItemId, runId) => this.work.linkExecution(actor, workspaceId, workItemId, runId),
           attachSessionRun: (actor, workspaceId, sessionId, runId) => this.sessions.attachRun(actor, workspaceId, sessionId, runId),
@@ -209,56 +199,7 @@ export class Brain {
 
   // --- config releases ---
   stageRelease(actor: ActorContext, docs: readonly SourceDoc[], sourceRevision: string, scripts?: readonly ToolScript[], instructions: readonly AgentInstruction[] = [], schemas: readonly SourceDoc[] = []): { digest: string } {
-    requireConfigurationAdmin(this.store, actor);
-    const request = validate("ReleaseStageRequest",{ documents: docs, sourceRevision, scripts, instructions, schemas });
-    if (!request.ok) throw new BrainDomainError("INVALID_CONTRACT",request.errors.join("; "));
-    if (!/^(sha1:[0-9a-f]{40}|sha256:[0-9a-f]{64})$/u.test(sourceRevision)) {
-      throw new BrainDomainError("INVALID_CONTRACT", "sourceRevision must be sha1:<40 hex> or sha256:<64 hex>");
-    }
-    if (scripts && scripts.length > 64) throw new BrainDomainError("PAYLOAD_TOO_LARGE", "too many tool scripts");
-    if (instructions.length > 100) throw new BrainDomainError("PAYLOAD_TOO_LARGE", "too many agent instruction assets");
-    for (const script of scripts ?? []) {
-      if (!/^[A-Za-z0-9._-]+$/u.test(script.entrypoint) || !/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u.test(script.toolId)) {
-        throw new BrainDomainError("INVALID_CONTRACT", "tool script toolId/entrypoint malformed");
-      }
-      if (Buffer.from(script.bytesBase64, "base64").length > 1024 * 1024) {
-        throw new BrainDomainError("PAYLOAD_TOO_LARGE", "tool script exceeds 1 MiB");
-      }
-    }
-    for (const instruction of instructions) {
-      const bytes = Buffer.byteLength(instruction.text, "utf8");
-      if (!/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u.test(instruction.agentId) || !/^[A-Za-z0-9][A-Za-z0-9/_-]*\.md$/u.test(instruction.path) || instruction.path.includes("..")) {
-        throw new BrainDomainError("INVALID_CONTRACT", "agent instruction agentId/path malformed");
-      }
-      if (bytes > 256 * 1024) throw new BrainDomainError("PAYLOAD_TOO_LARGE", "agent instructions exceed 256 KiB");
-    }
-    const compiled = compileRelease(docs, sourceRevision, scripts, instructions, schemas);
-    const s = this.store;
-    s.inTx(s.control, () => {
-      const compilerDigest = (compiled.manifest as { compilerDigest?: string }).compilerDigest ?? compiled.digest;
-      s.control.prepare("INSERT OR IGNORE INTO config_releases(digest, organization_id, source_revision, compiler_digest, source_documents_json, manifest_json, created_at_ms) VALUES (?,?,?,?,?,?,?)")
-        .run(compiled.digest, actor.organizationId, sourceRevision, compilerDigest, JSON.stringify(docs), JSON.stringify({ manifest: compiled.manifest, workflows: compiled.workflows, agents: compiled.agents, evaluators: compiled.evaluators, tools: compiled.tools, schemas: compiled.schemas }), s.now());
-      for (const script of scripts ?? []) {
-        const bytes = new Uint8Array(Buffer.from(script.bytesBase64, "base64"));
-        const digest = sha256Digest(bytes);
-        const path = this.casPath(digest);
-        mkdirSync(join(path, ".."), { recursive: true });
-        if (!existsSync(path)) writeFileSync(path, bytes);
-        s.control.prepare("INSERT OR REPLACE INTO release_files(release_digest, tool_id, entrypoint, digest, bytes, created_at_ms) VALUES (?,?,?,?,?,?)")
-          .run(compiled.digest, script.toolId, script.entrypoint, digest, bytes.length, s.now());
-      }
-      for (const instruction of instructions) {
-        const bytes = new TextEncoder().encode(instruction.text);
-        const digest = sha256Digest(bytes);
-        const path = this.casPath(digest);
-        mkdirSync(join(path, ".."), { recursive: true });
-        if (!existsSync(path)) writeFileSync(path, bytes);
-        s.control.prepare("INSERT OR REPLACE INTO release_files(release_digest, tool_id, entrypoint, digest, bytes, created_at_ms) VALUES (?,?,?,?,?,?)")
-          .run(compiled.digest, `agent:${instruction.agentId}`, instruction.path, digest, bytes.length, s.now());
-      }
-      s.emit(s.control, { organizationId: actor.organizationId, aggregateType: "config", aggregateId: compiled.digest, eventType: "config.compiled", payload: { digest: compiled.digest } });
-    });
-    return { digest: compiled.digest };
+    return stageRelease(this.store, actor, docs, sourceRevision, scripts, instructions, schemas);
   }
 
   listVerifiedEvidence(actor: ActorContext, workspaceId: string): JsonValue {
@@ -271,24 +212,11 @@ export class Brain {
   }
 
   listReleases(actor: ActorContext): JsonValue {
-    requireConfigurationAdmin(this.store, actor);
-    const active = this.activeRelease(actor.organizationId);
-    const rows = this.store.control.prepare("SELECT digest,source_revision,manifest_json,created_at_ms FROM config_releases WHERE organization_id=? ORDER BY created_at_ms DESC LIMIT 50").all(actor.organizationId) as Array<{ digest: string; source_revision: string; manifest_json: string; created_at_ms: number }>;
-    return { items: rows.map((row) => {
-      const stored = JSON.parse(row.manifest_json) as { manifest?: { documents?: Array<{ kind: string }> } };
-      const documents = stored.manifest?.documents ?? [];
-      return { digest: row.digest, sourceRevision: row.source_revision, createdAt: iso(row.created_at_ms), active: row.digest === active?.digest,
-        agents: documents.filter((doc) => doc.kind === "Agent").length, workflows: documents.filter((doc) => doc.kind === "Workflow").length,
-        assets: documents.filter((doc) => doc.kind !== "Agent" && doc.kind !== "Workflow").length };
-    }) } as JsonValue;
+    return listReleases(this.store, actor);
   }
 
   inspectRelease(actor: ActorContext, digest: string): JsonValue {
-    requireConfigurationAdmin(this.store, actor);
-    const row = this.store.control.prepare("SELECT digest,source_revision,manifest_json FROM config_releases WHERE digest=? AND organization_id=?").get(digest, actor.organizationId) as { digest: string; source_revision: string; manifest_json: string } | undefined;
-    if (!row) throw new BrainDomainError("NOT_FOUND", "config release not found");
-    const active = this.activeRelease(actor.organizationId);
-    return { digest: row.digest, sourceRevision: row.source_revision, expectedActiveDigest: active?.digest ?? null, ...JSON.parse(row.manifest_json) } as JsonValue;
+    return inspectRelease(this.store, actor, digest);
   }
 
   activateRelease(actor: ActorContext, digest: string, expectedActiveDigest?: string | null): void {
@@ -299,17 +227,8 @@ export class Brain {
     return configActiveRelease(this.store, organizationId);
   }
 
-  workflowFromRelease(organizationId: string, workflowId: string): { workflow: import("@brain/contracts").Workflow; configDigest: string } {
-    const rel = this.activeRelease(organizationId);
-    if (!rel) throw new BrainDomainError("DEPENDENCY_UNAVAILABLE", "no active config release");
-    const parsed = JSON.parse(rel.manifest) as { workflows?: Record<string, import("@brain/contracts").Workflow> };
-    const wf = parsed.workflows?.[workflowId];
-    if (!wf) throw new BrainDomainError("NOT_FOUND", `workflow ${workflowId} not in active release`);
-    return { workflow: wf, configDigest: rel.digest };
-  }
-
   loadWorkflow(organizationId: string, workflowId: string): { workflow: import("@brain/contracts").Workflow; configDigest: string } {
-    return this.workflowFromRelease(organizationId, workflowId);
+    return activeWorkflow(this.store, organizationId, workflowId);
   }
 
   steerSession(input: { organizationId: string; workspaceId: string; sessionId: string; message: string }): void {
