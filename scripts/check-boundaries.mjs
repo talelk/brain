@@ -71,13 +71,16 @@ for (const { dir, name } of roots) {
           }
         }
       }
-      // Single writer: only the jobs module writes jobs and job attempts.
-      if (rel.includes("src/") && !rel.includes("/modules/jobs/") && !rel.includes("/infrastructure/persistence/")) {
-        const tableWrite = /(?:INTO|UPDATE|DELETE FROM)\s+(jobs|job_attempts|job_payloads|job_outputs)\b/g;
-        const stateWrite = /(?:transitionState|bulkTransition)\([\w.]+,\s*["'](job|attempt)["']/g;
-        for (const [re, what] of [[tableWrite, (m) => m[1]], [stateWrite, (m) => `${m[1]} state`]]) {
+      // Single writers: each table group has one owning module.
+      const owners = [
+        { module: "jobs", tables: /(?:INTO|UPDATE|DELETE FROM)\s+(jobs|job_attempts|job_payloads|job_outputs)\b/g, machines: /(?:transitionState|bulkTransition)\([\w.]+,\s*["'](job|attempt)["']/g },
+        { module: "sessions", tables: /(?:INTO|UPDATE|DELETE FROM)\s+(sessions|session_controls)\b/g, machines: /(?:transitionState|bulkTransition)\([\w.]+,\s*["'](session)["']/g },
+      ];
+      for (const owner of owners) {
+        if (!rel.includes("src/") || rel.includes(`/modules/${owner.module}/`) || rel.includes("/infrastructure/persistence/")) continue;
+        for (const [re, what] of [[owner.tables, (m) => m[1]], [owner.machines, (m) => `${m[1]} state`]]) {
           let w;
-          while ((w = re.exec(text)) !== null) failures.push(`${rel}: only modules/jobs writes ${what(w)}`);
+          while ((w = re.exec(text)) !== null) failures.push(`${rel}: only modules/${owner.module} writes ${what(w)}`);
         }
       }
       // Pure domain: no IO/vendor

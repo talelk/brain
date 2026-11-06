@@ -332,19 +332,28 @@ export class SessionService {
   }
 }
 
+/**
+ * Binds a running attempt to its session. A managed session dispatched for
+ * the attempt's run binds to it; otherwise a native session is opened for the
+ * job.
+ */
 export function recordAttemptSession(store: Store, input: {
   organizationId: string; workspaceId: string; jobId: string; attemptId: string;
-  engineId: string; adapterDigest: string; features?: readonly string[]; sessionId?: string;
+  engineId: string; adapterDigest: string; features?: readonly string[]; runId?: string;
 }): void {
   const db = store.workspaceDb(input.workspaceId, input.organizationId);
   const now = store.now();
   const features = JSON.stringify(input.features ?? []);
-  if (input.sessionId) {
+  const link = input.runId
+    ? db.prepare("SELECT session_id FROM execution_links WHERE run_id=? AND session_id IS NOT NULL ORDER BY created_at_ms DESC LIMIT 1").get(input.runId) as { session_id: string } | undefined
+    : undefined;
+  const sessionId = link?.session_id;
+  if (sessionId) {
     const updated = db.prepare(`UPDATE sessions SET job_id=?,attempt_id=?,engine_id=?,adapter_digest=?,engine_features=?,state='running',version=version+1,updated_at_ms=?
       WHERE id=? AND mode='managed' AND job_id IS NULL AND state IN ('waiting','starting')`)
-      .run(input.jobId, input.attemptId, input.engineId, input.adapterDigest, features, now, input.sessionId);
+      .run(input.jobId, input.attemptId, input.engineId, input.adapterDigest, features, now, sessionId);
     if (updated.changes !== 1) throw new BrainDomainError("CONFLICT", "managed session cannot bind this attempt");
-    db.prepare("UPDATE execution_links SET job_id=?,attempt_id=? WHERE session_id=?").run(input.jobId, input.attemptId, input.sessionId);
+    db.prepare("UPDATE execution_links SET job_id=?,attempt_id=? WHERE session_id=?").run(input.jobId, input.attemptId, sessionId);
     return;
   }
   const id = `ses-${input.jobId}`;
@@ -352,6 +361,31 @@ export function recordAttemptSession(store: Store, input: {
     VALUES (?,?,?,'native','',?, ?,?,?,'running',?,?,?, ?,?)
     ON CONFLICT(id) DO UPDATE SET attempt_id=excluded.attempt_id,engine_id=excluded.engine_id,adapter_digest=excluded.adapter_digest,engine_features=excluded.engine_features,state='running',updated_at_ms=excluded.updated_at_ms`)
     .run(id, input.jobId, input.attemptId, `job ${input.jobId}`, input.engineId, input.adapterDigest, features, id, `read-only:${input.workspaceId}`, "runner", now, now);
+}
+
+/**
+ * Advances the session view of an attempt after an event batch: the event
+ * cursor (so the live feed resumes at the authoritative sequence), running
+ * unless already ended, and the engine the runner reports.
+ */
+export function recordAttemptProgress(store: Store, input: {
+  organizationId: string; workspaceId: string; attemptId: string; lastSequence: number;
+  engine?: { id: string; adapterDigest?: string | undefined; features: readonly string[] } | undefined;
+}): void {
+  const db = store.workspaceDb(input.workspaceId, input.organizationId);
+  const now = store.now();
+  db.prepare("UPDATE sessions SET event_sequence=MAX(event_sequence,?), state=CASE WHEN state IN ('stopped','failed') THEN state ELSE 'running' END, updated_at_ms=? WHERE attempt_id=?").run(input.lastSequence, now, input.attemptId);
+  if (input.engine) {
+    const features = JSON.stringify(input.engine.features);
+    db.prepare("UPDATE sessions SET engine_id=?, adapter_digest=?, engine_features=CASE WHEN ?='[]' THEN engine_features ELSE ? END, updated_at_ms=? WHERE attempt_id=?")
+      .run(input.engine.id, input.engine.adapterDigest ?? `sha256:${"0".repeat(64)}`, features, features, now, input.attemptId);
+  }
+}
+
+/** Ends the session of a completed attempt: failed when the job failed, stopped otherwise. */
+export function endAttemptSession(store: Store, input: { organizationId: string; workspaceId: string; attemptId: string; failed: boolean }): void {
+  store.workspaceDb(input.workspaceId, input.organizationId)
+    .prepare("UPDATE sessions SET state=?, updated_at_ms=? WHERE attempt_id=?").run(input.failed ? "failed" : "stopped", store.now(), input.attemptId);
 }
 
 /** Engine feature advertisement persisted by the runner's event batches. */

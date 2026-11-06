@@ -78,11 +78,14 @@ describe("bounded cross-agent delegation and independent review (T53, E106)", ()
 
   it("requires an independent reviewer and a verdict from a different attempt", async () => {
     const w = world();
-    const parentId = await parent(w, await workItem(w));
+    const workItemId = await workItem(w);
+    const parentId = await parent(w, workItemId);
     const delegationId = (await run(w, "session.delegate", "review-child", childInput(parentId, "review"))).resourceId!;
     const childId = (await delegation(w, delegationId)).childSessionId;
-    recordAttemptSession(w.brain.store, { organizationId: w.org, workspaceId: w.workspaceId, jobId: "child-job", attemptId: "child-attempt", engineId: "claude", adapterDigest: DIGEST_A, sessionId: childId });
     const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    // The child session was dispatched for run child-run; its attempt binds through that link.
+    db.prepare("INSERT INTO execution_links(work_item_id,run_id,session_id,created_at_ms) VALUES (?,?,?,?)").run(workItemId, "child-run", childId, w.brain.store.now());
+    recordAttemptSession(w.brain.store, { organizationId: w.org, workspaceId: w.workspaceId, jobId: "child-job", attemptId: "child-attempt", engineId: "claude", adapterDigest: DIGEST_A, runId: "child-run" });
     db.prepare("INSERT INTO evidence_bundles(digest,bundle_id,job_id,attempt_id,state,manifest_json,created_at_ms) VALUES (?,'child-bundle','child-job','child-attempt','verified','{}',?)").run(DIGEST_A, w.brain.store.now());
     db.prepare("INSERT INTO verification_verdicts(id,bundle_digest,evaluator_attempt_id,evaluator_digest,outcome,manifest_json,created_at_ms) VALUES ('child-verdict',?,'evaluator-attempt',?,'verified','{}',?)").run(DIGEST_A, DIGEST_A, w.brain.store.now());
 

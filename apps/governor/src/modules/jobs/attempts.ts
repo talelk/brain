@@ -4,7 +4,7 @@ import type { JsonValue } from "@brain/contracts";
 import { domainDigest, sha256Digest } from "@brain/contracts";
 import { releaseToolPins } from "../configuration/index";
 import { authorEvidenceFor, toolReleasesForPayload } from "../evidence/index";
-import { recordAttemptSession } from "../sessions/index";
+import { endAttemptSession, recordAttemptProgress, recordAttemptSession } from "../sessions/index";
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
 import { evaluateRunner, type RunnerView } from "../../domain/placement";
@@ -233,15 +233,11 @@ export function ackAttempt(s: Store, runner: { runnerId: string; epoch: number }
     transitionState(s.control, "job", String(row["job_id"]), "running", { bumpVersion: true });
     {
       const engine = body["engine"] as { id?: string; adapterDigest?: string; features?: unknown } | undefined;
-      const ws = s.workspaceDb(String(row["workspace_id"]), String(row["organization_id"]));
-      const link = ws.prepare("SELECT session_id FROM execution_links WHERE run_id=? AND session_id IS NOT NULL ORDER BY created_at_ms DESC LIMIT 1").get(String(row["workflow_run_id"])) as { session_id: string | null } | undefined;
-      const sessionId = link?.session_id ?? undefined;
       recordAttemptSession(s, {
         organizationId: String(row["organization_id"]), workspaceId: String(row["workspace_id"]),
         jobId: String(row["job_id"]), attemptId,
         engineId: String(engine?.id ?? "unknown"), adapterDigest: String(engine?.adapterDigest ?? `sha256:${"0".repeat(64)}`),
-        features: engineFeaturesFromBody(engine),
-        ...(sessionId ? { sessionId } : {}),
+        features: engineFeaturesFromBody(engine), runId: String(row["workflow_run_id"]),
       });
     }
     result = { attemptId, leaseId: String(row["lease_id"]), jobFence: Number(row["job_fence"]), leaseExpiresAt: iso(expires) } as unknown as JsonValue;
@@ -290,14 +286,13 @@ export function attemptEvents(s: Store, runner: { runnerId: string; epoch: numbe
     s.control.prepare("UPDATE job_attempts SET last_event_seq=? WHERE id=?").run(lastSeq, attemptId);
     // Keep the session view's cursor current so the live feed resumes at the
     // authoritative sequence instead of replaying the whole transcript.
-    const ws = s.workspaceDb(String(row["workspace_id"]), String(row["organization_id"]));
-    ws.prepare("UPDATE sessions SET event_sequence=MAX(event_sequence,?), state=CASE WHEN state IN ('stopped','failed') THEN state ELSE 'running' END, updated_at_ms=? WHERE attempt_id=?").run(lastSeq, s.now(), attemptId);
     const eng = body["engine"] as { id?: unknown; adapterDigest?: unknown; features?: unknown } | undefined;
-    if (eng && typeof eng.id === "string" && eng.id.length > 0) {
-      const features = engineFeaturesFromBody(eng);
-      ws.prepare("UPDATE sessions SET engine_id=?, adapter_digest=?, engine_features=CASE WHEN ?='[]' THEN engine_features ELSE ? END, updated_at_ms=? WHERE attempt_id=?")
-        .run(eng.id, typeof eng.adapterDigest === "string" ? eng.adapterDigest : `sha256:${"0".repeat(64)}`, JSON.stringify(features), JSON.stringify(features), s.now(), attemptId);
-    }
+    recordAttemptProgress(s, {
+      organizationId: String(row["organization_id"]), workspaceId: String(row["workspace_id"]), attemptId, lastSequence: lastSeq,
+      engine: eng && typeof eng.id === "string" && eng.id.length > 0
+        ? { id: eng.id, adapterDigest: typeof eng.adapterDigest === "string" ? eng.adapterDigest : undefined, features: engineFeaturesFromBody(eng) }
+        : undefined,
+    });
   });
   return { attemptId, lastCommittedSequence: lastSeq } as unknown as JsonValue;
 }
@@ -344,10 +339,7 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
       jobState = "failed";
     }
     if (cleanup === 1) releaseReservation(s, attemptId);
-    {
-      const ws = s.workspaceDb(workspaceId, String(row["organization_id"]));
-      ws.prepare("UPDATE sessions SET state=?, updated_at_ms=? WHERE attempt_id=?").run(jobState === "failed" ? "failed" : "stopped", s.now(), attemptId);
-    }
+    endAttemptSession(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, failed: jobState === "failed" });
     for (const keyRow of s.control.prepare("SELECT resource_key FROM resource_leases WHERE attempt_id=?").all(attemptId) as Array<{ resource_key: string }>) {
       void keyRow; // unresolved guards persist until reconciled; compute release is separate
     }
