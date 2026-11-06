@@ -127,6 +127,48 @@ describe("Mastra WorkflowEnginePort conformance (T29/T30)", () => {
     brain.close();
   }, 120_000);
 
+  it("admits every step exactly once although Brain's scheduler and the Mastra steps both reach it", async () => {
+    const { brain, dir } = tempBrain();
+    const w = setupWorld(brain);
+    const child = wf("once-child", { work: readJob([]) });
+    const host = fakeHost();
+    (host as unknown as { loadWorkflow: unknown }).loadWorkflow = () => ({ workflow: child, configDigest: DIGEST_A });
+    const engine = new MastraWorkflowEngine(brain.store, host, join(dir, "mastra-once"));
+    const workflow = wf("once-flow", {
+      first: readJob([]),
+      steerStep: { kind: "steer", needs: ["first"], input: {}, outputSchemaRef: "s", sessionFrom: { source: "literal", value: "ses-once" }, messageFrom: { source: "literal", value: "go" } },
+      gateStep: gateJob(["steerStep"]),
+      sub: { kind: "subgraph", needs: ["gateStep"], input: {}, outputSchemaRef: "s", workflow: { id: "once-child", digest: DIGEST_A } },
+      mergeStep: { kind: "merge", needs: ["sub"], input: {} },
+    });
+    const { runId } = engine.startRun({
+      organizationId: w.org, workspaceId: w.workspaceId, actorId: "owner-1",
+      workflowId: "once-flow", workflow, configDigest: DIGEST_A, runInput: {}, executionKey: "once-1",
+    });
+    const ws = brain.store.workspaceDb(w.workspaceId, w.org);
+    await waitFor(() => host.jobs.includes("first"), 30000);
+    await engine.settle();
+    engine.completeStep(w.org, w.workspaceId, runId, "first", { ok: true }, true);
+    await waitFor(() => host.approvals.length === 1, 30000);
+    await engine.settle();
+    engine.wakeGate(w.org, w.workspaceId, host.approvals[0]!, true);
+    await waitFor(() => host.jobs.includes("work"), 30000);
+    await engine.settle();
+    const childRun = ws.prepare("SELECT id FROM workflow_runs WHERE execution_key=?").get(`${runId}:sub:child`) as { id: string };
+    engine.completeStep(w.org, w.workspaceId, childRun.id, "work", { child: "done" }, true);
+    await waitFor(() => host.jobs.includes("mergeStep"), 30000);
+    await engine.settle();
+    engine.completeStep(w.org, w.workspaceId, runId, "mergeStep", { merged: true }, true);
+    await engine.settle();
+    await waitFor(() => (ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string }).state === "succeeded", 30000);
+    // The fake host counts every call: a second admission would show twice.
+    expect([...host.jobs].sort()).toEqual(["first", "mergeStep", "work"]);
+    expect(host.approvals).toHaveLength(1);
+    expect(host.steers).toBe(1);
+    expect((ws.prepare("SELECT COUNT(*) AS n FROM workflow_runs WHERE execution_key LIKE ?").get(`${runId}:%`) as { n: number }).n).toBe(1);
+    brain.close();
+  }, 120_000);
+
   it("registration/store failure blocks the run; no step is guessed successful (E025)", async () => {
     const { brain, dir } = tempBrain();
     const w = setupWorld(brain);

@@ -2,15 +2,14 @@ import { payloadValidator } from "@brain/contracts/validate";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import type { EvaluationAssignment, EvidenceBundle, JsonValue, Workflow } from "@brain/contracts";
+import type { JsonValue, Workflow } from "@brain/contracts";
 import { domainDigest } from "@brain/contracts";
 import { BrainDomainError } from "../../../domain/errors";
 import { bulkTransition, transitionState } from "../../../domain/states";
 import { compileWorkflowGraph, releaseRecord, resolveBinding } from "../../configuration/index";
 import type { Store } from "../../../application/store";
-import type { Db } from "../../../infrastructure/persistence/open";
 import type { WorkflowEnginePort, WorkflowHost } from "../engine-port";
-import { pinnedEvaluator } from "../../evidence/index";
+import { admitEvaluations, admitStep, type AdmissionPorts, type AdmissionRun } from "../admission";
 
 // Mastra-backed WorkflowEnginePort (T29/T30). Brain tables remain the
 // operational authority (workflow_runs/steps/outputs); Mastra owns run
@@ -35,12 +34,6 @@ interface SharedMastra {
   };
   createWorkflow: typeof import("@mastra/core/workflows").createWorkflow;
   createStep: typeof import("@mastra/core/workflows").createStep;
-}
-
-/** The runner this run was pinned to at dispatch (run_inputs, owned here). */
-function runnerPin(ws: Db, runId: string): string | undefined {
-  const row = ws.prepare("SELECT runner_id FROM run_inputs WHERE run_id=?").get(runId) as { runner_id: string | null } | undefined;
-  return row?.runner_id ?? undefined;
 }
 
 export class MastraWorkflowEngine implements WorkflowEnginePort {
@@ -168,8 +161,9 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     const s = this.store;
     s.assertWorkspaceActive(workspaceId, organizationId);
     const ws = s.workspaceDb(workspaceId, organizationId);
-    const { workflow, input, actorId, configDigest, state } = this.loadRun(workspaceId, organizationId, runId);
-    if (["succeeded", "failed", "cancelled", "partial"].includes(state)) return;
+    const run = this.admissionRun(organizationId, workspaceId, runId);
+    if (["succeeded", "failed", "cancelled", "partial"].includes(run.state)) return;
+    const { workflow } = run;
     const order = compileWorkflowGraph(workflow, runId);
     const steps = ws.prepare("SELECT step_id, state, job_id, output_digest FROM workflow_steps WHERE run_id=?").all(runId) as Array<{ step_id: string; state: string; job_id: string | null; output_digest: string | null }>;
     const byId = new Map(steps.map((r) => [r.step_id, r]));
@@ -189,52 +183,11 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
       if (!needsDone) continue;
       if (row.state !== "pending") continue;
       if (job.kind === "eval") continue; // admitted by evidenceSubmitted
-      const bound = resolveBinding(job.input as unknown as Record<string, unknown>, input, outputs);
-      if (job.kind === "gate") {
-        const subject = (bound["subject"] ?? bound) as JsonValue;
-        const approvalId = this.host.createApprovalForGate({
-          organizationId, workspaceId, runId, stepId, subject,
-          expiresAtMs: s.now() + ((job as { expiresAfterSeconds?: number }).expiresAfterSeconds ?? 3600) * 1000, requestedBy: actorId,
-        });
-        ws.prepare("UPDATE workflow_steps SET state='waiting', job_id=? WHERE run_id=? AND step_id=?").run(approvalId, runId, stepId);
-        transitionState(ws, "workflow", runId, "suspended", { rawSet: ["wait_generation=wait_generation+1"], bumpVersion: true });
-        return;
-      }
-      if (job.kind === "subgraph") {
-        const ref = (job as { workflow?: { id?: string } }).workflow?.id;
-        if (!ref) throw new BrainDomainError("INVALID_CONTRACT", `subgraph ${stepId} missing workflow ref`);
-        const child = this.host.loadWorkflow(organizationId, ref);
-        const { runId: childRunId } = this.startRun({
-          organizationId, workspaceId, actorId, workflowId: ref, workflow: child.workflow,
-          configDigest: child.configDigest, runInput: bound as unknown as JsonValue, executionKey: `${runId}:${stepId}:child`,
-        });
-        ws.prepare("INSERT OR REPLACE INTO engine_links(child_run_id, parent_run_id, parent_step_id, parent_workspace_id) VALUES (?,?,?,?)").run(childRunId, runId, stepId, workspaceId);
-        ws.prepare("UPDATE workflow_steps SET state='running', job_id=? WHERE run_id=? AND step_id=?").run(childRunId, runId, stepId);
-        return;
-      }
-      if (job.kind === "steer") {
-        const steered = this.steer(organizationId, workspaceId, job, input, outputs);
-        const stepState = steered.ok ? "succeeded" : "failed";
-        ws.prepare("INSERT OR REPLACE INTO step_outputs(run_id, step_id, output_json) VALUES (?,?,?)").run(runId, stepId, JSON.stringify(steered.output));
-        ws.prepare("UPDATE workflow_steps SET state=? WHERE run_id=? AND step_id=?").run(stepState, runId, stepId);
-        outputs[stepId] = steered.output;
-        byId.set(stepId, { ...row, state: stepState });
-        // A failed steer stops admission; the Mastra step replays the failure.
-        if (!steered.ok) return;
-        continue;
-      }
-      const placement = "runsOn" in job ? (job as { runsOn: unknown }).runsOn : undefined;
-      const effectClass = job.kind === "dispatch" && "effectClass" in job ? String((job as { effectClass: string }).effectClass) : "read";
-      const executionDigest = domainDigest("brain:step-exec:v1", { stepId, bound } as unknown as JsonValue);
-      const jobId = this.host.createJobForStep({
-        organizationId, workspaceId, runId, stepId,
-        executionKey: `${runId}:${stepId}`, configDigest, runnerId: runnerPin(ws, runId),
-        placementJson: JSON.stringify(placement ?? {}),
-        executionDigest, effectClass, kind: job.kind,
-        payload: { step: job as unknown as JsonValue, input: bound as unknown as JsonValue },
-      });
-      ws.prepare("UPDATE workflow_steps SET state='running', job_id=? WHERE run_id=? AND step_id=?").run(jobId, runId, stepId);
-      return;
+      const admitted = admitStep(s, this.admission, run, stepId, outputs);
+      byId.set(stepId, { ...row, state: admitted === "waiting" ? "running" : admitted });
+      // One active step at a time; a steer completes synchronously and
+      // admission moves on, a failed steer stops it.
+      if (admitted !== "succeeded") return;
     }
     const refreshed = ws.prepare("SELECT state FROM workflow_steps WHERE run_id=?").all(runId) as Array<{ state: string }>;
     if (refreshed.length > 0 && refreshed.every((r) => r.state === "succeeded" || r.state === "skipped")) {
@@ -246,49 +199,19 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
   // Eval admission is evidence-triggered: evaluator jobs are created from
   // submitted immutable bundles, never from step order alone.
   evidenceSubmitted(organizationId: string, workspaceId: string, runId: string): void {
-    const s = this.store;
-    s.assertWorkspaceActive(workspaceId, organizationId);
-    const ws = s.workspaceDb(workspaceId, organizationId);
-    const { workflow, input, state, configDigest } = this.loadRun(workspaceId, organizationId, runId);
-    if (["cancelled", "failed", "succeeded", "partial"].includes(state)) return;
-    const outputs: Record<string, JsonValue> = {};
-    for (const row of s.control.prepare("SELECT j.id,j.step_id,o.output_json FROM jobs j JOIN job_outputs o ON o.job_id=j.id WHERE j.workflow_run_id=? AND j.organization_id=? AND j.workspace_id=? AND j.state IN ('verifying','succeeded')").all(runId, organizationId, workspaceId) as Array<{ id: string; step_id: string; output_json: string }>) {
-      outputs[row.step_id] = JSON.parse(row.output_json) as JsonValue;
-    }
-    for (const [stepId, step] of Object.entries(workflow.spec.jobs)) {
-      if (step.kind !== "eval") continue;
-      const row = ws.prepare("SELECT state FROM workflow_steps WHERE run_id=? AND step_id=?").get(runId, stepId) as { state: string };
-      if (row.state !== "pending") continue;
-      const bundles: EvidenceBundle[] = [];
-      const digests: string[] = [];
-      for (const need of step.needs) {
-        const job = s.control.prepare("SELECT j.id,a.id AS attempt_id FROM jobs j JOIN job_attempts a ON a.job_id=j.id AND a.job_fence=j.job_fence WHERE j.organization_id=? AND j.workspace_id=? AND j.workflow_run_id=? AND j.step_id=? AND j.state='verifying' AND a.state='verifying'").get(organizationId, workspaceId, runId, need) as { id: string; attempt_id: string } | undefined;
-        if (!job) break;
-        const bundle = ws.prepare("SELECT digest,manifest_json FROM evidence_bundles WHERE job_id=? AND attempt_id=? AND state='submitted' ORDER BY created_at_ms DESC,digest LIMIT 1").get(job.id, job.attempt_id) as { digest: string; manifest_json: string } | undefined;
-        if (!bundle) break;
-        digests.push(bundle.digest); bundles.push(JSON.parse(bundle.manifest_json) as EvidenceBundle);
-      }
-      if (digests.length === 0 || digests.length !== step.needs.length) continue;
-      const evaluator = pinnedEvaluator(s, organizationId, configDigest, step.evaluator);
-      const levels = ["L1", "L2", "L3"] as const;
-      const independence = levels[Math.max(levels.indexOf(step.independence), levels.indexOf(evaluator.spec.independence))]!;
-      if (independence === "L3") throw new BrainDomainError("UNSUPPORTED_CAPABILITY", "external L3 evaluator attestation is not installed");
-      if (bundles.some((bundle) => evaluator.spec.requiredChecks.some((id) => !bundle.checks.some((c) => c.checkId === id)))) throw new BrainDomainError("EVIDENCE_MISSING", "submitted evidence omits a pinned evaluator check");
-      const criteria: Record<string, string> = {};
-      for (const bundle of bundles) for (const check of bundle.checks) {
-        if (!evaluator.spec.requiredChecks.includes(check.checkId)) continue;
-        if (criteria[check.checkId] && criteria[check.checkId] !== check.criterionId) throw new BrainDomainError("INVALID_CONTRACT", "one evaluator assignment cannot redefine a criterion across inputs");
-        criteria[check.checkId] = check.criterionId;
-      }
-      const evaluation: EvaluationAssignment = { bundleDigests: digests, evaluatorRelease: step.evaluator, requiredChecks: evaluator.spec.requiredChecks, criteria, independence };
-      const bound = resolveBinding(step.input as unknown as Record<string, unknown>, input, outputs);
-      const executionDigest = domainDigest("brain:step-exec:v1", { stepId, bound, evaluation } as unknown as JsonValue);
-      const jobId = this.host.createJobForStep({
-        organizationId, workspaceId, runId, stepId, executionKey: `${runId}:${stepId}`, configDigest, runnerId: runnerPin(ws, runId),
-        placementJson: JSON.stringify(step.runsOn), executionDigest, effectClass: "read", kind: "eval", payload: { step: step as unknown as JsonValue, input: bound, evaluation: evaluation as unknown as JsonValue },
-      });
-      ws.prepare("UPDATE workflow_steps SET state='running',job_id=? WHERE run_id=? AND step_id=? AND state='pending'").run(jobId, runId, stepId);
-    }
+    this.store.assertWorkspaceActive(workspaceId, organizationId);
+    const run = this.admissionRun(organizationId, workspaceId, runId);
+    if (["cancelled", "failed", "succeeded", "partial"].includes(run.state)) return;
+    admitEvaluations(this.store, this.host, run);
+  }
+
+  private get admission(): AdmissionPorts {
+    return { host: this.host, startChildRun: (input) => this.startRun(input) };
+  }
+
+  private admissionRun(organizationId: string, workspaceId: string, runId: string): AdmissionRun & { state: string } {
+    const { workflow, input, actorId, configDigest, state } = this.loadRun(workspaceId, organizationId, runId);
+    return { organizationId, workspaceId, runId, actorId, configDigest, input, workflow, state };
   }
 
   // Test/maintenance hook: resolves when no engine work is in flight.
@@ -339,28 +262,6 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
       outputs[r.step_id] = JSON.parse(r.output_json) as JsonValue;
     }
     return outputs;
-  }
-
-  /**
-   * Delivers a steer step: resolves its session and message bindings and
-   * queues the message for that session. A session that is absent from the
-   * workspace, or an empty message, fails the step instead of reporting a
-   * steer nobody receives.
-   */
-  private steer(organizationId: string, workspaceId: string, job: Workflow["spec"]["jobs"][string], input: JsonValue, outputs: Readonly<Record<string, JsonValue>>): ResumeRecord {
-    const { sessionFrom, messageFrom } = job as { sessionFrom: unknown; messageFrom: unknown };
-    try {
-      const target = resolveBinding({ sessionId: sessionFrom, message: messageFrom }, input, outputs);
-      const sessionId = target["sessionId"];
-      const message = target["message"];
-      if (typeof sessionId !== "string" || !sessionId) throw new BrainDomainError("INVALID_ARGUMENT", "steer step resolved no session id");
-      if (typeof message !== "string" || !message.trim()) throw new BrainDomainError("INVALID_ARGUMENT", "steer step resolved no message");
-      this.host.steerSession({ organizationId, workspaceId, sessionId, message });
-      return { output: { steered: true }, ok: true };
-    } catch (error) {
-      if (!(error instanceof BrainDomainError)) throw error;
-      return { output: { steered: false, error: { code: error.code, message: error.message } }, ok: false };
-    }
   }
 
   private applyResume(workspaceId: string, organizationId: string, runId: string, stepId: string, record: ResumeRecord): JsonValue {
@@ -520,65 +421,18 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
           const ws = s.workspaceDb(workspaceId, organizationId);
           const runRow = ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string } | undefined;
           if (runRow?.state === "cancelled") throw new BrainDomainError("CONFLICT", "run cancelled");
-          const { input, actorId, configDigest } = this.loadRun(workspaceId, organizationId, runId);
+          const run = this.admissionRun(organizationId, workspaceId, runId);
           const outputs = this.readOutputs(workspaceId, organizationId, runId);
+          const resumed = resumeData ?? this.readResume(workspaceId, organizationId, runId, stepId);
+          if (resumed) return this.applyResume(workspaceId, organizationId, runId, stepId, resumed) as Record<string, JsonValue>;
+          // Admission is idempotent: Brain's scheduler normally admitted this
+          // step already, and this only observes the result.
+          const admitted = admitStep(s, this.admission, run, stepId, outputs);
           // Admission may have skipped this step (a need failed/was skipped)
           // before the Mastra chain reached it: pass through without effects.
-          const admitted = ws.prepare("SELECT state FROM workflow_steps WHERE run_id=? AND step_id=?").get(runId, stepId) as { state: string } | undefined;
-          if (admitted?.state === "skipped") return {} as Record<string, JsonValue>;
-          const bound = resolveBinding(job.input as unknown as Record<string, unknown>, input, outputs);
-          if (job.kind === "steer") {
-            // Admission normally steered already; replay its recorded result.
-            const record: ResumeRecord = outputs[stepId] === undefined
-              ? this.steer(organizationId, workspaceId, job, input, outputs)
-              : { output: outputs[stepId], ok: admitted?.state !== "failed" };
-            return this.applyResume(workspaceId, organizationId, runId, stepId, record) as Record<string, JsonValue>;
-          }
-          const resumed = resumeData ?? this.readResume(workspaceId, organizationId, runId, stepId);
-          if (resumed) {
-            return this.applyResume(workspaceId, organizationId, runId, stepId, resumed) as Record<string, JsonValue>;
-          }
-          if (job.kind === "gate") {
-            const subject = (bound["subject"] ?? bound) as JsonValue;
-            const stepRow = ws.prepare("SELECT state, job_id FROM workflow_steps WHERE run_id=? AND step_id=?").get(runId, stepId) as { state: string; job_id: string | null };
-            if (stepRow.state !== "waiting") {
-              const approvalId = this.host.createApprovalForGate({
-                organizationId, workspaceId, runId, stepId, subject,
-                expiresAtMs: s.now() + ((job as { expiresAfterSeconds?: number }).expiresAfterSeconds ?? 3600) * 1000, requestedBy: actorId,
-              });
-              ws.prepare("UPDATE workflow_steps SET state='waiting', job_id=? WHERE run_id=? AND step_id=?").run(approvalId, runId, stepId);
-              transitionState(ws, "workflow", runId, "suspended", { rawSet: ["wait_generation=wait_generation+1"], bumpVersion: true });
-            }
-            return suspend({ stepId });
-          }
-          if (job.kind === "subgraph") {
-            const ref = (job as { workflow?: { id?: string } }).workflow?.id;
-            if (!ref) throw new BrainDomainError("INVALID_CONTRACT", `subgraph ${stepId} missing workflow ref`);
-            const child = this.host.loadWorkflow(organizationId, ref);
-            const { runId: childRunId } = this.startRun({
-              organizationId, workspaceId, actorId, workflowId: ref, workflow: child.workflow,
-              configDigest: child.configDigest, runInput: bound as unknown as JsonValue, executionKey: `${runId}:${stepId}:child`,
-            });
-            ws.prepare("INSERT OR REPLACE INTO engine_links(child_run_id, parent_run_id, parent_step_id, parent_workspace_id) VALUES (?,?,?,?)").run(childRunId, runId, stepId, workspaceId);
-            ws.prepare("UPDATE workflow_steps SET state='running', job_id=? WHERE run_id=? AND step_id=?").run(childRunId, runId, stepId);
-            return suspend({ stepId });
-          }
-          if (job.kind === "eval") {
-            // Evaluator jobs are admitted by evidenceSubmitted; the step only waits.
-            return suspend({ stepId });
-          }
-          const placement = "runsOn" in job ? (job as { runsOn: unknown }).runsOn : undefined;
-          const effectClass = job.kind === "dispatch" && "effectClass" in job ? String((job as { effectClass: string }).effectClass) : "read";
-          const executionDigest = domainDigest("brain:step-exec:v1", { stepId, bound } as unknown as JsonValue);
-          const jobId = this.host.createJobForStep({
-            organizationId, workspaceId, runId, stepId,
-            executionKey: `${runId}:${stepId}`, configDigest, runnerId: runnerPin(ws, runId),
-            placementJson: JSON.stringify(placement ?? {}),
-            executionDigest, effectClass, kind: job.kind,
-            payload: { step: job as unknown as JsonValue, input: bound as unknown as JsonValue },
-          });
-          ws.prepare("UPDATE workflow_steps SET state='running', job_id=? WHERE run_id=? AND step_id=?").run(jobId, runId, stepId);
-          return suspend({ stepId });
+          if (admitted === "skipped") return {} as Record<string, JsonValue>;
+          if (admitted === "waiting") return suspend({ stepId });
+          return this.applyResume(workspaceId, organizationId, runId, stepId, { output: outputs[stepId] ?? null, ok: admitted === "succeeded" }) as Record<string, JsonValue>;
         },
       } as never);
       builder = (builder as { then: (s2: unknown) => unknown }).then(step);

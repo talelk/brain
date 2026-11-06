@@ -2,8 +2,9 @@ import type { JsonValue, Workflow } from "@brain/contracts";
 
 // The workflow engine port: Brain owns authorization, jobs, approvals,
 // permits and evidence; an engine owns only run/step progression against the
-// durable workflow_runs/workflow_steps/step_outputs tables. Two adapters
-// implement it: the in-process Brain DAG runner and the Mastra engine.
+// durable workflow_runs/workflow_steps/step_outputs tables. The Mastra engine
+// is its one adapter; what admitting each step kind does lives in
+// admission.ts, shared by Brain's synchronous scheduler and the Mastra steps.
 export interface WorkflowEnginePort {
   readonly engineId: string;
   startRun(input: {
