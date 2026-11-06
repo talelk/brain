@@ -27,12 +27,16 @@ export interface LiveAttempt {
   organizationId: string;
 }
 
-/** Queues a control for an existing session in the workspace; NOT_FOUND otherwise. */
+const ENDED_STATES = new Set(["stopped", "failed"]);
+
+/** Queues a control for a live session in the workspace; NOT_FOUND when absent, CONFLICT when ended. */
 export function enqueueSessionControl(store: Store, input: { organizationId: string; workspaceId: string; sessionId: string; kind: SessionControlKind; payload: JsonValue }): string {
   const db = store.workspaceDb(input.workspaceId, input.organizationId);
-  if (!db.prepare("SELECT 1 FROM sessions WHERE id=?").get(input.sessionId)) {
-    throw new BrainDomainError("NOT_FOUND", `session ${input.sessionId} not found in this workspace`);
-  }
+  const session = db.prepare("SELECT state FROM sessions WHERE id=?").get(input.sessionId) as { state: string } | undefined;
+  if (!session) throw new BrainDomainError("NOT_FOUND", `session ${input.sessionId} not found in this workspace`);
+  // An ended session has no attempt left to drain its controls; refuse
+  // instead of queuing a control nobody will receive.
+  if (ENDED_STATES.has(session.state)) throw new BrainDomainError("CONFLICT", `session ${input.sessionId} has ended (${session.state})`);
   const id = store.id("ctl");
   db.prepare("INSERT INTO session_controls(id, session_id, kind, payload, created_at_ms) VALUES (?,?,?,?,?)")
     .run(id, input.sessionId, input.kind, JSON.stringify(input.payload), store.now());

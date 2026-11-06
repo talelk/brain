@@ -82,4 +82,21 @@ describe("session control queue (sessions module)", () => {
     const delivered = drainSessionControls(w.brain.store, [{ attemptId: "att-cmd", workspaceId: w.workspaceId, organizationId: w.org }], 100);
     expect(delivered.map((d) => [d.type, d.text])).toEqual([["steer", "narrow the scope"], ["stop-attempt", undefined]]);
   });
+
+  it("an ended session refuses steer and stop instead of queuing controls nobody drains", async () => {
+    const w = setupWorld();
+    const sessionId = boundSession(w, "att-ended");
+    const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    for (const state of ["stopped", "failed"]) {
+      ws.prepare("UPDATE sessions SET state=? WHERE id=?").run(state, sessionId);
+      await expect(w.brain.executeCommand(w.owner, {
+        contractVersion: "brain.command/v1", commandId: `cmd-ended-${state}`, commandType: "session.steer", workspaceId: w.workspaceId, idempotencyKey: `ended-${state}`,
+        payload: { sessionId, message: "too late" },
+      }, `ended-${state}`)).rejects.toThrow(/has ended/);
+    }
+    expect((ws.prepare("SELECT COUNT(*) AS n FROM session_controls").get() as { n: number }).n).toBe(0);
+
+    const engine = new MastraWorkflowEngine(w.brain.store, w.brain, join(w.dir, "mastra-steer-ended"));
+    expect(await runToEnd(w, engine, { sessionId }, "steer-ended")).toEqual({ runState: "failed", stepState: "failed" });
+  });
 });
