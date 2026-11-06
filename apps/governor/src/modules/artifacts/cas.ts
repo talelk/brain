@@ -102,7 +102,8 @@ export function verifyStored(store: Store, digest: string, bytes: number): void 
 /**
  * Removes stored files no one references once they are older than the grace
  * window. Referenced: every artifact association, every release file, every
- * open upload's expected digest and every immutable document version.
+ * open upload's expected digest, every immutable document version, and the
+ * content of every support draft and memory publication.
  */
 export function sweepStorage(store: Store, graceMs = 24 * 3600_000): { scanned: number; removed: number; retained: number } {
   const s = store;
@@ -118,7 +119,9 @@ export function sweepStorage(store: Store, graceMs = 24 * 3600_000): { scanned: 
   }
   for (const workspace of s.control.prepare("SELECT id,organization_id FROM workspaces").all() as Array<{ id: string; organization_id: string }>) {
     const db = s.workspaceDb(workspace.id, workspace.organization_id);
-    for (const version of db.prepare("SELECT digest FROM document_versions").all() as Array<{ digest: string }>) referenced.add(version.digest.replace("sha256:", ""));
+    const workspaceRefs = db.prepare(`SELECT digest FROM document_versions
+      UNION SELECT content_digest FROM support_drafts UNION SELECT content_digest FROM memory_publications`).all() as Array<{ digest: string }>;
+    for (const ref of workspaceRefs) referenced.add(ref.digest.replace("sha256:", ""));
   }
   const casDir = join(s.dataDir, "cas");
   let scanned = 0, removed = 0, retained = 0;

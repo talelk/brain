@@ -55,4 +55,21 @@ describe("artifact store", () => {
     expect(existsSync(casFilePath(store, recent))).toBe(true);
     expect(existsSync(casFilePath(store, pinned))).toBe(true);
   });
+
+  it("keeps the stored content of support drafts and memory publications", () => {
+    store.control.prepare("INSERT INTO organizations(id, auth_organization_id) VALUES ('org-s','org-s')").run();
+    store.control.prepare("INSERT INTO workspaces(id, organization_id, slug, status) VALUES ('ws-s','org-s','s','active')").run();
+    const ws = store.workspaceDb("ws-s", "org-s");
+    const draft = putBytes(store, bytes("draft reply"));
+    const memory = putBytes(store, bytes("memory fact"));
+    ws.pragma("foreign_keys = OFF");
+    ws.prepare("INSERT INTO support_drafts(id, ticket_id, version, content_digest, source_fingerprint, evidence_digest, author_principal_id, created_at_ms) VALUES ('d1','t1',1,?,'f','e','p',0)").run(draft);
+    ws.pragma("foreign_keys = ON");
+    ws.prepare("INSERT INTO memory_publications(id, content_digest, target_scope_json, state, created_at_ms) VALUES ('m1',?,'{}','candidate',0)").run(memory);
+    const old = new Date(Date.now() - 48 * 3600_000);
+    for (const digest of [draft, memory]) utimesSync(casFilePath(store, digest), old, old);
+    expect(sweepStorage(store)).toMatchObject({ removed: 0 });
+    expect(existsSync(casFilePath(store, draft))).toBe(true);
+    expect(existsSync(casFilePath(store, memory))).toBe(true);
+  });
 });

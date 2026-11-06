@@ -2,7 +2,7 @@
   "status": "passed",
   "scope": "documentation-contract-pack-only",
   "inputFingerprint": "b2550ef0d83b1e1b60db7cf070da4f1133bb3d3e31ca2125a4f7509f66d3dacd",
-  "checkedAt": "2026-11-06T09:44:51.755735+00:00",
+  "checkedAt": "2026-11-06T10:09:38.042884+00:00",
   "checks": [
     {
       "name": "schema-meta",
