@@ -347,7 +347,8 @@ _Avoid_: tool proposal, suggestion
 
 **Capitalization run**:
 An autonomous pass that extracts knowledge assets and capability candidates from
-verified history.
+verified history. It runs when a mission closes, or on demand, and never extracts from
+member notes, messages or transcripts.
 _Avoid_: learning run, consolidation
 
 **Memory scope**:
