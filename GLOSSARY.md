@@ -416,8 +416,8 @@ _Avoid_: principal (an actor is a principal mid-command), caller
 Unqualified area names denote where you look, never what something is: **Missions**,
 **Live**, **Logs**, **Outputs** and **Plays**. Inside a mission the **Team**, **Plan**
 and **Brief** views are places too, not the mission team, a plan version or the mission
-brief themselves. **Knowledge**
-and **Administration** are secondary places reached from the account menu.
+brief themselves. **Knowledge** and **Administration** are secondary places reached
+from the account menu.
 
 **Build-process vocabulary is not domain vocabulary.** Task cards (`T01`–`T50`), gates
 (`G01`–`G08`), the implementation ledger and checkpoint, and pack verifiers describe how
