@@ -86,6 +86,12 @@ dependencies, assignment, a next action and an evidence binding. The unit the bo
 shows.
 _Avoid_: card, ticket, issue, story
 
+**Subject**:
+An external record a mission is about, such as a support ticket or an incident. A
+subject is owned by its pack and can have several missions over time; it is neither a
+mission nor a work item.
+_Avoid_: case, intake item, work item (when meaning a ticket or incident)
+
 **Execution link**:
 The record that joins a mission, and a work item when there is one, to the runs, jobs,
 attempts and sessions that served it. It is the boundary between the work side and the
