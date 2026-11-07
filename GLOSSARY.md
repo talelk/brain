@@ -1,26 +1,63 @@
 # Keyrus Brain
 
-Brain is a governed execution workspace: humans set intentions, agents do the work,
-and independent verification decides whether the work actually happened. Nothing an
-agent claims about its own output counts as evidence.
+Brain is a governed execution workspace for persistent teams of agents: humans set
+missions, agent teams carry them out over many bounded sessions, and independent
+verification decides whether the work actually happened. Nothing an agent claims about
+its own output counts as evidence.
 
 ## Language
 
 ### Work
 
-**Objective**:
-A durable workspace intention — a title, an intent and success criteria. No work items
-exist and nothing runs while a plan is being prepared against it.
-_Avoid_: goal, target, epic
+**Mission**:
+A persistent workspace intention — a title, an intent and success criteria — that
+outlives any single run or session and may last minutes or weeks. It owns its plan
+versions, mission team, work items and outputs.
+_Avoid_: objective, goal, target, epic, project
+
+**Mission team**:
+The team members assigned to one mission.
+_Avoid_: team (unqualified — it collides with workspace and memory scope), squad, crew
+
+**Team member**:
+A mission-scoped role (such as backend engineer or reviewer) bound to an agent
+definition and engine. A team member is served by many sessions over the mission's
+life; it is neither a runner nor a session.
+_Avoid_: agent (an agent is a definition), worker, bot
+
+**Mission brief**:
+The versioned shared understanding of a mission — intent, constraints, accepted
+decisions and progress — that every session of the mission starts from.
+_Avoid_: mission memory, context dump, summary
+
+**Autonomy policy**:
+The bounds within which a mission's coordinator may change unstarted work, assign tasks
+and request team members without human confirmation.
+_Avoid_: autopilot, auto-approve (it never authorizes effects)
+
+**Mission budget**:
+The hard ceiling on a mission's spend, wall-clock time and concurrent team members.
+_Avoid_: quota, limit (unqualified)
+
+**Play**:
+A reusable mission template — a mission team, a plan shape and an input schema — that
+can be started by hand, on a schedule or by a trigger.
+_Avoid_: playbook, recipe, template (unqualified), pack (when meaning the user-facing thing)
+
+**Coordinator**:
+The team member whose role is planning and coordinating the rest of the mission team.
+Missions whose dependencies are deterministic have none.
+_Avoid_: lead, orchestrator, manager
 
 **Plan version**:
-An immutable, versioned decomposition of an objective into plan tasks. Exactly one is
-confirmed per objective at a time.
-_Avoid_: plan (unqualified — say plan version or plan proposal)
+An immutable, versioned decomposition of a mission into plan tasks. Exactly one is
+confirmed per mission at a time; editing a plan always produces a new plan version.
+_Avoid_: plan (unqualified — say plan version or plan proposal), plan revision
 
 **Plan proposal**:
-A plan version awaiting human confirmation. Proposals from agents are inert by
-construction; confirmation is human-only.
+A plan version awaiting human confirmation. A coordinator's plan version needs it only
+when it goes beyond the mission's autonomy policy; anything else an agent proposes is
+inert until a human confirms it.
 _Avoid_: draft plan, suggested plan
 
 **Plan task**:
@@ -69,9 +106,14 @@ _Avoid_: try, execution, session (an attempt is not the conversation)
 
 **Session**:
 A governed agent conversation bound to a work item, job and attempt. Steering and
-stopping act on a session.
+stopping act on a session. A session may end while its mission continues.
 _Avoid_: runner session, auth session, upload session (all different things that
 happen to share the word), chat
+
+**Checkpoint**:
+Durable state recorded by an attempt from which a later attempt can resume work.
+Resuming from a checkpoint always creates a new attempt.
+_Avoid_: snapshot, savepoint, resume point
 
 **Runner**:
 A separate outbound executable that executes agent and validator jobs, enrolled by
@@ -149,6 +191,16 @@ _Avoid_: 2FA (2FA is the enrollment; step-up is the challenge), MFA
 The immutable bundle assembled during a run and submitted to an independent evaluator.
 A run reaches succeeded only when evidence is verified.
 _Avoid_: proof, output, result
+
+**Output**:
+A stored artifact attributed to a mission, plan task and team member, marked draft or
+final. It is what the mission delivers, not proof that the work happened.
+_Avoid_: deliverable, result, artifact (when meaning the mission-attributed thing)
+
+**Handoff**:
+An output a team member produces when finishing a plan task that other work depends on:
+what was done, what changed, open questions and the next action.
+_Avoid_: summary, transcript, note
 
 **Evidence bundle**:
 The concrete, digest-addressed set of artifacts, checks, approvals and effect records
@@ -254,12 +306,13 @@ _Avoid_: principal (an actor is a principal mid-command), caller
 
 ### Surfaces
 
-Unqualified area names denote where you look, never what something is: **Today**,
-**Live**, **Work**, **Approvals**, **Knowledge**, **Administration**, and within Work
-the **execution** area.
+Unqualified area names denote where you look, never what something is: **Missions**,
+**Live**, **Logs**, **Outputs** and **Plays**. Inside a mission the **Team** and **Plan**
+views are places too, not the mission team or a plan version themselves.
 
 **Build-process vocabulary is not domain vocabulary.** Task cards (`T01`–`T50`), gates
-(`G01`–`G08`), the implementation ledger, checkpoints and pack verifiers describe how
-Brain is built, not what Brain is. They deliberately have no place here, and a term
+(`G01`–`G08`), the implementation ledger and checkpoint, and pack verifiers describe how
+Brain is built, not what Brain is. (A domain **checkpoint** is the attempt state above;
+the implementation checkpoint is unrelated.) They deliberately have no place here, and a term
 that exists in both registers — notably `VerificationRun`, which is a build gate record
 — is not evidence that the two are the same concept.

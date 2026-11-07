@@ -1,0 +1,22 @@
+# 4. A mission advances on events and is never a run
+
+Date: 2026-11-07
+Status: Accepted
+
+A mission may last weeks, but no run, session or model is kept alive for it. The
+Governor advances a mission by reacting to events: a run finished, a dependency was
+satisfied, an approval or a human message arrived. For each ready work item it
+dispatches a fresh, bounded run. While a mission waits, nothing holds a runner slot
+or a model session. The coordinator also runs as bounded sessions that these events
+wake.
+
+The obvious alternative was one long-lived workflow run per mission. It was rejected
+because the workflow runtime (Mastra, `@mastra/core` 1.79.0) executes one fixed
+graph per run. It cannot take on a new plan version, and since v1 it has no durable
+event or timer wait: `suspend()` survives restarts but needs an outside `resume()`,
+and `sleep` does not survive a restart. Each run therefore executes exactly one
+digest-pinned plan version. A changed plan starts new runs, and the Governor owns
+event matching, timers and plan versions.
+
+Decided in [Missions advance on events and are never a run](https://github.com/talelk/brain/issues/11);
+runtime facts from [Mastra durable suspend/resume and plan changes mid-workflow](https://github.com/talelk/brain/issues/20).
