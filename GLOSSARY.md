@@ -72,8 +72,9 @@ shows.
 _Avoid_: card, ticket, issue, story
 
 **Execution link**:
-The record that joins a work item to the runs, jobs, attempts and sessions that served
-it. It is the boundary between the work side and the execution side.
+The record that joins a mission, and a work item when there is one, to the runs, jobs,
+attempts and sessions that served it. It is the boundary between the work side and the
+execution side.
 _Avoid_: execution (standalone — it names an area, not a thing), trace
 
 ### Execution
@@ -105,10 +106,22 @@ coordinate it.
 _Avoid_: try, execution, session (an attempt is not the conversation)
 
 **Session**:
-A governed agent conversation bound to a work item, job and attempt. Steering and
-stopping act on a session. A session may end while its mission continues.
+A governed agent conversation served by one team member and bound to a mission, a job
+and an attempt. Steering and stopping act on a session. A session may end while its
+mission continues.
 _Avoid_: runner session, auth session, upload session (all different things that
 happen to share the word), chat
+
+**Work session**:
+A session that serves a work item from a confirmed plan version. No work session runs
+before its plan version is confirmed.
+_Avoid_: task session, worker session
+
+**Mission-level session**:
+A session bound to a mission but to no work item — an interactive conversation, or a
+coordinator planning and coordinating. A coordinator's mission-level sessions act only
+through Brain commands.
+_Avoid_: planning session, chat session, free session
 
 **Checkpoint**:
 Durable state recorded by an attempt from which a later attempt can resume work.
