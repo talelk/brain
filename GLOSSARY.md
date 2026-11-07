@@ -148,6 +148,21 @@ A separate outbound executable that executes agent and validator jobs, enrolled 
 group with declared capabilities and engines.
 _Avoid_: worker, agent (an agent is a definition, a runner executes it), worker pool
 
+**Mission branch**:
+A mission's integration branch in one repository, cut from the target base. Only the
+merge controller writes to it.
+_Avoid_: feature branch, team branch, integration branch (unqualified)
+
+**Work-item branch**:
+The branch one work item's attempts write to, cut from the mission branch. It has at
+most one active writer at a time.
+_Avoid_: attempt branch, task branch
+
+**Session branch**:
+The branch an interactive session writes to, cut from the mission branch and merged
+into it only on a human's command.
+_Avoid_: scratch branch, chat branch
+
 **Launcher**:
 The trusted component that sandboxes effect execution in ephemeral containers under
 fixed profiles.
