@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Provision a Brain workspace to manage/evolve/support Keyrus CV Insights.
 
-Idempotent: re-running reuses the existing workspace/objective/plan and skips
+Idempotent: re-running reuses the existing workspace/mission/plan and skips
 dispatches that already have a linked run.
 """
 import json, subprocess, sys, time, urllib.error, urllib.request, uuid
@@ -15,7 +15,7 @@ WF = {  # workflow id -> document digest in the active config release
     "support-draft": "sha256:b940949b49bca33088b582792988a7c01f64d9c5886ac2cec706f94a035da3fd",
     "plan-guide": "sha256:879c113253d5413cc9a8182b35f585d8084eff8087be7eefbecb6b1eeb91d3e4",
 }
-OBJECTIVE_TITLE = "Operate, evolve and support Keyrus CV Insights"
+MISSION_TITLE = "Operate, evolve and support Keyrus CV Insights"
 TOKEN = ""
 
 TASKS = [
@@ -105,33 +105,33 @@ st, res = api("POST", "/v1/setup/workspace", {"workspaceId": WS, "slug": "cv-ins
     "tags": ["cvinsights", "keyrus-veille", "talent-intel", "demo"]})
 print(f"workspace: {'created' if st == 201 else 'already present'}")
 
-# 3. objective
-found = [o for o in query("objectives.list", limit=50).get("items", []) if o.get("title") == OBJECTIVE_TITLE]
+# 3. mission
+found = [o for o in query("missions.list", limit=50).get("items", []) if o.get("title") == MISSION_TITLE]
 if found:
-    objective = found[0]
-    print("objective reused:", objective["objectiveId"], "v" + str(objective["version"]))
+    mission = found[0]
+    print("mission reused:", mission["missionId"], "v" + str(mission["version"]))
 else:
-    objectiveId = cmd("objective.create", {
-        "title": OBJECTIVE_TITLE,
+    missionId = cmd("mission.create", {
+        "title": MISSION_TITLE,
         "intent": "Keep cvinsights.mykeyrus.tn healthy and current, respond to user/support requests, and continuously evolve the Teamtailor->DuckDB warehouse and Rill dashboards (M1 dedup, M3/M4 resume intel, geo coverage, sync reliability).",
         "successCriteria": [
             "Dashboard is available and data is fresh (last sync < 24h)",
             "Support and incident requests get an independently validated response",
             "A maintained evolution roadmap exists with tracked work items"]})["resourceId"]
-    objective = query("objectives.get", resourceId=objectiveId)
-    print("objective created:", objectiveId)
+    mission = query("missions.get", resourceId=missionId)
+    print("mission created:", missionId)
 
 # 4. plan — confirm at most one revision
-if objective.get("activePlanVersionId"):
-    print("plan already confirmed:", objective["activePlanVersionId"])
+if mission.get("activePlanVersionId"):
+    print("plan already confirmed:", mission["activePlanVersionId"])
 else:
-    pending = sql("SELECT id FROM plan_versions WHERE objective_id=? AND state='proposed' ORDER BY revision DESC LIMIT 1",
-                  objective["objectiveId"])
+    pending = sql("SELECT id FROM plan_versions WHERE mission_id=? AND state='proposed' ORDER BY revision DESC LIMIT 1",
+                  mission["missionId"])
     planId = pending[0]["id"] if pending else cmd("plan.propose", {
-        "objectiveId": objective["objectiveId"], "origin": "manual",
+        "missionId": mission["missionId"], "origin": "manual",
         "summary": "Baseline operating plan for the CV Insights demo.", "tasks": TASKS})["resourceId"]
     print("plan:", "reused proposed" if pending else "proposed", planId)
-    version = query("objectives.get", resourceId=objective["objectiveId"])["version"]
+    version = query("missions.get", resourceId=mission["missionId"])["version"]
     cmd("plan.confirm", {"planVersionId": planId}, expectedVersion=version)
     print("plan confirmed:", planId)
 

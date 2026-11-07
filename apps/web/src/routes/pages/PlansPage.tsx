@@ -10,6 +10,7 @@ import { createScopedRead } from "../../data/screens";
 import { ScreenRegion } from "../../ui/screen-region";
 import { BrainPage, PageStack, TechnicalDetails } from "../../ui/components/PageLayout";
 import { SelectableListItem } from "../../ui/components/primitives";
+import { MissionWorkItems } from "../../ui/components/MissionWorkItems";
 import { StatusBadge } from "../../ui/components/StatusBadge";
 import { EmptyPreview, FactStrip, WorkspaceSection } from "../../ui/components/Domain";
 
@@ -148,6 +149,7 @@ export default function PlansPage(): JSX.Element {
           </Show>
         </WorkspaceSection>
       </div>
+      <Show when={selectedId()} keyed>{(missionId) => <MissionWorkItems missionId={missionId} />}</Show>
     </PageStack>
   </BrainPage>;
 }

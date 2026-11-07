@@ -30,8 +30,7 @@ function targets(jobId: string, approvalId: string): ScreenTarget[] {
     { id: "01-today", route: "/today", heading: "Today" },
     { id: "02-bridge", route: "/bridge", heading: "Bridge" },
     { id: "03-workspace-overview", route: "/w/operations/overview", heading: "Operations" },
-    { id: "04-board", route: "/w/operations/board", heading: "Work board" },
-    { id: "05-plans", route: "/w/operations/plans?objective=obj-visual", heading: "Plans" },
+    { id: "05-plans", route: "/w/operations/plans?mission=obj-visual", heading: "Plans" },
     { id: "06-schedules", route: "/w/operations/schedules", heading: "Schedules" },
     { id: "07-resources", route: "/w/operations/resources", heading: "Resources" },
     { id: "08-start-work", route: "/w/operations/workflows?mode=catalog", heading: "Start work" },
@@ -53,7 +52,6 @@ function targets(jobId: string, approvalId: string): ScreenTarget[] {
     { id: "20-runner-detail", route: "/runners/runner-visual", heading: "Runner detail" },
     { id: "21-approvals", route: "/approvals", heading: "Approvals" },
     { id: "22-approval-detail", route: `/approvals/${approvalId}`, heading: "Approval review" },
-    { id: "23-decisions", route: "/w/operations/decisions", heading: "Decisions" },
     { id: "24-settings-setup", route: "/settings?tab=setup", heading: "Workspace setup" },
     { id: "25-settings-security", route: "/settings?tab=security", heading: "Security center" },
     { id: "26-settings-integrations", route: "/administration/integrations", heading: "Integrations" },
@@ -85,13 +83,12 @@ test("all 38 revamped screens have browser screenshots and page-level containmen
 
   const now = brain.store.now();
   const ws = brain.store.workspaceDb("operations", actor.organizationId);
-  ws.prepare("INSERT INTO objectives(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-visual','Stabilize authentication','Investigate and verify the sign-in flow','[\"Independent evidence passes\"]',?,?,?)").run(actor.actorId, now, now);
+  ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-visual','Stabilize authentication','Investigate and verify the sign-in flow','[\"Independent evidence passes\"]',?,?,?)").run(actor.actorId, now, now);
   const tasks = [{ id: "inspect", title: "Inspect the current sign-in flow", criteria: ["Observations are attached"], dependsOn: [] }, { id: "verify", title: "Verify the correction independently", criteria: ["Independent verdict passes"], dependsOn: ["inspect"] }];
-  ws.prepare("INSERT INTO plan_versions(id,objective_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-visual','obj-visual',1,?,'proposed','manual',?,?,?)").run(DIGEST, actor.actorId, JSON.stringify(tasks), now);
-  ws.prepare("INSERT INTO planning_requests(objective_id,actor_id,run_id,state,plan_version_id,created_at_ms,updated_at_ms) VALUES ('obj-visual',?,'visual-plan','ready','plan-visual',?,?)").run(actor.actorId, now, now);
-  for (const [id, title, state] of [["work-inspect", "Inspect the current sign-in flow", "in-progress"], ["work-verify", "Verify the correction independently", "review"], ["work-blocked", "Resolve stale session observations", "blocked"]] as const) ws.prepare("INSERT INTO work_items(id,objective_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,blocked_reason,created_at_ms,updated_at_ms) VALUES (?,'obj-visual','plan-visual',?,?,?,'[\"Independent evidence passes\"]','Review acceptance and evidence',?,?,?)").run(id, id, title, state, state === "blocked" ? "Current evidence is stale" : null, now, now);
-  ws.prepare("INSERT INTO work_items(id,objective_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('work-release','obj-visual','plan-visual','release','Authentication release','review','[\"Evidence\"]','Review acceptance and evidence',?,?)").run(now, now);
-  await brain.executeCommand(actor, { contractVersion: "brain.command/v1", commandId: "visual-decision", commandType: "decision.record", workspaceId: "operations", idempotencyKey: "visual-decision", expectedVersion: 1, payload: { workItemId: "work-release", decision: "go", note: "Proceed after independent evidence is accepted" } }, "visual-correlation");
+  ws.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-visual','obj-visual',1,?,'proposed','manual',?,?,?)").run(DIGEST, actor.actorId, JSON.stringify(tasks), now);
+  ws.prepare("INSERT INTO planning_requests(mission_id,actor_id,run_id,state,plan_version_id,created_at_ms,updated_at_ms) VALUES ('obj-visual',?,'visual-plan','ready','plan-visual',?,?)").run(actor.actorId, now, now);
+  for (const [id, title, state] of [["work-inspect", "Inspect the current sign-in flow", "in-progress"], ["work-verify", "Verify the correction independently", "review"], ["work-blocked", "Resolve stale session observations", "blocked"]] as const) ws.prepare("INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,blocked_reason,created_at_ms,updated_at_ms) VALUES (?,'obj-visual','plan-visual',?,?,?,'[\"Independent evidence passes\"]','Review acceptance and evidence',?,?,?)").run(id, id, title, state, state === "blocked" ? "Current evidence is stale" : null, now, now);
+  ws.prepare("INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('work-release','obj-visual','plan-visual','release','Authentication release','review','[\"Evidence\"]','Review acceptance and evidence',?,?)").run(now, now);
 
   brain.ensurePrincipal(actor.organizationId, "visual-requester", "human");
   const subject = { organizationId: actor.organizationId, workspaceId: "operations", operation: "support.reply.publish", tool: { id: "support.publish", digest: DIGEST }, inputDigest: DIGEST, target: { targetId: "ticket-visual", environmentId: "production", preconditionDigest: DIGEST }, artifactDigest: DIGEST, policyDigest: DIGEST, configDigest: release.digest, effectBounds: { ticketId: "ticket-visual", publication: "Exact reviewed response only" }, expiresAt: new Date(now + 3600_000).toISOString(), nonce: "visual-approval" };
@@ -127,7 +124,7 @@ test("all 38 revamped screens have browser screenshots and page-level containmen
   insertAssociation.run("artifact-visual-v2", actor.organizationId, "operations", digestV2, job.id, now);
   ws.prepare("INSERT INTO evidence_bundles(digest,bundle_id,job_id,attempt_id,state,manifest_json,created_at_ms) VALUES (?,?,?,?, 'verified', ?, ?)").run(BUNDLE_DIGEST, "bundle-visual", job.id, "attempt-visual", JSON.stringify({ artifacts: [{ digest: digestV1 }, { digest: digestV2 }] }), now);
   ws.prepare("INSERT INTO verification_verdicts(id,bundle_digest,evaluator_attempt_id,evaluator_digest,outcome,manifest_json,created_at_ms) VALUES (?,?,?,?, 'verified', ?, ?)").run("verdict-visual", BUNDLE_DIGEST, "attempt-visual", DIGEST, JSON.stringify({ checks: [] }), now);
-  ws.prepare("INSERT INTO execution_links(work_item_id,run_id,job_id,attempt_id,created_at_ms) VALUES ('work-inspect','visual-run',?,'attempt-visual',?)").run(job.id, now);
+  ws.prepare("INSERT INTO execution_links(mission_id,work_item_id,run_id,job_id,attempt_id,created_at_ms) VALUES ('obj-visual','work-inspect','visual-run',?,'attempt-visual',?)").run(job.id, now);
   const insertEvent = brain.store.control.prepare("INSERT INTO events(event_id,organization_id,workspace_id,aggregate_type,aggregate_id,aggregate_seq,event_type,payload_json,payload_digest,created_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?)");
   insertEvent.run("visual-event-1", actor.organizationId, "operations", "session", "visual-model-1", 1, "session.message", JSON.stringify({ text: "Inspecting the sign-in flow and current observations" }), DIGEST, now);
   insertEvent.run("visual-event-2", actor.organizationId, "operations", "session", "visual-tool-1", 2, "tool.proposed", JSON.stringify({ proposalId: "visual-tool-1", tool: { id: "operations.context", digest: DIGEST }, input: { target: "sso-production" } }), DIGEST, now + 1);

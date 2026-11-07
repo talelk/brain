@@ -57,10 +57,10 @@ test("guided task entry: persisted modes, shared review, timeout recovery, conso
   // the link preserved, and the panel resolves console/logs/outputs deep links
   // from the execution link once the attempt binds its session.
   const seedNow = Date.now();
-  db.prepare("INSERT INTO objectives(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-entry','Entry objective','Entry intent','[]',?, ?, ?)").run(identity.actor.actorId, seedNow, seedNow);
-  db.prepare("INSERT INTO plan_versions(id,objective_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-entry','obj-entry',1,?,'confirmed','manual',?,'[]',?)").run(`sha256:${"b".repeat(64)}`, identity.actor.actorId, seedNow);
-  db.prepare("INSERT INTO work_items(id,objective_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('entry-card','obj-entry','plan-entry','investigate','Investigate latency','ready','[]','Start this task',?,?)").run(seedNow, seedNow);
-  await page.goto(`${governor.url}/w/operations/board`);
+  db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-entry','Entry objective','Entry intent','[]',?, ?, ?)").run(identity.actor.actorId, seedNow, seedNow);
+  db.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-entry','obj-entry',1,?,'confirmed','manual',?,'[]',?)").run(`sha256:${"b".repeat(64)}`, identity.actor.actorId, seedNow);
+  db.prepare("INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('entry-card','obj-entry','plan-entry','investigate','Investigate latency','ready','[]','Start this task',?,?)").run(seedNow, seedNow);
+  await page.goto(`${governor.url}/w/operations/plans?mission=obj-entry`);
   await page.getByRole("button", { name: "Manage Investigate latency" }).click();
   await page.getByRole("button", { name: "Start a task for this item", exact: true }).click();
   await expect(page.getByLabel(/^Situation/)).toHaveValue(/Investigate latency/);
@@ -68,7 +68,7 @@ test("guided task entry: persisted modes, shared review, timeout recovery, conso
   await page.getByRole("button", { name: "Review task", exact: true }).click();
   await page.getByRole("button", { name: "Start task", exact: true }).click(); await page.waitForURL(/\/jobs\//);
   for (const session of sessions) expect(await runOnce(session.cfg, session.sessionToken, session.epoch)).toBe(true);
-  await page.goto(`${governor.url}/w/operations/board`); await page.getByRole("button", { name: "Manage Investigate latency" }).click();
+  await page.goto(`${governor.url}/w/operations/plans?mission=obj-entry`); await page.getByRole("button", { name: "Manage Investigate latency" }).click();
   await expect(page.getByRole("button", { name: "Inspect run", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Console", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Logs", exact: true })).toBeVisible();

@@ -45,3 +45,18 @@ export function EvidenceSelector(props:{onSelect:(digests:string[])=>void}) {
   </div>;
 }
 
+export function EvidenceBundleSelector(props: { label?: string; onSelect: (digest: string) => void }) {
+  const app = useApp();
+  const [selected, setSelected] = createSignal("");
+  const read = createScopedRead<{ digest: string; passedCriteria: string[] }[]>({ scope: app.scope, load: async (scope, signal) => {
+    const loaded = await governor<{ items: { digest: string; passedCriteria: string[] }[] }>(`/v1/evidence?workspaceId=${encodeURIComponent(scope.workspaceId)}`, undefined, signal);
+    return { snapshot: loaded.items, asOf: new Date().toISOString(), sourceWatermark: 0 };
+  } });
+  return <div class="flex flex-col gap-control-gap">
+    <Select label={props.label ?? "Verified evidence bundle"} value={selected() || null}
+      description="Only server-verified bundles are listed; an arbitrary artifact digest cannot mark work Done."
+      options={(read.state().data ?? []).map((bundle) => ({ value: bundle.digest, label: `${bundle.passedCriteria.length} passed criteria`, description: bundle.digest }))}
+      onValueChange={(digest) => { setSelected(digest ?? ""); if (digest) props.onSelect(digest); }} />
+    <ActionFeedback tone="error" message={read.state().error} />
+  </div>;
+}

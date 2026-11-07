@@ -50,14 +50,14 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
     .run(now + 3_600_000, now + 3_600_000, 3);
 
   // Work item chain (workspace DB): objective → plan version → work item.
-  ws.prepare("INSERT INTO objectives(id, title, intent, success_criteria_json, owner_id, created_at_ms, updated_at_ms) VALUES ('obj-console','Ship the console','Ship it','[]',?, ?, ?)")
+  ws.prepare("INSERT INTO missions(id, title, intent, success_criteria_json, owner_id, created_at_ms, updated_at_ms) VALUES ('obj-console','Ship the console','Ship it','[]',?, ?, ?)")
     .run(actor.actorId, now, now);
-  ws.prepare("INSERT INTO plan_versions(id, objective_id, revision, digest, state, origin, created_by, tasks_json, created_at_ms) VALUES ('pv-console','obj-console',1,?, 'confirmed','manual',?,'[]',?)")
+  ws.prepare("INSERT INTO plan_versions(id, mission_id, revision, digest, state, origin, created_by, tasks_json, created_at_ms) VALUES ('pv-console','obj-console',1,?, 'confirmed','manual',?,'[]',?)")
     .run(`sha256:${"2".repeat(64)}`, actor.actorId, now);
-  ws.prepare(`INSERT INTO work_items(id, objective_id, plan_version_id, plan_task_id, title, state, criteria_json, next_action, created_at_ms, updated_at_ms)
+  ws.prepare(`INSERT INTO work_items(id, mission_id, plan_version_id, plan_task_id, title, state, criteria_json, next_action, created_at_ms, updated_at_ms)
     VALUES ('wi-console','obj-console','pv-console','task-1','Produce the deployment dossier','in-progress','[]','run', ?, ?)`)
     .run(now, now);
-  ws.prepare("INSERT INTO execution_links(work_item_id, run_id, job_id, attempt_id, session_id, created_at_ms) VALUES ('wi-console','run-console','job-console','att-console','ses-report',?)")
+  ws.prepare("INSERT INTO execution_links(mission_id, work_item_id, run_id, job_id, attempt_id, session_id, created_at_ms) VALUES ('obj-console','wi-console','run-console','job-console','att-console','ses-report',?)")
     .run(now);
 
   // Three "simultaneously running" sessions: two steer-capable, one not.
