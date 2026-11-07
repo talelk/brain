@@ -1,0 +1,313 @@
+<title>Mission Workspace Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* PROTOTYPE — throwaway. Question: how should the mission workspace look and behave?
+   Three structurally different variants (A Cockpit, B Return-first, C Lanes) x two mission shapes
+   (long-running team mission, interactive mission). All data is mock. Nothing persists.
+   Layout concept: dense operator workspace; mission header on top, one working surface below. */
+:root{
+  --bg:#f5f6f8; --surface:#ffffff; --sunken:#eceef2; --line:#d9dde4; --fg:#18202b; --muted:#5d6878;
+  --accent:#2457c5; --accent-soft:#e3ebfb;
+  --ok:#1f7a4d; --ok-soft:#dff2e8; --warn:#9a5b00; --warn-soft:#fbefd9; --bad:#b4232c; --bad-soft:#fbe3e4; --wait:#5a4fb0; --wait-soft:#ebe8fa;
+  --bar:#18202b; --bar-fg:#ffffff;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11151b; --surface:#181d25; --sunken:#0d1116; --line:#2a313c; --fg:#e4e8ee; --muted:#95a0b0;
+  --accent:#7aa2f7; --accent-soft:#1d2a44;
+  --ok:#5fcf95; --ok-soft:#173326; --warn:#e6b45c; --warn-soft:#3a2c12; --bad:#f07178; --bad-soft:#3d1a1d; --wait:#a99cf5; --wait-soft:#27223f;
+  --bar:#e4e8ee; --bar-fg:#11151b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11151b; --surface:#181d25; --sunken:#0d1116; --line:#2a313c; --fg:#e4e8ee; --muted:#95a0b0;
+  --accent:#7aa2f7; --accent-soft:#1d2a44;
+  --ok:#5fcf95; --ok-soft:#173326; --warn:#e6b45c; --warn-soft:#3a2c12; --bad:#f07178; --bad-soft:#3d1a1d; --wait:#a99cf5; --wait-soft:#27223f;
+  --bar:#e4e8ee; --bar-fg:#11151b; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 var(--sans);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 96px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--mono);font-size:12.5px}
+.muted{color:var(--muted)}
+.wrap{max-width:1280px;margin:0 auto;display:grid;gap:12px}
+.note{font-size:12.5px;color:var(--muted);border:1px dashed var(--line);border-radius:6px;padding:8px 10px}
+/* header */
+.mhead{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.mhead h1{font-size:20px;line-height:1.2;margin:0;font-weight:600;text-wrap:balance}
+.crumbs{font-size:12px;color:var(--muted);letter-spacing:.02em}
+.facts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:500;background:var(--sunken);color:var(--muted);white-space:nowrap}
+.pill i{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block}
+.s-active{background:var(--ok-soft);color:var(--ok)} .s-working{background:var(--accent-soft);color:var(--accent)}
+.s-waiting{background:var(--wait-soft);color:var(--wait)} .s-attn{background:var(--warn-soft);color:var(--warn)}
+.s-bad{background:var(--bad-soft);color:var(--bad)} .s-done{background:var(--sunken);color:var(--muted)}
+.budget{display:grid;gap:3px;min-width:170px;font-size:12px}
+.meter{height:6px;border-radius:3px;background:var(--sunken);overflow:hidden}.meter b{display:block;height:100%;background:var(--accent)}
+/* tabs */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:8px 12px;color:var(--muted);font-weight:500;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+.tabs .count{font-size:11px;background:var(--sunken);border-radius:999px;padding:0 6px;margin-left:5px}
+/* panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;min-width:0}
+.panel>h2,.ph{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0;padding:10px 12px;border-bottom:1px solid var(--line);font-weight:600;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.body{padding:10px 12px;display:grid;gap:8px}
+.grid-live{display:grid;grid-template-columns:230px minmax(0,1fr) 300px;gap:12px;align-items:start}
+@media (max-width:1050px){.grid-live{grid-template-columns:minmax(0,1fr)}}
+/* members */
+.member{display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;align-items:start;padding:7px 8px;border-radius:6px;border:1px solid transparent;background:none;text-align:left;width:100%}
+.member:hover{background:var(--sunken)} .member[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.av{width:28px;height:28px;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:600;background:var(--sunken);color:var(--fg)}
+.member .name{font-weight:600;font-size:13px}.member .what{font-size:12px;color:var(--muted)}
+/* stream */
+.stream{display:grid;gap:0;max-height:520px;overflow:auto}
+.ev{display:grid;grid-template-columns:52px 120px minmax(0,1fr);gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);align-items:baseline}
+.ev:last-child{border-bottom:0}
+.ev .t{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.ev .who{font-size:12px;font-weight:600}
+.ev .k{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-right:6px}
+.ev pre{margin:4px 0 0;font:12px/1.4 var(--mono);background:var(--sunken);padding:6px 8px;border-radius:4px;overflow-x:auto;white-space:pre}
+.ev.milestone{background:var(--ok-soft)} .ev.alert{background:var(--warn-soft)}
+@media (max-width:640px){.ev{grid-template-columns:44px minmax(0,1fr)}.ev .who{grid-column:2}.ev .msg{grid-column:1/-1}}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:900px){.split{grid-template-columns:1fr}}
+/* composer */
+.composer{display:flex;gap:8px;align-items:center;padding:10px 12px;border-top:1px solid var(--line);flex-wrap:wrap}
+.composer select,.composer input{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;color:var(--fg);font:inherit}
+.composer input{flex:1;min-width:180px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 11px;font-weight:500;font-size:13px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.btn.quiet{background:none}
+/* away */
+.away{display:grid;gap:8px}
+.away li{list-style:none;display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px;font-size:13px}
+.away ul{margin:0;padding:0;display:grid;gap:7px}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:5px}
+.next{border:1px solid var(--warn);background:var(--warn-soft);border-radius:6px;padding:9px 10px;display:grid;gap:6px}
+.next b{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--warn)}
+/* plan graph */
+.plan{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px 26px;overflow-x:auto;padding:12px;position:relative}
+.col{display:grid;gap:10px;align-content:start}
+.col h3{margin:0;font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.task{border:1px solid var(--line);border-left-width:4px;border-radius:6px;padding:8px 9px;background:var(--surface);display:grid;gap:3px;font-size:13px}
+.task .tn{font-weight:600}.task .tm{font-size:12px;color:var(--muted)}
+.task.done{border-left-color:var(--muted);opacity:.85}.task.run{border-left-color:var(--accent)}.task.blk{border-left-color:var(--wait)}.task.todo{border-left-color:var(--line);border-style:dashed solid dashed solid}.task.bad{border-left-color:var(--bad)}
+.planbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line)}
+/* tables */
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td.num{font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto}
+.filters{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.chip{border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:12px;background:var(--surface)}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+/* outputs */
+.outs{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;padding:12px}
+.out{border:1px solid var(--line);border-radius:6px;padding:10px;display:grid;gap:6px;font-size:13px}
+.out .on{font-weight:600}
+/* variant B */
+.bgrid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:12px;align-items:start}
+@media (max-width:950px){.bgrid{grid-template-columns:1fr}}
+.hero-away{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;display:grid;gap:12px}
+.hero-away h2{margin:0;font-size:17px}
+.attn{display:grid;gap:8px}
+.attn .row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:6px;padding:9px 10px}
+.lanes{display:grid;gap:8px;padding:12px}
+.lane{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;align-items:center}
+.track{display:flex;gap:4px;min-width:0;overflow-x:auto}
+.seg{flex:0 0 auto;border-radius:4px;padding:3px 8px;font-size:12px;white-space:nowrap;border:1px solid var(--line)}
+.seg.done{background:var(--sunken);color:var(--muted)}.seg.run{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}.seg.blk{background:var(--wait-soft);color:var(--wait)}.seg.bad{background:var(--bad-soft);color:var(--bad)}.seg.todo{border-style:dashed;color:var(--muted)}
+@media (max-width:640px){.lane{grid-template-columns:1fr}}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);background:var(--surface);border-left:1px solid var(--line);box-shadow:-12px 0 30px rgba(0,0,0,.18);display:grid;grid-template-rows:auto minmax(0,1fr) auto;z-index:30;padding-top:env(safe-area-inset-top,0px);padding-right:env(safe-area-inset-right,0px)}
+/* variant C */
+.strip{display:flex;gap:6px;align-items:center;overflow-x:auto;padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.strip .seg{cursor:default}.arrow{color:var(--muted);flex:0 0 auto}
+.panes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.pane{background:var(--sunken);border:1px solid var(--line);border-radius:8px;display:grid;grid-template-rows:auto minmax(0,1fr) auto;min-height:330px;min-width:0}
+.pane .ph{background:var(--surface);border-radius:8px 8px 0 0;text-transform:none;letter-spacing:0;font-size:13px;color:var(--fg)}
+.pane .lines{padding:8px 10px;display:grid;gap:5px;align-content:start;font:12px/1.45 var(--mono);overflow:auto;max-height:300px}
+.pane .lines div{white-space:pre-wrap;word-break:break-word}
+.pane.idle{opacity:.72}
+.pane .foot{padding:6px 10px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:6px}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:900px){.bottom{grid-template-columns:1fr}}
+details.tray>summary{cursor:pointer;padding:10px 12px;font-weight:600;font-size:13px}
+/* switcher */
+.switcher{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));background:var(--bar);color:var(--bar-fg);border-radius:999px;padding:5px 6px;display:flex;gap:4px;align-items:center;box-shadow:0 8px 24px rgba(0,0,0,.28);z-index:40;max-width:calc(100% - 24px);font-size:13px}
+.switcher button{background:none;border:0;color:inherit;padding:5px 10px;border-radius:999px;font-weight:600}
+.switcher button:hover{background:rgba(127,127,127,.25)}
+.switcher .lab{padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.switcher .sep{width:1px;height:18px;background:currentColor;opacity:.3}
+.empty{padding:26px 14px;text-align:center;display:grid;gap:10px;justify-items:center;color:var(--muted)}
+.diff{font:12px/1.5 var(--mono);background:var(--sunken);border-radius:6px;padding:8px 10px;overflow-x:auto;white-space:pre}
+.add{color:var(--ok)}.del{color:var(--bad)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap" id="app"></div>
+<div class="switcher" role="toolbar" aria-label="Prototype switcher">
+  <button id="prev" aria-label="Previous variant">←</button>
+  <span class="lab" id="vlabel"></span>
+  <button id="next" aria-label="Next variant">→</button>
+  <span class="sep"></span>
+  <button id="shape" aria-label="Toggle mission shape"></button>
+</div>
+
+<script>
+// ---------- mock data ----------
+const LONG = {
+  shape:"long", title:"Refactor authentication and improve performance", ws:"Platform · keyrus-portal",
+  state:"active", day:"Day 3", started:"Nov 4", budget:{spent:182, cap:400, unit:"USD"}, conc:{used:3, cap:4},
+  conditions:[["s-working","3 working"],["s-waiting","1 waiting"],["s-attn","1 needs you"]],
+  members:[
+    {id:"co",ini:"CO",name:"Coordinator",role:"Plans and coordinates",state:"working",what:"Planning next steps",engine:"Claude · opus"},
+    {id:"be",ini:"BE",name:"Backend Engineer",role:"Refactors authentication",state:"working",what:"Running auth tests",engine:"Pi · sonnet"},
+    {id:"te",ini:"TE",name:"Test Engineer",role:"Creates regression tests",state:"working",what:"Writing token-expiry cases",engine:"OpenCode"},
+    {id:"pa",ini:"PA",name:"Performance Analyst",role:"Profiles login path",state:"waiting",what:"Waiting on “Token validation refactor”",engine:"Pi · sonnet"},
+    {id:"rv",ini:"RV",name:"Reviewer",role:"Design and code review",state:"stopped",what:"Stopped unexpectedly · valid checkpoint 02:14",engine:"Claude · sonnet"},
+  ],
+  events:[
+    ["09:42","be","tool","Executing authentication tests","$ pnpm test auth\n✓ 24 passed  ✗ 0 failed  (11.3s)"],
+    ["09:40","co","milestone","Backend output ready for performance analysis once merged into the mission branch."],
+    ["09:37","te","msg","Added 6 cases for refresh-token rotation; 2 still failing against current branch."],
+    ["09:31","be","tool","Edited src/auth/token.ts, src/auth/session.ts","+142 −98 across 2 files"],
+    ["09:20","co","plan","Plan version 4 proposed: split “Session store” into read and write paths (within autonomy policy, applied)."],
+    ["02:14","rv","alert","Reviewer session stopped: runner lease expired. Last valid checkpoint 02:14. 1 effect outcome unknown."],
+    ["01:58","be","handoff","Handoff: token validation moved to middleware; open question on clock skew tolerance."],
+    ["23:05","pa","wait","Waiting on dependency “Token validation refactor” (verified, not yet merged)."],
+  ],
+  away:{since:"yesterday 18:30",items:[
+    ["var(--ok)","2 members finished their tasks and produced 4 outputs."],
+    ["var(--bad)","Reviewer stopped unexpectedly at 02:14. Its last valid checkpoint is available; 1 effect has an unknown outcome."],
+    ["var(--wait)","Performance analysis is waiting for “Token validation refactor” to merge into the mission branch."],
+    ["var(--accent)","Coordinator applied plan version 4 (split Session store) within its autonomy policy."],
+  ], next:"Reconcile the unknown effect, then recover Reviewer from its 02:14 checkpoint as a new attempt."},
+  plan:{version:4, cols:[
+    ["Done",[["Audit current auth flow","CO · verified, merged","done"],["Design review","RV · verified, merged","done"]]],
+    ["Running",[["Token validation refactor","BE · attempt 3 · tests passing","run"],["Regression tests","TE · attempt 1","run"]]],
+    ["Blocked / waiting",[["Login path profiling","PA · waits on Token validation","blk"],["Code review: middleware","RV · stopped, checkpoint 02:14","bad"]]],
+    ["Not started",[["Session store: read path","unassigned","todo"],["Session store: write path","unassigned","todo"],["Final perf report","PA","todo"]]],
+  ]},
+  logs:[
+    ["09:42:18","BE","Token validation refactor","3","tool","pnpm test auth","24 passed"],
+    ["09:40:02","CO","—","—","milestone","Backend output ready","—"],
+    ["09:31:55","BE","Token validation refactor","3","edit","src/auth/token.ts","+120 −80"],
+    ["09:20:10","CO","—","—","plan","plan.propose v4","applied"],
+    ["02:14:40","RV","Code review: middleware","1","lease","lease expired","outcome unknown"],
+    ["01:58:12","BE","Token validation refactor","2","output","handoff.md","draft"],
+  ],
+  outputs:[
+    ["Token validation refactor",[["handoff.md","Handoff","BE","final","v2"],["auth-middleware.patch","Patch","BE","draft","v3"]]],
+    ["Regression tests",[["token-expiry.spec.ts","Tests","TE","draft","v1"]]],
+    ["Audit current auth flow",[["auth-audit.md","Report","CO","final","v1"],["flow-diagram.svg","Diagram","CO","final","v1"]]],
+  ],
+};
+const INTERACTIVE = {
+  shape:"interactive", title:"Explain the flaky login test", ws:"Platform · keyrus-portal",
+  state:"active", day:"Today", started:"10:05", budget:{spent:3.4, cap:20, unit:"USD"}, conc:{used:1, cap:1},
+  conditions:[["s-working","1 working"]],
+  members:[{id:"ag",ini:"AG",name:"Code assistant",role:"Your interactive agent",state:"working",what:"Reading test logs",engine:"Claude · sonnet"}],
+  events:[
+    ["10:12","ag","tool","Read CI logs for the last 20 runs","login.spec.ts failed 6/20, always after token refresh"],
+    ["10:10","you","msg","Why does login.spec.ts fail randomly on CI?"],
+    ["10:14","ag","msg","The test waits a fixed 500 ms for the refresh call. On CI the call takes up to 900 ms. I changed the wait to await the network response."],
+    ["10:15","ag","output","Session branch has a draft diff: 1 file, +4 −2."],
+  ].reverse(),
+  away:null, plan:null,
+  logs:[["10:12:03","AG","—","1","tool","ci.logs","20 runs"],["10:15:40","AG","—","1","edit","tests/login.spec.ts","+4 −2"]],
+  outputs:[["Session branch",[["login.spec.ts diff","Patch","AG","draft","v1"]]]],
+};
+// ---------- state ----------
+const VARIANTS=[["a","Cockpit"],["b","Return-first"],["c","Lanes"]];
+const S={v:"a",shape:"long",tab:"live",focus:null,split:false,logFilter:"all",drawer:null};
+function readHash(){const h=(location.hash||"").slice(1).split("-");if(VARIANTS.some(v=>v[0]===h[0]))S.v=h[0];if(h[1]==="interactive"||h[1]==="long")S.shape=h[1];}
+function writeHash(){try{history.replaceState(null,"","#"+S.v+"-"+S.shape)}catch(e){location.hash=S.v+"-"+S.shape}}
+const M=()=>S.shape==="long"?LONG:INTERACTIVE;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const stCls={working:"s-working",waiting:"s-waiting",stopped:"s-bad",done:"s-done"};
+const stLab={working:"Working",waiting:"Waiting",stopped:"Stopped",done:"Finished"};
+const mem=id=>M().members.find(m=>m.id===id)||{name:"You",ini:"YOU"};
+// ---------- shared pieces ----------
+function header(){const m=M();const pct=Math.round(m.budget.spent/m.budget.cap*100);
+  return `<header class="mhead"><div style="display:grid;gap:4px;min-width:0">
+   <div class="crumbs">Missions › ${esc(m.ws)}</div><h1>${esc(m.title)}</h1>
+   <div class="facts"><span class="pill s-active"><i></i>Active</span>
+   <span class="pill">${m.shape==="long"?"Long-running":"Interactive"}</span>
+   <span class="muted" style="font-size:12px">${esc(m.day)} · ${m.members.length} member${m.members.length>1?"s":""} · started ${esc(m.started)}</span>
+   ${m.conditions.map(c=>`<span class="pill ${c[0]}">${c[1]}</span>`).join("")}</div></div>
+   <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+   <div class="budget"><span>Budget <b>${m.budget.spent} / ${m.budget.cap} ${m.budget.unit}</b> · members ${m.conc.used}/${m.conc.cap}</span><div class="meter"><b style="width:${pct}%"></b></div></div>
+   <div style="display:flex;gap:6px">${m.shape==="interactive"?`<button class="btn">Grow into team mission</button>`:`<button class="btn">Propose completion</button>`}<button class="btn quiet">Pause</button></div></div></header>`}
+function tabs(list){return `<nav class="tabs" role="tablist">${list.map(([id,l,c])=>`<button role="tab" data-tab="${id}" aria-selected="${S.tab===id}">${l}${c!=null?`<span class="count">${c}</span>`:""}</button>`).join("")}</nav>`}
+function memberList(){return M().members.map(m=>`<button class="member" data-focus="${m.id}" aria-pressed="${S.focus===m.id}"><span class="av">${m.ini}</span><span style="min-width:0"><span class="name">${esc(m.name)}</span> <span class="pill ${stCls[m.state]}" style="font-size:11px">${stLab[m.state]}</span><div class="what">${esc(m.what)}</div></span></button>`).join("")}
+function evRow(e){const [t,who,k,msg,pre]=e;const m=mem(who);const cls=k==="milestone"?"milestone":(k==="alert"?"alert":"");
+  return `<div class="ev ${cls}"><span class="t">${t}</span><span class="who">${esc(m.name)}</span><div class="msg"><span class="k">${k}</span>${esc(msg)}${pre?`<pre>${esc(pre)}</pre>`:""}</div></div>`}
+function stream(filter){const ev=M().events.filter(e=>!filter||e[1]===filter||(filter&&e[1]==="you"));return `<div class="stream">${ev.map(evRow).join("")||`<div class="empty">No activity yet.</div>`}</div>`}
+function composer(){const m=M();const opts=m.shape==="long"?[["team","Mission team (coordinator triages)"],...m.members.map(x=>[x.id,x.name])]:[[m.members[0].id,m.members[0].name]];
+  return `<div class="composer"><label class="muted" for="to" style="font-size:12px">To</label><select id="to">${opts.map(o=>`<option value="${o[0]}" ${S.focus===o[0]?"selected":""}>${esc(o[1])}</option>`).join("")}</select><input id="msg" placeholder="${m.shape==="long"?"Message an agent or the mission team…":"Ask the agent…"}"><button class="btn primary">Send</button></div>
+  <div class="muted" style="font-size:11.5px;padding:0 12px 10px">${m.shape==="long"?"A message to a working member steers its live session; to a waiting member it is queued for its next session; to the team it wakes the coordinator.":"Every interactive conversation is a small mission: one member, no plan yet."}</div>`}
+function awayCard(compact){const a=M().away;if(!a)return "";return `<section class="panel"><h2>While you were away <span style="text-transform:none;letter-spacing:0;font-weight:400">since ${esc(a.since)}</span></h2><div class="body away"><ul>${a.items.map(i=>`<li><span class="dot" style="background:${i[0]}"></span><span>${esc(i[1])}</span></li>`).join("")}</ul>
+  <div class="next"><b>Suggested next action</b><span>${esc(a.next)}</span><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn primary">Reconcile effect</button><button class="btn">Inspect Reviewer</button></div></div>
+  ${compact?"":`<div class="muted" style="font-size:11.5px">Built from mission events, not written by a model. Recovery re-checks fence, branch head, unknown effects and budget before a new attempt starts.</div>`}</div></section>`}
+function planView(){const m=M();if(!m.plan)return `<section class="panel"><div class="empty"><b style="color:var(--fg)">No plan yet</b><span>This mission is interactive. Growing it adds a coordinator who proposes a plan and a team. Its conversation and outputs carry over.</span><button class="btn primary">Grow into team mission</button></div></section>`;
+  return `<section class="panel"><div class="planbar"><span><b>Plan version ${m.plan.version}</b> <span class="muted">· confirmed · v3 kept in history</span></span><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn">Add task</button><button class="btn">Request replanning</button><button class="btn quiet">Compare versions</button></div></div>
+  <div class="plan">${m.plan.cols.map(([h,ts])=>`<div class="col"><h3>${h}</h3>${ts.map(t=>`<div class="task ${t[2]}"><span class="tn">${esc(t[0])}</span><span class="tm">${esc(t[1])}</span></div>`).join("")}</div>`).join("")}</div>
+  <div class="muted" style="font-size:11.5px;padding:0 12px 12px">Only unstarted tasks can be edited. Every edit is a new plan version; executed work is never rewritten.</div></section>`}
+function teamView(){const m=M();return `<section class="panel scroll"><table><thead><tr><th>Member</th><th>Role</th><th>Current work</th><th>Engine</th><th>Status</th><th></th></tr></thead><tbody>${m.members.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.role)}</td><td>${esc(x.what)}</td><td class="mono">${esc(x.engine)}</td><td><span class="pill ${stCls[x.state]}">${stLab[x.state]}</span></td><td style="white-space:nowrap"><button class="btn quiet" data-focus="${x.id}" data-gotab="live">Open session</button></td></tr>`).join("")}</tbody></table>
+  ${m.shape==="long"?`<div class="composer"><button class="btn">Add eligible specialist</button><button class="btn">Reassign unstarted task</button><span class="muted" style="font-size:12px">Members are mission-scheduled peers; budget caps concurrent members at ${m.conc.cap}.</span></div>`:""}</section>`}
+function logsView(){const m=M();const rows=m.logs.filter(r=>S.logFilter==="all"||r[0]&&r[1]===S.logFilter);const whos=[...new Set(m.logs.map(r=>r[1]))];
+  return `<section class="panel"><div class="filters"><button class="chip" data-log="all" aria-pressed="${S.logFilter==="all"}">All members</button>${whos.map(w=>`<button class="chip" data-log="${w}" aria-pressed="${S.logFilter===w}">${w}</button>`).join("")}<span class="chip">Task ▾</span><span class="chip">Attempt ▾</span><span class="chip">Tool ▾</span><span class="chip">Time ▾</span></div>
+  <div class="scroll"><table><thead><tr><th>Time</th><th>Member</th><th>Task</th><th>Attempt</th><th>Kind</th><th>Detail</th><th>Result</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="mono num">${r[0]}</td><td>${r[1]}</td><td>${esc(r[2])}</td><td class="num">${r[3]}</td><td>${r[4]}</td><td class="mono">${esc(r[5])}</td><td>${esc(r[6])}</td></tr>`).join("")}</tbody></table></div>
+  <div class="muted" style="font-size:11.5px;padding:8px 12px">Each row opens the session at that moment and the output it produced.</div></section>`}
+function outputsView(){const m=M();return `<section class="panel">${m.outputs.map(([g,os])=>`<div class="ph">${esc(g)}</div><div class="outs">${os.map(o=>`<div class="out"><span class="on mono">${esc(o[0])}</span><span class="muted">${o[1]} · ${o[2]} · ${o[4]}</span><span><span class="pill ${o[3]==="final"?"s-active":"s-attn"}">${o[3]==="final"?"Final":"Draft"}</span></span>${o[1]==="Patch"&&m.shape==="interactive"?`<div class="diff"><span class="del">-  await page.waitForTimeout(500)</span>\n<span class="add">+  await page.waitForResponse(/\\/auth\\/refresh/)</span></div><div style="display:flex;gap:6px"><button class="btn primary">Merge into mission branch</button></div>`:`<div style="display:flex;gap:6px"><button class="btn quiet">Preview</button><button class="btn quiet">Compare versions</button></div>`}</div>`).join("")}</div>`).join("")}</section>`}
+// ---------- Variant A: Cockpit (tabs, Live default with team rail + away panel) ----------
+function VariantA(){const m=M();const t=S.tab;let main="";
+  if(t==="live"){const left=`<section class="panel"><h2>Team</h2><div class="body" style="gap:2px">${m.shape==="long"?`<button class="member" data-focus="" aria-pressed="${!S.focus}"><span class="av">ALL</span><span><span class="name">All members</span><div class="what">Interleaved activity</div></span></button>`:""}${memberList()}</div></section>`;
+    const center=S.split&&m.shape==="long"?`<div class="split">${["be","te"].map(id=>`<section class="panel"><h2>${esc(mem(id).name)} · live</h2>${stream(id)}</section>`).join("")}</div>`:
+      `<section class="panel"><h2>${S.focus?esc(mem(S.focus).name)+" · live":"All activity"}${m.shape==="long"?`<button class="btn quiet" data-split style="text-transform:none;letter-spacing:0">${S.split?"Single view":"Split: compare two"}</button>`:""}</h2>${stream(S.focus)}${composer()}</section>`;
+    main=`<div class="grid-live">${left}<div style="display:grid;gap:12px;min-width:0">${center}</div><div style="display:grid;gap:12px">${awayCard()||`<section class="panel"><h2>Mission brief</h2><div class="body muted" style="font-size:13px">Find out why login.spec.ts is flaky on CI and fix it.</div></section>`}</div></div>`;}
+  else if(t==="team")main=teamView();else if(t==="plan")main=planView();else if(t==="logs")main=logsView();else main=outputsView();
+  return header()+tabs([["live","Live"],["team","Team",m.members.length],["plan","Plan",m.plan?m.plan.cols.reduce((a,c)=>a+c[1].length,0):null],["logs","Logs"],["outputs","Outputs",m.outputs.reduce((a,g)=>a+g[1].length,0)]])+main;}
+// ---------- Variant B: Return-first (digest + attention, plan lanes, Live opens in a drawer) ----------
+function VariantB(){const m=M();if(S.tab!=="live")return header()+tabs([["live","Overview"],["plan","Plan"],["logs","Logs"],["outputs","Outputs"]])+(S.tab==="plan"?planView():S.tab==="logs"?logsView():outputsView())+drawer();
+  const attn=m.shape==="long"?[["Reviewer stopped · 1 effect outcome unknown","Reconcile"],["Plan version 4 applied by coordinator","Review"],["Merge conflict risk: Session store paths","Inspect"]]:[["Draft diff ready on the session branch","Review diff"]];
+  const left=`<div style="display:grid;gap:12px;min-width:0">
+   ${m.away?`<section class="hero-away"><h2>Since you were away (${esc(m.away.since)})</h2><ul class="away" style="margin:0;padding:0">${m.away.items.map(i=>`<li><span class="dot" style="background:${i[0]}"></span><span>${esc(i[1])}</span></li>`).join("")}</ul><div class="next"><b>Suggested next action</b><span>${esc(m.away.next)}</span></div></section>`:`<section class="hero-away"><h2>Conversation</h2>${stream()}${composer()}</section>`}
+   <section class="panel"><h2>Needs you <span class="pill s-attn" style="text-transform:none;letter-spacing:0">${attn.length}</span></h2><div class="body attn">${attn.map(a=>`<div class="row"><span>${esc(a[0])}</span><button class="btn primary">${a[1]}</button></div>`).join("")}</div></section></div>`;
+  const right=m.shape==="long"?`<section class="panel"><h2>Team progress <span style="text-transform:none;letter-spacing:0;font-weight:400">click a lane to watch live</span></h2><div class="lanes">${m.members.map(x=>`<div class="lane"><button class="member" data-drawer="${x.id}" style="padding:4px"><span class="av">${x.ini}</span><span><span class="name">${esc(x.name)}</span><div class="what">${stLab[x.state]}</div></span></button><div class="track">${laneSegs(x.id)}</div></div>`).join("")}</div></section>
+    <section class="panel"><h2>Mission brief</h2><div class="body" style="font-size:13px"><div><b>Intent</b> · Move token validation to middleware without login latency regression.</div><div><b>Constraints</b> · No session invalidation for existing users.</div><div><b>Accepted decisions</b> · Clock skew tolerance 30 s (Nov 5).</div></div></section>`:
+    `<section class="panel"><h2>Outputs</h2><div class="body"><div class="diff"><span class="del">-  await page.waitForTimeout(500)</span>\n<span class="add">+  await page.waitForResponse(/\\/auth\\/refresh/)</span></div><button class="btn primary">Merge into mission branch</button></div></section>`;
+  return header()+tabs([["live","Overview"],["plan","Plan"],["logs","Logs"],["outputs","Outputs"]])+`<div class="bgrid">${left}<div style="display:grid;gap:12px;min-width:0">${right}</div></div>`+drawer();}
+const SEGS={co:[["Audit","done"],["Plan v4","done"],["Coordinating","run"]],be:[["Token validation · a1","bad"],["a2","done"],["a3","run"]],te:[["Regression tests","run"]],pa:[["Profiling","blk"],["Final perf report","todo"]],rv:[["Design review","done"],["Middleware review","bad"]]};
+function laneSegs(id){return (SEGS[id]||[]).map(s=>`<span class="seg ${s[1]}">${esc(s[0])}</span>`).join("")}
+function drawer(){if(!S.drawer)return "";const x=mem(S.drawer);return `<aside class="drawer" aria-label="Live session"><div class="ph" style="text-transform:none;letter-spacing:0;font-size:14px;color:var(--fg)">${esc(x.name)} · live session<button class="btn quiet" data-close>Close</button></div><div style="overflow:auto">${stream(S.drawer)}</div>${composer()}</aside>`}
+// ---------- Variant C: Lanes (one live pane per member, plan strip on top, logs/outputs trays) ----------
+const PANE={co:["reading mission brief v12","plan.propose v4 → applied (unstarted tasks only)","waiting for events: merge of Token validation"],be:["$ pnpm test auth","✓ 24 passed (11.3s)","editing src/auth/session.ts …"],te:["writing token-expiry.spec.ts","2 failing: refresh rotation, skew","▌"],pa:["suspended · no runner held","resumes when Token validation merges"],rv:["✗ lease expired 02:14","valid checkpoint 02:14 · 1 effect unknown","[Recover as new attempt]"],ag:["read CI logs (20 runs)","found: fixed 500 ms wait after refresh","proposed diff on session branch ▌"]};
+function VariantC(){const m=M();
+  const strip=m.plan?`<div class="strip" aria-label="Plan">${m.plan.cols.flatMap(c=>c[1]).map((t,i,a)=>`<span class="seg ${t[2]}">${esc(t[0])}</span>${i<a.length-1?`<span class="arrow">→</span>`:""}`).join("")}<span class="muted" style="flex:0 0 auto;font-size:12px;margin-left:8px">plan v${m.plan.version}</span></div>`:`<div class="strip"><span class="muted">No plan · interactive mission</span><button class="btn" style="margin-left:auto">Grow into team mission</button></div>`;
+  const panes=`<div class="panes">${m.members.map(x=>`<section class="pane ${x.state==="waiting"?"idle":""}"><div class="ph"><span><b>${esc(x.name)}</b> <span class="pill ${stCls[x.state]}" style="font-size:11px">${stLab[x.state]}</span></span><span class="mono muted">${esc(x.engine)}</span></div><div class="lines">${(PANE[x.id]||[]).map(l=>`<div>${esc(l)}</div>`).join("")}</div><div class="foot"><span>${esc(x.role)}</span><button class="btn quiet" style="padding:2px 8px">Steer</button></div></section>`).join("")}</div>`;
+  const banner=m.away?`<div class="next" style="grid-template-columns:minmax(0,1fr) auto;align-items:center"><span><b>Since ${esc(m.away.since)}</b> 2 tasks finished · 4 outputs · Reviewer stopped (checkpoint 02:14) · Profiling waiting</span><button class="btn primary">Recover Reviewer</button></div>`:"";
+  return header()+banner+strip+panes+composer()+`<div class="bottom"><details class="tray panel"><summary>Logs · ${m.logs.length} entries</summary>${logsView()}</details><details class="tray panel"><summary>Outputs · ${m.outputs.reduce((a,g)=>a+g[1].length,0)}</summary>${outputsView()}</details></div>`;}
+// ---------- render + events ----------
+const NOTES={a:"Tabs with Live as default: team rail, interleaved activity, away panel on the right. Team, Plan, Logs, Outputs one click away.",
+ b:"Opens on what changed and what needs you. Team shown as progress lanes; a member's live session slides in as a drawer.",
+ c:"Every member is a live pane side by side, plan as a strip on top, Logs and Outputs folded into trays below."};
+function render(){const fn={a:VariantA,b:VariantB,c:VariantC}[S.v];
+  document.getElementById("app").innerHTML=`<div class="note"><b>Prototype ${S.v.toUpperCase()} · ${VARIANTS.find(v=>v[0]===S.v)[1]}</b>, ${S.shape==="long"?"long-running team mission":"interactive mission"}. ${NOTES[S.v]} Mock data, nothing is saved.</div>`+fn();
+  document.getElementById("vlabel").textContent=`${S.v.toUpperCase()} (${VARIANTS.find(v=>v[0]===S.v)[1]})`;
+  document.getElementById("shape").textContent=S.shape==="long"?"Shape: team ⇄":"Shape: interactive ⇄";}
+function go(d){const i=VARIANTS.findIndex(v=>v[0]===S.v);S.v=VARIANTS[(i+d+VARIANTS.length)%VARIANTS.length][0];S.tab="live";S.drawer=null;writeHash();render();}
+document.getElementById("prev").onclick=()=>go(-1);document.getElementById("next").onclick=()=>go(1);
+document.getElementById("shape").onclick=()=>{S.shape=S.shape==="long"?"interactive":"long";S.focus=null;S.split=false;S.drawer=null;S.tab="live";S.logFilter="all";writeHash();render();};
+document.addEventListener("keydown",e=>{const a=document.activeElement;if(a&&(a.matches("input,textarea,select,[contenteditable]")))return;if(e.key==="ArrowLeft")go(-1);if(e.key==="ArrowRight")go(1);if(e.key==="Escape"&&S.drawer){S.drawer=null;render();}});
+document.getElementById("app").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.tab){S.tab=b.dataset.tab;S.drawer=null;render();}
+  else if(b.dataset.focus!==undefined){S.focus=b.dataset.focus||null;if(b.dataset.gotab)S.tab=b.dataset.gotab;S.split=false;render();}
+  else if(b.hasAttribute("data-split")){S.split=!S.split;render();}
+  else if(b.dataset.log){S.logFilter=b.dataset.log;render();}
+  else if(b.dataset.drawer){S.drawer=b.dataset.drawer;render();}
+  else if(b.hasAttribute("data-close")){S.drawer=null;render();}});
+window.addEventListener("hashchange",()=>{readHash();render();});
+readHash();render();
+</script>
