@@ -373,8 +373,8 @@
    "id": "T19",
    "dependencies": "T17",
    "targetFiles": "apps/governor/src/modules/jobs/{fairness,ready-index,schedule}.ts",
-   "behavior": "House/work admission, bounded fair queue scan, unique cron fires",
-   "verify": "tests/domain/schedule.test.ts and bench scheduler; E030/E047\u2013E049",
+   "behavior": "House/work admission, bounded fair queue scan, unique cron fires; mission admission through missions.admissionLimits (spend and wall-clock headroom, member cap = concurrently running work sessions), settlements reported back via missions.recordSettlement, round-robin across missions with interactive sessions that have a human waiting served first, and one derived waiting reason per queued attempt (budget, member cap, runner capacity)",
+   "verify": "tests/domain/schedule.test.ts and bench scheduler; E030/E047\u2013E049; E111/E112",
    "read": [
     "docs/implementation/01-architecture-and-modules.md",
     "docs/implementation/06-runners-and-scheduling.md",
@@ -584,27 +584,6 @@
    ],
    "ownerModule": "workflows"
   },
-  "T31": {
-   "id": "T31",
-   "dependencies": "T06,T28,T30",
-   "targetFiles": "apps/governor/src/modules/board/; current workspace schema",
-   "behavior": "Cards, decisions, optimistic versions and verified Done",
-   "verify": "tests/integration/board.test.ts; E009/E028/E073\u2013E075",
-   "read": [
-    "docs/implementation/01-architecture-and-modules.md",
-    "docs/implementation/02-transport-and-commands.md",
-    "docs/implementation/11-acceptance-and-edge-cases.md",
-    "contracts/v1/module-layout.json"
-   ],
-   "evidenceDirectory": "artifacts/runtime/T31",
-   "contractDefinitions": [
-    "WorkItem",
-    "BoardView",
-    "DecisionRecordCommand",
-    "DecisionHistoryEntry"
-   ],
-   "ownerModule": "board"
-  },
   "T32": {
    "id": "T32",
    "dependencies": "T06,T07",
@@ -648,8 +627,8 @@
   "T34": {
    "id": "T34",
    "dependencies": "T33,T32",
-   "targetFiles": "apps/web/src/{app.tsx,shell/BrainShell.tsx,routes/today/,routes/bridge/,data/}; stores",
-   "behavior": "NewUI AppShell/PaneLayout/AuthLayout, Governor query adapters, scoped cache, deep links, snapshot/replay and prioritized work Simplified daily task entry, populated default workspace, shared guided/conversation/work-item dispatch and outcome-first results. Three task entry points share durable explicit review/start; private conversations use governed runner inference and independently checked proposals; work-item associations preserve source context. Task/navigation presentation metadata is generated from canonical contracts.",
+   "targetFiles": "apps/web/src/{app.tsx,shell/BrainShell.tsx,routes/missions/,data/}; apps/web/src/ui/attention/; contracts/v1/ui-screen-contracts.json; stores",
+   "behavior": "NewUI AppShell/PaneLayout/AuthLayout with the five areas (Missions, Live, Logs, Outputs, Plays) and a secondary menu (Knowledge, Administration); Missions home with the cross-workspace attention strip in fixed tiers; global attention drawer; mission creation at /w/:id/missions/new (Play picker, intent/constraints, autonomy preset, budget); landing redirect to the current workspace's Missions; Governor query adapters, scoped cache, deep links and snapshot/replay. Rewrites contracts/v1/ui-screen-contracts.json, its registry queries/commands and the readiness navigation checks to the routes per the decided route table on issue #43, removing /today, /bridge, /w/:id/overview, /w/:id/board and /w/:id/decisions. Task/navigation presentation metadata is generated from canonical contracts.",
    "verify": "tests/browser/navigation.spec.ts; E091\u2013E093/E097; workspace switch/revocation clears protected cache; tests/browser/task-entry.spec.ts and tests/integration/task-experience.test.ts cover confirmation, proposal privacy, stale releases, accepted-response recovery and origin links",
    "read": [
     "docs/implementation/01-architecture-and-modules.md",
@@ -660,9 +639,9 @@
    ],
    "evidenceDirectory": "artifacts/runtime/T34",
    "contractDefinitions": [
-    "TodayItem",
-    "WorkspaceContext",
-    "WorkspaceSummary"
+    "QueryResponse",
+    "UIConfig",
+    "PlanVersion"
    ],
    "ownerModule": "experience"
   },
@@ -708,26 +687,6 @@
     "RunnerSnapshot",
     "BrainSession",
     "PlacementExplanation"
-   ],
-   "ownerModule": "experience"
-  },
-  "T37": {
-   "id": "T37",
-   "dependencies": "T34,T31",
-   "targetFiles": "apps/web/src/routes/{board,decisions}/",
-   "behavior": "NewUI KanbanBoard plus keyboard move controls, evidence gate, conflicts and verbatim decisions; Governor controls Done",
-   "verify": "tests/browser/board.spec.ts; E009/E073\u2013E075/E093/E097",
-   "read": [
-    "docs/implementation/01-architecture-and-modules.md",
-    "docs/implementation/09-ux-and-ui.md",
-    "docs/implementation/16-newui-integration.md",
-    "docs/implementation/21-ui-recipes-and-screen-oracles.md",
-    "contracts/v1/module-layout.json"
-   ],
-   "evidenceDirectory": "artifacts/runtime/T37",
-   "contractDefinitions": [
-    "BoardView",
-    "DecisionHistoryEntry"
    ],
    "ownerModule": "experience"
   },
@@ -792,9 +751,9 @@
   "T44": {
    "id": "T44",
    "dependencies": "T28",
-   "targetFiles": "apps/governor/src/modules/packs/delivery/; apps/governor/src/modules/packs/eval/; delivery route",
-   "behavior": "Evidence dossier/rubric, deterministic golden cases and optional calibrated judge",
-   "verify": "tests/integration/delivery.test.ts; E073\u2013E075; recommendation separate from approval",
+   "targetFiles": "apps/governor/src/modules/packs/{support,sre,eval}/; Play views",
+   "behavior": "Support and SRE Play views over subjects (tickets, incidents) with SubjectRef owned by packs; rubric results and the optional calibrated judge run as evaluator checks, recommendation separate from approval; the delivery dossier and route are removed (the mission evidence bundle replaces it)",
+   "verify": "tests/integration/packs.test.ts; recommendation separate from approval; deterministic golden cases",
    "read": [
     "docs/implementation/01-architecture-and-modules.md",
     "docs/implementation/08-evidence-and-memory.md",
@@ -803,8 +762,8 @@
    ],
    "evidenceDirectory": "artifacts/runtime/T44",
    "contractDefinitions": [
-    "DeliveryDossier",
-    "CheckResult"
+    "CheckResult",
+    "VerificationVerdict"
    ],
    "ownerModule": "packs"
   },
@@ -924,10 +883,10 @@
   },
   "T51": {
    "id": "T51",
-   "dependencies": "T28,T31,T34",
-   "targetFiles": "apps/governor/src/modules/work/; apps/governor/src/domain/work-plan.ts; apps/web/src/routes/plans/; current workspace schema",
-   "behavior": "Objectives, immutable reviewed PlanVersions, WorkItems with dependencies/assignments, execution links and lossless replanning",
-   "verify": "tests/domain/work-plan.test.ts; tests/integration/work-plans.test.ts; tests/browser/plans.spec.ts; E101\u2013E103",
+   "dependencies": "T28,T34",
+   "targetFiles": "apps/governor/src/modules/missions/ (replaces modules/work/ and modules/board/); apps/governor/src/domain/missions/; contracts/v1/{brain.schema.json,registry.json}; current workspace schema",
+   "behavior": "One deep missions module: Mission (state active/paused/verifying/closed, outcome, subject refs); mission brief with human-owned intent/constraints, immutable accepted decisions, derived progress, size cap and optimistic concurrency where human edits win; autonomy policy as an explicit operation list with presets and workspace ceiling; immutable plan versions including the mission team, mechanical member eligibility and the affected-branch check; work items with parking after consecutive failed attempts and human-only unpark; dependencies and handoff routing; execution links anchored on the mission; mission message records; named outputs with lineage and pinned inputs. Adds Mission, MissionBrief, AcceptedDecision, AutonomyPolicy, MissionBudget, BudgetUsage, TeamMember, MissionMessage, Output, OutputVersion to the schema and deletes Objective, business-decision and board types; objective.* commands become mission.*",
+   "verify": "tests/domain/missions.test.ts; tests/integration/missions.test.ts; E009/E028/E101\u2013E103/E113\u2013E115/E117",
    "read": [
     "docs/implementation/04-persistence-and-recovery.md",
     "docs/implementation/09-ux-and-ui.md",
@@ -935,18 +894,18 @@
    ],
    "evidenceDirectory": "artifacts/runtime/T51",
    "contractDefinitions": [
-    "Objective",
     "PlanVersion",
+    "PlanTask",
     "WorkItem",
     "ExecutionLink"
    ],
-   "ownerModule": "work"
+   "ownerModule": "missions"
   },
   "T52": {
    "id": "T52",
-   "dependencies": "T19,T51",
+   "dependencies": "T19,T51,T63",
    "targetFiles": "apps/governor/src/modules/jobs/{automation,occurrences,triggers}.ts; apps/web/src/routes/schedules/; automation schema",
-   "behavior": "One durable scheduler for WorkItems/capabilities/workflows with typed triggers, occurrence preview/history and managed/personal targets",
+   "behavior": "One durable scheduler: Play schedules and typed triggers (including subject triggers from packs) start missions, with occurrence preview/history and managed/personal targets",
    "verify": "tests/domain/automation.test.ts; tests/integration/automation.test.ts; tests/chaos/automation-restart.test.ts; tests/browser/schedules.spec.ts; E104\u2013E105",
    "read": [
     "docs/implementation/03-configuration-and-workflows.md",
@@ -955,9 +914,7 @@
    ],
    "evidenceDirectory": "artifacts/runtime/T52",
    "contractDefinitions": [
-    "Automation",
-    "AutomationTrigger",
-    "AutomationOccurrence"
+    "Schedule"
    ],
    "ownerModule": "jobs"
   },
@@ -965,8 +922,8 @@
    "id": "T53",
    "dependencies": "T24,T26,T51",
    "targetFiles": "apps/governor/src/modules/sessions/; apps/runner/src/engines/opencode.ts; apps/web/src/routes/sessions/",
-   "behavior": "Native/managed BrainSessions, portable checkpoints, WorkItem messages and bounded cross-agent delegation/review",
-   "verify": "tests/integration/session-collaboration.test.ts; tests/security/delegation.test.ts; E106 and harness feature matrix",
+   "behavior": "Native/managed BrainSessions; one Checkpoint type (commit, progress, consumed/produced output versions, in-flight effects, starting brief version) replacing Checkpoint and PortableCheckpoint; per-attempt context assembly (brief, direct-dependency handoffs, output references, messages since last session, retrieved knowledge, last checkpoint); mission message delivery by negotiated steering or at next session start plus explicit Interrupt; bounded cross-agent delegation counting against mission spend. Fixes the engine adapter defects in issues #28\u2013#32 that steering and native resume depend on. Deletes WorkItemMessage",
+   "verify": "tests/integration/session-collaboration.test.ts; tests/security/delegation.test.ts; E106/E118 and harness feature matrix",
    "read": [
     "docs/implementation/07-harnesses-and-tools.md",
     "docs/implementation/11-acceptance-and-edge-cases.md"
@@ -974,8 +931,8 @@
    "evidenceDirectory": "artifacts/runtime/T53",
    "contractDefinitions": [
     "BrainSession",
-    "WorkItemMessage",
-    "Delegation"
+    "Delegation",
+    "Checkpoint"
    ],
    "ownerModule": "sessions"
   },
@@ -1041,8 +998,8 @@
    "id": "T57",
    "dependencies": "T40,T56",
    "targetFiles": "apps/governor/src/modules/{capabilities,knowledge}/; capitalization scheduler workers; Knowledge Studio",
-   "behavior": "Autonomous provenance-scoped L0 capture, L1 extraction, L2 deduplicated tested candidates and governed L3 promotion",
-   "verify": "tests/integration/capitalization.test.ts; tests/chaos/capitalization-restart.test.ts; tests/security/capitalization-scope.test.ts; E110",
+   "behavior": "Autonomous provenance-scoped L0 capture, L1 extraction, L2 deduplicated tested candidates and governed L3 promotion; one capitalization run at mission close (any outcome) plus on demand, extracting only verified output versions, accepted decisions, verdict findings and handoff derived facts \u2014 never member notes, messages or transcripts; candidates reviewed in /w/:id/knowledge/review",
+   "verify": "tests/integration/capitalization.test.ts; tests/chaos/capitalization-restart.test.ts; tests/security/capitalization-scope.test.ts; E110; E120",
    "read": [
     "docs/implementation/08-evidence-and-memory.md",
     "docs/implementation/11-acceptance-and-edge-cases.md"
@@ -1059,7 +1016,7 @@
    "id": "T58",
    "dependencies": "T52,T53,T54,T55,T56,T57",
    "targetFiles": "apps/web/src/{app.tsx,routes/,ui/}; contracts/v1/ui-screen-contracts.json; browser acceptance",
-   "behavior": "Six-area UI-first experience with contextual Create, Ask Brain, all Studios and accessible responsive operation without YAML or terminal. Parent plan of the execution-console work; its web route set is superseded for live sessions by T60",
+   "behavior": "UI-first experience across the five areas with Plays (catalog, /plays/:id with Start), secondary Knowledge (assets, review queue, Studios) and Administration, /tv/:play kiosk renderings, accessible responsive operation without YAML or terminal, per the routes per the decided route table on issue #43. Its web route set is superseded for live sessions by T60",
    "verify": "tests/browser/navigation.spec.ts; tests/browser/plans.spec.ts; tests/browser/schedules.spec.ts; tests/browser/resources.spec.ts; tests/browser/integrations.spec.ts; tests/browser/studio.spec.ts; E093/E097/E101\u2013E110 at 390/768/1440 in both themes",
    "read": [
     "docs/implementation/09-ux-and-ui.md",
@@ -1079,8 +1036,8 @@
    "id": "T59",
    "dependencies": "T36,T53",
    "targetFiles": "apps/governor/src/modules/stream/; apps/governor/src/application/brain.ts; apps/governor/src/http/app.ts; apps/governor/schema/{control,workspace}.sql; apps/governor/src/modules/{jobs/{attempts,protocol},sessions/service}.ts; apps/runner/src/{supervisor.ts,engines/}; contracts/v1/{brain.schema.json,registry.json,openapi.json}",
-   "behavior": "Unified Execution Stream read model projected over the authoritative source logs (control.events, workspace.events, attempt_events) with one global stream_seq cursor, SQL-scoped authorized reads, FTS search, correlation context, attempt comparison, bounded sanitized export, retention sweep, engine feature negotiation and heartbeat-delivered steer/stop controls",
-   "verify": "tests/integration/stream.test.ts; tests/integration/sse.test.ts; tests/integration/responses.test.ts; tests/integration/storage.test.ts; tests/security/authz.test.ts",
+   "behavior": "Unified Execution Stream read model projected over the authoritative source logs (control.events, workspace.events, attempt_events) with one global stream_seq cursor, SQL-scoped authorized reads, FTS search, correlation context, attempt comparison, bounded sanitized export, retention sweep, engine feature negotiation and heartbeat-delivered steer/stop controls; adds attention-item, per-user per-mission seen-cursor and deterministic since-last-visit summary projections",
+   "verify": "tests/integration/stream.test.ts; tests/integration/sse.test.ts; tests/integration/responses.test.ts; tests/integration/storage.test.ts; tests/security/authz.test.ts; E119",
    "read": [
     "docs/implementation/01-architecture-and-modules.md",
     "docs/implementation/04-persistence-and-recovery.md",
@@ -1103,7 +1060,7 @@
    "id": "T60",
    "dependencies": "T34,T59",
    "targetFiles": "apps/web/src/routes/pages/{LivePage,SessionDetailPage,JobDetailPage,RunsPage}.tsx; apps/web/src/ui/console/; apps/web/src/ui/components/RunDetail.tsx; apps/web/src/ui/{LandingRedirect.tsx,app-context.tsx}; contracts/v1/ui-screen-contracts.json",
-   "behavior": "The Live console: resizable three-pane desktop layout with session selection, feed, steering/stop/attach/inspect controls, the interruption chooser driven by server continuation facts, contextual evidence and approval panels, and the run inspector linking out to console/logs/outputs without reproducing them. Supersedes the T36 session/run-detail surfaces and the T53 web session routes; active vs historical is state, not layout",
+   "behavior": "The mission Cockpit Live tab (default mission view) and the workspace Live area: team rail, interleaved session stream, split compare, since-last-visit panel, composer with recipient (mission or member), Interrupt and \"also add to brief\"; session selection, steering/stop/attach/inspect controls, the interruption chooser driven by server continuation facts, contextual evidence and approval panels, and the run inspector (/runs/:id). Active vs historical is state, not layout",
    "verify": "tests/browser/operations.spec.ts; tests/browser/exec-console.spec.ts; tests/browser/navigation.spec.ts",
    "read": [
     "docs/implementation/09-ux-and-ui.md",
@@ -1122,10 +1079,10 @@
   },
   "T61": {
    "id": "T61",
-   "dependencies": "T59,T60",
+   "dependencies": "T59,T60,T51",
    "targetFiles": "apps/web/src/routes/pages/{LogsPage,OutputsPage,ArtifactDetailPage}.tsx; apps/web/src/ui/logs/; apps/web/src/ui/outputs/; apps/web/src/ui/exec/; apps/web/src/data/{exec-logs,exec-outputs}.ts",
-   "behavior": "The independent Log Explorer (live tail with pause/unread, emitter and severity filters, full-text search, correlation jumps, tool-call grouping, raw mode, attempt comparison, bounded export, error navigation) and the Output Browser (previews, diff, history, verification status). Supersedes the in-run-detail logs and artifact views owned by T36; E092 targets this surface",
-   "verify": "tests/browser/sse-logviewer.spec.ts; tests/browser/exec-console.spec.ts",
+   "behavior": "The independent Log Explorer (live tail with pause/unread, emitter and severity filters, full-text search, correlation jumps, tool-call grouping, raw mode, attempt comparison, bounded export, error navigation) and the Output Browser (previews, diff, history, verification status). Supersedes the in-run-detail logs and artifact views owned by T36; E092 targets this surface. Outputs are named per mission: /outputs/:id lists versions and lineage, ?v= opens one version, /outputs/:id/compare diffs any two versions with provenance; mission Logs and Outputs tabs are mission-filtered views",
+   "verify": "tests/browser/sse-logviewer.spec.ts; tests/browser/exec-console.spec.ts; E121",
    "read": [
     "docs/implementation/09-ux-and-ui.md",
     "docs/implementation/11-acceptance-and-edge-cases.md"
@@ -1139,6 +1096,100 @@
     "ArtifactDiffResult"
    ],
    "ownerModule": "experience"
+  },
+  "T62": {
+   "id": "T62",
+   "dependencies": "T28,T51",
+   "targetFiles": "apps/governor/src/modules/evidence/{handoff,mission-bundle}.ts; contracts/v1/brain.schema.json",
+   "behavior": "Handoff as a typed evidence-bundle artifact: Governor-derived facts (merged commit range, changed files, output versions, criterion status) plus capped member notes held as claims; required for every work item with dependents and structurally checked against the merge; superseded on rework. Mission evidence bundle for mission verdicts. Adds Handoff and MissionEvidenceBundle",
+   "verify": "tests/integration/handoff.test.ts; tests/security/handoff-claims.test.ts; E116",
+   "read": [
+    "docs/implementation/08-evidence-and-memory.md",
+    "docs/implementation/01-architecture-and-modules.md",
+    "docs/implementation/11-acceptance-and-edge-cases.md",
+    "contracts/v1/module-layout.json"
+   ],
+   "evidenceDirectory": "artifacts/runtime/T62",
+   "contractDefinitions": [
+    "EvidenceBundle",
+    "VerificationVerdict"
+   ],
+   "ownerModule": "evidence"
+  },
+  "T63": {
+   "id": "T63",
+   "dependencies": "T10,T11,T56",
+   "targetFiles": "apps/governor/src/modules/configuration/plays/; apps/web/src/ui/studio/; contracts/v1/brain.schema.json",
+   "behavior": "Play as a release kind: team roles naming agent definitions, plan shape, input schema, autonomy policy within the workspace ceiling, parking threshold, schedules/triggers; compiled and activated through the shared Studio pipeline. Adds Play",
+   "verify": "tests/domain/play-compiler.test.ts; tests/integration/plays.test.ts",
+   "read": [
+    "docs/implementation/03-configuration-and-workflows.md",
+    "docs/implementation/01-architecture-and-modules.md",
+    "docs/implementation/11-acceptance-and-edge-cases.md",
+    "contracts/v1/module-layout.json"
+   ],
+   "evidenceDirectory": "artifacts/runtime/T63",
+   "contractDefinitions": [
+    "Agent",
+    "Workflow"
+   ],
+   "ownerModule": "configuration"
+  },
+  "T64": {
+   "id": "T64",
+   "dependencies": "T51,T60",
+   "targetFiles": "apps/web/src/routes/pages/{MissionTeamPage,MissionPlanPage,MissionBriefPage}.tsx; apps/web/src/ui/mission/",
+   "behavior": "Mission Team, Plan and Brief tabs: team table with engines, sessions and waiting reasons; plan version graph with proposal diff (affected branch, team changes, spend/elapsed estimates) and Confirm/Reject; parked items with Retry/Reassign/Edit/Drop; brief editing with conflict display and version history",
+   "verify": "tests/browser/mission-views.spec.ts; E113/E115/E117",
+   "read": [
+    "docs/implementation/09-ux-and-ui.md",
+    "docs/implementation/21-ui-recipes-and-screen-oracles.md",
+    "docs/implementation/11-acceptance-and-edge-cases.md"
+   ],
+   "evidenceDirectory": "artifacts/runtime/T64",
+   "contractDefinitions": [
+    "PlanVersion",
+    "WorkItem"
+   ],
+   "ownerModule": "experience"
+  },
+  "T65": {
+   "id": "T65",
+   "dependencies": "T45,T59",
+   "targetFiles": "apps/governor/src/modules/operations/notifications/; apps/web/src/ui/attention/",
+   "behavior": "Attention notifications: only attention items notify (approval needed, plan proposal waiting, work item parked, mission paused for budget or needing attention, verdict ready to close); recipients are the mission starter, watchers and authorized approvers; in-app inbox always, opt-in push and optional configured channel; deduplicated to one per mission per 15 minutes except immediate approvals; revocation stops delivery",
+   "verify": "tests/integration/attention-notifications.test.ts; tests/browser/attention.spec.ts",
+   "read": [
+    "docs/implementation/09-ux-and-ui.md",
+    "docs/implementation/01-architecture-and-modules.md",
+    "docs/implementation/11-acceptance-and-edge-cases.md",
+    "contracts/v1/module-layout.json"
+   ],
+   "evidenceDirectory": "artifacts/runtime/T65",
+   "contractDefinitions": [
+    "ApprovalRequest",
+    "QueryResponse"
+   ],
+   "ownerModule": "operations"
+  },
+  "T66": {
+   "id": "T66",
+   "dependencies": "T51,T53,T30",
+   "targetFiles": "apps/governor/src/modules/missions/coordinator.ts; apps/governor/src/modules/workflows/",
+   "behavior": "Missions advance on events, never a long run (ADR 0004): mission events (work item verified, message to the coordinator, plan proposal resolved, budget change) wake the coordinator as a mission-level session acting only through Brain commands; budget and wall-clock exhaustion auto-pause with reason budget after a reserved final checkpoint allowance",
+   "verify": "tests/integration/coordinator-events.test.ts; tests/chaos/mission-restart.test.ts; E111",
+   "read": [
+    "docs/adr/0004-missions-advance-on-events-never-a-run.md",
+    "docs/implementation/01-architecture-and-modules.md",
+    "docs/implementation/11-acceptance-and-edge-cases.md",
+    "contracts/v1/module-layout.json"
+   ],
+   "evidenceDirectory": "artifacts/runtime/T66",
+   "contractDefinitions": [
+    "WorkItem",
+    "BrainSession"
+   ],
+   "ownerModule": "missions"
   }
  }
 }

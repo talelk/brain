@@ -177,12 +177,12 @@ def main():
     def documentation_inventory():
         scenarios=(ROOT/'docs/implementation/11-acceptance-and-edge-cases.md').read_text()
         tasks=(ROOT/'docs/implementation/12-implementation-tasks.md').read_text()
-        assert set(re.findall(r'^\| (E\d{3}) \|',scenarios,re.M))=={f'E{i:03}' for i in range(1,111)}
+        assert set(re.findall(r'^\| (E\d{3}) \|',scenarios,re.M))=={f'E{i:03}' for i in range(1,122)}
         expected_tasks=set(load_json(ROOT/'contracts/v1/work-plan.json')['tasks'])
         assert set(re.findall(r'^\| (T\d{2}) /',tasks,re.M))==expected_tasks
         libraries=load_json(ROOT/'contracts/v1/library-register.json')['dependencies']
         assert all(x['exactProductVersion'] is None or (isinstance(x['exactProductVersion'],str) and x['exactProductVersion'].strip()) for x in libraries)
-        return f'{len(libraries)} dependency decisions; 110 scenarios; {len(expected_tasks)} work cards'
+        return f'{len(libraries)} dependency decisions; 121 scenarios; {len(expected_tasks)} work cards'
     checked('documentation-inventory',documentation_inventory)
     def implementation_policy():
         policy=load_json(ROOT/'contracts/v1/implementation-policy.json')

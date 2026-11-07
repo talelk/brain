@@ -83,17 +83,17 @@ Governor module folders share this one deployment:
 | configuration | `apps/governor/src/modules/configuration` | Restricted Git/YAML loading, release compilation and activation |
 | jobs | `apps/governor/src/modules/jobs` | Placement, admission, leases/fences, scheduling and reconciliation facts |
 | workflows | `apps/governor/src/modules/workflows` | Brain IR and Mastra adapter, primitive registry and durable wakes |
-| evidence | `apps/governor/src/modules/evidence` | Evidence bundles, independent verification and completion acceptance |
+| evidence | `apps/governor/src/modules/evidence` | Evidence bundles, handoffs, mission evidence bundles, independent verification and completion acceptance |
 | artifacts | `apps/governor/src/modules/artifacts` | Content-addressed byte storage, artifact associations, uploads and storage sweep |
 | knowledge | `apps/governor/src/modules/knowledge` | Scoped memory gateway, TencentDB adapter, publication and export |
-| work | `apps/governor/src/modules/work` | Objectives, immutable plan versions, WorkItems, dependencies, assignments, business decisions and execution links |
-| sessions | `apps/governor/src/modules/sessions` | Native and managed BrainSessions, durable messages, portable checkpoints and cross-agent collaboration |
+| missions | `apps/governor/src/modules/missions` | Missions, mission briefs and accepted decisions, autonomy policies, mission budgets, plan versions with mission teams, work items and parking, handoff routing, execution links, mission messages and named outputs |
+| sessions | `apps/governor/src/modules/sessions` | Native and managed BrainSessions, checkpoints, context assembly, message delivery and steering, and cross-agent collaboration |
 | capabilities | `apps/governor/src/modules/capabilities` | Capability discovery, private candidates, packaging, tests and governed publication |
 | resources | `apps/governor/src/modules/resources` | Documents, immutable versions, preview, associations, classification and storage lifecycle |
 | integrations | `apps/governor/src/modules/integrations` | GitHub/GitLab connections, secret references, repository bindings, webhooks and change proposals |
 | packs | `apps/governor/src/modules/packs` | Compiled onboarding/support/SRE/delivery/eval modules and connector adapters |
 | operations | `apps/governor/src/modules/operations` | Health, bounded timers, backup/restore, audit and notifications |
-| stream | `apps/governor/src/modules/stream` | Unified Execution Stream read model: watermark-guarded projection over the authoritative source logs, permission-scoped reads, FTS search, correlation context, attempt comparison, retention sweep and bounded sanitized export |
+| stream | `apps/governor/src/modules/stream` | Unified Execution Stream read model: watermark-guarded projection over the authoritative source logs, permission-scoped reads, FTS search, correlation context, attempt comparison, retention sweep and bounded sanitized export; attention items, seen cursors and since-last-visit summaries |
 <!-- END GENERATED LAYOUT -->
 
 Pure reducers live in Governor `src/domain`; use cases in `src/application` coordinate module public functions. Connection lifecycle/current schema/inbox/outbox live in `src/infrastructure/persistence`. A table has one writer owner. A synchronous local transaction may coordinate modules through injected transaction functions; no network, model call or human wait belongs inside it. Cross-file work still uses durable outbox/inbox.

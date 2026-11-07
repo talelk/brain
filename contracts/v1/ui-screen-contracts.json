@@ -191,7 +191,7 @@
     "criteria",
     "evidence"
    ],
-   "owner": "T37",
+   "owner": "T34",
    "navigationGroup": "work",
    "icon": "lucide-kanban-square",
    "task": "Review workspace work and pack details",
@@ -211,7 +211,7 @@
     "note",
     "time"
    ],
-   "owner": "T37",
+   "owner": "T34",
    "navigationGroup": "work",
    "icon": "lucide-scale",
    "task": "Review workspace work and pack details",

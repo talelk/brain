@@ -39,7 +39,7 @@ def check():
         assert packet['behavior'] and packet['verify'] and packet['targetFiles']
         assert packet['contractDefinitions'] and set(packet['contractDefinitions'])<=set(defs)
     catalog=load('contracts/v1/scenario-catalog.json')['scenarios']
-    assert {x['id'] for x in catalog}=={f'E{i:03}' for i in range(1,111)}
+    assert {x['id'] for x in catalog}=={f'E{i:03}' for i in range(1,122)}
     for x in catalog:assert x['owners'] and set(x['owners'])<=set(packets) and 'runtimeStatus' not in x
     oracle=load('contracts/v1/acceptance-oracles.json')
     assert len(oracle['traces'])==15 and len({x['id'] for x in oracle['traces']})==15
@@ -67,7 +67,7 @@ def check():
     assert ready['runtimeEvidenceIsSeparateFromPlan'] and 'allRuntimeGatesPassed' not in ready
     assert all((ROOT/x['artifact']).is_file() for x in ready['gaps'])
     modular_monolith_checks(schema,matrix,registry)
-    return f"{len(packets)} generated task packets; 110 scenarios; 15 traces; crypto/golden fixtures; {len(screens['screens'])} screens in six areas; monolith/auth/recovery/evidence checks"
+    return f"{len(packets)} generated task packets; 121 scenarios; 15 traces; crypto/golden fixtures; {len(screens['screens'])} screens in six areas; monolith/auth/recovery/evidence checks"
 def golden_checks(schema):
     base=ROOT/'examples/v1/golden-release';manifest=load('examples/v1/golden-release/manifest.json')
     fresh=run(sys.executable,str(ROOT/'scripts/build_golden_release.py'),'--check');assert fresh.returncode==0,fresh.stderr

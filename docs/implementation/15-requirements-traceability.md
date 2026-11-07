@@ -51,7 +51,7 @@
 |---|---|---|
 | 3–6 | Morning briefing, Today and multi-workspace Bridge | T34; prioritized facts/actions, configurable timezone and notification |
 | 7–10 | SRE, support, SLA and exact approvals | T35/T58; read-only investigation and governed publication/remediation |
-| 11–12 | Decisions, boards and live sessions | T31/T36/T37; verbatim decisions, verified Done and honest capabilities |
+| 11–12 | Mission plans, briefs and live sessions | T51/T36/T60/T64; accepted decisions in the mission brief, verified Done and honest capabilities |
 | 13–14, 38 | Runner lanes/capabilities and keeper | T19/T20/T46; fair house/work and owned-file reconciliation |
 | 15–17 | TV, mobile alerts and platform health | T45/T48; scoped kiosk, PWA fallback and measured service health |
 | 18 onward | Knowledge, onboarding, roles/director/workspace specialists | T24/T38–T40; declarative roles and bounded delegation, source evidence |

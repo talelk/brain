@@ -108,7 +108,7 @@
     },
     {
       "id": "E009",
-      "trigger": "Expected board version is stale",
+      "trigger": "Expected plan or brief version is stale",
       "requiredObservation": "Conflict, current version visible, no overwrite",
       "suites": [
         "DOMAIN",
@@ -116,9 +116,8 @@
       ],
       "owners": [
         "T06",
-        "T31",
-        "T37",
-        "T50"
+        "T50",
+        "T51"
       ]
     },
     {
@@ -352,8 +351,8 @@
       "owners": [
         "T07",
         "T30",
-        "T31",
-        "T50"
+        "T50",
+        "T51"
       ]
     },
     {
@@ -930,9 +929,6 @@
       ],
       "owners": [
         "T28",
-        "T31",
-        "T37",
-        "T44",
         "T50"
       ]
     },
@@ -946,9 +942,6 @@
       "owners": [
         "T27",
         "T28",
-        "T31",
-        "T37",
-        "T44",
         "T50"
       ]
     },
@@ -962,9 +955,6 @@
       "owners": [
         "T27",
         "T28",
-        "T31",
-        "T37",
-        "T44",
         "T50"
       ]
     },
@@ -1191,7 +1181,6 @@
       "owners": [
         "T33",
         "T34",
-        "T37",
         "T50",
         "T58"
       ]
@@ -1247,7 +1236,6 @@
         "T11",
         "T33",
         "T34",
-        "T37",
         "T48",
         "T50",
         "T58"
@@ -1292,7 +1280,7 @@
     },
     {
       "id": "E101",
-      "trigger": "Natural-language objective produces an unreviewed agent plan",
+      "trigger": "Natural-language mission produces an unreviewed agent plan",
       "requiredObservation": "Plan and tasks remain inert until explicit review; confirmation creates the exact WorkItems and dependencies",
       "suites": [
         "INTEGRATION",
@@ -1431,6 +1419,138 @@
         "T50",
         "T57",
         "T58"
+      ]
+    },
+    {
+      "id": "E111",
+      "trigger": "Attempt reservation exceeds the mission budget headroom",
+      "requiredObservation": "Attempt queued with waiting reason budget; running attempts continue; auto-pause with reason budget only when nothing fits and nothing runs, after the final checkpoint allowance",
+      "suites": [
+        "INTEGRATION",
+        "CHAOS"
+      ],
+      "owners": [
+        "T19",
+        "T66"
+      ]
+    },
+    {
+      "id": "E112",
+      "trigger": "Two missions compete for one runner slot while a human waits on an interactive session",
+      "requiredObservation": "Interactive session admitted first, then round-robin across missions; member cap applied before runner capacity",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T19"
+      ]
+    },
+    {
+      "id": "E113",
+      "trigger": "Coordinator plan version exceeds the autonomy policy",
+      "requiredObservation": "Becomes a plan proposal awaiting a human; unaffected work continues; no effect, budget or intent change is ever grantable",
+      "suites": [
+        "INTEGRATION",
+        "BROWSER"
+      ],
+      "owners": [
+        "T51",
+        "T64"
+      ]
+    },
+    {
+      "id": "E114",
+      "trigger": "New plan version alters a task outside the affected branch",
+      "requiredObservation": "Rejected; started and unaffected tasks stay identical",
+      "suites": [
+        "DOMAIN"
+      ],
+      "owners": [
+        "T51"
+      ]
+    },
+    {
+      "id": "E115",
+      "trigger": "Work item fails three consecutive attempts across a reassignment",
+      "requiredObservation": "Parked with structured diagnostic; independent work continues; coordinator cannot unpark; human retry/reassign/edit/drop",
+      "suites": [
+        "INTEGRATION",
+        "BROWSER"
+      ],
+      "owners": [
+        "T51",
+        "T64"
+      ]
+    },
+    {
+      "id": "E116",
+      "trigger": "Handoff missing, malformed or its derived facts disagree with the merge",
+      "requiredObservation": "Work item cannot verify; dependents stay waiting; member notes never count as evidence",
+      "suites": [
+        "INTEGRATION",
+        "SECURITY"
+      ],
+      "owners": [
+        "T62"
+      ]
+    },
+    {
+      "id": "E117",
+      "trigger": "Concurrent coordinator and human brief edits on the same version",
+      "requiredObservation": "Human edit rebased and shown the intervening change; coordinator edit rejected; accepted decisions immutable",
+      "suites": [
+        "DOMAIN",
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T51",
+        "T64"
+      ]
+    },
+    {
+      "id": "E118",
+      "trigger": "Message to a working member on an engine without steering, or message text claiming approval",
+      "requiredObservation": "Queued to next session or explicit Interrupt, never silent cancel; message grants no approval, policy or plan confirmation",
+      "suites": [
+        "INTEGRATION",
+        "SECURITY"
+      ],
+      "owners": [
+        "T53"
+      ]
+    },
+    {
+      "id": "E119",
+      "trigger": "Since-last-visit summary viewed on one device, then mission opened on another",
+      "requiredObservation": "Seen cursor shared per user and mission; summary not repeated; notable events from fixed catalog only",
+      "suites": [
+        "INTEGRATION",
+        "BROWSER"
+      ],
+      "owners": [
+        "T59"
+      ]
+    },
+    {
+      "id": "E120",
+      "trigger": "Capitalization candidate sourced from member notes, messages or transcripts",
+      "requiredObservation": "Rejected; only verified material extracted; publication needs a reviewer other than the publisher",
+      "suites": [
+        "SECURITY"
+      ],
+      "owners": [
+        "T57"
+      ]
+    },
+    {
+      "id": "E121",
+      "trigger": "Task input pinned to a draft or unverified output version",
+      "requiredObservation": "Rejected at admission; consumed versions recorded by exact digest in checkpoint and execution link",
+      "suites": [
+        "INTEGRATION"
+      ],
+      "owners": [
+        "T61"
       ]
     }
   ],

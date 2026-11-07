@@ -1,8 +1,8 @@
 {
   "status": "passed",
   "scope": "documentation-contract-pack-only",
-  "inputFingerprint": "ce40d13c6a0cff218a755728e9f0c72d5f411a18b6934df9a329a73e875007fe",
-  "checkedAt": "2026-11-06T10:31:54.608400+00:00",
+  "inputFingerprint": "456b0c0eb881f361dc60ae4a0125d3078ce45cc08e36748c2a6b9ab54e1d57bd",
+  "checkedAt": "2026-11-07T19:39:03.091026+00:00",
   "checks": [
     {
       "name": "schema-meta",
@@ -72,7 +72,7 @@
     {
       "name": "documentation-inventory",
       "status": "passed",
-      "detail": "52 dependency decisions; 110 scenarios; 57 work cards"
+      "detail": "52 dependency decisions; 121 scenarios; 60 work cards"
     },
     {
       "name": "implementation-policy-and-prompt",
@@ -92,7 +92,7 @@
     {
       "name": "implementation-readiness-contracts-and-fixtures",
       "status": "passed",
-      "detail": "57 generated task packets; 110 scenarios; 15 traces; crypto/golden fixtures; 35 screens in six areas; monolith/auth/recovery/evidence checks"
+      "detail": "60 generated task packets; 121 scenarios; 15 traces; crypto/golden fixtures; 35 screens in six areas; monolith/auth/recovery/evidence checks"
     },
     {
       "name": "generated-implementation-indexes-fresh",

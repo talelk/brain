@@ -67,7 +67,7 @@
     },
     "evidence": {
       "path": "apps/governor/src/modules/evidence",
-      "owns": "Evidence bundles, independent verification and completion acceptance"
+      "owns": "Evidence bundles, handoffs, mission evidence bundles, independent verification and completion acceptance"
     },
     "artifacts": {
       "path": "apps/governor/src/modules/artifacts",
@@ -77,13 +77,13 @@
       "path": "apps/governor/src/modules/knowledge",
       "owns": "Scoped memory gateway, TencentDB adapter, publication and export"
     },
-    "work": {
-      "path": "apps/governor/src/modules/work",
-      "owns": "Objectives, immutable plan versions, WorkItems, dependencies, assignments, business decisions and execution links"
+    "missions": {
+      "path": "apps/governor/src/modules/missions",
+      "owns": "Missions, mission briefs and accepted decisions, autonomy policies, mission budgets, plan versions with mission teams, work items and parking, handoff routing, execution links, mission messages and named outputs"
     },
     "sessions": {
       "path": "apps/governor/src/modules/sessions",
-      "owns": "Native and managed BrainSessions, durable messages, portable checkpoints and cross-agent collaboration"
+      "owns": "Native and managed BrainSessions, checkpoints, context assembly, message delivery and steering, and cross-agent collaboration"
     },
     "capabilities": {
       "path": "apps/governor/src/modules/capabilities",
@@ -107,7 +107,7 @@
     },
     "stream": {
       "path": "apps/governor/src/modules/stream",
-      "owns": "Unified Execution Stream read model: watermark-guarded projection over the authoritative source logs, permission-scoped reads, FTS search, correlation context, attempt comparison, retention sweep and bounded sanitized export"
+      "owns": "Unified Execution Stream read model: watermark-guarded projection over the authoritative source logs, permission-scoped reads, FTS search, correlation context, attempt comparison, retention sweep and bounded sanitized export; attention items, seen cursors and since-last-visit summaries"
     }
   },
   "governorSharedFolders": {
