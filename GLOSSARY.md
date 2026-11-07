@@ -54,8 +54,11 @@ _Avoid_: ADR, note, assumption (an assumption in a handoff is not yet accepted)
 
 **Autonomy policy**:
 The bounds within which a mission's coordinator may change unstarted work, assign tasks
-and request team members without human confirmation.
-_Avoid_: autopilot, auto-approve (it never authorizes effects)
+and request team members without human confirmation. It is an explicit list of permitted
+plan operations; the presets supervised, standard and autonomous name common lists. It
+never covers effects, intent, constraints, budget, started work or declaring a mission
+achieved.
+_Avoid_: autopilot, auto-approve (it never authorizes effects), autonomy level
 
 **Mission budget**:
 The hard ceiling on a mission's spend, wall-clock time and concurrent team members.
