@@ -25,6 +25,16 @@ How a closed mission ended, set by a human: achieved (only after a verified verd
 ended (stopped without claiming success) or cancelled (in-flight work cancelled).
 _Avoid_: result, resolution, done
 
+**Attention item**:
+Something in a mission that needs a human to act, such as an approval, a plan proposal,
+a parked work item or a paused mission. Only attention items notify outside the app.
+_Avoid_: alert, notification (the delivery, not the item), todo
+
+**Since-last-visit summary**:
+A user's deterministic digest of a mission's notable events since they last saw it.
+What counts as seen is per user and per mission, whatever the device.
+_Avoid_: recap, briefing, catch-up, AI summary
+
 **Mission shape**:
 Whether a mission is interactive or long-running, derived from whether it has a
 coordinator or a confirmed plan version. A mission changes shape without changing state.
