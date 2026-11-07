@@ -101,6 +101,16 @@ dependencies, assignment, a next action and an evidence binding. The unit a miss
 Plan view shows; the primary UI labels it by its plan task name.
 _Avoid_: card, ticket, issue, story
 
+**Parked work item**:
+A work item stopped after repeated failed attempts, waiting for a human to retry,
+reassign, edit or drop it. Independent work continues; only a human unparks it.
+_Avoid_: stuck, failed (failure is an attempt's outcome), quarantined
+
+**Affected branch**:
+The plan tasks a new plan version changes, plus everything downstream of them. Every
+other task must stay identical across the two versions.
+_Avoid_: subtree, impacted area
+
 **Subject**:
 An external record a mission is about, such as a support ticket or an incident. A
 subject is owned by its pack and can have several missions over time; it is neither a
