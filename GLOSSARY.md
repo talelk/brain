@@ -62,6 +62,8 @@ _Avoid_: autopilot, auto-approve (it never authorizes effects), autonomy level
 
 **Mission budget**:
 The hard ceiling on a mission's spend, wall-clock time and concurrent team members.
+Spend counts settled cost plus open reservations; wall-clock time excludes paused time;
+the member cap counts concurrently running work sessions, not team size.
 _Avoid_: quota, limit (unqualified)
 
 **Play**:
