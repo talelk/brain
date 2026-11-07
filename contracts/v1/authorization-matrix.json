@@ -17,11 +17,10 @@
         "workflow:cancel",
         "session:steer",
         "session:stop",
-        "board:write",
+        "mission:write",
         "tool:propose",
         "approval:request",
-        "job:reconcile",
-        "decision:write"
+        "job:reconcile"
       ],
       "grantScope": "workspace"
     },
@@ -32,7 +31,7 @@
         "workflow:cancel",
         "session:steer",
         "session:stop",
-        "board:write",
+        "mission:write",
         "tool:propose",
         "approval:request",
         "job:reconcile",
@@ -40,7 +39,6 @@
         "workspace:export",
         "memory:publish",
         "approval:revoke",
-        "decision:write",
         "members:read"
       ],
       "grantScope": "workspace"
@@ -195,14 +193,22 @@
     },
     "plan.prepare": {
       "scope": "workflow:dispatch",
-      "actors": ["human", "agent", "workflow"],
+      "actors": [
+        "human",
+        "agent",
+        "workflow"
+      ],
       "currentMembershipRequired": true,
       "scopeMode": "workspace",
       "originalActorOnly": false
     },
     "plan.get": {
       "scope": "workspace:read",
-      "actors": ["human", "agent", "workflow"],
+      "actors": [
+        "human",
+        "agent",
+        "workflow"
+      ],
       "currentMembershipRequired": true,
       "originalActorOnly": true,
       "scopeMode": "workspace"
@@ -319,11 +325,6 @@
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
     },
-    "board.get": {
-      "scope": "workspace:read",
-      "scopeMode": "workspace",
-      "redactPrivilegedDetails": false
-    },
     "evidence.get": {
       "scope": "workspace:read",
       "scopeMode": "workspace",
@@ -389,11 +390,6 @@
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
     },
-    "decisions.list": {
-      "scope": "workspace:read",
-      "scopeMode": "workspace",
-      "redactPrivilegedDetails": false
-    },
     "members.list": {
       "scope": "members:read",
       "scopeMode": "organization",
@@ -454,33 +450,146 @@
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
     },
-    "objectives.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "objectives.get": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "plans.get": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "workItems.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "workItems.get": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "automations.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "automations.occurrences": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "delegations.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "workItemMessages.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "documents.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "documents.get": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "documents.search": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "configDrafts.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "configDrafts.get": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "configDrafts.impact": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": true },
-    "integrations.list": { "scope": "platform:read", "scopeMode": "organization", "redactPrivilegedDetails": true },
-    "integrations.repositories": { "scope": "platform:read", "scopeMode": "organization", "redactPrivilegedDetails": true },
-    "knowledgeAssets.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "capabilityCandidates.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "capitalizationRuns.list": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "stream.tail": { "scope": "workspace:read", "scopeMode": "authorized-workspace-union", "redactPrivilegedDetails": false },
-    "stream.search": { "scope": "workspace:read", "scopeMode": "authorized-workspace-union", "redactPrivilegedDetails": false },
-    "stream.context": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "stream.compare": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "live.status": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "artifacts.history": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false },
-    "artifacts.diff": { "scope": "workspace:read", "scopeMode": "workspace", "redactPrivilegedDetails": false }
+    "missions.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "missions.get": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "plans.get": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "workItems.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "workItems.get": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "executionLinks.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "automations.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "automations.occurrences": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "delegations.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "workItemMessages.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "documents.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "documents.get": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "documents.search": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "configDrafts.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "configDrafts.get": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "configDrafts.impact": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": true
+    },
+    "integrations.list": {
+      "scope": "platform:read",
+      "scopeMode": "organization",
+      "redactPrivilegedDetails": true
+    },
+    "integrations.repositories": {
+      "scope": "platform:read",
+      "scopeMode": "organization",
+      "redactPrivilegedDetails": true
+    },
+    "knowledgeAssets.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "capabilityCandidates.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "capitalizationRuns.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "stream.tail": {
+      "scope": "workspace:read",
+      "scopeMode": "authorized-workspace-union",
+      "redactPrivilegedDetails": false
+    },
+    "stream.search": {
+      "scope": "workspace:read",
+      "scopeMode": "authorized-workspace-union",
+      "redactPrivilegedDetails": false
+    },
+    "stream.context": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "stream.compare": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "live.status": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "artifacts.history": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "artifacts.diff": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    }
   },
   "commandRecoveryRule": {
     "query": "command.get",

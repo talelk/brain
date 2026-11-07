@@ -1,5 +1,5 @@
 import { domainDigest } from "@brain/contracts";
-import type { ActorContext, JsonValue, Objective, PlanAssignment, PlanTask, PlanVersion, WorkItem, WorkItemState } from "@brain/contracts";
+import type { ActorContext, ExecutionLink, JsonValue, Mission, PlanAssignment, PlanTask, PlanVersion, WorkItem, WorkItemState } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import { assertExpectedVersion, assertTransition, transitionState } from "../../domain/states";
@@ -7,30 +7,30 @@ import { assertPlanTasks } from "../../domain/work-plan";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 
-export interface WorkCommand {
+export interface MissionCommand {
   readonly commandType: string;
   readonly workspaceId?: string;
   readonly expectedVersion?: number;
   readonly payload: Readonly<Record<string, unknown>>;
 }
 
-type ObjectiveRow = {
+type MissionRow = {
   id: string; title: string; intent: string; success_criteria_json: string; owner_id: string;
   active_plan_version_id: string | null; version: number; created_at_ms: number; updated_at_ms: number;
 };
 type PlanRow = {
-  id: string; objective_id: string; revision: number; digest: string; state: PlanVersion["state"];
+  id: string; mission_id: string; revision: number; digest: string; state: PlanVersion["state"];
   origin: PlanVersion["origin"]; created_by: string; summary: string | null; tasks_json: string;
   created_at_ms: number; confirmed_at_ms: number | null;
 };
 type WorkItemRow = {
-  id: string; objective_id: string; plan_version_id: string; plan_task_id: string; title: string;
+  id: string; mission_id: string; plan_version_id: string; plan_task_id: string; title: string;
   state: WorkItemState; criteria_json: string; assignment_json: string | null; workflow_id: string | null;
   next_action: string; blocked_reason: string | null; scheduled_at_ms: number | null; evidence_digest: string | null;
   version: number; created_at_ms: number; updated_at_ms: number;
 };
 
-export class WorkService {
+export class MissionService {
   constructor(private readonly store: Store) {}
 
   private db(actor: ActorContext, workspaceId: string) {
@@ -38,9 +38,9 @@ export class WorkService {
     return this.store.workspaceDb(workspaceId, actor.organizationId);
   }
 
-  private objectiveRow(actor: ActorContext, workspaceId: string, id: string): ObjectiveRow {
-    const row = this.db(actor, workspaceId).prepare("SELECT * FROM objectives WHERE id=?").get(id) as ObjectiveRow | undefined;
-    if (!row) throw new BrainDomainError("NOT_FOUND", "objective not found");
+  private missionRow(actor: ActorContext, workspaceId: string, id: string): MissionRow {
+    const row = this.db(actor, workspaceId).prepare("SELECT * FROM missions WHERE id=?").get(id) as MissionRow | undefined;
+    if (!row) throw new BrainDomainError("NOT_FOUND", "mission not found");
     return row;
   }
 
@@ -56,9 +56,9 @@ export class WorkService {
     return row;
   }
 
-  private objective(workspaceId: string, row: ObjectiveRow): Objective {
+  private mission(workspaceId: string, row: MissionRow): Mission {
     return {
-      objectiveId: row.id, workspaceId, title: row.title, intent: row.intent,
+      missionId: row.id, workspaceId, title: row.title, intent: row.intent,
       successCriteria: JSON.parse(row.success_criteria_json) as string[], ownerId: row.owner_id,
       ...(row.active_plan_version_id ? { activePlanVersionId: row.active_plan_version_id } : {}),
       version: row.version, createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
@@ -67,7 +67,7 @@ export class WorkService {
 
   private plan(workspaceId: string, row: PlanRow): PlanVersion {
     return {
-      planVersionId: row.id, objectiveId: row.objective_id, workspaceId, revision: row.revision,
+      planVersionId: row.id, missionId: row.mission_id, workspaceId, revision: row.revision,
       digest: row.digest, state: row.state, origin: row.origin, createdBy: row.created_by,
       ...(row.summary ? { summary: row.summary } : {}), tasks: JSON.parse(row.tasks_json) as PlanTask[],
       createdAt: iso(row.created_at_ms), ...(row.confirmed_at_ms ? { confirmedAt: iso(row.confirmed_at_ms) } : {}),
@@ -77,7 +77,7 @@ export class WorkService {
   private workItem(actor: ActorContext, workspaceId: string, row: WorkItemRow): WorkItem {
     const dependsOn = (this.db(actor, workspaceId).prepare("SELECT depends_on_work_item_id AS id FROM work_item_dependencies WHERE work_item_id=? ORDER BY depends_on_work_item_id").all(row.id) as Array<{ id: string }>).map((entry) => entry.id);
     return {
-      workItemId: row.id, objectiveId: row.objective_id, planVersionId: row.plan_version_id,
+      workItemId: row.id, missionId: row.mission_id, planVersionId: row.plan_version_id,
       planTaskId: row.plan_task_id, workspaceId, title: row.title, state: row.state,
       criteria: JSON.parse(row.criteria_json) as string[], dependsOn,
       ...(row.assignment_json ? { assignment: JSON.parse(row.assignment_json) as PlanAssignment } : {}),
@@ -89,11 +89,11 @@ export class WorkService {
     };
   }
 
-  apply(actor: ActorContext, command: WorkCommand): string {
+  apply(actor: ActorContext, command: MissionCommand): string {
     const workspaceId = command.workspaceId;
     if (!workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
     switch (command.commandType) {
-      case "objective.create": return this.createObjective(actor, workspaceId, command.payload);
+      case "mission.create": return this.createMission(actor, workspaceId, command.payload);
       case "plan.propose": return this.proposePlan(actor, workspaceId, command.payload);
       case "plan.confirm": return this.confirmPlan(actor, workspaceId, command.payload, command.expectedVersion);
       case "workItem.transition": return this.transition(actor, workspaceId, command.payload, command.expectedVersion);
@@ -102,47 +102,47 @@ export class WorkService {
     }
   }
 
-  private createObjective(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
+  private createMission(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
     const db = this.db(actor, workspaceId);
-    const id = this.store.id("obj");
+    const id = this.store.id("mission");
     this.store.inTx(db, () => {
-      db.prepare("INSERT INTO objectives(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,?,?)")
+      db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,?,?)")
         .run(id, String(payload["title"]), String(payload["intent"]), JSON.stringify(payload["successCriteria"]), actor.actorId, this.store.now(), this.store.now());
-      this.store.emit(db, { aggregateType: "objective", aggregateId: id, eventType: "objective.created", payload: { objectiveId: id } });
+      this.store.emit(db, { aggregateType: "mission", aggregateId: id, eventType: "mission.created", payload: { missionId: id } });
     });
     return id;
   }
 
   private proposePlan(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
-    const objective = this.objectiveRow(actor, workspaceId, String(payload["objectiveId"]));
+    const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
     const tasks = payload["tasks"] as unknown as PlanTask[];
     assertPlanTasks(tasks);
     const db = this.db(actor, workspaceId);
     const id = this.store.id("plan");
     const origin = String(payload["origin"]) as PlanVersion["origin"];
     const summary = payload["summary"] ? String(payload["summary"]) : undefined;
-    const digest = domainDigest("brain:plan-version:v1", { objectiveId: objective.id, origin, summary: summary ?? null, tasks } as unknown as JsonValue);
+    const digest = domainDigest("brain:plan-version:v1", { missionId: mission.id, origin, summary: summary ?? null, tasks } as unknown as JsonValue);
     this.store.inTx(db, () => {
-      const revision = (db.prepare("SELECT COALESCE(MAX(revision),0)+1 AS next FROM plan_versions WHERE objective_id=?").get(objective.id) as { next: number }).next;
-      db.prepare("INSERT INTO plan_versions(id,objective_id,revision,digest,state,origin,created_by,summary,tasks_json,created_at_ms) VALUES (?,?,?,?,'proposed',?,?,?,?,?)")
-        .run(id, objective.id, revision, digest, origin, actor.actorId, summary ?? null, JSON.stringify(tasks), this.store.now());
-      this.store.emit(db, { aggregateType: "plan", aggregateId: id, eventType: "plan.proposed", payload: { objectiveId: objective.id, planVersionId: id, digest } });
+      const revision = (db.prepare("SELECT COALESCE(MAX(revision),0)+1 AS next FROM plan_versions WHERE mission_id=?").get(mission.id) as { next: number }).next;
+      db.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,summary,tasks_json,created_at_ms) VALUES (?,?,?,?,'proposed',?,?,?,?,?)")
+        .run(id, mission.id, revision, digest, origin, actor.actorId, summary ?? null, JSON.stringify(tasks), this.store.now());
+      this.store.emit(db, { aggregateType: "plan", aggregateId: id, eventType: "plan.proposed", payload: { missionId: mission.id, planVersionId: id, digest } });
     });
     return id;
   }
 
   private confirmPlan(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
     const plan = this.planRow(actor, workspaceId, String(payload["planVersionId"]));
-    const objective = this.objectiveRow(actor, workspaceId, plan.objective_id);
-    assertExpectedVersion(objective.version, expectedVersion);
+    const mission = this.missionRow(actor, workspaceId, plan.mission_id);
+    assertExpectedVersion(mission.version, expectedVersion);
     if (plan.state !== "proposed") throw new BrainDomainError("CONFLICT", "only a proposed plan version can be confirmed");
     const tasks = JSON.parse(plan.tasks_json) as PlanTask[];
     assertPlanTasks(tasks);
     const db = this.db(actor, workspaceId);
     this.store.inTx(db, () => {
-      const priorActive = objective.active_plan_version_id;
+      const priorActive = mission.active_plan_version_id;
       if (priorActive) transitionState(db, "planVersion", priorActive, "superseded");
-      const previous = db.prepare("SELECT * FROM work_items WHERE objective_id=? AND state!='abandoned' ORDER BY created_at_ms DESC,id DESC").all(objective.id) as WorkItemRow[];
+      const previous = db.prepare("SELECT * FROM work_items WHERE mission_id=? AND state!='abandoned' ORDER BY created_at_ms DESC,id DESC").all(mission.id) as WorkItemRow[];
       const latestByTask = new Map<string, WorkItemRow>();
       for (const item of previous) if (!latestByTask.has(item.plan_task_id)) latestByTask.set(item.plan_task_id, item);
       const selected = new Map<string, string>();
@@ -158,8 +158,8 @@ export class WorkService {
         const id = this.store.id("work");
         selected.set(task.id, id);
         const state: WorkItemState = task.dependsOn.length === 0 ? "ready" : "backlog";
-        db.prepare(`INSERT INTO work_items(id,objective_id,plan_version_id,plan_task_id,title,state,criteria_json,assignment_json,workflow_id,next_action,created_at_ms,updated_at_ms)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(id, objective.id, plan.id, task.id, task.title, state, JSON.stringify(task.criteria),
+        db.prepare(`INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,assignment_json,workflow_id,next_action,created_at_ms,updated_at_ms)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(id, mission.id, plan.id, task.id, task.title, state, JSON.stringify(task.criteria),
           task.assignment ? JSON.stringify(task.assignment) : null, task.workflowId ?? null,
           state === "ready" ? "Start this task" : "Wait for predecessor completion", now, now);
       }
@@ -177,9 +177,9 @@ export class WorkService {
         }
       }
       transitionState(db, "planVersion", plan.id, "confirmed", { set: { confirmed_at_ms: now } });
-      db.prepare("UPDATE objectives SET active_plan_version_id=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?")
-        .run(plan.id, now, objective.id, objective.version);
-      this.store.emit(db, { aggregateType: "plan", aggregateId: plan.id, eventType: "plan.confirmed", payload: { objectiveId: objective.id, planVersionId: plan.id, digest: plan.digest } });
+      db.prepare("UPDATE missions SET active_plan_version_id=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?")
+        .run(plan.id, now, mission.id, mission.version);
+      this.store.emit(db, { aggregateType: "plan", aggregateId: plan.id, eventType: "plan.confirmed", payload: { missionId: mission.id, planVersionId: plan.id, digest: plan.digest } });
     });
     return plan.id;
   }
@@ -207,7 +207,7 @@ export class WorkService {
       const nextAction = next === "done" ? "No further action" : next === "review" ? "Review verified results" : next === "blocked" ? reason ?? "Resolve blocker" : next === "ready" ? "Start this task" : next === "in-progress" ? "Complete and submit evidence" : next === "abandoned" ? "Superseded or abandoned" : "Wait for predecessor completion";
       transitionState(db, "workItem", item.id, next, { set: { blocked_reason: next === "blocked" ? reason : null, evidence_digest: evidenceDigest ?? null, next_action: nextAction, updated_at_ms: this.store.now() }, bumpVersion: true, and: { version: item.version } });
       this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.transitioned", payload: { workItemId: item.id, state: next, ...(evidenceDigest ? { evidenceDigest } : {}) } });
-      if (next === "done") this.releaseReadyItems(db, item.objective_id);
+      if (next === "done") this.releaseReadyItems(db, item.mission_id);
     });
     return item.id;
   }
@@ -229,8 +229,8 @@ export class WorkService {
     if (missing.length > 0) throw new BrainDomainError("EVIDENCE_MISSING", `verified evidence does not cover criteria: ${missing.join(", ")}`);
   }
 
-  private releaseReadyItems(db: ReturnType<Store["workspaceDb"]>, objectiveId: string): void {
-    const candidates = db.prepare("SELECT id FROM work_items WHERE objective_id=? AND state IN ('backlog','blocked')").all(objectiveId) as Array<{ id: string }>;
+  private releaseReadyItems(db: ReturnType<Store["workspaceDb"]>, missionId: string): void {
+    const candidates = db.prepare("SELECT id FROM work_items WHERE mission_id=? AND state IN ('backlog','blocked')").all(missionId) as Array<{ id: string }>;
     for (const candidate of candidates) {
       const pending = db.prepare("SELECT 1 FROM work_item_dependencies d JOIN work_items w ON w.id=d.depends_on_work_item_id WHERE d.work_item_id=? AND w.state!='done' LIMIT 1").get(candidate.id);
       if (!pending) transitionState(db, "workItem", candidate.id, "ready", { set: { blocked_reason: null, next_action: "Start this task", updated_at_ms: this.store.now() }, bumpVersion: true });
@@ -250,7 +250,7 @@ export class WorkService {
     const item = this.workItemRow(actor, workspaceId, workItemId);
     const db = this.db(actor, workspaceId);
     this.store.inTx(db, () => {
-      db.prepare("INSERT OR IGNORE INTO execution_links(work_item_id,run_id,created_at_ms) VALUES (?,?,?)").run(item.id, runId, this.store.now());
+      db.prepare("INSERT OR IGNORE INTO execution_links(mission_id,work_item_id,run_id,created_at_ms) VALUES (?,?,?,?)").run(item.mission_id, item.id, runId, this.store.now());
       if (item.state === "ready") {
         this.assertDependenciesDone(db, item.id);
         transitionState(db, "workItem", item.id, "in-progress", { set: { next_action: "Complete and submit evidence", updated_at_ms: this.store.now() }, bumpVersion: true });
@@ -260,25 +260,27 @@ export class WorkService {
 
   query(actor: ActorContext, queryType: string, workspaceId: string, resourceId?: string, limit = 100): JsonValue {
     const db = this.db(actor, workspaceId);
-    if (queryType === "objectives.list") {
-      const rows = db.prepare("SELECT * FROM objectives ORDER BY updated_at_ms DESC,id LIMIT ?").all(limit) as ObjectiveRow[];
-      return { items: rows.map((row) => this.objective(workspaceId, row)) } as unknown as JsonValue;
+    if (queryType === "missions.list") {
+      const rows = db.prepare("SELECT * FROM missions ORDER BY updated_at_ms DESC,id LIMIT ?").all(limit) as MissionRow[];
+      return { items: rows.map((row) => this.mission(workspaceId, row)) } as unknown as JsonValue;
     }
-    if (queryType === "objectives.get") return this.objective(workspaceId, this.objectiveRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
+    if (queryType === "missions.get") return this.mission(workspaceId, this.missionRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "plans.get") return this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "workItems.list") {
       const rows = db.prepare("SELECT * FROM work_items WHERE state!='abandoned' ORDER BY updated_at_ms DESC,id LIMIT ?").all(limit) as WorkItemRow[];
       return { items: rows.map((row) => this.workItem(actor, workspaceId, row)) } as unknown as JsonValue;
     }
     if (queryType === "workItems.get") return this.workItem(actor, workspaceId, this.workItemRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
+    if (queryType === "executionLinks.list") {
+      const rows = db.prepare("SELECT * FROM execution_links ORDER BY created_at_ms DESC,run_id LIMIT ?").all(limit) as Array<{ mission_id: string; work_item_id: string; run_id: string; job_id: string | null; attempt_id: string | null; session_id: string | null; created_at_ms: number }>;
+      const items: ExecutionLink[] = rows.map((row) => ({
+        missionId: row.mission_id, workItemId: row.work_item_id, runId: row.run_id,
+        ...(row.job_id ? { jobId: row.job_id } : {}), ...(row.attempt_id ? { attemptId: row.attempt_id } : {}), ...(row.session_id ? { sessionId: row.session_id } : {}),
+        createdAt: iso(row.created_at_ms),
+      }));
+      return { items } as unknown as JsonValue;
+    }
     throw new BrainDomainError("UNSUPPORTED_CAPABILITY", `unsupported work query ${queryType}`);
   }
 
-  /** Board projection rows for the board module: objectives and live work items, in board order. */
-  projectBoard(actor: ActorContext, workspaceId: string): { objectives: Objective[]; items: WorkItem[] } {
-    const db = this.db(actor, workspaceId);
-    const objectives = (db.prepare("SELECT * FROM objectives ORDER BY updated_at_ms DESC,id LIMIT 100").all() as ObjectiveRow[]).map((row) => this.objective(workspaceId, row));
-    const items = (db.prepare("SELECT * FROM work_items WHERE state!='abandoned' ORDER BY created_at_ms,id LIMIT 1000").all() as WorkItemRow[]).map((row) => this.workItem(actor, workspaceId, row));
-    return { objectives, items };
-  }
 }

@@ -6,7 +6,7 @@ import { explainJob, getJob, getRunner, listJobs, listRunners } from "../../apps
 import { commandReceipt, getApproval, listApprovals } from "../../apps/governor/src/modules/governance/read";
 import { liveStatus, platformHealth, workspaceContext, workspaceSummary } from "../../apps/governor/src/modules/operations/read";
 import { getPack, listPack, slaSummary } from "../../apps/governor/src/modules/packs/read";
-import { bridge, today } from "../../apps/governor/src/modules/work/read";
+import { bridge, today } from "../../apps/governor/src/modules/missions/read";
 import { activeRelease, configExplain, releaseDefinitions, searchReleaseDocuments } from "../../apps/governor/src/modules/configuration/read";
 import { artifactHistory, listArtifacts, readArtifactBytes } from "../../apps/governor/src/modules/evidence/read";
 import { searchSessions } from "../../apps/governor/src/modules/sessions/read";

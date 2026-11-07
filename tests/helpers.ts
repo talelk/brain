@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ActorContext } from "../packages/contracts/src/index";
+import type { ActorContext, ExecutionLink, WorkItem } from "../packages/contracts/src/index";
 import { Brain } from "../apps/governor/src/application/brain";
 import { scopesForPrincipal, type ResolvedActor } from "../apps/governor/src/application/authz";
 import { totpCode, newTotpSecret } from "./support/totp";
@@ -111,17 +111,24 @@ export async function stepUp(world: TestWorld, who: { actor: ActorContext; token
 export const DIGEST_A = `sha256:${"a".repeat(64)}`;
 
 /**
- * Seeds one work item through the real tables (objective + confirmed plan,
+ * Seeds one work item through the real tables (mission + confirmed plan,
  * FK-safe) for tests that need rows without driving the command path.
  */
 export function seedWorkItem(brain: Brain, organizationId: string, workspaceId: string, id: string, state: string, criteria: string[]): void {
   const ws = brain.store.workspaceDb(workspaceId, organizationId);
   const now = brain.store.now();
-  const objectiveId = `obj-${id}`, planId = `plan-${id}`;
-  ws.prepare("INSERT INTO objectives(id,title,intent,success_criteria_json,owner_id,version,created_at_ms,updated_at_ms) VALUES (?,?,?,'[\"seeded\"]','seed-owner',1,?,?)")
-    .run(objectiveId, `Objective for ${id}`, "seeded", now, now);
-  ws.prepare("INSERT INTO plan_versions(id,objective_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms,confirmed_at_ms) VALUES (?,?,'1',?,'confirmed','manual','seed-owner','[]',?,?)")
-    .run(planId, objectiveId, DIGEST_A, now, now);
-  ws.prepare("INSERT INTO work_items(id,objective_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES (?,?,?,?,'seeded work item',?,?,'seeded',?,?)")
-    .run(id, objectiveId, planId, "task", state, JSON.stringify(criteria), now, now);
+  const missionId = `mission-${id}`, planId = `plan-${id}`;
+  ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,version,created_at_ms,updated_at_ms) VALUES (?,?,?,'[\"seeded\"]','seed-owner',1,?,?)")
+    .run(missionId, `Mission for ${id}`, "seeded", now, now);
+  ws.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms,confirmed_at_ms) VALUES (?,?,'1',?,'confirmed','manual','seed-owner','[]',?,?)")
+    .run(planId, missionId, DIGEST_A, now, now);
+  ws.prepare("INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES (?,?,?,?,'seeded work item',?,?,'seeded',?,?)")
+    .run(id, missionId, planId, "task", state, JSON.stringify(criteria), now, now);
+}
+
+/** Live (non-abandoned) work items and execution links of a world's workspace. */
+export async function workView(w: TestWorld): Promise<{ items: WorkItem[]; executions: ExecutionLink[] }> {
+  const items = (await w.brain.executeQuery(w.owner, { queryType: "workItems.list", workspaceId: w.workspaceId, limit: 100 }) as { snapshot: { items: WorkItem[] } }).snapshot.items;
+  const executions = (await w.brain.executeQuery(w.owner, { queryType: "executionLinks.list", workspaceId: w.workspaceId, limit: 100 }) as { snapshot: { items: ExecutionLink[] } }).snapshot.items;
+  return { items: [...items], executions: [...executions] };
 }

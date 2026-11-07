@@ -13,13 +13,13 @@ async function run(w: World, commandType: string, key: string, payload: Record<s
 
 /** One work item with the given criteria, materialized through the canonical plan path. */
 async function createWorkItem(w: World, key: string, criteria: string[]): Promise<WorkItem> {
-  const objectiveId = (await run(w, "objective.create", `${key}-obj`, { title: key, intent: "board test", successCriteria: ["done well"] })).resourceId ?? "";
+  const missionId = (await run(w, "mission.create", `${key}-obj`, { title: key, intent: "work item test", successCriteria: ["done well"] })).resourceId ?? "";
   const planId = (await run(w, "plan.propose", `${key}-plan`, {
-    objectiveId, origin: "agent", summary: "single task",
+    missionId, origin: "agent", summary: "single task",
     tasks: [{ id: "task", title: key, criteria, dependsOn: [], assignment: { kind: "agent", id: "pi", role: "specialist" } }],
   })).resourceId ?? "";
   await run(w, "plan.confirm", `${key}-confirm`, { planVersionId: planId }, 1);
-  const listed = (await w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId })) as { snapshot: { items: WorkItem[] } };
+  const listed = (await w.brain.executeQuery(w.owner, { queryType: "workItems.list", workspaceId: w.workspaceId })) as { snapshot: { items: WorkItem[] } };
   return listed.snapshot.items.find((item) => item.title === key)!;
 }
 
@@ -46,7 +46,7 @@ function seedBundle(w: World, digest: string, state: string, checks: Array<{ cri
 
 const D = (ch: string) => `sha256:${ch.repeat(64)}`;
 
-describe("work item Done requires explicit verified criterion evidence (T31/T37)", () => {
+describe("work item Done requires explicit verified criterion evidence (T51)", () => {
   it("binds a work item to a verified bundle only when every criterion passed", async () => {
     const w = setupWorld();
     const item = await createWorkItem(w, "work-1", ["echo", "bytes"]);
@@ -78,7 +78,7 @@ describe("work item Done requires explicit verified criterion evidence (T31/T37)
     w.brain.close();
   });
 
-  it("concurrent comments from two actors both land; missing work item is NOT_FOUND (T31)", async () => {
+  it("concurrent comments from two actors both land; missing work item is NOT_FOUND (T51)", async () => {
     const w = setupWorld();
     const item = await createWorkItem(w, "work-comments", ["c1"]);
     const comment = async (actor: World["owner"], key: string, text: string, target = item.workItemId) => await w.brain.executeCommand(actor, {

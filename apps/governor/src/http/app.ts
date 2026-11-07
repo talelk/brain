@@ -246,11 +246,11 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     catch (e) { return fail(c as never, e); }
   });
   app.post("/v1/plans", async (c) => {
-    try { const body = await readJson(c); requireBody("ObjectivePlanRequest", body); const input = body as import("@brain/contracts").ObjectivePlanRequest; const { actor } = await actorFor(c, input.workspaceId); return c.json(await tasks.startObjectivePlan(actor, input), 202); }
+    try { const body = await readJson(c); requireBody("MissionPlanRequest", body); const input = body as import("@brain/contracts").MissionPlanRequest; const { actor } = await actorFor(c, input.workspaceId); return c.json(await tasks.startMissionPlan(actor, input), 202); }
     catch (e) { return fail(c as never, e); }
   });
   app.get("/v1/plans/:id", async (c) => {
-    try { const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId); return c.json(await tasks.objectivePlan(actor, workspaceId, c.req.param("id"))); }
+    try { const workspaceId = c.req.query("workspaceId") ?? ""; const { actor } = await actorFor(c, workspaceId); return c.json(await tasks.missionPlan(actor, workspaceId, c.req.param("id"))); }
     catch (e) { return fail(c as never, e); }
   });
   app.get("/v1/diagnostics", async (c) => {

@@ -18,7 +18,7 @@ export function CardTile(props: { children: JSX.Element; wide?: boolean; class?:
 
 /* Row lists and field grids use the shared `.brain-row-list` / `.brain-field-grid` classes (index.css). */
 
-/** A selectable master-list item (plans objectives, resources). */
+/** A selectable master-list item (plans missions, resources). */
 export function SelectableListItem(props: { selected?: boolean; onClick: () => void; children: JSX.Element; class?: string }): JSX.Element {
   return <button type="button"
     class={`min-w-0 rounded-control border p-2.5 text-start focus-visible:focus-ring ${props.selected ? "border-outline-blue-2 bg-surface-blue-1" : "border-outline-gray-2"} ${props.class ?? ""}`}

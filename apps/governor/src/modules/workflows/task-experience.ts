@@ -1,4 +1,4 @@
-import type { ActorContext, CommandReceipt, ConversationView, JsonValue, ObjectivePlanRequest, ObjectivePlanView, PlanTask, PlanVersion, TaskContext, TaskDraft, TaskOrigin, TaskPrepareRequest, WorkflowCatalogEntry } from "@brain/contracts";
+import type { ActorContext, CommandReceipt, ConversationView, JsonValue, MissionPlanRequest, MissionPlanView, PlanTask, PlanVersion, TaskContext, TaskDraft, TaskOrigin, TaskPrepareRequest, WorkflowCatalogEntry } from "@brain/contracts";
 import { payloadValidator } from "@brain/contracts/validate";
 import type { Store } from "../../application/store";
 import { authorizeCommand, requireWorkspaceRead } from "../../application/authz";
@@ -7,7 +7,7 @@ import { BrainDomainError } from "../../domain/errors";
 interface Host { query(actor: ActorContext, query: unknown): Promise<JsonValue>; dispatch(actor: ActorContext, command: unknown): Promise<{ receipt: CommandReceipt }> }
 interface DraftRow { id: string; actor_id: string; workflow_id: string; workflow_json: string; config_digest: string; input_json: string; origin_json: string | null; title: string; command_id: string; conversation_id?: string | null; state: "review" | "started"; run_id: string | null; created_at_ms: number }
 interface MessageRow { id: string; role: "user" | "assistant"; text: string; state: "pending" | "done" | "failed"; run_id: string | null; draft_id: string | null }
-interface PlanningRow { objective_id: string; actor_id: string; run_id: string; state: "running" | "ready" | "failed"; plan_version_id: string | null; error: string | null }
+interface PlanningRow { mission_id: string; actor_id: string; run_id: string; state: "running" | "ready" | "failed"; plan_version_id: string | null; error: string | null }
 export class TaskExperience {
   constructor(private readonly s: Store, private readonly host: Host) {}
   private db(actor: ActorContext, workspaceId: string) { requireWorkspaceRead(this.s, actor, workspaceId); return this.s.workspaceDb(workspaceId, actor.organizationId); }
@@ -71,64 +71,64 @@ export class TaskExperience {
     db.prepare("UPDATE task_drafts SET state='started',run_id=? WHERE id=? AND actor_id=?").run(receipt.resourceId, id, actor.actorId);
     return this.getDraft(actor, workspaceId, id);
   }
-  async startObjectivePlan(actor: ActorContext, request: ObjectivePlanRequest): Promise<ObjectivePlanView> {
+  async startMissionPlan(actor: ActorContext, request: MissionPlanRequest): Promise<MissionPlanView> {
     authorizeCommand(actor, "workflow.dispatch");
     const db = this.db(actor, request.workspaceId);
-    let objectiveId = request.objectiveId;
+    let missionId = request.missionId;
     let title = request.title;
     let intent = request.intent;
     let successCriteria = request.successCriteria;
-    if (objectiveId) {
-      const current = await this.host.query(actor, { queryType: "objectives.get", workspaceId: request.workspaceId, resourceId: objectiveId }) as unknown as { snapshot: { title: string; intent: string; successCriteria: string[] } };
+    if (missionId) {
+      const current = await this.host.query(actor, { queryType: "missions.get", workspaceId: request.workspaceId, resourceId: missionId }) as unknown as { snapshot: { title: string; intent: string; successCriteria: string[] } };
       title = current.snapshot.title; intent = current.snapshot.intent; successCriteria = current.snapshot.successCriteria;
     } else {
-      if (!title || !intent || !successCriteria) throw new BrainDomainError("INVALID_ARGUMENT", "title, intent and successCriteria are required for a new objective");
-      const created = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId: `objective-${request.requestId}`, commandType: "objective.create", workspaceId: request.workspaceId, idempotencyKey: `objective-${request.requestId}`, payload: { title, intent, successCriteria } })).receipt;
-      objectiveId = created.resourceId;
+      if (!title || !intent || !successCriteria) throw new BrainDomainError("INVALID_ARGUMENT", "title, intent and successCriteria are required for a new mission");
+      const created = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId: `mission-${request.requestId}`, commandType: "mission.create", workspaceId: request.workspaceId, idempotencyKey: `mission-${request.requestId}`, payload: { title, intent, successCriteria } })).receipt;
+      missionId = created.resourceId;
     }
-    if (!objectiveId || !title || !intent || !successCriteria) throw new BrainDomainError("CONFLICT", "objective could not be prepared");
+    if (!missionId || !title || !intent || !successCriteria) throw new BrainDomainError("CONFLICT", "mission could not be prepared");
     const guide = (await this.catalog(actor, request.workspaceId)).find((entry) => entry.release.id === "plan-guide");
     if (!guide) throw new BrainDomainError("UNSUPPORTED_CAPABILITY", "this release has no governed plan assistant");
     const capabilities = JSON.stringify((await this.catalog(actor, request.workspaceId)).filter((entry) => !entry.definition.spec.presentation?.system).slice(0, 20).map((entry) => ({ id: entry.release.id, title: entry.definition.spec.presentation?.title, description: entry.definition.spec.presentation?.description })));
     const commandId = `plan-run-${request.requestId}`;
     const started = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId, commandType: "workflow.dispatch", workspaceId: request.workspaceId, idempotencyKey: commandId, payload: { workflow: guide.release, input: { title, intent, successCriteria, capabilities } } })).receipt;
     if (!started.accepted || !started.resourceId) throw new BrainDomainError("CONFLICT", "plan assistant could not be started");
-    db.prepare("INSERT INTO planning_requests(objective_id,actor_id,run_id,state,created_at_ms,updated_at_ms) VALUES (?,?,?,'running',?,?) ON CONFLICT(objective_id) DO UPDATE SET run_id=excluded.run_id,state='running',plan_version_id=NULL,error=NULL,updated_at_ms=excluded.updated_at_ms")
-      .run(objectiveId, actor.actorId, started.resourceId, this.s.now(), this.s.now());
-    return { objectiveId, runId: started.resourceId, state: "running" };
+    db.prepare("INSERT INTO planning_requests(mission_id,actor_id,run_id,state,created_at_ms,updated_at_ms) VALUES (?,?,?,'running',?,?) ON CONFLICT(mission_id) DO UPDATE SET run_id=excluded.run_id,state='running',plan_version_id=NULL,error=NULL,updated_at_ms=excluded.updated_at_ms")
+      .run(missionId, actor.actorId, started.resourceId, this.s.now(), this.s.now());
+    return { missionId, runId: started.resourceId, state: "running" };
   }
 
-  async objectivePlan(actor: ActorContext, workspaceId: string, objectiveId: string): Promise<ObjectivePlanView> {
+  async missionPlan(actor: ActorContext, workspaceId: string, missionId: string): Promise<MissionPlanView> {
     const db = this.db(actor, workspaceId);
-    const row = db.prepare("SELECT * FROM planning_requests WHERE objective_id=? AND actor_id=?").get(objectiveId, actor.actorId) as PlanningRow | undefined;
+    const row = db.prepare("SELECT * FROM planning_requests WHERE mission_id=? AND actor_id=?").get(missionId, actor.actorId) as PlanningRow | undefined;
     if (!row) throw new BrainDomainError("NOT_FOUND", "planning request not found");
     if (row.state === "ready" && row.plan_version_id) {
       const plan = await this.host.query(actor, { queryType: "plans.get", workspaceId, resourceId: row.plan_version_id }) as unknown as { snapshot: PlanVersion };
-      return { objectiveId, runId: row.run_id, state: "ready", planVersionId: row.plan_version_id, plan: plan.snapshot };
+      return { missionId, runId: row.run_id, state: "ready", planVersionId: row.plan_version_id, plan: plan.snapshot };
     }
-    if (row.state === "failed") return { objectiveId, runId: row.run_id, state: "failed", ...(row.error ? { error: row.error } : {}) };
+    if (row.state === "failed") return { missionId, runId: row.run_id, state: "failed", ...(row.error ? { error: row.error } : {}) };
     const run = await this.host.query(actor, { queryType: "job.get", workspaceId, resourceId: row.run_id }) as unknown as { snapshot: { workflowState?: string; runOutputs?: Record<string, JsonValue> } };
     if (run.snapshot.workflowState === "succeeded") {
       const output = run.snapshot.runOutputs?.["propose"] as { summary?: string; tasks?: PlanTask[] } | undefined;
       try {
         if (!output?.tasks) throw new BrainDomainError("INVALID_CONTRACT", "plan assistant returned no task list");
         const commandId = `plan-proposal-${row.run_id}`;
-        const proposed = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId, commandType: "plan.propose", workspaceId, idempotencyKey: commandId, payload: { objectiveId, origin: "agent", summary: output.summary ?? "", tasks: output.tasks } })).receipt;
+        const proposed = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId, commandType: "plan.propose", workspaceId, idempotencyKey: commandId, payload: { missionId, origin: "agent", summary: output.summary ?? "", tasks: output.tasks } })).receipt;
         if (!proposed.accepted || !proposed.resourceId) throw new BrainDomainError("CONFLICT", "plan proposal was not accepted");
-        db.prepare("UPDATE planning_requests SET state='ready',plan_version_id=?,updated_at_ms=? WHERE objective_id=?").run(proposed.resourceId, this.s.now(), objectiveId);
-        return await this.objectivePlan(actor, workspaceId, objectiveId);
+        db.prepare("UPDATE planning_requests SET state='ready',plan_version_id=?,updated_at_ms=? WHERE mission_id=?").run(proposed.resourceId, this.s.now(), missionId);
+        return await this.missionPlan(actor, workspaceId, missionId);
       } catch (error) {
         const message = error instanceof Error ? error.message.slice(0, 1024) : "plan proposal failed validation";
-        db.prepare("UPDATE planning_requests SET state='failed',error=?,updated_at_ms=? WHERE objective_id=?").run(message, this.s.now(), objectiveId);
-        return { objectiveId, runId: row.run_id, state: "failed", error: message };
+        db.prepare("UPDATE planning_requests SET state='failed',error=?,updated_at_ms=? WHERE mission_id=?").run(message, this.s.now(), missionId);
+        return { missionId, runId: row.run_id, state: "failed", error: message };
       }
     }
     if (["failed", "cancelled", "partial", "blocked"].includes(run.snapshot.workflowState ?? "")) {
       const error = "The plan assistant did not produce an independently validated proposal. Review the run or choose another strategy.";
-      db.prepare("UPDATE planning_requests SET state='failed',error=?,updated_at_ms=? WHERE objective_id=?").run(error, this.s.now(), objectiveId);
-      return { objectiveId, runId: row.run_id, state: "failed", error };
+      db.prepare("UPDATE planning_requests SET state='failed',error=?,updated_at_ms=? WHERE mission_id=?").run(error, this.s.now(), missionId);
+      return { missionId, runId: row.run_id, state: "failed", error };
     }
-    return { objectiveId, runId: row.run_id, state: "running" };
+    return { missionId, runId: row.run_id, state: "running" };
   }
 
   conversations(actor: ActorContext, workspaceId: string): { id: string; preview: string; updatedAt: string }[] {

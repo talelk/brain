@@ -117,7 +117,7 @@
    "queries": [
     "artifacts.list",
     "artifacts.history",
-    "board.get"
+    "executionLinks.list"
    ],
    "actions": [],
    "content": [
@@ -137,7 +137,7 @@
    "queries": [
     "artifacts.history",
     "artifacts.diff",
-    "board.get"
+    "executionLinks.list"
    ],
    "actions": [],
    "content": [
@@ -175,47 +175,6 @@
    "icon": "lucide-layout-dashboard",
    "task": "Review workspace work and pack details",
    "title": "Overview"
-  },
-  {
-   "route": "/w/:id/board",
-   "queries": [
-    "board.get"
-   ],
-   "actions": [
-    "workItem.transition",
-    "workItem.comment"
-   ],
-   "content": [
-    "title",
-    "state",
-    "criteria",
-    "evidence"
-   ],
-   "owner": "T34",
-   "navigationGroup": "work",
-   "icon": "lucide-kanban-square",
-   "task": "Review workspace work and pack details",
-   "title": "Board"
-  },
-  {
-   "route": "/w/:id/decisions",
-   "queries": [
-    "decisions.list"
-   ],
-   "actions": [
-    "decision.record"
-   ],
-   "content": [
-    "decision",
-    "actor",
-    "note",
-    "time"
-   ],
-   "owner": "T34",
-   "navigationGroup": "work",
-   "icon": "lucide-scale",
-   "task": "Review workspace work and pack details",
-   "title": "Decisions"
   },
   {
    "route": "/approvals",
@@ -427,9 +386,7 @@
     "delivery.list",
     "delivery.get"
    ],
-   "actions": [
-    "decision.record"
-   ],
+   "actions": [],
    "content": [
     "source",
     "criteria",
@@ -650,11 +607,10 @@
   {
    "route": "/w/:id/plans",
    "queries": [
-    "objectives.list",
-    "board.get"
+    "missions.list"
    ],
    "actions": [
-    "objective.create",
+    "mission.create",
     "plan.propose",
     "plan.confirm"
    ],
@@ -814,7 +770,7 @@
   {
    "id": "work",
    "label": "Work",
-   "entryRoute": "/w/:id/board"
+   "entryRoute": "/w/:id/plans"
   },
   {
    "id": "approvals",
@@ -900,10 +856,6 @@
     "route": "/w/:id/plans"
    },
    {
-    "label": "Board",
-    "route": "/w/:id/board"
-   },
-   {
     "label": "Tasks",
     "route": "/w/:id/workflows"
    },
@@ -926,10 +878,6 @@
    {
     "label": "Delivery",
     "route": "/w/:id/delivery"
-   },
-   {
-    "label": "Decisions",
-    "route": "/w/:id/decisions"
    }
   ],
   "administration": [

@@ -9,7 +9,7 @@ CREATE TABLE workspace_identity (
   organization_id TEXT NOT NULL, schema_version INTEGER NOT NULL CHECK(schema_version > 0),
   schema_digest TEXT NOT NULL DEFAULT ''
 ) STRICT;
-CREATE TABLE objectives (
+CREATE TABLE missions (
   id TEXT PRIMARY KEY, title TEXT NOT NULL, intent TEXT NOT NULL,
   success_criteria_json TEXT NOT NULL CHECK(json_valid(success_criteria_json)),
   owner_id TEXT NOT NULL, active_plan_version_id TEXT,
@@ -17,16 +17,16 @@ CREATE TABLE objectives (
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
 ) STRICT;
 CREATE TABLE plan_versions (
-  id TEXT PRIMARY KEY, objective_id TEXT NOT NULL REFERENCES objectives(id),
+  id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   revision INTEGER NOT NULL CHECK(revision > 0), digest TEXT NOT NULL,
   state TEXT NOT NULL CHECK(state IN ('proposed','confirmed','superseded')),
   origin TEXT NOT NULL CHECK(origin IN ('manual','agent','template','capitalization')),
   created_by TEXT NOT NULL, summary TEXT, tasks_json TEXT NOT NULL CHECK(json_valid(tasks_json)),
   created_at_ms INTEGER NOT NULL, confirmed_at_ms INTEGER,
-  UNIQUE(objective_id,revision)
+  UNIQUE(mission_id,revision)
 ) STRICT;
 CREATE TABLE work_items (
-  id TEXT PRIMARY KEY, objective_id TEXT NOT NULL REFERENCES objectives(id),
+  id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   plan_version_id TEXT NOT NULL REFERENCES plan_versions(id), plan_task_id TEXT NOT NULL,
   title TEXT NOT NULL,
   state TEXT NOT NULL CHECK(state IN ('backlog','ready','in-progress','blocked','review','done','abandoned')),
@@ -38,7 +38,7 @@ CREATE TABLE work_items (
   UNIQUE(plan_version_id,plan_task_id), CHECK(state != 'done' OR evidence_digest IS NOT NULL)
 ) STRICT;
 CREATE INDEX work_items_board ON work_items(state,updated_at_ms,id);
-CREATE INDEX work_items_objective ON work_items(objective_id,plan_version_id,plan_task_id);
+CREATE INDEX work_items_mission ON work_items(mission_id,plan_version_id,plan_task_id);
 CREATE TABLE work_item_dependencies (
   work_item_id TEXT NOT NULL REFERENCES work_items(id),
   depends_on_work_item_id TEXT NOT NULL REFERENCES work_items(id),
@@ -46,6 +46,7 @@ CREATE TABLE work_item_dependencies (
   CHECK(work_item_id != depends_on_work_item_id)
 ) STRICT;
 CREATE TABLE execution_links (
+  mission_id TEXT NOT NULL REFERENCES missions(id),
   work_item_id TEXT NOT NULL REFERENCES work_items(id), run_id TEXT NOT NULL,
   job_id TEXT, attempt_id TEXT, session_id TEXT, created_at_ms INTEGER NOT NULL,
   PRIMARY KEY(work_item_id,run_id)
@@ -77,7 +78,7 @@ CREATE TABLE automation_occurrences (
 ) STRICT;
 CREATE INDEX automation_occurrences_history ON automation_occurrences(automation_id, planned_at_ms, id);
 CREATE TABLE planning_requests (
-  objective_id TEXT PRIMARY KEY REFERENCES objectives(id), actor_id TEXT NOT NULL,
+  mission_id TEXT PRIMARY KEY REFERENCES missions(id), actor_id TEXT NOT NULL,
   run_id TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('running','ready','failed')),
   plan_version_id TEXT REFERENCES plan_versions(id), error TEXT,
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
@@ -86,11 +87,6 @@ CREATE TABLE work_item_comments (
   id TEXT PRIMARY KEY, work_item_id TEXT NOT NULL REFERENCES work_items(id),
   actor_id TEXT NOT NULL, body TEXT NOT NULL, correction_of TEXT REFERENCES work_item_comments(id),
   created_at_ms INTEGER NOT NULL
-) STRICT;
-CREATE TABLE decisions (
-  id TEXT PRIMARY KEY, work_item_id TEXT NOT NULL REFERENCES work_items(id), actor_id TEXT NOT NULL,
-  decision TEXT NOT NULL CHECK(decision IN ('go','no','not-now','need-more-data')),
-  note TEXT NOT NULL, created_at_ms INTEGER NOT NULL
 ) STRICT;
 CREATE TABLE workflow_runs (
   id TEXT PRIMARY KEY, execution_key TEXT NOT NULL UNIQUE, config_digest TEXT NOT NULL,
@@ -162,7 +158,7 @@ CREATE TABLE document_versions (
 CREATE INDEX document_versions_current ON document_versions(document_id,revision DESC);
 CREATE TABLE resource_associations (
   id TEXT PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id),
-  resource_kind TEXT NOT NULL CHECK(resource_kind IN ('workItem','objective','session','run')),
+  resource_kind TEXT NOT NULL CHECK(resource_kind IN ('workItem','mission','session','run')),
   resource_id TEXT NOT NULL, created_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
   UNIQUE(document_id,resource_kind,resource_id)
 ) STRICT;

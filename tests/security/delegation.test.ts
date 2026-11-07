@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { ActorContext, BrainSession, CommandReceipt, Delegation, BoardView } from "@brain/contracts";
+import type { ActorContext, BrainSession, CommandReceipt, Delegation } from "@brain/contracts";
 import { recordAttemptSession } from "../../apps/governor/src/modules/sessions/index";
-import { setupWorld, DIGEST_A, type TestWorld } from "../helpers";
+import { setupWorld, DIGEST_A, type TestWorld, workView } from "../helpers";
 
 const cleanup: Array<() => void> = [];
 afterEach(() => { for (const close of cleanup.splice(0).reverse()) close(); });
@@ -20,10 +20,10 @@ async function run(w: TestWorld, commandType: string, key: string, payload: Reco
 }
 
 async function workItem(w: TestWorld): Promise<string> {
-  const objectiveId = (await run(w, "objective.create", "delegation-objective", { title: "Bounded collaboration", intent: "Delegate independent work", successCriteria: ["Reviewed"] })).resourceId!;
-  const planId = (await run(w, "plan.propose", "delegation-plan", { objectiveId, origin: "manual", tasks: [{ id: "task", title: "Implement", criteria: ["verified"], dependsOn: [] }] })).resourceId!;
+  const missionId = (await run(w, "mission.create", "delegation-objective", { title: "Bounded collaboration", intent: "Delegate independent work", successCriteria: ["Reviewed"] })).resourceId!;
+  const planId = (await run(w, "plan.propose", "delegation-plan", { missionId, origin: "manual", tasks: [{ id: "task", title: "Implement", criteria: ["verified"], dependsOn: [] }] })).resourceId!;
   await run(w, "plan.confirm", "delegation-confirm", { planVersionId: planId }, w.owner, 1);
-  const board = ((await w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId })) as { snapshot: BoardView }).snapshot;
+  const board = (await workView(w));
   return board.items[0]!.workItemId;
 }
 
@@ -84,7 +84,7 @@ describe("bounded cross-agent delegation and independent review (T53, E106)", ()
     const childId = (await delegation(w, delegationId)).childSessionId;
     const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
     // The child session was dispatched for run child-run; its attempt binds through that link.
-    db.prepare("INSERT INTO execution_links(work_item_id,run_id,session_id,created_at_ms) VALUES (?,?,?,?)").run(workItemId, "child-run", childId, w.brain.store.now());
+    db.prepare("INSERT INTO execution_links(mission_id,work_item_id,run_id,session_id,created_at_ms) SELECT mission_id,id,?,?,? FROM work_items WHERE id=?").run("child-run", childId, w.brain.store.now(), workItemId);
     recordAttemptSession(w.brain.store, { organizationId: w.org, workspaceId: w.workspaceId, jobId: "child-job", attemptId: "child-attempt", engineId: "claude", adapterDigest: DIGEST_A, runId: "child-run" });
     db.prepare("INSERT INTO evidence_bundles(digest,bundle_id,job_id,attempt_id,state,manifest_json,created_at_ms) VALUES (?,'child-bundle','child-job','child-attempt','verified','{}',?)").run(DIGEST_A, w.brain.store.now());
     db.prepare("INSERT INTO verification_verdicts(id,bundle_digest,evaluator_attempt_id,evaluator_digest,outcome,manifest_json,created_at_ms) VALUES ('child-verdict',?,'evaluator-attempt',?,'verified','{}',?)").run(DIGEST_A, DIGEST_A, w.brain.store.now());

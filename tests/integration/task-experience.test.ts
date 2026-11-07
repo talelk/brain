@@ -18,9 +18,9 @@ async function world() {
 }
 it("requires explicit start, recovers an accepted command and links the originating work item", async () => {
  const w = await world(); const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
- db.prepare("INSERT INTO objectives(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('objective-context','Investigate latency','Diagnose latency','[\"latency-explained\"]','owner-1',?,?)").run(Date.now(), Date.now());
- db.prepare("INSERT INTO plan_versions(id,objective_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-context','objective-context',1,?,'confirmed','manual','owner-1','[]',?)").run(DIGEST_A, Date.now());
- db.prepare("INSERT INTO work_items(id,objective_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('card-context','objective-context','plan-context','investigate','Investigate latency','ready','[\"latency-explained\"]','Start this task',?,?)").run(Date.now(), Date.now());
+ db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('objective-context','Investigate latency','Diagnose latency','[\"latency-explained\"]','owner-1',?,?)").run(Date.now(), Date.now());
+ db.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-context','objective-context',1,?,'confirmed','manual','owner-1','[]',?)").run(DIGEST_A, Date.now());
+ db.prepare("INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('card-context','objective-context','plan-context','investigate','Investigate latency','ready','[\"latency-explained\"]','Start this task',?,?)").run(Date.now(), Date.now());
  const origin = { kind: "work-item" as const, id: "card-context" };
  const draft = await w.tasks.prepare(w.owner, { workspaceId: w.workspaceId, workflowId: "operations-triage", input: { situation: "Latency increased" }, origin });
  expect(db.prepare("SELECT COUNT(*) AS n FROM workflow_runs").get()).toEqual({ n: 0 });
@@ -66,7 +66,7 @@ it("conversation executes only the guide and offers an independently verified in
 
 it("turns an objective into an independently validated plan and materializes it only after confirmation (E101)", async () => {
  const w = await world(); const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
- const started = await w.tasks.startObjectivePlan(w.owner, { workspaceId: w.workspaceId, requestId: "plan-e2e", title: "Stabilize authentication", intent: "Resolve expired user sessions", successCriteria: ["Users remain signed in"] });
+ const started = await w.tasks.startMissionPlan(w.owner, { workspaceId: w.workspaceId, requestId: "plan-e2e", title: "Stabilize authentication", intent: "Resolve expired user sessions", successCriteria: ["Users remain signed in"] });
  expect(started.state).toBe("running");
  expect(db.prepare("SELECT COUNT(*) AS n FROM work_items").get()).toEqual({ n: 0 });
  const transport: typeof fetch = async (input, init) => w.app.fetch(new Request(input, init));
@@ -75,12 +75,12 @@ it("turns an objective into an independently validated plan and materializes it 
   const session = await enrollAndHello(config, w.brain.jobProtocol.issueEnrollment(w.owner, group).token);
   expect(await runOnce(config, session.sessionToken, session.epoch)).toBe(true);
  }
- const proposal = await w.tasks.objectivePlan(w.owner, w.workspaceId, started.objectiveId);
+ const proposal = await w.tasks.missionPlan(w.owner, w.workspaceId, started.missionId);
  expect(proposal.state).toBe("ready");
  expect(proposal.plan?.tasks.map((task) => task.id)).toEqual(["investigate", "implement", "review"]);
  expect(db.prepare("SELECT COUNT(*) AS n FROM work_items").get()).toEqual({ n: 0 });
  const confirmed = await w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: "confirm-plan-e2e", commandType: "plan.confirm", workspaceId: w.workspaceId, idempotencyKey: "confirm-plan-e2e", expectedVersion: 1, payload: { planVersionId: proposal.planVersionId } }, "plan-test");
  expect(confirmed.receipt.accepted).toBe(true);
  expect(db.prepare("SELECT COUNT(*) AS n FROM work_items").get()).toEqual({ n: 3 });
- expect((await w.tasks.objectivePlan(w.owner, w.workspaceId, started.objectiveId)).planVersionId).toBe(proposal.planVersionId);
+ expect((await w.tasks.missionPlan(w.owner, w.workspaceId, started.missionId)).planVersionId).toBe(proposal.planVersionId);
 });

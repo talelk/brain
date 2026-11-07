@@ -34,13 +34,12 @@ import {
 import { liveStatus, platformHealth, workspaceContext } from "../modules/operations/index";
 import { getPack, listPack, slaSummary } from "../modules/packs/index";
 import { artifactHistory, diffArtifacts, listArtifacts, readArtifactBytes, searchArtifacts } from "../modules/evidence/index";
-import { bridge, today } from "../modules/work/index";
+import { bridge, today } from "../modules/missions/index";
 import { searchSessions } from "../modules/sessions/index";
 import { jobCommands, JobProtocol, type CreateJobInput } from "../modules/jobs/index";
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
-import { WorkService, workCommands } from "../modules/work/index";
-import { BoardService, boardCommands } from "../modules/board/index";
+import { MissionService, missionCommands } from "../modules/missions/index";
 import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
@@ -52,8 +51,7 @@ export class Brain {
   readonly runtime: RuntimeConfig;
   readonly store: Store;
   readonly workflows: WorkflowEnginePort;
-  readonly work: WorkService;
-  readonly board: BoardService;
+  readonly missions: MissionService;
   readonly sessions: SessionService;
   readonly stream: StreamService;
   readonly documents: DocumentService;
@@ -76,8 +74,7 @@ export class Brain {
       this.auth.ensureTables();
       this.stepUp = new StepUpService(this.store, this.auth);
       this.memory = new MemoryStore(this.store);
-      this.work = new WorkService(this.store);
-      this.board = new BoardService(this.store, this.work);
+      this.missions = new MissionService(this.store);
       this.sessions = new SessionService(this.store);
       this.stream = createStreamService(this.store);
       this.documents = new DocumentService(this.store);
@@ -103,8 +100,7 @@ export class Brain {
         concludeAttempt: (input) => this.jobProtocol.concludeAttempt(input),
       });
       this.commands = new CommandFunnel(this.store, [
-        workCommands(this.work),
-        boardCommands(this.board),
+        missionCommands(this.missions),
         sessionCommands(this.sessions),
         documentCommands(this.documents),
         integrationCommands(this.integrations),
@@ -116,7 +112,7 @@ export class Brain {
           engine: this.workflows,
           loadWorkflow: (organizationId, workflowId) => this.loadWorkflow(organizationId, workflowId),
           sessionWorkItem: (actor, workspaceId, sessionId) => this.sessions.workItemForDispatch(actor, workspaceId, sessionId),
-          linkExecution: (actor, workspaceId, workItemId, runId) => this.work.linkExecution(actor, workspaceId, workItemId, runId),
+          linkExecution: (actor, workspaceId, workItemId, runId) => this.missions.linkExecution(actor, workspaceId, workItemId, runId),
           attachSessionRun: (actor, workspaceId, sessionId, runId) => this.sessions.attachRun(actor, workspaceId, sessionId, runId),
           cancelJobs: (runId) => this.jobProtocol.cancelForRun(runId),
         }),
@@ -774,14 +770,9 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.jobProtocol.automations.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
       }
-      case "objectives.list": case "objectives.get": case "plans.get": case "workItems.list": case "workItems.get": {
+      case "missions.list": case "missions.get": case "plans.get": case "workItems.list": case "workItems.get": case "executionLinks.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
-        return this.envelope(q.queryType, this.work.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
-      }
-      case "board.get": {
-        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
-        requireWorkspaceRead(s, actor, q.workspaceId);
-        return this.envelope(q.queryType, this.board.query(actor, q.workspaceId));
+        return this.envelope(q.queryType, this.missions.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
       }
       case "command.get": {
         const commandId = String((raw as { commandId?: string }).commandId ?? q.resourceId ?? "");
@@ -817,7 +808,7 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.capitalization.query(actor, q.queryType, q.workspaceId, limit));
       }
-      case "tickets.list": case "incidents.list": case "delivery.list": case "decisions.list": case "members.list": case "audit.list": {
+      case "tickets.list": case "incidents.list": case "delivery.list": case "members.list": case "audit.list": {
         requireRead();
         return this.envelope(q.queryType, listPack(s, actor, q.queryType, q.workspaceId));
       }

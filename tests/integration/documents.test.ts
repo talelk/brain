@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { ActorContext, CommandReceipt, Document, DocumentView, BoardView } from "@brain/contracts";
+import type { ActorContext, CommandReceipt, Document, DocumentView } from "@brain/contracts";
 import { sha256Digest } from "@brain/contracts";
-import { setupWorld, type TestWorld } from "../helpers";
+import { setupWorld, type TestWorld, workView } from "../helpers";
 
 const cleanup: Array<() => void> = [];
 afterEach(() => { for (const close of cleanup.splice(0).reverse()) close(); });
@@ -28,10 +28,10 @@ async function detail(w: TestWorld, id: string): Promise<DocumentView> {
 }
 
 async function workItem(w: TestWorld): Promise<string> {
-  const objectiveId = (await run(w, "objective.create", "document-objective", { title: "Document-backed work", intent: "Use scoped resources", successCriteria: ["Verified"] })).resourceId!;
-  const planId = (await run(w, "plan.propose", "document-plan", { objectiveId, origin: "manual", tasks: [{ id: "task", title: "Use the guide", criteria: ["verified"], dependsOn: [] }] })).resourceId!;
+  const missionId = (await run(w, "mission.create", "document-objective", { title: "Document-backed work", intent: "Use scoped resources", successCriteria: ["Verified"] })).resourceId!;
+  const planId = (await run(w, "plan.propose", "document-plan", { missionId, origin: "manual", tasks: [{ id: "task", title: "Use the guide", criteria: ["verified"], dependsOn: [] }] })).resourceId!;
   await run(w, "plan.confirm", "document-confirm", { planVersionId: planId }, w.owner, 1);
-  const board = ((await w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId })) as { snapshot: BoardView }).snapshot;
+  const board = (await workView(w));
   return board.items[0]!.workItemId;
 }
 

@@ -209,7 +209,7 @@ describe("command funnel through Brain", () => {
   it("applies a workspace command once and answers 200 applied", async () => {
     const w = setupWorld();
     const cmd = {
-      contractVersion: "brain.command/v1" as const, commandId: "cmd-funnel-objective", commandType: "objective.create",
+      contractVersion: "brain.command/v1" as const, commandId: "cmd-funnel-objective", commandType: "mission.create",
       workspaceId: w.workspaceId, idempotencyKey: "funnel-objective", payload: { title: "Funnel", intent: "applied first", successCriteria: ["verified"] },
     };
     const first = await w.brain.executeCommand(w.owner, cmd, "corr-1");
@@ -217,7 +217,7 @@ describe("command funnel through Brain", () => {
     expect(first.receipt.outcome).toBe("applied");
     const replay = await w.brain.executeCommand(w.owner, cmd, "corr-2");
     expect(replay).toEqual(first);
-    expect(w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT COUNT(*) AS n FROM objectives").get()).toEqual({ n: 1 });
+    expect(w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT COUNT(*) AS n FROM missions").get()).toEqual({ n: 1 });
     w.brain.close();
   });
 
@@ -231,8 +231,8 @@ describe("command funnel through Brain", () => {
       w.brain.store.control.prepare("DELETE FROM command_idempotency WHERE idempotency_key=?").run(key);
       w.brain.store.control.prepare("UPDATE command_intents SET state='pending' WHERE command_id=?").run(`cmd-${key}`);
     };
-    const objectiveId = (await run("objective.create", "self-objective", { title: "Recover", intent: "crash between effect and receipt", successCriteria: ["verified"] })).resourceId!;
-    const planId = (await run("plan.propose", "self-plan", { objectiveId, origin: "manual", tasks: [{ id: "task", title: "Implement", criteria: ["verified"], dependsOn: [], workflowId: "fixture-workflow" }] })).resourceId!;
+    const missionId = (await run("mission.create", "self-objective", { title: "Recover", intent: "crash between effect and receipt", successCriteria: ["verified"] })).resourceId!;
+    const planId = (await run("plan.propose", "self-plan", { missionId, origin: "manual", tasks: [{ id: "task", title: "Implement", criteria: ["verified"], dependsOn: [], workflowId: "fixture-workflow" }] })).resourceId!;
     await run("plan.confirm", "self-confirm", { planVersionId: planId }, 1);
     const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
     const workItemId = (ws.prepare("SELECT id FROM work_items LIMIT 1").get() as { id: string }).id;

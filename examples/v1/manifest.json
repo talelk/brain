@@ -149,7 +149,7 @@
       "schema": "CommandEnvelope"
     },
     {
-      "path": "commands/decision.record.json",
+      "path": "commands/mission.create.json",
       "schema": "CommandEnvelope"
     },
     {

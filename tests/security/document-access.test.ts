@@ -57,7 +57,7 @@ describe("document authorization and safe intake (T54, E107)", () => {
     const w = world();
     const id = await upload(w, "revocation-upload");
     await run(w, "document.delete", "revocation-delete", { documentId: id, reason: "Access retired" });
-    await expect(Promise.resolve().then(async () => await run(w, "document.associate", "revoked-association", { documentId: id, resource: { kind: "objective", id: "objective-missing" } }))).rejects.toThrow(/revoked/i);
+    await expect(Promise.resolve().then(async () => await run(w, "document.associate", "revoked-association", { documentId: id, resource: { kind: "mission", id: "objective-missing" } }))).rejects.toThrow(/revoked/i);
     const result = (await w.brain.executeQuery(w.owner, { queryType: "documents.search", workspaceId: w.workspaceId, search: "workspace-only-content" })) as { snapshot: { items: unknown[] } };
     expect(result.snapshot.items).toEqual([]);
   });

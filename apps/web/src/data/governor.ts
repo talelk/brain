@@ -96,8 +96,6 @@ export async function deliveryQuery(workspaceId: string, resourceId?: string, si
 }
 export const toolsQuery = (workspaceId: string, signal?: AbortSignal) =>
   fetchView({ queryType: "tools.list", workspaceId }, signal);
-export const decisionsQuery = (workspaceId: string, signal?: AbortSignal) =>
-  fetchView({ queryType: "decisions.list", workspaceId }, signal);
 export const membersQuery = (workspaceId: string, signal?: AbortSignal) =>
   fetchView({ queryType: "members.list", workspaceId }, signal);
 export const auditQuery = (workspaceId: string, signal?: AbortSignal) =>

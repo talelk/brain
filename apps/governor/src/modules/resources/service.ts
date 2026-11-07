@@ -162,7 +162,7 @@ export class DocumentService {
     const document = this.row(actor, workspaceId, String(payload["documentId"]));
     if (document.state !== "active") throw new BrainDomainError("CONFLICT", "revoked documents cannot be associated");
     const resource = payload["resource"] as { kind: ResourceAssociation["resourceKind"]; id: string };
-    const table = { workItem: "work_items", objective: "objectives", session: "sessions", run: "workflow_runs" }[resource.kind];
+    const table = { workItem: "work_items", mission: "missions", session: "sessions", run: "workflow_runs" }[resource.kind];
     const db = this.db(actor, workspaceId);
     if (!db.prepare(`SELECT 1 FROM ${table} WHERE id=?`).get(resource.id)) throw new BrainDomainError("NOT_FOUND", "association target not found in this workspace");
     const id = this.store.id("assoc");

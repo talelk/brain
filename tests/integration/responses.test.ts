@@ -89,7 +89,6 @@ describe("endpoint surface conformance (T02)", () => {
       ws.prepare("INSERT INTO delivery_dossiers(id, source_revision, manifest_digest, rubric_digest, state, version, created_at_ms) VALUES ('dos-1',?,?,?,'evaluating',1,?)").run("sha256:" + "c".repeat(64), DIGEST, DIGEST, Date.now());
       ws.prepare("INSERT INTO rubric_results(dossier_id, criterion_id, evaluator_attempt_id, outcome, evidence_digest) VALUES ('dos-1','crit-1','att-1','passed',?)").run(DIGEST);
       seedWorkItem(app.brain, w.org, w.workspaceId, "work-seed", "review", ["c1"]);
-      ws.prepare("INSERT INTO decisions(id, work_item_id, actor_id, decision, note, created_at_ms) VALUES ('dec-1','work-seed','owner-1','go','seed decision',?)").run(Date.now());
       ws.prepare("INSERT INTO sla_intervals(id, ticket_id, event_id, responsibility, started_at_ms, ended_at_ms, calendar_digest) VALUES ('sla-1','tkt-1','evt-sla-1','keyrus',?,?,?)").run(Date.now() - 60000, Date.now(), DIGEST);
 
       const ask = async (payload: Record<string, unknown>) => {
@@ -97,8 +96,8 @@ describe("endpoint surface conformance (T02)", () => {
         return { status: res.status, body: (await res.json()) as Record<string, unknown> };
       };
       const cases: Array<Record<string, unknown>> = [
-        ...["today", "jobs.list", "approvals.list", "board.get", "tools.list",
-          "decisions.list", "tickets.list", "incidents.list", "delivery.list", "sessions.list",
+        ...["today", "jobs.list", "approvals.list", "tools.list",
+          "tickets.list", "incidents.list", "delivery.list", "sessions.list",
           "members.list", "audit.list", "runners.list", "platform.health", "workspace.context",
         ].map((queryType) => ({ queryType, workspaceId: w.workspaceId })),
         { queryType: "sla.summary", workspaceId: w.workspaceId, periodStart: new Date(Date.now() - 3600_000).toISOString(), periodEnd: new Date(Date.now() + 60000).toISOString() },

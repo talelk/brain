@@ -2,9 +2,9 @@
   "contractVersion": "brain.registry/v1",
   "commands": [
     {
-      "type": "objective.create",
-      "schema": "ObjectiveCreateCommand",
-      "scope": "board:write",
+      "type": "mission.create",
+      "schema": "MissionCreateCommand",
+      "scope": "mission:write",
       "authority": "workspace",
       "actors": [
         "human",
@@ -14,7 +14,7 @@
     {
       "type": "plan.propose",
       "schema": "PlanProposeCommand",
-      "scope": "board:write",
+      "scope": "mission:write",
       "authority": "workspace",
       "actors": [
         "human",
@@ -24,7 +24,7 @@
     {
       "type": "plan.confirm",
       "schema": "PlanConfirmCommand",
-      "scope": "board:write",
+      "scope": "mission:write",
       "authority": "workspace",
       "actors": [
         "human"
@@ -33,7 +33,7 @@
     {
       "type": "workItem.transition",
       "schema": "WorkItemTransitionCommand",
-      "scope": "board:write",
+      "scope": "mission:write",
       "authority": "workspace",
       "actors": [
         "human",
@@ -43,7 +43,7 @@
     {
       "type": "workItem.comment",
       "schema": "WorkItemCommentCommand",
-      "scope": "board:write",
+      "scope": "mission:write",
       "authority": "workspace",
       "actors": [
         "human",
@@ -97,119 +97,160 @@
       "schema": "SessionCreateCommand",
       "scope": "session:steer",
       "authority": "workspace",
-      "actors": ["human", "agent"]
+      "actors": [
+        "human",
+        "agent"
+      ]
     },
     {
       "type": "session.checkpoint",
       "schema": "SessionCheckpointCommand",
       "scope": "session:steer",
       "authority": "workspace",
-      "actors": ["human", "agent"]
+      "actors": [
+        "human",
+        "agent"
+      ]
     },
     {
       "type": "session.delegate",
       "schema": "SessionDelegateCommand",
       "scope": "session:steer",
       "authority": "workspace",
-      "actors": ["human", "agent"]
+      "actors": [
+        "human",
+        "agent"
+      ]
     },
     {
       "type": "delegation.review",
       "schema": "DelegationReviewCommand",
       "scope": "session:steer",
       "authority": "workspace",
-      "actors": ["human"]
+      "actors": [
+        "human"
+      ]
     },
     {
       "type": "workItem.message",
       "schema": "WorkItemMessageCommand",
-      "scope": "board:write",
+      "scope": "mission:write",
       "authority": "workspace",
-      "actors": ["human", "agent"]
+      "actors": [
+        "human",
+        "agent"
+      ]
     },
     {
       "type": "configDraft.create",
       "schema": "ConfigDraftCreateCommand",
       "scope": "config:activate",
       "authority": "workspace",
-      "actors": ["human"]
+      "actors": [
+        "human"
+      ]
     },
     {
       "type": "configDraft.update",
       "schema": "ConfigDraftUpdateCommand",
       "scope": "config:activate",
       "authority": "workspace",
-      "actors": ["human"]
+      "actors": [
+        "human"
+      ]
     },
     {
       "type": "configDraft.validate",
       "schema": "ConfigDraftValidateCommand",
       "scope": "config:activate",
       "authority": "workspace",
-      "actors": ["human"]
+      "actors": [
+        "human"
+      ]
     },
     {
       "type": "configDraft.test",
       "schema": "ConfigDraftTestCommand",
       "scope": "config:activate",
       "authority": "workspace",
-      "actors": ["human"]
+      "actors": [
+        "human"
+      ]
     },
     {
       "type": "configDraft.publish",
       "schema": "ConfigDraftPublishCommand",
       "scope": "config:activate",
       "authority": "workspace",
-      "actors": ["human"]
+      "actors": [
+        "human"
+      ]
     },
     {
       "type": "integration.connect",
       "schema": "IntegrationConnectCommand",
       "scope": "config:activate",
       "authority": "organization",
-      "actors": ["human"]
+      "actors": [
+        "human"
+      ]
     },
     {
       "type": "integration.verify",
       "schema": "IntegrationVerifyCommand",
       "scope": "config:activate",
       "authority": "organization",
-      "actors": ["human"]
+      "actors": [
+        "human"
+      ]
     },
     {
       "type": "integration.bind",
       "schema": "IntegrationBindCommand",
       "scope": "config:activate",
       "authority": "organization",
-      "actors": ["human"]
+      "actors": [
+        "human"
+      ]
     },
     {
       "type": "document.upload",
       "schema": "DocumentUploadCommand",
-      "scope": "board:write",
+      "scope": "mission:write",
       "authority": "workspace",
-      "actors": ["human", "agent"]
+      "actors": [
+        "human",
+        "agent"
+      ]
     },
     {
       "type": "document.revise",
       "schema": "DocumentReviseCommand",
-      "scope": "board:write",
+      "scope": "mission:write",
       "authority": "workspace",
-      "actors": ["human", "agent"]
+      "actors": [
+        "human",
+        "agent"
+      ]
     },
     {
       "type": "document.associate",
       "schema": "DocumentAssociateCommand",
-      "scope": "board:write",
+      "scope": "mission:write",
       "authority": "workspace",
-      "actors": ["human", "agent"]
+      "actors": [
+        "human",
+        "agent"
+      ]
     },
     {
       "type": "document.delete",
       "schema": "DocumentDeleteCommand",
-      "scope": "board:write",
+      "scope": "mission:write",
       "authority": "workspace",
-      "actors": ["human"]
+      "actors": [
+        "human"
+      ]
     },
     {
       "type": "approval.request",
@@ -236,15 +277,6 @@
       "schema": "RunnerControlCommand",
       "scope": "runner:admin",
       "authority": "global",
-      "actors": [
-        "human"
-      ]
-    },
-    {
-      "type": "decision.record",
-      "schema": "DecisionRecordCommand",
-      "scope": "decision:write",
-      "authority": "workspace",
       "actors": [
         "human"
       ]
@@ -453,14 +485,19 @@
       "schema": "CapitalizationRunCommand",
       "scope": "tool:propose",
       "authority": "workspace",
-      "actors": ["human", "agent"]
+      "actors": [
+        "human",
+        "agent"
+      ]
     },
     {
       "type": "capability.review",
       "schema": "CapabilityReviewCommand",
       "scope": "tool:publish",
       "authority": "workspace",
-      "actors": ["human"]
+      "actors": [
+        "human"
+      ]
     }
   ],
   "queries": [
@@ -477,7 +514,6 @@
     "approval.get",
     "sessions.list",
     "session.get",
-    "board.get",
     "evidence.get",
     "memory.search",
     "sla.summary",
@@ -491,7 +527,6 @@
     "delivery.list",
     "delivery.get",
     "tools.list",
-    "decisions.list",
     "members.list",
     "audit.list",
     "agents.list",
@@ -504,11 +539,12 @@
     "organization.member.get",
     "organization.invitations.list",
     "organization.auth-policy.get",
-    "objectives.list",
-    "objectives.get",
+    "missions.list",
+    "missions.get",
     "plans.get",
     "workItems.list",
     "workItems.get",
+    "executionLinks.list",
     "automations.list",
     "automations.occurrences",
     "delegations.list",
@@ -534,7 +570,7 @@
   ],
   "events": [
     {
-      "type": "objective.created",
+      "type": "mission.created",
       "envelope": "EventEnvelope",
       "payloadContract": "WorkEventPayload",
       "durable": true
@@ -957,12 +993,6 @@
       "type": "reconciliation.resolved",
       "envelope": "EventEnvelope",
       "payloadContract": "ReconciliationEventPayload",
-      "durable": true
-    },
-    {
-      "type": "decision.recorded",
-      "envelope": "EventEnvelope",
-      "payloadContract": "DecisionEventPayload",
       "durable": true
     },
     {

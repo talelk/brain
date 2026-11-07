@@ -29,9 +29,9 @@ describe("CLI native credential flow", () => {
     const token = x.credentials.read(); expect(token.length).toBeGreaterThan(32); expect(x.output()).not.toContain(token);
     const { actor } = await x.app.brain.resolveActor(new Headers({authorization:`Bearer ${token}`}));
     x.app.brain.createWorkspace(actor,{workspaceId:"ws-cli",slug:"cli"});
-    const command = { contractVersion:"brain.command/v1", commandType:"objective.create", commandId:"cmd-cli", idempotencyKey:"cli-create", workspaceId:"ws-cli", payload:{title:"Created through CLI",intent:"CLI proof",successCriteria:["verified by an independent evaluator"]} };
+    const command = { contractVersion:"brain.command/v1", commandType:"mission.create", commandId:"cmd-cli", idempotencyKey:"cli-create", workspaceId:"ws-cli", payload:{title:"Created through CLI",intent:"CLI proof",successCriteria:["verified by an independent evaluator"]} };
     expect(await x.run(["command",JSON.stringify(command),"--json"])).toBe(0);
-    expect(x.app.brain.store.workspaceDb("ws-cli","org-cli").prepare("SELECT title FROM objectives").get()).toEqual({title:"Created through CLI"});
+    expect(x.app.brain.store.workspaceDb("ws-cli","org-cli").prepare("SELECT title FROM missions").get()).toEqual({title:"Created through CLI"});
     expect(await x.run(["logout","--json"])).toBe(0); expect(x.credentials.read()).toBe("");
     await expect(x.app.brain.resolveActor(new Headers({authorization:`Bearer ${token}`}))).rejects.toThrow();
     expect(await x.run(["login","--json"])).toBe(0);

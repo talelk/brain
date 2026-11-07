@@ -1,10 +1,10 @@
 import type { JSX } from "solid-js";
 import { For, Show, createSignal } from "solid-js";
-import { Badge, Button, KeyValue, Textarea, TextInput } from "@talelk/newui-atoms";
-import { Alert, Dialog, Pagination, TabButtons } from "@talelk/newui-molecules";
+import { Badge, Button, KeyValue } from "@talelk/newui-atoms";
+import { Alert, Pagination } from "@talelk/newui-molecules";
 import { FilterBar } from "@talelk/newui-organisms";
 import { PaneLayout } from "@talelk/newui-templates";
-import type { DecisionHistoryEntry, DeliveryDossier, IncidentSummary, SLASummary, TicketSummary } from "@brain/contracts";
+import type { DeliveryDossier, IncidentSummary, SLASummary, TicketSummary } from "@brain/contracts";
 import { DateText, isFreshFromServer, ScreenRegion } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
 import { BrainPage, PageStack, TechnicalDetails } from "../ui/components/PageLayout";
@@ -12,7 +12,6 @@ import { StatusBadge } from "../ui/components/StatusBadge";
 import { formatSlaMinutes } from "../ui/format";
 import { EmptyPreview, FactStrip, Freshness, QueueRow, WorkspaceSection } from "../ui/components/Domain";
 
-type Decision = "go" | "no" | "not-now" | "need-more-data";
 
 /** Client-side lists page at 25 rows once they outgrow a single page. */
 const PAGE_SIZE = 25;
@@ -53,64 +52,6 @@ function ListPager(props: { count: number; page: number; onPageChange: (page: nu
   </Show>;
 }
 
-export function DecisionsScreen(props: {
-  decisions: DecisionHistoryEntry[];
-  state: ScreenState<DecisionHistoryEntry[]>;
-  onRefresh: () => void;
-  onRecord: (workItemId: string, decision: Decision, note: string) => Promise<void>;
-  workItemIds: string[];
-  viewerId?: string;
-  viewerName?: string;
-}): JSX.Element {
-  const [open, setOpen] = createSignal(false);
-  const [workItemId, setWorkItemId] = createSignal("");
-  const [decision, setDecision] = createSignal<Decision | "">("");
-  const [note, setNote] = createSignal("");
-  const [error, setError] = createSignal("");
-  const [query, setQuery] = createSignal("");
-  const [outcome, setOutcome] = createSignal("all");
-  const [page, setPage] = createSignal(1);
-  const actorName = (actorId: string) => actorId === props.viewerId ? props.viewerName ?? actorId : actorId;
-  const visible = () => props.decisions.filter((entry) => (outcome() === "all" || entry.decision === outcome()) && `${entry.note} ${entry.workItemId} ${actorName(entry.actorId)}`.toLowerCase().includes(query().toLowerCase()));
-  const paged = () => {
-    const current = clampPage(page(), visible().length);
-    return visible().slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
-  };
-  const selection = useMasterDetail(visible, () => paged()[0]);
-  const selected = selection.selected;
-  async function record() {
-    if (!workItemId().trim() || !note().trim() || !decision()) return;
-    setError("");
-    try {
-      await props.onRecord(workItemId().trim(), decision() as Decision, note().trim());
-      setWorkItemId(""); setDecision(""); setNote(""); setOpen(false);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "The decision was refused."); }
-  }
-  return <BrainPage title="Decisions" description="Read the business decision, rationale and provenance without confusing it with production-effect approval."
-    actions={<Button size="md" variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setOpen(true)}>Record decision</Button>}>
-    <PageStack>
-      <FilterBar query={{ value: query(), placeholder: "Search rationale, work, or decision maker…", onInput: (value) => { setQuery(value); setPage(1); } }} resultCount={visible().length} selects={[{ label: "Outcome", value: outcome(), options: [{ value: "all", label: "All outcomes" }, { value: "go", label: "Go" }, { value: "no", label: "No" }, { value: "not-now", label: "Not now" }, { value: "need-more-data", label: "Need more data" }], onValueChange: (value) => { setOutcome(value ?? "all"); setPage(1); } }]} />
-      <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No recorded decisions yet" emptyDescription="Record the go/no-go decision for a work item when you make it." onRetry={props.onRefresh}>
-        <PaneLayout class="brain-list-detail" startSize={43} minStartSize={32} maxStartSize={60} active={selection.picked() ? "end" : "start"} start={<WorkspaceSection title="Decision register" description="Append-only business history; rationale stays readable before identifiers.">
-          <Show when={visible().length} fallback={<EmptyPreview icon="lucide-scale" title="No decisions match" description="Clear the search or outcome filter to inspect other recorded decisions." />}>
-            <div class="brain-queue"><For each={paged()}>{(entry) => <QueueRow title={entry.note} description={`${actorName(entry.actorId)} · ${entry.workItemId}`} icon="lucide-scale" tone={entry.decision === "go" ? "green" : entry.decision === "no" ? "red" : "amber"} meta={<DateText value={entry.createdAt} />} trailing={<StatusBadge kind="decision" status={entry.decision} />} selected={selected()?.id === entry.id} onClick={() => selection.pick(entry.id)} />}</For></div>
-            <ListPager count={visible().length} page={page()} onPageChange={setPage} label="Decision register pagination" />
-          </Show>
-        </WorkspaceSection>} end={<Show when={selected()} keyed fallback={<EmptyPreview icon="lucide-scale" title="Select a decision" description="Its complete rationale, context, actor and linked work will appear here." />}>{(entry) => <PageStack>
-          <Button size="md" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={selection.dismiss}>Back to register</Button>
-          <div><StatusBadge kind="decision" status={entry.decision} /><h2 class="brain-prose mt-3 text-section text-ink-gray-9">{entry.note}</h2></div>
-          <dl class="grid gap-3 border-y border-outline-gray-1 py-3 sm:grid-cols-2"><KeyValue label="Decision maker" value={actorName(entry.actorId)} orientation="vertical" /><KeyValue label="Recorded" value={<DateText value={entry.createdAt} />} orientation="vertical" /><KeyValue label="Linked work" value={<span class="break-all">{entry.workItemId}</span>} orientation="vertical" /><KeyValue label="Decision type" value="Business outcome, not an exact production-effect approval" orientation="vertical" /></dl>
-          <TechnicalDetails label="Decision reference"><p class="break-all">{entry.id} · actor {entry.actorId}</p></TechnicalDetails>
-        </PageStack>}</Show>} />
-      </ScreenRegion>
-      <Dialog.Root open={open()} onOpenChange={setOpen}><Dialog.Content size="md">
-        <Dialog.Header><Dialog.Title>Record a decision</Dialog.Title><Dialog.Description>Append the exact rationale. Historical decisions are not overwritten, and this does not approve a production effect.</Dialog.Description></Dialog.Header>
-        <div class="my-4 flex flex-col gap-3"><div class="brain-field-grid"><TextInput label="Work item id" value={workItemId()} onInput={(event) => setWorkItemId(event.currentTarget.value)} description={props.workItemIds.length ? `Known work items: ${props.workItemIds.slice(0, 4).join(", ")}` : undefined} /><TabButtons label="Decision" options={[{ value: "go", label: "Go" }, { value: "no", label: "No" }, { value: "not-now", label: "Not now" }, { value: "need-more-data", label: "Need more data" }]} value={decision()} onValueChange={(value) => setDecision(value as Decision | "")} /></div><Textarea label="Note" value={note()} onInput={(event) => setNote(event.currentTarget.value)} /><Show when={error()}><Alert theme="red" variant="outline" title="Decision refused" description={error()} /></Show></div>
-        <Dialog.Footer class="justify-end"><Button size="md" variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button size="md" variant="solid" theme="blue" iconLeft="lucide-check" disabled={!workItemId().trim() || !note().trim() || !decision()} onClick={() => void record()}>Record decision</Button></Dialog.Footer>
-      </Dialog.Content></Dialog.Root>
-    </PageStack>
-  </BrainPage>;
-}
 
 export function SupportScreen(props: {
   tickets: TicketSummary[];
@@ -240,7 +181,7 @@ export function DeliveryScreen(props: {
         <div class="brain-queue"><For each={dossier.criteria}>{(criterion) => <div class="border-b border-outline-gray-1 py-3"><div class="flex flex-wrap items-center gap-2"><StatusBadge kind="check" status={criterion.status === "inconclusive" ? "missing" : criterion.status} /><strong class="break-words">{criterion.criterionId}</strong></div><p class="mt-1 break-words text-interface text-ink-gray-7">{criterion.detail}</p></div>}</For></div>
         <TechnicalDetails label="Source and rubric"><p class="break-all">Source {dossier.sourceRevision} · rubric {dossier.rubric.id} · {dossier.rubric.digest}</p></TechnicalDetails>
         <div class="flex flex-wrap gap-2"><Button size="md" variant="outline" iconRight="lucide-arrow-right" onClick={() => props.onOpen(dossier.id)}>Inspect evidence dossier</Button></div>
-        <p class="text-caption text-ink-gray-6">A business Go decision binds to a work item and does not approve any production effect. Record it from the decision register against the work item this dossier served.</p>
+        <p class="text-caption text-ink-gray-6">A business Go decision binds to a work item and does not approve any production effect. Record it against the work item this dossier served.</p>
       </WorkspaceSection>}</Show>} />
     </ScreenRegion>
   </BrainPage>;

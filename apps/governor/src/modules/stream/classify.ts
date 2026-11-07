@@ -14,7 +14,7 @@ export const STREAM_EMITTERS: readonly StreamEmitter[] = ["agent", "tool", "runn
 /** Event-type families mapped to the Governor process by default. */
 const GOVERNOR_PREFIXES: readonly string[] = [
   "job.", "workflow.", "config.", "configDraft.", "dispatch.", "membership.", "workspace.", "organization.",
-  "identity.", "knowledge.", "objective.", "plan.", "workItem.", "board.", "decision.", "delegation.",
+  "identity.", "knowledge.", "mission.", "plan.", "workItem.", "delegation.",
   "capability.", "capitalization.", "memory.", "document.", "approval.",
 ];
 

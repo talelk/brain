@@ -175,9 +175,9 @@ describe("automation occurrences (T52, E104)", () => {
     const clock = { nowMs: () => now };
     const w = autoWorld(clock);
     const db = w.db();
-    db.prepare("INSERT INTO objectives(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-sched','O','I','[]','operator-1',?,?)").run(now, now);
-    db.prepare("INSERT INTO plan_versions(id,objective_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-sched','obj-sched',1,?,'confirmed','manual','operator-1','[]',?)").run(`sha256:${"a".repeat(64)}`, now);
-    db.prepare("INSERT INTO work_items(id,objective_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('work-sched','obj-sched','plan-sched','t','Scheduled item','backlog','[]','Wait for scheduled start',?,?)").run(now, now);
+    db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-sched','O','I','[]','operator-1',?,?)").run(now, now);
+    db.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-sched','obj-sched',1,?,'confirmed','manual','operator-1','[]',?)").run(`sha256:${"a".repeat(64)}`, now);
+    db.prepare("INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('work-sched','obj-sched','plan-sched','t','Scheduled item','backlog','[]','Wait for scheduled start',?,?)").run(now, now);
     w.service.apply(w.actor, { commandType: "automation.upsert", workspaceId: w.workspaceId, payload: { title: "Release work", target: { kind: "workItem", id: "work-sched" }, trigger: { kind: "cron", cron: "* * * * *", timezone: "UTC" } } });
     now += 90_000;
     expect(w.service.dispatchAll().dispatched).toBe(1);

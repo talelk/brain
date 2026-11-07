@@ -11,8 +11,8 @@ import type { CommandReceipt, OrganizationAdminCommand, PlanTask, WorkItemState 
  */
 export type CommandKind =
   | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop" | "session.create"
-  | "decision.record" | "runner.control"
-  | "objective.create" | "plan.propose" | "plan.confirm" | "workItem.transition" | "workItem.comment" | "workItem.message"
+  | "runner.control"
+  | "mission.create" | "plan.propose" | "plan.confirm" | "workItem.transition" | "workItem.comment" | "workItem.message"
   | "automation.upsert" | "automation.control"
   | "document.upload" | "document.revise" | "document.associate" | "document.delete"
   | "integration.connect" | "integration.verify" | "integration.bind"
@@ -30,8 +30,8 @@ export interface CommandContext {
 }
 
 export type PayloadFor<K extends CommandKind> =
-  K extends "objective.create" ? { title: string; intent: string; successCriteria: string[] }
-    : K extends "plan.propose" ? { objectiveId: string; origin: "manual" | "agent" | "template" | "capitalization"; summary?: string; tasks: PlanTask[] }
+  K extends "mission.create" ? { title: string; intent: string; successCriteria: string[] }
+    : K extends "plan.propose" ? { missionId: string; origin: "manual" | "agent" | "template" | "capitalization"; summary?: string; tasks: PlanTask[] }
       : K extends "plan.confirm" ? { planVersionId: string }
         : K extends "workItem.transition" ? { workItemId: string; state: WorkItemState; evidenceDigest?: string; reason?: string }
           : K extends "workItem.comment" ? { workItemId: string; text: string }
@@ -42,7 +42,6 @@ export type PayloadFor<K extends CommandKind> =
         : K extends "session.steer" ? { sessionId: string; message: string }
           : K extends "session.stop" ? { sessionId: string; reason: string }
             : K extends "session.create" ? { workItemId: string; agentId: string; engineId: string; task: string; budget: { maxTokens: number; maxMicroUsd: number; maxTurns: number }; scope: { allowedPaths: string[]; prohibitedPaths: string[]; allowedTools: string[] }; worktreeId: string; resumeFromSessionId?: string }
-              : K extends "decision.record" ? { workItemId: string; decision: "go" | "no" | "not-now" | "need-more-data"; note: string }
                       : K extends "runner.control" ? { runnerId: string; action: "enable" | "disable" | "drain" | "quarantine" | "rotate" | "deregister"; reason: string }
                         : K extends "member.grant" ? { principalId: string; role: string; reason: string }
                         : K extends "member.revoke" ? { principalId: string; role: string; reason: string }
@@ -62,7 +61,7 @@ export type PayloadFor<K extends CommandKind> =
                                               : K extends "automation.control" ? { automationId: string; action: "pause" | "resume" | "runNow" | "retire"; reason?: string }
                                                 : K extends "document.upload" ? { title: string; fileName: string; mediaType: string; bytesBase64: string }
                                                   : K extends "document.revise" ? { documentId: string; title: string; fileName: string; mediaType: string; bytesBase64: string }
-                                                    : K extends "document.associate" ? { documentId: string; resource: { kind: "workItem" | "objective" | "session" | "run"; id: string } }
+                                                    : K extends "document.associate" ? { documentId: string; resource: { kind: "workItem" | "mission" | "session" | "run"; id: string } }
                                                       : K extends "document.delete" ? { documentId: string; reason: string }
                                                         : K extends "integration.connect" ? { name: string; repositoryUrl: string; username?: string; token?: string }
                                                           : K extends "integration.verify" ? { connectionId: string }

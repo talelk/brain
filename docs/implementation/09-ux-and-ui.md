@@ -22,8 +22,6 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/w/:id/outputs` | execution | Browse authorized generated artifacts with previews, diffs and history | artifacts, preview, history, diff |
 | `/artifacts/:id` | execution | Inspect one artifact: preview, verification, versions and diffs | preview, metadata, verification, history, diff |
 | `/w/:id/overview` | work | Review workspace work and pack details | state, outcomes, pending, connectivity |
-| `/w/:id/board` | work | Review workspace work and pack details | title, state, criteria, evidence |
-| `/w/:id/decisions` | work | Review workspace work and pack details | decision, actor, note, time |
 | `/approvals` | approvals | Review exact proposed effects and recover submitted decisions | action, workspace, target, expiry, evidence |
 | `/approvals/:id` | approvals | Review exact proposed effects and recover submitted decisions | exactContent, precondition, subjectDigest, history |
 | `/jobs/:id` | execution | Inspect one run's state, attempts, evidence and links without duplicating the console, logs or outputs | state, attempts, blocker, evidence |

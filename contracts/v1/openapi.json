@@ -159,20 +159,42 @@
   "/v1/identity/sessions": {
    "get": {
     "operationId": "get_v1_identity_sessions",
-    "security": [{ "bearer": [] }, { "humanSession": [] }],
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
     "responses": {
      "200": {
       "description": "Current user's sessions without credential tokens",
-      "content": { "application/json": { "schema": { "$ref": "./brain.schema.json#/$defs/IdentitySessionList" } } }
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/IdentitySessionList"
+        }
+       }
+      }
      },
-     "401": { "description": "Session required" }
+     "401": {
+      "description": "Session required"
+     }
     }
    }
   },
   "/v1/identity/sessions/revoke": {
    "post": {
     "operationId": "post_v1_identity_sessions_revoke",
-    "security": [{ "bearer": [] }, { "humanSession": [] }],
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
     "requestBody": {
      "required": true,
      "content": {
@@ -180,19 +202,36 @@
        "schema": {
         "type": "object",
         "properties": {
-         "mode": { "type": "string", "enum": ["one", "others", "all"] },
-         "sessionId": { "$ref": "./brain.schema.json#/$defs/Id" }
+         "mode": {
+          "type": "string",
+          "enum": [
+           "one",
+           "others",
+           "all"
+          ]
+         },
+         "sessionId": {
+          "$ref": "./brain.schema.json#/$defs/Id"
+         }
         },
-        "required": ["mode"],
+        "required": [
+         "mode"
+        ],
         "additionalProperties": false
        }
       }
      }
     },
     "responses": {
-     "204": { "description": "Session revocation applied" },
-     "401": { "description": "Session required" },
-     "404": { "description": "Session not found" }
+     "204": {
+      "description": "Session revocation applied"
+     },
+     "401": {
+      "description": "Session required"
+     },
+     "404": {
+      "description": "Session not found"
+     }
     }
    }
   },
@@ -2312,7 +2351,9 @@
       "description": "1 subscribes to the live stream; any other value replays one bounded page",
       "schema": {
        "type": "string",
-       "enum": ["1"]
+       "enum": [
+        "1"
+       ]
       }
      },
      {
@@ -4191,22 +4232,72 @@
   "/v1/plans": {
    "post": {
     "operationId": "post_v1_plans",
-    "security": [{ "bearer": [] }, { "humanSession": [] }],
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
     "responses": {
-     "202": { "description": "Plan assistant started", "content": { "application/json": { "schema": { "$ref": "./brain.schema.json#/$defs/ObjectivePlanView" } } } }
+     "202": {
+      "description": "Plan assistant started",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/MissionPlanView"
+        }
+       }
+      }
+     }
     },
-    "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "./brain.schema.json#/$defs/ObjectivePlanRequest" } } } },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "./brain.schema.json#/$defs/MissionPlanRequest"
+       }
+      }
+     }
+    },
     "x-brain-operation": "plan.prepare"
    }
   },
   "/v1/plans/{id}": {
    "get": {
     "operationId": "get_v1_plans_id",
-    "security": [{ "bearer": [] }, { "humanSession": [] }],
+    "security": [
+     {
+      "bearer": []
+     },
+     {
+      "humanSession": []
+     }
+    ],
     "responses": {
-     "200": { "description": "Current principal planning request", "content": { "application/json": { "schema": { "$ref": "./brain.schema.json#/$defs/ObjectivePlanView" } } } }
+     "200": {
+      "description": "Current principal planning request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "./brain.schema.json#/$defs/MissionPlanView"
+        }
+       }
+      }
+     }
     },
-    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
     "x-brain-operation": "plan.get"
    }
   }

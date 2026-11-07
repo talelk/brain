@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { CommandReceipt, Objective, PlanTask, PlanVersion, BoardView } from "@brain/contracts";
-import { setupWorld, DIGEST_A } from "../helpers";
+import type { CommandReceipt, Mission, PlanTask, PlanVersion } from "@brain/contracts";
+import { setupWorld, DIGEST_A, workView } from "../helpers";
 
 type World = ReturnType<typeof setupWorld>;
 
@@ -12,12 +12,12 @@ async function run(w: World, commandType: string, key: string, payload: Record<s
 }
 
 async function objective(w: World): Promise<string> {
-  return (await run(w, "objective.create", "objective-1", { title: "Stabilize authentication", intent: "Find and fix session failures", successCriteria: ["Sessions remain valid"] })).resourceId ?? "";
+  return (await run(w, "mission.create", "objective-1", { title: "Stabilize authentication", intent: "Find and fix session failures", successCriteria: ["Sessions remain valid"] })).resourceId ?? "";
 }
 
-async function propose(w: World, objectiveId: string, key = "plan-1", tasks?: PlanTask[]): Promise<string> {
+async function propose(w: World, missionId: string, key = "plan-1", tasks?: PlanTask[]): Promise<string> {
   return (await run(w, "plan.propose", key, {
-    objectiveId, origin: "agent", summary: "Investigate before changing code",
+    missionId, origin: "agent", summary: "Investigate before changing code",
     tasks: tasks ?? [
       { id: "audit", title: "Audit sessions", criteria: ["audit-complete"], dependsOn: [], assignment: { kind: "agent", id: "pi", role: "specialist" } },
       { id: "fix", title: "Fix session handling", criteria: ["fix-verified"], dependsOn: ["audit"], workflowId: "fixture-workflow" },
@@ -26,9 +26,7 @@ async function propose(w: World, objectiveId: string, key = "plan-1", tasks?: Pl
   })).resourceId ?? "";
 }
 
-async function board(w: World): Promise<BoardView> {
-  return ((await w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId })) as { snapshot: BoardView }).snapshot;
-}
+const board = workView;
 
 function seedEvidence(w: World, criteria: string[]): void {
   const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
@@ -39,11 +37,11 @@ function seedEvidence(w: World, criteria: string[]): void {
     .run("verdict-work", DIGEST_A, "evaluator-work", DIGEST_A, "{}", w.brain.store.now());
 }
 
-describe("Objective -> PlanVersion -> WorkItem -> Execution", () => {
+describe("Mission -> PlanVersion -> WorkItem -> Execution", () => {
   it("materializes an approved DAG and advances dependencies only after verified completion", async () => {
     const w = setupWorld();
-    const objectiveId = await objective(w);
-    const planId = await propose(w, objectiveId);
+    const missionId = await objective(w);
+    const planId = await propose(w, missionId);
     await run(w, "plan.confirm", "confirm-1", { planVersionId: planId }, 1);
     const initial = await board(w);
     expect(initial.items.map((item) => item.state)).toEqual(["ready", "backlog", "backlog"]);
@@ -52,7 +50,7 @@ describe("Objective -> PlanVersion -> WorkItem -> Execution", () => {
     expect(fix.dependsOn).toEqual([audit.workItemId]);
     await expect(Promise.resolve().then(async () => await run(w, "workItem.transition", "fix-early", { workItemId: fix.workItemId, state: "ready" }, 1))).rejects.toThrow(/illegal transition|dependencies/i);
 
-    w.brain.work.linkExecution(w.owner, w.workspaceId, audit.workItemId, "run-audit");
+    w.brain.missions.linkExecution(w.owner, w.workspaceId, audit.workItemId, "run-audit");
     const linked = await board(w);
     expect(linked.executions).toEqual([expect.objectContaining({ workItemId: audit.workItemId, runId: "run-audit" })]);
     expect(linked.items.find((item) => item.workItemId === audit.workItemId)?.state).toBe("in-progress");
@@ -66,14 +64,14 @@ describe("Objective -> PlanVersion -> WorkItem -> Execution", () => {
 
   it("replanning retains unchanged work and history while replacing changed tasks (E102)", async () => {
     const w = setupWorld();
-    const objectiveId = await objective(w);
-    const firstId = await propose(w, objectiveId);
+    const missionId = await objective(w);
+    const firstId = await propose(w, missionId);
     await run(w, "plan.confirm", "confirm-1", { planVersionId: firstId }, 1);
     const first = await board(w);
     const audit = first.items.find((item) => item.planTaskId === "audit")!;
     const oldFix = first.items.find((item) => item.planTaskId === "fix")!;
-    w.brain.work.linkExecution(w.owner, w.workspaceId, audit.workItemId, "run-original");
-    const secondId = await propose(w, objectiveId, "plan-2", [
+    w.brain.missions.linkExecution(w.owner, w.workspaceId, audit.workItemId, "run-original");
+    const secondId = await propose(w, missionId, "plan-2", [
       { id: "audit", title: "Audit sessions", criteria: ["audit-complete"], dependsOn: [], assignment: { kind: "agent", id: "pi", role: "specialist" } },
       { id: "fix", title: "Fix refresh-token rotation", criteria: ["rotation-verified"], dependsOn: ["audit"] },
     ]);
@@ -84,19 +82,19 @@ describe("Objective -> PlanVersion -> WorkItem -> Execution", () => {
     expect(second.executions).toEqual([expect.objectContaining({ workItemId: audit.workItemId, runId: "run-original" })]);
     const plan = ((await w.brain.executeQuery(w.owner, { queryType: "plans.get", workspaceId: w.workspaceId, resourceId: firstId })) as { snapshot: PlanVersion }).snapshot;
     expect(plan.state).toBe("superseded");
-    const currentObjective = ((await w.brain.executeQuery(w.owner, { queryType: "objectives.get", workspaceId: w.workspaceId, resourceId: objectiveId })) as { snapshot: Objective }).snapshot;
-    expect(currentObjective.activePlanVersionId).toBe(secondId);
+    const currentMission = ((await w.brain.executeQuery(w.owner, { queryType: "missions.get", workspaceId: w.workspaceId, resourceId: missionId })) as { snapshot: Mission }).snapshot;
+    expect(currentMission.activePlanVersionId).toBe(secondId);
     w.brain.close();
   });
 
   it("rejects invalid plans and requires evidence covering every criterion (E103)", async () => {
     const w = setupWorld();
-    const objectiveId = await objective(w);
-    await expect(Promise.resolve().then(async () => await propose(w, objectiveId, "cycle", [
+    const missionId = await objective(w);
+    await expect(Promise.resolve().then(async () => await propose(w, missionId, "cycle", [
       { id: "a", title: "A", criteria: ["a-done"], dependsOn: ["b"] },
       { id: "b", title: "B", criteria: ["b-done"], dependsOn: ["a"] },
     ]))).rejects.toThrow(/cycle/i);
-    const planId = await propose(w, objectiveId, "single", [{ id: "single", title: "Single", criteria: ["one", "two"], dependsOn: [] }]);
+    const planId = await propose(w, missionId, "single", [{ id: "single", title: "Single", criteria: ["one", "two"], dependsOn: [] }]);
     await run(w, "plan.confirm", "confirm-single", { planVersionId: planId }, 1);
     const item = (await board(w)).items[0]!;
     await run(w, "workItem.transition", "single-progress", { workItemId: item.workItemId, state: "in-progress" }, 1);

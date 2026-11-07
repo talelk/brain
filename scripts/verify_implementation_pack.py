@@ -380,7 +380,7 @@ def sql_checks():
         db.execute("INSERT INTO inbox VALUES ('source','event','digest',0)")
         denied(lambda:db.execute("INSERT INTO inbox VALUES ('source','event','digest',0)"))
         db.commit()
-        try:workspace.execute("INSERT INTO work_items(id,objective_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('wi','o','p','t','title','done','[]','x',0,0)")
+        try:workspace.execute("INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('wi','o','p','t','title','done','[]','x',0,0)")
         except sqlite3.IntegrityError:assertions+=1
         else:raise AssertionError('Done without evidence reference accepted')
         assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'

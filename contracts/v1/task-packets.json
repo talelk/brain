@@ -1707,7 +1707,7 @@
       ],
       "evidenceDirectory": "artifacts/runtime/T58",
       "contractDefinitions": [
-        "BoardView",
+        "Mission",
         "ConfigurationDraft",
         "Document",
         "Automation"

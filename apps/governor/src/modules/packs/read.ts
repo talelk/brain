@@ -78,7 +78,7 @@ function deliveryView(workspaceId: string, r: Record<string, unknown>, ws: Works
   };
 }
 
-const LIST_TABLES: Record<string, string> = { "tickets.list": "tickets", "incidents.list": "incidents", "delivery.list": "delivery_dossiers", "decisions.list": "decisions" };
+const LIST_TABLES: Record<string, string> = { "tickets.list": "tickets", "incidents.list": "incidents", "delivery.list": "delivery_dossiers" };
 const GET_TABLES: Record<string, string> = { "ticket.get": "tickets", "incident.get": "incidents", "delivery.get": "delivery_dossiers" };
 
 /**
@@ -124,10 +124,6 @@ export function listPack(store: Store, actor: ActorContext, queryType: string, w
       case "tickets.list": return ticketView(workspaceId, r, false, ws);
       case "incidents.list": return incidentView(workspaceId, r, false, ws);
       case "delivery.list": return deliveryView(workspaceId, r, ws);
-      case "decisions.list": return {
-        id: String(r["id"]), workspaceId, workItemId: String(r["work_item_id"]), actorId: String(r["actor_id"]),
-        decision: String(r["decision"]), note: String(r["note"] ?? ""), createdAt: iso(Number(r["created_at_ms"])),
-      };
       default: return r;
     }
   });

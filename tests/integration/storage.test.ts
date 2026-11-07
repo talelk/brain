@@ -39,7 +39,7 @@ describe("storage initialization and bounds (T04)", () => {
   it("workspace DBs are identity- and digest-checked on reopen; tamper is refused, not converted", () => {
     const { store, dir } = freshStore();
     const ws = store.workspaceDb("ws-1", "org-1");
-    ws.prepare("INSERT INTO objectives(id, title, intent, success_criteria_json, owner_id, created_at_ms, updated_at_ms) VALUES ('c1','t','i','[]','o1',?,?)").run(Date.now(), Date.now());
+    ws.prepare("INSERT INTO missions(id, title, intent, success_criteria_json, owner_id, created_at_ms, updated_at_ms) VALUES ('c1','t','i','[]','o1',?,?)").run(Date.now(), Date.now());
     expect(() => store.workspaceDb("ws-1", "org-other")).toThrow(/mismatch/);
     store.close();
     stores.splice(stores.indexOf(store), 1);
@@ -47,7 +47,7 @@ describe("storage initialization and bounds (T04)", () => {
     const reopened = new Store({ dataDir: dir });
     stores.push(reopened);
     const again = reopened.workspaceDb("ws-1", "org-1");
-    expect(again.prepare("SELECT title FROM objectives WHERE id='c1'").get()).toEqual({ title: "t" });
+    expect(again.prepare("SELECT title FROM missions WHERE id='c1'").get()).toEqual({ title: "t" });
     // Tamper with the stored digest: exact check must refuse the DB.
     again.prepare("UPDATE workspace_identity SET schema_digest='sha256:deadbeef' WHERE singleton=1").run();
     reopened.close();
@@ -62,14 +62,14 @@ describe("storage initialization and bounds (T04)", () => {
     const t0 = Date.now();
     for (let i = 0; i < 48; i++) {
       const ws = store.workspaceDb(`ws-${i}`, "org-1");
-      ws.prepare("INSERT INTO objectives(id, title, intent, success_criteria_json, owner_id, created_at_ms, updated_at_ms) VALUES (?,?,'i','[]','o1',?,?)").run(`c-${i}`, `card-${i}`, Date.now(), Date.now());
+      ws.prepare("INSERT INTO missions(id, title, intent, success_criteria_json, owner_id, created_at_ms, updated_at_ms) VALUES (?,?,'i','[]','o1',?,?)").run(`c-${i}`, `card-${i}`, Date.now(), Date.now());
       expect(store.openWorkspaceCount()).toBeLessThanOrEqual(8);
     }
     const churnMs = Date.now() - t0;
     // Evicted workspaces reopen transparently with their data intact.
     for (const i of [0, 7, 23, 47]) {
       const ws = store.workspaceDb(`ws-${i}`, "org-1");
-      expect(ws.prepare("SELECT title FROM objectives WHERE id=?").get(`c-${i}`)).toEqual({ title: `card-${i}` });
+      expect(ws.prepare("SELECT title FROM missions WHERE id=?").get(`c-${i}`)).toEqual({ title: `card-${i}` });
     }
     expect(store.openWorkspaceCount()).toBeLessThanOrEqual(8);
     expect(churnMs).toBeLessThan(30_000);

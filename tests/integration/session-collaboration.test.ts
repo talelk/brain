@@ -2,11 +2,11 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ActorContext, CommandReceipt, SessionDetail, BoardView, WorkItemMessage } from "@brain/contracts";
+import type { ActorContext, CommandReceipt, SessionDetail, WorkItemMessage } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import { createApp } from "../../apps/governor/src/http/app";
 import { enrollAndHello, runOnce } from "../../apps/runner/src/supervisor";
-import { setupWorld, type TestWorld } from "../helpers";
+import { setupWorld, type TestWorld, workView } from "../helpers";
 
 const cleanup: Array<() => Promise<void> | void> = [];
 afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await close(); });
@@ -19,11 +19,11 @@ async function run(w: TestWorld, commandType: string, key: string, payload: Reco
 }
 
 async function workItem(w: TestWorld, key: string): Promise<string> {
-  const objectiveId = (await run(w, "objective.create", `${key}-objective`, { title: "Collaborative work", intent: "Complete independent implementation and review", successCriteria: ["Verified result"] })).resourceId!;
-  const planId = (await run(w, "plan.propose", `${key}-plan`, { objectiveId, origin: "manual", tasks: [{ id: "task", title: "Implement", criteria: ["verified"], dependsOn: [], workflowId: "fixture-workflow" }] })).resourceId!;
+  const missionId = (await run(w, "mission.create", `${key}-objective`, { title: "Collaborative work", intent: "Complete independent implementation and review", successCriteria: ["Verified result"] })).resourceId!;
+  const planId = (await run(w, "plan.propose", `${key}-plan`, { missionId, origin: "manual", tasks: [{ id: "task", title: "Implement", criteria: ["verified"], dependsOn: [], workflowId: "fixture-workflow" }] })).resourceId!;
   await run(w, "plan.confirm", `${key}-confirm`, { planVersionId: planId }, w.owner, 1);
-  const board = ((await w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId })) as { snapshot: BoardView }).snapshot;
-  return board.items.find((item) => item.objectiveId === objectiveId)!.workItemId;
+  const board = (await workView(w));
+  return board.items.find((item) => item.missionId === missionId)!.workItemId;
 }
 
 function sessionInput(workItemId: string, task = "Inspect the workspace"): Record<string, unknown> {
@@ -91,7 +91,7 @@ describe("native and managed BrainSessions (T53)", () => {
     expect(bound).toEqual(expect.objectContaining({ sessionId, mode: "managed", state: "stopped", engine: expect.objectContaining({ id: "tool-broker" }) }));
     expect(bound.jobId).toBeTruthy();
     expect(bound.attemptId).toBeTruthy();
-    const board = ((await w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId })) as { snapshot: BoardView }).snapshot;
+    const board = (await workView(w));
     expect(board.executions).toEqual(expect.arrayContaining([expect.objectContaining({ workItemId: item, runId, sessionId, jobId: bound.jobId })]));
   });
 });

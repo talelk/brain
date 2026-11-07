@@ -26,7 +26,7 @@ describe("channel parity (T32)", () => {
       body: JSON.stringify(body),
     }));
     const command = {
-      contractVersion: "brain.command/v1", commandId: "cmd-chan-1", commandType: "objective.create",
+      contractVersion: "brain.command/v1", commandId: "cmd-chan-1", commandType: "mission.create",
       workspaceId: w.workspaceId, idempotencyKey: "chan-1",
       payload: { title: "Channel parity objective", intent: "Prove channel parity", successCriteria: ["c1"] },
     };
@@ -50,7 +50,7 @@ describe("channel parity (T32)", () => {
     const httpBody = (await viaHttp.json()) as { receipt?: Record<string, unknown> } & Record<string, unknown>;
     const httpReceipt = (httpBody["receipt"] ?? httpBody) as Record<string, unknown>;
     expect(httpReceipt["resourceId"]).toBe(mcpReceipt["resourceId"]);
-    const objectives = brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT COUNT(*) AS c FROM objectives WHERE title='Channel parity objective'").get() as { c: number };
+    const objectives = brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT COUNT(*) AS c FROM missions WHERE title='Channel parity objective'").get() as { c: number };
     expect(objectives.c).toBe(1);
 
     // Approval decisions are absent from MCP by design, even for agents.

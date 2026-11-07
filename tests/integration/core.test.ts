@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DIGEST_A, setupWorld, stepUp } from "../helpers";
+import { DIGEST_A, setupWorld, stepUp, workView } from "../helpers";
 import { approvalSubjectDigest } from "@brain/contracts";
 import type { JsonValue } from "@brain/contracts";
 
@@ -32,34 +32,34 @@ describe("core integration", () => {
   it("idempotent commands return one receipt; changed payload conflicts (E006/E007)", async () => {
     const w = setupWorld();
     const cmd = {
-      contractVersion: "brain.command/v1", commandId: "cmd-1", commandType: "objective.create",
+      contractVersion: "brain.command/v1", commandId: "cmd-1", commandType: "mission.create",
       workspaceId: w.workspaceId, idempotencyKey: "k-1", payload: { title: "Objective", intent: "works", successCriteria: ["works"] },
     };
     const r1 = await w.brain.executeCommand(w.owner, cmd, "c1");
     const r2 = await w.brain.executeCommand(w.owner, cmd, "c2");
     expect(r1.receipt).toEqual(r2.receipt);
     const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
-    expect((ws.prepare("SELECT COUNT(*) AS c FROM objectives").get() as { c: number }).c).toBe(1);
+    expect((ws.prepare("SELECT COUNT(*) AS c FROM missions").get() as { c: number }).c).toBe(1);
     await expect(Promise.resolve().then(() => w.brain.executeCommand(w.owner, { ...cmd, payload: { title: "Other", intent: "other", successCriteria: [] } }, "c3"))).rejects.toThrow();
     w.brain.close();
   });
 
   it("work item Done requires evidence; stale version conflicts (E009)", async () => {
     const w = setupWorld();
-    const objectiveId = ((await w.brain.executeCommand(w.owner, {
-      contractVersion: "brain.command/v1", commandId: "cmd-b1", commandType: "objective.create",
+    const missionId = ((await w.brain.executeCommand(w.owner, {
+      contractVersion: "brain.command/v1", commandId: "cmd-b1", commandType: "mission.create",
       workspaceId: w.workspaceId, idempotencyKey: "kb-1", payload: { title: "Ship", intent: "Ship the release", successCriteria: ["golden passes"] },
     }, "c1")).receipt as { resourceId?: string }).resourceId ?? "";
     const planId = ((await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-b1p", commandType: "plan.propose",
       workspaceId: w.workspaceId, idempotencyKey: "kb-1p",
-      payload: { objectiveId, origin: "manual", summary: "single task", tasks: [{ id: "ship", title: "Ship", criteria: ["golden passes"], dependsOn: [], assignment: { kind: "agent", id: "pi", role: "specialist" } }] },
+      payload: { missionId, origin: "manual", summary: "single task", tasks: [{ id: "ship", title: "Ship", criteria: ["golden passes"], dependsOn: [], assignment: { kind: "agent", id: "pi", role: "specialist" } }] },
     }, "c1b")).receipt as { resourceId?: string }).resourceId ?? "";
     await w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-b1c", commandType: "plan.confirm",
       workspaceId: w.workspaceId, idempotencyKey: "kb-1c", expectedVersion: 1, payload: { planVersionId: planId },
     }, "c1c");
-    const board = ((await w.brain.executeQuery(w.owner, { queryType: "board.get", workspaceId: w.workspaceId })) as { snapshot: { items: Array<{ workItemId: string; version: number }> } }).snapshot;
+    const board = (await workView(w));
     const item = board.items[0]!;
     await expect(Promise.resolve().then(() => w.brain.executeCommand(w.owner, {
       contractVersion: "brain.command/v1", commandId: "cmd-stale", commandType: "workItem.transition",

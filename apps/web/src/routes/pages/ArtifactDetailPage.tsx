@@ -2,7 +2,7 @@ import { Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Button } from "@talelk/newui-atoms";
-import type { ExecutionLink, BoardView } from "@brain/contracts";
+import type { ExecutionLink } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
@@ -53,11 +53,11 @@ export default function ArtifactDetailPage(): JSX.Element {
     }),
     load: async (readScope, signal) => {
       if (!readScope.workspaceId) return { snapshot: [], asOf: new Date().toISOString(), sourceWatermark: 0 };
-      const response = await query<{ snapshot: BoardView; asOf: string; sourceWatermark: number }>(
-        { queryType: "board.get", workspaceId: readScope.workspaceId },
+      const response = await query<{ snapshot: { items: ExecutionLink[] }; asOf: string; sourceWatermark: number }>(
+        { queryType: "executionLinks.list", workspaceId: readScope.workspaceId, limit: 100 },
         signal,
       );
-      return { snapshot: [...response.snapshot.executions], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+      return { snapshot: [...response.snapshot.items], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     isEmpty: (links) => links.length === 0,
   });
