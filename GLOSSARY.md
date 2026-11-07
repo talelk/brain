@@ -249,8 +249,10 @@ final. It is what the mission delivers, not proof that the work happened.
 _Avoid_: deliverable, result, artifact (when meaning the mission-attributed thing)
 
 **Handoff**:
-An output a team member produces when finishing a plan task that other work depends on:
-what was done, what changed, open questions and the next action.
+An output a team member produces when finishing a plan task that other work depends on.
+It pairs facts Brain derives from what merged (changes, outputs, criterion status) with
+the member's own notes (what was done, decisions assumed, open questions, next action),
+which stay claims. A dependent receives the handoffs of its direct dependencies only.
 _Avoid_: summary, transcript, note
 
 **Evidence bundle**:
