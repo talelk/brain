@@ -1,6 +1,8 @@
 import { request } from "node:http";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { startLauncher } from "../../apps/launcher/src/server";
 
 // T21 packet acceptance (validation boundary): the trusted launcher accepts
@@ -26,7 +28,7 @@ function unixJson(socket: string, method: string, path: string, body?: unknown, 
 
 describe("launcher validation boundary (T21)", () => {
   it("health advertises only fixed profiles and preinstalled images", async () => {
-    const socket = `/tmp/brain-launcher-sec-${Date.now()}/launcher.sock`;
+    const socket = join(tmpdir(), `brain-launcher-sec-${Date.now()}`, "launcher.sock");
     process.env["BRAIN_LAUNCHER_SOCKET"] = socket;
     await startLauncher();
     const health = await unixJson(socket, "GET", "/v1/health", undefined, readFileSync(`${socket}.token`, "utf8").trim());
@@ -36,7 +38,7 @@ describe("launcher validation boundary (T21)", () => {
   }, 60_000);
 
   it("smuggled fields, unknown profiles and foreign images are 422 before docker", async () => {
-    const socket = `/tmp/brain-launcher-sec2-${Date.now()}/launcher.sock`;
+    const socket = join(tmpdir(), `brain-launcher-sec2-${Date.now()}`, "launcher.sock");
     process.env["BRAIN_LAUNCHER_SOCKET"] = socket;
     await startLauncher();
     const token = readFileSync(`${socket}.token`, "utf8").trim();
