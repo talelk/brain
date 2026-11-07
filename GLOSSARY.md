@@ -31,13 +31,15 @@ coordinator or a confirmed plan version. A mission changes shape without changin
 _Avoid_: mission mode, mission type
 
 **Mission team**:
-The team members assigned to one mission.
+The team members assigned to one mission. It is part of each plan version, so plan and
+team are confirmed together. The evaluator is never a member.
 _Avoid_: team (unqualified — it collides with workspace and memory scope), squad, crew
 
 **Team member**:
 A mission-scoped role (such as backend engineer or reviewer) bound to an agent
 definition and engine. A team member is served by many sessions over the mission's
-life; it is neither a runner nor a session.
+life; it is neither a runner nor a session. It is eligible for a plan task only when its
+definition's tools, engine and caps cover what the task requires; the role name is a label.
 _Avoid_: agent (an agent is a definition), worker, bot
 
 **Mission brief**:
@@ -77,7 +79,8 @@ Missions whose dependencies are deterministic have none.
 _Avoid_: lead, orchestrator, manager
 
 **Plan version**:
-An immutable, versioned decomposition of a mission into plan tasks. Exactly one is
+An immutable, versioned decomposition of a mission into plan tasks and the mission team
+assigned to them. Exactly one is
 confirmed per mission at a time; editing a plan always produces a new plan version.
 _Avoid_: plan (unqualified — say plan version or plan proposal), plan revision
 
