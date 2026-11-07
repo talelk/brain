@@ -250,6 +250,11 @@ The concrete, digest-addressed set of artifacts, checks, approvals and effect re
 that an evaluator judges.
 _Avoid_: log, report, audit trail
 
+**Mission evidence bundle**:
+The evidence bundle a mission's completion is judged on: its success criteria, mission
+branch heads, final outputs and references to the verified evidence of its work items.
+_Avoid_: mission report, completion report
+
 **Verdict**:
 An independent evaluator's judgement of an evidence bundle: verified, rejected or
 incomplete, with the checks it ran and the independence level it held.
