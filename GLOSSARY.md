@@ -285,9 +285,16 @@ A run reaches succeeded only when evidence is verified.
 _Avoid_: proof, output, result
 
 **Output**:
-A stored artifact attributed to a mission, plan task and team member, marked draft or
-final. It is what the mission delivers, not proof that the work happened.
+A named thing a mission delivers, declared by a plan task and attributed to a team
+member. It is identified by its mission and name, and each production is an output
+version. It is what the mission delivers, not proof that the work happened.
 _Avoid_: deliverable, result, artifact (when meaning the mission-attributed thing)
+
+**Output version**:
+One immutable production of an output, marked draft or final, with the attempt that
+produced it. Only verified final versions may be consumed by other tasks or missions;
+a follow-up mission's output may continue an earlier mission's output.
+_Avoid_: output revision, copy, snapshot
 
 **Handoff**:
 An output a team member produces when finishing a plan task that other work depends on.
