@@ -6291,6 +6291,11 @@
         },
         "autonomyPolicy": {
           "$ref": "#/$defs/AutonomyPolicy"
+        },
+        "parkingThreshold": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
         }
       },
       "required": [
@@ -6305,7 +6310,8 @@
         "updatedAt",
         "state",
         "briefVersion",
-        "autonomyPolicy"
+        "autonomyPolicy",
+        "parkingThreshold"
       ],
       "additionalProperties": false
     },
@@ -6390,6 +6396,29 @@
         },
         "optional": {
           "type": "boolean"
+        },
+        "requiredTools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConfigId"
+          },
+          "maxItems": 50,
+          "uniqueItems": true
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConfigId"
+          },
+          "maxItems": 20,
+          "uniqueItems": true
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OutputInput"
+          },
+          "maxItems": 20
         }
       },
       "required": [
@@ -6455,6 +6484,13 @@
         },
         "confirmedAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "team": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamMember"
+          },
+          "maxItems": 50
         }
       },
       "required": [
@@ -6558,6 +6594,13 @@
         },
         "updatedAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "failedAttempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "parked": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -6573,7 +6616,9 @@
         "nextAction",
         "version",
         "createdAt",
-        "updatedAt"
+        "updatedAt",
+        "failedAttempts",
+        "parked"
       ],
       "additionalProperties": false
     },
@@ -6664,6 +6709,11 @@
             },
             "autonomy": {
               "$ref": "#/$defs/AutonomyPreset"
+            },
+            "parkingThreshold": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
             }
           },
           "required": [
@@ -6730,6 +6780,13 @@
               },
               "minItems": 1,
               "maxItems": 100
+            },
+            "team": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TeamMember"
+              },
+              "maxItems": 50
             }
           },
           "required": [
@@ -6955,7 +7012,11 @@
             "mission.stateChanged",
             "mission.briefChanged",
             "mission.policyChanged",
-            "plan.autoConfirmed"
+            "plan.autoConfirmed",
+            "workItem.parked",
+            "workItem.unparked",
+            "mission.messageSent",
+            "output.versionRecorded"
           ]
         },
         "organizationId": {
@@ -7094,6 +7155,8 @@
             "missions.list",
             "missions.get",
             "missions.brief",
+            "missionMessages.list",
+            "missionOutputs.list",
             "plans.get",
             "workItems.list",
             "workItems.get",
@@ -7145,6 +7208,8 @@
             "missions.list",
             "missions.get",
             "missions.brief",
+            "missionMessages.list",
+            "missionOutputs.list",
             "plans.get",
             "workItems.list",
             "workItems.get",
@@ -10886,6 +10951,9 @@
         },
         {
           "$ref": "#/$defs/MissionPolicySetCommand"
+        },
+        {
+          "$ref": "#/$defs/MissionMessageSendCommand"
         }
       ]
     },
@@ -21211,6 +21279,266 @@
           },
           "required": [
             "missionId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "TeamMember": {
+      "type": "object",
+      "properties": {
+        "memberId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "agentId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "engine": {
+          "$ref": "#/$defs/ConfigId"
+        }
+      },
+      "required": [
+        "memberId",
+        "role",
+        "agentId",
+        "engine"
+      ],
+      "additionalProperties": false
+    },
+    "OutputInput": {
+      "type": "object",
+      "properties": {
+        "output": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "versionId": {
+          "$ref": "#/$defs/Id"
+        }
+      },
+      "required": [
+        "output"
+      ],
+      "additionalProperties": false
+    },
+    "OutputVersion": {
+      "type": "object",
+      "properties": {
+        "versionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "outputId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "artifactDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "final"
+          ]
+        },
+        "verified": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "versionId",
+        "outputId",
+        "workItemId",
+        "artifactDigest",
+        "state",
+        "verified",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "Output": {
+      "type": "object",
+      "properties": {
+        "outputId": {
+          "$ref": "#/$defs/Id"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "name": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "continues": {
+          "$ref": "#/$defs/Id"
+        },
+        "versions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OutputVersion"
+          },
+          "maxItems": 200
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "outputId",
+        "missionId",
+        "name",
+        "versions",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "MissionMessage": {
+      "type": "object",
+      "properties": {
+        "messageId": {
+          "$ref": "#/$defs/Id"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "recipient": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "mission",
+                "member"
+              ]
+            },
+            "memberId": {
+              "$ref": "#/$defs/ConfigId"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "senderId": {
+          "$ref": "#/$defs/Id"
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000
+        },
+        "delivery": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "delivered-live",
+            "delivered-at-session-start",
+            "superseded"
+          ]
+        },
+        "correctionOf": {
+          "$ref": "#/$defs/Id"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "messageId",
+        "missionId",
+        "recipient",
+        "senderId",
+        "body",
+        "delivery",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "MissionMessageSendCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "mission.message.send"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "recipient": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "mission",
+                    "member"
+                  ]
+                },
+                "memberId": {
+                  "$ref": "#/$defs/ConfigId"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            "workItemId": {
+              "$ref": "#/$defs/Id"
+            },
+            "body": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8000
+            },
+            "correctionOf": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "missionId",
+            "recipient",
+            "body"
           ],
           "additionalProperties": false
         }

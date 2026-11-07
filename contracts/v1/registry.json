@@ -563,6 +563,15 @@
       "actors": [
         "human"
       ]
+    },
+    {
+      "type": "mission.message.send",
+      "schema": "MissionMessageSendCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
     }
   ],
   "queries": [
@@ -607,6 +616,8 @@
     "missions.list",
     "missions.get",
     "missions.brief",
+    "missionMessages.list",
+    "missionOutputs.list",
     "plans.get",
     "workItems.list",
     "workItems.get",
@@ -1177,6 +1188,30 @@
     },
     {
       "type": "plan.autoConfirmed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "workItem.parked",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "workItem.unparked",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "mission.messageSent",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "output.versionRecorded",
       "envelope": "EventEnvelope",
       "payloadContract": "WorkEventPayload",
       "durable": true

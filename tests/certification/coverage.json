@@ -574,8 +574,8 @@
   },
   {
    "id": "E115",
-   "status": "partial",
-   "evidence": "not yet implemented: T51 parking"
+   "status": "covered",
+   "evidence": "tests/integration/missions.test.ts"
   },
   {
    "id": "E116",
@@ -604,8 +604,8 @@
   },
   {
    "id": "E121",
-   "status": "partial",
-   "evidence": "not yet implemented: T51/T61 named outputs"
+   "status": "covered",
+   "evidence": "tests/integration/missions.test.ts"
   }
  ]
 }

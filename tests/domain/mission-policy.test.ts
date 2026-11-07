@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlanTask } from "@brain/contracts";
-import { AUTONOMY_PRESETS, beyondPolicy, diffPlan, policyFor } from "../../apps/governor/src/domain/mission-policy";
+import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations } from "../../apps/governor/src/domain/mission-policy";
 
 const task = (id: string, dependsOn: string[] = [], extra: Partial<PlanTask> = {}): PlanTask => ({ id, title: id, criteria: [`${id}-done`], dependsOn, ...extra });
 
@@ -41,5 +41,24 @@ describe("mission plan diff and autonomy policy (T51, E113/E114)", () => {
     expect(beyondPolicy(drop, policyFor("standard", 1))).toEqual(["backlog.drop"]);
     expect(beyondPolicy(drop, policyFor("autonomous", 1))).toEqual([]);
     expect(beyondPolicy(diffPlan(confirmed, [...confirmed, task("e")], new Set()), policyFor("supervised", 1))).toEqual(["task.add"]);
+  });
+
+  const agents = { builder: { tools: ["repo.read", "repo.write"], engines: ["pi", "claude"], maxMicroUsd: 500 }, reader: { tools: ["repo.read"], engines: ["pi"], maxMicroUsd: 0 } };
+  const team = [{ memberId: "backend", role: "Backend engineer", agentId: "builder", engine: "claude" }, { memberId: "auditor", role: "Reviewer", agentId: "reader", engine: "pi" }];
+  const assigned = (id: string, member: string, extra: Partial<PlanTask> = {}) => task(id, [], { assignment: { kind: "agent", id: member, role: "specialist" }, ...extra });
+
+  it("checks eligibility mechanically: definition, engine, tools and spend cap; roles are labels", () => {
+    expect(() => assertTeamEligible(team, [assigned("fix", "backend", { requiredTools: ["repo.write"], maxMicroUsd: 400 })], agents)).not.toThrow();
+    expect(() => assertTeamEligible(team, [assigned("fix", "auditor", { requiredTools: ["repo.write"] })], agents)).toThrow(/missing tools repo.write/);
+    expect(() => assertTeamEligible(team, [assigned("fix", "backend", { maxMicroUsd: 900 })], agents)).toThrow(/spend cap/);
+    expect(() => assertTeamEligible(team, [assigned("fix", "stranger")], agents)).toThrow(/not on the mission team/);
+    expect(() => assertTeamEligible([{ ...team[1]!, engine: "claude" }], [], agents)).toThrow(/does not run on engine claude/);
+    expect(() => assertTeamEligible([{ ...team[0]!, agentId: "ghost" }], [], agents)).toThrow(/no published agent definition ghost/);
+  });
+
+  it("team growth is an existing-role or new-role operation", () => {
+    expect(teamOperations(team, [...team, { memberId: "backend-2", role: "Backend engineer", agentId: "builder", engine: "pi" }])).toEqual(["member.addExistingRole"]);
+    expect(teamOperations(team, [...team, { memberId: "designer", role: "Designer", agentId: "reader", engine: "pi" }])).toEqual(["member.addNewRole"]);
+    expect(teamOperations(team, team.slice(0, 1))).toEqual([]);
   });
 });

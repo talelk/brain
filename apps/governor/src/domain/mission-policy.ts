@@ -1,4 +1,4 @@
-import type { AutonomyPolicy, AutonomyPreset, PlanOperation, PlanTask } from "@brain/contracts";
+import type { AutonomyPolicy, AutonomyPreset, PlanOperation, PlanTask, TeamMember } from "@brain/contracts";
 import { BrainDomainError } from "./errors";
 
 /** Expanded operation lists behind each autonomy preset (issue #35). */
@@ -73,4 +73,50 @@ export function diffPlan(confirmed: readonly PlanTask[], proposed: readonly Plan
 /** Operations a plan diff needs that the policy does not grant. */
 export function beyondPolicy(diff: PlanDiff, policy: AutonomyPolicy): readonly PlanOperation[] {
   return diff.operations.filter((operation) => !policy.operations.includes(operation));
+}
+
+/** What eligibility needs to know about a published agent definition. */
+export interface AgentCapabilities {
+  readonly tools: readonly string[];
+  readonly engines: readonly string[];
+  readonly maxMicroUsd: number;
+}
+
+/**
+ * Mechanical eligibility (issue #37): a member exists only as a published
+ * agent definition on an engine that definition accepts, and a task assigned
+ * to it must need no tool the definition lacks nor more spend than its cap.
+ * Role names are labels and decide nothing.
+ */
+export function assertTeamEligible(team: readonly TeamMember[], tasks: readonly PlanTask[], agents: Readonly<Record<string, AgentCapabilities>>): void {
+  const members = new Map<string, TeamMember>();
+  for (const member of team) {
+    if (members.has(member.memberId)) throw new BrainDomainError("INVALID_ARGUMENT", `duplicate team member ${member.memberId}`);
+    const agent = agents[member.agentId];
+    if (!agent) throw new BrainDomainError("INVALID_ARGUMENT", `team member ${member.memberId} names no published agent definition ${member.agentId}`);
+    if (!agent.engines.includes(member.engine)) throw new BrainDomainError("INVALID_ARGUMENT", `agent ${member.agentId} does not run on engine ${member.engine}`);
+    members.set(member.memberId, member);
+  }
+  if (team.length === 0) return;
+  for (const task of tasks) {
+    if (task.assignment?.kind !== "agent") continue;
+    const member = members.get(task.assignment.id);
+    if (!member) throw new BrainDomainError("INVALID_ARGUMENT", `plan task ${task.id} is assigned to ${task.assignment.id}, who is not on the mission team`);
+    const agent = agents[member.agentId] as AgentCapabilities;
+    const missing = (task.requiredTools ?? []).filter((tool) => !agent.tools.includes(tool));
+    if (missing.length > 0) throw new BrainDomainError("INVALID_ARGUMENT", `${member.memberId} is not eligible for ${task.id}: missing tools ${missing.join(", ")}`);
+    if (task.maxMicroUsd !== undefined && agent.maxMicroUsd > 0 && task.maxMicroUsd > agent.maxMicroUsd) throw new BrainDomainError("INVALID_ARGUMENT", `${member.memberId} is not eligible for ${task.id}: its spend cap is below the task's`);
+  }
+}
+
+/** Team growth a coordinator needs the policy to permit: more of a known role, or a new role. */
+export function teamOperations(confirmed: readonly TeamMember[], proposed: readonly TeamMember[]): readonly PlanOperation[] {
+  const known = new Set(confirmed.map((member) => member.memberId));
+  const roles = new Set(confirmed.map((member) => member.role));
+  const operations = new Set<PlanOperation>();
+  for (const member of proposed) {
+    if (known.has(member.memberId)) continue;
+    operations.add(roles.has(member.role) ? "member.addExistingRole" : "member.addNewRole");
+  }
+  return [...operations].sort();
 }

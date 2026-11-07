@@ -138,6 +138,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     const s = this.store;
     s.assertWorkspaceActive(workspaceId, organizationId);
     const ws = s.workspaceDb(workspaceId, organizationId);
+    let failedNow = false;
     s.inTx(ws, () => {
       const run = ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string } | undefined;
       if (!run || ["cancelled", "failed", "succeeded", "partial"].includes(run.state)) return;
@@ -150,8 +151,9 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
       }
       ws.prepare("INSERT OR REPLACE INTO step_outputs(run_id, step_id, output_json) VALUES (?,?,?)").run(runId, stepId, JSON.stringify(output));
       ws.prepare("UPDATE workflow_steps SET state=?,output_digest=? WHERE run_id=? AND step_id=?").run(ok ? "succeeded" : "failed", digest, runId, stepId);
-      if (!ok) transitionState(ws, "workflow", runId, "failed", { bumpVersion: true });
+      if (!ok) failedNow = transitionState(ws, "workflow", runId, "failed", { bumpVersion: true });
     });
+    if (failedNow) this.host.runFailed({ organizationId, workspaceId, runId, diagnostic: `Step ${stepId} failed` });
   }
 
   // Admit the next ready step (one active step at a time, deterministic
@@ -314,6 +316,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     const run = ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string } | undefined;
     if (!run) return;
     if (mastraStatus === "suspended") return; // waiting on a Brain job/approval
+    let failed = false;
     if (!["succeeded", "failed", "cancelled", "partial"].includes(run.state)) {
       if (mastraStatus === "success") {
         const steps = ws.prepare("SELECT state FROM workflow_steps WHERE run_id=?").all(runId) as Array<{ state: string }>;
@@ -321,8 +324,10 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
         transitionState(ws, "workflow", runId, anySkipped ? "partial" : "succeeded", { bumpVersion: true });
       } else {
         transitionState(ws, "workflow", runId, "failed", { bumpVersion: true });
+        failed = true;
       }
     }
+    if (failed) this.host.runFailed({ organizationId, workspaceId, runId, diagnostic: "The workflow run failed" });
     // Resume a parent subgraph step waiting on this child run.
     const link = ws.prepare("SELECT parent_run_id, parent_step_id, parent_workspace_id FROM engine_links WHERE child_run_id=?").get(runId) as
       | { parent_run_id: string; parent_step_id: string; parent_workspace_id: string } | undefined;

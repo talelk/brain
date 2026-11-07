@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActorContext, CommandReceipt, Mission, MissionBrief, PlanTask, PlanVersion, WorkItem } from "@brain/contracts";
-import { setupWorld, workView } from "../helpers";
+import { goldenDocs, setupWorld, workView } from "../helpers";
 
 type World = ReturnType<typeof setupWorld>;
 
@@ -118,6 +118,94 @@ describe("missions (T51)", () => {
     const items = (await workView(w)).items;
     expect(items.find((item) => item.workItemId === a.workItemId)?.state).toBe("in-progress");
     expect(items.find((item) => item.planTaskId === "b")?.title).toBe("Task b, revised");
+    w.brain.close();
+  });
+
+  it("parks work after three consecutive failed attempts across members; only a human unparks (E115)", async () => {
+    const w = setupWorld();
+    const id = await confirmedMission(w, "m-park", [task("a", [], { assignment: { kind: "agent", id: "pi", role: "specialist" } }), task("b")]);
+    const item = () => workView(w).then((view) => view.items.find((entry) => entry.planTaskId === "a") as WorkItem);
+    w.brain.missions.linkExecution(w.owner, w.workspaceId, (await item()).workItemId, "run-1");
+    w.brain.missions.recordRunFailure(w.org, w.workspaceId, "run-1", "tests failed: auth.spec");
+    expect(await item()).toMatchObject({ state: "ready", failedAttempts: 1, parked: false });
+    const reassigned = (await run(w, w.owner, "plan.propose", "m-park-reassign", { missionId: id, origin: "manual", tasks: [task("a", [], { assignment: { kind: "agent", id: "claude", role: "specialist" } }), task("b")] })).resourceId ?? "";
+    await run(w, w.owner, "plan.confirm", "m-park-reconfirm", { planVersionId: reassigned }, (await mission(w, id)).version);
+    expect((await item()).failedAttempts).toBe(1);
+    for (const runId of ["run-2", "run-3"]) {
+      w.brain.missions.linkExecution(w.owner, w.workspaceId, (await item()).workItemId, runId);
+      w.brain.missions.recordRunFailure(w.org, w.workspaceId, runId, `tests failed in ${runId}`);
+    }
+    const parked = await item();
+    expect(parked).toMatchObject({ state: "blocked", parked: true, failedAttempts: 3 });
+    expect((await workView(w)).items.find((entry) => entry.planTaskId === "b")?.state).toBe("ready");
+    expect((await mission(w, id)).state).toBe("active");
+    await fails(async () => await run(w, coordinator(w), "workItem.transition", "m-park-agent", { workItemId: parked.workItemId, state: "ready" }, parked.version), /only a human unparks/);
+    await run(w, w.owner, "workItem.transition", "m-park-retry", { workItemId: parked.workItemId, state: "ready" }, parked.version);
+    expect(await item()).toMatchObject({ state: "ready", parked: false, failedAttempts: 0 });
+    w.brain.close();
+  });
+
+  it("plan versions carry the mission team; members must be eligible and new roles need a human (T51)", async () => {
+    const w = setupWorld();
+    const agent = (id: string) => ({ path: `config/${id}.yaml`, text: `apiVersion: brain.keyrus/v1\nkind: Agent\nmetadata:\n  id: ${id}\n  version: 1.0.0\nspec:\n  instructionsPath: agents/${id}.md\n  tools: []\n  engine:\n    anyOf: [pi]\n    features: [start, events, cancel]\n  maxTurns: 5\n  maxChildren: 0\n  maxDepth: 0\n  maxTokens: 1000\n  maxMicroUsd: 0\n` });
+    const release = w.brain.stageRelease(w.owner, [...goldenDocs(), agent("builder"), agent("reviewer")], "sha256:6dd84c7f907477ea38ad355392cf876b39c122adf8038762894d56cc160956b4", [], [{ agentId: "builder", path: "agents/builder.md", text: "# Builder\n" }, { agentId: "reviewer", path: "agents/reviewer.md", text: "# Reviewer\n" }]);
+    w.brain.activateRelease(w.owner, release.digest);
+    const team = [{ memberId: "backend", role: "Backend engineer", agentId: "builder", engine: "pi" }];
+    const id = (await run(w, w.owner, "mission.create", "m-team-create", { title: "Team mission", intent: "Build with a team", successCriteria: ["built"] })).resourceId ?? "";
+    await fails(async () => await run(w, w.owner, "plan.propose", "m-team-bad", { missionId: id, origin: "manual", team: [{ ...team[0], engine: "claude" }], tasks: [task("a")] }), /does not run on engine claude/);
+    await fails(async () => await run(w, w.owner, "plan.propose", "m-team-tools", { missionId: id, origin: "manual", team, tasks: [task("a", [], { assignment: { kind: "agent", id: "backend", role: "specialist" }, requiredTools: ["repo.write"] })] }), /missing tools/);
+    const first = (await run(w, w.owner, "plan.propose", "m-team-plan", { missionId: id, origin: "manual", team, tasks: [task("a", [], { assignment: { kind: "agent", id: "backend", role: "specialist" } })] })).resourceId ?? "";
+    expect((await plan(w, first)).team).toEqual(team);
+    await run(w, w.owner, "plan.confirm", "m-team-confirm", { planVersionId: first }, (await mission(w, id)).version);
+    const more = [...team, { memberId: "backend-2", role: "Backend engineer", agentId: "builder", engine: "pi" }];
+    const grown = (await run(w, coordinator(w), "plan.propose", "m-team-grow", { missionId: id, origin: "agent", team: more, tasks: [task("a", [], { assignment: { kind: "agent", id: "backend", role: "specialist" } })] })).resourceId ?? "";
+    expect((await plan(w, grown)).state).toBe("confirmed");
+    const newRole = (await run(w, coordinator(w), "plan.propose", "m-team-role", { missionId: id, origin: "agent", team: [...more, { memberId: "qa", role: "Reviewer", agentId: "reviewer", engine: "pi" }], tasks: [task("a", [], { assignment: { kind: "agent", id: "backend", role: "specialist" } })] })).resourceId ?? "";
+    expect((await plan(w, newRole)).state).toBe("proposed");
+    w.brain.close();
+  });
+
+  it("inputs pin verified final output versions at admission; drafts never spread (E121)", async () => {
+    const w = setupWorld();
+    const id = await confirmedMission(w, "m-out", [task("spec", [], { outputs: ["api-spec"] }), task("build", ["spec"], { inputs: [{ output: "api-spec" }] })]);
+    const items = async () => (await workView(w)).items;
+    const spec = (await items()).find((item) => item.planTaskId === "spec") as WorkItem;
+    w.brain.missions.linkExecution(w.owner, w.workspaceId, spec.workItemId, "run-spec");
+    const draft = w.brain.missions.recordOutput(w.org, w.workspaceId, { workItemId: spec.workItemId, name: "api-spec", artifactDigest: `sha256:${"1".repeat(64)}`, state: "draft" });
+    expect(() => w.brain.missions.recordOutput(w.org, w.workspaceId, { workItemId: spec.workItemId, name: "undeclared", artifactDigest: `sha256:${"1".repeat(64)}`, state: "final" })).toThrow(/declares no output/);
+    w.brain.missions.recordOutput(w.org, w.workspaceId, { workItemId: spec.workItemId, name: "api-spec", artifactDigest: `sha256:${"2".repeat(64)}`, state: "final" });
+    const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    const digest = `sha256:${"e".repeat(64)}`;
+    ws.prepare("INSERT INTO evidence_bundles(digest, bundle_id, job_id, attempt_id, state, manifest_json, created_at_ms) VALUES (?,?,?,?,'verified',?,?)")
+      .run(digest, "bundle-out", "job-out", "att-out", JSON.stringify({ checks: [{ criterionId: "spec-done", checkId: "c1", status: "passed" }] }), w.brain.store.now());
+    ws.prepare("INSERT INTO verification_verdicts(id, bundle_digest, evaluator_attempt_id, evaluator_digest, outcome, manifest_json, created_at_ms) VALUES ('verdict-out',?,'eval-out',?,'verified','{}',?)").run(digest, digest, w.brain.store.now());
+    const inProgress = (await items()).find((item) => item.planTaskId === "spec") as WorkItem;
+    await run(w, w.owner, "workItem.transition", "m-out-review", { workItemId: spec.workItemId, state: "review" }, inProgress.version);
+    const reviewing = (await items()).find((item) => item.planTaskId === "spec") as WorkItem;
+    await run(w, w.owner, "workItem.transition", "m-out-done", { workItemId: spec.workItemId, state: "done", evidenceDigest: digest }, reviewing.version);
+    const outputs = ((await w.brain.executeQuery(w.owner, { queryType: "missionOutputs.list", workspaceId: w.workspaceId, resourceId: id })) as { snapshot: { items: Array<{ name: string; versions: Array<{ versionId: string; state: string; verified: boolean }> }> } }).snapshot.items;
+    expect(outputs).toEqual([expect.objectContaining({ name: "api-spec", versions: [expect.objectContaining({ versionId: draft, state: "draft", verified: false }), expect.objectContaining({ state: "final", verified: true })] })]);
+    const build = (await items()).find((item) => item.planTaskId === "build") as WorkItem;
+    expect(build.state).toBe("ready");
+    w.brain.missions.linkExecution(w.owner, w.workspaceId, build.workItemId, "run-build");
+    expect(ws.prepare("SELECT artifact_digest FROM work_item_inputs WHERE work_item_id=?").all(build.workItemId)).toEqual([{ artifact_digest: `sha256:${"2".repeat(64)}` }]);
+    const pinned = (await run(w, w.owner, "mission.create", "m-out-follow", { title: "Follow-up", intent: "Reuse the spec", successCriteria: ["reused"] })).resourceId ?? "";
+    const followPlan = (await run(w, w.owner, "plan.propose", "m-out-follow-plan", { missionId: pinned, origin: "manual", tasks: [task("use", [], { inputs: [{ output: "api-spec", missionId: id, versionId: draft }] })] })).resourceId ?? "";
+    await run(w, w.owner, "plan.confirm", "m-out-follow-confirm", { planVersionId: followPlan }, (await mission(w, pinned)).version);
+    const use = (await items()).find((item) => item.planTaskId === "use") as WorkItem;
+    expect(() => w.brain.missions.linkExecution(w.owner, w.workspaceId, use.workItemId, "run-use")).toThrow(/pinned to a draft version/);
+    w.brain.close();
+  });
+
+  it("mission messages are durable records for the mission or one team member, and carry no authority (T51)", async () => {
+    const w = setupWorld();
+    const id = await confirmedMission(w, "m-msg", [task("a")]);
+    const first = (await run(w, w.owner, "mission.message.send", "m-msg-1", { missionId: id, recipient: { kind: "mission" }, body: "Prioritise the login flow" })).resourceId ?? "";
+    await fails(async () => await run(w, w.owner, "mission.message.send", "m-msg-2", { missionId: id, recipient: { kind: "member", memberId: "nobody" }, body: "Hi" }), /not on the mission team/);
+    await run(w, w.owner, "mission.message.send", "m-msg-3", { missionId: id, recipient: { kind: "mission" }, body: "Prioritise the signup flow", correctionOf: first });
+    const messages = ((await w.brain.executeQuery(w.owner, { queryType: "missionMessages.list", workspaceId: w.workspaceId, resourceId: id })) as { snapshot: { items: Array<{ body: string; delivery: string }> } }).snapshot.items;
+    expect(messages.map((entry) => [entry.body, entry.delivery])).toEqual([["Prioritise the signup flow", "pending"], ["Prioritise the login flow", "superseded"]]);
+    expect((await mission(w, id)).state).toBe("active");
     w.brain.close();
   });
 });

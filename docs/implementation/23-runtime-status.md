@@ -1,5 +1,11 @@
 # Runtime status and continuation — 2026-10-28
 
+## Missions module — 7 November
+
+T51 replaces Objectives with Missions and deletes the board and decision surfaces (wayfinder map #6). `modules/missions` owns the mission lifecycle (active, paused, verifying, closed with an outcome), the brief with human-owned intent and constraints, immutable accepted decisions under optimistic concurrency, the autonomy policy as an explicit operation list with presets, plan versions that carry the mission team with mechanical member eligibility, the coordinator proposal gate, the affected-branch rule that started work never changes, parking after consecutive failed runs (counted per work item across members, human-only unpark), named outputs whose verified final versions are pinned as inputs at admission, and durable mission message records. Work items are managed from the Plans page until the T64 mission tabs land.
+
+Evidence: domain 44, contracts 23, integration 296, security 75, chaos 35, certification 2 and browser 240 across six projects; E113–E115, E117 and E121 are covered. `achieved` closure stays refused until T62 provides mission evidence bundles; message delivery is T53, workspace autonomy ceilings arrive with Plays (T63), and budget admission with T19/T66. Existing local instances need a fresh workspace: the workspace schema changed and no migration is provided.
+
 ## Resource lifecycle completion — 1 November
 
 The existing resource screens now cover the principal management journeys without adding routes or a parallel administration area. Schedules support revision, duplication, pause/resume, explicit dispatch, server-computed previews, history and guarded retirement. Agent, Workflow and Runner Group definitions use the reviewed Studio draft, validation, diff, Git publication and separate activation path; active immutable releases are never edited in place. Runner enrollment uses one-use expiring credentials, with enable, disable, drain, quarantine, rotation and guarded deregistration subject to fresh identity, capability and active-work checks.

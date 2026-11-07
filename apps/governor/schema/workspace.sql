@@ -17,6 +17,7 @@ CREATE TABLE missions (
   pause_reason TEXT CHECK(pause_reason IS NULL OR pause_reason IN ('human','budget')),
   outcome TEXT CHECK(outcome IS NULL OR outcome IN ('achieved','ended','cancelled')),
   brief_version INTEGER NOT NULL DEFAULT 1 CHECK(brief_version > 0),
+  parking_threshold INTEGER NOT NULL DEFAULT 3 CHECK(parking_threshold BETWEEN 1 AND 10),
   policy_json TEXT NOT NULL DEFAULT '{"preset":"standard","operations":["conflictTask.create","decision.accept","member.addExistingRole","task.add","task.change","task.reassign","task.remove"],"version":1}' CHECK(json_valid(policy_json)),
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
@@ -36,12 +37,36 @@ CREATE TABLE accepted_decisions (
   created_at_ms INTEGER NOT NULL
 ) STRICT;
 CREATE INDEX accepted_decisions_mission ON accepted_decisions(mission_id, introduced_version);
+CREATE TABLE mission_outputs (
+  id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), name TEXT NOT NULL,
+  continues_output_id TEXT REFERENCES mission_outputs(id), created_at_ms INTEGER NOT NULL,
+  UNIQUE(mission_id, name)
+) STRICT;
+CREATE TABLE output_versions (
+  id TEXT PRIMARY KEY, output_id TEXT NOT NULL REFERENCES mission_outputs(id), work_item_id TEXT NOT NULL,
+  artifact_digest TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('draft','final')),
+  verified INTEGER NOT NULL DEFAULT 0 CHECK(verified IN (0,1)), created_at_ms INTEGER NOT NULL,
+  CHECK(verified = 0 OR state = 'final')
+) STRICT;
+CREATE TABLE work_item_inputs (
+  work_item_id TEXT NOT NULL, run_id TEXT NOT NULL, output_version_id TEXT NOT NULL REFERENCES output_versions(id),
+  artifact_digest TEXT NOT NULL, PRIMARY KEY(work_item_id, run_id, output_version_id)
+) STRICT;
+CREATE TABLE mission_messages (
+  id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
+  recipient_kind TEXT NOT NULL CHECK(recipient_kind IN ('mission','member')), recipient_member_id TEXT,
+  work_item_id TEXT, sender_id TEXT NOT NULL, body TEXT NOT NULL,
+  delivery TEXT NOT NULL DEFAULT 'pending' CHECK(delivery IN ('pending','delivered-live','delivered-at-session-start','superseded')),
+  correction_of TEXT REFERENCES mission_messages(id), created_at_ms INTEGER NOT NULL,
+  CHECK((recipient_kind = 'member') = (recipient_member_id IS NOT NULL))
+) STRICT;
 CREATE TABLE plan_versions (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   revision INTEGER NOT NULL CHECK(revision > 0), digest TEXT NOT NULL,
   state TEXT NOT NULL CHECK(state IN ('proposed','confirmed','superseded')),
   origin TEXT NOT NULL CHECK(origin IN ('manual','agent','template','capitalization')),
   created_by TEXT NOT NULL, summary TEXT, tasks_json TEXT NOT NULL CHECK(json_valid(tasks_json)),
+  team_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(team_json)),
   created_at_ms INTEGER NOT NULL, confirmed_at_ms INTEGER,
   UNIQUE(mission_id,revision)
 ) STRICT;
@@ -53,6 +78,8 @@ CREATE TABLE work_items (
   criteria_json TEXT NOT NULL CHECK(json_valid(criteria_json)),
   assignment_json TEXT, workflow_id TEXT, next_action TEXT NOT NULL, blocked_reason TEXT,
   scheduled_at_ms INTEGER, evidence_digest TEXT,
+  failed_attempts INTEGER NOT NULL DEFAULT 0 CHECK(failed_attempts >= 0),
+  parked INTEGER NOT NULL DEFAULT 0 CHECK(parked IN (0,1)), parked_diagnostic TEXT,
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
   UNIQUE(plan_version_id,plan_task_id), CHECK(state != 'done' OR evidence_digest IS NOT NULL)
