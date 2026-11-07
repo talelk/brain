@@ -145,9 +145,11 @@ through Brain commands.
 _Avoid_: planning session, chat session, free session
 
 **Checkpoint**:
-Durable state recorded by an attempt from which a later attempt can resume work.
-Resuming from a checkpoint always creates a new attempt.
-_Avoid_: snapshot, savepoint, resume point
+Durable state recorded by an attempt — a checkpoint commit on its branch, progress,
+consumed and produced outputs, and in-flight effects — from which a later attempt can
+resume. Resuming always creates a new attempt. A checkpoint is valid once the Governor
+has checked it; it is never "verified", which belongs to evidence.
+_Avoid_: snapshot, savepoint, resume point, verified checkpoint
 
 **Runner**:
 A separate outbound executable that executes agent and validator jobs, enrolled by
