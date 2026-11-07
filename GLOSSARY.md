@@ -15,6 +15,21 @@ outlives any single run or session and may last minutes or weeks. It owns its pl
 versions, mission team, work items and outputs.
 _Avoid_: objective, goal, target, epic, project
 
+**Mission state**:
+A mission's stored position: active, paused, verifying or closed. Working, waiting and
+needing attention are conditions derived from its work, never stored states.
+_Avoid_: mission status (for derived conditions), draft (missions have no draft state)
+
+**Mission outcome**:
+How a closed mission ended, set by a human: achieved (only after a verified verdict),
+ended (stopped without claiming success) or cancelled (in-flight work cancelled).
+_Avoid_: result, resolution, done
+
+**Mission shape**:
+Whether a mission is interactive or long-running, derived from whether it has a
+coordinator or a confirmed plan version. A mission changes shape without changing state.
+_Avoid_: mission mode, mission type
+
 **Mission team**:
 The team members assigned to one mission.
 _Avoid_: team (unqualified — it collides with workspace and memory scope), squad, crew
