@@ -220,6 +220,22 @@
    ],
    "rejected": [],
    "published": []
+  },
+  "mission": {
+   "active": [
+    "paused",
+    "verifying",
+    "closed"
+   ],
+   "paused": [
+    "active",
+    "closed"
+   ],
+   "verifying": [
+    "active",
+    "closed"
+   ],
+   "closed": []
   }
  },
  "rules": [

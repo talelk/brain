@@ -6272,6 +6272,25 @@
         },
         "updatedAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "state": {
+          "$ref": "#/$defs/MissionState"
+        },
+        "pauseReason": {
+          "type": "string",
+          "enum": [
+            "human",
+            "budget"
+          ]
+        },
+        "outcome": {
+          "$ref": "#/$defs/MissionOutcome"
+        },
+        "briefVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "autonomyPolicy": {
+          "$ref": "#/$defs/AutonomyPolicy"
         }
       },
       "required": [
@@ -6283,7 +6302,10 @@
         "ownerId",
         "version",
         "createdAt",
-        "updatedAt"
+        "updatedAt",
+        "state",
+        "briefVersion",
+        "autonomyPolicy"
       ],
       "additionalProperties": false
     },
@@ -6365,6 +6387,9 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991
+        },
+        "optional": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -6627,6 +6652,18 @@
               },
               "minItems": 1,
               "maxItems": 100
+            },
+            "constraints": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              "maxItems": 50
+            },
+            "autonomy": {
+              "$ref": "#/$defs/AutonomyPreset"
             }
           },
           "required": [
@@ -6888,6 +6925,12 @@
         },
         "evidenceDigest": {
           "$ref": "#/$defs/Digest"
+        },
+        "missionState": {
+          "$ref": "#/$defs/MissionState"
+        },
+        "briefVersion": {
+          "$ref": "#/$defs/Counter"
         }
       },
       "additionalProperties": false
@@ -6908,7 +6951,11 @@
             "mission.created",
             "plan.proposed",
             "plan.confirmed",
-            "workItem.transitioned"
+            "workItem.transitioned",
+            "mission.stateChanged",
+            "mission.briefChanged",
+            "mission.policyChanged",
+            "plan.autoConfirmed"
           ]
         },
         "organizationId": {
@@ -7046,6 +7093,7 @@
           "enum": [
             "missions.list",
             "missions.get",
+            "missions.brief",
             "plans.get",
             "workItems.list",
             "workItems.get",
@@ -7096,6 +7144,7 @@
           "enum": [
             "missions.list",
             "missions.get",
+            "missions.brief",
             "plans.get",
             "workItems.list",
             "workItems.get",
@@ -10816,6 +10865,27 @@
         },
         {
           "$ref": "#/$defs/AutomationControlCommand"
+        },
+        {
+          "$ref": "#/$defs/MissionPauseCommand"
+        },
+        {
+          "$ref": "#/$defs/MissionResumeCommand"
+        },
+        {
+          "$ref": "#/$defs/MissionProposeCompletionCommand"
+        },
+        {
+          "$ref": "#/$defs/MissionCloseCommand"
+        },
+        {
+          "$ref": "#/$defs/MissionBriefEditCommand"
+        },
+        {
+          "$ref": "#/$defs/DecisionAcceptCommand"
+        },
+        {
+          "$ref": "#/$defs/MissionPolicySetCommand"
         }
       ]
     },
@@ -20557,6 +20627,590 @@
           "required": [
             "automationId",
             "action"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "MissionState": {
+      "type": "string",
+      "enum": [
+        "active",
+        "paused",
+        "verifying",
+        "closed"
+      ]
+    },
+    "MissionOutcome": {
+      "type": "string",
+      "enum": [
+        "achieved",
+        "ended",
+        "cancelled"
+      ]
+    },
+    "PlanOperation": {
+      "type": "string",
+      "enum": [
+        "task.add",
+        "task.change",
+        "task.remove",
+        "task.reassign",
+        "member.addExistingRole",
+        "member.addNewRole",
+        "decision.accept",
+        "conflictTask.create",
+        "backlog.drop"
+      ]
+    },
+    "AutonomyPreset": {
+      "type": "string",
+      "enum": [
+        "supervised",
+        "standard",
+        "autonomous"
+      ]
+    },
+    "AutonomyPolicy": {
+      "type": "object",
+      "properties": {
+        "preset": {
+          "$ref": "#/$defs/AutonomyPreset"
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PlanOperation"
+          },
+          "maxItems": 9,
+          "uniqueItems": true
+        },
+        "version": {
+          "$ref": "#/$defs/Counter"
+        }
+      },
+      "required": [
+        "operations",
+        "version"
+      ],
+      "additionalProperties": false
+    },
+    "AcceptedDecision": {
+      "type": "object",
+      "properties": {
+        "decisionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "source": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "human",
+                "handoff",
+                "verdict",
+                "knowledge"
+              ]
+            },
+            "ref": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        "acceptedBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "introducedInVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "supersededBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "decisionId",
+        "missionId",
+        "statement",
+        "source",
+        "acceptedBy",
+        "introducedInVersion",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "MissionProgress": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "byState": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "required": [
+        "total",
+        "byState"
+      ],
+      "additionalProperties": false
+    },
+    "MissionBrief": {
+      "type": "object",
+      "properties": {
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "version": {
+          "$ref": "#/$defs/Counter"
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "maxItems": 50
+        },
+        "decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AcceptedDecision"
+          },
+          "maxItems": 500
+        },
+        "progress": {
+          "$ref": "#/$defs/MissionProgress"
+        },
+        "writtenChars": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "updatedBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "missionId",
+        "version",
+        "intent",
+        "constraints",
+        "decisions",
+        "progress",
+        "writtenChars",
+        "updatedBy",
+        "updatedAt"
+      ],
+      "additionalProperties": false
+    },
+    "MissionPauseCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "mission.pause"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "missionId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "MissionResumeCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "mission.resume"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "missionId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "MissionProposeCompletionCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "mission.proposeCompletion"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "missionId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "MissionCloseCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "mission.close"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "outcome": {
+              "$ref": "#/$defs/MissionOutcome"
+            }
+          },
+          "required": [
+            "missionId",
+            "outcome"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "MissionBriefEditCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "mission.brief.edit"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "baseVersion": {
+              "$ref": "#/$defs/Counter"
+            },
+            "intent": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8000
+            },
+            "constraints": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              "maxItems": 50
+            }
+          },
+          "required": [
+            "missionId",
+            "baseVersion"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "DecisionAcceptCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "decision.accept"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "baseVersion": {
+              "$ref": "#/$defs/Counter"
+            },
+            "statement": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "source": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "human",
+                    "handoff",
+                    "verdict",
+                    "knowledge"
+                  ]
+                },
+                "ref": {
+                  "$ref": "#/$defs/Id"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            "supersedes": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "missionId",
+            "baseVersion",
+            "statement",
+            "source"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "MissionPolicySetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "mission.policy.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "preset": {
+              "$ref": "#/$defs/AutonomyPreset"
+            },
+            "operations": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/PlanOperation"
+              },
+              "maxItems": 9,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "missionId"
           ],
           "additionalProperties": false
         }

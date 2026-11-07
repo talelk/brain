@@ -13,9 +13,29 @@ CREATE TABLE missions (
   id TEXT PRIMARY KEY, title TEXT NOT NULL, intent TEXT NOT NULL,
   success_criteria_json TEXT NOT NULL CHECK(json_valid(success_criteria_json)),
   owner_id TEXT NOT NULL, active_plan_version_id TEXT,
+  state TEXT NOT NULL DEFAULT 'active' CHECK(state IN ('active','paused','verifying','closed')),
+  pause_reason TEXT CHECK(pause_reason IS NULL OR pause_reason IN ('human','budget')),
+  outcome TEXT CHECK(outcome IS NULL OR outcome IN ('achieved','ended','cancelled')),
+  brief_version INTEGER NOT NULL DEFAULT 1 CHECK(brief_version > 0),
+  policy_json TEXT NOT NULL DEFAULT '{"preset":"standard","operations":["conflictTask.create","decision.accept","member.addExistingRole","task.add","task.change","task.reassign","task.remove"],"version":1}' CHECK(json_valid(policy_json)),
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
-  created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
+  created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
+  CHECK((state = 'closed') = (outcome IS NOT NULL)), CHECK(state = 'paused' OR pause_reason IS NULL)
 ) STRICT;
+CREATE TABLE mission_brief_versions (
+  mission_id TEXT NOT NULL REFERENCES missions(id), version INTEGER NOT NULL CHECK(version > 0),
+  intent TEXT NOT NULL, constraints_json TEXT NOT NULL CHECK(json_valid(constraints_json)),
+  change TEXT NOT NULL CHECK(change IN ('created','edited','decision','superseded')),
+  rebased_from INTEGER, created_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(mission_id, version)
+) STRICT;
+CREATE TABLE accepted_decisions (
+  id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), statement TEXT NOT NULL,
+  source_kind TEXT NOT NULL CHECK(source_kind IN ('human','handoff','verdict','knowledge')), source_ref TEXT,
+  accepted_by TEXT NOT NULL, introduced_version INTEGER NOT NULL, superseded_by TEXT REFERENCES accepted_decisions(id),
+  created_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX accepted_decisions_mission ON accepted_decisions(mission_id, introduced_version);
 CREATE TABLE plan_versions (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   revision INTEGER NOT NULL CHECK(revision > 0), digest TEXT NOT NULL,

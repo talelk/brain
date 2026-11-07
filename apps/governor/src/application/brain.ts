@@ -770,7 +770,7 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.jobProtocol.automations.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
       }
-      case "missions.list": case "missions.get": case "plans.get": case "workItems.list": case "workItems.get": case "executionLinks.list": {
+      case "missions.list": case "missions.get": case "missions.brief": case "plans.get": case "workItems.list": case "workItems.get": case "executionLinks.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.missions.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
       }

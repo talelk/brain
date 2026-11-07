@@ -498,6 +498,71 @@
       "actors": [
         "human"
       ]
+    },
+    {
+      "type": "mission.pause",
+      "schema": "MissionPauseCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "mission.resume",
+      "schema": "MissionResumeCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "mission.proposeCompletion",
+      "schema": "MissionProposeCompletionCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human",
+        "agent"
+      ]
+    },
+    {
+      "type": "mission.close",
+      "schema": "MissionCloseCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "mission.brief.edit",
+      "schema": "MissionBriefEditCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "decision.accept",
+      "schema": "DecisionAcceptCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human",
+        "agent"
+      ]
+    },
+    {
+      "type": "mission.policy.set",
+      "schema": "MissionPolicySetCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
     }
   ],
   "queries": [
@@ -541,6 +606,7 @@
     "organization.auth-policy.get",
     "missions.list",
     "missions.get",
+    "missions.brief",
     "plans.get",
     "workItems.list",
     "workItems.get",
@@ -1089,6 +1155,30 @@
       "type": "capability.published",
       "envelope": "EventEnvelope",
       "payloadContract": "CapitalizationEventPayload",
+      "durable": true
+    },
+    {
+      "type": "mission.stateChanged",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "mission.briefChanged",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "mission.policyChanged",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "plan.autoConfirmed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
       "durable": true
     }
   ],

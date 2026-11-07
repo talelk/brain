@@ -1,6 +1,6 @@
 {
  "contractVersion": "brain.certification-matrix/v1",
- "note": "T50 certification matrix. covered = a passing suite names the scenario. All 110 catalog scenarios are covered by executed suites; release certification is in-repo.",
+ "note": "T50 certification matrix. covered = a passing suite names the scenario. Covered rows name executed suites; partial rows name the task that still owns the scenario; release certification is in-repo.",
  "scenarios": [
   {
    "id": "E001",
@@ -551,6 +551,61 @@
    "id": "E110",
    "status": "covered",
    "evidence": "tests/browser/capitalization.spec.ts"
+  },
+  {
+   "id": "E111",
+   "status": "partial",
+   "evidence": "not yet implemented: T19/T66 mission admission and budget auto-pause"
+  },
+  {
+   "id": "E112",
+   "status": "partial",
+   "evidence": "not yet implemented: T19 fair mission admission"
+  },
+  {
+   "id": "E113",
+   "status": "covered",
+   "evidence": "tests/integration/missions.test.ts"
+  },
+  {
+   "id": "E114",
+   "status": "covered",
+   "evidence": "tests/integration/missions.test.ts"
+  },
+  {
+   "id": "E115",
+   "status": "partial",
+   "evidence": "not yet implemented: T51 parking"
+  },
+  {
+   "id": "E116",
+   "status": "partial",
+   "evidence": "not yet implemented: T62 handoff artifact"
+  },
+  {
+   "id": "E117",
+   "status": "covered",
+   "evidence": "tests/integration/missions.test.ts"
+  },
+  {
+   "id": "E118",
+   "status": "partial",
+   "evidence": "not yet implemented: T53 message delivery"
+  },
+  {
+   "id": "E119",
+   "status": "partial",
+   "evidence": "not yet implemented: T59 seen cursors"
+  },
+  {
+   "id": "E120",
+   "status": "partial",
+   "evidence": "not yet implemented: T57 capitalization sources"
+  },
+  {
+   "id": "E121",
+   "status": "partial",
+   "evidence": "not yet implemented: T51/T61 named outputs"
   }
  ]
 }

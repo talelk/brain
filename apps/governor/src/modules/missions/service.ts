@@ -1,9 +1,10 @@
 import { domainDigest } from "@brain/contracts";
-import type { ActorContext, ExecutionLink, JsonValue, Mission, PlanAssignment, PlanTask, PlanVersion, WorkItem, WorkItemState } from "@brain/contracts";
+import type { AcceptedDecision, ActorContext, AutonomyPolicy, AutonomyPreset, ExecutionLink, JsonValue, Mission, MissionBrief, MissionOutcome, PlanAssignment, PlanOperation, PlanTask, PlanVersion, WorkItem, WorkItemState } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import { assertExpectedVersion, assertTransition, transitionState } from "../../domain/states";
 import { assertPlanTasks } from "../../domain/work-plan";
+import { AUTONOMY_PRESETS, beyondPolicy, diffPlan, policyFor } from "../../domain/mission-policy";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 
@@ -16,8 +17,17 @@ export interface MissionCommand {
 
 type MissionRow = {
   id: string; title: string; intent: string; success_criteria_json: string; owner_id: string;
-  active_plan_version_id: string | null; version: number; created_at_ms: number; updated_at_ms: number;
+  active_plan_version_id: string | null; state: Mission["state"]; pause_reason: "human" | "budget" | null;
+  outcome: MissionOutcome | null; brief_version: number; policy_json: string;
+  version: number; created_at_ms: number; updated_at_ms: number;
 };
+type BriefRow = { mission_id: string; version: number; intent: string; constraints_json: string; change: string; rebased_from: number | null; created_by: string; created_at_ms: number };
+type DecisionRow = { id: string; mission_id: string; statement: string; source_kind: AcceptedDecision["source"]["kind"]; source_ref: string | null; accepted_by: string; introduced_version: number; superseded_by: string | null; created_at_ms: number };
+
+/** Work that has started is never changed or abandoned by replanning (issue #39). */
+const STARTED: ReadonlySet<WorkItemState> = new Set(["in-progress", "review", "blocked", "done"]);
+/** The written sections every session receives stay small (issue #34). */
+const BRIEF_CHAR_CAP = 8000;
 type PlanRow = {
   id: string; mission_id: string; revision: number; digest: string; state: PlanVersion["state"];
   origin: PlanVersion["origin"]; created_by: string; summary: string | null; tasks_json: string;
@@ -61,6 +71,8 @@ export class MissionService {
       missionId: row.id, workspaceId, title: row.title, intent: row.intent,
       successCriteria: JSON.parse(row.success_criteria_json) as string[], ownerId: row.owner_id,
       ...(row.active_plan_version_id ? { activePlanVersionId: row.active_plan_version_id } : {}),
+      state: row.state, ...(row.pause_reason ? { pauseReason: row.pause_reason } : {}), ...(row.outcome ? { outcome: row.outcome } : {}),
+      briefVersion: row.brief_version, autonomyPolicy: JSON.parse(row.policy_json) as AutonomyPolicy,
       version: row.version, createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
     };
   }
@@ -94,6 +106,11 @@ export class MissionService {
     if (!workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
     switch (command.commandType) {
       case "mission.create": return this.createMission(actor, workspaceId, command.payload);
+      case "mission.pause": case "mission.resume": case "mission.proposeCompletion": case "mission.close":
+        return this.changeState(actor, workspaceId, command.commandType, command.payload, command.expectedVersion);
+      case "mission.brief.edit": return this.editBrief(actor, workspaceId, command.payload);
+      case "decision.accept": return this.acceptDecision(actor, workspaceId, command.payload);
+      case "mission.policy.set": return this.setPolicy(actor, workspaceId, command.payload, command.expectedVersion);
       case "plan.propose": return this.proposePlan(actor, workspaceId, command.payload);
       case "plan.confirm": return this.confirmPlan(actor, workspaceId, command.payload, command.expectedVersion);
       case "workItem.transition": return this.transition(actor, workspaceId, command.payload, command.expectedVersion);
@@ -105,9 +122,16 @@ export class MissionService {
   private createMission(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
     const db = this.db(actor, workspaceId);
     const id = this.store.id("mission");
+    const intent = String(payload["intent"]);
+    const constraints = (payload["constraints"] as string[] | undefined) ?? [];
+    assertBriefSize(intent, constraints, []);
+    const policy = policyFor((payload["autonomy"] as AutonomyPreset | undefined) ?? "standard", 1);
     this.store.inTx(db, () => {
-      db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,?,?)")
-        .run(id, String(payload["title"]), String(payload["intent"]), JSON.stringify(payload["successCriteria"]), actor.actorId, this.store.now(), this.store.now());
+      const now = this.store.now();
+      db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,policy_json,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,?,?,?)")
+        .run(id, String(payload["title"]), intent, JSON.stringify(payload["successCriteria"]), actor.actorId, JSON.stringify(policy), now, now);
+      db.prepare("INSERT INTO mission_brief_versions(mission_id,version,intent,constraints_json,change,created_by,created_at_ms) VALUES (?,1,?,?,'created',?,?)")
+        .run(id, intent, JSON.stringify(constraints), actor.actorId, now);
       this.store.emit(db, { aggregateType: "mission", aggregateId: id, eventType: "mission.created", payload: { missionId: id } });
     });
     return id;
@@ -115,8 +139,10 @@ export class MissionService {
 
   private proposePlan(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
     const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
+    assertNotClosed(mission);
     const tasks = payload["tasks"] as unknown as PlanTask[];
     assertPlanTasks(tasks);
+    const gate = this.gate(actor, workspaceId, mission, tasks);
     const db = this.db(actor, workspaceId);
     const id = this.store.id("plan");
     const origin = String(payload["origin"]) as PlanVersion["origin"];
@@ -128,16 +154,40 @@ export class MissionService {
         .run(id, mission.id, revision, digest, origin, actor.actorId, summary ?? null, JSON.stringify(tasks), this.store.now());
       this.store.emit(db, { aggregateType: "plan", aggregateId: id, eventType: "plan.proposed", payload: { missionId: mission.id, planVersionId: id, digest } });
     });
+    if (gate.autoConfirm) {
+      this.confirmPlan(actor, workspaceId, { planVersionId: id }, mission.version, true);
+      this.store.emit(db, { aggregateType: "plan", aggregateId: id, eventType: "plan.autoConfirmed", payload: { missionId: mission.id, planVersionId: id, digest } });
+    }
     return id;
   }
 
-  private confirmPlan(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
+  /**
+   * Started work is identical across versions for every author. A coordinator
+   * (agent) version of a mission that already has confirmed work is confirmed
+   * without a human only when every operation it needs is in the mission's
+   * autonomy policy; otherwise it stays a plan proposal (issue #35).
+   */
+  private gate(actor: ActorContext, workspaceId: string, mission: MissionRow, tasks: readonly PlanTask[]): { autoConfirm: boolean; beyond: readonly PlanOperation[] } {
+    if (!mission.active_plan_version_id) return { autoConfirm: false, beyond: [] };
+    const db = this.db(actor, workspaceId);
+    const confirmed = JSON.parse(this.planRow(actor, workspaceId, mission.active_plan_version_id).tasks_json) as PlanTask[];
+    const started = new Set((db.prepare("SELECT plan_task_id AS id, state FROM work_items WHERE plan_version_id=?").all(mission.active_plan_version_id) as Array<{ id: string; state: WorkItemState }>)
+      .filter((row) => STARTED.has(row.state)).map((row) => row.id));
+    const diff = diffPlan(confirmed, tasks, started);
+    const beyond = beyondPolicy(diff, JSON.parse(mission.policy_json) as AutonomyPolicy);
+    return { autoConfirm: actor.kind === "agent" && mission.state === "active" && beyond.length === 0, beyond };
+  }
+
+  private confirmPlan(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number, withinPolicy = false): string {
     const plan = this.planRow(actor, workspaceId, String(payload["planVersionId"]));
     const mission = this.missionRow(actor, workspaceId, plan.mission_id);
     assertExpectedVersion(mission.version, expectedVersion);
+    if (!withinPolicy && actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "a plan proposal beyond the autonomy policy needs human confirmation");
+    if (mission.state === "closed" || mission.state === "verifying") throw new BrainDomainError("CONFLICT", `a ${mission.state} mission takes no new plan version`);
     if (plan.state !== "proposed") throw new BrainDomainError("CONFLICT", "only a proposed plan version can be confirmed");
     const tasks = JSON.parse(plan.tasks_json) as PlanTask[];
     assertPlanTasks(tasks);
+    this.gate(actor, workspaceId, mission, tasks);
     const db = this.db(actor, workspaceId);
     this.store.inTx(db, () => {
       const priorActive = mission.active_plan_version_id;
@@ -164,7 +214,7 @@ export class MissionService {
           state === "ready" ? "Start this task" : "Wait for predecessor completion", now, now);
       }
       for (const item of previous) {
-        if (retained.has(item.id) || item.state === "done") continue;
+        if (retained.has(item.id) || STARTED.has(item.state)) continue;
         transitionState(db, "workItem", item.id, "abandoned", { set: { next_action: `Superseded by plan revision ${plan.revision}`, updated_at_ms: now }, bumpVersion: true });
       }
       for (const task of tasks) {
@@ -246,8 +296,161 @@ export class MissionService {
     return id;
   }
 
+  /** Mission lifecycle per issue #19: humans pause, resume and close; completion is proposed, never declared. */
+  private changeState(actor: ActorContext, workspaceId: string, type: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
+    const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
+    assertExpectedVersion(mission.version, expectedVersion);
+    assertNotClosed(mission);
+    const db = this.db(actor, workspaceId);
+    const now = this.store.now();
+    let next: Mission["state"]; const set: Record<string, unknown> = { updated_at_ms: now, pause_reason: null };
+    if (type === "mission.pause") { next = "paused"; set["pause_reason"] = "human"; }
+    else if (type === "mission.resume") {
+      if (mission.pause_reason === "budget") throw new BrainDomainError("CONFLICT", "raise the mission budget before resuming a budget pause");
+      next = "active";
+    } else if (type === "mission.proposeCompletion") next = "verifying";
+    else {
+      const outcome = String(payload["outcome"]) as MissionOutcome;
+      if (outcome === "achieved") throw new BrainDomainError("EVIDENCE_MISSING", "achieved requires a verified mission verdict");
+      next = "closed"; set["outcome"] = outcome;
+    }
+    if (next !== "closed" && mission.state === next) throw new BrainDomainError("CONFLICT", `mission is already ${next}`);
+    this.store.inTx(db, () => {
+      transitionState(db, "mission", mission.id, next, { set, bumpVersion: true, and: { version: mission.version } });
+      if (set["outcome"] === "cancelled") {
+        const open = db.prepare("SELECT id FROM work_items WHERE mission_id=? AND state NOT IN ('done','abandoned')").all(mission.id) as Array<{ id: string }>;
+        for (const item of open) transitionState(db, "workItem", item.id, "abandoned", { set: { next_action: "Mission cancelled", updated_at_ms: now }, bumpVersion: true });
+      }
+      this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.stateChanged", payload: { missionId: mission.id, missionState: next } });
+    });
+    return mission.id;
+  }
+
+  /** Governor-internal: a rejected or incomplete mission verdict returns a verifying mission to work. */
+  returnToActive(actor: ActorContext, workspaceId: string, missionId: string): void {
+    const mission = this.missionRow(actor, workspaceId, missionId);
+    if (mission.state !== "verifying") return;
+    const db = this.db(actor, workspaceId);
+    this.store.inTx(db, () => {
+      transitionState(db, "mission", mission.id, "active", { set: { updated_at_ms: this.store.now() }, bumpVersion: true });
+      this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.stateChanged", payload: { missionId: mission.id, missionState: "active" } });
+    });
+  }
+
+  private latestBrief(db: ReturnType<Store["workspaceDb"]>, mission: MissionRow): BriefRow {
+    const row = db.prepare("SELECT * FROM mission_brief_versions WHERE mission_id=? ORDER BY version DESC LIMIT 1").get(mission.id) as BriefRow | undefined;
+    return row ?? { mission_id: mission.id, version: mission.brief_version, intent: mission.intent, constraints_json: "[]", change: "created", rebased_from: null, created_by: mission.owner_id, created_at_ms: mission.created_at_ms };
+  }
+
+  private activeDecisions(db: ReturnType<Store["workspaceDb"]>, missionId: string): DecisionRow[] {
+    return db.prepare("SELECT * FROM accepted_decisions WHERE mission_id=? AND superseded_by IS NULL ORDER BY introduced_version, id").all(missionId) as DecisionRow[];
+  }
+
+  private writeBrief(db: ReturnType<Store["workspaceDb"]>, actor: ActorContext, mission: MissionRow, base: BriefRow, intent: string, constraints: readonly string[], change: string, rebasedFrom: number | null): number {
+    const version = base.version + 1;
+    const now = this.store.now();
+    db.prepare("INSERT INTO mission_brief_versions(mission_id,version,intent,constraints_json,change,rebased_from,created_by,created_at_ms) VALUES (?,?,?,?,?,?,?,?)")
+      .run(mission.id, version, intent, JSON.stringify(constraints), change, rebasedFrom, actor.actorId, now);
+    db.prepare("UPDATE missions SET intent=?,brief_version=?,updated_at_ms=? WHERE id=?").run(intent, version, now, mission.id);
+    this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.briefChanged", payload: { missionId: mission.id, briefVersion: version } });
+    return version;
+  }
+
+  /**
+   * Humans own intent and constraints. An edit names the brief version it was
+   * made against; a stale human edit is rebased onto the latest version (and
+   * records the version it was rebased from) so it is never lost to an agent.
+   */
+  private editBrief(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only humans edit a mission's intent and constraints");
+    const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
+    assertNotClosed(mission);
+    const db = this.db(actor, workspaceId);
+    const baseVersion = Number(payload["baseVersion"]);
+    this.store.inTx(db, () => {
+      const latest = this.latestBrief(db, mission);
+      if (baseVersion > latest.version) throw new BrainDomainError("CONFLICT", "brief version does not exist");
+      const intent = payload["intent"] !== undefined ? String(payload["intent"]) : latest.intent;
+      const constraints = payload["constraints"] !== undefined ? payload["constraints"] as string[] : JSON.parse(latest.constraints_json) as string[];
+      assertBriefSize(intent, constraints, this.activeDecisions(db, mission.id).map((row) => row.statement));
+      this.writeBrief(db, actor, mission, latest, intent, constraints, "edited", baseVersion < latest.version ? baseVersion : null);
+    });
+    return mission.id;
+  }
+
+  /**
+   * Accepted decisions are immutable entries; a later one supersedes, never
+   * edits. A coordinator accepts only within its autonomy policy and only
+   * against the current brief version.
+   */
+  private acceptDecision(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
+    const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
+    assertNotClosed(mission);
+    const policy = JSON.parse(mission.policy_json) as AutonomyPolicy;
+    if (actor.kind !== "human" && !policy.operations.includes("decision.accept")) throw new BrainDomainError("FORBIDDEN", "accepting this decision needs a human under the mission's autonomy policy");
+    const db = this.db(actor, workspaceId);
+    const id = this.store.id("decision");
+    const source = payload["source"] as { kind: AcceptedDecision["source"]["kind"]; ref?: string };
+    const supersedes = payload["supersedes"] ? String(payload["supersedes"]) : undefined;
+    this.store.inTx(db, () => {
+      const latest = this.latestBrief(db, mission);
+      const base = Number(payload["baseVersion"]);
+      if (base !== latest.version && (actor.kind !== "human" || base > latest.version)) throw new BrainDomainError("CONFLICT", `the brief changed since version ${base}; re-read version ${latest.version}`);
+      const active = this.activeDecisions(db, mission.id);
+      if (supersedes && !active.some((row) => row.id === supersedes)) throw new BrainDomainError("CONFLICT", "only an active decision of this mission can be superseded");
+      const statement = String(payload["statement"]);
+      assertBriefSize(latest.intent, JSON.parse(latest.constraints_json) as string[], [...active.filter((row) => row.id !== supersedes).map((row) => row.statement), statement]);
+      const version = this.writeBrief(db, actor, mission, latest, latest.intent, JSON.parse(latest.constraints_json) as string[], supersedes ? "superseded" : "decision", base < latest.version ? base : null);
+      db.prepare("INSERT INTO accepted_decisions(id,mission_id,statement,source_kind,source_ref,accepted_by,introduced_version,created_at_ms) VALUES (?,?,?,?,?,?,?,?)")
+        .run(id, mission.id, statement, source.kind, source.ref ?? null, actor.actorId, version, this.store.now());
+      if (supersedes) db.prepare("UPDATE accepted_decisions SET superseded_by=? WHERE id=? AND superseded_by IS NULL").run(id, supersedes);
+    });
+    return id;
+  }
+
+  /** Only a human changes what the coordinator may do; each change is a new policy version. */
+  private setPolicy(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only humans change a mission's autonomy policy");
+    const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
+    assertExpectedVersion(mission.version, expectedVersion);
+    assertNotClosed(mission);
+    const current = JSON.parse(mission.policy_json) as AutonomyPolicy;
+    const preset = payload["preset"] as AutonomyPreset | undefined;
+    const operations = payload["operations"] as PlanOperation[] | undefined;
+    if (!preset && !operations) throw new BrainDomainError("INVALID_ARGUMENT", "a preset or an operation list is required");
+    const next: AutonomyPolicy = operations
+      ? { ...(preset ? { preset } : {}), operations: [...new Set(operations)].sort(), version: current.version + 1 }
+      : { preset: preset as AutonomyPreset, operations: [...AUTONOMY_PRESETS[preset as AutonomyPreset]].sort(), version: current.version + 1 };
+    const db = this.db(actor, workspaceId);
+    this.store.inTx(db, () => {
+      db.prepare("UPDATE missions SET policy_json=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?").run(JSON.stringify(next), this.store.now(), mission.id, mission.version);
+      this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.policyChanged", payload: { missionId: mission.id } });
+    });
+    return mission.id;
+  }
+
+  private brief(actor: ActorContext, workspaceId: string, mission: MissionRow): MissionBrief {
+    const db = this.db(actor, workspaceId);
+    const latest = this.latestBrief(db, mission);
+    const decisions = (db.prepare("SELECT * FROM accepted_decisions WHERE mission_id=? ORDER BY introduced_version, id").all(mission.id) as DecisionRow[]).map((row): AcceptedDecision => ({
+      decisionId: row.id, missionId: row.mission_id, statement: row.statement,
+      source: { kind: row.source_kind, ...(row.source_ref ? { ref: row.source_ref } : {}) }, acceptedBy: row.accepted_by,
+      introducedInVersion: row.introduced_version, ...(row.superseded_by ? { supersededBy: row.superseded_by } : {}), createdAt: iso(row.created_at_ms),
+    }));
+    const counts = db.prepare("SELECT state, COUNT(*) AS n FROM work_items WHERE mission_id=? AND state!='abandoned' GROUP BY state").all(mission.id) as Array<{ state: string; n: number }>;
+    const constraints = JSON.parse(latest.constraints_json) as string[];
+    return {
+      missionId: mission.id, version: latest.version, intent: latest.intent, constraints, decisions,
+      progress: { total: counts.reduce((sum, row) => sum + row.n, 0), byState: Object.fromEntries(counts.map((row) => [row.state, row.n])) },
+      writtenChars: briefChars(latest.intent, constraints, decisions.filter((entry) => !entry.supersededBy).map((entry) => entry.statement)),
+      updatedBy: latest.created_by, updatedAt: iso(latest.created_at_ms),
+    };
+  }
+
   linkExecution(actor: ActorContext, workspaceId: string, workItemId: string, runId: string): void {
     const item = this.workItemRow(actor, workspaceId, workItemId);
+    const mission = this.missionRow(actor, workspaceId, item.mission_id);
+    if (mission.state !== "active") throw new BrainDomainError("CONFLICT", `a ${mission.state} mission starts no new work sessions`);
     const db = this.db(actor, workspaceId);
     this.store.inTx(db, () => {
       db.prepare("INSERT OR IGNORE INTO execution_links(mission_id,work_item_id,run_id,created_at_ms) VALUES (?,?,?,?)").run(item.mission_id, item.id, runId, this.store.now());
@@ -264,6 +467,7 @@ export class MissionService {
       const rows = db.prepare("SELECT * FROM missions ORDER BY updated_at_ms DESC,id LIMIT ?").all(limit) as MissionRow[];
       return { items: rows.map((row) => this.mission(workspaceId, row)) } as unknown as JsonValue;
     }
+    if (queryType === "missions.brief") return this.brief(actor, workspaceId, this.missionRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "missions.get") return this.mission(workspaceId, this.missionRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "plans.get") return this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "workItems.list") {
@@ -283,4 +487,17 @@ export class MissionService {
     throw new BrainDomainError("UNSUPPORTED_CAPABILITY", `unsupported work query ${queryType}`);
   }
 
+}
+
+function assertNotClosed(mission: { state: string }): void {
+  if (mission.state === "closed") throw new BrainDomainError("CONFLICT", "a closed mission is terminal; start a follow-up mission");
+}
+
+function briefChars(intent: string, constraints: readonly string[], decisions: readonly string[]): number {
+  return intent.length + constraints.reduce((sum, entry) => sum + entry.length, 0) + decisions.reduce((sum, entry) => sum + entry.length, 0);
+}
+
+function assertBriefSize(intent: string, constraints: readonly string[], decisions: readonly string[]): void {
+  const size = briefChars(intent, constraints, decisions);
+  if (size > BRIEF_CHAR_CAP) throw new BrainDomainError("INVALID_ARGUMENT", `the mission brief would hold ${size} characters; condense it to at most ${BRIEF_CHAR_CAP}`);
 }
