@@ -42,8 +42,15 @@ _Avoid_: agent (an agent is a definition), worker, bot
 
 **Mission brief**:
 The versioned shared understanding of a mission — intent, constraints, accepted
-decisions and progress — that every session of the mission starts from.
+decisions and progress — that every session of the mission starts from. Humans own intent
+and constraints; progress is derived from the plan, never written. It is mission state,
+not an output.
 _Avoid_: mission memory, context dump, summary
+
+**Accepted decision**:
+An immutable entry in a mission brief recording a choice, where it came from and who
+accepted it. It is superseded by a later entry, never edited.
+_Avoid_: ADR, note, assumption (an assumption in a handoff is not yet accepted)
 
 **Autonomy policy**:
 The bounds within which a mission's coordinator may change unstarted work, assign tasks
