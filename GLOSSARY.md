@@ -159,6 +159,12 @@ coordinator planning and coordinating. A coordinator's mission-level sessions ac
 through Brain commands.
 _Avoid_: planning session, chat session, free session
 
+**Mission message**:
+A durable message from a human to one team member or to the mission (which means its
+coordinator). It is steered into a live session when the engine allows, otherwise
+delivered when the recipient's next session starts. It never authorizes anything.
+_Avoid_: chat, prompt, instruction (it is not a brief edit or an approval)
+
 **Checkpoint**:
 Durable state recorded by an attempt — a checkpoint commit on its branch, progress,
 consumed and produced outputs, and in-flight effects — from which a later attempt can
