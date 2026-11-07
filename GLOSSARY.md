@@ -82,8 +82,8 @@ _Avoid_: task (standalone), todo, subtask
 
 **Work item**:
 Confirmed work materialized from a confirmed plan version, carrying criteria,
-dependencies, assignment, a next action and an evidence binding. The unit the board
-shows.
+dependencies, assignment, a next action and an evidence binding. The unit a mission's
+Plan view shows; the primary UI labels it by its plan task name.
 _Avoid_: card, ticket, issue, story
 
 **Subject**:
@@ -362,7 +362,8 @@ _Avoid_: principal (an actor is a principal mid-command), caller
 
 Unqualified area names denote where you look, never what something is: **Missions**,
 **Live**, **Logs**, **Outputs** and **Plays**. Inside a mission the **Team** and **Plan**
-views are places too, not the mission team or a plan version themselves.
+views are places too, not the mission team or a plan version themselves. **Knowledge**
+and **Administration** are secondary places reached from the account menu.
 
 **Build-process vocabulary is not domain vocabulary.** Task cards (`T01`–`T50`), gates
 (`G01`–`G08`), the implementation ledger and checkpoint, and pack verifiers describe how
