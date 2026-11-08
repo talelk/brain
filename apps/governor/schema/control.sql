@@ -18,6 +18,7 @@ CREATE TABLE workspaces (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id),
   slug TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('draft','discovering','configured','verifying','active','suspended','exporting','archived','restore_pending','restore_blocked')),
   description TEXT NOT NULL DEFAULT '', owner_id TEXT, tags_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(tags_json)),
+  autonomy_ceiling_json TEXT CHECK(autonomy_ceiling_json IS NULL OR json_valid(autonomy_ceiling_json)),
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   UNIQUE(organization_id, slug), UNIQUE(id, organization_id)
 ) STRICT;

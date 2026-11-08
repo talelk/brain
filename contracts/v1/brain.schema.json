@@ -6757,12 +6757,13 @@
             },
             "budget": {
               "$ref": "#/$defs/MissionBudget"
+            },
+            "playId": {
+              "$ref": "#/$defs/ConfigId"
             }
           },
           "required": [
-            "title",
-            "intent",
-            "successCriteria"
+            "title"
           ],
           "additionalProperties": false
         }
@@ -7224,7 +7225,9 @@
             "knowledgeAssets.list",
             "capabilityCandidates.list",
             "capitalizationRuns.list",
-            "sessions.context"
+            "sessions.context",
+            "plays.list",
+            "plays.get"
           ]
         },
         "workspaceId": {
@@ -7279,7 +7282,9 @@
             "knowledgeAssets.list",
             "capabilityCandidates.list",
             "capitalizationRuns.list",
-            "sessions.context"
+            "sessions.context",
+            "plays.list",
+            "plays.get"
           ]
         },
         "snapshot": {
@@ -8384,7 +8389,8 @@
                 "Agent",
                 "Workflow",
                 "RunnerGroup",
-                "Policy"
+                "Policy",
+                "Play"
               ]
             },
             "id": {
@@ -10789,6 +10795,9 @@
         },
         {
           "$ref": "#/$defs/MissionBudgetSetCommand"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceAutonomyCeilingSetCommand"
         }
       ]
     },
@@ -21979,6 +21988,210 @@
           "required": [
             "missionId",
             "budget"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "Play": {
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "type": "string",
+          "const": "brain.keyrus/v1"
+        },
+        "kind": {
+          "type": "string",
+          "const": "Play"
+        },
+        "metadata": {
+          "$ref": "#/$defs/Metadata"
+        },
+        "spec": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "intent": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8000
+            },
+            "successCriteria": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "maxItems": 100,
+              "minItems": 1
+            },
+            "constraints": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              "maxItems": 50
+            },
+            "team": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TeamMember"
+              },
+              "maxItems": 50
+            },
+            "coordinator": {
+              "$ref": "#/$defs/ConfigId"
+            },
+            "plan": {
+              "type": "object",
+              "properties": {
+                "tasks": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/PlanTask"
+                  },
+                  "maxItems": 100,
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "tasks"
+              ],
+              "additionalProperties": false
+            },
+            "autonomy": {
+              "$ref": "#/$defs/AutonomyPreset"
+            },
+            "parkingThreshold": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "budget": {
+              "$ref": "#/$defs/MissionBudget"
+            }
+          },
+          "required": [
+            "title",
+            "intent",
+            "successCriteria",
+            "team",
+            "plan"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "additionalProperties": false
+    },
+    "PlayView": {
+      "type": "object",
+      "properties": {
+        "playId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "releaseDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "team": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamMember"
+          },
+          "maxItems": 50
+        },
+        "taskCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "autonomy": {
+          "$ref": "#/$defs/AutonomyPreset"
+        }
+      },
+      "required": [
+        "playId",
+        "releaseDigest",
+        "title",
+        "team",
+        "taskCount"
+      ],
+      "additionalProperties": false
+    },
+    "WorkspaceAutonomyCeilingSetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "workspace.autonomyCeiling.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "workspaceId": {
+              "$ref": "#/$defs/Id"
+            },
+            "operations": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/PlanOperation"
+              },
+              "maxItems": 9,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "workspaceId",
+            "operations"
           ],
           "additionalProperties": false
         }

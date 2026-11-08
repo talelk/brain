@@ -13,7 +13,7 @@ import { workspaceAdminCommands } from "./workspace-admin";
 import { completeUpload, completeUploadStream, initUpload, readVerified, sweepStorage } from "../modules/artifacts/index";
 import { orgWorkspaces, textMatcher } from "./query";
 import { executeOrganizationQuery, isOrganizationQuery, organizationCommandHandlers } from "./organization-admin";
-import { activateRelease, activeReleaseAssets, activeSourceDocuments, activeWorkflow, configurationCommands, inspectRelease, listReleases, stageRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
+import { activateRelease, activeReleaseAssets, activeReleaseRecord, activeSourceDocuments, activeWorkflow, configurationCommands, inspectRelease, listReleases, stageRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
 import { MastraWorkflowEngine, workflowCommands, type WorkflowEnginePort } from "../modules/workflows/index";
 import { knowledgeCommands, MemoryStore, TencentDbClient } from "../modules/knowledge/index";
 import { admitApprovalDecision, governanceCommands, StepUpService } from "../modules/governance/index";
@@ -778,6 +778,19 @@ export class Brain {
       case "missions.list": case "missions.get": case "missions.brief": case "handoffs.forWorkItem": case "missionBundles.latest": case "missionOutputs.list": case "missionMessages.list": case "plans.get": case "workItems.list": case "workItems.get": case "executionLinks.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.missions.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
+      }
+      case "plays.list": case "plays.get": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        requireWorkspaceRead(s, actor, q.workspaceId);
+        const active = activeReleaseRecord(s, actor.organizationId);
+        const views = Object.entries(active?.release.plays ?? {}).map(([playId, play]) => ({
+          playId, releaseDigest: active!.digest, title: play.spec.title, ...(play.spec.description ? { description: play.spec.description } : {}),
+          team: play.spec.team, taskCount: play.spec.plan.tasks.length, ...(play.spec.autonomy ? { autonomy: play.spec.autonomy } : {}),
+        }));
+        if (q.queryType === "plays.list") return this.envelope(q.queryType, { items: views } as unknown as JsonValue);
+        const view = views.find((entry) => entry.playId === q.resourceId);
+        if (!view) throw new BrainDomainError("NOT_FOUND", "play not found in the active release");
+        return this.envelope(q.queryType, view as unknown as JsonValue);
       }
       case "command.get": {
         const commandId = String((raw as { commandId?: string }).commandId ?? q.resourceId ?? "");

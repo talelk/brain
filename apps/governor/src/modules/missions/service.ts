@@ -4,7 +4,7 @@ import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import { assertExpectedVersion, assertTransition, transitionState } from "../../domain/states";
 import { assertPlanTasks } from "../../domain/work-plan";
-import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations, type AgentCapabilities } from "../../domain/mission-policy";
+import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations, withinCeiling, type AgentCapabilities } from "../../domain/mission-policy";
 import { activeReleaseRecord } from "../configuration/index";
 import { admit, budgetOf, clockSet, hasHeadroom, reserve as reserveSpend, settle, usageOf } from "./budget";
 import { listMessages, listOutputs, pinInputs, recordOutputVersion, sendMessage, verifyOutputs } from "./outputs";
@@ -155,21 +155,37 @@ export class MissionService {
   private createMission(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
     const db = this.db(actor, workspaceId);
     const id = this.store.id("mission");
-    const intent = String(payload["intent"]);
-    const constraints = (payload["constraints"] as string[] | undefined) ?? [];
+    const release = payload["playId"] ? activeReleaseRecord(this.store, actor.organizationId) : undefined;
+    const play = payload["playId"] ? release?.release.plays?.[String(payload["playId"])] : undefined;
+    if (payload["playId"] && !play) throw new BrainDomainError("NOT_FOUND", `play ${String(payload["playId"])} is not in the active release`);
+    const intent = String(payload["intent"] ?? play?.spec.intent ?? "");
+    if (!intent) throw new BrainDomainError("INVALID_ARGUMENT", "a mission needs an intent");
+    const successCriteria = (payload["successCriteria"] as string[] | undefined) ?? play?.spec.successCriteria;
+    if (!successCriteria || successCriteria.length === 0) throw new BrainDomainError("INVALID_ARGUMENT", "a mission needs success criteria");
+    const constraints = (payload["constraints"] as string[] | undefined) ?? play?.spec.constraints ?? [];
     assertBriefSize(intent, constraints, []);
-    const policy = policyFor((payload["autonomy"] as AutonomyPreset | undefined) ?? "standard", 1);
+    const preset = (payload["autonomy"] as AutonomyPreset | undefined) ?? play?.spec.autonomy ?? "standard";
+    const policy = withinCeiling(policyFor(preset, 1), this.ceiling(workspaceId));
     this.store.inTx(db, () => {
       const now = this.store.now();
-      const budget = (payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap?: number; attemptReserveMicroUsd?: number } | undefined) ?? {};
+      const budget = (payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap?: number; attemptReserveMicroUsd?: number } | undefined) ?? play?.spec.budget ?? {};
       db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,policy_json,parking_threshold,budget_micro_usd,budget_wall_ms,member_cap,attempt_reserve_micro_usd,active_since_ms,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-        .run(id, String(payload["title"]), intent, JSON.stringify(payload["successCriteria"]), actor.actorId, JSON.stringify(policy), Number(payload["parkingThreshold"] ?? 3),
+        .run(id, String(payload["title"]), intent, JSON.stringify(successCriteria), actor.actorId, JSON.stringify(policy), Number(payload["parkingThreshold"] ?? play?.spec.parkingThreshold ?? 3),
           budget.maxMicroUsd ?? null, budget.maxWallClockMs ?? null, budget.memberCap ?? 3, budget.attemptReserveMicroUsd ?? 0, now, now, now);
       db.prepare("INSERT INTO mission_brief_versions(mission_id,version,intent,constraints_json,change,created_by,created_at_ms) VALUES (?,1,?,?,'created',?,?)")
         .run(id, intent, JSON.stringify(constraints), actor.actorId, now);
+      if (play && release) db.prepare("UPDATE missions SET play_id=?,play_release_digest=? WHERE id=?").run(String(payload["playId"]), release.digest, id);
       this.store.emit(db, { aggregateType: "mission", aggregateId: id, eventType: "mission.created", payload: { missionId: id } });
     });
+    if (play) this.proposePlan(actor, workspaceId, { missionId: id, origin: "template", summary: `From play ${String(payload["playId"])}`, tasks: play.spec.plan.tasks, team: play.spec.team });
     return id;
+  }
+
+  /** The workspace's autonomy ceiling: no mission policy may grant more (#35). */
+  private ceiling(workspaceId: string): readonly PlanOperation[] {
+    const row = this.store.control.prepare("SELECT autonomy_ceiling_json FROM workspaces WHERE id=?").get(workspaceId) as { autonomy_ceiling_json: string | null } | undefined;
+    // No ceiling set means the workspace allows every plan operation.
+    return row?.autonomy_ceiling_json ? JSON.parse(row.autonomy_ceiling_json) as PlanOperation[] : [...AUTONOMY_PRESETS.autonomous];
   }
 
   private proposePlan(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
@@ -550,6 +566,9 @@ export class MissionService {
     const next: AutonomyPolicy = operations
       ? { ...(preset ? { preset } : {}), operations: [...new Set(operations)].sort(), version: current.version + 1 }
       : { preset: preset as AutonomyPreset, operations: [...AUTONOMY_PRESETS[preset as AutonomyPreset]].sort(), version: current.version + 1 };
+    const ceiling = this.ceiling(workspaceId);
+    const beyond = next.operations.filter((operation) => !ceiling.includes(operation));
+    if (beyond.length > 0) throw new BrainDomainError("FORBIDDEN", `the workspace autonomy ceiling does not allow ${beyond.join(", ")}`);
     const db = this.db(actor, workspaceId);
     this.store.inTx(db, () => {
       db.prepare("UPDATE missions SET policy_json=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?").run(JSON.stringify(next), this.store.now(), mission.id, mission.version);

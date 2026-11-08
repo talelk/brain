@@ -81,6 +81,16 @@ function defaultDraft(title: string, kind: string): { documents: SourceDoc[]; as
       },
     })], assets: [] };
   }
+  if (kind === "Play") {
+    return { documents: [{ path: `plays/${id}.yaml`, text: stringify({
+      apiVersion: "brain.keyrus/v1", kind, metadata: { id, version: "1.0.0" },
+      spec: {
+        title, intent: "Describe the outcome this play delivers.", successCriteria: ["The outcome is independently verified"],
+        team: [], plan: { tasks: [{ id: "deliver", title: "Deliver the outcome", criteria: ["outcome-verified"], dependsOn: [] }] },
+        autonomy: "standard", parkingThreshold: 3,
+      },
+    }) }], assets: [] };
+  }
   const documents = [{ path: `${kind.toLowerCase()}s/${id}.yaml`, text: stringify({
     apiVersion: "brain.keyrus/v1", kind, metadata: { id, ...(kind === "Agent" ? { version: "1.0.0" } : {}) },
     spec: kind === "Agent" ? {

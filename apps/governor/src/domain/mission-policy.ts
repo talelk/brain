@@ -12,6 +12,11 @@ export function policyFor(preset: AutonomyPreset, version: number): AutonomyPoli
   return { preset, operations: [...AUTONOMY_PRESETS[preset]], version };
 }
 
+/** A preset clipped to the workspace ceiling: a Play or a mission can never grant more than the workspace allows. */
+export function withinCeiling(policy: AutonomyPolicy, ceiling: readonly PlanOperation[]): AutonomyPolicy {
+  return { ...policy, operations: policy.operations.filter((operation) => ceiling.includes(operation)).sort() };
+}
+
 /** Plan-version diff against the confirmed version, with the affected branch (issue #39). */
 export interface PlanDiff {
   readonly added: readonly string[];

@@ -58,6 +58,22 @@ export function workspaceAdminCommands(store: Store, auth: BrainAuth, jobs: Pick
         return { resourceId: workspaceId };
       },
     },
+    "workspace.autonomyCeiling.set": {
+      kind: "control",
+      handle: ({ actor, cmd, workspaceId }) => {
+        // Only organization administrators bound what any mission's coordinator may do (#35).
+        if (actor.kind !== "human" || !actor.scopes.includes("config:activate")) throw new BrainDomainError("FORBIDDEN", "the autonomy ceiling is set by organization administration");
+        const p = cmd.payload;
+        if (!workspaceId || String(p["workspaceId"]) !== workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspace scope mismatch");
+        const workspace = s.control.prepare("SELECT version FROM workspaces WHERE id=? AND organization_id=?").get(workspaceId, actor.organizationId) as { version: number } | undefined;
+        if (!workspace) throw new BrainDomainError("NOT_FOUND", "workspace not found");
+        assertExpectedVersion(workspace.version, cmd.expectedVersion);
+        const operations = [...new Set(p["operations"] as string[])].sort();
+        s.control.prepare("UPDATE workspaces SET autonomy_ceiling_json=?,version=version+1 WHERE id=? AND organization_id=? AND version=?").run(JSON.stringify(operations), workspaceId, actor.organizationId, workspace.version);
+        s.emit(s.control, { organizationId: actor.organizationId, workspaceId, aggregateType: "workspace", aggregateId: workspaceId, eventType: "workspace.updated", payload: { workspaceId } });
+        return { resourceId: workspaceId };
+      },
+    },
     "workspace.control": {
       kind: "control",
       handle: ({ actor, cmd, workspaceId }) => {

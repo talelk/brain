@@ -591,6 +591,15 @@
       "actors": [
         "human"
       ]
+    },
+    {
+      "type": "workspace.autonomyCeiling.set",
+      "schema": "WorkspaceAutonomyCeilingSetCommand",
+      "scope": "config:activate",
+      "authority": "control",
+      "actors": [
+        "human"
+      ]
     }
   ],
   "queries": [
@@ -664,7 +673,9 @@
     "live.status",
     "artifacts.history",
     "artifacts.diff",
-    "sessions.context"
+    "sessions.context",
+    "plays.list",
+    "plays.get"
   ],
   "events": [
     {

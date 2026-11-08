@@ -18,6 +18,7 @@ CREATE TABLE missions (
   outcome TEXT CHECK(outcome IS NULL OR outcome IN ('achieved','ended','cancelled')),
   brief_version INTEGER NOT NULL DEFAULT 1 CHECK(brief_version > 0),
   parking_threshold INTEGER NOT NULL DEFAULT 3 CHECK(parking_threshold BETWEEN 1 AND 10),
+  play_id TEXT, play_release_digest TEXT,
   budget_micro_usd INTEGER CHECK(budget_micro_usd IS NULL OR budget_micro_usd >= 0),
   budget_wall_ms INTEGER CHECK(budget_wall_ms IS NULL OR budget_wall_ms >= 0),
   member_cap INTEGER NOT NULL DEFAULT 3 CHECK(member_cap BETWEEN 1 AND 50),

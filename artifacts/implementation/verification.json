@@ -1,13 +1,13 @@
 {
   "status": "passed",
   "scope": "documentation-contract-pack-only",
-  "inputFingerprint": "9358cd09106dc399fa233d9478c4aadcc070b1728af5c5e647f05a8b694ec172",
-  "checkedAt": "2026-11-08T01:04:36.118329+00:00",
+  "inputFingerprint": "d0faa9e588a7bf20bac80ea89d57face3aba0e4486b8e44ab8284f859353cc4f",
+  "checkedAt": "2026-11-08T01:31:06.847174+00:00",
   "checks": [
     {
       "name": "schema-meta",
       "status": "passed",
-      "detail": 355
+      "detail": 358
     },
     {
       "name": "schema-local-references",
@@ -42,7 +42,7 @@
     {
       "name": "registry-parity",
       "status": "passed",
-      "detail": "63 commands, 99 typed lifecycle events"
+      "detail": "64 commands, 99 typed lifecycle events"
     },
     {
       "name": "openapi-structure-and-refs",

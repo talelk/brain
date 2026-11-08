@@ -1,5 +1,8 @@
 import { parseDocument, isAlias } from "yaml";
 import type { Agent, Evaluator, JsonValue, Workflow } from "@brain/contracts";
+import type { Play } from "@brain/contracts";
+import { assertPlanTasks } from "../../domain/work-plan";
+import { assertTeamEligible } from "../../domain/mission-policy";
 import { payloadValidator, validate } from "@brain/contracts/validate";
 import { domainDigest, sha256Digest } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
@@ -13,12 +16,13 @@ export interface CompiledRelease {
   readonly manifest: JsonValue;
   readonly workflows: Readonly<Record<string, Workflow>>;
   readonly agents: Readonly<Record<string, Agent>>;
+  readonly plays: Readonly<Record<string, Play>>;
   readonly evaluators: Readonly<Record<string, Evaluator>>;
   readonly tools: readonly { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; entrypoint?: string; entrypointDigest?: string }[];
   readonly documents: readonly { kind: string; id: string; digest: string }[];
 }
 
-const KINDS = new Set(["BrainConfig", "WorkspaceType", "Workspace", "RunnerGroup", "Agent", "Tool", "Policy", "Workflow", "Pack", "Connector", "Evaluator", "Schedule"]);
+const KINDS = new Set(["BrainConfig", "WorkspaceType", "Workspace", "RunnerGroup", "Agent", "Tool", "Policy", "Workflow", "Pack", "Connector", "Evaluator", "Schedule", "Play"]);
 
 export function parseRestrictedYaml(text: string, path: string): Record<string, unknown> {
   if (Buffer.byteLength(text, "utf8") > 256 * 1024) throw new BrainDomainError("INVALID_CONTRACT", `${path}: definition too large`);
@@ -225,6 +229,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
   const workflows: Record<string, Workflow> = {};
   const agents: Record<string, Agent> = {};
   const evaluators: Record<string, Evaluator> = {};
+  const plays: Record<string, Play> = {};
   const entries: { kind: string; id: string; digest: string; bytes: number; path: string }[] = [];
   const tools: { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; entrypoint?: string; entrypointDigest?: string }[] = [];
   const seenIds = new Set<string>();
@@ -263,6 +268,11 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
       }
       if (Buffer.byteLength(matches[0]?.text ?? "", "utf8") > 256 * 1024) throw new BrainDomainError("PAYLOAD_TOO_LARGE", `${path}: agent instructions exceed 256 KiB`);
       agents[id] = agent;
+    }
+    if (kind === "Play") {
+      const check = validate("Play", raw);
+      if (!check.ok) throw new BrainDomainError("INVALID_CONTRACT", `${path}: ${check.errors.join("; ")}`);
+      plays[id] = raw as unknown as Play;
     }
     if (kind === "Evaluator") {
       const check = validate("Evaluator", raw);
@@ -358,7 +368,19 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
   // The compiled IR (lowered workflows/evaluators + document index) is a
   // real digest-addressed artifact of the release; ConfigRelease views are
   // derived from these exact fields, never synthesized at read time.
-  const ir = { workflows, agents, evaluators, schemas: schemaMap, documents: entries } as unknown as JsonValue;
+  // A Play's team names agent definitions of this same release and must be
+  // eligible for its plan, mechanically and before activation (#37).
+  for (const [playId, play] of Object.entries(plays)) {
+    const capabilities = Object.fromEntries(Object.entries(agents).map(([agentId, agent]) => [agentId, { tools: agent.spec.tools.map((tool) => tool.id), engines: [...agent.spec.engine.anyOf], maxMicroUsd: agent.spec.maxMicroUsd }]));
+    try {
+      assertPlanTasks(play.spec.plan.tasks);
+      assertTeamEligible(play.spec.team, play.spec.plan.tasks, capabilities);
+    } catch (error) {
+      throw new BrainDomainError("INVALID_CONTRACT", `Play ${playId}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (play.spec.coordinator && !play.spec.team.some((member) => member.memberId === play.spec.coordinator)) throw new BrainDomainError("INVALID_CONTRACT", `Play ${playId}: coordinator ${play.spec.coordinator} is not on its team`);
+  }
+  const ir = { workflows, agents, evaluators, plays, schemas: schemaMap, documents: entries } as unknown as JsonValue;
   const irJson = JSON.stringify(ir);
   const primitiveVersions: Record<string, string> = {};
   for (const e of entries) primitiveVersions[`${e.kind}:${e.id}`] = e.digest;
@@ -379,7 +401,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
     tools: tools as unknown as JsonValue,
   };
   const digest = domainDigest("brain:config-release:v1", manifest);
-  return { digest, manifest, workflows, agents, evaluators, tools, schemas: schemaMap, documents: entries };
+  return { digest, manifest, workflows, agents, evaluators, plays, tools, schemas: schemaMap, documents: entries };
 }
 
 export function resolveBinding(bindings: Readonly<Record<string, unknown>>, input: JsonValue, outputs: Readonly<Record<string, JsonValue>>): Record<string, JsonValue> {
