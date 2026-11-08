@@ -33,7 +33,14 @@ test("guided task entry: persisted modes, shared review, timeout recovery, conso
   // never dispatches by itself; the rail advances to review only with a draft.
   await page.goto(`${governor.url}/w/operations/workflows?mode=ask`);
   await expect(page.locator('ol[aria-label="Guided steps"] [aria-current="step"]')).toHaveText(/Start/);
-  await page.getByLabel(/^Your request/).fill("Draft a support reply about an expired session");
+  // A late scoped-read render can replace the field: wait until the request
+  // is really in it and Send is enabled before submitting.
+  const request = page.getByLabel(/^Your request/);
+  await expect(async () => {
+    await request.fill("Draft a support reply about an expired session");
+    await expect(request).toHaveValue("Draft a support reply about an expired session", { timeout: 1_000 });
+    await expect(page.getByRole("button", { name: "Send request", exact: true })).toBeEnabled({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
   await page.getByRole("button", { name: "Send request", exact: true }).focus(); await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/conversation=/);
   const firstConversationUrl = page.url();
