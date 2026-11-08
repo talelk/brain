@@ -64,7 +64,7 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
   await expect(reviewButton).toBeFocused();
 
   // Execution-console IA: the primary Live entry lands on /w/:id/live, and the
-  // execution area carries Logs, Outputs and Runs beside it.
+  // execution area carries Logs (with the run index) and Outputs beside it.
   if (await navToggle.isVisible()) await navToggle.click();
   await page.getByRole("button", { name: "Live", exact: true }).click();
   await expect(page).toHaveURL(/\/w\/ws-nav\/live/);
@@ -72,7 +72,8 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
   if (await navToggle.isVisible()) await navToggle.click();
   await expect(page.getByRole("button", { name: "Logs", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Outputs", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Runs", exact: true }).click();
+  await page.getByRole("button", { name: "Logs", exact: true }).click();
+  await expect(page).toHaveURL(/\/w\/ws-nav\/logs/);
   await expect(page.getByRole("heading", { name: "No runs in this view" })).toBeVisible();
   expect(errors).toEqual([]);
 });
