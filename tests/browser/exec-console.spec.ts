@@ -247,4 +247,34 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   await expect(page).toHaveURL(/session=ses-triage/);
   await expect(page).toHaveURL(/severity=error/);
   await expect(page.getByRole("button", { name: "Error" })).toHaveAttribute("aria-pressed", "true");
+
+  // (h) The mission cockpit (T60): its console holds only this mission's
+  // sessions, the team rail follows one member, and the composer messages that
+  // member and adds the message to the brief as a constraint.
+  ws.prepare("UPDATE plan_versions SET team_json=? WHERE id='pv-console'").run(JSON.stringify([{ memberId: "writer", role: "Dossier writer", agentId: "writer-agent", engine: "pi" }]));
+  ws.prepare("UPDATE work_items SET assignment_json=? WHERE id='wi-console'").run(JSON.stringify({ kind: "agent", id: "writer", role: "specialist" }));
+  ws.prepare("UPDATE missions SET active_plan_version_id='pv-console' WHERE id='obj-console'").run();
+  ws.prepare("INSERT OR IGNORE INTO mission_brief_versions(mission_id,version,intent,constraints_json,change,created_by,created_at_ms) VALUES ('obj-console',1,'Ship it','[]','created',?,?)").run(actor.actorId, now);
+  await page.goto(`${governor.url}/missions/obj-console/live`);
+  await expect(rail.locator('[data-session-id="ses-report"]')).toBeVisible({ timeout: 30_000 });
+  await expect(rail.locator('[data-session-id="ses-plan"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "Follow Dossier writer (writer)", exact: true }).click();
+  await expect(page).toHaveURL(/member=writer/);
+  await expect(rail.locator('[data-session-id="ses-report"]')).toBeVisible();
+  await page.getByLabel("Recipient", { exact: true }).click();
+  await page.getByRole("option", { name: "Dossier writer (writer)", exact: true }).click();
+  await page.getByLabel("Message", { exact: true }).fill("Keep the rollout section verbatim.");
+  await page.getByLabel("Also add to the brief as a constraint").check();
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect.poll(() => ws.prepare("SELECT recipient_kind, recipient_member_id FROM mission_messages WHERE body=?").get("Keep the rollout section verbatim.")).toEqual({ recipient_kind: "member", recipient_member_id: "writer" });
+  await expect.poll(() => (ws.prepare("SELECT constraints_json FROM mission_brief_versions WHERE mission_id='obj-console' ORDER BY version DESC LIMIT 1").get() as { constraints_json: string }).constraints_json).toBe(JSON.stringify(["Keep the rollout section verbatim."]));
+
+  // The workspace console filters to one mission; the header bell opens the
+  // attention drawer instead of an inbox route.
+  await page.goto(`${governor.url}/w/ws-console/live?mission=obj-console`);
+  await expect(rail.locator('[data-session-id="ses-report"]')).toBeVisible({ timeout: 30_000 });
+  await expect(rail.locator('[data-session-id="ses-plan"]')).toHaveCount(0);
+  await page.getByRole("button", { name: /^Needs you:/ }).click();
+  await expect(page.getByRole("dialog").getByRole("heading", { name: "Needs you", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("Recent notifications", { exact: true })).toBeVisible();
 });

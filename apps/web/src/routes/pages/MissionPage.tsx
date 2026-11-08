@@ -1,9 +1,9 @@
 import { createSignal, For, Match, Show, Switch } from "solid-js";
 import type { JSX } from "solid-js";
-import { useNavigate, useParams, useSearchParams } from "@solidjs/router";
+import { useLocation, useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
-import { Alert } from "@talelk/newui-molecules";
-import type { BrainSession, ExecutionLink, WorkItem, Mission, MissionBrief, MissionMessage, Output, PlanVersion, SinceLastVisitSummary } from "@brain/contracts";
+import { Alert, Select } from "@talelk/newui-molecules";
+import type { BrainSession, ExecutionLink, TeamMember, WorkItem, Mission, MissionBrief, MissionMessage, Output, PlanVersion, SinceLastVisitSummary } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
@@ -15,6 +15,8 @@ import { SchedulesPanel } from "../../ui/components/SchedulesPanel";
 import { PlanCanvas } from "../../ui/components/PlanCanvas";
 import { formatDateTime } from "../../ui/format";
 import { missionHref, type MissionTab } from "../../ui/mission-links";
+import { ConsoleScreen } from "../../ui/console/ConsoleLayout";
+import { readExecFilters, writeExecFilters } from "../../ui/exec/exec-filters";
 
 const TABS: readonly { id: MissionTab; label: string }[] = [
   { id: "live", label: "Live" }, { id: "team", label: "Team" }, { id: "plan", label: "Plan" },
@@ -105,29 +107,63 @@ function useMissionRead<T>(missionId: string, queryType: string, pick: (raw: unk
 
 type ActProps = { mission: Mission; onAct: (fn: () => Promise<unknown>) => Promise<void>; busy: boolean };
 
-/** Live: what changed since you last looked, the team's running sessions and the composer (#38/#40). */
+/**
+ * Live, the mission cockpit (T60, #27/#38/#40): what changed since you last
+ * looked, the team rail (members with their sessions), the console limited to
+ * this mission's sessions — filtered to one member when chosen — and the
+ * composer that messages the mission or one member, may interrupt at the next
+ * safe point and may also add the message to the brief as a constraint.
+ * Active and historical sessions share this layout; state alone differs.
+ */
 function LiveTab(props: ActProps): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [search, setSearch] = useSearchParams();
   const summary = useMissionRead<SinceLastVisitSummary>(props.mission.missionId, "missions.sinceLastVisit", (raw) => raw as SinceLastVisitSummary);
   const messages = useMissionRead<MissionMessage[]>(props.mission.missionId, "missionMessages.list", (raw) => [...(raw as { items: MissionMessage[] }).items], (items) => items.length === 0);
-  const sessions = createScopedRead<BrainSession[]>({
+  const brief = useMissionRead<MissionBrief>(props.mission.missionId, "missions.brief", (raw) => raw as MissionBrief);
+  const team = createScopedRead<{ members: TeamMember[]; items: WorkItem[]; sessions: BrainSession[] }>({
     scope: app.scope,
     load: async (scope, signal) => {
-      const [all, items] = await Promise.all([
+      const [plan, items, sessions] = await Promise.all([
+        props.mission.activePlanVersionId ? query<Envelope<PlanVersion>>({ queryType: "plans.get", workspaceId: scope.workspaceId, resourceId: props.mission.activePlanVersionId }, signal) : Promise.resolve(undefined),
+        query<Envelope<{ items: WorkItem[] }>>({ queryType: "workItems.list", workspaceId: scope.workspaceId, limit: 100 }, signal),
         query<Envelope<{ items: BrainSession[] }>>({ queryType: "sessions.list", workspaceId: scope.workspaceId }, signal),
-        query<Envelope<{ items: Array<{ workItemId: string; missionId: string }> }>>({ queryType: "workItems.list", workspaceId: scope.workspaceId, limit: 100 }, signal),
       ]);
-      const mine = new Set(items.snapshot.items.filter((item) => item.missionId === props.mission.missionId).map((item) => item.workItemId));
-      return { snapshot: all.snapshot.items.filter((session) => session.workItemId && mine.has(session.workItemId)), asOf: all.asOf, sourceWatermark: all.sourceWatermark };
+      const mine = items.snapshot.items.filter((item) => item.missionId === props.mission.missionId);
+      const ids = new Set(mine.map((item) => item.workItemId));
+      return { snapshot: { members: [...(plan?.snapshot.team ?? [])], items: mine, sessions: sessions.snapshot.items.filter((session) => session.workItemId && ids.has(session.workItemId)) }, asOf: sessions.asOf, sourceWatermark: sessions.sourceWatermark };
     },
-    isEmpty: (items) => items.length === 0,
     refreshMs: 10_000,
   });
+  const member = () => (typeof search.member === "string" ? search.member : "");
+  const memberOf = (session: BrainSession) => {
+    const item = team.state().data?.items.find((entry) => entry.workItemId === session.workItemId);
+    return item?.assignment?.kind === "agent" ? item.assignment.id : "";
+  };
+  const sessionsOf = (memberId: string) => (team.state().data?.sessions ?? []).filter((session) => memberOf(session) === memberId);
+  const inScope = (session: BrainSession) => (team.state().data?.sessions ?? []).some((entry) => entry.sessionId === session.sessionId) && (!member() || memberOf(session) === member());
+  const filters = () => readExecFilters(search);
   const [body, setBody] = createSignal("");
+  const [recipient, setRecipient] = createSignal("mission");
   const [interrupt, setInterrupt] = createSignal(false);
-  return <div class="brain-studio-layout">
-    <div class="brain-detail-stack">
+  const [addToBrief, setAddToBrief] = createSignal(false);
+  const send = () => void props.onAct(async () => {
+    const text = body().trim();
+    const sent = await app.run("mission.message.send", { missionId: props.mission.missionId, recipient: recipient() === "mission" ? { kind: "mission" } : { kind: "member", memberId: recipient() }, body: text, ...(interrupt() ? { interrupt: true } : {}) });
+    if (!sent.accepted) throw new Error(sent.detail);
+    const current = brief.state().data;
+    if (addToBrief() && current) {
+      const edited = await app.run("mission.brief.edit", { missionId: props.mission.missionId, baseVersion: current.version, constraints: [...current.constraints, text.slice(0, 1000)] });
+      if (!edited.accepted) throw new Error(edited.detail);
+      await brief.refresh({ force: true });
+    }
+    setBody(""); setAddToBrief(false);
+    await messages.refresh({ force: true });
+  });
+  return <PageStack>
+    <div class="brain-studio-layout">
       <WorkspaceSection title="While you were away" description="Notable events since you last looked; everything else is counted.">
         <ScreenRegion state={summary.state()} onRetry={() => void summary.refresh({ force: true })} emptyTitle="Nothing yet" emptyDescription="Events appear as the mission moves.">
           <Show when={summary.state().data}>{(s) => <>
@@ -139,24 +175,32 @@ function LiveTab(props: ActProps): JSX.Element {
           </>}</Show>
         </ScreenRegion>
       </WorkspaceSection>
-      <WorkspaceSection title="Team at work" description="Sessions serving this mission's work items.">
-        <ScreenRegion state={sessions.state()} onRetry={() => void sessions.refresh({ force: true })} emptyTitle="No sessions yet" emptyDescription="Sessions appear when the team's work is dispatched.">
-          <div class="brain-queue"><For each={sessions.state().data ?? []}>{(session) => <QueueRow title={session.task || session.sessionId} description={`${session.agentId} · ${session.engine.id}`} icon="lucide-terminal"
-            tone={session.state === "running" ? "blue" : session.state === "failed" ? "red" : "gray"} meta={<span>{session.state}</span>} onClick={() => void navigate(`/sessions/${session.sessionId}`)} />}</For></div>
+      <WorkspaceSection title="Message the mission" description="Reaches the coordinator or one member's running session when its engine can be steered. A message never approves anything.">
+        <Select label="Recipient" value={recipient()} onValueChange={(value) => setRecipient(value ?? "mission")}
+          options={[{ value: "mission", label: "The mission (coordinator)" }, ...(team.state().data?.members ?? []).map((entry) => ({ value: entry.memberId, label: `${entry.role} (${entry.memberId})` }))]} />
+        <Textarea label="Message" value={body()} onInput={(event) => setBody(event.currentTarget.value)} placeholder="Prioritise the login flow" />
+        <label class="mt-2 flex items-center gap-2 text-interface"><input type="checkbox" checked={interrupt()} onChange={(event) => setInterrupt(event.currentTarget.checked)} />Interrupt running sessions at their next safe point</label>
+        <label class="mt-1 flex items-center gap-2 text-interface"><input type="checkbox" checked={addToBrief()} onChange={(event) => setAddToBrief(event.currentTarget.checked)} />Also add to the brief as a constraint</label>
+        <Button size="md" theme="blue" class="mt-2" iconLeft="lucide-send" disabled={!body().trim() || props.busy || props.mission.state === "closed"} onClick={send}>Send</Button>
+        <ScreenRegion state={messages.state()} onRetry={() => void messages.refresh({ force: true })} emptyTitle="No messages" emptyDescription="Messages you send appear here with their delivery state.">
+          <ul class="mt-3 flex flex-col gap-2"><For each={(messages.state().data ?? []).slice(0, 5)}>{(message) => <li class="rounded-control border border-outline-gray-1 p-2">
+            <p class="break-words text-interface">{message.body}</p><p class="text-caption text-ink-gray-6">{message.recipient.kind === "member" ? `to ${message.recipient.memberId} · ` : ""}{message.senderId} · {message.delivery} · {formatDateTime(message.createdAt)}</p></li>}</For></ul>
         </ScreenRegion>
       </WorkspaceSection>
     </div>
-    <WorkspaceSection title="Message the mission" description="Reaches the coordinator, or a running session when its engine can be steered. A message never approves anything.">
-      <Textarea label="Message" value={body()} onInput={(event) => setBody(event.currentTarget.value)} placeholder="Prioritise the login flow" />
-      <label class="mt-2 flex items-center gap-2 text-interface"><input type="checkbox" checked={interrupt()} onChange={(event) => setInterrupt(event.currentTarget.checked)} />Interrupt running sessions at their next safe point</label>
-      <Button size="md" theme="blue" class="mt-2" iconLeft="lucide-send" disabled={!body().trim() || props.busy || props.mission.state === "closed"}
-        onClick={() => void props.onAct(async () => { await app.run("mission.message.send", { missionId: props.mission.missionId, recipient: { kind: "mission" }, body: body().trim(), ...(interrupt() ? { interrupt: true } : {}) }); setBody(""); await messages.refresh({ force: true }); })}>Send message</Button>
-      <ScreenRegion state={messages.state()} onRetry={() => void messages.refresh({ force: true })} emptyTitle="No messages" emptyDescription="Messages you send appear here with their delivery state.">
-        <ul class="mt-3 flex flex-col gap-2"><For each={messages.state().data ?? []}>{(message) => <li class="rounded-control border border-outline-gray-1 p-2">
-          <p class="break-words text-interface">{message.body}</p><p class="text-caption text-ink-gray-6">{message.senderId} · {message.delivery} · {formatDateTime(message.createdAt)}</p></li>}</For></ul>
-      </ScreenRegion>
+    <WorkspaceSection title="Team" description="Choose a member to follow only their sessions in the console.">
+      <div class="brain-queue">
+        <QueueRow title="Whole team" description={`${team.state().data?.sessions.length ?? 0} sessions`} icon="lucide-users" selected={!member()} label="Follow the whole team" onClick={() => setSearch({ member: undefined, session: undefined })} />
+        <For each={team.state().data?.members ?? []}>{(entry) => <QueueRow title={entry.role} description={`${entry.agentId} · ${entry.engine}`} eyebrow={entry.memberId} icon="lucide-bot"
+          tone={sessionsOf(entry.memberId).some((session) => session.state === "running") ? "blue" : "gray"} selected={member() === entry.memberId}
+          meta={<span>{sessionsOf(entry.memberId).filter((session) => session.state === "running").length} running · {sessionsOf(entry.memberId).length} sessions</span>}
+          label={`Follow ${entry.role} (${entry.memberId})`} onClick={() => setSearch({ member: entry.memberId, session: undefined })} />}</For>
+      </div>
     </WorkspaceSection>
-  </div>;
+    <ConsoleScreen workspaceId={app.workspaceId()} include={inScope} requestedSession={typeof search.session === "string" ? search.session : undefined}
+      filters={filters()} onFiltersChange={(patch) => setSearch({ ...writeExecFilters({ ...filters(), ...patch }) })}
+      onSessionChange={(sessionId) => void navigate(`${location.pathname}?${new URLSearchParams({ ...(member() ? { member: member() } : {}), ...(sessionId ? { session: sessionId } : {}) }).toString()}`, { replace: true })} />
+  </PageStack>;
 }
 
 /** Team: the confirmed plan version's members, their roles, agents and engines (#37). */

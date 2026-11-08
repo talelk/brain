@@ -81,6 +81,8 @@ export function ConsoleScreen(props: {
   filters: ExecLogFilters;
   onFiltersChange: (patch: Partial<ExecLogFilters>) => void;
   onSessionChange: (sessionId: string | undefined) => void;
+  /** Limits the console to some sessions, e.g. one mission's or one member's. */
+  include?: (session: BrainSession) => boolean;
 }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
@@ -103,11 +105,12 @@ export function ConsoleScreen(props: {
     refreshMs: 10_000,
   });
 
+  const visible = () => (sessions.state().data ?? []).filter((session) => props.include?.(session) ?? true);
   // Selection: URL first, then the persisted fallback, then the most relevant
   // live session. Every change is written back through onSessionChange.
   const selected = createMemo(() => props.requestedSession ?? lastSelectedSession(ws()) ?? "");
   createEffect(() => {
-    const items = sessions.state().data;
+    const items = visible();
     if (!items?.length) return;
     const current = selected();
     if (current && items.some((item) => item.sessionId === current)) {
@@ -121,7 +124,7 @@ export function ConsoleScreen(props: {
     props.onSessionChange(preferred.sessionId);
   });
 
-  const rail = <SessionRail workspaceId={ws()} sessions={sessions.state().data ?? []} jobs={jobs.state().data ?? []}
+  const rail = <SessionRail workspaceId={ws()} sessions={visible()} jobs={jobs.state().data ?? []}
     selected={selected() || undefined} onSelect={(sessionId) => props.onSessionChange(sessionId)}
     onOpenRun={(jobId) => void navigate(`/runs/${jobId}`)}
     onOpenRunsIndex={() => void navigate(`/w/${ws()}/logs`)} />;

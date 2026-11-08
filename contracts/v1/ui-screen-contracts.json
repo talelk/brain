@@ -78,7 +78,10 @@
     "executionLinks.list",
     "sessions.list",
     "automations.list",
-    "automations.occurrences"
+    "automations.occurrences",
+    "jobs.list",
+    "session.get",
+    "live.status"
    ],
    "actions": [
     "mission.pause",
@@ -95,7 +98,11 @@
     "workItem.comment",
     "automation.upsert",
     "automation.control",
-    "plan.propose"
+    "plan.propose",
+    "session.steer",
+    "session.stop",
+    "workflow.dispatch",
+    "job.reconcile"
    ],
    "content": [
     "live",
@@ -191,7 +198,9 @@
     "sessions.list",
     "jobs.list",
     "session.get",
-    "live.status"
+    "live.status",
+    "missions.list",
+    "workItems.list"
    ],
    "actions": [
     "session.steer",
@@ -203,7 +212,8 @@
     "sessions",
     "console",
     "outputs",
-    "controls"
+    "controls",
+    "mission"
    ],
    "owner": "T60",
    "navigationGroup": "live",

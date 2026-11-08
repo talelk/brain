@@ -1,4 +1,5 @@
 import { lazy, Show, onMount, onCleanup, createSignal } from "solid-js";
+import { AttentionDrawer } from "./ui/components/AttentionDrawer";
 import type { JSX } from "solid-js";
 import { Navigate, Route, Router, useLocation, useNavigate, useParams } from "@solidjs/router";
 import type { RouteSectionProps } from "@solidjs/router";
@@ -154,7 +155,7 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
     breadcrumbs={header()?.breadcrumbs}
     actions={header()?.actions}
     mobileTitle={header()?.title ?? "Brain"}
-    headerActions={<><Button size="md" variant="ghost" iconLeft="lucide-search" aria-label="Search Brain (Control K)" onClick={() => setSearchOpen(true)}><span class="max-sm:hidden">Search</span></Button><ThemeToggle /></>}
+    headerActions={<><Show when={app.workspaceId()}><AttentionDrawer /></Show><Button size="md" variant="ghost" iconLeft="lucide-search" aria-label="Search Brain (Control K)" onClick={() => setSearchOpen(true)}><span class="max-sm:hidden">Search</span></Button><ThemeToggle /></>}
     tenant={<div data-keep-drawer><Dropdown aria-label="Choose workspace" class="w-full justify-start" options={app.workspaceOptions().map((option) => ({ ...option, icon: "lucide-building-2" }))}
       onSelect={(value) => { if (value) { app.selectWorkspace(value); void navigate(`/w/${value}/missions`); } }}>
       <span class="flex min-w-0 items-center gap-2"><span class="lucide-building-2 size-4 shrink-0" aria-hidden="true" /><span class="truncate">{app.workspaceOptions().find((option) => option.value === app.workspaceId())?.label ?? "Choose workspace"}</span></span>

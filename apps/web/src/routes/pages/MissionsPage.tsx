@@ -1,7 +1,7 @@
 import { createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
-import { Badge, Button } from "@talelk/newui-atoms";
+import { Button } from "@talelk/newui-atoms";
 import { FilterBar } from "@talelk/newui-organisms";
 import type { AttentionItem, Mission } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
@@ -12,21 +12,8 @@ import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { EmptyPreview, FactStrip, QueueRow, WorkspaceSection } from "../../ui/components/Domain";
 import { formatDateTime } from "../../ui/format";
 import { missionHref } from "../../ui/mission-links";
+import { AttentionRows, attentionHref } from "../../ui/components/AttentionDrawer";
 import { RefreshButton } from "../../ui/components/primitives";
-
-const TIER_TONE: Record<number, "red" | "amber" | "blue" | "green" | "gray"> = { 1: "red", 2: "amber", 3: "blue", 4: "green", 5: "gray" };
-const KIND_ICON: Record<AttentionItem["kind"], string> = {
-  approval: "lucide-shield-check", "budget-pause": "lucide-wallet", "needs-attention": "lucide-octagon-alert",
-  "plan-proposal": "lucide-list-tree", parked: "lucide-circle-pause", "verdict-ready": "lucide-badge-check", routed: "lucide-message-square-warning",
-};
-
-/** Where an attention item is acted on: the approval review or the mission view that owns it. */
-export function attentionHref(item: AttentionItem): string {
-  if (item.kind === "approval") return `/approvals/${item.resourceId}`;
-  const tab = item.kind === "plan-proposal" || item.kind === "parked" || item.kind === "needs-attention" ? "plan" : item.kind === "routed" ? "live" : "brief";
-  const href = missionHref(item.workspaceId, item.missionId ?? item.resourceId, tab);
-  return item.kind === "plan-proposal" ? `${href}?proposal=${encodeURIComponent(item.resourceId)}` : href;
-}
 
 /**
  * Missions home (T34, #40/#43): what needs you across every workspace you can
@@ -78,10 +65,7 @@ export default function MissionsPage(): JSX.Element {
         onClearAll={filter() ? () => setFilter("") : undefined} />
       <WorkspaceSection title="Needs you" description="Approvals first, then stopped missions, proposals and parked work, verdicts ready to close and routed findings — the longest wait first.">
         <ScreenRegion state={attention.state()} onRetry={() => void attention.refresh({ force: true })} emptyTitle="Nothing needs you" emptyDescription="Missions are moving on their own. Brain notifies you when a person is needed.">
-          <section class="brain-queue" aria-label="Attention strip"><For each={attentionItems()}>{(item) =>
-            <QueueRow title={item.title} description={item.detail ?? `Waiting since ${formatDateTime(item.waitingSince)}`} icon={KIND_ICON[item.kind]} tone={TIER_TONE[item.tier] ?? "gray"}
-              eyebrow={item.kind.replace("-", " ")} label={`${item.title}. Open`} trailing={<Badge variant="outline" theme={TIER_TONE[item.tier] ?? "gray"} label={`Tier ${item.tier}`} />}
-              onClick={() => void navigate(attentionHref(item))} />}</For></section>
+          <AttentionRows items={attentionItems()} onOpen={(item) => void navigate(attentionHref(item))} />
         </ScreenRegion>
       </WorkspaceSection>
       <WorkspaceSection title="All missions" description="Long-running and interactive missions of this workspace.">

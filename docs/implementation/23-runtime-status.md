@@ -1,5 +1,9 @@
 # Runtime status and continuation — 2026-10-28
 
+## The mission cockpit and the attention drawer — 8 November
+
+The sixth UI slice (T60, #43) makes the mission's Live tab its cockpit: since-last-visit with Mark as seen, a team rail (the confirmed plan's members with their running and total sessions, mapped through each work item's assignment) that follows the whole team or one member, the three-pane console limited to the mission's sessions — or that member's — and a composer that messages the mission's coordinator or one member, may interrupt at the next safe point and may also add the message to the brief as a constraint. The workspace Live console filters by mission (`?mission=`). The header bell counts attention items across the user's workspaces and opens a drawer with the ranked items and the recent notification history (no inbox route); Missions home renders the same rows. A side-by-side split compare of two sessions is not built yet.
+
 ## Knowledge gathers documents, tools and its review queue — 8 November
 
 The fifth UI slice makes Knowledge the one secondary place #43 describes. `/w/:id/knowledge` holds scoped knowledge with provenance (find and publish), workspace documents (`?tab=documents`: upload, preview, revise, associate, search and revoke) and the trusted tool registry (`?tab=tools`: propose and publish) as tabs of one page. The capitalization studio — runs, assets and capability candidates a reviewer approves before a separate publication — is the review queue at `/w/:id/knowledge/review`. `/tools` and `/w/:id/resources` are removed without redirects.
