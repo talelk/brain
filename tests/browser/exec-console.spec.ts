@@ -222,7 +222,7 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   // (g) Back/forward restores the selected session and the execution filters.
   await page.goto(`${governor.url}/w/ws-console/live?session=ses-triage&severity=error`);
   await expect(page).toHaveURL(/session=ses-triage/);
-  await page.goto(`${governor.url}/today`);
+  await page.goto(`${governor.url}/w/ws-console/missions`);
   await page.goBack();
   await expect(page).toHaveURL(/session=ses-triage/);
   await expect(page).toHaveURL(/severity=error/);

@@ -27,7 +27,7 @@ test("Log Explorer: bounded DOM, scroll and selection survive streaming, pause/u
     await page.getByLabel("Display name").fill("Perf");
     await createWorkspace.click();
   }
-  await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "Missions", exact: true, level: 1 })).toBeVisible({ timeout: 30_000 });
 
   // Seed through the source logs: one running session plus a 10000-record
   // workspace transcript. The stream projector tails these on every read.

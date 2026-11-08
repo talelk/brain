@@ -15,35 +15,37 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 <!-- BEGIN GENERATED ROUTES -->
 | Route | Main area | Primary task | Essential content |
 |---|---|---|---|
-| `/today` | today | Handle prioritized work and return to the originating list | priority, workspace, task, reason, freshness |
-| `/bridge` | today | Handle prioritized work and return to the originating list | workspace, health, attention, freshness |
-| `/w/:id/live` | execution | Run, steer and inspect live agent sessions without losing session state | sessions, console, outputs, controls |
-| `/w/:id/logs` | execution | Search execution and platform logs and jump between correlated contexts | records, filters, search, correlation |
-| `/w/:id/outputs` | execution | Browse authorized generated artifacts with previews, diffs and history | artifacts, preview, history, diff |
-| `/artifacts/:id` | execution | Inspect one artifact: preview, verification, versions and diffs | preview, metadata, verification, history, diff |
-| `/w/:id/overview` | work | Review workspace work and pack details | state, outcomes, pending, connectivity |
-| `/approvals` | approvals | Review exact proposed effects and recover submitted decisions | action, workspace, target, expiry, evidence |
-| `/approvals/:id` | approvals | Review exact proposed effects and recover submitted decisions | exactContent, precondition, subjectDigest, history |
-| `/jobs/:id` | execution | Inspect one run's state, attempts, evidence and links without duplicating the console, logs or outputs | state, attempts, blocker, evidence |
-| `/runners` | execution | Inspect a run, its attempts, events and evidence | group, trust, health, capacity, freshness |
-| `/runners/:id` | execution | Inspect a run, its attempts, events and evidence | capabilities, attempts, reservations |
-| `/sessions/:id` | execution | Open one session in the Live console: active and historical are state, not layout | console, task, usage, context |
-| `/w/:id/support` | work | Review workspace work and pack details | priority, ticket, state, sla |
-| `/tickets/:id` | work | Review workspace work and pack details | body, draft, evidence, approval |
-| `/w/:id/sre` | work | Review workspace work and pack details | severity, target, state, freshness |
-| `/incidents/:id` | work | Review workspace work and pack details | observations, remediation, evidence |
+| `/w/:id/missions` | missions | Act on what needs you, then open a mission | attention, tier, mission, state, spend |
+| `/w/:id/missions/new` | missions | Start a mission from a play or a description | play, intent, criteria, constraints, autonomy, budget |
+| `/missions/:missionId/:tab` | missions | Follow and steer one mission | live, team, plan, brief, logs, outputs |
+| `/w/:id/plays` | plays | Start a mission from a play | play, team, tasks, autonomy |
+| `/administration/workspaces` | administration | Manage workspaces | workspace, state, counts |
+| `/w/:id/live` | live | Run, steer and inspect live agent sessions without losing session state | sessions, console, outputs, controls |
+| `/w/:id/logs` | logs | Search execution and platform logs and jump between correlated contexts | records, filters, search, correlation |
+| `/w/:id/outputs` | outputs | Browse authorized generated artifacts with previews, diffs and history | artifacts, preview, history, diff |
+| `/artifacts/:id` | outputs | Inspect one artifact: preview, verification, versions and diffs | preview, metadata, verification, history, diff |
+| `/approvals` | missions | Review exact proposed effects and recover submitted decisions | action, workspace, target, expiry, evidence |
+| `/approvals/:id` | missions | Review exact proposed effects and recover submitted decisions | exactContent, precondition, subjectDigest, history |
+| `/jobs/:id` | live | Inspect one run's state, attempts, evidence and links without duplicating the console, logs or outputs | state, attempts, blocker, evidence |
+| `/runners` | live | Inspect a run, its attempts, events and evidence | group, trust, health, capacity, freshness |
+| `/runners/:id` | live | Inspect a run, its attempts, events and evidence | capabilities, attempts, reservations |
+| `/sessions/:id` | live | Open one session in the Live console: active and historical are state, not layout | console, task, usage, context |
+| `/w/:id/support` | plays | Review workspace work and pack details | priority, ticket, state, sla |
+| `/tickets/:id` | plays | Review workspace work and pack details | body, draft, evidence, approval |
+| `/w/:id/sre` | plays | Review workspace work and pack details | severity, target, state, freshness |
+| `/incidents/:id` | plays | Review workspace work and pack details | observations, remediation, evidence |
 | `/w/:id/knowledge` | knowledge | Find scoped facts and inspect trusted capabilities | source, scope, freshness, review, capitalization, provenance, candidateTests, releaseGate |
 | `/tools` | knowledge | Find scoped facts and inspect trusted capabilities | name, state, effect, release, evidence |
-| `/settings` | settings | Manage explicitly authorized administration | members, people, invitations, access, authenticationPolicy, audit, health |
-| `/accept-invitation/:id` | settings | Verify an invited account and accept organization membership | invitedSignUp, emailVerification, explicitAcceptance |
+| `/settings` | administration | Manage explicitly authorized administration | members, people, invitations, access, authenticationPolicy, audit, health |
+| `/accept-invitation/:id` | administration | Verify an invited account and accept organization membership | invitedSignUp, emailVerification, explicitAcceptance |
 | `/tv/support` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
 | `/tv/sre` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
-| `/w/:id/runs` | execution | Index historical and active runs; sessions live in the console rail, runners have their own screen | runs |
-| `/w/:id/agents` | work | Inspect active agent and workflow definitions and dispatch schema-validated inputs | release, instructions, engine, limits |
-| `/w/:id/workflows` | work | Inspect active agent and workflow definitions and dispatch schema-validated inputs | release, input-schema, engine, dependencies |
-| `/w/:id/plans` | work | Turn an intention into a reviewed plan and versioned work | objective, planVersion, tasks, dependencies, assignments |
-| `/w/:id/schedules` | work | Schedule and control task and workflow occurrences | target, trigger, nextOccurrences, overlap, misfire, history |
-| `/w/:id/resources` | work | Manage and use workspace documents | documents, versions, preview, scope, associations, indexing |
+| `/w/:id/runs` | live | Index historical and active runs; sessions live in the console rail, runners have their own screen | runs |
+| `/w/:id/agents` | plays | Inspect active agent and workflow definitions and dispatch schema-validated inputs | release, instructions, engine, limits |
+| `/w/:id/workflows` | plays | Inspect active agent and workflow definitions and dispatch schema-validated inputs | release, input-schema, engine, dependencies |
+| `/w/:id/plans` | missions | Turn an intention into a reviewed plan and versioned work | objective, planVersion, tasks, dependencies, assignments |
+| `/w/:id/schedules` | plays | Schedule and control task and workflow occurrences | target, trigger, nextOccurrences, overlap, misfire, history |
+| `/w/:id/resources` | knowledge | Manage and use workspace documents | documents, versions, preview, scope, associations, indexing |
 | `/studio/:kind` | knowledge | Create and validate a capability without editing YAML | definitions, drafts, validation, dependencies |
 | `/studio/:kind/:draftId` | knowledge | Edit, test, review and publish an immutable definition | editor, diagnostics, diff, tests, publication |
 | `/administration/integrations` | administration | Connect Git providers and bind repositories to workspaces | providers, organizations, repositories, permissions, webhooks, status |

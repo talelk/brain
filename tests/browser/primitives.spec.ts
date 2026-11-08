@@ -19,7 +19,7 @@ test("primitives and tokens render across widths and themes (T33)", async ({ pag
   const identity = await governor.app.brain.resolveActor(new Headers({ cookie: cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ") }));
   governor.app.brain.createWorkspace(identity.actor, { workspaceId: "ws-primitives", slug: "primitives" });
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Missions", exact: true, level: 1 })).toBeVisible();
 
   // Every visible button is a design-system button (carries classes), never a
   // bare unstyled native control.
@@ -30,7 +30,7 @@ test("primitives and tokens render across widths and themes (T33)", async ({ pag
 
   // Page actions share NewUI's compact md metrics and header icons really render.
   const refreshBox = await page.getByRole("button", { name: "Refresh", exact: true }).boundingBox();
-  const startBox = await page.getByRole("button", { name: "Start a task", exact: true }).boundingBox();
+  const startBox = await page.getByRole("button", { name: "New mission", exact: true }).boundingBox();
   expect(refreshBox?.height).toBe(32);
   expect(startBox?.height).toBe(refreshBox?.height);
   const searchIcon = page.locator("header .lucide-search");

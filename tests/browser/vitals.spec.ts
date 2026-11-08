@@ -53,8 +53,8 @@ test("today vitals: authenticated LCP, interaction latency and initial JS budget
   await page.getByRole("button", { name: "Create organization", exact: true }).click();
   await page.getByLabel("Display name").fill("Vitals workspace");
   await page.getByRole("button", { name: "Create workspace", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
-  await page.getByPlaceholder("Search attention, reason, or workspace…").click();
+  await expect(page.getByRole("heading", { name: "Missions", exact: true, level: 1 })).toBeVisible();
+  await page.getByPlaceholder("Search attention, missions, or workspace…").click();
   await page.keyboard.type("approval", { delay: 10 });
   await page.waitForTimeout(600);
   const vitals = await page.evaluate(() => {

@@ -59,12 +59,13 @@ test("mission work: items render with state, move applies, Done is disabled with
   seedWorkItem(ws, "work-ui-1", "Ship the fixture", "ready");
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Missions", exact: true, level: 1 })).toBeVisible();
   const navToggle = page.getByRole("button", { name: "Open application navigation", exact: true });
   if (await navToggle.isVisible()) await navToggle.click();
-  await page.getByRole("button", { name: "Work", exact: true }).click();
+  await page.getByRole("button", { name: "Missions", exact: true }).click();
+  expect(new URL(page.url()).pathname).toBe("/w/ws-board/missions");
+  await page.goto(`${governor.url}/w/ws-board/plans`);
   await expect(page.getByRole("heading", { name: "Plans", exact: true, level: 1 })).toBeVisible();
-  expect(new URL(page.url()).pathname).toBe("/w/ws-board/plans");
   await page.getByText("Fixture mission", { exact: true }).click();
   await expect(page.getByText("Ship the fixture", { exact: true })).toBeVisible();
 

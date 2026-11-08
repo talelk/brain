@@ -147,8 +147,8 @@ def modular_monolith_checks(schema,matrix,registry):
     assert all(v['path'].startswith('apps/governor/src/modules/') for v in layout['governorModules'].values())
     assert layout['sandboxProfiles']==['agent','privileged-tool','evaluator']
     screens=load('contracts/v1/ui-screen-contracts.json')
-    assert [n['label'] for n in screens['primaryNavigation']]==['Today','Live','Work','Approvals','Knowledge','Administration']
-    assert all(s['navigationGroup'] in {'today','execution','work','approvals','knowledge','settings','administration','tv'} for s in screens['screens'])
+    assert [n['label'] for n in screens['primaryNavigation']]==['Missions','Live','Logs','Outputs','Plays']
+    assert all(s['navigationGroup'] in {'missions','live','logs','outputs','plays','knowledge','administration','tv'} for s in screens['screens'])
     assert {n['entryRoute'] for n in screens['primaryNavigation']}<={s['route'] for s in screens['screens']}
     assert 'workspace:read' in matrix['roles']['viewer']['scopes']
     assert 'membership:grant' not in matrix['roles']['security-admin']['scopes']

@@ -20,5 +20,5 @@ export default function BridgePage(): JSX.Element {
   });
   return <BridgeScreen workspaces={bridge.state().data ?? []} state={bridge.state()}
     onRefresh={() => void bridge.refresh({ force: true })}
-    onOpen={(workspaceId) => { app.selectWorkspace(workspaceId); void navigate(`/w/${workspaceId}/overview`); }} />;
+    onOpen={(workspaceId) => { app.selectWorkspace(workspaceId); void navigate(`/w/${workspaceId}/missions`); }} />;
 }

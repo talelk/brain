@@ -24,9 +24,11 @@ const PAGE_LOADERS = {
   ArtifactDetailPage: () => import('./routes/pages/ArtifactDetailPage'),
   AgentsPage: () => import('./routes/catalog').then((m) => ({ default: m.AgentsPage })),
   WorkflowsPage: () => import('./routes/catalog').then((m) => ({ default: m.WorkflowsPage })),
-  TodayPage: () => import('./routes/pages/TodayPage'),
+  MissionsPage: () => import('./routes/pages/MissionsPage'),
+  NewMissionPage: () => import('./routes/pages/NewMissionPage'),
+  MissionPage: () => import('./routes/pages/MissionPage'),
+  PlaysPage: () => import('./routes/pages/PlaysPage'),
   BridgePage: () => import('./routes/pages/BridgePage'),
-  WorkspaceOverviewPage: () => import('./routes/pages/WorkspaceOverviewPage'),
   PlansPage: () => import('./routes/pages/PlansPage'),
   SchedulesPage: () => import('./routes/pages/SchedulesPage'),
   ResourcesPage: () => import('./routes/pages/ResourcesPage'),
@@ -92,7 +94,7 @@ function Navigation(): AppSidebarGroup[] {
     const path = route.split("?")[0] ?? route;
     return new RegExp(`^${path.replace(/:[A-Za-z0-9_]+/gu, "[^/]+")}$`).test(location.pathname);
   };
-  const primary = PRIMARY_NAVIGATION.filter((entry) => entry.id !== "administration").map((entry) => ({
+  const primary = PRIMARY_NAVIGATION.map((entry) => ({
     label: entry.label, icon: ICONS[entry.route] ?? FALLBACK_ICON, active: areaForPath(href(entry.route)) === area(),
     onClick: () => void navigate(href(entry.route)),
   }));
@@ -102,8 +104,11 @@ function Navigation(): AppSidebarGroup[] {
   ).filter((entry) => !primaryRoutes.has(href(entry.route))).map((entry) => ({
     label: entry.label, icon: ICONS[entry.route] ?? FALLBACK_ICON, active: active(entry.route), onClick: () => void navigate(href(entry.route)),
   }));
+  // Knowledge is a secondary place (#43): below the five areas, never one of them.
+  const secondary = [{ label: "Knowledge", icon: ICONS["/w/:id/knowledge"] ?? FALLBACK_ICON, active: area() === "knowledge", onClick: () => void navigate(href("/w/:id/knowledge")) }];
   return [
     { label: "Brain", items: primary },
+    { label: "More", items: secondary },
     ...(contextual.length ? [{ label: area() === "administration" ? "Administration" : "Views", items: contextual }] : []),
   ];
 }
@@ -157,7 +162,7 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
     mobileTitle={header()?.title ?? "Brain"}
     headerActions={<><Button size="md" variant="ghost" iconLeft="lucide-search" aria-label="Search Brain (Control K)" onClick={() => setSearchOpen(true)}><span class="max-sm:hidden">Search</span></Button><ThemeToggle /></>}
     tenant={<div data-keep-drawer><Dropdown aria-label="Choose workspace" class="w-full justify-start" options={app.workspaceOptions().map((option) => ({ ...option, icon: "lucide-building-2" }))}
-      onSelect={(value) => { if (value) { app.selectWorkspace(value); void navigate(`/w/${value}/overview`); } }}>
+      onSelect={(value) => { if (value) { app.selectWorkspace(value); void navigate(`/w/${value}/missions`); } }}>
       <span class="flex min-w-0 items-center gap-2"><span class="lucide-building-2 size-4 shrink-0" aria-hidden="true" /><span class="truncate">{app.workspaceOptions().find((option) => option.value === app.workspaceId())?.label ?? "Choose workspace"}</span></span>
     </Dropdown></div>}
     tenantCollapsed={<span class="lucide-building-2 size-5" aria-hidden="true" />}
@@ -226,14 +231,17 @@ export function App(): JSX.Element {
     <Route path="/" component={ShellLayout}>
       {/* Default landing: live.status routes active work to the console (never a deep link). */}
       <Route path="/" component={LandingRedirect} />
-      <Route path="/today" component={page("TodayPage")} />
-      <Route path="/bridge" component={page("BridgePage")} />
+      <Route path="/w/:id/missions" component={workspacePage("MissionsPage")} />
+      <Route path="/w/:id/missions/new" component={workspacePage("NewMissionPage")} />
+      <Route path="/missions/:missionId/:tab" component={page("MissionPage")} />
+      <Route path="/missions/:missionId" component={() => <Navigate href={({ location }) => `${location.pathname}/live`} />} />
+      <Route path="/w/:id/plays" component={workspacePage("PlaysPage")} />
+      <Route path="/administration/workspaces" component={page("BridgePage")} />
       <Route path="/w/:id/live" component={workspacePage("LivePage")} />
       <Route path="/w/:id/logs" component={workspacePage("LogsPage")} />
       <Route path="/w/:id/outputs" component={workspacePage("OutputsPage")} />
       <Route path="/w/:id/agents" component={workspacePage("AgentsPage")} />
       <Route path="/w/:id/workflows" component={workspacePage("WorkflowsPage")} />
-      <Route path="/w/:id/overview" component={workspacePage("WorkspaceOverviewPage")} />
       <Route path="/w/:id/plans" component={workspacePage("PlansPage")} />
       <Route path="/w/:id/schedules" component={workspacePage("SchedulesPage")} />
       <Route path="/w/:id/resources" component={workspacePage("ResourcesPage")} />
@@ -255,7 +263,7 @@ export function App(): JSX.Element {
       <Route path="/administration/integrations" component={workspacePage("IntegrationsPage")} />
       <Route path="/studio/:kind" component={workspacePage("StudioListPage")} />
       <Route path="/studio/:kind/:draftId" component={workspacePage("StudioEditorPage")} />
-      <Route path="*" component={() => <Navigate href="/today" />} />
+      <Route path="*" component={() => <Navigate href="/" />} />
     </Route>
     </Router>
     <Toaster />

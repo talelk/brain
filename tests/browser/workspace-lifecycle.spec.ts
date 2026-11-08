@@ -19,7 +19,7 @@ test("workspace: create and manage metadata, suspension, resume and archive from
   const release = brain.stageRelease(actor, goldenDocs(), "sha256:6dd84c7f907477ea38ad355392cf876b39c122adf8038762894d56cc160956b4");
   brain.activateRelease(actor, release.digest);
 
-  await page.goto(`${governor.url}/bridge`);
+  await page.goto(`${governor.url}/administration/workspaces`);
   await page.getByRole("button", { name: "Create workspace", exact: true }).click();
   let dialog = page.getByRole("dialog", { name: "Create workspace", exact: true });
   await dialog.getByLabel(/^Display name/).fill("Second workspace");

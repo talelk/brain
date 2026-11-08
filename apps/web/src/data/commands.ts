@@ -12,7 +12,8 @@ import type { CommandReceipt, OrganizationAdminCommand, PlanTask, WorkItemState 
 export type CommandKind =
   | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop" | "session.create"
   | "runner.control"
-  | "mission.create" | "plan.propose" | "plan.confirm" | "workItem.transition" | "workItem.comment" | "mission.message.send"
+  | "mission.create" | "mission.pause" | "mission.resume" | "mission.proposeCompletion" | "mission.close" | "mission.watch" | "mission.seen"
+  | "mission.brief.edit" | "decision.accept" | "plan.propose" | "plan.confirm" | "workItem.transition" | "workItem.comment" | "mission.message.send"
   | "automation.upsert" | "automation.control"
   | "document.upload" | "document.revise" | "document.associate" | "document.delete"
   | "integration.connect" | "integration.verify" | "integration.bind"
@@ -30,7 +31,13 @@ export interface CommandContext {
 }
 
 export type PayloadFor<K extends CommandKind> =
-  K extends "mission.create" ? { title: string; intent: string; successCriteria: string[] }
+  K extends "mission.create" ? { title: string; intent?: string; successCriteria?: string[]; constraints?: string[]; playId?: string; autonomy?: "supervised" | "standard" | "autonomous"; budget?: { maxMicroUsd?: number; memberCap: number } }
+    : K extends "mission.pause" | "mission.resume" | "mission.proposeCompletion" ? { missionId: string }
+    : K extends "mission.close" ? { missionId: string; outcome: "achieved" | "ended" | "cancelled" }
+    : K extends "mission.watch" ? { missionId: string; watch: boolean }
+    : K extends "mission.seen" ? { missionId: string; cursor: number }
+    : K extends "mission.brief.edit" ? { missionId: string; baseVersion: number; intent?: string; constraints?: string[] }
+    : K extends "decision.accept" ? { missionId: string; baseVersion: number; statement: string; source: { kind: "human" | "handoff" | "verdict" | "knowledge"; ref?: string }; supersedes?: string }
     : K extends "plan.propose" ? { missionId: string; origin: "manual" | "agent" | "template" | "capitalization"; summary?: string; tasks: PlanTask[] }
       : K extends "plan.confirm" ? { planVersionId: string }
         : K extends "workItem.transition" ? { workItemId: string; state: WorkItemState; evidenceDigest?: string; reason?: string }

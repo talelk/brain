@@ -48,8 +48,6 @@ async function fetchOrganizationView(request: QueryRequest, signal?: AbortSignal
  * from contracts/v1/brain.schema.json and implemented by the Governor.
  */
 
-export const todayQuery = (request: { workspaceId?: string; limit?: number; states?: string[] }, signal?: AbortSignal) =>
-  fetchView({ queryType: "today", ...request }, signal);
 export const bridgeQuery = (request: { workspaceId?: string } = {}, signal?: AbortSignal) =>
   fetchView({ queryType: "bridge", ...request }, signal);
 export const workspaceContextQuery = (workspaceId: string, signal?: AbortSignal) =>

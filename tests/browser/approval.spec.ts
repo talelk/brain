@@ -45,7 +45,7 @@ test("approval decision: exact review, TOTP step-up, recorded decision (T35)", a
     .run(actor.organizationId, digest, JSON.stringify(subject), Date.now() + 3600000, Date.now());
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Missions", exact: true, level: 1 })).toBeVisible();
   const navToggle = page.getByRole("button", { name: "Open application navigation", exact: true });
   if (await navToggle.isVisible()) await navToggle.click();
   await page.getByRole("button", { name: "Approvals", exact: true }).click();

@@ -27,9 +27,9 @@ interface ScreenTarget {
 
 function targets(jobId: string, approvalId: string): ScreenTarget[] {
   return [
-    { id: "01-today", route: "/today", heading: "Today" },
-    { id: "02-bridge", route: "/bridge", heading: "Bridge" },
-    { id: "03-workspace-overview", route: "/w/operations/overview", heading: "Operations" },
+    { id: "01-missions", route: "/w/operations/missions", heading: "Missions" },
+    { id: "02-workspaces", route: "/administration/workspaces", heading: "Bridge" },
+    { id: "03-mission", route: "/missions/obj-visual/live", heading: "Stabilize authentication" },
     { id: "05-plans", route: "/w/operations/plans?mission=obj-visual", heading: "Plans" },
     { id: "06-schedules", route: "/w/operations/schedules", heading: "Schedules" },
     { id: "07-resources", route: "/w/operations/resources", heading: "Resources" },

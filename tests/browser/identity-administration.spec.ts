@@ -10,7 +10,7 @@ async function bootstrapOwner(page: import("@playwright/test").Page, governor: {
   await expect(page.getByRole("region", { name: "Create your first workspace" })).toBeVisible();
   await page.getByLabel("Display name").fill("Identity workspace");
   await page.getByRole("button", { name: "Create workspace", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Missions", exact: true, level: 1 })).toBeVisible();
 }
 
 test("native people, invitation, verification, acceptance, and workspace access", async ({ page, governor, browser }, info) => {
