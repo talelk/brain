@@ -19,6 +19,8 @@ CREATE TABLE missions (
   brief_version INTEGER NOT NULL DEFAULT 1 CHECK(brief_version > 0),
   parking_threshold INTEGER NOT NULL DEFAULT 3 CHECK(parking_threshold BETWEEN 1 AND 10),
   play_id TEXT, play_release_digest TEXT, started_by_occurrence TEXT UNIQUE,
+  coordinator_member_id TEXT, coordinator_workflow TEXT,
+  final_allowance_micro_usd INTEGER NOT NULL DEFAULT 0 CHECK(final_allowance_micro_usd >= 0),
   budget_micro_usd INTEGER CHECK(budget_micro_usd IS NULL OR budget_micro_usd >= 0),
   budget_wall_ms INTEGER CHECK(budget_wall_ms IS NULL OR budget_wall_ms >= 0),
   member_cap INTEGER NOT NULL DEFAULT 3 CHECK(member_cap BETWEEN 1 AND 50),
@@ -28,6 +30,15 @@ CREATE TABLE missions (
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
   CHECK((state = 'closed') = (outcome IS NOT NULL)), CHECK(state = 'paused' OR pause_reason IS NULL)
+) STRICT;
+CREATE TABLE mission_wakes (
+  id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), reason TEXT NOT NULL,
+  detail TEXT NOT NULL DEFAULT '', created_at_ms INTEGER NOT NULL, consumed_by_run TEXT, last_error TEXT
+) STRICT;
+CREATE INDEX mission_wakes_pending ON mission_wakes(mission_id, consumed_by_run);
+CREATE TABLE mission_runs (
+  run_id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
+  purpose TEXT NOT NULL CHECK(purpose IN ('coordinator')), created_at_ms INTEGER NOT NULL
 ) STRICT;
 CREATE TABLE mission_spend (
   attempt_id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), run_id TEXT NOT NULL,

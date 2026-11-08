@@ -802,6 +802,8 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     try { brain.jobProtocol.dispatchSchedules(); } catch { /* a bad release must not break expiry */ }
     // T52 automation occurrences share the pass discipline: idempotent, cheap.
     try { brain.jobProtocol.dispatchAutomations(); } catch { /* a bad automation must not break expiry */ }
+    // T66: pending mission wakes start at most one coordinator run per mission.
+    try { brain.missions.pumpCoordinators(); } catch { /* a coordinator failure must not break expiry */ }
     brain.runCapitalization();
     void brain.integrations.verifyPending().catch(() => undefined);
     void brain.drafts.publishPending().catch(() => undefined);

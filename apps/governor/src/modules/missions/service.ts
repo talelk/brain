@@ -6,6 +6,7 @@ import { assertExpectedVersion, assertTransition, transitionState } from "../../
 import { assertPlanTasks } from "../../domain/work-plan";
 import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations, withinCeiling, type AgentCapabilities } from "../../domain/mission-policy";
 import { activeReleaseRecord } from "../configuration/index";
+import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
 import { admit, budgetOf, clockSet, hasHeadroom, reserve as reserveSpend, settle, usageOf } from "./budget";
 import { listMessages, listOutputs, pinInputs, recordOutputVersion, sendMessage, verifyOutputs } from "./outputs";
 import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissionBundle, recordMissionVerdict, submitHandoff } from "../evidence/index";
@@ -24,7 +25,8 @@ type MissionRow = {
   id: string; title: string; intent: string; success_criteria_json: string; owner_id: string;
   active_plan_version_id: string | null; state: Mission["state"]; pause_reason: "human" | "budget" | null;
   outcome: MissionOutcome | null; brief_version: number; policy_json: string; parking_threshold: number;
-  budget_micro_usd: number | null; budget_wall_ms: number | null; member_cap: number; attempt_reserve_micro_usd: number;
+  budget_micro_usd: number | null; budget_wall_ms: number | null; member_cap: number; attempt_reserve_micro_usd: number; final_allowance_micro_usd: number;
+  coordinator_member_id: string | null; coordinator_workflow: string | null;
   active_ms: number; active_since_ms: number | null;
   version: number; created_at_ms: number; updated_at_ms: number;
 };
@@ -54,7 +56,18 @@ export interface MissionDeliveryPort {
 }
 
 export class MissionService {
-  constructor(private readonly store: Store, private readonly delivery?: MissionDeliveryPort) {}
+  constructor(private readonly store: Store, private readonly delivery?: MissionDeliveryPort, private readonly coordinatorPort?: CoordinatorPort) {}
+
+  /** Starts coordinator runs for pending wakes across active workspaces (maintenance pass). */
+  pumpCoordinators(): number {
+    let started = 0;
+    for (const ws of this.store.control.prepare("SELECT id, organization_id FROM workspaces WHERE status='active'").all() as Array<{ id: string; organization_id: string }>) {
+      try { started += pump(this.store, this.store.workspaceDb(ws.id, ws.organization_id), ws.organization_id, ws.id, this.coordinatorPort); } catch { /* one workspace never blocks another */ }
+    }
+    return started;
+  }
+
+  static coordinatorInput = coordinatorInput;
 
   /** The current brief of a mission, as every session of it receives it. */
   briefOf(actor: ActorContext, workspaceId: string, missionId: string): MissionBrief {
@@ -168,13 +181,15 @@ export class MissionService {
     const policy = withinCeiling(policyFor(preset, 1), this.ceiling(workspaceId));
     this.store.inTx(db, () => {
       const now = this.store.now();
-      const budget = (payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap?: number; attemptReserveMicroUsd?: number } | undefined) ?? play?.spec.budget ?? {};
+      const budget = (payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap?: number; attemptReserveMicroUsd?: number; finalAllowanceMicroUsd?: number } | undefined) ?? play?.spec.budget ?? {};
       db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,policy_json,parking_threshold,budget_micro_usd,budget_wall_ms,member_cap,attempt_reserve_micro_usd,active_since_ms,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
         .run(id, String(payload["title"]), intent, JSON.stringify(successCriteria), actor.actorId, JSON.stringify(policy), Number(payload["parkingThreshold"] ?? play?.spec.parkingThreshold ?? 3),
           budget.maxMicroUsd ?? null, budget.maxWallClockMs ?? null, budget.memberCap ?? 3, budget.attemptReserveMicroUsd ?? 0, now, now, now);
+      if (budget.finalAllowanceMicroUsd) db.prepare("UPDATE missions SET final_allowance_micro_usd=? WHERE id=?").run(budget.finalAllowanceMicroUsd, id);
       db.prepare("INSERT INTO mission_brief_versions(mission_id,version,intent,constraints_json,change,created_by,created_at_ms) VALUES (?,1,?,?,'created',?,?)")
         .run(id, intent, JSON.stringify(constraints), actor.actorId, now);
-      if (play && release) db.prepare("UPDATE missions SET play_id=?,play_release_digest=? WHERE id=?").run(String(payload["playId"]), release.digest, id);
+      if (play && release) db.prepare("UPDATE missions SET play_id=?,play_release_digest=?,coordinator_member_id=?,coordinator_workflow=?,final_allowance_micro_usd=? WHERE id=?")
+        .run(String(payload["playId"]), release.digest, play.spec.coordinator ?? null, play.spec.coordinatorWorkflow ?? null, budget.finalAllowanceMicroUsd ?? play.spec.budget?.finalAllowanceMicroUsd ?? 0, id);
       this.store.emit(db, { aggregateType: "mission", aggregateId: id, eventType: "mission.created", payload: { missionId: id } });
     });
     if (play) this.proposePlan(actor, workspaceId, { missionId: id, origin: "template", summary: `From play ${String(payload["playId"])}`, tasks: play.spec.plan.tasks, team: play.spec.team });
@@ -288,6 +303,7 @@ export class MissionService {
       db.prepare("UPDATE missions SET active_plan_version_id=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?")
         .run(plan.id, now, mission.id, mission.version);
       this.store.emit(db, { aggregateType: "plan", aggregateId: plan.id, eventType: "plan.confirmed", payload: { missionId: mission.id, planVersionId: plan.id, digest: plan.digest } });
+      if (!withinPolicy) wake(this.store, db, mission.id, "plan-resolved", `plan revision ${plan.revision} confirmed`);
     });
     return plan.id;
   }
@@ -319,7 +335,7 @@ export class MissionService {
       transitionState(db, "workItem", item.id, next, { set: { blocked_reason: next === "blocked" ? reason : null, evidence_digest: evidenceDigest ?? null, next_action: nextAction, updated_at_ms: this.store.now(), ...(resetCount ? { failed_attempts: 0 } : {}), ...(unpark ? { parked: 0, parked_diagnostic: null } : {}) }, bumpVersion: true, and: { version: item.version } });
       if (unpark) this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.unparked", payload: { workItemId: item.id, state: next } });
       this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.transitioned", payload: { workItemId: item.id, state: next, ...(evidenceDigest ? { evidenceDigest } : {}) } });
-      if (next === "done") { verifyOutputs(db, item.id); this.releaseReadyItems(db, item.mission_id); }
+      if (next === "done") { verifyOutputs(db, item.id); this.releaseReadyItems(db, item.mission_id); wake(this.store, db, item.mission_id, "work-verified", item.title); }
     });
     return item.id;
   }
@@ -391,12 +407,13 @@ export class MissionService {
     const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
     assertExpectedVersion(mission.version, expectedVersion);
     assertNotClosed(mission);
-    const budget = payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap: number; attemptReserveMicroUsd?: number };
+    const budget = payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap: number; attemptReserveMicroUsd?: number; finalAllowanceMicroUsd?: number };
     const db = this.db(actor, workspaceId);
     this.store.inTx(db, () => {
-      db.prepare("UPDATE missions SET budget_micro_usd=?,budget_wall_ms=?,member_cap=?,attempt_reserve_micro_usd=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?")
-        .run(budget.maxMicroUsd ?? null, budget.maxWallClockMs ?? null, budget.memberCap, budget.attemptReserveMicroUsd ?? mission.attempt_reserve_micro_usd, this.store.now(), mission.id, mission.version);
+      db.prepare("UPDATE missions SET budget_micro_usd=?,budget_wall_ms=?,member_cap=?,attempt_reserve_micro_usd=?,final_allowance_micro_usd=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?")
+        .run(budget.maxMicroUsd ?? null, budget.maxWallClockMs ?? null, budget.memberCap, budget.attemptReserveMicroUsd ?? mission.attempt_reserve_micro_usd, budget.finalAllowanceMicroUsd ?? mission.final_allowance_micro_usd, this.store.now(), mission.id, mission.version);
       this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.budgetChanged", payload: { missionId: mission.id } });
+      wake(this.store, db, mission.id, "budget-changed");
     });
     return mission.id;
   }
@@ -404,9 +421,11 @@ export class MissionService {
   /** Mission-local admission for a run's next attempt; a run linked to no mission is interactive work. */
   admission(organizationId: string, workspaceId: string, runId: string): { missionId?: string; admitted: true; reserve: number; running: number } | { missionId: string; admitted: false; reason: string; running: number } {
     const db = this.store.workspaceDb(workspaceId, organizationId);
-    const link = db.prepare("SELECT mission_id FROM execution_links WHERE run_id=? LIMIT 1").get(runId) as { mission_id: string } | undefined;
+    const work = db.prepare("SELECT mission_id FROM execution_links WHERE run_id=? LIMIT 1").get(runId) as { mission_id: string } | undefined;
+    const coordinatorRun = work ? undefined : db.prepare("SELECT mission_id FROM mission_runs WHERE run_id=?").get(runId) as { mission_id: string } | undefined;
+    const link = work ?? coordinatorRun;
     if (!link) return { admitted: true, reserve: 0, running: 0 };
-    const decision = this.store.inTx(db, () => admit(this.store, db, link.mission_id));
+    const decision = this.store.inTx(db, () => admit(this.store, db, link.mission_id, Boolean(coordinatorRun), (missionId) => wake(this.store, db, missionId, "mission-paused", "budget exhausted; write the final checkpoint")));
     return { missionId: link.mission_id, ...decision };
   }
 
@@ -430,6 +449,8 @@ export class MissionService {
       ...(payload["workItemId"] ? { workItemId: String(payload["workItemId"]) } : {}), ...(payload["correctionOf"] ? { correctionOf: String(payload["correctionOf"]) } : {}),
     });
     this.delivery?.deliver(actor.organizationId, workspaceId, messageId, payload["interrupt"] === true);
+    // A message to the mission itself (no work item) wakes its coordinator (#38).
+    if ((payload["recipient"] as { kind?: string } | undefined)?.kind === "mission" && !payload["workItemId"]) wake(this.store, this.db(actor, workspaceId), mission.id, "message", String(payload["body"]).slice(0, 200));
     return messageId;
   }
 

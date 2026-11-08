@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CommandReceipt, Mission, MissionBrief, PlanVersion } from "@brain/contracts";
+import { readFileSync } from "node:fs";
 import { goldenDocs, setupWorld } from "../helpers";
 
 type World = ReturnType<typeof setupWorld>;
@@ -90,6 +91,33 @@ describe("plays (T63)", () => {
     await run(w, "mission.close", "auto-close", { missionId, outcome: "ended" }, mission.version);
     automations.apply(w.owner, { commandType: "automation.control", workspaceId: w.workspaceId, expectedVersion: 1, payload: { automationId, action: "runNow" } });
     expect((db.prepare("SELECT COUNT(*) AS n FROM missions").get() as { n: number }).n).toBe(2);
+    w.brain.close();
+  });
+
+  it("mission events wake the coordinator: one live coordinator run per mission, wakes coalesce, and only it may spend the final allowance (T66)", async () => {
+    const w = setupWorld();
+    const coordinated = play("coordinated").text.replace("  coordinator: lead\n", "  coordinator: lead\n  coordinatorWorkflow: fixture-workflow\n").replace("budget: { maxMicroUsd: 500000, memberCap: 2 }", "budget: { maxMicroUsd: 100, memberCap: 3, attemptReserveMicroUsd: 50, finalAllowanceMicroUsd: 50 }");
+    expect(() => stage(w, [{ path: "config/plays/bad.yaml", text: coordinated.replace("coordinatorWorkflow: fixture-workflow", "coordinatorWorkflow: ghost-workflow") }])).toThrow(/coordinator workflow ghost-workflow is not in this release/);
+    const fixture = readFileSync("examples/v1/golden-release/config/fixture-workflow.yaml", "utf8");
+    const coordinatorWorkflow = { path: "config/coordinator-workflow.yaml", text: fixture.replace("id: fixture-workflow", "id: coordinator-workflow").replace("pointer: /message", "pointer: /missionId") };
+    w.brain.activateRelease(w.owner, stage(w, [coordinatorWorkflow, { path: "config/plays/coordinated.yaml", text: coordinated.replace("coordinatorWorkflow: fixture-workflow", "coordinatorWorkflow: coordinator-workflow") }]).digest);
+    const id = (await run(w, "mission.create", "coord-create", { title: "Coordinated", playId: "coordinated" })).resourceId ?? "";
+    const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    const planId = (db.prepare("SELECT id FROM plan_versions WHERE mission_id=?").get(id) as { id: string }).id;
+    await run(w, "plan.confirm", "coord-confirm", { planVersionId: planId }, (await query<Mission>(w, "missions.get", id)).version);
+    expect(w.brain.missions.pumpCoordinators()).toBe(1);
+    const runs = db.prepare("SELECT run_id FROM mission_runs WHERE mission_id=?").all(id) as Array<{ run_id: string }>;
+    expect(runs).toHaveLength(1);
+    await run(w, "mission.message.send", "coord-msg", { missionId: id, recipient: { kind: "mission" }, body: "Prioritise the login flow" });
+    await run(w, "mission.message.send", "coord-msg-2", { missionId: id, recipient: { kind: "mission" }, body: "And keep the API stable" });
+    expect(w.brain.missions.pumpCoordinators()).toBe(0);
+    expect((db.prepare("SELECT COUNT(*) AS n FROM mission_wakes WHERE mission_id=? AND consumed_by_run IS NULL").get(id) as { n: number }).n).toBe(2);
+    const item = (db.prepare("SELECT id FROM work_items WHERE mission_id=? AND plan_task_id='audit'").get(id) as { id: string }).id;
+    w.brain.missions.linkExecution(w.owner, w.workspaceId, item, "run-work-audit");
+    expect(w.brain.missions.admission(w.org, w.workspaceId, "run-work-audit")).toMatchObject({ admitted: true, reserve: 50 });
+    w.brain.missions.recordReservation(w.org, w.workspaceId, { missionId: id, runId: "run-work-audit", attemptId: "att-work-1", microUsd: 50 });
+    expect(w.brain.missions.admission(w.org, w.workspaceId, "run-work-audit")).toMatchObject({ admitted: false, reason: "budget" });
+    expect(w.brain.missions.admission(w.org, w.workspaceId, runs[0]!.run_id)).toMatchObject({ admitted: true, reserve: 50 });
     w.brain.close();
   });
 });

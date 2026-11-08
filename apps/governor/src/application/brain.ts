@@ -74,7 +74,13 @@ export class Brain {
       this.auth.ensureTables();
       this.stepUp = new StepUpService(this.store, this.auth);
       this.memory = new MemoryStore(this.store);
-      this.missions = new MissionService(this.store, { deliver: (organizationId, workspaceId, messageId, interrupt) => this.sessions.deliverMessage(organizationId, workspaceId, messageId, interrupt) });
+      this.missions = new MissionService(this.store, { deliver: (organizationId, workspaceId, messageId, interrupt) => this.sessions.deliverMessage(organizationId, workspaceId, messageId, interrupt) }, {
+        startCoordinatorRun: (input) => {
+          const { workflow, configDigest } = activeWorkflow(this.store, input.organizationId, input.workflowId);
+          return this.workflows.startRun({ organizationId: input.organizationId, workspaceId: input.workspaceId, actorId: input.actorId, workflowId: input.workflowId, workflow, configDigest,
+            runInput: MissionService.coordinatorInput(input.missionId, input.reasons), executionKey: input.executionKey });
+        },
+      });
       this.sessions = new SessionService(this.store, { brief: (actor, workspaceId, missionId) => this.missions.briefOf(actor, workspaceId, missionId) });
       this.stream = createStreamService(this.store);
       this.documents = new DocumentService(this.store);

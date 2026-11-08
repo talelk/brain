@@ -1,5 +1,9 @@
 # Runtime status and continuation — 2026-10-28
 
+## Event-driven coordinator — 8 November
+
+T66 makes missions advance on events (ADR 0004). A Play may name a coordinator on its team and a coordinator workflow from the same release; the compiler checks that workflow accepts the coordinator input `{ missionId, reasons }`. Mission events record durable wakes — verified work, a message to the mission itself, a plan version a human confirmed, a budget change and a budget pause — and the maintenance pass starts at most one coordinator run per mission, carrying every wake that accumulated, so bursts coalesce into one bounded session. A coordinator start that fails leaves its wakes pending with the error recorded. A mission budget may reserve a final allowance: ordinary work must leave it unspent, while the coordinator may use it, including while the mission is paused for budget, to write the final checkpoint and handoff.
+
 ## Scheduled Plays — 8 November
 
 T52 lets an automation target a Play. Each due occurrence starts a mission from the Play on behalf of the person who created the automation (so ownership and notification follow them), records the mission as the occurrence's dispatch reference, and leaves the Play's plan and team as a proposal awaiting human confirmation. The skip overlap policy holds new occurrences while the mission an earlier one started is still open; replays of the same occurrence never start a second mission. The Schedules screen offers "Start a mission from a play" as a target. Triggers from subjects (tickets, incidents) arrive with the Play views in T44.

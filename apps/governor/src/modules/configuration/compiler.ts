@@ -379,6 +379,12 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
       throw new BrainDomainError("INVALID_CONTRACT", `Play ${playId}: ${error instanceof Error ? error.message : String(error)}`);
     }
     if (play.spec.coordinator && !play.spec.team.some((member) => member.memberId === play.spec.coordinator)) throw new BrainDomainError("INVALID_CONTRACT", `Play ${playId}: coordinator ${play.spec.coordinator} is not on its team`);
+    if (play.spec.coordinatorWorkflow && !workflows[play.spec.coordinatorWorkflow]) throw new BrainDomainError("INVALID_CONTRACT", `Play ${playId}: coordinator workflow ${play.spec.coordinatorWorkflow} is not in this release`);
+    if (play.spec.coordinatorWorkflow && !play.spec.coordinator) throw new BrainDomainError("INVALID_CONTRACT", `Play ${playId}: a coordinator workflow needs a coordinator`);
+    const coordinatorSchema = play.spec.coordinatorWorkflow ? schemaMap[workflows[play.spec.coordinatorWorkflow]!.spec.inputSchemaRef] : undefined;
+    if (coordinatorSchema && !payloadValidator(coordinatorSchema as object)({ missionId: "mission", reasons: ["work-verified"] }).ok) {
+      throw new BrainDomainError("INVALID_CONTRACT", `Play ${playId}: coordinator workflow ${play.spec.coordinatorWorkflow} does not accept the coordinator input { missionId, reasons }`);
+    }
   }
   const ir = { workflows, agents, evaluators, plays, schemas: schemaMap, documents: entries } as unknown as JsonValue;
   const irJson = JSON.stringify(ir);

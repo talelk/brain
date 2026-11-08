@@ -21914,6 +21914,11 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991
+        },
+        "finalAllowanceMicroUsd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
         }
       },
       "required": [
@@ -22090,6 +22095,9 @@
             },
             "budget": {
               "$ref": "#/$defs/MissionBudget"
+            },
+            "coordinatorWorkflow": {
+              "$ref": "#/$defs/ConfigId"
             }
           },
           "required": [

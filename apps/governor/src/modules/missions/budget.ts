@@ -5,17 +5,18 @@ import { transitionState } from "../../domain/states";
 type Db = ReturnType<Store["workspaceDb"]>;
 type BudgetRow = {
   id: string; state: string; budget_micro_usd: number | null; budget_wall_ms: number | null; member_cap: number;
-  attempt_reserve_micro_usd: number; active_ms: number; active_since_ms: number | null;
+  attempt_reserve_micro_usd: number; active_ms: number; active_since_ms: number | null; final_allowance_micro_usd: number;
 };
 
 /** Why an attempt of a mission was not admitted, as Live and "while you were away" show it (#36). */
 export type WaitingReason = "budget" | "member cap" | "mission paused";
 
-export function budgetOf(row: Pick<BudgetRow, "budget_micro_usd" | "budget_wall_ms" | "member_cap" | "attempt_reserve_micro_usd">): MissionBudget {
+export function budgetOf(row: Pick<BudgetRow, "budget_micro_usd" | "budget_wall_ms" | "member_cap" | "attempt_reserve_micro_usd" | "final_allowance_micro_usd">): MissionBudget {
   return {
     ...(row.budget_micro_usd !== null ? { maxMicroUsd: row.budget_micro_usd } : {}),
     ...(row.budget_wall_ms !== null ? { maxWallClockMs: row.budget_wall_ms } : {}),
     memberCap: row.member_cap, attemptReserveMicroUsd: row.attempt_reserve_micro_usd,
+    ...(row.final_allowance_micro_usd > 0 ? { finalAllowanceMicroUsd: row.final_allowance_micro_usd } : {}),
   };
 }
 
@@ -66,21 +67,25 @@ export function usageOf(db: Db, row: BudgetRow, now: number): BudgetUsage {
  * reservations). When nothing fits and nothing runs, the mission auto-pauses
  * with reason budget; a human raises the budget and resumes it.
  */
-export function admit(store: Store, db: Db, missionId: string): { admitted: true; reserve: number; running: number } | { admitted: false; reason: WaitingReason; running: number } {
+export function admit(store: Store, db: Db, missionId: string, coordinator = false, onPaused?: (missionId: string) => void): { admitted: true; reserve: number; running: number } | { admitted: false; reason: WaitingReason; running: number } {
   settle(store, db, missionId);
   const row = db.prepare("SELECT * FROM missions WHERE id=?").get(missionId) as BudgetRow | undefined;
   if (!row) return { admitted: true, reserve: 0, running: 0 };
   const now = store.now();
   const usage = usageOf(db, row, now);
   const running = usage.runningMembers;
-  if (row.state !== "active") return { admitted: false, reason: "mission paused", running };
+  // A coordinator may still run while paused for budget, to write the final checkpoint and handoff.
+  if (row.state !== "active" && !(coordinator && row.state === "paused")) return { admitted: false, reason: "mission paused", running };
   if (running >= row.member_cap) return { admitted: false, reason: "member cap", running };
   const reserve = row.attempt_reserve_micro_usd;
-  const spendExhausted = row.budget_micro_usd !== null && usage.settledMicroUsd + usage.reservedMicroUsd + reserve > row.budget_micro_usd;
+  // Ordinary work leaves the final allowance untouched; only the coordinator may spend it (#36).
+  const ceiling = row.budget_micro_usd === null ? null : row.budget_micro_usd - (coordinator ? 0 : row.final_allowance_micro_usd);
+  const spendExhausted = ceiling !== null && usage.settledMicroUsd + usage.reservedMicroUsd + reserve > ceiling;
   const clockExhausted = row.budget_wall_ms !== null && usage.activeMs >= row.budget_wall_ms;
   if (spendExhausted || clockExhausted) {
-    if (usage.runningMembers === 0) {
+    if (usage.runningMembers === 0 && row.state === "active") {
       transitionState(db, "mission", row.id, "paused", { set: { pause_reason: "budget", updated_at_ms: now, ...clockSet("paused", row, now) }, bumpVersion: true });
+      onPaused?.(row.id);
       store.emit(db, { aggregateType: "mission", aggregateId: row.id, eventType: "mission.stateChanged", payload: { missionId: row.id, missionState: "paused" } });
     }
     return { admitted: false, reason: "budget", running };
