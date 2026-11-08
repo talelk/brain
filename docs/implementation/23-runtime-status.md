@@ -1,5 +1,9 @@
 # Runtime status and continuation — 2026-10-28
 
+## Handoffs and mission evidence bundles — 8 November
+
+T62 adds handoffs as evidence artifacts owned by `modules/evidence`. A member submits notes (summary, decisions, open questions, next action, referenced outputs), which stay claims; each submission supersedes the last. At Done the Governor requires a current handoff for work that others depend on, refuses notes that reference outputs the work did not produce as final, and freezes Governor-derived facts (evidence digest, per-criterion status, final output versions, source revision) on the handoff. A dependent reads only its direct dependencies' handoffs (`handoffs.forWorkItem`). Proposing completion assembles a mission evidence bundle; an incomplete bundle returns the mission to work with findings sent to the coordinator as a mission message, and `achieved` requires a verified verdict on the current bundle, which no team agent can record. E116 is covered.
+
 ## Missions module — 7 November
 
 T51 replaces Objectives with Missions and deletes the board and decision surfaces (wayfinder map #6). `modules/missions` owns the mission lifecycle (active, paused, verifying, closed with an outcome), the brief with human-owned intent and constraints, immutable accepted decisions under optimistic concurrency, the autonomy policy as an explicit operation list with presets, plan versions that carry the mission team with mechanical member eligibility, the coordinator proposal gate, the affected-branch rule that started work never changes, parking after consecutive failed runs (counted per work item across members, human-only unpark), named outputs whose verified final versions are pinned as inputs at admission, and durable mission message records. Work items are managed from the Plans page until the T64 mission tabs land.

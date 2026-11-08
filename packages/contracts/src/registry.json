@@ -572,6 +572,26 @@
       "actors": [
         "human"
       ]
+    },
+    {
+      "type": "handoff.submit",
+      "schema": "HandoffSubmitCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human",
+        "agent"
+      ]
+    },
+    {
+      "type": "mission.verdict.record",
+      "schema": "MissionVerdictRecordCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human",
+        "workflow"
+      ]
     }
   ],
   "queries": [
@@ -616,6 +636,8 @@
     "missions.list",
     "missions.get",
     "missions.brief",
+    "missionBundles.latest",
+    "handoffs.forWorkItem",
     "missionMessages.list",
     "missionOutputs.list",
     "plans.get",
@@ -1212,6 +1234,24 @@
     },
     {
       "type": "output.versionRecorded",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "handoff.submitted",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "mission.bundleAssembled",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "mission.verdictRecorded",
       "envelope": "EventEnvelope",
       "payloadContract": "WorkEventPayload",
       "durable": true

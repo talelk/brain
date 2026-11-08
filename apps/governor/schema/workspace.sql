@@ -52,6 +52,19 @@ CREATE TABLE work_item_inputs (
   work_item_id TEXT NOT NULL, run_id TEXT NOT NULL, output_version_id TEXT NOT NULL REFERENCES output_versions(id),
   artifact_digest TEXT NOT NULL, PRIMARY KEY(work_item_id, run_id, output_version_id)
 ) STRICT;
+CREATE TABLE handoffs (
+  id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), work_item_id TEXT NOT NULL REFERENCES work_items(id),
+  version INTEGER NOT NULL CHECK(version > 0), notes_json TEXT NOT NULL CHECK(json_valid(notes_json)),
+  facts_json TEXT CHECK(facts_json IS NULL OR json_valid(facts_json)), submitted_by TEXT NOT NULL,
+  superseded_by TEXT REFERENCES handoffs(id), created_at_ms INTEGER NOT NULL,
+  UNIQUE(work_item_id, version)
+) STRICT;
+CREATE TABLE mission_evidence_bundles (
+  digest TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
+  state TEXT NOT NULL CHECK(state IN ('submitted','verified','rejected','incomplete')),
+  manifest_json TEXT NOT NULL CHECK(json_valid(manifest_json)), findings_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(findings_json)),
+  verdict_by TEXT, created_at_ms INTEGER NOT NULL
+) STRICT;
 CREATE TABLE mission_messages (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   recipient_kind TEXT NOT NULL CHECK(recipient_kind IN ('mission','member')), recipient_member_id TEXT,

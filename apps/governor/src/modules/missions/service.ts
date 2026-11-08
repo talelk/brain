@@ -7,6 +7,8 @@ import { assertPlanTasks } from "../../domain/work-plan";
 import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations, type AgentCapabilities } from "../../domain/mission-policy";
 import { activeReleaseRecord } from "../configuration/index";
 import { listMessages, listOutputs, pinInputs, recordOutputVersion, sendMessage, verifyOutputs } from "./outputs";
+import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissionBundle, recordMissionVerdict, submitHandoff } from "../evidence/index";
+import type { HandoffNotes } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 
@@ -117,6 +119,8 @@ export class MissionService {
       case "decision.accept": return this.acceptDecision(actor, workspaceId, command.payload);
       case "mission.policy.set": return this.setPolicy(actor, workspaceId, command.payload, command.expectedVersion);
       case "mission.message.send": return this.message(actor, workspaceId, command.payload);
+      case "handoff.submit": return this.handoff(actor, workspaceId, command.payload);
+      case "mission.verdict.record": return this.verdict(actor, workspaceId, command.payload);
       case "plan.propose": return this.proposePlan(actor, workspaceId, command.payload);
       case "plan.confirm": return this.confirmPlan(actor, workspaceId, command.payload, command.expectedVersion);
       case "workItem.transition": return this.transition(actor, workspaceId, command.payload, command.expectedVersion);
@@ -267,7 +271,7 @@ export class MissionService {
     this.store.inTx(db, () => {
       if (next === "ready") this.assertDependenciesDone(db, item.id);
       const evidenceDigest = payload["evidenceDigest"] ? String(payload["evidenceDigest"]) : item.evidence_digest;
-      if (next === "done") this.assertEvidence(db, item, evidenceDigest);
+      if (next === "done") { this.assertEvidence(db, item, evidenceDigest); finalizeHandoff(db, item.id, evidenceDigest as string); }
       const nextAction = next === "done" ? "No further action" : next === "review" ? "Review verified results" : next === "blocked" ? reason ?? "Resolve blocker" : next === "ready" ? "Start this task" : next === "in-progress" ? "Complete and submit evidence" : next === "abandoned" ? "Superseded or abandoned" : "Wait for predecessor completion";
       const unpark = item.parked === 1 && next !== "blocked";
       const resetCount = unpark || next === "review" || next === "done";
@@ -351,7 +355,7 @@ export class MissionService {
     } else if (type === "mission.proposeCompletion") next = "verifying";
     else {
       const outcome = String(payload["outcome"]) as MissionOutcome;
-      if (outcome === "achieved") throw new BrainDomainError("EVIDENCE_MISSING", "achieved requires a verified mission verdict");
+      if (outcome === "achieved" && (mission.state !== "verifying" || latestMissionBundle(db, mission.id)?.state !== "verified")) throw new BrainDomainError("EVIDENCE_MISSING", "achieved requires a verified mission verdict");
       next = "closed"; set["outcome"] = outcome;
     }
     if (next !== "closed" && mission.state === next) throw new BrainDomainError("CONFLICT", `mission is already ${next}`);
@@ -363,6 +367,35 @@ export class MissionService {
       }
       this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.stateChanged", payload: { missionId: mission.id, missionState: next } });
     });
+    if (next === "verifying") {
+      const bundle = this.store.inTx(db, () => assembleMissionBundle(this.store, db, mission.id, mission.brief_version));
+      if (!bundle.complete) this.backToWork(actor, workspaceId, mission.id, latestMissionBundle(db, mission.id)?.findings ?? []);
+    }
+    return mission.id;
+  }
+
+  /** Verifying -> active with the verdict's findings routed to the coordinator as a message, never into the brief (#36). */
+  private backToWork(actor: ActorContext, workspaceId: string, missionId: string, findings: readonly string[]): void {
+    this.returnToActive(actor, workspaceId, missionId);
+    if (findings.length > 0) sendMessage(this.store, this.db(actor, workspaceId), { missionId, senderId: "governor", recipient: { kind: "mission" }, body: `Mission verdict findings:\n- ${findings.join("\n- ")}`.slice(0, 8000), team: [] });
+  }
+
+  private handoff(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
+    const item = this.workItemRow(actor, workspaceId, String(payload["workItemId"]));
+    assertNotClosed(this.missionRow(actor, workspaceId, item.mission_id));
+    return submitHandoff(this.store, this.db(actor, workspaceId), { workItemId: item.id, submittedBy: actor.actorId, notes: payload["notes"] as HandoffNotes });
+  }
+
+  /** An independent verdict on the mission's evidence bundle; a team agent can never record it. */
+  private verdict(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
+    if (actor.kind === "agent") throw new BrainDomainError("FORBIDDEN", "a team member cannot judge its own mission");
+    const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
+    if (mission.state !== "verifying") throw new BrainDomainError("CONFLICT", "only a verifying mission takes a verdict");
+    const db = this.db(actor, workspaceId);
+    const outcome = String(payload["outcome"]) as "verified" | "rejected";
+    const findings = (payload["findings"] as string[] | undefined) ?? [];
+    this.store.inTx(db, () => recordMissionVerdict(this.store, db, { missionId: mission.id, digest: String(payload["bundleDigest"]), outcome, findings, by: actor.actorId }));
+    if (outcome === "rejected") this.backToWork(actor, workspaceId, mission.id, findings);
     return mission.id;
   }
 
@@ -536,6 +569,8 @@ export class MissionService {
     }
     if (queryType === "missionOutputs.list") return { items: listOutputs(db, this.missionRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;
     if (queryType === "missionMessages.list") return { items: listMessages(db, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
+    if (queryType === "handoffs.forWorkItem") return { items: dependencyHandoffs(db, this.workItemRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;
+    if (queryType === "missionBundles.latest") return (latestMissionBundle(db, this.missionRow(actor, workspaceId, String(resourceId)).id) ?? null) as unknown as JsonValue;
     if (queryType === "missions.brief") return this.brief(actor, workspaceId, this.missionRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "missions.get") return this.mission(workspaceId, this.missionRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "plans.get") return this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;

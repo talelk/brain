@@ -7016,7 +7016,10 @@
             "workItem.parked",
             "workItem.unparked",
             "mission.messageSent",
-            "output.versionRecorded"
+            "output.versionRecorded",
+            "handoff.submitted",
+            "mission.bundleAssembled",
+            "mission.verdictRecorded"
           ]
         },
         "organizationId": {
@@ -7155,6 +7158,8 @@
             "missions.list",
             "missions.get",
             "missions.brief",
+            "missionBundles.latest",
+            "handoffs.forWorkItem",
             "missionMessages.list",
             "missionOutputs.list",
             "plans.get",
@@ -7208,6 +7213,8 @@
             "missions.list",
             "missions.get",
             "missions.brief",
+            "missionBundles.latest",
+            "handoffs.forWorkItem",
             "missionMessages.list",
             "missionOutputs.list",
             "plans.get",
@@ -10954,6 +10961,12 @@
         },
         {
           "$ref": "#/$defs/MissionMessageSendCommand"
+        },
+        {
+          "$ref": "#/$defs/HandoffSubmitCommand"
+        },
+        {
+          "$ref": "#/$defs/MissionVerdictRecordCommand"
         }
       ]
     },
@@ -21539,6 +21552,338 @@
             "missionId",
             "recipient",
             "body"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "HandoffNotes": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "decisions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "maxItems": 20
+        },
+        "openQuestions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "maxItems": 20
+        },
+        "nextAction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "referencedOutputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "maxItems": 20
+        }
+      },
+      "required": [
+        "summary"
+      ],
+      "additionalProperties": false
+    },
+    "HandoffFacts": {
+      "type": "object",
+      "properties": {
+        "evidenceDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "criteria": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "criterionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "passed",
+                  "failed",
+                  "missing"
+                ]
+              }
+            },
+            "required": [
+              "criterionId",
+              "status"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        },
+        "outputVersions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "maxItems": 50
+        },
+        "sourceRevision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "evidenceDigest",
+        "criteria",
+        "outputVersions"
+      ],
+      "additionalProperties": false
+    },
+    "Handoff": {
+      "type": "object",
+      "properties": {
+        "handoffId": {
+          "$ref": "#/$defs/Id"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "version": {
+          "$ref": "#/$defs/Counter"
+        },
+        "notes": {
+          "$ref": "#/$defs/HandoffNotes"
+        },
+        "facts": {
+          "$ref": "#/$defs/HandoffFacts"
+        },
+        "submittedBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "supersededBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "handoffId",
+        "missionId",
+        "workItemId",
+        "version",
+        "notes",
+        "submittedBy",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "MissionEvidenceBundle": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "briefVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "workItemId": {
+                "$ref": "#/$defs/Id"
+              },
+              "state": {
+                "$ref": "#/$defs/WorkItemState"
+              },
+              "evidenceDigest": {
+                "$ref": "#/$defs/Digest"
+              },
+              "handoffId": {
+                "$ref": "#/$defs/Id"
+              }
+            },
+            "required": [
+              "workItemId",
+              "state"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 500
+        },
+        "outputVersions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "maxItems": 500
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "submitted",
+            "verified",
+            "rejected",
+            "incomplete"
+          ]
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "maxItems": 50
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "digest",
+        "missionId",
+        "briefVersion",
+        "items",
+        "outputVersions",
+        "complete",
+        "state",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "HandoffSubmitCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "handoff.submit"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "workItemId": {
+              "$ref": "#/$defs/Id"
+            },
+            "notes": {
+              "$ref": "#/$defs/HandoffNotes"
+            }
+          },
+          "required": [
+            "workItemId",
+            "notes"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "MissionVerdictRecordCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "mission.verdict.record"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "bundleDigest": {
+              "$ref": "#/$defs/Digest"
+            },
+            "outcome": {
+              "type": "string",
+              "enum": [
+                "verified",
+                "rejected"
+              ]
+            },
+            "findings": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "maxItems": 50
+            }
+          },
+          "required": [
+            "missionId",
+            "bundleDigest",
+            "outcome"
           ],
           "additionalProperties": false
         }

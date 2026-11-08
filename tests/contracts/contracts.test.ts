@@ -6,7 +6,7 @@ import { knownDefinitions, validate } from "@brain/contracts/validate";
 
 describe("contracts (T02)", () => {
   it("exposes the full registry", () => {
-    expect(COMMANDS.size).toBe(61);
+    expect(COMMANDS.size).toBe(63);
     expect([...COMMANDS.keys()]).toEqual(expect.arrayContaining(["runner.control", "workspace.update", "workspace.control"]));
     expect([...QUERIES]).toEqual(expect.arrayContaining(["agents.list", "agents.get", "workflows.list", "workflows.get", "organization.members.list", "organization.member.get", "organization.invitations.list", "organization.auth-policy.get"]));
     expect(EVENTS.size).toBeGreaterThan(50);

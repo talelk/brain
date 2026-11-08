@@ -53,6 +53,7 @@ describe("missions (T51)", () => {
     expect(() => w.brain.missions.linkExecution(w.owner, w.workspaceId, first!.workItemId, "run-paused")).toThrow(/paused mission starts no new work/);
     await run(w, w.owner, "mission.resume", "m-life-resume", { missionId: id }, (await mission(w, id)).version);
     w.brain.missions.linkExecution(w.owner, w.workspaceId, first!.workItemId, "run-active");
+    w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("UPDATE work_items SET state='done', evidence_digest=? WHERE mission_id=?").run(`sha256:${"7".repeat(64)}`, id);
     await run(w, coordinator(w), "mission.proposeCompletion", "m-life-verify", { missionId: id }, (await mission(w, id)).version);
     expect((await mission(w, id)).state).toBe("verifying");
     await fails(async () => await run(w, w.owner, "mission.close", "m-life-achieved", { missionId: id, outcome: "achieved" }, (await mission(w, id)).version), /verified mission verdict/);
@@ -60,7 +61,7 @@ describe("missions (T51)", () => {
     expect((await mission(w, id)).state).toBe("active");
     await run(w, w.owner, "mission.close", "m-life-cancel", { missionId: id, outcome: "cancelled" }, (await mission(w, id)).version);
     expect(await mission(w, id)).toMatchObject({ state: "closed", outcome: "cancelled" });
-    expect((await workView(w)).items).toEqual([]);
+    expect((await workView(w)).items.every((item) => item.state === "done")).toBe(true);
     await fails(async () => await run(w, w.owner, "mission.brief.edit", "m-life-edit", { missionId: id, baseVersion: 1, intent: "Again" }), /terminal/);
     w.brain.close();
   });
@@ -182,6 +183,7 @@ describe("missions (T51)", () => {
     const inProgress = (await items()).find((item) => item.planTaskId === "spec") as WorkItem;
     await run(w, w.owner, "workItem.transition", "m-out-review", { workItemId: spec.workItemId, state: "review" }, inProgress.version);
     const reviewing = (await items()).find((item) => item.planTaskId === "spec") as WorkItem;
+    await run(w, coordinator(w), "handoff.submit", "m-out-handoff", { workItemId: spec.workItemId, notes: { summary: "The API spec is final." } });
     await run(w, w.owner, "workItem.transition", "m-out-done", { workItemId: spec.workItemId, state: "done", evidenceDigest: digest }, reviewing.version);
     const outputs = ((await w.brain.executeQuery(w.owner, { queryType: "missionOutputs.list", workspaceId: w.workspaceId, resourceId: id })) as { snapshot: { items: Array<{ name: string; versions: Array<{ versionId: string; state: string; verified: boolean }> }> } }).snapshot.items;
     expect(outputs).toEqual([expect.objectContaining({ name: "api-spec", versions: [expect.objectContaining({ versionId: draft, state: "draft", verified: false }), expect.objectContaining({ state: "final", verified: true })] })]);
@@ -206,6 +208,56 @@ describe("missions (T51)", () => {
     const messages = ((await w.brain.executeQuery(w.owner, { queryType: "missionMessages.list", workspaceId: w.workspaceId, resourceId: id })) as { snapshot: { items: Array<{ body: string; delivery: string }> } }).snapshot.items;
     expect(messages.map((entry) => [entry.body, entry.delivery])).toEqual([["Prioritise the signup flow", "pending"], ["Prioritise the login flow", "superseded"]]);
     expect((await mission(w, id)).state).toBe("active");
+    w.brain.close();
+  });
+
+  it("work others depend on needs a structurally valid handoff; dependents get direct-dependency handoffs only (E116)", async () => {
+    const w = setupWorld();
+    const id = await confirmedMission(w, "m-hand", [task("a", [], { outputs: ["notes"] }), task("b", ["a"]), task("c", ["b"])]);
+    const items = async () => (await workView(w)).items;
+    const a = (await items()).find((item) => item.planTaskId === "a") as WorkItem;
+    w.brain.missions.linkExecution(w.owner, w.workspaceId, a.workItemId, "run-a");
+    const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    const digest = `sha256:${"f".repeat(64)}`;
+    ws.prepare("INSERT INTO evidence_bundles(digest, bundle_id, job_id, attempt_id, state, manifest_json, created_at_ms) VALUES (?,?,?,?,'verified',?,?)")
+      .run(digest, "bundle-hand", "job-hand", "att-hand", JSON.stringify({ sourceRevision: "rev-1", checks: [{ criterionId: "a-done", checkId: "c1", status: "passed" }] }), w.brain.store.now());
+    ws.prepare("INSERT INTO verification_verdicts(id, bundle_digest, evaluator_attempt_id, evaluator_digest, outcome, manifest_json, created_at_ms) VALUES ('verdict-hand',?,'eval-hand',?,'verified','{}',?)").run(digest, digest, w.brain.store.now());
+    const toReview = (await items()).find((item) => item.planTaskId === "a") as WorkItem;
+    await run(w, w.owner, "workItem.transition", "m-hand-review", { workItemId: a.workItemId, state: "review" }, toReview.version);
+    const reviewing = (await items()).find((item) => item.planTaskId === "a") as WorkItem;
+    await fails(async () => await run(w, w.owner, "workItem.transition", "m-hand-done-1", { workItemId: a.workItemId, state: "done", evidenceDigest: digest }, reviewing.version), /needs a handoff/);
+    await run(w, coordinator(w), "handoff.submit", "m-hand-bad", { workItemId: a.workItemId, notes: { summary: "Claims an output it never made", referencedOutputs: ["outver-missing"] } });
+    await fails(async () => await run(w, w.owner, "workItem.transition", "m-hand-done-2", { workItemId: a.workItemId, state: "done", evidenceDigest: digest }, reviewing.version), /did not produce as final/);
+    await run(w, coordinator(w), "handoff.submit", "m-hand-good", { workItemId: a.workItemId, notes: { summary: "Session store moved to Postgres", openQuestions: ["Keep the Redis fallback?"], nextAction: "Wire the login flow" } });
+    await run(w, w.owner, "workItem.transition", "m-hand-done-3", { workItemId: a.workItemId, state: "done", evidenceDigest: digest }, reviewing.version);
+    const b = (await items()).find((item) => item.planTaskId === "b") as WorkItem;
+    const c = (await items()).find((item) => item.planTaskId === "c") as WorkItem;
+    const received = ((await w.brain.executeQuery(w.owner, { queryType: "handoffs.forWorkItem", workspaceId: w.workspaceId, resourceId: b.workItemId })) as { snapshot: { items: Array<{ version: number; notes: { summary: string }; facts: { evidenceDigest: string; sourceRevision: string; criteria: unknown[] } }> } }).snapshot.items;
+    expect(received).toEqual([expect.objectContaining({ version: 2, notes: expect.objectContaining({ summary: "Session store moved to Postgres" }), facts: expect.objectContaining({ evidenceDigest: digest, sourceRevision: "rev-1", criteria: [{ criterionId: "a-done", status: "passed" }] }) })]);
+    expect(((await w.brain.executeQuery(w.owner, { queryType: "handoffs.forWorkItem", workspaceId: w.workspaceId, resourceId: c.workItemId })) as { snapshot: { items: unknown[] } }).snapshot.items).toEqual([]);
+    void id;
+    w.brain.close();
+  });
+
+  it("completion is judged on a mission evidence bundle; achieved needs its verified verdict (T62)", async () => {
+    const w = setupWorld();
+    const id = await confirmedMission(w, "m-verdict", [task("a")]);
+    const a = (await workView(w)).items[0] as WorkItem;
+    await run(w, coordinator(w), "mission.proposeCompletion", "m-verdict-early", { missionId: id }, (await mission(w, id)).version);
+    expect((await mission(w, id)).state).toBe("active");
+    const findings = ((await w.brain.executeQuery(w.owner, { queryType: "missionMessages.list", workspaceId: w.workspaceId, resourceId: id })) as { snapshot: { items: Array<{ senderId: string; body: string }> } }).snapshot.items;
+    expect(findings[0]).toMatchObject({ senderId: "governor", body: expect.stringContaining(`Work item ${a.workItemId} is ready`) });
+    expect(((await w.brain.executeQuery(w.owner, { queryType: "missionBundles.latest", workspaceId: w.workspaceId, resourceId: id })) as { snapshot: { state: string } }).snapshot.state).toBe("incomplete");
+    const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    ws.prepare("UPDATE work_items SET state='done', evidence_digest=? WHERE id=?").run(`sha256:${"9".repeat(64)}`, a.workItemId);
+    await run(w, w.owner, "mission.proposeCompletion", "m-verdict-ready", { missionId: id }, (await mission(w, id)).version);
+    const bundle = ((await w.brain.executeQuery(w.owner, { queryType: "missionBundles.latest", workspaceId: w.workspaceId, resourceId: id })) as { snapshot: { digest: string; state: string; complete: boolean } }).snapshot;
+    expect(bundle).toMatchObject({ state: "submitted", complete: true });
+    await fails(async () => await run(w, w.owner, "mission.close", "m-verdict-early-close", { missionId: id, outcome: "achieved" }, (await mission(w, id)).version), /verified mission verdict/);
+    await fails(async () => await run(w, coordinator(w), "mission.verdict.record", "m-verdict-self", { missionId: id, bundleDigest: bundle.digest, outcome: "verified" }), /cannot judge|cannot run/);
+    await run(w, w.owner, "mission.verdict.record", "m-verdict-ok", { missionId: id, bundleDigest: bundle.digest, outcome: "verified" });
+    await run(w, w.owner, "mission.close", "m-verdict-close", { missionId: id, outcome: "achieved" }, (await mission(w, id)).version);
+    expect(await mission(w, id)).toMatchObject({ state: "closed", outcome: "achieved" });
     w.brain.close();
   });
 });

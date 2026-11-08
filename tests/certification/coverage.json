@@ -579,8 +579,8 @@
   },
   {
    "id": "E116",
-   "status": "partial",
-   "evidence": "not yet implemented: T62 handoff artifact"
+   "status": "covered",
+   "evidence": "tests/integration/missions.test.ts"
   },
   {
    "id": "E117",

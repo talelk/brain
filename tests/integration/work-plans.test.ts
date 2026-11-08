@@ -57,6 +57,7 @@ describe("Mission -> PlanVersion -> WorkItem -> Execution", () => {
     const currentAudit = linked.items.find((item) => item.workItemId === audit.workItemId)!;
     await run(w, "workItem.transition", "audit-review", { workItemId: audit.workItemId, state: "review" }, currentAudit.version);
     seedEvidence(w, ["audit-complete"]);
+    await run(w, "handoff.submit", "audit-handoff", { workItemId: audit.workItemId, notes: { summary: "Session audit complete" } });
     await run(w, "workItem.transition", "audit-done", { workItemId: audit.workItemId, state: "done", evidenceDigest: DIGEST_A }, currentAudit.version + 1);
     expect((await board(w)).items.find((item) => item.planTaskId === "fix")?.state).toBe("ready");
     w.brain.close();
