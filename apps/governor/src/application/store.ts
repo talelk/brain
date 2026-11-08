@@ -40,6 +40,7 @@ export class Store {
   markWorkspaceChanged(workspaceId: string): void { this.changedWorkspaces.add(workspaceId); }
 
   openWorkspaceCount(): number { return this.workspaces.size; }
+  isWorkspaceOpen(workspaceId: string): boolean { return this.workspaces.has(workspaceId); }
   private readonly releaseDirectory: () => void;
 
   constructor(opts: BrainOptions) {

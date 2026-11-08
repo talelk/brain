@@ -380,9 +380,9 @@ function projectAttemptTail(s: Store, organizationId: string): number {
 /**
  * Tail all three sources for every organization. Watermark-guarded and
  * idempotent; safe to call before every read, from the maintenance tick and
- * after applied commands. The hot path ("changed") tails only workspaces whose
- * event logs gained rows since the last pass, so a command never opens every
- * workspace database; the maintenance tick and a process's first pass sweep
+ * after applied commands. The hot path ("changed") tails workspaces whose event
+ * logs gained rows since the last pass and those already open, so a command
+ * never reopens closed workspace databases; the maintenance tick and a process's first pass sweep
  * them all ("all"), which also covers events written before a restart.
  */
 const swept = new WeakSet<Store>();
@@ -395,7 +395,9 @@ export function projectStream(s: Store, scope: "changed" | "all" = "changed"): {
   for (const org of control.prepare("SELECT id FROM organizations ORDER BY id").all() as Array<{ id: string }>) {
     projected += projectControlTail(s, correlator, org.id);
     for (const ws of control.prepare("SELECT id FROM workspaces WHERE organization_id=? AND status='active' ORDER BY id").all(org.id) as Array<{ id: string }>) {
-      if (!everything && !changed.has(ws.id)) continue;
+      // Any write needs an open handle, so an unmarked workspace whose database
+      // is closed has nothing new; open ones are tailed cheaply by cursor.
+      if (!everything && !changed.has(ws.id) && !s.isWorkspaceOpen(ws.id)) continue;
       const rows = projectWorkspaceTail(s, correlator, org.id, ws.id);
       if (rows >= MAX_ROWS_PER_ORG_PASS) s.markWorkspaceChanged(ws.id); // more remains for the next pass
       projected += rows;
