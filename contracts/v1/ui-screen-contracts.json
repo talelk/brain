@@ -501,16 +501,21 @@
    "route": "/w/:id/knowledge",
    "queries": [
     "memory.search",
-    "knowledgeAssets.list",
-    "capabilityCandidates.list",
-    "capitalizationRuns.list"
+    "documents.list",
+    "documents.get",
+    "documents.search",
+    "tools.list",
+    "toolCandidates.list"
    ],
    "actions": [
     "memory.publish",
     "memory.revoke",
-    "capitalization.run",
-    "capability.review",
-    "tool.publish"
+    "tool.publish",
+    "document.upload",
+    "document.revise",
+    "document.associate",
+    "document.delete",
+    "tool.propose"
    ],
    "content": [
     "source",
@@ -520,36 +525,39 @@
     "capitalization",
     "provenance",
     "candidateTests",
-    "releaseGate"
+    "releaseGate",
+    "documents",
+    "tools"
    ],
    "owner": "T39",
    "navigationGroup": "knowledge",
    "icon": "lucide-book-open",
-   "task": "Find scoped facts and inspect trusted capabilities",
+   "task": "Find scoped knowledge, documents and trusted tools",
    "title": "Knowledge"
   },
   {
-   "route": "/tools",
+   "route": "/w/:id/knowledge/review",
    "queries": [
-    "tools.list"
+    "knowledgeAssets.list",
+    "capabilityCandidates.list",
+    "capitalizationRuns.list"
    ],
    "actions": [
-    "tool.propose",
+    "capitalization.run",
+    "capability.review",
     "tool.publish"
    ],
    "content": [
-    "name",
-    "state",
-    "effect",
-    "release",
-    "evidence"
+    "runs",
+    "assets",
+    "candidates",
+    "decision"
    ],
-   "owner": "T40",
+   "owner": "T58",
    "navigationGroup": "knowledge",
-   "area": "administration",
-   "icon": "lucide-wrench",
-   "task": "Find scoped facts and inspect trusted capabilities",
-   "title": "Tool catalog"
+   "icon": "lucide-book-open",
+   "task": "Review knowledge and capability candidates",
+   "title": "Knowledge review"
   },
   {
    "route": "/settings",
@@ -625,33 +633,6 @@
    "icon": "lucide-monitor",
    "task": "Read scoped redacted monitoring",
    "title": "Play kiosk"
-  },
-  {
-   "route": "/w/:id/resources",
-   "queries": [
-    "documents.list",
-    "documents.get",
-    "documents.search"
-   ],
-   "actions": [
-    "document.upload",
-    "document.revise",
-    "document.associate",
-    "document.delete"
-   ],
-   "content": [
-    "documents",
-    "versions",
-    "preview",
-    "scope",
-    "associations",
-    "indexing"
-   ],
-   "owner": "T54",
-   "navigationGroup": "knowledge",
-   "icon": "lucide-files",
-   "task": "Manage and use workspace documents",
-   "title": "Resources"
   },
   {
    "route": "/studio/:kind",
@@ -825,15 +806,6 @@
    {
     "label": "Knowledge",
     "route": "/w/:id/knowledge"
-   },
-   {
-    "label": "Resources",
-    "route": "/w/:id/resources"
-   },
-   {
-    "label": "Tools",
-    "route": "/tools",
-    "adminOnly": true
    }
   ],
   "administration": [
@@ -863,11 +835,6 @@
     "route": "/settings?tab=release",
     "adminOnly": true,
     "organizationOnly": true
-   },
-   {
-    "label": "Tools",
-    "route": "/tools",
-    "adminOnly": true
    },
    {
     "label": "Runners",

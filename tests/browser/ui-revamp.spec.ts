@@ -32,7 +32,7 @@ function targets(jobId: string, approvalId: string): ScreenTarget[] {
     { id: "03-mission", route: "/missions/obj-visual/live", heading: "Stabilize authentication" },
     { id: "05-mission-plan", route: "/missions/obj-visual/plan", heading: "Stabilize authentication" },
     { id: "06-task", route: "/plays/operations-triage", heading: "Investigate an operational issue" },
-    { id: "07-resources", route: "/w/operations/resources", heading: "Resources" },
+    { id: "07-resources", route: "/w/operations/knowledge?tab=documents", heading: "Resources" },
     { id: "08-plays", route: "/w/operations/plays?mode=catalog", heading: "Plays" },
     { id: "10-run-inspector", route: `/runs/${jobId}`, heading: "Run inspector" },
     { id: "10b-live", route: "/w/operations/live", heading: "Sessions & runs", testid: "console-rail" },
@@ -45,7 +45,7 @@ function targets(jobId: string, approvalId: string): ScreenTarget[] {
     { id: "14-incidents", route: "/w/operations/plays/sre", heading: "Incidents" },
     { id: "15-incident-detail", route: "/incidents/incident-visual", heading: "Incident investigation" },
     { id: "17-knowledge", route: "/w/operations/knowledge", heading: "Knowledge" },
-    { id: "18-tools", route: "/tools", heading: "Trusted capability registry" },
+    { id: "18-tools", route: "/w/operations/knowledge?tab=tools", heading: "Trusted capability registry" },
     { id: "19-runners", route: "/runners", heading: "Execution fleet" },
     { id: "20-runner-detail", route: "/runners/runner-visual", heading: "Runner detail" },
     { id: "21-approvals", route: "/approvals", heading: "Approvals" },
@@ -126,7 +126,7 @@ test("all 38 revamped screens have browser screenshots and page-level containmen
   insertEvent.run("visual-event-1", actor.organizationId, "operations", "session", "visual-model-1", 1, "session.message", JSON.stringify({ text: "Inspecting the sign-in flow and current observations" }), DIGEST, now);
   insertEvent.run("visual-event-2", actor.organizationId, "operations", "session", "visual-tool-1", 2, "tool.proposed", JSON.stringify({ proposalId: "visual-tool-1", tool: { id: "operations.context", digest: DIGEST }, input: { target: "sso-production" } }), DIGEST, now + 1);
 
-  await page.goto(`${governor.url}/w/operations/resources`);
+  await page.goto(`${governor.url}/w/operations/knowledge?tab=documents`);
   await page.getByLabel("Document title", { exact: true }).fill("SSO investigation guide");
   await page.locator('input[type="file"]').first().setInputFiles({ name: "sso-guide.md", mimeType: "text/markdown", buffer: Buffer.from("# SSO guide\nCheck issuer, callback URL, session freshness and independent evidence.") });
   await page.getByRole("button", { name: "Upload document", exact: true }).click();

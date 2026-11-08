@@ -224,7 +224,7 @@ export function KnowledgeScreen(props: {
           description="Knowledge instructions and executable tools are different authorities. Inspect tool trust, effect class and evidence in the registry."
           actions={
             <A
-              href="/tools"
+              href={`/w/${props.workspaceId}/knowledge?tab=tools`}
               class="inline-flex min-h-8 items-center gap-1.5 rounded-control border border-outline-gray-2 px-2.5 text-caption font-medium text-ink-blue-link hover:bg-surface-gray-1 focus-visible:focus-ring"
             >
               Open tool registry<span class="lucide-arrow-up-right size-3.5" aria-hidden="true" />
@@ -241,7 +241,7 @@ export function KnowledgeScreen(props: {
                   tone={tool.effectClass === "read" ? "blue" : "amber"}
                   label={`Open ${tool.id} in the tool registry`}
                   trailing={<StatusBadge status={tool.status} />}
-                  onClick={() => void navigate("/tools")}
+                  onClick={() => void navigate(`/w/${props.workspaceId}/knowledge?tab=tools`)}
                 />
               )}
             </For>

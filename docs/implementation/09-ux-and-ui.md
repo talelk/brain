@@ -36,12 +36,11 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/tickets/:id` | plays | Review workspace work and pack details | body, draft, evidence, approval |
 | `/w/:id/plays/sre` | plays | Review workspace work and pack details | severity, target, state, freshness |
 | `/incidents/:id` | plays | Review workspace work and pack details | observations, remediation, evidence |
-| `/w/:id/knowledge` | knowledge | Find scoped facts and inspect trusted capabilities | source, scope, freshness, review, capitalization, provenance, candidateTests, releaseGate |
-| `/tools` | knowledge | Find scoped facts and inspect trusted capabilities | name, state, effect, release, evidence |
+| `/w/:id/knowledge` | knowledge | Find scoped knowledge, documents and trusted tools | source, scope, freshness, review, capitalization, provenance, candidateTests, releaseGate, documents, tools |
+| `/w/:id/knowledge/review` | knowledge | Review knowledge and capability candidates | runs, assets, candidates, decision |
 | `/settings` | administration | Manage explicitly authorized administration | members, people, invitations, access, authenticationPolicy, audit, health |
 | `/accept-invitation/:id` | administration | Verify an invited account and accept organization membership | invitedSignUp, emailVerification, explicitAcceptance |
 | `/tv/:play` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
-| `/w/:id/resources` | knowledge | Manage and use workspace documents | documents, versions, preview, scope, associations, indexing |
 | `/studio/:kind` | knowledge | Create and validate a capability without editing YAML | definitions, drafts, validation, dependencies |
 | `/studio/:kind/:draftId` | knowledge | Edit, test, review and publish an immutable definition | editor, diagnostics, diff, tests, publication |
 | `/administration/integrations` | administration | Connect Git providers and bind repositories to workspaces | providers, organizations, repositories, permissions, webhooks, status |

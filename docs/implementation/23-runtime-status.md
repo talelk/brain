@@ -1,5 +1,9 @@
 # Runtime status and continuation — 2026-10-28
 
+## Knowledge gathers documents, tools and its review queue — 8 November
+
+The fifth UI slice makes Knowledge the one secondary place #43 describes. `/w/:id/knowledge` holds scoped knowledge with provenance (find and publish), workspace documents (`?tab=documents`: upload, preview, revise, associate, search and revoke) and the trusted tool registry (`?tab=tools`: propose and publish) as tabs of one page. The capitalization studio — runs, assets and capability candidates a reviewer approves before a separate publication — is the review queue at `/w/:id/knowledge/review`. `/tools` and `/w/:id/resources` are removed without redirects.
+
 ## Plans and runs fold into missions and Logs — 8 November
 
 The fourth UI slice removes `/w/:id/plans` and `/w/:id/runs`, as the #25 route map decided. Planning lives on the mission's Plan tab: its proposal canvas asks Brain for a strategy (or another one), edits each step's outcome, criteria and dependencies, and confirms it — proposing an edited version first — so nothing becomes tracked work before an explicit confirmation; the tab keeps the agent-proposal review, the mission's work items and their scheduled starts. Missions are created at `/w/:id/missions/new`. The run index (active, waiting, needs-intervention and history views, state filter, search and paging) is a section of `/w/:id/logs` above the Log Explorer, with `run*` URL parameters beside the explorer's own; the console's "all runs" link opens it.

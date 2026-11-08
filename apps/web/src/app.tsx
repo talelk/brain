@@ -28,7 +28,6 @@ const PAGE_LOADERS = {
   MissionPage: () => import('./routes/pages/MissionPage'),
   PlaysPage: () => import('./routes/pages/PlaysPage'),
   BridgePage: () => import('./routes/pages/BridgePage'),
-  ResourcesPage: () => import('./routes/pages/ResourcesPage'),
   IntegrationsPage: () => import('./routes/administration/IntegrationsPage'),
   StudioListPage: () => import('./ui/studio/StudioPages').then((module) => ({ default: module.StudioListPage })),
   StudioEditorPage: () => import('./ui/studio/StudioPages').then((module) => ({ default: module.StudioEditorPage })),
@@ -43,7 +42,7 @@ const PAGE_LOADERS = {
   SrePage: () => import('./routes/pages/SrePage'),
   IncidentDetailPage: () => import('./routes/pages/IncidentDetailPage'),
   KnowledgePage: () => import('./routes/pages/KnowledgePage'),
-  ToolsPage: () => import('./routes/pages/ToolsPage'),
+  KnowledgeReviewPage: () => import('./routes/pages/KnowledgeReviewPage'),
   SettingsPage: () => import('./routes/pages/SettingsPage'),
   TvPage: () => import('./routes/pages/TvPage'),
 };
@@ -235,10 +234,10 @@ export function App(): JSX.Element {
       <Route path="/w/:id/live" component={workspacePage("LivePage")} />
       <Route path="/w/:id/logs" component={workspacePage("LogsPage")} />
       <Route path="/w/:id/outputs" component={workspacePage("OutputsPage")} />
-      <Route path="/w/:id/resources" component={workspacePage("ResourcesPage")} />
       <Route path="/w/:id/plays/support" component={workspacePage("SupportPage")} />
       <Route path="/w/:id/plays/sre" component={workspacePage("SrePage")} />
       <Route path="/w/:id/knowledge" component={workspacePage("KnowledgePage")} />
+      <Route path="/w/:id/knowledge/review" component={workspacePage("KnowledgeReviewPage")} />
       <Route path="/approvals" component={page("ApprovalsPage")} />
       <Route path="/approvals/:id" component={page("ApprovalDetailPage")} />
       <Route path="/runs/:id" component={page("JobDetailPage")} />
@@ -249,7 +248,6 @@ export function App(): JSX.Element {
       <Route path="/outputs/:id/compare" component={page("OutputPage")} />
       <Route path="/tickets/:id" component={page("TicketDetailPage")} />
       <Route path="/incidents/:id" component={page("IncidentDetailPage")} />
-      <Route path="/tools" component={workspacePage("ToolsPage")} />
       <Route path="/settings" component={workspacePage("SettingsPage")} />
       <Route path="/administration/integrations" component={workspacePage("IntegrationsPage")} />
       <Route path="/studio/:kind" component={workspacePage("StudioListPage")} />

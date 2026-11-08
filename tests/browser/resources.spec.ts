@@ -23,7 +23,7 @@ async function resourceWorld(page: Page, governor: GovernorFixture) {
   ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-resource','Resource objective','Resource intent','[\"echo\"]','owner',?,?)").run(now, now);
   ws.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-resource','obj-resource',1,?,'confirmed','manual','owner','[]',?)").run(DIGEST_A, now);
   ws.prepare("INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('work-ui-resource','obj-resource','plan-resource','task','Document-backed task','ready','[\"echo\"]','Start',?,?)").run(now, now);
-  await page.goto(`${governor.url}/w/ws-resources/resources`);
+  await page.goto(`${governor.url}/w/ws-resources/knowledge?tab=documents`);
   await expect(page.getByRole("heading", { name: "Resources", exact: true, level: 1 })).toBeVisible();
   return { brain, ws };
 }
