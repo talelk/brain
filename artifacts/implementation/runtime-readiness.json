@@ -1,49 +1,41 @@
 {
   "scope": "evidence-record-integrity-only",
-  "productFingerprint": "sha256:f0c8bfaf905bd83e86b7fbd98bbfd1cf71fb3eb0c55dfd8ec9ecfbdacdb6ce5c",
+  "productFingerprint": "sha256:78d8856de5b4f660979ab7c331c4a8b388d45b5686e16e7f92f0f9e74d71f063",
   "gates": {
     "G01": {
-      "status": "failed",
-      "reason": "invalid-or-stale-evidence",
-      "errorClass": "AssertionError"
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
     },
     "G02": {
-      "status": "failed",
-      "reason": "invalid-or-stale-evidence",
-      "errorClass": "AssertionError"
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
     },
     "G03": {
-      "status": "failed",
-      "reason": "invalid-or-stale-evidence",
-      "errorClass": "AssertionError"
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
     },
     "G04": {
-      "status": "failed",
-      "reason": "invalid-or-stale-evidence",
-      "errorClass": "AssertionError"
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
     },
     "G05": {
-      "status": "failed",
-      "reason": "invalid-or-stale-evidence",
-      "errorClass": "AssertionError"
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
     },
     "G06": {
-      "status": "failed",
-      "reason": "invalid-or-stale-evidence",
-      "errorClass": "AssertionError"
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
     },
     "G07": {
-      "status": "failed",
-      "reason": "invalid-or-stale-evidence",
-      "errorClass": "AssertionError"
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
     },
     "G08": {
-      "status": "failed",
-      "reason": "invalid-or-stale-evidence",
-      "errorClass": "AssertionError"
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
     }
   },
-  "allRuntimeGatesPassed": false,
+  "allRuntimeGatesPassed": true,
   "modelQualification": {
     "status": "not-run",
     "reason": "evidence-missing"

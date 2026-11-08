@@ -2,10 +2,10 @@
   "contractVersion": "brain.verification-run/v1",
   "gateId": "G04",
   "status": "passed",
-  "productFingerprint": "sha256:2369b7e108abdd4a36d3b4534ace880a4b6e6cb83dfb9b6485f1fd7a905754ea",
-  "lockDigest": "sha256:1d784f4bbcec55eb5d00c2f85d78393a9e8aac76426ea58236b59c7fe1fb2daa",
-  "startedAt": "2026-10-28T04:03:17.829Z",
-  "finishedAt": "2026-10-28T04:03:22.892Z",
+  "productFingerprint": "sha256:78d8856de5b4f660979ab7c331c4a8b388d45b5686e16e7f92f0f9e74d71f063",
+  "lockDigest": "sha256:581b5c25fb80466a1308330e9d1c025dde6b54108b77feab7bfd1f2fe84ddaa1",
+  "startedAt": "2026-11-08T14:33:47.896Z",
+  "finishedAt": "2026-11-08T14:33:52.922Z",
   "commands": [
     {
       "argv": [
@@ -16,7 +16,7 @@
         "tests/probes/tencentdb/client.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 484
+      "durationMs": 423
     },
     {
       "argv": [
@@ -27,7 +27,7 @@
         "tests/security/authz.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 1194
+      "durationMs": 1308
     },
     {
       "argv": [
@@ -38,7 +38,7 @@
         "tests/integration/scenarios2.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 3374
+      "durationMs": 3276
     }
   ],
   "checks": [
@@ -62,15 +62,15 @@
   "artifacts": [
     {
       "path": "artifacts/runtime/G04/memory-tenant-gateway.log",
-      "digest": "sha256:30e2d9f19e497f62456211392a1d7fc16ead0178ac5bd38d3616d56b2e511f80"
+      "digest": "sha256:483e5c2901f708bb16c6f559baf0dee7de991b21534ed4236268cc3f6d715f42"
     },
     {
       "path": "artifacts/runtime/G04/tenant-acls-revocation.log",
-      "digest": "sha256:d366f9e9756d32ed05124103562bd32e17d62cd91cc460c64dfe23c6ce934f0e"
+      "digest": "sha256:d61d9eb27bf8308addb95db31f5c5e11bca6b2e5ce400094f551672fa1d43632"
     },
     {
       "path": "artifacts/runtime/G04/service-footprint.log",
-      "digest": "sha256:8c3cd119139669e0dc9efd2ca7aa9af5add6b863d95e75849e777a11071db56f"
+      "digest": "sha256:f79ab71178dd4a3ac2a06bdb3b0d8b22be97af3b22a628bcc816bf40ec6b34c4"
     }
   ],
   "selectedScenarios": [
