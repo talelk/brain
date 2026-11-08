@@ -28,6 +28,10 @@ test("knowledge studio: capitalize verified operations with governed L3 promotio
   await page.getByRole("radio", { name: "Review capability candidates", exact: true }).click();
   await expect(page.getByText("Knowledge Studio", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Run capitalization", exact: true }).click();
+  // The click's command lands over HTTP; process only once its run is queued
+  // beside the three captured operations, or the count races the request.
+  const db = brain.store.workspaceDb("ws-capitalization", actor.organizationId);
+  await expect.poll(() => (db.prepare("SELECT COUNT(*) AS n FROM capitalization_runs WHERE state IN ('queued','running')").get() as { n: number }).n).toBe(4);
   expect(brain.runCapitalization()).toEqual({ processed: 4, failed: 0 });
   const asset = page.getByTestId("knowledge-asset-fixture.echo");
   const candidate = page.getByTestId("capability-candidate-fixture.echo");

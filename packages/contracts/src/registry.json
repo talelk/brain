@@ -31,6 +31,15 @@
       ]
     },
     {
+      "type": "plan.reject",
+      "schema": "PlanRejectCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "workItem.transition",
       "schema": "WorkItemTransitionCommand",
       "scope": "mission:write",
@@ -712,6 +721,12 @@
     },
     {
       "type": "plan.confirmed",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "plan.rejected",
       "envelope": "EventEnvelope",
       "payloadContract": "WorkEventPayload",
       "durable": true

@@ -117,3 +117,35 @@ test("mission work: Done succeeds with explicitly bound verified evidence (T51)"
   expect(errors).toEqual([]);
 });
 
+
+test("parked work offers Retry and Drop; a person rejects a plan proposal with a reason (T64, #43)", async ({ page, governor }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const { ws } = await missionWorld(page, governor);
+  ws.prepare("UPDATE missions SET active_plan_version_id='plan-ui' WHERE id='obj-ui'").run();
+  seedWorkItem(ws, "work-ui-parked", "Flaky integration", "blocked");
+  seedWorkItem(ws, "work-ui-dropped", "Obsolete probe", "blocked");
+  ws.prepare("UPDATE work_items SET parked=1, failed_attempts=3, parked_diagnostic='tests failed three times', blocked_reason='Parked after 3 failed attempts' WHERE id IN ('work-ui-parked','work-ui-dropped')").run();
+  const now = Date.now();
+  ws.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-ui-2','obj-ui',2,?,'proposed','agent','coordinator','[]',?)").run(`sha256:${"b".repeat(64)}`, now);
+
+  await openMissionWork(page, governor);
+  await page.getByRole("button", { name: "Manage Flaky integration" }).click();
+  const parked = page.getByRole("region", { name: "Parked work item" });
+  await expect(parked.getByText("Parked after repeated failures", { exact: true })).toBeVisible();
+  await parked.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect.poll(() => ws.prepare("SELECT state, parked, failed_attempts FROM work_items WHERE id='work-ui-parked'").get()).toEqual({ state: "ready", parked: 0, failed_attempts: 0 });
+
+  await page.getByRole("button", { name: "Manage Obsolete probe" }).click();
+  await parked.getByRole("button", { name: "Drop", exact: true }).click();
+  await parked.getByRole("button", { name: "Confirm drop", exact: true }).click();
+  await expect.poll(() => (ws.prepare("SELECT state FROM work_items WHERE id='work-ui-dropped'").get() as { state: string }).state).toBe("abandoned");
+
+  await page.goto(`${governor.url}/missions/obj-ui/plan?proposal=plan-ui-2`);
+  const review = page.getByRole("region", { name: "Plan proposal" });
+  await expect(review.getByText(/Proposal: revision 2/)).toBeVisible();
+  await review.getByLabel("Rejection reason", { exact: true }).fill("Duplicates the confirmed work");
+  await review.getByRole("button", { name: "Reject this proposal", exact: true }).click();
+  await expect.poll(() => (ws.prepare("SELECT state FROM plan_versions WHERE id='plan-ui-2'").get() as { state: string }).state).toBe("rejected");
+  expect(errors).toEqual([]);
+});

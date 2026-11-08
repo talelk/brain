@@ -160,12 +160,14 @@
   "planVersion": {
    "proposed": [
     "confirmed",
-    "superseded"
+    "superseded",
+    "rejected"
    ],
    "confirmed": [
     "superseded"
    ],
-   "superseded": []
+   "superseded": [],
+   "rejected": []
   },
   "workItem": {
    "backlog": [

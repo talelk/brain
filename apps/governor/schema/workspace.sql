@@ -127,7 +127,7 @@ CREATE TABLE mission_messages (
 CREATE TABLE plan_versions (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   revision INTEGER NOT NULL CHECK(revision > 0), digest TEXT NOT NULL,
-  state TEXT NOT NULL CHECK(state IN ('proposed','confirmed','superseded')),
+  state TEXT NOT NULL CHECK(state IN ('proposed','confirmed','superseded','rejected')),
   origin TEXT NOT NULL CHECK(origin IN ('manual','agent','template','capitalization')),
   created_by TEXT NOT NULL, summary TEXT, tasks_json TEXT NOT NULL CHECK(json_valid(tasks_json)),
   team_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(team_json)),

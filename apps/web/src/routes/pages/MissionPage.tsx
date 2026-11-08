@@ -269,6 +269,7 @@ function PlanTab(props: ActProps): JSX.Element {
     },
   });
   const confirmed = () => versions.state().data?.confirmed;
+  const [rejectReason, setRejectReason] = createSignal("");
   return <PageStack>
     <WorkspaceSection title="Plan version" description="Confirmed work and any proposal waiting for a person.">
       <Show when={confirmed()} fallback={<EmptyPreview icon="lucide-list-tree" title="No confirmed plan yet" description="Prepare a plan proposal below, or open one an agent proposed from Needs you." />}>
@@ -279,7 +280,10 @@ function PlanTab(props: ActProps): JSX.Element {
         <p class="text-interface text-ink-gray-7">Added: {p().tasks.filter((task) => !confirmed()?.tasks.some((other) => other.id === task.id)).map((task) => task.title).join(", ") || "none"}; removed: {(confirmed()?.tasks ?? []).filter((task) => !p().tasks.some((other) => other.id === task.id)).map((task) => task.title).join(", ") || "none"}</p>
         <Show when={p().team?.length}><p class="text-interface text-ink-gray-7">Team: {p().team!.map((member) => `${member.memberId} (${member.role})`).join(", ")}</p></Show>
         <Show when={p().state === "proposed"}><Button size="md" theme="blue" class="mt-2" disabled={props.busy}
-          onClick={() => void props.onAct(async () => { await app.run("plan.confirm", { planVersionId: p().planVersionId }, { expectedVersion: props.mission.version }); await versions.refresh({ force: true }); })}>Confirm this plan version</Button></Show>
+          onClick={() => void props.onAct(async () => { await app.run("plan.confirm", { planVersionId: p().planVersionId }, { expectedVersion: props.mission.version }); await versions.refresh({ force: true }); })}>Confirm this plan version</Button>
+          <div class="mt-2 flex flex-wrap items-end gap-2"><div class="min-w-48 flex-1"><TextInput label="Rejection reason" value={rejectReason()} onInput={(event) => setRejectReason(event.currentTarget.value)} /></div>
+            <Button size="md" variant="outline" theme="red" iconLeft="lucide-x" disabled={props.busy || !rejectReason().trim()}
+              onClick={() => void props.onAct(async () => { const result = await app.run("plan.reject", { planVersionId: p().planVersionId, reason: rejectReason().trim() }); if (!result.accepted) throw new Error(result.detail); setRejectReason(""); await versions.refresh({ force: true }); })}>Reject this proposal</Button></div></Show>
       </section>}</Show>
     </WorkspaceSection>
     <PlanCanvas mission={props.mission} onChanged={() => props.onAct(async () => undefined)} />

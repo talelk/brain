@@ -57,7 +57,7 @@ const EVIDENCE: StatusMap = {
 
 const PLAN: StatusMap = {
   proposed: { theme: "blue", label: "Proposed" }, confirmed: { theme: "green", label: "Confirmed" },
-  superseded: { theme: "gray", label: "Superseded" }, running: { theme: "blue", label: "Preparing" },
+  superseded: { theme: "gray", label: "Superseded" }, rejected: { theme: "red", label: "Rejected" }, running: { theme: "blue", label: "Preparing" },
   failed: { theme: "red", label: "Failed" },
 };
 

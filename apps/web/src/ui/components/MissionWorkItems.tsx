@@ -1,4 +1,5 @@
 import { createEffect, createSignal, For, Show } from "solid-js";
+import { ParkedActions } from "./ParkedActions";
 import type { JSX } from "solid-js";
 import { Badge, Button, TextInput } from "@talelk/newui-atoms";
 import { Alert, Select } from "@talelk/newui-molecules";
@@ -78,6 +79,7 @@ export function MissionWorkItems(props: { missionId: string }): JSX.Element {
               <div class="flex flex-wrap items-center gap-2"><h3 class="text-base-medium">{item.title}</h3><StatusBadge kind="workItem" status={item.state} /><Badge variant="outline" theme={item.evidenceDigest ? "green" : "gray"} label={item.evidenceDigest ? "Verified evidence bound" : "Evidence required for Done"} /></div>
               <Button size="md" variant="ghost" iconLeft="lucide-arrow-left" onClick={() => setSelectedId("")}>Back to mission work</Button>
             </div>
+            <Show when={item.parked}><ParkedActions item={item} onChanged={async () => { setSelectedId(""); await items.refresh({ force: true }); }} /></Show>
             <div class="border-y border-outline-gray-1 py-3"><h4 class="text-base-medium">Next action</h4><p class="mt-1 text-interface text-ink-gray-7">{item.nextAction}</p><Show when={item.blockedReason}><Alert theme="amber" variant="outline" title="Blocked" description={item.blockedReason} /></Show></div>
             <div><h4 class="text-base-medium">Acceptance criteria</h4><ul class="mt-2 list-disc ps-5 text-interface text-ink-gray-7"><For each={item.criteria}>{(criterion) => <li>{criterion}</li>}</For></ul></div>
             <Show when={item.evidenceDigest}><EvidenceList bundleDigest={item.evidenceDigest} /></Show>

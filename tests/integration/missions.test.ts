@@ -227,6 +227,21 @@ describe("missions (T51)", () => {
     w.brain.close();
   });
 
+  it("a person rejects a plan proposal with a reason; it leaves attention and cannot be confirmed (T64)", async () => {
+    const w = setupWorld();
+    const id = await confirmedMission(w, "m-reject", [task("a")]);
+    const proposal = (await run(w, w.owner, "plan.propose", "m-rejected-prop", { missionId: id, origin: "manual", tasks: [task("a"), task("b", ["a"])] })).resourceId ?? "";
+    expect((await plan(w, proposal)).state).toBe("proposed");
+    await fails(async () => await run(w, coordinator(w), "plan.reject", "m-rejected-agent", { planVersionId: proposal, reason: "No" }), /only a person|cannot run/);
+    await run(w, w.owner, "plan.reject", "m-rejected-human", { planVersionId: proposal, reason: "Task b duplicates existing work" });
+    expect((await plan(w, proposal)).state).toBe("rejected");
+    await fails(async () => await run(w, w.owner, "plan.confirm", "m-rejected-confirm", { planVersionId: proposal }, (await mission(w, id)).version), /only a proposed plan version/);
+    await fails(async () => await run(w, w.owner, "plan.reject", "m-rejected-again", { planVersionId: proposal, reason: "Again" }), /only a proposed plan version/);
+    const attention = ((await w.brain.executeQuery(w.owner, { queryType: "attention.list", workspaceId: w.workspaceId })) as { snapshot: { items: Array<{ kind: string; resourceId: string }> } }).snapshot.items;
+    expect(attention.some((item) => item.kind === "plan-proposal" && item.resourceId === proposal)).toBe(false);
+    w.brain.close();
+  });
+
   it("mission messages are durable records for the mission or one team member, and carry no authority (T51)", async () => {
     const w = setupWorld();
     const id = await confirmedMission(w, "m-msg", [task("a")]);

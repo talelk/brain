@@ -24,6 +24,7 @@ export function PlanCanvas(props: { mission: Mission; onChanged: () => Promise<v
   const [dirty, setDirty] = createSignal(false);
   const [error, setError] = createSignal("");
   const [busy, setBusy] = createSignal(false);
+  const [rejectReason, setRejectReason] = createSignal("");
   const proposal = createScopedRead<MissionPlanView | null>({
     scope: app.scope,
     load: async (scope, signal) => {
@@ -77,6 +78,17 @@ export function PlanCanvas(props: { mission: Mission; onChanged: () => Promise<v
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Plan confirmation failed"); }
     finally { setBusy(false); }
   }
+  async function reject(planVersionId: string) {
+    if (busy()) return;
+    setBusy(true); setError("");
+    try {
+      const result = await app.run("plan.reject", { planVersionId, reason: rejectReason().trim() });
+      if (!result.accepted) throw new Error(result.detail);
+      setRejectReason(""); setDirty(false);
+      await Promise.all([proposal.refresh({ force: true }), props.onChanged()]);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "The rejection was refused"); }
+    finally { setBusy(false); }
+  }
   return <WorkspaceSection title="Proposal canvas" description="Review each expected outcome, acceptance criterion and dependency before confirming tracked work."
     actions={<Show when={app.canDispatch() && props.mission.state !== "closed"}><Button size="md" variant="outline" iconLeft="lucide-sparkles" loading={busy()} disabled={busy()} onClick={() => void generate()}>{proposal.state().data ? "Generate another strategy" : "Prepare plan proposal"}</Button></Show>}>
     <Show when={error()}><Alert theme="red" variant="outline" title="Planning action failed" description={error()} /></Show>
@@ -98,6 +110,8 @@ export function PlanCanvas(props: { mission: Mission; onChanged: () => Promise<v
         </article>}</For></div>
         <div class="flex flex-wrap gap-3 border-t border-outline-gray-1 pt-4">
           <Button size="md" theme="blue" iconLeft="lucide-check-check" loading={busy()} disabled={busy() || !editedTasks().length || (plan.state === "confirmed" && !dirty())} onClick={() => void confirm()}>Confirm this plan</Button>
+          <Show when={plan.state === "proposed"}><TextInput label="Why reject this proposal?" value={rejectReason()} onInput={(event) => setRejectReason(event.currentTarget.value)} />
+            <Button size="md" variant="outline" theme="red" iconLeft="lucide-x" disabled={busy() || !rejectReason().trim()} onClick={() => void reject(plan.planVersionId)}>Reject proposal</Button></Show>
           <Button size="md" variant="outline" iconLeft="lucide-undo-2" disabled={!dirty()} onClick={() => { setDirty(false); setEditedTasks(plan.tasks.map((task) => ({ ...task }))); }}>Reset edits</Button>
         </div>
         <TechnicalDetails label="Plan version"><p class="break-all">{plan.planVersionId} · digest {plan.digest} · origin {plan.origin}</p></TechnicalDetails>

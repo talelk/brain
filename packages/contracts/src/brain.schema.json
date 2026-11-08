@@ -6506,7 +6506,8 @@
           "enum": [
             "proposed",
             "confirmed",
-            "superseded"
+            "superseded",
+            "rejected"
           ]
         },
         "origin": {
@@ -6915,6 +6916,58 @@
         "workspaceId",
         "idempotencyKey",
         "expectedVersion",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "PlanRejectCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "plan.reject"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "planVersionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "planVersionId",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
         "payload"
       ],
       "additionalProperties": false
@@ -10667,6 +10720,9 @@
         },
         {
           "$ref": "#/$defs/PlanConfirmCommand"
+        },
+        {
+          "$ref": "#/$defs/PlanRejectCommand"
         },
         {
           "$ref": "#/$defs/WorkItemTransitionCommand"

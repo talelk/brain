@@ -1,8 +1,12 @@
 # Runtime status and continuation — 2026-10-28
 
+## Rejecting proposals and resolving parked work — 8 November
+
+`plan.reject` (human only, with a reason) moves a proposed plan version to the new terminal state `rejected`: it leaves the attention queue, its planning request records the reason, a `plan.rejected` event is emitted and the coordinator wakes (`plan-resolved`); the confirmed version and its work are untouched. The mission Plan tab's proposal review and the planning canvas both offer Reject. A parked work item's panel offers Retry (back to ready, unparked, failure count reset), Drop (abandoned, after a confirmation), Reassign (another team member) and Edit (title and acceptance criteria); Reassign and Edit propose and confirm a new plan version rather than editing work in place, so the changed task gets a fresh work item. The capitalization browser spec now waits for the clicked run to be queued before processing, removing a request race.
+
 ## UI rewrite follow-ups — 8 November
 
-Mission links carry their workspace (`/missions/:id/:tab?w=`), and the mission page switches to it, so attention items, notifications and push links from another workspace open the right mission. The mission Outputs tab groups named outputs by the plan task that produced them and opens each at `/outputs/:id`. Watch is a header toggle backed by `Mission.watching` (the viewer's own state, from `missions.get`). The Brief tab shows version history (`MissionBrief.history`, newest first) with intent changes and added or removed constraints. Not built, because the backend has no command for it yet: rejecting a plan proposal (a newer proposal or confirmation supersedes it). Parked items are retried or dropped through Move, and reassigned or edited through a plan revision on the canvas.
+Mission links carry their workspace (`/missions/:id/:tab?w=`), and the mission page switches to it, so attention items, notifications and push links from another workspace open the right mission. The mission Outputs tab groups named outputs by the plan task that produced them and opens each at `/outputs/:id`. Watch is a header toggle backed by `Mission.watching` (the viewer's own state, from `missions.get`). The Brief tab shows version history (`MissionBrief.history`, newest first) with intent changes and added or removed constraints.
 
 ## The mission cockpit and the attention drawer — 8 November
 

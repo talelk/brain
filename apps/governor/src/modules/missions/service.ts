@@ -160,6 +160,7 @@ export class MissionService {
       case "mission.verdict.record": return this.verdict(actor, workspaceId, command.payload);
       case "plan.propose": return this.proposePlan(actor, workspaceId, command.payload);
       case "plan.confirm": return this.confirmPlan(actor, workspaceId, command.payload, command.expectedVersion);
+      case "plan.reject": return this.rejectPlan(actor, workspaceId, command.payload);
       case "workItem.transition": return this.transition(actor, workspaceId, command.payload, command.expectedVersion);
       case "workItem.comment": return this.comment(actor, workspaceId, command.payload);
       default: throw new BrainDomainError("INVALID_CONTRACT", `unsupported work command ${command.commandType}`);
@@ -254,6 +255,27 @@ export class MissionService {
     const policy = JSON.parse(mission.policy_json) as AutonomyPolicy;
     const beyond = [...new Set([...beyondPolicy(diff, policy), ...teamOperations(JSON.parse(active.team_json) as TeamMember[], team).filter((operation) => !policy.operations.includes(operation))])].sort();
     return { autoConfirm: actor.kind === "agent" && mission.state === "active" && beyond.length === 0, beyond };
+  }
+
+  /**
+   * A person turns down a plan proposal (#43): it becomes rejected, leaves the
+   * attention queue, and the coordinator wakes with the reason. The confirmed
+   * version and its work are untouched.
+   */
+  private rejectPlan(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only a person rejects a plan proposal");
+    const plan = this.planRow(actor, workspaceId, String(payload["planVersionId"]));
+    if (plan.state !== "proposed") throw new BrainDomainError("CONFLICT", "only a proposed plan version can be rejected");
+    const reason = String(payload["reason"] ?? "").trim();
+    if (!reason) throw new BrainDomainError("INVALID_ARGUMENT", "a rejection needs a reason");
+    const db = this.db(actor, workspaceId);
+    this.store.inTx(db, () => {
+      transitionState(db, "planVersion", plan.id, "rejected", {});
+      db.prepare("UPDATE planning_requests SET state='failed',error=?,updated_at_ms=? WHERE plan_version_id=?").run(`Rejected: ${reason}`.slice(0, 1024), this.store.now(), plan.id);
+      this.store.emit(db, { aggregateType: "plan", aggregateId: plan.id, eventType: "plan.rejected", payload: { missionId: plan.mission_id, planVersionId: plan.id, reason } });
+      wake(this.store, db, plan.mission_id, "plan-resolved", `Proposal rejected: ${reason}`);
+    });
+    return plan.id;
   }
 
   private confirmPlan(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number, withinPolicy = false): string {
