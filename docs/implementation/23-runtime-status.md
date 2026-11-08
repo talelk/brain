@@ -1,5 +1,9 @@
 # Runtime status and continuation — 2026-10-28
 
+## Attention and since-last-visit — 8 November
+
+T59 adds `attention.list`, derived across the user's workspaces and never stored, in fixed tiers: approvals (nearest expiry first), stopped missions (budget pause, or all remaining work parked), plan proposals and parked work items (with their waiting dependents), verdicts ready to close, and findings routed to a mission; within a tier the longest wait comes first, and no model ranks anything. `missions.sinceLastVisit` returns a deterministic digest of a mission's notable events after the user's seen cursor (work verified, parked work, plan proposals and confirmations, state changes, outputs, brief and budget changes, verdicts) with every other event counted; `mission.seen` advances that cursor per user and mission on the server, so the same news is not repeated on another device, and never moves it backwards. E119 is covered.
+
 ## Knowledge from missions — 8 November
 
 T57 runs one capitalization pass when a mission closes, whatever its outcome, and `capitalization.run` accepts a `missionId` for an on-demand pass during a long mission. A mission pass extracts candidates only from verified material: active accepted decisions, verified output versions, mission verdict findings and the Governor-derived facts frozen on handoffs. Member notes, messages and transcripts are never read. Candidates enter the existing review and publication lifecycle as extracted knowledge assets. E120 is covered.

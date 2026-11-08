@@ -1,0 +1,63 @@
+import { describe, expect, it } from "vitest";
+import type { ActorContext, AttentionItem, CommandReceipt, Mission, PlanTask, SinceLastVisitSummary } from "@brain/contracts";
+import { setupWorld, workView } from "../helpers";
+
+type World = ReturnType<typeof setupWorld>;
+
+async function run(w: World, actor: ActorContext, commandType: string, key: string, payload: Record<string, unknown>, expectedVersion?: number): Promise<CommandReceipt> {
+  return (await w.brain.executeCommand(actor, {
+    contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType, workspaceId: w.workspaceId,
+    idempotencyKey: key, ...(expectedVersion ? { expectedVersion } : {}), payload,
+  } as never, key)).receipt;
+}
+const task = (id: string, dependsOn: string[] = []): PlanTask => ({ id, title: `Task ${id}`, criteria: [`${id}-done`], dependsOn });
+const query = async <T>(w: World, actor: ActorContext, queryType: string, resourceId?: string) => ((await w.brain.executeQuery(actor, { queryType, workspaceId: w.workspaceId, ...(resourceId ? { resourceId } : {}) })) as { snapshot: T }).snapshot;
+
+async function mission(w: World, key: string, tasks: PlanTask[], confirm = true): Promise<string> {
+  const id = (await run(w, w.owner, "mission.create", `${key}-create`, { title: key, intent: `Deliver ${key}`, successCriteria: ["delivered"] })).resourceId ?? "";
+  const planId = (await run(w, w.owner, "plan.propose", `${key}-plan`, { missionId: id, origin: "manual", tasks })).resourceId ?? "";
+  if (confirm) await run(w, w.owner, "plan.confirm", `${key}-confirm`, { planVersionId: planId }, (await query<Mission>(w, w.owner, "missions.get", id)).version);
+  return id;
+}
+
+describe("attention and since-last-visit (T59)", () => {
+  it("ranks attention in fixed tiers: stopped missions, then proposals and parked work, oldest wait first", async () => {
+    const w = setupWorld();
+    const parkedMission = await mission(w, "parked", [task("a"), task("b", ["a"])]);
+    const a = (await workView(w)).items.find((item) => item.missionId === parkedMission && item.planTaskId === "a")!;
+    for (const runId of ["r1", "r2", "r3"]) {
+      w.brain.missions.linkExecution(w.owner, w.workspaceId, a.workItemId, runId);
+      w.brain.missions.recordRunFailure(w.org, w.workspaceId, runId, `tests failed in ${runId}`);
+    }
+    const proposalMission = await mission(w, "proposal", [task("x")], false);
+    const pausedMission = await mission(w, "paused", [task("y")]);
+    w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("UPDATE missions SET state='paused', pause_reason='budget' WHERE id=?").run(pausedMission);
+    const items = (await query<{ items: AttentionItem[] }>(w, w.owner, "attention.list")).items;
+    expect(items.map((item) => [item.kind, item.missionId])).toEqual([
+      ["needs-attention", parkedMission],
+      ["budget-pause", pausedMission],
+      ["parked", parkedMission],
+      ["plan-proposal", proposalMission],
+    ]);
+    expect(items.find((item) => item.kind === "parked")?.detail).toContain("1 dependent(s) waiting");
+    w.brain.close();
+  });
+
+  it("shows notable events since the user's last visit once, wherever they look, and counts the rest (E119)", async () => {
+    const w = setupWorld();
+    const id = await mission(w, "visit", [task("a")]);
+    await run(w, w.owner, "mission.brief.edit", "visit-brief", { missionId: id, baseVersion: 1, constraints: ["Stay in the EU"] });
+    const first = await query<SinceLastVisitSummary>(w, w.owner, "missions.sinceLastVisit", id);
+    expect(first.notable.map((entry) => entry.summary)).toEqual(expect.arrayContaining(["Plan proposal awaiting review", "Plan version confirmed", "Brief updated to version 2"]));
+    expect(first.fromCursor).toBe(0);
+    await run(w, w.owner, "mission.seen", "visit-seen-laptop", { missionId: id, cursor: first.toCursor });
+    const phone = await query<SinceLastVisitSummary>(w, w.owner, "missions.sinceLastVisit", id);
+    expect(phone).toMatchObject({ fromCursor: first.toCursor, notable: [] });
+    await run(w, w.owner, "mission.seen", "visit-seen-stale", { missionId: id, cursor: 0 });
+    expect((await query<SinceLastVisitSummary>(w, w.owner, "missions.sinceLastVisit", id)).fromCursor).toBe(first.toCursor);
+    await run(w, w.owner, "mission.pause", "visit-pause", { missionId: id }, (await query<Mission>(w, w.owner, "missions.get", id)).version);
+    const later = await query<SinceLastVisitSummary>(w, w.owner, "missions.sinceLastVisit", id);
+    expect(later.notable.map((entry) => entry.summary)).toEqual(["Mission is now paused"]);
+    w.brain.close();
+  });
+});

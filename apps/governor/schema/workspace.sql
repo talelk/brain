@@ -31,6 +31,11 @@ CREATE TABLE missions (
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
   CHECK((state = 'closed') = (outcome IS NOT NULL)), CHECK(state = 'paused' OR pause_reason IS NULL)
 ) STRICT;
+CREATE TABLE mission_seen (
+  principal_id TEXT NOT NULL, mission_id TEXT NOT NULL REFERENCES missions(id),
+  cursor INTEGER NOT NULL CHECK(cursor >= 0), seen_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(principal_id, mission_id)
+) STRICT;
 CREATE TABLE mission_wakes (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), reason TEXT NOT NULL,
   detail TEXT NOT NULL DEFAULT '', created_at_ms INTEGER NOT NULL, consumed_by_run TEXT, last_error TEXT

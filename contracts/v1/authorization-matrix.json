@@ -624,6 +624,16 @@
       "scope": "workspace:read",
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
+    },
+    "missions.sinceLastVisit": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "attention.list": {
+      "scope": "workspace:read",
+      "scopeMode": "authorized-workspace-union",
+      "redactPrivilegedDetails": false
     }
   },
   "commandRecoveryRule": {

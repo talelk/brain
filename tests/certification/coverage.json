@@ -594,8 +594,8 @@
   },
   {
    "id": "E119",
-   "status": "partial",
-   "evidence": "not yet implemented: T59 seen cursors"
+   "status": "covered",
+   "evidence": "tests/integration/attention.test.ts"
   },
   {
    "id": "E120",

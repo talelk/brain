@@ -40,6 +40,7 @@ import { jobCommands, JobProtocol, type CreateJobInput } from "../modules/jobs/i
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
 import { MissionService, missionCommands } from "../modules/missions/index";
+import { attentionCommands, attentionQuery } from "../modules/stream/index";
 import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
@@ -111,6 +112,7 @@ export class Brain {
       });
       this.commands = new CommandFunnel(this.store, [
         missionCommands(this.missions),
+        attentionCommands(this.store),
         sessionCommands(this.sessions),
         documentCommands(this.documents),
         integrationCommands(this.integrations),
@@ -828,6 +830,8 @@ export class Brain {
       }
       case "today":
         return this.envelope(q.queryType, today(s, actor, orgWorkspaces(s, actor), limit));
+      case "attention.list": case "missions.sinceLastVisit":
+        return this.envelope(q.queryType, attentionQuery(s, actor, q.queryType, orgWorkspaces(s, actor), q.workspaceId, q.resourceId));
       case "bridge":
         return this.envelope(q.queryType, bridge(s, actor, orgWorkspaces(s, actor)));
       case "tools.list": {

@@ -7227,7 +7227,9 @@
             "capitalizationRuns.list",
             "sessions.context",
             "plays.list",
-            "plays.get"
+            "plays.get",
+            "attention.list",
+            "missions.sinceLastVisit"
           ]
         },
         "workspaceId": {
@@ -7284,7 +7286,9 @@
             "capitalizationRuns.list",
             "sessions.context",
             "plays.list",
-            "plays.get"
+            "plays.get",
+            "attention.list",
+            "missions.sinceLastVisit"
           ]
         },
         "snapshot": {
@@ -10798,6 +10802,9 @@
         },
         {
           "$ref": "#/$defs/WorkspaceAutonomyCeilingSetCommand"
+        },
+        {
+          "$ref": "#/$defs/MissionSeenCommand"
         }
       ]
     },
@@ -22205,6 +22212,186 @@
           "required": [
             "workspaceId",
             "operations"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "AttentionItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "approval",
+            "budget-pause",
+            "needs-attention",
+            "plan-proposal",
+            "parked",
+            "verdict-ready",
+            "routed"
+          ]
+        },
+        "tier": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "resourceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "waitingSince": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "expiresAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "workspaceId",
+        "kind",
+        "tier",
+        "title",
+        "resourceId",
+        "waitingSince"
+      ],
+      "additionalProperties": false
+    },
+    "SinceLastVisitSummary": {
+      "type": "object",
+      "properties": {
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "fromCursor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "toCursor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "notable": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "eventType": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "at": {
+                "$ref": "#/$defs/Timestamp"
+              },
+              "summary": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "resourceId": {
+                "$ref": "#/$defs/Id"
+              }
+            },
+            "required": [
+              "cursor",
+              "eventType",
+              "at",
+              "summary"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "otherCounts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "required": [
+        "missionId",
+        "fromCursor",
+        "toCursor",
+        "notable",
+        "otherCounts"
+      ],
+      "additionalProperties": false
+    },
+    "MissionSeenCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "mission.seen"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "cursor": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "missionId",
+            "cursor"
           ],
           "additionalProperties": false
         }
