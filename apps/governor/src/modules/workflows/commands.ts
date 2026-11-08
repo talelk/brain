@@ -50,7 +50,7 @@ export function workflowCommands(store: Store, ports: WorkflowCommandPorts): Com
         });
         if (workItemId) ports.linkExecution(actor, workspaceId, workItemId, runId);
         if (sessionId) ports.attachSessionRun(actor, workspaceId, sessionId, runId);
-        // The receipt names the created aggregate: the run. The /jobs/:id
+        // The receipt names the created aggregate: the run. The /runs/:id
         // route resolves a run id to the run's current job, so the dispatch
         // deep link opens the work right away and follows it across steps.
         return { outcome: "queued", resourceId: runId };

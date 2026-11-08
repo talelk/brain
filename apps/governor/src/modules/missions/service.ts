@@ -642,6 +642,10 @@ export class MissionService {
       progress: { total: counts.reduce((sum, row) => sum + row.n, 0), byState: Object.fromEntries(counts.map((row) => [row.state, row.n])) },
       writtenChars: briefChars(latest.intent, constraints, decisions.filter((entry) => !entry.supersededBy).map((entry) => entry.statement)),
       updatedBy: latest.created_by, updatedAt: iso(latest.created_at_ms),
+      history: (db.prepare("SELECT * FROM mission_brief_versions WHERE mission_id=? ORDER BY version DESC LIMIT 50").all(mission.id) as BriefRow[]).map((row) => ({
+        version: row.version, intent: row.intent, constraints: JSON.parse(row.constraints_json) as string[], change: row.change as "created" | "edited" | "decision" | "superseded",
+        createdBy: row.created_by, createdAt: iso(row.created_at_ms),
+      })),
     };
   }
 
@@ -702,7 +706,11 @@ export class MissionService {
       return { items: rows.map((row) => this.mission(workspaceId, row)) } as unknown as JsonValue;
     }
     if (queryType === "missions.brief") return this.brief(actor, workspaceId, this.missionRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
-    if (queryType === "missions.get") return this.mission(workspaceId, this.missionRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
+    if (queryType === "missions.get") {
+      const row = this.missionRow(actor, workspaceId, String(resourceId));
+      const watching = Boolean(db.prepare("SELECT 1 FROM mission_watchers WHERE principal_id=? AND mission_id=?").get(actor.actorId, row.id));
+      return { ...this.mission(workspaceId, row), watching } as unknown as JsonValue;
+    }
     if (queryType === "plans.get") return this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "workItems.list") {
       const rows = db.prepare("SELECT * FROM work_items WHERE state!='abandoned' ORDER BY updated_at_ms DESC,id LIMIT ?").all(limit) as WorkItemRow[];

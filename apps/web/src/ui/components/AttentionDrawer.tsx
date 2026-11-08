@@ -23,7 +23,7 @@ export function attentionHref(item: AttentionItem): string {
   if (item.kind === "approval") return `/approvals/${item.resourceId}`;
   const tab = item.kind === "plan-proposal" || item.kind === "parked" || item.kind === "needs-attention" ? "plan" : item.kind === "routed" ? "live" : "brief";
   const href = missionHref(item.workspaceId, item.missionId ?? item.resourceId, tab);
-  return item.kind === "plan-proposal" ? `${href}?proposal=${encodeURIComponent(item.resourceId)}` : href;
+  return item.kind === "plan-proposal" ? `${href}&proposal=${encodeURIComponent(item.resourceId)}` : href;
 }
 
 /** Ranked attention rows (fixed tiers, longest wait first); the same rows on Missions and in the drawer. */

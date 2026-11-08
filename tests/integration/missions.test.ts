@@ -76,6 +76,8 @@ describe("missions (T51)", () => {
     expect(after.version).toBe(3);
     expect(after.constraints).toEqual(["No production writes", "Stay within EU regions"]);
     expect(after.decisions.map((entry) => entry.statement)).toEqual(["Use Postgres for sessions"]);
+    // Version history, newest first, keeps every version's intent and constraints.
+    expect((after as unknown as { history: Array<{ version: number; change: string; constraints: string[] }> }).history.map((entry) => [entry.version, entry.change])).toEqual([[3, "edited"], [2, "decision"], [1, "created"]]);
     await fails(async () => await run(w, coordinator(w), "decision.accept", "m-brief-stale", { missionId: id, baseVersion: 2, statement: "Use Redis", source: { kind: "handoff" } }), /brief changed since version 2/);
     await fails(async () => await run(w, w.owner, "mission.brief.edit", "m-brief-cap", { missionId: id, baseVersion: 3, intent: "x".repeat(8000) }), /condense/);
     w.brain.close();

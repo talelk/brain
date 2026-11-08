@@ -1777,7 +1777,7 @@
     "T60": {
       "id": "T60",
       "dependencies": "T34,T59",
-      "targetFiles": "apps/web/src/routes/pages/{LivePage,SessionDetailPage,JobDetailPage,RunsPage}.tsx; apps/web/src/ui/console/; apps/web/src/ui/components/RunDetail.tsx; apps/web/src/ui/{LandingRedirect.tsx,app-context.tsx}; contracts/v1/ui-screen-contracts.json",
+      "targetFiles": "apps/web/src/routes/pages/{LivePage,SessionDetailPage,JobDetailPage,LogsPage,MissionPage}.tsx; apps/web/src/ui/console/; apps/web/src/ui/components/RunDetail.tsx; apps/web/src/ui/{LandingRedirect.tsx,app-context.tsx}; contracts/v1/ui-screen-contracts.json",
       "behavior": "The mission Cockpit Live tab (default mission view) and the workspace Live area: team rail, interleaved session stream, split compare, since-last-visit panel, composer with recipient (mission or member), Interrupt and \"also add to brief\"; session selection, steering/stop/attach/inspect controls, the interruption chooser driven by server continuation facts, contextual evidence and approval panels, and the run inspector (/runs/:id). Active vs historical is state, not layout",
       "verify": "tests/browser/operations.spec.ts; tests/browser/exec-console.spec.ts; tests/browser/navigation.spec.ts",
       "read": [
@@ -1885,7 +1885,7 @@
     "T64": {
       "id": "T64",
       "dependencies": "T51,T60",
-      "targetFiles": "apps/web/src/routes/pages/{MissionTeamPage,MissionPlanPage,MissionBriefPage}.tsx; apps/web/src/ui/mission/",
+      "targetFiles": "apps/web/src/routes/pages/{MissionsPage,MissionPage,NewMissionPage}.tsx; apps/web/src/ui/mission/",
       "behavior": "Mission Team, Plan and Brief tabs: team table with engines, sessions and waiting reasons; plan version graph with proposal diff (affected branch, team changes, spend/elapsed estimates) and Confirm/Reject; parked items with Retry/Reassign/Edit/Drop; brief editing with conflict display and version history",
       "verify": "tests/browser/mission-views.spec.ts; E113/E115/E117",
       "read": [

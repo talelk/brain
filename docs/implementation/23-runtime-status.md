@@ -1,5 +1,9 @@
 # Runtime status and continuation — 2026-10-28
 
+## UI rewrite follow-ups — 8 November
+
+Mission links carry their workspace (`/missions/:id/:tab?w=`), and the mission page switches to it, so attention items, notifications and push links from another workspace open the right mission. The mission Outputs tab groups named outputs by the plan task that produced them and opens each at `/outputs/:id`. Watch is a header toggle backed by `Mission.watching` (the viewer's own state, from `missions.get`). The Brief tab shows version history (`MissionBrief.history`, newest first) with intent changes and added or removed constraints. Not built, because the backend has no command for it yet: rejecting a plan proposal (a newer proposal or confirmation supersedes it). Parked items are retried or dropped through Move, and reassigned or edited through a plan revision on the canvas.
+
 ## The mission cockpit and the attention drawer — 8 November
 
 The sixth UI slice (T60, #43) makes the mission's Live tab its cockpit: since-last-visit with Mark as seen, a team rail (the confirmed plan's members with their running and total sessions, mapped through each work item's assignment) that follows the whole team or one member, the three-pane console limited to the mission's sessions — or that member's — and a composer that messages the mission's coordinator or one member, may interrupt at the next safe point and may also add the message to the brief as a constraint. The workspace Live console filters by mission (`?mission=`). The header bell counts attention items across the user's workspaces and opens a drawer with the ranked items and the recent notification history (no inbox route); Missions home renders the same rows. Split compare (`?compare=a,b`) shows two of the mission's sessions side by side, each with its own filters and live tail.

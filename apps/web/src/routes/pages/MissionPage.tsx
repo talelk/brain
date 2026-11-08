@@ -1,4 +1,4 @@
-import { createSignal, For, Match, Show, Switch } from "solid-js";
+import { createEffect, createSignal, For, Match, Show, Switch } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
@@ -36,6 +36,13 @@ export default function MissionPage(): JSX.Element {
   const params = useParams();
   const navigate = useNavigate();
   const missionId = () => params.missionId ?? "";
+  // The mission's workspace (?w=) wins over the current selection, so links
+  // from other workspaces' attention items and push notifications resolve.
+  const [where] = useSearchParams();
+  createEffect(() => {
+    const target = typeof where.w === "string" ? where.w : "";
+    if (target && target !== app.workspaceId() && app.workspaceOptions().some((option) => option.value === target)) app.selectWorkspace(target);
+  });
   const tab = () => (TABS.some((entry) => entry.id === params.tab) ? params.tab : "live") as MissionTab;
   const read = <T,>(queryType: string, pick: (raw: unknown) => T, empty?: (value: T) => boolean) => createScopedRead<T>({
     scope: app.scope,
@@ -60,7 +67,7 @@ export default function MissionPage(): JSX.Element {
   return <BrainPage title={current()?.title ?? "Mission"} description={current()?.intent}
     breadcrumbs={[{ label: "Missions", href: `/w/${app.workspaceId()}/missions` }, { label: current()?.title ?? missionId() }]}
     actions={<Show when={current()}>{(m) => <div class="flex flex-wrap gap-2">
-      <Button size="md" variant="outline" iconLeft="lucide-eye" onClick={() => void act(() => app.run("mission.watch", { missionId: m().missionId, watch: true }))}>Watch</Button>
+      <Button size="md" variant={m().watching ? "solid" : "outline"} iconLeft={m().watching ? "lucide-eye-off" : "lucide-eye"} aria-pressed={m().watching ? "true" : "false"} disabled={busy()} onClick={() => void act(() => app.run("mission.watch", { missionId: m().missionId, watch: !m().watching }))}>{m().watching ? "Unwatch" : "Watch"}</Button>
       <Show when={m().state === "active"}><Button size="md" variant="outline" iconLeft="lucide-pause" disabled={busy()} onClick={() => void act(() => app.run("mission.pause", { missionId: m().missionId }, { expectedVersion: m().version }))}>Pause</Button></Show>
       <Show when={m().state === "paused"}><Button size="md" variant="outline" iconLeft="lucide-play" disabled={busy()} onClick={() => void act(() => app.run("mission.resume", { missionId: m().missionId }, { expectedVersion: m().version }))}>Resume</Button></Show>
       <Show when={m().state === "active"}><Button size="md" variant="outline" iconLeft="lucide-badge-check" disabled={busy()} onClick={() => void act(() => app.run("mission.proposeCompletion", { missionId: m().missionId }, { expectedVersion: m().version }))}>Propose completion</Button></Show>
@@ -325,6 +332,21 @@ function BriefTab(props: ActProps): JSX.Element {
       <WorkspaceSection title="Progress" description="Derived from work items; nobody writes it.">
         <p class="text-interface">{b().progress.total} work items · {Object.entries(b().progress.byState).map(([state, count]) => `${count} ${state}`).join(" · ") || "none yet"}</p>
       </WorkspaceSection>
+      <WorkspaceSection title="Version history" description="Every brief version, newest first, with what changed from the one before it.">
+        <ol class="flex flex-col gap-2"><For each={b().history ?? []}>{(entry, index) => {
+          const previous = () => (b().history ?? [])[index() + 1];
+          const added = () => entry.constraints.filter((item) => !previous()?.constraints.includes(item));
+          const removed = () => (previous()?.constraints ?? []).filter((item) => !entry.constraints.includes(item));
+          return <li class="rounded-control border border-outline-gray-1 p-3" aria-label={`Brief version ${entry.version}`}>
+            <div class="flex flex-wrap items-center gap-2"><Badge variant="outline" theme="blue" label={`Version ${entry.version}`} /><Badge variant="outline" theme="gray" label={entry.change} />
+              <span class="text-caption text-ink-gray-6">{entry.createdBy} · {formatDateTime(entry.createdAt)}</span></div>
+            <Show when={previous() && previous()!.intent !== entry.intent}><p class="mt-2 text-interface"><span class="text-ink-gray-6">Intent changed:</span> {entry.intent}</p></Show>
+            <Show when={!previous()}><p class="mt-2 text-interface">{entry.intent}</p></Show>
+            <For each={added()}>{(item) => <p class="mt-1 text-interface text-ink-green-8">+ {item}</p>}</For>
+            <For each={removed()}>{(item) => <p class="mt-1 text-interface text-ink-red-8 line-through">− {item}</p>}</For>
+          </li>;
+        }}</For></ol>
+      </WorkspaceSection>
     </PageStack>}</Show>
   </ScreenRegion>;
 }
@@ -351,15 +373,38 @@ function LogsTab(props: { mission: Mission }): JSX.Element {
 
 /** Outputs: named outputs with their immutable versions and verification (#41). */
 function OutputsTab(props: { mission: Mission }): JSX.Element {
+  const app = useApp();
+  const navigate = useNavigate();
   const outputs = useMissionRead<Output[]>(props.mission.missionId, "missionOutputs.list", (raw) => [...(raw as { items: Output[] }).items], (items) => items.length === 0);
-  return <WorkspaceSection title="Mission outputs" description="Named outputs; only verified final versions are consumed by other work.">
+  const items = createScopedRead<WorkItem[]>({
+    scope: app.scope,
+    load: async (scope, signal) => {
+      const response = await query<Envelope<{ items: WorkItem[] }>>({ queryType: "workItems.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
+      return { snapshot: response.snapshot.items.filter((item) => item.missionId === props.mission.missionId), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+    },
+  });
+  /** Outputs grouped by the plan task whose work produced their latest version. */
+  const groups = () => {
+    const byTask = new Map<string, Output[]>();
+    for (const output of outputs.state().data ?? []) {
+      const producer = items.state().data?.find((item) => item.workItemId === output.versions.at(-1)?.workItemId);
+      const task = producer?.title ?? "Not yet produced";
+      byTask.set(task, [...(byTask.get(task) ?? []), output]);
+    }
+    return [...byTask.entries()];
+  };
+  return <WorkspaceSection title="Mission outputs" description="Named outputs grouped by the plan task that produces them; only verified final versions are consumed by other work.">
     <ScreenRegion state={outputs.state()} onRetry={() => void outputs.refresh({ force: true })} emptyTitle="No outputs yet" emptyDescription="Outputs appear when work records a version of a named output.">
-      <For each={outputs.state().data ?? []}>{(output) => <div class="mb-3 border-b border-outline-gray-1 pb-2">
-        <p class="text-base-medium">{output.name}<Show when={output.continues}> <span class="text-caption text-ink-gray-6">continues {output.continues}</span></Show></p>
-        <ul class="text-interface"><For each={output.versions}>{(version) => <li class="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" theme={version.verified ? "green" : "gray"} label={version.verified ? "verified" : version.state} />
-          <code class="break-all text-caption">{version.artifactDigest}</code><span class="text-caption text-ink-gray-6">{formatDateTime(version.createdAt)}</span></li>}</For></ul>
-      </div>}</For>
+      <For each={groups()}>{([task, entries]) => <section class="mb-4" aria-label={`Outputs of ${task}`}>
+        <h3 class="mb-2 text-base-medium">{task}</h3>
+        <div class="brain-queue"><For each={entries}>{(output) => {
+          const latest = output.versions.at(-1);
+          return <QueueRow title={output.name} description={`${output.versions.length} version${output.versions.length === 1 ? "" : "s"}${output.continues ? " · continues an earlier mission's output" : ""}`} icon="lucide-file-text"
+            tone={latest?.verified ? "green" : latest?.state === "final" ? "blue" : "gray"} label={`Open output ${output.name}`}
+            meta={<span>{latest ? `latest ${latest.state}${latest.verified ? " · verified" : ""} · ${formatDateTime(latest.createdAt)}` : "no version yet"}</span>}
+            onClick={() => void navigate(`/outputs/${encodeURIComponent(output.outputId)}`)} />;
+        }}</For></div>
+      </section>}</For>
       <TechnicalDetails label="About output versions"><p>Versions are immutable. A task input pins one exact verified final version when its attempt is admitted.</p></TechnicalDetails>
     </ScreenRegion>
   </WorkspaceSection>;

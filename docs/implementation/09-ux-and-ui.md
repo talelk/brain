@@ -72,7 +72,7 @@ A declared workflow is a one-task Play. `/w/:id/plays` lists the active release'
 
 ### Dispatch
 
-Choose workspace and declared workflow, fill typed inputs, see execution mode, target/environment, estimated cost, runner requirements and likely blockers. Submit once with an idempotency key. After durable acceptance navigate to the job/run page; show queued reason immediately. Retries after network timeout reuse the key. Validation errors focus the first invalid field, preserve user input and include a summary.
+Choose workspace and declared workflow, fill typed inputs, see execution mode, target/environment, estimated cost, runner requirements and likely blockers. Submit once with an idempotency key. After durable acceptance navigate to the run page (`/runs/:id`), or to the Live console when the run already binds a session; show queued reason immediately. Retries after network timeout reuse the key. Validation errors focus the first invalid field, preserve user input and include a summary.
 
 ### Exact approval
 
@@ -86,9 +86,9 @@ Approval notification opens review; notification action itself does not approve.
 
 Group timeline by model turn and tool call; collapse verbose output, lazy-load raw logs, pin task and budget. Auto-follow only when user is at bottom; new-event count appears when scrolled up. Preserve text selection and scroll anchor. Show reconnecting/stale cursor separately from agent inactivity. Steer opens a message composer only for a supported authorized engine; stop requests remote cancellation and remains pending until acknowledged. Do not show a fake terminal for an engine that only provides structured events.
 
-### Board and decisions
+### Work items and decisions
 
-Dragging is optional. Keyboard/menu “Move to” supports every transition and optimistic version checks. Done is disabled until verified evidence is present; display missing criteria with links. Business Go/No is separate from production-effect approval. If moving conflicts with a remote update, retain local intent and show current state; never silently overwrite. Card comments and decisions are append-only history with explicit correction records.
+There is no cross-mission board (#25): work items appear in their mission's Plan tab, labelled by plan task. Dragging is optional. Keyboard/menu “Move to” supports every transition and optimistic version checks. Done is disabled until verified evidence is present; display missing criteria with links. Business Go/No is separate from production-effect approval. If moving conflicts with a remote update, retain local intent and show current state; never silently overwrite. Work item comments and decisions are append-only history with explicit correction records.
 
 ### Placement and runner operations
 

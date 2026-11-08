@@ -287,4 +287,29 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   await page.getByRole("button", { name: /^Needs you:/ }).click();
   await expect(page.getByRole("dialog").getByRole("heading", { name: "Needs you", exact: true })).toBeVisible();
   await expect(page.getByRole("dialog").getByText("Recent notifications", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // (i) The mission's Outputs tab groups named outputs by plan task and opens
+  // the named output; Watch is a toggle with the viewer's state.
+  await page.goto(`${governor.url}/missions/obj-console/outputs`);
+  const producing = page.getByRole("region", { name: "Outputs of Produce the deployment dossier" });
+  await producing.getByRole("button", { name: "Open output dossier", exact: true }).click();
+  await expect(page).toHaveURL(/\/outputs\/output-dossier$/);
+  await expect(page.getByRole("heading", { name: "dossier", exact: true, level: 1 })).toBeVisible({ timeout: 30_000 });
+  await page.goto(`${governor.url}/missions/obj-console/live`);
+  await page.getByRole("button", { name: "Watch", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Unwatch", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+  // (j) Attention spans workspaces: from ws-console the bell opens another
+  // workspace's plan proposal, and the mission page switches to that workspace.
+  brain.createWorkspace(actor, { workspaceId: "ws-other", slug: "other" });
+  const other = s.workspaceDb("ws-other", org);
+  other.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-other','Other workspace mission','Elsewhere','[]',?,?,?)").run(actor.actorId, now, now);
+  other.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('pv-other','obj-other',1,?,'proposed','agent',?,'[]',?)").run(`sha256:${"9".repeat(64)}`, actor.actorId, now);
+  await page.goto(`${governor.url}/w/ws-console/missions`);
+  await page.getByRole("button", { name: /^Needs you:/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Plan proposal for Other workspace mission. Open", exact: true }).click();
+  await expect(page).toHaveURL(/\/missions\/obj-other\/plan\?w=ws-other&proposal=pv-other$/);
+  await expect(page.getByRole("heading", { name: "Other workspace mission", exact: true, level: 1 })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Proposal: revision 1", { exact: false })).toBeVisible();
 });

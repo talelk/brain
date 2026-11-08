@@ -65,7 +65,7 @@ test("mission work: items render with state, move applies, Done is disabled with
   await page.getByRole("button", { name: "Missions", exact: true }).click();
   expect(new URL(page.url()).pathname).toBe("/w/ws-board/missions");
   await page.getByRole("button", { name: "Open mission Fixture mission", exact: true }).click();
-  await expect(page).toHaveURL(/\/missions\/obj-ui\/live$/);
+  await expect(page).toHaveURL(/\/missions\/obj-ui\/live\?w=ws-board$/);
   await page.goto(`${governor.url}/missions/obj-ui/plan`);
   await expect(page.getByText("Ship the fixture", { exact: true })).toBeVisible();
 

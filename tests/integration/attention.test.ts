@@ -66,6 +66,9 @@ describe("attention and since-last-visit (T59)", () => {
     const id = await mission(w, "notify", [task("a"), task("b", ["a"])]);
     const watcher = await w.grantApprover("watcher-1");
     await run(w, watcher.actor, "mission.watch", "notify-watch", { missionId: id, watch: true });
+    const watched = async (actor: typeof watcher.actor) => ((await w.brain.executeQuery(actor, { queryType: "missions.get", workspaceId: w.workspaceId, resourceId: id })) as { snapshot: { watching: boolean } }).snapshot.watching;
+    expect(await watched(watcher.actor)).toBe(true);
+    expect(await watched(w.owner)).toBe(false);
     const a = (await workView(w)).items.find((item) => item.missionId === id && item.planTaskId === "a")!;
     for (const runId of ["n1", "n2", "n3"]) {
       w.brain.missions.linkExecution(w.owner, w.workspaceId, a.workItemId, runId);

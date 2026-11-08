@@ -89,7 +89,7 @@ export function jobSnapshot(store: Store, row: Record<string, unknown>): JobSnap
 }
 
 /**
- * Resolve a /jobs/:id resource: a job id names one row, and a workflow run id
+ * Resolve a /runs/:id resource: a job id names one row, and a workflow run id
  * resolves to that run's current (newest) job — dispatch receipts name the
  * run, so a deep link opens the work and follows it across steps.
  */
