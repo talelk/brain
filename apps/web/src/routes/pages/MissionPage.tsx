@@ -1,6 +1,6 @@
 import { createSignal, For, Match, Show, Switch } from "solid-js";
 import type { JSX } from "solid-js";
-import { useLocation, useNavigate, useParams, useSearchParams } from "@solidjs/router";
+import { useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Select } from "@talelk/newui-molecules";
 import type { BrainSession, ExecutionLink, TeamMember, WorkItem, Mission, MissionBrief, MissionMessage, Output, PlanVersion, SinceLastVisitSummary } from "@brain/contracts";
@@ -16,6 +16,7 @@ import { PlanCanvas } from "../../ui/components/PlanCanvas";
 import { formatDateTime } from "../../ui/format";
 import { missionHref, type MissionTab } from "../../ui/mission-links";
 import { ConsoleScreen } from "../../ui/console/ConsoleLayout";
+import { SessionTranscript } from "../../ui/console/SessionTranscript";
 import { readExecFilters, writeExecFilters } from "../../ui/exec/exec-filters";
 
 const TABS: readonly { id: MissionTab; label: string }[] = [
@@ -117,8 +118,6 @@ type ActProps = { mission: Mission; onAct: (fn: () => Promise<unknown>) => Promi
  */
 function LiveTab(props: ActProps): JSX.Element {
   const app = useApp();
-  const navigate = useNavigate();
-  const location = useLocation();
   const [search, setSearch] = useSearchParams();
   const summary = useMissionRead<SinceLastVisitSummary>(props.mission.missionId, "missions.sinceLastVisit", (raw) => raw as SinceLastVisitSummary);
   const messages = useMissionRead<MissionMessage[]>(props.mission.missionId, "missionMessages.list", (raw) => [...(raw as { items: MissionMessage[] }).items], (items) => items.length === 0);
@@ -145,6 +144,16 @@ function LiveTab(props: ActProps): JSX.Element {
   const sessionsOf = (memberId: string) => (team.state().data?.sessions ?? []).filter((session) => memberOf(session) === memberId);
   const inScope = (session: BrainSession) => (team.state().data?.sessions ?? []).some((entry) => entry.sessionId === session.sessionId) && (!member() || memberOf(session) === member());
   const filters = () => readExecFilters(search);
+  // Split compare (?compare=a,b): two of the mission's sessions side by side.
+  const compared = () => (typeof search.compare === "string" ? search.compare.split(",").filter(Boolean).slice(0, 2) : []);
+  const sessionLabel = (id: string) => {
+    const session = team.state().data?.sessions.find((entry) => entry.sessionId === id);
+    return session ? `${session.task || session.sessionId}${memberOf(session) ? ` · ${memberOf(session)}` : ""}` : id;
+  };
+  const setCompared = (index: 0 | 1, value: string) => {
+    const next = [...compared()]; next[index] = value;
+    setSearch({ compare: next.filter(Boolean).length ? next.join(",") : undefined });
+  };
   const [body, setBody] = createSignal("");
   const [recipient, setRecipient] = createSignal("mission");
   const [interrupt, setInterrupt] = createSignal(false);
@@ -197,9 +206,21 @@ function LiveTab(props: ActProps): JSX.Element {
           label={`Follow ${entry.role} (${entry.memberId})`} onClick={() => setSearch({ member: entry.memberId, session: undefined })} />}</For>
       </div>
     </WorkspaceSection>
+    <WorkspaceSection title="Compare two sessions" description="Follow two members' sessions side by side; each keeps its own filters and live tail."
+      actions={<Show when={compared().length}><Button size="md" variant="outline" iconLeft="lucide-x" onClick={() => setSearch({ compare: undefined })}>Close comparison</Button></Show>}>
+      <div class="brain-field-grid">
+        <For each={[0, 1] as const}>{(index) => <Select label={index === 0 ? "Left session" : "Right session"} value={compared()[index] ?? ""} onValueChange={(value) => setCompared(index, value ?? "")}
+          options={(team.state().data?.sessions ?? []).map((session) => ({ value: session.sessionId, label: sessionLabel(session.sessionId) }))} />}</For>
+      </div>
+      <Show when={compared().length === 2 && compared()[0] !== compared()[1]}>
+        <div class="mt-3 grid gap-3 lg:grid-cols-2">
+          <For each={compared()}>{(id) => <SessionTranscript workspaceId={app.workspaceId()} sessionId={id} title={sessionLabel(id)} />}</For>
+        </div>
+      </Show>
+    </WorkspaceSection>
     <ConsoleScreen workspaceId={app.workspaceId()} include={inScope} requestedSession={typeof search.session === "string" ? search.session : undefined}
       filters={filters()} onFiltersChange={(patch) => setSearch({ ...writeExecFilters({ ...filters(), ...patch }) })}
-      onSessionChange={(sessionId) => void navigate(`${location.pathname}?${new URLSearchParams({ ...(member() ? { member: member() } : {}), ...(sessionId ? { session: sessionId } : {}) }).toString()}`, { replace: true })} />
+      onSessionChange={(sessionId) => setSearch({ session: sessionId }, { replace: true })} />
   </PageStack>;
 }
 

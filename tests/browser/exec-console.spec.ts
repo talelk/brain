@@ -269,6 +269,16 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   await expect.poll(() => ws.prepare("SELECT recipient_kind, recipient_member_id FROM mission_messages WHERE body=?").get("Keep the rollout section verbatim.")).toEqual({ recipient_kind: "member", recipient_member_id: "writer" });
   await expect.poll(() => (ws.prepare("SELECT constraints_json FROM mission_brief_versions WHERE mission_id='obj-console' ORDER BY version DESC LIMIT 1").get() as { constraints_json: string }).constraints_json).toBe(JSON.stringify(["Keep the rollout section verbatim."]));
 
+  // Split compare: two of the mission's sessions side by side, each its own transcript.
+  ws.prepare("UPDATE sessions SET work_item_id='wi-console' WHERE id='ses-triage'").run();
+  await page.goto(`${governor.url}/missions/obj-console/live?compare=ses-report,ses-triage`);
+  const transcripts = page.getByRole("region", { name: /^Transcript of / });
+  await expect(transcripts).toHaveCount(2, { timeout: 30_000 });
+  await expect(transcripts.first().getByText("Compiling the deployment dossier.")).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Close comparison", exact: true }).click();
+  await expect(transcripts).toHaveCount(0);
+  ws.prepare("UPDATE sessions SET work_item_id=NULL WHERE id='ses-triage'").run();
+
   // The workspace console filters to one mission; the header bell opens the
   // attention drawer instead of an inbox route.
   await page.goto(`${governor.url}/w/ws-console/live?mission=obj-console`);
