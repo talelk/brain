@@ -781,7 +781,7 @@ export class Brain {
         if (q.queryType === "plays.list") return this.envelope(q.queryType, { items: views } as unknown as JsonValue);
         const view = views.find((entry) => entry.playId === q.resourceId);
         if (!view) throw new BrainDomainError("NOT_FOUND", "play not found in the active release");
-        return this.envelope(q.queryType, view as unknown as JsonValue);
+        return this.envelope(q.queryType, { ...view, spec: active!.release.plays![view.playId]!.spec } as unknown as JsonValue);
       }
       case "command.get": {
         const commandId = String((raw as { commandId?: string }).commandId ?? q.resourceId ?? "");

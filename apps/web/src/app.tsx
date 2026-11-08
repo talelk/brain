@@ -22,15 +22,13 @@ const PAGE_LOADERS = {
   LogsPage: () => import('./routes/pages/LogsPage'),
   OutputsPage: () => import('./routes/pages/OutputsPage'),
   OutputPage: () => import('./routes/pages/OutputPage'),
-  AgentsPage: () => import('./routes/catalog').then((m) => ({ default: m.AgentsPage })),
-  WorkflowsPage: () => import('./routes/catalog').then((m) => ({ default: m.WorkflowsPage })),
+  PlayPage: () => import('./routes/pages/PlayPage'),
   MissionsPage: () => import('./routes/pages/MissionsPage'),
   NewMissionPage: () => import('./routes/pages/NewMissionPage'),
   MissionPage: () => import('./routes/pages/MissionPage'),
   PlaysPage: () => import('./routes/pages/PlaysPage'),
   BridgePage: () => import('./routes/pages/BridgePage'),
   PlansPage: () => import('./routes/pages/PlansPage'),
-  SchedulesPage: () => import('./routes/pages/SchedulesPage'),
   ResourcesPage: () => import('./routes/pages/ResourcesPage'),
   IntegrationsPage: () => import('./routes/administration/IntegrationsPage'),
   StudioListPage: () => import('./ui/studio/StudioPages').then((module) => ({ default: module.StudioListPage })),
@@ -234,14 +232,12 @@ export function App(): JSX.Element {
       <Route path="/missions/:missionId/:tab" component={page("MissionPage")} />
       <Route path="/missions/:missionId" component={() => <Navigate href={({ location }) => `${location.pathname}/live`} />} />
       <Route path="/w/:id/plays" component={workspacePage("PlaysPage")} />
+      <Route path="/plays/:id" component={page("PlayPage")} />
       <Route path="/administration/workspaces" component={page("BridgePage")} />
       <Route path="/w/:id/live" component={workspacePage("LivePage")} />
       <Route path="/w/:id/logs" component={workspacePage("LogsPage")} />
       <Route path="/w/:id/outputs" component={workspacePage("OutputsPage")} />
-      <Route path="/w/:id/agents" component={workspacePage("AgentsPage")} />
-      <Route path="/w/:id/workflows" component={workspacePage("WorkflowsPage")} />
       <Route path="/w/:id/plans" component={workspacePage("PlansPage")} />
-      <Route path="/w/:id/schedules" component={workspacePage("SchedulesPage")} />
       <Route path="/w/:id/resources" component={workspacePage("ResourcesPage")} />
       <Route path="/w/:id/runs" component={workspacePage("RunsPage")} />
       <Route path="/w/:id/plays/support" component={workspacePage("SupportPage")} />

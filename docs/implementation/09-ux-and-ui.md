@@ -18,7 +18,8 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/w/:id/missions` | missions | Act on what needs you, then open a mission | attention, tier, mission, state, spend |
 | `/w/:id/missions/new` | missions | Start a mission from a play or a description | play, intent, criteria, constraints, autonomy, budget |
 | `/missions/:missionId/:tab` | missions | Follow and steer one mission | live, team, plan, brief, logs, outputs |
-| `/w/:id/plays` | plays | Start a mission from a play | play, team, tasks, autonomy |
+| `/w/:id/plays` | plays | Start a mission from a play, run a single task, or describe the work | play, task, describe, origin, review |
+| `/plays/:id` | plays | Review a play or single task, its schedules and history, then start it | brief, team, plan, inputs, schedules, history |
 | `/administration/workspaces` | administration | Manage workspaces | workspace, state, counts |
 | `/w/:id/live` | live | Run, steer and inspect live agent sessions without losing session state | sessions, console, outputs, controls |
 | `/w/:id/logs` | logs | Search execution and platform logs and jump between correlated contexts | records, filters, search, correlation |
@@ -41,10 +42,7 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/accept-invitation/:id` | administration | Verify an invited account and accept organization membership | invitedSignUp, emailVerification, explicitAcceptance |
 | `/tv/:play` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
 | `/w/:id/runs` | live | Index historical and active runs; sessions live in the console rail, runners have their own screen | runs |
-| `/w/:id/agents` | plays | Inspect active agent and workflow definitions and dispatch schema-validated inputs | release, instructions, engine, limits |
-| `/w/:id/workflows` | plays | Inspect active agent and workflow definitions and dispatch schema-validated inputs | release, input-schema, engine, dependencies |
 | `/w/:id/plans` | missions | Turn an intention into a reviewed plan and versioned work | objective, planVersion, tasks, dependencies, assignments |
-| `/w/:id/schedules` | plays | Schedule and control task and workflow occurrences | target, trigger, nextOccurrences, overlap, misfire, history |
 | `/w/:id/resources` | knowledge | Manage and use workspace documents | documents, versions, preview, scope, associations, indexing |
 | `/studio/:kind` | knowledge | Create and validate a capability without editing YAML | definitions, drafts, validation, dependencies |
 | `/studio/:kind/:draftId` | knowledge | Edit, test, review and publish an immutable definition | editor, diagnostics, diff, tests, publication |
@@ -70,6 +68,10 @@ Reuse NewUI's atoms for controls/marks, molecules for interactions/overlays, org
 Statuses use text/icon/color together. Distinguish Queued, Waiting for approval, Waiting for runner, No capacity, Running, Cancellation requested, Verifying, Partial, Outcome unknown, Failed, Succeeded. Do not display a green check because an agent said “done”. Unknown outcome uses an explicit “Reconcile before retry” action and disables unsafe retry.
 
 ## Critical flows
+
+### Plays and single tasks
+
+A declared workflow is a one-task Play. `/w/:id/plays` lists the active release's Plays and single tasks, and is where work is described ("Describe the work") or started from a ticket, incident or work item; a picked Play or task opens `/plays/:id`. A Play's page shows its brief, team roles, plan shape, schedules and triggers and the missions it started, and Start opens `/w/:id/missions/new` prefilled; a task's page reviews its typed inputs and dispatches it, with its schedules and the agents it runs. The release compiler refuses a Play and a Workflow with the same id. Schedules live on the object they start: a Play, a task, or a mission's work items (the mission Plan tab). Active agent definitions are inspected on the Play that uses them and authored in the Agent Studio.
 
 ### Dispatch
 

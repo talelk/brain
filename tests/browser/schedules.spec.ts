@@ -25,25 +25,25 @@ test("schedules: personal-host offline wait, recovery and fail are explicit (T58
       .run(capability, brain.store.now(), brain.store.now() + 3600_000);
   }
 
+  const panel = page.getByRole("region", { name: "Schedules", exact: true });
   async function select(label: string, option: string) {
-    await page.getByLabel(label, { exact: true }).click();
+    await panel.getByLabel(label, { exact: true }).click();
     await page.getByRole("option", { name: option, exact: true }).click();
   }
   async function createPersonal(title: string, offlinePolicy: "wait" | "fail") {
-    await page.getByLabel("Title", { exact: true }).fill(title);
-    await page.getByLabel("Target id", { exact: true }).fill("fixture-workflow");
+    await panel.getByLabel("Schedule title", { exact: true }).fill(title);
     await select("Trigger", "Manual (Run now)");
     await select("Execution host", "Personal host only");
-    await page.getByLabel("Personal runner id", { exact: true }).fill("personal-browser");
+    await panel.getByLabel("Personal runner id", { exact: true }).fill("personal-browser");
     if (offlinePolicy === "fail") await select("When the personal host is offline", "Fail the occurrence without starting a run");
-    await page.getByLabel("Workflow input (JSON, optional)", { exact: true }).fill('{"message":"scheduled"}');
+    await panel.getByLabel("Workflow input (JSON, optional)", { exact: true }).fill('{"message":"scheduled"}');
     await page.getByRole("button", { name: "Create automation", exact: true }).click();
     const article = page.locator("article").filter({ hasText: title });
     await expect(article).toContainText(`offline ${offlinePolicy}`);
     return article;
   }
 
-  await page.goto(`${governor.url}/w/ws-schedules/schedules`);
+  await page.goto(`${governor.url}/plays/fixture-workflow`);
   const waiting = await createPersonal("Personal wait", "wait");
   await waiting.getByRole("button", { name: "Run now", exact: true }).click();
   await waiting.getByRole("button", { name: "History", exact: true }).click();
@@ -87,18 +87,18 @@ test("schedules: revise, duplicate and retire without deleting occurrence histor
   const release = brain.stageRelease(actor, goldenDocs(), "sha256:6dd84c7f907477ea38ad355392cf876b39c122adf8038762894d56cc160956b4");
   brain.activateRelease(actor, release.digest);
 
-  await page.goto(`${governor.url}/w/ws-schedule-lifecycle/schedules`);
-  await page.getByLabel("Title", { exact: true }).fill("Lifecycle original");
-  await page.getByLabel("Target id", { exact: true }).fill("fixture-workflow");
-  await page.getByLabel("Trigger", { exact: true }).click();
+  await page.goto(`${governor.url}/plays/fixture-workflow`);
+  const panel = page.getByRole("region", { name: "Schedules", exact: true });
+  await panel.getByLabel("Schedule title", { exact: true }).fill("Lifecycle original");
+  await panel.getByLabel("Trigger", { exact: true }).click();
   await page.getByRole("option", { name: "Manual (Run now)", exact: true }).click();
-  await page.getByLabel("Workflow input (JSON, optional)", { exact: true }).fill('{"message":"scheduled"}');
+  await panel.getByLabel("Workflow input (JSON, optional)", { exact: true }).fill('{"message":"scheduled"}');
   await page.getByRole("button", { name: "Create automation", exact: true }).click();
   let original = page.locator("article").filter({ hasText: "Lifecycle original" });
   await expect(original).toContainText("revision 1");
 
   await original.getByRole("button", { name: "Edit", exact: true }).click();
-  await page.getByLabel("Title", { exact: true }).fill("Lifecycle revised");
+  await panel.getByLabel("Schedule title", { exact: true }).fill("Lifecycle revised");
   await page.getByRole("button", { name: "Save new revision", exact: true }).click();
   original = page.locator("article").filter({ hasText: "Lifecycle revised" });
   await expect(original).toContainText("revision 2");
@@ -107,8 +107,8 @@ test("schedules: revise, duplicate and retire without deleting occurrence histor
   await expect(original).toContainText(/dispatched/i);
 
   await original.getByRole("button", { name: "Duplicate", exact: true }).click();
-  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Copy of Lifecycle revised");
-  await page.getByLabel("Title", { exact: true }).fill("Lifecycle duplicate");
+  await expect(panel.getByLabel("Schedule title", { exact: true })).toHaveValue("Copy of Lifecycle revised");
+  await panel.getByLabel("Schedule title", { exact: true }).fill("Lifecycle duplicate");
   await page.getByRole("button", { name: "Create duplicate", exact: true }).click();
   const duplicate = page.locator("article").filter({ hasText: "Lifecycle duplicate" });
   await expect(duplicate).toContainText("revision 1");

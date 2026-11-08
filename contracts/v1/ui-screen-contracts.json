@@ -76,7 +76,9 @@
     "plans.get",
     "workItems.list",
     "executionLinks.list",
-    "sessions.list"
+    "sessions.list",
+    "automations.list",
+    "automations.occurrences"
    ],
    "actions": [
     "mission.pause",
@@ -90,7 +92,9 @@
     "decision.accept",
     "plan.confirm",
     "workItem.transition",
-    "workItem.comment"
+    "workItem.comment",
+    "automation.upsert",
+    "automation.control"
    ],
    "content": [
     "live",
@@ -109,20 +113,55 @@
   {
    "route": "/w/:id/plays",
    "queries": [
-    "plays.list"
+    "plays.list",
+    "workflows.list"
    ],
-   "actions": [],
+   "actions": [
+    "workflow.dispatch"
+   ],
    "content": [
     "play",
-    "team",
-    "tasks",
-    "autonomy"
+    "task",
+    "describe",
+    "origin",
+    "review"
    ],
    "owner": "T58",
    "navigationGroup": "plays",
    "icon": "lucide-book-open-check",
-   "task": "Start a mission from a play",
+   "task": "Start a mission from a play, run a single task, or describe the work",
    "title": "Plays"
+  },
+  {
+   "route": "/plays/:id",
+   "queries": [
+    "plays.list",
+    "plays.get",
+    "workflows.list",
+    "agents.list",
+    "missions.list",
+    "automations.list",
+    "automations.occurrences"
+   ],
+   "actions": [
+    "workflow.dispatch",
+    "configDraft.create",
+    "automation.upsert",
+    "automation.control"
+   ],
+   "content": [
+    "brief",
+    "team",
+    "plan",
+    "inputs",
+    "schedules",
+    "history"
+   ],
+   "owner": "T58",
+   "navigationGroup": "plays",
+   "icon": "lucide-book-open-check",
+   "task": "Review a play or single task, its schedules and history, then start it",
+   "title": "Play"
   },
   {
    "route": "/administration/workspaces",
@@ -601,50 +640,6 @@
    "title": "Runs"
   },
   {
-   "route": "/w/:id/agents",
-   "queries": [
-    "agents.list",
-    "agents.get"
-   ],
-   "actions": [
-    "workflow.dispatch",
-    "configDraft.create"
-   ],
-   "content": [
-    "release",
-    "instructions",
-    "engine",
-    "limits"
-   ],
-   "owner": "T34",
-   "navigationGroup": "plays",
-   "icon": "lucide-bot",
-   "task": "Inspect active agent and workflow definitions and dispatch schema-validated inputs",
-   "title": "Agents"
-  },
-  {
-   "route": "/w/:id/workflows",
-   "queries": [
-    "workflows.list",
-    "workflows.get"
-   ],
-   "actions": [
-    "workflow.dispatch",
-    "configDraft.create"
-   ],
-   "content": [
-    "release",
-    "input-schema",
-    "engine",
-    "dependencies"
-   ],
-   "owner": "T34",
-   "navigationGroup": "plays",
-   "icon": "lucide-play",
-   "task": "Inspect active agent and workflow definitions and dispatch schema-validated inputs",
-   "title": "Start work"
-  },
-  {
    "route": "/w/:id/plans",
    "queries": [
     "missions.list"
@@ -666,30 +661,6 @@
    "icon": "lucide-list-tree",
    "task": "Turn an intention into a reviewed plan and versioned work",
    "title": "Plans"
-  },
-  {
-   "route": "/w/:id/schedules",
-   "queries": [
-    "automations.list",
-    "automations.occurrences"
-   ],
-   "actions": [
-    "automation.upsert",
-    "automation.control"
-   ],
-   "content": [
-    "target",
-    "trigger",
-    "nextOccurrences",
-    "overlap",
-    "misfire",
-    "history"
-   ],
-   "owner": "T52",
-   "navigationGroup": "plays",
-   "icon": "lucide-calendar-clock",
-   "task": "Schedule and control task and workflow occurrences",
-   "title": "Schedules"
   },
   {
    "route": "/w/:id/resources",
@@ -721,7 +692,9 @@
   {
    "route": "/studio/:kind",
    "queries": [
-    "configDrafts.list"
+    "agents.list",
+    "configDrafts.list",
+    "workflows.list"
    ],
    "actions": [
     "configDraft.create"
@@ -884,14 +857,6 @@
     "route": "/w/:id/plays"
    },
    {
-    "label": "Tasks",
-    "route": "/w/:id/workflows"
-   },
-   {
-    "label": "Schedules",
-    "route": "/w/:id/schedules"
-   },
-   {
     "label": "Support",
     "route": "/w/:id/plays/support"
    },
@@ -942,11 +907,6 @@
     "route": "/settings?tab=release",
     "adminOnly": true,
     "organizationOnly": true
-   },
-   {
-    "label": "Agents",
-    "route": "/w/:id/agents",
-    "adminOnly": true
    },
    {
     "label": "Tools",

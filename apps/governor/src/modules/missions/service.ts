@@ -26,7 +26,7 @@ type MissionRow = {
   active_plan_version_id: string | null; state: Mission["state"]; pause_reason: "human" | "budget" | null;
   outcome: MissionOutcome | null; brief_version: number; policy_json: string; parking_threshold: number;
   budget_micro_usd: number | null; budget_wall_ms: number | null; member_cap: number; attempt_reserve_micro_usd: number; final_allowance_micro_usd: number;
-  coordinator_member_id: string | null; coordinator_workflow: string | null;
+  coordinator_member_id: string | null; coordinator_workflow: string | null; play_id: string | null;
   active_ms: number; active_since_ms: number | null;
   version: number; created_at_ms: number; updated_at_ms: number;
 };
@@ -109,7 +109,7 @@ export class MissionService {
     return {
       budget: budgetOf(row), usage: usageOf(db, row, this.store.now()),
       subjects: (db.prepare("SELECT pack, kind, subject_id FROM mission_subjects WHERE mission_id=? ORDER BY kind, subject_id").all(row.id) as Array<{ pack: "support" | "sre"; kind: "ticket" | "incident"; subject_id: string }>).map((entry) => ({ pack: entry.pack, kind: entry.kind, id: entry.subject_id })),
-      missionId: row.id, workspaceId, title: row.title, intent: row.intent,
+      missionId: row.id, workspaceId, title: row.title, intent: row.intent, ...(row.play_id ? { playId: row.play_id } : {}),
       successCriteria: JSON.parse(row.success_criteria_json) as string[], ownerId: row.owner_id,
       ...(row.active_plan_version_id ? { activePlanVersionId: row.active_plan_version_id } : {}),
       state: row.state, ...(row.pause_reason ? { pauseReason: row.pause_reason } : {}), ...(row.outcome ? { outcome: row.outcome } : {}),

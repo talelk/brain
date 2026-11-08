@@ -7,6 +7,7 @@ import { Alert, Select } from "@talelk/newui-molecules";
 import { Section } from "@talelk/newui-organisms";
 import type { ConfigurationDraft, DocumentDiff, DraftImpact, DraftRevision, PublicationProposal, ValidationRun } from "@brain/contracts";
 import { useApp } from "../app-context";
+import { AgentCatalog } from "../../routes/catalog";
 import { createScopedRead } from "../../data/screens";
 import { governor, query } from "../../data/client";
 import { ScreenRegion } from "../screen-region";
@@ -55,6 +56,7 @@ export function StudioListPage(): JSX.Element {
   return <BrainPage title={`${kind()} Studio`} description="Create immutable configuration revisions, validate them and publish exact Git commits without editing the active release.">
     <PageStack>
       <Show when={error()}><Alert theme="red" variant="outline" title="Draft creation failed" description={error()} /></Show>
+      <Show when={kind() === "Agent"}><AgentCatalog /></Show>
       <Section title="New draft" description={kind() === "Workflow" ? "Start with visual jobs or restricted YAML. Publication never edits the active release directly." : kind() === "Agent" ? "Start with the agent contract and versioned instructions, then validate the complete release before publication." : "Author a reviewed definition with restricted YAML, validation, diff and explicit publication."} surface="card" density="compact" class="p-3 sm:p-4">
         <div class="flex min-w-0 flex-wrap items-end gap-2">
           <div class="min-w-0 flex-1 basis-64"><TextInput label="Definition title" value={title()} onInput={(event) => setTitle(event.currentTarget.value)} placeholder="Operations workflow" /></div>

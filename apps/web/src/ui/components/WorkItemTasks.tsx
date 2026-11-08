@@ -34,7 +34,7 @@ export function WorkItemTasks(props: { origin: TaskOrigin }) {
     isEmpty: (items) => !items.length,
   });
   const bindingFor = (runId: string) => bindings.state().data?.find((binding) => binding.runId === runId);
-  return <WorkspaceSection title="Tasks for this item" actions={<Show when={app.canDispatch()}><Button size="md" variant="outline" iconLeft="lucide-play" onClick={() => void navigate(`/w/${app.workspaceId()}/workflows?mode=catalog&originKind=${props.origin.kind}&originId=${encodeURIComponent(props.origin.id)}`)}>Start a task for this item</Button></Show>}>
+  return <WorkspaceSection title="Tasks for this item" actions={<Show when={app.canDispatch()}><Button size="md" variant="outline" iconLeft="lucide-play" onClick={() => void navigate(`/w/${app.workspaceId()}/plays?originKind=${props.origin.kind}&originId=${encodeURIComponent(props.origin.id)}`)}>Start a task for this item</Button></Show>}>
     <ScreenRegion state={context.state()} onRetry={() => void context.refresh()} emptyTitle="No related tasks" emptyDescription="Start a task to link its progress and results to this work item.">
       <Show when={context.state().data?.runs.length} fallback={<p class="text-interface text-ink-gray-6">No tasks started for this item yet.</p>}>
         <div class="brain-queue"><For each={context.state().data?.runs}>{(run) => {

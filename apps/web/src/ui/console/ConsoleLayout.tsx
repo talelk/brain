@@ -130,7 +130,7 @@ export function ConsoleScreen(props: {
     <Show when={selected()} keyed fallback={
       <ScreenRegion state={sessions.state()} skeleton="rows" emptyTitle="No sessions yet"
         emptyDescription="Sessions appear here the moment a run claims a runner. Dispatch declared work to start one."
-        emptyAction={<Button size="md" variant="solid" theme="blue" onClick={() => void navigate(`/w/${ws()}/workflows`)}>Start work</Button>}
+        emptyAction={<Button size="md" variant="solid" theme="blue" onClick={() => void navigate(`/w/${ws()}/plays`)}>Start work</Button>}
         onRetry={() => void sessions.refresh({ force: true })}>
         <EmptyPreview icon="lucide-radio" title="The execution console is ready"
           description="Live sessions, their tool activity and their outputs will stream in this three-pane console." />
@@ -281,8 +281,8 @@ function SessionConsole(props: {
           // opens this task with its current input for review (TaskEntry reads
           // originKind/originId), never a blank catalog.
           const target = current.workItemId
-            ? `/w/${props.workspaceId}/workflows?mode=catalog&originKind=work-item&originId=${encodeURIComponent(current.workItemId)}`
-            : `/w/${props.workspaceId}/workflows`;
+            ? `/w/${props.workspaceId}/plays?originKind=work-item&originId=${encodeURIComponent(current.workItemId)}`
+            : `/w/${props.workspaceId}/plays`;
           setFeedback("Restart opens the Start work flow with this task and its inputs for a schema-validated dispatch.");
           void navigate(target);
         }} />}

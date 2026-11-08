@@ -247,6 +247,8 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
     const key = `${kind}:${id}`;
     if (seenIds.has(key)) throw new BrainDomainError("INVALID_CONTRACT", `${path}: duplicate ${key}`);
     seenIds.add(key);
+    // A Play and a single task (Workflow) both open at /plays/:id: one id, one object.
+    if ((kind === "Play" && seenIds.has(`Workflow:${id}`)) || (kind === "Workflow" && seenIds.has(`Play:${id}`))) throw new BrainDomainError("INVALID_CONTRACT", `${path}: a Play and a Workflow cannot share id ${id}`);
     const spec = raw["spec"] as Record<string, unknown> | undefined;
     if (kind === "Workflow") {
       if (!spec || !("jobs" in spec)) {

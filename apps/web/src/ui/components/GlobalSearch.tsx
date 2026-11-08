@@ -31,8 +31,8 @@ export function GlobalSearchDialog(props: { open: boolean; onOpenChange: (open: 
     if (item.category === "approval") return `/approvals/${item.resourceId}`;
     if (item.category === "session") return `/sessions/${item.resourceId}`;
     if (item.category === "artifact") return `/outputs/${item.resourceId}`;
-    if (item.category === "agent") return `/w/${item.workspaceId}/agents?selected=${encodeURIComponent(item.resourceId)}`;
-    if (item.category === "workflow") return `/w/${item.workspaceId}/workflows?selected=${encodeURIComponent(item.resourceId)}`;
+    if (item.category === "agent") return `/studio/Agent?selected=${encodeURIComponent(item.resourceId)}`;
+    if (item.category === "workflow") return `/plays/${encodeURIComponent(item.resourceId)}`;
     return "/";
   }
   return <Dialog.Root open={props.open} onOpenChange={props.onOpenChange}>

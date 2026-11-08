@@ -24,7 +24,7 @@ export function OperationalChecklist() {
     if (item.action === "model") return "/settings?tab=setup";
     if (item.action === "runners") return "/runners";
     if (item.action === "release") return "/settings?tab=release";
-    return `/w/${app.workspaceId()}/workflows?selected=${encodeURIComponent(item.workflowId ?? "")}${item.action === "smoke" ? "&diagnostics=true" : ""}`;
+    return `/plays/${encodeURIComponent(item.workflowId ?? "")}`;
   };
   const group = (item: OperationalReadiness["checks"][number]) => item.action === "model" ? "Supported model" : item.action === "runners" ? "Runners" : item.action === "release" ? "Configuration release" : "Workflow verification";
   const actionLabel = (item: OperationalReadiness["checks"][number]) => item.status === "ready" ? "View issue" : item.action === "model" || item.action === "release" ? "Configure" : item.action === "smoke" ? "Test" : "View issue";

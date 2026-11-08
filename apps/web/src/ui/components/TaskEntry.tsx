@@ -27,7 +27,7 @@ function Origin(props: { origin: TaskOrigin; workflows: readonly WorkflowCatalog
 }
 
 const MODES = [
-  { id: "catalog", title: "Pick a published recipe", icon: "lucide-layout-grid", description: "Start from a published outcome with typed inputs and explicit readiness." },
+  { id: "catalog", title: "Pick a play or task", icon: "lucide-layout-grid", description: "Start a mission from a play, or run a single task with typed inputs and explicit readiness." },
   { id: "ask", title: "Describe the work", icon: "lucide-sparkles", description: "Describe a goal; Brain proposes a published recipe for your review. Conversation never executes it." },
   { id: "work", title: "From a work item", icon: "lucide-link", description: "Keep the board item, ticket or incident linked to the new execution." },
 ] as const;
@@ -61,20 +61,19 @@ export function TaskEntry(props: { workflows: readonly WorkflowCatalogEntry[]; c
   let preference = "catalog"; try { preference = localStorage.getItem("brain.task-entry") ?? preference; } catch { /* preference storage is optional */ }
   const mode = (): StartMode => {
     if (typeof params.mode === "string" && MODES.some((entry) => entry.id === params.mode)) return params.mode as StartMode;
-    if (typeof params.mode !== "string" && (params.selected || params.diagnostics)) return "catalog";
+    if (typeof params.mode !== "string" && (params.q || params.diagnostics)) return "catalog";
     return preference as StartMode;
   };
   const origin = (): TaskOrigin | undefined => ["work-item", "ticket", "incident"].includes(String(params.originKind)) && typeof params.originId === "string" ? { kind: params.originKind as TaskOrigin["kind"], id: params.originId } : undefined;
   const draft = () => typeof params.draft === "string" && params.draft ? params.draft : "";
-  const selected = () => typeof params.selected === "string" && params.selected ? params.selected : "";
-  const reviewing = () => Boolean(draft() || origin() || (mode() === "catalog" && selected()));
+  const reviewing = () => Boolean(draft() || origin());
   const stepKey = (): StepKey => reviewing() ? "review" : mode() === "catalog" ? "recipe" : "start";
   function choose(value: StartMode) { try { localStorage.setItem("brain.task-entry", value); } catch { /* optional preference */ } setParams({ mode: value, draft: undefined, selected: undefined, originKind: undefined, originId: undefined }); }
   const jumpStart = () => setParams({ draft: undefined, selected: undefined, originKind: undefined, originId: undefined });
   const jumpRecipe = () => setParams({ draft: undefined, selected: undefined });
   const back = () => {
     const item = origin();
-    if (item) { void navigate(item.kind === "work-item" ? `/w/${app.workspaceId()}/board?card=${encodeURIComponent(item.id)}` : item.kind === "ticket" ? `/tickets/${item.id}` : `/incidents/${item.id}`); return; }
+    if (item) { void navigate(item.kind === "work-item" ? `/w/${app.workspaceId()}/missions` : item.kind === "ticket" ? `/tickets/${item.id}` : `/incidents/${item.id}`); return; }
     if (draft()) { setParams({ draft: undefined }); return; }
     setParams({ selected: undefined });
   };

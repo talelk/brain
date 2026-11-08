@@ -32,7 +32,7 @@ test("keyboard, 200% zoom, French input, RTL and reduced motion remain contained
   await page.getByPlaceholder("Search attention, missions, or workspace…").fill(french);
   await expect(page.getByPlaceholder("Search attention, missions, or workspace…")).toHaveValue(french);
   await page.evaluate(() => { document.documentElement.dir = "rtl"; });
-  for (const route of [`/w/${workspaceId}/missions`, `/w/${workspaceId}/workflows?mode=catalog`, "/approvals", "/tv/sre"]) {
+  for (const route of [`/w/${workspaceId}/missions`, `/w/${workspaceId}/plays?mode=catalog`, "/approvals", "/tv/sre"]) {
     await page.goto(`${governor.url}${route}`);
     const contained = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
     expect(contained, `${route} at 200% zoom and RTL`).toBe(true);

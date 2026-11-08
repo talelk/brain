@@ -2,17 +2,16 @@ import { createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Pagination, Select } from "@talelk/newui-molecules";
-import { WorkspaceSection } from "../../ui/components/Domain";
+import { WorkspaceSection } from "./Domain";
 import type { Automation, AutomationOccurrence } from "@brain/contracts";
-import { useApp } from "../../ui/app-context";
+import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
-import { DateText, ScreenRegion } from "../../ui/screen-region";
-import { BrainPage, PageStack } from "../../ui/components/PageLayout";
-import { StatusBadge } from "../../ui/components/StatusBadge";
-import { formatDateTime } from "../../ui/format";
-import { RefreshButton } from "../../ui/components/primitives";
-import { ReasonDialog } from "../../ui/components/ReasonDialog";
+import { DateText, ScreenRegion } from "../screen-region";
+import { StatusBadge } from "./StatusBadge";
+import { formatDateTime } from "../format";
+import { RefreshButton } from "./primitives";
+import { ReasonDialog } from "./ReasonDialog";
 
 function triggerSummary(automation: Automation): string {
   if (automation.trigger.kind === "cron") return `${automation.trigger.cron} · ${automation.trigger.timezone}`;
@@ -23,11 +22,19 @@ function triggerSummary(automation: Automation): string {
 const SCHEDULES_PAGE_SIZE = 25;
 const OCCURRENCES_PAGE_SIZE = 25;
 
-export default function SchedulesPage(): JSX.Element {
+/** What a schedules panel manages: one target kind and the targets of that kind it may schedule. */
+export type ScheduleScope = { kind: "workflow" | "workItem" | "play"; targets: readonly { id: string; label: string }[] };
+
+/**
+ * Schedules and triggers of one Play, task or mission's work items (#25/#43:
+ * schedules live on the object they start). Lists only automations targeting
+ * the scope and creates new ones for it; occurrence history stays attached.
+ */
+export function SchedulesPanel(props: { scope: ScheduleScope; title?: string }): JSX.Element {
   const app = useApp();
   const [title, setTitle] = createSignal("");
-  const [targetKind, setTargetKind] = createSignal("workflow");
-  const [targetId, setTargetId] = createSignal("");
+  const targetKind = () => props.scope.kind;
+  const [targetId, setTargetId] = createSignal(props.scope.targets[0]?.id ?? "");
   const [triggerKind, setTriggerKind] = createSignal("cron");
   const [cron, setCron] = createSignal("");
   const [timezone, setTimezone] = createSignal("UTC");
@@ -48,7 +55,7 @@ export default function SchedulesPage(): JSX.Element {
   const [schedulePage, setSchedulePage] = createSignal(1);
   const [occurrencePage, setOccurrencePage] = createSignal(1);
 
-  const schedules = () => automations.state().data?.items ?? [];
+  const schedules = () => (automations.state().data?.items ?? []).filter((automation) => automation.target.kind === props.scope.kind && props.scope.targets.some((target) => target.id === automation.target.id));
   const schedulePageCount = () => Math.max(1, Math.ceil(schedules().length / SCHEDULES_PAGE_SIZE));
   const safeSchedulePage = () => Math.min(Math.max(1, schedulePage()), schedulePageCount());
   const visibleSchedules = () => schedules().slice((safeSchedulePage() - 1) * SCHEDULES_PAGE_SIZE, safeSchedulePage() * SCHEDULES_PAGE_SIZE);
@@ -79,14 +86,14 @@ export default function SchedulesPage(): JSX.Element {
   });
 
   function resetEditor() {
-    setEditing(undefined); setEditorMode("create"); setTitle(""); setTargetKind("workflow"); setTargetId("");
+    setEditing(undefined); setEditorMode("create"); setTitle(""); setTargetId(props.scope.targets[0]?.id ?? "");
     setTriggerKind("cron"); setCron(""); setTimezone("UTC"); setScheduledAt(""); setOverlap("skip"); setMisfire("skip");
     setExecutionMode("managed"); setRunnerId(""); setOfflinePolicy("wait"); setInputJson(""); setError("");
   }
 
   function loadEditor(automation: Automation, mode: "edit" | "duplicate") {
     setEditing(automation); setEditorMode(mode); setTitle(mode === "duplicate" ? `Copy of ${automation.title}` : automation.title);
-    setTargetKind(automation.target.kind); setTargetId(automation.target.id); setTriggerKind(automation.trigger.kind);
+    setTargetId(automation.target.id); setTriggerKind(automation.trigger.kind);
     setCron(automation.trigger.kind === "cron" ? automation.trigger.cron : "");
     setTimezone(automation.trigger.kind === "cron" ? automation.trigger.timezone : "UTC");
     setScheduledAt(automation.trigger.kind === "once" ? automation.trigger.scheduledAt : "");
@@ -134,12 +141,10 @@ export default function SchedulesPage(): JSX.Element {
     finally { setBusy(false); }
   }
 
-  return <BrainPage title="Schedules" description="Review durable automation and configure its target, trigger and failure policies with server-side occurrence semantics."
-    actions={<RefreshButton onClick={() => void automations.refresh({ force: true })} />}>
-    <PageStack>
+  return <section aria-label="Schedules" class="flex flex-col gap-4">
       <Show when={error()}><Alert theme="red" variant="outline" title="Automation action failed" description={error()} /></Show>
       <div class="brain-studio-layout">
-        <WorkspaceSection title="Schedule library" description="Current state, target, timezone and actual next occurrences from Governor.">
+        <WorkspaceSection title={props.title ?? "Schedules and triggers"} description="Current state, trigger, timezone and actual next occurrences from Governor." actions={<RefreshButton onClick={() => void automations.refresh({ force: true })} />}>
           <ScreenRegion state={automations.state()} onRetry={() => void automations.refresh()} emptyTitle="No automations yet" emptyDescription="Configure the first schedule in the guided editor. It becomes active only after server confirmation.">
             <div class="flex flex-col gap-3">
               <For each={visibleSchedules()}>{(automation) => <article class="border-y border-outline-gray-1 py-3">
@@ -154,7 +159,7 @@ export default function SchedulesPage(): JSX.Element {
           </ScreenRegion>
         </WorkspaceSection>
         <WorkspaceSection title={editorMode() === "edit" ? `Edit ${editing()?.title ?? "schedule"}` : editorMode() === "duplicate" ? "Duplicate schedule" : "Guided schedule editor"} description={editorMode() === "edit" ? "Saving creates a new revision for future occurrences. Existing occurrence history stays attached to this automation." : "The copied or new settings create a separate automation with its own identity and history."}>
-          <div class="border-y border-outline-gray-1 py-3"><h3 class="mb-3 text-base-medium">1 · Target</h3><div class="brain-field-grid"><TextInput label="Title" value={title()} onInput={(event) => setTitle(event.currentTarget.value)} placeholder="Nightly triage" /><Select label="Target kind" value={targetKind()} options={[{ value: "workflow", label: "Released workflow" }, { value: "workItem", label: "Work item scheduled start" }, { value: "play", label: "Start a mission from a play" }]} onValueChange={(value) => setTargetKind(value ?? "workflow")} /><TextInput label="Target id" value={targetId()} onInput={(event) => setTargetId(event.currentTarget.value)} description={targetKind() === "workflow" ? "Workflow id from the active release" : "Work item id from the board"} placeholder={targetKind() === "workflow" ? "operations-triage" : "work item id"} /></div></div>
+          <div class="border-y border-outline-gray-1 py-3"><h3 class="mb-3 text-base-medium">1 · Target</h3><div class="brain-field-grid"><TextInput label="Schedule title" value={title()} onInput={(event) => setTitle(event.currentTarget.value)} placeholder="Nightly triage" /><Show when={props.scope.targets.length > 1} fallback={<p class="text-interface text-ink-gray-7">Starts {props.scope.targets[0]?.label ?? "this target"}</p>}><Select label="Target" value={targetId()} options={props.scope.targets.map((target) => ({ value: target.id, label: target.label }))} onValueChange={(value) => setTargetId(value ?? props.scope.targets[0]?.id ?? "")} /></Show></div></div>
           <div class="border-b border-outline-gray-1 py-3"><h3 class="mb-3 text-base-medium">2 · Trigger</h3><div class="brain-field-grid"><Select label="Trigger" value={triggerKind()} options={[{ value: "cron", label: "Recurring (cron)" }, { value: "once", label: "One-off delayed" }, { value: "manual", label: "Manual (Run now)" }]} onValueChange={(value) => setTriggerKind(value ?? "cron")} /><Show when={triggerKind() === "cron"}><TextInput label="Cron expression" value={cron()} onInput={(event) => setCron(event.currentTarget.value)} placeholder="*/15 * * * *" description="Five fields; interpreted by Governor at minute granularity" /><TextInput label="Timezone" value={timezone()} onInput={(event) => setTimezone(event.currentTarget.value)} placeholder="Europe/Paris" description="IANA timezone; server runtime handles DST" /></Show><Show when={triggerKind() === "once"}><TextInput label="Run at" value={scheduledAt()} onInput={(event) => setScheduledAt(event.currentTarget.value)} placeholder={new Date(Date.now() + 3600_000).toISOString()} description="ISO 8601 instant, in the future" /></Show></div></div>
           <div class="border-b border-outline-gray-1 py-3"><h3 class="mb-3 text-base-medium">3 · Misfire, overlap and host</h3><div class="brain-field-grid"><Select label="Overlap" value={overlap()} options={[{ value: "skip", label: "Skip while the previous run is unfinished" }, { value: "queue-one", label: "Queue one more" }]} onValueChange={(value) => setOverlap(value ?? "skip")} /><Select label="Missed fires" value={misfire()} options={[{ value: "skip", label: "Skip and continue in the future" }, { value: "coalesce", label: "Coalesce into one fire" }]} onValueChange={(value) => setMisfire(value ?? "skip")} /><Select label="Execution host" value={executionMode()} options={[{ value: "managed", label: "Managed runners" }, { value: "personal-host", label: "Personal host only" }]} onValueChange={(value) => setExecutionMode(value ?? "managed")} /><Show when={executionMode() === "personal-host"}><TextInput label="Personal runner id" value={runnerId()} onInput={(event) => setRunnerId(event.currentTarget.value)} placeholder="runner-agents-1" description="Scheduled jobs are pinned to this runner; no managed fallback" /><Select label="When the personal host is offline" value={offlinePolicy()} options={[{ value: "wait", label: "Wait and keep the occurrence pending" }, { value: "fail", label: "Fail the occurrence without starting a run" }]} onValueChange={(value) => setOfflinePolicy(value ?? "wait")} /></Show></div></div>
           <div class="py-3"><h3 class="mb-3 text-base-medium">4 · Typed input and review</h3><Textarea label="Workflow input (JSON, optional)" value={inputJson()} onInput={(event) => setInputJson(event.currentTarget.value)} placeholder='{"situation": "Scheduled check"}' /><p class="mt-2 break-words text-interface text-ink-gray-7">{title().trim() || "Untitled schedule"} · {targetKind()} {targetId().trim() || "not selected"} · {triggerKind() === "cron" ? `${cron().trim() || "cron not entered"} · ${timezone().trim() || "UTC"}` : triggerKind()}</p><p class="mt-1 text-caption text-ink-gray-6">The browser does not translate cron or predict DST. Governor validates and computes actual occurrences.</p></div>
@@ -163,6 +168,5 @@ export default function SchedulesPage(): JSX.Element {
         </WorkspaceSection>
       </div>
       <ReasonDialog open={Boolean(retiring())} onClose={() => { setRetiring(undefined); setRetireReason(""); }} title="Retire this schedule" description="Future occurrences stop. Already-running work and the complete occurrence history are preserved. Duplicating is the safe way to create a replacement." reason={retireReason()} onReason={setRetireReason} reasonLabel="Retirement reason" confirmLabel="Retire schedule" tone="red" onConfirm={(reason) => { const automation = retiring(); if (automation) void control(automation, "retire", reason); setRetiring(undefined); setRetireReason(""); }} />
-    </PageStack>
-  </BrainPage>;
+  </section>;
 }

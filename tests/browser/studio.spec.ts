@@ -79,7 +79,7 @@ test("studio: edit an active Agent as a candidate with versioned instructions", 
   const release = brain.stageRelease(actor, [...goldenDocs(), agentDocument], "sha256:6dd84c7f907477ea38ad355392cf876b39c122adf8038762894d56cc160956b4", [], [{ agentId: "browser-agent", path: "agents/browser-agent.md", text: "# Original browser instructions\n" }]);
   brain.activateRelease(actor, release.digest);
 
-  await page.goto(`${governor.url}/w/ws-agent-studio/agents?selected=browser-agent`);
+  await page.goto(`${governor.url}/studio/Agent?selected=browser-agent`);
   await page.getByRole("button", { name: "Edit candidate", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Browser agent", exact: true, level: 1 })).toBeVisible();
   const instructions = page.getByLabel("Versioned instructions (Markdown)", { exact: true });

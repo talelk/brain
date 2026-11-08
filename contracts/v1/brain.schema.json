@@ -6341,6 +6341,9 @@
             "$ref": "#/$defs/SubjectRef"
           },
           "maxItems": 20
+        },
+        "playId": {
+          "$ref": "#/$defs/ConfigId"
         }
       },
       "required": [
@@ -21674,91 +21677,7 @@
           "$ref": "#/$defs/Metadata"
         },
         "spec": {
-          "type": "object",
-          "properties": {
-            "title": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 256
-            },
-            "description": {
-              "type": "string",
-              "maxLength": 4000
-            },
-            "intent": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 8000
-            },
-            "successCriteria": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 1024
-              },
-              "maxItems": 100,
-              "minItems": 1
-            },
-            "constraints": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 1000
-              },
-              "maxItems": 50
-            },
-            "team": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/TeamMember"
-              },
-              "maxItems": 50
-            },
-            "coordinator": {
-              "$ref": "#/$defs/ConfigId"
-            },
-            "plan": {
-              "type": "object",
-              "properties": {
-                "tasks": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/$defs/PlanTask"
-                  },
-                  "maxItems": 100,
-                  "minItems": 1
-                }
-              },
-              "required": [
-                "tasks"
-              ],
-              "additionalProperties": false
-            },
-            "autonomy": {
-              "$ref": "#/$defs/AutonomyPreset"
-            },
-            "parkingThreshold": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 10
-            },
-            "budget": {
-              "$ref": "#/$defs/MissionBudget"
-            },
-            "coordinatorWorkflow": {
-              "$ref": "#/$defs/ConfigId"
-            }
-          },
-          "required": [
-            "title",
-            "intent",
-            "successCriteria",
-            "team",
-            "plan"
-          ],
-          "additionalProperties": false
+          "$ref": "#/$defs/PlaySpec"
         }
       },
       "required": [
@@ -21800,6 +21719,9 @@
         },
         "autonomy": {
           "$ref": "#/$defs/AutonomyPreset"
+        },
+        "spec": {
+          "$ref": "#/$defs/PlaySpec"
         }
       },
       "required": [
@@ -22260,6 +22182,93 @@
         "missionTitle",
         "continuedBy",
         "artifacts"
+      ],
+      "additionalProperties": false
+    },
+    "PlaySpec": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000
+        },
+        "successCriteria": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "maxItems": 100,
+          "minItems": 1
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "maxItems": 50
+        },
+        "team": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamMember"
+          },
+          "maxItems": 50
+        },
+        "coordinator": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "plan": {
+          "type": "object",
+          "properties": {
+            "tasks": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/PlanTask"
+              },
+              "maxItems": 100,
+              "minItems": 1
+            }
+          },
+          "required": [
+            "tasks"
+          ],
+          "additionalProperties": false
+        },
+        "autonomy": {
+          "$ref": "#/$defs/AutonomyPreset"
+        },
+        "parkingThreshold": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "budget": {
+          "$ref": "#/$defs/MissionBudget"
+        },
+        "coordinatorWorkflow": {
+          "$ref": "#/$defs/ConfigId"
+        }
+      },
+      "required": [
+        "title",
+        "intent",
+        "successCriteria",
+        "team",
+        "plan"
       ],
       "additionalProperties": false
     }

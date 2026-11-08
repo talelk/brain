@@ -3,7 +3,7 @@ import type { JSX } from "solid-js";
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert } from "@talelk/newui-molecules";
-import type { BrainSession, ExecutionLink, Mission, MissionBrief, MissionMessage, Output, PlanVersion, SinceLastVisitSummary } from "@brain/contracts";
+import type { BrainSession, ExecutionLink, WorkItem, Mission, MissionBrief, MissionMessage, Output, PlanVersion, SinceLastVisitSummary } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
@@ -11,6 +11,7 @@ import { ScreenRegion } from "../../ui/screen-region";
 import { BrainPage, PageStack, TechnicalDetails } from "../../ui/components/PageLayout";
 import { EmptyPreview, FactStrip, QueueRow, WorkspaceSection } from "../../ui/components/Domain";
 import { MissionWorkItems } from "../../ui/components/MissionWorkItems";
+import { SchedulesPanel } from "../../ui/components/SchedulesPanel";
 import { formatDateTime } from "../../ui/format";
 import { missionHref, type MissionTab } from "../../ui/mission-links";
 
@@ -209,7 +210,23 @@ function PlanTab(props: ActProps): JSX.Element {
       </section>}</Show>
     </WorkspaceSection>
     <MissionWorkItems missionId={props.mission.missionId} />
+    <MissionSchedules missionId={props.mission.missionId} />
   </PageStack>;
+}
+
+/** Scheduled starts of this mission's work items (automation target kind workItem). */
+function MissionSchedules(props: { missionId: string }): JSX.Element {
+  const app = useApp();
+  const items = createScopedRead<WorkItem[]>({
+    scope: app.scope,
+    load: async (scope, signal) => {
+      const response = await query<Envelope<{ items: WorkItem[] }>>({ queryType: "workItems.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
+      return { snapshot: response.snapshot.items.filter((item) => item.missionId === props.missionId), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+    },
+  });
+  return <Show when={items.state().data?.length}>
+    <SchedulesPanel title="Scheduled work item starts" scope={{ kind: "workItem", targets: (items.state().data ?? []).map((item) => ({ id: item.workItemId, label: item.title })) }} />
+  </Show>;
 }
 
 /** Brief: human-owned intent and constraints, immutable accepted decisions, derived progress (#34). */

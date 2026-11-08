@@ -21,17 +21,17 @@ test("guided task entry: persisted modes, shared review, timeout recovery, conso
 
   // The guided rail: landing on Start work with the persisted catalog mode
   // puts the published-recipe selection forward as the current step.
-  await page.goto(`${governor.url}/w/operations/workflows`);
+  await page.goto(`${governor.url}/w/operations/plays`);
   await expect(page.locator('ol[aria-label="Guided steps"] [aria-current="step"]')).toHaveText(/Recipe/);
   await page.getByRole("button", { name: /From a work item/ }).click();
   await expect(page).toHaveURL(/mode=work/);
-  await page.goto(`${governor.url}/w/operations/workflows`);
+  await page.goto(`${governor.url}/w/operations/plays`);
   await expect(page.getByRole("button", { name: /From a work item/ })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("heading", { name: "Advance an existing item", exact: true })).toBeVisible();
 
   // Describe-the-work mode: the conversation proposes a recipe for review and
   // never dispatches by itself; the rail advances to review only with a draft.
-  await page.goto(`${governor.url}/w/operations/workflows?mode=ask`);
+  await page.goto(`${governor.url}/w/operations/plays?mode=ask`);
   await expect(page.locator('ol[aria-label="Guided steps"] [aria-current="step"]')).toHaveText(/Start/);
   // A late scoped-read render can replace the field: wait until the request
   // is really in it and Send is enabled before submitting.
@@ -84,7 +84,7 @@ test("guided task entry: persisted modes, shared review, timeout recovery, conso
   await expect(page).toHaveURL(/\/w\/operations\/live\?session=/);
 
   // Catalog mode: published recipes only — system definitions stay hidden.
-  await page.goto(`${governor.url}/w/operations/workflows?mode=catalog`);
+  await page.goto(`${governor.url}/w/operations/plays?mode=catalog`);
   await expect(page.getByRole("region", { name: "Task catalog", exact: true })).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "Ask Brain" })).toHaveCount(0);
   await expect(page.getByRole("row").filter({ hasText: "Verify installation" })).toHaveCount(0);

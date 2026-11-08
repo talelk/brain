@@ -50,6 +50,12 @@ describe("plays (T63)", () => {
     w.brain.activateRelease(w.owner, stage(w, [play("auth-stabilize")]).digest);
     const plays = await query<{ items: Array<{ playId: string; taskCount: number; autonomy: string }> }>(w, "plays.list");
     expect(plays.items).toEqual([expect.objectContaining({ playId: "auth-stabilize", taskCount: 2, autonomy: "autonomous" })]);
+    // plays.get carries the full spec its page renders: brief, team and plan shape.
+    const detail = await query<{ spec: { intent: string; plan: { tasks: Array<{ id: string }> } } }>(w, "plays.get", "auth-stabilize");
+    expect(detail.spec.intent).toBe("Find and fix session expiry");
+    expect(detail.spec.plan.tasks.map((task) => task.id)).toEqual(["audit", "fix"]);
+    // A Play and a single task both open at /plays/:id, so they never share an id.
+    expect(() => stage(w, [play("fixture-workflow")])).toThrow(/a Play and a Workflow cannot share id fixture-workflow/);
     w.brain.close();
   });
 
@@ -60,7 +66,7 @@ describe("plays (T63)", () => {
     await (await w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: "cmd-ceiling", commandType: "workspace.autonomyCeiling.set", workspaceId: w.workspaceId, idempotencyKey: "ceiling", expectedVersion: workspace.version, payload: { workspaceId: w.workspaceId, operations: ["task.add", "task.change", "decision.accept"] } } as never, "ceiling")).receipt;
     const id = (await run(w, "mission.create", "play-mission", { title: "Auth, from the play", playId: "auth-stabilize" })).resourceId ?? "";
     const mission = await query<Mission>(w, "missions.get", id);
-    expect(mission).toMatchObject({ state: "active", parkingThreshold: 2, budget: { maxMicroUsd: 500000, memberCap: 2 }, autonomyPolicy: { preset: "autonomous", operations: ["decision.accept", "task.add", "task.change"] } });
+    expect(mission).toMatchObject({ playId: "auth-stabilize", state: "active", parkingThreshold: 2, budget: { maxMicroUsd: 500000, memberCap: 2 }, autonomyPolicy: { preset: "autonomous", operations: ["decision.accept", "task.add", "task.change"] } });
     expect(await query<MissionBrief>(w, "missions.brief", id)).toMatchObject({ intent: "Find and fix session expiry", constraints: ["Keep the public API"] });
     const plans = w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT id FROM plan_versions WHERE mission_id=?").all(id) as Array<{ id: string }>;
     expect(plans).toHaveLength(1);
