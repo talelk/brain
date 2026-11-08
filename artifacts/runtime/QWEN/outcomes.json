@@ -1,0 +1,115 @@
+{
+  "model": "local-qwen/qwen3.8-flash-next-a5b",
+  "binary": "opencode v2.2.5",
+  "dryRun": false,
+  "outcomes": [
+    {
+      "id": "Q01-run-1",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 21270
+    },
+    {
+      "id": "Q01-run-2",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 31078
+    },
+    {
+      "id": "Q01-run-3",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 40776
+    },
+    {
+      "id": "Q02-run-1",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 21881
+    },
+    {
+      "id": "Q02-run-2",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 18512
+    },
+    {
+      "id": "Q02-run-3",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 20702
+    },
+    {
+      "id": "Q03-run-1",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 15826
+    },
+    {
+      "id": "Q03-run-2",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 18355
+    },
+    {
+      "id": "Q03-run-3",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 19177
+    },
+    {
+      "id": "Q04-run-1",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 21359
+    },
+    {
+      "id": "Q04-run-2",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 20255
+    },
+    {
+      "id": "Q04-run-3",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 20654
+    },
+    {
+      "id": "Q05-run-1",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 9249
+    },
+    {
+      "id": "Q05-run-2",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 11383
+    },
+    {
+      "id": "Q05-run-3",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 8127
+    },
+    {
+      "id": "Q06-run-1",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 55066
+    },
+    {
+      "id": "Q06-run-2",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 51167
+    },
+    {
+      "id": "Q06-run-3",
+      "passed": true,
+      "reason": "oracle satisfied",
+      "durationMs": 43939
+    }
+  ]
+}

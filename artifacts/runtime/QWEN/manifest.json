@@ -1,0 +1,769 @@
+{
+  "contractVersion": "brain.verification-run/v1",
+  "gateId": "QWEN",
+  "status": "passed",
+  "productFingerprint": "sha256:ff6442a9144b5148affd0c43e38918e07215cd1e1fddd35a6e48d1145b731d92",
+  "lockDigest": "sha256:581b5c25fb80466a1308330e9d1c025dde6b54108b77feab7bfd1f2fe84ddaa1",
+  "commands": [
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--standalone",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q01-run-1",
+        "<Q01 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 21244
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--standalone",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q01-run-2",
+        "<Q01 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 31057
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--standalone",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q01-run-3",
+        "<Q01 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 40754
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--standalone",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q02-run-1",
+        "<Q02 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 21857
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--standalone",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q02-run-2",
+        "<Q02 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 18491
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--standalone",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q02-run-3",
+        "<Q02 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 20677
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--standalone",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q03-run-1",
+        "<Q03 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 15245
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--standalone",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q03-run-2",
+        "<Q03 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 17792
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--standalone",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q03-run-3",
+        "<Q03 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 18630
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--standalone",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q04-run-1",
+        "<Q04 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 21275
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--standalone",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q04-run-2",
+        "<Q04 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 20175
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--standalone",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q04-run-3",
+        "<Q04 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 20564
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--standalone",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q05-run-1",
+        "<Q05 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 9216
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--standalone",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q05-run-2",
+        "<Q05 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 11349
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--standalone",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q05-run-3",
+        "<Q05 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 8105
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--server",
+        "<private server>",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q06-run-1",
+        "--session",
+        "<run session>",
+        "<Q06 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 14515
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "api",
+        "--server",
+        "<private server>",
+        "session.compact",
+        "--param",
+        "sessionID=<run session>",
+        "--data",
+        "<compaction request>"
+      ],
+      "exitCode": 0,
+      "durationMs": 164
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--server",
+        "<private server>",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q06-run-1",
+        "--session",
+        "<run session>",
+        "<Q06 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 23984
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--server",
+        "<private server>",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q06-run-2",
+        "--session",
+        "<run session>",
+        "<Q06 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 13531
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "api",
+        "--server",
+        "<private server>",
+        "session.compact",
+        "--param",
+        "sessionID=<run session>",
+        "--data",
+        "<compaction request>"
+      ],
+      "exitCode": 0,
+      "durationMs": 106
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--server",
+        "<private server>",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q06-run-2",
+        "--session",
+        "<run session>",
+        "<Q06 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 21186
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--server",
+        "<private server>",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q06-run-3",
+        "--session",
+        "<run session>",
+        "<Q06 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 11819
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "api",
+        "--server",
+        "<private server>",
+        "session.compact",
+        "--param",
+        "sessionID=<run session>",
+        "--data",
+        "<compaction request>"
+      ],
+      "exitCode": 0,
+      "durationMs": 105
+    },
+    {
+      "argv": [
+        "/home/talel/.opencode/bin/opencode",
+        "run",
+        "--server",
+        "<private server>",
+        "--format",
+        "json",
+        "--auto",
+        "--model",
+        "local-qwen/qwen3.8-flash-next-a5b",
+        "--title",
+        "Q06-run-3",
+        "--session",
+        "<run session>",
+        "<Q06 prompt>"
+      ],
+      "exitCode": 0,
+      "durationMs": 15655
+    }
+  ],
+  "checks": [
+    {
+      "id": "Q01-run-1",
+      "passed": true
+    },
+    {
+      "id": "Q01-run-2",
+      "passed": true
+    },
+    {
+      "id": "Q01-run-3",
+      "passed": true
+    },
+    {
+      "id": "Q02-run-1",
+      "passed": true
+    },
+    {
+      "id": "Q02-run-2",
+      "passed": true
+    },
+    {
+      "id": "Q02-run-3",
+      "passed": true
+    },
+    {
+      "id": "Q03-run-1",
+      "passed": true
+    },
+    {
+      "id": "Q03-run-2",
+      "passed": true
+    },
+    {
+      "id": "Q03-run-3",
+      "passed": true
+    },
+    {
+      "id": "Q04-run-1",
+      "passed": true
+    },
+    {
+      "id": "Q04-run-2",
+      "passed": true
+    },
+    {
+      "id": "Q04-run-3",
+      "passed": true
+    },
+    {
+      "id": "Q05-run-1",
+      "passed": true
+    },
+    {
+      "id": "Q05-run-2",
+      "passed": true
+    },
+    {
+      "id": "Q05-run-3",
+      "passed": true
+    },
+    {
+      "id": "Q06-run-1",
+      "passed": true
+    },
+    {
+      "id": "Q06-run-2",
+      "passed": true
+    },
+    {
+      "id": "Q06-run-3",
+      "passed": true
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "artifacts/runtime/QWEN/Q01-run-1.trace.jsonl",
+      "digest": "sha256:2b5f72a9c3dcb8423be8256534749b90d92fbfdc0a5fbe578d9f03739417b3bf"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q01-run-1.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q01-run-1.tools.jsonl",
+      "digest": "sha256:aacf83df6269cdb523c747c864b8c28d58c85c22e7cd027f257c03d83dba2123"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q01-run-2.trace.jsonl",
+      "digest": "sha256:ea2ac35a2c55046909c25f5fdc825c2c52a9aee8538c8eb5cc9385ab9dd48728"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q01-run-2.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q01-run-2.tools.jsonl",
+      "digest": "sha256:e7519aa6454eaf587d154e0cc46125fe6ce213a250cb135f8a402d803475d1ce"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q01-run-3.trace.jsonl",
+      "digest": "sha256:fd7a15ea6309dcc0c396ebd7a97f4cb0e4e34d1e2ffe275c8fb84e01c84b40b5"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q01-run-3.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q01-run-3.tools.jsonl",
+      "digest": "sha256:9c9af21c0a8f05324ae17fcef1569376abf1861e6483130596c3ca27aba0ecf6"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q02-run-1.trace.jsonl",
+      "digest": "sha256:c972997fb073f7f0da1c17131fe7c77bf307dd17776493cc24591f1e21d176ed"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q02-run-1.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q02-run-1.tools.jsonl",
+      "digest": "sha256:67817c1ba98cd41c9a6dc2eb895b613c88e6ec1ca851402acb260c91c9e79084"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q02-run-2.trace.jsonl",
+      "digest": "sha256:7c7fda645d4c7b3de14b6537de67bdf21ab8a3b610963c0df23050be1f081327"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q02-run-2.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q02-run-2.tools.jsonl",
+      "digest": "sha256:afa1256c15d6bf48082209b03766928e13b78e519353c6e17b6bc08941e54820"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q02-run-3.trace.jsonl",
+      "digest": "sha256:563ac40bff109adf787ab8c7e256d5cd966ae933a3f8f307a118c4db6aa3c2bd"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q02-run-3.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q02-run-3.tools.jsonl",
+      "digest": "sha256:5a29fa2be8acb622f2e4506b8356965938d5d299b2de5d9341e26088ab677ba9"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q03-run-1.trace.jsonl",
+      "digest": "sha256:f82a6a62125e943a4eba339bd442a6a020f898e75212573963fb95c057e61fb5"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q03-run-1.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q03-run-1.tools.jsonl",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q03-run-2.trace.jsonl",
+      "digest": "sha256:2258392751552901116b779c1207c0a78b036db6cdf84841ae9b1c946689bf18"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q03-run-2.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q03-run-2.tools.jsonl",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q03-run-3.trace.jsonl",
+      "digest": "sha256:1497f97cc361155ee2587c69f92e04bb418cef1d6f3d447d3f8288c31ca30bfb"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q03-run-3.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q03-run-3.tools.jsonl",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q04-run-1.trace.jsonl",
+      "digest": "sha256:a483ed608094e1b7ab9a95b845ef7ede2ce417d767a71eca6d1a9f5f4bf7d25c"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q04-run-1.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q04-run-1.tools.jsonl",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q04-run-2.trace.jsonl",
+      "digest": "sha256:b7d4316d905a393d9b3723aba07689401980162f8a86f5b9072d89dbbecf0b6a"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q04-run-2.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q04-run-2.tools.jsonl",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q04-run-3.trace.jsonl",
+      "digest": "sha256:d4c2c7d2ec4765024cabe971df1c87b14dd26ac3590a93c5f964fbd09f79a4e5"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q04-run-3.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q04-run-3.tools.jsonl",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q05-run-1.trace.jsonl",
+      "digest": "sha256:582d8f15ccd8fdaf3287cbcc730af5a662712ead788132a54a2134a6d6196620"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q05-run-1.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q05-run-1.tools.jsonl",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q05-run-2.trace.jsonl",
+      "digest": "sha256:3742378f3771d6acd055fb6688b47283fb716de7d0b2971473efa887a6632a53"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q05-run-2.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q05-run-2.tools.jsonl",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q05-run-3.trace.jsonl",
+      "digest": "sha256:bb1c4a831e136b97f50206d5b4823db16995ee5d5dee29cc17128edd46a2d58a"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q05-run-3.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q05-run-3.tools.jsonl",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q06-run-1.trace.jsonl",
+      "digest": "sha256:c59fdd793a10cb01d65d6c97aeef58e61bb58f44a7c4b1c1967637f105fddf02"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q06-run-1.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q06-run-1.tools.jsonl",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q06-run-2.trace.jsonl",
+      "digest": "sha256:8a8eb1f0c7922d1eeec9a30561d270d35c67f858e9ec5cec0f1dedcbc9198133"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q06-run-2.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q06-run-2.tools.jsonl",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q06-run-3.trace.jsonl",
+      "digest": "sha256:484d8fe7a75229cb5fdcaae2a82c076798721a76c311d1eb2923cf19e98a085e"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q06-run-3.stderr.log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/Q06-run-3.tools.jsonl",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/runtime/QWEN/outcomes.json",
+      "digest": "sha256:1967a2086752a0f7cd9fb17f0660e7fc62cf8c2252a2480ae5ffa9cfc6eefc03"
+    }
+  ],
+  "selectedScenarios": [
+    "Q01-run-1",
+    "Q01-run-2",
+    "Q01-run-3",
+    "Q02-run-1",
+    "Q02-run-2",
+    "Q02-run-3",
+    "Q03-run-1",
+    "Q03-run-2",
+    "Q03-run-3",
+    "Q04-run-1",
+    "Q04-run-2",
+    "Q04-run-3",
+    "Q05-run-1",
+    "Q05-run-2",
+    "Q05-run-3",
+    "Q06-run-1",
+    "Q06-run-2",
+    "Q06-run-3"
+  ],
+  "executedScenarios": [
+    "Q01-run-1",
+    "Q01-run-2",
+    "Q01-run-3",
+    "Q02-run-1",
+    "Q02-run-2",
+    "Q02-run-3",
+    "Q03-run-1",
+    "Q03-run-2",
+    "Q03-run-3",
+    "Q04-run-1",
+    "Q04-run-2",
+    "Q04-run-3",
+    "Q05-run-1",
+    "Q05-run-2",
+    "Q05-run-3",
+    "Q06-run-1",
+    "Q06-run-2",
+    "Q06-run-3"
+  ],
+  "skippedScenarios": [],
+  "model": "local-qwen/qwen3.8-flash-next-a5b",
+  "startedAt": "2026-11-08T19:58:23.895Z",
+  "finishedAt": "2026-11-08T20:05:53.314Z"
+}
