@@ -20164,7 +20164,8 @@
           "type": "string",
           "enum": [
             "workflow",
-            "workItem"
+            "workItem",
+            "play"
           ]
         },
         "id": {

@@ -32,6 +32,10 @@ export interface JobProtocolPorts {
   startRun(input: { organizationId: string; workspaceId: string; actorId: string; workflowId: string; workflow: unknown; configDigest: string; runInput: JsonValue; executionKey: string; runnerId?: string }): { runId: string };
   /** Mission-local admission for a run's next attempt (member cap, then budget); no mission means interactive work. */
   missionAdmission?(organizationId: string, workspaceId: string, runId: string): MissionAdmission;
+  /** Starts a mission from a Play for a scheduled occurrence. */
+  startMission?(input: { organizationId: string; workspaceId: string; playId: string; startedBy: string; occurrenceId: string }): string;
+  /** Whether a mission is still open. */
+  missionOpen?(organizationId: string, workspaceId: string, missionId: string): boolean;
   /** Records the admitted attempt's reservation against its mission. */
   missionReserve?(organizationId: string, workspaceId: string, input: { missionId: string; runId: string; attemptId: string; microUsd: number }): void;
 }
@@ -53,6 +57,8 @@ export class JobProtocol {
     this.automations = new AutomationService(store, {
       resolveWorkflow: (organizationId, workflowId) => this.ports.resolveWorkflow(organizationId, workflowId),
       startRun: (input) => this.ports.startRun(input),
+      ...(this.ports.startMission ? { startMission: (input: Parameters<NonNullable<JobProtocolPorts["startMission"]>>[0]) => this.ports.startMission!(input) } : {}),
+      ...(this.ports.missionOpen ? { missionOpen: (organizationId: string, workspaceId: string, missionId: string) => this.ports.missionOpen!(organizationId, workspaceId, missionId) } : {}),
     });
   }
 

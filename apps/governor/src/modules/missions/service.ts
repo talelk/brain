@@ -364,6 +364,27 @@ export class MissionService {
     return Object.fromEntries(Object.entries(agents).map(([id, agent]) => [id, { tools: agent.spec.tools.map((tool) => tool.id), engines: [...agent.spec.engine.anyOf], maxMicroUsd: agent.spec.maxMicroUsd }]));
   }
 
+  /**
+   * A scheduled or triggered start of a Play (T52): the mission is started on
+   * behalf of the person who set up the automation, so ownership and
+   * notification follow them; its plan and team wait for human confirmation.
+   */
+  startFromPlay(input: { organizationId: string; workspaceId: string; playId: string; startedBy: string; occurrenceId: string }): string {
+    const play = activeReleaseRecord(this.store, input.organizationId)?.release.plays?.[input.playId];
+    if (!play) throw new BrainDomainError("NOT_FOUND", `play ${input.playId} is not in the active release`);
+    const actor: ActorContext = { kind: "workflow", actorId: input.startedBy, organizationId: input.organizationId, workspaceId: input.workspaceId, scopes: [], authMethod: "service-credential", authGeneration: 1 };
+    const existing = this.store.workspaceDb(input.workspaceId, input.organizationId).prepare("SELECT id FROM missions WHERE started_by_occurrence=?").get(input.occurrenceId) as { id: string } | undefined;
+    if (existing) return existing.id;
+    const id = this.createMission(actor, input.workspaceId, { title: play.spec.title, playId: input.playId });
+    this.store.workspaceDb(input.workspaceId, input.organizationId).prepare("UPDATE missions SET started_by_occurrence=? WHERE id=?").run(input.occurrenceId, id);
+    return id;
+  }
+
+  isOpen(organizationId: string, workspaceId: string, missionId: string): boolean {
+    const row = this.store.workspaceDb(workspaceId, organizationId).prepare("SELECT state FROM missions WHERE id=?").get(missionId) as { state: string } | undefined;
+    return Boolean(row && row.state !== "closed");
+  }
+
   /** A human sets the mission's budget; raising it is what lifts a budget pause on resume. */
   private setBudget(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
     if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only humans set a mission budget");

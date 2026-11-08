@@ -1,5 +1,9 @@
 # Runtime status and continuation — 2026-10-28
 
+## Scheduled Plays — 8 November
+
+T52 lets an automation target a Play. Each due occurrence starts a mission from the Play on behalf of the person who created the automation (so ownership and notification follow them), records the mission as the occurrence's dispatch reference, and leaves the Play's plan and team as a proposal awaiting human confirmation. The skip overlap policy holds new occurrences while the mission an earlier one started is still open; replays of the same occurrence never start a second mission. The Schedules screen offers "Start a mission from a play" as a target. Triggers from subjects (tickets, incidents) arrive with the Play views in T44.
+
 ## Plays — 8 November
 
 T63 adds `Play` as a release kind: title, intent, success criteria, constraints, a team of members naming agent definitions of the same release (and an optional coordinator on that team), a plan template, an autonomy preset, a parking threshold and a budget. The compiler rejects a Play whose team is not mechanically eligible for its plan or whose coordinator is not on its team, so an ineligible Play never activates. `plays.list` / `plays.get` read the active release, and the Studio can draft a Play. `mission.create` with a `playId` copies the Play's brief, budget and parking threshold, clips its autonomy to the workspace ceiling, and proposes the Play's plan and team as a template plan version for human confirmation. `workspace.autonomyCeiling.set` (organization administration only) bounds every mission policy in the workspace; `mission.policy.set` cannot exceed it. Schedules and triggers that start missions from Plays are T52.

@@ -21,7 +21,7 @@ import { nextCronFire, parseCron } from "../workflows/index";
 
 type AutomationRow = {
   id: string; title: string; state: "active" | "paused" | "retired"; revision: number;
-  target_kind: "workflow" | "workItem"; target_id: string;
+  target_kind: "workflow" | "workItem" | "play"; target_id: string;
   trigger_kind: "cron" | "once" | "manual"; cron: string | null; timezone: string | null;
   scheduled_at_ms: number | null; input_json: string | null;
   overlap: "skip" | "queue-one"; misfire: "skip" | "coalesce";
@@ -45,6 +45,10 @@ export interface AutomationCommand {
 export interface AutomationDispatchDeps {
   resolveWorkflow: (organizationId: string, workflowId: string) => { workflow: unknown; configDigest: string };
   startRun: (input: { organizationId: string; workspaceId: string; actorId: string; workflowId: string; workflow: unknown; configDigest: string; runInput: JsonValue; executionKey: string; runnerId?: string }) => { runId: string };
+  /** Starts a mission from a Play of the active release on behalf of the automation's creator; returns the mission id. */
+  startMission?: (input: { organizationId: string; workspaceId: string; playId: string; startedBy: string; occurrenceId: string }) => string;
+  /** Whether a mission an earlier occurrence started is still open (for the skip overlap policy). */
+  missionOpen?: (organizationId: string, workspaceId: string, missionId: string) => boolean;
 }
 
 const FINISHED_RUN_STATES = new Set(["succeeded", "failed", "cancelled", "partial"]);
@@ -140,7 +144,7 @@ export class AutomationService {
   private upsert(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
     const target = payload["target"] as { kind?: string; id?: string } | undefined;
     const trigger = payload["trigger"] as { kind?: string; cron?: string; timezone?: string; scheduledAt?: string } | undefined;
-    if (!target?.id || (target.kind !== "workflow" && target.kind !== "workItem")) throw new BrainDomainError("INVALID_ARGUMENT", "target must be a workflow or workItem id");
+    if (!target?.id || (target.kind !== "workflow" && target.kind !== "workItem" && target.kind !== "play")) throw new BrainDomainError("INVALID_ARGUMENT", "target must be a workflow, work item or play id");
     const kind = trigger?.kind;
     if (kind !== "cron" && kind !== "once" && kind !== "manual") throw new BrainDomainError("INVALID_ARGUMENT", "trigger kind must be cron, once or manual");
     let cron: string | null = null;
@@ -303,6 +307,25 @@ export class AutomationService {
           dispatched++;
         } catch (reason) {
           this.finish(db, occurrence, "failed", null, reason instanceof Error ? reason.message.slice(0, 500) : "dispatch failed");
+          skipped++;
+        }
+        continue;
+      }
+      if (automation.target_kind === "play") {
+        // A scheduled Play starts a mission; its plan and team still wait for a human to confirm (#37).
+        const previous = db.prepare("SELECT dispatch_ref FROM automation_occurrences WHERE automation_id=? AND state='dispatched' ORDER BY planned_at_ms DESC, id DESC LIMIT 1").get(automation.id) as { dispatch_ref: string | null } | undefined;
+        if (automation.overlap === "skip" && previous?.dispatch_ref && this.deps.missionOpen?.(organizationId, workspaceId, previous.dispatch_ref)) {
+          this.finish(db, occurrence, "skipped", null, "the mission the previous occurrence started is still open");
+          skipped++;
+          continue;
+        }
+        try {
+          if (!this.deps.startMission) throw new Error("missions are not available");
+          const missionId = this.deps.startMission({ organizationId, workspaceId, playId: automation.target_id, startedBy: automation.created_by, occurrenceId: occurrence.id });
+          this.finish(db, occurrence, "dispatched", missionId, null);
+          dispatched++;
+        } catch (reason) {
+          this.finish(db, occurrence, "failed", null, reason instanceof Error ? reason.message.slice(0, 500) : "mission start failed");
           skipped++;
         }
         continue;

@@ -95,6 +95,8 @@ export class Brain {
         startRun: (input) => this.workflows.startRun(input as Parameters<WorkflowEnginePort["startRun"]>[0]),
         missionAdmission: (organizationId, workspaceId, runId) => this.missions.admission(organizationId, workspaceId, runId),
         missionReserve: (organizationId, workspaceId, input) => this.missions.recordReservation(organizationId, workspaceId, input),
+        startMission: (input) => this.missions.startFromPlay(input),
+        missionOpen: (organizationId, workspaceId, missionId) => this.missions.isOpen(organizationId, workspaceId, missionId),
       });
       this.capitalization = new CapitalizationService(this.store);
       this.evidence = new EvidenceService(this.store, {

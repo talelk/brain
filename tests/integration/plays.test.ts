@@ -70,4 +70,26 @@ describe("plays (T63)", () => {
     await expect(Promise.resolve().then(async () => await run(w, "mission.create", "play-missing", { title: "Nope", playId: "ghost" }))).rejects.toThrow(/not in the active release/);
     w.brain.close();
   });
+
+  it("a scheduled Play starts a mission for its creator; overlap skip waits for that mission to close (T52)", async () => {
+    const w = setupWorld();
+    w.brain.activateRelease(w.owner, stage(w, [play("auth-stabilize")]).digest);
+    const automations = w.brain.jobProtocol.automations;
+    const automationId = automations.apply(w.owner, { commandType: "automation.upsert", workspaceId: w.workspaceId, payload: { title: "Weekly auth review", target: { kind: "play", id: "auth-stabilize" }, trigger: { kind: "manual" }, overlap: "skip" } });
+    automations.apply(w.owner, { commandType: "automation.control", workspaceId: w.workspaceId, expectedVersion: 1, payload: { automationId, action: "runNow" } });
+    const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    const started = db.prepare("SELECT id, owner_id, play_id FROM missions").all() as Array<{ id: string; owner_id: string; play_id: string }>;
+    expect(started).toEqual([expect.objectContaining({ owner_id: "owner-1", play_id: "auth-stabilize" })]);
+    const missionId = started[0]!.id;
+    expect((db.prepare("SELECT state FROM plan_versions WHERE mission_id=?").get(missionId) as { state: string }).state).toBe("proposed");
+    automations.apply(w.owner, { commandType: "automation.control", workspaceId: w.workspaceId, expectedVersion: 1, payload: { automationId, action: "runNow" } });
+    const occurrences = db.prepare("SELECT state, dispatch_ref, detail FROM automation_occurrences WHERE automation_id=? ORDER BY planned_at_ms, id").all(automationId) as Array<{ state: string; dispatch_ref: string | null; detail: string | null }>;
+    expect(occurrences.map((row) => row.state)).toEqual(["dispatched", "skipped"]);
+    expect(occurrences[0]!.dispatch_ref).toBe(missionId);
+    const mission = await query<Mission>(w, "missions.get", missionId);
+    await run(w, "mission.close", "auto-close", { missionId, outcome: "ended" }, mission.version);
+    automations.apply(w.owner, { commandType: "automation.control", workspaceId: w.workspaceId, expectedVersion: 1, payload: { automationId, action: "runNow" } });
+    expect((db.prepare("SELECT COUNT(*) AS n FROM missions").get() as { n: number }).n).toBe(2);
+    w.brain.close();
+  });
 });
