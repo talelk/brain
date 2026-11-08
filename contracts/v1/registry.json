@@ -609,6 +609,15 @@
       "actors": [
         "human"
       ]
+    },
+    {
+      "type": "mission.watch",
+      "schema": "MissionWatchCommand",
+      "scope": "workspace:read",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
     }
   ],
   "queries": [
@@ -686,7 +695,8 @@
     "plays.list",
     "plays.get",
     "attention.list",
-    "missions.sinceLastVisit"
+    "missions.sinceLastVisit",
+    "notifications.list"
   ],
   "events": [
     {

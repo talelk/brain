@@ -5,3 +5,4 @@ export { loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscripti
 export { operationalReadiness } from "./readiness";
 export { localRuntimeStatus, connectLocalModel, restoreLocalRuntimeHandoff, localRunnerSettingsCurrent } from "./local-runtime";
 export { liveStatus, platformHealth, workspaceContext } from "./read";
+export { notifyAttention, notificationsFor, watchCommands } from "./attention-notify";

@@ -41,6 +41,7 @@ import { issuePermit as governanceIssuePermit, validatePermit as governanceValid
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
 import { MissionService, missionCommands } from "../modules/missions/index";
 import { attentionCommands, attentionQuery } from "../modules/stream/index";
+import { notificationsFor, notifyAttention, watchCommands } from "../modules/operations/index";
 import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
@@ -113,6 +114,7 @@ export class Brain {
       this.commands = new CommandFunnel(this.store, [
         missionCommands(this.missions),
         attentionCommands(this.store),
+        watchCommands(this.store),
         sessionCommands(this.sessions),
         documentCommands(this.documents),
         integrationCommands(this.integrations),
@@ -305,6 +307,11 @@ export class Brain {
       } catch { /* push is best-effort; the durable record is the approval inbox */ }
     }
     return delivered;
+  }
+
+  /** Maintenance pass: attention items reach their mission's people (T65). */
+  notifyAttention(): number {
+    return notifyAttention(this.store, (organizationId, principalId, payload) => this.notifyPrincipal(organizationId, principalId, payload));
   }
 
   private notifyApprovers(input: { organizationId: string; workspaceId: string }): void {
@@ -830,6 +837,8 @@ export class Brain {
       }
       case "today":
         return this.envelope(q.queryType, today(s, actor, orgWorkspaces(s, actor), limit));
+      case "notifications.list":
+        return this.envelope(q.queryType, notificationsFor(s, actor, orgWorkspaces(s, actor), limit));
       case "attention.list": case "missions.sinceLastVisit":
         return this.envelope(q.queryType, attentionQuery(s, actor, q.queryType, orgWorkspaces(s, actor), q.workspaceId, q.resourceId));
       case "bridge":

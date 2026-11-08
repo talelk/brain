@@ -36,6 +36,16 @@ CREATE TABLE mission_seen (
   cursor INTEGER NOT NULL CHECK(cursor >= 0), seen_at_ms INTEGER NOT NULL,
   PRIMARY KEY(principal_id, mission_id)
 ) STRICT;
+CREATE TABLE mission_watchers (
+  principal_id TEXT NOT NULL, mission_id TEXT NOT NULL REFERENCES missions(id), created_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(principal_id, mission_id)
+) STRICT;
+CREATE TABLE attention_notifications (
+  principal_id TEXT NOT NULL, item_id TEXT NOT NULL, mission_id TEXT, title TEXT NOT NULL,
+  pushed INTEGER NOT NULL DEFAULT 0 CHECK(pushed IN (0,1)), sent_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(principal_id, item_id)
+) STRICT;
+CREATE INDEX attention_notifications_recent ON attention_notifications(principal_id, mission_id, sent_at_ms);
 CREATE TABLE mission_wakes (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), reason TEXT NOT NULL,
   detail TEXT NOT NULL DEFAULT '', created_at_ms INTEGER NOT NULL, consumed_by_run TEXT, last_error TEXT

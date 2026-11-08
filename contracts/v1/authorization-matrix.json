@@ -634,6 +634,11 @@
       "scope": "workspace:read",
       "scopeMode": "authorized-workspace-union",
       "redactPrivilegedDetails": false
+    },
+    "notifications.list": {
+      "scope": "workspace:read",
+      "scopeMode": "authorized-workspace-union",
+      "redactPrivilegedDetails": false
     }
   },
   "commandRecoveryRule": {

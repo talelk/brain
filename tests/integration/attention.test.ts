@@ -60,4 +60,25 @@ describe("attention and since-last-visit (T59)", () => {
     expect(later.notable.map((entry) => entry.summary)).toEqual(["Mission is now paused"]);
     w.brain.close();
   });
+
+  it("notifies the starter and watchers once per item and at most once per mission every 15 minutes; revoked access stops it (T65)", async () => {
+    const w = setupWorld();
+    const id = await mission(w, "notify", [task("a"), task("b", ["a"])]);
+    const watcher = await w.grantApprover("watcher-1");
+    await run(w, watcher.actor, "mission.watch", "notify-watch", { missionId: id, watch: true });
+    const a = (await workView(w)).items.find((item) => item.missionId === id && item.planTaskId === "a")!;
+    for (const runId of ["n1", "n2", "n3"]) {
+      w.brain.missions.linkExecution(w.owner, w.workspaceId, a.workItemId, runId);
+      w.brain.missions.recordRunFailure(w.org, w.workspaceId, runId, `tests failed in ${runId}`);
+    }
+    expect(w.brain.notifyAttention()).toBe(2);
+    expect(w.brain.notifyAttention()).toBe(0);
+    const inbox = (await query<{ items: Array<{ missionId: string; title: string }> }>(w, w.owner, "notifications.list")).items;
+    expect(inbox).toEqual([expect.objectContaining({ missionId: id, title: expect.stringContaining("needs attention") })]);
+    expect((await query<{ items: unknown[] }>(w, watcher.actor, "notifications.list")).items).toHaveLength(1);
+    w.brain.store.control.prepare("UPDATE workspace_memberships SET revoked_at_ms=? WHERE principal_id='watcher-1'").run(w.brain.store.now());
+    w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("UPDATE attention_notifications SET sent_at_ms=sent_at_ms-?").run(16 * 60_000);
+    expect(w.brain.notifyAttention()).toBe(1);
+    w.brain.close();
+  });
 });

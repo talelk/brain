@@ -1,5 +1,9 @@
 # Runtime status and continuation — 2026-10-28
 
+## Attention notifications — 8 November
+
+T65 notifies only on attention items, never on progress. The maintenance pass sends each mission attention item to the mission's starter and to people who chose `mission.watch`, while they still have workspace access, once per item and at most once per mission every 15 minutes; approvals keep their immediate push to approvers. Every notification is recorded in the user's in-app inbox (`notifications.list`) and pushed to subscribed browsers; an optional external channel is not configured yet.
+
 ## Attention and since-last-visit — 8 November
 
 T59 adds `attention.list`, derived across the user's workspaces and never stored, in fixed tiers: approvals (nearest expiry first), stopped missions (budget pause, or all remaining work parked), plan proposals and parked work items (with their waiting dependents), verdicts ready to close, and findings routed to a mission; within a tier the longest wait comes first, and no model ranks anything. `missions.sinceLastVisit` returns a deterministic digest of a mission's notable events after the user's seen cursor (work verified, parked work, plan proposals and confirmations, state changes, outputs, brief and budget changes, verdicts) with every other event counted; `mission.seen` advances that cursor per user and mission on the server, so the same news is not repeated on another device, and never moves it backwards. E119 is covered.

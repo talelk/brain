@@ -65,4 +65,4 @@ export { emitterOf, severityOf } from "./classify";
 export { frameOf, type StreamFilters, type StreamRecordView } from "./query";
 export { sweepStream } from "./projector";
 
-export { attentionCommands, attentionQuery } from "./attention";
+export { attentionCommands, attentionItems, attentionQuery } from "./attention";

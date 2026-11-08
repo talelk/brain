@@ -15,7 +15,7 @@ type Db = ReturnType<Store["workspaceDb"]>;
  */
 export function attentionItems(store: Store, organizationId: string, workspaceIds: readonly string[]): AttentionItem[] {
   const items: AttentionItem[] = [];
-  for (const workspaceId of workspaceIds) {
+  for (const workspaceId of new Set(workspaceIds)) {
     for (const row of store.control.prepare("SELECT id, created_at_ms, expires_at_ms FROM approval_requests WHERE organization_id=? AND workspace_id=? AND state='pending'").all(organizationId, workspaceId) as Array<{ id: string; created_at_ms: number; expires_at_ms: number }>) {
       items.push({ id: `approval:${row.id}`, workspaceId, kind: "approval", tier: 1, title: "Approval awaiting review", resourceId: row.id, waitingSince: iso(row.created_at_ms), expiresAt: iso(row.expires_at_ms) });
     }

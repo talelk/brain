@@ -7229,7 +7229,8 @@
             "plays.list",
             "plays.get",
             "attention.list",
-            "missions.sinceLastVisit"
+            "missions.sinceLastVisit",
+            "notifications.list"
           ]
         },
         "workspaceId": {
@@ -7288,7 +7289,8 @@
             "plays.list",
             "plays.get",
             "attention.list",
-            "missions.sinceLastVisit"
+            "missions.sinceLastVisit",
+            "notifications.list"
           ]
         },
         "snapshot": {
@@ -10805,6 +10807,9 @@
         },
         {
           "$ref": "#/$defs/MissionSeenCommand"
+        },
+        {
+          "$ref": "#/$defs/MissionWatchCommand"
         }
       ]
     },
@@ -22403,6 +22408,88 @@
         "workspaceId",
         "idempotencyKey",
         "payload"
+      ],
+      "additionalProperties": false
+    },
+    "MissionWatchCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "mission.watch"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "watch": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "missionId",
+            "watch"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "NotificationEntry": {
+      "type": "object",
+      "properties": {
+        "itemId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sentAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "pushed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "itemId",
+        "workspaceId",
+        "title",
+        "sentAt",
+        "pushed"
       ],
       "additionalProperties": false
     }
