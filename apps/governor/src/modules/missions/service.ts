@@ -8,7 +8,7 @@ import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor
 import { activeReleaseRecord } from "../configuration/index";
 import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
 import { admit, budgetOf, clockSet, hasHeadroom, reserve as reserveSpend, settle, usageOf } from "./budget";
-import { listMessages, listOutputs, pinInputs, recordOutputVersion, sendMessage, verifyOutputs } from "./outputs";
+import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, sendMessage, verifyOutputs } from "./outputs";
 import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissionBundle, recordMissionVerdict, submitHandoff } from "../evidence/index";
 import type { HandoffNotes } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
@@ -692,6 +692,7 @@ export class MissionService {
       const rows = db.prepare("SELECT * FROM missions ORDER BY updated_at_ms DESC,id LIMIT ?").all(limit) as MissionRow[];
       return { items: rows.map((row) => this.mission(workspaceId, row)) } as unknown as JsonValue;
     }
+    if (queryType === "missionOutputs.get") return outputDetail(db, String(resourceId)) as unknown as JsonValue;
     if (queryType === "missionOutputs.list") return { items: listOutputs(db, this.missionRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;
     if (queryType === "missionMessages.list") return { items: listMessages(db, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
     if (queryType === "handoffs.forWorkItem") return { items: dependencyHandoffs(db, this.workItemRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;

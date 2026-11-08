@@ -31,10 +31,10 @@ test("play views show tickets and incidents (T44)", async ({ page, governor }) =
 
   await page.reload();
   // Each pack view is its own contract route under the workspace.
-  await page.goto(`${governor.url}/w/ws-work/support`);
+  await page.goto(`${governor.url}/w/ws-work/plays/support`);
   await expect(page.getByRole("heading", { name: "Support", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByText("No support tickets")).toBeVisible();
-  await page.goto(`${governor.url}/w/ws-work/sre`);
+  await page.goto(`${governor.url}/w/ws-work/plays/sre`);
   await expect(page.getByRole("heading", { name: "Incidents", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByText("No incidents")).toBeVisible();
   expect(errors).toEqual([]);

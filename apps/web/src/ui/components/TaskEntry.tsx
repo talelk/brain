@@ -93,9 +93,9 @@ export function TaskEntry(props: { workflows: readonly WorkflowCatalogEntry[]; c
       <Show when={mode() === "ask"}><Conversation onDraft={(id) => setParams({ draft: id })} /></Show>
       <Show when={mode() === "work"}><WorkspaceSection title="Advance an existing item" description="Choose the source first. Its current context and linkage are preserved when you configure the task.">
         <div class="grid gap-3 md:grid-cols-3"><For each={[
-          { title: "Work board", description: "Continue a reviewed work item.", icon: "lucide-kanban-square", route: `/w/${app.workspaceId()}/board` },
-          { title: "Support tickets", description: "Investigate or draft from a customer request.", icon: "lucide-headset", route: `/w/${app.workspaceId()}/support` },
-          { title: "Incidents", description: "Start from an observed operational issue.", icon: "lucide-siren", route: `/w/${app.workspaceId()}/sre` },
+          { title: "Missions", description: "Continue work inside a mission.", icon: "lucide-flag", route: `/w/${app.workspaceId()}/missions` },
+          { title: "Support tickets", description: "Investigate or draft from a customer request.", icon: "lucide-headset", route: `/w/${app.workspaceId()}/plays/support` },
+          { title: "Incidents", description: "Start from an observed operational issue.", icon: "lucide-siren", route: `/w/${app.workspaceId()}/plays/sre` },
         ]}>{(item) => <button type="button" class="brain-selection-card" onClick={() => void navigate(item.route)}><span class={`${item.icon} size-5 text-ink-blue-8`} aria-hidden="true" /><span class="text-base-medium">{item.title}</span><span class="text-caption text-ink-gray-6">{item.description}</span></button>}</For></div>
       </WorkspaceSection></Show>
       <Show when={mode() === "catalog"}>{props.catalog}</Show>

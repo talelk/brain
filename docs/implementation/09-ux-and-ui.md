@@ -8,7 +8,7 @@ Use [NewUI](https://talelk.github.io/newui/) as the UI foundation. Its semantic 
 
 ## Information architecture
 
-Use six primary navigation areas: **Today, Work, Activity, Approvals, Knowledge and Administration**. Workspace selection scopes operational areas. Work includes objectives/plans, board, tasks, schedules, sessions, resources and pack views; Activity has jobs/sessions/history; Knowledge includes documents, capabilities and specialized Studios; Administration includes Git integrations, models, members, runners, policies, storage and releases. Personal security and preferences stay in the account menu; TV has a dedicated kiosk entry. A contextual Workspace Create action and Ask Brain converge on the same reviewed drafts and commands as manual creation. Primary and contextual destinations share the shell's grouped responsive sidebar rather than a second horizontal tab strip.
+Use five primary navigation areas: **Missions, Live, Logs, Outputs and Plays**, with Knowledge as a secondary place and Administration in the account menu. Workspace selection scopes operational areas. Work includes objectives/plans, board, tasks, schedules, sessions, resources and pack views; Activity has jobs/sessions/history; Knowledge includes documents, capabilities and specialized Studios; Administration includes Git integrations, models, members, runners, policies, storage and releases. Personal security and preferences stay in the account menu; TV has a dedicated kiosk entry. A contextual Workspace Create action and Ask Brain converge on the same reviewed drafts and commands as manual creation. Primary and contextual destinations share the shell's grouped responsive sidebar rather than a second horizontal tab strip.
 
 The following route index is generated from `contracts/v1/ui-screen-contracts.json`:
 
@@ -23,23 +23,23 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/w/:id/live` | live | Run, steer and inspect live agent sessions without losing session state | sessions, console, outputs, controls |
 | `/w/:id/logs` | logs | Search execution and platform logs and jump between correlated contexts | records, filters, search, correlation |
 | `/w/:id/outputs` | outputs | Browse authorized generated artifacts with previews, diffs and history | artifacts, preview, history, diff |
-| `/artifacts/:id` | outputs | Inspect one artifact: preview, verification, versions and diffs | preview, metadata, verification, history, diff |
+| `/outputs/:id` | outputs | Inspect a named output, its versions and lineage | versions, lineage, preview, verification, provenance |
+| `/outputs/:id/compare` | outputs | Compare two versions of an output with their provenance | diff, provenance |
 | `/approvals` | missions | Review exact proposed effects and recover submitted decisions | action, workspace, target, expiry, evidence |
 | `/approvals/:id` | missions | Review exact proposed effects and recover submitted decisions | exactContent, precondition, subjectDigest, history |
-| `/jobs/:id` | live | Inspect one run's state, attempts, evidence and links without duplicating the console, logs or outputs | state, attempts, blocker, evidence |
+| `/runs/:id` | live | Inspect one run's state, attempts, evidence and links without duplicating the console, logs or outputs | state, attempts, blocker, evidence |
 | `/runners` | live | Inspect a run, its attempts, events and evidence | group, trust, health, capacity, freshness |
 | `/runners/:id` | live | Inspect a run, its attempts, events and evidence | capabilities, attempts, reservations |
 | `/sessions/:id` | live | Open one session in the Live console: active and historical are state, not layout | console, task, usage, context |
-| `/w/:id/support` | plays | Review workspace work and pack details | priority, ticket, state, sla |
+| `/w/:id/plays/support` | plays | Review workspace work and pack details | priority, ticket, state, sla |
 | `/tickets/:id` | plays | Review workspace work and pack details | body, draft, evidence, approval |
-| `/w/:id/sre` | plays | Review workspace work and pack details | severity, target, state, freshness |
+| `/w/:id/plays/sre` | plays | Review workspace work and pack details | severity, target, state, freshness |
 | `/incidents/:id` | plays | Review workspace work and pack details | observations, remediation, evidence |
 | `/w/:id/knowledge` | knowledge | Find scoped facts and inspect trusted capabilities | source, scope, freshness, review, capitalization, provenance, candidateTests, releaseGate |
 | `/tools` | knowledge | Find scoped facts and inspect trusted capabilities | name, state, effect, release, evidence |
 | `/settings` | administration | Manage explicitly authorized administration | members, people, invitations, access, authenticationPolicy, audit, health |
 | `/accept-invitation/:id` | administration | Verify an invited account and accept organization membership | invitedSignUp, emailVerification, explicitAcceptance |
-| `/tv/support` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
-| `/tv/sre` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
+| `/tv/:play` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
 | `/w/:id/runs` | live | Index historical and active runs; sessions live in the console rail, runners have their own screen | runs |
 | `/w/:id/agents` | plays | Inspect active agent and workflow definitions and dispatch schema-validated inputs | release, instructions, engine, limits |
 | `/w/:id/workflows` | plays | Inspect active agent and workflow definitions and dispatch schema-validated inputs | release, input-schema, engine, dependencies |

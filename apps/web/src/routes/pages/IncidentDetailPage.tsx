@@ -21,5 +21,5 @@ export default function IncidentDetailPage(): JSX.Element {
     refreshMs: 30_000,
   });
   return <div class="flex flex-col gap-4"><IncidentDetailScreen incident={incident.state().data} state={incident.state()}
-    onRefresh={() => void incident.refresh({ force: true })} onBack={() => void navigate(`/w/${workspaceId()}/sre`)} /><Show when={incident.state().data}><WorkItemTasks origin={{ kind: "incident", id: incidentId() }} /></Show></div>;
+    onRefresh={() => void incident.refresh({ force: true })} onBack={() => void navigate(`/w/${workspaceId()}/plays/sre`)} /><Show when={incident.state().data}><WorkItemTasks origin={{ kind: "incident", id: incidentId() }} /></Show></div>;
 }

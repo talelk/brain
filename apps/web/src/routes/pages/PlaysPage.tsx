@@ -34,8 +34,8 @@ export default function PlaysPage(): JSX.Element {
       </WorkspaceSection>
       <WorkspaceSection title="Play views" description="Queues of subjects that plays start missions for.">
         <div class="flex flex-wrap gap-2">
-          <Button size="md" variant="outline" iconLeft="lucide-life-buoy" onClick={() => void navigate(`/w/${app.workspaceId()}/support`)}>Support tickets</Button>
-          <Button size="md" variant="outline" iconLeft="lucide-siren" onClick={() => void navigate(`/w/${app.workspaceId()}/sre`)}>Incidents</Button>
+          <Button size="md" variant="outline" iconLeft="lucide-life-buoy" onClick={() => void navigate(`/w/${app.workspaceId()}/plays/support`)}>Support tickets</Button>
+          <Button size="md" variant="outline" iconLeft="lucide-siren" onClick={() => void navigate(`/w/${app.workspaceId()}/plays/sre`)}>Incidents</Button>
           <Button size="md" variant="outline" iconLeft="lucide-play" onClick={() => void navigate(`/w/${app.workspaceId()}/workflows`)}>Start a single task</Button>
         </div>
       </WorkspaceSection>

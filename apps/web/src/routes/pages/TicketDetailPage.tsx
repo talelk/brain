@@ -20,6 +20,6 @@ export default function TicketDetailPage(): JSX.Element {
     load: (_scope, signal) => ticketQuery(workspaceId(), ticketId(), signal),
   });
   return <div class="flex flex-col gap-4"><TicketDetailScreen ticket={ticket.state().data} state={ticket.state()}
-    onRefresh={() => void ticket.refresh({ force: true })} onBack={() => void navigate(`/w/${workspaceId()}/support`)}
+    onRefresh={() => void ticket.refresh({ force: true })} onBack={() => void navigate(`/w/${workspaceId()}/plays/support`)}
     onOpenApproval={(approvalId) => void navigate(`/approvals/${approvalId}`)} /><Show when={ticket.state().data}><WorkItemTasks origin={{ kind: "ticket", id: ticketId() }} /></Show></div>;
 }

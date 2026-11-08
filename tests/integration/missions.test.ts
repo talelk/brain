@@ -199,6 +199,32 @@ describe("missions (T51)", () => {
     w.brain.close();
   });
 
+  it("a named output shows its versions' artifacts and its lineage across missions (T61)", async () => {
+    const w = setupWorld();
+    const first = await confirmedMission(w, "m-line-a", [task("draft", [], { outputs: ["report"] })]);
+    const second = await confirmedMission(w, "m-line-b", [task("revise", [], { outputs: ["report"] })]);
+    const items = (await workView(w)).items;
+    const draft = items.find((item) => item.planTaskId === "draft") as WorkItem;
+    const revise = items.find((item) => item.planTaskId === "revise") as WorkItem;
+    const digest = `sha256:${"a".repeat(64)}`;
+    w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("INSERT INTO artifacts(id,digest,bytes,media_type,classification,state,created_at_ms) VALUES ('art-line',?,12,'text/markdown','internal','verified',?)").run(digest, w.brain.store.now());
+    const version = w.brain.missions.recordOutput(w.org, w.workspaceId, { workItemId: draft.workItemId, name: "report", artifactDigest: digest, state: "draft" });
+    w.brain.missions.recordOutput(w.org, w.workspaceId, { workItemId: revise.workItemId, name: "report", artifactDigest: `sha256:${"b".repeat(64)}`, state: "draft", continues: { missionId: first, name: "report" } });
+    const list = async (missionId: string) => ((await w.brain.executeQuery(w.owner, { queryType: "missionOutputs.list", workspaceId: w.workspaceId, resourceId: missionId })) as { snapshot: { items: Array<{ outputId: string }> } }).snapshot.items[0]!.outputId;
+    const original = await list(first);
+    const followUp = await list(second);
+    const get = async (outputId: string) => ((await w.brain.executeQuery(w.owner, { queryType: "missionOutputs.get", workspaceId: w.workspaceId, resourceId: outputId })) as { snapshot: Record<string, unknown> }).snapshot;
+    expect(await get(original)).toEqual(expect.objectContaining({
+      missionTitle: "m-line-a", continuedBy: [{ outputId: followUp, missionId: second, name: "report" }],
+      artifacts: [{ versionId: version, artifact: { artifactId: "art-line", digest, bytes: 12, mediaType: "text/markdown", classification: "internal" } }],
+    }));
+    const next = await get(followUp);
+    expect(next["continues"]).toEqual({ outputId: original, missionId: first, name: "report" });
+    expect(next["artifacts"]).toEqual([]);
+    await expect(get("output-missing")).rejects.toThrow(/output not found/);
+    w.brain.close();
+  });
+
   it("mission messages are durable records for the mission or one team member, and carry no authority (T51)", async () => {
     const w = setupWorld();
     const id = await confirmedMission(w, "m-msg", [task("a")]);

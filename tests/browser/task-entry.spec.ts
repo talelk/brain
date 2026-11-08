@@ -55,7 +55,7 @@ test("guided task entry: persisted modes, shared review, timeout recovery, conso
   await page.getByRole("button", { name: "Start task", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("recovers its existing run");
   await page.getByRole("button", { name: "Start task", exact: true }).click();
-  await page.waitForURL(/\/jobs\//);
+  await page.waitForURL(/\/runs\//);
   expect((db.prepare("SELECT COUNT(*) AS n FROM workflow_runs").get() as { n: number }).n).toBe(2);
   for (const session of sessions) expect(await runOnce(session.cfg, session.sessionToken, session.epoch)).toBe(true);
   await page.reload(); await expect(page.getByRole("heading", { name: "Structured output", exact: true })).toBeVisible();
@@ -73,7 +73,7 @@ test("guided task entry: persisted modes, shared review, timeout recovery, conso
   await expect(page.getByLabel(/^Situation/)).toHaveValue(/Investigate latency/);
   await expect(page.locator('ol[aria-label="Guided steps"] [aria-current="step"]')).toHaveText(/Review & dispatch/);
   await page.getByRole("button", { name: "Review task", exact: true }).click();
-  await page.getByRole("button", { name: "Start task", exact: true }).click(); await page.waitForURL(/\/jobs\//);
+  await page.getByRole("button", { name: "Start task", exact: true }).click(); await page.waitForURL(/\/runs\//);
   for (const session of sessions) expect(await runOnce(session.cfg, session.sessionToken, session.epoch)).toBe(true);
   await page.goto(`${governor.url}/w/operations/plans?mission=obj-entry`); await page.getByRole("button", { name: "Manage Investigate latency" }).click();
   await expect(page.getByRole("button", { name: "Inspect run", exact: true })).toBeVisible();

@@ -26,7 +26,7 @@ test("tv kiosk renders read-only board; ticket detail opens exact record (T34)",
 
   await page.reload();
   // The support list and its exact detail route.
-  await page.goto(`${governor.url}/w/ws-kiosk/support`);
+  await page.goto(`${governor.url}/w/ws-kiosk/plays/support`);
   await expect(page.getByText("Printer on fire").filter({ visible: true }).first()).toBeVisible();
   await page.getByRole("button", { name: /Printer on fire/ }).filter({ visible: true }).first().click();
   const openCasework = page.getByRole("button", { name: "Open casework", exact: true });

@@ -1,4 +1,4 @@
-import type { MissionMessage, Output, OutputInput, OutputVersion, PlanTask } from "@brain/contracts";
+import type { ArtifactRef, MissionMessage, Output, OutputDetail, OutputInput, OutputRef, OutputVersion, PlanTask } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
@@ -69,15 +69,38 @@ export function pinInputs(db: Db, workItemId: string, runId: string): void {
 }
 
 export function listOutputs(db: Db, missionId: string): Output[] {
-  const outputs = db.prepare("SELECT * FROM mission_outputs WHERE mission_id=? ORDER BY name").all(missionId) as OutputRow[];
-  return outputs.map((row) => ({
+  return (db.prepare("SELECT * FROM mission_outputs WHERE mission_id=? ORDER BY name").all(missionId) as OutputRow[]).map((row) => outputOf(db, row));
+}
+
+/**
+ * One named output (`/outputs/:id`): its versions with the artifact each
+ * version's digest resolves to, and its lineage — the output it continues and
+ * the follow-up missions' outputs that continue it.
+ */
+export function outputDetail(db: Db, outputId: string): OutputDetail {
+  const row = db.prepare("SELECT * FROM mission_outputs WHERE id=?").get(outputId) as OutputRow | undefined;
+  if (!row) throw new BrainDomainError("NOT_FOUND", "output not found");
+  const ref = (entry: OutputRow): OutputRef => ({ outputId: entry.id, missionId: entry.mission_id, name: entry.name });
+  const mission = db.prepare("SELECT title FROM missions WHERE id=?").get(row.mission_id) as { title: string };
+  const continues = row.continues_output_id ? db.prepare("SELECT * FROM mission_outputs WHERE id=?").get(row.continues_output_id) as OutputRow | undefined : undefined;
+  const continuedBy = db.prepare("SELECT * FROM mission_outputs WHERE continues_output_id=? ORDER BY created_at_ms, id LIMIT 50").all(row.id) as OutputRow[];
+  const output = outputOf(db, row);
+  const artifacts = output.versions.flatMap((version) => {
+    const artifact = db.prepare("SELECT id,digest,bytes,media_type,classification FROM artifacts WHERE digest=? AND state<>'deleted' ORDER BY created_at_ms DESC, id LIMIT 1").get(version.artifactDigest) as { id: string; digest: string; bytes: number; media_type: string; classification: ArtifactRef["classification"] } | undefined;
+    return artifact ? [{ versionId: version.versionId, artifact: { artifactId: artifact.id, digest: artifact.digest, bytes: artifact.bytes, mediaType: artifact.media_type, classification: artifact.classification } }] : [];
+  });
+  return { output, missionTitle: mission.title, ...(continues ? { continues: ref(continues) } : {}), continuedBy: continuedBy.map(ref), artifacts };
+}
+
+function outputOf(db: Db, row: OutputRow): Output {
+  return ({
     outputId: row.id, missionId: row.mission_id, name: row.name, ...(row.continues_output_id ? { continues: row.continues_output_id } : {}),
     versions: (db.prepare("SELECT * FROM output_versions WHERE output_id=? ORDER BY created_at_ms, id").all(row.id) as VersionRow[]).map((version): OutputVersion => ({
       versionId: version.id, outputId: version.output_id, workItemId: version.work_item_id, artifactDigest: version.artifact_digest,
       state: version.state, verified: version.verified === 1, createdAt: iso(version.created_at_ms),
     })),
     createdAt: iso(row.created_at_ms),
-  }));
+  });
 }
 
 /** A durable message to the mission (its coordinator) or one member; delivery is the sessions module's (T53). */

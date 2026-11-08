@@ -16,7 +16,7 @@ import { execArtifactUrl } from "../../ui/exec/exec-filters";
  * The Output Browser route (`/w/:id/outputs`, T61): an independent, permanently
  * accessible primary experience — not a tab of run detail. Filters and the
  * selected artifact persist in the URL; compare picks hand off to the
- * workspace-free `/artifacts/:id` route where `artifacts.diff` is declared.
+ * workspace-free `/outputs/:id` route where `artifacts.diff` is declared.
  */
 export default function OutputsPage(): JSX.Element {
   const app = useApp();

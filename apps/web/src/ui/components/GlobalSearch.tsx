@@ -27,10 +27,10 @@ export function GlobalSearchDialog(props: { open: boolean; onOpenChange: (open: 
   });
   function destination(item: SearchItem): string {
     // Workspace-free execution deep links keep the console one hop from any hit.
-    if (item.category === "run") return `/jobs/${item.resourceId}`;
+    if (item.category === "run") return `/runs/${item.resourceId}`;
     if (item.category === "approval") return `/approvals/${item.resourceId}`;
     if (item.category === "session") return `/sessions/${item.resourceId}`;
-    if (item.category === "artifact") return `/artifacts/${item.resourceId}`;
+    if (item.category === "artifact") return `/outputs/${item.resourceId}`;
     if (item.category === "agent") return `/w/${item.workspaceId}/agents?selected=${encodeURIComponent(item.resourceId)}`;
     if (item.category === "workflow") return `/w/${item.workspaceId}/workflows?selected=${encodeURIComponent(item.resourceId)}`;
     return "/";

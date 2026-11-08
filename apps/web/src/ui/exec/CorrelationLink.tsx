@@ -23,9 +23,9 @@ export type ExecCorrelationTarget =
 export function execTargetHref(target: ExecCorrelationTarget): string {
   switch (target.kind) {
     case "session": return `/sessions/${target.sessionId}`;
-    case "job": return `/jobs/${target.jobId}`;
-    case "attempt": return `/jobs/${target.jobId}?attempt=${encodeURIComponent(target.attemptId)}`;
-    case "run": return `/jobs/${target.runId}`;
+    case "job": return `/runs/${target.jobId}`;
+    case "attempt": return `/runs/${target.jobId}?attempt=${encodeURIComponent(target.attemptId)}`;
+    case "run": return `/runs/${target.runId}`;
     case "approval": return `/approvals/${target.approvalId}`;
     case "artifact": return execArtifactUrl(target.artifactId, target.diff);
     case "logs": return execLogsUrl(target.workspaceId, target.filters ?? { severity: [], emitter: [] });

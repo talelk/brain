@@ -89,7 +89,7 @@ test("loading, no-access, stale, partial failure and retry states use real respo
     if (body.queryType === "sla.summary") await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "SLA provider unavailable" }) });
     else await route.continue();
   });
-  await page.goto(`${governor.url}/w/${workspaceId}/support`);
+  await page.goto(`${governor.url}/w/${workspaceId}/plays/support`);
   await expect(page.getByRole("alert")).toContainText("Some data is unavailable");
   await expect(page.getByText("No tickets in this view", { exact: true })).toBeVisible();
 });

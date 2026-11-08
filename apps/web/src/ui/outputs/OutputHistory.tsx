@@ -107,13 +107,13 @@ function ProducerLinks(props: { history: ArtifactHistory }): JSX.Element {
         <Show when={producer()?.attemptId}>
           <a
             class="text-ink-blue-7 underline focus-visible:focus-ring"
-            href={`/jobs/${producer()!.jobId}?attempt=${encodeURIComponent(producer()!.attemptId!)}`}
+            href={`/runs/${producer()!.jobId}?attempt=${encodeURIComponent(producer()!.attemptId!)}`}
           >
             Attempt {producer()!.number ?? "—"}
           </a>
         </Show>
         <Show when={producer()?.jobId}>
-          <a class="text-ink-blue-7 underline focus-visible:focus-ring" href={`/jobs/${producer()!.jobId}`}>
+          <a class="text-ink-blue-7 underline focus-visible:focus-ring" href={`/runs/${producer()!.jobId}`}>
             Run inspector
           </a>
         </Show>
@@ -193,7 +193,7 @@ function VersionRow(props: { version: ArtifactVersion }): JSX.Element {
         </Show>
         <a
           class="text-caption text-ink-blue-7 underline focus-visible:focus-ring"
-          href={`/jobs/${props.version.jobId}?attempt=${encodeURIComponent(props.version.attemptId)}`}
+          href={`/runs/${props.version.jobId}?attempt=${encodeURIComponent(props.version.attemptId)}`}
         >
           Producing attempt
         </a>

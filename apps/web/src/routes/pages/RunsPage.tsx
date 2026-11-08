@@ -41,7 +41,7 @@ export default function RunsPage(): JSX.Element {
     onNext={() => { const next = runs.state().data?.nextCursor; if (next) { setPreviousCursors((stack) => [...stack, cursor()]); setSearchParams({ cursor: next }); void runs.refresh({ force: true }); } }}
     onPrevious={() => { const stack = previousCursors(); const previous = stack.at(-1); setPreviousCursors(stack.slice(0, -1)); setSearchParams({ cursor: previous || undefined }); void runs.refresh({ force: true }); }}
     state={runs.state()} onRefresh={() => void runs.refresh({ force: true })}
-    onOpenJob={(jobId) => void navigate(`/jobs/${jobId}`)}
+    onOpenJob={(jobId) => void navigate(`/runs/${jobId}`)}
     onDispatch={() => void navigate(`/w/${app.workspaceId()}/workflows`)}
     canDispatch={app.canDispatch()} />;
 }

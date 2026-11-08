@@ -17,9 +17,9 @@ import { OutputDiff } from "../../ui/outputs/OutputDiff";
 import { execOutputsUrl } from "../../ui/exec/exec-filters";
 
 /**
- * The workspace-free artifact detail route (`/artifacts/:id`, T61): preview,
+ * Material outside any mission at `/outputs/:id` (T61): preview,
  * metadata, independent verification status, version history — and, via the
- * `?left=&right=` deep link other surfaces build, the diff between two
+ * `/compare?left=&right=` deep link other surfaces build, the diff between two
  * versions. Session state never lives here; the Live console stays the only
  * session surface and this page never reproduces it.
  */
@@ -27,7 +27,7 @@ export default function ArtifactDetailPage(): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
   const params = useParams();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const artifactId = () => params.id;
   const leftId = () => (typeof searchParams.left === "string" && searchParams.left ? searchParams.left : "");
   const rightId = () => (typeof searchParams.right === "string" && searchParams.right ? searchParams.right : "");
@@ -93,7 +93,7 @@ export default function ArtifactDetailPage(): JSX.Element {
             )}
           </Show>
           <Show when={diffMode()}>
-            <Button size="sm" variant="outline" iconLeft="lucide-x" onClick={() => setSearchParams({ left: undefined, right: undefined })}>
+            <Button size="sm" variant="outline" iconLeft="lucide-x" onClick={() => void navigate(`/outputs/${artifactId()}`)}>
               Exit comparison
             </Button>
           </Show>
@@ -128,7 +128,7 @@ export default function ArtifactDetailPage(): JSX.Element {
                   />
                 </WorkspaceSection>
                 <p class="text-caption text-ink-gray-6">
-                  Compare two versions from the Output Browser's compare picks — they deep-link here as <code>?left=…&amp;right=…</code>.
+                  Compare two versions from the Output Browser's compare picks — they deep-link to <code>/compare?left=…&amp;right=…</code>.
                 </p>
               </div>
             </ScreenRegion>

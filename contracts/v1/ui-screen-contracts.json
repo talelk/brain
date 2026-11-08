@@ -213,25 +213,42 @@
    "title": "Outputs"
   },
   {
-   "route": "/artifacts/:id",
+   "route": "/outputs/:id",
    "queries": [
+    "missionOutputs.get",
     "artifacts.history",
-    "artifacts.diff",
     "executionLinks.list"
    ],
    "actions": [],
    "content": [
+    "versions",
+    "lineage",
     "preview",
-    "metadata",
     "verification",
-    "history",
-    "diff"
+    "provenance"
    ],
    "owner": "T61",
    "navigationGroup": "outputs",
    "icon": "lucide-file-search",
-   "task": "Inspect one artifact: preview, verification, versions and diffs",
-   "title": "Artifact"
+   "task": "Inspect a named output, its versions and lineage",
+   "title": "Output"
+  },
+  {
+   "route": "/outputs/:id/compare",
+   "queries": [
+    "missionOutputs.get",
+    "artifacts.diff"
+   ],
+   "actions": [],
+   "content": [
+    "diff",
+    "provenance"
+   ],
+   "owner": "T61",
+   "navigationGroup": "outputs",
+   "icon": "lucide-file-search",
+   "task": "Compare two versions of an output with their provenance",
+   "title": "Compare output versions"
   },
   {
    "route": "/approvals",
@@ -275,7 +292,7 @@
    "title": "Approval review"
   },
   {
-   "route": "/jobs/:id",
+   "route": "/runs/:id",
    "queries": [
     "job.get",
     "job.explain"
@@ -358,7 +375,7 @@
    "title": "Live console"
   },
   {
-   "route": "/w/:id/support",
+   "route": "/w/:id/plays/support",
    "queries": [
     "tickets.list",
     "sla.summary"
@@ -399,7 +416,7 @@
    "title": "Ticket detail"
   },
   {
-   "route": "/w/:id/sre",
+   "route": "/w/:id/plays/sre",
    "queries": [
     "incidents.list"
    ],
@@ -549,25 +566,10 @@
    "title": "Accept invitation"
   },
   {
-   "route": "/tv/support",
+   "route": "/tv/:play",
    "queries": [
     "tickets.list",
-    "sla.summary"
-   ],
-   "actions": [],
-   "content": [
-    "aggregateStatus",
-    "freshness"
-   ],
-   "owner": "T45",
-   "navigationGroup": "tv",
-   "icon": "lucide-monitor",
-   "task": "Read scoped redacted monitoring",
-   "title": "Support board"
-  },
-  {
-   "route": "/tv/sre",
-   "queries": [
+    "sla.summary",
     "incidents.list"
    ],
    "actions": [],
@@ -579,7 +581,7 @@
    "navigationGroup": "tv",
    "icon": "lucide-monitor",
    "task": "Read scoped redacted monitoring",
-   "title": "SRE board"
+   "title": "Play kiosk"
   },
   {
    "route": "/w/:id/runs",
@@ -891,11 +893,11 @@
    },
    {
     "label": "Support",
-    "route": "/w/:id/support"
+    "route": "/w/:id/plays/support"
    },
    {
     "label": "Incidents",
-    "route": "/w/:id/sre"
+    "route": "/w/:id/plays/sre"
    }
   ],
   "knowledge": [

@@ -21,7 +21,7 @@ const PAGE_LOADERS = {
   LivePage: () => import('./routes/pages/LivePage'),
   LogsPage: () => import('./routes/pages/LogsPage'),
   OutputsPage: () => import('./routes/pages/OutputsPage'),
-  ArtifactDetailPage: () => import('./routes/pages/ArtifactDetailPage'),
+  OutputPage: () => import('./routes/pages/OutputPage'),
   AgentsPage: () => import('./routes/catalog').then((m) => ({ default: m.AgentsPage })),
   WorkflowsPage: () => import('./routes/catalog').then((m) => ({ default: m.WorkflowsPage })),
   MissionsPage: () => import('./routes/pages/MissionsPage'),
@@ -49,8 +49,7 @@ const PAGE_LOADERS = {
   KnowledgePage: () => import('./routes/pages/KnowledgePage'),
   ToolsPage: () => import('./routes/pages/ToolsPage'),
   SettingsPage: () => import('./routes/pages/SettingsPage'),
-  TvSupportPage: () => import('./routes/pages/TvSupportPage'),
-  TvSrePage: () => import('./routes/pages/TvSrePage'),
+  TvPage: () => import('./routes/pages/TvPage'),
 };
 type PageKey = keyof typeof PAGE_LOADERS;
 const page = (key: PageKey) => lazy(PAGE_LOADERS[key]);
@@ -225,8 +224,7 @@ export function App(): JSX.Element {
   return <AppProvider><PageHeaderProvider>
     <Router root={RootLayout}>
     {/* TV kiosk: dedicated read-only entries, no app shell. */}
-    <Route path="/tv/support" component={page("TvSupportPage")} />
-    <Route path="/tv/sre" component={page("TvSrePage")} />
+    <Route path="/tv/:play" component={page("TvPage")} />
     <Route path="/accept-invitation/:id" component={InvitationAcceptancePage} />
     <Route path="/" component={ShellLayout}>
       {/* Default landing: live.status routes active work to the console (never a deep link). */}
@@ -246,16 +244,17 @@ export function App(): JSX.Element {
       <Route path="/w/:id/schedules" component={workspacePage("SchedulesPage")} />
       <Route path="/w/:id/resources" component={workspacePage("ResourcesPage")} />
       <Route path="/w/:id/runs" component={workspacePage("RunsPage")} />
-      <Route path="/w/:id/support" component={workspacePage("SupportPage")} />
-      <Route path="/w/:id/sre" component={workspacePage("SrePage")} />
+      <Route path="/w/:id/plays/support" component={workspacePage("SupportPage")} />
+      <Route path="/w/:id/plays/sre" component={workspacePage("SrePage")} />
       <Route path="/w/:id/knowledge" component={workspacePage("KnowledgePage")} />
       <Route path="/approvals" component={page("ApprovalsPage")} />
       <Route path="/approvals/:id" component={page("ApprovalDetailPage")} />
-      <Route path="/jobs/:id" component={page("JobDetailPage")} />
+      <Route path="/runs/:id" component={page("JobDetailPage")} />
       <Route path="/runners" component={page("RunnersPage")} />
       <Route path="/runners/:id" component={page("RunnersDetailPage")} />
       <Route path="/sessions/:id" component={page("SessionDetailPage")} />
-      <Route path="/artifacts/:id" component={page("ArtifactDetailPage")} />
+      <Route path="/outputs/:id" component={page("OutputPage")} />
+      <Route path="/outputs/:id/compare" component={page("OutputPage")} />
       <Route path="/tickets/:id" component={page("TicketDetailPage")} />
       <Route path="/incidents/:id" component={page("IncidentDetailPage")} />
       <Route path="/tools" component={workspacePage("ToolsPage")} />

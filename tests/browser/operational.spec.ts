@@ -61,7 +61,7 @@ test("optional-factor operator inspects a release, activates it, dispatches both
     await capture(`workflow-${id}`);
     await page.getByRole("button",{name:"Review task",exact:true}).click();
     await page.getByRole("button",{name:"Start task",exact:true}).click();
-    await page.waitForURL(/\/jobs\//);
+    await page.waitForURL(/\/runs\//);
     expect(await runOnce(author,authorSession.sessionToken,authorSession.epoch)).toBe(true);
     expect(await runOnce(evaluator,evalSession.sessionToken,evalSession.epoch)).toBe(true);
     await page.reload();

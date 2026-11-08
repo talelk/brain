@@ -119,6 +119,10 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   const insertAssociation = s.control.prepare("INSERT INTO artifact_associations(artifact_id, organization_id, workspace_id, digest, owner_kind, owner_id, classification, verified_at_ms) VALUES (?,?,?,?,?,?,?,?)");
   insertAssociation.run("art-out-v1", org, "ws-console", digestV1, "job", "job-console", "internal", now);
   insertAssociation.run("art-out-v2", org, "ws-console", digestV2, "job", "job-console", "internal", now);
+  // The same two artifacts as versions of the mission's named output "dossier".
+  ws.prepare("INSERT INTO mission_outputs(id,mission_id,name,created_at_ms) VALUES ('output-dossier','obj-console','dossier',?)").run(now);
+  ws.prepare("INSERT INTO output_versions(id,output_id,work_item_id,artifact_digest,state,verified,created_at_ms) VALUES ('outver-1','output-dossier','wi-console',?,'draft',0,?)").run(digestV1, now);
+  ws.prepare("INSERT INTO output_versions(id,output_id,work_item_id,artifact_digest,state,verified,created_at_ms) VALUES ('outver-2','output-dossier','wi-console',?,'final',1,?)").run(digestV2, now + 5_000);
 
   // Independent verification for the bound work item's run. The manifests are
   // the full contract shapes (evidence.get returns them verbatim and the
@@ -187,8 +191,24 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   await expect(outputsLink).toBeVisible();
   const outputsHref = await outputsLink.getAttribute("href");
   expect(outputsHref).toContain("job=job-console");
-  await page.goto(`${governor.url}/artifacts/art-out-v2?left=art-out-v1&right=art-out-v2`);
+  await page.goto(`${governor.url}/outputs/art-out-v2/compare?left=art-out-v1&right=art-out-v2`);
   await expect(page.getByText("rollout steps approved by verification", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
+
+  // (d') The named output lists its versions newest first, opens one with
+  // ?v= and compares an earlier version with the latest beside provenance.
+  await page.goto(`${governor.url}/outputs/output-dossier`);
+  await expect(page.getByRole("heading", { name: "dossier", exact: true, level: 1 })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "Open Version 2", exact: true })).toHaveAttribute("data-selected", "true");
+  await page.getByRole("button", { name: "Open Version 1", exact: true }).click();
+  await expect(page).toHaveURL(/\/outputs\/output-dossier\?v=outver-1$/);
+  await expect(page.getByRole("button", { name: "Open Version 1", exact: true })).toHaveAttribute("data-selected", "true");
+  await expect(page.getByText("This output starts its own line", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Compare Version 1 with the latest", exact: true }).click();
+  await expect(page).toHaveURL(/\/outputs\/output-dossier\/compare\?left=outver-1&right=outver-2$/);
+  await expect(page.getByRole("heading", { name: "Version comparison", exact: true })).toBeVisible();
+  await expect(page.getByText("rollout steps approved by verification", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Exit comparison", exact: true }).click();
+  await expect(page).toHaveURL(/\/outputs\/output-dossier$/);
 
   // (e) Steer is feature-gated: the non-steering session hides the control;
   // the steer-capable session accepts a message and records session_controls.

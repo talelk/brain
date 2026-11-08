@@ -67,7 +67,7 @@ export function WorkflowsPage() {
   /** Dispatch handoff: the live console when the run already binds a session, else the run inspector. */
   const handoff = (target: TaskHandoff) => {
     if (target.sessionId) void navigate(`/w/${app.workspaceId()}/live?session=${encodeURIComponent(target.sessionId)}`);
-    else void navigate(`/jobs/${target.runId}`);
+    else void navigate(`/runs/${target.runId}`);
   };
   return <BrainPage title="Start work" description="Pick or describe the work, choose a published recipe, review the exact inputs, then dispatch." actions={<Show when={canConfigure()}><div class="flex flex-wrap gap-2"><Button size="md" variant="outline" iconLeft="lucide-file-pen" onClick={() => void navigate("/studio/Workflow")}>Workflow drafts</Button><Button size="md" variant="outline" iconLeft="lucide-copy" disabled={!current() || busy()} onClick={() => void author("duplicate")}>Clone as candidate</Button><Button size="md" variant="outline" iconLeft="lucide-square-pen" disabled={!current() || busy()} onClick={() => void author("edit")}>Edit as candidate</Button></div></Show>}>
     <ActionFeedback tone="error" message={error()} />

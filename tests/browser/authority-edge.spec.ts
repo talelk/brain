@@ -62,7 +62,7 @@ test("unknown run outcome exposes reconciliation and never a generic retry", asy
   brain.activateRelease(actor, release.digest);
   const now = brain.store.now();
   brain.store.control.prepare("INSERT INTO jobs(id,organization_id,workspace_id,execution_key,workflow_run_id,step_id,state,config_digest,placement_json,execution_digest,effect_class,created_at_ms,ready_at_ms,deadline_ms) VALUES ('job-edge',?,'ws-edge','edge-execution','run-edge','publish','outcome_unknown',?,'{}',?,'write',?,?,?)").run(actor.organizationId, release.digest, DIGEST, now, now, now + 3600_000);
-  await page.goto(`${governor.url}/jobs/job-edge`);
+  await page.goto(`${governor.url}/runs/job-edge`);
   await expect(page.getByText("Effect outcome is unknown", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Retry", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Cancel run", exact: true })).toHaveCount(0);

@@ -7222,6 +7222,7 @@
             "handoffs.forWorkItem",
             "missionMessages.list",
             "missionOutputs.list",
+            "missionOutputs.get",
             "plans.get",
             "workItems.list",
             "workItems.get",
@@ -7283,6 +7284,7 @@
             "handoffs.forWorkItem",
             "missionMessages.list",
             "missionOutputs.list",
+            "missionOutputs.get",
             "plans.get",
             "workItems.list",
             "workItems.get",
@@ -22188,6 +22190,76 @@
         "evaluator",
         "evidenceDigest",
         "advisory"
+      ],
+      "additionalProperties": false
+    },
+    "OutputRef": {
+      "type": "object",
+      "properties": {
+        "outputId": {
+          "$ref": "#/$defs/Id"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "name": {
+          "$ref": "#/$defs/ConfigId"
+        }
+      },
+      "required": [
+        "outputId",
+        "missionId",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "OutputDetail": {
+      "type": "object",
+      "properties": {
+        "output": {
+          "$ref": "#/$defs/Output"
+        },
+        "missionTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "continues": {
+          "$ref": "#/$defs/OutputRef"
+        },
+        "continuedBy": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OutputRef"
+          },
+          "maxItems": 50
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "versionId": {
+                "$ref": "#/$defs/Id"
+              },
+              "artifact": {
+                "$ref": "#/$defs/ArtifactRef"
+              }
+            },
+            "required": [
+              "versionId",
+              "artifact"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 200
+        }
+      },
+      "required": [
+        "output",
+        "missionTitle",
+        "continuedBy",
+        "artifacts"
       ],
       "additionalProperties": false
     }

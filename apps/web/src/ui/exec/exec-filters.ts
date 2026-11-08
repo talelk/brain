@@ -101,7 +101,7 @@ export function execOutputsUrl(workspaceId: string, scope: { jobId?: string; run
   return withParams(`/w/${workspaceId}/outputs`, { ...(scope.jobId ? { job: scope.jobId } : {}), ...(scope.runId ? { run: scope.runId } : {}), ...(scope.workItemId ? { workItem: scope.workItemId } : {}) });
 }
 
-/** The workspace-free artifact detail URL; left/right select diff versions. */
+/** The workspace-free output URL of an artifact; left/right open the comparison of two versions. */
 export function execArtifactUrl(artifactId: string, diff?: { leftId: string; rightId: string }): string {
-  return withParams(`/artifacts/${artifactId}`, diff ? { left: diff.leftId, right: diff.rightId } : undefined);
+  return diff ? withParams(`/outputs/${artifactId}/compare`, { left: diff.leftId, right: diff.rightId }) : `/outputs/${artifactId}`;
 }

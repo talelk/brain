@@ -663,6 +663,7 @@
     "handoffs.forWorkItem",
     "missionMessages.list",
     "missionOutputs.list",
+    "missionOutputs.get",
     "plans.get",
     "workItems.list",
     "workItems.get",
