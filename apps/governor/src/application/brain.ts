@@ -74,8 +74,8 @@ export class Brain {
       this.auth.ensureTables();
       this.stepUp = new StepUpService(this.store, this.auth);
       this.memory = new MemoryStore(this.store);
-      this.missions = new MissionService(this.store);
-      this.sessions = new SessionService(this.store);
+      this.missions = new MissionService(this.store, { deliver: (organizationId, workspaceId, messageId, interrupt) => this.sessions.deliverMessage(organizationId, workspaceId, messageId, interrupt) });
+      this.sessions = new SessionService(this.store, { brief: (actor, workspaceId, missionId) => this.missions.briefOf(actor, workspaceId, missionId) });
       this.stream = createStreamService(this.store);
       this.documents = new DocumentService(this.store);
       this.integrations = new IntegrationService(this.store);
@@ -753,7 +753,7 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.documents.query(actor, q.queryType, q.workspaceId, q.resourceId, limit, (raw as { search?: string }).search));
       }
-      case "sessions.list": case "session.get": case "delegations.list": case "workItemMessages.list": {
+      case "sessions.list": case "session.get": case "delegations.list": case "sessions.context": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         const snapshot = this.sessions.query(actor, q.queryType, q.workspaceId, q.resourceId, limit);
         if (q.queryType !== "session.get") return this.envelope(q.queryType, snapshot);

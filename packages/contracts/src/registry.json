@@ -132,16 +132,6 @@
       ]
     },
     {
-      "type": "workItem.message",
-      "schema": "WorkItemMessageCommand",
-      "scope": "mission:write",
-      "authority": "workspace",
-      "actors": [
-        "human",
-        "agent"
-      ]
-    },
-    {
       "type": "configDraft.create",
       "schema": "ConfigDraftCreateCommand",
       "scope": "config:activate",
@@ -647,7 +637,6 @@
     "automations.list",
     "automations.occurrences",
     "delegations.list",
-    "workItemMessages.list",
     "documents.list",
     "documents.get",
     "documents.search",
@@ -665,7 +654,8 @@
     "stream.compare",
     "live.status",
     "artifacts.history",
-    "artifacts.diff"
+    "artifacts.diff",
+    "sessions.context"
   ],
   "events": [
     {

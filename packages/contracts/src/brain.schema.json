@@ -5455,10 +5455,11 @@
     },
     "Checkpoint": {
       "type": "object",
+      "description": "One checkpoint shape for engines and sessions: the commit and progress an attempt reached, the outputs it consumed and produced, effects still in flight and the brief version it worked from. Consumed outputs and brief version are stamped by the Governor.",
       "properties": {
         "contractVersion": {
           "type": "string",
-          "const": "brain.checkpoint/v1"
+          "const": "brain.checkpoint/v2"
         },
         "attemptId": {
           "$ref": "#/$defs/Id"
@@ -5466,17 +5467,19 @@
         "sourceRevision": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 80
+          "maxLength": 128
         },
         "diff": {
           "$ref": "#/$defs/ArtifactRef"
+        },
+        "diffDigest": {
+          "$ref": "#/$defs/Digest"
         },
         "completedCriteria": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/ConfigId"
           },
-          "minItems": 0,
           "maxItems": 100,
           "uniqueItems": true
         },
@@ -5487,7 +5490,6 @@
             "minLength": 1,
             "maxLength": 2048
           },
-          "minItems": 0,
           "maxItems": 100
         },
         "worktreeId": {
@@ -5505,7 +5507,6 @@
             "minLength": 1,
             "maxLength": 512
           },
-          "minItems": 0,
           "maxItems": 100,
           "uniqueItems": true
         },
@@ -5514,20 +5515,47 @@
           "minLength": 1,
           "maxLength": 4000
         },
+        "consumedOutputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "maxItems": 50,
+          "uniqueItems": true
+        },
+        "producedOutputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "maxItems": 50,
+          "uniqueItems": true
+        },
+        "inFlightEffects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "maxItems": 50,
+          "uniqueItems": true
+        },
+        "briefVersion": {
+          "$ref": "#/$defs/Counter"
+        },
         "createdAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "digest": {
+          "$ref": "#/$defs/Digest"
         }
       },
       "required": [
         "contractVersion",
-        "attemptId",
         "sourceRevision",
-        "diff",
         "completedCriteria",
         "failures",
         "worktreeId",
         "eventSequence",
-        "ownedResources",
         "nextAction",
         "createdAt"
       ],
@@ -7169,7 +7197,6 @@
             "automations.list",
             "automations.occurrences",
             "delegations.list",
-            "workItemMessages.list",
             "documents.list",
             "documents.get",
             "documents.search",
@@ -7180,7 +7207,8 @@
             "integrations.repositories",
             "knowledgeAssets.list",
             "capabilityCandidates.list",
-            "capitalizationRuns.list"
+            "capitalizationRuns.list",
+            "sessions.context"
           ]
         },
         "workspaceId": {
@@ -7224,7 +7252,6 @@
             "automations.list",
             "automations.occurrences",
             "delegations.list",
-            "workItemMessages.list",
             "documents.list",
             "documents.get",
             "documents.search",
@@ -7235,7 +7262,8 @@
             "integrations.repositories",
             "knowledgeAssets.list",
             "capabilityCandidates.list",
-            "capitalizationRuns.list"
+            "capitalizationRuns.list",
+            "sessions.context"
           ]
         },
         "snapshot": {
@@ -7442,122 +7470,6 @@
       ],
       "additionalProperties": false
     },
-    "PortableCheckpointInput": {
-      "type": "object",
-      "properties": {
-        "sourceRevision": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
-        },
-        "dirtyDiffDigest": {
-          "$ref": "#/$defs/Digest"
-        },
-        "completedCriteria": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/ConfigId"
-          },
-          "maxItems": 100,
-          "uniqueItems": true
-        },
-        "outstandingFailures": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 2000
-          },
-          "maxItems": 100
-        },
-        "worktreeId": {
-          "$ref": "#/$defs/Id"
-        },
-        "eventCursor": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "nextAction": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 4000
-        },
-        "createdAt": {
-          "$ref": "#/$defs/Timestamp"
-        }
-      },
-      "required": [
-        "sourceRevision",
-        "completedCriteria",
-        "outstandingFailures",
-        "worktreeId",
-        "eventCursor",
-        "nextAction",
-        "createdAt"
-      ],
-      "additionalProperties": false
-    },
-    "PortableCheckpoint": {
-      "type": "object",
-      "properties": {
-        "sourceRevision": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
-        },
-        "dirtyDiffDigest": {
-          "$ref": "#/$defs/Digest"
-        },
-        "completedCriteria": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/ConfigId"
-          },
-          "maxItems": 100,
-          "uniqueItems": true
-        },
-        "outstandingFailures": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 2000
-          },
-          "maxItems": 100
-        },
-        "worktreeId": {
-          "$ref": "#/$defs/Id"
-        },
-        "eventCursor": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "nextAction": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 4000
-        },
-        "createdAt": {
-          "$ref": "#/$defs/Timestamp"
-        },
-        "digest": {
-          "$ref": "#/$defs/Digest"
-        }
-      },
-      "required": [
-        "sourceRevision",
-        "completedCriteria",
-        "outstandingFailures",
-        "worktreeId",
-        "eventCursor",
-        "nextAction",
-        "createdAt",
-        "digest"
-      ],
-      "additionalProperties": false
-    },
     "BrainSession": {
       "type": "object",
       "properties": {
@@ -7647,7 +7559,7 @@
           "maxLength": 512
         },
         "checkpoint": {
-          "$ref": "#/$defs/PortableCheckpoint"
+          "$ref": "#/$defs/Checkpoint"
         },
         "version": {
           "$ref": "#/$defs/Counter"
@@ -7679,51 +7591,6 @@
         "version",
         "createdAt",
         "updatedAt"
-      ],
-      "additionalProperties": false
-    },
-    "WorkItemMessage": {
-      "type": "object",
-      "properties": {
-        "messageId": {
-          "$ref": "#/$defs/Id"
-        },
-        "workItemId": {
-          "$ref": "#/$defs/Id"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/Id"
-        },
-        "senderId": {
-          "$ref": "#/$defs/Id"
-        },
-        "senderKind": {
-          "type": "string",
-          "enum": [
-            "human",
-            "agent",
-            "workflow"
-          ]
-        },
-        "body": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 8000
-        },
-        "correctionOf": {
-          "$ref": "#/$defs/Id"
-        },
-        "createdAt": {
-          "$ref": "#/$defs/Timestamp"
-        }
-      },
-      "required": [
-        "messageId",
-        "workItemId",
-        "senderId",
-        "senderKind",
-        "body",
-        "createdAt"
       ],
       "additionalProperties": false
     },
@@ -7890,7 +7757,7 @@
           "$ref": "#/$defs/Id"
         },
         "checkpoint": {
-          "$ref": "#/$defs/PortableCheckpointInput"
+          "$ref": "#/$defs/CheckpointInput"
         }
       },
       "required": [
@@ -8060,67 +7927,6 @@
         },
         "payload": {
           "$ref": "#/$defs/DelegationReviewInput"
-        }
-      },
-      "required": [
-        "contractVersion",
-        "commandId",
-        "commandType",
-        "idempotencyKey",
-        "payload",
-        "workspaceId"
-      ],
-      "additionalProperties": false
-    },
-    "WorkItemMessageInput": {
-      "type": "object",
-      "properties": {
-        "workItemId": {
-          "$ref": "#/$defs/Id"
-        },
-        "sessionId": {
-          "$ref": "#/$defs/Id"
-        },
-        "body": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 8000
-        },
-        "correctionOf": {
-          "$ref": "#/$defs/Id"
-        }
-      },
-      "required": [
-        "workItemId",
-        "body"
-      ],
-      "additionalProperties": false
-    },
-    "WorkItemMessageCommand": {
-      "type": "object",
-      "properties": {
-        "contractVersion": {
-          "type": "string",
-          "const": "brain.command/v1"
-        },
-        "commandId": {
-          "$ref": "#/$defs/Id"
-        },
-        "commandType": {
-          "type": "string",
-          "const": "workItem.message"
-        },
-        "workspaceId": {
-          "$ref": "#/$defs/Id"
-        },
-        "idempotencyKey": {
-          "$ref": "#/$defs/Id"
-        },
-        "expectedVersion": {
-          "$ref": "#/$defs/Counter"
-        },
-        "payload": {
-          "$ref": "#/$defs/WorkItemMessageInput"
         }
       },
       "required": [
@@ -10840,9 +10646,6 @@
           "$ref": "#/$defs/DelegationReviewCommand"
         },
         {
-          "$ref": "#/$defs/WorkItemMessageCommand"
-        },
-        {
           "$ref": "#/$defs/ConfigDraftCreateCommand"
         },
         {
@@ -11766,7 +11569,7 @@
           "maxLength": 512
         },
         "checkpoint": {
-          "$ref": "#/$defs/PortableCheckpoint"
+          "$ref": "#/$defs/Checkpoint"
         },
         "version": {
           "$ref": "#/$defs/Counter"
@@ -21546,6 +21349,9 @@
             },
             "correctionOf": {
               "$ref": "#/$defs/Id"
+            },
+            "interrupt": {
+              "type": "boolean"
             }
           },
           "required": [
@@ -21895,6 +21701,161 @@
         "workspaceId",
         "idempotencyKey",
         "payload"
+      ],
+      "additionalProperties": false
+    },
+    "CheckpointInput": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.checkpoint/v2"
+        },
+        "attemptId": {
+          "$ref": "#/$defs/Id"
+        },
+        "sourceRevision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "diff": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "diffDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "completedCriteria": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConfigId"
+          },
+          "maxItems": 100,
+          "uniqueItems": true
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "maxItems": 100
+        },
+        "worktreeId": {
+          "$ref": "#/$defs/Id"
+        },
+        "eventSequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "ownedResources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "maxItems": 100,
+          "uniqueItems": true
+        },
+        "nextAction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "producedOutputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "maxItems": 50,
+          "uniqueItems": true
+        },
+        "inFlightEffects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "maxItems": 50,
+          "uniqueItems": true
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "sourceRevision",
+        "completedCriteria",
+        "failures",
+        "worktreeId",
+        "eventSequence",
+        "nextAction",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "SessionContext": {
+      "type": "object",
+      "description": "What one session receives: the mission brief, its direct dependencies' handoffs, its pinned inputs, the messages delivered at its start and its last checkpoint.",
+      "properties": {
+        "sessionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "brief": {
+          "$ref": "#/$defs/MissionBrief"
+        },
+        "dependencyHandoffs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Handoff"
+          },
+          "maxItems": 50
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "outputVersionId": {
+                "$ref": "#/$defs/Id"
+              },
+              "artifactDigest": {
+                "$ref": "#/$defs/Digest"
+              }
+            },
+            "required": [
+              "outputVersionId",
+              "artifactDigest"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 50
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MissionMessage"
+          },
+          "maxItems": 50
+        },
+        "checkpoint": {
+          "$ref": "#/$defs/Checkpoint"
+        }
+      },
+      "required": [
+        "sessionId",
+        "dependencyHandoffs",
+        "inputs",
+        "messages"
       ],
       "additionalProperties": false
     }

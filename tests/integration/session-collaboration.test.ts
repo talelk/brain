@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ActorContext, CommandReceipt, SessionDetail, WorkItemMessage } from "@brain/contracts";
+import type { ActorContext, CommandReceipt, SessionContext, SessionDetail } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import { createApp } from "../../apps/governor/src/http/app";
 import { enrollAndHello, runOnce } from "../../apps/runner/src/supervisor";
@@ -40,7 +40,7 @@ async function session(w: TestWorld, id: string): Promise<SessionDetail> {
 }
 
 describe("native and managed BrainSessions (T53)", () => {
-  it("resumes a portable checkpoint as a new managed session and preserves WorkItem message lineage", async () => {
+  it("resumes a checkpoint as a new managed session; messages reach the next session and its context (T53, E118)", async () => {
     const w = setupWorld();
     cleanup.push(() => w.brain.close());
     const item = await workItem(w, "resume");
@@ -50,26 +50,29 @@ describe("native and managed BrainSessions (T53)", () => {
     expect((await session(w, parentId)).jobId).toBeUndefined();
     expect(validate("SessionDetail", await session(w, parentId))).toEqual({ ok: true, errors: [] });
     const checkpoint = {
-      sourceRevision: "sha256:6dd84c7f907477ea38ad355392cf876b39c122adf8038762894d56cc160956b4",
-      dirtyDiffDigest: `sha256:${"b".repeat(64)}`, completedCriteria: ["inspect"], outstandingFailures: ["verification pending"],
-      worktreeId: "wt-parent", eventCursor: 0, nextAction: "Run the independent verification", createdAt: w.brain.store.nowIso(),
+      contractVersion: "brain.checkpoint/v2", sourceRevision: "sha256:6dd84c7f907477ea38ad355392cf876b39c122adf8038762894d56cc160956b4",
+      diffDigest: `sha256:${"b".repeat(64)}`, completedCriteria: ["inspect"], failures: ["verification pending"],
+      worktreeId: "wt-parent", eventSequence: 0, nextAction: "Run the independent verification", createdAt: w.brain.store.nowIso(),
     };
     await run(w, "session.checkpoint", "session-checkpoint", { sessionId: parentId, checkpoint }, w.owner, 1);
+    const missionId = (await workView(w)).items.find((entry) => entry.workItemId === item)!.missionId;
+    const first = (await run(w, "mission.message.send", "message-1", { missionId, recipient: { kind: "mission" }, workItemId: item, body: "Verification is next." })).resourceId!;
+    await run(w, "mission.message.send", "message-2", { missionId, recipient: { kind: "mission" }, workItemId: item, body: "Correction: independent verification is next.", correctionOf: first });
     const resumedId = (await run(w, "session.create", "session-resume", { ...input, task: checkpoint.nextAction, engineId: "claude", resumeFromSessionId: parentId })).resourceId!;
     const resumed = await session(w, resumedId);
     expect(resumed).toEqual(expect.objectContaining({
       mode: "managed", state: "waiting", parentSessionId: parentId, rootSessionId: parentId,
       task: checkpoint.nextAction, workItemId: item, worktreeId: "wt-parent",
       engine: expect.objectContaining({ id: "claude", version: "unbound" }),
-      checkpoint: expect.objectContaining({ nextAction: checkpoint.nextAction, dirtyDiffDigest: checkpoint.dirtyDiffDigest }),
+      checkpoint: expect.objectContaining({ nextAction: checkpoint.nextAction, diffDigest: checkpoint.diffDigest, briefVersion: 1 }),
     }));
     expect(resumed.sessionId).not.toBe(parentId);
 
-    const messageId = (await run(w, "workItem.message", "message-1", { workItemId: item, sessionId: resumedId, body: "Checkpoint restored; verification is next." })).resourceId!;
-    await run(w, "workItem.message", "message-2", { workItemId: item, sessionId: resumedId, body: "Correction: independent verification is next.", correctionOf: messageId });
-    const messages = ((await w.brain.executeQuery(w.owner, { queryType: "workItemMessages.list", workspaceId: w.workspaceId, resourceId: item })) as { snapshot: { items: WorkItemMessage[] } }).snapshot.items;
-    expect(messages).toHaveLength(2);
-    expect(messages[1]).toEqual(expect.objectContaining({ correctionOf: messageId, sessionId: resumedId, workItemId: item }));
+    const context = ((await w.brain.executeQuery(w.owner, { queryType: "sessions.context", workspaceId: w.workspaceId, resourceId: resumedId })) as { snapshot: SessionContext }).snapshot;
+    expect(validate("SessionContext", context)).toEqual({ ok: true, errors: [] });
+    expect(context.brief).toEqual(expect.objectContaining({ missionId, version: 1 }));
+    expect(context.messages.map((entry) => [entry.body, entry.delivery])).toEqual([["Correction: independent verification is next.", "delivered-at-session-start"]]);
+    expect(context.checkpoint).toEqual(expect.objectContaining({ nextAction: checkpoint.nextAction }));
     await expect(Promise.resolve().then(async () => await run(w, "session.create", "resume-expanded", { ...input, task: checkpoint.nextAction, resumeFromSessionId: parentId, scope: { allowedPaths: ["src", "tests", "secrets"], prohibitedPaths: [], allowedTools: ["fixture.echo"] } }))).rejects.toThrow(/cannot expand|checkpoint authority/i);
   });
 

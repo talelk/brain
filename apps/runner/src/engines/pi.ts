@@ -214,7 +214,7 @@ export class PiEngine implements EngineAdapter {
     const dest = join(this.checkpointsDir(), `${digest.slice(7)}.jsonl`);
     if (!existsSync(dest)) copyFileSync(this.sessionFile, dest);
     return {
-      contractVersion: "brain.checkpoint/v1", attemptId: this.spec.attemptId, sourceRevision: this.spec.sourceRevision,
+      contractVersion: "brain.checkpoint/v2", attemptId: this.spec.attemptId, sourceRevision: this.spec.sourceRevision,
       diff: { artifactId, digest, bytes: bytes.length, mediaType: "application/x-ndjson", classification: "internal" },
       completedCriteria: [], failures: [], worktreeId: this.spec.worktreeId, eventSequence: this.seq,
       ownedResources: [], nextAction: "resume Pi session from checkpoint artifact", createdAt: new Date().toISOString(),

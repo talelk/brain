@@ -207,14 +207,13 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   const steerRows = (ws.prepare("SELECT COUNT(*) AS c FROM session_controls WHERE session_id='ses-plan' AND kind='session.steer'").get() as { c: number }).c;
   expect(steerRows, "steer control recorded for the runner to pick up").toBe(1);
 
-  // Attach context routes through the bound work item (workItem.message).
+  // Attach context is a mission message about the bound work item.
   await page.goto(`${governor.url}/w/ws-console/live?session=ses-report`);
   await expect(page.getByText("Compiling the deployment dossier.")).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Attach context" }).click();
   await page.getByLabel("Context for the work item and session").fill("Use the approved rollout section verbatim.");
   await page.getByRole("button", { name: "Attach to work item" }).click();
-  const messages = (ws.prepare("SELECT COUNT(*) AS c FROM work_item_messages WHERE session_id='ses-report'").get() as { c: number }).c;
-  expect(messages, "attach context recorded on the work item").toBe(1);
+  await expect.poll(() => (ws.prepare("SELECT COUNT(*) AS c FROM mission_messages m JOIN sessions s ON s.work_item_id=m.work_item_id WHERE s.id='ses-report'").get() as { c: number }).c, { message: "attach context recorded as a mission message" }).toBe(1);
 
   // (f) Follow the work item to its verification: the inspection pane binds the
   // run's evidence bundle and the independent verdict.

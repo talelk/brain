@@ -26,7 +26,6 @@ const GOVERNOR_PREFIXES: readonly string[] = [
  * can appear.
  */
 export function emitterOf(source: StreamSource, eventType: string): StreamEmitter {
-  if (eventType === "workItem.message") return "agent";
   if (eventType === "attempt.effect" || eventType.startsWith("tool.")) return "tool";
   if (source === "attempt") return eventType === "attempt.progress" ? "governor" : "agent";
   if (eventType.startsWith("session.")) return "agent";

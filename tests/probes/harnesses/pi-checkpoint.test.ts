@@ -43,18 +43,20 @@ describe("pi checkpoint/resume (T24)", () => {
     const { sessionId } = await first.start({ ...spec(), task: "Remember this codeword exactly: ZEPHYR-42. Reply with exactly: STORED" }, new AbortController().signal);
     for await (const event of first.events(sessionId,0,new AbortController().signal)) { if (event.kind === "session.stopped") expect(event.payload.reason).toBe("completed"); }
     const checkpoint = await first.checkpoint(sessionId);
-    expect(checkpoint.contractVersion).toBe("brain.checkpoint/v1");
+    expect(checkpoint.contractVersion).toBe("brain.checkpoint/v2");
     expect(checkpoint.attemptId).toBe("att-pi");
-    expect(checkpoint.diff.bytes).toBeGreaterThan(0);
-    expect(checkpoint.diff.digest).toMatch(/^sha256:[0-9a-f]{64}$/u);
+    const diff = checkpoint.diff;
+    if (!diff) throw new Error("Pi checkpoints carry the session file as their diff artifact");
+    expect(diff.bytes).toBeGreaterThan(0);
+    expect(diff.digest).toMatch(/^sha256:[0-9a-f]{64}$/u);
     await first.dispose();
 
     // Tampered digest must be refused before any session state changes.
     const second = new PiEngine();
     const started = await second.start(spec(), new AbortController().signal);
     for await (const event of second.events(started.sessionId,0,new AbortController().signal)) { if (event.kind === "session.stopped") expect(event.payload.reason).toBe("completed"); }
-    await expect(second.resume(started.sessionId, { ...checkpoint.diff, digest: `sha256:${"f".repeat(64)}` })).rejects.toThrow();
-    await second.resume(started.sessionId, checkpoint.diff);
+    await expect(second.resume(started.sessionId, { ...diff, digest: `sha256:${"f".repeat(64)}` })).rejects.toThrow();
+    await second.resume(started.sessionId, diff);
     await second.prompt("What was the codeword I asked you to remember? Reply with exactly the codeword and nothing else.");
     let text = "";
     for await (const ev of second.events(started.sessionId, 0, new AbortController().signal)) {

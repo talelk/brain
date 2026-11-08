@@ -7,6 +7,7 @@ import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
 import type { StreamEvent } from "../../data/screens";
 import { jobsQuery, sessionsQuery } from "../../data/governor";
+import { query } from "../../data/client";
 import { sessionDetailQuery, type SessionDetail } from "../../data/exec-console";
 import { streamContextQuery } from "../../data/exec-logs";
 import type { ExecLogFilters } from "../exec/exec-filters";
@@ -249,7 +250,8 @@ function SessionConsole(props: {
         const current = detail();
         if (!current?.workItemId) { setFeedback("This session has no work item to attach context to."); return; }
         try {
-          const result = await app.run("workItem.message", { workItemId: current.workItemId, sessionId: props.sessionId, body });
+          const item = await query<{ snapshot: { missionId: string } }>({ queryType: "workItems.get", workspaceId: app.scope().workspaceId, resourceId: current.workItemId });
+          const result = await app.run("mission.message.send", { missionId: item.snapshot.missionId, recipient: { kind: "mission" }, workItemId: current.workItemId, body });
           setFeedback(result.detail);
         } catch (e) { setFeedback(e instanceof Error ? e.message : "Attaching context was refused."); }
       }}

@@ -589,8 +589,8 @@
   },
   {
    "id": "E118",
-   "status": "partial",
-   "evidence": "not yet implemented: T53 message delivery"
+   "status": "covered",
+   "evidence": "tests/integration/missions.test.ts"
   },
   {
    "id": "E119",

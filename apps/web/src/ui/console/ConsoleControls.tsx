@@ -23,7 +23,7 @@ type ConsoleScope = Accessor<{ organizationId: string; workspaceId: string; gene
 /**
  * The console's intervention surface (plan §3 action → command map, exact):
  * Steer → session.steer; Stop → session.stop; Attach context →
- * workItem.message; Open tool result / Inspect current output → the feed's
+ * mission.message.send for the session's work item; Open tool result / Inspect current output → the feed's
  * record inspection and the job-scoped artifacts read; See related approval →
  * the invocation→approval linkage of stream.context. After an interruption the
  * chooser names exactly one recovery operation (reconnect / continue native /
@@ -122,7 +122,7 @@ export function ConsoleToolbar(props: {
           onInput={(event) => setReason(event.currentTarget.value)} />
         <div class="mt-2 flex items-center gap-2">
           <Button size="sm" variant="solid" theme="blue" disabled={!reason().trim() || busy()} loading={busy()} onClick={() => void submit("attach")}>Attach to work item</Button>
-          <span class="text-caption text-ink-gray-6">Routes to session {props.sessionId} through its work item (workItem.message).</span>
+          <span class="text-caption text-ink-gray-6">A mission message for this work item; it reaches the session live when the engine can be steered, otherwise when its next session starts.</span>
         </div>
       </div>
     </Show>

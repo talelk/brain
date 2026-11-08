@@ -193,13 +193,6 @@ CREATE TABLE delegations (
   reviewer_id TEXT, evidence_digest TEXT, created_at_ms INTEGER NOT NULL, reviewed_at_ms INTEGER
 ) STRICT;
 CREATE INDEX delegations_parent ON delegations(parent_session_id,state,id);
-CREATE TABLE work_item_messages (
-  id TEXT PRIMARY KEY, work_item_id TEXT NOT NULL REFERENCES work_items(id),
-  session_id TEXT REFERENCES sessions(id), sender_id TEXT NOT NULL,
-  sender_kind TEXT NOT NULL CHECK(sender_kind IN ('human','agent','workflow')),
-  body TEXT NOT NULL, correction_of TEXT REFERENCES work_item_messages(id), created_at_ms INTEGER NOT NULL
-) STRICT;
-CREATE INDEX work_item_messages_item ON work_item_messages(work_item_id,created_at_ms,id);
 CREATE TABLE documents (
   id TEXT PRIMARY KEY, title TEXT NOT NULL,
   state TEXT NOT NULL CHECK(state IN ('active','revoked')),

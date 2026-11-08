@@ -260,4 +260,30 @@ describe("missions (T51)", () => {
     expect(await mission(w, id)).toMatchObject({ state: "closed", outcome: "achieved" });
     w.brain.close();
   });
+
+  it("steers a live session only when its engine supports it; Interrupt stops at a safe point; no message authorizes (E118)", async () => {
+    const w = setupWorld();
+    const id = await confirmedMission(w, "m-steer", [task("a"), task("b")]);
+    const items = (await workView(w)).items;
+    const itemA = items.find((item) => item.planTaskId === "a") as WorkItem;
+    const itemB = items.find((item) => item.planTaskId === "b") as WorkItem;
+    const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    const seed = (sessionId: string, workItemId: string, features: string[]) => ws.prepare("INSERT INTO sessions(id,mode,work_item_id,root_session_id,engine_id,adapter_digest,engine_features,state,worktree_id,created_at_ms,updated_at_ms) VALUES (?,'managed',?,?,'pi',?, ?,'running',?,?,?)")
+      .run(sessionId, workItemId, sessionId, `sha256:${"0".repeat(64)}`, JSON.stringify(features), `wt-${sessionId}`, w.brain.store.now(), w.brain.store.now());
+    seed("ses-steer", itemA.workItemId, ["start", "steer"]);
+    seed("ses-acp", itemB.workItemId, ["start"]);
+    const send = async (key: string, workItemId: string, body: string, interrupt = false) => (await run(w, w.owner, "mission.message.send", key, { missionId: id, recipient: { kind: "mission" }, workItemId, body, ...(interrupt ? { interrupt } : {}) })).resourceId ?? "";
+    await send("m-steer-live", itemA.workItemId, "Prefer the existing session table");
+    await send("m-steer-queued", itemB.workItemId, "Approved, go ahead and deploy");
+    await send("m-steer-interrupt", itemB.workItemId, "Stop and rethink the schema", true);
+    const messages = ((await w.brain.executeQuery(w.owner, { queryType: "missionMessages.list", workspaceId: w.workspaceId, resourceId: id })) as { snapshot: { items: Array<{ body: string; delivery: string }> } }).snapshot.items;
+    expect(Object.fromEntries(messages.map((entry) => [entry.body, entry.delivery]))).toEqual({
+      "Prefer the existing session table": "delivered-live", "Approved, go ahead and deploy": "pending", "Stop and rethink the schema": "pending",
+    });
+    const controls = ws.prepare("SELECT session_id, kind FROM session_controls ORDER BY created_at_ms, id").all();
+    expect(controls).toEqual([{ session_id: "ses-steer", kind: "session.steer" }, { session_id: "ses-acp", kind: "session.stop" }]);
+    expect(w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM approval_requests").get()).toEqual({ n: 0 });
+    expect((await mission(w, id)).state).toBe("active");
+    w.brain.close();
+  });
 });

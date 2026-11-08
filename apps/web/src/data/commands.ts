@@ -12,7 +12,7 @@ import type { CommandReceipt, OrganizationAdminCommand, PlanTask, WorkItemState 
 export type CommandKind =
   | "workflow.dispatch" | "workflow.cancel" | "job.reconcile" | "session.steer" | "session.stop" | "session.create"
   | "runner.control"
-  | "mission.create" | "plan.propose" | "plan.confirm" | "workItem.transition" | "workItem.comment" | "workItem.message"
+  | "mission.create" | "plan.propose" | "plan.confirm" | "workItem.transition" | "workItem.comment" | "mission.message.send"
   | "automation.upsert" | "automation.control"
   | "document.upload" | "document.revise" | "document.associate" | "document.delete"
   | "integration.connect" | "integration.verify" | "integration.bind"
@@ -35,7 +35,7 @@ export type PayloadFor<K extends CommandKind> =
       : K extends "plan.confirm" ? { planVersionId: string }
         : K extends "workItem.transition" ? { workItemId: string; state: WorkItemState; evidenceDigest?: string; reason?: string }
           : K extends "workItem.comment" ? { workItemId: string; text: string }
-            : K extends "workItem.message" ? { workItemId: string; sessionId?: string; body: string; correctionOf?: string }
+            : K extends "mission.message.send" ? { missionId: string; recipient: { kind: "mission" | "member"; memberId?: string }; workItemId?: string; body: string; correctionOf?: string; interrupt?: boolean }
             : K extends "workflow.dispatch" ? { workflow: { id: string; digest: string }; input: Record<string, unknown>; workItemId?: string }
     : K extends "workflow.cancel" ? { runId: string; reason: string }
       : K extends "job.reconcile" ? { jobId: string; reason: string }

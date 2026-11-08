@@ -194,7 +194,6 @@ describe("unified execution stream", () => {
     expect(severityOf("control", "operations.restored-authority-quarantined", null)).toBe("critical");
     expect(severityOf("control", "job.queued", {})).toBe("info");
     expect(emitterOf("control", "session.created")).toBe("agent");
-    expect(emitterOf("workspace", "workItem.message")).toBe("agent");
     expect(emitterOf("control", "workItem.transition")).toBe("governor");
     expect(emitterOf("attempt", "tool.proposed")).toBe("tool");
     expect(emitterOf("attempt", "attempt.effect")).toBe("tool");

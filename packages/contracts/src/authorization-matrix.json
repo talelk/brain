@@ -495,11 +495,6 @@
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
     },
-    "workItemMessages.list": {
-      "scope": "workspace:read",
-      "scopeMode": "workspace",
-      "redactPrivilegedDetails": false
-    },
     "documents.list": {
       "scope": "workspace:read",
       "scopeMode": "workspace",
@@ -611,6 +606,11 @@
       "redactPrivilegedDetails": false
     },
     "missionBundles.latest": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "sessions.context": {
       "scope": "workspace:read",
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false

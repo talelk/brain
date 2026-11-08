@@ -1,5 +1,6 @@
 import { domainDigest } from "@brain/contracts";
-import type { ActorContext, BrainSession, Delegation, JsonValue, PortableCheckpoint, SessionBudget, SessionScope, WorkItemMessage } from "@brain/contracts";
+import type { ActorContext, BrainSession, Checkpoint, CheckpointInput, Delegation, JsonValue, MissionBrief, MissionMessage, SessionBudget, SessionContext, SessionScope } from "@brain/contracts";
+import { dependencyHandoffs } from "../evidence/index";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import { assertExpectedVersion } from "../../domain/states";
@@ -30,10 +31,12 @@ type DelegationRow = {
   created_at_ms: number; reviewed_at_ms: number | null;
 };
 
-type MessageRow = {
-  id: string; work_item_id: string; session_id: string | null; sender_id: string;
-  sender_kind: WorkItemMessage["senderKind"]; body: string; correction_of: string | null; created_at_ms: number;
-};
+type MessageRow = { id: string; mission_id: string; recipient_kind: "mission" | "member"; recipient_member_id: string | null; work_item_id: string | null; sender_id: string; body: string; delivery: MissionMessage["delivery"]; correction_of: string | null; created_at_ms: number };
+
+/** What sessions need from the missions module, bound at the composition root. */
+export interface SessionMissionPort {
+  brief(actor: ActorContext, workspaceId: string, missionId: string): MissionBrief;
+}
 
 const ACTIVE_SESSION_STATES = new Set(["starting", "running", "waiting", "stopping"]);
 const ZERO_DIGEST = `sha256:${"0".repeat(64)}`;
@@ -63,7 +66,7 @@ function assertBudgetWithin(child: SessionBudget, available: SessionBudget): voi
 }
 
 export class SessionService {
-  constructor(private readonly store: Store) {}
+  constructor(private readonly store: Store, private readonly missions?: SessionMissionPort) {}
 
   private db(actor: ActorContext, workspaceId: string) {
     requireWorkspaceRead(this.store, actor, workspaceId);
@@ -82,9 +85,9 @@ export class SessionService {
     return row;
   }
 
-  private checkpoint(row: SessionRow): PortableCheckpoint | undefined {
+  private checkpoint(row: SessionRow): Checkpoint | undefined {
     if (!row.checkpoint_json) return undefined;
-    return { ...(JSON.parse(row.checkpoint_json) as Omit<PortableCheckpoint, "digest">), digest: row.checkpoint_digest ?? ZERO_DIGEST };
+    return { ...(JSON.parse(row.checkpoint_json) as Omit<Checkpoint, "digest">), digest: row.checkpoint_digest ?? ZERO_DIGEST };
   }
 
   private view(workspaceId: string, row: SessionRow): BrainSession {
@@ -131,7 +134,6 @@ export class SessionService {
       case "session.checkpoint": return this.saveCheckpoint(actor, workspaceId, command.payload, command.expectedVersion);
       case "session.delegate": return this.delegate(actor, workspaceId, command.payload);
       case "delegation.review": return this.review(actor, workspaceId, command.payload);
-      case "workItem.message": return this.message(actor, workspaceId, command.payload);
       default: throw new BrainDomainError("INVALID_CONTRACT", `unsupported session command ${command.commandType}`);
     }
   }
@@ -164,6 +166,7 @@ export class SessionService {
         source?.delegation_depth ?? 0, JSON.stringify(budget), JSON.stringify(scope), worktreeId, actor.actorId, now, now,
       );
       if (source && checkpoint) db.prepare("UPDATE sessions SET checkpoint_digest=?,checkpoint_json=? WHERE id=?").run(checkpoint.digest, JSON.stringify(checkpoint), id);
+      this.deliverAtStart(db, workItemId);
       this.store.emit(db, { aggregateType: "session", aggregateId: id, eventType: source ? "session.resumed" : "session.created", payload: { sessionId: id, workItemId, ...(source ? { resumeFromSessionId: source.id } : {}) } });
     });
     return id;
@@ -172,11 +175,15 @@ export class SessionService {
   private saveCheckpoint(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
     const session = this.row(actor, workspaceId, String(payload["sessionId"]));
     assertExpectedVersion(session.version, expectedVersion);
-    const input = payload["checkpoint"] as unknown as Omit<PortableCheckpoint, "digest">;
-    if (input.worktreeId !== session.worktree_id || input.eventCursor > session.event_sequence) throw new BrainDomainError("CONFLICT", "checkpoint does not match the session's worktree or committed event cursor");
-    const digest = domainDigest("brain:session-checkpoint:v1", { sessionId: session.id, ...input } as unknown as JsonValue);
-    const checkpoint: PortableCheckpoint = { ...input, digest };
+    const input = payload["checkpoint"] as unknown as CheckpointInput;
+    if (input.worktreeId !== session.worktree_id || input.eventSequence > session.event_sequence) throw new BrainDomainError("CONFLICT", "checkpoint does not match the session's worktree or committed event cursor");
     const db = this.db(actor, workspaceId);
+    // The Governor, not the agent, stamps what the work consumed and which brief it worked from.
+    const stamped = session.work_item_id ? db.prepare("SELECT m.brief_version AS briefVersion FROM work_items w JOIN missions m ON m.id=w.mission_id WHERE w.id=?").get(session.work_item_id) as { briefVersion: number } | undefined : undefined;
+    const consumed = session.work_item_id ? (db.prepare("SELECT DISTINCT output_version_id AS id FROM work_item_inputs WHERE work_item_id=? ORDER BY output_version_id").all(session.work_item_id) as Array<{ id: string }>).map((row) => row.id) : [];
+    const body: Omit<Checkpoint, "digest"> = { ...input, ...(consumed.length > 0 ? { consumedOutputs: consumed } : {}), ...(stamped ? { briefVersion: stamped.briefVersion } : {}) };
+    const digest = domainDigest("brain:session-checkpoint:v2", { sessionId: session.id, ...body } as unknown as JsonValue);
+    const checkpoint: Checkpoint = { ...body, digest };
     this.store.inTx(db, () => {
       db.prepare("UPDATE sessions SET checkpoint_digest=?,checkpoint_json=?,state='waiting',version=version+1,updated_at_ms=? WHERE id=? AND version=?")
         .run(digest, JSON.stringify(checkpoint), this.store.now(), session.id, session.version);
@@ -264,19 +271,6 @@ export class SessionService {
     return delegation.id;
   }
 
-  private message(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
-    const workItemId = String(payload["workItemId"]);
-    if (!this.db(actor, workspaceId).prepare("SELECT 1 FROM work_items WHERE id=?").get(workItemId)) throw new BrainDomainError("NOT_FOUND", "work item not found");
-    const sessionId = payload["sessionId"] ? String(payload["sessionId"]) : "";
-    if (sessionId && this.row(actor, workspaceId, sessionId).work_item_id !== workItemId) throw new BrainDomainError("FORBIDDEN", "session and message work item differ");
-    const correctionOf = payload["correctionOf"] ? String(payload["correctionOf"]) : "";
-    const db = this.db(actor, workspaceId);
-    if (correctionOf && !db.prepare("SELECT 1 FROM work_item_messages WHERE id=? AND work_item_id=?").get(correctionOf, workItemId)) throw new BrainDomainError("NOT_FOUND", "corrected message not found in this work item");
-    const id = this.store.id("msg");
-    db.prepare("INSERT INTO work_item_messages(id,work_item_id,session_id,sender_id,sender_kind,body,correction_of,created_at_ms) VALUES (?,?,?,?,?,?,?,?)")
-      .run(id, workItemId, sessionId || null, actor.actorId, actor.kind, String(payload["body"]), correctionOf || null, this.store.now());
-    return id;
-  }
 
   /**
    * Records a steer/stop control for a live session; the runner applies it on
@@ -287,6 +281,70 @@ export class SessionService {
     requireWorkspaceRead(this.store, actor, workspaceId);
     enqueueSessionControl(this.store, { organizationId: actor.organizationId, workspaceId, sessionId, kind, payload });
     return sessionId;
+  }
+
+  /** Messages for this work item (or the member it is assigned to) reach its next session at start. */
+  private deliverAtStart(db: ReturnType<Store["workspaceDb"]>, workItemId: string): void {
+    const item = db.prepare("SELECT mission_id, assignment_json FROM work_items WHERE id=?").get(workItemId) as { mission_id: string; assignment_json: string | null } | undefined;
+    if (!item) return;
+    const member = item.assignment_json ? (JSON.parse(item.assignment_json) as { id?: string }).id ?? "" : "";
+    db.prepare(`UPDATE mission_messages SET delivery='delivered-at-session-start' WHERE mission_id=? AND delivery='pending'
+      AND (work_item_id=? OR (recipient_kind='member' AND recipient_member_id=? AND work_item_id IS NULL))`).run(item.mission_id, workItemId, member);
+  }
+
+  /**
+   * Live delivery of a mission message (issue #38). A running session whose
+   * engine negotiated steering is steered at its next turn boundary; an
+   * explicit Interrupt stops the session at its next safe point and the
+   * message waits for the session that resumes the work. Otherwise it stays
+   * pending until the recipient's next session starts. No engine is ever
+   * silently cancelled and re-prompted.
+   */
+  deliverMessage(organizationId: string, workspaceId: string, messageId: string, interrupt: boolean): MissionMessage["delivery"] {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    const message = db.prepare("SELECT * FROM mission_messages WHERE id=?").get(messageId) as MessageRow | undefined;
+    if (!message) throw new BrainDomainError("NOT_FOUND", "mission message not found");
+    const sessions = db.prepare(`SELECT s.* FROM sessions s JOIN work_items w ON w.id=s.work_item_id
+      WHERE w.mission_id=? AND s.state IN ('starting','running') AND (w.id=? OR (? IS NOT NULL AND json_extract(w.assignment_json,'$.id')=?))`)
+      .all(message.mission_id, message.work_item_id, message.recipient_member_id, message.recipient_member_id) as SessionRow[];
+    if (sessions.length === 0) return message.delivery;
+    if (interrupt) {
+      for (const session of sessions) enqueueSessionControl(this.store, { organizationId, workspaceId, sessionId: session.id, kind: "session.stop", payload: { sessionId: session.id, reason: "interrupt-for-message" } });
+      return message.delivery;
+    }
+    const steerable = sessions.filter((session) => session.state === "running" && (JSON.parse(session.engine_features ?? "[]") as string[]).includes("steer"));
+    if (steerable.length === 0) return message.delivery;
+    for (const session of steerable) enqueueSessionControl(this.store, { organizationId, workspaceId, sessionId: session.id, kind: "session.steer", payload: { sessionId: session.id, message: message.body } });
+    db.prepare("UPDATE mission_messages SET delivery='delivered-live' WHERE id=? AND delivery='pending'").run(messageId);
+    return "delivered-live";
+  }
+
+  /**
+   * The context one session receives (issue #12/#33): the mission brief, the
+   * handoffs of its work item's direct dependencies, its pinned inputs, the
+   * messages delivered to it and its last checkpoint. Nothing else is shared;
+   * larger material is fetched by reference.
+   */
+  private context(actor: ActorContext, workspaceId: string, sessionId: string): SessionContext {
+    const session = this.row(actor, workspaceId, sessionId);
+    const db = this.db(actor, workspaceId);
+    const checkpoint = this.checkpoint(session);
+    if (!session.work_item_id) return { sessionId, dependencyHandoffs: [], inputs: [], messages: [], ...(checkpoint ? { checkpoint } : {}) };
+    const item = db.prepare("SELECT mission_id, assignment_json FROM work_items WHERE id=?").get(session.work_item_id) as { mission_id: string; assignment_json: string | null };
+    const member = item.assignment_json ? (JSON.parse(item.assignment_json) as { id?: string }).id ?? "" : "";
+    const inputs = (db.prepare("SELECT output_version_id AS outputVersionId, artifact_digest AS artifactDigest FROM work_item_inputs WHERE work_item_id=? GROUP BY output_version_id ORDER BY output_version_id").all(session.work_item_id) as Array<{ outputVersionId: string; artifactDigest: string }>);
+    const messages = (db.prepare(`SELECT * FROM mission_messages WHERE mission_id=? AND delivery IN ('delivered-at-session-start','delivered-live')
+      AND (work_item_id=? OR (recipient_kind='member' AND recipient_member_id=? AND work_item_id IS NULL)) ORDER BY created_at_ms DESC, id DESC LIMIT 20`)
+      .all(item.mission_id, session.work_item_id, member) as MessageRow[]).reverse().map((row): MissionMessage => ({
+        messageId: row.id, missionId: row.mission_id, recipient: { kind: row.recipient_kind, ...(row.recipient_member_id ? { memberId: row.recipient_member_id } : {}) },
+        ...(row.work_item_id ? { workItemId: row.work_item_id } : {}), senderId: row.sender_id, body: row.body, delivery: row.delivery,
+        ...(row.correction_of ? { correctionOf: row.correction_of } : {}), createdAt: iso(row.created_at_ms),
+      }));
+    return {
+      sessionId, missionId: item.mission_id, workItemId: session.work_item_id,
+      ...(this.missions ? { brief: this.missions.brief(actor, workspaceId, item.mission_id) } : {}),
+      dependencyHandoffs: dependencyHandoffs(db, session.work_item_id), inputs, messages, ...(checkpoint ? { checkpoint } : {}),
+    };
   }
 
   workItemForDispatch(actor: ActorContext, workspaceId: string, sessionId: string): string {
@@ -317,17 +375,7 @@ export class SessionService {
       const rows = db.prepare("SELECT * FROM delegations ORDER BY created_at_ms DESC,id LIMIT ?").all(limit) as DelegationRow[];
       return { items: rows.map((row) => this.delegation(workspaceId, row)) } as unknown as JsonValue;
     }
-    if (queryType === "workItemMessages.list") {
-      const rows = resourceId
-        ? db.prepare("SELECT * FROM work_item_messages WHERE work_item_id=? ORDER BY created_at_ms,id LIMIT ?").all(resourceId, limit) as MessageRow[]
-        : db.prepare("SELECT * FROM work_item_messages ORDER BY created_at_ms,id LIMIT ?").all(limit) as MessageRow[];
-      const items = rows.map((row): WorkItemMessage => ({
-        messageId: row.id, workItemId: row.work_item_id, ...(row.session_id ? { sessionId: row.session_id } : {}),
-        senderId: row.sender_id, senderKind: row.sender_kind, body: row.body,
-        ...(row.correction_of ? { correctionOf: row.correction_of } : {}), createdAt: iso(row.created_at_ms),
-      }));
-      return { items } as unknown as JsonValue;
-    }
+    if (queryType === "sessions.context") return this.context(actor, workspaceId, String(resourceId)) as unknown as JsonValue;
     throw new BrainDomainError("UNSUPPORTED_CAPABILITY", `unsupported session query ${queryType}`);
   }
 }

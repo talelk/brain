@@ -1,5 +1,5 @@
 {
-  "contractVersion": "brain.checkpoint/v1",
+  "contractVersion": "brain.checkpoint/v2",
   "attemptId": "att_demo",
   "sourceRevision": "sha1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "diff": {

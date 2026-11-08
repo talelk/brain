@@ -45,8 +45,18 @@ type WorkItemRow = {
   version: number; created_at_ms: number; updated_at_ms: number;
 };
 
+/** Live message delivery is the sessions module's, bound at the composition root. */
+export interface MissionDeliveryPort {
+  deliver(organizationId: string, workspaceId: string, messageId: string, interrupt: boolean): unknown;
+}
+
 export class MissionService {
-  constructor(private readonly store: Store) {}
+  constructor(private readonly store: Store, private readonly delivery?: MissionDeliveryPort) {}
+
+  /** The current brief of a mission, as every session of it receives it. */
+  briefOf(actor: ActorContext, workspaceId: string, missionId: string): MissionBrief {
+    return this.brief(actor, workspaceId, this.missionRow(actor, workspaceId, missionId));
+  }
 
   private db(actor: ActorContext, workspaceId: string) {
     requireWorkspaceRead(this.store, actor, workspaceId);
@@ -333,11 +343,13 @@ export class MissionService {
     const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
     assertNotClosed(mission);
     const team = mission.active_plan_version_id ? (JSON.parse(this.planRow(actor, workspaceId, mission.active_plan_version_id).team_json) as TeamMember[]).map((member) => member.memberId) : [];
-    return sendMessage(this.store, this.db(actor, workspaceId), {
+    const messageId = sendMessage(this.store, this.db(actor, workspaceId), {
       missionId: mission.id, senderId: actor.actorId, recipient: payload["recipient"] as { kind: "mission" | "member"; memberId?: string },
       body: String(payload["body"]), team,
       ...(payload["workItemId"] ? { workItemId: String(payload["workItemId"]) } : {}), ...(payload["correctionOf"] ? { correctionOf: String(payload["correctionOf"]) } : {}),
     });
+    this.delivery?.deliver(actor.organizationId, workspaceId, messageId, payload["interrupt"] === true);
+    return messageId;
   }
 
   /** Mission lifecycle per issue #19: humans pause, resume and close; completion is proposed, never declared. */
