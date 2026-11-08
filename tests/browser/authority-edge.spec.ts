@@ -44,7 +44,7 @@ test("work item expected-version conflict preserves the intended move and curren
   ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-edge','Edge objective','Test conflict handling','[]',?,?,?)").run(actor.actorId, now, now);
   ws.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-edge','obj-edge',1,?,'confirmed','manual',?,'[]',?)").run(DIGEST, actor.actorId, now);
   ws.prepare("INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('work-edge','obj-edge','plan-edge','step','Conflict-safe work','ready','[]','Move to In Progress',?,?)").run(now, now);
-  await page.goto(`${governor.url}/w/ws-edge/plans?mission=obj-edge`);
+  await page.goto(`${governor.url}/missions/obj-edge/plan`);
   await page.getByRole("button", { name: "Manage Conflict-safe work", exact: true }).click();
   await page.getByLabel("Move Conflict-safe work", { exact: true }).click();
   await page.getByRole("option", { name: "In Progress", exact: true }).click();
@@ -92,10 +92,10 @@ test("workspace revocation clears protected content instead of retaining its cac
   ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-private','Private objective','Protected','[]',?,?,?)").run(actor.actorId, now, now);
   ws.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-private','obj-private',1,?,'confirmed','manual',?,'[]',?)").run(DIGEST, actor.actorId, now);
   ws.prepare("INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('work-private','obj-private','plan-private','step','Private customer investigation','ready','[]','Inspect',?,?)").run(now, now);
-  await page.goto(`${governor.url}/w/ws-edge/plans?mission=obj-private`);
+  await page.goto(`${governor.url}/missions/obj-private/plan`);
   await expect(page.getByText("Private customer investigation", { exact: true })).toBeVisible();
   brain.store.control.prepare("UPDATE workspace_memberships SET revoked_at_ms=? WHERE workspace_id='ws-edge' AND principal_id=?").run(brain.store.now(), actor.actorId);
-  await page.goto(`${governor.url}/w/ws-edge/plans?mission=obj-private`);
+  await page.goto(`${governor.url}/missions/obj-private/plan`);
   await expect(page.getByText("Private customer investigation", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Create your first workspace" })).toBeVisible();
 });

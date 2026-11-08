@@ -124,7 +124,7 @@ export function ConsoleScreen(props: {
   const rail = <SessionRail workspaceId={ws()} sessions={sessions.state().data ?? []} jobs={jobs.state().data ?? []}
     selected={selected() || undefined} onSelect={(sessionId) => props.onSessionChange(sessionId)}
     onOpenRun={(jobId) => void navigate(`/runs/${jobId}`)}
-    onOpenRunsIndex={() => void navigate(`/w/${ws()}/runs`)} />;
+    onOpenRunsIndex={() => void navigate(`/w/${ws()}/logs`)} />;
 
   return <div class="flex min-h-0 flex-col">
     <Show when={selected()} keyed fallback={

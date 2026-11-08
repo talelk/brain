@@ -28,12 +28,10 @@ const PAGE_LOADERS = {
   MissionPage: () => import('./routes/pages/MissionPage'),
   PlaysPage: () => import('./routes/pages/PlaysPage'),
   BridgePage: () => import('./routes/pages/BridgePage'),
-  PlansPage: () => import('./routes/pages/PlansPage'),
   ResourcesPage: () => import('./routes/pages/ResourcesPage'),
   IntegrationsPage: () => import('./routes/administration/IntegrationsPage'),
   StudioListPage: () => import('./ui/studio/StudioPages').then((module) => ({ default: module.StudioListPage })),
   StudioEditorPage: () => import('./ui/studio/StudioPages').then((module) => ({ default: module.StudioEditorPage })),
-  RunsPage: () => import('./routes/pages/RunsPage'),
   RunnersPage: () => import('./routes/pages/RunnersPage'),
   ApprovalsPage: () => import('./routes/pages/ApprovalsPage'),
   ApprovalDetailPage: () => import('./routes/pages/ApprovalDetailPage'),
@@ -237,9 +235,7 @@ export function App(): JSX.Element {
       <Route path="/w/:id/live" component={workspacePage("LivePage")} />
       <Route path="/w/:id/logs" component={workspacePage("LogsPage")} />
       <Route path="/w/:id/outputs" component={workspacePage("OutputsPage")} />
-      <Route path="/w/:id/plans" component={workspacePage("PlansPage")} />
       <Route path="/w/:id/resources" component={workspacePage("ResourcesPage")} />
-      <Route path="/w/:id/runs" component={workspacePage("RunsPage")} />
       <Route path="/w/:id/plays/support" component={workspacePage("SupportPage")} />
       <Route path="/w/:id/plays/sre" component={workspacePage("SrePage")} />
       <Route path="/w/:id/knowledge" component={workspacePage("KnowledgePage")} />

@@ -22,7 +22,7 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/plays/:id` | plays | Review a play or single task, its schedules and history, then start it | brief, team, plan, inputs, schedules, history |
 | `/administration/workspaces` | administration | Manage workspaces | workspace, state, counts |
 | `/w/:id/live` | live | Run, steer and inspect live agent sessions without losing session state | sessions, console, outputs, controls |
-| `/w/:id/logs` | logs | Search execution and platform logs and jump between correlated contexts | records, filters, search, correlation |
+| `/w/:id/logs` | logs | Search execution and platform logs and jump between correlated contexts | records, filters, search, correlation, runs, state |
 | `/w/:id/outputs` | outputs | Browse authorized generated artifacts with previews, diffs and history | artifacts, preview, history, diff |
 | `/outputs/:id` | outputs | Inspect a named output, its versions and lineage | versions, lineage, preview, verification, provenance |
 | `/outputs/:id/compare` | outputs | Compare two versions of an output with their provenance | diff, provenance |
@@ -41,8 +41,6 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/settings` | administration | Manage explicitly authorized administration | members, people, invitations, access, authenticationPolicy, audit, health |
 | `/accept-invitation/:id` | administration | Verify an invited account and accept organization membership | invitedSignUp, emailVerification, explicitAcceptance |
 | `/tv/:play` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
-| `/w/:id/runs` | live | Index historical and active runs; sessions live in the console rail, runners have their own screen | runs |
-| `/w/:id/plans` | missions | Turn an intention into a reviewed plan and versioned work | objective, planVersion, tasks, dependencies, assignments |
 | `/w/:id/resources` | knowledge | Manage and use workspace documents | documents, versions, preview, scope, associations, indexing |
 | `/studio/:kind` | knowledge | Create and validate a capability without editing YAML | definitions, drafts, validation, dependencies |
 | `/studio/:kind/:draftId` | knowledge | Edit, test, review and publish an immutable definition | editor, diagnostics, diff, tests, publication |

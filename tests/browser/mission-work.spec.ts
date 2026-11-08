@@ -31,8 +31,8 @@ function seedWorkItem(ws: ReturnType<Brain["store"]["workspaceDb"]>, id: string,
 }
 
 async function openMissionWork(page: Page, governor: GovernorFixture) {
-  await page.goto(`${governor.url}/w/ws-board/plans?mission=obj-ui`);
-  await expect(page.getByRole("heading", { name: "Plans", exact: true, level: 1 })).toBeVisible();
+  await page.goto(`${governor.url}/missions/obj-ui/plan`);
+  await expect(page.getByRole("heading", { name: "Fixture mission", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Mission work" })).toBeVisible();
 }
 
@@ -64,9 +64,9 @@ test("mission work: items render with state, move applies, Done is disabled with
   if (await navToggle.isVisible()) await navToggle.click();
   await page.getByRole("button", { name: "Missions", exact: true }).click();
   expect(new URL(page.url()).pathname).toBe("/w/ws-board/missions");
-  await page.goto(`${governor.url}/w/ws-board/plans`);
-  await expect(page.getByRole("heading", { name: "Plans", exact: true, level: 1 })).toBeVisible();
-  await page.getByText("Fixture mission", { exact: true }).click();
+  await page.getByRole("button", { name: "Open mission Fixture mission", exact: true }).click();
+  await expect(page).toHaveURL(/\/missions\/obj-ui\/live$/);
+  await page.goto(`${governor.url}/missions/obj-ui/plan`);
   await expect(page.getByText("Ship the fixture", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Manage Ship the fixture" }).click();

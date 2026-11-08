@@ -94,7 +94,8 @@
     "workItem.transition",
     "workItem.comment",
     "automation.upsert",
-    "automation.control"
+    "automation.control",
+    "plan.propose"
    ],
    "content": [
     "live",
@@ -216,14 +217,17 @@
     "stream.tail",
     "stream.search",
     "stream.context",
-    "stream.compare"
+    "stream.compare",
+    "jobs.list"
    ],
    "actions": [],
    "content": [
     "records",
     "filters",
     "search",
-    "correlation"
+    "correlation",
+    "runs",
+    "state"
    ],
    "owner": "T61",
    "navigationGroup": "logs",
@@ -623,46 +627,6 @@
    "title": "Play kiosk"
   },
   {
-   "route": "/w/:id/runs",
-   "queries": [
-    "jobs.list"
-   ],
-   "actions": [
-    "workflow.dispatch"
-   ],
-   "content": [
-    "runs"
-   ],
-   "owner": "T60",
-   "navigationGroup": "live",
-   "icon": "lucide-list",
-   "task": "Index historical and active runs; sessions live in the console rail, runners have their own screen",
-   "title": "Runs"
-  },
-  {
-   "route": "/w/:id/plans",
-   "queries": [
-    "missions.list"
-   ],
-   "actions": [
-    "mission.create",
-    "plan.propose",
-    "plan.confirm"
-   ],
-   "content": [
-    "objective",
-    "planVersion",
-    "tasks",
-    "dependencies",
-    "assignments"
-   ],
-   "owner": "T51",
-   "navigationGroup": "missions",
-   "icon": "lucide-list-tree",
-   "task": "Turn an intention into a reviewed plan and versioned work",
-   "title": "Plans"
-  },
-  {
    "route": "/w/:id/resources",
    "queries": [
     "documents.list",
@@ -828,10 +792,6 @@
     "route": "/w/:id/missions"
    },
    {
-    "label": "Plans",
-    "route": "/w/:id/plans"
-   },
-   {
     "label": "Approvals",
     "route": "/approvals"
    }
@@ -840,10 +800,6 @@
    {
     "label": "Live",
     "route": "/w/:id/live"
-   },
-   {
-    "label": "Runs",
-    "route": "/w/:id/runs"
    },
    {
     "label": "Runners",

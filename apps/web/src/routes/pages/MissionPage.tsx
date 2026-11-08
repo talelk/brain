@@ -12,6 +12,7 @@ import { BrainPage, PageStack, TechnicalDetails } from "../../ui/components/Page
 import { EmptyPreview, FactStrip, QueueRow, WorkspaceSection } from "../../ui/components/Domain";
 import { MissionWorkItems } from "../../ui/components/MissionWorkItems";
 import { SchedulesPanel } from "../../ui/components/SchedulesPanel";
+import { PlanCanvas } from "../../ui/components/PlanCanvas";
 import { formatDateTime } from "../../ui/format";
 import { missionHref, type MissionTab } from "../../ui/mission-links";
 
@@ -198,7 +199,7 @@ function PlanTab(props: ActProps): JSX.Element {
   const confirmed = () => versions.state().data?.confirmed;
   return <PageStack>
     <WorkspaceSection title="Plan version" description="Confirmed work and any proposal waiting for a person.">
-      <Show when={confirmed()} fallback={<EmptyPreview icon="lucide-list-tree" title="No confirmed plan yet" description="Open a proposal from Needs you, or prepare one from Plans." />}>
+      <Show when={confirmed()} fallback={<EmptyPreview icon="lucide-list-tree" title="No confirmed plan yet" description="Prepare a plan proposal below, or open one an agent proposed from Needs you." />}>
         {(plan) => <p class="text-interface">Revision {plan().revision} · {plan().tasks.length} tasks{plan().team?.length ? ` · ${plan().team!.length} members` : ""}</p>}
       </Show>
       <Show when={versions.state().data?.proposal}>{(p) => <section class="mt-3 rounded-control border border-outline-gray-2 p-3" aria-label="Plan proposal">
@@ -209,6 +210,7 @@ function PlanTab(props: ActProps): JSX.Element {
           onClick={() => void props.onAct(async () => { await app.run("plan.confirm", { planVersionId: p().planVersionId }, { expectedVersion: props.mission.version }); await versions.refresh({ force: true }); })}>Confirm this plan version</Button></Show>
       </section>}</Show>
     </WorkspaceSection>
+    <PlanCanvas mission={props.mission} onChanged={() => props.onAct(async () => undefined)} />
     <MissionWorkItems missionId={props.mission.missionId} />
     <MissionSchedules missionId={props.mission.missionId} />
   </PageStack>;

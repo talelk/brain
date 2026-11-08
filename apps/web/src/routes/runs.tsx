@@ -7,10 +7,10 @@ import { FilterBar } from "@talelk/newui-organisms";
 import type { JobSnapshot } from "@brain/contracts";
 import { ScreenRegion, DateText } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
-import { BrainPage, PageStack } from "../ui/components/PageLayout";
+import { PageStack } from "../ui/components/PageLayout";
 import { StatusBadge } from "../ui/components/StatusBadge";
 import { queueReasonLabel } from "../ui/format";
-import { EmptyPreview, QueueRow } from "../ui/components/Domain";
+import { EmptyPreview, QueueRow, WorkspaceSection } from "../ui/components/Domain";
 import { execLiveUrl } from "../ui/exec/exec-filters";
 import { CorrelationLink } from "../ui/exec/CorrelationLink";
 
@@ -92,7 +92,7 @@ export function RunsScreen(props: {
     : viewOf() === "waiting" ? props.jobs.filter((job) => ["queued", "offered", "blocked"].includes(job.state))
       : viewOf() === "intervention" ? props.jobs.filter((job) => INTERVENTION.includes(job.state)) : props.jobs;
   const rows = paged(visibleJobs, page);
-  return <BrainPage title="Runs" description="Every historical and active run, with its console, logs and outputs one click away."
+  return <WorkspaceSection title="Runs" description="Every historical and active run, with its console, logs and outputs one click away."
     actions={<><Button size="md" variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button><Show when={props.canDispatch}><Button size="md" variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Start work</Button></Show></>}>
     <PageStack>
       <dl class="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-outline-gray-1 py-2 text-caption" aria-label="Runs summary">
@@ -155,5 +155,5 @@ export function RunsScreen(props: {
         </Show>
       </ScreenRegion>
     </PageStack>
-  </BrainPage>;
+  </WorkspaceSection>;
 }

@@ -1,5 +1,9 @@
 # Runtime status and continuation — 2026-10-28
 
+## Plans and runs fold into missions and Logs — 8 November
+
+The fourth UI slice removes `/w/:id/plans` and `/w/:id/runs`, as the #25 route map decided. Planning lives on the mission's Plan tab: its proposal canvas asks Brain for a strategy (or another one), edits each step's outcome, criteria and dependencies, and confirms it — proposing an edited version first — so nothing becomes tracked work before an explicit confirmation; the tab keeps the agent-proposal review, the mission's work items and their scheduled starts. Missions are created at `/w/:id/missions/new`. The run index (active, waiting, needs-intervention and history views, state filter, search and paging) is a section of `/w/:id/logs` above the Log Explorer, with `run*` URL parameters beside the explorer's own; the console's "all runs" link opens it.
+
 ## Plays absorb tasks, agents and schedules — 8 November
 
 The third UI slice (T58) folds the agent, workflow and schedule pages into Plays, as the #25/#43 route map decided. A declared workflow is a one-task Play: `/w/:id/plays` lists the active release's Plays and single tasks and keeps the guided entry (describe the work, or start from a ticket, incident or work item, reviewed in place), and `/plays/:id` opens either a Play — brief, team roles with each member's agent definition, plan shape, schedules and triggers, the missions it started (`Mission.playId`), and Start into `/w/:id/missions/new` — or a single task, whose typed inputs are reviewed and dispatched there with its schedules and the agents it runs. `plays.get` returns the Play's full spec. The release compiler refuses a Play and a Workflow with the same id. Schedules live on what they start: a Play, a task, or a mission's work items on its Plan tab. Active agent definitions are listed in the Agent Studio for authoring. `/w/:id/agents`, `/w/:id/workflows` and `/w/:id/schedules` are removed without redirects.

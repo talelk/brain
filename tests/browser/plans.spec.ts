@@ -34,7 +34,7 @@ test("plans: explicit confirmation creates exact work and replanning preserves h
     .run(objective.id, actor.actorId, firstPlan.id, brain.store.now(), brain.store.now());
   expect((db.prepare("SELECT COUNT(*) AS count FROM work_items").get() as { count: number }).count).toBe(0);
 
-  await page.goto(`${governor.url}/w/ws-plans/plans?mission=${encodeURIComponent(objective.id)}`);
+  await page.goto(`${governor.url}/missions/${encodeURIComponent(objective.id)}/plan`);
   await expect(page.getByText("Review the two-step strategy", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Confirm this plan", exact: true }).click();
   await expect.poll(() => (db.prepare("SELECT COUNT(*) AS count FROM work_items").get() as { count: number }).count).toBe(2);
