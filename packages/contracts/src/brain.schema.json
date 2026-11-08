@@ -7126,6 +7126,7 @@
             "mission.created",
             "plan.proposed",
             "plan.confirmed",
+            "plan.rejected",
             "workItem.transitioned",
             "mission.stateChanged",
             "mission.briefChanged",
