@@ -2,7 +2,7 @@
   "contractVersion": "brain.execution-plan/v1",
   "policy": "contracts/v1/implementation-policy.json",
   "codingAssistant": {
-    "binaryVersion": "2.1.4",
+    "binaryVersion": "2.2.5",
     "model": "local-qwen/qwen3.8-flash-next-a5b",
     "config": "opencode.json",
     "declaredContextTokens": 262144,

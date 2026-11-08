@@ -23,7 +23,7 @@ The implementing model must not consume every source document in every call. The
 | Requirement | Present evidence | What completes it |
 |---|---|---|
 | Exact working dependency set | Candidate versions/source observations, deterministic resolver; registry DNS failed in this shell | Successful artifact resolution, reviewed frozen install, native/peer checks, SBOM and G01 |
-| OpenCode native config load | Binary 2.1.4 and sanitized static profile checks pass; background service exits code 1 here, with the same failure outside this project | Healthy native loader on the execution host and effective model/instruction/permission verification |
+| OpenCode native config load | Binary 2.2.5 and sanitized static profile checks pass; background service exits code 1 here, with the same failure outside this project | Healthy native loader on the execution host and effective model/instruction/permission verification |
 | Actual local Qwen competence | Configured local model/declared limits observed; no model calls sent | Six real disposable qualification tasks, three repetitions, context/compaction recovery and failure evidence |
 | Vendor/kernel integrations | Required probes, data and acceptance paths specified | G02–G07 against actual libraries, services, provider credentials, sandbox and disposable targets |
 | Product UX/performance | Source-reviewed NewUI recipe, screen contracts and budgets | Installed recipe compile, real responsive/browser workflows, runtime load/restore tests and G08 measurements |

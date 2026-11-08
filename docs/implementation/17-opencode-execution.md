@@ -2,7 +2,7 @@
 
 ## Selected coding environment
 
-Use OpenCode **2.1.4**, the locally observed executable, with **`local-qwen/qwen3.8-flash-next-a5b`**. This is the user's configured local model, not Alibaba's similarly named hosted endpoint. The existing provider is inherited from the operator's global OpenCode configuration. No endpoint, API key or global configuration content is copied into this pack. OpenCode is the implementation assistant; this choice does not add another Brain runtime harness.
+Use OpenCode **2.2.5**, the locally installed executable (re-pinned from 2.1.4 on 8 November 2026 after checking that its native loader accepts this `opencode.json` unchanged: model, default agent, agent permissions, compaction and instructions), with **`local-qwen/qwen3.8-flash-next-a5b`**. This is the user's configured local model, not Alibaba's similarly named hosted endpoint. The existing provider is inherited from the operator's global OpenCode configuration. No endpoint, API key or global configuration content is copied into this pack. OpenCode is the implementation assistant; this choice does not add another Brain runtime harness.
 
 The declared local model limits are 262,144 context tokens and 32,768 output tokens. They are configuration claims, not measured reliable working capacity. Start with a **48,000-token working context target**, at most 6,000 tokens of tool output per call, and 16,000 recent tokens retained at compaction. Work may span many calls, packages and sessions; these are attention limits, not incremental delivery requirements. No finite agent `steps` cap is configured: OpenCode removes tools at that cap, which would prematurely end whole-system work.
 
