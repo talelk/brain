@@ -6,6 +6,6 @@ $ pnpm exec vitest run tests/probes/dependencies
 
  Test Files  1 passed (1)
       Tests  1 passed (1)
-   Start at  15:33:26
-   Duration  685ms (import 75%, tests 20%, transform 5%)
+   Start at  21:06:52
+   Duration  5.49s (import 79%, tests 17%, transform 4%)
 

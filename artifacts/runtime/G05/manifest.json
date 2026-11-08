@@ -2,10 +2,10 @@
   "contractVersion": "brain.verification-run/v1",
   "gateId": "G05",
   "status": "passed",
-  "productFingerprint": "sha256:78d8856de5b4f660979ab7c331c4a8b388d45b5686e16e7f92f0f9e74d71f063",
+  "productFingerprint": "sha256:ff6442a9144b5148affd0c43e38918e07215cd1e1fddd35a6e48d1145b731d92",
   "lockDigest": "sha256:581b5c25fb80466a1308330e9d1c025dde6b54108b77feab7bfd1f2fe84ddaa1",
-  "startedAt": "2026-11-08T14:33:52.922Z",
-  "finishedAt": "2026-11-08T14:34:18.692Z",
+  "startedAt": "2026-11-08T20:08:12.991Z",
+  "finishedAt": "2026-11-08T20:08:51.979Z",
   "commands": [
     {
       "argv": [
@@ -16,7 +16,7 @@
         "tests/probes/harnesses/pi.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 2989
+      "durationMs": 5336
     },
     {
       "argv": [
@@ -27,7 +27,7 @@
         "tests/probes/harnesses/claude.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 8350
+      "durationMs": 9614
     },
     {
       "argv": [
@@ -38,7 +38,7 @@
         "tests/probes/harnesses/conformance.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 6942
+      "durationMs": 7998
     },
     {
       "argv": [
@@ -49,7 +49,7 @@
         "tests/integration/scenarios2.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 3439
+      "durationMs": 10037
     },
     {
       "argv": [
@@ -60,7 +60,7 @@
         "tests/probes/sandbox/launcher.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 4037
+      "durationMs": 5944
     }
   ],
   "checks": [
@@ -84,23 +84,23 @@
   "artifacts": [
     {
       "path": "artifacts/runtime/G05/pi-start-stream-cancel.log",
-      "digest": "sha256:c6290770ba800a90aae17860ed66847adbf494d504ec73d282f3a8470a8933b2"
+      "digest": "sha256:0ba533842f5118e37f465b601332b0dcdcc73b78c36c1a2ded316db6b2527698"
     },
     {
       "path": "artifacts/runtime/G05/claude-start-stream-cancel.log",
-      "digest": "sha256:71c02c6fce0e37f02a83dff9936f1a3130eba03250908d941bdc5f4d4c069096"
+      "digest": "sha256:084245ad6c74d3d3898eb68eceac2876a53591bbb7a385aa88eb377028cf400b"
     },
     {
       "path": "artifacts/runtime/G05/capability-matrix.log",
-      "digest": "sha256:0447c8b42861ca5cfea27f26d5d4a21b93920523dff03130c3fe064ac94818eb"
+      "digest": "sha256:c3fcba4bfe2b923bb9c329b5d26b60fdbb508797a4d4072dda33379e395073f7"
     },
     {
       "path": "artifacts/runtime/G05/scenario-E063.log",
-      "digest": "sha256:6cb50e0f6bbd2b58e7ecb3442a91fefe8f4bf2f018852c2d88728072bb3951c1"
+      "digest": "sha256:c3c4067fd8c729fddf83acecc16639c6326ccfe55d6aa1912f3133eb363cbe4b"
     },
     {
       "path": "artifacts/runtime/G05/scenario-E065.log",
-      "digest": "sha256:71a736730bde6a6c3bfb634f0aa1ba6641f5ff300a7ceb17e2903eb63686148e"
+      "digest": "sha256:466217f893c0f54960812710041fc6e286fd30bd355e5a1ea7fabf4ef149ab5e"
     }
   ],
   "selectedScenarios": [

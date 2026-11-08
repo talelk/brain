@@ -2,10 +2,10 @@
   "contractVersion": "brain.verification-run/v1",
   "gateId": "G06",
   "status": "passed",
-  "productFingerprint": "sha256:78d8856de5b4f660979ab7c331c4a8b388d45b5686e16e7f92f0f9e74d71f063",
+  "productFingerprint": "sha256:ff6442a9144b5148affd0c43e38918e07215cd1e1fddd35a6e48d1145b731d92",
   "lockDigest": "sha256:581b5c25fb80466a1308330e9d1c025dde6b54108b77feab7bfd1f2fe84ddaa1",
-  "startedAt": "2026-11-08T14:34:18.692Z",
-  "finishedAt": "2026-11-08T14:34:33.940Z",
+  "startedAt": "2026-11-08T20:08:51.980Z",
+  "finishedAt": "2026-11-08T20:09:11.931Z",
   "commands": [
     {
       "argv": [
@@ -16,7 +16,7 @@
         "tests/probes/sandbox/launcher.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 4045
+      "durationMs": 5987
     },
     {
       "argv": [
@@ -27,7 +27,7 @@
         "tests/probes/sandbox/egress.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 9334
+      "durationMs": 11556
     },
     {
       "argv": [
@@ -38,7 +38,7 @@
         "tests/integration/scenarios3.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 1851
+      "durationMs": 2375
     }
   ],
   "checks": [
@@ -62,15 +62,15 @@
   "artifacts": [
     {
       "path": "artifacts/runtime/G06/fixed-profiles-and-denials.log",
-      "digest": "sha256:c370abdb71d7e147ab8c1104dcd20a12221c09ed326dfc964edeeb7320d86b82"
+      "digest": "sha256:ec6de110240ae7e0b4e9ae6c42bfaa684604748a656f4bcc4f4e4416d609c686"
     },
     {
       "path": "artifacts/runtime/G06/egress-denial.log",
-      "digest": "sha256:e999e182bbc392b409b1592bd95ef1834cca74444441c9ff4bffc47c6ccd0bc4"
+      "digest": "sha256:fe927d7ea2abfcde38fcc6cd0e4a98b584e5de3203eb49d0e40253e21b642e08"
     },
     {
       "path": "artifacts/runtime/G06/scenario-E066.log",
-      "digest": "sha256:cae3b8bf832ca9b280e1a6d5b5bfcbba2cf055c09490f6b520cc2411575b796f"
+      "digest": "sha256:0363990323950e33749d186f9b9d5e549e4f93ccb0f680ff7f18f1f5bc55afb7"
     }
   ],
   "selectedScenarios": [

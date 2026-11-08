@@ -6,6 +6,6 @@ $ pnpm exec vitest run tests/integration/scenarios2.test.ts
 
  Test Files  1 passed (1)
       Tests  33 passed (33)
-   Start at  16:05:22
-   Duration  2.80s (tests 78%, import 18%, transform 4%)
+   Start at  21:40:17
+   Duration  6.69s (tests 79%, import 17%, transform 4%)
 

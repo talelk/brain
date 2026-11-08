@@ -6,6 +6,6 @@ $ pnpm exec vitest run tests/probes/sandbox/egress.test.ts
 
  Test Files  1 passed (1)
       Tests  1 passed (1)
-   Start at  15:34:23
-   Duration  9.04s (tests 100%)
+   Start at  21:08:58
+   Duration  10.76s (tests 100%)
 

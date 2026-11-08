@@ -1,6 +1,6 @@
 {
   "scope": "evidence-record-integrity-only",
-  "productFingerprint": "sha256:78d8856de5b4f660979ab7c331c4a8b388d45b5686e16e7f92f0f9e74d71f063",
+  "productFingerprint": "sha256:ff6442a9144b5148affd0c43e38918e07215cd1e1fddd35a6e48d1145b731d92",
   "gates": {
     "G01": {
       "status": "passed",
@@ -37,10 +37,10 @@
   },
   "allRuntimeGatesPassed": true,
   "modelQualification": {
-    "status": "not-run",
-    "reason": "evidence-missing"
+    "status": "passed",
+    "reason": "current-evidence-records-validated"
   },
-  "modelQualified": false,
+  "modelQualified": true,
   "independentReleaseCertification": "separate-required-evidence",
   "note": "Missing evidence stays not-run. Artifact hashes bind records to bytes; trusted test runners and independent review establish that the recorded tests actually ran."
 }

@@ -85,9 +85,16 @@ dist/assets/StudioPages-DVuSIx3B.js                   111.72 kB │ gzip: 34.82 
 dist/assets/SettingsPage-CZnj-Wgt.js                  140.49 kB │ gzip: 37.59 kB
 dist/assets/index-CCt0CjkO.js                         258.17 kB │ gzip: 76.88 kB
 
-✓ built in 2.55s
+✓ built in 7.06s
 $ pnpm typecheck && pnpm typecheck:web && pnpm --filter @brain/web build
 $ tsc --noEmit --pretty false -p tsconfig.typecheck.json
 $ pnpm --filter @brain/web typecheck
 $ tsc --noEmit --pretty false
 $ vite build
+[33m[PLUGIN_TIMINGS] [0mJavaScript callbacks ran for 6.7s of this 7.0s build (96%).
+The slowest callbacks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+  - plugin @tailwindcss/vite:generate:build transform (87%, 6.1s, 1 call)
+  - plugin solid transform (77%, 5.4s, 969 calls)
+These rows add up to more than the total. Callbacks can overlap, so the same time counts for more than one row.
+See https://rolldown.rs/reference/InputOptions.checks#bundlertimings for more details.
+

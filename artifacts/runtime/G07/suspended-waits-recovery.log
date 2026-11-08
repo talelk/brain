@@ -6,6 +6,6 @@ $ pnpm exec vitest run tests/chaos/recovery.test.ts
 
  Test Files  1 passed (1)
       Tests  3 passed (3)
-   Start at  15:34:36
-   Duration  1.03s (import 55%, tests 31%, transform 14%)
+   Start at  21:09:16
+   Duration  2.37s (import 53%, tests 37%, transform 10%)
 
