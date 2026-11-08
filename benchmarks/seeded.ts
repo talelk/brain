@@ -39,9 +39,9 @@ for (const wsId of wsIds) {
   const actor = mk(wsId);
   for (let i = 0; i < CARDS_PER_WS; i++) {
     brain.executeCommand(actor, {
-      contractVersion: "brain.command/v1", commandId: `seed-${wsId}-${i}`, commandType: "board.create",
+      contractVersion: "brain.command/v1", commandId: `seed-${wsId}-${i}`, commandType: "mission.create",
       workspaceId: wsId, idempotencyKey: `seed-${wsId}-${i}`,
-      payload: { title: `seeded card ${i}`, criteria: ["bench"] },
+      payload: { title: `seeded mission ${i}`, intent: "Benchmark mission", successCriteria: ["bench"] },
     }, "bench");
     cards++;
   }

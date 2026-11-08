@@ -23,6 +23,8 @@ export interface StreamTailResult {
 export interface StreamService {
   /** Incremental, watermark-guarded projection; safe before every read. */
   project(): { projected: number };
+  /** Every workspace, not only those with new events: the maintenance tick. */
+  projectAll(): { projected: number };
   /** Ascending bounded page with SQL-side authorization scoping. */
   read(actor: ActorContext, filters: StreamFilters, limit?: number): StreamTailResult;
   /** Descending FTS page over bounded summaries with a total estimate. */
@@ -45,6 +47,7 @@ export function createStreamService(s: Store): StreamService {
   let lastSweepAtMs = 0;
   return {
     project: () => projectStream(s),
+    projectAll: () => projectStream(s, "all"),
     read: (actor, filters, limit) => tail(s, actor, filters, limit),
     search: (actor, params, limit) => searchStream(s, actor, params, limit),
     context: (actor, eventId) => contextBundle(s, actor, eventId),

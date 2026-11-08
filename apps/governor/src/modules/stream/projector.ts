@@ -300,6 +300,12 @@ interface AttemptTailRow {
 
 function projectAttemptTail(s: Store, organizationId: string): number {
   const control = s.control;
+  // Fast path: attempt_events rows are append-only, so an unchanged MAX(rowid)
+  // since a pass that fully caught up means nothing new to project. This runs
+  // after every applied command; the full candidate scan below groups the
+  // whole table and must not run when no attempt reported anything.
+  const head = (control.prepare("SELECT COALESCE(MAX(rowid), 0) AS top FROM attempt_events").get() as { top: number }).top;
+  if (head <= watermark(control, "attempt-head", organizationId)) return 0;
   const candidates = control.prepare(`SELECT a.id AS attempt_id, a.job_id, j.workspace_id, j.organization_id, j.workflow_run_id, m.max_seq
     FROM (SELECT attempt_id, MAX(seq) AS max_seq FROM attempt_events GROUP BY attempt_id) m
     JOIN job_attempts a ON a.id=m.attempt_id JOIN jobs j ON j.id=a.job_id
@@ -366,25 +372,37 @@ function projectAttemptTail(s: Store, organizationId: string): number {
       if (rows.length < PAGE || projected >= MAX_ROWS_PER_ORG_PASS) break;
     }
   }
+  // Caught up only when no candidate was left for a later pass.
+  if (candidates.length < MAX_ATTEMPTS_PER_PASS && projected < MAX_ROWS_PER_ORG_PASS) advance(control, "attempt-head", organizationId, head);
   return projected;
 }
 
 /**
  * Tail all three sources for every organization. Watermark-guarded and
  * idempotent; safe to call before every read, from the maintenance tick and
- * after applied commands.
+ * after applied commands. The hot path ("changed") tails only workspaces whose
+ * event logs gained rows since the last pass, so a command never opens every
+ * workspace database; the maintenance tick and a process's first pass sweep
+ * them all ("all"), which also covers events written before a restart.
  */
-export function projectStream(s: Store): { projected: number } {
+const swept = new WeakSet<Store>();
+export function projectStream(s: Store, scope: "changed" | "all" = "changed"): { projected: number } {
   const control = s.control;
   let projected = 0;
   const correlator = new Correlator(s);
+  const everything = scope === "all" || !swept.has(s);
+  const changed = new Set(s.takeChangedWorkspaces());
   for (const org of control.prepare("SELECT id FROM organizations ORDER BY id").all() as Array<{ id: string }>) {
     projected += projectControlTail(s, correlator, org.id);
     for (const ws of control.prepare("SELECT id FROM workspaces WHERE organization_id=? AND status='active' ORDER BY id").all(org.id) as Array<{ id: string }>) {
-      projected += projectWorkspaceTail(s, correlator, org.id, ws.id);
+      if (!everything && !changed.has(ws.id)) continue;
+      const rows = projectWorkspaceTail(s, correlator, org.id, ws.id);
+      if (rows >= MAX_ROWS_PER_ORG_PASS) s.markWorkspaceChanged(ws.id); // more remains for the next pass
+      projected += rows;
     }
     projected += projectAttemptTail(s, org.id);
   }
+  swept.add(s);
   return { projected };
 }
 

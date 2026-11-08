@@ -80,10 +80,11 @@ async function trial(brain: Brain, ctx: ReturnType<typeof seed>, durationMs: num
       try {
         if (seq % 3 === 0) {
           const t = performance.now();
-          brain.executeCommand(mk(wsId), {
-            contractVersion: "brain.command/v1", commandId: `st-${label}-${seq}`, commandType: "board.create",
-            workspaceId: wsId, idempotencyKey: `st-${label}-${seq}`, payload: { title: "steady", criteria: ["x"] },
+          const { receipt } = await brain.executeCommand(mk(wsId), {
+            contractVersion: "brain.command/v1", commandId: `st-${label}-${seq}`, commandType: "mission.create",
+            workspaceId: wsId, idempotencyKey: `st-${label}-${seq}`, payload: { title: "steady", intent: "Benchmark mission", successCriteria: ["x"] },
           }, "bench");
+          if (!receipt.accepted) throw new Error(receipt.detail);
           c.push(performance.now() - t);
         } else {
           const t = performance.now();

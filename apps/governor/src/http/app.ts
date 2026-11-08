@@ -797,7 +797,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       setInterval(() => {
     try { brain.jobProtocol.expireLeases(); brain.projectOutbox(); } catch { /* timers never authorize */ }
     // Execution stream: backstop projection plus the throttled retention sweep.
-    try { brain.stream.project(); brain.stream.sweep(); } catch { /* a projection failure must not break expiry */ }
+    try { brain.stream.projectAll(); brain.stream.sweep(); } catch { /* a projection failure must not break expiry */ }
     // Cron dispatch runs on its own cadence; a pass is idempotent and cheap.
     try { brain.jobProtocol.dispatchSchedules(); } catch { /* a bad release must not break expiry */ }
     // T52 automation occurrences share the pass discipline: idempotent, cheap.

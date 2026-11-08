@@ -34,8 +34,8 @@ const cmdSamples: number[] = [];
 for (let i = 0; i < 50; i++) {
   const t0 = performance.now();
   brain.executeCommand(wsActor, {
-    contractVersion: "brain.command/v1", commandId: `bench-${i}`, commandType: "board.create",
-    workspaceId: "ws-bench", idempotencyKey: `bench-${i}`, payload: { title: `bench ${i}`, criteria: ["x"] },
+    contractVersion: "brain.command/v1", commandId: `bench-${i}`, commandType: "mission.create",
+    workspaceId: "ws-bench", idempotencyKey: `bench-${i}`, payload: { title: `bench ${i}`, intent: "Benchmark mission", successCriteria: ["x"] },
   }, "bench");
   cmdSamples.push(performance.now() - t0);
 }

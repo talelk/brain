@@ -32,6 +32,13 @@ export class Store {
   // never held across awaits (audited), so eviction cannot strand a caller.
   private readonly maxWorkspaces = Math.min(256, Math.max(4, Number(process.env["BRAIN_MAX_WORKSPACE_DBS"] ?? 16) || 16));
 
+  // Workspaces whose event logs gained rows since the stream projector last
+  // took them; the projector tails only these on its hot path.
+  private readonly workspaceOfDb = new WeakMap<Db, string>();
+  private readonly changedWorkspaces = new Set<string>();
+  takeChangedWorkspaces(): string[] { const ids = [...this.changedWorkspaces]; this.changedWorkspaces.clear(); return ids; }
+  markWorkspaceChanged(workspaceId: string): void { this.changedWorkspaces.add(workspaceId); }
+
   openWorkspaceCount(): number { return this.workspaces.size; }
   private readonly releaseDirectory: () => void;
 
@@ -87,6 +94,7 @@ export class Store {
     try { initializeFresh(db, loadSchemaSql("workspace.sql"), { workspaceId, organizationId }); }
     catch (e) { db.close(); throw e; }
     this.workspaces.set(workspaceId, db);
+    this.workspaceOfDb.set(db, workspaceId);
     this.workspaceOrganizations.set(workspaceId, organizationId);
     this.lru.push(workspaceId);
     while (this.lru.length > this.maxWorkspaces) {
@@ -116,6 +124,8 @@ export class Store {
     payload: JsonValue; destinations?: readonly string[];
   }): string {
     const eventId = this.id("evt");
+    const changed = this.workspaceOfDb.get(db);
+    if (changed) this.changedWorkspaces.add(changed);
     const payloadJson = JSON.stringify(input.payload);
     const payloadDigest = domainDigest("brain:event:v1", input.payload);
     const seqRow = db.prepare(

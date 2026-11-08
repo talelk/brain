@@ -72,9 +72,9 @@ async function trial(): Promise<Record<string, ReturnType<typeof stats>>> {
     const wsId = wsIds[i % WS]!;
     const t = performance.now();
     brain.executeCommand(mk(wsId), {
-      contractVersion: "brain.command/v1", commandId: `full-${Date.now()}-${i}-${Math.random()}`, commandType: "board.create",
+      contractVersion: "brain.command/v1", commandId: `full-${Date.now()}-${i}-${Math.random()}`, commandType: "mission.create",
       workspaceId: wsId, idempotencyKey: `full-${Date.now()}-${i}-${Math.random()}`,
-      payload: { title: "bench", criteria: ["x"] },
+      payload: { title: "bench", intent: "Benchmark mission", successCriteria: ["x"] },
     }, "bench");
     c.push(performance.now() - t);
   }

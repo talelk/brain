@@ -1,5 +1,9 @@
 # Runtime status and continuation — 2026-10-28
 
+## G08 steady load: benchmarks and projection hot path — 8 November
+
+The G08 steady benchmark still sent the removed `board.create` command, so every command was refused (about 5,000 errors per trial) and command latency was never measured because commands were not awaited. All benchmarks now send `mission.create`, and the steady benchmark awaits each command and counts refused receipts as errors. Measured honestly, applied commands were slow: each one projected the stream across every workspace — reopening workspace databases evicted from the 16-handle cache — and regrouped the whole `attempt_events` table. The projector now tails only workspaces whose event logs gained rows (the store marks them on `emit`), skips the attempt scan when the append-only `attempt_events` head has not moved, and sweeps every workspace from the maintenance tick and on a process's first pass. On a 15-second trial command p95 fell from 52 to 6 ms and event-loop p99 from 65 to 23 ms, within budget.
+
 ## Rejecting proposals and resolving parked work — 8 November
 
 `plan.reject` (human only, with a reason) moves a proposed plan version to the new terminal state `rejected`: it leaves the attention queue, its planning request records the reason, a `plan.rejected` event is emitted and the coordinator wakes (`plan-resolved`); the confirmed version and its work are untouched. The mission Plan tab's proposal review and the planning canvas both offer Reject. A parked work item's panel offers Retry (back to ready, unparked, failure count reset), Drop (abandoned, after a confirmation), Reassign (another team member) and Edit (title and acceptance criteria); Reassign and Edit propose and confirm a new plan version rather than editing work in place, so the changed task gets a fresh work item. The capitalization browser spec now waits for the clicked run to be queued before processing, removing a request race.
