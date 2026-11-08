@@ -1,13 +1,13 @@
 {
   "status": "passed",
   "scope": "documentation-contract-pack-only",
-  "inputFingerprint": "6f92a584dbc64a13af32c64cc179dc9d9f568b3e4b9fb4b143864905ffd74774",
-  "checkedAt": "2026-11-08T06:49:29.187723+00:00",
+  "inputFingerprint": "d14012ebed0a6bb37259816ff9fc4f48bf603b1cfe4ca5865e19218d953d1c08",
+  "checkedAt": "2026-11-08T08:00:35.637597+00:00",
   "checks": [
     {
       "name": "schema-meta",
       "status": "passed",
-      "detail": 363
+      "detail": 365
     },
     {
       "name": "schema-local-references",
