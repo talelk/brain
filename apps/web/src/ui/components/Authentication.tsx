@@ -131,7 +131,7 @@ export function InvitationAcceptancePage() {
       <Show when={app.identity() || vendorSession()} fallback={<Authentication setupRequired={false} invitationId={params.id} onAuthenticated={async () => { await app.reloadIdentity(); await loadSession(); }} />}>
         <AuthCard title={accepted() ? "Invitation accepted" : "Accept organization invitation"} description={accepted() ? "Your organization membership is ready. Workspace access is granted separately by an administrator." : "Confirm this invitation with your verified account."} error={error() || undefined}>
           <Show when={accepted()} fallback={<Button size="md" variant="solid" theme="blue" loading={busy()} onClick={() => void accept()}>Accept invitation</Button>}>
-            <a class="text-ink-blue-link underline" href="/today">Continue to Brain</a>
+            <a class="text-ink-blue-link underline" href="/">Continue to Brain</a>
           </Show>
         </AuthCard>
       </Show>

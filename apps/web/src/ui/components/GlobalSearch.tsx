@@ -33,7 +33,7 @@ export function GlobalSearchDialog(props: { open: boolean; onOpenChange: (open: 
     if (item.category === "artifact") return `/artifacts/${item.resourceId}`;
     if (item.category === "agent") return `/w/${item.workspaceId}/agents?selected=${encodeURIComponent(item.resourceId)}`;
     if (item.category === "workflow") return `/w/${item.workspaceId}/workflows?selected=${encodeURIComponent(item.resourceId)}`;
-    return "/today";
+    return "/";
   }
   return <Dialog.Root open={props.open} onOpenChange={props.onOpenChange}>
     <Dialog.Content size="2xl" position="top" class="brain-search-dialog">

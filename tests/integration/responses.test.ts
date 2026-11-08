@@ -94,7 +94,7 @@ describe("endpoint surface conformance (T02)", () => {
         return { status: res.status, body: (await res.json()) as Record<string, unknown> };
       };
       const cases: Array<Record<string, unknown>> = [
-        ...["today", "jobs.list", "approvals.list", "tools.list",
+        ...["jobs.list", "approvals.list", "tools.list",
           "tickets.list", "incidents.list", "sessions.list",
           "members.list", "audit.list", "runners.list", "platform.health", "workspace.context",
         ].map((queryType) => ({ queryType, workspaceId: w.workspaceId })),

@@ -33,7 +33,7 @@ import {
 import { liveStatus, platformHealth, workspaceContext } from "../modules/operations/index";
 import { getPack, listPack, slaSummary } from "../modules/packs/index";
 import { artifactHistory, diffArtifacts, listArtifacts, readArtifactBytes, searchArtifacts } from "../modules/evidence/index";
-import { bridge, today } from "../modules/missions/index";
+import { bridge } from "../modules/missions/index";
 import { searchSessions } from "../modules/sessions/index";
 import { jobCommands, JobProtocol, type CreateJobInput } from "../modules/jobs/index";
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
@@ -809,8 +809,6 @@ export class Brain {
         }
         return this.envelope(q.queryType, { items: results.slice(0, limit) } as unknown as JsonValue);
       }
-      case "today":
-        return this.envelope(q.queryType, today(s, actor, orgWorkspaces(s, actor), limit));
       case "notifications.list":
         return this.envelope(q.queryType, notificationsFor(s, actor, orgWorkspaces(s, actor), limit));
       case "attention.list": case "missions.sinceLastVisit":

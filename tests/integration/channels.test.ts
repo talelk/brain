@@ -32,14 +32,14 @@ describe("channel parity (T32)", () => {
     };
 
     // Humans cannot use the MCP channel at all.
-    const humanMcp = await call("/mcp", "owner-1", { jsonrpc: "2.0", id: 1, method: "tools/call", params: { query: { queryType: "today", workspaceId: w.workspaceId } } });
+    const humanMcp = await call("/mcp", "owner-1", { jsonrpc: "2.0", id: 1, method: "tools/call", params: { query: { queryType: "missions.list", workspaceId: w.workspaceId } } });
     expect(humanMcp.status).toBe(403);
 
     // Agent query over MCP works and returns the same envelope family.
-    const agentQuery = await call("/mcp", "agent-1", { jsonrpc: "2.0", id: 2, method: "tools/call", params: { query: { queryType: "today", workspaceId: w.workspaceId } } });
+    const agentQuery = await call("/mcp", "agent-1", { jsonrpc: "2.0", id: 2, method: "tools/call", params: { query: { queryType: "missions.list", workspaceId: w.workspaceId } } });
     expect(agentQuery.status).toBe(200);
     const agentQueryBody = (await agentQuery.json()) as { result: { queryType: string } };
-    expect(agentQueryBody.result.queryType).toBe("today");
+    expect(agentQueryBody.result.queryType).toBe("missions.list");
 
     // The same command over MCP then HTTP is one idempotent execution.
     const viaMcp = await call("/mcp", "agent-1", { jsonrpc: "2.0", id: 3, method: "tools/call", params: { command } });

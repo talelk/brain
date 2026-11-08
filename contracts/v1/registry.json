@@ -622,7 +622,6 @@
   ],
   "queries": [
     "search.global",
-    "today",
     "bridge",
     "workspace.context",
     "jobs.list",

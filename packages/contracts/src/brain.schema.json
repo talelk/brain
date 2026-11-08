@@ -11704,7 +11704,7 @@
           "type": "string",
           "enum": [
             "live",
-            "today"
+            "missions"
           ]
         },
         "observedAt": {
@@ -11992,57 +11992,6 @@
           "required": [
             "queryType",
             "search"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "queryType": {
-              "type": "string",
-              "const": "today"
-            },
-            "workspaceId": {
-              "$ref": "#/$defs/Id"
-            },
-            "cursor": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 2048
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            },
-            "search": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 4000
-            },
-            "sort": {
-              "type": "string",
-              "enum": [
-                "urgency",
-                "created-desc"
-              ]
-            },
-            "states": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 40
-              },
-              "maxItems": 12,
-              "uniqueItems": true
-            },
-            "since": {
-              "$ref": "#/$defs/Timestamp"
-            }
-          },
-          "required": [
-            "queryType"
           ],
           "additionalProperties": false
         },
@@ -13251,7 +13200,6 @@
                       "category": {
                         "type": "string",
                         "enum": [
-                          "today",
                           "agent",
                           "workflow",
                           "run",
@@ -13291,64 +13239,6 @@
                     "additionalProperties": false
                   },
                   "maxItems": 30
-                }
-              },
-              "required": [
-                "items"
-              ],
-              "additionalProperties": false
-            },
-            "cursor": {
-              "type": "string",
-              "minLength": 0,
-              "maxLength": 2048
-            },
-            "sourceWatermark": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            },
-            "asOf": {
-              "$ref": "#/$defs/Timestamp"
-            },
-            "projectionLagMs": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            }
-          },
-          "required": [
-            "queryType",
-            "snapshot",
-            "cursor",
-            "sourceWatermark",
-            "asOf",
-            "projectionLagMs"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "queryType": {
-              "type": "string",
-              "const": "today"
-            },
-            "snapshot": {
-              "type": "object",
-              "properties": {
-                "items": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/$defs/TodayItem"
-                  },
-                  "minItems": 0,
-                  "maxItems": 100
-                },
-                "totalEstimate": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
                 }
               },
               "required": [
@@ -15421,74 +15311,6 @@
         "engines",
         "activeAttemptIds",
         "lastSeenAt"
-      ],
-      "additionalProperties": false
-    },
-    "TodayItem": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "$ref": "#/$defs/Id"
-        },
-        "workspaceId": {
-          "$ref": "#/$defs/Id"
-        },
-        "type": {
-          "type": "string",
-          "enum": [
-            "incident",
-            "approval",
-            "sla",
-            "job",
-            "decision"
-          ]
-        },
-        "priority": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 3
-        },
-        "title": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "detail": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "resourceId": {
-          "$ref": "#/$defs/Id"
-        },
-        "updatedAt": {
-          "$ref": "#/$defs/Timestamp"
-        },
-        "stale": {
-          "type": "boolean"
-        },
-        "nextAction": {
-          "type": "string",
-          "enum": [
-            "review",
-            "investigate",
-            "reconcile",
-            "decide",
-            "inspect"
-          ]
-        }
-      },
-      "required": [
-        "id",
-        "workspaceId",
-        "type",
-        "priority",
-        "title",
-        "detail",
-        "resourceId",
-        "updatedAt",
-        "stale",
-        "nextAction"
       ],
       "additionalProperties": false
     },
@@ -18185,7 +18007,6 @@
           "type": "string",
           "enum": [
             "search.global",
-            "today",
             "bridge",
             "workspace.context",
             "jobs.list",

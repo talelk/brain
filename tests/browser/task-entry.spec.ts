@@ -71,8 +71,8 @@ test("guided task entry: persisted modes, shared review, timeout recovery, conso
   await page.goto(`${governor.url}/w/operations/plans?mission=obj-entry`); await page.getByRole("button", { name: "Manage Investigate latency" }).click();
   await expect(page.getByRole("button", { name: "Inspect run", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Console", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Logs", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Outputs", exact: true })).toBeVisible();
+  await expect(page.locator("#app-shell-content").getByRole("button", { name: "Logs", exact: true })).toBeVisible();
+  await expect(page.locator("#app-shell-content").getByRole("button", { name: "Outputs", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Console", exact: true }).click();
   await expect(page).toHaveURL(/\/w\/operations\/live\?session=/);
 

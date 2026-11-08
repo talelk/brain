@@ -6,7 +6,7 @@ import { explainJob, getJob, getRunner, listJobs, listRunners } from "../../apps
 import { commandReceipt, getApproval, listApprovals } from "../../apps/governor/src/modules/governance/read";
 import { liveStatus, platformHealth, workspaceContext, workspaceSummary } from "../../apps/governor/src/modules/operations/read";
 import { getPack, listPack, slaSummary } from "../../apps/governor/src/modules/packs/read";
-import { bridge, today } from "../../apps/governor/src/modules/missions/read";
+import { bridge } from "../../apps/governor/src/modules/missions/read";
 import { activeRelease, configExplain, releaseDefinitions, searchReleaseDocuments } from "../../apps/governor/src/modules/configuration/read";
 import { artifactHistory, listArtifacts, readArtifactBytes } from "../../apps/governor/src/modules/evidence/read";
 import { searchSessions } from "../../apps/governor/src/modules/sessions/read";
@@ -107,7 +107,7 @@ describe("operations module read surface", () => {
     const live = liveStatus(w.brain.store, w.owner, w.workspaceId) as Record<string, unknown>;
     expect(live.pendingApprovals).toBe(1);
     expect(live.needsAttention).toBe(true);
-    expect(live.defaultRoute).toBe("today"); // no active sessions/runs
+    expect(live.defaultRoute).toBe("missions"); // no active sessions/runs
 
     const health = platformHealth(w.brain.store, { status: "disabled", detail: "local store", checkedAt: "" }) as Record<string, unknown>;
     expect(health.status).toBe("healthy");
@@ -143,13 +143,8 @@ describe("packs module read surface", () => {
 });
 
 describe("work module read surface", () => {
-  it("surfaces approvals and unknown outcomes on today, and summarizes on bridge", () => {
+  it("summarizes workspaces on bridge", () => {
     const w = setupWorld();
-    seedApproval(w, "apr-1");
-    seedJob(w, "job-1", "outcome_unknown");
-    const items = (today(w.brain.store, w.owner, [w.workspaceId], 50) as { items: Array<Record<string, unknown>> }).items;
-    expect(items.map((i) => i.type)).toContain("approval");
-    expect(items.map((i) => i.type)).toContain("job");
     const bridgeItems = (bridge(w.brain.store, w.owner, [w.workspaceId]) as { items: Array<Record<string, unknown>> }).items;
     expect(bridgeItems[0]!.workspaceId).toBe(w.workspaceId);
     w.brain.close();

@@ -265,11 +265,6 @@
       "scopeMode": "authorized-workspace-union",
       "redactPrivilegedDetails": false
     },
-    "today": {
-      "scope": "workspace:read",
-      "scopeMode": "authorized-workspace-union",
-      "redactPrivilegedDetails": false
-    },
     "bridge": {
       "scope": "workspace:read",
       "scopeMode": "authorized-workspace-union",

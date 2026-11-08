@@ -1,3 +1,3 @@
 export { MissionService } from "./service";
-export { bridge, today } from "./read";
+export { bridge } from "./read";
 export { missionCommands } from "./commands";

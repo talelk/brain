@@ -1,5 +1,5 @@
 {
-  "queryType": "today",
+  "queryType": "attention.list",
   "snapshot": {
     "items": []
   },

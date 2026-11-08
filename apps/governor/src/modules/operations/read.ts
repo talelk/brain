@@ -92,7 +92,7 @@ export function liveStatus(store: Store, actor: ActorContext, workspaceId: strin
     pendingApprovals,
     unknownJobs,
     // Default-landing rule: active sessions/runs open the Live console.
-    defaultRoute: activeSessions > 0 || activeRuns > 0 ? "live" : "today",
+    defaultRoute: activeSessions > 0 || activeRuns > 0 ? "live" : "missions",
     observedAt: store.nowIso(),
   } as unknown as JsonValue;
 }
