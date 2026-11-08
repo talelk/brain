@@ -1,6 +1,5 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { afterAll } from "vitest";
 import { join } from "node:path";
 import type { ActorContext, ExecutionLink, WorkItem } from "../packages/contracts/src/index";
 import { Brain } from "../apps/governor/src/application/brain";
@@ -37,14 +36,8 @@ export function setupCredential(brain: Brain): string {
   return readFileSync(join(brain.store.dataDir, "setup.token"), "utf8").trim();
 }
 
-// Disposable data directories of this test worker, removed when it exits so
-// repeated runs never fill the temp volume.
-const disposableDirs: string[] = [];
-afterAll(() => { for (const dir of disposableDirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
-
 export function tempBrain(): { brain: Brain; dir: string } {
   const dir = mkdtempSync(join(tmpdir(), "brain-test-"));
-  disposableDirs.push(dir);
   return { brain: new Brain({ dataDir: dir, allowTestActor: true }), dir };
 }
 

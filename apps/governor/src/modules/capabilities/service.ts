@@ -171,7 +171,9 @@ export class CapitalizationService {
       sources.push({ signature: `mission:${missionId}:output:${row.id}`, content: { kind: "verified-output", missionId, output: row.name, artifactDigest: row.artifact_digest } });
     }
     for (const row of db.prepare("SELECT digest, findings_json FROM mission_evidence_bundles WHERE mission_id=? AND state IN ('verified','rejected') ORDER BY created_at_ms").all(missionId) as Array<{ digest: string; findings_json: string }>) {
-      (JSON.parse(row.findings_json) as string[]).forEach((finding, index) => sources.push({ signature: `mission:${missionId}:finding:${row.digest}:${index}`, content: { kind: "verdict-finding", missionId, finding, bundleDigest: row.digest } }));
+      for (const [index, finding] of (JSON.parse(row.findings_json) as string[]).entries()) {
+        sources.push({ signature: `mission:${missionId}:finding:${row.digest}:${index}`, content: { kind: "verdict-finding", missionId, finding, bundleDigest: row.digest } });
+      }
     }
     for (const row of db.prepare("SELECT id, work_item_id, facts_json FROM handoffs WHERE mission_id=? AND superseded_by IS NULL AND facts_json IS NOT NULL ORDER BY id").all(missionId) as Array<{ id: string; work_item_id: string; facts_json: string }>) {
       sources.push({ signature: `mission:${missionId}:handoff:${row.id}`, content: { kind: "handoff-facts", missionId, workItemId: row.work_item_id, facts: JSON.parse(row.facts_json) as JsonValue } });
