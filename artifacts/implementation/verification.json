@@ -1,13 +1,13 @@
 {
   "status": "passed",
   "scope": "documentation-contract-pack-only",
-  "inputFingerprint": "a8c7cfcc926144f12f48f88fee54609b81440acaa97aad29948a818c72336a1d",
-  "checkedAt": "2026-11-08T03:48:39.524406+00:00",
+  "inputFingerprint": "758794d1fa91766d71622d69ebe28f81e44c0bfe2de2d6b9976da3ae188379f7",
+  "checkedAt": "2026-11-08T04:15:41.851324+00:00",
   "checks": [
     {
       "name": "schema-meta",
       "status": "passed",
-      "detail": 363
+      "detail": 364
     },
     {
       "name": "schema-local-references",
@@ -92,7 +92,7 @@
     {
       "name": "implementation-readiness-contracts-and-fixtures",
       "status": "passed",
-      "detail": "60 generated task packets; 121 scenarios; 15 traces; crypto/golden fixtures; 33 screens in six areas; monolith/auth/recovery/evidence checks"
+      "detail": "60 generated task packets; 121 scenarios; 15 traces; crypto/golden fixtures; 32 screens in six areas; monolith/auth/recovery/evidence checks"
     },
     {
       "name": "generated-implementation-indexes-fresh",

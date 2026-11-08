@@ -117,5 +117,7 @@ export function latestMissionBundle(db: Db, missionId: string): MissionEvidenceB
   const row = latestBundleRow(db, missionId);
   if (!row) return undefined;
   const manifest = JSON.parse(row.manifest_json) as Omit<MissionEvidenceBundle, "digest" | "state" | "findings" | "createdAt">;
-  return { ...manifest, digest: row.digest, state: row.state, findings: JSON.parse(row.findings_json) as string[], createdAt: iso(row.created_at_ms) };
+  const checks = (db.prepare("SELECT criterion_id, evaluator, outcome, evidence_digest, advisory FROM mission_bundle_checks WHERE bundle_digest=? ORDER BY criterion_id, evaluator").all(row.digest) as Array<{ criterion_id: string; evaluator: string; outcome: "passed" | "failed" | "incomplete"; evidence_digest: string; advisory: number }>)
+    .map((check) => ({ criterionId: check.criterion_id, evaluator: check.evaluator, outcome: check.outcome, evidenceDigest: check.evidence_digest, advisory: check.advisory === 1 }));
+  return { ...manifest, digest: row.digest, state: row.state, findings: JSON.parse(row.findings_json) as string[], checks, createdAt: iso(row.created_at_ms) };
 }

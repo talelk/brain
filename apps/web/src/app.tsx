@@ -44,7 +44,6 @@ const PAGE_LOADERS = {
   TicketDetailPage: () => import('./routes/pages/TicketDetailPage'),
   SrePage: () => import('./routes/pages/SrePage'),
   IncidentDetailPage: () => import('./routes/pages/IncidentDetailPage'),
-  DeliveryPage: () => import('./routes/pages/DeliveryPage'),
   KnowledgePage: () => import('./routes/pages/KnowledgePage'),
   ToolsPage: () => import('./routes/pages/ToolsPage'),
   SettingsPage: () => import('./routes/pages/SettingsPage'),
@@ -241,7 +240,6 @@ export function App(): JSX.Element {
       <Route path="/w/:id/runs" component={workspacePage("RunsPage")} />
       <Route path="/w/:id/support" component={workspacePage("SupportPage")} />
       <Route path="/w/:id/sre" component={workspacePage("SrePage")} />
-      <Route path="/w/:id/delivery" component={workspacePage("DeliveryPage")} />
       <Route path="/w/:id/knowledge" component={workspacePage("KnowledgePage")} />
       <Route path="/approvals" component={page("ApprovalsPage")} />
       <Route path="/approvals/:id" component={page("ApprovalDetailPage")} />

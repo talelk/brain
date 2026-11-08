@@ -116,7 +116,7 @@ describe("operations module read surface", () => {
 });
 
 describe("packs module read surface", () => {
-  it("maps ticket/incident/delivery views and sums SLA intervals", () => {
+  it("maps ticket and incident views and sums SLA intervals", () => {
     const w = setupWorld();
     const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
     const now = w.brain.store.now();

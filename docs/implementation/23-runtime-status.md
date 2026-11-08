@@ -1,5 +1,9 @@
 # Runtime status and continuation — 2026-10-28
 
+## Subjects and mission bundle checks — 8 November
+
+T44 makes tickets and incidents subjects that missions are about: `mission.create` takes subject references that must exist in their pack, missions report their subjects, and `missions.forSubject` lists the missions about one. An automation may use a subject trigger to start a Play for every new ticket or incident; each subject fires an automation once, and newly ingested GitLab tickets fire it. The delivery dossier, its rubric results and the `/w/:id/delivery` screen are removed: evaluators record checks on the mission's current evidence bundle (`recordBundleCheck`), and the optional calibrated judge records advisory checks with CAS transcripts (`judgeMissionBundle`) — a recommendation that never records the mission verdict. Moving the Support and SRE queues under Plays belongs to the UI rewrite (T34/T58).
+
 ## Attention notifications — 8 November
 
 T65 notifies only on attention items, never on progress. The maintenance pass sends each mission attention item to the mission's starter and to people who chose `mission.watch`, while they still have workspace access, once per item and at most once per mission every 15 minutes; approvals keep their immediate push to approvers. Every notification is recorded in the user's in-app inbox (`notifications.list`) and pushed to subscribed browsers; an optional external channel is not configured yet.

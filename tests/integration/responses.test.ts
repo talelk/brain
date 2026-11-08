@@ -86,8 +86,6 @@ describe("endpoint surface conformance (T02)", () => {
       ws.prepare("INSERT INTO tickets(id, connector_id, remote_id, state, title, body_digest, source_version, observed_at_ms, created_at_ms) VALUES ('tkt-1','gitlab','7','open','Seed ticket',?,'v3',?,?)").run(DIGEST, Date.now(), Date.now());
       ws.prepare("INSERT INTO incidents(id, target_key, severity, title, state, version, opened_at_ms) VALUES ('inc-1','api','warning','API latency','investigating',2,?)").run(Date.now());
       ws.prepare("INSERT INTO observations(id, connector_id, target_key, incident_id, observation_digest, source_event_id, observed_at_ms, expires_at_ms) VALUES ('obs-1','probe','api','inc-1',?,'evt-1',?,?)").run(DIGEST, Date.now(), Date.now() + 3600_000);
-      ws.prepare("INSERT INTO delivery_dossiers(id, source_revision, manifest_digest, rubric_digest, state, version, created_at_ms) VALUES ('dos-1',?,?,?,'evaluating',1,?)").run("sha256:" + "c".repeat(64), DIGEST, DIGEST, Date.now());
-      ws.prepare("INSERT INTO rubric_results(dossier_id, criterion_id, evaluator_attempt_id, outcome, evidence_digest) VALUES ('dos-1','crit-1','att-1','passed',?)").run(DIGEST);
       seedWorkItem(app.brain, w.org, w.workspaceId, "work-seed", "review", ["c1"]);
       ws.prepare("INSERT INTO sla_intervals(id, ticket_id, event_id, responsibility, started_at_ms, ended_at_ms, calendar_digest) VALUES ('sla-1','tkt-1','evt-sla-1','keyrus',?,?,?)").run(Date.now() - 60000, Date.now(), DIGEST);
 
@@ -97,7 +95,7 @@ describe("endpoint surface conformance (T02)", () => {
       };
       const cases: Array<Record<string, unknown>> = [
         ...["today", "jobs.list", "approvals.list", "tools.list",
-          "tickets.list", "incidents.list", "delivery.list", "sessions.list",
+          "tickets.list", "incidents.list", "sessions.list",
           "members.list", "audit.list", "runners.list", "platform.health", "workspace.context",
         ].map((queryType) => ({ queryType, workspaceId: w.workspaceId })),
         { queryType: "sla.summary", workspaceId: w.workspaceId, periodStart: new Date(Date.now() - 3600_000).toISOString(), periodEnd: new Date(Date.now() + 60000).toISOString() },
@@ -108,7 +106,6 @@ describe("endpoint surface conformance (T02)", () => {
         { queryType: "stream.search", workspaceId: w.workspaceId, search: "release" },
         { queryType: "ticket.get", workspaceId: w.workspaceId, resourceId: "tkt-1" },
         { queryType: "incident.get", workspaceId: w.workspaceId, resourceId: "inc-1" },
-        { queryType: "delivery.get", workspaceId: w.workspaceId, resourceId: "dos-1" },
       ];
       const failures: string[] = [];
       for (const payload of cases) {

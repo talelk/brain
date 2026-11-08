@@ -763,7 +763,9 @@
    "evidenceDirectory": "artifacts/runtime/T44",
    "contractDefinitions": [
     "CheckResult",
-    "VerificationVerdict"
+    "VerificationVerdict",
+    "SubjectRef",
+    "MissionBundleCheck"
    ],
    "ownerModule": "packs"
   },

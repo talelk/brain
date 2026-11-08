@@ -120,4 +120,26 @@ describe("plays (T63)", () => {
     expect(w.brain.missions.admission(w.org, w.workspaceId, runs[0]!.run_id)).toMatchObject({ admitted: true, reserve: 50 });
     w.brain.close();
   });
+
+  it("missions are about subjects packs own; a subject trigger starts one mission per new subject (T44)", async () => {
+    const w = setupWorld();
+    w.brain.activateRelease(w.owner, stage(w, [play("auth-stabilize")]).digest);
+    const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    const seedTicket = (id: string) => db.prepare("INSERT INTO tickets(id, connector_id, remote_id, state, title, body_digest, source_version, observed_at_ms, created_at_ms) VALUES (?,'gitlab',?,'open','Login fails',?,'v1',?,?)")
+      .run(id, id, `sha256:${"1".repeat(64)}`, w.brain.store.now(), w.brain.store.now());
+    seedTicket("tkt-1");
+    await expect(Promise.resolve().then(async () => await run(w, "mission.create", "subject-missing", { title: "x", intent: "y", successCriteria: ["z"], subjects: [{ pack: "support", kind: "ticket", id: "tkt-404" }] }))).rejects.toThrow(/ticket tkt-404 not found/);
+    const manual = (await run(w, "mission.create", "subject-manual", { title: "Investigate tkt-1", intent: "Answer the ticket", successCriteria: ["answered"], subjects: [{ pack: "support", kind: "ticket", id: "tkt-1" }] })).resourceId ?? "";
+    expect((await query<Mission>(w, "missions.get", manual)).subjects).toEqual([{ pack: "support", kind: "ticket", id: "tkt-1" }]);
+    const automations = w.brain.jobProtocol.automations;
+    expect(() => automations.apply(w.owner, { commandType: "automation.upsert", workspaceId: w.workspaceId, payload: { title: "Bad", target: { kind: "workflow", id: "fixture-workflow" }, trigger: { kind: "subject", subjectKind: "ticket" } } })).toThrow(/subject trigger starts a play/);
+    automations.apply(w.owner, { commandType: "automation.upsert", workspaceId: w.workspaceId, payload: { title: "Every new ticket", target: { kind: "play", id: "auth-stabilize" }, trigger: { kind: "subject", subjectKind: "ticket" }, overlap: "queue-one" } });
+    seedTicket("tkt-2");
+    expect(automations.fireSubject(w.org, w.workspaceId, { pack: "support", kind: "ticket", id: "tkt-2" })).toBe(1);
+    expect(automations.fireSubject(w.org, w.workspaceId, { pack: "support", kind: "ticket", id: "tkt-2" })).toBe(0);
+    expect(automations.fireSubject(w.org, w.workspaceId, { pack: "sre", kind: "incident", id: "inc-1" })).toBe(0);
+    const forTicket = await query<{ items: Mission[] }>(w, "missions.forSubject", "tkt-2");
+    expect(forTicket.items).toEqual([expect.objectContaining({ subjects: [{ pack: "support", kind: "ticket", id: "tkt-2" }] })]);
+    w.brain.close();
+  });
 });

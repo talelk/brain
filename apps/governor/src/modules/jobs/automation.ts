@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { domainDigest } from "@brain/contracts";
 import type { ActorContext, Automation, AutomationOccurrence, JsonValue } from "@brain/contracts";
 import type { Store } from "../../application/store";
@@ -22,7 +23,7 @@ import { nextCronFire, parseCron } from "../workflows/index";
 type AutomationRow = {
   id: string; title: string; state: "active" | "paused" | "retired"; revision: number;
   target_kind: "workflow" | "workItem" | "play"; target_id: string;
-  trigger_kind: "cron" | "once" | "manual"; cron: string | null; timezone: string | null;
+  trigger_kind: "cron" | "once" | "manual" | "subject"; subject_kind: "ticket" | "incident" | null; cron: string | null; timezone: string | null;
   scheduled_at_ms: number | null; input_json: string | null;
   overlap: "skip" | "queue-one"; misfire: "skip" | "coalesce";
   execution_mode: "managed" | "personal-host"; runner_id: string | null; offline_policy: "wait" | "fail";
@@ -46,7 +47,7 @@ export interface AutomationDispatchDeps {
   resolveWorkflow: (organizationId: string, workflowId: string) => { workflow: unknown; configDigest: string };
   startRun: (input: { organizationId: string; workspaceId: string; actorId: string; workflowId: string; workflow: unknown; configDigest: string; runInput: JsonValue; executionKey: string; runnerId?: string }) => { runId: string };
   /** Starts a mission from a Play of the active release on behalf of the automation's creator; returns the mission id. */
-  startMission?: (input: { organizationId: string; workspaceId: string; playId: string; startedBy: string; occurrenceId: string }) => string;
+  startMission?: (input: { organizationId: string; workspaceId: string; playId: string; startedBy: string; occurrenceId: string; subjects?: readonly { pack: "support" | "sre"; kind: "ticket" | "incident"; id: string }[] }) => string;
   /** Whether a mission an earlier occurrence started is still open (for the skip overlap policy). */
   missionOpen?: (organizationId: string, workspaceId: string, missionId: string) => boolean;
 }
@@ -55,6 +56,10 @@ const FINISHED_RUN_STATES = new Set(["succeeded", "failed", "cancelled", "partia
 const ONCE_LATE_GRACE_MS = 60_000;
 /** Fires older than this horizon are "missed" for the skip misfire policy. */
 const MISFIRE_GRACE_MS = 60_000;
+
+function digestOccurrence(automationId: string, kind: string, subjectId: string): string {
+  return `occ-subject-${createHash("sha256").update(`${automationId}\u0000${kind}\u0000${subjectId}`).digest("hex").slice(0, 32)}`;
+}
 
 export function occurrenceId(automationId: string, revision: number, plannedAtMs: number): string {
   return domainDigest("brain:automation-occurrence:v1", { automationId, revision, plannedAtMs } as unknown as JsonValue);
@@ -111,6 +116,7 @@ export class AutomationService {
       target: { kind: row.target_kind, id: row.target_id },
       trigger: row.trigger_kind === "cron" ? { kind: "cron", cron: row.cron ?? "", timezone: row.timezone ?? "UTC" }
         : row.trigger_kind === "once" ? { kind: "once", scheduledAt: iso(row.scheduled_at_ms ?? 0) }
+        : row.trigger_kind === "subject" ? { kind: "subject", subjectKind: row.subject_kind ?? "ticket" }
         : { kind: "manual" },
       ...(row.input_json ? { input: JSON.parse(row.input_json) as JsonValue } : {}),
       overlap: row.overlap, misfire: row.misfire,
@@ -146,7 +152,9 @@ export class AutomationService {
     const trigger = payload["trigger"] as { kind?: string; cron?: string; timezone?: string; scheduledAt?: string } | undefined;
     if (!target?.id || (target.kind !== "workflow" && target.kind !== "workItem" && target.kind !== "play")) throw new BrainDomainError("INVALID_ARGUMENT", "target must be a workflow, work item or play id");
     const kind = trigger?.kind;
-    if (kind !== "cron" && kind !== "once" && kind !== "manual") throw new BrainDomainError("INVALID_ARGUMENT", "trigger kind must be cron, once or manual");
+    if (kind !== "cron" && kind !== "once" && kind !== "manual" && kind !== "subject") throw new BrainDomainError("INVALID_ARGUMENT", "trigger kind must be cron, once, manual or subject");
+    const subjectKind = kind === "subject" ? (trigger as { subjectKind?: string }).subjectKind : undefined;
+    if (kind === "subject" && (target.kind !== "play" || (subjectKind !== "ticket" && subjectKind !== "incident"))) throw new BrainDomainError("INVALID_ARGUMENT", "a subject trigger starts a play for a ticket or incident");
     let cron: string | null = null;
     let timezone: string | null = null;
     let scheduledAtMs: number | null = null;
@@ -183,6 +191,7 @@ export class AutomationService {
         db.prepare(`INSERT INTO automations(id,title,state,revision,target_kind,target_id,trigger_kind,cron,timezone,scheduled_at_ms,input_json,overlap,misfire,execution_mode,runner_id,offline_policy,created_by,version,revision_created_at_ms,created_at_ms,updated_at_ms)
           VALUES (?,?,'active',1,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)`)
           .run(id, String(payload["title"] ?? "Automation"), target.kind, target.id, kind, cron, timezone, scheduledAtMs, input, overlap, misfire, executionMode, runnerId, offlinePolicy, actor.actorId, now, now, now);
+        if (subjectKind) db.prepare("UPDATE automations SET subject_kind=? WHERE id=?").run(subjectKind, id);
         this.store.emit(db, { aggregateType: "automation", aggregateId: id, eventType: "automation.created", payload: { automationId: id } });
       });
       return id;
@@ -227,6 +236,25 @@ export class AutomationService {
     const fresh = this.row(actor, workspaceId, automation.id);
     this.dispatchDue(actor.organizationId, workspaceId, fresh, [occurrenceRowFor(id, automation.id, automation.revision, now)]);
     return automation.id;
+  }
+
+  /**
+   * A new subject (a ticket or an incident) fires every active subject trigger
+   * for its kind: one occurrence per automation and subject, so a re-observed
+   * subject never starts a second mission (T44).
+   */
+  fireSubject(organizationId: string, workspaceId: string, subject: { pack: "support" | "sre"; kind: "ticket" | "incident"; id: string }): number {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    const automations = db.prepare("SELECT * FROM automations WHERE state='active' AND trigger_kind='subject' AND subject_kind=?").all(subject.kind) as AutomationRow[];
+    let dispatched = 0;
+    for (const automation of automations) {
+      const id = digestOccurrence(automation.id, subject.kind, subject.id);
+      const now = this.store.now();
+      const inserted = db.prepare("INSERT OR IGNORE INTO automation_occurrences(id,automation_id,revision,planned_at_ms,state,subject_json) VALUES (?,?,?,?,'pending',?)").run(id, automation.id, automation.revision, now, JSON.stringify(subject));
+      if (inserted.changes !== 1) continue;
+      dispatched += this.dispatchDue(organizationId, workspaceId, automation, [occurrenceRowFor(id, automation.id, automation.revision, now)]).dispatched;
+    }
+    return dispatched;
   }
 
   /** Materialize due occurrences for every active automation, then dispatch them. */
@@ -321,7 +349,8 @@ export class AutomationService {
         }
         try {
           if (!this.deps.startMission) throw new Error("missions are not available");
-          const missionId = this.deps.startMission({ organizationId, workspaceId, playId: automation.target_id, startedBy: automation.created_by, occurrenceId: occurrence.id });
+          const subject = (db.prepare("SELECT subject_json FROM automation_occurrences WHERE id=?").get(occurrence.id) as { subject_json: string | null } | undefined)?.subject_json;
+          const missionId = this.deps.startMission({ organizationId, workspaceId, playId: automation.target_id, startedBy: automation.created_by, occurrenceId: occurrence.id, ...(subject ? { subjects: [JSON.parse(subject) as { pack: "support" | "sre"; kind: "ticket" | "incident"; id: string }] } : {}) });
           this.finish(db, occurrence, "dispatched", missionId, null);
           dispatched++;
         } catch (reason) {

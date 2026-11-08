@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures";
 
-// T34: Work area lists support/SRE/delivery from the pack queries.
-test("work area shows tickets, incidents and delivery (T34)", async ({ page, governor }) => {
+// T44: Play views list support and SRE subjects from the pack queries.
+test("play views show tickets and incidents (T44)", async ({ page, governor }) => {
   test.setTimeout(120_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -37,8 +37,5 @@ test("work area shows tickets, incidents and delivery (T34)", async ({ page, gov
   await page.goto(`${governor.url}/w/ws-work/sre`);
   await expect(page.getByRole("heading", { name: "Incidents", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByText("No incidents")).toBeVisible();
-  await page.goto(`${governor.url}/w/ws-work/delivery`);
-  await expect(page.getByRole("heading", { name: "Delivery", exact: true, level: 1 })).toBeVisible();
-  await expect(page.getByText("No delivery dossiers")).toBeVisible();
   expect(errors).toEqual([]);
 });

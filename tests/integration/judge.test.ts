@@ -38,8 +38,8 @@ async function mockJudge(verdict: string): Promise<string> {
   return `http://127.0.0.1:${(server.address() as { port: number }).port}/v1`;
 }
 
-describe("judge dossier flow (T44)", () => {
-  it("records transcript evidence and never fabricates when the model is down", async () => {
+describe("judge on a mission evidence bundle (T44)", () => {
+  it("records advisory checks with transcript evidence, never a verdict, and never fabricates when the model is down", async () => {
     world = setupWorld();
     const w = world;
     const upload = (text: string) => {
@@ -49,30 +49,26 @@ describe("judge dossier flow (T44)", () => {
       return (w.brain.putUpload(w.owner, up.uploadId, bytes) as unknown as { digest: string }).digest;
     };
     const evidence = upload("Build log: all 42 checks green; artifact sha256 pinned.");
-    const dossier = w.brain.createDeliveryDossier({ actor: w.owner, workspaceId: w.workspaceId, sourceRevision: "r1", manifestDigest: DIGEST_A, rubricDigest: DIGEST_A });
-    process.env["BRAIN_LOCAL_MODEL_URL"] = await mockJudge("pass");
-    const judged = await w.brain.judgeDeliveryDossier({
-      actor: w.owner, workspaceId: w.workspaceId, dossierId: dossier.dossierId,
-      criteria: [{ criterionId: "c1", criterionText: "All checks green in the build log.", evidenceDigest: evidence }],
-    });
-    expect(judged).toHaveLength(1);
-    expect(judged[0]?.outcome).toBe("passed");
+    const run = async (commandType: string, key: string, payload: Record<string, unknown>, expectedVersion?: number) => (await w.brain.executeCommand(w.owner, {
+      contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType, workspaceId: w.workspaceId, idempotencyKey: key, ...(expectedVersion ? { expectedVersion } : {}), payload,
+    } as never, key)).receipt;
+    const version = async (id: string) => ((await w.brain.executeQuery(w.owner, { queryType: "missions.get", workspaceId: w.workspaceId, resourceId: id })) as { snapshot: { version: number } }).snapshot.version;
+    const missionId = (await run("mission.create", "judge-mission", { title: "Release", intent: "Ship the release", successCriteria: ["All checks green"] })).resourceId ?? "";
+    const planId = (await run("plan.propose", "judge-plan", { missionId, origin: "manual", tasks: [{ id: "ship", title: "Ship", criteria: ["ship-done"], dependsOn: [] }] })).resourceId ?? "";
+    await run("plan.confirm", "judge-confirm", { planVersionId: planId }, await version(missionId));
     const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
-    const row = ws.prepare("SELECT outcome, evaluator_attempt_id FROM rubric_results WHERE dossier_id=?").get(dossier.dossierId) as Record<string, unknown>;
-    expect(row["outcome"]).toBe("passed");
-    expect(String(row["evaluator_attempt_id"])).toMatch(/^judge:qwen3\.8-flash-next-a5b:/);
-    // Finalize is still the only path to a verdict state.
-    expect(w.brain.finalizeDeliveryDossier({ actor: w.owner, workspaceId: w.workspaceId, dossierId: dossier.dossierId, expectedVersion: 2 })).toEqual({ state: "verified" });
-    await expect(w.brain.judgeDeliveryDossier({ actor: w.owner, workspaceId: w.workspaceId, dossierId: dossier.dossierId, criteria: [] })).rejects.toThrow(/finalized/);
-
-    // Model down: explicit dependency failure, nothing recorded.
-    const second = w.brain.createDeliveryDossier({ actor: w.owner, workspaceId: w.workspaceId, sourceRevision: "r2", manifestDigest: DIGEST_A, rubricDigest: DIGEST_A });
+    ws.prepare("UPDATE work_items SET state='done', evidence_digest=? WHERE mission_id=?").run(DIGEST_A, missionId);
+    await run("mission.proposeCompletion", "judge-verify", { missionId }, await version(missionId));
+    process.env["BRAIN_LOCAL_MODEL_URL"] = await mockJudge("pass");
+    const judged = await w.brain.judgeMissionBundle({ actor: w.owner, workspaceId: w.workspaceId, missionId, criteria: [{ criterionId: "c1", criterionText: "All checks green in the build log.", evidenceDigest: evidence }] });
+    expect(judged).toEqual([expect.objectContaining({ criterionId: "c1", outcome: "passed" })]);
+    const bundle = ((await w.brain.executeQuery(w.owner, { queryType: "missionBundles.latest", workspaceId: w.workspaceId, resourceId: missionId })) as { snapshot: { state: string; checks: Array<{ evaluator: string; advisory: boolean; outcome: string }> } }).snapshot;
+    // A recommendation, not a verdict: the bundle stays submitted until an independent verdict is recorded.
+    expect(bundle.state).toBe("submitted");
+    expect(bundle.checks).toEqual([expect.objectContaining({ outcome: "passed", advisory: true, evaluator: expect.stringMatching(/^judge:qwen3\.8-flash-next-a5b$/) })]);
     process.env["BRAIN_LOCAL_MODEL_URL"] = "http://127.0.0.1:9/v1";
-    await expect(w.brain.judgeDeliveryDossier({
-      actor: w.owner, workspaceId: w.workspaceId, dossierId: second.dossierId,
-      criteria: [{ criterionId: "c1", criterionText: "x", evidenceDigest: evidence }],
-    })).rejects.toThrow(/judge model unavailable/);
-    const count = ws.prepare("SELECT COUNT(*) AS c FROM rubric_results WHERE dossier_id=?").get(second.dossierId) as { c: number };
-    expect(count.c).toBe(0);
+    await expect(w.brain.judgeMissionBundle({ actor: w.owner, workspaceId: w.workspaceId, missionId, criteria: [{ criterionId: "c2", criterionText: "x", evidenceDigest: evidence }] })).rejects.toThrow(/judge model unavailable/);
+    expect((ws.prepare("SELECT COUNT(*) AS c FROM mission_bundle_checks WHERE criterion_id='c2'").get() as { c: number }).c).toBe(0);
+    expect(() => w.brain.recordBundleCheck({ actor: w.owner, workspaceId: w.workspaceId, missionId, criterionId: "c3", evaluator: "eval-1", outcome: "passed", evidenceDigest: `sha256:${"f".repeat(64)}` })).toThrow(/evidence artifact not found/);
   }, 120_000);
 });

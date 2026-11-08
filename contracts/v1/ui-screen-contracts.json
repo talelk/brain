@@ -381,25 +381,6 @@
    "title": "Incident detail"
   },
   {
-   "route": "/w/:id/delivery",
-   "queries": [
-    "delivery.list",
-    "delivery.get"
-   ],
-   "actions": [],
-   "content": [
-    "source",
-    "criteria",
-    "risks",
-    "evidence"
-   ],
-   "owner": "T44",
-   "navigationGroup": "work",
-   "icon": "lucide-package-check",
-   "task": "Review workspace work and pack details",
-   "title": "Delivery"
-  },
-  {
    "route": "/w/:id/knowledge",
    "queries": [
     "memory.search",
@@ -874,10 +855,6 @@
    {
     "label": "Incidents",
     "route": "/w/:id/sre"
-   },
-   {
-    "label": "Delivery",
-    "route": "/w/:id/delivery"
    }
   ],
   "administration": [

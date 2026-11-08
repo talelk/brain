@@ -1,4 +1,4 @@
-import type { CommandReceipt, DeliveryDossier, IdentityView, MemoryQuery, OrganizationDirectorySnapshot, QueryRequest, QueryResponse } from "@brain/contracts";
+import type { CommandReceipt, IdentityView, MemoryQuery, OrganizationDirectorySnapshot, QueryRequest, QueryResponse } from "@brain/contracts";
 import { command, governor, query } from "./client";
 
 export { command };
@@ -87,13 +87,6 @@ export const incidentsQuery = (workspaceId: string, signal?: AbortSignal) =>
   fetchView({ queryType: "incidents.list", workspaceId }, signal);
 export const incidentQuery = (workspaceId: string, resourceId: string, signal?: AbortSignal) =>
   fetchView({ queryType: "incident.get", workspaceId, resourceId }, signal);
-export function deliveryQuery(workspaceId: string, resourceId: string, signal?: AbortSignal): Promise<Loaded<DeliveryDossier>>;
-export function deliveryQuery(workspaceId: string, resourceId: undefined, signal?: AbortSignal): Promise<Loaded<{ items: readonly DeliveryDossier[] }>>;
-export async function deliveryQuery(workspaceId: string, resourceId?: string, signal?: AbortSignal) {
-  return resourceId
-    ? fetchView({ queryType: "delivery.get", workspaceId, resourceId }, signal)
-    : fetchView({ queryType: "delivery.list", workspaceId }, signal);
-}
 export const toolsQuery = (workspaceId: string, signal?: AbortSignal) =>
   fetchView({ queryType: "tools.list", workspaceId }, signal);
 export const membersQuery = (workspaceId: string, signal?: AbortSignal) =>

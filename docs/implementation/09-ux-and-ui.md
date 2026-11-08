@@ -32,7 +32,6 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/tickets/:id` | work | Review workspace work and pack details | body, draft, evidence, approval |
 | `/w/:id/sre` | work | Review workspace work and pack details | severity, target, state, freshness |
 | `/incidents/:id` | work | Review workspace work and pack details | observations, remediation, evidence |
-| `/w/:id/delivery` | work | Review workspace work and pack details | source, criteria, risks, evidence |
 | `/w/:id/knowledge` | knowledge | Find scoped facts and inspect trusted capabilities | source, scope, freshness, review, capitalization, provenance, candidateTests, releaseGate |
 | `/tools` | knowledge | Find scoped facts and inspect trusted capabilities | name, state, effect, release, evidence |
 | `/settings` | settings | Manage explicitly authorized administration | members, people, invitations, access, authenticationPolicy, audit, health |

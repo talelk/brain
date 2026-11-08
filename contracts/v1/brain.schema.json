@@ -6334,6 +6334,13 @@
         },
         "usage": {
           "$ref": "#/$defs/BudgetUsage"
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SubjectRef"
+          },
+          "maxItems": 20
         }
       },
       "required": [
@@ -6351,7 +6358,8 @@
         "autonomyPolicy",
         "parkingThreshold",
         "budget",
-        "usage"
+        "usage",
+        "subjects"
       ],
       "additionalProperties": false
     },
@@ -6760,6 +6768,13 @@
             },
             "playId": {
               "$ref": "#/$defs/ConfigId"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SubjectRef"
+              },
+              "maxItems": 20
             }
           },
           "required": [
@@ -7230,7 +7245,8 @@
             "plays.get",
             "attention.list",
             "missions.sinceLastVisit",
-            "notifications.list"
+            "notifications.list",
+            "missions.forSubject"
           ]
         },
         "workspaceId": {
@@ -7290,7 +7306,8 @@
             "plays.get",
             "attention.list",
             "missions.sinceLastVisit",
-            "notifications.list"
+            "notifications.list",
+            "missions.forSubject"
           ]
         },
         "snapshot": {
@@ -12655,78 +12672,6 @@
           "properties": {
             "queryType": {
               "type": "string",
-              "const": "delivery.list"
-            },
-            "workspaceId": {
-              "$ref": "#/$defs/Id"
-            },
-            "cursor": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 2048
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            },
-            "search": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 4000
-            },
-            "sort": {
-              "type": "string",
-              "enum": [
-                "created-desc",
-                "created-asc"
-              ]
-            },
-            "states": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 40
-              },
-              "maxItems": 12
-            },
-            "since": {
-              "$ref": "#/$defs/Timestamp"
-            }
-          },
-          "required": [
-            "queryType",
-            "workspaceId"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "queryType": {
-              "type": "string",
-              "const": "delivery.get"
-            },
-            "workspaceId": {
-              "$ref": "#/$defs/Id"
-            },
-            "resourceId": {
-              "$ref": "#/$defs/Id"
-            }
-          },
-          "required": [
-            "queryType",
-            "workspaceId",
-            "resourceId"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "queryType": {
-              "type": "string",
               "const": "tools.list"
             },
             "workspaceId": {
@@ -14393,101 +14338,6 @@
             },
             "snapshot": {
               "$ref": "#/$defs/IncidentDetail"
-            },
-            "cursor": {
-              "type": "string",
-              "minLength": 0,
-              "maxLength": 2048
-            },
-            "sourceWatermark": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            },
-            "asOf": {
-              "$ref": "#/$defs/Timestamp"
-            },
-            "projectionLagMs": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            }
-          },
-          "required": [
-            "queryType",
-            "snapshot",
-            "cursor",
-            "sourceWatermark",
-            "asOf",
-            "projectionLagMs"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "queryType": {
-              "type": "string",
-              "const": "delivery.list"
-            },
-            "snapshot": {
-              "type": "object",
-              "properties": {
-                "items": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/$defs/DeliveryDossier"
-                  },
-                  "maxItems": 100
-                },
-                "totalEstimate": {
-                  "type": "integer",
-                  "minimum": 0
-                }
-              },
-              "required": [
-                "items"
-              ],
-              "additionalProperties": false
-            },
-            "cursor": {
-              "type": "string",
-              "minLength": 0,
-              "maxLength": 2048
-            },
-            "sourceWatermark": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            },
-            "asOf": {
-              "$ref": "#/$defs/Timestamp"
-            },
-            "projectionLagMs": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            }
-          },
-          "required": [
-            "queryType",
-            "snapshot",
-            "cursor",
-            "sourceWatermark",
-            "asOf",
-            "projectionLagMs"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "queryType": {
-              "type": "string",
-              "const": "delivery.get"
-            },
-            "snapshot": {
-              "$ref": "#/$defs/DeliveryDossier"
             },
             "cursor": {
               "type": "string",
@@ -17570,70 +17420,6 @@
       ],
       "additionalProperties": false
     },
-    "DeliveryDossier": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "$ref": "#/$defs/Id"
-        },
-        "workspaceId": {
-          "$ref": "#/$defs/Id"
-        },
-        "version": {
-          "$ref": "#/$defs/Counter"
-        },
-        "updatedAt": {
-          "$ref": "#/$defs/Timestamp"
-        },
-        "sourceRevision": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 80
-        },
-        "state": {
-          "type": "string",
-          "enum": [
-            "draft",
-            "evaluating",
-            "verified",
-            "rejected"
-          ]
-        },
-        "rubric": {
-          "$ref": "#/$defs/ReleaseRef"
-        },
-        "criteria": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/CheckResult"
-          },
-          "maxItems": 100
-        },
-        "evidence": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/ArtifactRef"
-          },
-          "maxItems": 100
-        },
-        "createdAt": {
-          "$ref": "#/$defs/Timestamp"
-        }
-      },
-      "required": [
-        "id",
-        "workspaceId",
-        "version",
-        "updatedAt",
-        "sourceRevision",
-        "state",
-        "rubric",
-        "criteria",
-        "evidence",
-        "createdAt"
-      ],
-      "additionalProperties": false
-    },
     "ToolCatalogEntry": {
       "type": "object",
       "properties": {
@@ -18421,8 +18207,6 @@
             "ticket.get",
             "incidents.list",
             "incident.get",
-            "delivery.list",
-            "delivery.get",
             "tools.list",
             "members.list",
             "audit.list",
@@ -20250,6 +20034,27 @@
             "kind"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "subject"
+            },
+            "subjectKind": {
+              "type": "string",
+              "enum": [
+                "ticket",
+                "incident"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "subjectKind"
+          ],
+          "additionalProperties": false
         }
       ]
     },
@@ -21624,6 +21429,13 @@
         },
         "createdAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MissionBundleCheck"
+          },
+          "maxItems": 200
         }
       },
       "required": [
@@ -22490,6 +22302,71 @@
         "title",
         "sentAt",
         "pushed"
+      ],
+      "additionalProperties": false
+    },
+    "SubjectRef": {
+      "type": "object",
+      "properties": {
+        "pack": {
+          "type": "string",
+          "enum": [
+            "support",
+            "sre"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "ticket",
+            "incident"
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/Id"
+        }
+      },
+      "required": [
+        "pack",
+        "kind",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "MissionBundleCheck": {
+      "type": "object",
+      "properties": {
+        "criterionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "passed",
+            "failed",
+            "incomplete"
+          ]
+        },
+        "evaluator": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "evidenceDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "advisory": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "criterionId",
+        "outcome",
+        "evaluator",
+        "evidenceDigest",
+        "advisory"
       ],
       "additionalProperties": false
     }

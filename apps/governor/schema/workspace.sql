@@ -46,6 +46,12 @@ CREATE TABLE attention_notifications (
   PRIMARY KEY(principal_id, item_id)
 ) STRICT;
 CREATE INDEX attention_notifications_recent ON attention_notifications(principal_id, mission_id, sent_at_ms);
+CREATE TABLE mission_subjects (
+  mission_id TEXT NOT NULL REFERENCES missions(id), pack TEXT NOT NULL CHECK(pack IN ('support','sre')),
+  kind TEXT NOT NULL CHECK(kind IN ('ticket','incident')), subject_id TEXT NOT NULL,
+  PRIMARY KEY(mission_id, kind, subject_id)
+) STRICT;
+CREATE INDEX mission_subjects_subject ON mission_subjects(kind, subject_id);
 CREATE TABLE mission_wakes (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), reason TEXT NOT NULL,
   detail TEXT NOT NULL DEFAULT '', created_at_ms INTEGER NOT NULL, consumed_by_run TEXT, last_error TEXT
@@ -104,6 +110,12 @@ CREATE TABLE mission_evidence_bundles (
   manifest_json TEXT NOT NULL CHECK(json_valid(manifest_json)), findings_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(findings_json)),
   verdict_by TEXT, created_at_ms INTEGER NOT NULL
 ) STRICT;
+CREATE TABLE mission_bundle_checks (
+  bundle_digest TEXT NOT NULL REFERENCES mission_evidence_bundles(digest), criterion_id TEXT NOT NULL,
+  evaluator TEXT NOT NULL, outcome TEXT NOT NULL CHECK(outcome IN ('passed','failed','incomplete')),
+  evidence_digest TEXT NOT NULL, advisory INTEGER NOT NULL CHECK(advisory IN (0,1)), created_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(bundle_digest, criterion_id, evaluator)
+) STRICT;
 CREATE TABLE mission_messages (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   recipient_kind TEXT NOT NULL CHECK(recipient_kind IN ('mission','member')), recipient_member_id TEXT,
@@ -156,7 +168,7 @@ CREATE TABLE automations (
   revision INTEGER NOT NULL CHECK(revision > 0),
   target_kind TEXT NOT NULL CHECK(target_kind IN ('workflow','workItem','play')),
   target_id TEXT NOT NULL,
-  trigger_kind TEXT NOT NULL CHECK(trigger_kind IN ('cron','once','manual')),
+  trigger_kind TEXT NOT NULL CHECK(trigger_kind IN ('cron','once','manual','subject')), subject_kind TEXT CHECK(subject_kind IS NULL OR subject_kind IN ('ticket','incident')),
   cron TEXT, timezone TEXT, scheduled_at_ms INTEGER,
   input_json TEXT CHECK(input_json IS NULL OR json_valid(input_json)),
   overlap TEXT NOT NULL CHECK(overlap IN ('skip','queue-one')),
@@ -173,7 +185,8 @@ CREATE TABLE automation_occurrences (
   revision INTEGER NOT NULL CHECK(revision > 0),
   planned_at_ms INTEGER NOT NULL,
   state TEXT NOT NULL CHECK(state IN ('pending','dispatched','skipped','failed')),
-  dispatch_ref TEXT, detail TEXT, fired_at_ms INTEGER
+  dispatch_ref TEXT, detail TEXT, fired_at_ms INTEGER,
+  subject_json TEXT CHECK(subject_json IS NULL OR json_valid(subject_json))
 ) STRICT;
 CREATE INDEX automation_occurrences_history ON automation_occurrences(automation_id, planned_at_ms, id);
 CREATE TABLE planning_requests (
@@ -375,16 +388,6 @@ CREATE TABLE remediation_proposals (
   kind TEXT NOT NULL, detail TEXT NOT NULL,
   state TEXT NOT NULL CHECK(state IN ('proposed','approved','rejected')),
   approval_id TEXT, created_at_ms INTEGER NOT NULL
-) STRICT;
-CREATE TABLE delivery_dossiers (
-  id TEXT PRIMARY KEY, source_revision TEXT NOT NULL, manifest_digest TEXT NOT NULL,
-  rubric_digest TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('draft','evaluating','verified','rejected')),
-  version INTEGER NOT NULL CHECK(version>0), created_at_ms INTEGER NOT NULL
-) STRICT;
-CREATE TABLE rubric_results (
-  dossier_id TEXT NOT NULL REFERENCES delivery_dossiers(id), criterion_id TEXT NOT NULL,
-  evaluator_attempt_id TEXT NOT NULL, outcome TEXT NOT NULL CHECK(outcome IN ('passed','failed','incomplete')),
-  evidence_digest TEXT NOT NULL, PRIMARY KEY(dossier_id,criterion_id,evaluator_attempt_id)
 ) STRICT;
 CREATE TABLE domain_operation_receipts (
   invocation_id TEXT PRIMARY KEY, connector_id TEXT NOT NULL, target_key TEXT NOT NULL,

@@ -108,6 +108,7 @@ export class MissionService {
     settle(this.store, db, row.id);
     return {
       budget: budgetOf(row), usage: usageOf(db, row, this.store.now()),
+      subjects: (db.prepare("SELECT pack, kind, subject_id FROM mission_subjects WHERE mission_id=? ORDER BY kind, subject_id").all(row.id) as Array<{ pack: "support" | "sre"; kind: "ticket" | "incident"; subject_id: string }>).map((entry) => ({ pack: entry.pack, kind: entry.kind, id: entry.subject_id })),
       missionId: row.id, workspaceId, title: row.title, intent: row.intent,
       successCriteria: JSON.parse(row.success_criteria_json) as string[], ownerId: row.owner_id,
       ...(row.active_plan_version_id ? { activePlanVersionId: row.active_plan_version_id } : {}),
@@ -188,6 +189,12 @@ export class MissionService {
       if (budget.finalAllowanceMicroUsd) db.prepare("UPDATE missions SET final_allowance_micro_usd=? WHERE id=?").run(budget.finalAllowanceMicroUsd, id);
       db.prepare("INSERT INTO mission_brief_versions(mission_id,version,intent,constraints_json,change,created_by,created_at_ms) VALUES (?,1,?,?,'created',?,?)")
         .run(id, intent, JSON.stringify(constraints), actor.actorId, now);
+      for (const subject of (payload["subjects"] as Array<{ pack: string; kind: "ticket" | "incident"; id: string }> | undefined) ?? []) {
+        // A mission is about subjects its packs own; it never invents one (#24).
+        const table = subject.kind === "ticket" ? "tickets" : "incidents";
+        if (!db.prepare(`SELECT 1 FROM ${table} WHERE id=?`).get(subject.id)) throw new BrainDomainError("NOT_FOUND", `${subject.kind} ${subject.id} not found`);
+        db.prepare("INSERT OR IGNORE INTO mission_subjects(mission_id,pack,kind,subject_id) VALUES (?,?,?,?)").run(id, subject.pack, subject.kind, subject.id);
+      }
       if (play && release) db.prepare("UPDATE missions SET play_id=?,play_release_digest=?,coordinator_member_id=?,coordinator_workflow=?,final_allowance_micro_usd=? WHERE id=?")
         .run(String(payload["playId"]), release.digest, play.spec.coordinator ?? null, play.spec.coordinatorWorkflow ?? null, budget.finalAllowanceMicroUsd ?? play.spec.budget?.finalAllowanceMicroUsd ?? 0, id);
       this.store.emit(db, { aggregateType: "mission", aggregateId: id, eventType: "mission.created", payload: { missionId: id } });
@@ -385,13 +392,13 @@ export class MissionService {
    * behalf of the person who set up the automation, so ownership and
    * notification follow them; its plan and team wait for human confirmation.
    */
-  startFromPlay(input: { organizationId: string; workspaceId: string; playId: string; startedBy: string; occurrenceId: string }): string {
+  startFromPlay(input: { organizationId: string; workspaceId: string; playId: string; startedBy: string; occurrenceId: string; subjects?: readonly { pack: "support" | "sre"; kind: "ticket" | "incident"; id: string }[] }): string {
     const play = activeReleaseRecord(this.store, input.organizationId)?.release.plays?.[input.playId];
     if (!play) throw new BrainDomainError("NOT_FOUND", `play ${input.playId} is not in the active release`);
     const actor: ActorContext = { kind: "workflow", actorId: input.startedBy, organizationId: input.organizationId, workspaceId: input.workspaceId, scopes: [], authMethod: "service-credential", authGeneration: 1 };
     const existing = this.store.workspaceDb(input.workspaceId, input.organizationId).prepare("SELECT id FROM missions WHERE started_by_occurrence=?").get(input.occurrenceId) as { id: string } | undefined;
     if (existing) return existing.id;
-    const id = this.createMission(actor, input.workspaceId, { title: play.spec.title, playId: input.playId });
+    const id = this.createMission(actor, input.workspaceId, { title: play.spec.title, playId: input.playId, ...(input.subjects ? { subjects: input.subjects } : {}) });
     this.store.workspaceDb(input.workspaceId, input.organizationId).prepare("UPDATE missions SET started_by_occurrence=? WHERE id=?").run(input.occurrenceId, id);
     return id;
   }
@@ -689,6 +696,10 @@ export class MissionService {
     if (queryType === "missionMessages.list") return { items: listMessages(db, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
     if (queryType === "handoffs.forWorkItem") return { items: dependencyHandoffs(db, this.workItemRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;
     if (queryType === "missionBundles.latest") return (latestMissionBundle(db, this.missionRow(actor, workspaceId, String(resourceId)).id) ?? null) as unknown as JsonValue;
+    if (queryType === "missions.forSubject") {
+      const rows = db.prepare("SELECT m.* FROM mission_subjects s JOIN missions m ON m.id=s.mission_id WHERE s.subject_id=? ORDER BY m.created_at_ms DESC LIMIT ?").all(String(resourceId), limit) as MissionRow[];
+      return { items: rows.map((row) => this.mission(workspaceId, row)) } as unknown as JsonValue;
+    }
     if (queryType === "missions.brief") return this.brief(actor, workspaceId, this.missionRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "missions.get") return this.mission(workspaceId, this.missionRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "plans.get") return this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;

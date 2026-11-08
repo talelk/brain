@@ -644,8 +644,6 @@
     "ticket.get",
     "incidents.list",
     "incident.get",
-    "delivery.list",
-    "delivery.get",
     "tools.list",
     "members.list",
     "audit.list",
@@ -696,7 +694,8 @@
     "plays.get",
     "attention.list",
     "missions.sinceLastVisit",
-    "notifications.list"
+    "notifications.list",
+    "missions.forSubject"
   ],
   "events": [
     {

@@ -1,13 +1,13 @@
 import type { JSX } from "solid-js";
 import { For, Show, createSignal } from "solid-js";
-import { Badge, Button, KeyValue } from "@talelk/newui-atoms";
+import { Button, KeyValue } from "@talelk/newui-atoms";
 import { Alert, Pagination } from "@talelk/newui-molecules";
 import { FilterBar } from "@talelk/newui-organisms";
 import { PaneLayout } from "@talelk/newui-templates";
-import type { DeliveryDossier, IncidentSummary, SLASummary, TicketSummary } from "@brain/contracts";
+import type { IncidentSummary, SLASummary, TicketSummary } from "@brain/contracts";
 import { DateText, isFreshFromServer, ScreenRegion } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
-import { BrainPage, PageStack, TechnicalDetails } from "../ui/components/PageLayout";
+import { BrainPage, PageStack } from "../ui/components/PageLayout";
 import { StatusBadge } from "../ui/components/StatusBadge";
 import { formatSlaMinutes } from "../ui/format";
 import { EmptyPreview, FactStrip, Freshness, QueueRow, WorkspaceSection } from "../ui/components/Domain";
@@ -149,40 +149,5 @@ export function SreScreen(props: {
         </PageStack>}</Show>} />
       </ScreenRegion>
     </PageStack>
-  </BrainPage>;
-}
-
-export function DeliveryScreen(props: {
-  dossiers: DeliveryDossier[];
-  state: ScreenState<DeliveryDossier[]>;
-  onRefresh: () => void;
-  onOpen: (dossierId: string) => void;
-}): JSX.Element {
-  const [page, setPage] = createSignal(1);
-  const paged = () => {
-    const current = clampPage(page(), props.dossiers.length);
-    return props.dossiers.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
-  };
-  const selection = useMasterDetail(() => props.dossiers, () => paged()[0]);
-  const selected = selection.selected;
-  return <BrainPage title="Delivery" description="Review release criteria, missing evidence and the business delivery decision without conflating effect approval.">
-    <ScreenRegion state={props.state} skeleton="cards" emptyTitle="No delivery dossiers" emptyDescription="Dossiers are created when a delivery release declares its rubric." onRetry={props.onRefresh}>
-      <PaneLayout class="brain-list-detail" startSize={38} minStartSize={30} maxStartSize={55} active={selection.picked() ? "end" : "start"} start={<WorkspaceSection title="Release dossiers" description="Select a dossier to inspect its real readiness criteria.">
-        <Show when={props.dossiers.length} fallback={<EmptyPreview icon="lucide-package-check" title="No release dossiers" description="Dossiers appear here when a delivery release declares its rubric." />}>
-          <div class="brain-queue"><For each={paged()}>{(dossier) => {
-            const passed = dossier.criteria.filter((criterion) => criterion.status === "passed").length;
-            return <QueueRow title={dossier.id} description={`${passed} of ${dossier.criteria.length} criteria passed · ${dossier.evidence.length} evidence artifacts`} icon="lucide-package-check" tone={dossier.state === "verified" ? "green" : dossier.state === "rejected" ? "red" : "amber"} meta={<DateText value={dossier.updatedAt} />} trailing={<StatusBadge kind="evidence" status={dossier.state} />} selected={selected()?.id === dossier.id} onClick={() => selection.pick(dossier.id)} />;
-          }}</For></div>
-          <ListPager count={props.dossiers.length} page={page()} onPageChange={setPage} label="Release dossier pagination" />
-        </Show>
-      </WorkspaceSection>} end={<Show when={selected()} keyed fallback={<EmptyPreview icon="lucide-package-check" title="Select a release dossier" description="Its readiness criteria, evidence and business decision will appear here." />}>{(dossier) => <WorkspaceSection title="Readiness cockpit" description="Required checks and evidence for one substantial dossier.">
-        <Button size="md" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={selection.dismiss}>Back to dossiers</Button>
-        <div class="flex flex-wrap items-center gap-2"><StatusBadge kind="evidence" status={dossier.state} /><Badge variant="outline" theme="blue" label={`${dossier.criteria.filter((criterion) => criterion.status === "passed").length}/${dossier.criteria.length} criteria passed`} /></div>
-        <div class="brain-queue"><For each={dossier.criteria}>{(criterion) => <div class="border-b border-outline-gray-1 py-3"><div class="flex flex-wrap items-center gap-2"><StatusBadge kind="check" status={criterion.status === "inconclusive" ? "missing" : criterion.status} /><strong class="break-words">{criterion.criterionId}</strong></div><p class="mt-1 break-words text-interface text-ink-gray-7">{criterion.detail}</p></div>}</For></div>
-        <TechnicalDetails label="Source and rubric"><p class="break-all">Source {dossier.sourceRevision} · rubric {dossier.rubric.id} · {dossier.rubric.digest}</p></TechnicalDetails>
-        <div class="flex flex-wrap gap-2"><Button size="md" variant="outline" iconRight="lucide-arrow-right" onClick={() => props.onOpen(dossier.id)}>Inspect evidence dossier</Button></div>
-        <p class="text-caption text-ink-gray-6">A business Go decision binds to a work item and does not approve any production effect. Record it against the work item this dossier served.</p>
-      </WorkspaceSection>}</Show>} />
-    </ScreenRegion>
   </BrainPage>;
 }

@@ -45,7 +45,6 @@ function targets(jobId: string, approvalId: string): ScreenTarget[] {
     { id: "13-ticket-detail", route: "/tickets/ticket-visual", heading: "Ticket casework" },
     { id: "14-incidents", route: "/w/operations/sre", heading: "Incidents" },
     { id: "15-incident-detail", route: "/incidents/incident-visual", heading: "Incident investigation" },
-    { id: "16-delivery", route: "/w/operations/delivery", heading: "Delivery" },
     { id: "17-knowledge", route: "/w/operations/knowledge", heading: "Knowledge" },
     { id: "18-tools", route: "/tools", heading: "Trusted capability registry" },
     { id: "19-runners", route: "/runners", heading: "Execution fleet" },
@@ -107,7 +106,6 @@ test("all 38 revamped screens have browser screenshots and page-level containmen
   ws.prepare("INSERT INTO tickets(id,connector_id,remote_id,state,title,body_digest,source_version,observed_at_ms,priority) VALUES ('ticket-visual','support','42','open','Customer cannot sign in with SSO',?,'v1',?,'urgent')").run(DIGEST, now);
   ws.prepare("INSERT INTO incidents(id,target_key,severity,title,state,version,opened_at_ms) VALUES ('incident-visual','sso-production','critical','SSO sign-in latency regression','investigating',2,?)").run(now - 600_000);
   ws.prepare("INSERT INTO observations(id,connector_id,target_key,incident_id,observation_digest,source_event_id,observed_at_ms,expires_at_ms) VALUES ('observation-visual','monitoring','sso-production','incident-visual',?,'visual-observation',?,?)").run(DIGEST, now, now + 3600_000);
-  ws.prepare("INSERT INTO delivery_dossiers(id,source_revision,manifest_digest,rubric_digest,state,version,created_at_ms) VALUES ('delivery-visual',?,?,?,'evaluating',1,?)").run(DIGEST, DIGEST, DIGEST, now);
   ws.prepare("INSERT INTO sessions(id,job_id,attempt_id,engine_id,adapter_digest,state,event_sequence,updated_at_ms) VALUES ('session-visual',?,'attempt-visual','fixture',?,'running',0,?)").run(job.id, DIGEST, now);
   // Authorized final artifacts so the Output Browser deep link has real data:
   // two comparable versions of one output with CAS-backed bytes, an accepted

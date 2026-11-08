@@ -59,30 +59,12 @@ function incidentView(workspaceId: string, r: Record<string, unknown>, detail: b
   return base;
 }
 
-function deliveryView(workspaceId: string, r: Record<string, unknown>, ws: WorkspaceDb): Record<string, unknown> {
-  const results = ws.prepare("SELECT criterion_id, outcome, evidence_digest FROM rubric_results WHERE dossier_id=?").all(String(r["id"])) as Array<Record<string, unknown>>;
-  const statusMap: Record<string, string> = { passed: "passed", failed: "failed", incomplete: "inconclusive" };
-  const evidenceDigests = [...new Set(results.map((x) => String(x["evidence_digest"])))];
-  return {
-    id: String(r["id"]), workspaceId, version: Number(r["version"]), updatedAt: iso(Number(r["created_at_ms"])),
-    sourceRevision: String(r["source_revision"]), state: String(r["state"]),
-    rubric: { id: "rubric", digest: String(r["rubric_digest"]) },
-    criteria: results.map((x) => ({
-      criterionId: String(x["criterion_id"]), checkId: String(x["criterion_id"]),
-      status: statusMap[String(x["outcome"])] ?? "inconclusive", oracleDigest: String(r["rubric_digest"]),
-      artifacts: [artifactRef(ws, String(x["evidence_digest"]), "rubric-evidence")].filter(Boolean),
-      detail: `rubric outcome: ${String(x["outcome"])}`,
-    })),
-    evidence: evidenceDigests.map((dg) => artifactRef(ws, dg, "dossier-evidence")).filter(Boolean),
-    createdAt: iso(Number(r["created_at_ms"])),
-  };
-}
 
-const LIST_TABLES: Record<string, string> = { "tickets.list": "tickets", "incidents.list": "incidents", "delivery.list": "delivery_dossiers" };
-const GET_TABLES: Record<string, string> = { "ticket.get": "tickets", "incident.get": "incidents", "delivery.get": "delivery_dossiers" };
+const LIST_TABLES: Record<string, string> = { "tickets.list": "tickets", "incidents.list": "incidents" };
+const GET_TABLES: Record<string, string> = { "ticket.get": "tickets", "incident.get": "incidents" };
 
 /**
- * Pack list reads: tickets/incidents/delivery/decisions from the workspace,
+ * Pack list reads: tickets and incidents from the workspace,
  * members from control-side grants, audit from the event log.
  */
 export function listPack(store: Store, actor: ActorContext, queryType: string, workspaceId: string | undefined): JsonValue {
@@ -123,14 +105,13 @@ export function listPack(store: Store, actor: ActorContext, queryType: string, w
     switch (queryType) {
       case "tickets.list": return ticketView(workspaceId, r, false, ws);
       case "incidents.list": return incidentView(workspaceId, r, false, ws);
-      case "delivery.list": return deliveryView(workspaceId, r, ws);
       default: return r;
     }
   });
   return { items } as unknown as JsonValue;
 }
 
-/** Pack detail reads: one ticket/incident/delivery, or an evidence bundle by digest. */
+/** Pack detail reads: one ticket or incident, or an evidence bundle by digest. */
 export function getPack(store: Store, actor: ActorContext, queryType: string, workspaceId: string | undefined, resourceId: string): JsonValue {
   if (queryType === "evidence.get") {
     // resourceId is a bundle digest or bundle id; search caller workspaces.
@@ -154,8 +135,7 @@ export function getPack(store: Store, actor: ActorContext, queryType: string, wo
   if (!row) throw new BrainDomainError("NOT_FOUND", "resource not found");
   const view = queryType === "ticket.get" ? ticketView(workspaceId, row, true, ws)
     : queryType === "incident.get" ? incidentView(workspaceId, row, true, ws)
-      : queryType === "delivery.get" ? deliveryView(workspaceId, row, ws)
-        : row;
+      : row;
   return view as unknown as JsonValue;
 }
 

@@ -5,7 +5,6 @@ import type { ActorContext, CommandReceipt, HumanApprovalDecision, JsonValue,
 import { approvalSubjectDigest, domainDigest, isKnownQuery, sha256Digest } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
-import { assertExpectedVersion } from "../domain/states";
 import { Store, type BrainOptions } from "./store";
 import { hasWorkspaceMembership, resolveActor, requireWorkspaceRead, scopesForPrincipal, type ResolvedActor } from "./authz";
 import { CommandFunnel } from "./command-funnel";
@@ -500,6 +499,7 @@ export class Brain {
     const cursorRow = ws.prepare("SELECT source_watermark FROM connector_cursors WHERE connector_id='gitlab'").get() as { source_watermark: string | null } | undefined;
     const issues = await connector.listIssues(cursorRow?.source_watermark ?? undefined);
     let created = 0; let updated = 0; let unchanged = 0;
+    const newTickets: string[] = [];
     let watermark: string | null = cursorRow?.source_watermark ?? null;
     s.inTx(ws, () => {
       for (const issue of issues) {
@@ -514,6 +514,7 @@ export class Brain {
         if (!prior) {
           ws.prepare("INSERT INTO tickets(id, connector_id, remote_id, state, title, body_digest, source_version, observed_at_ms, created_at_ms) VALUES (?, 'gitlab', ?, ?, ?, ?, ?, ?, ?)")
             .run(`tkt-gl-${iid}`, String(iid), state, title, bodyDigest, updatedAt || "unknown", s.now(), s.now());
+          newTickets.push(`tkt-gl-${iid}`);
           created++;
         } else if (prior.body_digest !== bodyDigest) {
           ws.prepare("UPDATE tickets SET state=?, title=?, body_digest=?, source_version=?, observed_at_ms=?, version=version+1 WHERE id=?")
@@ -527,6 +528,10 @@ export class Brain {
         ON CONFLICT(connector_id) DO UPDATE SET source_watermark=excluded.source_watermark, version=version+1, updated_at_ms=excluded.updated_at_ms`)
         .run(watermark, s.now());
     });
+    // A new ticket is a subject: subject-triggered Plays start their missions for it (T44).
+    for (const ticketId of newTickets) {
+      try { this.jobProtocol.automations.fireSubject(input.actor.organizationId, input.workspaceId, { pack: "support", kind: "ticket", id: ticketId }); } catch { /* an automation failure never loses the ticket */ }
+    }
     return { discovered: issues.length, created, updated, unchanged };
   }
 
@@ -616,67 +621,40 @@ export class Brain {
   // Delivery dossier lifecycle (T44): explicit creation, rubric results only
   // from real attempts, and an explicit finalize that computes the verdict
   // deterministically — reads never transition state.
-  createDeliveryDossier(input: {
-    actor: ActorContext; workspaceId: string; sourceRevision: string; manifestDigest: string; rubricDigest: string;
-  }): { dossierId: string } {
+  /**
+   * An evaluator's check on a mission's current evidence bundle (T44). Checks
+   * inform the mission verdict; recording one never changes the bundle's
+   * state. Evidence must be a real artifact of the workspace.
+   */
+  recordBundleCheck(input: {
+    actor: ActorContext; workspaceId: string; missionId: string;
+    criterionId: string; evaluator: string; outcome: "passed" | "failed" | "incomplete"; evidenceDigest: string; advisory?: boolean;
+  }): void {
     const s = this.store;
     requireWorkspaceRead(s, input.actor, input.workspaceId);
     const ws = s.workspaceDb(input.workspaceId, input.actor.organizationId);
-    const id = s.id("dossier");
-    ws.prepare("INSERT INTO delivery_dossiers(id, source_revision, manifest_digest, rubric_digest, state, version, created_at_ms) VALUES (?,?,?,?, 'draft', 1, ?)")
-      .run(id, input.sourceRevision, input.manifestDigest, input.rubricDigest, s.now());
-    return { dossierId: id };
+    const bundle = ws.prepare("SELECT digest, state FROM mission_evidence_bundles WHERE mission_id=? ORDER BY created_at_ms DESC, rowid DESC LIMIT 1").get(input.missionId) as { digest: string; state: string } | undefined;
+    if (!bundle) throw new BrainDomainError("NOT_FOUND", "the mission has no evidence bundle");
+    if (bundle.state !== "submitted") throw new BrainDomainError("CONFLICT", `a ${bundle.state} mission evidence bundle takes no new checks`);
+    if (!ws.prepare("SELECT 1 FROM artifacts WHERE digest=?").get(input.evidenceDigest)) throw new BrainDomainError("EVIDENCE_MISSING", "check evidence artifact not found in workspace");
+    ws.prepare("INSERT OR REPLACE INTO mission_bundle_checks(bundle_digest, criterion_id, evaluator, outcome, evidence_digest, advisory, created_at_ms) VALUES (?,?,?,?,?,?,?)")
+      .run(bundle.digest, input.criterionId, input.evaluator, input.outcome, input.evidenceDigest, input.advisory ? 1 : 0, s.now());
   }
 
-  recordRubricResult(input: {
-    actor: ActorContext; workspaceId: string; dossierId: string;
-    criterionId: string; evaluatorAttemptId: string; outcome: "passed" | "failed" | "incomplete"; evidenceDigest: string;
-  }): void {
-    const s = this.store;
-    const ws = s.workspaceDb(input.workspaceId, input.actor.organizationId);
-    const dossier = ws.prepare("SELECT state FROM delivery_dossiers WHERE id=?").get(input.dossierId) as { state: string } | undefined;
-    if (!dossier) throw new BrainDomainError("NOT_FOUND", "delivery dossier not found");
-    if (dossier.state !== "draft" && dossier.state !== "evaluating") throw new BrainDomainError("CONFLICT", "dossier is finalized");
-    // Evidence must be real; the attempt reference is recorded for provenance
-    // when it names a Governor attempt, but external evaluator attempts are
-    // accepted as declared provenance (their verdicts are separately pinned).
-    if (!ws.prepare("SELECT 1 FROM artifacts WHERE digest=?").get(input.evidenceDigest)) {
-      throw new BrainDomainError("EVIDENCE_MISSING", "rubric evidence artifact not found in workspace");
-    }
-    ws.prepare("INSERT OR REPLACE INTO rubric_results(dossier_id, criterion_id, evaluator_attempt_id, outcome, evidence_digest) VALUES (?,?,?,?,?)")
-      .run(input.dossierId, input.criterionId, input.evaluatorAttemptId, input.outcome, input.evidenceDigest);
-    ws.prepare("UPDATE delivery_dossiers SET state='evaluating', version=version+1 WHERE id=? AND state='draft'").run(input.dossierId);
-  }
-
-  finalizeDeliveryDossier(input: { actor: ActorContext; workspaceId: string; dossierId: string; expectedVersion: number }): { state: string } {
-    const s = this.store;
-    const ws = s.workspaceDb(input.workspaceId, input.actor.organizationId);
-    const dossier = ws.prepare("SELECT state, version FROM delivery_dossiers WHERE id=?").get(input.dossierId) as { state: string; version: number } | undefined;
-    if (!dossier) throw new BrainDomainError("NOT_FOUND", "delivery dossier not found");
-    assertExpectedVersion(dossier.version, input.expectedVersion);
-    if (dossier.state !== "evaluating") throw new BrainDomainError("CONFLICT", "only evaluating dossiers can be finalized");
-    const results = ws.prepare("SELECT outcome FROM rubric_results WHERE dossier_id=?").all(input.dossierId) as Array<{ outcome: string }>;
-    if (results.length === 0) throw new BrainDomainError("CONFLICT", "cannot finalize a dossier with no rubric results");
-    const state = results.every((r) => r.outcome === "passed") ? "verified" : "rejected";
-    ws.prepare("UPDATE delivery_dossiers SET state=?, version=version+1 WHERE id=? AND version=?").run(state, input.dossierId, dossier.version);
-    return { state };
-  }
-
-  // Optional calibrated judge (T44): assesses pinned evidence against rubric
-  // criteria with the local model, stores each transcript as CAS evidence,
-  // and records outcomes through the ordinary rubric-result path. The judge
-  // is advisory — it can add results but never finalizes or advances state
-  // beyond the same draft→evaluating transition any evaluator causes.
-  async judgeDeliveryDossier(input: {
-    actor: ActorContext; workspaceId: string; dossierId: string;
+  // Optional calibrated judge (T44): assesses pinned evidence against the
+  // mission's criteria with the local model, stores each transcript as CAS
+  // evidence and records an advisory check. The judge is a recommendation:
+  // it never records a mission verdict, which stays a separate act.
+  async judgeMissionBundle(input: {
+    actor: ActorContext; workspaceId: string; missionId: string;
     criteria: Array<{ criterionId: string; criterionText: string; evidenceDigest: string }>;
   }): Promise<Array<{ criterionId: string; outcome: string; transcriptDigest: string }>> {
     const s = this.store;
     requireWorkspaceRead(s, input.actor, input.workspaceId);
     const ws = s.workspaceDb(input.workspaceId, input.actor.organizationId);
-    const dossier = ws.prepare("SELECT state FROM delivery_dossiers WHERE id=?").get(input.dossierId) as { state: string } | undefined;
-    if (!dossier) throw new BrainDomainError("NOT_FOUND", "delivery dossier not found");
-    if (dossier.state !== "draft" && dossier.state !== "evaluating") throw new BrainDomainError("CONFLICT", "dossier is finalized");
+    const bundle = ws.prepare("SELECT state FROM mission_evidence_bundles WHERE mission_id=? ORDER BY created_at_ms DESC, rowid DESC LIMIT 1").get(input.missionId) as { state: string } | undefined;
+    if (!bundle) throw new BrainDomainError("NOT_FOUND", "the mission has no evidence bundle");
+    if (bundle.state !== "submitted") throw new BrainDomainError("CONFLICT", "the mission evidence bundle is already judged");
     const { runLocalJudge, judgeModelId, JUDGE_PROMPT_VERSION } = await import("../modules/packs/index");
     const out: Array<{ criterionId: string; outcome: string; transcriptDigest: string }> = [];
     for (const criterion of input.criteria) {
@@ -695,11 +673,7 @@ export class Brain {
       const digest = sha256Digest(transcript);
       const up = this.initUpload(input.actor, { workspaceId: input.workspaceId, expectedDigest: digest, expectedBytes: transcript.length }) as unknown as { uploadId: string };
       this.putUpload(input.actor, up.uploadId, transcript);
-      this.recordRubricResult({
-        actor: input.actor, workspaceId: input.workspaceId, dossierId: input.dossierId,
-        criterionId: criterion.criterionId, evaluatorAttemptId: `judge:${judgeModelId()}:${s.now()}`,
-        outcome: verdict.outcome, evidenceDigest: digest,
-      });
+      this.recordBundleCheck({ actor: input.actor, workspaceId: input.workspaceId, missionId: input.missionId, criterionId: criterion.criterionId, evaluator: `judge:${judgeModelId()}`, outcome: verdict.outcome, evidenceDigest: digest, advisory: true });
       out.push({ criterionId: criterion.criterionId, outcome: verdict.outcome, transcriptDigest: digest });
     }
     return out;
@@ -792,7 +766,7 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.jobProtocol.automations.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
       }
-      case "missions.list": case "missions.get": case "missions.brief": case "handoffs.forWorkItem": case "missionBundles.latest": case "missionOutputs.list": case "missionMessages.list": case "plans.get": case "workItems.list": case "workItems.get": case "executionLinks.list": {
+      case "missions.list": case "missions.get": case "missions.forSubject": case "missions.brief": case "handoffs.forWorkItem": case "missionBundles.latest": case "missionOutputs.list": case "missionMessages.list": case "plans.get": case "workItems.list": case "workItems.get": case "executionLinks.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.missions.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
       }
@@ -847,11 +821,11 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.capitalization.query(actor, q.queryType, q.workspaceId, limit));
       }
-      case "tickets.list": case "incidents.list": case "delivery.list": case "members.list": case "audit.list": {
+      case "tickets.list": case "incidents.list": case "members.list": case "audit.list": {
         requireRead();
         return this.envelope(q.queryType, listPack(s, actor, q.queryType, q.workspaceId));
       }
-      case "ticket.get": case "incident.get": case "delivery.get":
+      case "ticket.get": case "incident.get":
         return this.envelope(q.queryType, getPack(s, actor, q.queryType, q.workspaceId, String(q.resourceId ?? "")));
       case "evidence.get": {
         requireRead();
