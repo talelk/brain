@@ -19446,7 +19446,11 @@
         },
         "payload": {
           "type": "object",
-          "properties": {},
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
           "additionalProperties": false
         }
       },

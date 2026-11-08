@@ -70,7 +70,7 @@ export class CapitalizationService {
     if (!workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
     requireWorkspaceRead(this.store, actor, workspaceId);
     switch (command.commandType) {
-      case "capitalization.run": return this.requestRun(actor, workspaceId, command.commandId);
+      case "capitalization.run": return this.requestRun(actor, workspaceId, command.commandId, command.payload["missionId"] ? String(command.payload["missionId"]) : undefined);
       case "capability.review": return this.review(actor, workspaceId, command.payload);
       case "tool.propose": return this.propose(actor, workspaceId, command.payload);
       case "tool.publish": return this.publish(actor, workspaceId, command.payload);
@@ -138,13 +138,49 @@ export class CapitalizationService {
     if (!verified) throw new BrainDomainError("EVIDENCE_MISSING", "capitalization requires a verified evidence bundle and verdict");
   }
 
-  private requestRun(actor: ActorContext, workspaceId: string, commandId: string): string {
+  private requestRun(actor: ActorContext, workspaceId: string, commandId: string, missionId?: string): string {
     const db = this.store.workspaceDb(workspaceId, actor.organizationId);
+    if (missionId && !db.prepare("SELECT 1 FROM missions WHERE id=?").get(missionId)) throw new BrainDomainError("NOT_FOUND", "mission not found");
     const id = digestId("caprun", domainDigest("brain:capitalization-request:v1", { workspaceId, commandId }));
     this.store.inTx(db, () => {
-      db.prepare("INSERT OR IGNORE INTO capitalization_runs(id,state,requested_by,created_at_ms) VALUES (?,'queued',?,?)").run(id, actor.actorId, this.store.now());
+      db.prepare("INSERT OR IGNORE INTO capitalization_runs(id,state,requested_by,mission_id,created_at_ms) VALUES (?,'queued',?,?,?)").run(id, actor.actorId, missionId ?? null, this.store.now());
     });
     return id;
+  }
+
+  /** One capitalization run per mission close, whatever the outcome (#42). */
+  requestMissionRun(organizationId: string, workspaceId: string, missionId: string): string {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    const id = digestId("caprun", domainDigest("brain:capitalization-mission-close:v1", { workspaceId, missionId }));
+    db.prepare("INSERT OR IGNORE INTO capitalization_runs(id,state,requested_by,mission_id,created_at_ms) VALUES (?,'queued','mission-close',?,?)").run(id, missionId, this.store.now());
+    return id;
+  }
+
+  /**
+   * Knowledge candidates from one mission's verified material only (#42):
+   * accepted decisions, verified output versions, verdict findings and the
+   * Governor-derived facts frozen on handoffs. Member notes, messages and
+   * transcripts are claims and are never read here (E120).
+   */
+  private extractMissionKnowledge(db: ReturnType<Store["workspaceDb"]>, missionId: string, now: number): number {
+    const sources: Array<{ signature: string; content: JsonValue }> = [];
+    for (const row of db.prepare("SELECT id, statement, source_kind, source_ref FROM accepted_decisions WHERE mission_id=? AND superseded_by IS NULL ORDER BY introduced_version, id").all(missionId) as Array<{ id: string; statement: string; source_kind: string; source_ref: string | null }>) {
+      sources.push({ signature: `mission:${missionId}:decision:${row.id}`, content: { kind: "accepted-decision", missionId, statement: row.statement, source: { kind: row.source_kind, ...(row.source_ref ? { ref: row.source_ref } : {}) } } });
+    }
+    for (const row of db.prepare("SELECT v.id, o.name, v.artifact_digest FROM output_versions v JOIN mission_outputs o ON o.id=v.output_id WHERE o.mission_id=? AND v.verified=1 ORDER BY v.id").all(missionId) as Array<{ id: string; name: string; artifact_digest: string }>) {
+      sources.push({ signature: `mission:${missionId}:output:${row.id}`, content: { kind: "verified-output", missionId, output: row.name, artifactDigest: row.artifact_digest } });
+    }
+    for (const row of db.prepare("SELECT digest, findings_json FROM mission_evidence_bundles WHERE mission_id=? AND state IN ('verified','rejected') ORDER BY created_at_ms").all(missionId) as Array<{ digest: string; findings_json: string }>) {
+      (JSON.parse(row.findings_json) as string[]).forEach((finding, index) => sources.push({ signature: `mission:${missionId}:finding:${row.digest}:${index}`, content: { kind: "verdict-finding", missionId, finding, bundleDigest: row.digest } }));
+    }
+    for (const row of db.prepare("SELECT id, work_item_id, facts_json FROM handoffs WHERE mission_id=? AND superseded_by IS NULL AND facts_json IS NOT NULL ORDER BY id").all(missionId) as Array<{ id: string; work_item_id: string; facts_json: string }>) {
+      sources.push({ signature: `mission:${missionId}:handoff:${row.id}`, content: { kind: "handoff-facts", missionId, workItemId: row.work_item_id, facts: JSON.parse(row.facts_json) as JsonValue } });
+    }
+    for (const source of sources) {
+      db.prepare(`INSERT OR IGNORE INTO knowledge_assets(id,signature,operation_id,state,classification,content,source_count,created_at_ms,updated_at_ms) VALUES (?,?, 'mission-knowledge', 'extracted', 'internal', ?, 1, ?, ?)`)
+        .run(digestId("knowledge", domainDigest("brain:mission-knowledge:v1", { signature: source.signature })), source.signature, JSON.stringify(source.content), now, now);
+    }
+    return sources.length;
   }
 
   processPending(): { processed: number; failed: number } {
@@ -173,10 +209,15 @@ export class CapitalizationService {
   private processRun(workspaceId: string, organizationId: string, runId: string): void {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     this.store.inTx(db, () => {
-      const run = db.prepare("SELECT state FROM capitalization_runs WHERE id=?").get(runId) as { state: string } | undefined;
+      const run = db.prepare("SELECT state, mission_id FROM capitalization_runs WHERE id=?").get(runId) as { state: string; mission_id: string | null } | undefined;
       if (!run || run.state === "succeeded" || run.state === "failed") return;
       const now = this.store.now();
       transitionState(db, "capitalizationRun", runId, "running", { rawSet: [`started_at_ms=COALESCE(started_at_ms,${now})`, "error=NULL"] });
+      if (run.mission_id) {
+        const extracted = this.extractMissionKnowledge(db, run.mission_id, now);
+        transitionState(db, "capitalizationRun", runId, "succeeded", { set: { extracted_count: extracted, completed_at_ms: this.store.now() } });
+        return;
+      }
       const signatures = db.prepare(`SELECT signature,operation_id,parameter_shape_json,effect_class,package_digest,COUNT(*) AS source_count
         FROM operation_observations WHERE verified_success=1 GROUP BY signature,operation_id,parameter_shape_json,effect_class,package_digest ORDER BY signature`).all() as Array<{
         signature: string; operation_id: string; parameter_shape_json: string; effect_class: "read" | "write" | "privileged"; package_digest: string; source_count: number;

@@ -286,4 +286,30 @@ describe("missions (T51)", () => {
     expect((await mission(w, id)).state).toBe("active");
     w.brain.close();
   });
+
+  it("closing a mission capitalizes only verified material, never member notes or messages (E120)", async () => {
+    const w = setupWorld();
+    const id = await confirmedMission(w, "m-cap", [task("a"), task("b", ["a"])]);
+    const a = (await workView(w)).items.find((item) => item.planTaskId === "a") as WorkItem;
+    w.brain.missions.linkExecution(w.owner, w.workspaceId, a.workItemId, "run-cap-a");
+    const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    const digest = `sha256:${"c".repeat(64)}`;
+    ws.prepare("INSERT INTO evidence_bundles(digest, bundle_id, job_id, attempt_id, state, manifest_json, created_at_ms) VALUES (?,?,?,?,'verified',?,?)")
+      .run(digest, "bundle-cap", "job-cap", "att-cap", JSON.stringify({ checks: [{ criterionId: "a-done", checkId: "c1", status: "passed" }] }), w.brain.store.now());
+    ws.prepare("INSERT INTO verification_verdicts(id, bundle_digest, evaluator_attempt_id, evaluator_digest, outcome, manifest_json, created_at_ms) VALUES ('verdict-cap',?,'eval-cap',?,'verified','{}',?)").run(digest, digest, w.brain.store.now());
+    await run(w, coordinator(w), "handoff.submit", "m-cap-handoff", { workItemId: a.workItemId, notes: { summary: "SECRET-NOTE: the vendor key lives in the wiki" } });
+    await run(w, w.owner, "mission.message.send", "m-cap-msg", { missionId: id, recipient: { kind: "mission" }, body: "SECRET-MESSAGE: ship it tonight" });
+    await run(w, w.owner, "decision.accept", "m-cap-dec", { missionId: id, baseVersion: (await brief(w, id)).version, statement: "Sessions live in Postgres", source: { kind: "human" } });
+    const progressing = (await workView(w)).items.find((item) => item.planTaskId === "a") as WorkItem;
+    await run(w, w.owner, "workItem.transition", "m-cap-review", { workItemId: a.workItemId, state: "review" }, progressing.version);
+    const reviewing = (await workView(w)).items.find((item) => item.planTaskId === "a") as WorkItem;
+    await run(w, w.owner, "workItem.transition", "m-cap-done", { workItemId: a.workItemId, state: "done", evidenceDigest: digest }, reviewing.version);
+    await run(w, w.owner, "mission.close", "m-cap-close", { missionId: id, outcome: "ended" }, (await mission(w, id)).version);
+    expect(w.brain.runCapitalization().processed).toBeGreaterThan(0);
+    const assets = ws.prepare("SELECT signature, content FROM knowledge_assets WHERE operation_id='mission-knowledge' ORDER BY signature").all() as Array<{ signature: string; content: string }>;
+    expect(assets.map((row) => (JSON.parse(row.content) as { kind: string }).kind).sort()).toEqual(["accepted-decision", "handoff-facts"]);
+    expect(assets.some((row) => row.content.includes("SECRET"))).toBe(false);
+    expect(JSON.parse(assets.find((row) => row.signature.includes(":handoff:"))!.content)).toMatchObject({ facts: { evidenceDigest: digest } });
+    w.brain.close();
+  });
 });

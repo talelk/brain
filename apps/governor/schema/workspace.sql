@@ -290,7 +290,7 @@ CREATE TABLE tool_candidates (
 ) STRICT;
 CREATE TABLE capitalization_runs (
   id TEXT PRIMARY KEY, state TEXT NOT NULL CHECK(state IN ('queued','running','succeeded','failed')),
-  requested_by TEXT NOT NULL, observed_count INTEGER NOT NULL DEFAULT 0, extracted_count INTEGER NOT NULL DEFAULT 0,
+  requested_by TEXT NOT NULL, mission_id TEXT, observed_count INTEGER NOT NULL DEFAULT 0, extracted_count INTEGER NOT NULL DEFAULT 0,
   candidate_count INTEGER NOT NULL DEFAULT 0, error TEXT, created_at_ms INTEGER NOT NULL,
   started_at_ms INTEGER, completed_at_ms INTEGER
 ) STRICT;

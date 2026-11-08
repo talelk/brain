@@ -599,8 +599,8 @@
   },
   {
    "id": "E120",
-   "status": "partial",
-   "evidence": "not yet implemented: T57 capitalization sources"
+   "status": "covered",
+   "evidence": "tests/integration/missions.test.ts"
   },
   {
    "id": "E121",

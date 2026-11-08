@@ -56,7 +56,7 @@ export interface MissionDeliveryPort {
 }
 
 export class MissionService {
-  constructor(private readonly store: Store, private readonly delivery?: MissionDeliveryPort, private readonly coordinatorPort?: CoordinatorPort) {}
+  constructor(private readonly store: Store, private readonly delivery?: MissionDeliveryPort, private readonly coordinatorPort?: CoordinatorPort, private readonly capitalization?: { requestMissionRun(organizationId: string, workspaceId: string, missionId: string): string }) {}
 
   /** Starts coordinator runs for pending wakes across active workspaces (maintenance pass). */
   pumpCoordinators(): number {
@@ -481,6 +481,7 @@ export class MissionService {
       }
       this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.stateChanged", payload: { missionId: mission.id, missionState: next } });
     });
+    if (next === "closed") this.capitalization?.requestMissionRun(actor.organizationId, workspaceId, mission.id);
     if (next === "verifying") {
       const bundle = this.store.inTx(db, () => assembleMissionBundle(this.store, db, mission.id, mission.brief_version));
       if (!bundle.complete) this.backToWork(actor, workspaceId, mission.id, latestMissionBundle(db, mission.id)?.findings ?? []);

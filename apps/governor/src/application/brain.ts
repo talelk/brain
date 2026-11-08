@@ -80,7 +80,7 @@ export class Brain {
           return this.workflows.startRun({ organizationId: input.organizationId, workspaceId: input.workspaceId, actorId: input.actorId, workflowId: input.workflowId, workflow, configDigest,
             runInput: MissionService.coordinatorInput(input.missionId, input.reasons), executionKey: input.executionKey });
         },
-      });
+      }, { requestMissionRun: (organizationId, workspaceId, missionId) => this.capitalization.requestMissionRun(organizationId, workspaceId, missionId) });
       this.sessions = new SessionService(this.store, { brief: (actor, workspaceId, missionId) => this.missions.briefOf(actor, workspaceId, missionId) });
       this.stream = createStreamService(this.store);
       this.documents = new DocumentService(this.store);

@@ -1,5 +1,9 @@
 # Runtime status and continuation — 2026-10-28
 
+## Knowledge from missions — 8 November
+
+T57 runs one capitalization pass when a mission closes, whatever its outcome, and `capitalization.run` accepts a `missionId` for an on-demand pass during a long mission. A mission pass extracts candidates only from verified material: active accepted decisions, verified output versions, mission verdict findings and the Governor-derived facts frozen on handoffs. Member notes, messages and transcripts are never read. Candidates enter the existing review and publication lifecycle as extracted knowledge assets. E120 is covered.
+
 ## Event-driven coordinator — 8 November
 
 T66 makes missions advance on events (ADR 0004). A Play may name a coordinator on its team and a coordinator workflow from the same release; the compiler checks that workflow accepts the coordinator input `{ missionId, reasons }`. Mission events record durable wakes — verified work, a message to the mission itself, a plan version a human confirmed, a budget change and a budget pause — and the maintenance pass starts at most one coordinator run per mission, carrying every wake that accumulated, so bursts coalesce into one bounded session. A coordinator start that fails leaves its wakes pending with the error recorded. A mission budget may reserve a final allowance: ordinary work must leave it unspent, while the coordinator may use it, including while the mission is paused for budget, to write the final checkpoint and handoff.
