@@ -582,6 +582,15 @@
         "human",
         "workflow"
       ]
+    },
+    {
+      "type": "mission.budget.set",
+      "schema": "MissionBudgetSetCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
     }
   ],
   "queries": [
@@ -1242,6 +1251,12 @@
     },
     {
       "type": "mission.verdictRecorded",
+      "envelope": "EventEnvelope",
+      "payloadContract": "WorkEventPayload",
+      "durable": true
+    },
+    {
+      "type": "mission.budgetChanged",
       "envelope": "EventEnvelope",
       "payloadContract": "WorkEventPayload",
       "durable": true

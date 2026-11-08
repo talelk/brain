@@ -93,6 +93,8 @@ export class Brain {
         activeRelease: (organizationId) => this.activeRelease(organizationId),
         resolveWorkflow: (organizationId, workflowId) => this.loadWorkflow(organizationId, workflowId),
         startRun: (input) => this.workflows.startRun(input as Parameters<WorkflowEnginePort["startRun"]>[0]),
+        missionAdmission: (organizationId, workspaceId, runId) => this.missions.admission(organizationId, workspaceId, runId),
+        missionReserve: (organizationId, workspaceId, input) => this.missions.recordReservation(organizationId, workspaceId, input),
       });
       this.capitalization = new CapitalizationService(this.store);
       this.evidence = new EvidenceService(this.store, {

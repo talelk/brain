@@ -554,13 +554,13 @@
   },
   {
    "id": "E111",
-   "status": "partial",
-   "evidence": "not yet implemented: T19/T66 mission admission and budget auto-pause"
+   "status": "covered",
+   "evidence": "tests/integration/mission-admission.test.ts"
   },
   {
    "id": "E112",
-   "status": "partial",
-   "evidence": "not yet implemented: T19 fair mission admission"
+   "status": "covered",
+   "evidence": "tests/integration/mission-admission.test.ts"
   },
   {
    "id": "E113",

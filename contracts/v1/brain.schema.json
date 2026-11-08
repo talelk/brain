@@ -6328,6 +6328,12 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 10
+        },
+        "budget": {
+          "$ref": "#/$defs/MissionBudget"
+        },
+        "usage": {
+          "$ref": "#/$defs/BudgetUsage"
         }
       },
       "required": [
@@ -6343,7 +6349,9 @@
         "state",
         "briefVersion",
         "autonomyPolicy",
-        "parkingThreshold"
+        "parkingThreshold",
+        "budget",
+        "usage"
       ],
       "additionalProperties": false
     },
@@ -6746,6 +6754,9 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 10
+            },
+            "budget": {
+              "$ref": "#/$defs/MissionBudget"
             }
           },
           "required": [
@@ -7051,7 +7062,8 @@
             "output.versionRecorded",
             "handoff.submitted",
             "mission.bundleAssembled",
-            "mission.verdictRecorded"
+            "mission.verdictRecorded",
+            "mission.budgetChanged"
           ]
         },
         "organizationId": {
@@ -10774,6 +10786,9 @@
         },
         {
           "$ref": "#/$defs/MissionVerdictRecordCommand"
+        },
+        {
+          "$ref": "#/$defs/MissionBudgetSetCommand"
         }
       ]
     },
@@ -21864,6 +21879,117 @@
         "dependencyHandoffs",
         "inputs",
         "messages"
+      ],
+      "additionalProperties": false
+    },
+    "MissionBudget": {
+      "type": "object",
+      "properties": {
+        "maxMicroUsd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "maxWallClockMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "memberCap": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "attemptReserveMicroUsd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "memberCap"
+      ],
+      "additionalProperties": false
+    },
+    "BudgetUsage": {
+      "type": "object",
+      "properties": {
+        "settledMicroUsd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "reservedMicroUsd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "activeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "runningMembers": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "settledMicroUsd",
+        "reservedMicroUsd",
+        "activeMs",
+        "runningMembers"
+      ],
+      "additionalProperties": false
+    },
+    "MissionBudgetSetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "mission.budget.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "budget": {
+              "$ref": "#/$defs/MissionBudget"
+            }
+          },
+          "required": [
+            "missionId",
+            "budget"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
       ],
       "additionalProperties": false
     }

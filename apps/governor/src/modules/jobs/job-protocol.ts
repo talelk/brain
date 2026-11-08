@@ -30,7 +30,13 @@ export interface JobProtocolPorts {
   activeRelease(organizationId: string): { digest: string; manifest: string } | undefined;
   resolveWorkflow(organizationId: string, workflowId: string): { workflow: unknown; configDigest: string };
   startRun(input: { organizationId: string; workspaceId: string; actorId: string; workflowId: string; workflow: unknown; configDigest: string; runInput: JsonValue; executionKey: string; runnerId?: string }): { runId: string };
+  /** Mission-local admission for a run's next attempt (member cap, then budget); no mission means interactive work. */
+  missionAdmission?(organizationId: string, workspaceId: string, runId: string): MissionAdmission;
+  /** Records the admitted attempt's reservation against its mission. */
+  missionReserve?(organizationId: string, workspaceId: string, input: { missionId: string; runId: string; attemptId: string; microUsd: number }): void;
 }
+
+export type MissionAdmission = { missionId?: string; admitted: true; reserve: number; running: number } | { missionId: string; admitted: false; reason: string; running: number };
 
 /**
  * The jobs module's one deep interface: the runner session protocol, the
@@ -88,6 +94,8 @@ export class JobProtocol {
     return claim(this.store, {
       isEvaluatorEligible: (runnerId, jobId) => this.ports.evaluatorEligible(runnerId, jobId),
       isRunnerCurrent: (runnerId) => this.ports.runnerCurrent(runner.organizationId, runnerId),
+      ...(this.ports.missionAdmission ? { missionAdmission: (workspaceId: string, runId: string) => this.ports.missionAdmission!(runner.organizationId, workspaceId, runId) } : {}),
+      ...(this.ports.missionReserve ? { missionReserve: (workspaceId: string, input: { missionId: string; runId: string; attemptId: string; microUsd: number }) => this.ports.missionReserve!(runner.organizationId, workspaceId, input) } : {}),
     }, runner, requestId);
   }
 

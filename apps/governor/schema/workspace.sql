@@ -18,11 +18,23 @@ CREATE TABLE missions (
   outcome TEXT CHECK(outcome IS NULL OR outcome IN ('achieved','ended','cancelled')),
   brief_version INTEGER NOT NULL DEFAULT 1 CHECK(brief_version > 0),
   parking_threshold INTEGER NOT NULL DEFAULT 3 CHECK(parking_threshold BETWEEN 1 AND 10),
+  budget_micro_usd INTEGER CHECK(budget_micro_usd IS NULL OR budget_micro_usd >= 0),
+  budget_wall_ms INTEGER CHECK(budget_wall_ms IS NULL OR budget_wall_ms >= 0),
+  member_cap INTEGER NOT NULL DEFAULT 3 CHECK(member_cap BETWEEN 1 AND 50),
+  attempt_reserve_micro_usd INTEGER NOT NULL DEFAULT 0 CHECK(attempt_reserve_micro_usd >= 0),
+  active_ms INTEGER NOT NULL DEFAULT 0 CHECK(active_ms >= 0), active_since_ms INTEGER,
   policy_json TEXT NOT NULL DEFAULT '{"preset":"standard","operations":["conflictTask.create","decision.accept","member.addExistingRole","task.add","task.change","task.reassign","task.remove"],"version":1}' CHECK(json_valid(policy_json)),
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
   CHECK((state = 'closed') = (outcome IS NOT NULL)), CHECK(state = 'paused' OR pause_reason IS NULL)
 ) STRICT;
+CREATE TABLE mission_spend (
+  attempt_id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), run_id TEXT NOT NULL,
+  reserved_micro_usd INTEGER NOT NULL CHECK(reserved_micro_usd >= 0),
+  settled_micro_usd INTEGER CHECK(settled_micro_usd IS NULL OR settled_micro_usd >= 0),
+  created_at_ms INTEGER NOT NULL, settled_at_ms INTEGER
+) STRICT;
+CREATE INDEX mission_spend_open ON mission_spend(mission_id, settled_at_ms);
 CREATE TABLE mission_brief_versions (
   mission_id TEXT NOT NULL REFERENCES missions(id), version INTEGER NOT NULL CHECK(version > 0),
   intent TEXT NOT NULL, constraints_json TEXT NOT NULL CHECK(json_valid(constraints_json)),

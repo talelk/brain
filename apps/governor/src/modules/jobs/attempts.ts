@@ -44,7 +44,11 @@ export function runnerView(s: Store, runnerId: string): RunnerView | undefined {
   };
 }
 
-export function claim(s: Store, deps: { isEvaluatorEligible: (runnerId: string, jobId: string) => boolean; isRunnerCurrent?: (runnerId: string) => boolean }, runner: { runnerId: string; epoch: number; organizationId: string }, requestId: string): JsonValue | null {
+export function claim(s: Store, deps: {
+  isEvaluatorEligible: (runnerId: string, jobId: string) => boolean; isRunnerCurrent?: (runnerId: string) => boolean;
+  missionAdmission?: (workspaceId: string, runId: string) => import("./job-protocol").MissionAdmission;
+  missionReserve?: (workspaceId: string, input: { missionId: string; runId: string; attemptId: string; microUsd: number }) => void;
+}, runner: { runnerId: string; epoch: number; organizationId: string }, requestId: string): JsonValue | null {
   let offer: JsonValue | null = null;
   s.inTx(s.control, () => {
     const priorClaim = s.control.prepare("SELECT attempt_id FROM runner_claim_requests WHERE runner_id=? AND runner_epoch=? AND request_id=?").get(runner.runnerId, runner.epoch, requestId) as { attempt_id: string | null } | undefined;
@@ -91,7 +95,25 @@ export function claim(s: Store, deps: { isEvaluatorEligible: (runnerId: string, 
       WHERE a.state IN ('offered','running') GROUP BY j.workspace_id`).all() as Array<{ ws: string; n: number }>) {
       inFlight.set(row.ws, row.n);
     }
+    // Two-stage admission (#36): mission-local limits first (member cap, then
+    // budget), then shared runner capacity. Interactive work (no mission) is
+    // served first; missions then take turns by fewest attempts in flight.
+    const admission = new Map<string, import("./job-protocol").MissionAdmission>();
+    const missionLoad = new Map<string, number>();
+    if (deps.missionAdmission) {
+      for (const job of eligible) {
+        const decision = deps.missionAdmission(String(job["workspace_id"]), String(job["workflow_run_id"]));
+        admission.set(String(job["id"]), decision);
+        if (!decision.admitted) s.control.prepare("UPDATE jobs SET queue_reason=? WHERE id=?").run(`waiting: ${decision.reason}`, String(job["id"]));
+      }
+      for (const decision of admission.values()) if (decision.missionId) missionLoad.set(decision.missionId, decision.running);
+    }
+    const missionOf = (job: Record<string, unknown>) => admission.get(String(job["id"]))?.missionId;
     eligible.sort((a, b) => {
+      const ia = missionOf(a) ? 1 : 0, ib = missionOf(b) ? 1 : 0;
+      if (ia !== ib) return ia - ib;
+      const ma = missionLoad.get(missionOf(a) ?? "") ?? 0, mb = missionLoad.get(missionOf(b) ?? "") ?? 0;
+      if (ma !== mb) return ma - mb;
       const fa = inFlight.get(String(a["workspace_id"])) ?? 0;
       const fb = inFlight.get(String(b["workspace_id"])) ?? 0;
       if (fa !== fb) return fa - fb;
@@ -102,6 +124,8 @@ export function claim(s: Store, deps: { isEvaluatorEligible: (runnerId: string, 
       return ca !== 0 ? ca : String(a["id"]).localeCompare(String(b["id"]));
     });
     for (const job of eligible) {
+      const decision = admission.get(String(job["id"]));
+      if (decision && !decision.admitted) continue;
       const placement = JSON.parse(String(job["placement_json"])) as import("@brain/contracts").Placement;
       const demand = placement.resources ?? { cpuMillicores: 500, memoryMb: 512, diskMb: 512, slots: 1 };
       const attemptId = s.id("att");
@@ -109,7 +133,10 @@ export function claim(s: Store, deps: { isEvaluatorEligible: (runnerId: string, 
       const upd = s.control.prepare(`UPDATE runners SET cpu_reserved=cpu_reserved+?, memory_reserved=memory_reserved+?, disk_reserved=disk_reserved+?, slots_reserved=slots_reserved+?
         WHERE id=? AND cpu_capacity-500-cpu_reserved>=? AND memory_capacity-1024-memory_reserved>=? AND disk_capacity-disk_reserved>=? AND slot_capacity-slots_reserved>=?`)
         .run(demand.cpuMillicores, demand.memoryMb, demand.diskMb, demand.slots, runner.runnerId, demand.cpuMillicores, demand.memoryMb, demand.diskMb, demand.slots);
-      if (upd.changes !== 1) continue;
+      if (upd.changes !== 1) {
+        if (decision?.missionId) s.control.prepare("UPDATE jobs SET queue_reason='waiting: runner capacity' WHERE id=?").run(String(job["id"]));
+        continue;
+      }
       transitionState(s.control, "job", String(job["id"]), "offered", {
         rawSet: ["attempt_counter=attempt_counter+1", "job_fence=job_fence+1"], bumpVersion: true, and: { version: Number(job["version"]) },
       });
@@ -120,6 +147,8 @@ export function claim(s: Store, deps: { isEvaluatorEligible: (runnerId: string, 
         .run(attemptId, runner.runnerId, Math.max(1, demand.cpuMillicores), Math.max(1, demand.memoryMb), Math.max(1, demand.diskMb), Math.max(1, demand.slots));
       s.control.prepare("INSERT INTO runner_claim_requests(runner_id, runner_epoch, request_id, attempt_id, request_digest, created_at_ms) VALUES (?,?,?,?,?,?)")
         .run(runner.runnerId, runner.epoch, requestId, attemptId, requestId, s.now());
+      if (decision?.admitted && decision.missionId && deps.missionReserve) deps.missionReserve(String(job["workspace_id"]), { missionId: decision.missionId, runId: String(job["workflow_run_id"]), attemptId, microUsd: decision.reserve });
+      s.control.prepare("UPDATE jobs SET queue_reason=NULL WHERE id=?").run(String(job["id"]));
       offer = offerJson(s, attemptId);
       return;
     }

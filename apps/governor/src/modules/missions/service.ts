@@ -6,6 +6,7 @@ import { assertExpectedVersion, assertTransition, transitionState } from "../../
 import { assertPlanTasks } from "../../domain/work-plan";
 import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations, type AgentCapabilities } from "../../domain/mission-policy";
 import { activeReleaseRecord } from "../configuration/index";
+import { admit, budgetOf, clockSet, hasHeadroom, reserve as reserveSpend, settle, usageOf } from "./budget";
 import { listMessages, listOutputs, pinInputs, recordOutputVersion, sendMessage, verifyOutputs } from "./outputs";
 import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissionBundle, recordMissionVerdict, submitHandoff } from "../evidence/index";
 import type { HandoffNotes } from "@brain/contracts";
@@ -23,6 +24,8 @@ type MissionRow = {
   id: string; title: string; intent: string; success_criteria_json: string; owner_id: string;
   active_plan_version_id: string | null; state: Mission["state"]; pause_reason: "human" | "budget" | null;
   outcome: MissionOutcome | null; brief_version: number; policy_json: string; parking_threshold: number;
+  budget_micro_usd: number | null; budget_wall_ms: number | null; member_cap: number; attempt_reserve_micro_usd: number;
+  active_ms: number; active_since_ms: number | null;
   version: number; created_at_ms: number; updated_at_ms: number;
 };
 type BriefRow = { mission_id: string; version: number; intent: string; constraints_json: string; change: string; rebased_from: number | null; created_by: string; created_at_ms: number };
@@ -63,6 +66,12 @@ export class MissionService {
     return this.store.workspaceDb(workspaceId, actor.organizationId);
   }
 
+  private organizationOf(workspaceId: string): string {
+    const row = this.store.control.prepare("SELECT organization_id FROM workspaces WHERE id=?").get(workspaceId) as { organization_id: string } | undefined;
+    if (!row) throw new BrainDomainError("NOT_FOUND", "workspace not found");
+    return row.organization_id;
+  }
+
   private missionRow(actor: ActorContext, workspaceId: string, id: string): MissionRow {
     const row = this.db(actor, workspaceId).prepare("SELECT * FROM missions WHERE id=?").get(id) as MissionRow | undefined;
     if (!row) throw new BrainDomainError("NOT_FOUND", "mission not found");
@@ -82,7 +91,10 @@ export class MissionService {
   }
 
   private mission(workspaceId: string, row: MissionRow): Mission {
+    const db = this.store.workspaceDb(workspaceId, this.organizationOf(workspaceId));
+    settle(this.store, db, row.id);
     return {
+      budget: budgetOf(row), usage: usageOf(db, row, this.store.now()),
       missionId: row.id, workspaceId, title: row.title, intent: row.intent,
       successCriteria: JSON.parse(row.success_criteria_json) as string[], ownerId: row.owner_id,
       ...(row.active_plan_version_id ? { activePlanVersionId: row.active_plan_version_id } : {}),
@@ -129,6 +141,7 @@ export class MissionService {
       case "decision.accept": return this.acceptDecision(actor, workspaceId, command.payload);
       case "mission.policy.set": return this.setPolicy(actor, workspaceId, command.payload, command.expectedVersion);
       case "mission.message.send": return this.message(actor, workspaceId, command.payload);
+      case "mission.budget.set": return this.setBudget(actor, workspaceId, command.payload, command.expectedVersion);
       case "handoff.submit": return this.handoff(actor, workspaceId, command.payload);
       case "mission.verdict.record": return this.verdict(actor, workspaceId, command.payload);
       case "plan.propose": return this.proposePlan(actor, workspaceId, command.payload);
@@ -148,8 +161,10 @@ export class MissionService {
     const policy = policyFor((payload["autonomy"] as AutonomyPreset | undefined) ?? "standard", 1);
     this.store.inTx(db, () => {
       const now = this.store.now();
-      db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,policy_json,parking_threshold,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,?,?,?,?)")
-        .run(id, String(payload["title"]), intent, JSON.stringify(payload["successCriteria"]), actor.actorId, JSON.stringify(policy), Number(payload["parkingThreshold"] ?? 3), now, now);
+      const budget = (payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap?: number; attemptReserveMicroUsd?: number } | undefined) ?? {};
+      db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,policy_json,parking_threshold,budget_micro_usd,budget_wall_ms,member_cap,attempt_reserve_micro_usd,active_since_ms,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        .run(id, String(payload["title"]), intent, JSON.stringify(payload["successCriteria"]), actor.actorId, JSON.stringify(policy), Number(payload["parkingThreshold"] ?? 3),
+          budget.maxMicroUsd ?? null, budget.maxWallClockMs ?? null, budget.memberCap ?? 3, budget.attemptReserveMicroUsd ?? 0, now, now, now);
       db.prepare("INSERT INTO mission_brief_versions(mission_id,version,intent,constraints_json,change,created_by,created_at_ms) VALUES (?,1,?,?,'created',?,?)")
         .run(id, intent, JSON.stringify(constraints), actor.actorId, now);
       this.store.emit(db, { aggregateType: "mission", aggregateId: id, eventType: "mission.created", payload: { missionId: id } });
@@ -333,6 +348,35 @@ export class MissionService {
     return Object.fromEntries(Object.entries(agents).map(([id, agent]) => [id, { tools: agent.spec.tools.map((tool) => tool.id), engines: [...agent.spec.engine.anyOf], maxMicroUsd: agent.spec.maxMicroUsd }]));
   }
 
+  /** A human sets the mission's budget; raising it is what lifts a budget pause on resume. */
+  private setBudget(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only humans set a mission budget");
+    const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
+    assertExpectedVersion(mission.version, expectedVersion);
+    assertNotClosed(mission);
+    const budget = payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap: number; attemptReserveMicroUsd?: number };
+    const db = this.db(actor, workspaceId);
+    this.store.inTx(db, () => {
+      db.prepare("UPDATE missions SET budget_micro_usd=?,budget_wall_ms=?,member_cap=?,attempt_reserve_micro_usd=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?")
+        .run(budget.maxMicroUsd ?? null, budget.maxWallClockMs ?? null, budget.memberCap, budget.attemptReserveMicroUsd ?? mission.attempt_reserve_micro_usd, this.store.now(), mission.id, mission.version);
+      this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.budgetChanged", payload: { missionId: mission.id } });
+    });
+    return mission.id;
+  }
+
+  /** Mission-local admission for a run's next attempt; a run linked to no mission is interactive work. */
+  admission(organizationId: string, workspaceId: string, runId: string): { missionId?: string; admitted: true; reserve: number; running: number } | { missionId: string; admitted: false; reason: string; running: number } {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    const link = db.prepare("SELECT mission_id FROM execution_links WHERE run_id=? LIMIT 1").get(runId) as { mission_id: string } | undefined;
+    if (!link) return { admitted: true, reserve: 0, running: 0 };
+    const decision = this.store.inTx(db, () => admit(this.store, db, link.mission_id));
+    return { missionId: link.mission_id, ...decision };
+  }
+
+  recordReservation(organizationId: string, workspaceId: string, input: { missionId: string; runId: string; attemptId: string; microUsd: number }): void {
+    reserveSpend(this.store, this.store.workspaceDb(workspaceId, organizationId), input);
+  }
+
   /** Governor-internal: an attempt produced a version of a named output its plan task declares. */
   recordOutput(organizationId: string, workspaceId: string, input: Parameters<typeof recordOutputVersion>[2]): string {
     return recordOutputVersion(this.store, this.store.workspaceDb(workspaceId, organizationId), input);
@@ -362,7 +406,7 @@ export class MissionService {
     let next: Mission["state"]; const set: Record<string, unknown> = { updated_at_ms: now, pause_reason: null };
     if (type === "mission.pause") { next = "paused"; set["pause_reason"] = "human"; }
     else if (type === "mission.resume") {
-      if (mission.pause_reason === "budget") throw new BrainDomainError("CONFLICT", "raise the mission budget before resuming a budget pause");
+      if (mission.pause_reason === "budget" && !hasHeadroom(this.store, this.db(actor, workspaceId), mission.id)) throw new BrainDomainError("CONFLICT", "raise the mission budget before resuming a budget pause");
       next = "active";
     } else if (type === "mission.proposeCompletion") next = "verifying";
     else {
@@ -372,7 +416,7 @@ export class MissionService {
     }
     if (next !== "closed" && mission.state === next) throw new BrainDomainError("CONFLICT", `mission is already ${next}`);
     this.store.inTx(db, () => {
-      transitionState(db, "mission", mission.id, next, { set, bumpVersion: true, and: { version: mission.version } });
+      transitionState(db, "mission", mission.id, next, { set: { ...set, ...clockSet(next, mission, now) }, bumpVersion: true, and: { version: mission.version } });
       if (set["outcome"] === "cancelled") {
         const open = db.prepare("SELECT id FROM work_items WHERE mission_id=? AND state NOT IN ('done','abandoned')").all(mission.id) as Array<{ id: string }>;
         for (const item of open) transitionState(db, "workItem", item.id, "abandoned", { set: { next_action: "Mission cancelled", updated_at_ms: now }, bumpVersion: true });
