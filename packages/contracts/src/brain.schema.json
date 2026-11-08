@@ -5475,6 +5475,10 @@
         "diffDigest": {
           "$ref": "#/$defs/Digest"
         },
+        "engineState": {
+          "$ref": "#/$defs/ArtifactRef",
+          "description": "Engine-native warm-start artifact (for example a Pi transcript), digest-pinned; never the source diff."
+        },
         "completedCriteria": {
           "type": "array",
           "items": {
@@ -21724,6 +21728,10 @@
         },
         "diffDigest": {
           "$ref": "#/$defs/Digest"
+        },
+        "engineState": {
+          "$ref": "#/$defs/ArtifactRef",
+          "description": "Engine-native warm-start artifact (for example a Pi transcript), digest-pinned; never the source diff."
         },
         "completedCriteria": {
           "type": "array",

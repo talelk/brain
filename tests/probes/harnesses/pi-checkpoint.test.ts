@@ -45,8 +45,9 @@ describe("pi checkpoint/resume (T24)", () => {
     const checkpoint = await first.checkpoint(sessionId);
     expect(checkpoint.contractVersion).toBe("brain.checkpoint/v2");
     expect(checkpoint.attemptId).toBe("att-pi");
-    const diff = checkpoint.diff;
-    if (!diff) throw new Error("Pi checkpoints carry the session file as their diff artifact");
+    const diff = checkpoint.engineState;
+    if (!diff) throw new Error("Pi checkpoints carry the session transcript as their engine state");
+    expect(checkpoint.diff).toBeUndefined();
     expect(diff.bytes).toBeGreaterThan(0);
     expect(diff.digest).toMatch(/^sha256:[0-9a-f]{64}$/u);
     await first.dispose();

@@ -8,7 +8,7 @@ import { GovernedToolCalls } from "./tool-calls";
 export class PiEngine implements EngineAdapter {
   readonly id = "pi";
   get defaultModelId(): string { return this.modelId(); }
-  private session: { dispose: () => void; abort: () => Promise<void>; getSessionStats: () => { assistantMessages: number; tokens: {input:number;output:number;cacheRead:number;total:number};cost:number }; prompt: (text: string) => Promise<void> } | null = null;
+  private session: { dispose: () => void; abort: () => Promise<void>; getSessionStats: () => { assistantMessages: number; tokens: {input:number;output:number;cacheRead:number;total:number};cost:number }; prompt: (text: string) => Promise<void>; steer: (text: string) => Promise<unknown>; readonly isStreaming: boolean } | null = null;
   private seq = 0;
   private sessionId = "";
   private sessionFile: string | undefined;
@@ -94,7 +94,7 @@ export class PiEngine implements EngineAdapter {
       sessionManager: manager, tools: calls.names(), ...(calls.names().length ? { customTools } : { noTools: "all" }), resourceLoader,
     } as never);
     this.session?.dispose();
-    this.session = session as unknown as { dispose: () => void; abort: () => Promise<void>; getSessionStats: () => { assistantMessages: number; tokens: {input:number;output:number;cacheRead:number;total:number};cost:number }; prompt: (text: string) => Promise<void> };
+    this.session = session as unknown as { dispose: () => void; abort: () => Promise<void>; getSessionStats: () => { assistantMessages: number; tokens: {input:number;output:number;cacheRead:number;total:number};cost:number }; prompt: (text: string) => Promise<void>; steer: (text: string) => Promise<unknown>; readonly isStreaming: boolean };
     const mgr = manager as { getSessionId?: () => string; getSessionFile?: () => string | undefined };
     this.sessionId = mgr.getSessionId?.() ?? `pi-${Date.now().toString(36)}`;
     this.sessionFile = mgr.getSessionFile?.();
@@ -188,7 +188,9 @@ export class PiEngine implements EngineAdapter {
       throw Object.assign(new Error(`Pi steering requires the live session, not ${sessionId}`), { code: "UNSUPPORTED_CAPABILITY" });
     }
     try {
-      await this.session.prompt(`[steer:${messageId}] ${message}`);
+      // Steering only exists while a run streams; an idle session has nothing to steer (#30).
+      if (!this.session.isStreaming) throw new Error("no run is streaming");
+      await this.session.steer(`[steer:${messageId}] ${message}`);
     } catch (e) {
       throw Object.assign(new Error(`Pi session refused the steering message: ${e instanceof Error ? e.message : String(e)}`), { code: "UNSUPPORTED_CAPABILITY" });
     }
@@ -215,7 +217,8 @@ export class PiEngine implements EngineAdapter {
     if (!existsSync(dest)) copyFileSync(this.sessionFile, dest);
     return {
       contractVersion: "brain.checkpoint/v2", attemptId: this.spec.attemptId, sourceRevision: this.spec.sourceRevision,
-      diff: { artifactId, digest, bytes: bytes.length, mediaType: "application/x-ndjson", classification: "internal" },
+      // The Pi transcript is an engine warm-start artifact, not the source diff (#29).
+      engineState: { artifactId, digest, bytes: bytes.length, mediaType: "application/x-ndjson", classification: "internal" },
       completedCriteria: [], failures: [], worktreeId: this.spec.worktreeId, eventSequence: this.seq,
       ownedResources: [], nextAction: "resume Pi session from checkpoint artifact", createdAt: new Date().toISOString(),
     };
@@ -230,10 +233,13 @@ export class PiEngine implements EngineAdapter {
     if (digest !== checkpoint.digest || bytes.length !== checkpoint.bytes) throw Object.assign(new Error("Pi checkpoint artifact digest mismatch"), { code: "UNSUPPORTED_CAPABILITY" });
     const { SessionManager } = (await import("@earendil-works/pi-coding-agent")) as typeof import("@earendil-works/pi-coding-agent");
     await this.session?.abort();
-    const manager = SessionManager.open(path, this.sessionsDir());
+    // Fork the pinned transcript into this worktree: the stored artifact is never
+    // opened as a live file (#28), tools run against the current worktree (#29)
+    // and the resumed work is a new session with its own id.
+    const manager = SessionManager.forkFrom(path, process.cwd(), this.sessionsDir());
     this.spec = { ...this.spec, task: "Resume the pinned session." };
     await this.openSession(this.spec, manager);
-    this.sessionId = sessionId;
+    void sessionId;
   }
 
   async dispose(_sessionId?: string) {

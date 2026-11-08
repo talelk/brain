@@ -30,6 +30,8 @@ export class AcpEngine implements EngineAdapter {
   private seq = 0;
   private readonly eventsBuffer: EngineEvent[] = [];
   private agentVersion = "unknown";
+  /** What the agent advertised at initialize; nothing beyond it is ever offered (#32). */
+  private negotiated: { loadSession: boolean; resume: boolean; fork: boolean } = { loadSession: false, resume: false, fork: false };
 
   constructor(options: AcpEngineOptions = {}) {
     this.id = options.id ?? "acp";
@@ -124,6 +126,14 @@ export class AcpEngine implements EngineAdapter {
       }, 20_000);
       const info = (init["agentInfo"] ?? {}) as { name?: string; version?: string };
       this.agentVersion = info.version ?? "acp-1";
+      const capabilities = (init["agentCapabilities"] ?? {}) as { loadSession?: boolean; sessionCapabilities?: { resume?: unknown; fork?: unknown } };
+      this.negotiated = {
+        loadSession: capabilities.loadSession === true,
+        resume: capabilities.sessionCapabilities?.resume !== undefined && capabilities.sessionCapabilities.resume !== false,
+        fork: capabilities.sessionCapabilities?.fork !== undefined && capabilities.sessionCapabilities.fork !== false,
+      };
+      // Only implemented and advertised features are offered; load/resume/fork are
+      // recorded for negotiation but not offered until this adapter maps them.
       return { id: this.id, version: this.agentVersion, adapterDigest: `sha256:${"0".repeat(64)}`, features: ["sessions"] };
     } catch {
       return { id: this.id, version: "unavailable", adapterDigest: `sha256:${"0".repeat(64)}`, features: [] };
@@ -166,6 +176,9 @@ export class AcpEngine implements EngineAdapter {
    * apply — refused with the typed unsupported error. The probe does not
    * advertise "steer".
    */
+  /** The session capabilities the agent advertised at initialize. */
+  get sessionCapabilities(): Readonly<{ loadSession: boolean; resume: boolean; fork: boolean }> { return this.negotiated; }
+
   async steer(sessionId: string, _messageId: string, _message: string): Promise<void> {
     throw Object.assign(new Error(`ACP sessions cannot accept steering mid-prompt (session ${sessionId})`), { code: "UNSUPPORTED_CAPABILITY" });
   }

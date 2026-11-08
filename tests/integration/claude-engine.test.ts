@@ -29,7 +29,8 @@ describe("Claude SDK lifecycle mapping", () => {
     messages([{ type: "assistant", message: { content: [{ type: "text", text: "BRAIN_OK" }] } }, { type: "result", subtype: "success", result: "BRAIN_OK", total_cost_usd: 0, usage: { input_tokens: 10, output_tokens: 3 } }]);
     const { events } = await execute(engine, value);
     const args = sdk.query.mock.calls[0]![0];
-    expect(args.prompt).toContain(value.instructions); expect(args.prompt).toContain(value.task);
+    const first = (await (args.prompt as AsyncIterable<{ type: string; message: { content: string } }>)[Symbol.asyncIterator]().next()).value as { type: string; message: { content: string } };
+    expect(first.type).toBe("user"); expect(first.message.content).toContain(value.instructions); expect(first.message.content).toContain(value.task);
     expect(args.options.maxTurns).toBe(value.limits.maxTurns);
     expect(args.options.tools).toEqual([]); expect(args.options.settingSources).toEqual([]);
     expect(await args.options.canUseTool()).toMatchObject({ behavior: "deny" });
@@ -66,5 +67,26 @@ describe("Claude SDK lifecycle mapping", () => {
     expect(await engine.cancel()).toEqual({ terminationConfirmed: true });
     expect(sdk.query.mock.calls[0]![0].options.abortController.signal.aborted).toBe(true);
     expect(sdk.close).toHaveBeenCalled(); await engine.dispose();
+  });
+  it("steers a live turn through streaming input and refuses when no turn is live (#31)", async () => {
+    const value = spec(), engine = new ClaudeEngine();
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    sdk.query.mockImplementation(() => ({ close: sdk.close, async *[Symbol.asyncIterator]() {
+      yield { type: "system", subtype: "init", session_id: "sdk-session-1" };
+      await gate;
+      yield { type: "result", subtype: "success", result: "done", total_cost_usd: 0, usage: { input_tokens: 1, output_tokens: 1 } };
+    } }));
+    const { sessionId } = await engine.start(value, new AbortController().signal);
+    await vi.waitFor(() => expect(engine.nativeSession).toBe("sdk-session-1"));
+    await engine.steer(sessionId, "m1", "Prefer the existing table");
+    const prompt = sdk.query.mock.calls[0]![0].prompt as AsyncIterable<{ message: { content: string }; priority?: string }>;
+    const iterator = prompt[Symbol.asyncIterator]();
+    await iterator.next();
+    expect((await iterator.next()).value).toMatchObject({ message: { content: "[steer:m1] Prefer the existing table" }, priority: "next" });
+    release();
+    for await (const event of engine.events(sessionId, 0, new AbortController().signal)) void event;
+    await expect(engine.steer(sessionId, "m2", "Too late")).rejects.toMatchObject({ code: "UNSUPPORTED_CAPABILITY" });
+    await engine.dispose();
   });
 });
