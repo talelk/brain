@@ -2,10 +2,10 @@
   "contractVersion": "brain.verification-run/v1",
   "gateId": "G03",
   "status": "passed",
-  "productFingerprint": "sha256:28ae24b52aeef148ed23f079dfd2a2368d1f2edacc2aa57a359594f2a6cd005f",
+  "productFingerprint": "sha256:1e5c0733380925fed5bbdf4234252abb697f446c02a7d43abbd951fd74a71707",
   "lockDigest": "sha256:b0c2a31e200910cf0f7ca3f0364e13098983468cf693ae0e93a2c8fc2c47a1c2",
-  "startedAt": "2026-11-09T14:57:50.642Z",
-  "finishedAt": "2026-11-09T14:58:02.342Z",
+  "startedAt": "2026-11-09T16:03:31.756Z",
+  "finishedAt": "2026-11-09T16:03:41.132Z",
   "commands": [
     {
       "argv": [
@@ -16,7 +16,7 @@
         "tests/integration/mastra-conformance.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 3562
+      "durationMs": 3986
     },
     {
       "argv": [
@@ -27,7 +27,7 @@
         "tests/chaos/gates100.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 8124
+      "durationMs": 5371
     }
   ],
   "checks": [
@@ -51,11 +51,11 @@
   "artifacts": [
     {
       "path": "artifacts/runtime/G03/mastra-six-primitives.log",
-      "digest": "sha256:04d6da8f29c20be4bbe4e08d38569d486637a14bfd23b76a046efc1a27f5bd66"
+      "digest": "sha256:bd77ed72d04c5f86e62b22ea47de3966eaed05f29e42c2aacb943932187a86f6"
     },
     {
       "path": "artifacts/runtime/G03/gates-restart-wakes.log",
-      "digest": "sha256:21f9bb24e275e2444daa6ad1323a74b34241764bcbd528ea0c8f673c940f1359"
+      "digest": "sha256:c6be079c6e3e37a1f697641570382c23a29a36ceea7c90fb05185441dcf8b3b0"
     }
   ],
   "selectedScenarios": [

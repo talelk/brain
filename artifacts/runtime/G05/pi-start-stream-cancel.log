@@ -6,6 +6,6 @@ $ pnpm exec vitest run tests/probes/harnesses/pi.test.ts
 
  Test Files  1 passed (1)
       Tests  1 passed (1)
-   Start at  15:58:13
-   Duration  3.68s (tests 99%)
+   Start at  17:03:52
+   Duration  3.69s (tests 99%)
 

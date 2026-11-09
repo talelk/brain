@@ -6,6 +6,6 @@ $ pnpm exec vitest run tests/chaos/restore.test.ts
 
  Test Files  1 passed (1)
       Tests  2 passed (2)
-   Start at  15:59:07
-   Duration  2.27s (tests 62%, import 32%, transform 6%)
+   Start at  17:04:45
+   Duration  2.13s (tests 62%, import 31%, transform 7%)
 

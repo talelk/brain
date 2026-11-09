@@ -2,10 +2,10 @@
   "contractVersion": "brain.verification-run/v1",
   "gateId": "G08",
   "status": "passed",
-  "productFingerprint": "sha256:28ae24b52aeef148ed23f079dfd2a2368d1f2edacc2aa57a359594f2a6cd005f",
+  "productFingerprint": "sha256:1e5c0733380925fed5bbdf4234252abb697f446c02a7d43abbd951fd74a71707",
   "lockDigest": "sha256:b0c2a31e200910cf0f7ca3f0364e13098983468cf693ae0e93a2c8fc2c47a1c2",
-  "startedAt": "2026-11-09T14:59:18.369Z",
-  "finishedAt": "2026-11-09T15:30:47.750Z",
+  "startedAt": "2026-11-09T16:04:55.215Z",
+  "finishedAt": "2026-11-09T16:36:29.404Z",
   "commands": [
     {
       "argv": [
@@ -15,7 +15,7 @@
         "benchmarks/steady.ts"
       ],
       "exitCode": 0,
-      "durationMs": 1850966
+      "durationMs": 1851279
     },
     {
       "argv": [
@@ -26,7 +26,7 @@
         "tests/integration/scenarios2.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 8015
+      "durationMs": 9120
     },
     {
       "argv": [
@@ -37,7 +37,7 @@
         "tests/integration/scenarios2.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 7818
+      "durationMs": 8876
     },
     {
       "argv": [
@@ -48,7 +48,7 @@
         "tests/browser/vitals.spec.ts"
       ],
       "exitCode": 0,
-      "durationMs": 22526
+      "durationMs": 24873
     }
   ],
   "checks": [
@@ -72,19 +72,19 @@
   "artifacts": [
     {
       "path": "artifacts/runtime/G08/steady-trials-and-fault-load.log",
-      "digest": "sha256:cf9a7cc7efa56c343a2d621327c25973ff8807d164a746911ed82bb75eafcff3"
+      "digest": "sha256:27cf9940dd95c9ad0f25a036953707fbe761f66771c831b522ef0153af001b00"
     },
     {
       "path": "artifacts/runtime/G08/scenario-E047.log",
-      "digest": "sha256:dfae953d832f54e191a35940344cab8eb110e2a3a76b43a14a059348297a17e9"
+      "digest": "sha256:8e363fe0315ac0f2f89a51e351827f94fa03742a7daee0d470b8a2c0d408ea5f"
     },
     {
       "path": "artifacts/runtime/G08/scenario-E049.log",
-      "digest": "sha256:873edc87aafbf53f61a9fc310f0d6cc73a8cd6f3d77d1f9102efcbdf8a1af051"
+      "digest": "sha256:c6580f65b948411df27f4580d9358c7b1cc5daede9bf4ed0b89ed99d878b9979"
     },
     {
       "path": "artifacts/runtime/G08/scenario-E099.log",
-      "digest": "sha256:2d9668218e45d6cad22ce4ba321a121863c38feaa11a3d1215e929f5c427b6d0"
+      "digest": "sha256:28b84d3957342c78a5ba2f54eaf9fe6a521477981fca96ff4a3b78a30121021b"
     }
   ],
   "selectedScenarios": [

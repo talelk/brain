@@ -2,10 +2,10 @@
   "contractVersion": "brain.verification-run/v1",
   "gateId": "G04",
   "status": "passed",
-  "productFingerprint": "sha256:28ae24b52aeef148ed23f079dfd2a2368d1f2edacc2aa57a359594f2a6cd005f",
+  "productFingerprint": "sha256:1e5c0733380925fed5bbdf4234252abb697f446c02a7d43abbd951fd74a71707",
   "lockDigest": "sha256:b0c2a31e200910cf0f7ca3f0364e13098983468cf693ae0e93a2c8fc2c47a1c2",
-  "startedAt": "2026-11-09T14:58:02.342Z",
-  "finishedAt": "2026-11-09T14:58:12.742Z",
+  "startedAt": "2026-11-09T16:03:41.132Z",
+  "finishedAt": "2026-11-09T16:03:52.161Z",
   "commands": [
     {
       "argv": [
@@ -16,7 +16,7 @@
         "tests/probes/tencentdb/client.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 513
+      "durationMs": 568
     },
     {
       "argv": [
@@ -27,7 +27,7 @@
         "tests/security/authz.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 1820
+      "durationMs": 2063
     },
     {
       "argv": [
@@ -38,7 +38,7 @@
         "tests/integration/scenarios2.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 8048
+      "durationMs": 8377
     }
   ],
   "checks": [
@@ -62,15 +62,15 @@
   "artifacts": [
     {
       "path": "artifacts/runtime/G04/memory-tenant-gateway.log",
-      "digest": "sha256:30172714705f4e6afa76acf2ddcada1a47b18ec4de6fe4f5f000907f6692ba58"
+      "digest": "sha256:a20e76ad9c0b36d0a4d1bf28610e34d4df197c773767f3b6d3ad40094c13b624"
     },
     {
       "path": "artifacts/runtime/G04/tenant-acls-revocation.log",
-      "digest": "sha256:508f589e8d62aaba10dc835cb8b0ab2851902d872999fd45638b98b85c6ab394"
+      "digest": "sha256:c3a1d943aca761f40844caf687c1b9c1cfa0124e10e832e84310c2ca3af3047a"
     },
     {
       "path": "artifacts/runtime/G04/service-footprint.log",
-      "digest": "sha256:a0a3332927c1e41f597adac0bfaf3ecac6e3ccde1382da8ff51713f922572631"
+      "digest": "sha256:3c7753fd5f568b04c8c43a389c965190ff4b07476eda4a24790687fa42b92276"
     }
   ],
   "selectedScenarios": [

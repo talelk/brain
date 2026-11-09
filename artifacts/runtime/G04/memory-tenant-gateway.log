@@ -6,6 +6,6 @@ $ pnpm exec vitest run tests/probes/tencentdb/client.test.ts
 
  Test Files  1 passed (1)
       Tests  1 passed (1)
-   Start at  15:58:02
-   Duration  163ms (tests 73%, import 13%, transform 9%, worker 5%)
+   Start at  17:03:41
+   Duration  213ms (tests 67%, transform 18%, import 11%, worker 4%)
 

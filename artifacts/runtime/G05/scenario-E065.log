@@ -6,6 +6,6 @@ $ pnpm exec vitest run tests/probes/sandbox/launcher.test.ts
 
  Test Files  1 passed (1)
       Tests  2 passed (2)
-   Start at  15:58:45
-   Duration  3.83s (tests 98%, import 2%)
+   Start at  17:04:23
+   Duration  3.92s (tests 97%, import 2%)
 

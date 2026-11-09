@@ -6,6 +6,6 @@ $ pnpm exec vitest run tests/security/authz.test.ts
 
  Test Files  1 passed (1)
       Tests  4 passed (4)
-   Start at  15:58:03
-   Duration  1.44s (import 47%, tests 45%, transform 8%)
+   Start at  17:03:42
+   Duration  1.64s (import 46%, tests 44%, transform 10%)
 

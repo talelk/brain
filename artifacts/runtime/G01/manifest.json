@@ -2,10 +2,10 @@
   "contractVersion": "brain.verification-run/v1",
   "gateId": "G01",
   "status": "passed",
-  "productFingerprint": "sha256:28ae24b52aeef148ed23f079dfd2a2368d1f2edacc2aa57a359594f2a6cd005f",
+  "productFingerprint": "sha256:1e5c0733380925fed5bbdf4234252abb697f446c02a7d43abbd951fd74a71707",
   "lockDigest": "sha256:b0c2a31e200910cf0f7ca3f0364e13098983468cf693ae0e93a2c8fc2c47a1c2",
-  "startedAt": "2026-11-09T14:57:30.378Z",
-  "finishedAt": "2026-11-09T14:57:47.743Z",
+  "startedAt": "2026-11-09T16:03:05.896Z",
+  "finishedAt": "2026-11-09T16:03:28.504Z",
   "commands": [
     {
       "argv": [
@@ -14,7 +14,7 @@
         "--frozen-lockfile"
       ],
       "exitCode": 0,
-      "durationMs": 149
+      "durationMs": 267
     },
     {
       "argv": [
@@ -25,7 +25,7 @@
         "tests/probes/dependencies"
       ],
       "exitCode": 0,
-      "durationMs": 1120
+      "durationMs": 1737
     },
     {
       "argv": [
@@ -33,7 +33,7 @@
         "build"
       ],
       "exitCode": 0,
-      "durationMs": 15857
+      "durationMs": 20260
     },
     {
       "argv": [
@@ -42,7 +42,7 @@
         "artifacts/runtime/G01/sbom.json"
       ],
       "exitCode": 0,
-      "durationMs": 206
+      "durationMs": 316
     }
   ],
   "checks": [
@@ -70,15 +70,15 @@
   "artifacts": [
     {
       "path": "artifacts/runtime/G01/frozen-install.log",
-      "digest": "sha256:34fbae52d1be430bc9df579788074fcf857d1690057ceddab0a0047839a32099"
+      "digest": "sha256:b78d7e1140567a46d6118559a7ffd194ecd181d7144133eb760830c98ccee0c2"
     },
     {
       "path": "artifacts/runtime/G01/native-auth-imports.log",
-      "digest": "sha256:bb58e69698f3254e681a64055f1680f9d34495bd37816decda57e6daf6065c16"
+      "digest": "sha256:bbb8c362dd6d2cd38fb1e7fa58b39f99f293772b06d025e82c3f0584d831c9cb"
     },
     {
       "path": "artifacts/runtime/G01/newui-production-build.log",
-      "digest": "sha256:37bd96107bd7c86b612300f1a22edd7044bd050e8a9abad0fdcecac4e96db6b1"
+      "digest": "sha256:b931b53938354e37ebe9cdab4c862656997d428568b17c910b2da983a721a01d"
     },
     {
       "path": "artifacts/runtime/G01/sbom-licenses.log",
@@ -86,7 +86,7 @@
     },
     {
       "path": "artifacts/runtime/G01/sbom.json",
-      "digest": "sha256:7ca7fffae0c0e7652b65b9e330f4bee9db75562cdefca462b514579d1aaf34f9"
+      "digest": "sha256:f497c5eab1de856e9057db6760f3f9432e8526d0788b685b028a7718b3919140"
     }
   ],
   "selectedScenarios": [

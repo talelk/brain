@@ -3,6 +3,6 @@ $ pnpm install --frozen-lockfile
 Scope: all 7 workspace projects
 Agent skills awaiting approval: @talelk/newui-data.
 Run "pnpm approve" to review them.
-✓ Lockfile passes supply-chain policies (verified 57m ago)
+✓ Lockfile passes supply-chain policies (verified 2h ago)
 Lockfile is up to date, resolution step is skipped
-Done in 62ms using pnpm v12.11.2
+Done in 157ms using pnpm v12.11.2

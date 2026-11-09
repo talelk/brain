@@ -6,6 +6,6 @@ $ pnpm exec vitest run tests/probes/harnesses/claude.test.ts
 
  Test Files  1 passed (1)
       Tests  1 passed (1)
-   Start at  15:58:17
-   Duration  11.24s (tests 100%)
+   Start at  17:03:56
+   Duration  9.20s (tests 100%)
 
