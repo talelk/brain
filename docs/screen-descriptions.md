@@ -6,7 +6,7 @@ from it. For workflow behavior read the [functional specification](functional-sp
 for step-by-step guides, `docs/howto/`. This page covers structure and journeys, not
 layout details, which change often.
 
-Last reviewed against commit 6fb59ae.
+Last reviewed against commit 383aa60.
 
 ## How the app is organized
 
@@ -115,8 +115,8 @@ aggregate for a wall display. It never shows private ticket bodies and has no ac
 2. **Create a mission.** Missions, New mission, pick a play or describe the work.
 3. **Plan, confirm, start.** Open the Plan tab, review the proposed tasks and confirm.
    Confirmed tasks start automatically by default; the mission setting `autoStart`
-   (labelled "Ask me before each task") turns that off. _Pending merge: not yet in
-   `contracts/v1/brain.schema.json` on main._
+   (labelled "Ask me before each task") turns that off. Set it when you create the
+   mission or later under More on the mission.
 4. **Follow live.** Mission Live tab or the Live area; open a session to steer or stop.
 5. **Review outputs and evidence.** Outputs tab; open an output, then its run's
    evidence. A model reply alone is not a pass; check the validation verdict.

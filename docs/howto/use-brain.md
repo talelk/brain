@@ -1,6 +1,6 @@
 # Run your first task
 
-Last reviewed against commit 6fb59ae.
+Last reviewed against commit 383aa60.
 
 Open the address printed by `rtk pnpm brain start`. On a fresh installation, sign in
 as `admin@brain.local` with password `admin-password`. No password change is required.
@@ -37,9 +37,9 @@ response is lost, confirm again on the same review to recover the existing run.
 
 Open the mission's **Plan** tab and review the proposed tasks. When you confirm the
 plan, its tasks start automatically. If you prefer to approve each one, turn on the
-mission setting **Ask me before each task** (`autoStart` off). _Pending merge: this
-setting is not yet in the contracts on main; today tasks are started from the Plan
-tab._
+mission setting **Ask me before each task** (`autoStart` off), chosen when you create
+the mission or later under **More** on the mission. With it off, you start each task
+from the Plan tab.
 
 Follow progress on the **Live** tab, or the **Live** area for all sessions. Open a
 session to steer or stop it. Use **Logs** to search what happened.

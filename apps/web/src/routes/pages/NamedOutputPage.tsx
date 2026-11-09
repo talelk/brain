@@ -59,7 +59,10 @@ export default function NamedOutputPage(): JSX.Element {
   </div>;
 
   return <BrainPage title={detail.state().data?.output.name ?? "Output"} description="A named mission output: every version, its lineage and comparisons with provenance."
-    actions={<Show when={detail.state().data}>{(loaded) => <Button variant="outline" iconLeft="lucide-flag" onClick={() => void navigate(missionHref(app.workspaceId(), loaded().output.missionId, "outputs"))}>{loaded().missionTitle}</Button>}</Show>}>
+    actions={<Show when={detail.state().data}>{(loaded) => <div class="flex flex-wrap gap-2">
+      <Button variant="outline" iconLeft="lucide-library" onClick={() => void navigate(`/w/${app.workspaceId()}/knowledge?tab=documents&add=1`)}>Save as knowledge</Button>
+      <Button variant="outline" iconLeft="lucide-flag" onClick={() => void navigate(missionHref(app.workspaceId(), loaded().output.missionId, "outputs"))}>{loaded().missionTitle}</Button>
+    </div>}</Show>}>
     <PageStack>
       <ScreenRegion state={detail.state()} onRetry={() => void detail.refresh({ force: true })} emptyTitle="Output not found"
         emptyDescription="No output with this id exists in the current workspace, or you cannot read it.">

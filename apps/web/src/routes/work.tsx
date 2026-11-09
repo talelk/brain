@@ -138,7 +138,7 @@ export function SupportScreen(props: {
   const selection = useMasterDetail(rows, () => paged()[0]);
   const selected = selection.selected;
   return <BrainPage title="Support" description="Triage customer requests by urgency and review readiness; drafts never publish themselves."
-    actions={<Show when={props.canDispatch}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Start a support task</Button></Show>}>
+    actions={<div class="flex flex-wrap gap-2"><Button variant="outline" iconLeft="lucide-monitor" href="/tv/support">Open on a wall display</Button><Show when={props.canDispatch}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Start a support task</Button></Show></div>}>
     <PageStack>
       <Show when={props.tickets.length}><PlainSummary icon="lucide-headset">{openTickets().length ? `${openTickets().length} open ${openTickets().length === 1 ? "request" : "requests"}, ${urgentCount()} urgent or high. Drafts never publish themselves.` : "No open customer requests."}</PlainSummary></Show>
       <Show when={openTickets().length}><div class="grid gap-4 md:grid-cols-2">
@@ -190,7 +190,7 @@ export function SreScreen(props: {
   const selection = useMasterDetail(incidents, () => paged()[0]);
   const selected = selection.selected;
   return <BrainPage title="Incidents" description="Prioritize observed operational issues by severity and telemetry freshness; missing evidence never looks healthy."
-    actions={<Show when={props.canDispatch}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Start an incident task</Button></Show>}>
+    actions={<div class="flex flex-wrap gap-2"><Button variant="outline" iconLeft="lucide-monitor" href="/tv/sre">Open on a wall display</Button><Show when={props.canDispatch}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Start an incident task</Button></Show></div>}>
     <PageStack>
       <Show when={props.incidents.length}><PlainSummary icon="lucide-siren">{`${criticalCount()} critical of ${props.incidents.length} ${props.incidents.length === 1 ? "incident" : "incidents"}; ${staleCount()} ${staleCount() === 1 ? "observation is" : "observations are"} stale and not current health evidence.`}</PlainSummary></Show>
       <Show when={props.incidents.length}><div class="grid gap-4 md:grid-cols-2">
