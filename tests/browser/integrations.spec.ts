@@ -21,11 +21,12 @@ test("integrations: connect a TypeScript Git remote, bind repository classes and
     await page.goto(`${governor.url}/administration/integrations`);
     await expect(page.getByRole("heading", { name: "Integrations", exact: true, level: 1 })).toBeVisible();
 
-    await page.getByLabel("Connection name", { exact: true }).fill("Protocol remote");
-    await page.getByLabel("Remote repository URL", { exact: true }).fill(fixture.remote);
+    await page.getByRole("button", { name: "Connect remote", exact: true }).click();
+    await page.getByLabel(/^Connection name/).fill("Protocol remote");
+    await page.getByLabel(/^Remote repository URL/).fill(fixture.remote);
     await page.getByLabel("HTTP username (optional)", { exact: true }).fill("git-user");
     await page.getByLabel("HTTP token (optional)", { exact: true }).fill("browser-secret-token");
-    await page.getByRole("button", { name: "Connect remote", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Connect remote", exact: true }).click();
     await expect.poll(() => (brain.store.control.prepare("SELECT COUNT(*) AS n FROM git_connections").get() as { n: number }).n).toBe(1);
     const connectionId = (brain.store.control.prepare("SELECT id FROM git_connections").get() as { id: string }).id;
     expect(await brain.integrations.verifyPending()).toEqual({ verified: 1, failed: 0 });
@@ -35,7 +36,7 @@ test("integrations: connect a TypeScript Git remote, bind repository classes and
     await page.getByRole("button", { name: "Bind repository", exact: true }).first().click();
     await page.getByLabel("Repository", { exact: true }).click();
     await page.getByRole("option", { name: /repo · main/ }).click();
-    await page.getByRole("button", { name: "Bind repository", exact: true }).last().click();
+    await page.getByRole("dialog").getByRole("button", { name: "Bind repository", exact: true }).click();
     await expect.poll(() => (brain.store.control.prepare("SELECT COUNT(*) AS n FROM repository_bindings").get() as { n: number }).n).toBe(1);
     expect(await brain.integrations.verifyPending()).toEqual({ verified: 1, failed: 0 });
     await page.getByRole("button", { name: "Refresh", exact: true }).click();

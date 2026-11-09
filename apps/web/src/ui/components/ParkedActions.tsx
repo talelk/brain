@@ -2,6 +2,7 @@ import { createSignal, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Select } from "@talelk/newui-molecules";
+import { FormSheet } from "./BrainForm";
 import type { Mission, PlanTask, PlanVersion, WorkItem } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
@@ -16,6 +17,7 @@ type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
  */
 export function ParkedActions(props: { item: WorkItem; onChanged: () => Promise<void> }): JSX.Element {
   const app = useApp();
+  const [editing, setEditing] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
   const [member, setMember] = createSignal(props.item.assignment?.kind === "agent" ? props.item.assignment.id : "");
@@ -69,14 +71,12 @@ export function ParkedActions(props: { item: WorkItem; onChanged: () => Promise<
           onClick={() => void revise((task) => ({ ...task, assignment: { kind: "agent", id: member(), role: task.assignment?.role ?? "specialist" } }), `Reassign ${props.item.title} to ${member()} after it parked`)}>Reassign</Button>
       </div>
     </Show>
-    <details>
-      <summary class="cursor-pointer text-base-medium">Edit the task</summary>
-      <div class="mt-2 flex flex-col gap-2">
-        <TextInput label="Task title" value={title()} onInput={(event) => setTitle(event.currentTarget.value)} />
+    <div><Button size="md" variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => setEditing(true)}>Edit the task</Button></div>
+    <FormSheet open={editing()} onClose={() => setEditing(false)} title="Edit the task" description="Saving creates a new plan version; the parked task is re-planned, never edited in place."
+      submit="Save as a new plan version" icon="lucide-save" busy={busy()} disabled={!title().trim() || !lines().length} error={error()} errorTitle="The change was refused"
+      onSubmit={async () => { if (!busy() && title().trim() && lines().length) { await revise((task) => ({ ...task, title: title().trim(), criteria: lines() }), `Edit ${props.item.title} after it parked`); if (!error()) setEditing(false); } }}>
+        <TextInput label="Task title" required value={title()} onInput={(event) => setTitle(event.currentTarget.value)} />
         <Textarea label="Task acceptance criteria" value={criteria()} onInput={(event) => setCriteria(event.currentTarget.value)} description="One criterion per line." />
-        <Button size="md" variant="outline" iconLeft="lucide-save" disabled={busy() || !title().trim() || !lines().length}
-          onClick={() => void revise((task) => ({ ...task, title: title().trim(), criteria: lines() }), `Edit ${props.item.title} after it parked`)}>Save as a new plan version</Button>
-      </div>
-    </details>
+    </FormSheet>
   </section>;
 }

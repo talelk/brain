@@ -7,6 +7,7 @@ import { send } from "../../data/commands";
 import { useApp } from "../app-context";
 import { StatusBadge } from "./StatusBadge";
 import { ReasonDialog } from "./ReasonDialog";
+import { BrainForm, FormActions } from "./BrainForm";
 
 type LifecycleAction = "suspend" | "resume" | "archive";
 
@@ -26,6 +27,7 @@ export function WorkspaceManagementDialog(props: {
   const [tags, setTags] = createSignal("");
   const [reason, setReason] = createSignal("");
   const [operation, setOperation] = createSignal<LifecycleAction>();
+  const [attempted, setAttempted] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
   const [message, setMessage] = createSignal("");
@@ -39,16 +41,17 @@ export function WorkspaceManagementDialog(props: {
     setWorkspaceId(workspace?.workspaceId ?? `ws-${crypto.randomUUID()}`);
     setDisplayName(workspace?.displayName ?? ""); setDescription(workspace?.description ?? "");
     setOwnerId(workspace?.ownerId ?? app.identity()?.actor.actorId ?? ""); setTags((workspace?.tags ?? []).join(", "));
-    setReason(""); setError(""); setMessage("");
+    setReason(""); setError(""); setMessage(""); setAttempted(false);
   });
 
   async function save() {
+    setAttempted(true);
     if (busy()) return;
     const values = {
       displayName: displayName().trim(), description: description().trim(), ownerId: ownerId().trim(),
       tags: tags().split(",").map((tag) => tag.trim()).filter(Boolean),
     };
-    if (!values.displayName || !values.ownerId) { setError("Display name and owner principal ID are required."); return; }
+    if (!values.displayName || !values.ownerId) return;
     setBusy(true); setError(""); setMessage("");
     try {
       if (props.workspace) {
@@ -93,15 +96,15 @@ export function WorkspaceManagementDialog(props: {
     <Dialog.Root open={props.open} onOpenChange={(open) => { if (!open) props.onClose(); }}><Dialog.Content size="lg">
       <Dialog.Header><Dialog.Title>{props.workspace ? `Manage ${props.workspace.displayName}` : "Create workspace"}</Dialog.Title><Dialog.Description>{props.workspace ? "Operational metadata and state live here. Runner groups, policies and other desired behavior still change through reviewed configuration releases." : "Create an operational workspace and grant yourself workspace-lead access. Configuration is activated separately."}</Dialog.Description></Dialog.Header>
       <div class="my-3 grid max-h-[70dvh] gap-4 overflow-y-auto pe-1 lg:grid-cols-2">
-        <section class="flex flex-col gap-3" aria-label="Workspace general settings">
+        <BrainForm bare label="Workspace general settings" onSubmit={save}>
           <h3 class="text-base-medium">General</h3>
           <Show when={!props.workspace}><TextInput id={fieldId("id")} label="Logical workspace ID" value={workspaceId()} readonly description="Immutable organization-scoped identity" /></Show>
-          <TextInput id={fieldId("name")} label="Display name" value={displayName()} onInput={(event) => setDisplayName(event.currentTarget.value)} required disabled={busy()} />
+          <TextInput id={fieldId("name")} label="Display name" value={displayName()} onInput={(event) => setDisplayName(event.currentTarget.value)} required error={attempted() && !displayName().trim() ? "Enter a display name." : undefined} disabled={busy()} />
           <Textarea id={fieldId("description")} label="Description" value={description()} onInput={(event) => setDescription(event.currentTarget.value)} disabled={busy()} />
-          <TextInput id={fieldId("owner")} label="Owner principal ID" value={ownerId()} onInput={(event) => setOwnerId(event.currentTarget.value)} description="Must be an active member of this organization" required disabled={busy()} />
+          <TextInput id={fieldId("owner")} label="Owner principal ID" value={ownerId()} onInput={(event) => setOwnerId(event.currentTarget.value)} description="Must be an active member of this organization" required error={attempted() && !ownerId().trim() ? "Enter the owner principal ID." : undefined} disabled={busy()} />
           <TextInput id={fieldId("tags")} label="Tags" value={tags()} onInput={(event) => setTags(event.currentTarget.value)} description="Comma-separated operational labels" disabled={busy()} />
-          <Button size="md" theme="blue" loading={busy()} disabled={busy() || !displayName().trim() || !ownerId().trim()} onClick={() => void save()}>{props.workspace ? "Save metadata" : "Create workspace"}</Button>
-        </section>
+          <FormActions submit={props.workspace ? "Save metadata" : "Create workspace"} busy={busy()} />
+        </BrainForm>
         <section class={props.workspace ? "flex flex-col gap-4 border-t border-outline-gray-1 pt-4 lg:border-s lg:border-t-0 lg:ps-5 lg:pt-0" : "hidden"} aria-label="Workspace lifecycle">
           <div><h3 class="text-base-medium">Operational state</h3><div class="mt-2 flex flex-wrap items-center gap-2"><StatusBadge status={props.workspace?.status ?? "unknown"} /><Badge variant="outline" theme="gray" label={`Record v${props.workspace?.version ?? 1}`} /></div><p class="mt-2 text-interface text-ink-gray-7">Suspension prevents new dispatch without cancelling active attempts. Archive additionally requires no active, blocked or unresolved work.</p></div>
           <div class="flex flex-col gap-2"><Show when={props.workspace?.status === "active"}><Button size="md" variant="outline" disabled={busy()} onClick={() => begin("suspend")}>Suspend workspace</Button></Show><Show when={props.workspace?.status === "suspended"}><Button size="md" variant="outline" disabled={busy()} onClick={() => begin("resume")}>Validate and resume</Button></Show><Show when={props.workspace?.status !== "archived"}><Button size="md" variant="outline" theme="red" disabled={busy()} onClick={() => begin("archive")}>Archive after checks</Button></Show></div>

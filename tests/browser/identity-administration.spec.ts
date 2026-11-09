@@ -21,8 +21,8 @@ test("native people, invitation, verification, acceptance, and workspace access"
   await expect(page.getByRole("heading", { name: "People", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByText("owner@example.test", { exact: true }).locator("visible=true").first()).toBeVisible();
   await page.getByRole("button", { name: "Invite person", exact: true }).click();
-  await page.getByRole("textbox", { name: "Email", exact: true }).fill("invited@example.test");
-  await page.getByLabel("Reason", { exact: true }).fill("Browser invitation");
+  await page.getByRole("textbox", { name: /^Email/ }).fill("invited@example.test");
+  await page.getByLabel(/^Reason/).fill("Browser invitation");
   await page.getByRole("button", { name: "Send invitation", exact: true }).click();
   const invitation = governor.app.brain.store.control.prepare("SELECT id,url FROM auth_email_outbox WHERE kind='organization-invitation' AND email=?").get("invited@example.test") as { id: string; url: string };
   expect(invitation.url).toContain("/accept-invitation/");
@@ -61,7 +61,7 @@ test("native people, invitation, verification, acceptance, and workspace access"
   await page.getByRole("button", { name: "Manage access", exact: true }).click();
   await page.getByLabel("Organization member").click();
   await page.getByRole("option", { name: /Invited Person/ }).click();
-  await page.getByLabel("Reason", { exact: true }).fill("Grant browser workspace");
+  await page.getByLabel(/^Reason/).fill("Grant browser workspace");
   await page.getByRole("button", { name: "Grant", exact: true }).click();
   await expect.poll(() => governor.app.brain.store.control.prepare("SELECT COUNT(*) AS count FROM workspace_memberships WHERE principal_id=? AND revoked_at_ms IS NULL").get(principalId)).toEqual({ count: 1 });
   expect(errors).toEqual([]);
@@ -76,8 +76,9 @@ test("passkey registration and passwordless sign-in with an emulated authenticat
   await cdp.send("WebAuthn.enable");
   const { authenticatorId } = await cdp.send("WebAuthn.addVirtualAuthenticator", { options: { protocol: "ctap2", transport: "usb", hasResidentKey: true, hasUserVerification: true, isUserVerified: true } });
   await page.goto(`${governor.url}/settings?tab=security`);
-  await page.getByLabel("New passkey name").fill("Owner laptop");
   await page.getByRole("button", { name: "Register a passkey", exact: true }).click();
+  await page.getByLabel("Passkey name").fill("Owner laptop");
+  await page.getByRole("dialog").getByRole("button", { name: "Register a passkey", exact: true }).click();
   await expect(page.getByText("Owner laptop", { exact: true })).toBeVisible();
   await expect(page.getByText("Passkey registered.", { exact: true })).toBeVisible();
 

@@ -34,20 +34,23 @@ test("administrator connects a model and both local runners enroll without a hum
       const child = spawn(process.execPath, ["--import", "tsx", "apps/runner/src/main.ts"], { env: { PATH: process.env["PATH"], BRAIN_GOVERNOR_URL: governor.url, BRAIN_RUNNER_ID: id, BRAIN_RUNNER_STATE_DIR: join(governor.app.brain.store.dataDir, "local-runtime", `${id}-state`), BRAIN_LOCAL_RUNNER: "true", ...claude }, stdio: ["ignore", "pipe", "pipe"] });
       child.stdout?.resume(); child.stderr?.resume(); children.push(child);
     }
+    await page.getByRole("button", { name: "Configure model", exact: true }).click();
     await page.getByLabel(/^Model API URL/).fill(`http://127.0.0.1:${address.port}/v1`);
     await page.getByLabel(/^Model ID/).fill("unknown-model");
     await page.getByLabel(/^Model API key/).fill("test-model-key");
-    await page.getByRole("button", { name: "Test connection and start runners", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Test connection and start runners", exact: true }).click();
     await expect(page.getByRole("alert")).toContainText("Could not find that model");
     await page.getByLabel(/^Model ID/).fill("local-browser-model");
-    await page.getByRole("button", { name: "Test connection and start runners", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Test connection and start runners", exact: true }).click();
     await expect(page.getByText("Task runner: Ready", { exact: true })).toBeVisible({ timeout: 45000 });
     await expect(page.getByText("Independent validator: Ready", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Change model connection", exact: true }).click();
     await expect(page.getByLabel(/^Model API key/)).toHaveValue("");
     const snapshot = await page.request.get(`${governor.url}/v1/local-runtime`);
     expect(await snapshot.text()).not.toContain("test-model-key");
     const diagnostics = await page.request.get(`${governor.url}/v1/diagnostics?workspaceId=operations`); expect(diagnostics.status()).toBe(200); expect(await diagnostics.text()).not.toContain("test-model-key");
     await page.reload();
+    await page.getByRole("button", { name: "Change model connection", exact: true }).click();
     await expect(page.getByLabel(/^Model ID/)).toHaveValue("local-browser-model");
     expect(children.every((child) => child.exitCode === null)).toBe(true);
   } finally {

@@ -2,6 +2,7 @@ import { createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Pagination, Select } from "@talelk/newui-molecules";
+import { FormSheet } from "./BrainForm";
 import { WorkspaceSection } from "./Domain";
 import type { Automation, AutomationOccurrence } from "@brain/contracts";
 import { useApp } from "../app-context";
@@ -47,6 +48,7 @@ export function SchedulesPanel(props: { scope: ScheduleScope; title?: string }):
   const [inputJson, setInputJson] = createSignal("");
   const [selectedId, setSelectedId] = createSignal("");
   const [editing, setEditing] = createSignal<Automation>();
+  const [editorOpen, setEditorOpen] = createSignal(false);
   const [editorMode, setEditorMode] = createSignal<"create" | "edit" | "duplicate">("create");
   const [retiring, setRetiring] = createSignal<Automation>();
   const [retireReason, setRetireReason] = createSignal("");
@@ -88,11 +90,12 @@ export function SchedulesPanel(props: { scope: ScheduleScope; title?: string }):
   function resetEditor() {
     setEditing(undefined); setEditorMode("create"); setTitle(""); setTargetId(props.scope.targets[0]?.id ?? "");
     setTriggerKind("cron"); setCron(""); setTimezone("UTC"); setScheduledAt(""); setOverlap("skip"); setMisfire("skip");
-    setExecutionMode("managed"); setRunnerId(""); setOfflinePolicy("wait"); setInputJson(""); setError("");
+    setExecutionMode("managed"); setRunnerId(""); setOfflinePolicy("wait"); setInputJson(""); setError(""); setEditorOpen(false);
   }
+  function beginCreate() { resetEditor(); setEditorOpen(true); }
 
   function loadEditor(automation: Automation, mode: "edit" | "duplicate") {
-    setEditing(automation); setEditorMode(mode); setTitle(mode === "duplicate" ? `Copy of ${automation.title}` : automation.title);
+    setEditorOpen(true); setEditing(automation); setEditorMode(mode); setTitle(mode === "duplicate" ? `Copy of ${automation.title}` : automation.title);
     setTargetId(automation.target.id); setTriggerKind(automation.trigger.kind);
     setCron(automation.trigger.kind === "cron" ? automation.trigger.cron : "");
     setTimezone(automation.trigger.kind === "cron" ? automation.trigger.timezone : "UTC");
@@ -144,8 +147,8 @@ export function SchedulesPanel(props: { scope: ScheduleScope; title?: string }):
   return <section aria-label="Schedules" class="flex flex-col gap-4">
       <Show when={error()}><Alert theme="red" variant="outline" title="Automation action failed" description={error()} /></Show>
       <div class="brain-studio-layout">
-        <WorkspaceSection title={props.title ?? "Schedules and triggers"} description="Current state, trigger, timezone and actual next occurrences from Governor." actions={<RefreshButton onClick={() => void automations.refresh({ force: true })} />}>
-          <ScreenRegion state={automations.state()} onRetry={() => void automations.refresh()} emptyTitle="No automations yet" emptyDescription="Configure the first schedule in the guided editor. It becomes active only after server confirmation.">
+        <WorkspaceSection title={props.title ?? "Schedules and triggers"} description="Current state, trigger, timezone and actual next occurrences from Governor." actions={<><RefreshButton onClick={() => void automations.refresh({ force: true })} /><Button size="md" theme="blue" iconLeft="lucide-plus" onClick={beginCreate}>New schedule</Button></>}>
+          <ScreenRegion state={automations.state()} onRetry={() => void automations.refresh()} emptyTitle="No automations yet" emptyDescription="Use New schedule to configure the first one. It becomes active only after server confirmation.">
             <div class="flex flex-col gap-3">
               <For each={visibleSchedules()}>{(automation) => <article class="border-y border-outline-gray-1 py-3">
                 <div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0"><h3 class="break-words text-base-medium">{automation.title}</h3><p class="mt-1 break-words text-caption text-ink-gray-6">{automation.target.kind} · {automation.target.id} · revision {automation.revision}</p></div><StatusBadge kind="automation" status={automation.state} /></div>
@@ -158,14 +161,15 @@ export function SchedulesPanel(props: { scope: ScheduleScope; title?: string }):
             <Show when={schedules().length > SCHEDULES_PAGE_SIZE}><div class="mt-4 flex justify-center border-t border-outline-gray-1 pt-3"><Pagination.Root count={schedules().length} pageSize={SCHEDULES_PAGE_SIZE} page={safeSchedulePage()} onPageChange={setSchedulePage} aria-label="Schedule library pagination"><Pagination.PrevTrigger /><Pagination.Pages /><Pagination.NextTrigger /><Pagination.Range class="ms-2" /></Pagination.Root></div></Show>
           </ScreenRegion>
         </WorkspaceSection>
-        <WorkspaceSection title={editorMode() === "edit" ? `Edit ${editing()?.title ?? "schedule"}` : editorMode() === "duplicate" ? "Duplicate schedule" : "Guided schedule editor"} description={editorMode() === "edit" ? "Saving creates a new revision for future occurrences. Existing occurrence history stays attached to this automation." : "The copied or new settings create a separate automation with its own identity and history."}>
+        <FormSheet size="xl" open={editorOpen()} onClose={resetEditor} title={editorMode() === "edit" ? `Edit ${editing()?.title ?? "schedule"}` : editorMode() === "duplicate" ? "Duplicate schedule" : "Guided schedule editor"} description={editorMode() === "edit" ? "Saving creates a new revision for future occurrences. Existing occurrence history stays attached to this automation." : "The copied or new settings create a separate automation with its own identity and history."}
+          submit={editorMode() === "edit" ? "Save new revision" : editorMode() === "duplicate" ? "Create duplicate" : "Create automation"} icon={editorMode() === "edit" ? "lucide-save" : editorMode() === "duplicate" ? "lucide-copy" : "lucide-plus"} busy={busy()} disabled={!targetId().trim() || (executionMode() === "personal-host" && !runnerId().trim()) || (triggerKind() === "cron" && !cron().trim()) || (triggerKind() === "once" && !scheduledAt().trim())} onSubmit={save} error={error()} errorTitle="The automation was refused">
           <div class="border-y border-outline-gray-1 py-3"><h3 class="mb-3 text-base-medium">1 · Target</h3><div class="brain-field-grid"><TextInput label="Schedule title" value={title()} onInput={(event) => setTitle(event.currentTarget.value)} placeholder="Nightly triage" /><Show when={props.scope.targets.length > 1} fallback={<p class="text-interface text-ink-gray-7">Starts {props.scope.targets[0]?.label ?? "this target"}</p>}><Select label="Target" value={targetId()} options={props.scope.targets.map((target) => ({ value: target.id, label: target.label }))} onValueChange={(value) => setTargetId(value ?? props.scope.targets[0]?.id ?? "")} /></Show></div></div>
           <div class="border-b border-outline-gray-1 py-3"><h3 class="mb-3 text-base-medium">2 · Trigger</h3><div class="brain-field-grid"><Select label="Trigger" value={triggerKind()} options={[{ value: "cron", label: "Recurring (cron)" }, { value: "once", label: "One-off delayed" }, { value: "manual", label: "Manual (Run now)" }]} onValueChange={(value) => setTriggerKind(value ?? "cron")} /><Show when={triggerKind() === "cron"}><TextInput label="Cron expression" value={cron()} onInput={(event) => setCron(event.currentTarget.value)} placeholder="*/15 * * * *" description="Five fields; interpreted by Governor at minute granularity" /><TextInput label="Timezone" value={timezone()} onInput={(event) => setTimezone(event.currentTarget.value)} placeholder="Europe/Paris" description="IANA timezone; server runtime handles DST" /></Show><Show when={triggerKind() === "once"}><TextInput label="Run at" value={scheduledAt()} onInput={(event) => setScheduledAt(event.currentTarget.value)} placeholder={new Date(Date.now() + 3600_000).toISOString()} description="ISO 8601 instant, in the future" /></Show></div></div>
           <div class="border-b border-outline-gray-1 py-3"><h3 class="mb-3 text-base-medium">3 · Misfire, overlap and host</h3><div class="brain-field-grid"><Select label="Overlap" value={overlap()} options={[{ value: "skip", label: "Skip while the previous run is unfinished" }, { value: "queue-one", label: "Queue one more" }]} onValueChange={(value) => setOverlap(value ?? "skip")} /><Select label="Missed fires" value={misfire()} options={[{ value: "skip", label: "Skip and continue in the future" }, { value: "coalesce", label: "Coalesce into one fire" }]} onValueChange={(value) => setMisfire(value ?? "skip")} /><Select label="Execution host" value={executionMode()} options={[{ value: "managed", label: "Managed runners" }, { value: "personal-host", label: "Personal host only" }]} onValueChange={(value) => setExecutionMode(value ?? "managed")} /><Show when={executionMode() === "personal-host"}><TextInput label="Personal runner id" value={runnerId()} onInput={(event) => setRunnerId(event.currentTarget.value)} placeholder="runner-agents-1" description="Scheduled jobs are pinned to this runner; no managed fallback" /><Select label="When the personal host is offline" value={offlinePolicy()} options={[{ value: "wait", label: "Wait and keep the occurrence pending" }, { value: "fail", label: "Fail the occurrence without starting a run" }]} onValueChange={(value) => setOfflinePolicy(value ?? "wait")} /></Show></div></div>
           <div class="py-3"><h3 class="mb-3 text-base-medium">4 · Typed input and review</h3><Textarea label="Workflow input (JSON, optional)" value={inputJson()} onInput={(event) => setInputJson(event.currentTarget.value)} placeholder='{"situation": "Scheduled check"}' /><p class="mt-2 break-words text-interface text-ink-gray-7">{title().trim() || "Untitled schedule"} · {targetKind()} {targetId().trim() || "not selected"} · {triggerKind() === "cron" ? `${cron().trim() || "cron not entered"} · ${timezone().trim() || "UTC"}` : triggerKind()}</p><p class="mt-1 text-caption text-ink-gray-6">The browser does not translate cron or predict DST. Governor validates and computes actual occurrences.</p></div>
           <Alert theme="blue" variant="outline" title="Server confirmation required" description={editorMode() === "edit" ? `Governor checks record version ${editing()?.version ?? "—"} before saving. A conflict leaves your edits in place for review.` : "Creating this record does not claim a run fired. The schedule appears active only after Governor accepts it."} />
-          <div class="mt-4 flex flex-wrap gap-2"><Button size="md" theme="blue" iconLeft={editorMode() === "edit" ? "lucide-save" : editorMode() === "duplicate" ? "lucide-copy" : "lucide-plus"} loading={busy()} disabled={busy() || !targetId().trim() || (executionMode() === "personal-host" && !runnerId().trim()) || (triggerKind() === "cron" && !cron().trim()) || (triggerKind() === "once" && !scheduledAt().trim())} onClick={() => void save()}>{editorMode() === "edit" ? "Save new revision" : editorMode() === "duplicate" ? "Create duplicate" : "Create automation"}</Button><Show when={editorMode() !== "create"}><Button size="md" variant="outline" disabled={busy()} onClick={resetEditor}>Cancel</Button></Show></div>
-        </WorkspaceSection>
+
+        </FormSheet>
       </div>
       <ReasonDialog open={Boolean(retiring())} onClose={() => { setRetiring(undefined); setRetireReason(""); }} title="Retire this schedule" description="Future occurrences stop. Already-running work and the complete occurrence history are preserved. Duplicating is the safe way to create a replacement." reason={retireReason()} onReason={setRetireReason} reasonLabel="Retirement reason" confirmLabel="Retire schedule" tone="red" onConfirm={(reason) => { const automation = retiring(); if (automation) void control(automation, "retire", reason); setRetiring(undefined); setRetireReason(""); }} />
   </section>;

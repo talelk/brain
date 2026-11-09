@@ -1,22 +1,31 @@
 import { createSignal, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate, useSearchParams } from "@solidjs/router";
-import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
-import { Alert, Select } from "@talelk/newui-molecules";
+import { Textarea, TextInput } from "@talelk/newui-atoms";
+import { Select } from "@talelk/newui-molecules";
 import type { PlayView } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
-import { BrainPage, PageStack } from "../../ui/components/PageLayout";
-import { WorkspaceSection } from "../../ui/components/Domain";
+import { FormRow, FormSheet } from "../../ui/components/BrainForm";
+import MissionsPage from "./MissionsPage";
 import { missionHref } from "../../ui/mission-links";
 
 /**
  * Start a mission (#43): from a play of the active release, or described
- * directly. A play proposes its plan and team for confirmation; nothing runs
- * until a person confirms the plan.
+ * directly, in a side sheet over the missions list. A play proposes its plan
+ * and team for confirmation; nothing runs until a person confirms the plan.
  */
 export default function NewMissionPage(): JSX.Element {
+  const app = useApp();
+  const navigate = useNavigate();
+  return <>
+    <MissionsPage />
+    <NewMissionSheet onClose={() => void navigate(`/w/${app.workspaceId()}/missions`)} />
+  </>;
+}
+
+function NewMissionSheet(props: { onClose: () => void }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
   const [search] = useSearchParams();
@@ -38,8 +47,17 @@ export default function NewMissionPage(): JSX.Element {
   const [error, setError] = createSignal("");
   const lines = (value: string) => value.split("\n").map((line) => line.trim()).filter(Boolean);
   const selected = () => (plays.state().data ?? []).find((play) => play.playId === playId());
-  const ready = () => Boolean(title().trim() && (playId() || (intent().trim() && lines(criteria()).length)));
+  const [attempted, setAttempted] = createSignal(false);
+  const errors = () => ({
+    title: title().trim() ? undefined : "Give the mission a title.",
+    intent: playId() || intent().trim() ? undefined : "Describe what the mission should achieve, or pick a play.",
+    criteria: playId() || lines(criteria()).length ? undefined : "Add at least one success criterion, one per line.",
+    budget: !budget().trim() || Number(budget()) > 0 ? undefined : "Enter a positive amount in µUSD, or leave it empty.",
+  });
+  const ready = () => !Object.values(errors()).some(Boolean);
+  const shown = (key: keyof ReturnType<typeof errors>) => (attempted() ? errors()[key] : undefined);
   async function start(): Promise<void> {
+    setAttempted(true);
     if (!ready() || busy()) return;
     setBusy(true); setError("");
     try {
@@ -56,29 +74,19 @@ export default function NewMissionPage(): JSX.Element {
       void navigate(missionHref(app.workspaceId(), receipt.resourceId, playId() ? "plan" : "brief"));
     } catch (reason) { setError(reason instanceof Error ? reason.message : "The mission was not started."); } finally { setBusy(false); }
   }
-  return <BrainPage title="New mission" description="Start from a play or describe the mission. A play's plan and team wait for your confirmation."
-    breadcrumbs={[{ label: "Missions", href: `/w/${app.workspaceId()}/missions` }, { label: "New mission" }]}>
-    <PageStack>
-      <Show when={error()}><Alert theme="red" variant="outline" title="The mission was not started" description={error()} /></Show>
-      <WorkspaceSection title="Play" description="Optional. A play brings its team, plan, brief, autonomy and budget.">
-        <Select label="Play" value={playId() || null} options={[{ value: "", label: "No play — describe it myself" }, ...(plays.state().data ?? []).map((play) => ({ value: play.playId, label: play.title }))]}
-          onValueChange={(value) => setPlayId(value ?? "")} />
-        <Show when={selected()}>{(play) => <p class="mt-2 text-interface text-ink-gray-7">{play().description ?? ""} {play().team.length} members · {play().taskCount} tasks · autonomy {play().autonomy ?? "standard"}</p>}</Show>
-      </WorkspaceSection>
-      <WorkspaceSection title="Mission" description="The title and, without a play, the intent and success criteria.">
-        <div class="brain-field-grid">
-          <TextInput label="Title" value={title()} onInput={(event) => setTitle(event.currentTarget.value)} required />
-          <Select label="Autonomy" value={autonomy() || null} options={[{ value: "", label: playId() ? "As the play declares" : "Standard" }, { value: "supervised", label: "Supervised" }, { value: "standard", label: "Standard" }, { value: "autonomous", label: "Autonomous" }]}
-            onValueChange={(value) => setAutonomy(value ?? "")} />
-        </div>
-        <Textarea label="Intent" value={intent()} onInput={(event) => setIntent(event.currentTarget.value)} placeholder={playId() ? "As the play declares" : "What should this mission achieve?"} />
-        <div class="brain-field-grid">
-          <Textarea label="Success criteria (one per line)" value={criteria()} onInput={(event) => setCriteria(event.currentTarget.value)} />
-          <Textarea label="Constraints (one per line)" value={constraints()} onInput={(event) => setConstraints(event.currentTarget.value)} />
-        </div>
-        <TextInput label="Spend ceiling (µUSD, optional)" value={budget()} onInput={(event) => setBudget(event.currentTarget.value.replace(/[^0-9]/gu, ""))} />
-        <Button size="md" theme="blue" class="mt-3" iconLeft="lucide-flag" loading={busy()} disabled={!ready() || busy() || !app.canDispatch()} onClick={() => void start()}>Start mission</Button>
-      </WorkspaceSection>
-    </PageStack>
-  </BrainPage>;
+  return <FormSheet open onClose={props.onClose} title="New mission" description="Start from a play or describe the mission. A play's plan and team wait for your confirmation."
+    submit="Start mission" icon="lucide-flag" busy={busy()} disabled={!app.canDispatch()} onSubmit={start} error={error()} errorTitle="The mission was not started">
+    <Select label="Play (optional)" description="A play brings its team, plan, brief, autonomy and budget." value={playId()} options={[{ value: "", label: "No play — describe it myself" }, ...(plays.state().data ?? []).map((play) => ({ value: play.playId, label: play.title }))]}
+      onValueChange={(value) => setPlayId(value ?? "")} />
+    <Show when={selected()}>{(play) => <p class="text-interface text-ink-gray-7">{play().description ?? ""} {play().team.length} members · {play().taskCount} tasks · autonomy {play().autonomy ?? "standard"}</p>}</Show>
+    <TextInput label="Title" value={title()} onInput={(event) => setTitle(event.currentTarget.value)} required error={shown("title")} />
+    <Textarea label="Intent" value={intent()} onInput={(event) => setIntent(event.currentTarget.value)} required={!playId()} error={shown("intent")} placeholder={playId() ? "As the play declares" : "What should this mission achieve?"} />
+    <Textarea label="Success criteria (one per line)" value={criteria()} onInput={(event) => setCriteria(event.currentTarget.value)} required={!playId()} error={shown("criteria")} />
+    <Textarea label="Constraints (one per line)" value={constraints()} onInput={(event) => setConstraints(event.currentTarget.value)} />
+    <FormRow>
+      <Select label="Autonomy" value={autonomy()} options={[{ value: "", label: playId() ? "As the play declares" : "Standard" }, { value: "supervised", label: "Supervised" }, { value: "standard", label: "Standard" }, { value: "autonomous", label: "Autonomous" }]}
+        onValueChange={(value) => setAutonomy(value ?? "")} />
+      <TextInput label="Spend ceiling (µUSD, optional)" inputmode="numeric" value={budget()} onInput={(event) => setBudget(event.currentTarget.value.replace(/[^0-9]/gu, ""))} error={shown("budget")} />
+    </FormRow>
+  </FormSheet>;
 }

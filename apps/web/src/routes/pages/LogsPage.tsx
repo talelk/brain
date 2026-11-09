@@ -1,5 +1,6 @@
 import type { JSX } from "solid-js";
-import { createSignal } from "solid-js";
+import { createSignal, Show } from "solid-js";
+import { TabButtons } from "@talelk/newui-molecules";
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { LogExplorer } from "../../ui/logs/LogExplorer";
@@ -20,14 +21,20 @@ import { RunsScreen, type RunIndexJob } from "../runs";
  * the URL for deep links.
  */
 export default function LogsPage(): JSX.Element {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = () => (searchParams.view === "runs" ? "runs" : "logs");
   return <BrainPage
     title="Logs"
-    description="Runs and the execution and platform logs over one stream: live tail, correlation jumps, comparison and bounded export.">
+    description="Search the execution and platform stream, or switch to the run index to open any run.">
     <PageStack>
-      <RunIndex />
-      <div class="flex flex-col" style={{ height: "calc(100dvh - 14rem)", "min-height": "36rem" }}>
-        <LogExplorer />
-      </div>
+      <TabButtons label="Logs views" value={tab()} onValueChange={(value) => setSearchParams({ view: value === "runs" ? "runs" : undefined })}
+        options={[{ value: "logs", label: "Log explorer" }, { value: "runs", label: "Runs" }]} />
+      <Show when={tab() === "runs"} fallback={
+        <div class="flex flex-col" style={{ height: "calc(100dvh - 15rem)", "min-height": "36rem" }}>
+          <LogExplorer />
+        </div>}>
+        <RunIndex />
+      </Show>
     </PageStack>
   </BrainPage>;
 }

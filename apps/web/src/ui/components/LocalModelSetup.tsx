@@ -7,6 +7,7 @@ import type { LocalRuntimeStatus } from "@brain/contracts";
 import { governor } from "../../data/client";
 import { OperationalChecklist } from "./OperationalChecklist";
 import { FactStrip } from "./Domain";
+import { FormSheet } from "./BrainForm";
 
 export function LocalModelSetup() {
   const app = useApp(); const navigate = useNavigate();
@@ -15,6 +16,7 @@ export function LocalModelSetup() {
   const [model, setModel] = createSignal("");
   const [key, setKey] = createSignal("");
   const [removeKey, setRemoveKey] = createSignal(false);
+  const [open, setOpen] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
   const [message, setMessage] = createSignal("");
@@ -28,13 +30,13 @@ export function LocalModelSetup() {
     } catch (e) { if (!disposed) setError(e instanceof Error ? e.message : "Model setup is unavailable."); }
   }
   onMount(() => { void load(true); const timer = setInterval(() => void load(), 3000); onCleanup(() => { disposed = true; clearInterval(timer); }); });
-  async function connect(event: SubmitEvent) {
-    event.preventDefault(); if (busy()) return;
+  async function connect() {
+    if (busy() || !url().trim() || !model().trim()) return;
     setBusy(true); setError(""); setMessage("");
     try {
       const next = await governor<LocalRuntimeStatus>("/v1/local-runtime/connect", { modelUrl: url().trim(), modelId: model().trim(), ...(key() ? { apiKey: key() } : removeKey() ? { apiKey: "" } : {}) });
       if (disposed) return;
-      setStatus(next); setKey(""); setRemoveKey(false);
+      setStatus(next); setKey(""); setRemoveKey(false); setOpen(false);
       setMessage("Model found. Local runners are applying the connection; active attempts finish with their existing settings. Run the installation test below when runners are ready.");
     } catch (e) { if (!disposed) setError(e instanceof Error ? e.message : "Could not connect to the model."); }
     finally { if (!disposed) setBusy(false); }
@@ -48,17 +50,18 @@ export function LocalModelSetup() {
         { label: "Engine / runner", value: taskRunnerReady() ? "Pi ready" : "Not ready", hint: taskRunnerReady() ? "Fresh runner capability confirms the applied connection" : "Wait for signed hello and fresh runner capabilities", icon: "lucide-cpu" },
       ]} />
       <Show when={status()?.enabled} fallback={<p class="brain-readable text-interface text-ink-gray-7">Guided local setup is available when this installation starts with <code>pnpm brain start</code>. Other deployments use their configured runner connections.</p>}>
-        <form onSubmit={connect} class="grid max-w-4xl gap-3 lg:grid-cols-2">
+        <div><Button size="md" theme="blue" iconLeft="lucide-plug-zap" onClick={() => { setError(""); setOpen(true); }}>{status()?.configured ? "Change model connection" : "Configure model"}</Button></div>
+        <FormSheet open={open()} onClose={() => setOpen(false)} title="Connect a local model" description="Brain tests the endpoint and model ID, then starts the local runners with the saved connection."
+          submit="Test connection and start runners" icon="lucide-plug-zap" busy={busy()} disabled={!url().trim() || !model().trim()} onSubmit={connect} error={error()} errorTitle="Could not connect to the model">
           <TextInput label="Model API URL" placeholder="http://localhost:8000/v1" description="Use the address reachable from this host, including /v1 when required." value={url()} onInput={(e) => setUrl(e.currentTarget.value)} required disabled={busy()} />
           <TextInput label="Model ID" description="Enter the exact ID advertised by your model server." value={model()} onInput={(e) => setModel(e.currentTarget.value)} required disabled={busy()} />
-          <div class="lg:col-span-2"><TextInput label="Model API key" type="password" autocomplete="off" description={status()?.hasApiKey ? "A key is saved. Leave blank to retain it for the same endpoint." : "Optional for a local endpoint without authentication."} value={key()} onInput={(e) => { setKey(e.currentTarget.value); setRemoveKey(false); }} disabled={busy()} /></div>
-          <Show when={status()?.hasApiKey}><Button size="sm" type="button" variant="ghost" class="justify-self-start lg:col-span-2" onClick={() => { setKey(""); setRemoveKey(!removeKey()); }}>{removeKey() ? "Keep saved key" : "Remove saved key on connect"}</Button></Show>
-          <Button size="md" type="submit" class="justify-self-start lg:col-span-2" loading={busy()} disabled={busy() || !url().trim() || !model().trim()}>Test connection and start runners</Button>
-        </form>
+          <div><TextInput label="Model API key" type="password" autocomplete="off" description={status()?.hasApiKey ? "A key is saved. Leave blank to retain it for the same endpoint." : "Optional for a local endpoint without authentication."} value={key()} onInput={(e) => { setKey(e.currentTarget.value); setRemoveKey(false); }} disabled={busy()} /></div>
+          <Show when={status()?.hasApiKey}><Button size="sm" type="button" variant="ghost" onClick={() => { setKey(""); setRemoveKey(!removeKey()); }}>{removeKey() ? "Keep saved key" : "Remove saved key on connect"}</Button></Show>
+        </FormSheet>
         <Show when={status()?.configured}><div class="mt-3 border-t border-outline-gray-1 pt-3"><h3 class="text-base-medium">Local execution</h3><div class="mt-2 grid gap-1.5"><For each={status()?.runners}>{(runner) => <p class="break-words text-interface text-ink-gray-7">{runner.id.includes("evaluators") ? "Independent validator" : "Task runner"}: {runner.applied ? "Ready" : runner.connected ? "Applying model settings after the current attempt" : "Waiting for connection"}</p>}</For></div></div></Show>
       </Show>
       <Show when={message()}><p role="status" class="brain-readable mt-3 text-interface">{message()}</p></Show>
-      <Show when={error()}><p role="alert" class="brain-readable mt-3 text-interface text-ink-red-7">{error()}</p></Show>
+      <Show when={error() && !open()}><p role="alert" class="brain-readable mt-3 text-interface text-ink-red-7">{error()}</p></Show>
     </Section>
     <OperationalChecklist />
   </div>;

@@ -1,3 +1,4 @@
+import { BrainPage } from "../../ui/components/PageLayout";
 import type { JSX } from "solid-js";
 import { Select } from "@talelk/newui-molecules";
 import type { BrainSession, Mission, WorkItem } from "@brain/contracts";
@@ -39,11 +40,13 @@ export default function LivePage(): JSX.Element {
     refreshMs: 15_000,
   });
   const include = (session: BrainSession) => !missionId() || (scope.state().data?.items ?? []).some((item) => item.missionId === missionId() && item.workItemId === session.workItemId);
-  return <div class="flex flex-col gap-3">
+  return <BrainPage title="Live" description="Run, steer and inspect live agent sessions. Active and past sessions share one console.">
+  <div class="flex flex-col gap-3">
     <div class="max-w-sm"><Select label="Mission" value={missionId() || "all"} onValueChange={(value) => setSearchParams({ mission: value && value !== "all" ? value : undefined, session: undefined })}
       options={[{ value: "all", label: "All missions" }, ...(scope.state().data?.missions ?? []).map((mission) => ({ value: mission.missionId, label: mission.title }))]} /></div>
     <ConsoleScreen workspaceId={app.workspaceId()} requestedSession={requestedSession()} include={include}
     filters={filters()} onFiltersChange={patchUrl}
     onSessionChange={(sessionId) => void navigate(`/w/${app.workspaceId()}/live?${new URLSearchParams({ ...(missionId() ? { mission: missionId() } : {}), ...(sessionId ? { session: sessionId } : {}) }).toString()}`)} />
-  </div>;
+  </div>
+  </BrainPage>;
 }

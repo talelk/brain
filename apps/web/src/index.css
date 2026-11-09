@@ -73,6 +73,31 @@
   padding-top: 10vh;
 }
 
+/* Inline-end drawer: Dialog content restyled by the .brain-sheet marker. */
+[data-slot="dialog-positioner"]:has(.brain-sheet) {
+  align-items: stretch;
+  justify-content: flex-end;
+  padding: 0;
+  overflow: hidden;
+}
+[data-slot="dialog-content"].brain-sheet {
+  display: flex;
+  height: 100dvh;
+  max-height: 100dvh;
+  width: min(100vw, 34rem);
+  max-width: 100vw;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 0;
+  border-width: 0 0 0 1px;
+}
+[data-slot="dialog-content"].brain-sheet[data-size="xl"] { width: min(100vw, 52rem); }
+[data-slot="dialog-content"].brain-sheet > form { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; }
+[data-slot="dialog-content"].brain-sheet > form > .brain-sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+[data-slot="dialog-content"].brain-sheet > form > [data-slot="dialog-header"],
+[data-slot="dialog-content"].brain-sheet > form > [data-slot="dialog-footer"] { flex: none; }
+[data-slot="dialog-content"].brain-sheet > form > [data-slot="dialog-footer"] { border-top: 1px solid var(--outline-gray-1); padding-top: var(--spacing-3, 0.75rem); }
+
 [data-slot="dialog-content"] {
   max-height: calc(100dvh - 1.5rem);
   overflow-y: auto;
@@ -221,6 +246,10 @@
 .brain-row-list > * { padding-block: var(--spacing-4, 1rem); }
 .brain-row-list > *:first-child { padding-top: 0; }
 .brain-row-list > *:last-child { padding-bottom: 0; }
+.brain-form { display: flex; min-width: 0; max-width: 44rem; flex-direction: column; gap: var(--spacing-4, 1rem); }
+.brain-form[data-bare="true"] { max-width: none; }
+.brain-sheet-body { display: flex; min-width: 0; flex-direction: column; gap: var(--spacing-4, 1rem); padding-block: var(--spacing-3, 0.75rem); }
+.brain-form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2, 0.5rem); padding-top: var(--spacing-1, 0.25rem); }
 .brain-field-grid { display: grid; gap: var(--spacing-3, 0.75rem); }
 @media (min-width: 1024px) { .brain-field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
@@ -563,7 +592,8 @@
 }
 
 [data-slot="app-shell-content"] div:has(> h1) > div:first-child {
-  flex: 1 1 20rem;
+  flex: 1 1 28rem;
+  max-width: 52rem;
 }
 
 [data-slot="app-shell-content"] div:has(> h1) > div:last-child:not(:first-child) {
@@ -712,3 +742,6 @@
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Empty states inside a section are a hint, not a hero: compact vertical rhythm. */
+.brain-section [data-slot="empty-state"] { padding-block: 1.25rem; }

@@ -34,22 +34,25 @@ test("resources: upload, safely preview, revise, associate, search and revoke wo
   page.on("pageerror", (error) => errors.push(error.message));
   const { ws } = await resourceWorld(page, governor);
 
-  await page.getByLabel("Document title", { exact: true }).fill("Incident guide");
+  await page.getByRole("button", { name: "Add document", exact: true }).click();
+  await page.getByLabel(/^Document title/).fill("Incident guide");
   await page.locator('input[type="file"]').first().setInputFiles({ name: "guide.md", mimeType: "text/markdown", buffer: Buffer.from("# Guide\n<script>alert('safe')</script>\nold-browser-token") });
-  await page.getByRole("button", { name: "Upload document", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Upload document", exact: true }).click();
   await expect.poll(() => (ws.prepare("SELECT COUNT(*) AS n FROM documents").get() as { n: number }).n).toBe(1);
   await expect(page.locator("pre")).toContainText("<script>alert('safe')</script>");
   await expect(page.locator("pre")).toContainText("old-browser-token");
   const documentId = (ws.prepare("SELECT id FROM documents").get() as { id: string }).id;
   const firstDigest = (ws.prepare("SELECT digest FROM document_versions WHERE revision=1").get() as { digest: string }).digest;
 
-  await page.getByLabel("Resource id", { exact: true }).fill("work-ui-resource");
-  await page.getByRole("button", { name: "Associate document", exact: true }).click();
+  await page.getByRole("button", { name: "Associate work", exact: true }).click();
+  await page.getByLabel(/^Resource id/).fill("work-ui-resource");
+  await page.getByRole("dialog").getByRole("button", { name: "Associate document", exact: true }).click();
   await expect.poll(() => (ws.prepare("SELECT COUNT(*) AS n FROM resource_associations WHERE document_id=?").get(documentId) as { n: number }).n).toBe(1);
   await expect(page.getByText("workItem · work-ui-resource", { exact: true })).toBeVisible();
 
-  await page.getByLabel("New version file", { exact: true }).setInputFiles({ name: "guide-v2.md", mimeType: "text/markdown", buffer: Buffer.from("# Guide\nnew-browser-token") });
-  await page.getByRole("button", { name: "Create new version", exact: true }).click();
+  await page.getByRole("button", { name: "New version", exact: true }).click();
+  await page.getByRole("dialog").locator('input[type="file"]').first().setInputFiles({ name: "guide-v2.md", mimeType: "text/markdown", buffer: Buffer.from("# Guide\nnew-browser-token") });
+  await page.getByRole("dialog").getByRole("button", { name: "Create new version", exact: true }).click();
   await expect.poll(() => (ws.prepare("SELECT version FROM documents WHERE id=?").get(documentId) as { version: number }).version).toBe(2);
   await expect(page.locator("pre")).toContainText("new-browser-token");
   await expect(page.locator("pre")).not.toContainText("old-browser-token");
@@ -67,8 +70,9 @@ test("resources: upload, safely preview, revise, associate, search and revoke wo
   await page.getByText("Incident guide", { exact: true }).click();
   expect((ws.prepare("SELECT COUNT(*) AS n FROM memory_publications").get() as { n: number }).n).toBe(0);
 
-  await page.getByLabel("Revocation reason", { exact: true }).fill("Retired for browser acceptance");
-  await page.getByRole("button", { name: "Revoke document", exact: true }).click();
+  await page.getByRole("button", { name: "Revoke", exact: true }).click();
+  await page.getByLabel(/^Revocation reason/).fill("Retired for browser acceptance");
+  await page.getByRole("dialog").getByRole("button", { name: "Revoke document", exact: true }).click();
   await expect.poll(() => (ws.prepare("SELECT state FROM documents WHERE id=?").get(documentId) as { state: string }).state).toBe("revoked");
   await expect(page.getByText("No matching documents", { exact: true })).toBeVisible();
   expect((ws.prepare("SELECT COUNT(*) AS n FROM document_versions WHERE document_id=?").get(documentId) as { n: number }).n).toBe(2);

@@ -74,6 +74,7 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
   await expect(page.getByRole("button", { name: "Outputs", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Logs", exact: true }).click();
   await expect(page).toHaveURL(/\/w\/ws-nav\/logs/);
+  await page.getByRole("radio", { name: "Runs", exact: true }).click();
   await expect(page.getByRole("heading", { name: "No runs in this view" })).toBeVisible();
   expect(errors).toEqual([]);
 });

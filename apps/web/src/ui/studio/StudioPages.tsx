@@ -12,6 +12,7 @@ import { createScopedRead } from "../../data/screens";
 import { governor, query } from "../../data/client";
 import { ScreenRegion } from "../screen-region";
 import { BrainPage, PageStack } from "../components/PageLayout";
+import { FormSheet } from "../components/BrainForm";
 
 interface DraftDetails {
   draft: ConfigurationDraft;
@@ -30,6 +31,7 @@ export function StudioListPage(): JSX.Element {
   const params = useParams();
   const kind = () => params.kind ?? "Workflow";
   const [title, setTitle] = createSignal("");
+  const [createOpen, setCreateOpen] = createSignal(false);
   const [error, setError] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const drafts = createScopedRead<{ items: ConfigurationDraft[] }>({
@@ -42,8 +44,10 @@ export function StudioListPage(): JSX.Element {
     refreshMs: 3000,
   });
 
+  const [attempted, setAttempted] = createSignal(false);
   async function create(): Promise<void> {
-    if (busy()) return;
+    setAttempted(true);
+    if (busy() || !title().trim()) return;
     setBusy(true); setError("");
     try {
       const created = await app.run("configDraft.create", { title: title().trim(), kind: kind() });
@@ -53,16 +57,14 @@ export function StudioListPage(): JSX.Element {
     finally { setBusy(false); }
   }
 
-  return <BrainPage title={`${kind()} Studio`} description="Create immutable configuration revisions, validate them and publish exact Git commits without editing the active release.">
+  return <BrainPage title={`${kind()} studio`} description="Create immutable configuration revisions, validate them and publish exact Git commits without editing the active release."
+    actions={<Button size="md" theme="blue" iconLeft="lucide-plus" onClick={() => { setError(""); setCreateOpen(true); }}>New draft</Button>}>
     <PageStack>
-      <Show when={error()}><Alert theme="red" variant="outline" title="Draft creation failed" description={error()} /></Show>
       <Show when={kind() === "Agent"}><AgentCatalog /></Show>
-      <Section title="New draft" description={kind() === "Workflow" ? "Start with visual jobs or restricted YAML. Publication never edits the active release directly." : kind() === "Agent" ? "Start with the agent contract and versioned instructions, then validate the complete release before publication." : "Author a reviewed definition with restricted YAML, validation, diff and explicit publication."} surface="card" density="compact" class="p-3 sm:p-4">
-        <div class="flex min-w-0 flex-wrap items-end gap-2">
-          <div class="min-w-0 flex-1 basis-64"><TextInput label="Definition title" value={title()} onInput={(event) => setTitle(event.currentTarget.value)} placeholder="Operations workflow" /></div>
-          <Button size="sm" class="w-full sm:w-auto" theme="blue" loading={busy()} disabled={busy() || !title().trim()} onClick={() => void create()}>Create draft</Button>
-        </div>
-      </Section>
+      <FormSheet open={createOpen()} onClose={() => setCreateOpen(false)} title="New draft" description={kind() === "Workflow" ? "Start with visual jobs or restricted YAML. Publication never edits the active release directly." : kind() === "Agent" ? "Start with the agent contract and versioned instructions, then validate the complete release before publication." : "Author a reviewed definition with restricted YAML, validation, diff and explicit publication."}
+        submit="Create draft" icon="lucide-plus" busy={busy()} onSubmit={create} error={error()} errorTitle="Draft creation failed">
+        <TextInput label="Definition title" required value={title()} onInput={(event) => setTitle(event.currentTarget.value)} error={attempted() && !title().trim() ? "Give the draft a title." : undefined} placeholder="Operations workflow" />
+      </FormSheet>
       <Section title="Drafts" surface="card" density="compact" class="p-3 sm:p-4">
         <ScreenRegion state={drafts.state()} onRetry={() => void drafts.refresh()} emptyTitle="No configuration drafts" emptyDescription="Create a draft to start an immutable authoring and publication pipeline.">
           <Show when={drafts.state().data?.items.some((draft) => draft.kind === kind())} fallback={<div class="border-y border-outline-gray-1 py-4"><p class="text-interface font-medium text-ink-gray-8">No {kind()} drafts</p><p class="mt-1 text-caption text-ink-gray-6">Create a {kind().toLowerCase()} draft to start an immutable authoring and publication pipeline.</p></div>}>

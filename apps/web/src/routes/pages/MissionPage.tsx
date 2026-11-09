@@ -1,13 +1,14 @@
 import { createEffect, createSignal, For, Match, Show, Switch } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router";
-import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
+import { Badge, Button, Checkbox, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Select } from "@talelk/newui-molecules";
 import type { BrainSession, ExecutionLink, TeamMember, WorkItem, Mission, MissionBrief, MissionMessage, Output, PlanVersion, SinceLastVisitSummary } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { ScreenRegion } from "../../ui/screen-region";
+import { FormSheet } from "../../ui/components/BrainForm";
 import { BrainPage, PageStack, TechnicalDetails } from "../../ui/components/PageLayout";
 import { EmptyPreview, FactStrip, QueueRow, WorkspaceSection } from "../../ui/components/Domain";
 import { MissionWorkItems } from "../../ui/components/MissionWorkItems";
@@ -165,6 +166,7 @@ function LiveTab(props: ActProps): JSX.Element {
   const [recipient, setRecipient] = createSignal("mission");
   const [interrupt, setInterrupt] = createSignal(false);
   const [addToBrief, setAddToBrief] = createSignal(false);
+  const [composeOpen, setComposeOpen] = createSignal(false);
   const send = () => void props.onAct(async () => {
     const text = body().trim();
     const sent = await app.run("mission.message.send", { missionId: props.mission.missionId, recipient: recipient() === "mission" ? { kind: "mission" } : { kind: "member", memberId: recipient() }, body: text, ...(interrupt() ? { interrupt: true } : {}) });
@@ -175,7 +177,7 @@ function LiveTab(props: ActProps): JSX.Element {
       if (!edited.accepted) throw new Error(edited.detail);
       await brief.refresh({ force: true });
     }
-    setBody(""); setAddToBrief(false);
+    setBody(""); setAddToBrief(false); setComposeOpen(false);
     await messages.refresh({ force: true });
   });
   return <PageStack>
@@ -191,13 +193,14 @@ function LiveTab(props: ActProps): JSX.Element {
           </>}</Show>
         </ScreenRegion>
       </WorkspaceSection>
-      <WorkspaceSection title="Message the mission" description="Reaches the coordinator or one member's running session when its engine can be steered. A message never approves anything.">
+      <WorkspaceSection title="Messages" description="Reaches the coordinator or one member's running session when its engine can be steered. A message never approves anything." actions={<Button size="md" theme="blue" iconLeft="lucide-send" disabled={props.mission.state === "closed"} onClick={() => setComposeOpen(true)}>Message the mission</Button>}>
+        <FormSheet open={composeOpen()} onClose={() => setComposeOpen(false)} title="Message the mission" description="A message never approves anything." submit="Send" icon="lucide-send" busy={props.busy} disabled={!body().trim() || props.mission.state === "closed"} onSubmit={() => { if (body().trim() && !props.busy) send(); }}>
         <Select label="Recipient" value={recipient()} onValueChange={(value) => setRecipient(value ?? "mission")}
           options={[{ value: "mission", label: "The mission (coordinator)" }, ...(team.state().data?.members ?? []).map((entry) => ({ value: entry.memberId, label: `${entry.role} (${entry.memberId})` }))]} />
-        <Textarea label="Message" value={body()} onInput={(event) => setBody(event.currentTarget.value)} placeholder="Prioritise the login flow" />
-        <label class="mt-2 flex items-center gap-2 text-interface"><input type="checkbox" checked={interrupt()} onChange={(event) => setInterrupt(event.currentTarget.checked)} />Interrupt running sessions at their next safe point</label>
-        <label class="mt-1 flex items-center gap-2 text-interface"><input type="checkbox" checked={addToBrief()} onChange={(event) => setAddToBrief(event.currentTarget.checked)} />Also add to the brief as a constraint</label>
-        <Button size="md" theme="blue" class="mt-2" iconLeft="lucide-send" disabled={!body().trim() || props.busy || props.mission.state === "closed"} onClick={send}>Send</Button>
+        <Textarea label="Message" required value={body()} onInput={(event) => setBody(event.currentTarget.value)} placeholder="Prioritise the login flow" />
+        <Checkbox label="Interrupt running sessions at their next safe point" checked={interrupt()} onCheckedChange={(checked) => setInterrupt(checked === true)} />
+        <Checkbox label="Also add to the brief as a constraint" checked={addToBrief()} onCheckedChange={(checked) => setAddToBrief(checked === true)} />
+        </FormSheet>
         <ScreenRegion state={messages.state()} onRetry={() => void messages.refresh({ force: true })} emptyTitle="No messages" emptyDescription="Messages you send appear here with their delivery state.">
           <ul class="mt-3 flex flex-col gap-2"><For each={(messages.state().data ?? []).slice(0, 5)}>{(message) => <li class="rounded-control border border-outline-gray-1 p-2">
             <p class="break-words text-interface">{message.body}</p><p class="text-caption text-ink-gray-6">{message.recipient.kind === "member" ? `to ${message.recipient.memberId} · ` : ""}{message.senderId} · {message.delivery} · {formatDateTime(message.createdAt)}</p></li>}</For></ul>
@@ -314,24 +317,32 @@ function BriefTab(props: ActProps): JSX.Element {
   const [intent, setIntent] = createSignal<string | undefined>();
   const [constraints, setConstraints] = createSignal<string | undefined>();
   const [decision, setDecision] = createSignal("");
+  const [editOpen, setEditOpen] = createSignal(false);
+  const [decideOpen, setDecideOpen] = createSignal(false);
+  const saveBrief = (b: MissionBrief) => props.onAct(async () => {
+    await app.run("mission.brief.edit", { missionId: props.mission.missionId, baseVersion: b.version, ...(intent() !== undefined ? { intent: intent()! } : {}), ...(constraints() !== undefined ? { constraints: constraints()!.split("\n").map((line) => line.trim()).filter(Boolean) } : {}) });
+    setIntent(undefined); setConstraints(undefined); setEditOpen(false); await brief.refresh({ force: true });
+  });
+  const acceptDecision = (b: MissionBrief) => props.onAct(async () => {
+    await app.run("decision.accept", { missionId: props.mission.missionId, baseVersion: b.version, statement: decision().trim(), source: { kind: "human" } });
+    setDecision(""); setDecideOpen(false); await brief.refresh({ force: true });
+  });
   return <ScreenRegion state={brief.state()} onRetry={() => void brief.refresh({ force: true })} emptyTitle="No brief" emptyDescription="Every mission starts with a brief.">
     <Show when={brief.state().data}>{(b) => <PageStack>
-      <WorkspaceSection title={`Brief, version ${b().version}`} description={`${b().writtenChars} of 8000 written characters · updated ${formatDateTime(b().updatedAt)}`}>
+      <WorkspaceSection title={`Brief, version ${b().version}`} description={`${b().writtenChars} of 8000 written characters · updated ${formatDateTime(b().updatedAt)}`} actions={<Button size="md" variant="outline" iconLeft="lucide-pencil" onClick={() => { setIntent(undefined); setConstraints(undefined); setEditOpen(true); }}>Edit brief</Button>}>
+        <div class="brain-brief"><h3 class="text-base-medium">Intent</h3><p class="brain-readable whitespace-pre-line text-interface">{b().intent}</p>
+          <h3 class="mt-3 text-base-medium">Constraints</h3><Show when={b().constraints.length} fallback={<p class="text-interface text-ink-gray-6">None recorded.</p>}><ul class="ml-4 list-disc text-interface"><For each={b().constraints}>{(line) => <li>{line}</li>}</For></ul></Show></div>
+        <FormSheet open={editOpen()} onClose={() => setEditOpen(false)} title="Edit the brief" description="Saving creates a new brief version; earlier versions stay in the history." submit="Save brief" icon="lucide-save" busy={props.busy} disabled={intent() === undefined && constraints() === undefined} onSubmit={() => { if (!props.busy && (intent() !== undefined || constraints() !== undefined)) return saveBrief(b()); }}>
         <Textarea label="Intent" value={intent() ?? b().intent} onInput={(event) => setIntent(event.currentTarget.value)} />
         <Textarea label="Constraints (one per line)" value={constraints() ?? b().constraints.join("\n")} onInput={(event) => setConstraints(event.currentTarget.value)} />
-        <Button size="md" theme="blue" class="mt-2" disabled={props.busy || (intent() === undefined && constraints() === undefined)}
-          onClick={() => void props.onAct(async () => {
-            await app.run("mission.brief.edit", { missionId: props.mission.missionId, baseVersion: b().version, ...(intent() !== undefined ? { intent: intent()! } : {}), ...(constraints() !== undefined ? { constraints: constraints()!.split("\n").map((line) => line.trim()).filter(Boolean) } : {}) });
-            setIntent(undefined); setConstraints(undefined); await brief.refresh({ force: true });
-          })}>Save brief</Button>
+        </FormSheet>
       </WorkspaceSection>
-      <WorkspaceSection title="Accepted decisions" description="Immutable entries; a later decision supersedes, never edits.">
+      <WorkspaceSection title="Accepted decisions" description="Immutable entries; a later decision supersedes, never edits." actions={<Button size="md" variant="outline" iconLeft="lucide-plus" onClick={() => setDecideOpen(true)}>Accept a decision</Button>}>
         <ul class="flex flex-col gap-2"><For each={b().decisions}>{(entry) => <li class={entry.supersededBy ? "text-ink-gray-5 line-through" : ""}>
           {entry.statement} <span class="text-caption text-ink-gray-6">· {entry.source.kind} · accepted by {entry.acceptedBy} in v{entry.introducedInVersion}</span></li>}</For></ul>
-        <div class="mt-3 flex flex-wrap items-end gap-2">
-          <TextInput label="New decision" value={decision()} onInput={(event) => setDecision(event.currentTarget.value)} />
-          <Button size="md" variant="outline" disabled={!decision().trim() || props.busy} onClick={() => void props.onAct(async () => { await app.run("decision.accept", { missionId: props.mission.missionId, baseVersion: b().version, statement: decision().trim(), source: { kind: "human" } }); setDecision(""); await brief.refresh({ force: true }); })}>Accept decision</Button>
-        </div>
+        <FormSheet open={decideOpen()} onClose={() => setDecideOpen(false)} title="Accept a decision" description="Decisions are immutable; a later one supersedes it." submit="Accept decision" busy={props.busy} disabled={!decision().trim()} onSubmit={() => { if (decision().trim() && !props.busy) return acceptDecision(b()); }}>
+          <TextInput label="New decision" required value={decision()} onInput={(event) => setDecision(event.currentTarget.value)} />
+        </FormSheet>
       </WorkspaceSection>
       <WorkspaceSection title="Progress" description="Derived from work items; nobody writes it.">
         <p class="text-interface">{b().progress.total} work items · {Object.entries(b().progress.byState).map(([state, count]) => `${count} ${state}`).join(" · ") || "none yet"}</p>

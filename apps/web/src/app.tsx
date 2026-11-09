@@ -5,7 +5,6 @@ import { Navigate, Route, Router, useLocation, useNavigate, useParams } from "@s
 import type { RouteSectionProps } from "@solidjs/router";
 import { Avatar, Button, TextInput } from "@talelk/newui-atoms";
 import { Alert, Dropdown, Toaster } from "@talelk/newui-molecules";
-import { SidebarItem } from "@talelk/newui-organisms";
 import type { AppSidebarGroup } from "@talelk/newui-organisms";
 import { AppShell } from "@talelk/newui-templates";
 import { AppProvider, useApp } from "./ui/app-context";
@@ -14,9 +13,10 @@ import { Authentication, AuthenticatorEnrollment, InitialPasswordChange, Invitat
 import { ThemeToggle } from "./ui/components/ThemeToggle";
 import { GlobalSearchDialog } from "./ui/components/GlobalSearch";
 import { BrandMark } from "./ui/components/primitives";
+import { BrainForm, FormActions } from "./ui/components/BrainForm";
 import { PageHeaderProvider, usePageHeader } from "./ui/page-context";
 import { LandingRedirect } from "./ui/LandingRedirect";
-import { PRIMARY_NAVIGATION, AREA_NAVIGATION, ICONS, ROUTES } from "./routes/index.gen";
+import { PRIMARY_NAVIGATION, AREA_NAVIGATION, SECONDARY_NAVIGATION, ICONS, ROUTES } from "./routes/index.gen";
 
 const PAGE_LOADERS = {
   LivePage: () => import('./routes/pages/LivePage'),
@@ -85,26 +85,38 @@ function Navigation(): AppSidebarGroup[] {
   const location = useLocation();
   const area = () => areaForPath(location.pathname);
   const href = (route: string) => route.replace(":id", app.workspaceId());
+  // An entry is active on its path and, for tabbed routes (`/settings?tab=…`),
+  // on its tab too, so exactly one sibling lights up. A bare /settings opens
+  // the first tab this person can see, which is what settingsRoute() links to.
   const active = (route: string) => {
-    const path = route.split("?")[0] ?? route;
-    return new RegExp(`^${path.replace(/:[A-Za-z0-9_]+/gu, "[^/]+")}$`).test(location.pathname);
+    const [path = route, query] = route.split("?");
+    if (path.startsWith("/studio/")) return location.pathname.startsWith("/studio/");
+    if (!new RegExp(`^${path.replace(/:[A-Za-z0-9_]+/gu, "[^/]+")}$`).test(location.pathname)) return false;
+    const tab = new URLSearchParams(query).get("tab");
+    if (!tab) return true;
+    const current = new URLSearchParams(location.search).get("tab") ?? new URLSearchParams(settingsRoute(app).split("?")[1]).get("tab");
+    return current === tab;
   };
+  const go = (route: string) => () => void navigate(href(route));
   const primary = PRIMARY_NAVIGATION.map((entry) => ({
     label: entry.label, icon: ICONS[entry.route] ?? FALLBACK_ICON, active: areaForPath(href(entry.route)) === area(),
-    onClick: () => void navigate(href(entry.route)),
-  }));
-  const primaryRoutes = new Set(PRIMARY_NAVIGATION.map((entry) => href(entry.route)));
-  const contextual = (AREA_NAVIGATION[area()] ?? []).filter((entry) =>
-    (!entry.adminOnly || app.canAdminister() || Boolean(entry.identityOnly && app.identity()?.actor.scopes.includes("identity:read"))) && (!entry.organizationOnly || Boolean(app.identity()?.actor.scopes.includes("config:activate"))) && (!entry.identityOnly || Boolean(app.identity()?.actor.scopes.includes("identity:read"))),
-  ).filter((entry) => !primaryRoutes.has(href(entry.route))).map((entry) => ({
-    label: entry.label, icon: ICONS[entry.route] ?? FALLBACK_ICON, active: active(entry.route), onClick: () => void navigate(href(entry.route)),
+    onClick: go(entry.route),
   }));
   // Knowledge is a secondary place (#43): below the five areas, never one of them.
-  const secondary = [{ label: "Knowledge", icon: ICONS["/w/:id/knowledge"] ?? FALLBACK_ICON, active: area() === "knowledge", onClick: () => void navigate(href("/w/:id/knowledge")) }];
+  const knowledgeRoute = SECONDARY_NAVIGATION["knowledge"] ?? "/w/:id/knowledge";
+  const secondary = [{ label: "Knowledge", icon: ICONS[knowledgeRoute] ?? FALLBACK_ICON, active: area() === "knowledge", onClick: go(knowledgeRoute) }];
+  const scopes = () => app.identity()?.actor.scopes ?? [];
+  const shown = new Set([...PRIMARY_NAVIGATION.map((entry) => entry.route), knowledgeRoute].map(href));
+  const contextual = (AREA_NAVIGATION[area()] ?? []).filter((entry) =>
+    (!entry.adminOnly || app.canAdminister() || Boolean(entry.identityOnly && scopes().includes("identity:read")))
+    && (!entry.organizationOnly || scopes().includes("config:activate"))
+    && (!entry.identityOnly || scopes().includes("identity:read"))
+    && !shown.has(href(entry.route)),
+  ).map((entry) => ({ label: entry.label, icon: entry.icon, active: active(entry.route), onClick: go(entry.route) }));
   return [
     { label: "Brain", items: primary },
     { label: "More", items: secondary },
-    ...(contextual.length ? [{ label: area() === "administration" ? "Administration" : "Views", items: contextual }] : []),
+    ...(contextual.length ? [{ label: area() === "administration" ? "Administration" : "In this area", items: contextual }] : []),
   ];
 }
 
@@ -162,7 +174,6 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
     </Dropdown></div>}
     tenantCollapsed={<span class="lucide-building-2 size-5" aria-hidden="true" />}
     navigation={Navigation()}
-    settings={<SidebarItem label={app.canAdminister() ? "Administration" : "Account settings"} icon="lucide-settings" onClick={() => void navigate(settingsRoute(app))}>{app.canAdminister() ? "Administration" : "Account settings"}</SidebarItem>}
     account={<AccountMenu />} accountCollapsed={<AccountMenu compact />}
     navLabel="Brain navigation">
     <GlobalSearchDialog open={searchOpen()} onOpenChange={setSearchOpen} />
@@ -181,8 +192,10 @@ function NoWorkspaceCard(): JSX.Element {
   const [slug, setSlug] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
+  const [attempted, setAttempted] = createSignal(false);
   const valid = () => /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u.test(workspaceId()) && slug().trim().length > 0;
   async function create() {
+    setAttempted(true);
     if (!valid() || busy()) return;
     setBusy(true); setError("");
     try {
@@ -194,9 +207,10 @@ function NoWorkspaceCard(): JSX.Element {
   return <Show when={app.canAdminister()} fallback={<section class="p-6"><h2 class="text-heading">No workspace access</h2><p>Ask your administrator to grant access to a workspace.</p></section>}><section aria-label="Create your first workspace" class="mx-auto mt-6 flex min-w-0 max-w-md flex-col gap-3 rounded-card border border-outline-gray-1 p-4">
     <h2 class="text-heading">Create your first workspace</h2>
     <p class="text-base text-ink-gray-7">This account can read no workspace yet. Create one to start dispatching work.</p>
-    <TextInput label="Display name" value={slug()} onInput={(e) => setSlug(e.currentTarget.value)} required disabled={busy()} />
-    <Show when={error()}><p role="alert" class="text-base text-ink-red-8">{error()}</p></Show>
-    <Button size="md" disabled={!valid() || busy()} loading={busy()} onClick={() => void create()}>Create workspace</Button>
+    <BrainForm bare label="Create workspace" onSubmit={create} error={error()} errorTitle="Workspace creation failed">
+      <TextInput label="Display name" value={slug()} onInput={(e) => setSlug(e.currentTarget.value)} required error={attempted() && !slug().trim() ? "Enter a display name for the workspace." : undefined} disabled={busy()} />
+      <FormActions submit="Create workspace" icon="lucide-plus" busy={busy()} />
+    </BrainForm>
   </section></Show>;
 }
 

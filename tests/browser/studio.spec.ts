@@ -31,8 +31,9 @@ test("studio: edit spec.jobs, validate, publish exact commit and activate separa
     const activeBefore = brain.activeRelease(actor.organizationId);
 
     await page.goto(`${governor.url}/studio/Workflow`);
-    await page.getByLabel("Definition title", { exact: true }).fill("Browser Workflow");
-    await page.getByRole("button", { name: "Create draft", exact: true }).click();
+    await page.getByRole("button", { name: "New draft", exact: true }).click();
+    await page.getByLabel(/^Definition title/).fill("Browser Workflow");
+    await page.getByRole("dialog").getByRole("button", { name: "Create draft", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Browser Workflow", exact: true, level: 1 })).toBeVisible();
     await page.getByLabel("Job id", { exact: true }).fill("audit");
     await page.getByRole("button", { name: "Save immutable revision", exact: true }).click();

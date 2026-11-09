@@ -26,17 +26,19 @@ test("schedules: personal-host offline wait, recovery and fail are explicit (T58
   }
 
   const panel = page.getByRole("region", { name: "Schedules", exact: true });
+  const sheet = page.getByRole("dialog");
   async function select(label: string, option: string) {
-    await panel.getByLabel(label, { exact: true }).click();
+    await sheet.getByLabel(label, { exact: true }).click();
     await page.getByRole("option", { name: option, exact: true }).click();
   }
   async function createPersonal(title: string, offlinePolicy: "wait" | "fail") {
-    await panel.getByLabel("Schedule title", { exact: true }).fill(title);
+    await panel.getByRole("button", { name: "New schedule", exact: true }).click();
+    await sheet.getByLabel("Schedule title", { exact: true }).fill(title);
     await select("Trigger", "Manual (Run now)");
     await select("Execution host", "Personal host only");
-    await panel.getByLabel("Personal runner id", { exact: true }).fill("personal-browser");
+    await sheet.getByLabel("Personal runner id", { exact: true }).fill("personal-browser");
     if (offlinePolicy === "fail") await select("When the personal host is offline", "Fail the occurrence without starting a run");
-    await panel.getByLabel("Workflow input (JSON, optional)", { exact: true }).fill('{"message":"scheduled"}');
+    await sheet.getByLabel("Workflow input (JSON, optional)", { exact: true }).fill('{"message":"scheduled"}');
     await page.getByRole("button", { name: "Create automation", exact: true }).click();
     const article = page.locator("article").filter({ hasText: title });
     await expect(article).toContainText(`offline ${offlinePolicy}`);
@@ -89,16 +91,18 @@ test("schedules: revise, duplicate and retire without deleting occurrence histor
 
   await page.goto(`${governor.url}/plays/fixture-workflow`);
   const panel = page.getByRole("region", { name: "Schedules", exact: true });
-  await panel.getByLabel("Schedule title", { exact: true }).fill("Lifecycle original");
-  await panel.getByLabel("Trigger", { exact: true }).click();
+  const sheet = page.getByRole("dialog");
+  await panel.getByRole("button", { name: "New schedule", exact: true }).click();
+  await sheet.getByLabel("Schedule title", { exact: true }).fill("Lifecycle original");
+  await sheet.getByLabel("Trigger", { exact: true }).click();
   await page.getByRole("option", { name: "Manual (Run now)", exact: true }).click();
-  await panel.getByLabel("Workflow input (JSON, optional)", { exact: true }).fill('{"message":"scheduled"}');
+  await sheet.getByLabel("Workflow input (JSON, optional)", { exact: true }).fill('{"message":"scheduled"}');
   await page.getByRole("button", { name: "Create automation", exact: true }).click();
   let original = page.locator("article").filter({ hasText: "Lifecycle original" });
   await expect(original).toContainText("revision 1");
 
   await original.getByRole("button", { name: "Edit", exact: true }).click();
-  await panel.getByLabel("Schedule title", { exact: true }).fill("Lifecycle revised");
+  await sheet.getByLabel("Schedule title", { exact: true }).fill("Lifecycle revised");
   await page.getByRole("button", { name: "Save new revision", exact: true }).click();
   original = page.locator("article").filter({ hasText: "Lifecycle revised" });
   await expect(original).toContainText("revision 2");
@@ -107,8 +111,8 @@ test("schedules: revise, duplicate and retire without deleting occurrence histor
   await expect(original).toContainText(/dispatched/i);
 
   await original.getByRole("button", { name: "Duplicate", exact: true }).click();
-  await expect(panel.getByLabel("Schedule title", { exact: true })).toHaveValue("Copy of Lifecycle revised");
-  await panel.getByLabel("Schedule title", { exact: true }).fill("Lifecycle duplicate");
+  await expect(sheet.getByLabel("Schedule title", { exact: true })).toHaveValue("Copy of Lifecycle revised");
+  await sheet.getByLabel("Schedule title", { exact: true }).fill("Lifecycle duplicate");
   await page.getByRole("button", { name: "Create duplicate", exact: true }).click();
   const duplicate = page.locator("article").filter({ hasText: "Lifecycle duplicate" });
   await expect(duplicate).toContainText("revision 1");

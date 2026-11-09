@@ -38,3 +38,9 @@ change + changeset + publish in that repo, then bump the exact pins in
 7. **EmptyState guidance slot.** Brain's first-run/no-workspace fallbacks
    hand-roll cards (`app.tsx:197-203`) because `EmptyState` lacks a
    multi-step guidance/children region for setup checklists.
+8. **Dialog side-sheet position.** The spec documents `Dialog.Content position="end"`
+   (inline-end drawer) but the published `@talelk/newui-molecules@2.3.0` only has
+   `center | top`. Brain's `FormSheet` (`ui/components/BrainForm.tsx`) restyles a
+   Dialog through a `.brain-sheet` marker in `index.css`; replace it with
+   `position="end"` once published.
+

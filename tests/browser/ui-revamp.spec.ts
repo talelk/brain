@@ -127,9 +127,10 @@ test("all 38 revamped screens have browser screenshots and page-level containmen
   insertEvent.run("visual-event-2", actor.organizationId, "operations", "session", "visual-tool-1", 2, "tool.proposed", JSON.stringify({ proposalId: "visual-tool-1", tool: { id: "operations.context", digest: DIGEST }, input: { target: "sso-production" } }), DIGEST, now + 1);
 
   await page.goto(`${governor.url}/w/operations/knowledge?tab=documents`);
-  await page.getByLabel("Document title", { exact: true }).fill("SSO investigation guide");
+  await page.getByRole("button", { name: "Add document", exact: true }).click();
+  await page.getByLabel(/^Document title/).fill("SSO investigation guide");
   await page.locator('input[type="file"]').first().setInputFiles({ name: "sso-guide.md", mimeType: "text/markdown", buffer: Buffer.from("# SSO guide\nCheck issuer, callback URL, session freshness and independent evidence.") });
-  await page.getByRole("button", { name: "Upload document", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Upload document", exact: true }).click();
   await expect(page.locator("pre")).toContainText("SSO guide");
 
   const outputDir = join(process.cwd(), "artifacts", "ui-revamp", "screenshots", info.project.name);

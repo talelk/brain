@@ -1,4 +1,5 @@
 import { createSignal, For, onMount, Show } from "solid-js";
+import { BrainForm } from "./BrainForm";
 import type { JSX } from "solid-js";
 import { A, useSearchParams } from "@solidjs/router";
 import { WorkspaceSection } from "./Domain";
@@ -76,7 +77,7 @@ export function OrganizationPeople(): JSX.Element {
   onMount(() => { if (selectedId()) void openDetail(selectedId()); });
 
   return <PageStack>
-    <Section title="People" description="Organization membership, Brain roles, security enrollment, and current-organization sessions." surface="card"
+    <Section title="Organization members" description="Membership, Brain roles, security enrollment and current-organization sessions." surface="card"
       actions={<Button size="md" variant="solid" theme="blue" iconLeft="lucide-user-plus" onClick={() => setInviteOpen(true)}>Invite person</Button>}>
       <ScreenRegion state={read.state()} skeleton="rows" emptyTitle="No organization members" emptyDescription="Invite the first person to this organization." onRetry={() => void read.refresh({ force: true })}>
         <div class="mb-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-end">
@@ -103,8 +104,10 @@ export function OrganizationPeople(): JSX.Element {
 
     <Dialog.Root open={inviteOpen()} onOpenChange={setInviteOpen}><Dialog.Content size="md">
       <Dialog.Header><Dialog.Title>Invite a person</Dialog.Title><Dialog.Description>The recipient must verify their email and explicitly accept before membership becomes active.</Dialog.Description></Dialog.Header>
-      <div class="my-3 flex flex-col gap-3"><TextInput label="Email" type="email" value={email()} onInput={(event) => setEmail(event.currentTarget.value)} /><TextInput label="Reason" value={reason()} onInput={(event) => setReason(event.currentTarget.value)} /></div>
-      <Dialog.Footer class="flex-wrap gap-2"><Button size="md" variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button><Button size="md" variant="solid" theme="blue" loading={busy()} disabled={!email().trim() || !reason().trim()} onClick={() => void run("organization.invitation.create", { email: email().trim().toLowerCase(), reason: reason().trim() })}>Send invitation</Button></Dialog.Footer>
+      <BrainForm bare label="Invite a person" onSubmit={() => { if (email().trim() && reason().trim()) return run("organization.invitation.create", { email: email().trim().toLowerCase(), reason: reason().trim() }); }}>
+      <div class="my-3 flex flex-col gap-3"><TextInput label="Email" type="email" required value={email()} onInput={(event) => setEmail(event.currentTarget.value)} /><TextInput label="Reason" required value={reason()} onInput={(event) => setReason(event.currentTarget.value)} /></div>
+      <Dialog.Footer class="flex-wrap gap-2"><Button size="md" variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button><Button type="submit" size="md" variant="solid" theme="blue" loading={busy()} disabled={!email().trim() || !reason().trim()}>Send invitation</Button></Dialog.Footer>
+      </BrainForm>
     </Dialog.Content></Dialog.Root>
 
     <Dialog.Root open={Boolean(selected())} onOpenChange={(open) => { if (!open) closeDetail(); }}><Dialog.Content size="md">

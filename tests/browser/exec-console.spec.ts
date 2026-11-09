@@ -261,11 +261,12 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   await page.getByRole("button", { name: "Follow Dossier writer (writer)", exact: true }).click();
   await expect(page).toHaveURL(/member=writer/);
   await expect(rail.locator('[data-session-id="ses-report"]')).toBeVisible();
+  await page.getByRole("button", { name: "Message the mission", exact: true }).click();
   await page.getByLabel("Recipient", { exact: true }).click();
   await page.getByRole("option", { name: "Dossier writer (writer)", exact: true }).click();
-  await page.getByLabel("Message", { exact: true }).fill("Keep the rollout section verbatim.");
-  await page.getByLabel("Also add to the brief as a constraint").check();
-  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await page.getByRole("textbox", { name: /^Message/ }).fill("Keep the rollout section verbatim.");
+  await page.getByRole("dialog").getByLabel("Also add to the brief as a constraint").check();
+  await page.getByRole("dialog").getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => ws.prepare("SELECT recipient_kind, recipient_member_id FROM mission_messages WHERE body=?").get("Keep the rollout section verbatim.")).toEqual({ recipient_kind: "member", recipient_member_id: "writer" });
   await expect.poll(() => (ws.prepare("SELECT constraints_json FROM mission_brief_versions WHERE mission_id='obj-console' ORDER BY version DESC LIMIT 1").get() as { constraints_json: string }).constraints_json).toBe(JSON.stringify(["Keep the rollout section verbatim."]));
 

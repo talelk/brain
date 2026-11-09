@@ -67,7 +67,7 @@ def main() -> None:
     lines.append("/** Primary product areas; personal settings remain in the account menu. */")
     lines.append(f"export const PRIMARY_NAVIGATION: readonly {{ id: string; label: string; route: string }}[] = {json.dumps([{ 'id': n['id'], 'label': n['label'], 'route': n['entryRoute']} for n in primary])};")
     lines.append("")
-    lines.append("export const AREA_NAVIGATION: Readonly<Record<string, readonly { label: string; route: string; adminOnly?: boolean; organizationOnly?: boolean; identityOnly?: boolean }[]>> = " + json.dumps(contract["areaNavigation"]) + ";")
+    lines.append("export const AREA_NAVIGATION: Readonly<Record<string, readonly { label: string; route: string; icon: string; adminOnly?: boolean; organizationOnly?: boolean; identityOnly?: boolean }[]>> = " + json.dumps(contract["areaNavigation"]) + ";")
     lines.append(f"export const SECONDARY_NAVIGATION: Readonly<Record<string, string>> = {json.dumps(contract['secondaryNavigation'])};")
     lines.append("")
     lines.append(f"export const READ_ONLY_PRINCIPALS: Readonly<Record<string, string>> = {json.dumps(contract['readOnlyPrincipals'])};")
