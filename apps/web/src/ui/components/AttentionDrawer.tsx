@@ -25,11 +25,24 @@ export function attentionHref(item: AttentionItem): string {
   return item.kind === "plan-proposal" ? `${href}&proposal=${encodeURIComponent(item.resourceId)}` : href;
 }
 
+/** What the row's primary action says: the verb for the thing waiting, not a generic "Open". */
+export function attentionAction(item: AttentionItem): string {
+  switch (item.kind) {
+    case "approval": return "Approve review";
+    case "plan-proposal": return "Review plan";
+    case "verdict-ready": return "Review verdict";
+    default: return "Open";
+  }
+}
+
 /** Ranked attention rows (fixed tiers, longest wait first); the same rows on Missions and in the drawer. */
 export function AttentionRows(props: { items: readonly AttentionItem[]; onOpen: (item: AttentionItem) => void }): JSX.Element {
   return <section class="brain-queue" aria-label="Attention strip"><For each={props.items}>{(item) =>
     <QueueRow title={item.title} description={item.detail ?? `Waiting since ${formatDateTime(item.waitingSince)}`} icon={KIND_ICON[item.kind]} tone={TIER_TONE[item.tier] ?? "gray"}
-      eyebrow={item.kind.replace("-", " ")} label={`${item.title}. Open`} trailing={<Badge variant="outline" theme={TIER_TONE[item.tier] ?? "gray"} label={`Tier ${item.tier}`} />}
+      eyebrow={item.kind.replace("-", " ")} label={`${item.title}. Open`} trailing={<>
+        <Badge variant="outline" theme={TIER_TONE[item.tier] ?? "gray"} label={`Tier ${item.tier}`} />
+        <span class="inline-flex items-center gap-1 rounded-control bg-surface-blue-9 px-2.5 py-1 text-interface font-medium text-white" aria-hidden="true">{attentionAction(item)}<span class="lucide-arrow-right size-3.5" /></span>
+      </>}
       onClick={() => props.onOpen(item)} />}</For></section>;
 }
 
