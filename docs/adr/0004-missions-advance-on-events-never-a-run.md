@@ -20,3 +20,18 @@ event matching, timers and plan versions.
 
 Decided in [Missions advance on events and are never a run](https://github.com/talelk/brain/issues/11);
 runtime facts from [Mastra durable suspend/resume and plan changes mid-workflow](https://github.com/talelk/brain/issues/20).
+
+## Starting ready work
+
+A mission has an `autoStart` switch (default on; "ask me before each task" is off).
+With it on, the Governor starts every ready work item after the events that can
+make one ready (plan confirmed, a dependency verified Done, a budget raised, a
+mission resumed, the switch turned on) and on the maintenance pass, through the
+same `workflow.dispatch` with the work item that a person's Start uses. A finished
+run moves its work item to review; Done still needs a verified evidence bundle.
+Inputs are never invented: the input is what the Start form pre-fills from the
+card, and a task with no workflow or input its workflow rejects stays `ready` with
+the next action "Needs input before it can start". The member cap bounds
+in-progress work and a spent budget holds new starts; both leave a visible next
+action and resolve on the next event. Missions with a play coordinator keep using
+the coordinator.

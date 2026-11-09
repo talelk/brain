@@ -84,6 +84,7 @@
     "live.status"
    ],
    "actions": [
+    "mission.policy.set",
     "mission.pause",
     "mission.resume",
     "mission.proposeCompletion",

@@ -6347,6 +6347,9 @@
         },
         "watching": {
           "type": "boolean"
+        },
+        "autoStart": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -6363,6 +6366,7 @@
         "briefVersion",
         "autonomyPolicy",
         "parkingThreshold",
+        "autoStart",
         "budget",
         "usage",
         "subjects"
@@ -6782,6 +6786,9 @@
                 "$ref": "#/$defs/SubjectRef"
               },
               "maxItems": 20
+            },
+            "autoStart": {
+              "type": "boolean"
             }
           },
           "required": [
@@ -20877,6 +20884,9 @@
               },
               "maxItems": 9,
               "uniqueItems": true
+            },
+            "autoStart": {
+              "type": "boolean"
             }
           },
           "required": [

@@ -24,6 +24,7 @@ function fakeHost(): WorkflowHost & { jobs: string[]; approvals: string[]; steer
     createApprovalForGate(input: { stepId: string }) { const id = `apr-${input.stepId}-${host.approvals.length + 1}`; host.approvals.push(id); return id; },
     loadWorkflow() { throw new Error("no child workflows in fake host"); },
     steerSession() { host.steers += 1; },
+    runSucceeded() { /* no missions in the engine conformance harness */ },
   };
   return host as unknown as WorkflowHost & { jobs: string[]; approvals: string[]; steers: number };
 }

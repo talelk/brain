@@ -18,6 +18,7 @@ CREATE TABLE missions (
   outcome TEXT CHECK(outcome IS NULL OR outcome IN ('achieved','ended','cancelled')),
   brief_version INTEGER NOT NULL DEFAULT 1 CHECK(brief_version > 0),
   parking_threshold INTEGER NOT NULL DEFAULT 3 CHECK(parking_threshold BETWEEN 1 AND 10),
+  auto_start INTEGER NOT NULL DEFAULT 1 CHECK(auto_start IN (0,1)),
   play_id TEXT, play_release_digest TEXT, started_by_occurrence TEXT UNIQUE,
   coordinator_member_id TEXT, coordinator_workflow TEXT,
   final_allowance_micro_usd INTEGER NOT NULL DEFAULT 0 CHECK(final_allowance_micro_usd >= 0),

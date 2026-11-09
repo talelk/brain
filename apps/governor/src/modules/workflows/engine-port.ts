@@ -33,6 +33,8 @@ export interface WorkflowHost {
   loadWorkflow(organizationId: string, workflowId: string): { workflow: Workflow; configDigest: string };
   /** A run failed (a failed step or rejected verdict); work linked to it counts a failed attempt. */
   runFailed(input: { organizationId: string; workspaceId: string; runId: string; diagnostic: string }): void;
+  /** A run succeeded; work linked to it moves from in-progress to review. */
+  runSucceeded(input: { organizationId: string; workspaceId: string; runId: string }): void;
   /** Queues a steer message for a session in the workspace; NOT_FOUND when the session is absent. */
   steerSession(input: { organizationId: string; workspaceId: string; sessionId: string; message: string }): void;
 }

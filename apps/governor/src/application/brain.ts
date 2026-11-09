@@ -1,6 +1,6 @@
 import { readRuntimeConfig, type RuntimeConfig } from "../runtime-config";
 import { join } from "node:path";
-import type { ActorContext, CommandReceipt, HumanApprovalDecision, JsonValue,
+import type { ActorContext, CommandReceipt, HumanApprovalDecision, JsonValue, WorkflowCatalogEntry,
 } from "@brain/contracts";
 import { approvalSubjectDigest, domainDigest, isKnownQuery, sha256Digest } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
@@ -39,6 +39,7 @@ import { jobCommands, JobProtocol, type CreateJobInput } from "../modules/jobs/i
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
 import { MissionService, missionCommands } from "../modules/missions/index";
+import { AutoStart, AUTO_START_TRIGGERS } from "./auto-start";
 import { attentionCommands, attentionQuery } from "../modules/stream/index";
 import { notificationsFor, notifyAttention, watchCommands } from "../modules/operations/index";
 import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
@@ -65,6 +66,7 @@ export class Brain {
   readonly stepUp: StepUpService;
   readonly evidence: EvidenceService;
   readonly commands: CommandFunnel;
+  readonly autoStart: AutoStart;
 
   constructor(opts: BrainOptions & { runtime?: RuntimeConfig }) {
     this.runtime = opts.runtime ?? readRuntimeConfig();
@@ -136,6 +138,11 @@ export class Brain {
         workspaceAdminCommands(this.store, this.auth, this.jobProtocol),
         organizationCommandHandlers(this.store, this.auth),
       ], { afterCommit: () => this.stream.project() });
+      this.autoStart = new AutoStart({
+        store: this.store, missions: this.missions,
+        dispatch: (actor, command) => this.commands.run(actor, command as Parameters<CommandFunnel["run"]>[1]),
+        catalog: (organizationId) => (releaseDefinitions(this.store, organizationId, "workflows") as unknown as { items: WorkflowCatalogEntry[] }).items,
+      });
       quarantineRestoredAuthority(this.store, this.auth);
     } catch (e) {
       this.store.close();
@@ -240,6 +247,11 @@ export class Brain {
 
   runFailed(input: { organizationId: string; workspaceId: string; runId: string; diagnostic: string }): void {
     this.missions.recordRunFailure(input.organizationId, input.workspaceId, input.runId, input.diagnostic);
+  }
+  runSucceeded(input: { organizationId: string; workspaceId: string; runId: string }): void {
+    this.missions.recordRunSuccess(input.organizationId, input.workspaceId, input.runId);
+    // The finished item frees a member slot: the next ready task may start.
+    void this.autoStart.sweep(input.organizationId, input.workspaceId).catch(() => undefined);
   }
   steerSession(input: { organizationId: string; workspaceId: string; sessionId: string; message: string }): void {
     enqueueSessionControl(this.store, { ...input, kind: "session.steer", payload: { sessionId: input.sessionId, message: input.message } });
@@ -347,7 +359,14 @@ export class Brain {
    * durable receipt.
    */
   executeCommand(actor: ActorContext, raw: unknown, _correlationId: string, headers?: Headers): Promise<{ receipt: CommandReceipt; status: number }> {
-    return this.commands.execute(actor, raw, headers ? { headers } : {});
+    return this.commands.execute(actor, raw, headers ? { headers } : {}).then(async (outcome) => {
+      const cmd = raw as { commandType?: string; workspaceId?: string };
+      // Work may have become ready: react to the event now (ADR 0004). The receipt is already durable.
+      if (outcome.receipt.accepted && cmd.workspaceId && AUTO_START_TRIGGERS.has(String(cmd.commandType))) {
+        try { await this.autoStart.sweep(actor.organizationId, cmd.workspaceId); } catch { /* the maintenance pass retries */ }
+      }
+      return outcome;
+    });
   }
 
   // --- approvals + step-up ---

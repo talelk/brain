@@ -195,6 +195,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     if (refreshed.length > 0 && refreshed.every((r) => r.state === "succeeded" || r.state === "skipped")) {
       const anySkipped = refreshed.some((r) => r.state === "skipped");
       transitionState(ws, "workflow", runId, anySkipped ? "partial" : "succeeded", { bumpVersion: true });
+      if (!anySkipped) this.host.runSucceeded({ organizationId, workspaceId, runId });
     }
   }
 
@@ -328,6 +329,8 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
       }
     }
     if (failed) this.host.runFailed({ organizationId, workspaceId, runId, diagnostic: "The workflow run failed" });
+    // Admission may have settled the run already; reporting is idempotent (only in-progress work moves).
+    if ((ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string }).state === "succeeded") this.host.runSucceeded({ organizationId, workspaceId, runId });
     // Resume a parent subgraph step waiting on this child run.
     const link = ws.prepare("SELECT parent_run_id, parent_step_id, parent_workspace_id FROM engine_links WHERE child_run_id=?").get(runId) as
       | { parent_run_id: string; parent_step_id: string; parent_workspace_id: string } | undefined;

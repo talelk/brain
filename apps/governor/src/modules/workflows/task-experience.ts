@@ -8,6 +8,10 @@ interface Host { query(actor: ActorContext, query: unknown): Promise<JsonValue>;
 interface DraftRow { id: string; actor_id: string; workflow_id: string; workflow_json: string; config_digest: string; input_json: string; origin_json: string | null; title: string; command_id: string; conversation_id?: string | null; state: "review" | "started"; run_id: string | null; created_at_ms: number }
 interface MessageRow { id: string; role: "user" | "assistant"; text: string; state: "pending" | "done" | "failed"; run_id: string | null; draft_id: string | null }
 interface PlanningRow { mission_id: string; actor_id: string; run_id: string; state: "running" | "ready" | "failed"; plan_version_id: string | null; error: string | null }
+/** What the Start form pre-fills from a card: its title and acceptance criteria. */
+export function workItemSituation(title: string, criteria: readonly string[]): string {
+  return title + (criteria.length ? `\nAcceptance criteria: ${criteria.join("; ")}` : "");
+}
 export class TaskExperience {
   constructor(private readonly s: Store, private readonly host: Host) {}
   private db(actor: ActorContext, workspaceId: string) { requireWorkspaceRead(this.s, actor, workspaceId); return this.s.workspaceDb(workspaceId, actor.organizationId); }
@@ -29,7 +33,7 @@ export class TaskExperience {
     const row = db.prepare(`SELECT * FROM ${table} WHERE id=?`).get(origin.id) as { title: string; criteria_json?: string } | undefined;
     if (!row) throw new BrainDomainError("NOT_FOUND", "Work item not found in this workspace");
     const criteria = row.criteria_json ? JSON.parse(row.criteria_json) as unknown[] : [];
-    let input: JsonValue = { situation: row.title + (criteria.length ? `\nAcceptance criteria: ${criteria.map(String).join("; ")}` : "") };
+    let input: JsonValue = { situation: workItemSituation(row.title, criteria.map(String)) };
     let workflowId = "operations-triage";
     if (origin.kind === "ticket") {
       const ticket = await this.host.query(actor, { queryType: "ticket.get", workspaceId, resourceId: origin.id }) as unknown as { snapshot: { body?: string } };

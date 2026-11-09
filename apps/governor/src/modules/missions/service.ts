@@ -24,7 +24,7 @@ export interface MissionCommand {
 type MissionRow = {
   id: string; title: string; intent: string; success_criteria_json: string; owner_id: string;
   active_plan_version_id: string | null; state: Mission["state"]; pause_reason: "human" | "budget" | null;
-  outcome: MissionOutcome | null; brief_version: number; policy_json: string; parking_threshold: number;
+  outcome: MissionOutcome | null; brief_version: number; policy_json: string; parking_threshold: number; auto_start: number;
   budget_micro_usd: number | null; budget_wall_ms: number | null; member_cap: number; attempt_reserve_micro_usd: number; final_allowance_micro_usd: number;
   coordinator_member_id: string | null; coordinator_workflow: string | null; play_id: string | null;
   active_ms: number; active_since_ms: number | null;
@@ -113,7 +113,7 @@ export class MissionService {
       successCriteria: JSON.parse(row.success_criteria_json) as string[], ownerId: row.owner_id,
       ...(row.active_plan_version_id ? { activePlanVersionId: row.active_plan_version_id } : {}),
       state: row.state, ...(row.pause_reason ? { pauseReason: row.pause_reason } : {}), ...(row.outcome ? { outcome: row.outcome } : {}),
-      briefVersion: row.brief_version, autonomyPolicy: JSON.parse(row.policy_json) as AutonomyPolicy, parkingThreshold: row.parking_threshold,
+      briefVersion: row.brief_version, autonomyPolicy: JSON.parse(row.policy_json) as AutonomyPolicy, parkingThreshold: row.parking_threshold, autoStart: row.auto_start === 1,
       version: row.version, createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
     };
   }
@@ -184,8 +184,8 @@ export class MissionService {
     this.store.inTx(db, () => {
       const now = this.store.now();
       const budget = (payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap?: number; attemptReserveMicroUsd?: number; finalAllowanceMicroUsd?: number } | undefined) ?? play?.spec.budget ?? {};
-      db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,policy_json,parking_threshold,budget_micro_usd,budget_wall_ms,member_cap,attempt_reserve_micro_usd,active_since_ms,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-        .run(id, String(payload["title"]), intent, JSON.stringify(successCriteria), actor.actorId, JSON.stringify(policy), Number(payload["parkingThreshold"] ?? play?.spec.parkingThreshold ?? 3),
+      db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,policy_json,parking_threshold,auto_start,budget_micro_usd,budget_wall_ms,member_cap,attempt_reserve_micro_usd,active_since_ms,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        .run(id, String(payload["title"]), intent, JSON.stringify(successCriteria), actor.actorId, JSON.stringify(policy), Number(payload["parkingThreshold"] ?? play?.spec.parkingThreshold ?? 3), payload["autoStart"] === false ? 0 : 1,
           budget.maxMicroUsd ?? null, budget.maxWallClockMs ?? null, budget.memberCap ?? 3, budget.attemptReserveMicroUsd ?? 0, now, now, now);
       if (budget.finalAllowanceMicroUsd) db.prepare("UPDATE missions SET final_allowance_micro_usd=? WHERE id=?").run(budget.finalAllowanceMicroUsd, id);
       db.prepare("INSERT INTO mission_brief_versions(mission_id,version,intent,constraints_json,change,created_by,created_at_ms) VALUES (?,1,?,?,'created',?,?)")
@@ -634,16 +634,27 @@ export class MissionService {
     const current = JSON.parse(mission.policy_json) as AutonomyPolicy;
     const preset = payload["preset"] as AutonomyPreset | undefined;
     const operations = payload["operations"] as PlanOperation[] | undefined;
-    if (!preset && !operations) throw new BrainDomainError("INVALID_ARGUMENT", "a preset or an operation list is required");
+    const autoStart = typeof payload["autoStart"] === "boolean" ? payload["autoStart"] : undefined;
+    if (!preset && !operations && autoStart === undefined) throw new BrainDomainError("INVALID_ARGUMENT", "a preset, an operation list or the auto-start setting is required");
+    const db = this.db(actor, workspaceId);
+    if (!preset && !operations) {
+      // The auto-start switch alone: the autonomy policy is untouched.
+      this.store.inTx(db, () => {
+        db.prepare("UPDATE missions SET auto_start=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?").run(autoStart ? 1 : 0, this.store.now(), mission.id, mission.version);
+        if (!autoStart) clearStartNotes(db, mission.id);
+        this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.autoStartChanged", payload: { missionId: mission.id, autoStart: Boolean(autoStart) } });
+      });
+      return mission.id;
+    }
     const next: AutonomyPolicy = operations
       ? { ...(preset ? { preset } : {}), operations: [...new Set(operations)].sort(), version: current.version + 1 }
       : { preset: preset as AutonomyPreset, operations: [...AUTONOMY_PRESETS[preset as AutonomyPreset]].sort(), version: current.version + 1 };
     const ceiling = this.ceiling(workspaceId);
     const beyond = next.operations.filter((operation) => !ceiling.includes(operation));
     if (beyond.length > 0) throw new BrainDomainError("FORBIDDEN", `the workspace autonomy ceiling does not allow ${beyond.join(", ")}`);
-    const db = this.db(actor, workspaceId);
     this.store.inTx(db, () => {
-      db.prepare("UPDATE missions SET policy_json=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?").run(JSON.stringify(next), this.store.now(), mission.id, mission.version);
+      db.prepare("UPDATE missions SET policy_json=?,auto_start=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?").run(JSON.stringify(next), autoStart === undefined ? mission.auto_start : autoStart ? 1 : 0, this.store.now(), mission.id, mission.version);
+      if (autoStart === false) clearStartNotes(db, mission.id);
       this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.policyChanged", payload: { missionId: mission.id } });
     });
     return mission.id;
@@ -695,6 +706,53 @@ export class MissionService {
         }
       }
     });
+  }
+
+  /**
+   * A run linked to work succeeded. Its in-progress work item moves to review:
+   * the run finishing is not proof, so Done still needs the verified evidence
+   * bundle and an independent verdict (ADR 0004: an event, not a held run).
+   */
+  recordRunSuccess(organizationId: string, workspaceId: string, runId: string): void {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    this.store.inTx(db, () => {
+      const items = db.prepare("SELECT w.* FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? AND w.state='in-progress'").all(runId) as WorkItemRow[];
+      for (const item of items) {
+        transitionState(db, "workItem", item.id, "review", { set: { next_action: "The run finished: review the results and submit evidence", updated_at_ms: this.store.now() }, bumpVersion: true });
+        this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.transitioned", payload: { workItemId: item.id, state: "review" } });
+      }
+    });
+  }
+
+  /**
+   * Ready work the Governor may start by itself: missions whose auto-start
+   * switch is on, without a play coordinator (the coordinator owns dispatch
+   * there), that are active. Each mission lists its free member slots (the
+   * member cap minus in-progress work), whether its budget still has headroom,
+   * and its ready, unparked items oldest first.
+   */
+  autoStartPlan(organizationId: string, workspaceId: string): Array<{ missionId: string; ownerId: string; slots: number; memberCap: number; headroom: boolean; items: Array<{ workItemId: string; title: string; criteria: string[]; workflowId: string | null; failedAttempts: number; nextAction: string }> }> {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    const missions = db.prepare("SELECT id, owner_id, member_cap FROM missions WHERE state='active' AND auto_start=1 AND coordinator_member_id IS NULL").all() as Array<{ id: string; owner_id: string; member_cap: number }>;
+    const plan = [];
+    for (const mission of missions) {
+      const items = db.prepare("SELECT * FROM work_items WHERE mission_id=? AND state='ready' AND parked=0 ORDER BY created_at_ms, id").all(mission.id) as WorkItemRow[];
+      if (items.length === 0) continue;
+      const running = (db.prepare("SELECT COUNT(*) AS n FROM work_items WHERE mission_id=? AND state='in-progress'").get(mission.id) as { n: number }).n;
+      plan.push({
+        missionId: mission.id, ownerId: mission.owner_id, memberCap: mission.member_cap, slots: Math.max(0, mission.member_cap - running), headroom: hasHeadroom(this.store, db, mission.id),
+        items: items.map((item) => ({ workItemId: item.id, title: item.title, criteria: JSON.parse(item.criteria_json) as string[], workflowId: item.workflow_id, failedAttempts: item.failed_attempts, nextAction: item.next_action })),
+      });
+    }
+    return plan;
+  }
+
+  /** Says, on a ready work item, why the Governor has not started it. Writes only when the text changes. */
+  noteStartBlocker(organizationId: string, workspaceId: string, workItemId: string, text: string): void {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    // A note is advice, not a state change: it leaves the version (and so every pending edit) and the order of work untouched.
+    db.prepare(`UPDATE work_items SET next_action=?
+      WHERE id=? AND state='ready' AND next_action!=?`).run(text.slice(0, 500), workItemId, text.slice(0, 500));
   }
 
   linkExecution(actor: ActorContext, workspaceId: string, workItemId: string, runId: string): void {
@@ -751,6 +809,14 @@ export class MissionService {
     throw new BrainDomainError("UNSUPPORTED_CAPABILITY", `unsupported work query ${queryType}`);
   }
 
+}
+
+/** Notes the auto-start sweep leaves on ready work; switching auto-start off restores the plain prompt. */
+export const START_NOTE_PREFIXES = ["Needs input before it can start", "Waiting for budget", "Waiting for a free member", "Could not start automatically"] as const;
+
+function clearStartNotes(db: ReturnType<Store["workspaceDb"]>, missionId: string): void {
+  for (const prefix of START_NOTE_PREFIXES) db.prepare(`UPDATE work_items SET next_action='Start this task'
+    WHERE mission_id=? AND state='ready' AND next_action LIKE ?`).run(missionId, `${prefix}%`);
 }
 
 function assertNotClosed(mission: { state: string }): void {
