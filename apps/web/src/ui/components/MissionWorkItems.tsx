@@ -15,6 +15,7 @@ import { EvidenceBundleSelector } from "./ArtifactSelectors";
 import { EvidenceList } from "./EvidenceList";
 import { StatusBadge } from "./StatusBadge";
 import { WorkspaceSection } from "./Domain";import { FormSheet } from "./BrainForm";
+import { createHandoffNeed, HandoffSheet } from "./HandoffStep";
 
 const STATES: readonly { id: WorkItemState; name: string }[] = [
   { id: "backlog", name: "Backlog" }, { id: "ready", name: "Ready" }, { id: "in-progress", name: "In Progress" },
@@ -40,7 +41,7 @@ export function waitReason(item: WorkItem): string | undefined {
 export function MissionWorkItems(props: { missionId: string }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
-  const [sheet, setSheet] = createSignal<"" | "move" | "comment">("");
+  const [sheet, setSheet] = createSignal<"" | "move" | "comment" | "handoff">("");
   const [selectedId, setSelectedId] = createSignal("");
   const [move, setMove] = createSignal("");
   const [reason, setReason] = createSignal("");
@@ -94,8 +95,9 @@ export function MissionWorkItems(props: { missionId: string }): JSX.Element {
           <div class="flex items-center gap-2"><StatusBadge kind="workItem" status={item.state} /><Show when={item.state === "ready" && app.canDispatch()}><Button size="sm" variant="solid" theme="blue" iconLeft="lucide-play" aria-label={`Start ${item.title}`} onClick={() => void navigate(startHref(item))}>Start</Button></Show><Button size="sm" variant="outline" aria-label={`Manage ${item.title}`} onClick={() => { reset(); setConflict(""); setSelectedId(item.workItemId); }}>Manage</Button></div>
         </div>}</For></div>}>
         {(item) => {
+          const handoff = createHandoffNeed(() => item);
           const verified = () => Boolean(item.evidenceDigest || evidence());
-          const doneBlocked = () => move() === "done" && !verified();
+          const doneBlocked = () => move() === "done" && (!verified() || handoff.required());
           return <PageStack>
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div class="flex flex-wrap items-center gap-2"><h3 class="text-base-medium">{item.title}</h3><StatusBadge kind="workItem" status={item.state} /><Badge variant="outline" theme={item.evidenceDigest ? "green" : "gray"} label={item.evidenceDigest ? "Verified evidence bound" : "Evidence required for Done"} /></div>
@@ -105,6 +107,10 @@ export function MissionWorkItems(props: { missionId: string }): JSX.Element {
             <div class="border-y border-outline-gray-1 py-3"><h4 class="text-base-medium">Next action</h4><p class="mt-1 text-interface text-ink-gray-7">{item.nextAction}</p><Show when={item.blockedReason}><Alert theme="amber" variant="outline" title="Blocked" description={item.blockedReason} /></Show></div>
             <div><h4 class="text-base-medium">Acceptance criteria</h4><ul class="mt-2 list-disc ps-5 text-interface text-ink-gray-7"><For each={item.criteria}>{(criterion) => <li>{criterion}</li>}</For></ul></div>
             <Show when={item.evidenceDigest}><EvidenceList bundleDigest={item.evidenceDigest} /></Show>
+            <Show when={handoff.required()}><Alert theme="amber" variant="outline" title="Other tasks are waiting on this one"
+              description="Before it can be Done, hand off what was done to the next tasks. Brain adds the verified facts itself.">
+              <Button variant="solid" theme="blue" iconLeft="lucide-send" onClick={() => setSheet("handoff")}>Hand off to the next tasks</Button>
+            </Alert></Show>
             <WorkItemTasks origin={{ kind: "work-item", id: item.workItemId }} />
             <div class="flex flex-wrap gap-2 border-t border-outline-gray-1 pt-3">
               <Show when={item.state === "ready" && app.canDispatch()}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={() => void navigate(startHref(item))}>Start this task</Button></Show>
@@ -113,11 +119,13 @@ export function MissionWorkItems(props: { missionId: string }): JSX.Element {
             </div>
             <FormSheet open={sheet() === "move"} onClose={() => setSheet("")} title={`Update ${item.title}`} description="Done requires independently verified evidence for every criterion."
               submit="Move work item" icon="lucide-arrow-right-left" error={conflict()} errorTitle="This work changed; your intended move is preserved" disabled={!move() || doneBlocked() || (move() === "blocked" && !reason().trim())} onSubmit={() => { if (move() && !doneBlocked()) return transition(item); }}>
-              <EvidenceBundleSelector label={`Verified evidence for ${item.title}`} onSelect={setEvidence} />
+              <EvidenceBundleSelector label={`Verified evidence for ${item.title}`} workItemId={item.workItemId} onSelect={setEvidence} />
               <Select label={`Move ${item.title}`} value={move() || null} options={STATES.filter((state) => state.id !== item.state).map((state) => ({ value: state.id, label: state.name, disabled: state.id === "done" && !verified() }))} onValueChange={(state) => setMove(state ?? "")} />
               <Show when={move() === "blocked"}><TextInput label="Blocking reason" value={reason()} onInput={(event) => setReason(event.currentTarget.value)} required /></Show>
-            <Show when={doneBlocked()}><Alert theme="amber" variant="outline" title="Verified evidence is required" description="Choose an independently verified evidence bundle before selecting Done. Author output alone cannot complete this work." /></Show>
+            <Show when={move() === "done" && handoff.required()}><Alert theme="amber" variant="outline" title="Hand off to the next tasks first" description="Other tasks depend on this one. Close this form and use Hand off to the next tasks on the work item." /></Show>
+            <Show when={move() === "done" && !verified()}><Alert theme="amber" variant="outline" title="Verified evidence is required" description="Choose an independently verified evidence bundle before selecting Done. Author output alone cannot complete this work." /></Show>
             </FormSheet>
+            <HandoffSheet item={item} open={sheet() === "handoff"} onClose={() => setSheet("")} onSubmitted={async () => { setSheet(""); await handoff.refresh(); await items.refresh({ force: true }); }} />
             <FormSheet open={sheet() === "comment"} onClose={() => setSheet("")} title="Add a comment" centered description="Comments are recorded on the work item's history." submit="Add comment" icon="lucide-message-square" disabled={!comment().trim()} onSubmit={() => addComment(item)}>
               <Textarea label="Comment" required value={comment()} onInput={(event) => setComment(event.currentTarget.value)} />
             </FormSheet>

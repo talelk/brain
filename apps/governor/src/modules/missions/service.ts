@@ -388,7 +388,7 @@ export class MissionService {
   }
 
   /** The bundle's job belongs to a run (or session job) linked to this work item through its execution links. */
-  private producedByLinkedExecution(db: ReturnType<Store["workspaceDb"]>, workItemId: string, jobId: string): boolean {
+  producedByLinkedExecution(db: ReturnType<Store["workspaceDb"]>, workItemId: string, jobId: string): boolean {
     const links = db.prepare("SELECT run_id, job_id FROM execution_links WHERE work_item_id=?").all(workItemId) as Array<{ run_id: string; job_id: string | null }>;
     if (links.some((link) => link.job_id === jobId)) return true;
     const job = this.store.control.prepare("SELECT workflow_run_id FROM jobs WHERE id=?").get(jobId) as { workflow_run_id: string | null } | undefined;

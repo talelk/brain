@@ -216,9 +216,12 @@ export class Brain {
     return stageRelease(this.store, actor, docs, sourceRevision, scripts, instructions, schemas);
   }
 
-  listVerifiedEvidence(actor: ActorContext, workspaceId: string): JsonValue {
+  /** Verified bundles; with a work item, only those its own linked executions produced (what Done can bind). */
+  listVerifiedEvidence(actor: ActorContext, workspaceId: string, workItemId?: string): JsonValue {
     requireWorkspaceRead(this.store, actor, workspaceId);
-    const rows = this.store.workspaceDb(workspaceId, actor.organizationId).prepare("SELECT digest,manifest_json FROM evidence_bundles WHERE state='verified' ORDER BY created_at_ms DESC LIMIT 100").all() as Array<{ digest: string; manifest_json: string }>;
+    const db = this.store.workspaceDb(workspaceId, actor.organizationId);
+    const all = db.prepare("SELECT digest,manifest_json,job_id FROM evidence_bundles WHERE state='verified' ORDER BY created_at_ms DESC LIMIT 100").all() as Array<{ digest: string; manifest_json: string; job_id: string }>;
+    const rows = workItemId ? all.filter((row) => this.missions.producedByLinkedExecution(db, workItemId, row.job_id)) : all;
     return { items: rows.map((row) => {
       const manifest = JSON.parse(row.manifest_json) as { checks?: Array<{ criterionId: string; status: string }> };
       return { digest: row.digest, passedCriteria: (manifest.checks ?? []).filter((check) => check.status === "passed").map((check) => check.criterionId) };

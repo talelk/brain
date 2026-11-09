@@ -8,6 +8,7 @@ import { ActionFeedback } from "../components/ActionFeedback";
 import { missionHref } from "../mission-links";
 import type { ArtifactHistory } from "../../data/exec-outputs";
 import { verificationSummary } from "./OutputHistory";
+import { createHandoffNeed, HandoffSheet } from "../components/HandoffStep";
 
 /** What a work item needs from the person looking at its output. */
 export function reviewStateOf(item: WorkItem | undefined): "review" | "done" | "other" {
@@ -40,6 +41,8 @@ export function OutputReview(props: {
   const [reason, setReason] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
+  const [handingOff, setHandingOff] = createSignal(false);
+  const handoff = createHandoffNeed(() => props.item);
   const evidence = () => verifiedBundle(props.history);
   const verdict = () => verificationSummary(props.history);
   const canMove = () => app.canDispatch() && props.item !== undefined && reviewStateOf(props.item) === "review";
@@ -106,11 +109,14 @@ export function OutputReview(props: {
                 Accepting needs an independent check first ({verdict().label.toLowerCase()} so far). You can still ask for changes.
               </p>
             </Show>
+            <Show when={handoff.required()}>
+              <p class="text-caption text-ink-gray-7">Other tasks wait on this one, so accepting first asks you to hand off to the next tasks.</p>
+            </Show>
             <Show
               when={asking()}
               fallback={
                 <div class="flex flex-wrap items-center gap-2">
-                  <Button size="sm" variant="solid" theme="blue" iconLeft="lucide-check" disabled={!evidence() || busy()} loading={busy()} onClick={() => void move("done")}>
+                  <Button size="sm" variant="solid" theme="blue" iconLeft="lucide-check" disabled={!evidence() || busy()} loading={busy()} onClick={() => { if (handoff.required()) setHandingOff(true); else void move("done"); }}>
                     Accept
                   </Button>
                   <Button size="sm" variant="outline" iconLeft="lucide-message-square-warning" disabled={busy()} onClick={() => setAsking(true)}>
@@ -129,6 +135,7 @@ export function OutputReview(props: {
             </Show>
           </Show>
           <ActionFeedback tone="error" message={error()} />
+          <HandoffSheet item={item()} open={handingOff()} onClose={() => setHandingOff(false)} onSubmitted={async () => { setHandingOff(false); await handoff.refresh(); await move("done"); }} />
         </div>
       )}
     </Show>

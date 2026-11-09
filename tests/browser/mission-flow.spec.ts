@@ -127,15 +127,15 @@ test("mission flow (auto): create, confirm, tasks start by themselves, run, revi
   await expect(page.getByText("Finished; waiting for you to check the evidence.")).toBeVisible();
 
   // Done needs verified evidence, bound explicitly in the UI; then the dependent unlocks and auto-starts.
-  // Work others depend on needs the member's handoff before Done. Nothing in the UI or a workflow run submits one
-  // (see the report on this spec), so the member's command is issued directly.
-  const inspectItem = w.ws.prepare("SELECT id FROM work_items WHERE mission_id=? AND plan_task_id='inspect'").get(missionId) as { id: string };
-  const handoff = await w.brain.executeCommand(w.actor, {
-    contractVersion: "brain.command/v1", commandId: "cmd-flow-handoff", commandType: "handoff.submit", workspaceId: "ws-flow", idempotencyKey: "flow-handoff",
-    payload: { workItemId: inspectItem.id, notes: { summary: "Sign-in flow inspected" } },
-  } as never, "flow-handoff");
-  expect(handoff.receipt.accepted).toBe(true);
+  // Work others depend on needs a handoff before Done: the UI offers it, pre-filled from the item's own verified evidence.
   await page.reload();
+  await page.getByRole("button", { name: "Manage Inspect the sign-in flow" }).click();
+  await page.getByRole("button", { name: "Hand off to the next tasks", exact: true }).click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByLabel(/^What was done/)).toHaveValue(/Independently verified: structure, safety/);
+  await sheet.getByRole("button", { name: "Hand off", exact: true }).click();
+  await expect.poll(() => (w.ws.prepare("SELECT COUNT(*) AS n FROM handoffs WHERE superseded_by IS NULL").get() as { n: number }).n).toBe(1);
+  await page.getByRole("button", { name: "Back to mission work", exact: true }).click();
   await markDone(page, w, missionId, "Inspect the sign-in flow", "inspect");
   await expect.poll(() => states(w, missionId)).toEqual({ inspect: "done", verify: "in-progress" });
   expect(linkedRuns(w, missionId, "verify")).toHaveLength(1);

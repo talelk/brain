@@ -289,7 +289,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     try {
       const workspaceId = c.req.query("workspaceId") ?? "";
       const { actor } = await actorFor(c, workspaceId);
-      return c.json(brain.listVerifiedEvidence(actor, workspaceId) as never);
+      return c.json(brain.listVerifiedEvidence(actor, workspaceId, c.req.query("workItemId") || undefined) as never);
     } catch (e) { return fail(c as never, e); }
   });
 
