@@ -43,6 +43,7 @@ function NewMissionSheet(props: { onClose: () => void }): JSX.Element {
   const [constraints, setConstraints] = createSignal("");
   const [autonomy, setAutonomy] = createSignal("");
   const [budget, setBudget] = createSignal("");
+  const [startMode, setStartMode] = createSignal("auto");
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
   const lines = (value: string) => value.split("\n").map((line) => line.trim()).filter(Boolean);
@@ -69,6 +70,7 @@ function NewMissionSheet(props: { onClose: () => void }): JSX.Element {
         ...(lines(constraints()).length ? { constraints: lines(constraints()) } : {}),
         ...(autonomy() ? { autonomy: autonomy() as "supervised" | "standard" | "autonomous" } : {}),
         ...(budget().trim() ? { budget: { maxMicroUsd: Number(budget()), memberCap: 3 } } : {}),
+        autoStart: startMode() === "auto",
       });
       if (!receipt.accepted || !receipt.resourceId) throw new Error(receipt.detail ?? "The mission was not started.");
       void navigate(missionHref(app.workspaceId(), receipt.resourceId, playId() ? "plan" : "brief"));
@@ -88,5 +90,7 @@ function NewMissionSheet(props: { onClose: () => void }): JSX.Element {
         onValueChange={(value) => setAutonomy(value ?? "")} />
       <TextInput label="Spend ceiling (µUSD, optional)" inputmode="numeric" value={budget()} onInput={(event) => setBudget(event.currentTarget.value.replace(/[^0-9]/gu, ""))} error={shown("budget")} />
     </FormRow>
+    <Select label="Starting tasks" description="Automatic starts each ready task once the plan is confirmed. Otherwise you start every task yourself." value={startMode()} options={[{ value: "auto", label: "Start tasks automatically" }, { value: "ask", label: "Ask me before each task" }]}
+      onValueChange={(value) => setStartMode(value ?? "auto")} />
   </FormSheet>;
 }
