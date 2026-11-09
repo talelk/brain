@@ -19,8 +19,10 @@
 # What it never does: reset, `down -v`, remove the brain-data volume, or touch
 # accounts/workspaces/runs. Existing data always survives.
 #
-# Usage: scripts/deploy-demo.sh            (from the repo root)
-#        BRAIN_DEPLOY_HOST=... BRAIN_DEPLOY_PORT=... scripts/deploy-demo.sh
+# Usage: BRAIN_DEPLOY_SUDO_PASSWORD=... scripts/deploy-demo.sh   (from the repo root)
+#        BRAIN_DEPLOY_HOST=... BRAIN_DEPLOY_PORT=... BRAIN_DEPLOY_SUDO_PASSWORD=... scripts/deploy-demo.sh
+#        (a schema-changing release needs the live databases brought to the current
+#        schema first; scripts/repair-live-schema.ts refuses to alter existing tables)
 set -euo pipefail
 
 HOST="${BRAIN_DEPLOY_HOST:-demos.mykeyrus.tn}"
@@ -35,7 +37,11 @@ MODEL_ID="${BRAIN_LOCAL_MODEL_ID:-qwen3.8-flash-next-a5b}"
 
 cd "$(dirname "$0")/.."
 command -v rsync >/dev/null || { echo "rsync is required" >&2; exit 1; }
-SUDO="echo eqx#123 | sudo -S -p ''"   # only for system-level actions
+# The deploy user's sudo password comes from the environment and is never stored
+# in the repository. (A sudoers NOPASSWD rule for the systemctl/apt commands used
+# below would avoid passing a password at all.)
+: "${BRAIN_DEPLOY_SUDO_PASSWORD:?set BRAIN_DEPLOY_SUDO_PASSWORD to the sudo password of the deploy user}"
+SUDO="printf '%s\n' $(printf '%q' "$BRAIN_DEPLOY_SUDO_PASSWORD") | sudo -S -p ''"   # only for system-level actions
 
 echo "==> Syncing source to $USER_SSH@$HOST:$REMOTE_DIR/src (data is never synced)"
 $SSH "mkdir -p $REMOTE_DIR/src"
@@ -199,7 +205,7 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
   done
-  $SSH "echo eqx#123 | sudo -S -p '' cp /tmp/brain-*.service /etc/systemd/system/ && echo eqx#123 | sudo -S -p '' systemctl daemon-reload"
+  $SSH "$SUDO cp /tmp/brain-*.service /etc/systemd/system/ && $SUDO systemctl daemon-reload"
 
   # enrollment tokens via the API
   ADMIN_PW=$(grep BRAIN_ADMIN_PASSWORD "$REMOTE_DIR/.env" 2>/dev/null | cut -d= -f2 || echo admin-password)
@@ -236,10 +242,10 @@ BRAIN_TENCENTDB_TEAM_ID=$(echo "$BIND_IDS" | cut -d' ' -f1)
 BRAIN_TENCENTDB_AGENT_ID=$(echo "$BIND_IDS" | cut -d' ' -f2)
 BRAIN_RUNNER_ENROLL_TOKEN=$TOK_EV
 EOF
-  $SSH "echo eqx#123 | sudo -S -p '' systemctl enable --now brain-launcher brain-runner-agents brain-runner-evaluators >/dev/null 2>&1"
+  $SSH "$SUDO systemctl enable --now brain-launcher brain-runner-agents brain-runner-evaluators >/dev/null 2>&1"
 else
   echo "==> Restarting launcher + runners to pick up synced code"
-  $SSH "echo eqx#123 | sudo -S -p '' systemctl restart brain-launcher brain-runner-agents brain-runner-evaluators"
+  $SSH "$SUDO systemctl restart brain-launcher brain-runner-agents brain-runner-evaluators"
 fi
 
 echo "==> Done. https://$DOMAIN"
