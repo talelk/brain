@@ -1,12 +1,54 @@
-import { Show, createEffect, createSignal, createUniqueId, onCleanup } from "solid-js";
+import { Show, createEffect, createMemo, createSignal, createUniqueId, onCleanup } from "solid-js";
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
-import { Alert, Dialog } from "@talelk/newui-molecules";
+import { Alert, Collapsible, Dialog } from "@talelk/newui-molecules";
+import { StatusIcon } from "../viz/StatusIcon";
 import {
   beginDecision, beginRecovery, returnToReview, settleDecision,
   type ApprovalIntent, type ApprovalOutcome, type ApprovalState,
 } from "../approval-controller";
 
+/** Seconds left until `expiresAt`, measured on the server clock (`asOf`) plus the time since the page loaded; display only, never authority. */
+export function createExpiryClock(expiresAt: () => string | undefined, asOf: () => string | undefined) {
+  const loadedAt = Date.now();
+  const [tick, setTick] = createSignal(0);
+  const timer = setInterval(() => setTick((n) => n + 1), 15_000);
+  onCleanup(() => clearInterval(timer));
+  return createMemo(() => {
+    tick();
+    const expiry = Date.parse(expiresAt() ?? "");
+    if (!Number.isFinite(expiry)) return undefined;
+    const server = Date.parse(asOf() ?? "");
+    const now = Number.isFinite(server) ? server + (Date.now() - loadedAt) : Date.now();
+    return Math.floor((expiry - now) / 1000);
+  });
+}
+
+export function countdownLabel(seconds: number | undefined): string {
+  if (seconds === undefined) return "No expiry declared";
+  if (seconds <= 0) return "Expired";
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  if (minutes < 60) return `Expires in ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 24 ? `Expires in ${hours} h ${minutes % 60} min` : `Expires in ${Math.floor(hours / 24)} d ${hours % 24} h`;
+}
+
+/** Live "Expires in 42 min" with a state icon; urgent under ten minutes. */
+export function ExpiryCountdown(props: { expiresAt?: string; asOf?: string; class?: string }) {
+  const seconds = createExpiryClock(() => props.expiresAt, () => props.asOf);
+  const urgent = () => (seconds() ?? Infinity) < 600;
+  const gone = () => (seconds() ?? 1) <= 0;
+  return <span class={`inline-flex items-center gap-1 ${urgent() ? "font-medium text-ink-red-8" : ""} ${props.class ?? ""}`}>
+    <StatusIcon state={gone() ? "cancelled" : "pending"} theme={gone() ? "red" : urgent() ? "amber" : "blue"} />
+    <span>{countdownLabel(seconds())}</span>
+  </span>;
+}
+
 export function ApprovalReview(props: {
+  /** One plain sentence naming the effect; leads the dialog. */
+  summary?: string;
+  requestedBy?: string;
+  expiresAt?: string;
+  asOf?: string;
   active: boolean;
   class?: string;
   requireTwoFactor?: boolean;
@@ -29,7 +71,7 @@ export function ApprovalReview(props: {
   const [identityError, setIdentityError] = createSignal("");
   let disposed = false;
   onCleanup(() => { disposed = true; });
-  const snapshot = () => ({ approvalId: props.approvalId, subjectDigest: props.subjectDigest, expectedVersion: props.version, targetLabel: props.targetLabel, exactContent: props.exactContent });
+  const snapshot = () => ({ approvalId: props.approvalId, subjectDigest: props.subjectDigest, expectedVersion: props.version, targetLabel: props.targetLabel, exactContent: props.exactContent, summary: props.summary });
   const [reviewed, setReviewed] = createSignal(snapshot());
   const busy = () => verifying() || state().status === "submitting" || state().status === "checking";
   createEffect(() => { if (!props.active && !busy()) setOpen(false); });
@@ -82,12 +124,17 @@ export function ApprovalReview(props: {
     <Button class={props.class} variant="solid" theme="blue" iconLeft="lucide-shield-check" disabled={!props.active || !props.fresh} onClick={openReview}>Review action</Button>
     <Dialog.Root open={open()} onOpenChange={setOpen} dismissible={!busy()}>
       <Dialog.Content size="2xl" class="flex max-h-[calc(100dvh-2rem)] flex-col max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none">
-        <Dialog.Header class="min-w-0"><Dialog.Title>Authorize action</Dialog.Title><Dialog.Description class="break-words [overflow-wrap:anywhere]">{reviewed().targetLabel} · the decision binds this exact content and version.</Dialog.Description></Dialog.Header>
+        <Dialog.Header class="min-w-0"><Dialog.Title>Authorize action</Dialog.Title><Dialog.Description class="break-words [overflow-wrap:anywhere]">{reviewed().summary ?? reviewed().targetLabel}</Dialog.Description></Dialog.Header>
         <div class="my-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pe-1">
-          <div class="min-w-0">
-            <div class="mb-1.5 flex items-center justify-between gap-3"><p class="text-caption font-medium text-ink-gray-7">Exact proposal</p><span class="shrink-0 text-caption text-ink-gray-6">Version {reviewed().expectedVersion}</span></div>
-            <pre class="brain-readable max-h-48 max-w-full min-w-0 overflow-auto whitespace-pre-wrap break-all rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3 text-caption">{reviewed().exactContent}</pre>
-          </div>
+          <Show when={props.requestedBy || props.expiresAt}><p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-interface text-ink-gray-7"><Show when={props.requestedBy}><span>Asked by {props.requestedBy}</span></Show><ExpiryCountdown expiresAt={props.expiresAt} asOf={props.asOf} /></p></Show>
+          <p class="text-interface text-ink-gray-7">Your decision binds this exact proposal, version {reviewed().expectedVersion}. Open the exact details to inspect it.</p>
+          <Collapsible.Root class="min-w-0 rounded-control border border-outline-gray-1 p-card-pad-compact">
+            <Collapsible.Trigger>Exact details</Collapsible.Trigger>
+            <Collapsible.Content><div class="min-w-0 pt-2">
+              <div class="mb-1.5 flex items-center justify-between gap-3"><p class="text-caption font-medium text-ink-gray-7">Exact proposal</p><span class="shrink-0 text-caption text-ink-gray-6">Version {reviewed().expectedVersion}</span></div>
+              <pre class="brain-readable max-h-48 max-w-full min-w-0 overflow-auto whitespace-pre-wrap break-all rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3 text-caption">{reviewed().exactContent}</pre>
+            </div></Collapsible.Content>
+          </Collapsible.Root>
           <Textarea id={noteId} label="Decision note" value={note()} description="Required to reject or request changes; optional for approval." disabled={state().status !== "review"} onInput={(event) => setNote(event.currentTarget.value)} rows={3} />
           <Show when={props.requireTwoFactor}><div class="rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3"><p class="mb-2 text-caption font-medium text-ink-gray-7">Identity confirmation</p><TextInput label="Authenticator code" description="Six digits, verified for this exact subject." autocomplete="one-time-code" inputmode="numeric" maxlength={6} pattern="[0-9]{6}" value={code()} onInput={(event) => setCode(event.currentTarget.value)} disabled={busy() || state().status !== "review"} /></div></Show>
           <Show when={identityError()}><Alert theme="red" variant="outline" title="Identity verification failed" description={identityError()} /></Show>

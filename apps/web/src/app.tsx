@@ -90,6 +90,8 @@ function Navigation(): AppSidebarGroup[] {
   const active = (route: string) => {
     const [path = route, query] = route.split("?");
     if (path.startsWith("/studio/")) return location.pathname.startsWith("/studio/");
+    // A parameter-free area route (/approvals) also owns its children (/approvals/:id).
+    if (!path.includes(":") && !query && location.pathname.startsWith(`${path}/`)) return true;
     if (!new RegExp(`^${path.replace(/:[A-Za-z0-9_]+/gu, "[^/]+")}$`).test(location.pathname)) return false;
     const tab = new URLSearchParams(query).get("tab");
     if (!tab) return true;
