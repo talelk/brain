@@ -2,21 +2,19 @@ import { createEffect, createSignal, For, Match, Show, Switch } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Badge, Button, Checkbox, Textarea, TextInput } from "@talelk/newui-atoms";
-import { Alert, EmptyState, Select, TabButtons } from "@talelk/newui-molecules";
+import { Alert, Dialog, Dropdown, Select, TabButtons } from "@talelk/newui-molecules";
 import type { BrainSession, ExecutionLink, TeamMember, WorkItem, Mission, MissionBrief, MissionMessage, Output, PlanVersion, SinceLastVisitSummary } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { ScreenRegion } from "../../ui/screen-region";
 import { FormSheet } from "../../ui/components/BrainForm";
-import { ReasonDialog } from "../../ui/components/ReasonDialog";
 import { BrainPage, PageStack, TechnicalDetails } from "../../ui/components/PageLayout";
 import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";import { MissionWorkItems } from "../../ui/components/MissionWorkItems";
 import { SchedulesPanel } from "../../ui/components/SchedulesPanel";
 import { PlanCanvas } from "../../ui/components/PlanCanvas";
 import { formatDateTime, formatUsd } from "../../ui/format";
 import { FlowStepper, type FlowStep } from "../../ui/viz/FlowStepper";
-import { PlainSummary } from "../../ui/viz/PlainSummary";
 import { Meter } from "../../ui/viz/Meter";
 import { StateBar } from "../../ui/viz/StateBar";
 import { missionHref, type MissionTab } from "../../ui/mission-links";
@@ -32,61 +30,75 @@ const TABS: readonly { id: MissionTab; label: string }[] = [
 
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 
-/**
- * The one obvious next move for this mission, derived from its real state:
- * no plan → prepare one; ready tasks → start them; work running → follow it
- * live; everything verified → review the outputs. Each step links to the tab
- * where it is done, so the lifecycle reads brief → plan → start → live → outputs.
- */
-function NextStep(props: { mission: Mission; tab: MissionTab; items: WorkItem[] }): JSX.Element {
-  const app = useApp();
-  const navigate = useNavigate();
-  const step = (): { icon: string; title: string; detail: string; action?: { label: string; tab: MissionTab } } | undefined => {
-    const m = props.mission;
-    if (m.state === "closed") return undefined;
-    const list = props.items;
-    const count = (state: string) => list.filter((item) => item.state === state).length;
-    if (!m.activePlanVersionId) return { icon: "lucide-list-tree", title: "Next: prepare a plan", detail: "No plan is confirmed yet. Ask Brain for a proposal, review it, then confirm.", ...(props.tab !== "plan" ? { action: { label: "Open the plan", tab: "plan" as MissionTab } } : {}) };
-    if (count("in-progress") > 0) return { icon: "lucide-radio", title: `${count("in-progress")} task${count("in-progress") === 1 ? " is" : "s are"} running`, detail: "Follow the agents' messages and tool activity as they work.", ...(props.tab !== "live" ? { action: { label: "Follow in Live", tab: "live" as MissionTab } } : {}) };
-    if (count("ready") > 0) return { icon: "lucide-play", title: `Next: start ${count("ready")} ready task${count("ready") === 1 ? "" : "s"}`, detail: "The plan is confirmed. A task runs only when it is started.", ...(props.tab !== "plan" ? { action: { label: "Start tasks", tab: "plan" as MissionTab } } : {}) };
-    if (count("review") > 0 || count("blocked") > 0) return { icon: "lucide-badge-check", title: "Next: review and unblock work", detail: `${count("review")} in review · ${count("blocked")} blocked. Done needs verified evidence.`, ...(props.tab !== "plan" ? { action: { label: "Open the work", tab: "plan" as MissionTab } } : {}) };
-    if (list.length > 0 && list.every((item) => item.state === "done")) return { icon: "lucide-package", title: "All work is done", detail: "Review the outputs, then propose completion from the header.", ...(props.tab !== "outputs" ? { action: { label: "Review outputs", tab: "outputs" as MissionTab } } : {}) };
-    return undefined;
-  };
-  return <Show when={step()}>{(next) => <div role="status" class="flex flex-wrap items-center gap-3 rounded-card border border-outline-blue-1 bg-surface-blue-1 px-3 py-2">
-    <span class={`${next().icon} size-5 shrink-0 text-ink-blue-8`} aria-hidden="true" />
-    <div class="min-w-0 flex-1"><p class="text-base-medium text-ink-gray-9">{next().title}</p><p class="text-interface text-ink-gray-7">{next().detail}</p></div>
-    <Show when={next().action}>{(action) => <Button variant="solid" theme="blue" iconRight="lucide-arrow-right" onClick={() => void navigate(missionHref(app.workspaceId(), props.mission.missionId, action().tab))}>{action().label}</Button>}</Show>
-  </div>}</Show>;
+type Guide = { step: FlowStep; tab: MissionTab; title: string; detail: string; icon: string; allDone: boolean; action?: { label: string; tab: MissionTab } | { label: string; start: WorkItem } };
+
+const tally = (items: readonly WorkItem[]): Record<string, number> => {
+  const counts: Record<string, number> = {};
+  for (const item of items) counts[item.state] = (counts[item.state] ?? 0) + 1;
+  return counts;
+};
+
+/** Where the mission really is: derived from the plan and the work items, never stored. Also the tab that fits that step. */
+function missionGuide(m: Mission, items: readonly WorkItem[], canStart: boolean): Guide {
+  const counts = tally(items);
+  const n = (state: string) => counts[state] ?? 0;
+  const live = items.filter((item) => item.state !== "abandoned");
+  const allDone = live.length > 0 && live.every((item) => item.state === "done");
+  const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+  if (m.state === "closed") return { step: "close", tab: "outputs", icon: "lucide-flag", title: "This mission is closed", detail: "The outcome is recorded. Outputs stay available.", allDone };
+  if (!m.activePlanVersionId) return { step: "plan", tab: "plan", icon: "lucide-list-tree", title: "Prepare and confirm a plan", detail: "No plan is confirmed yet. Brain drafts one for you to read; nothing runs until you confirm it.", allDone, action: { label: "Review the plan", tab: "plan" } };
+  if (m.state === "verifying") return { step: "close", tab: "outputs", icon: "lucide-badge-check", title: "Completion is being checked", detail: "An independent check decides whether the mission can close.", allDone };
+  if (n("in-progress") > 0) return { step: "start", tab: "live", icon: "lucide-radio", title: `${plural(n("in-progress"), "task is", "tasks are")} running`, detail: "Follow the agents' messages and tool activity as they work.", allDone, action: { label: "Follow in Live", tab: "live" } };
+  const ready = items.find((item) => item.state === "ready");
+  if (ready && canStart) return { step: "confirm", tab: "plan", icon: "lucide-play", title: `${plural(n("ready"), "task is", "tasks are")} ready to start`, detail: "The plan is confirmed. Start a ready task to put an agent on it.", allDone, action: { label: `Start ${ready.title}`, start: ready } };
+  if (ready) return { step: "confirm", tab: "plan", icon: "lucide-play", title: `${plural(n("ready"), "task is", "tasks are")} ready to start`, detail: "Someone with dispatch rights has to start them.", allDone };
+  if (allDone) return { step: "review", tab: "outputs", icon: "lucide-package", title: "All work is done", detail: "Review the outputs, then finish the mission.", allDone, action: { label: "Review outputs", tab: "outputs" } };
+  if (n("review") > 0 || n("blocked") > 0) return { step: "review", tab: "plan", icon: "lucide-badge-check", title: n("review") > 0 ? "Work is waiting for your review" : "Some work is blocked", detail: `${n("review")} in review · ${n("blocked")} blocked. Done needs verified evidence.`, allDone, action: { label: "Open the work", tab: "plan" } };
+  return { step: "start", tab: "live", icon: "lucide-hourglass", title: "Waiting for work to unlock", detail: "Remaining tasks wait for earlier ones to be verified done.", allDone };
 }
 
-/** The mission at a glance: where it is in the lifecycle, how its tasks are spread over states, and the budget against its cap. */
-function MissionSnapshot(props: { mission: Mission; items: WorkItem[] }): JSX.Element {
-  const counts = () => {
-    const tally: Record<string, number> = {};
-    for (const item of props.items) tally[item.state] = (tally[item.state] ?? 0) + 1;
-    return tally;
+/** The mission at a glance: the flow stepper with one primary action for the current step, task states, completion and the budget against its cap. */
+function MissionSnapshot(props: { mission: Mission; items: WorkItem[]; tab: MissionTab }): JSX.Element {
+  const app = useApp();
+  const navigate = useNavigate();
+  const guide = () => missionGuide(props.mission, props.items, app.canDispatch());
+  const counts = () => tally(props.items);
+  const waits = () => {
+    const out: string[] = [];
+    const c = counts();
+    const parked = props.items.filter((item) => item.parked).length;
+    if (props.mission.state === "paused") out.push(`The mission is paused${props.mission.pauseReason === "budget" ? " because its budget was reached" : " by a person"}.`);
+    if (parked) out.push(`${parked} ${parked === 1 ? "task is" : "tasks are"} parked after repeated failures and need a person.`);
+    const blockedItems = props.items.filter((item) => item.state === "blocked" && !item.parked);
+    if (blockedItems.length) out.push(`${blockedItems.length} ${blockedItems.length === 1 ? "task is" : "tasks are"} blocked: ${blockedItems[0]?.blockedReason ?? "waiting on something outside the task"}`);
+    if ((c.review ?? 0) > 0) out.push(`${c.review} ${c.review === 1 ? "task is" : "tasks are"} waiting for your review.`);
+    return out;
   };
-  const flow = (): FlowStep => {
-    const m = props.mission;
-    if (m.state === "verifying") return "close";
-    if (!m.activePlanVersionId) return "plan";
-    if ((counts().review ?? 0) > 0 || (props.items.length > 0 && props.items.every((item) => item.state === "done" || item.state === "abandoned"))) return "review";
-    if ((counts()["in-progress"] ?? 0) > 0 || (counts().done ?? 0) > 0 || (counts().blocked ?? 0) > 0) return "start";
-    return "confirm";
+  const percent = () => {
+    const live = props.items.filter((item) => item.state !== "abandoned");
+    return live.length ? Math.round((live.filter((item) => item.state === "done").length / live.length) * 100) : 0;
   };
-  const sentence: Record<FlowStep, string> = {
-    plan: "Brain drafts a plan for you to read; nothing runs until you confirm it.",
-    confirm: "The plan is confirmed; its tasks are ready to start.",
-    start: "Agents are working through the tasks; each finished task waits for review.",
-    review: "Work is finished and waiting for you to check the evidence.",
-    close: "Everything is verified; closing records the outcome.",
+  const go = (action: NonNullable<Guide["action"]>) => {
+    if ("start" in action) void navigate(`/w/${app.workspaceId()}/plays?originKind=work-item&originId=${encodeURIComponent(action.start.workItemId)}`);
+    else void navigate(missionHref(app.workspaceId(), props.mission.missionId, action.tab));
+  };
+  const actionHere = () => {
+    const action = guide().action;
+    if (!action) return undefined;
+    return "tab" in action && action.tab === props.tab ? undefined : action;
   };
   return <div class="flex min-w-0 flex-col gap-3 rounded-card border border-outline-gray-1 p-3">
-    <FlowStepper current={flow()} />
-    <PlainSummary>{sentence[flow()]}</PlainSummary>
-    <StateBar counts={counts()} />
-    <Show when={props.mission.budget.maxMicroUsd}>{(limit) => <Meter label="Mission budget" settled={props.mission.usage.settledMicroUsd} reserved={props.mission.usage.reservedMicroUsd} limit={limit()} format={formatUsd} />}</Show>
+    <FlowStepper current={guide().step} />
+    <div role="status" class="flex flex-wrap items-center gap-3 rounded-card border border-outline-blue-1 bg-surface-blue-1 px-3 py-2">
+      <span class={`${guide().icon} size-5 shrink-0 text-ink-blue-8`} aria-hidden="true" />
+      <div class="min-w-0 flex-1"><p class="text-base-medium text-ink-gray-9">{guide().title}</p><p class="text-interface text-ink-gray-7">{guide().detail}</p></div>
+      <Show when={actionHere()}>{(action) => <Button variant="solid" theme="blue" iconLeft={"start" in action() ? "lucide-play" : undefined} iconRight={"start" in action() ? undefined : "lucide-arrow-right"} onClick={() => go(action())}>{action().label}</Button>}</Show>
+    </div>
+    <Show when={waits().length}><ul class="flex flex-col gap-1 text-interface text-ink-gray-7" aria-label="Why work is waiting"><For each={waits()}>{(line) => <li class="flex items-start gap-1.5"><span class="lucide-hourglass mt-0.5 size-3.5 shrink-0 text-ink-amber-8" aria-hidden="true" />{line}</li>}</For></ul></Show>
+    <div class="grid gap-4 md:grid-cols-2">
+      <div class="flex min-w-0 flex-col gap-1"><p class="text-base-medium">{props.items.length ? `${percent()}% complete` : "No tasks yet"}</p><StateBar counts={counts()} /></div>
+      <Show when={props.mission.budget.maxMicroUsd}>{(limit) => <div class="flex min-w-0 flex-col gap-1"><p class="text-base-medium">Budget</p><Meter label="Mission budget" settled={props.mission.usage.settledMicroUsd} reserved={props.mission.usage.reservedMicroUsd} limit={limit()} format={formatUsd} /></div>}</Show>
+    </div>
   </div>;
 }
 
@@ -107,7 +119,8 @@ export default function MissionPage(): JSX.Element {
     const target = typeof where.w === "string" ? where.w : "";
     if (target && target !== app.workspaceId() && app.workspaceOptions().some((option) => option.value === target)) app.selectWorkspace(target);
   });
-  const tab = () => (TABS.some((entry) => entry.id === params.tab) ? params.tab : "live") as MissionTab;
+  const explicitTab = () => TABS.some((entry) => entry.id === params.tab);
+  const tab = () => (explicitTab() ? params.tab : "live") as MissionTab;
   const read = <T,>(queryType: string, pick: (raw: unknown) => T, empty?: (value: T) => boolean) => createScopedRead<T>({
     scope: app.scope,
     load: async (scope, signal) => {
@@ -124,26 +137,37 @@ export default function MissionPage(): JSX.Element {
       const response = await query<Envelope<{ items: WorkItem[] }>>({ queryType: "workItems.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
       return { snapshot: response.snapshot.items.filter((item) => item.missionId === missionId()), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
-    refreshMs: 5000,
+    refreshMs: 2000,
   });
   const [error, setError] = createSignal("");
   const [busy, setBusy] = createSignal(false);
+  const [ending, setEnding] = createSignal(false);
   async function act(fn: () => Promise<unknown>): Promise<void> {
     if (busy()) return;
     setBusy(true); setError("");
-    try { await fn(); await mission.refresh({ force: true }); }
+    try { await fn(); await Promise.all([mission.refresh({ force: true }), items.refresh({ force: true })]); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "The command was refused."); }
     finally { setBusy(false); }
   }
   const current = () => mission.state().data;
+  // A tab-less address opens on the view that matches the mission's step; an explicit tab is never overridden.
+  const [placed, setPlaced] = createSignal(false);
+  createEffect(() => {
+    const m = current();
+    const list = items.state().data;
+    if (explicitTab() || placed() || !m || !list) return;
+    setPlaced(true);
+    void navigate(missionHref(app.workspaceId(), m.missionId, missionGuide(m, list, app.canDispatch()).tab), { replace: true });
+  });
   return <BrainPage title={current()?.title ?? "Mission"} description={current()?.intent}
     breadcrumbs={[{ label: "Missions", href: `/w/${app.workspaceId()}/missions` }, { label: current()?.title ?? missionId() }]}
     actions={<Show when={current()}>{(m) => <div class="flex flex-wrap gap-2">
       <Button variant={m().watching ? "solid" : "outline"} iconLeft={m().watching ? "lucide-eye-off" : "lucide-eye"} aria-pressed={m().watching ? "true" : "false"} disabled={busy()} onClick={() => void act(() => app.run("mission.watch", { missionId: m().missionId, watch: !m().watching }))}>{m().watching ? "Unwatch" : "Watch"}</Button>
       <Show when={m().state === "active"}><Button variant="outline" iconLeft="lucide-pause" disabled={busy()} onClick={() => void act(() => app.run("mission.pause", { missionId: m().missionId }, { expectedVersion: m().version }))}>Pause</Button></Show>
       <Show when={m().state === "paused"}><Button variant="outline" iconLeft="lucide-play" disabled={busy()} onClick={() => void act(() => app.run("mission.resume", { missionId: m().missionId }, { expectedVersion: m().version }))}>Resume</Button></Show>
-      <Show when={m().state === "active"}><Button variant="outline" iconLeft="lucide-badge-check" disabled={busy()} onClick={() => void act(() => app.run("mission.proposeCompletion", { missionId: m().missionId }, { expectedVersion: m().version }))}>Propose completion</Button></Show>
-      <Show when={m().state !== "closed"}><Button variant="ghost" iconLeft="lucide-square" disabled={busy()} onClick={() => void act(() => app.run("mission.close", { missionId: m().missionId, outcome: "ended" }, { expectedVersion: m().version }))}>End mission</Button></Show>
+      <Show when={m().state === "active"}><Button variant={missionGuide(m(), items.state().data ?? [], app.canDispatch()).allDone ? "solid" : "outline"} theme="blue" iconLeft="lucide-badge-check" disabled={busy()} onClick={() => void act(() => app.run("mission.proposeCompletion", { missionId: m().missionId }, { expectedVersion: m().version }))}>Finish mission</Button></Show>
+      <Show when={m().state !== "closed"}><Dropdown aria-label="More mission actions" options={[{ value: "end", label: "End mission without completion", icon: "lucide-square" }]}
+        onSelect={(value) => { if (value === "end") setEnding(true); }}><span class="flex items-center gap-1.5"><span class="lucide-ellipsis size-4" aria-hidden="true" />More</span></Dropdown></Show>
     </div>}</Show>}>
     <PageStack>
       <Show when={error()}><Alert theme="red" variant="outline" title="The mission refused this change" description={error()} /></Show>
@@ -151,11 +175,19 @@ export default function MissionPage(): JSX.Element {
         <Show when={current()}>{(m) => <>
           <StatGrid compact stats={[
             { label: "State", value: `${m().state}${m().pauseReason ? ` (${m().pauseReason})` : ""}${m().outcome ? ` · ${m().outcome}` : ""}`, hint: `Brief version ${m().briefVersion}`, icon: "lucide-flag" },
-            { label: "Spend", value: `${formatUsd(m().usage.settledMicroUsd + m().usage.reservedMicroUsd)}${m().budget.maxMicroUsd !== undefined ? ` / ${formatUsd(m().budget.maxMicroUsd)}` : ""}`, hint: `${m().usage.runningMembers} of ${m().budget.memberCap} members running`, icon: "lucide-wallet" },
+            { label: "Members running", value: `${m().usage.runningMembers} of ${m().budget.memberCap}`, hint: `Spend ${formatUsd(m().usage.settledMicroUsd + m().usage.reservedMicroUsd)}`, icon: "lucide-users" },
             { label: "Autonomy", value: m().autonomyPolicy.preset ?? "custom", hint: `${m().autonomyPolicy.operations.length} operations · policy v${m().autonomyPolicy.version}`, icon: "lucide-shield" },
           ]} />
-          <MissionSnapshot mission={m()} items={items.state().data ?? []} />
-          <NextStep mission={m()} tab={tab()} items={items.state().data ?? []} />
+          <MissionSnapshot mission={m()} items={items.state().data ?? []} tab={tab()} />
+          <Dialog.Root open={ending()} onOpenChange={(open) => { if (!open) setEnding(false); }}>
+            <Dialog.Content size="md">
+              <Dialog.Header><Dialog.Title>End this mission</Dialog.Title><Dialog.Description>Ending closes the mission now without proposing completion. Use Finish mission when the work is done and verified.</Dialog.Description></Dialog.Header>
+              <Dialog.Footer class="flex-wrap justify-end gap-2">
+                <Button size="sm" variant="outline" onClick={() => setEnding(false)}>Cancel</Button>
+                <Button size="sm" variant="solid" theme="red" loading={busy()} onClick={() => void act(async () => { await app.run("mission.close", { missionId: m().missionId, outcome: "ended" }, { expectedVersion: m().version }); setEnding(false); })}>End mission</Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Root>
           <TabButtons label="Mission views" value={tab()} wrap onValueChange={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}
             options={TABS.map((entry) => ({ value: entry.id, label: entry.label }))} />
           <Switch>
@@ -334,39 +366,10 @@ function TeamTab(props: { mission: Mission }): JSX.Element {
 
 /** Plan: a pending proposal (?proposal=) against the confirmed version, then the mission's work items (#37/#39/#43). */
 function PlanTab(props: ActProps): JSX.Element {
-  const app = useApp();
   const [search] = useSearchParams();
   const proposalId = () => typeof search.proposal === "string" ? search.proposal : "";
-  const versions = createScopedRead<{ confirmed?: PlanVersion; proposal?: PlanVersion }>({
-    scope: app.scope,
-    load: async (scope, signal) => {
-      const get = async (id: string) => (await query<Envelope<PlanVersion>>({ queryType: "plans.get", workspaceId: scope.workspaceId, resourceId: id }, signal)).snapshot;
-      const confirmed = props.mission.activePlanVersionId ? await get(props.mission.activePlanVersionId) : undefined;
-      const proposal = proposalId() ? await get(proposalId()) : undefined;
-      return { snapshot: { ...(confirmed ? { confirmed } : {}), ...(proposal ? { proposal } : {}) }, asOf: new Date().toISOString(), sourceWatermark: 0 };
-    },
-  });
-  const confirmed = () => versions.state().data?.confirmed;
-  const [rejectReason, setRejectReason] = createSignal("");
-  const [rejecting, setRejecting] = createSignal(false);
   return <PageStack>
-    <WorkspaceSection title="Plan version" description="Confirmed work and any proposal waiting for a person.">
-      <Show when={confirmed()} fallback={<EmptyState size="sm" icon="lucide-list-tree" title="No confirmed plan yet" description="Prepare a plan proposal below, or open one an agent proposed from Needs you." />}>
-        {(plan) => <p class="text-interface">Revision {plan().revision} · {plan().tasks.length} tasks{plan().team?.length ? ` · ${plan().team!.length} members` : ""}</p>}
-      </Show>
-      <Show when={versions.state().data?.proposal}>{(p) => <section class="mt-3 rounded-control border border-outline-gray-2 p-3" aria-label="Plan proposal">
-        <p class="text-base-medium">Proposal: revision {p().revision} · {p().state} · {p().origin}</p>
-        <p class="text-interface text-ink-gray-7">Added: {p().tasks.filter((task) => !confirmed()?.tasks.some((other) => other.id === task.id)).map((task) => task.title).join(", ") || "none"}; removed: {(confirmed()?.tasks ?? []).filter((task) => !p().tasks.some((other) => other.id === task.id)).map((task) => task.title).join(", ") || "none"}</p>
-        <Show when={p().team?.length}><p class="text-interface text-ink-gray-7">Team: {p().team!.map((member) => `${member.memberId} (${member.role})`).join(", ")}</p></Show>
-        <Show when={p().state === "proposed"}><Button variant="solid" theme="blue" class="mt-2" disabled={props.busy}
-          onClick={() => void props.onAct(async () => { await app.run("plan.confirm", { planVersionId: p().planVersionId }, { expectedVersion: props.mission.version }); await versions.refresh({ force: true }); })}>Confirm this plan version</Button>
-          <Button variant="outline" theme="red" class="mt-2" iconLeft="lucide-x" disabled={props.busy} onClick={() => { setRejectReason(""); setRejecting(true); }}>Reject this proposal</Button></Show>
-        <ReasonDialog open={rejecting()} onClose={() => setRejecting(false)} title="Reject this proposal" description="The proposal is kept in history. The mission continues on its last confirmed plan." reason={rejectReason()} onReason={setRejectReason}
-          reasonLabel="Rejection reason" confirmLabel="Reject proposal" tone="red" busy={props.busy}
-          onConfirm={() => void props.onAct(async () => { const result = await app.run("plan.reject", { planVersionId: p().planVersionId, reason: rejectReason().trim() }); if (!result.accepted) throw new Error(result.detail); setRejectReason(""); setRejecting(false); await versions.refresh({ force: true }); })} />
-      </section>}</Show>
-    </WorkspaceSection>
-    <PlanCanvas mission={props.mission} onChanged={() => props.onAct(async () => undefined)} />
+    <PlanCanvas mission={props.mission} proposalId={proposalId() || undefined} onChanged={() => props.onAct(async () => undefined)} />
     <MissionWorkItems missionId={props.mission.missionId} />
     <MissionSchedules missionId={props.mission.missionId} />
   </PageStack>;
