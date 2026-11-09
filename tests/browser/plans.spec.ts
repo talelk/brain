@@ -25,7 +25,8 @@ test("plans: explicit confirmation creates exact work and replanning preserves h
     { id: "inspect", title: inspectTitle, criteria: ["Evidence is attached"], dependsOn: [] },
     { id: "verify", title: "Verify independently", criteria: ["Independent verdict passes"], dependsOn: ["inspect"] },
   ];
-  await run("mission.create", "objective", { title: "Stabilize planning", intent: "Create reviewed work only", successCriteria: ["Every task is reviewed"] });
+  // Manual mode (ask me before each task): confirmation creates the work and starts nothing.
+  await run("mission.create", "objective", { title: "Stabilize planning", intent: "Create reviewed work only", successCriteria: ["Every task is reviewed"], autoStart: false });
   const objective = brain.store.workspaceDb("ws-plans", actor.organizationId).prepare("SELECT id FROM missions").get() as { id: string };
   await run("plan.propose", "plan-1", { missionId: objective.id, origin: "manual", summary: "Review the two-step strategy", tasks: tasks("Inspect current state") });
   const db = brain.store.workspaceDb("ws-plans", actor.organizationId);
