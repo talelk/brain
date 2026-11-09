@@ -12,7 +12,7 @@ import { governor } from "./data/client";
 import { Authentication, AuthenticatorEnrollment, InitialPasswordChange, InvitationAcceptancePage } from "./ui/components/Authentication";
 import { ThemeToggle } from "./ui/components/ThemeToggle";
 import { GlobalSearchDialog } from "./ui/components/GlobalSearch";
-import { BrandMark } from "./ui/components/primitives";import { BrainForm, FormActions } from "./ui/components/BrainForm";
+import { BrandMark, IconTile } from "./ui/components/primitives";import { BrainForm, FormActions } from "./ui/components/BrainForm";
 import { PageHeaderProvider, usePageHeader } from "./ui/page-context";
 import { LandingRedirect } from "./ui/LandingRedirect";
 import { PRIMARY_NAVIGATION, AREA_NAVIGATION, SECONDARY_NAVIGATION, ICONS, ROUTES } from "./routes/index.gen";
@@ -148,6 +148,7 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
   const header = usePageHeader();
+  const location = useLocation();
   const [searchOpen, setSearchOpen] = createSignal(false);
   onMount(() => {
     const shortcut = (event: KeyboardEvent) => {
@@ -161,7 +162,7 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
   return <AppShell
     brand={<BrandMark />}
     brandCollapsed={<BrandMark collapsed />}
-    title={header()?.title ?? "Brain"}
+    title={<span class="inline-flex items-center gap-2"><Show when={routeForPath(location.pathname)?.icon}>{(icon) => <IconTile icon={icon()} size="sm" />}</Show>{header()?.title ?? "Brain"}</span>}
     description={header()?.description}
     breadcrumbs={header()?.breadcrumbs}
     actions={header()?.actions}

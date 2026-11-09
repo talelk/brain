@@ -19,14 +19,16 @@ export function SelectableListItem(props: { selected?: boolean; onClick: () => v
     onClick={props.onClick}>{props.children}</button>;
 }
 
-/** Tinted icon square used in list rows and queue tiles. */
-export function IconTile(props: { icon: string; tone?: "blue" | "gray" | "green" | "red" | "amber"; size?: "md" | "lg" }): JSX.Element {
+/** Tinted icon square used in list rows, queue tiles and page headers (`sm` is the quiet header size). */
+export function IconTile(props: { icon: string; tone?: "blue" | "gray" | "green" | "red" | "amber"; size?: "sm" | "md" | "lg" }): JSX.Element {
   const tones: Record<string, string> = {
     blue: "bg-surface-blue-2 text-ink-blue-8", gray: "bg-surface-gray-2 text-ink-gray-7",
     green: "bg-surface-green-2 text-ink-green-8", red: "bg-surface-red-2 text-ink-red-8",
     amber: "bg-surface-amber-2 text-ink-amber-8",
   };
-  return <span class={`grid ${props.size === "lg" ? "size-9" : "size-8"} shrink-0 place-items-center rounded-control ${props.tone ? tones[props.tone] : tones.blue}`}><span class={`${props.icon} ${props.size === "lg" ? "size-4.5" : "size-4"}`} aria-hidden="true" /></span>;
+  const box = () => props.size === "lg" ? "size-9" : props.size === "sm" ? "size-6" : "size-8";
+  const glyph = () => props.size === "lg" ? "size-4.5" : props.size === "sm" ? "size-3.5" : "size-4";
+  return <span class={`grid ${box()} shrink-0 place-items-center rounded-control ${props.tone ? tones[props.tone] : tones.blue}`}><span class={`${props.icon} ${glyph()}`} aria-hidden="true" /></span>;
 }
 
 /** Exact payloads and technical detail behind a NewUI `Collapsible`. */

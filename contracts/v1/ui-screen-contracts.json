@@ -39,7 +39,7 @@
    ],
    "owner": "T34",
    "navigationGroup": "missions",
-   "icon": "lucide-flag",
+   "icon": "lucide-target",
    "task": "Act on what needs you, then open a mission",
    "title": "Missions"
   },
@@ -61,7 +61,7 @@
    ],
    "owner": "T34",
    "navigationGroup": "missions",
-   "icon": "lucide-flag",
+   "icon": "lucide-circle-plus",
    "task": "Start a mission from a play or a description",
    "title": "New mission"
   },
@@ -114,7 +114,7 @@
    ],
    "owner": "T64",
    "navigationGroup": "missions",
-   "icon": "lucide-flag",
+   "icon": "lucide-crosshair",
    "task": "Follow and steer one mission",
    "title": "Mission"
   },
@@ -167,7 +167,7 @@
    ],
    "owner": "T58",
    "navigationGroup": "plays",
-   "icon": "lucide-book-open-check",
+   "icon": "lucide-play",
    "task": "Review a play or single task, its schedules and history, then start it",
    "title": "Play"
   },
@@ -299,7 +299,7 @@
    ],
    "owner": "T61",
    "navigationGroup": "outputs",
-   "icon": "lucide-file-search",
+   "icon": "lucide-git-compare",
    "task": "Compare two versions of an output with their provenance",
    "title": "Compare output versions"
   },
@@ -340,7 +340,7 @@
    ],
    "owner": "T35",
    "navigationGroup": "missions",
-   "icon": "lucide-shield-check",
+   "icon": "lucide-clipboard-check",
    "task": "Review exact proposed effects and recover submitted decisions",
    "title": "Approval review"
   },
@@ -402,7 +402,7 @@
    ],
    "owner": "T36",
    "navigationGroup": "live",
-   "icon": "lucide-server",
+   "icon": "lucide-hard-drive",
    "task": "Inspect a run, its attempts, events and evidence",
    "title": "Runner detail"
   },
@@ -503,7 +503,7 @@
    ],
    "owner": "T58",
    "navigationGroup": "plays",
-   "icon": "lucide-siren",
+   "icon": "lucide-triangle-alert",
    "task": "Review workspace work and pack details",
    "title": "Incident detail"
   },
@@ -541,7 +541,7 @@
    ],
    "owner": "T39",
    "navigationGroup": "knowledge",
-   "icon": "lucide-book-open",
+   "icon": "lucide-library",
    "task": "Find scoped knowledge, documents and trusted tools",
    "title": "Knowledge"
   },
@@ -565,7 +565,7 @@
    ],
    "owner": "T58",
    "navigationGroup": "knowledge",
-   "icon": "lucide-book-open",
+   "icon": "lucide-list-checks",
    "task": "Review knowledge and capability candidates",
    "title": "Knowledge review"
   },
@@ -687,7 +687,7 @@
    ],
    "owner": "T56",
    "navigationGroup": "knowledge",
-   "icon": "lucide-flask-conical",
+   "icon": "lucide-pencil-ruler",
    "task": "Edit, test, review and publish an immutable definition",
    "title": "Configuration Studio"
   },
@@ -781,7 +781,7 @@
    {
     "label": "Missions",
     "route": "/w/:id/missions",
-    "icon": "lucide-flag"
+    "icon": "lucide-target"
    },
    {
     "label": "Approvals",
@@ -823,7 +823,7 @@
    {
     "label": "Knowledge",
     "route": "/w/:id/knowledge",
-    "icon": "lucide-book-open"
+    "icon": "lucide-library"
    },
    {
     "label": "Review",
