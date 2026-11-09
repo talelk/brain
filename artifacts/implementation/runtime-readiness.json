@@ -1,46 +1,55 @@
 {
   "scope": "evidence-record-integrity-only",
-  "productFingerprint": "sha256:ff6442a9144b5148affd0c43e38918e07215cd1e1fddd35a6e48d1145b731d92",
+  "productFingerprint": "sha256:be6f6b67bc07bd71fba593119d5295da2b6f7695d41b787d7ec23ff38206161d",
   "gates": {
     "G01": {
-      "status": "passed",
-      "reason": "current-evidence-records-validated"
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "AssertionError"
     },
     "G02": {
-      "status": "passed",
-      "reason": "current-evidence-records-validated"
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "AssertionError"
     },
     "G03": {
-      "status": "passed",
-      "reason": "current-evidence-records-validated"
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "AssertionError"
     },
     "G04": {
-      "status": "passed",
-      "reason": "current-evidence-records-validated"
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "AssertionError"
     },
     "G05": {
-      "status": "passed",
-      "reason": "current-evidence-records-validated"
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "AssertionError"
     },
     "G06": {
-      "status": "passed",
-      "reason": "current-evidence-records-validated"
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "AssertionError"
     },
     "G07": {
-      "status": "passed",
-      "reason": "current-evidence-records-validated"
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "AssertionError"
     },
     "G08": {
-      "status": "passed",
-      "reason": "current-evidence-records-validated"
+      "status": "failed",
+      "reason": "invalid-or-stale-evidence",
+      "errorClass": "AssertionError"
     }
   },
-  "allRuntimeGatesPassed": true,
+  "allRuntimeGatesPassed": false,
   "modelQualification": {
-    "status": "passed",
-    "reason": "current-evidence-records-validated"
+    "status": "failed",
+    "reason": "invalid-or-stale-evidence",
+    "errorClass": "AssertionError"
   },
-  "modelQualified": true,
+  "modelQualified": false,
   "independentReleaseCertification": "separate-required-evidence",
   "note": "Missing evidence stays not-run. Artifact hashes bind records to bytes; trusted test runners and independent review establish that the recorded tests actually ran."
 }
