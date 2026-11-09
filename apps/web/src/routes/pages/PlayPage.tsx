@@ -12,7 +12,7 @@ import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";import {
 import { TaskReview } from "../../ui/components/TaskReview";
 import type { TaskHandoff } from "../../ui/components/TaskReview";
 import { SchedulesPanel } from "../../ui/components/SchedulesPanel";
-import { formatDateTime, formatMicroUsd, titleize } from "../../ui/format";
+import { formatDateTime, formatUsd, titleize } from "../../ui/format";
 import { missionHref } from "../../ui/mission-links";
 import { AgentDetail, authorCandidate } from "../catalog";
 import { StatGrid } from "@talelk/newui-organisms";
@@ -93,7 +93,7 @@ function PlayDetail(props: { play: PlayView; agents: readonly AgentCatalogEntry[
         { label: "Team", value: String(props.play.team.length), hint: "Members on the mission team", icon: "lucide-users" },
         { label: "Plan", value: `${props.play.taskCount} tasks`, hint: "Proposed when a mission starts", icon: "lucide-list-tree" },
         { label: "Autonomy", value: props.play.autonomy ?? "standard", hint: "Capped by the workspace ceiling", icon: "lucide-shield" },
-        { label: "Budget", value: spec()?.budget?.maxMicroUsd !== undefined ? formatMicroUsd(spec()!.budget!.maxMicroUsd!) : "Workspace default", hint: "Per mission", icon: "lucide-wallet" },
+        { label: "Budget", value: spec()?.budget?.maxMicroUsd !== undefined ? formatUsd(spec()!.budget!.maxMicroUsd!) : "Workspace default", hint: "Per mission", icon: "lucide-wallet" },
       ]} />
       <Show when={spec()}>{(brief) => <WorkspaceSection title="Brief" description="What every mission started from this play is asked to achieve.">
         <p class="brain-prose whitespace-pre-wrap text-interface text-ink-gray-8">{brief().intent}</p>

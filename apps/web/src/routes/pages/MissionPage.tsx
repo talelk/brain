@@ -14,7 +14,11 @@ import { BrainPage, PageStack, TechnicalDetails } from "../../ui/components/Page
 import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";import { MissionWorkItems } from "../../ui/components/MissionWorkItems";
 import { SchedulesPanel } from "../../ui/components/SchedulesPanel";
 import { PlanCanvas } from "../../ui/components/PlanCanvas";
-import { formatDateTime } from "../../ui/format";
+import { formatDateTime, formatUsd } from "../../ui/format";
+import { FlowStepper, type FlowStep } from "../../ui/viz/FlowStepper";
+import { PlainSummary } from "../../ui/viz/PlainSummary";
+import { Meter } from "../../ui/viz/Meter";
+import { StateBar } from "../../ui/viz/StateBar";
 import { missionHref, type MissionTab } from "../../ui/mission-links";
 import { ConsoleScreen } from "../../ui/console/ConsoleLayout";
 import { SessionTranscript } from "../../ui/console/SessionTranscript";
@@ -34,21 +38,13 @@ type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
  * live; everything verified → review the outputs. Each step links to the tab
  * where it is done, so the lifecycle reads brief → plan → start → live → outputs.
  */
-function NextStep(props: { mission: Mission; tab: MissionTab }): JSX.Element {
+function NextStep(props: { mission: Mission; tab: MissionTab; items: WorkItem[] }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
-  const items = createScopedRead<WorkItem[]>({
-    scope: app.scope,
-    load: async (scope, signal) => {
-      const response = await query<Envelope<{ items: WorkItem[] }>>({ queryType: "workItems.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
-      return { snapshot: response.snapshot.items.filter((item) => item.missionId === props.mission.missionId), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
-    },
-    refreshMs: 5000,
-  });
   const step = (): { icon: string; title: string; detail: string; action?: { label: string; tab: MissionTab } } | undefined => {
     const m = props.mission;
     if (m.state === "closed") return undefined;
-    const list = items.state().data ?? [];
+    const list = props.items;
     const count = (state: string) => list.filter((item) => item.state === state).length;
     if (!m.activePlanVersionId) return { icon: "lucide-list-tree", title: "Next: prepare a plan", detail: "No plan is confirmed yet. Ask Brain for a proposal, review it, then confirm.", ...(props.tab !== "plan" ? { action: { label: "Open the plan", tab: "plan" as MissionTab } } : {}) };
     if (count("in-progress") > 0) return { icon: "lucide-radio", title: `${count("in-progress")} task${count("in-progress") === 1 ? " is" : "s are"} running`, detail: "Follow the agents' messages and tool activity as they work.", ...(props.tab !== "live" ? { action: { label: "Follow in Live", tab: "live" as MissionTab } } : {}) };
@@ -62,6 +58,36 @@ function NextStep(props: { mission: Mission; tab: MissionTab }): JSX.Element {
     <div class="min-w-0 flex-1"><p class="text-base-medium text-ink-gray-9">{next().title}</p><p class="text-interface text-ink-gray-7">{next().detail}</p></div>
     <Show when={next().action}>{(action) => <Button variant="solid" theme="blue" iconRight="lucide-arrow-right" onClick={() => void navigate(missionHref(app.workspaceId(), props.mission.missionId, action().tab))}>{action().label}</Button>}</Show>
   </div>}</Show>;
+}
+
+/** The mission at a glance: where it is in the lifecycle, how its tasks are spread over states, and the budget against its cap. */
+function MissionSnapshot(props: { mission: Mission; items: WorkItem[] }): JSX.Element {
+  const counts = () => {
+    const tally: Record<string, number> = {};
+    for (const item of props.items) tally[item.state] = (tally[item.state] ?? 0) + 1;
+    return tally;
+  };
+  const flow = (): FlowStep => {
+    const m = props.mission;
+    if (m.state === "verifying") return "close";
+    if (!m.activePlanVersionId) return "plan";
+    if ((counts().review ?? 0) > 0 || (props.items.length > 0 && props.items.every((item) => item.state === "done" || item.state === "abandoned"))) return "review";
+    if ((counts()["in-progress"] ?? 0) > 0 || (counts().done ?? 0) > 0 || (counts().blocked ?? 0) > 0) return "start";
+    return "confirm";
+  };
+  const sentence: Record<FlowStep, string> = {
+    plan: "Brain drafts a plan for you to read; nothing runs until you confirm it.",
+    confirm: "The plan is confirmed; its tasks are ready to start.",
+    start: "Agents are working through the tasks; each finished task waits for review.",
+    review: "Work is finished and waiting for you to check the evidence.",
+    close: "Everything is verified; closing records the outcome.",
+  };
+  return <div class="flex min-w-0 flex-col gap-3 rounded-card border border-outline-gray-1 p-3">
+    <FlowStepper current={flow()} />
+    <PlainSummary>{sentence[flow()]}</PlainSummary>
+    <StateBar counts={counts()} />
+    <Show when={props.mission.budget.maxMicroUsd}>{(limit) => <Meter label="Mission budget" settled={props.mission.usage.settledMicroUsd} reserved={props.mission.usage.reservedMicroUsd} limit={limit()} format={formatUsd} />}</Show>
+  </div>;
 }
 
 /**
@@ -92,6 +118,14 @@ export default function MissionPage(): JSX.Element {
     refreshMs: 15_000,
   });
   const mission = read<Mission>("missions.get", (raw) => raw as Mission);
+  const items = createScopedRead<WorkItem[]>({
+    scope: app.scope,
+    load: async (scope, signal) => {
+      const response = await query<Envelope<{ items: WorkItem[] }>>({ queryType: "workItems.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
+      return { snapshot: response.snapshot.items.filter((item) => item.missionId === missionId()), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+    },
+    refreshMs: 5000,
+  });
   const [error, setError] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   async function act(fn: () => Promise<unknown>): Promise<void> {
@@ -117,10 +151,11 @@ export default function MissionPage(): JSX.Element {
         <Show when={current()}>{(m) => <>
           <StatGrid compact stats={[
             { label: "State", value: `${m().state}${m().pauseReason ? ` (${m().pauseReason})` : ""}${m().outcome ? ` · ${m().outcome}` : ""}`, hint: `Brief version ${m().briefVersion}`, icon: "lucide-flag" },
-            { label: "Spend", value: `${m().usage.settledMicroUsd + m().usage.reservedMicroUsd}${m().budget.maxMicroUsd !== undefined ? ` / ${m().budget.maxMicroUsd}` : ""} µUSD`, hint: `${m().usage.runningMembers} of ${m().budget.memberCap} members running`, icon: "lucide-wallet" },
+            { label: "Spend", value: `${formatUsd(m().usage.settledMicroUsd + m().usage.reservedMicroUsd)}${m().budget.maxMicroUsd !== undefined ? ` / ${formatUsd(m().budget.maxMicroUsd)}` : ""}`, hint: `${m().usage.runningMembers} of ${m().budget.memberCap} members running`, icon: "lucide-wallet" },
             { label: "Autonomy", value: m().autonomyPolicy.preset ?? "custom", hint: `${m().autonomyPolicy.operations.length} operations · policy v${m().autonomyPolicy.version}`, icon: "lucide-shield" },
           ]} />
-          <NextStep mission={m()} tab={tab()} />
+          <MissionSnapshot mission={m()} items={items.state().data ?? []} />
+          <NextStep mission={m()} tab={tab()} items={items.state().data ?? []} />
           <TabButtons label="Mission views" value={tab()} wrap onValueChange={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}
             options={TABS.map((entry) => ({ value: entry.id, label: entry.label }))} />
           <Switch>

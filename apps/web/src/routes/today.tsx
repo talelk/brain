@@ -6,7 +6,7 @@ import { ScreenRegion } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
 import { BrainPage, PageStack } from "../ui/components/PageLayout";
 import { StatusBadge } from "../ui/components/StatusBadge";
-import { formatMicroUsd } from "../ui/format";
+import { formatUsd } from "../ui/format";
 import { IconTile } from "../ui/components/primitives";
 import { Card } from "@talelk/newui-molecules";import { Freshness, WorkspaceSection } from "../ui/components/Domain";import { WorkspaceManagementDialog } from "../ui/components/WorkspaceManagementDialog";
 import { useApp } from "../ui/app-context";
@@ -46,7 +46,7 @@ export function BridgeScreen(props: {
                   <div><dt class="text-caption text-ink-gray-6">Active runs</dt><dd class="mt-1 text-base-medium tabular-nums">{ws.activeJobs}</dd></div>
                   <div><dt class="text-caption text-ink-gray-6">Approvals</dt><dd class="mt-1 text-base-medium tabular-nums">{ws.pendingApprovals}</dd></div>
                   <div><dt class="text-caption text-ink-gray-6">Blocked</dt><dd class="mt-1 text-base-medium tabular-nums">{ws.blockedJobs}</dd></div>
-                  <div><dt class="text-caption text-ink-gray-6">Spend today</dt><dd class="mt-1 text-base-medium tabular-nums">{formatMicroUsd(ws.dailyMicroUsd)}</dd></div>
+                  <div><dt class="text-caption text-ink-gray-6">Spend today</dt><dd class="mt-1 text-base-medium tabular-nums">{formatUsd(ws.dailyMicroUsd)}</dd></div>
                 </dl>
                 <div class="flex flex-wrap items-center justify-between gap-3"><Freshness value={ws.observedAt} stale={ws.health === "unknown"} /><div class="flex flex-wrap gap-2"><Show when={app.canAdminister()}><Button variant="ghost" onClick={() => setManaging(ws)}>Manage</Button></Show><Button variant={attention ? "solid" : "outline"} theme="blue" iconRight="lucide-arrow-right" onClick={() => props.onOpen(ws.workspaceId)}>Open workspace</Button></div></div>
               </Card>;

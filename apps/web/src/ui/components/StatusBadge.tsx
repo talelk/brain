@@ -1,6 +1,7 @@
 import { Badge } from "@talelk/newui-atoms";
 import type { BadgeTheme } from "@talelk/newui-atoms";
 import type { JSX } from "solid-js";
+import { StatusIcon } from "../viz/StatusIcon";
 
 /**
  * The one state → label/tone map. Every screen renders states through
@@ -165,9 +166,5 @@ export function statusLabel(kind: StatusKind | undefined, value: string): string
 
 export function StatusBadge(props: { kind?: StatusKind; status: string; label?: string }): JSX.Element {
   const resolved = () => lookup(props.kind, props.status);
-  const icon = () => resolved().theme === "green" ? "lucide-circle-check"
-    : resolved().theme === "red" ? "lucide-circle-alert"
-      : resolved().theme === "amber" ? "lucide-clock-3"
-        : resolved().theme === "blue" ? "lucide-activity" : "lucide-circle";
-  return <Badge size="md" theme={resolved().theme} prefix={<span class={`${icon()} size-2.5`} aria-hidden="true" />} label={props.label ?? resolved().label} />;
+  return <Badge size="md" theme={resolved().theme} prefix={<StatusIcon state={props.status} theme={resolved().theme} class="size-2.5" />} label={props.label ?? resolved().label} />;
 }

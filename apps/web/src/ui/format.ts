@@ -41,10 +41,11 @@ export function formatRelative(value?: string | number | Date): string {
   return future ? `in ${span}` : `${span} ago`;
 }
 
-/** Micro-USD as a dollar figure: 1250000 → "$1.25"; whole dollars drop the cents. */
-export function formatMicroUsd(micro?: number): string {
-  if (micro === undefined || micro === null) return "—";
-  return `$${(micro / 1_000_000).toFixed(2).replace(/\.00$/, "")}`;
+/** Micro-USD as a dollar figure: 1250000 → "$1.25"; whole dollars drop the cents and a non-zero amount under a cent reads "<$0.01". */
+export function formatUsd(microUsd?: number): string {
+  if (microUsd === undefined || microUsd === null) return "—";
+  if (microUsd > 0 && microUsd < 10_000) return "<$0.01";
+  return `$${(microUsd / 1_000_000).toFixed(2).replace(/\.00$/, "")}`;
 }
 
 /** `operations-triage` → `Operations triage`, matching the historical label helper. */

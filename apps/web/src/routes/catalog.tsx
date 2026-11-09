@@ -12,7 +12,7 @@ import { ScreenRegion } from "../ui/screen-region";
 import { PageStack, TechnicalDetails } from "../ui/components/PageLayout";
 import { ActionFeedback } from "../ui/components/ActionFeedback";
 import { DigestValue } from "../ui/components/DigestValue";
-import { formatMicroUsd, titleize } from "../ui/format";
+import { formatUsd, titleize } from "../ui/format";
 import { EmptyState } from "@talelk/newui-molecules";
 
 /** First paragraph of a long text, heading-stripped and hard-truncated so list rows stay scannable. */
@@ -111,7 +111,7 @@ export function AgentDetail(props: { agent: AgentCatalogEntry; onBack?: () => vo
       { label: "Engine requirement", value: spec().engine.anyOf.join(" or "), hint: "One compatible engine is required", icon: "lucide-cpu" },
       { label: "Allowed tools", value: String(spec().tools.length), hint: spec().tools.length ? "Pinned releases only" : "No tool authority", icon: "lucide-wrench" },
       { label: "Turn / token limits", value: `${spec().maxTurns} · ${spec().maxTokens.toLocaleString()}`, hint: "Per attempt", icon: "lucide-gauge" },
-      { label: "Maximum cost", value: formatMicroUsd(spec().maxMicroUsd), hint: `${spec().maxChildren} children · depth ${spec().maxDepth}`, icon: "lucide-wallet-cards" },
+      { label: "Maximum cost", value: formatUsd(spec().maxMicroUsd), hint: `${spec().maxChildren} children · depth ${spec().maxDepth}`, icon: "lucide-wallet-cards" },
     ]} />
     <WorkspaceSection title="Purpose and responsibility" description="Derived from the pinned instruction asset; not an inferred model capability."><p class="brain-prose whitespace-pre-wrap text-interface text-ink-gray-8">{purpose()}</p></WorkspaceSection>
     <WorkspaceSection title="Trust and scope" description="This definition has no authority beyond the following pinned tools and limits.">

@@ -2,14 +2,15 @@ import { createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Button } from "@talelk/newui-atoms";
-import { FilterBar, StatGrid } from "@talelk/newui-organisms";
+import { FilterBar } from "@talelk/newui-organisms";
 import type { AttentionItem, Mission } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { ScreenRegion } from "../../ui/screen-region";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
-import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";import { formatDateTime } from "../../ui/format";
+import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";import { formatDateTime, formatUsd } from "../../ui/format";
+import { NumberCard } from "../../ui/viz/NumberCard";
 import { missionHref } from "../../ui/mission-links";
 import { AttentionRows, attentionHref } from "../../ui/components/AttentionDrawer";
 import { EmptyState } from "@talelk/newui-molecules";
@@ -48,16 +49,16 @@ export default function MissionsPage(): JSX.Element {
   const refresh = () => { void attention.refresh({ force: true }); void missions.refresh({ force: true }); };
   const row = (mission: Mission) => <QueueRow title={mission.title} description={mission.intent} icon="lucide-flag" tone={mission.state === "active" ? "blue" : mission.state === "paused" ? "amber" : mission.state === "verifying" ? "green" : "gray"}
     label={`Open mission ${mission.title}`}
-    meta={<><span>{mission.state}{mission.pauseReason ? ` · ${mission.pauseReason}` : ""}{mission.outcome ? ` · ${mission.outcome}` : ""}</span><span>{mission.usage.runningMembers} running</span><Show when={mission.budget.maxMicroUsd !== undefined}><span>{`${mission.usage.settledMicroUsd + mission.usage.reservedMicroUsd} / ${mission.budget.maxMicroUsd} µUSD`}</span></Show><span>updated {formatDateTime(mission.updatedAt)}</span></>}
+    meta={<><span>{mission.state}{mission.pauseReason ? ` · ${mission.pauseReason}` : ""}{mission.outcome ? ` · ${mission.outcome}` : ""}</span><span>{mission.usage.runningMembers} running</span><Show when={mission.budget.maxMicroUsd !== undefined}><span>{`${formatUsd(mission.usage.settledMicroUsd + mission.usage.reservedMicroUsd)} / ${formatUsd(mission.budget.maxMicroUsd)}`}</span></Show><span>updated {formatDateTime(mission.updatedAt)}</span></>}
     onClick={() => void navigate(missionHref(app.workspaceId(), mission.missionId, "live"))} />;
   return <BrainPage title="Missions" description="What needs you, then every mission of this workspace."
     actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={refresh}>Refresh</Button><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => void navigate(`/w/${app.workspaceId()}/missions/new`)}>New mission</Button></>}>
     <PageStack>
-      <StatGrid compact stats={[
-        { label: "Needs you", value: String(attention.state().data?.length ?? 0), hint: "Across your workspaces", icon: "lucide-bell-ring" },
-        { label: "Open missions", value: String(open().length), hint: "Active, paused or verifying", icon: "lucide-flag" },
-        { label: "Closed", value: String(closed().length), hint: "Achieved, ended or cancelled", icon: "lucide-archive" },
-      ]} />
+      <div class="grid gap-3 sm:grid-cols-3">
+        <NumberCard title="Needs you" value={attention.state().data?.length ?? 0} />
+        <NumberCard title="Open missions" value={open().length} />
+        <NumberCard title="Closed" value={closed().length} />
+      </div>
       <FilterBar resultCount={attentionItems().length + shown().length}
         query={{ value: filter(), placeholder: "Search attention, missions, or workspace…", onInput: setFilter }}
         chips={filter() ? [{ label: `Search: ${filter()}`, onRemove: () => setFilter("") }] : []}

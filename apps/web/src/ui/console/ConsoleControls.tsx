@@ -15,7 +15,7 @@ import { EvidenceList } from "../components/EvidenceList";
 import { ReasonDialog } from "../components/ReasonDialog";
 import { StatusBadge } from "../components/StatusBadge";
 import { DateText } from "../screen-region";
-import { formatMicroUsd } from "../format";
+import { formatUsd } from "../format";
 
 /** The read scope every contextual panel reads through (no fabricated scopes). */
 type ConsoleScope = Accessor<{ organizationId: string; workspaceId: string; generation: number }>;
@@ -263,7 +263,7 @@ export function ConsoleInspection(props: {
       <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-caption">
         <div class="min-w-0"><dt class="text-ink-gray-6">State</dt><dd class="mt-0.5"><StatusBadge status={props.session?.state ?? "unknown"} /></dd></div>
         <div class="min-w-0"><dt class="text-ink-gray-6">Engine</dt><dd class="mt-0.5 break-words text-ink-gray-9">{props.session?.engine.id ?? "—"} {props.session?.engine.version ?? ""}</dd></div>
-        <div class="min-w-0"><dt class="text-ink-gray-6">Usage</dt><dd class="mt-0.5 break-words text-ink-gray-9">{(props.session?.usedTokens ?? 0).toLocaleString()} tokens · {formatMicroUsd(props.session?.usedMicroUsd)}</dd></div>
+        <div class="min-w-0"><dt class="text-ink-gray-6">Usage</dt><dd class="mt-0.5 break-words text-ink-gray-9">{(props.session?.usedTokens ?? 0).toLocaleString()} tokens · {formatUsd(props.session?.usedMicroUsd)}</dd></div>
         <div class="min-w-0"><dt class="text-ink-gray-6">Budget</dt><dd class="mt-0.5 break-words text-ink-gray-9">{props.session?.budget.maxTurns ?? "—"} turns · {(props.session?.budget.maxTokens ?? 0).toLocaleString()} tokens</dd></div>
         <Show when={props.session?.workItemId}><div class="col-span-2 min-w-0"><dt class="text-ink-gray-6">Work item</dt><dd class="mt-0.5 break-all"><a class="text-ink-blue-link hover:underline focus-visible:focus-ring" href={`/w/${props.workspaceId}/board?card=${encodeURIComponent(props.session!.workItemId!)}`}>{props.session!.workItemId}</a></dd></div></Show>
         <Show when={props.session?.jobId}><div class="col-span-2 min-w-0"><dt class="text-ink-gray-6">Run</dt><dd class="mt-0.5"><CorrelationLink target={{ kind: "job", jobId: props.session!.jobId! }} label={props.session!.jobId!} icon="lucide-workflow" class="max-w-full" /></dd></div></Show>
