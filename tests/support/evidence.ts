@@ -13,8 +13,9 @@ export function bundleForAttempt(brain: Brain, organizationId: string, workspace
   const run = ws.prepare("SELECT workflow_digest FROM workflow_runs WHERE id=?").get(author.workflow_run_id) as { workflow_digest:string };
   const meta = ws.prepare("SELECT workflow_json FROM run_inputs WHERE run_id=?").get(author.workflow_run_id) as { workflow_json:string };
   const workflow = JSON.parse(meta.workflow_json) as Workflow;
-  const evaluator = Object.values(workflow.spec.jobs).find((j) => j.kind === "eval");
-  if (evaluator?.kind !== "eval") throw new Error("fixture needs a pinned evaluator");
+  const found = Object.values(workflow.spec.jobs).find((j) => j.kind === "eval");
+  if (!found || found.kind !== "eval") throw new Error("fixture needs a pinned evaluator");
+  const evaluator = found;
   const release = JSON.parse((brain.store.control.prepare("SELECT manifest_json FROM config_releases WHERE digest=?").get(author.config_digest) as { manifest_json:string }).manifest_json) as { evaluators: Record<string,{spec:{requiredChecks:string[]}}> };
   const checks: CheckResult[] = release.evaluators[evaluator.evaluator.id]!.spec.requiredChecks.map((checkId) => ({ criterionId:checkId,checkId,status:"passed",oracleDigest:evaluator.evaluator.digest,artifacts:[],detail:"Author claims this criterion; independent evaluator required" }));
   const payload = JSON.parse(author.payload_json) as { step:{ uses?:{release:{id:string;digest:string}} } };
