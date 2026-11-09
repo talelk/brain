@@ -21,19 +21,20 @@ export function BridgeScreen(props: {
   const app = useApp();
   const [createOpen, setCreateOpen] = createSignal(false);
   const [managing, setManaging] = createSignal<WorkspaceSummary>();
+  const canCreate = () => Boolean(app.identity()?.actor.scopes.includes("config:activate"));
   const total = () => props.workspaces.reduce((sum, ws) => sum + ws.pendingApprovals + ws.blockedJobs, 0);
   const ordered = () => [...props.workspaces].sort((a, b) => (b.pendingApprovals + b.blockedJobs) - (a.pendingApprovals + a.blockedJobs) || a.displayName.localeCompare(b.displayName));
   return <BrainPage title="Bridge" description="Enter the workspace that needs you first; health stays scoped to its own observations."
-    actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button><Show when={app.identity()?.actor.scopes.includes("config:activate")}><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setCreateOpen(true)}>Create workspace</Button></Show></>}>
+    actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button><Show when={canCreate() && props.workspaces.length > 0}><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setCreateOpen(true)}>Create workspace</Button></Show></>}>
     <PageStack>
       <StatGrid compact stats={[
         { label: "Readable workspaces", value: String(props.workspaces.length), hint: "Authorized to your account", icon: "lucide-building-2" },
         { label: "Actionable exceptions", value: String(total()), hint: "Pending approvals and blocked runs", icon: "lucide-inbox" },
       ]} />
       <WorkspaceSection title="Workspace control" description="Actionable workspaces are first. Quiet workspaces remain available without implying systemwide health.">
-        <ScreenRegion state={props.state} skeleton="cards" emptyTitle="No workspaces assigned"
-          emptyDescription="Ask an organization administrator to grant you workspace access."
-          emptyAction={<Button onClick={props.onRefresh}>Reload</Button>} onRetry={props.onRefresh}>
+        <ScreenRegion state={props.state} skeleton="cards" emptyTitle={canCreate() ? "Create your first workspace" : "No workspaces assigned"}
+          emptyDescription={canCreate() ? "A workspace holds your missions, runs and approvals. Create one to start; you can add more later." : "Ask an organization administrator to grant you workspace access."}
+          emptyAction={canCreate() ? <Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setCreateOpen(true)}>Create workspace</Button> : <Button onClick={props.onRefresh}>Reload</Button>} onRetry={props.onRefresh}>
           <div class={`grid gap-3 ${ordered().length === 1 ? "max-w-3xl" : "md:grid-cols-2 xl:grid-cols-3"}`}>
             <For each={ordered()}>{(ws) => {
               const attention = ws.pendingApprovals + ws.blockedJobs;

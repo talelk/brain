@@ -9,7 +9,7 @@ import { OrganizationAuthPolicy, OrganizationInvitations, OrganizationMemberSele
 import type { JSX } from "solid-js";
 import { For, Show, createSignal, onMount } from "solid-js";
 import { Badge, Button, KeyValue, TextInput } from "@talelk/newui-atoms";
-import { Alert, Dialog, Pagination, Select, EmptyState } from "@talelk/newui-molecules";
+import { Alert, Dialog, Pagination, Select, EmptyState, Timeline } from "@talelk/newui-molecules";
 import { useSearchParams } from "@solidjs/router";
 import { BrainPage, PageStack, TechnicalDetails } from "../ui/components/PageLayout";
 import type { AuditEntry, HealthView, MemberGrantView, ConfigExplanation, OrganizationSessionView } from "@brain/contracts";
@@ -17,13 +17,14 @@ import { DateText, ScreenRegion } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
 import { formatDateTime } from "../ui/format";
 import { ActionFeedback } from "../ui/components/ActionFeedback";
-import { Freshness, WorkspaceSection } from "../ui/components/Domain";import { StatusBadge } from "../ui/components/StatusBadge";
+import { Freshness, WorkspaceSection } from "../ui/components/Domain";import { StatusBadge, statusTheme } from "../ui/components/StatusBadge";
+import { StatusIcon } from "../ui/viz/StatusIcon";
 import { StatGrid } from "@talelk/newui-organisms";
 
 const SETTINGS_PAGE_SIZE = 25;
 
 const PAGE: Record<string, { title: string; description: string }> = {
-  setup: { title: "Workspace setup", description: "Verify each prerequisite and open the flow that owns the next action." },
+  setup: { title: "Workspace setup", description: "Connect a model, start the runners, then run one safe test task." },
   security: { title: "Security center", description: "Manage authenticator, passkeys, sessions and notification hygiene for your account." },
   people: { title: "People", description: "Manage organization identity, roles and current-organization sessions." },
   invitations: { title: "Invitations", description: "Track intended access, acceptance and actual delivery state." },
@@ -81,13 +82,13 @@ export function SettingsScreen(props: {
         <Show when={organizationAdmin()}><DiagnosticExport /></Show>
         <WorkspaceSection title="Service status" description="Current health, detail and observation time reported by Governor. Unknown or unsupported states are not rendered green.">
           <ScreenRegion state={props.state} skeleton="rows" emptyTitle="Health unavailable" emptyDescription="The Governor did not return a service snapshot." onRetry={props.onRefresh}>
-            <div class="grid gap-3 md:grid-cols-2"><For each={props.health?.services ?? []}>{(service) => <article class="min-w-0 border-y border-outline-gray-1 py-3"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="min-w-0 break-words text-base-medium capitalize">{service.id}</h3><StatusBadge kind="health" status={service.status} /></div><p class="mt-1.5 break-words text-interface text-ink-gray-7">{service.detail}</p><p class="mt-1.5 text-caption text-ink-gray-6">Checked <DateText value={service.checkedAt} /></p></article>}</For></div>
+            <div class="grid gap-3 md:grid-cols-2"><For each={props.health?.services ?? []}>{(service) => <article class="min-w-0 border-y border-outline-gray-1 py-3"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="flex min-w-0 items-center gap-2 break-words text-base-medium capitalize"><StatusIcon state={service.status} theme={statusTheme("health", service.status)} class="size-4" />{service.id}</h3><StatusBadge kind="health" status={service.status} /></div><p class="mt-1.5 break-words text-interface text-ink-gray-7">{service.detail}</p><p class="mt-1.5 text-caption text-ink-gray-6">Checked <DateText value={service.checkedAt} /></p></article>}</For></div>
             <Show when={props.health} keyed>{(health) => <Show when={health.status !== "healthy"}><Alert theme="amber" variant="outline" title="Platform is degraded" description={`${health.pendingOutbox} outbox deliveries are pending (oldest ${health.oldestOutboxAgeMs}ms).`} /></Show>}</Show>
           </ScreenRegion>
         </WorkspaceSection>
         <WorkspaceSection title="Operational audit timeline" description="Actor, operation, object and time in one scoped append-only sequence. Technical cursors remain secondary.">
           <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No audited events yet" emptyDescription="Actions appear here as the Governor records them." onRetry={props.onRefresh}>
-            <div class="brain-queue"><For each={auditRows()}>{(entry) => <article class="grid gap-1.5 border-b border-outline-gray-1 py-2.5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"><div class="min-w-0"><h3 class="break-words text-base-medium">{entry.action}</h3><p class="mt-0.5 break-all text-interface text-ink-gray-7">{entry.actorId} · {entry.resourceId}</p></div><div class="break-words text-caption text-ink-gray-6 md:text-end"><DateText value={entry.occurredAt} /><span class="ms-2 whitespace-nowrap">cursor {entry.cursor}</span></div></article>}</For></div>
+            <Timeline items={auditRows().map((entry) => ({ id: String(entry.cursor), title: <span class="break-words">{entry.action}</span>, description: <span class="break-all">{entry.actorId} · {entry.resourceId}</span>, timestamp: <span class="whitespace-nowrap"><DateText value={entry.occurredAt} /> · cursor {entry.cursor}</span>, icon: "lucide-history" }))} />
             <Show when={auditPageCount() > 1}><Pagination.Root aria-label="Audit timeline pagination" class="mt-3 flex-wrap items-center justify-between gap-2 border-t border-outline-gray-1 pt-3" count={props.audit.length} pageSize={SETTINGS_PAGE_SIZE} page={currentAuditPage()} onPageChange={setAuditPage}>
               <Pagination.Range />
               <div class="flex items-center gap-1"><Pagination.PrevTrigger /><Pagination.Pages /><Pagination.NextTrigger /></div>
