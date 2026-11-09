@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures";
+import { ownBundleJob } from "../support/evidence";
 import type { Page } from "@playwright/test";
 import type { Brain } from "../../apps/governor/src/application/brain";
 const DIGEST_A = `sha256:${"a".repeat(64)}`;
@@ -105,6 +106,9 @@ test("mission work: Done succeeds with explicitly bound verified evidence (T51)"
   };
   ws.prepare("INSERT INTO evidence_bundles(digest, bundle_id, job_id, attempt_id, state, manifest_json, created_at_ms) VALUES (?, 'bundle-ui', 'job-ui', 'att-ui', 'verified', ?, ?)").run(DIGEST_A, JSON.stringify(manifest), brain.store.now());
   ws.prepare("INSERT INTO verification_verdicts(id, bundle_digest, evaluator_attempt_id, evaluator_digest, outcome, manifest_json, created_at_ms) VALUES ('verdict-ui', ?, 'eval-ui', ?, 'verified', '{}', ?)").run(DIGEST_A, DIGEST_A, brain.store.now());
+
+  // Only evidence produced by this item's own execution is offered for Done.
+  ownBundleJob(ws, "work-ui-2", "job-ui", brain.store.now());
 
   await openMissionWork(page, governor);
   await expect(page.getByText("Verify the fixture", { exact: true })).toBeVisible();

@@ -376,14 +376,23 @@ export class MissionService {
 
   private assertEvidence(db: ReturnType<Store["workspaceDb"]>, item: WorkItemRow, digest: string | null): void {
     if (!digest) throw new BrainDomainError("EVIDENCE_MISSING", "Done requires verified evidence");
-    const bundle = db.prepare("SELECT state,manifest_json FROM evidence_bundles WHERE digest=?").get(digest) as { state: string; manifest_json: string } | undefined;
+    const bundle = db.prepare("SELECT state,manifest_json,job_id FROM evidence_bundles WHERE digest=?").get(digest) as { state: string; manifest_json: string; job_id: string } | undefined;
     if (!bundle || bundle.state !== "verified") throw new BrainDomainError("EVIDENCE_MISSING", "Done requires a verified evidence bundle");
+    if (!this.producedByLinkedExecution(db, item.id, bundle.job_id)) throw new BrainDomainError("EVIDENCE_MISSING", "this evidence bundle was not produced by a run of this work item; bind the evidence of its own run");
     if (!db.prepare("SELECT 1 FROM verification_verdicts WHERE bundle_digest=? AND outcome='verified'").get(digest)) throw new BrainDomainError("EVIDENCE_MISSING", "evidence has no accepted independent verdict");
     const manifest = JSON.parse(bundle.manifest_json) as { checks?: Array<{ criterionId: string; status: string }> };
     const passed = new Set((manifest.checks ?? []).filter((check) => check.status === "passed").map((check) => check.criterionId));
     const criteria = JSON.parse(item.criteria_json) as string[];
     const missing = criteria.filter((criterion) => !passed.has(criterion));
     if (missing.length > 0) throw new BrainDomainError("EVIDENCE_MISSING", `verified evidence does not cover criteria: ${missing.join(", ")}`);
+  }
+
+  /** The bundle's job belongs to a run (or session job) linked to this work item through its execution links. */
+  private producedByLinkedExecution(db: ReturnType<Store["workspaceDb"]>, workItemId: string, jobId: string): boolean {
+    const links = db.prepare("SELECT run_id, job_id FROM execution_links WHERE work_item_id=?").all(workItemId) as Array<{ run_id: string; job_id: string | null }>;
+    if (links.some((link) => link.job_id === jobId)) return true;
+    const job = this.store.control.prepare("SELECT workflow_run_id FROM jobs WHERE id=?").get(jobId) as { workflow_run_id: string | null } | undefined;
+    return job?.workflow_run_id != null && links.some((link) => link.run_id === job.workflow_run_id);
   }
 
   private releaseReadyItems(db: ReturnType<Store["workspaceDb"]>, missionId: string): void {

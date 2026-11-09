@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { ownBundleJob } from "../support/evidence";
 import type { CommandReceipt, JsonValue, Mission, PlanTask, WorkItem } from "@brain/contracts";
 import { setupWorld, DIGEST_A } from "../helpers";
 import { fixtureStarter } from "../support/starter";
@@ -146,6 +147,7 @@ describe("auto-start (ADR 0004: the Governor reacts to events and dispatches bou
     expect(reviewing.nextAction).toMatch(/review the results/i);
     await expect(run(w, "workItem.transition", "success-done", { workItemId: reviewing.workItemId, state: "done" }, reviewing.version)).rejects.toThrow(/evidence/i);
     verifiedEvidence(w, `sha256:${"e".repeat(64)}`, ["a-done"]);
+    ownBundleJob(w.brain.store.workspaceDb(w.workspaceId, w.org), reviewing.workItemId, "job-seed", w.brain.store.now());
     await run(w, "workItem.transition", "success-done-ok", { workItemId: reviewing.workItemId, state: "done", evidenceDigest: `sha256:${"e".repeat(64)}` }, reviewing.version);
     expect(item(w, id, "a").state).toBe("done");
   });
@@ -159,6 +161,7 @@ describe("auto-start (ADR 0004: the Governor reacts to events and dispatches bou
     expect(item(w, id, "b").state).toBe("backlog");
     verifiedEvidence(w, `sha256:${"d".repeat(64)}`, ["a-done"]);
     const reviewing = item(w, id, "a");
+    ownBundleJob(w.brain.store.workspaceDb(w.workspaceId, w.org), reviewing.workItemId, "job-seed", w.brain.store.now());
     await run(w, "handoff.submit", "chain-handoff", { workItemId: reviewing.workItemId, notes: { summary: "a is complete" } });
     await run(w, "workItem.transition", "chain-done", { workItemId: reviewing.workItemId, state: "done", evidenceDigest: `sha256:${"d".repeat(64)}` }, reviewing.version);
     expect(item(w, id, "b").state).toBe("in-progress");
@@ -172,6 +175,7 @@ describe("auto-start (ADR 0004: the Governor reacts to events and dispatches bou
     w.brain.missions.linkExecution(w.owner, w.workspaceId, a.workItemId, "run-manual-a");
     await run(w, "workItem.transition", "cm-review", { workItemId: a.workItemId, state: "review" }, item(w, id, "a").version);
     verifiedEvidence(w, `sha256:${"c".repeat(64)}`, ["a-done"]);
+    ownBundleJob(w.brain.store.workspaceDb(w.workspaceId, w.org), a.workItemId, "job-seed", w.brain.store.now());
     await run(w, "handoff.submit", "cm-handoff", { workItemId: a.workItemId, notes: { summary: "a is complete" } });
     await run(w, "workItem.transition", "cm-done", { workItemId: a.workItemId, state: "done", evidenceDigest: `sha256:${"c".repeat(64)}` }, item(w, id, "a").version);
     expect(item(w, id, "b").state).toBe("ready");

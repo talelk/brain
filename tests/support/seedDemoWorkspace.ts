@@ -72,6 +72,7 @@ export async function seedDemoWorkspace(brain: Brain, actor: ActorContext, works
   for (const id of ["done", "review"]) await transition(id, "review");
   const now = brain.store.now();
   ws.prepare("INSERT INTO evidence_bundles(digest,bundle_id,job_id,attempt_id,state,manifest_json,created_at_ms) VALUES (?,?,?,?,'verified',?,?)").run(DIGEST, "demo-bundle", "demo-job", "demo-attempt", JSON.stringify({ workflowRunId: "demo-run-done", checks: [{ criterionId: "done-verified", status: "passed" }] }), now);
+  ws.prepare("UPDATE execution_links SET job_id=? WHERE run_id=?").run("demo-job", "demo-run-done");
   ws.prepare("INSERT INTO verification_verdicts(id,bundle_digest,evaluator_attempt_id,evaluator_digest,outcome,manifest_json,created_at_ms) VALUES ('demo-verdict',?,'demo-evaluator',?,'verified','{}',?)").run(DIGEST, DIGEST, now);
   await run("handoff.submit", { workItemId: (await item("done")).workItemId, notes: { summary: "Sessions audited" } });
   await transition("done", "done", { evidenceDigest: DIGEST });

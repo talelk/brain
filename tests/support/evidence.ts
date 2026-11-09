@@ -21,3 +21,13 @@ export function bundleForAttempt(brain: Brain, organizationId: string, workspace
   return { contractVersion:"brain.evidence/v1",bundleId,organizationId,workspaceId,workflowRunId:author.workflow_run_id,jobId:author.job_id,attemptId,jobFence:author.job_fence,
     sourceRevision:author.source_revision,configDigest:author.config_digest,workflowDigest:run.workflow_digest,primitiveVersions:{},toolReleases:payload.step.uses ? [payload.step.uses.release] : [],artifacts:[],checks,approvalIds:[],effects:[],createdAt:brain.store.nowIso() };
 }
+
+/**
+ * Records that a seeded bundle's job belongs to the work item's own execution, the way a session
+ * link does (Done binds only evidence produced by a run linked to that item). Creates a link when
+ * the item has none.
+ */
+export function ownBundleJob(db: { prepare(sql: string): { run(...args: unknown[]): unknown; get(...args: unknown[]): unknown } }, workItemId: string, jobId: string, now: number): void {
+  const updated = db.prepare("UPDATE execution_links SET job_id=? WHERE work_item_id=?").run(jobId, workItemId) as { changes: number };
+  if (updated.changes === 0) db.prepare("INSERT INTO execution_links(mission_id,work_item_id,run_id,job_id,created_at_ms) SELECT mission_id,id,?,?,? FROM work_items WHERE id=?").run(`run-of-${jobId}`, jobId, now, workItemId);
+}

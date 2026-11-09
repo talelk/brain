@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ownBundleJob } from "../support/evidence";
 import type { CommandReceipt, Mission, PlanTask, PlanVersion } from "@brain/contracts";
 import { setupWorld, DIGEST_A, workView } from "../helpers";
 
@@ -57,6 +58,7 @@ describe("Mission -> PlanVersion -> WorkItem -> Execution", () => {
     const currentAudit = linked.items.find((item) => item.workItemId === audit.workItemId)!;
     await run(w, "workItem.transition", "audit-review", { workItemId: audit.workItemId, state: "review" }, currentAudit.version);
     seedEvidence(w, ["audit-complete"]);
+    ownBundleJob(w.brain.store.workspaceDb(w.workspaceId, w.org), audit.workItemId, "job-work", w.brain.store.now());
     await run(w, "handoff.submit", "audit-handoff", { workItemId: audit.workItemId, notes: { summary: "Session audit complete" } });
     await run(w, "workItem.transition", "audit-done", { workItemId: audit.workItemId, state: "done", evidenceDigest: DIGEST_A }, currentAudit.version + 1);
     expect((await board(w)).items.find((item) => item.planTaskId === "fix")?.state).toBe("ready");
@@ -102,6 +104,7 @@ describe("Mission -> PlanVersion -> WorkItem -> Execution", () => {
     await run(w, "workItem.transition", "single-review", { workItemId: item.workItemId, state: "review" }, 2);
     await expect(Promise.resolve().then(async () => await run(w, "workItem.transition", "single-done", { workItemId: item.workItemId, state: "done" }, 3))).rejects.toThrow(/evidence/i);
     seedEvidence(w, ["one"]);
+    ownBundleJob(w.brain.store.workspaceDb(w.workspaceId, w.org), item.workItemId, "job-work", w.brain.store.now());
     await expect(Promise.resolve().then(async () => await run(w, "workItem.transition", "single-partial", { workItemId: item.workItemId, state: "done", evidenceDigest: DIGEST_A }, 3))).rejects.toThrow(/criteria/i);
     w.brain.close();
   });

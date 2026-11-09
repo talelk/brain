@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ownBundleJob } from "../support/evidence";
 import type { CommandReceipt, WorkItem } from "@brain/contracts";
 import { setupWorld, DIGEST_A } from "../helpers";
 
@@ -44,6 +45,9 @@ function seedBundle(w: World, digest: string, state: string, checks: Array<{ cri
   }
 }
 
+/** The version a work item has after start and review moves. */
+const item2 = (item: WorkItem) => item.version + 2;
+
 const D = (ch: string) => `sha256:${ch.repeat(64)}`;
 
 describe("work item Done requires explicit verified criterion evidence (T51)", () => {
@@ -59,6 +63,7 @@ describe("work item Done requires explicit verified criterion evidence (T51)", (
     await transition(w, "t-review", item.workItemId, "review", started.snapshot.version);
     const reviewing = (await w.brain.executeQuery(w.owner, { queryType: "workItems.get", workspaceId: w.workspaceId, resourceId: item.workItemId })) as { snapshot: WorkItem };
     const reviewVersion = reviewing.snapshot.version;
+    ownBundleJob(w.brain.store.workspaceDb(w.workspaceId, w.org), item.workItemId, "job-board", w.brain.store.now());
     await expect(Promise.resolve().then(async () => await transition(w, "t-noev", item.workItemId, "done", reviewVersion))).rejects.toThrow(/evidence/i);
     await expect(Promise.resolve().then(async () => await transition(w, "t-unknown", item.workItemId, "done", reviewVersion, D("f")))).rejects.toThrow(/verified/i);
     seedBundle(w, D("a"), "submitted", [{ criterionId: "echo", checkId: "c1", status: "passed" }, { criterionId: "bytes", checkId: "c2", status: "passed" }]);
@@ -75,6 +80,26 @@ describe("work item Done requires explicit verified criterion evidence (T51)", (
     const row = ws.prepare("SELECT state, evidence_digest FROM work_items WHERE id=?").get(item.workItemId) as { state: string; evidence_digest: string };
     expect(row.state).toBe("done");
     expect(row.evidence_digest).toBe(D("d"));
+    w.brain.close();
+  });
+
+  it("Done binds only a bundle produced by the work item's own linked execution, never another item's", async () => {
+    const w = setupWorld();
+    const mine = await createWorkItem(w, "work-own", ["echo"]);
+    const other = await createWorkItem(w, "work-foreign", ["echo"]);
+    const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    for (const [item, key] of [[mine, "own"], [other, "foreign"]] as const) {
+      await transition(w, `${key}-start`, item.workItemId, "in-progress", item.version);
+      await transition(w, `${key}-review`, item.workItemId, "review", item.version + 1);
+    }
+    seedBundle(w, D("1"), "verified", [{ criterionId: "echo", checkId: "c1", status: "passed" }]);
+    ownBundleJob(ws, other.workItemId, "job-board", w.brain.store.now());
+    // The bundle covers the criteria and is verified, but it is the other item's run that produced it.
+    await expect(transition(w, "own-foreign", mine.workItemId, "done", item2(mine), D("1"))).rejects.toThrow(/not produced by a run of this work item/);
+    expect((ws.prepare("SELECT state FROM work_items WHERE id=?").get(mine.workItemId) as { state: string }).state).toBe("review");
+    ownBundleJob(ws, mine.workItemId, "job-board", w.brain.store.now());
+    await transition(w, "own-done", mine.workItemId, "done", item2(mine), D("1"));
+    expect((ws.prepare("SELECT state FROM work_items WHERE id=?").get(mine.workItemId) as { state: string }).state).toBe("done");
     w.brain.close();
   });
 

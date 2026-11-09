@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ownBundleJob } from "../support/evidence";
 import type { ActorContext, CommandReceipt, Mission, MissionBrief, PlanTask, PlanVersion, WorkItem } from "@brain/contracts";
 import { goldenDocs, setupWorld, workView } from "../helpers";
 
@@ -185,6 +186,7 @@ describe("missions (T51)", () => {
     const inProgress = (await items()).find((item) => item.planTaskId === "spec") as WorkItem;
     await run(w, w.owner, "workItem.transition", "m-out-review", { workItemId: spec.workItemId, state: "review" }, inProgress.version);
     const reviewing = (await items()).find((item) => item.planTaskId === "spec") as WorkItem;
+    ownBundleJob(w.brain.store.workspaceDb(w.workspaceId, w.org), spec.workItemId, "job-out", w.brain.store.now());
     await run(w, coordinator(w), "handoff.submit", "m-out-handoff", { workItemId: spec.workItemId, notes: { summary: "The API spec is final." } });
     await run(w, w.owner, "workItem.transition", "m-out-done", { workItemId: spec.workItemId, state: "done", evidenceDigest: digest }, reviewing.version);
     const outputs = ((await w.brain.executeQuery(w.owner, { queryType: "missionOutputs.list", workspaceId: w.workspaceId, resourceId: id })) as { snapshot: { items: Array<{ name: string; versions: Array<{ versionId: string; state: string; verified: boolean }> }> } }).snapshot.items;
@@ -265,6 +267,7 @@ describe("missions (T51)", () => {
     ws.prepare("INSERT INTO evidence_bundles(digest, bundle_id, job_id, attempt_id, state, manifest_json, created_at_ms) VALUES (?,?,?,?,'verified',?,?)")
       .run(digest, "bundle-hand", "job-hand", "att-hand", JSON.stringify({ sourceRevision: "rev-1", checks: [{ criterionId: "a-done", checkId: "c1", status: "passed" }] }), w.brain.store.now());
     ws.prepare("INSERT INTO verification_verdicts(id, bundle_digest, evaluator_attempt_id, evaluator_digest, outcome, manifest_json, created_at_ms) VALUES ('verdict-hand',?,'eval-hand',?,'verified','{}',?)").run(digest, digest, w.brain.store.now());
+    ownBundleJob(w.brain.store.workspaceDb(w.workspaceId, w.org), a.workItemId, "job-hand", w.brain.store.now());
     const toReview = (await items()).find((item) => item.planTaskId === "a") as WorkItem;
     await run(w, w.owner, "workItem.transition", "m-hand-review", { workItemId: a.workItemId, state: "review" }, toReview.version);
     const reviewing = (await items()).find((item) => item.planTaskId === "a") as WorkItem;
@@ -340,6 +343,7 @@ describe("missions (T51)", () => {
     ws.prepare("INSERT INTO evidence_bundles(digest, bundle_id, job_id, attempt_id, state, manifest_json, created_at_ms) VALUES (?,?,?,?,'verified',?,?)")
       .run(digest, "bundle-cap", "job-cap", "att-cap", JSON.stringify({ checks: [{ criterionId: "a-done", checkId: "c1", status: "passed" }] }), w.brain.store.now());
     ws.prepare("INSERT INTO verification_verdicts(id, bundle_digest, evaluator_attempt_id, evaluator_digest, outcome, manifest_json, created_at_ms) VALUES ('verdict-cap',?,'eval-cap',?,'verified','{}',?)").run(digest, digest, w.brain.store.now());
+    ownBundleJob(w.brain.store.workspaceDb(w.workspaceId, w.org), a.workItemId, "job-cap", w.brain.store.now());
     await run(w, coordinator(w), "handoff.submit", "m-cap-handoff", { workItemId: a.workItemId, notes: { summary: "SECRET-NOTE: the vendor key lives in the wiki" } });
     await run(w, w.owner, "mission.message.send", "m-cap-msg", { missionId: id, recipient: { kind: "mission" }, body: "SECRET-MESSAGE: ship it tonight" });
     await run(w, w.owner, "decision.accept", "m-cap-dec", { missionId: id, baseVersion: (await brief(w, id)).version, statement: "Sessions live in Postgres", source: { kind: "human" } });
