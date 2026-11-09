@@ -89,7 +89,11 @@ async function markDone(page: Page, w: World, missionId: string, title: string, 
   await page.getByRole("button", { name: `Manage ${title}` }).click();
   await page.getByRole("button", { name: "Move work item", exact: true }).click();
   await page.getByLabel(`Verified evidence for ${title}`, { exact: true }).click();
-  await page.getByRole("option", { name: /passed criteria/ }).first().click();
+  // Bind the bundle this item's own run produced (never another item's), found through the run's jobs.
+  const jobs = linkedRuns(w, missionId, task).flatMap((runId) => (w.brain.store.control.prepare("SELECT id FROM jobs WHERE workflow_run_id=?").all(runId) as { id: string }[]).map((row) => row.id));
+  const own = (w.ws.prepare(`SELECT digest FROM evidence_bundles WHERE state='verified' AND job_id IN (${jobs.map(() => "?").join(",")})`).all(...jobs) as { digest: string }[]).map((row) => row.digest);
+  expect(own, `a verified evidence bundle produced by the ${task} run`).toHaveLength(1);
+  await page.getByRole("option", { name: new RegExp(own[0]!) }).click();
   await page.getByLabel(`Move ${title}`, { exact: true }).click();
   await page.getByRole("option", { name: "Done", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Move work item", exact: true }).click();
