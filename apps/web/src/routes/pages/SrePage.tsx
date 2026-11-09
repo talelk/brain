@@ -21,6 +21,6 @@ export default function SrePage(): JSX.Element {
   return <SreScreen incidents={incidents.state().data ?? []} state={incidents.state()}
     onRefresh={() => void incidents.refresh({ force: true })}
     onOpenIncident={(incidentId) => void navigate(`/incidents/${incidentId}`)}
-    onDispatch={() => void navigate(`/w/${app.workspaceId()}/overview`)}
+    onDispatch={() => void navigate(`/w/${app.workspaceId()}/plays?q=incident`)}
     canDispatch={app.canDispatch()} />;
 }
