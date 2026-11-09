@@ -74,7 +74,7 @@ export default function ArtifactDetailPage(): JSX.Element {
   };
 
   return (
-    <BrainPage title="Artifact" description="One artifact: native preview, source, producer, independent verification, versions and diffs.">
+    <BrainPage title="Artifact" description="One output: preview, review status and version history.">
       <PageStack>
         <div class="flex flex-wrap items-center justify-between gap-control-gap">
           <Show when={history.state().data} keyed fallback={<span />}>
@@ -86,7 +86,7 @@ export default function ArtifactDetailPage(): JSX.Element {
                   iconLeft="lucide-arrow-left"
                   onClick={() => void navigate(execOutputsUrl(current.workspaceId, { jobId: current.producer?.jobId }))}
                 >
-                  Open in the Output Browser
+                  Back to outputs
                 </Button>
               </Show>
             )}
@@ -107,18 +107,12 @@ export default function ArtifactDetailPage(): JSX.Element {
               emptyDescription="No authorized artifact with this id exists for your organization — it may have been removed, or it belongs to a workspace you cannot read."
             >
               <div class="brain-detail-stack">
-                <ArtifactMetaStrip
-                  history={history.state().data ?? undefined}
-                  loading={history.state().status === "loading"}
-                  error={history.state().error ?? ""}
-                  executions={executions.state().data}
-                />
-                <WorkspaceSection title="Preview" description="Authorized inline preview; download stays an action beside it.">
+                <WorkspaceSection title="Preview" description="Read it here; download is an action beside it.">
                   <ArtifactView artifact={previewArtifact()} />
                 </WorkspaceSection>
                 <WorkspaceSection
-                  title="Versions and verification"
-                  description="Evidence bundles pinning this digest over time, each with its independent verdict."
+                  title="Version history"
+                  description="Each check of this output, newest first."
                 >
                   <OutputHistory
                     history={history.state().data ?? undefined}
@@ -126,9 +120,17 @@ export default function ArtifactDetailPage(): JSX.Element {
                     error={history.state().error ?? ""}
                   />
                 </WorkspaceSection>
-                <p class="text-caption text-ink-gray-6">
-                  Compare two versions from the Output Browser's compare picks — they deep-link to <code>/compare?left=…&amp;right=…</code>.
-                </p>
+                <details class="rounded-card border border-outline-gray-2 p-3">
+                  <summary class="cursor-pointer text-interface font-medium text-ink-gray-9">Details: source, producer, digest</summary>
+                  <div class="mt-2">
+                <ArtifactMetaStrip
+                    history={history.state().data ?? undefined}
+                    loading={history.state().status === "loading"}
+                    error={history.state().error ?? ""}
+                    executions={executions.state().data}
+                  />
+  </div>
+                </details>
               </div>
             </ScreenRegion>
           }

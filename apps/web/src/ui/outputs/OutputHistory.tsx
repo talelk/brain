@@ -1,12 +1,14 @@
-import { For, Show } from "solid-js";
+import { Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Badge } from "@talelk/newui-atoms";
-import { Alert, EmptyState } from "@talelk/newui-molecules";
+import { Alert, EmptyState, Timeline } from "@talelk/newui-molecules";
 import type { BadgeTheme } from "@talelk/newui-atoms";
 import type { ExecutionLink } from "@brain/contracts";
 import { DateText, RelativeTime } from "../screen-region";
 import { shortDigest } from "../format";
-import type { ArtifactHistory, ArtifactVersion } from "../../data/exec-outputs";
+import { missionHref } from "../mission-links";
+import { StatusIcon } from "../viz/StatusIcon";
+import type { ArtifactHistory } from "../../data/exec-outputs";
 
 /**
  * Version history, independent verification and work-item association for one
@@ -45,8 +47,9 @@ export function resolveWorkItemLink(executions: readonly ExecutionLink[], histor
   return executions.find((link) => (producer.attemptId && link.attemptId === producer.attemptId) || (producer.jobId && link.jobId === producer.jobId));
 }
 
-export function workItemBoardUrl(workspaceId: string, workItemId: string): string {
-  return `/w/${encodeURIComponent(workspaceId)}/board?card=${encodeURIComponent(workItemId)}`;
+/** The work item lives on its mission's plan tab, where Done and evidence are handled. */
+export function workItemPlanUrl(workspaceId: string, missionId: string): string {
+  return missionHref(workspaceId, missionId, "plan");
 }
 
 /**
@@ -74,10 +77,10 @@ export function ArtifactMetaStrip(props: {
               <MetaFact label="Producer" value={<ProducerLinks history={props.history!} />} />
               <MetaFact label="Generated" value={<DateText value={props.history!.createdAt} />} />
               <MetaFact label="Size" value={`${props.history!.bytes.toLocaleString()} B`} />
-              <MetaFact label="Verification" value={<Badge size="sm" theme={verification().theme} label={verification().label} />} title={verification().detail} />
+              <MetaFact label="Verification" value={<span class="inline-flex items-center gap-1.5"><StatusIcon state={verification().label} theme={verification().theme} /><Badge size="sm" theme={verification().theme} label={verification().label} /></span>} title={verification().detail} />
               <MetaFact label="Work item" value={
                 <Show when={link()} fallback={<span class="text-ink-gray-6">Not linked</span>}>
-                  <a class="break-all text-ink-blue-7 hover:underline focus-visible:focus-ring" href={workItemBoardUrl(props.history!.workspaceId, link()!.workItemId)}>
+                  <a class="break-all text-ink-blue-7 hover:underline focus-visible:focus-ring" href={workItemPlanUrl(props.history!.workspaceId, link()!.missionId)}>
                     {shortDigest(link()!.workItemId, 10)}
                   </a>
                 </Show>
@@ -127,11 +130,12 @@ function ProducerLinks(props: { history: ArtifactHistory }): JSX.Element {
 /** The version history: evidence bundles pinning this digest, newest first, each with its verdict. */
 export function OutputHistory(props: { history: ArtifactHistory | undefined; loading: boolean; error: string }): JSX.Element {
   const verification = () => verificationSummary(props.history);
-  const alertTheme = (): "gray" | "green" | "red" | "amber" =>
-    verification().theme === "gray" ? "gray" : verification().theme === "green" ? "green" : verification().theme === "red" ? "red" : "amber";
   return (
     <div class="brain-detail-stack">
-      <Alert theme={alertTheme()} variant="outline" title={`Independent verification: ${verification().label}`} description={verification().detail} />
+      <div class="flex items-start gap-2 rounded-card border border-outline-gray-2 p-3 text-base text-ink-gray-8" data-testid="outputs-verification">
+        <StatusIcon state={verification().label} theme={verification().theme} class="mt-0.5 size-4" />
+        <span class="min-w-0"><strong class="font-medium">{verification().label}.</strong> {verification().detail}</span>
+      </div>
       <Show
         when={props.loading}
         fallback={
@@ -154,9 +158,31 @@ export function OutputHistory(props: { history: ArtifactHistory | undefined; loa
                   </p>
                 }
               >
-                <ol class="m-0 list-none p-0">
-                  <For each={props.history!.history}>{(version) => <VersionRow version={version} />}</For>
-                </ol>
+                <Timeline
+                  items={props.history!.history.map((version) => {
+                    const outcome = version.verification?.outcome;
+                    return {
+                      id: version.bundleDigest,
+                      title: (
+                        <span class="flex flex-wrap items-center gap-2">
+                          <span>{outcome ? `Checked: ${outcome}` : "Recorded"}</span>
+                          <Badge size="sm" theme={versionTheme(version.state)} label={version.state} />
+                        </span>
+                      ),
+                      description: (
+                        <span class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span title={version.bundleDigest}>bundle {shortDigest(version.bundleDigest)}</span>
+                          <a class="text-ink-blue-7 underline focus-visible:focus-ring" href={`/runs/${version.jobId}?attempt=${encodeURIComponent(version.attemptId)}`}>
+                            Producing attempt
+                          </a>
+                        </span>
+                      ),
+                      timestamp: <RelativeTime value={version.verification?.at ?? version.createdAt} />,
+                      tone: outcome === "verified" ? ("green" as const) : outcome === "rejected" ? ("red" as const) : outcome ? ("amber" as const) : ("gray" as const),
+                      icon: outcome === "verified" ? "lucide-check" : outcome === "rejected" ? "lucide-x" : outcome ? "lucide-triangle-alert" : "lucide-file-clock",
+                    };
+                  })}
+                />
               </Show>
             </Show>
           </Show>
@@ -167,37 +193,6 @@ export function OutputHistory(props: { history: ArtifactHistory | undefined; loa
         </p>
       </Show>
     </div>
-  );
-}
-
-function VersionRow(props: { version: ArtifactVersion }): JSX.Element {
-  const outcome = () => props.version.verification?.outcome;
-  return (
-    <li class="flex flex-wrap items-center justify-between gap-2 border-b border-outline-gray-1 py-1.5 last:border-0">
-      <span class="flex min-w-0 flex-wrap items-center gap-2 text-interface text-ink-gray-8">
-        <Badge size="sm" theme={versionTheme(props.version.state)} label={props.version.state} />
-        <span class="text-caption text-ink-gray-6" title={props.version.bundleDigest}>
-          bundle {shortDigest(props.version.bundleDigest)}
-        </span>
-        <span class="text-caption text-ink-gray-6">
-          generated <RelativeTime value={props.version.createdAt} />
-        </span>
-      </span>
-      <span class="flex flex-wrap items-center gap-control-gap">
-        <Show when={outcome()}>
-          <Badge theme={outcome() === "verified" ? "green" : outcome() === "rejected" ? "red" : "amber"} label={`Verdict: ${outcome()}`} />
-          <span class="text-caption text-ink-gray-6">
-            <RelativeTime value={props.version.verification?.at} />
-          </span>
-        </Show>
-        <a
-          class="text-caption text-ink-blue-7 underline focus-visible:focus-ring"
-          href={`/runs/${props.version.jobId}?attempt=${encodeURIComponent(props.version.attemptId)}`}
-        >
-          Producing attempt
-        </a>
-      </span>
-    </li>
   );
 }
 

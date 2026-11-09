@@ -250,9 +250,13 @@
    "queries": [
     "artifacts.list",
     "artifacts.history",
-    "executionLinks.list"
+    "executionLinks.list",
+    "workItems.list",
+    "missions.list"
    ],
-   "actions": [],
+   "actions": [
+    "workItem.transition"
+   ],
    "content": [
     "artifacts",
     "preview",
