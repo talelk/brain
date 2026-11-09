@@ -8,7 +8,6 @@ import { fetchView } from "./governor";
  */
 
 export type { ArtifactDiffResult, ArtifactHistory, ArtifactRef };
-export type ArtifactVersion = ArtifactHistory["history"][number];
 export type DiffOp = ArtifactDiffResult["hunks"][number]["lines"][number];
 
 export type ArtifactState = "uploading" | "verified" | "quarantined" | "deleted";

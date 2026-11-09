@@ -62,7 +62,7 @@ test("mission work: items render with state, move applies, Done is disabled with
   await expect(page.getByRole("heading", { name: "Missions", exact: true, level: 1 })).toBeVisible();
   const navToggle = page.getByRole("button", { name: "Open application navigation", exact: true });
   if (await navToggle.isVisible()) await navToggle.click();
-  await page.getByRole("button", { name: /^Missions(, \d+)?$/ }).click();
+  await page.getByRole("button", { name: /^Missions(,|$)/ }).click();
   expect(new URL(page.url()).pathname).toBe("/w/ws-board/missions");
   await page.getByRole("button", { name: "Open mission Fixture mission", exact: true }).click();
   await expect(page).toHaveURL(/\/missions\/obj-ui\/live\?w=ws-board$/);

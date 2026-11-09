@@ -26,11 +26,6 @@ export function BrainForm(props: ParentProps<{
   </Form>;
 }
 
-/** Two fields side by side from `lg` up; one column below. */
-export function FormRow(props: ParentProps): JSX.Element {
-  return <div class="brain-field-grid">{props.children}</div>;
-}
-
 /** The submit row: auto-width primary at `lg`, optional secondary action beside it. */
 export function FormActions(props: ParentProps<{ submit: string; icon?: string; busy?: boolean; disabled?: boolean; theme?: "blue" | "red" }>): JSX.Element {
   return <div class="brain-form-actions">
