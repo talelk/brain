@@ -1,6 +1,8 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "./fixtures";
+import { seedBrowserDemo } from "../support/browserDemo";
 
 async function createWorkspace(page: import("@playwright/test").Page, governor: { url: string; credential: string; app: { brain: import("../../apps/governor/src/application/brain").Brain } }) {
   await page.goto(governor.url);
@@ -102,4 +104,31 @@ test("loading, no-access, stale, partial failure and retry states use real respo
   await page.goto(`${governor.url}/w/${workspaceId}/plays/support`);
   await expect(page.getByRole("alert")).toContainText("Some data is unavailable");
   await expect(page.getByText("No tickets in this view", { exact: true })).toBeVisible();
+});
+
+test("axe: key seeded screens have no serious or critical violations", async ({ page, governor }, info) => {
+  test.setTimeout(240_000);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const demo = await seedBrowserDemo(page, governor);
+  const screens: Array<[string, string, string | RegExp]> = [
+    ["missions", "/w/operations/missions", "Missions"],
+    ["mission-plan", `/missions/${demo.seed.missionIds.active}/plan`, "Stabilize authentication"],
+    ["live", "/w/operations/live", "Sessions & runs"],
+    ["outputs", "/w/operations/outputs", "Outputs"],
+    ["approvals", "/approvals", "Approvals"],
+    ["plays", "/w/operations/plays?mode=catalog", "Plays"],
+    ["settings-setup", "/settings?tab=setup", "Workspace setup"],
+    ["runners", "/runners", "Execution fleet"],
+  ];
+  const failures: string[] = [];
+  for (const [id, route, heading] of screens) {
+    await page.goto(`${governor.url}${route}`);
+    await expect(page.getByRole("heading", { name: heading }).first()).toBeVisible({ timeout: 20_000 });
+    await page.waitForTimeout(200);
+    const { violations } = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    for (const violation of violations.filter((entry) => entry.impact === "serious" || entry.impact === "critical")) {
+      failures.push(`${info.project.name} ${id}: ${violation.id} (${violation.impact}) x${violation.nodes.length} e.g. ${violation.nodes[0]?.target.join(" ")} :: ${violation.nodes[0]?.failureSummary?.split("\n")[1] ?? ""}`);
+    }
+  }
+  expect(failures, "serious or critical accessibility violations").toEqual([]);
 });

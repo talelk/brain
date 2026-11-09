@@ -42,7 +42,7 @@ export function AttentionRows(props: { items: readonly AttentionItem[]; onOpen: 
     <QueueRow title={item.title} description={item.detail ?? `Waiting since ${formatDateTime(item.waitingSince)}`} icon={KIND_ICON[item.kind]} tone={TIER_TONE[item.tier] ?? "gray"}
       eyebrow={item.kind.replace("-", " ")} label={`${item.title}. Open`} trailing={<>
         <Badge variant="outline" theme={TIER_TONE[item.tier] ?? "gray"} label={`Tier ${item.tier}`} />
-        <span class="inline-flex items-center gap-1 rounded-control bg-surface-blue-9 px-2.5 py-1 text-interface font-medium text-white" aria-hidden="true">{attentionAction(item)}<span class="lucide-arrow-right size-3.5" /></span>
+        <span class="inline-flex items-center gap-1 rounded-control bg-surface-blue-8 px-2.5 py-1 text-interface font-medium text-ink-base" aria-hidden="true">{attentionAction(item)}<span class="lucide-arrow-right size-3.5" /></span>
       </>}
       onClick={() => props.onOpen(item)} />}</For></section>;
 }

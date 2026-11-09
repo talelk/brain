@@ -68,18 +68,18 @@ export function VirtualLogList<T>(props: {
     container.scrollTo({ top: Math.max(0, target * props.rowHeight - viewport() / 3) });
   });
 
-  return <ul ref={container} aria-label={props.ariaLabel}
+  return <div role="list" ref={container} aria-label={props.ariaLabel}
     class={`brain-exec-scroll relative m-0 list-none p-0 ${props.class ?? ""}`}
     onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
-    <div style={{ height: `${props.items.length * props.rowHeight}px`, position: "relative" }}>
+    <div role="presentation" style={{ height: `${props.items.length * props.rowHeight}px`, position: "relative" }}>
       <For each={visible()}>
         {(row) => (
-          <li data-key={row.key}
+          <div role="listitem" data-key={row.key}
             style={{ position: "absolute", top: 0, left: 0, right: 0, height: `${props.rowHeight}px`, transform: `translateY(${row.index * props.rowHeight}px)` }}>
             {props.children(row.item, row.index)}
-          </li>
+          </div>
         )}
       </For>
     </div>
-  </ul>;
+  </div>;
 }
