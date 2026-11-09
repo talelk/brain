@@ -74,7 +74,7 @@ export function ConsoleNowLine(props: { session?: SessionDetail; activity: FeedA
     const max = props.session?.budget.maxTokens ?? 0;
     return max > 0 ? Math.min(100, Math.round(((props.session?.usedTokens ?? 0) / max) * 100)) : 0;
   };
-  return <div class="flex flex-col gap-1.5 border-b border-outline-gray-1 bg-surface-gray-1 px-3 py-2" data-testid="console-now" aria-label="What this session is doing now">
+  return <section class="flex flex-col gap-1.5 border-b border-outline-gray-1 bg-surface-gray-1 px-3 py-2" data-testid="console-now" aria-label="What this session is doing now">
     <PlainSummary icon={live() ? "lucide-activity" : "lucide-info"}>{nowSentence(props.session, props.activity)}</PlainSummary>
     <Show when={props.session}>
       <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-ink-gray-7">
@@ -88,5 +88,5 @@ export function ConsoleNowLine(props: { session?: SessionDetail; activity: FeedA
         </span>
       </div>
     </Show>
-  </div>;
+  </section>;
 }

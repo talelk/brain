@@ -85,10 +85,10 @@ function NewMissionSheet(props: { onClose: () => void }): JSX.Element {
     </Button>;
   return <FormSheet open onClose={props.onClose} title="New mission" centered description="Nothing runs until you confirm the plan."
     submit="Start mission" icon="lucide-flag" busy={busy()} disabled={!app.canDispatch()} onSubmit={start} error={error()} errorTitle="The mission was not started">
-    <div class="flex flex-col gap-2 sm:flex-row" role="group" aria-label="How to start">
+    <fieldset class="m-0 flex min-w-0 flex-col gap-2 border-0 p-0 sm:flex-row" aria-label="How to start">
       {choice("play", "lucide-book-open-check", "Start from a play", "A ready-made team and plan")}
       {choice("describe", "lucide-pencil-line", "Describe what you want", "One sentence is enough")}
-    </div>
+    </fieldset>
     <Show when={mode() === "play"} fallback={
       <Textarea label="What do you want done?" value={intent()} onInput={(event) => setIntent(event.currentTarget.value)} required error={shown("intent")} placeholder="For example: triage this week's support tickets and draft replies" />}>
       <Select label="Play" description="The play brings its team, plan, autonomy and budget." value={playId()} options={playList().map((play) => ({ value: play.playId, label: play.title }))}

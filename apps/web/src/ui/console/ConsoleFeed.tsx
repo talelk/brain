@@ -429,6 +429,7 @@ export function ConsoleFeed(props: {
           title="Scrolling, search filters and how record details are laid out" onClick={() => setViewOpen((value) => !value)}>View options</Button>
       </div>
       <Show when={viewOpen()}>
+        {/* biome-ignore lint/a11y/useSemanticElements: an absolutely positioned popup panel; fieldset cannot be positioned and laid out as a flex column across browsers */}
         <div id="console-view-options" role="group" aria-label="View options" class="absolute end-3 top-full z-10 mt-1 flex w-64 flex-col gap-2 rounded-card border border-outline-gray-2 bg-surface-elevation-1 p-3 shadow-md"
           onKeyDown={(event) => { if (event.key === "Escape") setViewOpen(false); }}>
           <Button size="sm" variant="outline" theme={follow() ? "blue" : "gray"} aria-pressed={follow()} iconLeft="lucide-arrow-down-to-line"

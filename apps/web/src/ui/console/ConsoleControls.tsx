@@ -312,7 +312,7 @@ export function ConsoleInspection(props: {
     </section>
 
     <Show when={props.job && !checkable(props.job, props.session)}>
-      <p class="rounded-control bg-surface-gray-1 px-2.5 py-2 text-caption text-ink-gray-7" aria-label="Verification">
+      <p class="rounded-control bg-surface-gray-1 px-2.5 py-2 text-caption text-ink-gray-7">
         <span class="lucide-shield-check me-1 size-3.5 align-text-bottom" aria-hidden="true" />Independent checking of the result starts when this work finishes.
       </p>
     </Show>

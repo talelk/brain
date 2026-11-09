@@ -20,10 +20,12 @@ const ALLOWLIST: Readonly<Record<string, string>> = {
 const contract = JSON.parse(readFileSync(join(ROOT, "contracts/v1/ui-screen-contracts.json"), "utf8")) as { screens: Array<{ route: string }> };
 const routes = contract.screens.map((screen) => screen.route);
 
-const specText = readdirSync(BROWSER).filter((name) => name.endsWith(".spec.ts")).map((name) => readFileSync(join(BROWSER, name), "utf8")).join("\n");
-/** Path literals: a quote or an interpolation, then /segment/segment...; ${...} is one wildcard segment. */
-const PATH = /(?:\$\{[^}]*\}|["'`])((?:\/(?:[\w.\-~%]+|\$\{[^}]*\}))+)/gu;
-const visited = [...specText.matchAll(PATH)].map((match) => (match[1] ?? "").replace(/\$\{[^}]*\}/gu, "x").split("/").filter(Boolean));
+/** Interpolations collapse to one wildcard character so a path literal is a plain run of segment characters. */
+const WILD = "\u0000";
+const specText = readdirSync(BROWSER).filter((name) => name.endsWith(".spec.ts")).map((name) => readFileSync(join(BROWSER, name), "utf8")).join("\n").replace(/\$\{[^}]*\}/gu, WILD);
+/** Path literals: a quote or an interpolation, then /segment/segment... */
+const PATH = new RegExp(`[${WILD}"'\`](\\/[\\w.~%/${WILD}-]+)`, "gu");
+const visited = [...specText.matchAll(PATH)].map((match) => (match[1] ?? "").replaceAll(WILD, "x").split("/").filter(Boolean));
 
 function covered(route: string): boolean {
   const pattern = route.split("/").filter(Boolean);
