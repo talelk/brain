@@ -2,7 +2,7 @@
 
 ## Using Brain
 
-- [Run your first task](use-brain.md): sign in, choose a starter task and read the result.
+- [Run your first task](use-brain.md): connect a model, create a mission, follow it and review outputs.
 - [Runs and approvals](operate-runs-and-approvals.md): follow work and review proposed actions.
 
 ## Administering Brain
@@ -26,7 +26,7 @@ for generated credentials, persistent state and current setup limits.
 
 - [Functional specification](../functional-spec.md): user and admin workflows as
   functional specs with technical notes.
-- [Screen descriptions](../screen-descriptions.md): every screen, its queries,
-  actions and audience.
+- [Screen descriptions](../screen-descriptions.md): every screen, who uses it and
+  the main journeys.
 
 Architecture and implementation contracts live in `docs/implementation/`.
