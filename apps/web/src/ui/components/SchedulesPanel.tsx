@@ -3,15 +3,13 @@ import type { JSX } from "solid-js";
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Pagination, Select } from "@talelk/newui-molecules";
 import { FormSheet } from "./BrainForm";
-import { WorkspaceSection } from "./Domain";
-import type { Automation, AutomationOccurrence } from "@brain/contracts";
+import { WorkspaceSection } from "./Domain";import type { Automation, AutomationOccurrence } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { DateText, ScreenRegion } from "../screen-region";
 import { StatusBadge } from "./StatusBadge";
 import { formatDateTime } from "../format";
-import { RefreshButton } from "./primitives";
 import { ReasonDialog } from "./ReasonDialog";
 
 function triggerSummary(automation: Automation): string {
@@ -147,7 +145,7 @@ export function SchedulesPanel(props: { scope: ScheduleScope; title?: string }):
   return <section aria-label="Schedules" class="flex flex-col gap-4">
       <Show when={error()}><Alert theme="red" variant="outline" title="Automation action failed" description={error()} /></Show>
       <div class="brain-studio-layout">
-        <WorkspaceSection title={props.title ?? "Schedules and triggers"} description="Current state, trigger, timezone and actual next occurrences from Governor." actions={<><RefreshButton onClick={() => void automations.refresh({ force: true })} /><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={beginCreate}>New schedule</Button></>}>
+        <WorkspaceSection title={props.title ?? "Schedules and triggers"} description="Current state, trigger, timezone and actual next occurrences from Governor." actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={() => void automations.refresh({ force: true })}>Refresh</Button><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={beginCreate}>New schedule</Button></>}>
           <ScreenRegion state={automations.state()} onRetry={() => void automations.refresh()} emptyTitle="No automations yet" emptyDescription="Use New schedule to configure the first one. It becomes active only after server confirmation.">
             <div class="flex flex-col gap-3">
               <For each={visibleSchedules()}>{(automation) => <article class="border-y border-outline-gray-1 py-3">
@@ -161,7 +159,7 @@ export function SchedulesPanel(props: { scope: ScheduleScope; title?: string }):
             <Show when={schedules().length > SCHEDULES_PAGE_SIZE}><div class="mt-4 flex justify-center border-t border-outline-gray-1 pt-3"><Pagination.Root count={schedules().length} pageSize={SCHEDULES_PAGE_SIZE} page={safeSchedulePage()} onPageChange={setSchedulePage} aria-label="Schedule library pagination"><Pagination.PrevTrigger /><Pagination.Pages /><Pagination.NextTrigger /><Pagination.Range class="ms-2" /></Pagination.Root></div></Show>
           </ScreenRegion>
         </WorkspaceSection>
-        <FormSheet size="xl" open={editorOpen()} onClose={resetEditor} title={editorMode() === "edit" ? `Edit ${editing()?.title ?? "schedule"}` : editorMode() === "duplicate" ? "Duplicate schedule" : "Guided schedule editor"} description={editorMode() === "edit" ? "Saving creates a new revision for future occurrences. Existing occurrence history stays attached to this automation." : "The copied or new settings create a separate automation with its own identity and history."}
+        <FormSheet size="xl" centered={editorMode() === "create"} open={editorOpen()} onClose={resetEditor} title={editorMode() === "edit" ? `Edit ${editing()?.title ?? "schedule"}` : editorMode() === "duplicate" ? "Duplicate schedule" : "Guided schedule editor"} description={editorMode() === "edit" ? "Saving creates a new revision for future occurrences. Existing occurrence history stays attached to this automation." : "The copied or new settings create a separate automation with its own identity and history."}
           submit={editorMode() === "edit" ? "Save new revision" : editorMode() === "duplicate" ? "Create duplicate" : "Create automation"} icon={editorMode() === "edit" ? "lucide-save" : editorMode() === "duplicate" ? "lucide-copy" : "lucide-plus"} busy={busy()} disabled={!targetId().trim() || (executionMode() === "personal-host" && !runnerId().trim()) || (triggerKind() === "cron" && !cron().trim()) || (triggerKind() === "once" && !scheduledAt().trim())} onSubmit={save} error={error()} errorTitle="The automation was refused">
           <div class="border-y border-outline-gray-1 py-3"><h3 class="mb-3 text-base-medium">1 · Target</h3><div class="brain-field-grid"><TextInput label="Schedule title" value={title()} onInput={(event) => setTitle(event.currentTarget.value)} placeholder="Nightly triage" /><Show when={props.scope.targets.length > 1} fallback={<p class="text-interface text-ink-gray-7">Starts {props.scope.targets[0]?.label ?? "this target"}</p>}><Select label="Target" value={targetId()} options={props.scope.targets.map((target) => ({ value: target.id, label: target.label }))} onValueChange={(value) => setTargetId(value ?? props.scope.targets[0]?.id ?? "")} /></Show></div></div>
           <div class="border-b border-outline-gray-1 py-3"><h3 class="mb-3 text-base-medium">2 · Trigger</h3><div class="brain-field-grid"><Select label="Trigger" value={triggerKind()} options={[{ value: "cron", label: "Recurring (cron)" }, { value: "once", label: "One-off delayed" }, { value: "manual", label: "Manual (Run now)" }]} onValueChange={(value) => setTriggerKind(value ?? "cron")} /><Show when={triggerKind() === "cron"}><TextInput label="Cron expression" value={cron()} onInput={(event) => setCron(event.currentTarget.value)} placeholder="*/15 * * * *" description="Five fields; interpreted by Governor at minute granularity" /><TextInput label="Timezone" value={timezone()} onInput={(event) => setTimezone(event.currentTarget.value)} placeholder="Europe/Paris" description="IANA timezone; server runtime handles DST" /></Show><Show when={triggerKind() === "once"}><TextInput label="Run at" value={scheduledAt()} onInput={(event) => setScheduledAt(event.currentTarget.value)} placeholder={new Date(Date.now() + 3600_000).toISOString()} description="ISO 8601 instant, in the future" /></Show></div></div>

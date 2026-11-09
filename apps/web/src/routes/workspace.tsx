@@ -1,8 +1,8 @@
 import type { JSX } from "solid-js";
 import { For, Show, createSignal } from "solid-js";
 import { Badge, Button, KeyValue, Progress } from "@talelk/newui-atoms";
-import { Alert } from "@talelk/newui-molecules";
-import { DetailHeader } from "@talelk/newui-organisms";
+import { Alert, EmptyState } from "@talelk/newui-molecules";
+import { DetailHeader, StatGrid } from "@talelk/newui-organisms";
 import type { IncidentDetail, RunnerSnapshot, TicketDetail } from "@brain/contracts";
 import { DateText, isFreshFromServer, ScreenRegion } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
@@ -10,8 +10,7 @@ import { ArtifactView } from "../ui/outputs/ArtifactView";
 import { BrainPage, PageStack, TechnicalDetails } from "../ui/components/PageLayout";
 import { StatusBadge, statusHeaderTheme, statusLabel } from "../ui/components/StatusBadge";
 import { ReasonDialog } from "../ui/components/ReasonDialog";
-import { DetailAside, EmptyPreview, FactStrip, Freshness, WorkspaceSection } from "../ui/components/Domain";
-
+import { DetailAside, Freshness, WorkspaceSection } from "../ui/components/Domain";
 
 export function RunnerDetailScreen(props: {
   runner?: RunnerSnapshot;
@@ -102,9 +101,8 @@ export function RunnerDetailScreen(props: {
               description="No new jobs are assigned; current attempts keep their leases until they finish."
             />
           </Show>
-          <FactStrip
-            label="Runner resource summary"
-            items={[
+          <StatGrid compact
+            stats={[
               {
                 label: "Attempt slots",
                 value: `${runner()?.reserved.slots ?? 0} / ${runner()?.capacity.slots ?? 0}`,
@@ -146,7 +144,7 @@ export function RunnerDetailScreen(props: {
                 <Show
                   when={runner()?.capabilities.length}
                   fallback={
-                    <EmptyPreview
+                    <EmptyState size="sm"
                       icon="lucide-shield-question"
                       title="No verified capabilities"
                       description="This runner cannot satisfy capability-dependent placement until fresh probes arrive."
@@ -417,7 +415,7 @@ export function IncidentDetailScreen(props: {
                 <Show
                   when={(incident()?.observations.length ?? 0) > 0}
                   fallback={
-                    <EmptyPreview
+                    <EmptyState size="sm"
                       icon="lucide-scan-search"
                       title="No observation artifacts"
                       description="There is no evidence timeline yet. Start a linked investigation task to gather current, scoped observations."

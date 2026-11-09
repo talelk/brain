@@ -8,10 +8,10 @@ import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { ScreenRegion } from "../../ui/screen-region";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
-import { EmptyPreview, QueueRow, WorkspaceSection } from "../../ui/components/Domain";
-import { TaskEntry } from "../../ui/components/TaskEntry";
+import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";import { TaskEntry } from "../../ui/components/TaskEntry";
 import type { TaskHandoff } from "../../ui/components/TaskReview";
 import { TaskCatalog } from "../catalog";
+import { EmptyState } from "@talelk/newui-molecules";
 
 /**
  * Plays (#25/#43): the catalog of mission templates and single tasks of the
@@ -50,7 +50,7 @@ export default function PlaysPage(): JSX.Element {
     <TextInput type="search" label="Find a play or task" value={search()} placeholder="Search purpose, play or task name…" onInput={(event) => setParams({ q: event.currentTarget.value || undefined })} />
     <WorkspaceSection title="Plays in the active release" description="Mission templates: a team, a plan shape and a brief, started by hand, on a schedule or by a ticket or incident.">
       <ScreenRegion state={plays.state()} onRetry={() => void plays.refresh({ force: true })} emptyTitle="No plays yet" emptyDescription="Draft a play in the Studio and activate the release that contains it.">
-        <Show when={shownPlays().length} fallback={<EmptyPreview icon="lucide-search" title="No matching plays" description="Clear the search to see every play in the active release." />}>
+        <Show when={shownPlays().length} fallback={<EmptyState size="sm" icon="lucide-search" title="No matching plays" description="Clear the search to see every play in the active release." />}>
           <div class="brain-queue"><For each={shownPlays()}>{(play) => <QueueRow title={play.title} description={play.description ?? `${play.taskCount} tasks`} icon="lucide-book-open-check"
             meta={<><span>{play.team.length} members</span><span>{play.taskCount} tasks</span><span>autonomy {play.autonomy ?? "standard"}</span></>}
             label={`Open play ${play.title}`} onClick={() => void navigate(`/plays/${encodeURIComponent(play.playId)}`)} />}</For></div>

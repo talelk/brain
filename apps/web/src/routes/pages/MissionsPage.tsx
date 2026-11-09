@@ -2,18 +2,17 @@ import { createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Button } from "@talelk/newui-atoms";
-import { FilterBar } from "@talelk/newui-organisms";
+import { FilterBar, StatGrid } from "@talelk/newui-organisms";
 import type { AttentionItem, Mission } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { ScreenRegion } from "../../ui/screen-region";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
-import { EmptyPreview, FactStrip, QueueRow, WorkspaceSection } from "../../ui/components/Domain";
-import { formatDateTime } from "../../ui/format";
+import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";import { formatDateTime } from "../../ui/format";
 import { missionHref } from "../../ui/mission-links";
 import { AttentionRows, attentionHref } from "../../ui/components/AttentionDrawer";
-import { RefreshButton } from "../../ui/components/primitives";
+import { EmptyState } from "@talelk/newui-molecules";
 
 /**
  * Missions home (T34, #40/#43): what needs you across every workspace you can
@@ -52,9 +51,9 @@ export default function MissionsPage(): JSX.Element {
     meta={<><span>{mission.state}{mission.pauseReason ? ` · ${mission.pauseReason}` : ""}{mission.outcome ? ` · ${mission.outcome}` : ""}</span><span>{mission.usage.runningMembers} running</span><Show when={mission.budget.maxMicroUsd !== undefined}><span>{`${mission.usage.settledMicroUsd + mission.usage.reservedMicroUsd} / ${mission.budget.maxMicroUsd} µUSD`}</span></Show><span>updated {formatDateTime(mission.updatedAt)}</span></>}
     onClick={() => void navigate(missionHref(app.workspaceId(), mission.missionId, "live"))} />;
   return <BrainPage title="Missions" description="What needs you, then every mission of this workspace."
-    actions={<><RefreshButton onClick={refresh} label="Refresh" /><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => void navigate(`/w/${app.workspaceId()}/missions/new`)}>New mission</Button></>}>
+    actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={refresh}>Refresh</Button><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => void navigate(`/w/${app.workspaceId()}/missions/new`)}>New mission</Button></>}>
     <PageStack>
-      <FactStrip label="Missions summary" items={[
+      <StatGrid compact stats={[
         { label: "Needs you", value: String(attention.state().data?.length ?? 0), hint: "Across your workspaces", icon: "lucide-bell-ring" },
         { label: "Open missions", value: String(open().length), hint: "Active, paused or verifying", icon: "lucide-flag" },
         { label: "Closed", value: String(closed().length), hint: "Achieved, ended or cancelled", icon: "lucide-archive" },
@@ -70,7 +69,7 @@ export default function MissionsPage(): JSX.Element {
       </WorkspaceSection>
       <WorkspaceSection title="All missions" description="Long-running and interactive missions of this workspace.">
         <ScreenRegion state={missions.state()} onRetry={() => void missions.refresh({ force: true })} emptyTitle="No missions yet" emptyDescription="Start a mission from a play or describe one yourself.">
-          <Show when={open().length} fallback={<EmptyPreview icon="lucide-flag" title="No open missions" description="Every mission here is closed. Start a new one when there is work to do." />}>
+          <Show when={open().length} fallback={<EmptyState size="sm" icon="lucide-flag" title="No open missions" description="Every mission here is closed. Start a new one when there is work to do." />}>
             <div class="brain-queue"><For each={open()}>{row}</For></div>
           </Show>
           <Show when={closed().length}><details class="mt-4"><summary class="cursor-pointer text-base-medium">Closed missions ({closed().length})</summary><div class="brain-queue mt-2"><For each={closed()}>{row}</For></div></details></Show>

@@ -8,14 +8,15 @@ import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { ScreenRegion } from "../../ui/screen-region";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
-import { EmptyPreview, FactStrip, QueueRow, WorkspaceSection } from "../../ui/components/Domain";
-import { ActionFeedback } from "../../ui/components/ActionFeedback";
+import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";import { ActionFeedback } from "../../ui/components/ActionFeedback";
 import { TaskReview } from "../../ui/components/TaskReview";
 import type { TaskHandoff } from "../../ui/components/TaskReview";
 import { SchedulesPanel } from "../../ui/components/SchedulesPanel";
 import { formatDateTime, formatMicroUsd, titleize } from "../../ui/format";
 import { missionHref } from "../../ui/mission-links";
 import { AgentDetail, authorCandidate } from "../catalog";
+import { StatGrid } from "@talelk/newui-organisms";
+import { EmptyState } from "@talelk/newui-molecules";
 
 type Catalog = { plays: PlayView[]; workflows: WorkflowCatalogEntry[]; agents: AgentCatalogEntry[] };
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
@@ -44,7 +45,7 @@ export default function PlayPage(): JSX.Element {
   const title = () => play()?.title ?? (workflow() ? workflow()!.definition.spec.presentation?.title ?? titleize(workflow()!.release.id) : "Play");
   return <ScreenRegion state={catalog.state()} onRetry={() => void catalog.refresh({ force: true })} emptyTitle="Play not found" emptyDescription="No play or task with this id is in the active release.">
     <Switch fallback={<BrainPage title="Play not found" description="No play or task with this id is in the active release.">
-      <EmptyPreview icon="lucide-book-open-check" title="Not in the active release" description="It may have been removed by a newer release. Open Plays to choose another." />
+      <EmptyState size="sm" icon="lucide-book-open-check" title="Not in the active release" description="It may have been removed by a newer release. Open Plays to choose another." />
     </BrainPage>}>
       <Match when={play()} keyed>{(entry) => <PlayDetail play={entry} agents={catalog.state().data?.agents ?? []} />}</Match>
       <Match when={workflow()} keyed>{(entry) => <TaskDetail title={title()} workflow={entry} agents={catalog.state().data?.agents ?? []} />}</Match>
@@ -88,7 +89,7 @@ function PlayDetail(props: { play: PlayView; agents: readonly AgentCatalogEntry[
   return <BrainPage title={props.play.title} description={props.play.description ?? "A mission template: team, plan shape and brief."}
     actions={<Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={() => void navigate(`/w/${app.workspaceId()}/missions/new?play=${encodeURIComponent(props.play.playId)}`)}>Start a mission</Button>}>
     <PageStack>
-      <FactStrip label="Play summary" items={[
+      <StatGrid compact stats={[
         { label: "Team", value: String(props.play.team.length), hint: "Members on the mission team", icon: "lucide-users" },
         { label: "Plan", value: `${props.play.taskCount} tasks`, hint: "Proposed when a mission starts", icon: "lucide-list-tree" },
         { label: "Autonomy", value: props.play.autonomy ?? "standard", hint: "Capped by the workspace ceiling", icon: "lucide-shield" },

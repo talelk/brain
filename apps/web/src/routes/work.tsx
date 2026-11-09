@@ -1,8 +1,8 @@
 import type { JSX } from "solid-js";
 import { For, Show, createSignal } from "solid-js";
 import { Button, KeyValue } from "@talelk/newui-atoms";
-import { Alert, Pagination } from "@talelk/newui-molecules";
-import { FilterBar } from "@talelk/newui-organisms";
+import { Alert, Pagination, EmptyState } from "@talelk/newui-molecules";
+import { FilterBar, StatGrid } from "@talelk/newui-organisms";
 import { PaneLayout } from "@talelk/newui-templates";
 import type { IncidentSummary, SLASummary, TicketSummary } from "@brain/contracts";
 import { DateText, isFreshFromServer, ScreenRegion } from "../ui/screen-region";
@@ -10,8 +10,7 @@ import type { ScreenState } from "../data/screens";
 import { BrainPage, PageStack } from "../ui/components/PageLayout";
 import { StatusBadge } from "../ui/components/StatusBadge";
 import { formatSlaMinutes } from "../ui/format";
-import { EmptyPreview, FactStrip, Freshness, QueueRow, WorkspaceSection } from "../ui/components/Domain";
-
+import { Freshness, QueueRow, WorkspaceSection } from "../ui/components/Domain";
 
 /** Client-side lists page at 25 rows once they outgrow a single page. */
 const PAGE_SIZE = 25;
@@ -78,7 +77,7 @@ export function SupportScreen(props: {
   return <BrainPage title="Support" description="Triage customer requests by urgency and review readiness; drafts never publish themselves."
     actions={<Show when={props.canDispatch}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Run support workflow</Button></Show>}>
     <PageStack>
-      <Show when={props.sla} keyed>{(sla) => <FactStrip label="Measured support service levels" items={[
+      <Show when={props.sla} keyed>{(sla) => <StatGrid compact stats={[
         { label: "Keyrus response time", value: formatSlaMinutes(sla.keyrusMs), hint: `${sla.responseMet} responses met of ${sla.sampleCount} samples`, icon: "lucide-timer" },
         { label: "Client wait", value: formatSlaMinutes(sla.clientWaitMs), hint: `${sla.resolutionMet} resolutions met`, icon: "lucide-clock" },
         { label: "Incomplete records", value: String(sla.incompleteRecords), hint: "Excluded from any breach inference", icon: "lucide-circle-help" },
@@ -86,11 +85,11 @@ export function SupportScreen(props: {
       <FilterBar query={{ value: query(), placeholder: "Search customer issue, priority, or ticket…", onInput: (value) => { setQuery(value); setPage(1); } }} resultCount={rows().length} tabs={{ label: "Ticket state", value: view(), options: [{ value: "open", label: "Open" }, { value: "pending", label: "Awaiting" }, { value: "resolved", label: "Resolved" }, { value: "closed", label: "Closed" }, { value: "all", label: "All" }], onValueChange: (value) => { setView(value); selection.reset(); setPage(1); } }} />
       <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No support tickets" emptyDescription="Connect the ticket connector and sync to see the queue." onRetry={props.onRefresh}>
         <PaneLayout class="brain-list-detail" startSize={48} minStartSize={34} maxStartSize={64} active={selection.picked() ? "end" : "start"} start={<WorkspaceSection title="Support triage" description="Priority and evidence readiness are visible before opening the casework page.">
-          <Show when={rows().length} fallback={<EmptyPreview icon="lucide-headset" title="No tickets in this view" description="Choose another state or clear the search to see other customer requests." />}>
+          <Show when={rows().length} fallback={<EmptyState size="sm" icon="lucide-headset" title="No tickets in this view" description="Choose another state or clear the search to see other customer requests." />}>
             <div class="brain-queue"><For each={paged()}>{(ticket) => <QueueRow title={ticket.title} description={`${ticket.priority} priority · ${ticket.evidenceReady ? "Draft evidence ready" : "Investigation or evidence pending"}`} icon="lucide-headset" tone={ticket.priority === "urgent" ? "red" : ticket.priority === "high" ? "amber" : "blue"} eyebrow={ticket.state} meta={<><span>Created <DateText value={ticket.createdAt} /></span><Freshness value={ticket.updatedAt} /></>} trailing={<StatusBadge kind="ticket" status={ticket.state} />} selected={selected()?.id === ticket.id} onClick={() => { if (window.matchMedia("(min-width: 1024px)").matches) selection.pick(ticket.id); else props.onOpenTicket(ticket.id); }} />}</For></div>
             <ListPager count={rows().length} page={page()} onPageChange={setPage} label="Support triage pagination" />
           </Show>
-        </WorkspaceSection>} end={<Show when={selected()} keyed fallback={<EmptyPreview icon="lucide-headset" title="Select a customer request" description="Review its current state, evidence readiness and next valid action without losing the queue." />}>{(ticket) => <PageStack>
+        </WorkspaceSection>} end={<Show when={selected()} keyed fallback={<EmptyState size="sm" icon="lucide-headset" title="Select a customer request" description="Review its current state, evidence readiness and next valid action without losing the queue." />}>{(ticket) => <PageStack>
           <Button variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={selection.dismiss}>Back to tickets</Button>
           <div><StatusBadge kind="ticket" status={ticket.state} /><h2 class="mt-3 text-section">{ticket.title}</h2><p class="mt-2 text-interface text-ink-gray-7">Open the complete customer request, investigation artifacts, reviewable draft and exact publication approval.</p></div>
           <dl class="grid gap-3 border-y border-outline-gray-1 py-3 sm:grid-cols-2"><KeyValue label="Priority" value={<StatusBadge kind="severity" status={ticket.priority} />} orientation="vertical" /><KeyValue label="Evidence" value={ticket.evidenceReady ? "Draft evidence ready" : "Not ready"} orientation="vertical" /><KeyValue label="Created" value={<DateText value={ticket.createdAt} />} orientation="vertical" /><KeyValue label="Source version" value={ticket.sourceVersion} orientation="vertical" /></dl>
@@ -125,7 +124,7 @@ export function SreScreen(props: {
   return <BrainPage title="Incidents" description="Prioritize observed operational issues by severity and telemetry freshness; missing evidence never looks healthy."
     actions={<Show when={props.canDispatch}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Run SRE workflow</Button></Show>}>
     <PageStack>
-      <FactStrip label="Incident queue summary" items={[
+      <StatGrid compact stats={[
         { label: "Critical", value: String(props.incidents.filter((incident) => incident.severity === "critical").length), hint: "Critical observed incidents in this queue", icon: "lucide-siren" },
         { label: "Investigating", value: String(props.incidents.filter((incident) => incident.state === "investigating").length), hint: "Active investigation state", icon: "lucide-scan-search" },
         { label: "Stale observations", value: String(props.incidents.filter((incident) => !isFreshFromServer(incident.expiresAt, props.state.asOf)).length), hint: "Not current health evidence", icon: "lucide-clock-alert" },
@@ -133,14 +132,14 @@ export function SreScreen(props: {
       <FilterBar resultCount={incidents().length} selects={[{ label: "Severity", value: severity(), options: [{ value: "all", label: "All severities" }, { value: "critical", label: "Critical" }, { value: "warning", label: "Warning" }, { value: "info", label: "Info" }], onValueChange: (value) => { setSeverity(value ?? "all"); selection.reset(); setPage(1); } }]} />
       <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No incidents" emptyDescription="Open incidents appear when a monitored target breaches a declared threshold. This is not a claim of universal health." onRetry={props.onRefresh}>
         <PaneLayout class="brain-list-detail" startSize={48} minStartSize={34} maxStartSize={64} active={selection.picked() ? "end" : "start"} start={<WorkspaceSection title="Incident operations" description="Severity, target and observation validity stay together.">
-          <Show when={incidents().length} fallback={<EmptyPreview icon="lucide-siren" title="No incidents in this view" description="Clear the severity filter to see every observed incident in the queue." />}>
+          <Show when={incidents().length} fallback={<EmptyState size="sm" icon="lucide-siren" title="No incidents in this view" description="Clear the severity filter to see every observed incident in the queue." />}>
             <div class="brain-queue"><For each={paged()}>{(incident) => {
               const fresh = isFreshFromServer(incident.expiresAt, props.state.asOf);
               return <QueueRow title={incident.title} description={`${incident.targetKey} · ${incident.state}`} icon="lucide-siren" tone={incident.severity === "critical" ? "red" : "amber"} eyebrow={`${incident.severity} · ${fresh ? "observed" : "stale observation"}`} meta={<><span>Observed <DateText value={incident.observedAt} /></span><span>Valid until <DateText value={incident.expiresAt} /></span></>} trailing={<StatusBadge kind="severity" status={incident.severity} />} selected={selected()?.id === incident.id} onClick={() => { if (window.matchMedia("(min-width: 1024px)").matches) selection.pick(incident.id); else props.onOpenIncident(incident.id); }} />;
             }}</For></div>
             <ListPager count={incidents().length} page={page()} onPageChange={setPage} label="Incident queue pagination" />
           </Show>
-        </WorkspaceSection>} end={<Show when={selected()} keyed fallback={<EmptyPreview icon="lucide-siren" title="Select an incident" description="Review the observation, freshness and next safe action before opening the investigation." />}>{(incident) => <PageStack>
+        </WorkspaceSection>} end={<Show when={selected()} keyed fallback={<EmptyState size="sm" icon="lucide-siren" title="Select an incident" description="Review the observation, freshness and next safe action before opening the investigation." />}>{(incident) => <PageStack>
           <Button variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={selection.dismiss}>Back to incidents</Button>
           <div><StatusBadge kind="severity" status={incident.severity} /><h2 class="mt-3 text-section">{incident.title}</h2><p class="mt-2 text-interface text-ink-gray-7">{incident.targetKey}</p></div>
           <Alert theme={isFreshFromServer(incident.expiresAt, props.state.asOf) ? "blue" : "amber"} variant="outline" title={isFreshFromServer(incident.expiresAt, props.state.asOf) ? "Observation window is valid" : "Telemetry is stale"} description={isFreshFromServer(incident.expiresAt, props.state.asOf) ? "Investigate the pinned evidence before proposing remediation." : "Do not render this target as healthy or remediate from an expired observation."} />

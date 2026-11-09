@@ -11,16 +11,15 @@ import { query } from "../../data/client";
 import { sessionDetailQuery, type SessionDetail } from "../../data/exec-console";
 import { streamContextQuery } from "../../data/exec-logs";
 import type { ExecLogFilters } from "../exec/exec-filters";
-import { EmptyPreview } from "../components/Domain";
 import { ScreenRegion } from "../screen-region";
-import { PaneResizer } from "../components/primitives";
-import {
+import { PaneResizer } from "../components/primitives";import {
   consoleLayout, lastSelectedSession, rememberSelectedSession,
   setRailWidth, setRightWidth,
 } from "./ConsoleStore";
 import { ConsoleFeed, hydrateConsoleHistory, type FeedEntry } from "./ConsoleFeed";
 import { ConsoleInspection, ConsoleToolbar, InterruptionChooser } from "./ConsoleControls";
 import { SessionRail } from "./SessionRail";
+import { EmptyState } from "@talelk/newui-molecules";
 
 /**
  * The Live console's three-pane desktop layout (plan §3): a resizable
@@ -135,7 +134,7 @@ export function ConsoleScreen(props: {
         emptyDescription="Sessions appear here the moment a run claims a runner. Dispatch declared work to start one."
         emptyAction={<Button variant="solid" theme="blue" onClick={() => void navigate(`/w/${ws()}/plays`)}>Start work</Button>}
         onRetry={() => void sessions.refresh({ force: true })}>
-        <EmptyPreview icon="lucide-radio" title="The execution console is ready"
+        <EmptyState size="sm" icon="lucide-radio" title="The execution console is ready"
           description="Live sessions, their tool activity and their outputs will stream in this three-pane console." />
       </ScreenRegion>}>
       {(sessionId) => <SessionConsole workspaceId={ws()} sessionId={sessionId} rail={rail}

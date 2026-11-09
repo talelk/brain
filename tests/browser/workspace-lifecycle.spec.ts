@@ -29,14 +29,14 @@ test("workspace: create and manage metadata, suspension, resume and archive from
   await expect(page.getByText("Second workspace", { exact: true })).toBeVisible();
   await dialog.getByRole("button", { name: "Close", exact: true }).click();
 
-  const card = page.locator("article").filter({ hasText: "Initial workspace" });
+  const card = page.locator('[data-slot="card"]').filter({ hasText: "Initial workspace" });
   await card.getByRole("button", { name: "Manage", exact: true }).click();
   dialog = page.getByRole("dialog").last();
   await dialog.getByLabel(/^Display name/).fill("Managed workspace");
   await dialog.getByLabel("Description", { exact: true }).fill("Operational metadata");
   await dialog.getByLabel("Tags", { exact: true }).fill("support, local");
   await dialog.getByRole("button", { name: "Save metadata", exact: true }).click();
-  const managed = page.locator("article").filter({ hasText: "Managed workspace" });
+  const managed = page.locator('[data-slot="card"]').filter({ hasText: "Managed workspace" });
   await expect(managed).toBeVisible();
 
   await managed.getByRole("button", { name: "Manage", exact: true }).click();

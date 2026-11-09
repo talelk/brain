@@ -2,7 +2,7 @@ import type { JSX } from "solid-js";
 import { For, Show, createSignal } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Button } from "@talelk/newui-atoms";
-import { Pagination } from "@talelk/newui-molecules";
+import { Pagination, EmptyState } from "@talelk/newui-molecules";
 import { FilterBar } from "@talelk/newui-organisms";
 import type { JobSnapshot } from "@brain/contracts";
 import { ScreenRegion, DateText } from "../ui/screen-region";
@@ -10,8 +10,7 @@ import type { ScreenState } from "../data/screens";
 import { PageStack } from "../ui/components/PageLayout";
 import { StatusBadge } from "../ui/components/StatusBadge";
 import { queueReasonLabel } from "../ui/format";
-import { EmptyPreview, QueueRow, WorkspaceSection } from "../ui/components/Domain";
-import { execLiveUrl } from "../ui/exec/exec-filters";
+import { QueueRow, WorkspaceSection } from "../ui/components/Domain";import { execLiveUrl } from "../ui/exec/exec-filters";
 import { CorrelationLink } from "../ui/exec/CorrelationLink";
 
 /**
@@ -122,7 +121,7 @@ export function RunsScreen(props: {
       </fieldset>
       <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No runs match" emptyDescription="Clear the filters or start a declared task." onRetry={props.onRefresh}>
         <Show when={visibleJobs().length} fallback={
-          <EmptyPreview icon="lucide-list" title="No runs in this view"
+          <EmptyState size="sm" icon="lucide-list" title="No runs in this view"
             description={props.liveSummary && props.liveSummary.activeSessions > 0
               ? `${props.liveSummary.activeSessions} agent session${props.liveSummary.activeSessions === 1 ? " is" : "s are"} live right now — the Live console holds them, not this run index.`
               : "Choose History or clear the exact-state filter to inspect other runs."}

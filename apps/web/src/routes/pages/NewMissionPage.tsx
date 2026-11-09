@@ -74,7 +74,7 @@ function NewMissionSheet(props: { onClose: () => void }): JSX.Element {
       void navigate(missionHref(app.workspaceId(), receipt.resourceId, playId() ? "plan" : "brief"));
     } catch (reason) { setError(reason instanceof Error ? reason.message : "The mission was not started."); } finally { setBusy(false); }
   }
-  return <FormSheet open onClose={props.onClose} title="New mission" description="Start from a play or describe the mission. A play's plan and team wait for your confirmation."
+  return <FormSheet open onClose={props.onClose} title="New mission" centered description="Start from a play or describe the mission. A play's plan and team wait for your confirmation."
     submit="Start mission" icon="lucide-flag" busy={busy()} disabled={!app.canDispatch()} onSubmit={start} error={error()} errorTitle="The mission was not started">
     <Select label="Play (optional)" description="A play brings its team, plan, brief, autonomy and budget." value={playId()} options={[{ value: "", label: "No play — describe it myself" }, ...(plays.state().data ?? []).map((play) => ({ value: play.playId, label: play.title }))]}
       onValueChange={(value) => setPlayId(value ?? "")} />

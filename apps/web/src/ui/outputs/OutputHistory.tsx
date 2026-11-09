@@ -1,12 +1,11 @@
 import { For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Badge } from "@talelk/newui-atoms";
-import { Alert } from "@talelk/newui-molecules";
+import { Alert, EmptyState } from "@talelk/newui-molecules";
 import type { BadgeTheme } from "@talelk/newui-atoms";
 import type { ExecutionLink } from "@brain/contracts";
 import { DateText, RelativeTime } from "../screen-region";
 import { shortDigest } from "../format";
-import { EmptyPreview } from "../components/Domain";
 import type { ArtifactHistory, ArtifactVersion } from "../../data/exec-outputs";
 
 /**
@@ -140,7 +139,7 @@ export function OutputHistory(props: { history: ArtifactHistory | undefined; loa
             <Show
               when={props.history}
               fallback={
-                <EmptyPreview
+                <EmptyState size="sm"
                   icon="lucide-history"
                   title="No artifact selected"
                   description="Select an artifact to see the evidence bundles that pin it over time."

@@ -14,8 +14,7 @@ import { WorkItemTasks } from "./WorkItemTasks";
 import { EvidenceBundleSelector } from "./ArtifactSelectors";
 import { EvidenceList } from "./EvidenceList";
 import { StatusBadge } from "./StatusBadge";
-import { WorkspaceSection } from "./Domain";
-import { FormSheet } from "./BrainForm";
+import { WorkspaceSection } from "./Domain";import { FormSheet } from "./BrainForm";
 
 const STATES: readonly { id: WorkItemState; name: string }[] = [
   { id: "backlog", name: "Backlog" }, { id: "ready", name: "Ready" }, { id: "in-progress", name: "In Progress" },
@@ -104,7 +103,7 @@ export function MissionWorkItems(props: { missionId: string }): JSX.Element {
               <Show when={move() === "blocked"}><TextInput label="Blocking reason" value={reason()} onInput={(event) => setReason(event.currentTarget.value)} required /></Show>
             <Show when={doneBlocked()}><Alert theme="amber" variant="outline" title="Verified evidence is required" description="Choose an independently verified evidence bundle before selecting Done. Author output alone cannot complete this work." /></Show>
             </FormSheet>
-            <FormSheet open={sheet() === "comment"} onClose={() => setSheet("")} title="Add a comment" description="Comments are recorded on the work item's history." submit="Add comment" icon="lucide-message-square" disabled={!comment().trim()} onSubmit={() => addComment(item)}>
+            <FormSheet open={sheet() === "comment"} onClose={() => setSheet("")} title="Add a comment" centered description="Comments are recorded on the work item's history." submit="Add comment" icon="lucide-message-square" disabled={!comment().trim()} onSubmit={() => addComment(item)}>
               <Textarea label="Comment" required value={comment()} onInput={(event) => setComment(event.currentTarget.value)} />
             </FormSheet>
           </PageStack>;

@@ -9,7 +9,6 @@ import { useApp } from "../app-context";
 import { ScreenRegion } from "../screen-region";
 import { ActionFeedback } from "./ActionFeedback";
 import { DetailAside, WorkspaceSection } from "./Domain";
-
 function Composer(props: { disabled?: boolean; onSend: (text: string, id: string) => Promise<void> }) {
   const [text, setText] = createSignal(""); const [id, setId] = createSignal(crypto.randomUUID());
   const [busy, setBusy] = createSignal(false); const [error, setError] = createSignal("");

@@ -7,10 +7,10 @@ import type { ScreenState } from "../data/screens";
 import { BrainPage, PageStack } from "../ui/components/PageLayout";
 import { StatusBadge } from "../ui/components/StatusBadge";
 import { formatMicroUsd } from "../ui/format";
-import { CardTile, IconTile, RefreshButton } from "../ui/components/primitives";
-import { FactStrip, Freshness, WorkspaceSection } from "../ui/components/Domain";
-import { WorkspaceManagementDialog } from "../ui/components/WorkspaceManagementDialog";
+import { IconTile } from "../ui/components/primitives";
+import { Card } from "@talelk/newui-molecules";import { Freshness, WorkspaceSection } from "../ui/components/Domain";import { WorkspaceManagementDialog } from "../ui/components/WorkspaceManagementDialog";
 import { useApp } from "../ui/app-context";
+import { StatGrid } from "@talelk/newui-organisms";
 
 export function BridgeScreen(props: {
   workspaces: WorkspaceSummary[];
@@ -24,9 +24,9 @@ export function BridgeScreen(props: {
   const total = () => props.workspaces.reduce((sum, ws) => sum + ws.pendingApprovals + ws.blockedJobs, 0);
   const ordered = () => [...props.workspaces].sort((a, b) => (b.pendingApprovals + b.blockedJobs) - (a.pendingApprovals + a.blockedJobs) || a.displayName.localeCompare(b.displayName));
   return <BrainPage title="Bridge" description="Enter the workspace that needs you first; health stays scoped to its own observations."
-    actions={<><RefreshButton onClick={props.onRefresh} label="Refresh" /><Show when={app.identity()?.actor.scopes.includes("config:activate")}><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setCreateOpen(true)}>Create workspace</Button></Show></>}>
+    actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button><Show when={app.identity()?.actor.scopes.includes("config:activate")}><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setCreateOpen(true)}>Create workspace</Button></Show></>}>
     <PageStack>
-      <FactStrip label="Workspace access summary" items={[
+      <StatGrid compact stats={[
         { label: "Readable workspaces", value: String(props.workspaces.length), hint: "Authorized to your account", icon: "lucide-building-2" },
         { label: "Actionable exceptions", value: String(total()), hint: "Pending approvals and blocked runs", icon: "lucide-inbox" },
       ]} />
@@ -37,7 +37,7 @@ export function BridgeScreen(props: {
           <div class={`grid gap-3 ${ordered().length === 1 ? "max-w-3xl" : "md:grid-cols-2 xl:grid-cols-3"}`}>
             <For each={ordered()}>{(ws) => {
               const attention = ws.pendingApprovals + ws.blockedJobs;
-              return <CardTile wide class="flex min-w-0 flex-col gap-3">
+              return <Card padding="lg" class="flex min-w-0 flex-col gap-3">
                 <div class="flex items-start justify-between gap-3">
                   <div class="flex min-w-0 items-center gap-3"><IconTile icon="lucide-building-2" tone={attention ? "amber" : "gray"} size="md" /><div class="min-w-0"><h3 class="break-words text-section text-ink-gray-9">{ws.displayName}</h3><p class="mt-1 text-caption text-ink-gray-6">{attention ? `${attention} items need attention` : "No approval or blocked-run exceptions"}</p></div></div>
                   <StatusBadge kind="health" status={ws.health} />
@@ -49,7 +49,7 @@ export function BridgeScreen(props: {
                   <div><dt class="text-caption text-ink-gray-6">Spend today</dt><dd class="mt-1 text-base-medium tabular-nums">{formatMicroUsd(ws.dailyMicroUsd)}</dd></div>
                 </dl>
                 <div class="flex flex-wrap items-center justify-between gap-3"><Freshness value={ws.observedAt} stale={ws.health === "unknown"} /><div class="flex flex-wrap gap-2"><Show when={app.canAdminister()}><Button variant="ghost" onClick={() => setManaging(ws)}>Manage</Button></Show><Button variant={attention ? "solid" : "outline"} theme="blue" iconRight="lucide-arrow-right" onClick={() => props.onOpen(ws.workspaceId)}>Open workspace</Button></div></div>
-              </CardTile>;
+              </Card>;
             }}</For>
           </div>
         </ScreenRegion>

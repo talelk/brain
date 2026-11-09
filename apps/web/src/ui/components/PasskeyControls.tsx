@@ -42,7 +42,7 @@ export function PasskeyControls(): JSX.Element {
         </article>}</For></div>
       </Show>
       <Button variant="solid" theme="blue" iconLeft="lucide-key-round" disabled={busy() || !("PublicKeyCredential" in window)} onClick={() => { setName(""); setSheet(""); }}>Register a passkey</Button>
-      <FormSheet open={sheet() !== null} onClose={() => setSheet(null)} title={sheet() ? "Rename passkey" : "Register a passkey"} description={sheet() ? "The name only helps you recognise this device." : "Your browser will ask you to confirm with the device or security key."}
+      <FormSheet centered={!sheet()} open={sheet() !== null} onClose={() => setSheet(null)} title={sheet() ? "Rename passkey" : "Register a passkey"} description={sheet() ? "The name only helps you recognise this device." : "Your browser will ask you to confirm with the device or security key."}
         submit={sheet() ? "Save name" : "Register a passkey"} icon="lucide-key-round" busy={busy()} error={error()} errorTitle="Passkey action failed"
         onSubmit={() => run(async () => {
           const id = sheet();

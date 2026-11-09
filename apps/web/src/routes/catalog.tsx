@@ -1,9 +1,8 @@
 import { For, Show, createEffect, createSignal } from "solid-js";
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { Badge, createMediaQuery } from "@talelk/newui-atoms";
-import { DetailHeader } from "@talelk/newui-organisms";
-import { EmptyPreview, FactStrip, QueueRow, WorkspaceSection } from "../ui/components/Domain";
-import { LIST_PAGE_SIZE as PAGE_SIZE, Pager } from "../ui/components/primitives";
+import { DetailHeader, StatGrid } from "@talelk/newui-organisms";
+import { QueueRow, WorkspaceSection } from "../ui/components/Domain";import { LIST_PAGE_SIZE as PAGE_SIZE, Pager } from "../ui/components/primitives";
 import { PaneLayout } from "@talelk/newui-templates";
 import type { AgentCatalogEntry, WorkflowCatalogEntry } from "@brain/contracts";
 import { query } from "../data/client";
@@ -14,6 +13,7 @@ import { PageStack, TechnicalDetails } from "../ui/components/PageLayout";
 import { ActionFeedback } from "../ui/components/ActionFeedback";
 import { DigestValue } from "../ui/components/DigestValue";
 import { formatMicroUsd, titleize } from "../ui/format";
+import { EmptyState } from "@talelk/newui-molecules";
 
 /** First paragraph of a long text, heading-stripped and hard-truncated so list rows stay scannable. */
 function summary(text: string | undefined, fallback: string, max = 160): string {
@@ -50,7 +50,7 @@ export function TaskCatalog(props: { search: string; diagnostics?: boolean }) {
   const pagedWorkflows = () => workflows().slice((workflowPageSafe() - 1) * PAGE_SIZE, workflowPageSafe() * PAGE_SIZE);
   return <WorkspaceSection title="Task catalog" description="Single tasks in the active release. Each one opens its page to review typed inputs and dispatch.">
     <ScreenRegion state={read.state()} onRetry={() => void read.refresh()} emptyTitle="No published tasks" emptyDescription="Compile and activate a release in Settings; published tasks appear here.">
-      <Show when={workflows().length} fallback={<EmptyPreview icon="lucide-search" title="No matching tasks" description="Clear the search to see every task in the active release." />}>
+      <Show when={workflows().length} fallback={<EmptyState size="sm" icon="lucide-search" title="No matching tasks" description="Clear the search to see every task in the active release." />}>
         <div class="brain-queue"><For each={pagedWorkflows()}>{(workflow) => {
           const title = workflow.definition.spec.presentation?.title ?? titleize(workflow.release.id);
           const description = summary(workflow.definition.spec.presentation?.description, "Review the declared inputs and expected result before starting.");
@@ -107,7 +107,7 @@ export function AgentDetail(props: { agent: AgentCatalogEntry; onBack?: () => vo
       subtitle="Active definition. Dispatch and placement recheck readiness."
       actions={[...(props.onBack ? [{ label: "Back to Agents", onClick: props.onBack }] : []), ...(app.identity()?.actor.scopes.includes("config:activate") ? [{ label: "Clone", onClick: () => void author("duplicate") }, { label: "Edit candidate", onClick: () => void author("edit") }] : []), ...(related()[0] ? [{ label: "Start a task", onClick: startRecipe }] : [])]} />
     <ActionFeedback tone="error" message={error()} />
-    <FactStrip label="Agent capability summary" items={[
+    <StatGrid compact stats={[
       { label: "Engine requirement", value: spec().engine.anyOf.join(" or "), hint: "One compatible engine is required", icon: "lucide-cpu" },
       { label: "Allowed tools", value: String(spec().tools.length), hint: spec().tools.length ? "Pinned releases only" : "No tool authority", icon: "lucide-wrench" },
       { label: "Turn / token limits", value: `${spec().maxTurns} · ${spec().maxTokens.toLocaleString()}`, hint: "Per attempt", icon: "lucide-gauge" },
@@ -145,7 +145,7 @@ export function AgentCatalog() {
   return (
     <ScreenRegion state={read.state()} onRetry={() => void read.refresh()} emptyTitle="No active Agents" emptyDescription="Activate the complete starter release in Settings.">
       <PaneLayout class="brain-list-detail" startSize={40} minStartSize={30} maxStartSize={58} active={current() ? "end" : "start"} start={<WorkspaceSection title="Active agent definitions" description="Definitions in the active release. An active definition is not a running session.">
-        <Show when={agents().length} fallback={<EmptyPreview icon="lucide-bot" title="No agent definitions" description="Activated agent definitions appear here; propose a draft to create the first one." />}>
+        <Show when={agents().length} fallback={<EmptyState size="sm" icon="lucide-bot" title="No agent definitions" description="Activated agent definitions appear here; propose a draft to create the first one." />}>
           <div class="brain-queue"><For each={pagedAgents()}>{(agent) => <QueueRow
             title={titleize(agent.release.id)}
             description={summary(agent.instructions, "No purpose summary provided.")}
@@ -155,7 +155,7 @@ export function AgentCatalog() {
             selected={current()?.release.id === agent.release.id} onClick={() => select(agent.release.id)} />}</For></div>
           <Pager count={agents().length} page={agentPageSafe()} onPage={setAgentPage} label="Agent catalog pages" />
         </Show>
-      </WorkspaceSection>} end={<Show when={current()} keyed fallback={<EmptyPreview icon="lucide-bot" title="Select an agent definition" description="Its purpose, inputs and outputs through related workflows, engine requirements, tools and limitations will appear here." />}>{(agent) => <AgentDetail agent={agent} onBack={() => select("")} />}</Show>} />
+      </WorkspaceSection>} end={<Show when={current()} keyed fallback={<EmptyState size="sm" icon="lucide-bot" title="Select an agent definition" description="Its purpose, inputs and outputs through related workflows, engine requirements, tools and limitations will appear here." />}>{(agent) => <AgentDetail agent={agent} onBack={() => select("")} />}</Show>} />
     </ScreenRegion>
   );
 }

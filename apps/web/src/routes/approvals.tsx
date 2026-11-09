@@ -2,7 +2,7 @@ import { PaneLayout } from "@talelk/newui-templates";
 import type { JSX } from "solid-js";
 import { For, Show, createSignal } from "solid-js";
 import { Button } from "@talelk/newui-atoms";
-import { Alert, Pagination } from "@talelk/newui-molecules";
+import { Alert, Pagination, EmptyState } from "@talelk/newui-molecules";
 import { FilterBar } from "@talelk/newui-organisms";
 import type { ApprovalRequest } from "@brain/contracts";
 import { BrainPage, PageStack, TechnicalDetails } from "../ui/components/PageLayout";
@@ -13,9 +13,7 @@ import type { ScreenState } from "../data/screens";
 import { ApprovalReview } from "../ui/components/ApprovalReview";
 import type { ApprovalIntent, ApprovalOutcome } from "../ui/approval-controller";
 import { ReasonDialog } from "../ui/components/ReasonDialog";
-import { DisclosureCard } from "../ui/components/primitives";
-import { DetailAside, EmptyPreview, QueueRow, WorkspaceSection } from "../ui/components/Domain";
-
+import { DisclosureCard } from "../ui/components/primitives";import { DetailAside, QueueRow, WorkspaceSection } from "../ui/components/Domain";
 const workspaceLabel = (approval: ApprovalRequest) => approval.subject.workspaceId;
 const INBOX_PAGE_SIZE = 25;
 const effectParts = (approval?: ApprovalRequest) => ({
@@ -90,7 +88,7 @@ export function ApprovalsScreen(props: {
         chips={query() ? [{ label: `Search: ${query()}`, onRemove: () => setQuery("") }] : []} onClearAll={query() ? () => setQuery("") : undefined} />
       <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No approvals awaiting review" emptyDescription="Nothing is waiting on your decision." onRetry={props.onRefresh}>
         <PaneLayout class="brain-list-detail" startSize={42} minStartSize={32} maxStartSize={58} active={current() ? "end" : "start"} start={<section aria-label="Approvals"><WorkspaceSection title="Decision inbox" description="Expiring first. Each proposal requires its own exact review.">
-          <Show when={visible().length} fallback={<EmptyPreview icon="lucide-filter" title="No approvals in this view" description="Choose another state or clear the search to see other authorized proposals." />}>
+          <Show when={visible().length} fallback={<EmptyState size="sm" icon="lucide-filter" title="No approvals in this view" description="Choose another state or clear the search to see other authorized proposals." />}>
             <div class="brain-queue"><For each={paged()}>{(approval) => {
               const effect = effectParts(approval);
               return <QueueRow label={`Review: ${approval.approvalId}`} title={`${effect.operation} on ${effect.target}`}
@@ -104,7 +102,7 @@ export function ApprovalsScreen(props: {
               <div class="flex items-center gap-1"><Pagination.PrevTrigger /><Pagination.Pages /><Pagination.NextTrigger /></div>
             </Pagination.Root></Show>
           </Show>
-        </WorkspaceSection></section>} end={<Show when={current()} keyed fallback={<EmptyPreview icon="lucide-shield-check" title="Select a proposal to review" description="The action sentence, exact bounds, target and decision control will appear here." />}>{(approval) => {
+        </WorkspaceSection></section>} end={<Show when={current()} keyed fallback={<EmptyState size="sm" icon="lucide-shield-check" title="Select a proposal to review" description="The action sentence, exact bounds, target and decision control will appear here." />}>{(approval) => {
           const effect = effectParts(approval);
           return <div class="flex min-w-0 flex-col gap-4">
             <Button size="sm" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={() => setSelected(undefined)}>Back to approvals</Button>

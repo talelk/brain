@@ -1,7 +1,7 @@
 import { createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Badge, Button, TextInput } from "@talelk/newui-atoms";
-import { Alert, FileUploader, Pagination, Select } from "@talelk/newui-molecules";
+import { Alert, FileUploader, Pagination, Select, EmptyState } from "@talelk/newui-molecules";
 import { PaneLayout } from "@talelk/newui-templates";
 import type { Document as BrainDocument, DocumentView, ResourceAssociation } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
@@ -11,9 +11,8 @@ import { DateText, ScreenRegion } from "../../ui/screen-region";
 import { FormSheet } from "../../ui/components/BrainForm";
 import { BrainPage, PageStack, TechnicalDetails } from "../../ui/components/PageLayout";
 import { StatusBadge } from "../../ui/components/StatusBadge";
-import { RefreshButton, SelectableListItem } from "../../ui/components/primitives";
-import { EmptyPreview, FactStrip, WorkspaceSection } from "../../ui/components/Domain";
-
+import { SelectableListItem } from "../../ui/components/primitives";import { WorkspaceSection } from "../../ui/components/Domain";
+import { StatGrid } from "@talelk/newui-organisms";
 const MEDIA_TYPES = new Set(["text/plain", "text/markdown", "text/csv", "application/json", "application/pdf", "application/octet-stream"]);
 const LIBRARY_PAGE_SIZE = 25;
 
@@ -141,16 +140,16 @@ export default function ResourcesPage(): JSX.Element {
   }
 
   return <BrainPage title="Resources" description="Keep workspace-private source material searchable, previewable and connected to the work that uses it."
-    actions={<><RefreshButton onClick={() => void refresh(selectedId() || undefined)} label="Refresh" /><Button variant="solid" theme="blue" iconLeft="lucide-upload" onClick={() => open("upload")}>Add document</Button></>}>
+    actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={() => void refresh(selectedId() || undefined)}>Refresh</Button><Button variant="solid" theme="blue" iconLeft="lucide-upload" onClick={() => open("upload")}>Add document</Button></>}>
     <PageStack>
-      <FormSheet open={sheet() === "upload"} onClose={() => setSheet("")} title="Add source material" description="Use operational guides, incident notes and reference documents. Upload never publishes shared memory or crosses workspace scope."
+      <FormSheet open={sheet() === "upload"} onClose={() => setSheet("")} title="Add source material" centered description="Use operational guides, incident notes and reference documents. Upload never publishes shared memory or crosses workspace scope."
         submit="Upload document" icon="lucide-upload" busy={busy()} onSubmit={upload} error={error()} errorTitle="Document upload failed">
         <TextInput label="Document title" required value={title()} onInput={(event) => setTitle(event.currentTarget.value)} error={attempted() && !title().trim() ? "Give the document a title." : undefined} placeholder="Operations guide" />
         <FileUploader label="Document file" value={file()} accept={[".txt", ".md", ".csv", ".json", ".pdf"]} onValueChange={(value) => setFile(value instanceof File ? value : null)} />
         <Show when={attempted() && !file()}><p role="alert" class="text-caption text-ink-red-8">Choose a file to upload.</p></Show>
         <Show when={busy()}><p role="status" class="text-caption text-ink-gray-6">Validating and uploading the selected immutable version…</p></Show>
       </FormSheet>
-      <FactStrip label="Resource library summary" items={[
+      <StatGrid compact stats={[
         { label: "Documents", value: String(documents.state().data?.items.length ?? 0), hint: appliedSearch() ? "Matching the current scoped search" : "Current workspace documents", icon: "lucide-files" },
         { label: "Scope", value: "Workspace private", hint: app.workspaceId(), icon: "lucide-lock-keyhole" },
         { label: "Selection", value: selectedId() ? "Document open" : "None", hint: "Preview reflects one immutable current version", icon: "lucide-file-search" },
@@ -169,7 +168,7 @@ export default function ResourcesPage(): JSX.Element {
           </Pagination.Root></Show>
         </ScreenRegion>
       </WorkspaceSection>} end={<WorkspaceSection title="Document preview" description="Scope, current bytes and immutable version history.">
-        <Show when={selectedId()} fallback={<EmptyPreview icon="lucide-file-search" title="Select a document" description="Its safe preview, source metadata, versions and work associations will appear here." />}>
+        <Show when={selectedId()} fallback={<EmptyState size="sm" icon="lucide-file-search" title="Select a document" description="Its safe preview, source metadata, versions and work associations will appear here." />}>
           <ScreenRegion state={detail.state()} onRetry={() => void detail.refresh()} emptyTitle="No document selected" emptyDescription="Choose an active document from the list.">
             <Show when={detail.state().data} keyed>{(current) => {
               const version = () => current.versions.find((entry) => entry.documentVersionId === current.document.currentVersionId);
@@ -187,12 +186,12 @@ export default function ResourcesPage(): JSX.Element {
                   <FileUploader label="New version file" value={revisionFile()} accept={[".txt", ".md", ".csv", ".json", ".pdf"]} onValueChange={(value) => setRevisionFile(value instanceof File ? value : null)} />
                   <Show when={attempted() && !revisionFile()}><p role="alert" class="text-caption text-ink-red-8">Choose the file for the new version.</p></Show>
                 </FormSheet>
-                <FormSheet open={sheet() === "associate"} onClose={() => setSheet("")} title="Associate with work" description="Targets must exist in this same workspace."
+                <FormSheet open={sheet() === "associate"} onClose={() => setSheet("")} title="Associate with work" centered description="Targets must exist in this same workspace."
                   submit="Associate document" icon="lucide-link" busy={busy()} onSubmit={associate} error={error()} errorTitle="Document association failed">
                   <Select label="Resource kind" value={resourceKind()} options={[{ value: "workItem", label: "Work item" }, { value: "mission", label: "Mission" }, { value: "session", label: "Session" }, { value: "run", label: "Run" }]} onValueChange={(value) => setResourceKind((value ?? "workItem") as ResourceAssociation["resourceKind"])} />
                   <TextInput label="Resource id" required value={resourceId()} onInput={(event) => setResourceId(event.currentTarget.value)} error={attempted() && !resourceId().trim() ? "Enter the id of the target." : undefined} placeholder="work item id" />
                 </FormSheet>
-                <FormSheet open={sheet() === "revoke"} onClose={() => setSheet("")} title="Revoke document" description="Revocation removes current visibility while preserving immutable history."
+                <FormSheet open={sheet() === "revoke"} onClose={() => setSheet("")} title="Revoke document" centered description="Revocation removes current visibility while preserving immutable history."
                   submit="Revoke document" theme="red" busy={busy()} onSubmit={revoke} error={error()} errorTitle="Document revocation failed">
                   <TextInput label="Revocation reason" required value={reason()} onInput={(event) => setReason(event.currentTarget.value)} error={attempted() && !reason().trim() ? "A reason is required." : undefined} placeholder="No longer approved for current work" />
                 </FormSheet>

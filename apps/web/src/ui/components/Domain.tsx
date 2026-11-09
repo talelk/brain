@@ -1,7 +1,6 @@
 import { createUniqueId, Show } from "solid-js";
 import type { JSX, ParentProps } from "solid-js";
-import { Section, StatGrid } from "@talelk/newui-organisms";
-import { EmptyState } from "@talelk/newui-molecules";
+import { Section } from "@talelk/newui-organisms";
 import { IconTile } from "./primitives";
 import { RelativeTime } from "../screen-region";
 
@@ -14,16 +13,6 @@ export function WorkspaceSection(props: ParentProps<{
 }>): JSX.Element {
   const id = createUniqueId();
   return <Section id={id} title={props.title} description={props.description} actions={props.actions} class={props.class}>{props.children}</Section>;
-}
-
-/** KPI row: NewUI's `StatGrid`, named for assistive technology. */
-export function FactStrip(props: {
-  items: readonly { label: string; value: JSX.Element; hint?: string; icon?: string }[];
-  label: string;
-}): JSX.Element {
-  return <section aria-label={props.label}>
-    <StatGrid compact stats={props.items.map((item) => ({ label: item.label, value: item.value, ...(item.hint ? { hint: item.hint } : {}), ...(item.icon ? { icon: item.icon } : {}) }))} />
-  </section>;
 }
 
 export function QueueRow(props: {
@@ -62,8 +51,4 @@ export function Freshness(props: { value?: string; label?: string; stale?: boole
     <span class={`size-1.5 rounded-full ${props.stale ? "bg-surface-amber-7" : "bg-surface-green-7"}`} aria-hidden="true" />
     {props.label ?? "Updated"} <RelativeTime value={props.value} />
   </span>;
-}
-
-export function EmptyPreview(props: { icon: string; title: string; description: string; action?: JSX.Element }): JSX.Element {
-  return <EmptyState size="sm" icon={props.icon} title={props.title} description={props.description} action={props.action} />;
 }

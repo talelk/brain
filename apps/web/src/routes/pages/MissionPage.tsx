@@ -2,7 +2,7 @@ import { createEffect, createSignal, For, Match, Show, Switch } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Badge, Button, Checkbox, Textarea, TextInput } from "@talelk/newui-atoms";
-import { Alert, Select } from "@talelk/newui-molecules";
+import { Alert, EmptyState, Select, TabButtons } from "@talelk/newui-molecules";
 import type { BrainSession, ExecutionLink, TeamMember, WorkItem, Mission, MissionBrief, MissionMessage, Output, PlanVersion, SinceLastVisitSummary } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
@@ -11,8 +11,7 @@ import { ScreenRegion } from "../../ui/screen-region";
 import { FormSheet } from "../../ui/components/BrainForm";
 import { ReasonDialog } from "../../ui/components/ReasonDialog";
 import { BrainPage, PageStack, TechnicalDetails } from "../../ui/components/PageLayout";
-import { EmptyPreview, FactStrip, QueueRow, WorkspaceSection } from "../../ui/components/Domain";
-import { MissionWorkItems } from "../../ui/components/MissionWorkItems";
+import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";import { MissionWorkItems } from "../../ui/components/MissionWorkItems";
 import { SchedulesPanel } from "../../ui/components/SchedulesPanel";
 import { PlanCanvas } from "../../ui/components/PlanCanvas";
 import { formatDateTime } from "../../ui/format";
@@ -20,6 +19,7 @@ import { missionHref, type MissionTab } from "../../ui/mission-links";
 import { ConsoleScreen } from "../../ui/console/ConsoleLayout";
 import { SessionTranscript } from "../../ui/console/SessionTranscript";
 import { readExecFilters, writeExecFilters } from "../../ui/exec/exec-filters";
+import { StatGrid } from "@talelk/newui-organisms";
 
 const TABS: readonly { id: MissionTab; label: string }[] = [
   { id: "live", label: "Live" }, { id: "team", label: "Team" }, { id: "plan", label: "Plan" },
@@ -115,16 +115,14 @@ export default function MissionPage(): JSX.Element {
       <Show when={error()}><Alert theme="red" variant="outline" title="The mission refused this change" description={error()} /></Show>
       <ScreenRegion state={mission.state()} onRetry={() => void mission.refresh({ force: true })} emptyTitle="Mission not found" emptyDescription="It may belong to another workspace.">
         <Show when={current()}>{(m) => <>
-          <FactStrip label="Mission state" items={[
+          <StatGrid compact stats={[
             { label: "State", value: `${m().state}${m().pauseReason ? ` (${m().pauseReason})` : ""}${m().outcome ? ` · ${m().outcome}` : ""}`, hint: `Brief version ${m().briefVersion}`, icon: "lucide-flag" },
             { label: "Spend", value: `${m().usage.settledMicroUsd + m().usage.reservedMicroUsd}${m().budget.maxMicroUsd !== undefined ? ` / ${m().budget.maxMicroUsd}` : ""} µUSD`, hint: `${m().usage.runningMembers} of ${m().budget.memberCap} members running`, icon: "lucide-wallet" },
             { label: "Autonomy", value: m().autonomyPolicy.preset ?? "custom", hint: `${m().autonomyPolicy.operations.length} operations · policy v${m().autonomyPolicy.version}`, icon: "lucide-shield" },
           ]} />
           <NextStep mission={m()} tab={tab()} />
-          <nav aria-label="Mission views" class="flex flex-wrap gap-1 border-b border-outline-gray-1 pb-2">
-            <For each={TABS}>{(entry) => <Button size="sm" variant={tab() === entry.id ? "solid" : "ghost"} theme={tab() === entry.id ? "blue" : "gray"} aria-current={tab() === entry.id ? "page" : undefined}
-              onClick={() => void navigate(missionHref(app.workspaceId(), m().missionId, entry.id))}>{entry.label}</Button>}</For>
-          </nav>
+          <TabButtons label="Mission views" value={tab()} wrap onValueChange={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}
+            options={TABS.map((entry) => ({ value: entry.id, label: entry.label }))} />
           <Switch>
             <Match when={tab() === "live"}><LiveTab mission={m()} onAct={act} busy={busy()} /></Match>
             <Match when={tab() === "team"}><TeamTab mission={m()} /></Match>
@@ -232,7 +230,7 @@ function LiveTab(props: ActProps): JSX.Element {
         </ScreenRegion>
       </WorkspaceSection>
       <WorkspaceSection title="Messages" description="Reaches the coordinator or one member's running session when its engine can be steered. A message never approves anything." actions={<Button variant="solid" theme="blue" iconLeft="lucide-send" disabled={props.mission.state === "closed"} onClick={() => setComposeOpen(true)}>Message the mission</Button>}>
-        <FormSheet open={composeOpen()} onClose={() => setComposeOpen(false)} title="Message the mission" description="A message never approves anything." submit="Send" icon="lucide-send" busy={props.busy} disabled={!body().trim() || props.mission.state === "closed"} onSubmit={() => { if (body().trim() && !props.busy) send(); }}>
+        <FormSheet open={composeOpen()} onClose={() => setComposeOpen(false)} title="Message the mission" centered description="A message never approves anything." submit="Send" icon="lucide-send" busy={props.busy} disabled={!body().trim() || props.mission.state === "closed"} onSubmit={() => { if (body().trim() && !props.busy) send(); }}>
         <Select label="Recipient" value={recipient()} onValueChange={(value) => setRecipient(value ?? "mission")}
           options={[{ value: "mission", label: "The mission (coordinator)" }, ...(team.state().data?.members ?? []).map((entry) => ({ value: entry.memberId, label: `${entry.role} (${entry.memberId})` }))]} />
         <Textarea label="Message" required value={body()} onInput={(event) => setBody(event.currentTarget.value)} placeholder="Prioritise the login flow" />
@@ -314,7 +312,7 @@ function PlanTab(props: ActProps): JSX.Element {
   const [rejecting, setRejecting] = createSignal(false);
   return <PageStack>
     <WorkspaceSection title="Plan version" description="Confirmed work and any proposal waiting for a person.">
-      <Show when={confirmed()} fallback={<EmptyPreview icon="lucide-list-tree" title="No confirmed plan yet" description="Prepare a plan proposal below, or open one an agent proposed from Needs you." />}>
+      <Show when={confirmed()} fallback={<EmptyState size="sm" icon="lucide-list-tree" title="No confirmed plan yet" description="Prepare a plan proposal below, or open one an agent proposed from Needs you." />}>
         {(plan) => <p class="text-interface">Revision {plan().revision} · {plan().tasks.length} tasks{plan().team?.length ? ` · ${plan().team!.length} members` : ""}</p>}
       </Show>
       <Show when={versions.state().data?.proposal}>{(p) => <section class="mt-3 rounded-control border border-outline-gray-2 p-3" aria-label="Plan proposal">
@@ -380,7 +378,7 @@ function BriefTab(props: ActProps): JSX.Element {
       <WorkspaceSection title="Accepted decisions" description="Immutable entries; a later decision supersedes, never edits." actions={<Button variant="outline" iconLeft="lucide-plus" onClick={() => setDecideOpen(true)}>Accept a decision</Button>}>
         <ul class="flex flex-col gap-2"><For each={b().decisions}>{(entry) => <li class={entry.supersededBy ? "text-ink-gray-5 line-through" : ""}>
           {entry.statement} <span class="text-caption text-ink-gray-6">· {entry.source.kind} · accepted by {entry.acceptedBy} in v{entry.introducedInVersion}</span></li>}</For></ul>
-        <FormSheet open={decideOpen()} onClose={() => setDecideOpen(false)} title="Accept a decision" description="Decisions are immutable; a later one supersedes it." submit="Accept decision" busy={props.busy} disabled={!decision().trim()} onSubmit={() => { if (decision().trim() && !props.busy) return acceptDecision(b()); }}>
+        <FormSheet open={decideOpen()} onClose={() => setDecideOpen(false)} title="Accept a decision" centered description="Decisions are immutable; a later one supersedes it." submit="Accept decision" busy={props.busy} disabled={!decision().trim()} onSubmit={() => { if (decision().trim() && !props.busy) return acceptDecision(b()); }}>
           <TextInput label="New decision" required value={decision()} onInput={(event) => setDecision(event.currentTarget.value)} />
         </FormSheet>
       </WorkspaceSection>

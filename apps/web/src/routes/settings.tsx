@@ -9,7 +9,7 @@ import { OrganizationAuthPolicy, OrganizationInvitations, OrganizationMemberSele
 import type { JSX } from "solid-js";
 import { For, Show, createSignal, onMount } from "solid-js";
 import { Badge, Button, KeyValue, TextInput } from "@talelk/newui-atoms";
-import { Alert, Dialog, Pagination, Select } from "@talelk/newui-molecules";
+import { Alert, Dialog, Pagination, Select, EmptyState } from "@talelk/newui-molecules";
 import { useSearchParams } from "@solidjs/router";
 import { BrainPage, PageStack, TechnicalDetails } from "../ui/components/PageLayout";
 import type { AuditEntry, HealthView, MemberGrantView, ConfigExplanation, OrganizationSessionView } from "@brain/contracts";
@@ -17,9 +17,8 @@ import { DateText, ScreenRegion } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
 import { formatDateTime } from "../ui/format";
 import { ActionFeedback } from "../ui/components/ActionFeedback";
-import { RefreshButton } from "../ui/components/primitives";
-import { EmptyPreview, FactStrip, Freshness, WorkspaceSection } from "../ui/components/Domain";
-import { StatusBadge } from "../ui/components/StatusBadge";
+import { Freshness, WorkspaceSection } from "../ui/components/Domain";import { StatusBadge } from "../ui/components/StatusBadge";
+import { StatGrid } from "@talelk/newui-organisms";
 
 const SETTINGS_PAGE_SIZE = 25;
 
@@ -70,7 +69,7 @@ export function SettingsScreen(props: {
   const auditPageCount = () => Math.max(1, Math.ceil(props.audit.length / SETTINGS_PAGE_SIZE));
   const currentAuditPage = () => Math.min(auditPage(), auditPageCount());
   const auditRows = () => props.audit.slice((currentAuditPage() - 1) * SETTINGS_PAGE_SIZE, currentAuditPage() * SETTINGS_PAGE_SIZE);
-  return <BrainPage title={page().title} description={page().description} actions={<RefreshButton onClick={props.onRefresh} label="Refresh" />}>
+  return <BrainPage title={page().title} description={page().description} actions={<Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button>}>
     <PageStack>
       <Show when={tab() === "setup" && organizationAdmin()}><LocalModelSetup /></Show>
       <Show when={tab() === "security"}><SecurityAndIntegrations area="security" /></Show>
@@ -133,7 +132,7 @@ function InspectRelease(props: { activeConfigDigest?: string; onActivate: (diges
   const current = () => releases().find((release) => release.digest === digest());
   const active = () => releases().find((release) => release.active);
   return <PageStack>
-    <FactStrip label="Release management summary" items={[
+    <StatGrid compact stats={[
       { label: "Active source", value: <span class="break-all">{active()?.sourceRevision ?? "No active release"}</span>, hint: active() ? "Currently activated source commit" : "Activate an inspected candidate first", icon: "lucide-git-branch" },
       { label: "Candidates", value: String(releases().length), hint: "Immutable staged releases", icon: "lucide-package" },
       { label: "Selected", value: current()?.active ? "Active" : current() ? "Candidate" : "None", hint: current() ? `${current()!.workflows} workflows · ${current()!.agents} agents` : "Choose a staged release", icon: "lucide-scan-search" },
@@ -141,7 +140,7 @@ function InspectRelease(props: { activeConfigDigest?: string; onActivate: (diges
     ]} />
     <div class="grid gap-2 border-y border-outline-gray-1 py-3 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-end"><Select label="Staged release" value={digest() || null} options={releases().map((release) => ({ value: release.digest, label: `${release.workflows} Workflows · ${release.agents} Agents${release.active ? " · active" : ""}`, description: `${formatDateTime(release.createdAt)} · ${release.digest}` }))} onValueChange={(value) => { setDigest(value ?? ""); setInspection(undefined); }} /><Button size="sm" variant="outline" class="justify-self-start" onClick={() => void loadReleases()}>Refresh</Button><Button variant="outline" class="justify-self-start" onClick={() => void inspect()} disabled={!digest() || busy()} loading={busy()}>Inspect selected release</Button></div>
     <Show when={current()}>{(release) => <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-interface text-ink-gray-7"><span class="min-w-0 break-all">Source {release().sourceRevision}</span><span>{release().assets} supporting assets</span><Freshness value={release().createdAt} label="Staged" /></div>}</Show>
-    <Show when={!releases().length && !error()}><EmptyPreview icon="lucide-package" title="No staged releases" description="Compile the complete starter directory, then refresh this list. Activation is never inferred from compilation." /></Show>
+    <Show when={!releases().length && !error()}><EmptyState size="sm" icon="lucide-package" title="No staged releases" description="Compile the complete starter directory, then refresh this list. Activation is never inferred from compilation." /></Show>
     <Show when={inspection()} keyed>{(release) => <PageStack><div class="border-y border-outline-gray-1 py-3"><h3 class="text-base-medium">Candidate contents</h3><ul class="mt-2 grid gap-2 sm:grid-cols-2"><For each={release.manifest.documents ?? []}>{(document) => <li class="min-w-0 break-words text-interface text-ink-gray-7"><strong>{document.kind}</strong> · <span class="break-all">{document.id}</span></li>}</For></ul></div><TechnicalDetails label="Technical manifest and digest"><p class="break-all">{release.digest}</p><pre class="brain-readable mt-3 max-h-96 max-w-full overflow-auto whitespace-pre-wrap break-all text-caption">{JSON.stringify(release.manifest, null, 2)}</pre></TechnicalDetails><Alert theme="amber" variant="outline" title="High-risk activation" description="Activation changes the active release only after exact authorization and expected-active-digest validation. It does not claim runtime gate evidence." /><Button variant="solid" theme="blue" iconLeft="lucide-check" class="self-start" disabled={busy()} onClick={async () => { setBusy(true); setError(undefined); try { await props.onActivate(release.digest, release.expectedActiveDigest); setInspection(undefined); setError({ text: "Release activated. Inspect Agents and Workflows to continue.", tone: "success" }); await loadReleases(); } catch (reason) { setError({ text: reason instanceof Error ? reason.message : "Activation failed", tone: "error" }); } finally { setBusy(false); } }}>Activate inspected release</Button></PageStack>}</Show>
     <ActionFeedback tone={error()?.tone} message={error()?.text} title={error()?.tone === "success" ? "Release active" : undefined} />
     <TechnicalDetails label="Compile a new release"><p>Compile the complete directory, including Markdown instructions, tool scripts, and schemas:</p><code class="mt-2 block break-all">brain config compile examples/v1/starter-release</code></TechnicalDetails>
@@ -151,7 +150,7 @@ function InspectRelease(props: { activeConfigDigest?: string; onActivate: (diges
 function SecurityAndIntegrations(props: { area: "security" | "integrations" }) {
   const app = useApp(); const [enrollOpen, setEnrollOpen] = createSignal(false); const [password, setPassword] = createSignal(""); const [message, setMessage] = createSignal(""); const [failed, setFailed] = createSignal(false);
   return <PageStack>
-    <Show when={props.area === "security"}><PageStack><FactStrip label="Account security posture" items={[
+    <Show when={props.area === "security"}><PageStack><StatGrid compact stats={[
       { label: "Authenticator", value: app.identity()?.totpEnrolled ? "Enrolled" : "Not enrolled", hint: app.identity()?.requireTwoFactor ? "Required by organization policy" : "Optional for sign-in", icon: "lucide-shield-check" },
       { label: "Approval step-up", value: app.identity()?.requireTwoFactor ? "TOTP required" : "Session evidence", hint: "Bound to the exact action", icon: "lucide-key-round" },
       { label: "Recovery", value: app.identity()?.recoveryRequired ? "Replacement required" : "Available", hint: "Recovery sign-in does not authorize effects", icon: "lucide-life-buoy" },

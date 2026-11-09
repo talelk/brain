@@ -16,7 +16,6 @@ import { StructuredOutputView } from "./StructuredOutputView";
 import { BrainPage, TechnicalDetails } from "./PageLayout";
 import { ReasonDialog } from "./ReasonDialog";
 import { DetailAside, WorkspaceSection } from "./Domain";
-
 /**
  * The run inspector (T60): state, attempts, evidence and placement for one
  * run, linked out to the execution surfaces. It deliberately does not

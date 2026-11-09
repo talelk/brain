@@ -352,6 +352,9 @@ importers:
       '@talelk/newui-atoms':
         specifier: 1.4.0
         version: 1.4.0(solid-js@1.9.17)
+      '@talelk/newui-data':
+        specifier: 1.1.0
+        version: 1.1.0(solid-js@1.9.17)
       '@talelk/newui-molecules':
         specifier: 2.4.0
         version: 2.4.0(solid-js@1.9.17)
@@ -2243,6 +2246,11 @@ packages:
     peerDependencies:
       solid-js: ^1.9.0
 
+  '@talelk/newui-data@1.1.0':
+    resolution: {integrity: sha512-MY0DieadDy2n1rMJ+HDR1w+EzUWhtpvl+D8VR7kq9wnHZ3GFy4/GiptFV3qzdFU2E62IkZV7P97EbguLuNfMQw==}
+    peerDependencies:
+      solid-js: ^1.9.0
+
   '@talelk/newui-molecules@2.4.0':
     resolution: {integrity: sha512-pS3p4x5wTHPSsN+23tTkrsirxgtycH8ee4Ltey6nqyzqB5Fi1Zuo4HKgmMS1tQtSGfuXwvc3CNLvS0Iwl/fpjA==}
     peerDependencies:
@@ -2278,10 +2286,18 @@ packages:
     resolution: {integrity: sha512-y/xtNPNt/YeyoVxE/JCx+T7yjEzpezmbb+toK8DDD1P4m7Kzs5YR956+7OKexG3f8aXgC3rLZl7b1V+yNUSy5w==}
     engines: {node: '>=18'}
 
+  '@tanstack/query-core@5.107.1':
+    resolution: {integrity: sha512-PSyAik11oQBEVOiVy5hjZWHmoUqOXqK1WYy4v55mcxozEfKaQgpUMsgnXhWjuESzSht8JfzqMS1m6M/9CpNgvg==}
+
   '@tanstack/solid-form@1.33.5':
     resolution: {integrity: sha512-azYHYzNwop64bedJRKgjCpi5w9cHu7cNz+dAdSXzaqy9M6JO+GlKNQn54VFhCLYJo45sgNjcdrnz4eyTmgzJ/w==}
     peerDependencies:
       solid-js: '>=1.9.9'
+
+  '@tanstack/solid-query@5.107.1':
+    resolution: {integrity: sha512-ZqwDSKk/DtKblv+09XUgrbHENvTzZvyEQK5E19j8QTrjcW2jw+bLitLdtfayC83rWNMQvkzsCqGnOj+SWnBD2w==}
+    peerDependencies:
+      solid-js: ^1.6.0
 
   '@tanstack/solid-store@0.11.2':
     resolution: {integrity: sha512-lscar3xeRKfs/RQBcZjR9NG55sfMP5Pb8S/URohUqcnSB8Yu19JLE/hPjfSd7pKmCpjYq1ZbjqtpIc5bDE1lAQ==}
@@ -6827,6 +6843,12 @@ snapshots:
       solid-js: 1.9.17
       tailwind-merge: 3.7.0
 
+  '@talelk/newui-data@1.1.0(solid-js@1.9.17)':
+    dependencies:
+      '@tanstack/solid-form': 1.33.5(solid-js@1.9.17)
+      '@tanstack/solid-query': 5.107.1(solid-js@1.9.17)
+      solid-js: 1.9.17
+
   '@talelk/newui-molecules@2.4.0(solid-js@1.9.17)':
     dependencies:
       '@internationalized/date': 3.12.4
@@ -6887,10 +6909,17 @@ snapshots:
 
   '@tanstack/pacer-lite@0.1.1': {}
 
+  '@tanstack/query-core@5.107.1': {}
+
   '@tanstack/solid-form@1.33.5(solid-js@1.9.17)':
     dependencies:
       '@tanstack/form-core': 1.33.5
       '@tanstack/solid-store': 0.11.2(solid-js@1.9.17)
+      solid-js: 1.9.17
+
+  '@tanstack/solid-query@5.107.1(solid-js@1.9.17)':
+    dependencies:
+      '@tanstack/query-core': 5.107.1
       solid-js: 1.9.17
 
   '@tanstack/solid-store@0.11.2(solid-js@1.9.17)':

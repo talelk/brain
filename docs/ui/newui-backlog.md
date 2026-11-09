@@ -32,15 +32,16 @@ change + changeset + publish in that repo, then bump the exact pins in
    rounded-control bg-surface-blue-2 text-ink-blue-8`) is reimplemented four
    times in Brain (`today.tsx`, `workspace.tsx`, `SessionFeed.tsx`) and
    belongs in `newui-atoms` next to Badge, with tone props.
-6. **Alert success tone.** `Alert` themes cover red/amber/blue/green but the
-   success idiom (`ActionFeedback`) still needs a documented green `status`
-   (not `alert`) role so success messages aren't announced as errors.
+
 7. **EmptyState guidance slot.** Brain's first-run/no-workspace fallbacks
    hand-roll cards (`app.tsx:197-203`) because `EmptyState` lacks a
    multi-step guidance/children region for setup checklists.
-8. **Dialog side-sheet position.** The spec documents `Dialog.Content position="end"`
-   (inline-end drawer) but the published `@talelk/newui-molecules@2.3.0` only has
-   `center | top`. Brain's `FormSheet` (`ui/components/BrainForm.tsx`) restyles a
-   Dialog through a `.brain-sheet` marker in `index.css`; replace it with
-   `position="end"` once published.
+
+Resolved by the NewUI 1.4/2.4/2.3/1.2 release set and adopted in Brain:
+`Dialog position="end"` side sheet (`FormSheet`), `Alert` status role for
+non-error tones, `ConfigForm` (schema-driven workflow input), `Stepper`
+(guided task entry), `Collapsible` (technical details), `Section`, `StatGrid`
+and `EmptyState`. Items 2–5 and 7 are checked against 2.4.0/2.3.0 and still open
+(`CommandPalette` has only a `loading` flag, `DataState` has no `detail`
+skeleton, `KanbanBoard` has no card slots, `EmptyState` takes no guidance body).
 

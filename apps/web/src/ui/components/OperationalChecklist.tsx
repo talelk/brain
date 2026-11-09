@@ -8,8 +8,8 @@ import { createScopedRead } from "../../data/screens";
 import { DateText, ScreenRegion } from "../screen-region";
 import { titleize } from "../format";
 import { StatusBadge } from "./StatusBadge";
-import { FactStrip, WorkspaceSection } from "./Domain";
-
+import { WorkspaceSection } from "./Domain";
+import { StatGrid } from "@talelk/newui-organisms";
 export function OperationalChecklist() {
   const app = useApp();
   const navigate = useNavigate();
@@ -31,7 +31,7 @@ export function OperationalChecklist() {
 
   return <WorkspaceSection title="Workspace and platform setup" description="Readiness is verified per prerequisite. Each action opens the owning flow instead of repeating a generic Resolve control.">
     <ScreenRegion state={check.state()} onRetry={() => void check.refresh()} emptyTitle="Readiness unavailable" emptyDescription="Select an accessible workspace.">
-      <FactStrip label="Current readiness" items={[
+      <StatGrid compact stats={[
         { label: "Ready checks", value: String(check.state().data?.checks.filter((item) => item.status === "ready").length ?? 0), hint: "Verified by Governor", icon: "lucide-circle-check" },
         { label: "Missing gates", value: String(check.state().data?.checks.filter((item) => item.status === "missing").length ?? 0), hint: "Setup cannot be called ready", icon: "lucide-circle-alert" },
         { label: "Unverified", value: String(check.state().data?.checks.filter((item) => item.status === "unverified").length ?? 0), hint: "Requires real verification", icon: "lucide-circle-help" },

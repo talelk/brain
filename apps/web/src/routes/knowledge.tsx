@@ -6,7 +6,7 @@ import type { JSX } from "solid-js";
 import { For, Show, createSignal } from "solid-js";
 import { A, useNavigate } from "@solidjs/router";
 import { Badge, Button, KeyValue, TextInput, createMediaQuery as mediaQuery } from "@talelk/newui-atoms";
-import { Alert, Dialog, Select } from "@talelk/newui-molecules";
+import { Alert, Dialog, Select, EmptyState } from "@talelk/newui-molecules";
 import { PaneLayout } from "@talelk/newui-templates";
 import type { Classification, MemoryResult, MemoryScope, ToolCatalogEntry, ToolCandidateView } from "@brain/contracts";
 import { ScreenRegion, DateText } from "../ui/screen-region";
@@ -16,9 +16,8 @@ import { BrainPage, PageStack, TechnicalDetails } from "../ui/components/PageLay
 import { StatusBadge } from "../ui/components/StatusBadge";
 import { ReasonDialog } from "../ui/components/ReasonDialog";
 import { ArtifactView } from "../ui/outputs/ArtifactView";
-import { LIST_PAGE_SIZE as PAGE_SIZE, Pager, RefreshButton } from "../ui/components/primitives";
-import { EmptyPreview, FactStrip, QueueRow, WorkspaceSection } from "../ui/components/Domain";
-
+import { LIST_PAGE_SIZE as PAGE_SIZE, Pager } from "../ui/components/primitives";import { QueueRow, WorkspaceSection } from "../ui/components/Domain";
+import { StatGrid } from "@talelk/newui-organisms";
 export interface MemoryPublicationInput {
   candidateId: string;
   sourceWorkspaceId: string;
@@ -171,7 +170,7 @@ export function KnowledgeScreen(props: {
             <Show
               when={results().length}
               fallback={
-                <EmptyPreview icon="lucide-filter" title="No results in this scope" description="Choose another returned scope or run a broader search." />
+                <EmptyState size="sm" icon="lucide-filter" title="No results in this scope" description="Choose another returned scope or run a broader search." />
               }
             >
               <div class="min-w-0 divide-y divide-outline-gray-1 border-y border-outline-gray-1">
@@ -402,7 +401,7 @@ export function ToolsScreen(props: {
       description="Inspect what each tool can do, its effect class, typed contracts and proof before proposal or publication."
       actions={
         <>
-          <RefreshButton onClick={props.onRefresh} label="Refresh" />
+          <Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button>
           <Show when={props.canPublish}>
             <Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setProposeOpen(true)}>
               Propose tool
@@ -412,9 +411,8 @@ export function ToolsScreen(props: {
       }
     >
       <PageStack>
-        <FactStrip
-          label="Tool registry summary"
-          items={[
+        <StatGrid compact
+          stats={[
             {
               label: "Trusted",
               value: String(props.tools.filter((tool) => tool.status === "trusted").length),
@@ -481,7 +479,7 @@ export function ToolsScreen(props: {
                 when={current()}
                 keyed
                 fallback={
-                  <EmptyPreview
+                  <EmptyState size="sm"
                     icon="lucide-wrench"
                     title="Select a tool"
                     description="Its effect, typed schemas, target-independent risk and test evidence will appear here."

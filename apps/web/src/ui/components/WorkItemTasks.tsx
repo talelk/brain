@@ -9,7 +9,6 @@ import { jobsQuery } from "../../data/governor";
 import { ScreenRegion } from "../screen-region";
 import { StatusBadge } from "./StatusBadge";
 import { WorkspaceSection } from "./Domain";
-
 /** Run correlation row: job and session ids as the server resolved them. The
  * sessionId field trails in the generated contract until contract
  * regeneration; the Governor already resolves the attempt-bound session. */

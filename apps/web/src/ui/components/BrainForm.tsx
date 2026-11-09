@@ -1,6 +1,7 @@
 import { Show } from "solid-js";
 import type { JSX, ParentProps } from "solid-js";
 import { Button } from "@talelk/newui-atoms";
+import { Form } from "@talelk/newui-data/form";
 import { Alert, Dialog } from "@talelk/newui-molecules";
 
 /**
@@ -19,11 +20,10 @@ export function BrainForm(props: ParentProps<{
   bare?: boolean;
   class?: string;
 }>): JSX.Element {
-  return <form noValidate aria-label={props.label} data-bare={props.bare ? "true" : undefined} class={`brain-form ${props.class ?? ""}`}
-    onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void props.onSubmit(); }}>
+  return <Form form={{ handleSubmit: props.onSubmit }} aria-label={props.label} data-bare={props.bare ? "true" : undefined} class={`brain-form ${props.class ?? ""}`}>
     {props.children}
     <Show when={props.error}><Alert theme="red" variant="outline" title={props.errorTitle ?? "Not saved"} description={props.error} /></Show>
-  </form>;
+  </Form>;
 }
 
 /** Two fields side by side from `lg` up; one column below. */
@@ -60,10 +60,12 @@ export function FormSheet(props: ParentProps<{
   errorTitle?: string;
   size?: "md" | "lg" | "xl";
   theme?: "blue" | "red";
+  /** Create forms are a centred dialog; editing a record opens the side sheet (NewUI `Dialog` guidance). */
+  centered?: boolean;
 }>): JSX.Element {
   return <Dialog.Root open={props.open} onOpenChange={(open) => { if (!open) props.onClose(); }}>
-    <Dialog.Content size={props.size ?? "lg"} position="end">
-      <form noValidate aria-label={props.title} class="contents" onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void props.onSubmit(); }}>
+    <Dialog.Content size={props.centered ? (props.size ?? "md") : (props.size ?? "lg")} position={props.centered ? "center" : "end"}>
+      <Form form={{ handleSubmit: props.onSubmit }} aria-label={props.title} class="contents">
         <Dialog.Header><Dialog.Title>{props.title}</Dialog.Title><Show when={props.description}><Dialog.Description>{props.description}</Dialog.Description></Show></Dialog.Header>
         <div class="flex min-w-0 flex-col gap-4 py-3">
           {props.children}
@@ -73,7 +75,7 @@ export function FormSheet(props: ParentProps<{
           <Button type="button" variant="outline" disabled={props.busy} onClick={props.onClose}>Cancel</Button>
           <Button type="submit" variant="solid" theme={props.theme ?? "blue"} iconLeft={props.icon} loading={props.busy} disabled={props.busy || props.disabled}>{props.submit}</Button>
         </Dialog.Footer>
-      </form>
+      </Form>
     </Dialog.Content>
   </Dialog.Root>;
 }

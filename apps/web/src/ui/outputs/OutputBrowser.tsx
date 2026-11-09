@@ -1,15 +1,13 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { Button } from "@talelk/newui-atoms";
-import { Select } from "@talelk/newui-molecules";
+import { Select, EmptyState } from "@talelk/newui-molecules";
 import { PaneLayout } from "@talelk/newui-templates";
 import type { ExecutionLink } from "@brain/contracts";
 import { ScreenRegion } from "../screen-region";
 import type { ScreenState } from "../../data/screens";
 import { shortDigest } from "../format";
-import { LIST_PAGE_SIZE, Pager } from "../components/primitives";
-import { EmptyPreview, WorkspaceSection } from "../components/Domain";
-import { PageStack } from "../components/PageLayout";
+import { LIST_PAGE_SIZE, Pager } from "../components/primitives";import { WorkspaceSection } from "../components/Domain";import { PageStack } from "../components/PageLayout";
 import type { ArtifactHistory, ArtifactRef } from "../../data/exec-outputs";
 import { ArtifactView, previewKindOf } from "./ArtifactView";
 import { ArtifactMetaStrip, OutputHistory } from "./OutputHistory";
@@ -131,7 +129,7 @@ export function OutputBrowser(props: {
         when={props.selectedId}
         keyed
         fallback={
-          <EmptyPreview
+          <EmptyState size="sm"
             icon="lucide-package"
             title="Select an artifact"
             description="Its preview, source, producer, verification and history appear here without leaving the browser."
@@ -294,7 +292,7 @@ function ArtifactRow(props: {
 
 function OpenDetailHint(props: { artifactId: string; onOpenDetail: (artifactId: string) => void }): JSX.Element {
   return (
-    <EmptyPreview
+    <EmptyState size="sm"
       icon="lucide-package"
       title="Artifact outside this page"
       description="The linked artifact is not in the current list. Open it in the workspace-free artifact detail view."

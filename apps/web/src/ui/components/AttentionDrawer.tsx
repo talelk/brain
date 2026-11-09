@@ -11,7 +11,6 @@ import { ScreenRegion } from "../screen-region";
 import { formatDateTime } from "../format";
 import { missionHref } from "../mission-links";
 import { QueueRow, WorkspaceSection } from "./Domain";
-
 export const TIER_TONE: Record<number, "red" | "amber" | "blue" | "green" | "gray"> = { 1: "red", 2: "amber", 3: "blue", 4: "green", 5: "gray" };
 const KIND_ICON: Record<AttentionItem["kind"], string> = {
   approval: "lucide-shield-check", "budget-pause": "lucide-wallet", "needs-attention": "lucide-octagon-alert",

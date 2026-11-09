@@ -11,8 +11,7 @@ import { StreamFilterBar } from "../exec/StreamFilterBar";
 import { streamSummaryText } from "../exec/StreamEventRow";
 import { CorrelationChips, CorrelationLink } from "../exec/CorrelationLink";
 import type { ExecLogFilters } from "../exec/exec-filters";
-import { DisclosureCard, PaneResizer, clampPaneSize } from "../components/primitives";
-import { RelativeTime } from "../screen-region";
+import { DisclosureCard, PaneResizer, clampPaneSize } from "../components/primitives";import { RelativeTime } from "../screen-region";
 import { consoleSplit, feedScroll, setConsoleSplit, setFeedScroll } from "./ConsoleStore";
 import type { ConsoleSplit } from "./ConsoleStore";
 

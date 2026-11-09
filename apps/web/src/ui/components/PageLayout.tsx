@@ -1,6 +1,6 @@
 import { For, Show } from "solid-js";
 import type { JSX, ParentProps } from "solid-js";
-import { Alert } from "@talelk/newui-molecules";
+import { Alert, Collapsible } from "@talelk/newui-molecules";
 
 export { BrainPage } from "../page-context";
 
@@ -9,10 +9,10 @@ export function PageStack(props: ParentProps): JSX.Element {
 }
 
 export function TechnicalDetails(props: ParentProps<{ label?: string }>): JSX.Element {
-  return <details class="brain-technical-details">
-    <summary class="cursor-pointer rounded-control text-caption font-medium text-ink-gray-7 focus-visible:focus-ring">{props.label ?? "Technical details"}</summary>
-    <div class="mt-3 min-w-0 text-caption text-ink-gray-7">{props.children}</div>
-  </details>;
+  return <Collapsible.Root class="brain-technical-details">
+    <Collapsible.Trigger>{props.label ?? "Technical details"}</Collapsible.Trigger>
+    <Collapsible.Content><div class="min-w-0 pt-2 text-caption text-ink-gray-7">{props.children}</div></Collapsible.Content>
+  </Collapsible.Root>;
 }
 
 export function ErrorSummary(props: { title?: string; errors: string[] }): JSX.Element {

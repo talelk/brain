@@ -1,7 +1,6 @@
 import { Show, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
-import { Button } from "@talelk/newui-atoms";
-import { Pagination } from "@talelk/newui-molecules";
+import { Collapsible, Pagination } from "@talelk/newui-molecules";
 
 /**
  * The shared screen-building blocks. Every card grid, list row, field grid and
@@ -11,11 +10,6 @@ import { Pagination } from "@talelk/newui-molecules";
 
 /* Shared actions use compact md/sm controls; xs is reserved for inline utilities. */
 
-/** One bordered surface card; the standard container for grouped content. */
-export function CardTile(props: { children: JSX.Element; wide?: boolean; class?: string; onClick?: () => void }): JSX.Element {
-  return <article class={`min-w-0 rounded-card border border-outline-gray-1 bg-surface-elevation-1 ${props.wide ? "p-card-pad-wide" : "p-card-pad"} ${props.class ?? ""}`}>{props.children}</article>;
-}
-
 /* Row lists and field grids use the shared `.brain-row-list` / `.brain-field-grid` classes (index.css). */
 
 /** A selectable master-list item (plans missions, resources). */
@@ -23,11 +17,6 @@ export function SelectableListItem(props: { selected?: boolean; onClick: () => v
   return <button type="button"
     class={`min-w-0 rounded-control border p-2.5 text-start focus-visible:focus-ring ${props.selected ? "border-outline-blue-2 bg-surface-blue-1" : "border-outline-gray-2"} ${props.class ?? ""}`}
     onClick={props.onClick}>{props.children}</button>;
-}
-
-/** The shared compact header refresh affordance. */
-export function RefreshButton(props: { onClick: () => void; label?: string; busy?: boolean }): JSX.Element {
-  return <Button variant="outline" iconLeft="lucide-refresh-cw" loading={props.busy} onClick={props.onClick}>{props.label ?? "Refresh"}</Button>;
 }
 
 /** Tinted icon square used in list rows and queue tiles. */
@@ -40,12 +29,12 @@ export function IconTile(props: { icon: string; tone?: "blue" | "gray" | "green"
   return <span class={`grid ${props.size === "lg" ? "size-9" : "size-8"} shrink-0 place-items-center rounded-control ${props.tone ? tones[props.tone] : tones.blue}`}><span class={`${props.icon} ${props.size === "lg" ? "size-4.5" : "size-4"}`} aria-hidden="true" /></span>;
 }
 
-/** The styled disclosure for exact payloads and technical detail. */
+/** Exact payloads and technical detail behind a NewUI `Collapsible`. */
 export function DisclosureCard(props: { label: string; children: JSX.Element; open?: boolean }): JSX.Element {
-  return <details class="min-w-0 rounded-control border border-outline-gray-1 p-card-pad-compact" open={props.open}>
-    <summary class="cursor-pointer break-words text-base-medium focus-visible:focus-ring">{props.label}</summary>
-    <div class="mt-2 min-w-0">{props.children}</div>
-  </details>;
+  return <Collapsible.Root defaultOpen={props.open} class="min-w-0 rounded-control border border-outline-gray-1 p-card-pad-compact">
+    <Collapsible.Trigger>{props.label}</Collapsible.Trigger>
+    <Collapsible.Content><div class="min-w-0 pt-2">{props.children}</div></Collapsible.Content>
+  </Collapsible.Root>;
 }
 
 /** The Brain brand mark: blue square "B" + optional wordmark. */

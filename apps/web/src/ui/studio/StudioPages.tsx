@@ -61,7 +61,7 @@ export function StudioListPage(): JSX.Element {
     actions={<Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => { setError(""); setCreateOpen(true); }}>New draft</Button>}>
     <PageStack>
       <Show when={kind() === "Agent"}><AgentCatalog /></Show>
-      <FormSheet open={createOpen()} onClose={() => setCreateOpen(false)} title="New draft" description={kind() === "Workflow" ? "Start with visual jobs or restricted YAML. Publication never edits the active release directly." : kind() === "Agent" ? "Start with the agent contract and versioned instructions, then validate the complete release before publication." : "Author a reviewed definition with restricted YAML, validation, diff and explicit publication."}
+      <FormSheet open={createOpen()} onClose={() => setCreateOpen(false)} title="New draft" centered description={kind() === "Workflow" ? "Start with visual jobs or restricted YAML. Publication never edits the active release directly." : kind() === "Agent" ? "Start with the agent contract and versioned instructions, then validate the complete release before publication." : "Author a reviewed definition with restricted YAML, validation, diff and explicit publication."}
         submit="Create draft" icon="lucide-plus" busy={busy()} onSubmit={create} error={error()} errorTitle="Draft creation failed">
         <TextInput label="Definition title" required value={title()} onInput={(event) => setTitle(event.currentTarget.value)} error={attempted() && !title().trim() ? "Give the draft a title." : undefined} placeholder="Operations workflow" />
       </FormSheet>

@@ -10,8 +10,8 @@ import { SchemaForm } from "./SchemaForm";
 import type { InputSchema } from "./SchemaForm";
 import { StructuredOutputView } from "./StructuredOutputView";
 import { ActionFeedback } from "./ActionFeedback";
-import { FactStrip, WorkspaceSection } from "./Domain";
-import { PageStack, TechnicalDetails } from "./PageLayout";
+import { WorkspaceSection } from "./Domain";import { PageStack, TechnicalDetails } from "./PageLayout";
+import { StatGrid } from "@talelk/newui-organisms";
 
 /**
  * Where the guided flow lands after an accepted dispatch. The live console
@@ -64,7 +64,7 @@ export function TaskReview(props: { workflow: WorkflowCatalogEntry; initialInput
     <WorkspaceSection title={title()} description={presentation()?.description ?? "Complete the validated inputs, review the exact task, then start it."} actions={<Button variant="ghost" iconLeft="lucide-arrow-left" onClick={props.onBack}>Back</Button>}>
       <div class="flex flex-wrap gap-2"><Badge variant="outline" theme={external() ? "amber" : "blue"} label={external() ? "Governed external effects" : "Read / draft outcome"} /><Show when={props.origin}><Badge variant="outline" theme="blue" label={`Linked ${props.origin?.kind}: ${props.origin?.id}`} /></Show></div>
     </WorkspaceSection>
-    <FactStrip label="Task launch facts" items={[
+    <StatGrid compact stats={[
       { label: "Workspace", value: workspaceName(), hint: "Authorization and placement scope", icon: "lucide-building-2" },
       { label: "Expected result", value: "Structured output", hint: "Checked against the active output schema", icon: "lucide-package-check" },
       { label: "Cost", value: "Not estimated", hint: "Declared budgets and workspace limits still apply", icon: "lucide-wallet-cards" },
