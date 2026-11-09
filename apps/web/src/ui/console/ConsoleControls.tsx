@@ -8,6 +8,7 @@ import { artifactsListQuery } from "../../data/exec-outputs";
 import type { SessionContinuation, SessionDetail } from "../../data/exec-console";
 import { execLogsUrl } from "../exec/exec-filters";
 import { CorrelationLink } from "../exec/CorrelationLink";
+import { WorkItemLink } from "../exec/WorkItemLink";
 import { streamSummaryText } from "../exec/StreamEventRow";
 import type { FeedEntry } from "./ConsoleFeed";
 import { ArtifactView } from "../outputs/ArtifactView";
@@ -90,20 +91,21 @@ export function ConsoleToolbar(props: {
           <Button size="sm" variant="outline" iconLeft="lucide-paperclip" aria-label="Attach context" onClick={() => { setDialog("attach"); setReason(""); }}>Attach</Button>
         </Show>
         <Button size="sm" variant="outline" aria-label="Open tool result" disabled={!props.selected || props.selected.kind !== "tool"}
-          title={props.selected?.kind === "tool" ? "Resolve this tool call's authorized artifacts" : "Select a tool call in the feed first"}
-          onClick={() => props.onOpenToolResult()}>Tool result</Button>
-        <Button size="sm" variant="outline" iconLeft="lucide-package" aria-label="Inspect current output" onClick={() => props.onInspectOutput()}>Output</Button>
-        <Button size="sm" variant="outline" iconLeft="lucide-shield-check" aria-label="See related approval" onClick={() => void props.onFindApproval()}>Approval</Button>
+          title={props.selected?.kind === "tool" ? "Show the files and output this tool call produced" : "Pick a tool call in the transcript first, then show what it produced"}
+          onClick={() => props.onOpenToolResult()}>Open result</Button>
+        <Button size="sm" variant="outline" iconLeft="lucide-package" aria-label="Inspect current output" title="Preview the newest file this session has produced" onClick={() => props.onInspectOutput()}>Latest file</Button>
+        <Button size="sm" variant="outline" iconLeft="lucide-shield-check" aria-label="See related approval" title="Pick a tool call in the transcript, then see whether a person has to approve it" onClick={() => void props.onFindApproval()}>Needs approval?</Button>
         <Show when={canStop()}>
           <Button size="sm" variant="outline" theme="red" iconLeft="lucide-square" onClick={() => { setDialog("stop"); setReason(""); }}>Stop</Button>
         </Show>
         <Button size="sm" variant="ghost" iconLeft="lucide-refresh-cw" aria-label="Refresh session" onClick={props.onRefresh} />
-        <a class="inline-flex items-center gap-1 rounded-control px-1.5 py-1 text-caption text-ink-blue-link hover:bg-surface-blue-1 focus-visible:focus-ring" aria-label="Open in Logs"
-          href={execLogsUrl(props.workspaceId, { session: props.sessionId, severity: [], emitter: [] })}>Logs</a>
+        <a class="inline-flex items-center gap-1 rounded-control px-1.5 py-1 text-caption text-ink-blue-link hover:bg-surface-blue-1 focus-visible:focus-ring" aria-label="View logs for this session"
+          title="Open the full log of this session"
+          href={execLogsUrl(props.workspaceId, { session: props.sessionId, severity: [], emitter: [] })}>View logs</a>
       </div>
     </div>
-    <Show when={terminal()}><p class="text-caption text-ink-gray-6">Stop requested or session closed — steering is unavailable while stop is pending or after the session becomes terminal.</p></Show>
-    <Show when={!canSteer() && live()}><p class="text-caption text-ink-gray-6">This engine did not negotiate steering (engine features: {features().length > 0 ? features().join(", ") : "none"}), so reconnect-by-steer is unavailable.</p></Show>
+    <Show when={terminal()}><p class="text-caption text-ink-gray-6">This session is stopping or has ended, so it can no longer be steered.</p></Show>
+    <Show when={!canSteer() && live()}><p class="text-caption text-ink-gray-6" title={`Engine features: ${features().length > 0 ? features().join(", ") : "none"}`}>This agent cannot be redirected while it works.</p></Show>
     <Show when={props.feedback}><p role="status" class="text-caption text-ink-gray-7">{props.feedback}</p></Show>
 
     <Show when={dialog() === "steer"}>
@@ -193,12 +195,20 @@ export function InterruptionChooser(props: {
     try { await action(); } finally { setBusy(false); }
   }
 
-  return <Show when={props.session.continuation.reconnectable === false}
-    fallback={<p class="border-b border-outline-gray-1 bg-surface-gray-1 px-3 py-1.5 text-caption text-ink-gray-7">Session is live on its runner — the feed reconnects automatically; Steer is the reconnect operation.</p>}>
+  // Only a session that actually ended badly is an "interruption". A healthy
+  // running session, or one that finished normally with nothing to recover,
+  // shows no banner at all.
+  const interrupted = () => {
+    const { state, continuation } = props.session;
+    if (state === "failed") return true;
+    if (state === "starting" || state === "waiting" || state === "running" && continuation.reconnectable) return false;
+    return suggested().operation !== "none";
+  };
+  return <Show when={interrupted()}>
     <div class="border-b border-outline-gray-1 bg-surface-amber-1 px-3 py-2">
       <div class="flex flex-wrap items-center gap-2">
         <span class="lucide-heart-crack size-4 text-ink-amber-8" aria-hidden="true" />
-        <strong class="text-caption font-medium text-ink-gray-9">Interruption — Brain will perform: {suggested().label}</strong>
+        <strong class="text-caption font-medium text-ink-gray-9">{props.session.state === "failed" ? "This session failed." : "This session was interrupted."} {suggested().operation === "none" ? suggested().label : `Suggested next step: ${suggested().label}`}</strong>
         <Show when={actionable()}>
           <Button size="sm" variant="solid" theme="blue" disabled={busy()} loading={busy() && suggested().operation !== "restart"}
             onClick={() => {
@@ -212,7 +222,7 @@ export function InterruptionChooser(props: {
       <Show when={!actionable() && suggested().operation !== "none"}>
         <p class="mt-1 text-caption text-ink-gray-6">This operation needs an operator authorization{props.session.workItemId ? "" : " and a work item binding (the resume payload requires it)"}.</p>
       </Show>
-      <Show when={feedback}><p role="status" class="mt-1 text-caption text-ink-gray-7">{feedback()}</p></Show>
+      <Show when={feedback()}><p role="status" class="mt-1 text-caption text-ink-gray-7">{feedback()}</p></Show>
       <ReasonDialog open={dialog() === "reconcile"} onClose={() => setDialog("none")}
         title="Reconcile the unknown outcome" description="A named reason is recorded against the exact run and cannot be empty."
         reason={reason()} onReason={setReason} reasonLabel="Reconciliation reason" confirmLabel="Request reconciliation" busy={busy()}
@@ -223,6 +233,11 @@ export function InterruptionChooser(props: {
     </div>
   </Show>;
 }
+
+/** Evidence exists only once the work has ended; while it runs, "no evidence" is expected, not a problem. */
+const checkable = (job: JobSnapshot | undefined, session: SessionDetail | undefined): boolean =>
+  !!job?.evidenceDigest || session?.state === "stopped" || session?.state === "failed"
+  || ["succeeded", "failed", "cancelled", "outcome_unknown"].includes(job?.workflowState ?? job?.state ?? "");
 
 /** Right pane: outputs plus contextual inspection (facts, evidence, approval). */
 export function ConsoleInspection(props: {
@@ -265,7 +280,7 @@ export function ConsoleInspection(props: {
         <div class="min-w-0"><dt class="text-ink-gray-6">Engine</dt><dd class="mt-0.5 break-words text-ink-gray-9">{props.session?.engine.id ?? "—"} {props.session?.engine.version ?? ""}</dd></div>
         <div class="min-w-0"><dt class="text-ink-gray-6">Usage</dt><dd class="mt-0.5 break-words text-ink-gray-9">{(props.session?.usedTokens ?? 0).toLocaleString()} tokens · {formatUsd(props.session?.usedMicroUsd)}</dd></div>
         <div class="min-w-0"><dt class="text-ink-gray-6">Budget</dt><dd class="mt-0.5 break-words text-ink-gray-9">{props.session?.budget.maxTurns ?? "—"} turns · {(props.session?.budget.maxTokens ?? 0).toLocaleString()} tokens</dd></div>
-        <Show when={props.session?.workItemId}><div class="col-span-2 min-w-0"><dt class="text-ink-gray-6">Work item</dt><dd class="mt-0.5 break-all"><a class="text-ink-blue-link hover:underline focus-visible:focus-ring" href={`/w/${props.workspaceId}/board?card=${encodeURIComponent(props.session!.workItemId!)}`}>{props.session!.workItemId}</a></dd></div></Show>
+        <Show when={props.session?.workItemId}><div class="col-span-2 min-w-0"><dt class="text-ink-gray-6">Work item</dt><dd class="mt-0.5 break-all"><WorkItemLink workspaceId={props.workspaceId} workItemId={props.session!.workItemId!} class="text-ink-blue-link hover:underline focus-visible:focus-ring">{props.session!.workItemId}</WorkItemLink></dd></div></Show>
         <Show when={props.session?.jobId}><div class="col-span-2 min-w-0"><dt class="text-ink-gray-6">Run</dt><dd class="mt-0.5"><CorrelationLink target={{ kind: "job", jobId: props.session!.jobId! }} label={props.session!.jobId!} icon="lucide-workflow" class="max-w-full" /></dd></div></Show>
         <div class="col-span-2 min-w-0"><dt class="text-ink-gray-6">Updated</dt><dd class="mt-0.5 text-ink-gray-9"><DateText value={props.session?.updatedAt} /></dd></div>
       </dl>
@@ -296,7 +311,12 @@ export function ConsoleInspection(props: {
       </Show>
     </section>
 
-    <Show when={props.job}>
+    <Show when={props.job && !checkable(props.job, props.session)}>
+      <p class="rounded-control bg-surface-gray-1 px-2.5 py-2 text-caption text-ink-gray-7" aria-label="Verification">
+        <span class="lucide-shield-check me-1 size-3.5 align-text-bottom" aria-hidden="true" />Independent checking of the result starts when this work finishes.
+      </p>
+    </Show>
+    <Show when={props.job && checkable(props.job, props.session)}>
       <section class="flex flex-col gap-2" aria-label="Verification">
         <h3 class="text-base-medium text-ink-gray-9">Verification</h3>
         <EvidenceList bundleDigest={props.job!.evidenceDigest} workspaceId={props.workspaceId}

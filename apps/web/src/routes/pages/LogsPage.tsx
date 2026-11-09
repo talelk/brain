@@ -4,6 +4,7 @@ import { Card, TabButtons } from "@talelk/newui-molecules";
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { LogExplorer } from "../../ui/logs/LogExplorer";
+import { SeverityChart } from "../../ui/logs/SeverityChart";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { jobsQuery } from "../../data/governor";
@@ -25,13 +26,16 @@ export default function LogsPage(): JSX.Element {
   const tab = () => (searchParams.view === "runs" ? "runs" : "logs");
   return <BrainPage
     title="Logs"
-    description="Search the execution and platform stream, or switch to the run index to open any run.">
+    description="See how busy and how healthy your agents have been, search every message, or switch to Runs to open any run.">
     <PageStack>
       <TabButtons label="Logs views" value={tab()} onValueChange={(value) => setSearchParams({ view: value === "runs" ? "runs" : undefined })}
         options={[{ value: "logs", label: "Log explorer" }, { value: "runs", label: "Runs" }]} />
       <Show when={tab() === "runs"} fallback={
-        <div class="flex flex-col" style={{ height: "calc(100dvh - 15rem)", "min-height": "36rem" }}>
-          <Card padding="sm" class="h-full min-h-0"><LogExplorer /></Card>
+        <div class="flex flex-col gap-3">
+          <SeverityChart />
+          <div class="flex flex-col" style={{ height: "calc(100dvh - 15rem)", "min-height": "36rem" }}>
+            <Card padding="sm" class="h-full min-h-0"><LogExplorer /></Card>
+          </div>
         </div>}>
         <RunIndex />
       </Show>
