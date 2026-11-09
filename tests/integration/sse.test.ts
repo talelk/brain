@@ -9,12 +9,16 @@ async function readUntil(reader: ReadableStreamDefaultReader<Uint8Array>, needle
   const decoder = new TextDecoder();
   let buffer = "";
   const deadline = Date.now() + timeoutMs;
+  // Keep one read pending across polling ticks: abandoning a raced read() would swallow the chunk it later receives.
+  let pending: Promise<ReadableStreamReadResult<Uint8Array>> | undefined;
   while (Date.now() < deadline) {
+    pending ??= reader.read();
     const chunk = await Promise.race([
-      reader.read(),
+      pending,
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 500)),
     ]);
     if (chunk === null) continue;
+    pending = undefined;
     if (chunk.done) break;
     buffer += decoder.decode(chunk.value, { stream: true });
     if (buffer.includes(needle)) return buffer;
