@@ -1,8 +1,10 @@
-import { createUniqueId, Show } from "solid-js";
+import { createContext, createUniqueId, Show, useContext } from "solid-js";
 import type { JSX, ParentProps } from "solid-js";
 import { Section } from "@talelk/newui-organisms";
 import { IconTile } from "./primitives";
 import { RelativeTime } from "../screen-region";
+
+const InCard = createContext(false);
 
 /** A page region: NewUI's `Section` (header, actions, body) with a stable accessible name. */
 export function WorkspaceSection(props: ParentProps<{
@@ -10,9 +12,15 @@ export function WorkspaceSection(props: ParentProps<{
   description?: string;
   actions?: JSX.Element;
   class?: string;
+  /** Panels are cards on the canvas; a region nested inside a card is plain unless asked otherwise. */
+  surface?: "card" | "plain" | "inset";
 }>): JSX.Element {
   const id = createUniqueId();
-  return <Section id={id} title={props.title} description={props.description} actions={props.actions} class={props.class}>{props.children}</Section>;
+  const nested = useContext(InCard);
+  const surface = () => props.surface ?? (nested ? "plain" : "card");
+  return <InCard.Provider value={surface() === "card" || nested}>
+    <Section id={id} title={props.title} description={props.description} actions={props.actions} surface={surface()} class={props.class}>{props.children}</Section>
+  </InCard.Provider>;
 }
 
 export function QueueRow(props: {

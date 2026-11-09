@@ -186,15 +186,6 @@
   outline-offset: -2px;
 }
 
-.brain-list-detail [data-slot="pane-start"],
-.brain-list-detail [data-slot="pane-end"] {
-  padding: var(--spacing-2, 0.5rem) var(--spacing-3, 0.75rem);
-}
-
-.brain-list-detail [data-slot="pane-end"] {
-  padding-inline-start: var(--spacing-5, 1.25rem);
-}
-
 .brain-detail-aside {
   display: flex;
   min-width: 0;
@@ -494,3 +485,16 @@
 
 /* Empty states inside a section are a hint, not a hero: compact vertical rhythm. */
 .brain-section [data-slot="empty-state"] { padding-block: 1.25rem; }
+
+/* Master-detail panes: both panes are full-height panels aligned to the page edge. */
+.brain-list-detail [data-slot="pane-start"] { padding: 0; }
+.brain-list-detail [data-slot="pane-end"] { padding-inline-start: 1rem; }
+.brain-list-detail [data-slot="pane-start"] > section,
+.brain-list-detail [data-slot="pane-end"] > section { min-height: 26rem; height: 100%; }
+.brain-list-detail [data-slot="pane-end"] > [data-slot="empty-state"] {
+  min-height: 26rem;
+  justify-content: center;
+  border: 1px solid var(--outline-gray-1);
+  border-radius: var(--radius-card);
+  background: var(--surface-elevation-1);
+}

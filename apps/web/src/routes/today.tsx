@@ -37,7 +37,7 @@ export function BridgeScreen(props: {
           <div class={`grid gap-3 ${ordered().length === 1 ? "max-w-3xl" : "md:grid-cols-2 xl:grid-cols-3"}`}>
             <For each={ordered()}>{(ws) => {
               const attention = ws.pendingApprovals + ws.blockedJobs;
-              return <Card padding="lg" class="flex min-w-0 flex-col gap-3">
+              return <Card padding="lg" class="bg-surface-gray-1 flex min-w-0 flex-col gap-3">
                 <div class="flex items-start justify-between gap-3">
                   <div class="flex min-w-0 items-center gap-3"><IconTile icon="lucide-building-2" tone={attention ? "amber" : "gray"} size="md" /><div class="min-w-0"><h3 class="break-words text-section text-ink-gray-9">{ws.displayName}</h3><p class="mt-1 text-caption text-ink-gray-6">{attention ? `${attention} items need attention` : "No approval or blocked-run exceptions"}</p></div></div>
                   <StatusBadge kind="health" status={ws.health} />
