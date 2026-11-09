@@ -1,6 +1,6 @@
 import type { JSX } from "solid-js";
 import { createSignal, Show } from "solid-js";
-import { TabButtons } from "@talelk/newui-molecules";
+import { Card, TabButtons } from "@talelk/newui-molecules";
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { LogExplorer } from "../../ui/logs/LogExplorer";
@@ -31,7 +31,7 @@ export default function LogsPage(): JSX.Element {
         options={[{ value: "logs", label: "Log explorer" }, { value: "runs", label: "Runs" }]} />
       <Show when={tab() === "runs"} fallback={
         <div class="flex flex-col" style={{ height: "calc(100dvh - 15rem)", "min-height": "36rem" }}>
-          <LogExplorer />
+          <Card padding="sm" class="h-full min-h-0"><LogExplorer /></Card>
         </div>}>
         <RunIndex />
       </Show>

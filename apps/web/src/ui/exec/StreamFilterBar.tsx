@@ -22,7 +22,14 @@ export function StreamFilterBar(props: {
   /** Extra controls rendered after the filters (e.g. the Export control). */
   children?: JSX.Element;
 }): JSX.Element {
-  return <div class="flex min-w-0 flex-wrap items-end gap-x-3 gap-y-2">
+  return <div class="flex min-w-0 flex-col gap-2">
+    <div class="flex min-w-0 flex-wrap items-end gap-x-3 gap-y-2">
+      <TextInput class="min-w-0 flex-1 basis-64" label={props.searchLabel ?? "Search logs"} value={props.search}
+        onInput={(event) => props.onSearch(event.currentTarget.value)} />
+      {props.children}
+    </div>
+    <div class="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5">
+    <span class="text-caption font-medium text-ink-gray-6" aria-hidden="true">Severity</span>
     <fieldset class="m-0 flex min-w-0 flex-wrap items-center gap-1 border-0 p-0">
       <legend class="sr-only">Severity filter</legend>
       <For each={STREAM_SEVERITIES}>
@@ -37,6 +44,7 @@ export function StreamFilterBar(props: {
         }}
       </For>
     </fieldset>
+    <span class="text-caption font-medium text-ink-gray-6" aria-hidden="true">Source</span>
     <fieldset class="m-0 flex min-w-0 flex-wrap items-center gap-1 border-0 p-0">
       <legend class="sr-only">Source filter</legend>
       <For each={STREAM_EMITTERS}>
@@ -50,8 +58,6 @@ export function StreamFilterBar(props: {
         }}
       </For>
     </fieldset>
-    <TextInput class="min-w-0 flex-1 basis-56" label={props.searchLabel ?? "Search logs"} value={props.search}
-      onInput={(event) => props.onSearch(event.currentTarget.value)} />
-    {props.children}
+    </div>
   </div>;
 }

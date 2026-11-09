@@ -133,7 +133,7 @@ function InspectRelease(props: { activeConfigDigest?: string; onActivate: (diges
   const active = () => releases().find((release) => release.active);
   return <PageStack>
     <StatGrid compact stats={[
-      { label: "Active source", value: <span class="break-all">{active()?.sourceRevision ?? "No active release"}</span>, hint: active() ? "Currently activated source commit" : "Activate an inspected candidate first", icon: "lucide-git-branch" },
+      { label: "Active source", value: <span title={active()?.sourceRevision} class="font-mono text-base">{active()?.sourceRevision ? `${active()!.sourceRevision.slice(0, 19)}…` : "No active release"}</span>, hint: active() ? "Currently activated source commit" : "Activate an inspected candidate first", icon: "lucide-git-branch" },
       { label: "Candidates", value: String(releases().length), hint: "Immutable staged releases", icon: "lucide-package" },
       { label: "Selected", value: current()?.active ? "Active" : current() ? "Candidate" : "None", hint: current() ? `${current()!.workflows} workflows · ${current()!.agents} agents` : "Choose a staged release", icon: "lucide-scan-search" },
       { label: "Gate evidence", value: "Not supplied", hint: "A build alone does not prove verified readiness", icon: "lucide-shield-question" },

@@ -1,7 +1,7 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { Button } from "@talelk/newui-atoms";
-import { Select, EmptyState } from "@talelk/newui-molecules";
+import { Card, EmptyState, Select } from "@talelk/newui-molecules";
 import { PaneLayout } from "@talelk/newui-templates";
 import type { ExecutionLink } from "@brain/contracts";
 import { ScreenRegion } from "../screen-region";
@@ -158,7 +158,7 @@ export function OutputBrowser(props: {
 
   return (
     <PageStack>
-      <div class="flex flex-wrap items-end gap-control-gap">
+      <Card padding="sm" class="flex-row flex-wrap items-end gap-3">
         <Select
           class="w-64"
           label="Artifact state"
@@ -192,10 +192,10 @@ export function OutputBrowser(props: {
         <span class="ms-auto">
           <Button size="sm" variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button>
         </span>
-      </div>
+      </Card>
       <Show
         when={props.compareIds.length > 0}
-        fallback={<p class="text-caption text-ink-gray-6">Pick any two artifacts with the compare control to open their diff on the artifact detail route.</p>}
+        fallback={<p class="-mt-2 text-caption text-ink-gray-6">Pick any two artifacts with the compare control to open their diff on the artifact detail route.</p>}
       >
         {(() => {
           const left = props.compareIds[0] ?? "";

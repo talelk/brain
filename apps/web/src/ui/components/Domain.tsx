@@ -48,10 +48,7 @@ export function QueueRow(props: {
 }
 
 export function DetailAside(props: ParentProps<{ title: string; description?: string; sticky?: boolean }>): JSX.Element {
-  return <aside class="brain-detail-aside" data-sticky={props.sticky ? "true" : "false"} aria-label={props.title}>
-    <div><h2 class="text-section text-ink-gray-9">{props.title}</h2><Show when={props.description}><p class="mt-1 text-interface text-ink-gray-6">{props.description}</p></Show></div>
-    {props.children}
-  </aside>;
+  return <Section label={props.title} title={props.title} description={props.description} surface="card" class="brain-detail-aside" id={createUniqueId()}>{props.children}</Section>;
 }
 
 export function Freshness(props: { value?: string; label?: string; stale?: boolean }): JSX.Element {

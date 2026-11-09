@@ -498,3 +498,8 @@
   border-radius: var(--radius-card);
   background: var(--surface-elevation-1);
 }
+
+/* An odd stat in the two-up phone grid spans the row instead of leaving a filled empty cell. */
+@media (max-width: 767px) {
+  [data-slot="stat-grid"] > *:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}

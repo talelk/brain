@@ -217,32 +217,8 @@ function LiveTab(props: ActProps): JSX.Element {
     await messages.refresh({ force: true });
   });
   return <PageStack>
-    <div class="brain-studio-layout">
-      <WorkspaceSection title="While you were away" description="Notable events since you last looked; everything else is counted.">
-        <ScreenRegion state={summary.state()} onRetry={() => void summary.refresh({ force: true })} emptyTitle="Nothing yet" emptyDescription="Events appear as the mission moves.">
-          <Show when={summary.state().data}>{(s) => <>
-            <Show when={s().notable.length} fallback={<p class="text-interface text-ink-gray-7">Nothing notable since your last visit.</p>}>
-              <ul class="flex flex-col gap-1 text-interface"><For each={s().notable}>{(entry) => <li><span class="text-ink-gray-6">{formatDateTime(entry.at)}</span> · {entry.summary}</li>}</For></ul>
-            </Show>
-            <Show when={Object.keys(s().otherCounts).length}><p class="mt-2 text-caption text-ink-gray-6">Also: {Object.entries(s().otherCounts).map(([type, count]) => `${count} ${type}`).join(" · ")}</p></Show>
-            <Button size="sm" variant="outline" class="mt-2" disabled={s().toCursor === s().fromCursor} onClick={() => void props.onAct(async () => { await app.run("mission.seen", { missionId: props.mission.missionId, cursor: s().toCursor }); await summary.refresh({ force: true }); })}>Mark as seen</Button>
-          </>}</Show>
-        </ScreenRegion>
-      </WorkspaceSection>
-      <WorkspaceSection title="Messages" description="Reaches the coordinator or one member's running session when its engine can be steered. A message never approves anything." actions={<Button variant="solid" theme="blue" iconLeft="lucide-send" disabled={props.mission.state === "closed"} onClick={() => setComposeOpen(true)}>Message the mission</Button>}>
-        <FormSheet open={composeOpen()} onClose={() => setComposeOpen(false)} title="Message the mission" centered description="A message never approves anything." submit="Send" icon="lucide-send" busy={props.busy} disabled={!body().trim() || props.mission.state === "closed"} onSubmit={() => { if (body().trim() && !props.busy) send(); }}>
-        <Select label="Recipient" value={recipient()} onValueChange={(value) => setRecipient(value ?? "mission")}
-          options={[{ value: "mission", label: "The mission (coordinator)" }, ...(team.state().data?.members ?? []).map((entry) => ({ value: entry.memberId, label: `${entry.role} (${entry.memberId})` }))]} />
-        <Textarea label="Message" required value={body()} onInput={(event) => setBody(event.currentTarget.value)} placeholder="Prioritise the login flow" />
-        <Checkbox label="Interrupt running sessions at their next safe point" checked={interrupt()} onCheckedChange={(checked) => setInterrupt(checked === true)} />
-        <Checkbox label="Also add to the brief as a constraint" checked={addToBrief()} onCheckedChange={(checked) => setAddToBrief(checked === true)} />
-        </FormSheet>
-        <ScreenRegion state={messages.state()} onRetry={() => void messages.refresh({ force: true })} emptyTitle="No messages" emptyDescription="Messages you send appear here with their delivery state.">
-          <ul class="mt-3 flex flex-col gap-2"><For each={(messages.state().data ?? []).slice(0, 5)}>{(message) => <li class="rounded-control border border-outline-gray-1 p-2">
-            <p class="break-words text-interface">{message.body}</p><p class="text-caption text-ink-gray-6">{message.recipient.kind === "member" ? `to ${message.recipient.memberId} · ` : ""}{message.senderId} · {message.delivery} · {formatDateTime(message.createdAt)}</p></li>}</For></ul>
-        </ScreenRegion>
-      </WorkspaceSection>
-    </div>
+    <div class="brain-run-layout">
+      <div class="brain-detail-stack">
     <WorkspaceSection title="Team" description="Choose a member to follow only their sessions in the console.">
       <div class="brain-queue">
         <QueueRow title="Whole team" description={`${team.state().data?.sessions.length ?? 0} sessions`} icon="lucide-users" selected={!member()} label="Follow the whole team" onClick={() => setSearch({ member: undefined, session: undefined })} />
@@ -267,6 +243,34 @@ function LiveTab(props: ActProps): JSX.Element {
     <ConsoleScreen workspaceId={app.workspaceId()} include={inScope} requestedSession={typeof search.session === "string" ? search.session : undefined}
       filters={filters()} onFiltersChange={(patch) => setSearch({ ...writeExecFilters({ ...filters(), ...patch }) })}
       onSessionChange={(sessionId) => setSearch({ session: sessionId }, { replace: true })} />
+      </div>
+      <div class="brain-detail-stack">
+      <WorkspaceSection title="While you were away" description="Notable events since you last looked; everything else is counted.">
+        <ScreenRegion state={summary.state()} onRetry={() => void summary.refresh({ force: true })} emptyTitle="Nothing yet" emptyDescription="Events appear as the mission moves.">
+          <Show when={summary.state().data}>{(s) => <>
+            <Show when={s().notable.length} fallback={<p class="text-interface text-ink-gray-7">Nothing notable since your last visit.</p>}>
+              <ul class="flex flex-col gap-1 text-interface"><For each={s().notable}>{(entry) => <li><span class="text-ink-gray-6">{formatDateTime(entry.at)}</span> · {entry.summary}</li>}</For></ul>
+            </Show>
+            <Show when={Object.keys(s().otherCounts).length}><p class="mt-2 text-caption text-ink-gray-6">Also: {Object.entries(s().otherCounts).map(([type, count]) => `${count} ${type}`).join(" · ")}</p></Show>
+            <Button size="sm" variant="outline" class="mt-2" disabled={s().toCursor === s().fromCursor} onClick={() => void props.onAct(async () => { await app.run("mission.seen", { missionId: props.mission.missionId, cursor: s().toCursor }); await summary.refresh({ force: true }); })}>Mark as seen</Button>
+          </>}</Show>
+        </ScreenRegion>
+      </WorkspaceSection>
+      <WorkspaceSection title="Messages" description="Reaches the coordinator or one member's running session when its engine can be steered. A message never approves anything." actions={<Button variant="solid" theme="blue" iconLeft="lucide-send" disabled={props.mission.state === "closed"} onClick={() => setComposeOpen(true)}>Message the mission</Button>}>
+        <FormSheet open={composeOpen()} onClose={() => setComposeOpen(false)} title="Message the mission" centered description="A message never approves anything." submit="Send" icon="lucide-send" busy={props.busy} disabled={!body().trim() || props.mission.state === "closed"} onSubmit={() => { if (body().trim() && !props.busy) send(); }}>
+        <Select label="Recipient" value={recipient()} onValueChange={(value) => setRecipient(value ?? "mission")}
+          options={[{ value: "mission", label: "The mission (coordinator)" }, ...(team.state().data?.members ?? []).map((entry) => ({ value: entry.memberId, label: `${entry.role} (${entry.memberId})` }))]} />
+        <Textarea label="Message" required value={body()} onInput={(event) => setBody(event.currentTarget.value)} placeholder="Prioritise the login flow" />
+        <Checkbox label="Interrupt running sessions at their next safe point" checked={interrupt()} onCheckedChange={(checked) => setInterrupt(checked === true)} />
+        <Checkbox label="Also add to the brief as a constraint" checked={addToBrief()} onCheckedChange={(checked) => setAddToBrief(checked === true)} />
+        </FormSheet>
+        <ScreenRegion state={messages.state()} onRetry={() => void messages.refresh({ force: true })} emptyTitle="No messages" emptyDescription="Messages you send appear here with their delivery state.">
+          <ul class="mt-3 flex flex-col gap-2"><For each={(messages.state().data ?? []).slice(0, 5)}>{(message) => <li class="rounded-control border border-outline-gray-1 p-2">
+            <p class="break-words text-interface">{message.body}</p><p class="text-caption text-ink-gray-6">{message.recipient.kind === "member" ? `to ${message.recipient.memberId} · ` : ""}{message.senderId} · {message.delivery} · {formatDateTime(message.createdAt)}</p></li>}</For></ul>
+        </ScreenRegion>
+      </WorkspaceSection>
+      </div>
+    </div>
   </PageStack>;
 }
 
