@@ -5,6 +5,7 @@ import { Badge, Button } from "@talelk/newui-atoms";
 import { Alert } from "@talelk/newui-molecules";
 import { Section } from "@talelk/newui-organisms";
 import { DateText } from "../screen-region";
+import { MixBar } from "../viz/MixBar";
 
 export interface CapitalizationSnapshot {
   assets: KnowledgeAsset[];
@@ -25,6 +26,14 @@ export function CapitalizationStudio(props: {
     actions={<Button size="sm" variant="outline" iconLeft="lucide-sparkles" disabled={!props.canRun} onClick={() => void props.onRun()}>Run capitalization</Button>}>
     <div class="flex min-w-0 flex-col gap-4">
       <Alert theme="blue" variant="outline" title="L0–L3 promotion boundary" description="L0 captures verified evidence, L1 extracts scoped knowledge and L2 prepares tested candidates. L3 always requires independent review and an exact active configuration release." />
+      <div class="grid min-w-0 gap-4 sm:grid-cols-2" data-testid="capitalization-funnel">
+        <MixBar label="L1 extracted knowledge" empty="No extracted knowledge yet." segments={(["extracted", "reviewed", "published", "revoked"] as const).map((state) => ({
+          label: state[0]!.toUpperCase() + state.slice(1), count: props.snapshot.assets.filter((asset) => asset.state === state).length,
+          tone: state === "published" ? "green" : state === "revoked" ? "red" : state === "reviewed" ? "blue" : "amber" }))} />
+        <MixBar label="L2 capability candidates" empty="No candidates prepared yet." segments={(["quarantined", "reviewed", "published", "rejected"] as const).map((state) => ({
+          label: state[0]!.toUpperCase() + state.slice(1), count: props.snapshot.candidates.filter((candidate) => candidate.state === state).length,
+          tone: state === "published" ? "green" : state === "rejected" ? "red" : state === "reviewed" ? "blue" : "amber" }))} />
+      </div>
       <Show when={latestRun()}>{(run) => <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-ink-gray-7" data-testid="capitalization-latest-run">
         <Badge size="sm" theme={run().state === "succeeded" ? "green" : run().state === "failed" ? "red" : "amber"} label={run().state} />
         <span class="min-w-0 break-words">{run().observedCount} observations · {run().extractedCount} extracted · {run().candidateCount} candidates · <DateText value={run().createdAt} /></span>

@@ -18,6 +18,7 @@ import { ReasonDialog } from "../ui/components/ReasonDialog";
 import { ArtifactView } from "../ui/outputs/ArtifactView";
 import { LIST_PAGE_SIZE as PAGE_SIZE, Pager } from "../ui/components/primitives";import { QueueRow, WorkspaceSection } from "../ui/components/Domain";
 import { StatGrid } from "@talelk/newui-organisms";
+import { MixBar } from "../ui/viz/MixBar";
 export interface MemoryPublicationInput {
   candidateId: string;
   sourceWorkspaceId: string;
@@ -156,7 +157,7 @@ export function KnowledgeScreen(props: {
             emptyDescription={
               props.searched
                 ? "Try a different query or scope, or publish a reviewed candidate so it becomes searchable."
-                : "Enter a search above. Unverified and stale results stay clearly labelled and never gain execution authority."
+                : "Nothing is shown until you search. Knowledge arrives from documents you add, outputs you save, and candidates a reviewer approves. Unverified and stale results stay clearly labelled and never gain execution authority."
             }
             emptyAction={
               props.searched ? (
@@ -433,6 +434,19 @@ export function ToolsScreen(props: {
             },
           ]}
         />
+        <div class="grid min-w-0 gap-4 sm:grid-cols-2">
+          <MixBar label="Trust status" empty="No tools declared yet." segments={[
+            { label: "Trusted", count: props.tools.filter((tool) => tool.status === "trusted").length, tone: "green" },
+            { label: "Candidate", count: props.tools.filter((tool) => tool.status === "candidate").length, tone: "gray" },
+            { label: "Reviewing", count: props.tools.filter((tool) => tool.status === "reviewing").length, tone: "amber" },
+            { label: "Revoked", count: props.tools.filter((tool) => tool.status === "revoked").length, tone: "red" },
+          ]} />
+          <MixBar label="Effect class" empty="No tools declared yet." segments={[
+            { label: "Read", count: props.tools.filter((tool) => tool.effectClass === "read").length, tone: "blue" },
+            { label: "Write", count: props.tools.filter((tool) => tool.effectClass === "write").length, tone: "amber" },
+            { label: "Privileged", count: props.tools.filter((tool) => tool.effectClass === "privileged").length, tone: "red" },
+          ]} />
+        </div>
         <ScreenRegion
           state={props.state}
           skeleton="rows"
