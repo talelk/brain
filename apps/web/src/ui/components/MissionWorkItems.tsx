@@ -21,6 +21,16 @@ const STATES: readonly { id: WorkItemState; name: string }[] = [
   { id: "blocked", name: "Blocked" }, { id: "review", name: "Review" }, { id: "done", name: "Done" },
 ];
 
+/** Why a task is not moving, in plain words; undefined while it is simply progressing. */
+export function waitReason(item: WorkItem): string | undefined {
+  if (item.parked) return "Parked after repeated failures. It waits for a person; independent work carries on.";
+  if (item.state === "blocked") return `Blocked: ${item.blockedReason ?? "it is waiting on something outside the task"}`;
+  if (item.state === "backlog" && item.dependsOn.length) return "Waiting for earlier tasks to be verified done.";
+  if (item.state === "review") return "Finished; waiting for you to check the evidence.";
+  if (item.failedAttempts > 0 && item.state !== "done") return `${item.failedAttempts} failed attempt${item.failedAttempts === 1 ? "" : "s"} so far.`;
+  return undefined;
+}
+
 /**
  * The confirmed work of one mission, managed in place: state, next action,
  * criteria, linked runs and governed moves. Done stays gated by an
@@ -48,7 +58,8 @@ export function MissionWorkItems(props: { missionId: string }): JSX.Element {
   });
   createEffect(() => { void props.missionId; setSelectedId(""); void items.refresh({ force: true }); });
   const selected = () => items.state().data?.find((item) => item.workItemId === selectedId());
-  const readyCount = () => (items.state().data ?? []).filter((item) => item.state === "ready").length;
+  const readyItems = () => (items.state().data ?? []).filter((item) => item.state === "ready");
+  const readyCount = () => readyItems().length;
   const reset = () => { setMove(""); setReason(""); setEvidence(""); setComment(""); };
 
   const startHref = (item: WorkItem) => `/w/${app.workspaceId()}/plays?originKind=work-item&originId=${encodeURIComponent(item.workItemId)}`;
@@ -70,12 +81,16 @@ export function MissionWorkItems(props: { missionId: string }): JSX.Element {
   }
 
   return <WorkspaceSection title="Mission work" description="Confirmed work items of this mission. Done requires independently verified evidence for every criterion.">
-    <Show when={readyCount() > 0 && app.canDispatch()}><Alert theme="blue" variant="outline" title={`${readyCount()} task${readyCount() === 1 ? " is" : "s are"} ready to start`} description="Confirming a plan creates the work; a task runs only when it is started. Start each ready task, then follow it in Live. Tasks that depend on others unlock as their predecessors are verified." /></Show>
+    <Show when={readyCount() > 1 && app.canDispatch()}><div class="flex flex-wrap items-center justify-between gap-2 rounded-card border border-outline-blue-1 bg-surface-blue-1 px-3 py-2">
+      <p class="text-interface text-ink-gray-8">{readyCount()} tasks are ready. Each one starts from its own Start button; this opens the first.</p>
+      <Button size="sm" variant="solid" theme="blue" iconLeft="lucide-play" onClick={() => { const first = readyItems()[0]; if (first) void navigate(startHref(first)); }}>Start the first of {readyCount()} ready tasks</Button>
+    </div></Show>
     <Show when={conflict() && sheet() !== "move"}><Alert theme="amber" variant="outline" title="This work changed; your intended move is preserved" description={conflict()} /></Show>
     <ScreenRegion state={items.state()} onRetry={() => void items.refresh({ force: true })} emptyTitle="No confirmed work yet" emptyDescription="Confirm a plan version to create this mission's work items.">
       <Show when={selected()} keyed fallback={<div class="flex flex-col gap-2"><For each={items.state().data ?? []}>{(item) =>
         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-outline-gray-1 py-2">
-          <div class="min-w-0"><p class="break-words text-interface font-medium text-ink-gray-9">{item.title}</p><p class="text-caption text-ink-gray-6">{item.nextAction}</p></div>
+          <div class="min-w-0"><p class="break-words text-interface font-medium text-ink-gray-9">{item.title}</p><p class="text-caption text-ink-gray-6">{item.nextAction}</p>
+            <Show when={waitReason(item)}>{(reason) => <p class="mt-0.5 flex items-center gap-1 text-caption text-ink-amber-8"><span class="lucide-hourglass size-3 shrink-0" aria-hidden="true" />{reason()}</p>}</Show></div>
           <div class="flex items-center gap-2"><StatusBadge kind="workItem" status={item.state} /><Show when={item.state === "ready" && app.canDispatch()}><Button size="sm" variant="solid" theme="blue" iconLeft="lucide-play" aria-label={`Start ${item.title}`} onClick={() => void navigate(startHref(item))}>Start</Button></Show><Button size="sm" variant="outline" aria-label={`Manage ${item.title}`} onClick={() => { reset(); setConflict(""); setSelectedId(item.workItemId); }}>Manage</Button></div>
         </div>}</For></div>}>
         {(item) => {
