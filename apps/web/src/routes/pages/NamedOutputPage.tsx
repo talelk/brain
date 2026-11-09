@@ -1,7 +1,8 @@
-import { For, Show } from "solid-js";
+import { For, Show, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { useLocation, useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Badge, Button } from "@talelk/newui-atoms";
+import { Select } from "@talelk/newui-molecules";
 import type { OutputDetail, OutputRef, OutputVersion } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
@@ -26,6 +27,7 @@ export default function NamedOutputPage(): JSX.Element {
   const params = useParams();
   const location = useLocation();
   const [search] = useSearchParams();
+  const [compareWith, setCompareWith] = createSignal("");
   const comparing = () => location.pathname.endsWith("/compare");
   const detail = createScopedRead<OutputDetail | null>({
     scope: app.scope,
@@ -68,16 +70,21 @@ export default function NamedOutputPage(): JSX.Element {
               <ArtifactView artifact={artifactOf(version)} title={label(version)} />
             </div>}</Show>
           </WorkspaceSection>
-          <WorkspaceSection title="Versions" description="Newest first. Open a version or compare an earlier one with the latest.">
+          <WorkspaceSection title="Versions" description="Newest first. Open a version, or compare an earlier one with the latest.">
             <div class="brain-queue"><For each={[...versions()].reverse()}>{(version) => <QueueRow title={label(version)} description={`Work item ${version.workItemId}`} icon="lucide-file-text"
               tone={version.verified ? "green" : version.state === "final" ? "blue" : "gray"} selected={selected()?.versionId === version.versionId} label={`Open ${label(version)}`}
               meta={<><span>{version.state}</span><span>{version.verified ? "verified" : "not verified"}</span><span>{formatDateTime(version.createdAt)}</span></>}
               onClick={() => void navigate(`${base()}?v=${encodeURIComponent(version.versionId)}`)} />}</For></div>
             <Show when={versions().length > 1}>
-              <div class="mt-4 flex flex-wrap gap-2"><For each={versions().slice(0, -1)}>{(version) =>
-                <Button variant="outline" iconLeft="lucide-git-compare" onClick={() => void navigate(`${base()}/compare?left=${encodeURIComponent(version.versionId)}&right=${encodeURIComponent(latest()!.versionId)}`)}>
-                  {`Compare ${label(version)} with the latest`}
-                </Button>}</For></div>
+              <div class="mt-4 flex flex-wrap items-end gap-2">
+                <Select class="w-56" label="Compare the latest with" value={compareWith() || versions().at(-2)?.versionId || null}
+                  options={versions().slice(0, -1).map((version) => ({ value: version.versionId, label: label(version) }))}
+                  onValueChange={(id) => setCompareWith(id ?? "")} />
+                <Button variant="outline" iconLeft="lucide-git-compare"
+                  onClick={() => void navigate(`${base()}/compare?left=${encodeURIComponent(compareWith() || versions().at(-2)?.versionId || "")}&right=${encodeURIComponent(latest()!.versionId)}`)}>
+                  Compare versions
+                </Button>
+              </div>
             </Show>
           </WorkspaceSection>
           <WorkspaceSection title="Lineage" description="The output this one continues and the follow-up missions that continue it.">

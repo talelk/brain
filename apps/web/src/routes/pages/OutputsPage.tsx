@@ -1,15 +1,15 @@
-import { For, Show, createSignal } from "solid-js";
+import { createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate, useSearchParams } from "@solidjs/router";
-import type { ExecutionLink } from "@brain/contracts";
+import type { ExecutionLink, Mission, WorkItem } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { artifactsHistoryQuery, artifactsListQuery } from "../../data/exec-outputs";
-import type { ArtifactHistory, ArtifactRef, ArtifactState } from "../../data/exec-outputs";
+import type { ArtifactHistory, ArtifactState } from "../../data/exec-outputs";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { OutputBrowser } from "../../ui/outputs/OutputBrowser";
-import type { OutputScope } from "../../ui/outputs/OutputBrowser";
+import type { OutputGrouping, OutputItem, OutputScope } from "../../ui/outputs/OutputBrowser";
 import { execArtifactUrl } from "../../ui/exec/exec-filters";
 
 /**
@@ -23,28 +23,39 @@ export default function OutputsPage(): JSX.Element {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedId = () => (typeof searchParams.artifact === "string" && searchParams.artifact ? searchParams.artifact : undefined);
-  const stateFilter = () => (typeof searchParams.state === "string" && searchParams.state ? searchParams.state : "verified");
+  const stateFilter = () => (typeof searchParams.state === "string" && searchParams.state ? searchParams.state : "current");
   const scope = (): OutputScope => ({
     ...(typeof searchParams.job === "string" && searchParams.job ? { jobId: searchParams.job } : {}),
     ...(typeof searchParams.run === "string" && searchParams.run ? { runId: searchParams.run } : {}),
     ...(typeof searchParams.workItem === "string" && searchParams.workItem ? { workItemId: searchParams.workItem } : {}),
   });
   const [compareIds, setCompareIds] = createSignal<readonly string[]>([]);
+  const [compareMode, setCompareMode] = createSignal(false);
 
-  const artifacts = createScopedRead<ArtifactRef[]>({
+  // "current" lists fresh (still-uploading) and final output together so new
+  // work is never hidden behind a "verified" default.
+  const artifacts = createScopedRead<OutputItem[]>({
     scope: app.scope,
     load: async (readScope, signal) => {
-      const loaded = await artifactsListQuery(
-        {
-          workspaceId: readScope.workspaceId,
-          ...(scope().jobId ? { jobId: scope().jobId } : {}),
-          ...(scope().runId ? { runId: scope().runId } : {}),
-          ...(scope().workItemId ? { workItemId: scope().workItemId } : {}),
-          ...(stateFilter() !== "verified" ? { state: stateFilter() as ArtifactState } : {}),
-        },
-        signal,
+      const filter = stateFilter();
+      const states: ArtifactState[] = filter === "current" ? ["uploading", "verified"] : [filter as ArtifactState];
+      const loaded = await Promise.all(
+        states.map(async (state) => ({
+          state,
+          response: await artifactsListQuery(
+            {
+              workspaceId: readScope.workspaceId,
+              ...(scope().jobId ? { jobId: scope().jobId } : {}),
+              ...(scope().runId ? { runId: scope().runId } : {}),
+              ...(scope().workItemId ? { workItemId: scope().workItemId } : {}),
+              state,
+            },
+            signal,
+          ),
+        })),
       );
-      return { ...loaded, snapshot: [...loaded.snapshot.items] };
+      const first = loaded[0]!.response;
+      return { ...first, snapshot: loaded.flatMap(({ state, response }) => response.snapshot.items.map((item) => ({ ...item, state }))) };
     },
     isEmpty: (items) => items.length === 0,
   });
@@ -62,17 +73,40 @@ export default function OutputsPage(): JSX.Element {
     isEmpty: (loaded) => !loaded,
   });
 
-  // Execution links resolve the artifact's producer attempt/job to its work item.
-  const executions = createScopedRead<ExecutionLink[]>({
+  // Which work item (and mission) each output belongs to: execution links tie
+  // work items to runs, and an artifacts.list scoped to a work item names its outputs.
+  const grouping = createScopedRead<OutputGrouping>({
     scope: app.scope,
     load: async (readScope, signal) => {
-      const response = await query<{ snapshot: { items: ExecutionLink[] }; asOf: string; sourceWatermark: number }>(
-        { queryType: "executionLinks.list", workspaceId: readScope.workspaceId, limit: 100 },
-        signal,
+      const read = <T,>(queryType: "executionLinks.list" | "workItems.list" | "missions.list") =>
+        query<{ snapshot: { items: T[] }; asOf: string; sourceWatermark: number }>({ queryType, workspaceId: readScope.workspaceId, limit: 100 }, signal);
+      const [links, items, missions] = await Promise.all([
+        read<ExecutionLink>("executionLinks.list"),
+        read<WorkItem>("workItems.list"),
+        read<Mission>("missions.list"),
+      ]);
+      const linked = [...new Set(links.snapshot.items.map((link) => link.workItemId))].slice(0, 24);
+      const groupOf: Record<string, string> = {};
+      await Promise.all(
+        linked.map(async (workItemId) => {
+          for (const state of ["uploading", "verified"] as const) {
+            const found = await artifactsListQuery({ workspaceId: readScope.workspaceId, workItemId, state }, signal);
+            for (const artifact of found.snapshot.items) groupOf[artifact.artifactId] ??= workItemId;
+          }
+        }),
       );
-      return { snapshot: [...response.snapshot.items], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+      return {
+        snapshot: {
+          workItems: items.snapshot.items,
+          missionTitles: Object.fromEntries(missions.snapshot.items.map((mission) => [mission.missionId, mission.title])),
+          groupOf,
+          links: links.snapshot.items,
+        },
+        asOf: links.asOf,
+        sourceWatermark: links.sourceWatermark,
+      };
     },
-    isEmpty: (links) => links.length === 0,
+    refreshMs: 30_000,
   });
 
   const updateParams = (patch: Record<string, string | undefined>) => {
@@ -97,24 +131,15 @@ export default function OutputsPage(): JSX.Element {
   return (
     <BrainPage
       title="Outputs"
-      description="Authorized generated artifacts with native previews, final vs provisional states, verification status, diffs and history."
+      description="Everything your missions have produced. Review it, accept it or ask for changes."
     >
       <PageStack>
-        <dl class="flex min-w-0 flex-wrap items-center gap-x-6 gap-y-2 border-y border-outline-gray-1 py-2 text-caption" aria-label="Output browser summary">
-          <div class="flex items-center gap-2" title={stateFilter() === "verified" ? "Final, digest-bound outputs" : "Filtered by artifact state"}><dt class="text-ink-gray-6">Artifacts</dt><dd class="font-medium tabular-nums text-ink-gray-9">{artifacts.state().data?.length ?? 0}</dd></div>
-          <div class="flex min-w-0 items-center gap-2" title="Authorization scope of every row"><dt class="text-ink-gray-6">Workspace</dt><dd class="break-all font-medium text-ink-gray-9">{app.workspaceId() || "—"}</dd></div>
-          <div class="flex min-w-0 items-start gap-2" title="From the deep-link filters"><dt class="shrink-0 text-ink-gray-6">Scope</dt><dd class="min-w-0 font-medium text-ink-gray-9">
-            <Show when={scope().jobId || scope().runId || scope().workItemId} fallback={<span>Whole workspace</span>}>
-              <span class="flex flex-wrap gap-x-2 gap-y-1"><For each={[scope().jobId, scope().runId, scope().workItemId]}>{(id) => <Show when={id}><code class="break-all text-caption">{id}</code></Show>}</For></span>
-            </Show>
-          </dd></div>
-        </dl>
         <OutputBrowser
           artifacts={artifacts.state().data ?? []}
           state={artifacts.state()}
           stateFilter={stateFilter()}
           onStateFilter={(value) => {
-            updateParams({ state: value === "verified" ? undefined : value, artifact: undefined });
+            updateParams({ state: value === "current" ? undefined : value, artifact: undefined });
             void artifacts.refresh({ force: true });
           }}
           scope={scope()}
@@ -124,12 +149,21 @@ export default function OutputsPage(): JSX.Element {
           }}
           selectedId={selectedId()}
           onSelect={(artifactId) => updateParams({ artifact: artifactId })}
+          compareMode={compareMode()}
+          onCompareMode={(on) => {
+            setCompareMode(on);
+            if (!on) setCompareIds([]);
+          }}
           compareIds={compareIds()}
           onToggleCompare={toggleCompare}
           onCompare={(leftId, rightId) => void navigate(execArtifactUrl(rightId, { leftId, rightId }))}
           detail={{ history: detail.state().data ?? undefined, loading: detail.state().status === "loading", error: detail.state().error ?? "" }}
-          executions={executions.state().data ?? []}
-          onRefresh={() => void artifacts.refresh({ force: true })}
+          grouping={grouping.state().data ?? { workItems: [], missionTitles: {}, groupOf: {}, links: [] }}
+          onRefresh={() => {
+            void artifacts.refresh({ force: true });
+            void grouping.refresh({ force: true });
+            void detail.refresh({ force: true });
+          }}
           onOpenDetail={(artifactId) => void navigate(execArtifactUrl(artifactId))}
         />
       </PageStack>
