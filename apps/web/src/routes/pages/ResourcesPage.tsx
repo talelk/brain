@@ -1,4 +1,5 @@
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, For, onMount, Show } from "solid-js";
+import { useSearchParams } from "@solidjs/router";
 import type { JSX } from "solid-js";
 import { Badge, Button, TextInput } from "@talelk/newui-atoms";
 import { Alert, FileUploader, Pagination, Select, EmptyState } from "@talelk/newui-molecules";
@@ -42,6 +43,9 @@ export default function ResourcesPage(): JSX.Element {
   const open = (kind: SheetKind) => { setError(""); setAttempted(false); setSheet(kind); };
   const [error, setError] = createSignal("");
   const [busy, setBusy] = createSignal(false);
+  // Stable entry point for "Save as knowledge" links: /w/:id/knowledge?tab=documents&add=1 opens the upload sheet.
+  const [searchParams] = useSearchParams();
+  onMount(() => { if (searchParams.add === "1") open("upload"); });
   const libraryItems = () => documents.state().data?.items ?? [];
   const libraryPageCount = () => Math.max(1, Math.ceil(libraryItems().length / LIBRARY_PAGE_SIZE));
   const currentLibraryPage = () => Math.min(libraryPage(), libraryPageCount());

@@ -5,6 +5,7 @@ import { parse, stringify } from "yaml";
 import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Select } from "@talelk/newui-molecules";
 import { Section } from "@talelk/newui-organisms";
+import { TabButtons } from "@talelk/newui-molecules";
 import type { ConfigurationDraft, DocumentDiff, DraftImpact, DraftRevision, PublicationProposal, ValidationRun } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { AgentCatalog } from "../../routes/catalog";
@@ -60,6 +61,11 @@ export function StudioListPage(): JSX.Element {
   return <BrainPage title={`${kind()} studio`} description="Create immutable configuration revisions, validate them and publish exact Git commits without editing the active release."
     actions={<Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => { setError(""); setCreateOpen(true); }}>New draft</Button>}>
     <PageStack>
+      <div class="flex min-w-0 flex-wrap items-center gap-3">
+        <span class="text-caption font-medium text-ink-gray-7">Customize</span>
+        <TabButtons label="Customize" value={kind()} wrap onValueChange={(value) => void navigate(`/studio/${encodeURIComponent(value)}`)}
+          options={[{ value: "Agent", label: "Agents" }, { value: "Workflow", label: "Workflows" }, { value: "Play", label: "Plays" }]} />
+      </div>
       <Show when={kind() === "Agent"}><AgentCatalog /></Show>
       <FormSheet open={createOpen()} onClose={() => setCreateOpen(false)} title="New draft" centered description={kind() === "Workflow" ? "Start with visual jobs or restricted YAML. Publication never edits the active release directly." : kind() === "Agent" ? "Start with the agent contract and versioned instructions, then validate the complete release before publication." : "Author a reviewed definition with restricted YAML, validation, diff and explicit publication."}
         submit="Create draft" icon="lucide-plus" busy={busy()} onSubmit={create} error={error()} errorTitle="Draft creation failed">

@@ -1,6 +1,7 @@
 import { Show, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
-import { useSearchParams } from "@solidjs/router";
+import { useNavigate, useSearchParams } from "@solidjs/router";
+import { Button } from "@talelk/newui-atoms";
 import type { MemoryResult, ToolCatalogEntry } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
@@ -18,6 +19,7 @@ import ToolsPage from "./ToolsPage";
  */
 export default function KnowledgePage(): JSX.Element {
   const app = useApp();
+  const navigate = useNavigate();
   const [searchText, setSearchText] = createSignal("");
   const [params] = useSearchParams();
   const journey = (): KnowledgeTab => (params.tab === "documents" || params.tab === "tools" ? params.tab : "find");
@@ -49,6 +51,12 @@ export default function KnowledgePage(): JSX.Element {
           <span class="lucide-external-link size-3.5" aria-hidden="true" />Open Memory UI
         </a>
       </Show>} />
+    <Show when={journey() === "find"}>
+      <div class="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3" data-testid="knowledge-capture">
+        <p class="min-w-0 flex-1 text-interface text-ink-gray-7">Knowledge gets in three ways: documents you upload, outputs you save as knowledge, and capability candidates a reviewer approves.</p>
+        <Button variant="solid" theme="blue" iconLeft="lucide-file-plus" onClick={() => void navigate(`/w/${app.workspaceId()}/knowledge?tab=documents&add=1`)}>Add a document</Button>
+      </div>
+    </Show>
     <Show when={journey() === "documents"}><ResourcesPage /></Show>
     <Show when={journey() === "tools"}><ToolsPage /></Show>
     <Show when={journey() === "find"}>
