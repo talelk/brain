@@ -13,17 +13,17 @@
     "pendingApprovals": 1000,
     "history10xRows": 1000000
   },
-  "coldStartMs": 2614,
+  "coldStartMs": 2709,
   "trialMs": 600000,
   "trialsCount": 3,
   "medians": {
-    "queryP95": 18.873,
-    "queryP99": 22.08,
-    "commandP95": 32.279,
-    "commandP99": 47.463,
-    "eventLoopP99": 53.477,
-    "rssMaxMb": 367,
-    "throughputPerSec": 25.02
+    "queryP95": 20.159,
+    "queryP99": 24.762,
+    "commandP95": 20.971,
+    "commandP99": 39.459,
+    "eventLoopP99": 49.676,
+    "rssMaxMb": 366,
+    "throughputPerSec": 24.45
   },
   "budgets": {
     "queryP95Ms": 150,
@@ -37,105 +37,105 @@
     {
       "label": "t1",
       "durationMs": 600000,
-      "ops": 15012,
+      "ops": 15017,
       "errors": 0,
-      "throughputPerSec": 25.02,
+      "throughputPerSec": 25.03,
       "query": {
-        "p50": 9.574,
-        "p95": 18.873,
-        "p99": 22.08,
-        "max": 105.724,
-        "n": 10008
+        "p50": 9.065,
+        "p95": 19.033,
+        "p99": 22.072,
+        "max": 108.696,
+        "n": 10012
       },
       "command": {
-        "p50": 6.951,
-        "p95": 39.527,
-        "p99": 63.504,
-        "max": 318.409,
-        "n": 5004
+        "p50": 6.714,
+        "p95": 20.971,
+        "p99": 33.4,
+        "max": 317.476,
+        "n": 5005
       },
       "eventLoopDelayMs": {
         "p50": 10.084,
-        "p99": 53.477,
-        "max": 135.791
+        "p99": 47.383,
+        "max": 168.952
       },
       "cpuMs": {
-        "user": 76342,
-        "system": 32198
+        "user": 74348,
+        "system": 31587
       },
       "rssMb": {
-        "p50": 339,
-        "max": 367
+        "p50": 354,
+        "max": 366
       },
       "walBytes": 43284752
     },
     {
       "label": "t2",
       "durationMs": 600000,
-      "ops": 15043,
+      "ops": 14466,
       "errors": 0,
-      "throughputPerSec": 25.07,
+      "throughputPerSec": 24.11,
       "query": {
-        "p50": 9.369,
-        "p95": 17.37,
-        "p99": 20.52,
-        "max": 63.76,
-        "n": 10029
+        "p50": 9.635,
+        "p95": 20.159,
+        "p99": 24.762,
+        "max": 201.502,
+        "n": 9644
       },
       "command": {
-        "p50": 6.609,
-        "p95": 23.118,
-        "p99": 35.056,
-        "max": 77.074,
-        "n": 5014
+        "p50": 7.109,
+        "p95": 18.085,
+        "p99": 270.366,
+        "max": 3958.532,
+        "n": 4822
       },
       "eventLoopDelayMs": {
-        "p50": 10.076,
-        "p99": 44.401,
-        "max": 166.724
+        "p50": 10.084,
+        "p99": 49.676,
+        "max": 4903.141
       },
       "cpuMs": {
-        "user": 69724,
-        "system": 31428
+        "user": 79665,
+        "system": 32246
       },
       "rssMb": {
-        "p50": 359,
-        "max": 363
+        "p50": 360,
+        "max": 361
       },
       "walBytes": 43284752
     },
     {
       "label": "t3",
       "durationMs": 600000,
-      "ops": 14930,
+      "ops": 14670,
       "errors": 0,
-      "throughputPerSec": 24.88,
+      "throughputPerSec": 24.45,
       "query": {
-        "p50": 9.49,
-        "p95": 24.511,
-        "p99": 32.533,
-        "max": 107.486,
-        "n": 9954
+        "p50": 9.415,
+        "p95": 21.734,
+        "p99": 28.035,
+        "max": 359.222,
+        "n": 9780
       },
       "command": {
-        "p50": 8.711,
-        "p95": 32.279,
-        "p99": 47.463,
-        "max": 77.8,
-        "n": 4976
+        "p50": 7.934,
+        "p95": 30.734,
+        "p99": 39.459,
+        "max": 5146.123,
+        "n": 4890
       },
       "eventLoopDelayMs": {
         "p50": 10.084,
-        "p99": 59.736,
-        "max": 600.31
+        "p99": 54.755,
+        "max": 7021.265
       },
       "cpuMs": {
-        "user": 89189,
-        "system": 35620
+        "user": 80433,
+        "system": 33930
       },
       "rssMb": {
-        "p50": 402,
-        "max": 413
+        "p50": 370,
+        "max": 396
       },
       "walBytes": 43284752
     }
@@ -143,41 +143,41 @@
   "trial10x": {
     "label": "x10",
     "durationMs": 30000,
-    "ops": 600,
+    "ops": 609,
     "errors": 0,
-    "throughputPerSec": 20,
+    "throughputPerSec": 20.3,
     "query": {
-      "p50": 55.544,
-      "p95": 69.384,
-      "p99": 80.625,
-      "max": 111.218,
-      "n": 400
+      "p50": 54.218,
+      "p95": 74.887,
+      "p99": 99.315,
+      "max": 128.224,
+      "n": 406
     },
     "command": {
-      "p50": 13.026,
-      "p95": 35.635,
-      "p99": 52.99,
-      "max": 90.03,
-      "n": 200
+      "p50": 7.682,
+      "p95": 42.733,
+      "p99": 53.356,
+      "max": 128.761,
+      "n": 203
     },
     "eventLoopDelayMs": {
       "p50": 10.084,
-      "p99": 99.09,
-      "max": 200.933
+      "p99": 180.093,
+      "max": 237.109
     },
     "cpuMs": {
-      "user": 6237,
-      "system": 7551
+      "user": 6100,
+      "system": 8397
     },
     "rssMb": {
-      "p50": 433,
-      "max": 436
+      "p50": 428,
+      "max": 429
     },
     "walBytes": 411192512
   },
   "faultLoad": {
-    "approvalWakeFanout100Ms": 40,
+    "approvalWakeFanout100Ms": 42,
     "errors": 0
   },
-  "at": "2026-11-09T14:51:24.381Z"
+  "at": "2026-11-09T15:30:09.243Z"
 }

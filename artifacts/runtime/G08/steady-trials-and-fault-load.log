@@ -1,9 +1,9 @@
 $ pnpm exec tsx benchmarks/steady.ts
 (cwd=/home/talel/dev/rd2026/brain)
-[steady] seeded initial dataset in 2614ms; 3 trials x 600000ms
-[steady] trial 1 done {"q95":18.873,"c95":39.527,"eld99":53.477,"rssMax":367,"errors":0}
-[steady] trial 2 done {"q95":17.37,"c95":23.118,"eld99":44.401,"rssMax":363,"errors":0}
-[steady] trial 3 done {"q95":24.511,"c95":32.279,"eld99":59.736,"rssMax":413,"errors":0}
-[steady] 10x history trial done {"q95":69.384,"q99":80.625}
-[steady] RESULT {"queryP95":18.873,"queryP99":22.08,"commandP95":32.279,"commandP99":47.463,"eventLoopP99":53.477,"rssMaxMb":367,"throughputPerSec":25.02}
-[steady] BUDGET MISS [ 'eventLoopP99' ]
+[steady] seeded initial dataset in 2709ms; 3 trials x 600000ms
+[steady] trial 1 done {"q95":19.033,"c95":20.971,"eld99":47.383,"rssMax":366,"errors":0}
+[steady] trial 2 done {"q95":20.159,"c95":18.085,"eld99":49.676,"rssMax":361,"errors":0}
+[steady] trial 3 done {"q95":21.734,"c95":30.734,"eld99":54.755,"rssMax":396,"errors":0}
+[steady] 10x history trial done {"q95":74.887,"q99":99.315}
+[steady] RESULT {"queryP95":20.159,"queryP99":24.762,"commandP95":20.971,"commandP99":39.459,"eventLoopP99":49.676,"rssMaxMb":366,"throughputPerSec":24.45}
+[steady] ALL BUDGETS PASS

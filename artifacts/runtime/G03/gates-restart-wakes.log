@@ -6,6 +6,6 @@ $ pnpm exec vitest run tests/chaos/gates100.test.ts
 
  Test Files  1 passed (1)
       Tests  1 passed (1)
-   Start at  15:19:13
-   Duration  5.12s (tests 83%, import 14%, transform 3%)
+   Start at  15:57:54
+   Duration  7.77s (tests 88%, import 10%, transform 2%)
 

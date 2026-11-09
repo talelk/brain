@@ -1,6 +1,6 @@
 {
   "scope": "evidence-record-integrity-only",
-  "productFingerprint": "sha256:c154562be0c319599eda85c291f97d7549c9ca3c6fbc2f375d91a091ac96211e",
+  "productFingerprint": "sha256:28ae24b52aeef148ed23f079dfd2a2368d1f2edacc2aa57a359594f2a6cd005f",
   "gates": {
     "G01": {
       "status": "passed",
@@ -31,12 +31,11 @@
       "reason": "current-evidence-records-validated"
     },
     "G08": {
-      "status": "failed",
-      "reason": "invalid-or-stale-evidence",
-      "errorClass": "AssertionError"
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
     }
   },
-  "allRuntimeGatesPassed": false,
+  "allRuntimeGatesPassed": true,
   "modelQualification": {
     "status": "failed",
     "reason": "invalid-or-stale-evidence",

@@ -2,10 +2,10 @@
   "contractVersion": "brain.verification-run/v1",
   "gateId": "G02",
   "status": "passed",
-  "productFingerprint": "sha256:c154562be0c319599eda85c291f97d7549c9ca3c6fbc2f375d91a091ac96211e",
+  "productFingerprint": "sha256:28ae24b52aeef148ed23f079dfd2a2368d1f2edacc2aa57a359594f2a6cd005f",
   "lockDigest": "sha256:b0c2a31e200910cf0f7ca3f0364e13098983468cf693ae0e93a2c8fc2c47a1c2",
-  "startedAt": "2026-11-09T14:19:05.613Z",
-  "finishedAt": "2026-11-09T14:19:08.844Z",
+  "startedAt": "2026-11-09T14:57:47.744Z",
+  "finishedAt": "2026-11-09T14:57:50.642Z",
   "commands": [
     {
       "argv": [
@@ -14,7 +14,7 @@
         "const p=require('better-sqlite3');const db=p(':memory:');const v=db.prepare('select sqlite_version() v').get().v;const o=db.prepare('pragma compile_options').all().map(r=>Object.values(r)[0]);if(!o.includes('ENABLE_FTS5'))throw new Error('FTS5 not compiled in');console.log('sqlite_version',v,'compile_options',o.join(','));"
       ],
       "exitCode": 0,
-      "durationMs": 34
+      "durationMs": 30
     },
     {
       "argv": [
@@ -25,7 +25,7 @@
         "tests/integration/scenarios3.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 3177
+      "durationMs": 2848
     }
   ],
   "checks": [
@@ -49,7 +49,7 @@
     },
     {
       "path": "artifacts/runtime/G02/wal-fix-and-stress.log",
-      "digest": "sha256:4dc933dbfe77604f72ebf46c0a6bc17bec18e3bdf77cac945f24c3d0f8b9c264"
+      "digest": "sha256:e573df218b0c4bd484da6b2e98f9eaf2eed7bde97fd138e99b6119c4713884cc"
     }
   ],
   "selectedScenarios": [

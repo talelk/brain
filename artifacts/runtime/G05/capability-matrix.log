@@ -6,6 +6,6 @@ $ pnpm exec vitest run tests/probes/harnesses/conformance.test.ts
 
  Test Files  1 passed (1)
       Tests  5 passed (5)
-   Start at  15:19:44
-   Duration  7.65s (tests 98%, transform 1%, import 1%)
+   Start at  15:58:28
+   Duration  8.06s (tests 99%, import 1%)
 
