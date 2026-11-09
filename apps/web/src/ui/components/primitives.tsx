@@ -37,10 +37,20 @@ export function DisclosureCard(props: { label: string; children: JSX.Element; op
   </Collapsible.Root>;
 }
 
-/** The Brain brand mark: blue square "B" + optional wordmark. */
+/** The Brain brand mark: a petrol tile holding a three-node graph glyph, plus the wordmark unless collapsed. Decorative glyph; the name is the accessible label. */
 export function BrandMark(props: { collapsed?: boolean }): JSX.Element {
-  return <Show when={props.collapsed} fallback={<span class="flex min-h-9 items-center gap-2 rounded-control px-1.5 font-semibold"><span class="grid size-7 shrink-0 place-items-center rounded-control bg-surface-blue-9 text-interface font-semibold text-white">B</span><span>Keyrus Brain</span></span>}>
-    <span role="img" aria-label="Keyrus Brain" class="grid size-9 place-items-center rounded-control"><span class="grid size-7 place-items-center rounded-control bg-surface-blue-9 text-interface font-semibold text-white">B</span></span>
+  const glyph = (size: string) => (
+    <span class={`relative grid ${size} shrink-0 place-items-center overflow-hidden rounded-control bg-surface-blue-9 text-white ring-1 ring-inset ring-white/15`}>
+      <svg viewBox="0 0 24 24" class="size-[70%]" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M7 16.5 12 7l5 9.5M7 16.5h10" opacity="0.7" />
+        <circle cx="12" cy="7" r="2.1" fill="currentColor" />
+        <circle cx="7" cy="16.5" r="1.7" fill="currentColor" />
+        <circle cx="17" cy="16.5" r="1.7" fill="currentColor" />
+      </svg>
+    </span>
+  );
+  return <Show when={props.collapsed} fallback={<span class="flex min-h-9 items-center gap-2 rounded-control px-1.5 font-semibold">{glyph("size-7")}<span class="tracking-tight">Keyrus Brain</span></span>}>
+    <span role="img" aria-label="Keyrus Brain" class="grid size-9 place-items-center rounded-control">{glyph("size-7")}</span>
   </Show>;
 }
 

@@ -1,5 +1,7 @@
 @import "@talelk/newui-tailwind/style.css";
 
+/* One accent: NewUI's `blue` theme is the Petrol brand colour, so every action, selection and focus
+   state uses the blue-* tokens. Do not introduce teal-*, indigo-* or raw colours for actions. */
 @source "../index.html";
 @source "./**/*.{ts,tsx}";
 @source "../node_modules/@talelk/newui-atoms/src/**/*.{ts,tsx}";
