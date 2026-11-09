@@ -10,15 +10,21 @@ import { titleize } from "../format";
 import { StatusBadge } from "./StatusBadge";
 import { WorkspaceSection } from "./Domain";
 import { StatGrid } from "@talelk/newui-organisms";
-export function OperationalChecklist() {
+/** The doctor's readiness read, shared by the guided setup (next step) and the full checklist (every check). */
+export function createReadiness() {
   const app = useApp();
-  const navigate = useNavigate();
-  const check = createScopedRead<OperationalReadiness>({ scope: app.scope,
+  return createScopedRead<OperationalReadiness>({ scope: app.scope,
     load: async (scope, signal) => {
       const snapshot = await governor<OperationalReadiness>(`/v1/doctor?workspaceId=${encodeURIComponent(scope.workspaceId)}`, undefined, signal);
       return { snapshot, asOf: snapshot.asOf, sourceWatermark: 0 };
     }, refreshMs: 15000,
   });
+}
+
+export function OperationalChecklist(props: { check?: ReturnType<typeof createReadiness> }) {
+  const app = useApp();
+  const navigate = useNavigate();
+  const check = props.check ?? createReadiness();
   const needsAdministrator = (item: OperationalReadiness["checks"][number]) => ["release", "runners", "model"].includes(item.action ?? "") && !app.identity()?.actor.scopes.includes("config:activate");
   const action = (item: OperationalReadiness["checks"][number]) => {
     if (item.action === "model") return "/settings?tab=setup";

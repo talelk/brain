@@ -1,7 +1,7 @@
 import { createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate, useSearchParams } from "@solidjs/router";
-import { Button, Progress } from "@talelk/newui-atoms";
+import { Button } from "@talelk/newui-atoms";
 import { Pagination, EmptyState } from "@talelk/newui-molecules";
 import { FilterBar, StatGrid } from "@talelk/newui-organisms";
 import type { RunnerSnapshot } from "@brain/contracts";
@@ -23,6 +23,39 @@ function placementNote(runner: RunnerSnapshot): string {
 }
 
 const PAGE_SIZE = 25;
+
+/** Reserved capacity against a runner's total, with what the runner last observed free; the sentence carries the meaning, not the fill. */
+function CapacityMeter(props: { label: string; used: number; total: number; free: number; format: (n: number) => string }): JSX.Element {
+  const pct = () => props.total > 0 ? Math.min(100, Math.max(0, props.used / props.total * 100)) : 0;
+  const text = () => `${props.format(props.used)} of ${props.format(props.total)} reserved, ${props.format(props.free)} free`;
+  return <div class="flex min-w-0 flex-col gap-1">
+    <div class="flex items-baseline justify-between gap-2 text-caption text-ink-gray-7"><span>{props.label}</span><span class="tabular-nums">{text()}</span></div>
+    <div role="progressbar" aria-label={`${props.label} reserved`} aria-valuemin={0} aria-valuemax={props.total} aria-valuenow={Math.min(props.used, props.total)} aria-valuetext={text()} class="h-2 w-full overflow-hidden rounded-full bg-surface-gray-3">
+      <span class={`block h-full ${pct() >= 90 ? "bg-surface-amber-6" : "bg-surface-blue-9"}`} style={{ width: `${pct()}%` }} />
+    </div>
+  </div>;
+}
+
+const FLEET_STATES = [
+  { status: "idle", label: "Idle", fill: "bg-surface-green-7", icon: "lucide-circle-check" },
+  { status: "busy", label: "Busy", fill: "bg-surface-blue-7", icon: "lucide-loader-circle" },
+  { status: "draining", label: "Draining", fill: "bg-surface-amber-6", icon: "lucide-circle-pause" },
+  { status: "quarantined", label: "Quarantined", fill: "bg-surface-red-7", icon: "lucide-shield-alert" },
+  { status: "disabled", label: "Disabled", fill: "bg-surface-gray-5", icon: "lucide-circle-slash" },
+  { status: "offline", label: "Offline", fill: "bg-surface-gray-7", icon: "lucide-wifi-off" },
+] as const;
+
+/** Fleet at a glance: one segmented bar by display status, with an icon + count legend so colour is never the only cue. */
+function FleetBar(props: { runners: RunnerSnapshot[] }): JSX.Element {
+  const rows = () => FLEET_STATES.map((state) => ({ ...state, count: props.runners.filter((runner) => runner.displayStatus === state.status).length })).filter((row) => row.count > 0);
+  const summary = () => `Runner fleet: ${rows().map((row) => `${row.count} ${row.label.toLowerCase()}`).join(", ")}`;
+  return <Show when={props.runners.length > 0}>
+    <div class="flex min-w-0 flex-col gap-2">
+      <div role="img" aria-label={summary()} class="flex h-2.5 w-full gap-px overflow-hidden rounded-full bg-surface-gray-3"><For each={rows()}>{(row) => <span class={`h-full ${row.fill}`} style={{ width: `${row.count / props.runners.length * 100}%` }} />}</For></div>
+      <ul class="flex flex-wrap gap-x-3 gap-y-1 text-caption text-ink-gray-7" aria-hidden="true"><For each={rows()}>{(row) => <li class="inline-flex items-center gap-1"><span class={`${row.icon} size-3`} />{row.label} {row.count}</li>}</For></ul>
+    </div>
+  </Show>;
+}
 
 export default function RunnersPage(): JSX.Element {
   const app = useApp();
@@ -55,6 +88,7 @@ export default function RunnersPage(): JSX.Element {
   return <BrainPage title="Execution fleet" description="Inspect who can execute, which capabilities are verified, and why work can or cannot be assigned."
     actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={() => void runners.refresh({ force: true })}>Refresh</Button><Show when={app.identity()?.actor.scopes.includes("config:activate")}><Button variant="outline" iconLeft="lucide-file-cog" onClick={() => void navigate("/studio/RunnerGroup")}>Runner group drafts</Button></Show><Show when={app.identity()?.actor.scopes.includes("runner:admin")}><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setEnrollOpen(true)}>Enroll runner</Button></Show></>}>
     <PageStack>
+      <FleetBar runners={all()} />
       <StatGrid compact stats={[
         { label: "Online / offline", value: `${all().filter((runner) => runner.connectivity === "online").length} / ${all().filter((runner) => runner.connectivity === "offline").length}`, hint: "Connectivity, independent of admin state", icon: "lucide-radio" },
         { label: "Idle / busy", value: `${all().filter((runner) => runner.displayStatus === "idle").length} / ${all().filter((runner) => runner.displayStatus === "busy").length}`, hint: "Current allocation", icon: "lucide-activity" },
@@ -72,8 +106,12 @@ export default function RunnersPage(): JSX.Element {
             <div class="grid gap-3 md:grid-cols-2 2xl:grid-cols-3"><For each={pageRows()}>{(runner) => <Card padding="lg" class="bg-surface-gray-1 flex flex-col gap-3 p-3">
               <div class="flex flex-wrap items-start justify-between gap-2"><div class="flex min-w-0 items-center gap-2.5"><IconTile icon="lucide-server" tone={runner.connectivity === "online" ? "blue" : "gray"} /><div class="min-w-0"><h3 class="break-all text-base-medium">{runner.runnerId}</h3><p class="mt-0.5 break-words text-caption text-ink-gray-6">Group {runner.group}</p></div></div><StatusBadge kind="runner" status={runner.displayStatus} /></div>
               <div class="flex flex-wrap gap-1.5"><StatusBadge kind="connection" status={runner.connectivity} /><StatusBadge kind="health" status={runner.health} /><Show when={runner.adminState !== "enabled"}><StatusBadge kind="runner" status={runner.adminState} /></Show></div>
-              <div><div class="mb-1.5 flex justify-between gap-2 text-caption text-ink-gray-7"><span>Attempt slots reserved</span><span class="tabular-nums">{runner.reserved.slots}/{runner.capacity.slots}</span></div><Progress label="Slots reserved" value={runner.reserved.slots / Math.max(1, runner.capacity.slots) * 100} /></div>
-              <dl class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-x-3 gap-y-2 text-caption"><div class="min-w-0"><dt class="text-ink-gray-6">CPU reserved</dt><dd class="mt-0.5 break-words text-interface tabular-nums">{runner.reserved.cpuMillicores}m / {runner.capacity.cpuMillicores}m</dd></div><div class="min-w-0"><dt class="text-ink-gray-6">Memory reserved</dt><dd class="mt-0.5 break-words text-interface tabular-nums">{runner.reserved.memoryMb} / {runner.capacity.memoryMb} MB</dd></div><div class="min-w-0"><dt class="text-ink-gray-6">Verified capabilities</dt><dd class="mt-0.5 text-interface tabular-nums">{runner.capabilities.filter((capability) => capability.verified).length} / {runner.capabilities.length}</dd></div><div class="min-w-0"><dt class="text-ink-gray-6">Active attempts</dt><dd class="mt-0.5 text-interface tabular-nums">{runner.activeAttemptIds.length}</dd></div></dl>
+              <div class="flex flex-col gap-2.5">
+                <CapacityMeter label="Attempt slots" used={runner.reserved.slots} total={runner.capacity.slots} free={runner.observedFree.slots} format={(n) => String(n)} />
+                <CapacityMeter label="CPU" used={runner.reserved.cpuMillicores} total={runner.capacity.cpuMillicores} free={runner.observedFree.cpuMillicores} format={(n) => `${n}m`} />
+                <CapacityMeter label="Memory" used={runner.reserved.memoryMb} total={runner.capacity.memoryMb} free={runner.observedFree.memoryMb} format={(n) => `${n} MB`} />
+              </div>
+              <dl class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-x-3 gap-y-2 text-caption"><div class="min-w-0"><dt class="text-ink-gray-6">Verified capabilities</dt><dd class="mt-0.5 text-interface tabular-nums">{runner.capabilities.filter((capability) => capability.verified).length} / {runner.capabilities.length}</dd></div><div class="min-w-0"><dt class="text-ink-gray-6">Active attempts</dt><dd class="mt-0.5 text-interface tabular-nums">{runner.activeAttemptIds.length}</dd></div></dl>
               <p class="break-words text-interface text-ink-gray-7">{placementNote(runner)}</p>
               <div class="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-outline-gray-1 pt-2.5"><Freshness value={runner.lastSeenAt} stale={runner.connectivity === "offline"} label="Heartbeat" /><Button size="sm" variant="outline" iconRight="lucide-arrow-right" onClick={() => void navigate(`/runners/${runner.runnerId}`)}>Diagnostics</Button></div>
             </Card>}</For></div>
