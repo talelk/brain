@@ -78,11 +78,11 @@ export function OrganizationPeople(): JSX.Element {
 
   return <PageStack>
     <Section title="Organization members" description="Membership, Brain roles, security enrollment and current-organization sessions." surface="card"
-      actions={<Button size="md" variant="solid" theme="blue" iconLeft="lucide-user-plus" onClick={() => setInviteOpen(true)}>Invite person</Button>}>
+      actions={<Button variant="solid" theme="blue" iconLeft="lucide-user-plus" onClick={() => setInviteOpen(true)}>Invite person</Button>}>
       <ScreenRegion state={read.state()} skeleton="rows" emptyTitle="No organization members" emptyDescription="Invite the first person to this organization." onRetry={() => void read.refresh({ force: true })}>
         <div class="mb-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-end">
           <TextInput label="Search people" value={search()} onInput={(event) => setSearch(event.currentTarget.value)} placeholder="Name or email" />
-          <Button size="md" variant="outline" class="justify-self-start" onClick={() => void read.refresh({ force: true })}>Search</Button>
+          <Button variant="outline" class="justify-self-start" onClick={() => void read.refresh({ force: true })}>Search</Button>
           <Select label="Member to manage" value={selectedId() || null} options={members().map((member) => ({ value: member.principalId, label: member.name, description: member.email }))} onValueChange={(value) => void openDetail(value ?? "")} />
         </div>
         <DataTable title="Organization members" selectable={false} hideSearch cardBreakpoint="lg" pageSize={25} rows={members().map((member) => ({
@@ -106,7 +106,7 @@ export function OrganizationPeople(): JSX.Element {
       <Dialog.Header><Dialog.Title>Invite a person</Dialog.Title><Dialog.Description>The recipient must verify their email and explicitly accept before membership becomes active.</Dialog.Description></Dialog.Header>
       <BrainForm bare label="Invite a person" onSubmit={() => { if (email().trim() && reason().trim()) return run("organization.invitation.create", { email: email().trim().toLowerCase(), reason: reason().trim() }); }}>
       <div class="my-3 flex flex-col gap-3"><TextInput label="Email" type="email" required value={email()} onInput={(event) => setEmail(event.currentTarget.value)} /><TextInput label="Reason" required value={reason()} onInput={(event) => setReason(event.currentTarget.value)} /></div>
-      <Dialog.Footer class="flex-wrap gap-2"><Button size="md" variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button><Button type="submit" size="md" variant="solid" theme="blue" loading={busy()} disabled={!email().trim() || !reason().trim()}>Send invitation</Button></Dialog.Footer>
+      <Dialog.Footer class="flex-wrap gap-2"><Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button><Button type="submit" variant="solid" theme="blue" loading={busy()} disabled={!email().trim() || !reason().trim()}>Send invitation</Button></Dialog.Footer>
       </BrainForm>
     </Dialog.Content></Dialog.Root>
 

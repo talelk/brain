@@ -47,7 +47,7 @@ test("Log Explorer: bounded DOM, scroll and selection survive streaming, pause/u
   for (let i = 1; i <= 10000; i++) {
     const even = i % 2 === 0;
     const payload = even
-      ? { channel: "assistant", provisional: true, text: `Transcript line ${i}` }
+      ? { channel: "assistant", provisional: true, text: `Transcript line ${i}\n` }
       : { proposalId: `prop-${i}`, invocationId: `inv-${i}`, receipt: { invocationId: `inv-${i}`, result: "succeeded" } };
     // i === 9900 fails inside the visible newest-200 window so the error jump
     // has a target; i in 9910..9919 repeats one identical line (collapse group).
@@ -127,7 +127,7 @@ test("Log Explorer: bounded DOM, scroll and selection survive streaming, pause/u
   const inject = (from: number, to: number): void => {
     for (let i = from; i <= to; i++) {
       insert.run(`evt-live-${i}`, "session", "ses-perf", i, "text",
-        JSON.stringify({ channel: "assistant", provisional: true, text: `Live line ${i}` }), digest, Date.now());
+        JSON.stringify({ channel: "assistant", provisional: true, text: `Live line ${i}\n` }), digest, Date.now());
     }
   };
   inject(10001, 10040);

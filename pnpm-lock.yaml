@@ -165,7 +165,7 @@ settings:
 overrides:
   zod: 4.6.7
   undici: 8.12.2
-  '@talelk/newui-tokens': 0.1.1
+  '@talelk/newui-tokens': 0.2.0
 
 importers:
 
@@ -350,20 +350,20 @@ importers:
         specifier: 0.5.20
         version: 0.5.20(tailwindcss@4.3.3)
       '@talelk/newui-atoms':
-        specifier: 1.3.0
-        version: 1.3.0(solid-js@1.9.17)
+        specifier: 1.4.0
+        version: 1.4.0(solid-js@1.9.17)
       '@talelk/newui-molecules':
+        specifier: 2.4.0
+        version: 2.4.0(solid-js@1.9.17)
+      '@talelk/newui-organisms':
         specifier: 2.3.0
         version: 2.3.0(solid-js@1.9.17)
-      '@talelk/newui-organisms':
-        specifier: 2.2.0
-        version: 2.2.0(solid-js@1.9.17)
       '@talelk/newui-tailwind':
-        specifier: 1.0.2
-        version: 1.0.2(tailwindcss@4.3.3)
+        specifier: 1.1.0
+        version: 1.1.0(tailwindcss@4.3.3)
       '@talelk/newui-templates':
-        specifier: 1.1.5
-        version: 1.1.5(solid-js@1.9.17)
+        specifier: 1.2.0
+        version: 1.2.0(solid-js@1.9.17)
       better-auth:
         specifier: 1.7.14
         version: 1.7.14(@opentelemetry/api@1.10.0)(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@libsql/client@0.18.0)(@opentelemetry/api@1.10.0)(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)(kysely@0.29.7))(solid-js@1.9.17)(vitest@5.0.5(@opentelemetry/api@1.10.0)(@types/node@24.10.1)(vite@8.3.5(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.20.6)(yaml@2.9.1)))
@@ -2238,33 +2238,55 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
 
-  '@talelk/newui-atoms@1.3.0':
-    resolution: {integrity: sha512-N4++k+MLG8SFRzwme5Vy/qVBYlpQrbDxHvH8hq9m8nYMULA36acF2VyQo1HXPuQ5vRd0loRsb4ylKCAEQU7UXg==}
+  '@talelk/newui-atoms@1.4.0':
+    resolution: {integrity: sha512-W7TOBbWUo/7k7HJE57JzviBqXYt09ip2y5MV6cVTuo28PniyQXi3IwoZiA0mmbqIubRmvcZe3EDG7VqieXNzKg==}
     peerDependencies:
       solid-js: ^1.9.0
 
-  '@talelk/newui-molecules@2.3.0':
-    resolution: {integrity: sha512-cB+vtj79KBp5WxAG6B6TPTEGtCftZUEaNl+5aZAzxSBIAB8zY/OoQQDSm4E15TqgyxURDb60ZIOR1+A+bzsj3g==}
+  '@talelk/newui-molecules@2.4.0':
+    resolution: {integrity: sha512-pS3p4x5wTHPSsN+23tTkrsirxgtycH8ee4Ltey6nqyzqB5Fi1Zuo4HKgmMS1tQtSGfuXwvc3CNLvS0Iwl/fpjA==}
     peerDependencies:
       solid-js: ^1.9.0
 
-  '@talelk/newui-organisms@2.2.0':
-    resolution: {integrity: sha512-PZ02iD5SOmYio06WmUtUdD/j6gGBj56VMAptsFwv7gdoMdB/vLrh2E+DveWKG1nXkHPMgOshNOgzUZsnRZ8RLg==}
+  '@talelk/newui-organisms@2.3.0':
+    resolution: {integrity: sha512-i3dsVsxLdiG+gkmIe2x1AQNhixs1t0OMO9ck4pXsRnQ5usbZE719KpCGx9RijzEwpix3x4Zxpc51SuVahp9h2Q==}
     peerDependencies:
       solid-js: ^1.9.0
 
-  '@talelk/newui-tailwind@1.0.2':
-    resolution: {integrity: sha512-BzqFegrd2OgSeZYKNF1ZrsTRogoUUXVuTehSlDeS7N1BRp35bnBAB+sOxlU3JkellnxR2+dpUAN7ig8/8c++uQ==}
+  '@talelk/newui-tailwind@1.1.0':
+    resolution: {integrity: sha512-YNYBncQ9aaFEBo7TanH7yaDINl0VA2BFf6b8rEPytIATCq6FEja4dic5dY9B7GHrN1oyxdMs8PU42Wda0/erDw==}
     peerDependencies:
       tailwindcss: ^4.0.0
 
-  '@talelk/newui-templates@1.1.5':
-    resolution: {integrity: sha512-VlsQe2u6p2WkuT2UdsW+KiWFRl70JsxMIalQ5cbwvdt5DLuQ3PnGaKfXWIYZxHuDKvgr1l+8Y3cJODuzmXibSA==}
+  '@talelk/newui-templates@1.2.0':
+    resolution: {integrity: sha512-r229Hqbbnrp/Bkz/dtZpgYh8nl74xKi/Dz+2Shgfy7KenU0/347hTmG9IRn8IQdvRq3IxaMAapjvIyuw1RzI8w==}
     peerDependencies:
       solid-js: ^1.9.0
 
-  '@talelk/newui-tokens@0.1.1':
-    resolution: {integrity: sha512-qhgil+/uOUH6z9qkDZFA3SEVwUutEr+TgMW/0bMrMJWQPEhhZPqhsNaV2T23g2bkF9kRxHI3wIiIMBUhpH0FoA==}
+  '@talelk/newui-tokens@0.2.0':
+    resolution: {integrity: sha512-86PUP9hnLPwvIkRzImEZhqoJLk4DbVQII6KyHA52WISQ5zDSN/KJInnBY4WEnG24m/0hpimUcGyPcKVNCdeJyg==}
+
+  '@tanstack/devtools-event-client@0.4.4':
+    resolution: {integrity: sha512-6T5Yop/793YI+H+5J8Hsyj4kCih9sl4t3ElLgKioW5hk3ocn+ZdSJ94tT7vL7uabxSugWYBZlOTMPzEw2puvQw==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  '@tanstack/form-core@1.33.5':
+    resolution: {integrity: sha512-3dfx9MBP0aq5sXKteikG629X9oviptrQj0IFRk9YGcb+lB7Kv5x8S17oOSk1wUWgjQZ4xVJEMbKwOAODymocgA==}
+
+  '@tanstack/pacer-lite@0.1.1':
+    resolution: {integrity: sha512-y/xtNPNt/YeyoVxE/JCx+T7yjEzpezmbb+toK8DDD1P4m7Kzs5YR956+7OKexG3f8aXgC3rLZl7b1V+yNUSy5w==}
+    engines: {node: '>=18'}
+
+  '@tanstack/solid-form@1.33.5':
+    resolution: {integrity: sha512-azYHYzNwop64bedJRKgjCpi5w9cHu7cNz+dAdSXzaqy9M6JO+GlKNQn54VFhCLYJo45sgNjcdrnz4eyTmgzJ/w==}
+    peerDependencies:
+      solid-js: '>=1.9.9'
+
+  '@tanstack/solid-store@0.11.2':
+    resolution: {integrity: sha512-lscar3xeRKfs/RQBcZjR9NG55sfMP5Pb8S/URohUqcnSB8Yu19JLE/hPjfSd7pKmCpjYq1ZbjqtpIc5bDE1lAQ==}
+    peerDependencies:
+      solid-js: ^1.6.0
 
   '@tanstack/solid-table@9.3.1':
     resolution: {integrity: sha512-Y1qyK2R4Y65dUNS/flC9TpAcXx8EuN9eImi+QSmx7AyhyRv1xm7051FkmetCkKcpdK3aKOPxG+P1o4CpWsxoWw==}
@@ -6792,7 +6814,7 @@ snapshots:
       tailwindcss: 4.3.3
       vite: 8.3.5(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.20.6)(yaml@2.9.1)
 
-  '@talelk/newui-atoms@1.3.0(solid-js@1.9.17)':
+  '@talelk/newui-atoms@1.4.0(solid-js@1.9.17)':
     dependencies:
       '@internationalized/date': 3.12.4
       '@zag-js/dialog': 1.46.0
@@ -6805,10 +6827,11 @@ snapshots:
       solid-js: 1.9.17
       tailwind-merge: 3.7.0
 
-  '@talelk/newui-molecules@2.3.0(solid-js@1.9.17)':
+  '@talelk/newui-molecules@2.4.0(solid-js@1.9.17)':
     dependencies:
       '@internationalized/date': 3.12.4
-      '@talelk/newui-atoms': 1.3.0(solid-js@1.9.17)
+      '@talelk/newui-atoms': 1.4.0(solid-js@1.9.17)
+      '@tanstack/solid-form': 1.33.5(solid-js@1.9.17)
       '@zag-js/accordion': 1.46.0
       '@zag-js/collapsible': 1.46.0
       '@zag-js/collection': 1.46.0
@@ -6831,27 +6854,49 @@ snapshots:
       '@zag-js/tree-view': 1.46.0
       solid-js: 1.9.17
 
-  '@talelk/newui-organisms@2.2.0(solid-js@1.9.17)':
+  '@talelk/newui-organisms@2.3.0(solid-js@1.9.17)':
     dependencies:
-      '@talelk/newui-atoms': 1.3.0(solid-js@1.9.17)
-      '@talelk/newui-molecules': 2.3.0(solid-js@1.9.17)
+      '@talelk/newui-atoms': 1.4.0(solid-js@1.9.17)
+      '@talelk/newui-molecules': 2.4.0(solid-js@1.9.17)
+      '@tanstack/solid-form': 1.33.5(solid-js@1.9.17)
       '@tanstack/solid-table': 9.3.1(solid-js@1.9.17)
       '@tanstack/solid-virtual': 3.13.49(solid-js@1.9.17)
       solid-js: 1.9.17
 
-  '@talelk/newui-tailwind@1.0.2(tailwindcss@4.3.3)':
+  '@talelk/newui-tailwind@1.1.0(tailwindcss@4.3.3)':
     dependencies:
-      '@talelk/newui-tokens': 0.1.1
+      '@talelk/newui-tokens': 0.2.0
       tailwindcss: 4.3.3
 
-  '@talelk/newui-templates@1.1.5(solid-js@1.9.17)':
+  '@talelk/newui-templates@1.2.0(solid-js@1.9.17)':
     dependencies:
-      '@talelk/newui-atoms': 1.3.0(solid-js@1.9.17)
-      '@talelk/newui-molecules': 2.3.0(solid-js@1.9.17)
-      '@talelk/newui-organisms': 2.2.0(solid-js@1.9.17)
+      '@talelk/newui-atoms': 1.4.0(solid-js@1.9.17)
+      '@talelk/newui-molecules': 2.4.0(solid-js@1.9.17)
+      '@talelk/newui-organisms': 2.3.0(solid-js@1.9.17)
       solid-js: 1.9.17
 
-  '@talelk/newui-tokens@0.1.1': {}
+  '@talelk/newui-tokens@0.2.0': {}
+
+  '@tanstack/devtools-event-client@0.4.4': {}
+
+  '@tanstack/form-core@1.33.5':
+    dependencies:
+      '@tanstack/devtools-event-client': 0.4.4
+      '@tanstack/pacer-lite': 0.1.1
+      '@tanstack/store': 0.11.2
+
+  '@tanstack/pacer-lite@0.1.1': {}
+
+  '@tanstack/solid-form@1.33.5(solid-js@1.9.17)':
+    dependencies:
+      '@tanstack/form-core': 1.33.5
+      '@tanstack/solid-store': 0.11.2(solid-js@1.9.17)
+      solid-js: 1.9.17
+
+  '@tanstack/solid-store@0.11.2(solid-js@1.9.17)':
+    dependencies:
+      '@tanstack/store': 0.11.2
+      solid-js: 1.9.17
 
   '@tanstack/solid-table@9.3.1(solid-js@1.9.17)':
     dependencies:

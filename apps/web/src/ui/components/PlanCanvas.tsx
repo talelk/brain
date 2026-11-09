@@ -10,6 +10,8 @@ import { ScreenRegion } from "../screen-region";
 import { PageStack, TechnicalDetails } from "./PageLayout";
 import { StatusBadge } from "./StatusBadge";
 import { WorkspaceSection } from "./Domain";
+import { FormSheet } from "./BrainForm";
+import { ReasonDialog } from "./ReasonDialog";
 
 /**
  * The mission's planning canvas (T58, #25: plan creation and review live on
@@ -25,6 +27,8 @@ export function PlanCanvas(props: { mission: Mission; onChanged: () => Promise<v
   const [error, setError] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [rejectReason, setRejectReason] = createSignal("");
+  const [editOpen, setEditOpen] = createSignal(false);
+  const [rejectOpen, setRejectOpen] = createSignal(false);
   const proposal = createScopedRead<MissionPlanView | null>({
     scope: app.scope,
     load: async (scope, signal) => {
@@ -84,36 +88,43 @@ export function PlanCanvas(props: { mission: Mission; onChanged: () => Promise<v
     try {
       const result = await app.run("plan.reject", { planVersionId, reason: rejectReason().trim() });
       if (!result.accepted) throw new Error(result.detail);
-      setRejectReason(""); setDirty(false);
+      setRejectReason(""); setDirty(false); setRejectOpen(false);
       await Promise.all([proposal.refresh({ force: true }), props.onChanged()]);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "The rejection was refused"); }
     finally { setBusy(false); }
   }
   return <WorkspaceSection title="Proposal canvas" description="Review each expected outcome, acceptance criterion and dependency before confirming tracked work."
-    actions={<Show when={app.canDispatch() && props.mission.state !== "closed"}><Button size="md" variant="outline" iconLeft="lucide-sparkles" loading={busy()} disabled={busy()} onClick={() => void generate()}>{proposal.state().data ? "Generate another strategy" : "Prepare plan proposal"}</Button></Show>}>
+    actions={<Show when={app.canDispatch() && props.mission.state !== "closed"}><Button variant="outline" iconLeft="lucide-sparkles" loading={busy()} disabled={busy()} onClick={() => void generate()}>{proposal.state().data ? "Generate another strategy" : "Prepare plan proposal"}</Button></Show>}>
     <Show when={error()}><Alert theme="red" variant="outline" title="Planning action failed" description={error()} /></Show>
     <ScreenRegion state={proposal.state()} onRetry={() => void proposal.refresh()} emptyTitle="No plan proposal yet" emptyDescription="Ask Brain to prepare a strategy. Nothing becomes tracked work or executes before you confirm it.">
       <Show when={proposal.state().data?.state === "running"}><Alert theme="blue" variant="outline" title="Preparing a validated proposal" description="The mission is durable. No tasks have been created and no execution has started." /></Show>
       <Show when={proposal.state().data?.state === "failed"}><Alert theme="amber" variant="outline" title="No validated proposal yet" description={proposal.state().data?.error} /></Show>
       <Show when={proposal.state().data?.plan} keyed>{(plan) => <PageStack>
         <Alert theme={plan.state === "confirmed" ? "green" : "blue"} variant="outline" title={plan.state === "confirmed" ? "Human-confirmed tracked work" : "AI or manual proposal—not yet tracked"}
-          description={plan.state === "confirmed" ? "This version has been confirmed. Its work items and acceptance evidence are managed below." : "Review and edit this strategy. Confirmation is a separate, explicit command against the mission's current version."} />
+          description={plan.state === "confirmed" ? "This version has been confirmed and its work items were created below. Nothing runs until you start a task: start each ready task, then follow it in Live." : "Review and edit this strategy. Confirmation is a separate, explicit command against the mission's current version."} />
         <div><div class="flex flex-wrap items-center gap-2"><Badge variant="outline" theme="blue" label={`Plan revision ${plan.revision}`} /><StatusBadge kind="plan" status={plan.state} /><Show when={dirty()}><Badge theme="amber" label="Unsaved edits" /></Show></div>
           <p class="brain-prose mt-3 text-interface text-ink-gray-7">{plan.summary}</p></div>
-        <div class="flex flex-col gap-3"><For each={editedTasks()}>{(task, index) => <article class="border-y border-outline-gray-1 py-3">
-          <div class="mb-2 flex flex-wrap items-center gap-2"><span class="grid size-7 place-items-center rounded-full bg-surface-blue-2 text-caption font-medium text-ink-blue-8">{index() + 1}</span><Badge variant="outline" theme="gray" label={task.id} />
-            <Show when={task.workflowId}><Badge variant="outline" theme="blue" label={task.workflowId!} /></Show><Show when={task.estimatedMinutes}><Badge variant="outline" theme="gray" label={`${task.estimatedMinutes} min estimate`} /></Show></div>
-          <div class="brain-field-grid"><TextInput label={`Step ${index() + 1} expected outcome`} value={task.title} onInput={(event) => updateTask(index(), "title", event.currentTarget.value)} />
+        <ol class="flex flex-col gap-2" aria-label="Plan steps"><For each={editedTasks()}>{(task, index) => <li class="flex gap-3 border-b border-outline-gray-1 pb-3">
+          <span class="grid size-7 shrink-0 place-items-center rounded-full bg-surface-blue-2 text-caption font-medium text-ink-blue-8">{index() + 1}</span>
+          <div class="min-w-0"><p class="break-words text-base-medium text-ink-gray-9">{task.title}</p>
+            <Show when={task.criteria.length}><ul class="mt-1 list-disc ps-5 text-interface text-ink-gray-7"><For each={task.criteria}>{(criterion) => <li>{criterion}</li>}</For></ul></Show>
+            <p class="mt-1 flex flex-wrap gap-x-3 text-caption text-ink-gray-6"><span>{task.id}</span><Show when={task.dependsOn.length}><span>after {task.dependsOn.join(", ")}</span></Show><Show when={task.assignment}><span>{task.assignment?.kind} {task.assignment?.id} · {task.assignment?.role}</span></Show><Show when={task.workflowId}><span>{task.workflowId}</span></Show><Show when={task.estimatedMinutes}><span>{task.estimatedMinutes} min</span></Show></p></div>
+        </li>}</For></ol>
+        <FormSheet size="xl" open={editOpen()} onClose={() => setEditOpen(false)} title="Edit the plan steps" description="Edits become a new plan revision when you confirm. Nothing is tracked or executed before that." submit="Keep edits" icon="lucide-check" onSubmit={() => { setEditOpen(false); }}>
+          <For each={editedTasks()}>{(task, index) => <section class="flex flex-col gap-3 border-b border-outline-gray-1 pb-4" aria-label={`Step ${index() + 1}`}>
+          <div class="flex flex-col gap-3"><TextInput label={`Step ${index() + 1} expected outcome`} value={task.title} onInput={(event) => updateTask(index(), "title", event.currentTarget.value)} />
             <TextInput label="Depends on" value={task.dependsOn.join(", ")} description="Comma-separated task IDs; no dependency graph is inferred when empty" onInput={(event) => updateTask(index(), "dependsOn", event.currentTarget.value)} /></div>
           <Textarea label="Acceptance criteria" value={task.criteria.join("\n")} onInput={(event) => updateTask(index(), "criteria", event.currentTarget.value)} />
-          <Show when={task.assignment}><p class="mt-2 text-caption text-ink-gray-6">Proposed assignment: {task.assignment?.kind} {task.assignment?.id} · {task.assignment?.role}</p></Show>
-        </article>}</For></div>
-        <div class="flex flex-wrap gap-3 border-t border-outline-gray-1 pt-4">
-          <Button size="md" theme="blue" iconLeft="lucide-check-check" loading={busy()} disabled={busy() || !editedTasks().length || (plan.state === "confirmed" && !dirty())} onClick={() => void confirm()}>Confirm this plan</Button>
-          <Show when={plan.state === "proposed"}><TextInput label="Why reject this proposal?" value={rejectReason()} onInput={(event) => setRejectReason(event.currentTarget.value)} />
-            <Button size="md" variant="outline" theme="red" iconLeft="lucide-x" disabled={busy() || !rejectReason().trim()} onClick={() => void reject(plan.planVersionId)}>Reject proposal</Button></Show>
-          <Button size="md" variant="outline" iconLeft="lucide-undo-2" disabled={!dirty()} onClick={() => { setDirty(false); setEditedTasks(plan.tasks.map((task) => ({ ...task }))); }}>Reset edits</Button>
+          </section>}</For>
+        </FormSheet>
+        <div class="flex flex-wrap items-center gap-2 border-t border-outline-gray-1 pt-4">
+          <Button variant="solid" theme="blue" iconLeft="lucide-check-check" loading={busy()} disabled={busy() || !editedTasks().length || (plan.state === "confirmed" && !dirty())} onClick={() => void confirm()}>Confirm this plan</Button>
+          <Button variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => setEditOpen(true)}>Edit steps</Button>
+          <Show when={dirty()}><Button variant="ghost" iconLeft="lucide-undo-2" onClick={() => { setDirty(false); setEditedTasks(plan.tasks.map((task) => ({ ...task }))); }}>Reset edits</Button></Show>
+          <Show when={plan.state === "proposed"}><Button variant="outline" theme="red" iconLeft="lucide-x" disabled={busy()} onClick={() => { setRejectReason(""); setRejectOpen(true); }}>Reject…</Button></Show>
         </div>
+        <ReasonDialog open={rejectOpen()} onClose={() => setRejectOpen(false)} title="Reject this proposal" description="The proposal is kept in history. The mission continues on its last confirmed plan." reason={rejectReason()} onReason={setRejectReason}
+          reasonLabel="Why reject this proposal?" confirmLabel="Reject proposal" tone="red" busy={busy()} onConfirm={() => void reject(plan.planVersionId)} />
         <TechnicalDetails label="Plan version"><p class="break-all">{plan.planVersionId} · digest {plan.digest} · origin {plan.origin}</p></TechnicalDetails>
       </PageStack>}</Show>
     </ScreenRegion>

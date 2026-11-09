@@ -167,7 +167,7 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
     breadcrumbs={header()?.breadcrumbs}
     actions={header()?.actions}
     mobileTitle={header()?.title ?? "Brain"}
-    headerActions={<><Show when={app.workspaceId()}><AttentionDrawer /></Show><Button size="md" variant="ghost" iconLeft="lucide-search" aria-label="Search Brain (Control K)" onClick={() => setSearchOpen(true)}><span class="max-sm:hidden">Search</span></Button><ThemeToggle /></>}
+    headerActions={<><Show when={app.workspaceId()}><AttentionDrawer /></Show><Button variant="ghost" iconLeft="lucide-search" aria-label="Search Brain (Control K)" onClick={() => setSearchOpen(true)}><span class="max-sm:hidden">Search</span></Button><ThemeToggle /></>}
     tenant={<div data-keep-drawer><Dropdown aria-label="Choose workspace" class="w-full justify-start" options={app.workspaceOptions().map((option) => ({ ...option, icon: "lucide-building-2" }))}
       onSelect={(value) => { if (value) { app.selectWorkspace(value); void navigate(`/w/${value}/missions`); } }}>
       <span class="flex min-w-0 items-center gap-2"><span class="lucide-building-2 size-4 shrink-0" aria-hidden="true" /><span class="truncate">{app.workspaceOptions().find((option) => option.value === app.workspaceId())?.label ?? "Choose workspace"}</span></span>

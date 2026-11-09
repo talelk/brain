@@ -24,7 +24,7 @@ export function BridgeScreen(props: {
   const total = () => props.workspaces.reduce((sum, ws) => sum + ws.pendingApprovals + ws.blockedJobs, 0);
   const ordered = () => [...props.workspaces].sort((a, b) => (b.pendingApprovals + b.blockedJobs) - (a.pendingApprovals + a.blockedJobs) || a.displayName.localeCompare(b.displayName));
   return <BrainPage title="Bridge" description="Enter the workspace that needs you first; health stays scoped to its own observations."
-    actions={<><RefreshButton onClick={props.onRefresh} label="Refresh" /><Show when={app.identity()?.actor.scopes.includes("config:activate")}><Button size="md" theme="blue" iconLeft="lucide-plus" onClick={() => setCreateOpen(true)}>Create workspace</Button></Show></>}>
+    actions={<><RefreshButton onClick={props.onRefresh} label="Refresh" /><Show when={app.identity()?.actor.scopes.includes("config:activate")}><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setCreateOpen(true)}>Create workspace</Button></Show></>}>
     <PageStack>
       <FactStrip label="Workspace access summary" items={[
         { label: "Readable workspaces", value: String(props.workspaces.length), hint: "Authorized to your account", icon: "lucide-building-2" },
@@ -33,7 +33,7 @@ export function BridgeScreen(props: {
       <WorkspaceSection title="Workspace control" description="Actionable workspaces are first. Quiet workspaces remain available without implying systemwide health.">
         <ScreenRegion state={props.state} skeleton="cards" emptyTitle="No workspaces assigned"
           emptyDescription="Ask an organization administrator to grant you workspace access."
-          emptyAction={<Button size="md" onClick={props.onRefresh}>Reload</Button>} onRetry={props.onRefresh}>
+          emptyAction={<Button onClick={props.onRefresh}>Reload</Button>} onRetry={props.onRefresh}>
           <div class={`grid gap-3 ${ordered().length === 1 ? "max-w-3xl" : "md:grid-cols-2 xl:grid-cols-3"}`}>
             <For each={ordered()}>{(ws) => {
               const attention = ws.pendingApprovals + ws.blockedJobs;
@@ -48,7 +48,7 @@ export function BridgeScreen(props: {
                   <div><dt class="text-caption text-ink-gray-6">Blocked</dt><dd class="mt-1 text-base-medium tabular-nums">{ws.blockedJobs}</dd></div>
                   <div><dt class="text-caption text-ink-gray-6">Spend today</dt><dd class="mt-1 text-base-medium tabular-nums">{formatMicroUsd(ws.dailyMicroUsd)}</dd></div>
                 </dl>
-                <div class="flex flex-wrap items-center justify-between gap-3"><Freshness value={ws.observedAt} stale={ws.health === "unknown"} /><div class="flex flex-wrap gap-2"><Show when={app.canAdminister()}><Button size="md" variant="ghost" onClick={() => setManaging(ws)}>Manage</Button></Show><Button size="md" variant={attention ? "solid" : "outline"} theme="blue" iconRight="lucide-arrow-right" onClick={() => props.onOpen(ws.workspaceId)}>Open workspace</Button></div></div>
+                <div class="flex flex-wrap items-center justify-between gap-3"><Freshness value={ws.observedAt} stale={ws.health === "unknown"} /><div class="flex flex-wrap gap-2"><Show when={app.canAdminister()}><Button variant="ghost" onClick={() => setManaging(ws)}>Manage</Button></Show><Button variant={attention ? "solid" : "outline"} theme="blue" iconRight="lucide-arrow-right" onClick={() => props.onOpen(ws.workspaceId)}>Open workspace</Button></div></div>
               </CardTile>;
             }}</For>
           </div>

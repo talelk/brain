@@ -357,7 +357,7 @@ function RecordDetail(props: { row: LogRowModel; mode: LogViewMode }): JSX.Eleme
         <Show when={record().tsApproximate}> · time set at projection</Show>
       </span>
     </div>
-    <p class="brain-exec-log break-words text-ink-gray-8">{streamSummaryText(record().summary, 2000)}</p>
+    <p class="brain-exec-log whitespace-pre-wrap break-words text-ink-gray-8">{props.row.kind === "message" ? props.row.text : streamSummaryText(record().summary, 2000)}</p>
     <div class="flex flex-wrap items-center gap-1" data-testid="log-detail-links">
       <CorrelationChips correlation={record().correlation} />
       <Show when={approval()}>{(linked) => (

@@ -58,7 +58,7 @@ export default function NamedOutputPage(): JSX.Element {
   </div>;
 
   return <BrainPage title={detail.state().data?.output.name ?? "Output"} description="A named mission output: every version, its lineage and comparisons with provenance."
-    actions={<Show when={detail.state().data}>{(loaded) => <Button size="md" variant="outline" iconLeft="lucide-flag" onClick={() => void navigate(missionHref(app.workspaceId(), loaded().output.missionId, "outputs"))}>{loaded().missionTitle}</Button>}</Show>}>
+    actions={<Show when={detail.state().data}>{(loaded) => <Button variant="outline" iconLeft="lucide-flag" onClick={() => void navigate(missionHref(app.workspaceId(), loaded().output.missionId, "outputs"))}>{loaded().missionTitle}</Button>}</Show>}>
     <PageStack>
       <ScreenRegion state={detail.state()} onRetry={() => void detail.refresh({ force: true })} emptyTitle="Output not found"
         emptyDescription="No output with this id exists in the current workspace, or you cannot read it.">
@@ -76,7 +76,7 @@ export default function NamedOutputPage(): JSX.Element {
               onClick={() => void navigate(`${base()}?v=${encodeURIComponent(version.versionId)}`)} />}</For></div>
             <Show when={versions().length > 1}>
               <div class="mt-4 flex flex-wrap gap-2"><For each={versions().slice(0, -1)}>{(version) =>
-                <Button size="md" variant="outline" iconLeft="lucide-git-compare" onClick={() => void navigate(`${base()}/compare?left=${encodeURIComponent(version.versionId)}&right=${encodeURIComponent(latest()!.versionId)}`)}>
+                <Button variant="outline" iconLeft="lucide-git-compare" onClick={() => void navigate(`${base()}/compare?left=${encodeURIComponent(version.versionId)}&right=${encodeURIComponent(latest()!.versionId)}`)}>
                   {`Compare ${label(version)} with the latest`}
                 </Button>}</For></div>
             </Show>
@@ -91,7 +91,7 @@ export default function NamedOutputPage(): JSX.Element {
           </WorkspaceSection>
         </>}>
           <WorkspaceSection title="Version comparison" description="Unified diff of two versions, each with the work item and verification that produced it."
-            actions={<Button size="md" variant="outline" iconLeft="lucide-x" onClick={() => void navigate(base())}>Exit comparison</Button>}>
+            actions={<Button variant="outline" iconLeft="lucide-x" onClick={() => void navigate(base())}>Exit comparison</Button>}>
             <Show when={left() && right()} fallback={<p class="text-interface text-ink-gray-7">Choose two versions of this output to compare.</p>}>
               <div class="flex flex-col gap-4">
                 <div class="grid gap-4 md:grid-cols-2">{provenance(left()!)}{provenance(right()!)}</div>

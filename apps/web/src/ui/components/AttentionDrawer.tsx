@@ -66,7 +66,7 @@ export function AttentionDrawer(): JSX.Element {
   const go = (href: string) => { setOpen(false); void navigate(href); };
   const toggle = (next: boolean) => { setOpen(next); if (next) { void attention.refresh({ force: true }); void history.refresh({ force: true }); } };
   return <>
-    <Button size="md" variant="ghost" iconLeft="lucide-bell" aria-label={count() ? `Needs you: ${count()} items` : "Needs you: nothing waiting"} onClick={() => toggle(true)}>
+    <Button variant="ghost" iconLeft="lucide-bell" aria-label={count() ? `Needs you: ${count()} items` : "Needs you: nothing waiting"} onClick={() => toggle(true)}>
       <Show when={count()}><span class="rounded-full bg-surface-red-2 px-1.5 text-caption font-medium tabular-nums text-ink-red-8">{count()}</span></Show>
     </Button>
     <Dialog.Root open={open()} onOpenChange={toggle}>

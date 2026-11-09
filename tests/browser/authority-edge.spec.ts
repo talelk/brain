@@ -46,10 +46,11 @@ test("work item expected-version conflict preserves the intended move and curren
   ws.prepare("INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('work-edge','obj-edge','plan-edge','step','Conflict-safe work','ready','[]','Move to In Progress',?,?)").run(now, now);
   await page.goto(`${governor.url}/missions/obj-edge/plan`);
   await page.getByRole("button", { name: "Manage Conflict-safe work", exact: true }).click();
+  await page.getByRole("button", { name: "Move work item", exact: true }).click();
   await page.getByLabel("Move Conflict-safe work", { exact: true }).click();
   await page.getByRole("option", { name: "In Progress", exact: true }).click();
   ws.prepare("UPDATE work_items SET version=2 WHERE id='work-edge'").run();
-  await page.getByRole("button", { name: "Move work item", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Move work item", exact: true }).click();
   await expect(page.getByText("This work changed; your intended move is preserved", { exact: true })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Move Conflict-safe work", exact: true })).toContainText("In Progress");
   expect(ws.prepare("SELECT state FROM work_items WHERE id='work-edge'").get()).toEqual({ state: "ready" });

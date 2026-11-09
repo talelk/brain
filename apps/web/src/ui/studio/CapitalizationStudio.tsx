@@ -51,7 +51,7 @@ export function CapitalizationStudio(props: {
               <dt class="text-ink-gray-6">Digest</dt><dd class="min-w-0"><code class="break-all text-ink-gray-7">{candidate.release.digest}</code></dd>
             </dl>
             <Show when={props.canReview && candidate.state === "quarantined"}><div class="mt-3 flex flex-wrap gap-2 border-t border-outline-gray-1 pt-3">
-              <Button size="sm" class="max-w-full" theme="blue" onClick={() => void props.onReview(candidate, "approve")}>Approve {candidate.operationId}</Button>
+              <Button size="sm" class="max-w-full" variant="solid" theme="blue" onClick={() => void props.onReview(candidate, "approve")}>Approve {candidate.operationId}</Button>
               <Button size="sm" class="max-w-full" variant="outline" theme="red" onClick={() => void props.onReview(candidate, "reject")}>Reject {candidate.operationId}</Button>
             </div></Show>
             <Show when={props.canReview && candidate.state === "reviewed"}><div class="mt-3 border-t border-outline-gray-1 pt-3"><Button size="sm" class="max-w-full" variant="outline" iconLeft="lucide-upload" onClick={() => void props.onPublish(candidate)}>Publish exact release {candidate.operationId}</Button></div></Show>

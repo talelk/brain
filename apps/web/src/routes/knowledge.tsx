@@ -404,7 +404,7 @@ export function ToolsScreen(props: {
         <>
           <RefreshButton onClick={props.onRefresh} label="Refresh" />
           <Show when={props.canPublish}>
-            <Button size="md" variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setProposeOpen(true)}>
+            <Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setProposeOpen(true)}>
               Propose tool
             </Button>
           </Show>
@@ -442,7 +442,7 @@ export function ToolsScreen(props: {
           emptyDescription="Tools appear here once a release declares them or a proposal is accepted."
           emptyAction={
             props.canPublish ? (
-              <Button size="md" onClick={() => setProposeOpen(true)}>
+              <Button onClick={() => setProposeOpen(true)}>
                 Propose tool
               </Button>
             ) : undefined
@@ -490,7 +490,7 @@ export function ToolsScreen(props: {
               >
                 {(tool) => (
                   <PageStack>
-                    <Button size="md" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={() => setSelectedId("")}>
+                    <Button variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={() => setSelectedId("")}>
                       Back to registry
                     </Button>
                     <div>
@@ -549,7 +549,7 @@ export function ToolsScreen(props: {
             title="Governed publication"
             description="Proposal and publication are separate. Rule of Three creates a review candidate, not a trusted live tool automatically."
             actions={
-              <Button size="md" variant="outline" iconLeft="lucide-upload" onClick={() => setPublishOpen(true)}>
+              <Button variant="outline" iconLeft="lucide-upload" onClick={() => setPublishOpen(true)}>
                 Publish reviewed release
               </Button>
             }
@@ -574,11 +574,10 @@ export function ToolsScreen(props: {
               <EvidenceSelector onSelect={(selected) => setProposeEvidence(selected.join(" "))} />
             </div>
             <Dialog.Footer class="justify-end">
-              <Button size="md" variant="outline" onClick={() => setProposeOpen(false)}>
+              <Button variant="outline" onClick={() => setProposeOpen(false)}>
                 Cancel
               </Button>
               <Button
-                size="md"
                 variant="solid"
                 theme="blue"
                 disabled={!packageDigest().trim() || Number(packageBytes()) <= 0 || digests(proposeEvidence()).length === 0}
@@ -629,11 +628,10 @@ export function ToolsScreen(props: {
               <EvidenceSelector onSelect={(selected) => setPublishEvidence(selected.join(" "))} />
             </div>
             <Dialog.Footer class="justify-end">
-              <Button size="md" variant="outline" onClick={() => setPublishOpen(false)}>
+              <Button variant="outline" onClick={() => setPublishOpen(false)}>
                 Cancel
               </Button>
               <Button
-                size="md"
                 variant="solid"
                 theme="blue"
                 disabled={!releaseId().trim() || !releaseDigest().trim() || digests(publishEvidence()).length === 0}

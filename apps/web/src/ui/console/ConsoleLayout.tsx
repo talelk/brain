@@ -133,7 +133,7 @@ export function ConsoleScreen(props: {
     <Show when={selected()} keyed fallback={
       <ScreenRegion state={sessions.state()} skeleton="rows" emptyTitle="No sessions yet"
         emptyDescription="Sessions appear here the moment a run claims a runner. Dispatch declared work to start one."
-        emptyAction={<Button size="md" variant="solid" theme="blue" onClick={() => void navigate(`/w/${ws()}/plays`)}>Start work</Button>}
+        emptyAction={<Button variant="solid" theme="blue" onClick={() => void navigate(`/w/${ws()}/plays`)}>Start work</Button>}
         onRetry={() => void sessions.refresh({ force: true })}>
         <EmptyPreview icon="lucide-radio" title="The execution console is ready"
           description="Live sessions, their tool activity and their outputs will stream in this three-pane console." />

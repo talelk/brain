@@ -107,13 +107,13 @@ export function WorkspaceManagementDialog(props: {
         </BrainForm>
         <section class={props.workspace ? "flex flex-col gap-4 border-t border-outline-gray-1 pt-4 lg:border-s lg:border-t-0 lg:ps-5 lg:pt-0" : "hidden"} aria-label="Workspace lifecycle">
           <div><h3 class="text-base-medium">Operational state</h3><div class="mt-2 flex flex-wrap items-center gap-2"><StatusBadge status={props.workspace?.status ?? "unknown"} /><Badge variant="outline" theme="gray" label={`Record v${props.workspace?.version ?? 1}`} /></div><p class="mt-2 text-interface text-ink-gray-7">Suspension prevents new dispatch without cancelling active attempts. Archive additionally requires no active, blocked or unresolved work.</p></div>
-          <div class="flex flex-col gap-2"><Show when={props.workspace?.status === "active"}><Button size="md" variant="outline" disabled={busy()} onClick={() => begin("suspend")}>Suspend workspace</Button></Show><Show when={props.workspace?.status === "suspended"}><Button size="md" variant="outline" disabled={busy()} onClick={() => begin("resume")}>Validate and resume</Button></Show><Show when={props.workspace?.status !== "archived"}><Button size="md" variant="outline" theme="red" disabled={busy()} onClick={() => begin("archive")}>Archive after checks</Button></Show></div>
+          <div class="flex flex-col gap-2"><Show when={props.workspace?.status === "active"}><Button variant="outline" disabled={busy()} onClick={() => begin("suspend")}>Suspend workspace</Button></Show><Show when={props.workspace?.status === "suspended"}><Button variant="outline" disabled={busy()} onClick={() => begin("resume")}>Validate and resume</Button></Show><Show when={props.workspace?.status !== "archived"}><Button variant="outline" theme="red" disabled={busy()} onClick={() => begin("archive")}>Archive after checks</Button></Show></div>
           <Alert theme="blue" variant="outline" title="Configuration remains reviewed" description="Use Release management or the Agent/Workflow Studio for desired behavior. Access is managed under Workspace access. No active immutable release is edited here." />
         </section>
       </div>
       <Show when={error()}><Alert theme="red" variant="outline" title="Workspace action failed" description={error()} /></Show>
       <Show when={message()}><Alert theme="green" variant="outline" title="Governor confirmed" description={message()} /></Show>
-      <Dialog.Footer class="justify-end"><Button size="md" variant="outline" onClick={props.onClose}>Close</Button></Dialog.Footer>
+      <Dialog.Footer class="justify-end"><Button variant="outline" onClick={props.onClose}>Close</Button></Dialog.Footer>
     </Dialog.Content></Dialog.Root>
     <ReasonDialog open={Boolean(operation())} onClose={() => { setOperation(undefined); setReason(""); }} title={operationTitle()} description={operationDescription()} reason={reason()} onReason={setReason} reasonLabel="Operations reason" confirmLabel={operationTitle()} tone={operation() === "archive" ? "red" : "blue"} onConfirm={(value) => { const action = operation(); if (action) void control(action, value); }} />
   </>;

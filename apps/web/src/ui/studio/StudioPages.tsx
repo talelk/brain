@@ -58,7 +58,7 @@ export function StudioListPage(): JSX.Element {
   }
 
   return <BrainPage title={`${kind()} studio`} description="Create immutable configuration revisions, validate them and publish exact Git commits without editing the active release."
-    actions={<Button size="md" theme="blue" iconLeft="lucide-plus" onClick={() => { setError(""); setCreateOpen(true); }}>New draft</Button>}>
+    actions={<Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => { setError(""); setCreateOpen(true); }}>New draft</Button>}>
     <PageStack>
       <Show when={kind() === "Agent"}><AgentCatalog /></Show>
       <FormSheet open={createOpen()} onClose={() => setCreateOpen(false)} title="New draft" description={kind() === "Workflow" ? "Start with visual jobs or restricted YAML. Publication never edits the active release directly." : kind() === "Agent" ? "Start with the agent contract and versioned instructions, then validate the complete release before publication." : "Author a reviewed definition with restricted YAML, validation, diff and explicit publication."}
@@ -212,14 +212,14 @@ export function StudioEditorPage(): JSX.Element {
               <Button size="sm" class="mt-2" variant="outline" iconLeft="lucide-plus" onClick={() => { setJobs((rows) => [...rows, { id: `job-${rows.length + 1}`, kind: "dispatch", needs: "", value: {} }]); setDirty(true); }}>Add job</Button>
             </Show>
             <Show when={detail.state().data?.draft.kind === "Agent"}><div class="mt-3 border-t border-outline-gray-1 pt-3"><Textarea label="Versioned instructions (Markdown)" value={instructions()} onInput={(event) => { setInstructions(event.currentTarget.value); setDirty(true); }} class="min-h-64 min-w-0 max-w-full" /><p class="mt-2 text-caption text-ink-gray-6">Attempts keep their pinned instructions and tools. This candidate has no effect until its exact release is activated.</p></div></Show>
-            <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-outline-gray-1 pt-3"><Button size="sm" theme="blue" loading={busy()} disabled={busy() || !dirty()} onClick={() => void save()}>Save immutable revision</Button><Show when={dirty()}><Badge size="sm" theme="amber" label="unsaved" /></Show></div>
+            <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-outline-gray-1 pt-3"><Button size="sm" variant="solid" theme="blue" loading={busy()} disabled={busy() || !dirty()} onClick={() => void save()}>Save immutable revision</Button><Show when={dirty()}><Badge size="sm" theme="amber" label="unsaved" /></Show></div>
           </Section>
 
           <PageStack>
             <Section title="Validation and publication" description="Publication requires a passing current revision and a verified configuration write binding." surface="card" density="compact" class="p-3 sm:p-4">
               <Show when={detail.state().data?.validations[0]}>{(validation) => <div class="mb-2 min-w-0"><Badge size="sm" theme={validation().status === "passed" ? "green" : "red"} label={validation().status} /><ul class="mt-2 flex min-w-0 flex-col gap-1 text-caption"><For each={validation().diagnostics}>{(diagnostic) => <li class={`break-words ${diagnostic.severity === "error" ? "text-ink-red-7" : "text-ink-gray-7"}`}><code>{diagnostic.code}</code>: {diagnostic.message}</li>}</For></ul></div>}</Show>
               <TextInput label="Configuration write binding ID" value={bindingId()} onInput={(event) => setBindingId(event.currentTarget.value)} description="Created and verified under Administration → Integrations" />
-              <Button size="sm" class="mt-2 max-w-full" theme="blue" loading={busy()} disabled={busy() || !bindingId().trim() || detail.state().data?.draft.state === "publishing"} onClick={() => void publish()}>Publish and compile commit</Button>
+              <Button size="sm" class="mt-2 max-w-full" variant="solid" theme="blue" loading={busy()} disabled={busy() || !bindingId().trim() || detail.state().data?.draft.state === "publishing"} onClick={() => void publish()}>Publish and compile commit</Button>
               <Show when={latestPublication()}>{(publication) => <div class="mt-3 flex min-w-0 flex-col items-start gap-2 border-t border-outline-gray-1 pt-3"><Badge size="sm" theme={publication().state === "compiled" ? "green" : publication().state === "failed" ? "red" : "amber"} label={publication().state} /><dl class="grid min-w-0 gap-1 text-caption"><dt class="text-ink-gray-6">Commit</dt><dd class="min-w-0"><code class="break-all text-ink-gray-7">{publication().commitOid}</code></dd><dt class="mt-1 text-ink-gray-6">Release</dt><dd class="min-w-0"><code class="break-all text-ink-gray-7">{publication().releaseDigest}</code></dd></dl><Show when={publication().error}><p class="break-words text-caption text-ink-red-7">{publication().error}</p></Show><Show when={publication().releaseDigest && activeDigest() !== publication().releaseDigest}><Button size="sm" variant="outline" disabled={busy()} onClick={() => void activate()}>Activate this release</Button></Show></div>}</Show>
             </Section>
 

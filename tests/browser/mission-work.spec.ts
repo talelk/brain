@@ -70,15 +70,18 @@ test("mission work: items render with state, move applies, Done is disabled with
   await expect(page.getByText("Ship the fixture", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Manage Ship the fixture" }).click();
+  await page.getByRole("button", { name: "Move work item", exact: true }).click();
   await page.getByLabel("Move Ship the fixture", { exact: true }).click();
   await page.getByRole("option", { name: "In Progress", exact: true }).click();
-  await page.getByRole("button", { name: "Move work item", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Move work item", exact: true }).click();
   await expect.poll(() => (ws.prepare("SELECT state FROM work_items WHERE id='work-ui-1'").get() as { state: string }).state).toBe("in-progress");
+  await page.getByRole("button", { name: "Move work item", exact: true }).click();
   await page.getByLabel("Move Ship the fixture", { exact: true }).click();
   await page.getByRole("option", { name: "Review", exact: true }).click();
-  await page.getByRole("button", { name: "Move work item", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Move work item", exact: true }).click();
   await expect.poll(() => (ws.prepare("SELECT state FROM work_items WHERE id='work-ui-1'").get() as { state: string }).state).toBe("review");
 
+  await page.getByRole("button", { name: "Move work item", exact: true }).click();
   await page.getByLabel("Move Ship the fixture", { exact: true }).click();
   await expect(page.getByRole("option", { name: "Done", exact: true })).toHaveAttribute("aria-disabled", "true");
   await page.keyboard.press("Escape");
@@ -106,11 +109,12 @@ test("mission work: Done succeeds with explicitly bound verified evidence (T51)"
   await openMissionWork(page, governor);
   await expect(page.getByText("Verify the fixture", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Manage Verify the fixture" }).click();
+  await page.getByRole("button", { name: "Move work item", exact: true }).click();
   await page.getByLabel("Verified evidence for Verify the fixture", { exact: true }).click();
   await page.getByRole("option", { name: /1 passed criteria/ }).click();
   await page.getByLabel("Move Verify the fixture", { exact: true }).click();
   await page.getByRole("option", { name: "Done", exact: true }).click();
-  await page.getByRole("button", { name: "Move work item", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Move work item", exact: true }).click();
   await expect.poll(() => (ws.prepare("SELECT state FROM work_items WHERE id='work-ui-2'").get() as { state: string }).state).toBe("done");
   await expect(page.getByText(/verified evidence bound/i).first()).toBeVisible();
   await page.keyboard.press("Escape");
@@ -144,8 +148,9 @@ test("parked work offers Retry and Drop; a person rejects a plan proposal with a
   await page.goto(`${governor.url}/missions/obj-ui/plan?proposal=plan-ui-2`);
   const review = page.getByRole("region", { name: "Plan proposal" });
   await expect(review.getByText(/Proposal: revision 2/)).toBeVisible();
-  await review.getByLabel("Rejection reason", { exact: true }).fill("Duplicates the confirmed work");
   await review.getByRole("button", { name: "Reject this proposal", exact: true }).click();
+  await page.getByRole("dialog").getByLabel(/^Rejection reason/).fill("Duplicates the confirmed work");
+  await page.getByRole("dialog").getByRole("button", { name: "Reject proposal", exact: true }).click();
   await expect.poll(() => (ws.prepare("SELECT state FROM plan_versions WHERE id='plan-ui-2'").get() as { state: string }).state).toBe("rejected");
   expect(errors).toEqual([]);
 });

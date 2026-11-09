@@ -52,7 +52,7 @@ export default function MissionsPage(): JSX.Element {
     meta={<><span>{mission.state}{mission.pauseReason ? ` · ${mission.pauseReason}` : ""}{mission.outcome ? ` · ${mission.outcome}` : ""}</span><span>{mission.usage.runningMembers} running</span><Show when={mission.budget.maxMicroUsd !== undefined}><span>{`${mission.usage.settledMicroUsd + mission.usage.reservedMicroUsd} / ${mission.budget.maxMicroUsd} µUSD`}</span></Show><span>updated {formatDateTime(mission.updatedAt)}</span></>}
     onClick={() => void navigate(missionHref(app.workspaceId(), mission.missionId, "live"))} />;
   return <BrainPage title="Missions" description="What needs you, then every mission of this workspace."
-    actions={<><RefreshButton onClick={refresh} label="Refresh" /><Button size="md" theme="blue" iconLeft="lucide-plus" onClick={() => void navigate(`/w/${app.workspaceId()}/missions/new`)}>New mission</Button></>}>
+    actions={<><RefreshButton onClick={refresh} label="Refresh" /><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => void navigate(`/w/${app.workspaceId()}/missions/new`)}>New mission</Button></>}>
     <PageStack>
       <FactStrip label="Missions summary" items={[
         { label: "Needs you", value: String(attention.state().data?.length ?? 0), hint: "Across your workspaces", icon: "lucide-bell-ring" },

@@ -53,6 +53,8 @@ export interface FeedEntry {
   kind: "message" | "tool" | "state" | "system";
   title: string;
   detail: string;
+  /** Full text of a coalesced assistant message; `detail` is its one-line preview. */
+  body?: string;
   /** Tool calls group their proposed call and result receipt under one entry. */
   tool?: { proposalId?: string; name?: string; proposed?: StreamEvent; result?: StreamEvent };
   event: StreamEvent;
@@ -168,8 +170,26 @@ function describe(event: StreamEvent): { kind: FeedEntry["kind"]; title: string;
 /** Group streamed frames into bounded display entries; tool calls stay together. */
 function buildEntries(events: readonly StreamEvent[]): FeedEntry[] {
   const grouped = new Map<string, FeedEntry>();
+  // Engines stream an assistant message as many small `text` deltas. A run of
+  // consecutive assistant deltas of one aggregate is one message, not a row per
+  // fragment, until a delta ends the line with a newline; any other event (tool call, state, usage) ends the run.
+  let run: FeedEntry | undefined;
   for (const event of events) {
     const payload = obj(event.summary);
+    if (event.type === "text" && (text(payload["channel"]) ?? "assistant") === "assistant") {
+      const delta = text(payload["text"]) ?? "";
+      if (run && run.event.aggregateId === event.aggregateId && !(run.body ?? "").endsWith("\n")) {
+        run.body = `${run.body ?? ""}${delta}`;
+        run.detail = streamSummaryText(run.body.replace(/\s+/gu, " ").trim(), 400);
+        run.event = event;
+        continue;
+      }
+      run = { key: event.id, streamSeq: event.streamSeq ?? 0, at: event.at, type: "text", severity: event.severity ?? null, kind: "message",
+        title: "Agent message", detail: streamSummaryText(delta.replace(/\s+/gu, " ").trim(), 400), body: delta, event };
+      grouped.set(run.key, run);
+      continue;
+    }
+    run = undefined;
     const isTool = event.type === "tool.proposed" || event.type === "tool.result";
     const proposalId = text(payload["proposalId"]) ?? (isTool ? event.correlation?.proposalId ?? event.aggregateId : undefined);
     const key = isTool && proposalId ? `tool:${proposalId}` : event.id;
@@ -464,7 +484,7 @@ export function ConsoleFeed(props: {
               <CorrelationChips correlation={entry.event.correlation as unknown as StreamCorrelation | undefined} />
               <Show when={entry.kind === "tool" && selectedTool()} keyed fallback={
                 <div class="flex flex-col gap-3">
-                  <Show when={entry.detail}><p class="brain-exec-log whitespace-pre-wrap break-words text-caption text-ink-gray-7">{entry.detail}</p></Show>
+                  <Show when={entry.detail}><p class="brain-exec-log whitespace-pre-wrap break-words text-caption text-ink-gray-7">{entry.body ?? entry.detail}</p></Show>
                   <DisclosureCard label="Exact projected record">
                     <pre class="brain-exec-log max-h-64 overflow-auto whitespace-pre-wrap break-words text-caption text-ink-gray-7">{JSON.stringify(toRecordFrame(entry.event), null, 2)}</pre>
                   </DisclosureCard>

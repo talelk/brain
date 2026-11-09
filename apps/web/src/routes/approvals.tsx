@@ -83,7 +83,7 @@ export function ApprovalsScreen(props: {
   const paged = () => visible().slice((currentPage() - 1) * INBOX_PAGE_SIZE, currentPage() * INBOX_PAGE_SIZE);
   const current = () => visible().find((approval) => approval.approvalId === selected());
   return <BrainPage title="Approvals" description="Review one exact proposed effect at a time, with its target, evidence limits and expiry beside the decision."
-    actions={<Button size="md" variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button>}>
+    actions={<Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button>}>
     <PageStack>
       <FilterBar query={{ value: query(), placeholder: "Search action, target, requester, or approval…", onInput: (value) => { setQuery(value); setSelected(undefined); setPage(1); } }} resultCount={visible().length}
         tabs={{ label: "Approval state", value: view(), options: [{ value: "pending", label: "Pending" }, { value: "decided", label: "Decided" }, { value: "expired", label: "Expired" }, { value: "all", label: "All" }], onValueChange: (value) => { setView(value); setSelected(undefined); setPage(1); } }}
@@ -120,7 +120,7 @@ export function ApprovalsScreen(props: {
               targetLabel={`${effect.operation} on ${effect.target}`} exactContent={exactJson(approval)} subjectDigest={approval.subjectDigest} version={approval.version}
               fresh={props.state.canMutate && approval.state === "pending" && isFreshFromServer(approval.subject.expiresAt, props.state.asOf ?? props.asOf)}
               createIdempotencyKey={() => `web-${crypto.randomUUID()}`} verifyIdentity={props.verifyIdentity} submitDecision={props.submitDecision} checkDecision={props.checkDecision} />
-              <Button size="md" variant="outline" iconRight="lucide-arrow-right" onClick={() => props.onOpen(approval.approvalId)}>Full review & history</Button></div>
+              <Button variant="outline" iconRight="lucide-arrow-right" onClick={() => props.onOpen(approval.approvalId)}>Full review & history</Button></div>
             <TechnicalDetails label="Canonical subject and digest"><DigestValue value={approval.subjectDigest} label="Subject digest" /><pre class="brain-readable mt-3 max-w-full min-w-0 overflow-auto whitespace-pre-wrap break-all text-caption">{exactJson(approval)}</pre></TechnicalDetails>
           </div>;
         }}</Show>} />
@@ -150,10 +150,10 @@ export function ApprovalDetailScreen(props: {
   const fresh = () => props.state.canMutate && approval()?.state === "pending" && isFreshFromServer(approval()?.subject.expiresAt, props.state.asOf ?? props.asOf);
   return <BrainPage title="Approval review" description="Review the exact change, evidence and authority before recording a recoverable decision."
     breadcrumbs={[{ label: "Approvals" }, { label: "Approval review" }]}
-    actions={<><Button size="md" variant="outline" iconLeft="lucide-arrow-left" onClick={props.onBack}>Back to approvals</Button><Show when={props.active && approval()?.state === "pending"}><Button size="md" variant="outline" theme="red" onClick={() => setRevokeOpen(true)}>Revoke</Button></Show></>}>
+    actions={<><Button variant="outline" iconLeft="lucide-arrow-left" onClick={props.onBack}>Back to approvals</Button><Show when={props.active && approval()?.state === "pending"}><Button variant="outline" theme="red" onClick={() => setRevokeOpen(true)}>Revoke</Button></Show></>}>
     <ScreenRegion state={props.state} skeleton="rows" emptyTitle="Approval not found"
       emptyDescription="It was decided, revoked, or belongs to a workspace you cannot read. Cached details were cleared."
-      emptyAction={<Button size="md" variant="outline" onClick={props.onBack}>Back to approvals</Button>} onRetry={props.onRefresh}>
+      emptyAction={<Button variant="outline" onClick={props.onBack}>Back to approvals</Button>} onRetry={props.onRefresh}>
       <PageStack>
         <header class="min-w-0">
           <div class="flex flex-wrap items-center gap-2"><StatusBadge kind="approval" status={approval()?.state ?? "unknown"} /><span class="text-caption text-ink-gray-6">Exact proposal · version {approval()?.version ?? "—"}</span></div>

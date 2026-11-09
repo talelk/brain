@@ -60,15 +60,15 @@ export default function PlaysPage(): JSX.Element {
     <TaskCatalog search={search()} diagnostics={params.diagnostics === "true"} />
     <WorkspaceSection title="Play views" description="Queues of the subjects plays start missions for.">
       <div class="flex flex-wrap gap-2">
-        <Button size="md" variant="outline" iconLeft="lucide-life-buoy" onClick={() => void navigate(`/w/${app.workspaceId()}/plays/support`)}>Support tickets</Button>
-        <Button size="md" variant="outline" iconLeft="lucide-siren" onClick={() => void navigate(`/w/${app.workspaceId()}/plays/sre`)}>Incidents</Button>
+        <Button variant="outline" iconLeft="lucide-life-buoy" onClick={() => void navigate(`/w/${app.workspaceId()}/plays/support`)}>Support tickets</Button>
+        <Button variant="outline" iconLeft="lucide-siren" onClick={() => void navigate(`/w/${app.workspaceId()}/plays/sre`)}>Incidents</Button>
       </div>
     </WorkspaceSection>
   </PageStack>;
   return <BrainPage title="Plays" description="Start a mission from a play, run a single task, or describe the work and review what Brain proposes."
     actions={<Show when={canAuthor()}><div class="flex flex-wrap gap-2">
-      <Button size="md" variant="outline" iconLeft="lucide-file-pen" onClick={() => void navigate("/studio/Play")}>Play drafts</Button>
-      <Button size="md" variant="outline" iconLeft="lucide-file-pen" onClick={() => void navigate("/studio/Workflow")}>Task drafts</Button>
+      <Button variant="outline" iconLeft="lucide-file-pen" onClick={() => void navigate("/studio/Play")}>Play drafts</Button>
+      <Button variant="outline" iconLeft="lucide-file-pen" onClick={() => void navigate("/studio/Workflow")}>Task drafts</Button>
     </div></Show>}>
     <TaskEntry workflows={workflows.state().data ?? []} onStarted={handoff} catalog={catalog} />
   </BrainPage>;

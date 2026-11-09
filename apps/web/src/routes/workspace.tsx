@@ -50,7 +50,7 @@ export function RunnerDetailScreen(props: {
       description="Diagnose verified capacity, active reservations and probe freshness before changing fleet state."
       breadcrumbs={[{ label: "Activity" }, { label: "Runners" }]}
       actions={
-        <Button size="md" variant="outline" iconLeft="lucide-arrow-left" onClick={props.onBack}>
+        <Button variant="outline" iconLeft="lucide-arrow-left" onClick={props.onBack}>
           Back to runners
         </Button>
       }
@@ -61,7 +61,7 @@ export function RunnerDetailScreen(props: {
         emptyTitle="Runner not found"
         emptyDescription="It may belong to another organization or no longer be visible to your account."
         emptyAction={
-          <Button size="md" variant="outline" onClick={props.onBack}>
+          <Button variant="outline" onClick={props.onBack}>
             Back to runners
           </Button>
         }
@@ -202,26 +202,25 @@ export function RunnerDetailScreen(props: {
                   <p class="text-caption text-ink-gray-6">Scheduling</p>
                   <div class="flex flex-wrap gap-2">
                     <Show when={runner()?.adminState !== "enabled"}>
-                      <Button size="md" variant="outline" onClick={() => setOperation("enable")}>
+                      <Button variant="outline" onClick={() => setOperation("enable")}>
                         Enable / re-enable
                       </Button>
                     </Show>
                     <Show when={runner()?.adminState === "enabled" || runner()?.adminState === "draining"}>
-                      <Button size="md" variant="outline" onClick={() => setOperation("disable")}>
+                      <Button variant="outline" onClick={() => setOperation("disable")}>
                         Disable
                       </Button>
                     </Show>
-                    <Button size="md" variant="outline" disabled={runner()?.adminState === "draining"} onClick={() => setOperation("drain")}>
+                    <Button variant="outline" disabled={runner()?.adminState === "draining"} onClick={() => setOperation("drain")}>
                       Drain runner
                     </Button>
                   </div>
                   <p class="text-caption text-ink-gray-6">Trust and identity</p>
                   <div class="flex flex-wrap gap-2">
-                    <Button size="md" variant="outline" disabled={(runner()?.activeAttemptIds.length ?? 0) > 0} onClick={() => setOperation("rotate")}>
+                    <Button variant="outline" disabled={(runner()?.activeAttemptIds.length ?? 0) > 0} onClick={() => setOperation("rotate")}>
                       Rotate / re-enroll
                     </Button>
                     <Button
-                      size="md"
                       variant="outline"
                       theme="red"
                       disabled={runner()?.adminState === "quarantined"}
@@ -230,7 +229,6 @@ export function RunnerDetailScreen(props: {
                       Quarantine runner
                     </Button>
                     <Button
-                      size="md"
                       variant="outline"
                       theme="red"
                       disabled={(runner()?.activeAttemptIds.length ?? 0) > 0}
@@ -289,7 +287,7 @@ export function TicketDetailScreen(props: {
       description="Read the customer issue, investigation and draft as separate stages before exact publication approval."
       breadcrumbs={[{ label: "Work" }, { label: "Support" }]}
       actions={
-        <Button size="md" variant="outline" iconLeft="lucide-arrow-left" onClick={props.onBack}>
+        <Button variant="outline" iconLeft="lucide-arrow-left" onClick={props.onBack}>
           Back to tickets
         </Button>
       }
@@ -300,7 +298,7 @@ export function TicketDetailScreen(props: {
         emptyTitle="Ticket not found"
         emptyDescription="It may have been closed at the source."
         emptyAction={
-          <Button size="md" variant="outline" onClick={props.onBack}>
+          <Button variant="outline" onClick={props.onBack}>
             Back to tickets
           </Button>
         }
@@ -341,7 +339,7 @@ export function TicketDetailScreen(props: {
                     label={ticket()?.evidenceReady ? "Draft evidence ready" : "Evidence not ready"}
                   />
                   <Show when={ticket()?.approvalId}>
-                    <Button size="md" variant="solid" theme="blue" iconRight="lucide-arrow-right" onClick={() => props.onOpenApproval?.(ticket()!.approvalId!)}>
+                    <Button variant="solid" theme="blue" iconRight="lucide-arrow-right" onClick={() => props.onOpenApproval?.(ticket()!.approvalId!)}>
                       Review exact publication approval
                     </Button>
                   </Show>
@@ -381,7 +379,7 @@ export function IncidentDetailScreen(props: {
       description="Correlate actual observations and freshness before separating read-only diagnosis from governed remediation."
       breadcrumbs={[{ label: "Work" }, { label: "Incidents" }]}
       actions={
-        <Button size="md" variant="outline" iconLeft="lucide-arrow-left" onClick={props.onBack}>
+        <Button variant="outline" iconLeft="lucide-arrow-left" onClick={props.onBack}>
           Back to incidents
         </Button>
       }
@@ -392,7 +390,7 @@ export function IncidentDetailScreen(props: {
         emptyTitle="Incident not found"
         emptyDescription="It may have been resolved and archived."
         emptyAction={
-          <Button size="md" variant="outline" onClick={props.onBack}>
+          <Button variant="outline" onClick={props.onBack}>
             Back to incidents
           </Button>
         }

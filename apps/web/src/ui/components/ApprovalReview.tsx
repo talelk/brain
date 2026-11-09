@@ -79,7 +79,7 @@ export function ApprovalReview(props: {
     denied: "Decision denied. Review authorization and the current proposal.",
   })[state().status];
   return <>
-    <Button size="md" class={props.class} variant="solid" theme="blue" iconLeft="lucide-shield-check" disabled={!props.active || !props.fresh} onClick={openReview}>Review action</Button>
+    <Button class={props.class} variant="solid" theme="blue" iconLeft="lucide-shield-check" disabled={!props.active || !props.fresh} onClick={openReview}>Review action</Button>
     <Dialog.Root open={open()} onOpenChange={setOpen} dismissible={!busy()}>
       <Dialog.Content size="2xl" class="flex max-h-[calc(100dvh-2rem)] flex-col max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none">
         <Dialog.Header class="min-w-0"><Dialog.Title>Authorize action</Dialog.Title><Dialog.Description class="break-words [overflow-wrap:anywhere]">{reviewed().targetLabel} · the decision binds this exact content and version.</Dialog.Description></Dialog.Header>

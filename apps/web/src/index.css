@@ -11,40 +11,8 @@
 @source "../node_modules/@talelk/newui-templates/src/**/*.{ts,tsx}";
 @source not "../node_modules/@talelk/newui-templates/src/**/*.test.{ts,tsx}";
 
-:root {
-  --spacing-control-gap: 0.375rem;
-  --spacing-field-gap: 0.625rem;
-  --spacing-card-gap: 0.75rem;
-  --spacing-card-pad-compact: 0.625rem;
-  --spacing-card-pad: 0.75rem;
-  --spacing-card-pad-wide: 1rem;
-  --spacing-section-gap: 1rem;
-  --spacing-page-gutter-compact: 1rem;
-  --spacing-page-gutter: 1.25rem;
-  --spacing-page-gutter-wide: 1.5rem;
-  --spacing-page-stack: 1.25rem;
-  --text-heading: 1.375rem;
-  --text-heading--line-height: 1.75rem;
-  --text-section: 1rem;
-  --text-section--line-height: 1.375rem;
-}
-
 [data-slot="button"] {
   min-width: 0;
-}
-
-[data-slot="button"][data-size="md"],
-[data-slot="button"][data-size="lg"] {
-  min-height: 2rem;
-  padding: 0.375rem 0.625rem;
-  font-size: var(--text-interface);
-  font-weight: 500;
-  line-height: 1rem;
-}
-
-[data-slot="button"][data-size="lg"] > [class*="lucide-"] {
-  width: 1rem;
-  height: 1rem;
 }
 
 [data-slot="dropdown-trigger"] {
@@ -65,43 +33,8 @@
   overflow-wrap: anywhere;
 }
 
-[data-slot="dialog-positioner"] {
-  padding: 0.75rem;
-}
-
 [data-slot="dialog-positioner"]:has(.brain-search-dialog) {
   padding-top: 10vh;
-}
-
-/* Inline-end drawer: Dialog content restyled by the .brain-sheet marker. */
-[data-slot="dialog-positioner"]:has(.brain-sheet) {
-  align-items: stretch;
-  justify-content: flex-end;
-  padding: 0;
-  overflow: hidden;
-}
-[data-slot="dialog-content"].brain-sheet {
-  display: flex;
-  height: 100dvh;
-  max-height: 100dvh;
-  width: min(100vw, 34rem);
-  max-width: 100vw;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: 0;
-  border-width: 0 0 0 1px;
-}
-[data-slot="dialog-content"].brain-sheet[data-size="xl"] { width: min(100vw, 52rem); }
-[data-slot="dialog-content"].brain-sheet > form { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; }
-[data-slot="dialog-content"].brain-sheet > form > .brain-sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-[data-slot="dialog-content"].brain-sheet > form > [data-slot="dialog-header"],
-[data-slot="dialog-content"].brain-sheet > form > [data-slot="dialog-footer"] { flex: none; }
-[data-slot="dialog-content"].brain-sheet > form > [data-slot="dialog-footer"] { border-top: 1px solid var(--outline-gray-1); padding-top: var(--spacing-3, 0.75rem); }
-
-[data-slot="dialog-content"] {
-  max-height: calc(100dvh - 1.5rem);
-  overflow-y: auto;
-  padding: var(--spacing-card-pad-wide);
 }
 
 [data-slot="dialog-title"],
@@ -113,18 +46,8 @@
   overflow-wrap: anywhere;
 }
 
-[data-slot="dialog-title"] {
-  font-size: var(--text-section);
-  line-height: var(--text-section--line-height);
-}
-
 [data-slot="dialog-content"] pre {
   white-space: pre-wrap;
-}
-
-[data-slot="dialog-footer"] {
-  flex-wrap: wrap;
-  gap: var(--spacing-control-gap);
 }
 
 [data-slot="combobox"],
@@ -248,7 +171,6 @@
 .brain-row-list > *:last-child { padding-bottom: 0; }
 .brain-form { display: flex; min-width: 0; max-width: 44rem; flex-direction: column; gap: var(--spacing-4, 1rem); }
 .brain-form[data-bare="true"] { max-width: none; }
-.brain-sheet-body { display: flex; min-width: 0; flex-direction: column; gap: var(--spacing-4, 1rem); padding-block: var(--spacing-3, 0.75rem); }
 .brain-form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2, 0.5rem); padding-top: var(--spacing-1, 0.25rem); }
 .brain-field-grid { display: grid; gap: var(--spacing-3, 0.75rem); }
 @media (min-width: 1024px) { .brain-field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

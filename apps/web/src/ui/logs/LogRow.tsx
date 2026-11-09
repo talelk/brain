@@ -25,6 +25,8 @@ export const ROW_HEIGHT = 32;
 export type LogRowModel =
   | { readonly kind: "single"; readonly record: LogRecord }
   | { readonly kind: "repeat"; readonly record: LogRecord; readonly members: readonly LogRecord[] }
+  /** A run of streamed assistant text deltas read as one message. */
+  | { readonly kind: "message"; readonly record: LogRecord; readonly members: readonly LogRecord[]; readonly text: string }
   | { readonly kind: "tool"; readonly proposalKey: string; readonly members: readonly LogRecord[]; readonly proposed?: LogRecord; readonly result?: LogRecord };
 
 /** Records that belong to one tool invocation join by proposal id. */
@@ -107,6 +109,14 @@ function cachedRow(first: LogRecord, members: readonly LogRecord[], build: () =>
   return model;
 }
 
+/** The assistant text of a streamed `text` delta, or undefined for any other record. */
+function assistantDelta(record: LogRecord): string | undefined {
+  if (record.type !== "text") return undefined;
+  const payload = record.summary && typeof record.summary === "object" && !Array.isArray(record.summary) ? record.summary as Record<string, unknown> : undefined;
+  if (!payload || (typeof payload["channel"] === "string" && payload["channel"] !== "assistant")) return undefined;
+  return typeof payload["text"] === "string" ? payload["text"] : undefined;
+}
+
 export function buildLogRows(records: readonly LogRecord[]): readonly LogRowModel[] {
   const rows: LogRowModel[] = [];
   const openTools = new Map<string, { index: number; members: LogRecord[]; proposed?: LogRecord; result?: LogRecord }>();
@@ -131,6 +141,19 @@ export function buildLogRows(records: readonly LogRecord[]): readonly LogRowMode
   };
 
   for (const record of records) {
+    const delta = assistantDelta(record);
+    if (delta !== undefined) {
+      const last = rows.at(-1);
+      if (last?.kind === "message" && last.record.aggregateId === record.aggregateId && last.record.emitter === record.emitter && !last.text.endsWith("\n")) {
+        const members = [...last.members, record];
+        const text = `${last.text}${delta}`;
+        rows[rows.length - 1] = cachedRow(last.record, members, () => ({ kind: "message", record: last.record, members, text }));
+      } else {
+        rows.push(cachedRow(record, [record], () => ({ kind: "message", record, members: [record], text: delta })));
+      }
+      previous = undefined;
+      continue;
+    }
     const key = proposalKeyOf(record);
     if (key && TOOL_JOIN_TYPES.has(record.type)) {
       const existing = openTools.get(key);
@@ -176,7 +199,7 @@ export function rowSeverity(row: LogRowModel): string | null {
 }
 
 function rowMembers(row: LogRowModel): readonly LogRecord[] {
-  return row.kind === "tool" ? row.members : row.kind === "repeat" ? row.members : [row.record];
+  return row.kind === "tool" || row.kind === "repeat" || row.kind === "message" ? row.members : [row.record];
 }
 
 function timeOfDay(at: string): string {
@@ -199,6 +222,7 @@ export function LogRow(props: {
   const record = () => (props.row.kind === "tool" ? props.row.proposed ?? props.row.members[0]! : props.row.record);
   const tool = () => (props.row.kind === "tool" ? props.row : undefined);
   const repeat = () => (props.row.kind === "repeat" ? props.row : undefined);
+  const message = () => (props.row.kind === "message" ? props.row.text.replace(/\s+/gu, " ").trim() : undefined);
   const receipt = () => receiptOf(tool()?.result);
   return <button type="button" data-stream-seq={record().streamSeq} data-event-id={record().eventId}
     data-row-kind={props.row.kind} data-mode={props.mode}
@@ -222,7 +246,7 @@ export function LogRow(props: {
             {streamSummaryText(record().summary)}
             <Show when={!tool()!.result}><span class="ms-2 text-ink-amber-8">no result yet</span></Show>
           </span>
-          : streamSummaryText(record().summary)}
+          : message() !== undefined ? streamSummaryText(message(), 400) : streamSummaryText(record().summary)}
       </span>
       <Show when={repeat()}><span class="shrink-0 rounded-control bg-surface-gray-2 px-1.5 text-xs text-ink-gray-7" title={`${repeat()!.members.length} consecutive identical records`}>×{repeat()!.members.length}</span></Show>
       <Show when={tool()}><span class="shrink-0 text-xs text-ink-gray-6" title="Tool invocation duration">{receiptDuration(receipt())}</span></Show>

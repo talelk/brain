@@ -1,7 +1,8 @@
 import { createEffect, createSignal, For, Show } from "solid-js";
 import { ParkedActions } from "./ParkedActions";
 import type { JSX } from "solid-js";
-import { Badge, Button, TextInput } from "@talelk/newui-atoms";
+import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
+import { useNavigate } from "@solidjs/router";
 import { Alert, Select } from "@talelk/newui-molecules";
 import type { WorkItem, WorkItemState } from "@brain/contracts";
 import { useApp } from "../app-context";
@@ -14,6 +15,7 @@ import { EvidenceBundleSelector } from "./ArtifactSelectors";
 import { EvidenceList } from "./EvidenceList";
 import { StatusBadge } from "./StatusBadge";
 import { WorkspaceSection } from "./Domain";
+import { FormSheet } from "./BrainForm";
 
 const STATES: readonly { id: WorkItemState; name: string }[] = [
   { id: "backlog", name: "Backlog" }, { id: "ready", name: "Ready" }, { id: "in-progress", name: "In Progress" },
@@ -28,6 +30,8 @@ const STATES: readonly { id: WorkItemState; name: string }[] = [
  */
 export function MissionWorkItems(props: { missionId: string }): JSX.Element {
   const app = useApp();
+  const navigate = useNavigate();
+  const [sheet, setSheet] = createSignal<"" | "move" | "comment">("");
   const [selectedId, setSelectedId] = createSignal("");
   const [move, setMove] = createSignal("");
   const [reason, setReason] = createSignal("");
@@ -45,13 +49,15 @@ export function MissionWorkItems(props: { missionId: string }): JSX.Element {
   });
   createEffect(() => { void props.missionId; setSelectedId(""); void items.refresh({ force: true }); });
   const selected = () => items.state().data?.find((item) => item.workItemId === selectedId());
+  const readyCount = () => (items.state().data ?? []).filter((item) => item.state === "ready").length;
   const reset = () => { setMove(""); setReason(""); setEvidence(""); setComment(""); };
 
+  const startHref = (item: WorkItem) => `/w/${app.workspaceId()}/plays?originKind=work-item&originId=${encodeURIComponent(item.workItemId)}`;
   async function transition(item: WorkItem): Promise<void> {
     try {
       const result = await app.run("workItem.transition", { workItemId: item.workItemId, state: move() as WorkItemState, ...(evidence() ? { evidenceDigest: evidence() } : {}), ...(reason().trim() ? { reason: reason().trim() } : {}) }, { expectedVersion: item.version });
       setConflict(result.accepted ? "" : result.detail ?? "The move was refused");
-      if (result.accepted) reset();
+      if (result.accepted) { reset(); setSheet(""); }
     } catch (error) {
       setConflict(error instanceof Error ? error.message : "The move was refused");
     }
@@ -59,17 +65,19 @@ export function MissionWorkItems(props: { missionId: string }): JSX.Element {
   }
 
   async function addComment(item: WorkItem): Promise<void> {
+    if (!comment().trim()) return;
     await app.run("workItem.comment", { workItemId: item.workItemId, text: comment().trim() });
-    setComment("");
+    setComment(""); setSheet("");
   }
 
   return <WorkspaceSection title="Mission work" description="Confirmed work items of this mission. Done requires independently verified evidence for every criterion.">
-    <Show when={conflict()}><Alert theme="amber" variant="outline" title="This work changed; your intended move is preserved" description={conflict()} /></Show>
+    <Show when={readyCount() > 0 && app.canDispatch()}><Alert theme="blue" variant="outline" title={`${readyCount()} task${readyCount() === 1 ? " is" : "s are"} ready to start`} description="Confirming a plan creates the work; a task runs only when it is started. Start each ready task, then follow it in Live. Tasks that depend on others unlock as their predecessors are verified." /></Show>
+    <Show when={conflict() && sheet() !== "move"}><Alert theme="amber" variant="outline" title="This work changed; your intended move is preserved" description={conflict()} /></Show>
     <ScreenRegion state={items.state()} onRetry={() => void items.refresh({ force: true })} emptyTitle="No confirmed work yet" emptyDescription="Confirm a plan version to create this mission's work items.">
       <Show when={selected()} keyed fallback={<div class="flex flex-col gap-2"><For each={items.state().data ?? []}>{(item) =>
         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-outline-gray-1 py-2">
           <div class="min-w-0"><p class="break-words text-interface font-medium text-ink-gray-9">{item.title}</p><p class="text-caption text-ink-gray-6">{item.nextAction}</p></div>
-          <div class="flex items-center gap-2"><StatusBadge kind="workItem" status={item.state} /><Button size="sm" variant="outline" aria-label={`Manage ${item.title}`} onClick={() => { reset(); setConflict(""); setSelectedId(item.workItemId); }}>Manage</Button></div>
+          <div class="flex items-center gap-2"><StatusBadge kind="workItem" status={item.state} /><Show when={item.state === "ready" && app.canDispatch()}><Button size="sm" variant="solid" theme="blue" iconLeft="lucide-play" aria-label={`Start ${item.title}`} onClick={() => void navigate(startHref(item))}>Start</Button></Show><Button size="sm" variant="outline" aria-label={`Manage ${item.title}`} onClick={() => { reset(); setConflict(""); setSelectedId(item.workItemId); }}>Manage</Button></div>
         </div>}</For></div>}>
         {(item) => {
           const verified = () => Boolean(item.evidenceDigest || evidence());
@@ -77,24 +85,28 @@ export function MissionWorkItems(props: { missionId: string }): JSX.Element {
           return <PageStack>
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div class="flex flex-wrap items-center gap-2"><h3 class="text-base-medium">{item.title}</h3><StatusBadge kind="workItem" status={item.state} /><Badge variant="outline" theme={item.evidenceDigest ? "green" : "gray"} label={item.evidenceDigest ? "Verified evidence bound" : "Evidence required for Done"} /></div>
-              <Button size="md" variant="ghost" iconLeft="lucide-arrow-left" onClick={() => setSelectedId("")}>Back to mission work</Button>
+              <Button variant="ghost" iconLeft="lucide-arrow-left" onClick={() => setSelectedId("")}>Back to mission work</Button>
             </div>
             <Show when={item.parked}><ParkedActions item={item} onChanged={async () => { setSelectedId(""); await items.refresh({ force: true }); }} /></Show>
             <div class="border-y border-outline-gray-1 py-3"><h4 class="text-base-medium">Next action</h4><p class="mt-1 text-interface text-ink-gray-7">{item.nextAction}</p><Show when={item.blockedReason}><Alert theme="amber" variant="outline" title="Blocked" description={item.blockedReason} /></Show></div>
             <div><h4 class="text-base-medium">Acceptance criteria</h4><ul class="mt-2 list-disc ps-5 text-interface text-ink-gray-7"><For each={item.criteria}>{(criterion) => <li>{criterion}</li>}</For></ul></div>
             <Show when={item.evidenceDigest}><EvidenceList bundleDigest={item.evidenceDigest} /></Show>
             <WorkItemTasks origin={{ kind: "work-item", id: item.workItemId }} />
-            <div class="brain-field-grid">
+            <div class="flex flex-wrap gap-2 border-t border-outline-gray-1 pt-3">
+              <Show when={item.state === "ready" && app.canDispatch()}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={() => void navigate(startHref(item))}>Start this task</Button></Show>
+              <Button variant="outline" iconLeft="lucide-arrow-right-left" onClick={() => { reset(); setSheet("move"); }}>Move work item</Button>
+              <Button variant="outline" iconLeft="lucide-message-square" onClick={() => { setComment(""); setSheet("comment"); }}>Add comment</Button>
+            </div>
+            <FormSheet open={sheet() === "move"} onClose={() => setSheet("")} title={`Update ${item.title}`} description="Done requires independently verified evidence for every criterion."
+              submit="Move work item" icon="lucide-arrow-right-left" error={conflict()} errorTitle="This work changed; your intended move is preserved" disabled={!move() || doneBlocked() || (move() === "blocked" && !reason().trim())} onSubmit={() => { if (move() && !doneBlocked()) return transition(item); }}>
               <EvidenceBundleSelector label={`Verified evidence for ${item.title}`} onSelect={setEvidence} />
               <Select label={`Move ${item.title}`} value={move() || null} options={STATES.filter((state) => state.id !== item.state).map((state) => ({ value: state.id, label: state.name, disabled: state.id === "done" && !verified() }))} onValueChange={(state) => setMove(state ?? "")} />
               <Show when={move() === "blocked"}><TextInput label="Blocking reason" value={reason()} onInput={(event) => setReason(event.currentTarget.value)} required /></Show>
-            </div>
             <Show when={doneBlocked()}><Alert theme="amber" variant="outline" title="Verified evidence is required" description="Choose an independently verified evidence bundle before selecting Done. Author output alone cannot complete this work." /></Show>
-            <TextInput label="Add a comment" value={comment()} onInput={(event) => setComment(event.currentTarget.value)} />
-            <div class="flex flex-wrap gap-2 border-t border-outline-gray-1 pt-3">
-              <Button size="md" variant="outline" iconLeft="lucide-message-square" disabled={!comment().trim()} onClick={() => void addComment(item)}>Add comment</Button>
-              <Button size="md" theme="blue" iconLeft="lucide-arrow-right-left" disabled={!move() || doneBlocked() || (move() === "blocked" && !reason().trim())} onClick={() => void transition(item)}>Move work item</Button>
-            </div>
+            </FormSheet>
+            <FormSheet open={sheet() === "comment"} onClose={() => setSheet("")} title="Add a comment" description="Comments are recorded on the work item's history." submit="Add comment" icon="lucide-message-square" disabled={!comment().trim()} onSubmit={() => addComment(item)}>
+              <Textarea label="Comment" required value={comment()} onInput={(event) => setComment(event.currentTarget.value)} />
+            </FormSheet>
           </PageStack>;
         }}
       </Show>

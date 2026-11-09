@@ -93,7 +93,7 @@ export function RunsScreen(props: {
       : viewOf() === "intervention" ? props.jobs.filter((job) => INTERVENTION.includes(job.state)) : props.jobs;
   const rows = paged(visibleJobs, page);
   return <WorkspaceSection title="Runs" description="Every historical and active run, with its console, logs and outputs one click away."
-    actions={<><Button size="md" variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button><Show when={props.canDispatch}><Button size="md" variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Start work</Button></Show></>}>
+    actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button><Show when={props.canDispatch}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Start work</Button></Show></>}>
     <PageStack>
       <dl class="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-outline-gray-1 py-2 text-caption" aria-label="Runs summary">
         <div class="flex items-center gap-2" title="Queued, offered, running or verifying on this page"><dt class="text-ink-gray-6">Active</dt><dd class="font-medium tabular-nums text-ink-gray-9">{props.jobs.filter((job) => ACTIVE.includes(job.state)).length}</dd></div>
@@ -127,8 +127,8 @@ export function RunsScreen(props: {
               ? `${props.liveSummary.activeSessions} agent session${props.liveSummary.activeSessions === 1 ? " is" : "s are"} live right now — the Live console holds them, not this run index.`
               : "Choose History or clear the exact-state filter to inspect other runs."}
             action={props.liveSummary && props.liveSummary.activeSessions > 0
-              ? <Button size="md" variant="outline" onClick={() => void navigate(execLiveUrl(props.workspaceId))}>Open the Live console</Button>
-              : <Button size="md" variant="outline" onClick={() => props.onFiltersChange(props.filter, props.runState, "history")}>View history</Button>} />}>
+              ? <Button variant="outline" onClick={() => void navigate(execLiveUrl(props.workspaceId))}>Open the Live console</Button>
+              : <Button variant="outline" onClick={() => props.onFiltersChange(props.filter, props.runState, "history")}>View history</Button>} />}>
           <div class="brain-queue [&_.brain-queue-row]:py-2.5"><For each={rows.visible()}>{(job) => <div class="grid grid-cols-1 items-stretch gap-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-2">
             <QueueRow icon="lucide-activity" tone={runTone(job)}
               title={job.workflowTitle ?? "Workflow run"} description={`${job.jobId} · ${job.workspaceId}`}

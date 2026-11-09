@@ -76,7 +76,7 @@ export function SupportScreen(props: {
   const selection = useMasterDetail(rows, () => paged()[0]);
   const selected = selection.selected;
   return <BrainPage title="Support" description="Triage customer requests by urgency and review readiness; drafts never publish themselves."
-    actions={<Show when={props.canDispatch}><Button size="md" variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Run support workflow</Button></Show>}>
+    actions={<Show when={props.canDispatch}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Run support workflow</Button></Show>}>
     <PageStack>
       <Show when={props.sla} keyed>{(sla) => <FactStrip label="Measured support service levels" items={[
         { label: "Keyrus response time", value: formatSlaMinutes(sla.keyrusMs), hint: `${sla.responseMet} responses met of ${sla.sampleCount} samples`, icon: "lucide-timer" },
@@ -91,11 +91,11 @@ export function SupportScreen(props: {
             <ListPager count={rows().length} page={page()} onPageChange={setPage} label="Support triage pagination" />
           </Show>
         </WorkspaceSection>} end={<Show when={selected()} keyed fallback={<EmptyPreview icon="lucide-headset" title="Select a customer request" description="Review its current state, evidence readiness and next valid action without losing the queue." />}>{(ticket) => <PageStack>
-          <Button size="md" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={selection.dismiss}>Back to tickets</Button>
+          <Button variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={selection.dismiss}>Back to tickets</Button>
           <div><StatusBadge kind="ticket" status={ticket.state} /><h2 class="mt-3 text-section">{ticket.title}</h2><p class="mt-2 text-interface text-ink-gray-7">Open the complete customer request, investigation artifacts, reviewable draft and exact publication approval.</p></div>
           <dl class="grid gap-3 border-y border-outline-gray-1 py-3 sm:grid-cols-2"><KeyValue label="Priority" value={<StatusBadge kind="severity" status={ticket.priority} />} orientation="vertical" /><KeyValue label="Evidence" value={ticket.evidenceReady ? "Draft evidence ready" : "Not ready"} orientation="vertical" /><KeyValue label="Created" value={<DateText value={ticket.createdAt} />} orientation="vertical" /><KeyValue label="Source version" value={ticket.sourceVersion} orientation="vertical" /></dl>
           <Alert theme="blue" variant="outline" title="Workflow does not publish" description="Running support analysis can prepare a draft. Customer publication still requires its exact approved effect and independent evidence." />
-          <Button size="md" variant="solid" theme="blue" iconRight="lucide-arrow-right" class="self-start" onClick={() => props.onOpenTicket(ticket.id)}>Open casework</Button>
+          <Button variant="solid" theme="blue" iconRight="lucide-arrow-right" class="self-start" onClick={() => props.onOpenTicket(ticket.id)}>Open casework</Button>
         </PageStack>}</Show>} />
       </ScreenRegion>
     </PageStack>
@@ -123,7 +123,7 @@ export function SreScreen(props: {
   const selection = useMasterDetail(incidents, () => paged()[0]);
   const selected = selection.selected;
   return <BrainPage title="Incidents" description="Prioritize observed operational issues by severity and telemetry freshness; missing evidence never looks healthy."
-    actions={<Show when={props.canDispatch}><Button size="md" variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Run SRE workflow</Button></Show>}>
+    actions={<Show when={props.canDispatch}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Run SRE workflow</Button></Show>}>
     <PageStack>
       <FactStrip label="Incident queue summary" items={[
         { label: "Critical", value: String(props.incidents.filter((incident) => incident.severity === "critical").length), hint: "Critical observed incidents in this queue", icon: "lucide-siren" },
@@ -141,11 +141,11 @@ export function SreScreen(props: {
             <ListPager count={incidents().length} page={page()} onPageChange={setPage} label="Incident queue pagination" />
           </Show>
         </WorkspaceSection>} end={<Show when={selected()} keyed fallback={<EmptyPreview icon="lucide-siren" title="Select an incident" description="Review the observation, freshness and next safe action before opening the investigation." />}>{(incident) => <PageStack>
-          <Button size="md" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={selection.dismiss}>Back to incidents</Button>
+          <Button variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={selection.dismiss}>Back to incidents</Button>
           <div><StatusBadge kind="severity" status={incident.severity} /><h2 class="mt-3 text-section">{incident.title}</h2><p class="mt-2 text-interface text-ink-gray-7">{incident.targetKey}</p></div>
           <Alert theme={isFreshFromServer(incident.expiresAt, props.state.asOf) ? "blue" : "amber"} variant="outline" title={isFreshFromServer(incident.expiresAt, props.state.asOf) ? "Observation window is valid" : "Telemetry is stale"} description={isFreshFromServer(incident.expiresAt, props.state.asOf) ? "Investigate the pinned evidence before proposing remediation." : "Do not render this target as healthy or remediate from an expired observation."} />
           <dl class="grid gap-3 border-y border-outline-gray-1 py-3 sm:grid-cols-2"><KeyValue label="First recorded" value={<DateText value={incident.createdAt} />} orientation="vertical" /><KeyValue label="Latest observation" value={<DateText value={incident.observedAt} />} orientation="vertical" /><KeyValue label="Current state" value={<StatusBadge kind="incident" status={incident.state} />} orientation="vertical" /><KeyValue label="Next safe action" value="Inspect the observation timeline" orientation="vertical" /></dl>
-          <Button size="md" variant="solid" theme="blue" iconRight="lucide-arrow-right" class="self-start" onClick={() => props.onOpenIncident(incident.id)}>Open investigation</Button>
+          <Button variant="solid" theme="blue" iconRight="lucide-arrow-right" class="self-start" onClick={() => props.onOpenIncident(incident.id)}>Open investigation</Button>
         </PageStack>}</Show>} />
       </ScreenRegion>
     </PageStack>

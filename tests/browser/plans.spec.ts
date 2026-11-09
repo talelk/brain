@@ -38,6 +38,11 @@ test("plans: explicit confirmation creates exact work and replanning preserves h
   await expect(page.getByText("Review the two-step strategy", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Confirm this plan", exact: true }).click();
   await expect.poll(() => (db.prepare("SELECT COUNT(*) AS count FROM work_items").get() as { count: number }).count).toBe(2);
+  // Confirmation creates work but starts nothing: the plan surfaces the next step and a Start action per ready task.
+  await expect(page.getByRole("status").filter({ hasText: "ready to start" }).first()).toBeVisible();
+  await page.getByRole("button", { name: /^Start .*/ }).first().click();
+  await expect(page).toHaveURL(/\/w\/[^/]+\/plays\?originKind=work-item&originId=/);
+  await page.goBack();
   const firstInspect = db.prepare("SELECT id FROM work_items WHERE plan_task_id='inspect'").get() as { id: string };
   const firstVerify = db.prepare("SELECT id FROM work_items WHERE plan_task_id='verify'").get() as { id: string };
 

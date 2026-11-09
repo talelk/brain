@@ -100,6 +100,6 @@ export function SchemaForm(props: {
     }}</For>
     <Show when={!fields().length}><Textarea label="Workflow input (JSON object)" value={json()} disabled={props.busy}
       onInput={(event) => { setJson(event.currentTarget.value); props.onChange?.(); }} /></Show>
-    <Button class="self-start max-sm:w-full" size="md" type="submit" loading={props.busy} disabled={props.disabled || props.busy}>{props.submitLabel}</Button>
+    <Button class="self-start max-sm:w-full" type="submit" loading={props.busy} disabled={props.disabled || props.busy}>{props.submitLabel}</Button>
   </form>;
 }

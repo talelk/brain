@@ -27,7 +27,7 @@ export function SelectableListItem(props: { selected?: boolean; onClick: () => v
 
 /** The shared compact header refresh affordance. */
 export function RefreshButton(props: { onClick: () => void; label?: string; busy?: boolean }): JSX.Element {
-  return <Button size="md" variant="outline" iconLeft="lucide-refresh-cw" loading={props.busy} onClick={props.onClick}>{props.label ?? "Refresh"}</Button>;
+  return <Button variant="outline" iconLeft="lucide-refresh-cw" loading={props.busy} onClick={props.onClick}>{props.label ?? "Refresh"}</Button>;
 }
 
 /** Tinted icon square used in list rows and queue tiles. */

@@ -1,8 +1,11 @@
-import { createUniqueId, For, Show } from "solid-js";
+import { createUniqueId, Show } from "solid-js";
 import type { JSX, ParentProps } from "solid-js";
+import { Section, StatGrid } from "@talelk/newui-organisms";
+import { EmptyState } from "@talelk/newui-molecules";
 import { IconTile } from "./primitives";
 import { RelativeTime } from "../screen-region";
 
+/** A page region: NewUI's `Section` (header, actions, body) with a stable accessible name. */
 export function WorkspaceSection(props: ParentProps<{
   title: string;
   description?: string;
@@ -10,26 +13,17 @@ export function WorkspaceSection(props: ParentProps<{
   class?: string;
 }>): JSX.Element {
   const id = createUniqueId();
-  return <section class={`brain-section ${props.class ?? ""}`} aria-labelledby={id}>
-    <div class="brain-section-header">
-      <div><h2 id={id} class="text-section text-ink-gray-9">{props.title}</h2><Show when={props.description}><p class="mt-1 max-w-3xl text-interface text-ink-gray-6">{props.description}</p></Show></div>
-      <Show when={props.actions}><div class="brain-action-bar">{props.actions}</div></Show>
-    </div>
-    {props.children}
-  </section>;
+  return <Section id={id} title={props.title} description={props.description} actions={props.actions} class={props.class}>{props.children}</Section>;
 }
 
+/** KPI row: NewUI's `StatGrid`, named for assistive technology. */
 export function FactStrip(props: {
   items: readonly { label: string; value: JSX.Element; hint?: string; icon?: string }[];
   label: string;
 }): JSX.Element {
-  return <dl class="brain-fact-strip" aria-label={props.label}>
-    <For each={props.items}>{(item) => <div>
-      <dt class="flex items-center gap-1.5 text-caption text-ink-gray-6"><Show when={item.icon}><span class={`${item.icon} size-3.5`} aria-hidden="true" /></Show>{item.label}</dt>
-      <dd class="mt-1 text-base-medium tabular-nums text-ink-gray-9">{item.value}</dd>
-      <Show when={item.hint}><dd class="mt-0.5 text-caption text-ink-gray-6">{item.hint}</dd></Show>
-    </div>}</For>
-  </dl>;
+  return <section aria-label={props.label}>
+    <StatGrid compact stats={props.items.map((item) => ({ label: item.label, value: item.value, ...(item.hint ? { hint: item.hint } : {}), ...(item.icon ? { icon: item.icon } : {}) }))} />
+  </section>;
 }
 
 export function QueueRow(props: {
@@ -71,9 +65,5 @@ export function Freshness(props: { value?: string; label?: string; stale?: boole
 }
 
 export function EmptyPreview(props: { icon: string; title: string; description: string; action?: JSX.Element }): JSX.Element {
-  return <div class="flex min-h-40 min-w-0 flex-col items-start justify-center gap-2.5 py-6">
-    <IconTile icon={props.icon} size="lg" tone="gray" />
-    <div><h2 class="text-section text-ink-gray-8">{props.title}</h2><p class="mt-1 max-w-md text-interface text-ink-gray-6">{props.description}</p></div>
-    <Show when={props.action}>{props.action}</Show>
-  </div>;
+  return <EmptyState size="sm" icon={props.icon} title={props.title} description={props.description} action={props.action} />;
 }

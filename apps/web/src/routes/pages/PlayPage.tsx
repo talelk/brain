@@ -86,7 +86,7 @@ function PlayDetail(props: { play: PlayView; agents: readonly AgentCatalogEntry[
   });
   const spec = () => detail.state().data?.spec;
   return <BrainPage title={props.play.title} description={props.play.description ?? "A mission template: team, plan shape and brief."}
-    actions={<Button size="md" theme="blue" iconLeft="lucide-play" onClick={() => void navigate(`/w/${app.workspaceId()}/missions/new?play=${encodeURIComponent(props.play.playId)}`)}>Start a mission</Button>}>
+    actions={<Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={() => void navigate(`/w/${app.workspaceId()}/missions/new?play=${encodeURIComponent(props.play.playId)}`)}>Start a mission</Button>}>
     <PageStack>
       <FactStrip label="Play summary" items={[
         { label: "Team", value: String(props.play.team.length), hint: "Members on the mission team", icon: "lucide-users" },
@@ -140,8 +140,8 @@ function TaskDetail(props: { title: string; workflow: WorkflowCatalogEntry; agen
   };
   return <BrainPage title={props.title} description="A single task: review its typed inputs, safety and readiness, then dispatch it."
     actions={<Show when={app.identity()?.actor.scopes.includes("config:activate")}><div class="flex flex-wrap gap-2">
-      <Button size="md" variant="outline" iconLeft="lucide-copy" onClick={() => void author("duplicate")}>Clone as candidate</Button>
-      <Button size="md" variant="outline" iconLeft="lucide-square-pen" onClick={() => void author("edit")}>Edit as candidate</Button>
+      <Button variant="outline" iconLeft="lucide-copy" onClick={() => void author("duplicate")}>Clone as candidate</Button>
+      <Button variant="outline" iconLeft="lucide-square-pen" onClick={() => void author("edit")}>Edit as candidate</Button>
     </div></Show>}>
     <PageStack>
       <ActionFeedback tone="error" message={error()} />

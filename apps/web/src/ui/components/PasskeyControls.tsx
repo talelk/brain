@@ -41,7 +41,7 @@ export function PasskeyControls(): JSX.Element {
           <div class="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={busy()} onClick={() => { setName(passkey.name || "Device passkey"); setSheet(passkey.id); }}>Rename</Button><Button size="sm" variant="outline" theme="red" disabled={busy()} onClick={() => void run(async () => { const result = await authClient.passkey.deletePasskey({ id: passkey.id }); if (result.error) throw new Error(result.error.message || "Could not delete passkey"); setMessage("Passkey deleted."); })}>Delete</Button></div>
         </article>}</For></div>
       </Show>
-      <Button size="md" variant="solid" theme="blue" iconLeft="lucide-key-round" disabled={busy() || !("PublicKeyCredential" in window)} onClick={() => { setName(""); setSheet(""); }}>Register a passkey</Button>
+      <Button variant="solid" theme="blue" iconLeft="lucide-key-round" disabled={busy() || !("PublicKeyCredential" in window)} onClick={() => { setName(""); setSheet(""); }}>Register a passkey</Button>
       <FormSheet open={sheet() !== null} onClose={() => setSheet(null)} title={sheet() ? "Rename passkey" : "Register a passkey"} description={sheet() ? "The name only helps you recognise this device." : "Your browser will ask you to confirm with the device or security key."}
         submit={sheet() ? "Save name" : "Register a passkey"} icon="lucide-key-round" busy={busy()} error={error()} errorTitle="Passkey action failed"
         onSubmit={() => run(async () => {

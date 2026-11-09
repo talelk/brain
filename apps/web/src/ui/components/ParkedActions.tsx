@@ -57,21 +57,21 @@ export function ParkedActions(props: { item: WorkItem; onChanged: () => Promise<
     <Alert theme="amber" variant="outline" title="Parked after repeated failures" description={props.item.blockedReason ?? "This work waits for a person. Independent work and the mission carry on."} />
     <Show when={error()}><Alert theme="red" variant="outline" title="The change was refused" description={error()} /></Show>
     <div class="flex flex-wrap gap-2">
-      <Button size="md" theme="blue" iconLeft="lucide-rotate-ccw" disabled={busy()} onClick={() => void move("ready")}>Retry</Button>
+      <Button variant="solid" theme="blue" iconLeft="lucide-rotate-ccw" disabled={busy()} onClick={() => void move("ready")}>Retry</Button>
       <Show when={!dropping()} fallback={<>
-        <Button size="md" theme="red" iconLeft="lucide-trash-2" disabled={busy()} onClick={() => void move("abandoned")}>Confirm drop</Button>
-        <Button size="md" variant="ghost" onClick={() => setDropping(false)}>Keep it</Button>
-      </>}><Button size="md" variant="outline" iconLeft="lucide-trash-2" disabled={busy()} onClick={() => setDropping(true)}>Drop</Button></Show>
+        <Button theme="red" iconLeft="lucide-trash-2" disabled={busy()} onClick={() => void move("abandoned")}>Confirm drop</Button>
+        <Button variant="ghost" onClick={() => setDropping(false)}>Keep it</Button>
+      </>}><Button variant="outline" iconLeft="lucide-trash-2" disabled={busy()} onClick={() => setDropping(true)}>Drop</Button></Show>
     </div>
     <Show when={context.state().data?.plan.team?.length}>
       <div class="flex flex-wrap items-end gap-2">
         <div class="min-w-48 flex-1"><Select label="Reassign to" value={member() || null} onValueChange={(value) => setMember(value ?? "")}
           options={(context.state().data?.plan.team ?? []).map((entry) => ({ value: entry.memberId, label: `${entry.role} (${entry.memberId})` }))} /></div>
-        <Button size="md" variant="outline" iconLeft="lucide-user-round-cog" disabled={busy() || !member() || (props.item.assignment?.kind === "agent" && props.item.assignment.id === member())}
+        <Button variant="outline" iconLeft="lucide-user-round-cog" disabled={busy() || !member() || (props.item.assignment?.kind === "agent" && props.item.assignment.id === member())}
           onClick={() => void revise((task) => ({ ...task, assignment: { kind: "agent", id: member(), role: task.assignment?.role ?? "specialist" } }), `Reassign ${props.item.title} to ${member()} after it parked`)}>Reassign</Button>
       </div>
     </Show>
-    <div><Button size="md" variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => setEditing(true)}>Edit the task</Button></div>
+    <div><Button variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => setEditing(true)}>Edit the task</Button></div>
     <FormSheet open={editing()} onClose={() => setEditing(false)} title="Edit the task" description="Saving creates a new plan version; the parked task is re-planned, never edited in place."
       submit="Save as a new plan version" icon="lucide-save" busy={busy()} disabled={!title().trim() || !lines().length} error={error()} errorTitle="The change was refused"
       onSubmit={async () => { if (!busy() && title().trim() && lines().length) { await revise((task) => ({ ...task, title: title().trim(), criteria: lines() }), `Edit ${props.item.title} after it parked`); if (!error()) setEditing(false); } }}>

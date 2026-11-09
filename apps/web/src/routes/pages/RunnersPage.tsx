@@ -54,7 +54,7 @@ export default function RunnersPage(): JSX.Element {
   const currentPage = () => Math.min(Math.max(1, page()), pageCount());
   const pageRows = () => visible().slice((currentPage() - 1) * PAGE_SIZE, currentPage() * PAGE_SIZE);
   return <BrainPage title="Execution fleet" description="Inspect who can execute, which capabilities are verified, and why work can or cannot be assigned."
-    actions={<><RefreshButton onClick={() => void runners.refresh({ force: true })} /><Show when={app.identity()?.actor.scopes.includes("config:activate")}><Button size="md" variant="outline" iconLeft="lucide-file-cog" onClick={() => void navigate("/studio/RunnerGroup")}>Runner group drafts</Button></Show><Show when={app.identity()?.actor.scopes.includes("runner:admin")}><Button size="md" variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setEnrollOpen(true)}>Enroll runner</Button></Show></>}>
+    actions={<><RefreshButton onClick={() => void runners.refresh({ force: true })} /><Show when={app.identity()?.actor.scopes.includes("config:activate")}><Button variant="outline" iconLeft="lucide-file-cog" onClick={() => void navigate("/studio/RunnerGroup")}>Runner group drafts</Button></Show><Show when={app.identity()?.actor.scopes.includes("runner:admin")}><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setEnrollOpen(true)}>Enroll runner</Button></Show></>}>
     <PageStack>
       <FactStrip label="Fleet state summary" items={[
         { label: "Online / offline", value: `${all().filter((runner) => runner.connectivity === "online").length} / ${all().filter((runner) => runner.connectivity === "offline").length}`, hint: "Connectivity, independent of admin state", icon: "lucide-radio" },

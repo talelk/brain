@@ -44,13 +44,11 @@ export default function KnowledgePage(): JSX.Element {
   const [message, setMessage] = createSignal("");
   return <div class="flex min-w-0 flex-col gap-3">
     <ActionFeedback message={message()} />
-    <KnowledgeTabs value={journey()} trailing={<>
-      <Show when={journey() === "find" && app.identity()?.integrations.memoryUiUrl}>
+    <KnowledgeTabs value={journey()} trailing={<Show when={journey() === "find" && app.identity()?.integrations.memoryUiUrl}>
         <a class="inline-flex min-h-8 items-center gap-1.5 rounded-control px-2 text-caption font-medium text-ink-blue-link hover:bg-surface-gray-2 focus-visible:focus-ring" href={app.identity()!.integrations.memoryUiUrl!} target="_blank" rel="noopener noreferrer">
           <span class="lucide-external-link size-3.5" aria-hidden="true" />Open Memory UI
         </a>
-      </Show>
-    </>} />
+      </Show>} />
     <Show when={journey() === "documents"}><ResourcesPage /></Show>
     <Show when={journey() === "tools"}><ToolsPage /></Show>
     <Show when={journey() === "find"}>

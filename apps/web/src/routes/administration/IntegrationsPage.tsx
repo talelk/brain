@@ -95,7 +95,7 @@ export default function IntegrationsPage(): JSX.Element {
   }
 
   return <BrainPage title="Integrations" description="See which Git remotes are configured, verified and usable before binding them to workspace configuration or projects."
-    actions={<><RefreshButton onClick={() => void refresh()} /><Button size="md" theme="blue" iconLeft="lucide-plus" onClick={() => { setError(""); setConnectOpen(true); }}>Connect remote</Button></>}>
+    actions={<><RefreshButton onClick={() => void refresh()} /><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => { setError(""); setConnectOpen(true); }}>Connect remote</Button></>}>
     <PageStack>
       <Show when={error()}><Alert theme="red" variant="outline" title="Integration action failed" description={error()} /></Show>
       <FactStrip label="Integration summary" items={[
@@ -121,7 +121,7 @@ export default function IntegrationsPage(): JSX.Element {
         <FormSheet open={Boolean(selectedConnection())} onClose={() => setSelectedConnection("")} title="Bind a verified repository" description="Configuration and project bindings are separate authority classes. No binding activates a release or mutates Git."
           submit="Bind repository" icon="lucide-link" busy={busy()} disabled={!repositoryKey() || repositories.state().data?.status !== "verified"} onSubmit={bind} error={error()} errorTitle="Repository binding failed">
           <ScreenRegion state={repositories.state()} onRetry={() => void repositories.refresh()} emptyTitle="No verified remote" emptyDescription="Test the connection successfully to inspect protocol refs and push capability.">
-            <div class="brain-sheet-body"><Select label="Repository" value={repositoryKey()} options={(repositories.state().data?.items ?? []).map((repository) => ({ value: repository.repositoryKey, label: `${repository.displayName} · ${repository.defaultBranch}` }))} onValueChange={(value) => setRepositoryKey(value ?? "")} /><Select label="Binding class" value={kind()} options={[{ value: "configuration", label: "Configuration" }, { value: "project", label: "Project" }]} onValueChange={(value) => setKind((value ?? "configuration") as "configuration" | "project")} /><Select label="Required access" value={access()} options={[{ value: "read", label: "Read only" }, { value: "write", label: "Read and write" }]} onValueChange={(value) => setAccess((value ?? "read") as "read" | "write")} /><TextInput label="Workspace" value={app.workspaceId()} readonly /></div>
+            <div class="flex flex-col gap-4"><Select label="Repository" value={repositoryKey()} options={(repositories.state().data?.items ?? []).map((repository) => ({ value: repository.repositoryKey, label: `${repository.displayName} · ${repository.defaultBranch}` }))} onValueChange={(value) => setRepositoryKey(value ?? "")} /><Select label="Binding class" value={kind()} options={[{ value: "configuration", label: "Configuration" }, { value: "project", label: "Project" }]} onValueChange={(value) => setKind((value ?? "configuration") as "configuration" | "project")} /><Select label="Required access" value={access()} options={[{ value: "read", label: "Read only" }, { value: "write", label: "Read and write" }]} onValueChange={(value) => setAccess((value ?? "read") as "read" | "write")} /><TextInput label="Workspace" value={app.workspaceId()} readonly /></div>
           </ScreenRegion>
         </FormSheet>
         <WorkspaceSection title="Repository bindings" description="Meaningful target, scope and state for existing relationships.">
