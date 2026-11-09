@@ -2,10 +2,10 @@
   "contractVersion": "brain.verification-run/v1",
   "gateId": "G07",
   "status": "passed",
-  "productFingerprint": "sha256:ff6442a9144b5148affd0c43e38918e07215cd1e1fddd35a6e48d1145b731d92",
-  "lockDigest": "sha256:581b5c25fb80466a1308330e9d1c025dde6b54108b77feab7bfd1f2fe84ddaa1",
-  "startedAt": "2026-11-08T20:09:11.932Z",
-  "finishedAt": "2026-11-08T20:09:26.464Z",
+  "productFingerprint": "sha256:c154562be0c319599eda85c291f97d7549c9ca3c6fbc2f375d91a091ac96211e",
+  "lockDigest": "sha256:b0c2a31e200910cf0f7ca3f0364e13098983468cf693ae0e93a2c8fc2c47a1c2",
+  "startedAt": "2026-11-09T14:20:24.251Z",
+  "finishedAt": "2026-11-09T14:20:34.674Z",
   "commands": [
     {
       "argv": [
@@ -16,7 +16,7 @@
         "tests/chaos/restore.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 3661
+      "durationMs": 2632
     },
     {
       "argv": [
@@ -27,7 +27,7 @@
         "tests/chaos/recovery.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 3041
+      "durationMs": 1951
     },
     {
       "argv": [
@@ -38,7 +38,7 @@
         "tests/chaos/backup.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 3468
+      "durationMs": 2560
     },
     {
       "argv": [
@@ -49,7 +49,7 @@
         "tests/integration/scenarios3.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 4326
+      "durationMs": 3265
     }
   ],
   "checks": [
@@ -73,19 +73,19 @@
   "artifacts": [
     {
       "path": "artifacts/runtime/G07/hash-verified-restore.log",
-      "digest": "sha256:d3607ffa1dbb3989438f12b4e1ad93fdd66bbb661cc376f68754be7587d8fd01"
+      "digest": "sha256:54e91905e7e0ed6708360d10b1c491f421c3864ef6b9872840b4d886aa710d3b"
     },
     {
       "path": "artifacts/runtime/G07/suspended-waits-recovery.log",
-      "digest": "sha256:fa3b583109a4dae50c37390ab39ae0570326b95a860e10b9e5026c4062601059"
+      "digest": "sha256:50a6463737530c90c5babf606d7a77d04b57142e50394f8a70d98f1105eb88cd"
     },
     {
       "path": "artifacts/runtime/G07/backup-completeness.log",
-      "digest": "sha256:d84f2e11f07adea2df66b39d1cc51a36bf9ac9e0133037e9bcb126eae8850185"
+      "digest": "sha256:6a2218a1d54c6505d5d83a924bd6fc146bf34c7120555cddac70a3db84137ca5"
     },
     {
       "path": "artifacts/runtime/G07/scenario-E090.log",
-      "digest": "sha256:8cba8d60de8abcdae5c339a37d6577b787038012328a9a08f99e87fc14c1e54f"
+      "digest": "sha256:acac36d326c1bdab502b5e0e2b06acbd741d10fa2d72039e3820cefa44c3c4f8"
     }
   ],
   "selectedScenarios": [

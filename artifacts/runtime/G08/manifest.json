@@ -1,11 +1,11 @@
 {
   "contractVersion": "brain.verification-run/v1",
   "gateId": "G08",
-  "status": "passed",
-  "productFingerprint": "sha256:ff6442a9144b5148affd0c43e38918e07215cd1e1fddd35a6e48d1145b731d92",
-  "lockDigest": "sha256:581b5c25fb80466a1308330e9d1c025dde6b54108b77feab7bfd1f2fe84ddaa1",
-  "startedAt": "2026-11-08T20:09:26.464Z",
-  "finishedAt": "2026-11-08T20:41:03.405Z",
+  "status": "failed",
+  "productFingerprint": "sha256:28ae24b52aeef148ed23f079dfd2a2368d1f2edacc2aa57a359594f2a6cd005f",
+  "lockDigest": "sha256:b0c2a31e200910cf0f7ca3f0364e13098983468cf693ae0e93a2c8fc2c47a1c2",
+  "startedAt": "2026-11-09T14:20:34.674Z",
+  "finishedAt": "2026-11-09T14:56:22.096Z",
   "commands": [
     {
       "argv": [
@@ -14,8 +14,8 @@
         "tsx",
         "benchmarks/steady.ts"
       ],
-      "exitCode": 0,
-      "durationMs": 1850390
+      "exitCode": 1,
+      "durationMs": 1849743
     },
     {
       "argv": [
@@ -26,7 +26,7 @@
         "tests/integration/scenarios2.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 7372
+      "durationMs": 8608
     },
     {
       "argv": [
@@ -37,7 +37,7 @@
         "tests/integration/scenarios2.test.ts"
       ],
       "exitCode": 0,
-      "durationMs": 7656
+      "durationMs": 9369
     },
     {
       "argv": [
@@ -47,44 +47,44 @@
         "test",
         "tests/browser/vitals.spec.ts"
       ],
-      "exitCode": 0,
-      "durationMs": 31495
+      "exitCode": 1,
+      "durationMs": 279684
     }
   ],
   "checks": [
     {
       "id": "three-comparable-runs",
-      "passed": true
+      "passed": false
     },
     {
       "id": "latency-percentiles",
-      "passed": true
+      "passed": false
     },
     {
       "id": "cpu-rss-wal",
-      "passed": true
+      "passed": false
     },
     {
       "id": "fault-load",
-      "passed": true
+      "passed": false
     }
   ],
   "artifacts": [
     {
       "path": "artifacts/runtime/G08/steady-trials-and-fault-load.log",
-      "digest": "sha256:ce98d57600c2ac2e09f6e99c5d3bb0ea2d35087589d0694573008c5690291643"
+      "digest": "sha256:73d249580f2bd3ae0c66ad735e4f0f17344d029606a82880eb08ab07dca61cfa"
     },
     {
       "path": "artifacts/runtime/G08/scenario-E047.log",
-      "digest": "sha256:09606cc754057ec9d44c0bcdc54e4b877d42320b3851c002bd7f632bfa6b4ddc"
+      "digest": "sha256:34534166adc6fd015452f890132db5b229e9225c4c74e73533a1675806ad7f71"
     },
     {
       "path": "artifacts/runtime/G08/scenario-E049.log",
-      "digest": "sha256:219ec8a50b3fa2c4b3a96c4eac07cfaee9942126b9dbd65a39604029140dcfdc"
+      "digest": "sha256:14045735abbf084e16381bf84579e04cf19c7d6555b629474e7333cd2a603a6d"
     },
     {
       "path": "artifacts/runtime/G08/scenario-E099.log",
-      "digest": "sha256:3e3dd56b0a2c27b4b501f77c6c8ffbc9dd004ea5d0ff5890ae861c1f17c47617"
+      "digest": "sha256:b11eddf9e8bb0d65dba2b6e1a57007573687b9615dd1cd5123208b277998c9d0"
     }
   ],
   "selectedScenarios": [
@@ -94,8 +94,7 @@
   ],
   "executedScenarios": [
     "E047",
-    "E049",
-    "E099"
+    "E049"
   ],
   "skippedScenarios": []
 }

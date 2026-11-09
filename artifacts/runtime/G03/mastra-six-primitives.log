@@ -6,6 +6,6 @@ $ pnpm exec vitest run tests/integration/mastra-conformance.test.ts
 
  Test Files  1 passed (1)
       Tests  6 passed (6)
-   Start at  21:07:47
-   Duration  4.79s (tests 61%, import 33%, transform 6%)
+   Start at  15:19:09
+   Duration  3.45s (tests 73%, import 21%, transform 5%)
 

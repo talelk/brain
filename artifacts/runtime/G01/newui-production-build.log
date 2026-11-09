@@ -2,99 +2,110 @@ $ pnpm build
 (cwd=/home/talel/dev/rd2026/brain)
 vite v8.3.5 building client environment for production...
 transforming...
-✓ 969 modules transformed.
+✓ 1022 modules transformed.
 rendering chunks...
 computing gzip size...
-dist/index.html                                         1.46 kB │ gzip:  0.51 kB
-dist/assets/Inter-extended.var-BS0h6RrJ.woff2         140.97 kB
-dist/assets/Inter-latin.var-BIITVIT5.woff2            148.50 kB
-dist/assets/Inter-Italic-extended.var-BeohlmKH.woff2  157.24 kB
-dist/assets/Inter-Italic-latin.var-DC8tZNBm.woff2     170.22 kB
-dist/assets/index-V8TNcFd9.css                        419.69 kB │ gzip: 46.35 kB
-dist/assets/mission-links-D1MXiuXm.js                   0.10 kB │ gzip:  0.10 kB
-dist/assets/controllable-BRZ9QpXy.js                    0.19 kB │ gzip:  0.17 kB
-dist/assets/exec-outputs-BKHab15c.js                    0.39 kB │ gzip:  0.23 kB
-dist/assets/SrePage-BfglAOY2.js                         0.62 kB │ gzip:  0.39 kB
-dist/assets/SessionDetailPage-BSBSrHJS.js               0.63 kB │ gzip:  0.41 kB
-dist/assets/KnowledgeTabs-BqmZ--mz.js                   0.72 kB │ gzip:  0.46 kB
-dist/assets/IncidentDetailPage-DLK95uV_.js              0.78 kB │ gzip:  0.47 kB
-dist/assets/ApprovalsPage-DwYMQQFe.js                   0.79 kB │ gzip:  0.44 kB
-dist/assets/TicketDetailPage-CIuomqH8.js                0.81 kB │ gzip:  0.49 kB
-dist/assets/KeyValue-BCh6gzjZ.js                        0.87 kB │ gzip:  0.45 kB
-dist/assets/SupportPage-BucYeRJV.js                     0.99 kB │ gzip:  0.58 kB
-dist/assets/PageLayout-9VCLwciX.js                      1.01 kB │ gzip:  0.54 kB
-dist/assets/DigestValue-JaqM6Ds6.js                     1.03 kB │ gzip:  0.61 kB
-dist/assets/ApprovalDetailPage-BOrYmTaE.js              1.45 kB │ gzip:  0.76 kB
-dist/assets/Textarea-BfpdB2wc.js                        1.46 kB │ gzip:  0.66 kB
-dist/assets/ReasonDialog-Dnjsvt0q.js                    1.49 kB │ gzip:  0.65 kB
-dist/assets/DetailHeader-BHHn1l0a.js                    1.55 kB │ gzip:  0.69 kB
-dist/assets/LivePage-DgLJsaH1.js                        1.58 kB │ gzip:  0.87 kB
-dist/assets/RunnerDetailPage-CZgC4XkH.js                1.60 kB │ gzip:  0.80 kB
-dist/assets/disclosure-D7m9BKCq.js                      1.77 kB │ gzip:  0.89 kB
-dist/assets/field-zI0iUiEr.js                           1.84 kB │ gzip:  0.85 kB
-dist/assets/StructuredOutputView-DBkc5JFs.js            1.90 kB │ gzip:  0.88 kB
-dist/assets/Section-D2_hFGaM.js                         2.05 kB │ gzip:  0.90 kB
-dist/assets/Progress-egxBEfqe.js                        2.10 kB │ gzip:  0.98 kB
-dist/assets/CorrelationLink-AuHsbyAD.js                 2.35 kB │ gzip:  1.05 kB
-dist/assets/exec-filters-CDzBE2C5.js                    2.40 kB │ gzip:  1.02 kB
-dist/assets/Badge-A9y4KLRz.js                           2.61 kB │ gzip:  0.99 kB
-dist/assets/TvPage-C99nadQ5.js                          3.06 kB │ gzip:  0.74 kB
-dist/assets/PaneLayout-0i73Q4i2.js                      3.13 kB │ gzip:  1.41 kB
-dist/assets/ArtifactSelectors-Bf-q9cHF.js               3.13 kB │ gzip:  1.51 kB
-dist/assets/WorkItemTasks-Ig0Dxpor.js                   3.14 kB │ gzip:  1.23 kB
-dist/assets/RunnerEnrollmentDialog-SE4yEEfO.js          3.43 kB │ gzip:  1.60 kB
-dist/assets/EvidenceList-CGHG4l0W.js                    3.48 kB │ gzip:  1.45 kB
-dist/assets/StreamEventRow-CelQ3Fgk.js                  3.78 kB │ gzip:  1.73 kB
-dist/assets/NewMissionPage-B9Tx8-4_.js                  4.02 kB │ gzip:  1.82 kB
-dist/assets/FilterBar-Cx130_ro.js                       4.05 kB │ gzip:  1.68 kB
-dist/assets/Checkbox-Bk4Y5hb2.js                        4.34 kB │ gzip:  1.76 kB
-dist/assets/MissionsPage-Bn03bXH9.js                    4.77 kB │ gzip:  1.95 kB
-dist/assets/StatusBadge-RXtDggxO.js                     5.62 kB │ gzip:  1.69 kB
-dist/assets/OutputHistory-DsZgfjr0.js                   7.04 kB │ gzip:  2.24 kB
-dist/assets/routing-Cqm2FUCK.js                         8.09 kB │ gzip:  3.69 kB
-dist/assets/RunnersPage-DBeUFsFv.js                     8.65 kB │ gzip:  3.12 kB
-dist/assets/TabButtons-C50HEnPn.js                      8.73 kB │ gzip:  3.31 kB
-dist/assets/KnowledgeReviewPage-CLC6E84L.js             8.74 kB │ gzip:  2.83 kB
-dist/assets/PlayPage-1lYJIsC9.js                        9.07 kB │ gzip:  3.25 kB
-dist/assets/helpers-PuHRuBPx.js                         9.23 kB │ gzip:  3.05 kB
-dist/assets/catalog-CKoWNnVS.js                         9.74 kB │ gzip:  3.50 kB
-dist/assets/IntegrationsPage-AvbwIsC1.js                9.90 kB │ gzip:  3.33 kB
-dist/assets/TaskReview-C7QhrSoy.js                     10.02 kB │ gzip:  3.92 kB
-dist/assets/ArtifactView-DMeK1YNE.js                   10.25 kB │ gzip:  3.62 kB
-dist/assets/work-Bz-wHmks.js                           11.47 kB │ gzip:  3.64 kB
-dist/assets/BridgePage-kEKGC8-D.js                     11.87 kB │ gzip:  4.17 kB
-dist/assets/OutputsPage-C5uW3mkA.js                    13.20 kB │ gzip:  4.58 kB
-dist/assets/OutputPage-BcsW_P93.js                     13.89 kB │ gzip:  4.56 kB
-dist/assets/zag-B62hyruE.js                            14.39 kB │ gzip:  5.86 kB
-dist/assets/SchedulesPanel-0yx5SzfZ.js                 15.79 kB │ gzip:  5.07 kB
-dist/assets/workspace-Br9KbRtk.js                      16.58 kB │ gzip:  4.82 kB
-dist/assets/Domain-DPwoSHBJ.js                         17.27 kB │ gzip:  5.55 kB
-dist/assets/PlaysPage-CnQM8Ium.js                      17.70 kB │ gzip:  5.67 kB
-dist/assets/dismissable-layer-xgkeFjHZ.js              19.01 kB │ gzip:  6.83 kB
-dist/assets/JobDetailPage-DC1K8zbV.js                  20.99 kB │ gzip:  6.86 kB
-dist/assets/approvals-DyKnPiOz.js                      23.67 kB │ gzip:  7.18 kB
-dist/assets/Select-7Dm9htaO.js                         26.56 kB │ gzip:  7.58 kB
-dist/assets/Dialog-DRi4XMYg.js                         26.88 kB │ gzip:  9.07 kB
-dist/assets/get-styles-CxTVcHSW.js                     30.56 kB │ gzip: 11.69 kB
-dist/assets/MissionPage-DfdSTJtz.js                    44.65 kB │ gzip: 11.85 kB
-dist/assets/ConsoleLayout-DrGBG6q3.js                  51.58 kB │ gzip: 14.77 kB
-dist/assets/LogsPage-RSS3rqA0.js                       51.97 kB │ gzip: 15.35 kB
-dist/assets/KnowledgePage-DNTmhnYn.js                  58.79 kB │ gzip: 18.06 kB
-dist/assets/screen-region-C5Vfigwc.js                  79.25 kB │ gzip: 26.98 kB
-dist/assets/StudioPages-DVuSIx3B.js                   111.72 kB │ gzip: 34.82 kB
-dist/assets/SettingsPage-CZnj-Wgt.js                  140.49 kB │ gzip: 37.59 kB
-dist/assets/index-CCt0CjkO.js                         258.17 kB │ gzip: 76.88 kB
+dist/index.html                                                2.16 kB │ gzip:  0.63 kB
+dist/assets/IBMPlexSans-latin-ext-normal.var-Cd4fXGu8.woff2   46.74 kB
+dist/assets/IBMPlexSans-latin-ext-italic.var-S8XQwFZL.woff2   52.86 kB
+dist/assets/IBMPlexSans-latin-normal.var-Dew2wRiQ.woff2       65.48 kB
+dist/assets/IBMPlexSans-latin-italic.var-pQNzRgz1.woff2       75.80 kB
+dist/assets/index-JZE4HnRC.css                               425.57 kB │ gzip: 43.49 kB
+dist/assets/mission-links-D1MXiuXm.js                          0.10 kB │ gzip:  0.10 kB
+dist/assets/caret-aX7Zv8l7.js                                  0.13 kB │ gzip:  0.13 kB
+dist/assets/disclosure-BPQAsVZi.js                             0.14 kB │ gzip:  0.14 kB
+dist/assets/controllable-B4iqr0ce.js                           0.18 kB │ gzip:  0.17 kB
+dist/assets/navigate-CYmqS4Lh.js                               0.18 kB │ gzip:  0.17 kB
+dist/assets/memo-9Zp9eiP5.js                                   0.19 kB │ gzip:  0.17 kB
+dist/assets/exec-outputs-Walnfxra.js                           0.39 kB │ gzip:  0.23 kB
+dist/assets/SrePage-CVcHDDTT.js                                0.65 kB │ gzip:  0.41 kB
+dist/assets/SessionDetailPage-CncgMm0m.js                      0.66 kB │ gzip:  0.42 kB
+dist/assets/number-B-LE8Npt.js                                 0.67 kB │ gzip:  0.40 kB
+dist/assets/KnowledgeTabs-C8Nm3L5y.js                          0.76 kB │ gzip:  0.48 kB
+dist/assets/IncidentDetailPage-DGwcPysw.js                     0.81 kB │ gzip:  0.49 kB
+dist/assets/ApprovalsPage-Bs3l-t0i.js                          0.82 kB │ gzip:  0.45 kB
+dist/assets/TicketDetailPage-CpTF2KZu.js                       0.84 kB │ gzip:  0.50 kB
+dist/assets/KeyValue-C_r4helf.js                               0.86 kB │ gzip:  0.44 kB
+dist/assets/PageLayout-DX85SLYy.js                             1.01 kB │ gzip:  0.53 kB
+dist/assets/SupportPage-BKEHkWT_.js                            1.02 kB │ gzip:  0.59 kB
+dist/assets/DigestValue-DjoNiOpz.js                            1.06 kB │ gzip:  0.62 kB
+dist/assets/Textarea-ZejUDW1I.js                               1.45 kB │ gzip:  0.66 kB
+dist/assets/ApprovalDetailPage-BHbCFjZS.js                     1.48 kB │ gzip:  0.77 kB
+dist/assets/DetailHeader-CUmR-Q9G.js                           1.55 kB │ gzip:  0.69 kB
+dist/assets/ReasonDialog-DYfKI161.js                           1.61 kB │ gzip:  0.70 kB
+dist/assets/merge-props-IMjeU10j.js                            1.62 kB │ gzip:  0.82 kB
+dist/assets/RunnerDetailPage-DydtNoLM.js                       1.63 kB │ gzip:  0.81 kB
+dist/assets/LivePage-Dmg4oTlo.js                               1.81 kB │ gzip:  0.99 kB
+dist/assets/field-Cp4UNGe6.js                                  1.83 kB │ gzip:  0.81 kB
+dist/assets/StructuredOutputView-CP7tdDf0.js                   1.93 kB │ gzip:  0.89 kB
+dist/assets/Progress-dQ66zo9a.js                               2.09 kB │ gzip:  0.97 kB
+dist/assets/CorrelationLink-2Bd8K9lA.js                        2.34 kB │ gzip:  1.04 kB
+dist/assets/exec-filters-DEteUXjD.js                           2.40 kB │ gzip:  1.02 kB
+dist/assets/Domain-DMFc6_FT.js                                 2.57 kB │ gzip:  1.02 kB
+dist/assets/Section-C_BDstMD.js                                2.59 kB │ gzip:  1.08 kB
+dist/assets/TvPage-U072fDB3.js                                 3.05 kB │ gzip:  0.73 kB
+dist/assets/WorkItemTasks-Dbpuk93j.js                          3.12 kB │ gzip:  1.24 kB
+dist/assets/ArtifactSelectors-T5Kmbe0W.js                      3.17 kB │ gzip:  1.52 kB
+dist/assets/StatGrid-CkYCi6jG.js                               3.18 kB │ gzip:  1.31 kB
+dist/assets/EvidenceList-BSa0eTpq.js                           3.47 kB │ gzip:  1.45 kB
+dist/assets/RunnerEnrollmentDialog-B6GNzg2d.js                 3.55 kB │ gzip:  1.66 kB
+dist/assets/StreamEventRow-CSZ2zQZ8.js                         3.82 kB │ gzip:  1.69 kB
+dist/assets/NewMissionPage-C4BzSI8V.js                         4.14 kB │ gzip:  1.87 kB
+dist/assets/FilterBar-BWFTsgCV.js                              4.32 kB │ gzip:  1.77 kB
+dist/assets/PaneLayout-D078onGY.js                             4.41 kB │ gzip:  1.91 kB
+dist/assets/Checkbox-1TeIeQBP.js                               4.48 kB │ gzip:  1.78 kB
+dist/assets/MissionsPage-ErNv8ql2.js                           4.88 kB │ gzip:  2.00 kB
+dist/assets/StatusBadge-CXXtUnNH.js                            5.62 kB │ gzip:  1.69 kB
+dist/assets/OutputHistory-CFGO7k3f.js                          7.01 kB │ gzip:  2.24 kB
+dist/assets/Collapsible-DGRLlrlu.js                            7.19 kB │ gzip:  2.63 kB
+dist/assets/routing-CRXhOmdO.js                                8.08 kB │ gzip:  3.69 kB
+dist/assets/TabButtons-g1bTwjCq.js                             8.73 kB │ gzip:  3.28 kB
+dist/assets/KnowledgeReviewPage-CZqDqCdt.js                    8.75 kB │ gzip:  2.83 kB
+dist/assets/RunnersPage-t-9vIJCX.js                            8.82 kB │ gzip:  3.17 kB
+dist/assets/popover.machine-CGtBJLxN.js                        8.90 kB │ gzip:  3.19 kB
+dist/assets/PlayPage-B8ULg3XY.js                               9.09 kB │ gzip:  3.27 kB
+dist/assets/helpers-CtyfL2WV.js                                9.23 kB │ gzip:  3.11 kB
+dist/assets/catalog-Dnjkbe-M.js                                9.83 kB │ gzip:  3.52 kB
+dist/assets/IntegrationsPage-CFSeXl6x.js                      10.28 kB │ gzip:  3.49 kB
+dist/assets/ArtifactView-vq6ItmEZ.js                          10.29 kB │ gzip:  3.64 kB
+dist/assets/Dialog-5_-fzLUe.js                                10.89 kB │ gzip:  3.97 kB
+dist/assets/work-C8tx4T3-.js                                  11.51 kB │ gzip:  3.67 kB
+dist/assets/BridgePage-e5fuCw-n.js                            11.88 kB │ gzip:  4.24 kB
+dist/assets/primitives-Dh_sVnch.js                            12.69 kB │ gzip:  4.42 kB
+dist/assets/dismissable-layer-DejI2DLB.js                     12.85 kB │ gzip:  4.58 kB
+dist/assets/OutputsPage-DMakt9zD.js                           13.29 kB │ gzip:  4.63 kB
+dist/assets/OutputPage-CJYo623M.js                            13.85 kB │ gzip:  4.57 kB
+dist/assets/SchedulesPanel-Bc7x5RVI.js                        15.84 kB │ gzip:  5.14 kB
+dist/assets/workspace-DG0S6wdf.js                             16.48 kB │ gzip:  4.86 kB
+dist/assets/dist-DLn4Xsgu.js                                  16.76 kB │ gzip:  5.52 kB
+dist/assets/JobDetailPage-DH69pzk-.js                         18.03 kB │ gzip:  6.09 kB
+dist/assets/PlaysPage-C-lPGEUU.js                             18.71 kB │ gzip:  6.12 kB
+dist/assets/approvals-BQeD0xin.js                             23.70 kB │ gzip:  7.19 kB
+dist/assets/Select-B2WL2XZ1.js                                26.96 kB │ gzip:  7.72 kB
+dist/assets/get-styles-DoPrtSpe.js                            30.11 kB │ gzip: 11.53 kB
+dist/assets/screen-region-CSLHnSXX.js                         31.27 kB │ gzip:  9.77 kB
+dist/assets/column-filter-DVIS1GeD.js                         32.49 kB │ gzip: 10.17 kB
+dist/assets/MissionPage-DurzYEsu.js                           51.68 kB │ gzip: 13.68 kB
+dist/assets/ConsoleLayout-CgFvn2Sw.js                         52.06 kB │ gzip: 14.90 kB
+dist/assets/LogsPage-CmA_sztQ.js                              53.13 kB │ gzip: 15.73 kB
+dist/assets/KnowledgePage-hMSKHDav.js                         59.72 kB │ gzip: 18.21 kB
+dist/assets/form-CiB274Mr.js                                  62.17 kB │ gzip: 15.67 kB
+dist/assets/zag-u7X-7ava.js                                   73.01 kB │ gzip: 26.51 kB
+dist/assets/StudioPages-BEm0Aerl.js                          111.68 kB │ gzip: 34.91 kB
+dist/assets/TaskReview-C5s6U1pX.js                           129.36 kB │ gzip: 33.18 kB
+dist/assets/SettingsPage-BeiSaTMd.js                         213.01 kB │ gzip: 57.55 kB
+dist/assets/index-Dldhbb1e.js                                261.37 kB │ gzip: 77.48 kB
 
-✓ built in 7.06s
+✓ built in 3.88s
 $ pnpm typecheck && pnpm typecheck:web && pnpm --filter @brain/web build
 $ tsc --noEmit --pretty false -p tsconfig.typecheck.json
 $ pnpm --filter @brain/web typecheck
 $ tsc --noEmit --pretty false
 $ vite build
-[33m[PLUGIN_TIMINGS] [0mJavaScript callbacks ran for 6.7s of this 7.0s build (96%).
+[33m[PLUGIN_TIMINGS] [0mJavaScript callbacks ran for 3.6s of this 3.9s build (93%).
 The slowest callbacks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
-  - plugin @tailwindcss/vite:generate:build transform (87%, 6.1s, 1 call)
-  - plugin solid transform (77%, 5.4s, 969 calls)
+  - plugin @tailwindcss/vite:generate:build transform (85%, 3.3s, 1 call)
+  - plugin solid transform (77%, 3.0s, 1022 calls)
 These rows add up to more than the total. Callbacks can overlap, so the same time counts for more than one row.
 See https://rolldown.rs/reference/InputOptions.checks#bundlertimings for more details.
 

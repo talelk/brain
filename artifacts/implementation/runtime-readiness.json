@@ -1,41 +1,34 @@
 {
   "scope": "evidence-record-integrity-only",
-  "productFingerprint": "sha256:be6f6b67bc07bd71fba593119d5295da2b6f7695d41b787d7ec23ff38206161d",
+  "productFingerprint": "sha256:c154562be0c319599eda85c291f97d7549c9ca3c6fbc2f375d91a091ac96211e",
   "gates": {
     "G01": {
-      "status": "failed",
-      "reason": "invalid-or-stale-evidence",
-      "errorClass": "AssertionError"
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
     },
     "G02": {
-      "status": "failed",
-      "reason": "invalid-or-stale-evidence",
-      "errorClass": "AssertionError"
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
     },
     "G03": {
-      "status": "failed",
-      "reason": "invalid-or-stale-evidence",
-      "errorClass": "AssertionError"
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
     },
     "G04": {
-      "status": "failed",
-      "reason": "invalid-or-stale-evidence",
-      "errorClass": "AssertionError"
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
     },
     "G05": {
-      "status": "failed",
-      "reason": "invalid-or-stale-evidence",
-      "errorClass": "AssertionError"
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
     },
     "G06": {
-      "status": "failed",
-      "reason": "invalid-or-stale-evidence",
-      "errorClass": "AssertionError"
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
     },
     "G07": {
-      "status": "failed",
-      "reason": "invalid-or-stale-evidence",
-      "errorClass": "AssertionError"
+      "status": "passed",
+      "reason": "current-evidence-records-validated"
     },
     "G08": {
       "status": "failed",

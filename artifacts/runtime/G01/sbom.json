@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-11-08T20:07:40.336Z",
-  "cohortDigest": "sha256:faad476769b93849fa09e85069abbf1027ceb04b795f7ad3706812db8339bb7e",
-  "count": 799,
+  "generatedAt": "2026-11-09T14:49:36.038Z",
+  "cohortDigest": "sha256:e42870b0266ef4f614da8c510c9c66fafd22e58821fcbbe231e5cb7d459b18f2",
+  "count": 813,
   "packages": [
     {
       "name": "@a2a-js/sdk",
@@ -1078,10 +1078,28 @@
       "path": "node_modules/.pnpm/@talelk+newui-atoms@1.3.0_solid-js@1.9.17/node_modules/@talelk/newui-atoms/package.json"
     },
     {
+      "name": "@talelk/newui-atoms",
+      "version": "1.4.0",
+      "license": "Apache-2.0",
+      "path": "node_modules/.pnpm/@talelk+newui-atoms@1.4.0_solid-js@1.9.17/node_modules/@talelk/newui-atoms/package.json"
+    },
+    {
+      "name": "@talelk/newui-data",
+      "version": "1.1.0",
+      "license": "Apache-2.0",
+      "path": "node_modules/.pnpm/@talelk+newui-data@1.1.0_solid-js@1.9.17/node_modules/@talelk/newui-data/package.json"
+    },
+    {
       "name": "@talelk/newui-molecules",
       "version": "2.3.0",
       "license": "Apache-2.0",
       "path": "node_modules/.pnpm/@talelk+newui-molecules@2.3.0_solid-js@1.9.17/node_modules/@talelk/newui-molecules/package.json"
+    },
+    {
+      "name": "@talelk/newui-molecules",
+      "version": "2.4.0",
+      "license": "Apache-2.0",
+      "path": "node_modules/.pnpm/@talelk+newui-molecules@2.4.0_solid-js@1.9.17/node_modules/@talelk/newui-molecules/package.json"
     },
     {
       "name": "@talelk/newui-organisms",
@@ -1090,10 +1108,22 @@
       "path": "node_modules/.pnpm/@talelk+newui-organisms@2.2.0_solid-js@1.9.17/node_modules/@talelk/newui-organisms/package.json"
     },
     {
+      "name": "@talelk/newui-organisms",
+      "version": "2.3.0",
+      "license": "Apache-2.0",
+      "path": "node_modules/.pnpm/@talelk+newui-organisms@2.3.0_solid-js@1.9.17/node_modules/@talelk/newui-organisms/package.json"
+    },
+    {
       "name": "@talelk/newui-tailwind",
       "version": "1.0.2",
       "license": "Apache-2.0",
       "path": "node_modules/.pnpm/@talelk+newui-tailwind@1.0.2_tailwindcss@4.3.3/node_modules/@talelk/newui-tailwind/package.json"
+    },
+    {
+      "name": "@talelk/newui-tailwind",
+      "version": "1.1.0",
+      "license": "Apache-2.0",
+      "path": "node_modules/.pnpm/@talelk+newui-tailwind@1.1.0_tailwindcss@4.3.3/node_modules/@talelk/newui-tailwind/package.json"
     },
     {
       "name": "@talelk/newui-templates",
@@ -1102,10 +1132,64 @@
       "path": "node_modules/.pnpm/@talelk+newui-templates@1.1.5_solid-js@1.9.17/node_modules/@talelk/newui-templates/package.json"
     },
     {
+      "name": "@talelk/newui-templates",
+      "version": "1.2.0",
+      "license": "Apache-2.0",
+      "path": "node_modules/.pnpm/@talelk+newui-templates@1.2.0_solid-js@1.9.17/node_modules/@talelk/newui-templates/package.json"
+    },
+    {
       "name": "@talelk/newui-tokens",
       "version": "0.1.1",
       "license": "Apache-2.0",
       "path": "node_modules/.pnpm/@talelk+newui-tokens@0.1.1/node_modules/@talelk/newui-tokens/package.json"
+    },
+    {
+      "name": "@talelk/newui-tokens",
+      "version": "0.2.0",
+      "license": "Apache-2.0",
+      "path": "node_modules/.pnpm/@talelk+newui-tokens@0.2.0/node_modules/@talelk/newui-tokens/package.json"
+    },
+    {
+      "name": "@tanstack/devtools-event-client",
+      "version": "0.4.4",
+      "license": "MIT",
+      "path": "node_modules/.pnpm/@tanstack+devtools-event-client@0.4.4/node_modules/@tanstack/devtools-event-client/package.json"
+    },
+    {
+      "name": "@tanstack/form-core",
+      "version": "1.33.5",
+      "license": "MIT",
+      "path": "node_modules/.pnpm/@tanstack+form-core@1.33.5/node_modules/@tanstack/form-core/package.json"
+    },
+    {
+      "name": "@tanstack/pacer-lite",
+      "version": "0.1.1",
+      "license": "MIT",
+      "path": "node_modules/.pnpm/@tanstack+pacer-lite@0.1.1/node_modules/@tanstack/pacer-lite/package.json"
+    },
+    {
+      "name": "@tanstack/query-core",
+      "version": "5.107.1",
+      "license": "MIT",
+      "path": "node_modules/.pnpm/@tanstack+query-core@5.107.1/node_modules/@tanstack/query-core/package.json"
+    },
+    {
+      "name": "@tanstack/solid-form",
+      "version": "1.33.5",
+      "license": "MIT",
+      "path": "node_modules/.pnpm/@tanstack+solid-form@1.33.5_solid-js@1.9.17/node_modules/@tanstack/solid-form/package.json"
+    },
+    {
+      "name": "@tanstack/solid-query",
+      "version": "5.107.1",
+      "license": "MIT",
+      "path": "node_modules/.pnpm/@tanstack+solid-query@5.107.1_solid-js@1.9.17/node_modules/@tanstack/solid-query/package.json"
+    },
+    {
+      "name": "@tanstack/solid-store",
+      "version": "0.11.2",
+      "license": "MIT",
+      "path": "node_modules/.pnpm/@tanstack+solid-store@0.11.2_solid-js@1.9.17/node_modules/@tanstack/solid-store/package.json"
     },
     {
       "name": "@tanstack/solid-table",
