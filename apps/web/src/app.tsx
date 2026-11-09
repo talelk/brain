@@ -1,4 +1,5 @@
 import { lazy, Show, onMount, onCleanup, createSignal } from "solid-js";
+import { createAttentionRead } from "./ui/attention";
 import { AttentionDrawer } from "./ui/components/AttentionDrawer";
 import type { JSX } from "solid-js";
 import { Navigate, Route, Router, useLocation, useNavigate, useParams } from "@solidjs/router";
@@ -78,7 +79,7 @@ function areaForPath(pathname: string): string {
 
 const FALLBACK_ICON = "lucide-circle";
 
-function Navigation(): AppSidebarGroup[] {
+function Navigation(attentionCount: () => number): AppSidebarGroup[] {
   const app = useApp();
   const navigate = useNavigate();
   const location = useLocation();
@@ -101,6 +102,7 @@ function Navigation(): AppSidebarGroup[] {
   const go = (route: string) => () => void navigate(href(route));
   const primary = PRIMARY_NAVIGATION.map((entry) => ({
     label: entry.label, icon: ICONS[entry.route] ?? FALLBACK_ICON, active: areaForPath(href(entry.route)) === area(),
+    ...(entry.route === "/w/:id/missions" ? { get count() { return attentionCount() || undefined; } } : {}),
     onClick: go(entry.route),
   }));
   // Knowledge is a secondary place (#43): below the five areas, never one of them.
@@ -152,6 +154,7 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
   const header = usePageHeader();
   const location = useLocation();
   const [searchOpen, setSearchOpen] = createSignal(false);
+  const attention = createAttentionRead();
   onMount(() => {
     const shortcut = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setSearchOpen(true); }
@@ -169,13 +172,13 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
     breadcrumbs={header()?.breadcrumbs}
     actions={header()?.actions}
     mobileTitle={header()?.title ?? "Brain"}
-    headerActions={<><Show when={app.workspaceId()}><AttentionDrawer /></Show><Button variant="ghost" iconLeft="lucide-search" aria-label="Search Brain (Control K)" onClick={() => setSearchOpen(true)}><span class="max-sm:hidden">Search</span></Button><ThemeToggle /></>}
+    headerActions={<><Show when={app.workspaceId()}><AttentionDrawer attention={attention} /></Show><Button variant="ghost" iconLeft="lucide-search" aria-label="Search Brain (Control K)" onClick={() => setSearchOpen(true)}><span class="max-sm:hidden">Search</span></Button><ThemeToggle /></>}
     tenant={<div data-keep-drawer><Dropdown aria-label="Choose workspace" class="w-full justify-start" options={app.workspaceOptions().map((option) => ({ ...option, icon: "lucide-building-2" }))}
       onSelect={(value) => { if (value) { app.selectWorkspace(value); void navigate(`/w/${value}/missions`); } }}>
       <span class="flex min-w-0 items-center gap-2"><span class="lucide-building-2 size-4 shrink-0" aria-hidden="true" /><span class="truncate">{app.workspaceOptions().find((option) => option.value === app.workspaceId())?.label ?? "Choose workspace"}</span></span>
     </Dropdown></div>}
     tenantCollapsed={<span class="lucide-building-2 size-5" aria-hidden="true" />}
-    navigation={Navigation()}
+    navigation={Navigation(() => attention.state().data?.length ?? 0)}
     account={<AccountMenu />} accountCollapsed={<AccountMenu compact />}
     navLabel="Brain navigation">
     <GlobalSearchDialog open={searchOpen()} onOpenChange={setSearchOpen} />

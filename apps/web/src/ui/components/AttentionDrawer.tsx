@@ -7,6 +7,7 @@ import type { AttentionItem, NotificationEntry } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
+import type { AttentionRead } from "../attention";
 import { ScreenRegion } from "../screen-region";
 import { formatDateTime } from "../format";
 import { missionHref } from "../mission-links";
@@ -51,20 +52,11 @@ export function AttentionRows(props: { items: readonly AttentionItem[]; onOpen: 
  * workspaces and opens a drawer with the ranked attention items and the recent
  * notification history; opening an item goes where it is acted on.
  */
-export function AttentionDrawer(): JSX.Element {
+export function AttentionDrawer(props: { attention: AttentionRead }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
   const [open, setOpen] = createSignal(false);
-  const attention = createScopedRead<AttentionItem[]>({
-    scope: app.scope,
-    load: async (scope, signal) => {
-      if (!scope.workspaceId) return { snapshot: [], asOf: new Date().toISOString(), sourceWatermark: 0 };
-      const response = await query<{ snapshot: { items: AttentionItem[] }; asOf: string; sourceWatermark: number }>({ queryType: "attention.list", workspaceId: scope.workspaceId }, signal);
-      return { snapshot: [...response.snapshot.items], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
-    },
-    isEmpty: (items) => items.length === 0,
-    refreshMs: 30_000,
-  });
+  const attention = props.attention;
   const history = createScopedRead<NotificationEntry[]>({
     scope: app.scope,
     load: async (scope, signal) => {
