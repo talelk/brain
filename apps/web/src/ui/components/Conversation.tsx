@@ -10,7 +10,7 @@ import { ScreenRegion } from "../screen-region";
 import { ActionFeedback } from "./ActionFeedback";
 import { DetailAside, WorkspaceSection } from "./Domain";
 function Composer(props: { disabled?: boolean; onSend: (text: string, id: string) => Promise<void> }) {
-  const [text, setText] = createSignal(""); const [id, setId] = createSignal(crypto.randomUUID());
+  const [params] = useSearchParams(); const [text, setText] = createSignal(typeof params.goal === "string" ? params.goal : ""); const [id, setId] = createSignal(crypto.randomUUID());
   const [busy, setBusy] = createSignal(false); const [error, setError] = createSignal("");
   async function send(event: SubmitEvent) {
     event.preventDefault(); if (!text().trim() || busy()) return;

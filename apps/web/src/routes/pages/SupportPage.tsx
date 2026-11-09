@@ -30,6 +30,6 @@ export default function SupportPage(): JSX.Element {
   return <SupportScreen tickets={support.state().data?.tickets ?? []} sla={support.state().data?.sla}
     state={support.state()} onRefresh={() => void support.refresh({ force: true })}
     onOpenTicket={(ticketId) => void navigate(`/tickets/${ticketId}`)}
-    onDispatch={() => void navigate(`/w/${app.workspaceId()}/overview`)}
+    onDispatch={() => void navigate(`/w/${app.workspaceId()}/plays?q=support`)}
     canDispatch={app.canDispatch()} />;
 }

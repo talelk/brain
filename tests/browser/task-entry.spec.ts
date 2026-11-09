@@ -19,20 +19,19 @@ test("guided task entry: persisted modes, shared review, timeout recovery, conso
   }
   const db = brain.store.workspaceDb("operations", identity.actor.organizationId);
 
-  // The guided rail: landing on Start work with the persisted catalog mode
-  // puts the published-recipe selection forward as the current step.
+  // One surface: a single search box handles pick-or-describe; there is no mode picker or stepper.
   await page.goto(`${governor.url}/w/operations/plays`);
-  await expect(page.locator('nav[aria-label="Guided steps"] [aria-current="step"]')).toHaveAccessibleName(/Recipe/);
-  await page.getByRole("button", { name: /From a work item/ }).click();
-  await expect(page).toHaveURL(/mode=work/);
-  await page.goto(`${governor.url}/w/operations/plays`);
-  await expect(page.getByRole("button", { name: /From a work item/ })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("heading", { name: "Advance an existing item", exact: true })).toBeVisible();
+  const finder = page.getByLabel("What do you want to get done?");
+  await expect(finder).toBeVisible();
+  await expect(page.locator('nav[aria-label="Guided steps"]')).toHaveCount(0);
+  await finder.fill("something nobody published");
+  await page.getByRole("button", { name: "Describe it to Brain", exact: true }).click();
+  await expect(page).toHaveURL(/mode=ask/);
+  await expect(page.getByLabel(/^Your request/)).toHaveValue("something nobody published");
 
   // Describe-the-work mode: the conversation proposes a recipe for review and
   // never dispatches by itself; the rail advances to review only with a draft.
   await page.goto(`${governor.url}/w/operations/plays?mode=ask`);
-  await expect(page.locator('nav[aria-label="Guided steps"] [aria-current="step"]')).toHaveAccessibleName(/Start/);
   // A late scoped-read render can replace the field: wait until the request
   // is really in it and Send is enabled before submitting.
   const request = page.getByLabel(/^Your request/);
@@ -48,7 +47,6 @@ test("guided task entry: persisted modes, shared review, timeout recovery, conso
   for (const session of sessions) expect(await runOnce(session.cfg, session.sessionToken, session.epoch)).toBe(true);
   await page.getByRole("button", { name: "Review proposed task", exact: true }).focus(); await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Review before starting", exact: true })).toBeVisible();
-  await expect(page.locator('nav[aria-label="Guided steps"] [aria-current="step"]')).toHaveAccessibleName(/Review & dispatch/);
   expect((db.prepare("SELECT COUNT(*) AS n FROM workflow_runs").get() as { n: number }).n).toBe(1);
   let timedOut = false;
   await page.route("**/v1/tasks/drafts/*/start", async (route) => { if (!timedOut) { timedOut = true; await route.fetch(); await route.abort("timedout"); } else await route.continue(); });
@@ -71,7 +69,6 @@ test("guided task entry: persisted modes, shared review, timeout recovery, conso
   await page.getByRole("button", { name: "Manage Investigate latency" }).click();
   await page.getByRole("button", { name: "Start a task for this item", exact: true }).click();
   await expect(page.getByLabel(/^Situation/)).toHaveValue(/Investigate latency/);
-  await expect(page.locator('nav[aria-label="Guided steps"] [aria-current="step"]')).toHaveAccessibleName(/Review & dispatch/);
   await page.getByRole("button", { name: "Review task", exact: true }).click();
   await page.getByRole("button", { name: "Start task", exact: true }).click(); await page.waitForURL(/\/runs\//);
   for (const session of sessions) expect(await runOnce(session.cfg, session.sessionToken, session.epoch)).toBe(true);

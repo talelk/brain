@@ -30,7 +30,6 @@ export default function PlaysPage(): JSX.Element {
       const response = await query<{ snapshot: { items: PlayView[] }; asOf: string; sourceWatermark: number }>({ queryType: "plays.list", workspaceId: scope.workspaceId }, signal);
       return { snapshot: [...response.snapshot.items], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
-    isEmpty: (items) => items.length === 0,
   });
   const workflows = createScopedRead<WorkflowCatalogEntry[]>({
     scope: app.scope,
@@ -46,26 +45,32 @@ export default function PlaysPage(): JSX.Element {
     if (target.sessionId) void navigate(`/w/${app.workspaceId()}/live?session=${encodeURIComponent(target.sessionId)}`);
     else void navigate(`/runs/${target.runId}`);
   };
+  const describe = () => void setParams({ mode: "ask", goal: search() || undefined, q: undefined });
   const catalog = <PageStack>
-    <TextInput type="search" label="Find a play or task" value={search()} placeholder="Search purpose, play or task name…" onInput={(event) => setParams({ q: event.currentTarget.value || undefined })} />
-    <WorkspaceSection title="Plays in the active release" description="Mission templates: a team, a plan shape and a brief, started by hand, on a schedule or by a ticket or incident.">
-      <ScreenRegion state={plays.state()} onRetry={() => void plays.refresh({ force: true })} emptyTitle="No plays yet" emptyDescription="Draft a play in the Studio and activate the release that contains it.">
-        <Show when={shownPlays().length} fallback={<EmptyState size="sm" icon="lucide-search" title="No matching plays" description="Clear the search to see every play in the active release." />}>
-          <div class="brain-queue"><For each={shownPlays()}>{(play) => <QueueRow title={play.title} description={play.description ?? `${play.taskCount} tasks`} icon="lucide-book-open-check"
-            meta={<><span>{play.team.length} members</span><span>{play.taskCount} tasks</span><span>autonomy {play.autonomy ?? "standard"}</span></>}
-            label={`Open play ${play.title}`} onClick={() => void navigate(`/plays/${encodeURIComponent(play.playId)}`)} />}</For></div>
-        </Show>
-      </ScreenRegion>
-    </WorkspaceSection>
+    <div class="flex flex-col gap-2">
+      <TextInput type="search" label="What do you want to get done?" value={search()} placeholder="Search plays and tasks, or describe the goal in a sentence…" onInput={(event) => setParams({ q: event.currentTarget.value || undefined })} />
+      <Show when={search().trim().length > 0}><div class="flex flex-wrap items-center gap-3 rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-3">
+        <span class="min-w-0 flex-1 text-interface text-ink-gray-8">Nothing right? Brain can propose a task from your own words, for you to review before anything starts.</span>
+        <Button variant="solid" theme="blue" iconLeft="lucide-sparkles" onClick={describe}>Describe it to Brain</Button>
+      </div></Show>
+    </div>
+    <Show when={(plays.state().data ?? []).length > 0 || !["ready", "empty-authorized", "loading"].includes(plays.state().status)}>
+      <WorkspaceSection title="Plays" description="Mission templates: a team, a plan shape and a brief.">
+        <ScreenRegion state={plays.state()} onRetry={() => void plays.refresh({ force: true })} emptyTitle="No plays yet" emptyDescription="Draft a play in the Studio and activate the release that contains it.">
+          <Show when={shownPlays().length} fallback={<EmptyState size="sm" icon="lucide-search" title="No matching plays" description="Clear the search to see every play in the active release." />}>
+            <div class="brain-queue"><For each={shownPlays()}>{(play) => <QueueRow title={play.title} description={play.description ?? `${play.taskCount} tasks`} icon="lucide-book-open-check"
+              meta={<><span>{play.team.length} members</span><span>{play.taskCount} tasks</span></>}
+              label={`Open play ${play.title}`} onClick={() => void navigate(`/plays/${encodeURIComponent(play.playId)}`)} />}</For></div>
+          </Show>
+        </ScreenRegion>
+      </WorkspaceSection>
+    </Show>
     <TaskCatalog search={search()} diagnostics={params.diagnostics === "true"} />
-    <WorkspaceSection title="Play views" description="Queues of the subjects plays start missions for.">
-      <div class="flex flex-wrap gap-2">
-        <Button variant="outline" iconLeft="lucide-life-buoy" onClick={() => void navigate(`/w/${app.workspaceId()}/plays/support`)}>Support tickets</Button>
-        <Button variant="outline" iconLeft="lucide-siren" onClick={() => void navigate(`/w/${app.workspaceId()}/plays/sre`)}>Incidents</Button>
-      </div>
-    </WorkspaceSection>
+    <p class="flex flex-wrap items-center gap-2 text-interface text-ink-gray-7">Starting from a customer request or an incident?
+      <Button variant="ghost" iconLeft="lucide-life-buoy" onClick={() => void navigate(`/w/${app.workspaceId()}/plays/support`)}>Support tickets</Button>
+      <Button variant="ghost" iconLeft="lucide-siren" onClick={() => void navigate(`/w/${app.workspaceId()}/plays/sre`)}>Incidents</Button></p>
   </PageStack>;
-  return <BrainPage title="Plays" description="Start a mission from a play, run a single task, or describe the work and review what Brain proposes."
+  return <BrainPage title="Plays" description="Search for a play or task, or describe the goal and review what Brain proposes."
     actions={<Show when={canAuthor()}><div class="flex flex-wrap gap-2">
       <Button variant="outline" iconLeft="lucide-file-pen" onClick={() => void navigate("/studio/Play")}>Play drafts</Button>
       <Button variant="outline" iconLeft="lucide-file-pen" onClick={() => void navigate("/studio/Workflow")}>Task drafts</Button>
