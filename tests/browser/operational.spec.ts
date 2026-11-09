@@ -80,6 +80,7 @@ test("optional-factor operator inspects a release, activates it, dispatches both
     const subject={organizationId:actor.organizationId,workspaceId:"operations",operation:"diagnostic.review",tool:{id:"operations.validate",digest},inputDigest:digest,target:{targetId:"diagnostic",environmentId:"local",preconditionDigest:digest},artifactDigest:digest,policyDigest:digest,configDigest:releaseDigest(brain,actor.organizationId),effectBounds:{},expiresAt:new Date(Date.now()+3600000).toISOString(),nonce:`ui-${decision}`};
     const approvalId=brain.createApprovalForGate({organizationId:actor.organizationId,workspaceId:"operations",runId:"ui-review",stepId:decision,subject,expiresAtMs:Date.now()+3600000,requestedBy:"ui-independent-requester"});
     await page.goto(`${governor.url}/approvals/${approvalId}`);
+    await page.getByRole("button",{name:"Exact details",exact:true}).click();
     await expect(page.getByText("One-use evidence bound to this session and the exact subject digest.",{exact:true})).toBeVisible();
     await capture(`approval-${decision}`);
     await page.getByRole("button",{name:"Review action",exact:true}).click();

@@ -15,7 +15,14 @@ async function createWorkspace(page: import("@playwright/test").Page, governor: 
   await page.getByRole("button", { name: "Create workspace", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Missions", exact: true, level: 1 })).toBeVisible();
-  return (governor.app.brain.store.control.prepare("SELECT id FROM workspaces LIMIT 1").get() as { id: string }).id;
+  const row = governor.app.brain.store.control.prepare("SELECT id, organization_id FROM workspaces LIMIT 1").get() as { id: string; organization_id: string };
+  // A workspace with no mission at all shows the first-mission invitation; these specs exercise the loaded screen, so seed one mission.
+  const now = Date.now();
+  governor.app.brain.store.workspaceDb(row.id, row.organization_id)
+    .prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-a11y','Accessibility mission','Fixture intent','[\"echo\"]','owner',?,?)").run(now, now);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Missions", exact: true, level: 1 })).toBeVisible();
+  return row.id;
 }
 
 test("keyboard, 200% zoom, French input, RTL and reduced motion remain contained", async ({ page, governor }, info) => {
@@ -29,8 +36,11 @@ test("keyboard, 200% zoom, French input, RTL and reduced motion remain contained
 
   await page.goto(`${governor.url}/w/${workspaceId}/missions`);
   const french = "Examiner attentivement les autorisations et les preuves indépendantes avant toute activation en production";
-  await page.getByPlaceholder("Search attention, missions, or workspace…").fill(french);
-  await expect(page.getByPlaceholder("Search attention, missions, or workspace…")).toHaveValue(french);
+  await page.getByRole("button", { name: "Search Brain (Control K)" }).click();
+  const search = page.getByPlaceholder("Try a session, run, approval, output, Agent or Workflow");
+  await search.fill(french);
+  await expect(search).toHaveValue(french);
+  await page.keyboard.press("Escape");
   await page.evaluate(() => { document.documentElement.dir = "rtl"; });
   for (const route of [`/w/${workspaceId}/missions`, `/w/${workspaceId}/plays?mode=catalog`, "/approvals", "/tv/sre"]) {
     await page.goto(`${governor.url}${route}`);

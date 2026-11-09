@@ -203,7 +203,8 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   await expect(page).toHaveURL(/\/outputs\/output-dossier\?v=outver-1$/);
   await expect(page.getByRole("button", { name: "Open Version 1", exact: true })).toHaveAttribute("data-selected", "true");
   await expect(page.getByText("This output starts its own line", { exact: false })).toBeVisible();
-  await page.getByRole("button", { name: "Compare Version 1 with the latest", exact: true }).click();
+  // The comparison picker defaults to the version just before the latest, which is Version 1 here.
+  await page.getByRole("button", { name: "Compare versions", exact: true }).click();
   await expect(page).toHaveURL(/\/outputs\/output-dossier\/compare\?left=outver-1&right=outver-2$/);
   await expect(page.getByRole("heading", { name: "Version comparison", exact: true })).toBeVisible();
   await expect(page.getByText("rollout steps approved by verification", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
