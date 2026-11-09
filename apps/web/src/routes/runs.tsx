@@ -142,7 +142,7 @@ export function RunsScreen(props: {
               onClick={() => props.onOpenJob(job.jobId)} />
             <div class="flex flex-row items-center justify-end gap-1 px-2 pb-2 sm:flex-col sm:justify-center sm:px-0 sm:pb-0 sm:pe-1">
               <Show when={job.sessionId} keyed>{(sessionId) => <CorrelationLink target={{ kind: "session", sessionId }} label="Console" icon="lucide-square-terminal" />}</Show>
-              <CorrelationLink target={{ kind: "logs", workspaceId: props.workspaceId, filters: { job: job.jobId, severity: [], emitter: [] } }} label="Logs" icon="lucide-scroll-text" />
+              <CorrelationLink target={{ kind: "logs", workspaceId: props.workspaceId, filters: { job: job.jobId, severity: [], emitter: [] } }} label="View logs" icon="lucide-scroll-text" />
             </div>
           </div>}</For></div>
           <div class="mt-2 flex flex-wrap items-center justify-between gap-2">

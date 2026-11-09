@@ -19,6 +19,7 @@ import { PaneResizer } from "../components/primitives";import {
 import { ConsoleFeed, hydrateConsoleHistory, type FeedEntry } from "./ConsoleFeed";
 import { ConsoleInspection, ConsoleToolbar, InterruptionChooser } from "./ConsoleControls";
 import { SessionRail } from "./SessionRail";
+import { ConsoleNowLine, NO_ACTIVITY, type FeedActivity } from "./NowLine";
 import { EmptyState } from "@talelk/newui-molecules";
 
 /**
@@ -196,6 +197,7 @@ function SessionConsole(props: {
   const [resolveToken, setResolveToken] = createSignal(0);
   const [inspectToken, setInspectToken] = createSignal(0);
   const [approvalId, setApprovalId] = createSignal<string | undefined>();
+  const [activity, setActivity] = createSignal<FeedActivity>(NO_ACTIVITY);
 
   const canOperate = () => app.canDispatch() && session.state().canMutate;
 
@@ -232,6 +234,7 @@ function SessionConsole(props: {
   }
 
   const center = <div class="flex min-h-0 flex-1 flex-col">
+    <ConsoleNowLine session={detail()} activity={activity()} />
     <ConsoleToolbar workspaceId={props.workspaceId} sessionId={props.sessionId}
       session={detail()} canOperate={canOperate()} feedback={feedback()} selected={selectedEntry()}
       onRefresh={() => void session.refresh({ force: true })}
@@ -295,7 +298,7 @@ function SessionConsole(props: {
         streamCursor={ready.head || (detail()?.streamCursor ?? 0)} history={ready.history}
         filters={props.filters} onFiltersChange={props.onFiltersChange}
         onResync={() => setReload((value) => value + 1)}
-        resolveToken={resolveToken()} onSelectionChange={setSelectedEntry} />}
+        resolveToken={resolveToken()} onSelectionChange={setSelectedEntry} onActivity={setActivity} />}
     </Show>
   </div>;
 

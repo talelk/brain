@@ -14,6 +14,7 @@ import type { ExecLogFilters } from "../exec/exec-filters";
 import { DisclosureCard, PaneResizer, clampPaneSize } from "../components/primitives";import { RelativeTime } from "../screen-region";
 import { consoleSplit, feedScroll, setConsoleSplit, setFeedScroll } from "./ConsoleStore";
 import type { ConsoleSplit } from "./ConsoleStore";
+import { summarizeActivity, type FeedActivity } from "./NowLine";
 
 /**
  * The live console feed (plan §3): one streaming transcript per selected
@@ -277,8 +278,11 @@ export function ConsoleFeed(props: {
   resolveToken?: number;
   /** Reported so the toolbar can act on the selected tool call. */
   onSelectionChange?: (entry: FeedEntry | undefined) => void;
+  /** Reported so the console header can say, in plain words, what the session is doing now. */
+  onActivity?: (activity: FeedActivity) => void;
 }): JSX.Element {
   const [follow, setFollow] = createSignal(true);
+  const [viewOpen, setViewOpen] = createSignal(false);
   const [unread, setUnread] = createSignal(0);
   const [selectedKey, setSelectedKey] = createSignal<string | undefined>();
   const [filtersOpen, setFiltersOpen] = createSignal(props.filters.severity.length > 0 || props.filters.emitter.length > 0 || !!props.filters.q);
@@ -324,6 +328,7 @@ export function ConsoleFeed(props: {
 
   const selected = createMemo(() => visible().find((entry) => entry.key === selectedKey()));
   createEffect(() => { props.onSelectionChange?.(selected()); });
+  createEffect(() => { props.onActivity?.(summarizeActivity(entries())); });
 
   // Unread counter while the reader is scrolled away from the newest record.
   let seenCount = entries().length;
@@ -413,24 +418,37 @@ export function ConsoleFeed(props: {
   const detailBasis = (): "column" | "row" => (split() === "vertical" ? "column" : "row");
 
   return <div class="flex min-h-0 flex-1 flex-col">
-    <div class="flex flex-wrap items-center gap-2 border-b border-outline-gray-1 px-3 py-2">
+    <div class="relative flex flex-wrap items-center gap-2 border-b border-outline-gray-1 px-3 py-2">
       <Badge theme={stream.connected() ? "green" : "amber"} variant="outline" label={stream.connected() ? "Live" : "Reconnecting"} />
-      <span class="text-caption text-ink-gray-6">{visible().length} bounded records</span>
+      <span class="text-caption text-ink-gray-6" title="The transcript keeps a bounded window of the newest records">{visible().length} records shown</span>
       <div class="ms-auto flex flex-wrap items-center gap-2">
         <Show when={unread() > 0}>
           <Button size="sm" variant="solid" theme="blue" onClick={() => { setFollow(true); setUnread(0); }}>Jump to newest ({unread()})</Button>
         </Show>
-        <Button size="sm" variant="outline" theme={follow() ? "blue" : "gray"} onClick={() => { const next = !follow(); setFollow(next); if (next) setUnread(0); }}>
-          {follow() ? "Following" : "Follow"}
-        </Button>
-        <Button size="sm" variant="ghost" aria-expanded={filtersOpen()} onClick={() => setFiltersOpen((value) => !value)}>Filters</Button>
-        <fieldset class="m-0 flex overflow-hidden rounded-control border border-outline-gray-2 p-0">
-          <legend class="sr-only">Center pane split</legend>
-          <Button size="sm" variant="ghost" aria-pressed={split() === "off"} onClick={() => setConsoleSplit(props.workspaceId, "off")}>Full</Button>
-          <Button size="sm" variant="ghost" aria-pressed={split() === "vertical"} onClick={() => setConsoleSplit(props.workspaceId, "vertical")} aria-label="Split inspection below">Below</Button>
-          <Button size="sm" variant="ghost" aria-pressed={split() === "horizontal"} onClick={() => setConsoleSplit(props.workspaceId, "horizontal")} aria-label="Split inspection beside">Beside</Button>
-        </fieldset>
+        <Button size="sm" variant="ghost" iconLeft="lucide-sliders-horizontal" aria-haspopup="true" aria-expanded={viewOpen()} aria-controls="console-view-options"
+          title="Scrolling, search filters and how record details are laid out" onClick={() => setViewOpen((value) => !value)}>View options</Button>
       </div>
+      <Show when={viewOpen()}>
+        <div id="console-view-options" role="group" aria-label="View options" class="absolute end-3 top-full z-10 mt-1 flex w-64 flex-col gap-2 rounded-card border border-outline-gray-2 bg-surface-elevation-1 p-3 shadow-md"
+          onKeyDown={(event) => { if (event.key === "Escape") setViewOpen(false); }}>
+          <Button size="sm" variant="outline" theme={follow() ? "blue" : "gray"} aria-pressed={follow()} iconLeft="lucide-arrow-down-to-line"
+            title="Keep the newest activity in view as it arrives" onClick={() => { const next = !follow(); setFollow(next); if (next) setUnread(0); }}>
+            {follow() ? "Scrolling with new activity" : "Scroll with new activity"}
+          </Button>
+          <Button size="sm" variant="outline" iconLeft="lucide-list-filter" aria-expanded={filtersOpen()}
+            title="Narrow the transcript by importance, source or text" onClick={() => setFiltersOpen((value) => !value)}>
+            {filtersOpen() ? "Hide filters" : "Filter the transcript"}
+          </Button>
+          <fieldset class="m-0 flex flex-col gap-1 border-0 p-0">
+            <legend class="mb-1 text-caption text-ink-gray-6">Where record details open</legend>
+            <div class="flex overflow-hidden rounded-control border border-outline-gray-2">
+              <Button size="sm" variant="ghost" aria-pressed={split() === "off"} onClick={() => setConsoleSplit(props.workspaceId, "off")}>Full</Button>
+              <Button size="sm" variant="ghost" aria-pressed={split() === "vertical"} onClick={() => setConsoleSplit(props.workspaceId, "vertical")} aria-label="Split inspection below">Below</Button>
+              <Button size="sm" variant="ghost" aria-pressed={split() === "horizontal"} onClick={() => setConsoleSplit(props.workspaceId, "horizontal")} aria-label="Split inspection beside">Beside</Button>
+            </div>
+          </fieldset>
+        </div>
+      </Show>
     </div>
     <Show when={filtersOpen()}>
       <div class="border-b border-outline-gray-1 px-3 py-2">
