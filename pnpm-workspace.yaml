@@ -45,6 +45,7 @@ minimumReleaseAgeExclude:
   - '@talelk/newui-tailwind@1.1.0'
   - '@talelk/newui-tokens@0.2.0'
   - '@talelk/newui-data@1.1.0'
+  - '@talelk/newui-charts@1.1.0'
 allowBuilds:
   '@google/genai': false
   better-sqlite3: true
