@@ -5,6 +5,7 @@ import {
 import { framesAfter } from "../../apps/web/src/ui/logs/frames";
 import { dragTargets, nextActionOf, workGraph } from "../../apps/web/src/ui/work/work-model";
 import type { WorkItem } from "@brain/contracts";
+import { shareStructure } from "../../apps/web/src/data/screens";
 import { EventSpool } from "../../apps/runner/src/spool";
 
 describe("web and runner unit mechanisms", () => {
@@ -113,5 +114,17 @@ describe("web and runner unit mechanisms", () => {
     expect(graph.critical).toEqual(["build", "check", "publish"]);
     expect(graph.criticalWeight).toBe(120);
     expect(workGraph([{ id: "x", deps: [], weight: 1, done: true }]).critical).toEqual([]);
+  });
+
+  it("a polled read keeps the previous references for anything that did not change", () => {
+    const before = { items: [{ id: "a", state: "ready", tags: ["x"] }, { id: "b", state: "review", tags: [] }], asOf: 1 };
+    const same = shareStructure(before, JSON.parse(JSON.stringify(before)));
+    expect(same).toBe(before);
+    const changed = shareStructure(before, { items: [{ id: "a", state: "ready", tags: ["x"] }, { id: "b", state: "done", tags: [] }], asOf: 1 });
+    expect(changed).not.toBe(before);
+    expect(changed.items[0]).toBe(before.items[0]);
+    expect(changed.items[1]).not.toBe(before.items[1]);
+    expect(shareStructure(before.items, before.items.slice(0, 1))).toEqual([before.items[0]]);
+    expect(shareStructure(undefined, 3)).toBe(3);
   });
 });
