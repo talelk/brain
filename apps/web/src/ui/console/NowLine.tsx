@@ -1,4 +1,6 @@
 import { Show, createSignal, onCleanup, onMount } from "solid-js";
+import { A } from "@solidjs/router";
+import { createAttentionRead } from "../attention";
 import type { JSX } from "solid-js";
 import type { SessionDetail } from "../../data/exec-console";
 import type { FeedEntry } from "./ConsoleFeed";
@@ -80,6 +82,10 @@ export function ConsoleNowLine(props: { session?: SessionDetail; activity: FeedA
   const now = createNow();
   const live = () => props.session?.state === "running" || props.session?.state === "starting" || props.session?.state === "waiting";
   const waiting = () => props.session?.state === "waiting";
+  // A waiting session is most often waiting on an approval; the call carries no link until it runs,
+  // so the line offers the workspace's pending approvals instead of claiming a match.
+  const attention = createAttentionRead();
+  const pendingApprovals = () => (attention.state().data ?? []).filter((item) => item.kind === "approval").length;
   const startedAt = () => (elapsedText(props.session?.createdAt, now()) ? props.session?.createdAt : props.activity.firstAt);
   const endMs = () => (live() ? now() : Date.parse(props.session?.updatedAt ?? "") || now());
   const elapsed = () => elapsedText(startedAt(), endMs());
@@ -91,6 +97,9 @@ export function ConsoleNowLine(props: { session?: SessionDetail; activity: FeedA
     <div class="flex items-start gap-2.5">
       <span class={`mt-1.5 size-2.5 shrink-0 rounded-full ${ORB[props.session?.state ?? ""] ?? "bg-surface-gray-5"}`} aria-hidden="true" />
       <p class="min-w-0 flex-1 text-base text-ink-gray-9" role="status">{nowSentence(props.session, props.activity)}</p>
+      <Show when={waiting() && pendingApprovals() > 0}>
+        <A class="inline-flex shrink-0 items-center gap-1 rounded-sm px-2 py-1 text-interface font-medium text-ink-amber-8 hover:bg-surface-amber-2" href="/approvals"><span class="lucide-shield-check size-3.5" aria-hidden="true" />Review {pendingApprovals()} pending {pendingApprovals() === 1 ? "approval" : "approvals"}</A>
+      </Show>
       <Show when={waiting() && props.onReply}><Button size="sm" variant="solid" theme="blue" iconLeft="lucide-corner-down-right" onClick={() => props.onReply?.()}>Reply</Button></Show>
     </div>
     <Show when={props.session}>
