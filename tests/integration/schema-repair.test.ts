@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
@@ -78,6 +78,33 @@ describe("live schema repair", () => {
       fresh.close();
 
       expect(repair(dataDir)).not.toMatch(/rebuilt table/);
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  it("adds a column the schema declares with a default, keeping existing rows", () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "brain-repair-"));
+    try {
+      const control = new Database(join(dataDir, "control.db"));
+      control.exec(loadSchemaSql("control.sql"));
+      control.close();
+      const line = "  auto_start INTEGER NOT NULL DEFAULT 1 CHECK(auto_start IN (0,1)),\n";
+      const sql = loadSchemaSql("workspace.sql");
+      expect(sql.split(line).length - 1, "workspace.sql no longer declares missions.auto_start on its own line").toBe(1);
+      mkdirSync(join(dataDir, "workspaces"));
+      const path = join(dataDir, "workspaces", "ws-a.db");
+      const old = new Database(path);
+      old.exec(sql.replace(line, ""));
+      old.prepare("INSERT INTO workspace_identity(singleton, workspace_id, organization_id, schema_version) VALUES (1,'ws-a','org-a',1)").run();
+      old.prepare("INSERT INTO missions(id, title, intent, success_criteria_json, owner_id, created_at_ms, updated_at_ms) VALUES ('m1','Old mission','Intent','[]','u1',1,1)").run();
+      old.close();
+
+      expect(repair(dataDir)).toMatch(/added column missions\.auto_start/);
+      const db = new Database(path);
+      expect(db.prepare("SELECT id, auto_start FROM missions").all()).toEqual([{ id: "m1", auto_start: 1 }]);
+      db.close();
+      expect(repair(dataDir)).not.toMatch(/added column/);
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }

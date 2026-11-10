@@ -62,17 +62,27 @@ function parseTables(sql: string): DeclaredTable[] {
   return tables;
 }
 
-function splitColumns(body: string): string[] {
-  const columns: string[] = [];
+/** The top-level comma-separated parts of a CREATE TABLE body, in order. */
+function splitParts(body: string): string[] {
+  const parts: string[] = [];
   let depth = 0;
   let part = "";
   for (const ch of body) {
     if (ch === "(" || ch === "{") depth++;
     if (ch === ")" || ch === "}") depth--;
-    if (ch === "," && depth === 0) { columns.push(...columnOf(part)); part = ""; } else part += ch;
+    if (ch === "," && depth === 0) { parts.push(part); part = ""; } else part += ch;
   }
-  columns.push(...columnOf(part));
-  return columns.filter(Boolean);
+  parts.push(part);
+  return parts;
+}
+
+function splitColumns(body: string): string[] {
+  return splitParts(body).flatMap(columnOf).filter(Boolean);
+}
+
+/** The schema file's definition of one column, e.g. `auto_start INTEGER NOT NULL DEFAULT 1`. */
+function columnDefinition(body: string, column: string): string | undefined {
+  return splitParts(body).map((part) => part.trim()).find((part) => columnOf(part)[0] === column);
 }
 
 function columnOf(part: string): string[] {
@@ -138,8 +148,20 @@ function repairNamespace(db: Db, sql: string, label: string): string {
       db.exec(`CREATE TABLE IF NOT EXISTS ${t.name} (${t.body}) STRICT`);
       console.log(`  ${label}: created table ${t.name}`);
     } else {
-      const missing = t.columns.filter((c) => !actual.includes(c));
+      let missing = t.columns.filter((c) => !actual.includes(c));
       const extra = actual.filter((c) => !t.columns.includes(c));
+      // A column the schema file declares with a DEFAULT can be added in place without touching any row.
+      // Anything else (extra columns, a NOT NULL column without a default) still refuses to realign.
+      if (!extra.length) {
+        for (const column of missing) {
+          const definition = columnDefinition(t.body, column);
+          if (definition && /\bDEFAULT\b/iu.test(definition)) {
+            db.exec(`ALTER TABLE ${t.name} ADD COLUMN ${definition}`);
+            console.log(`  ${label}: added column ${t.name}.${column} (default applied to existing rows)`);
+          }
+        }
+        missing = t.columns.filter((c) => !(actualColumns(db, t.name) ?? []).includes(c));
+      }
       if (missing.length || extra.length) {
         throw new Error(`${label}: table ${t.name} diverges from the schema file (missing: ${missing.join(",") || "-"}; extra: ${extra.join(",") || "-"}); refusing to realign`);
       }
