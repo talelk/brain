@@ -46,8 +46,10 @@ export function LocalModelSetup() {
   const readiness = createReadiness();
   const taskRunnerReady = () => Boolean(status()?.runners.some((runner) => !runner.id.includes("evaluators") && runner.applied));
   const checksReady = (action: string) => { const items = (readiness.state().data?.checks ?? []).filter((item) => item.action === action); return items.length > 0 && items.every((item) => item.status === "ready"); };
-  const modelDone = () => Boolean(status()?.configured && status()?.testedAt) || checksReady("model");
-  const runnersDone = () => taskRunnerReady() || checksReady("runners");
+  /** A deployment whose model and runners come from its own configuration has nothing to click: the governor's readiness verdict is the answer. */
+  const managedReady = () => { const checks = readiness.state().data?.checks ?? []; return !canConfigure() && checks.length > 0 && !checks.some((item) => item.status === "missing"); };
+  const modelDone = () => Boolean(status()?.configured && status()?.testedAt) || checksReady("model") || managedReady();
+  const runnersDone = () => taskRunnerReady() || checksReady("runners") || managedReady();
   const smokeDone = () => Boolean(readiness.state().data?.smokeVerified);
   const current = () => !modelDone() ? "model" : !runnersDone() ? "runners" : "smoke";
   const allDone = () => modelDone() && runnersDone() && smokeDone();

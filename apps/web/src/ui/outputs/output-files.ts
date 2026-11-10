@@ -67,6 +67,20 @@ export function fileNameOf(artifact: Pick<ArtifactRef, "artifactId" | "mediaType
   return extension ? `${artifact.artifactId}.${extension}` : artifact.artifactId;
 }
 
+/**
+ * The name a file carries in lists: what it is, not the machine id it is stored
+ * under (`att-att-mwbast…` told nobody anything). The last characters of the id keep
+ * two files of the same kind apart; downloads and the detail heading still use the
+ * real file name.
+ */
+export function readableNameOf(artifact: Pick<ArtifactRef, "artifactId" | "mediaType">): string {
+  if (!/^(att|exec)-/u.test(artifact.artifactId)) return fileNameOf(artifact);
+  const kind = previewKindOf(artifact.mediaType);
+  const tail = artifact.artifactId.replace(/\.[a-z0-9]{1,5}$/iu, "").slice(-4);
+  const base = artifact.artifactId.startsWith("exec-") ? "Run record" : kind === "markdown" || kind === "text" ? "Result" : kind === "json" ? "Data" : kind === "csv" ? "Table" : kind === "none" ? "" : previewKindLabel(kind);
+  return base ? `${base} ${tail}` : fileNameOf(artifact);
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -123,7 +137,7 @@ export function resolveFiles(artifacts: readonly OutputItem[], grouping: OutputG
     const item = itemId ? items.get(itemId) : undefined;
     return {
       artifact,
-      name: fileNameOf(artifact),
+      name: readableNameOf(artifact),
       kind: previewKindOf(artifact.mediaType),
       item,
       missionId: item?.missionId,

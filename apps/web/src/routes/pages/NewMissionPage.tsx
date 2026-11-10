@@ -75,7 +75,7 @@ function NewMissionSheet(props: { onClose: () => void }): JSX.Element {
         ...(usePlay ? { playId: playId() } : { intent: intent().trim(), successCriteria: [`Done: ${firstLine()}`] }),
       });
       if (!receipt.accepted || !receipt.resourceId) throw new Error(receipt.detail ?? "The mission was not started.");
-      void navigate(missionHref(app.workspaceId(), receipt.resourceId, usePlay ? "plan" : "brief"));
+      void navigate(missionHref(app.workspaceId(), receipt.resourceId, "plan"));
     } catch (reason) { setError(reason instanceof Error ? reason.message : "The mission was not started."); } finally { setBusy(false); }
   }
   const choice = (value: "play" | "describe", icon: string, label: string, hint: string) =>

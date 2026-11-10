@@ -82,6 +82,17 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Plan generation failed"); }
     finally { setBusy(false); }
   }
+  /** Nobody has to ask for the first strategy: an active mission with no plan, no proposal and no failed attempt drafts one as the page opens. */
+  let drafted = false;
+  createEffect(() => {
+    const view = proposal.state();
+    const settled = view.status === "ready" || view.status === "empty-authorized";
+    if (drafted || !settled || view.data || props.proposalId || !app.canDispatch()) return;
+    if (props.mission.state !== "active" || props.mission.activePlanVersionId || linked.state().status === "loading" || active.state().status === "loading") return;
+    if (linked.state().data?.proposal) return;
+    drafted = true;
+    void generate();
+  });
   function updateTask(index: number, field: "title" | "criteria" | "dependsOn", value: string) {
     setDirty(true);
     setEditedTasks((tasks) => tasks.map((task, position) => position === index ? {

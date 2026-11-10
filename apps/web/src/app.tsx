@@ -108,7 +108,11 @@ function Navigation(attentionCount: () => number): AppSidebarGroup[] {
   }));
   // Knowledge is a secondary place (#43): below the five areas, never one of them.
   const knowledgeRoute = SECONDARY_NAVIGATION["knowledge"] ?? "/w/:id/knowledge";
-  const secondary = [{ label: "Knowledge", icon: ICONS[knowledgeRoute] ?? FALLBACK_ICON, active: area() === "knowledge", onClick: go(knowledgeRoute) }];
+  // Administration is a place, not a menu item to hunt for: it sits under More for everyone (people without admin rights get their own security page).
+  const secondary = [
+    { label: "Knowledge", icon: ICONS[knowledgeRoute] ?? FALLBACK_ICON, active: area() === "knowledge", onClick: go(knowledgeRoute) },
+    { label: app.canAdminister() ? "Administration" : "Account", icon: "lucide-settings", active: area() === "administration", onClick: go(settingsRoute(app)) },
+  ];
   const scopes = () => app.identity()?.actor.scopes ?? [];
   const shown = new Set([...PRIMARY_NAVIGATION.map((entry) => entry.route), knowledgeRoute].map(href));
   const contextual = (AREA_NAVIGATION[area()] ?? []).filter((entry) =>
