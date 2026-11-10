@@ -209,6 +209,8 @@ test("outputs (bulk): Request changes sends the task back, Accept explains the h
   await page.getByRole("dialog").getByRole("textbox").fill("Please cover the refund lines too.");
   await page.getByRole("dialog").getByRole("button", { name: /^(Send back|Request changes)/ }).click();
   await expect(page.getByText(/Sent back 1 item\./)).toBeVisible({ timeout: 30_000 });
-  await expect.poll(() => states(w, missionId)["inspect"]).toBe("in-progress");
+  // The task is ready again and starts a fresh run by itself (auto mode), then returns to review.
+  await expect.poll(() => linkedRuns(w, missionId, "inspect").length, { timeout: 60_000 }).toBe(2);
+  await driveRuns(w, () => states(w, missionId)["inspect"] === "review");
   expect(errors).toEqual([]);
 });

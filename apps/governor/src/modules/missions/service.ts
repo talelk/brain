@@ -740,7 +740,7 @@ export class MissionService {
    * member cap minus in-progress work), whether its budget still has headroom,
    * and its ready, unparked items oldest first.
    */
-  autoStartPlan(organizationId: string, workspaceId: string): Array<{ missionId: string; ownerId: string; slots: number; memberCap: number; headroom: boolean; items: Array<{ workItemId: string; title: string; criteria: string[]; workflowId: string | null; failedAttempts: number; nextAction: string }> }> {
+  autoStartPlan(organizationId: string, workspaceId: string): Array<{ missionId: string; ownerId: string; slots: number; memberCap: number; headroom: boolean; items: Array<{ workItemId: string; title: string; criteria: string[]; workflowId: string | null; failedAttempts: number; runs: number; nextAction: string }> }> {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     const missions = db.prepare("SELECT id, owner_id, member_cap FROM missions WHERE state='active' AND auto_start=1 AND coordinator_member_id IS NULL").all() as Array<{ id: string; owner_id: string; member_cap: number }>;
     const plan = [];
@@ -750,7 +750,7 @@ export class MissionService {
       const running = (db.prepare("SELECT COUNT(*) AS n FROM work_items WHERE mission_id=? AND state='in-progress'").get(mission.id) as { n: number }).n;
       plan.push({
         missionId: mission.id, ownerId: mission.owner_id, memberCap: mission.member_cap, slots: Math.max(0, mission.member_cap - running), headroom: hasHeadroom(this.store, db, mission.id),
-        items: items.map((item) => ({ workItemId: item.id, title: item.title, criteria: JSON.parse(item.criteria_json) as string[], workflowId: item.workflow_id, failedAttempts: item.failed_attempts, nextAction: item.next_action })),
+        items: items.map((item) => ({ workItemId: item.id, title: item.title, criteria: JSON.parse(item.criteria_json) as string[], workflowId: item.workflow_id, failedAttempts: item.failed_attempts, runs: (db.prepare("SELECT COUNT(*) AS n FROM execution_links WHERE work_item_id=?").get(item.id) as { n: number }).n, nextAction: item.next_action })),
       });
     }
     return plan;

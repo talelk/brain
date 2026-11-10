@@ -24,21 +24,24 @@ export interface MoveResult {
   detail: string;
 }
 
-/** Move a work item in review to Done (on verified evidence) or back to In progress (with a reason). */
+/**
+ * Move a work item in review to Done (on verified evidence), or send it back for changes: back to
+ * In progress with the reason, then on to Ready so the next run (automatic, or the Start button) picks it up.
+ */
 export async function moveWorkItem(
   app: AppContextValue,
   item: WorkItem,
   move: { state: "done"; evidenceDigest: string } | { state: "in-progress"; reason: string },
 ): Promise<MoveResult> {
   try {
-    const result = await app.run(
-      "workItem.transition",
-      move.state === "done"
-        ? { workItemId: item.workItemId, state: "done", evidenceDigest: move.evidenceDigest }
-        : { workItemId: item.workItemId, state: "in-progress", reason: move.reason },
-      { expectedVersion: item.version },
-    );
-    return { accepted: result.accepted, detail: result.accepted ? "" : result.detail || "The move was refused" };
+    if (move.state === "done") {
+      const result = await app.run("workItem.transition", { workItemId: item.workItemId, state: "done", evidenceDigest: move.evidenceDigest }, { expectedVersion: item.version });
+      return { accepted: result.accepted, detail: result.accepted ? "" : result.detail || "The move was refused" };
+    }
+    const back = await app.run("workItem.transition", { workItemId: item.workItemId, state: "in-progress", reason: move.reason }, { expectedVersion: item.version });
+    if (!back.accepted) return { accepted: false, detail: back.detail || "The move was refused" };
+    const ready = await app.run("workItem.transition", { workItemId: item.workItemId, state: "ready" }, { expectedVersion: item.version + 1 });
+    return { accepted: ready.accepted, detail: ready.accepted ? "" : ready.detail || "It went back but could not be made ready" };
   } catch (failure) {
     return { accepted: false, detail: failure instanceof Error ? failure.message : "The move was refused" };
   }

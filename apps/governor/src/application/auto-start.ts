@@ -82,7 +82,8 @@ export class AutoStart {
         if (!valid.ok) { note(`Needs input before it can start: ${valid.errors.join("; ")}`); continue; }
         if (!mission.headroom) { note("Waiting for budget: raise the mission budget to continue"); continue; }
         if (slots <= 0) { note(`Waiting for a free member: ${mission.memberCap} tasks are already in progress`); continue; }
-        const commandId = `autostart-${item.workItemId}-${item.failedAttempts}`;
+        // One id per attempt and per run, so sending a task back dispatches a fresh run instead of replaying the first.
+        const commandId = `autostart-${item.workItemId}-${item.failedAttempts}-${item.runs}`;
         try {
           const { receipt } = await this.ports.dispatch(actor, {
             contractVersion: "brain.command/v1", commandId, idempotencyKey: commandId, commandType: "workflow.dispatch", workspaceId,
