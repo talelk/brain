@@ -65,10 +65,10 @@ export function listArtifacts(store: Store, actor: ActorContext, workspaceId: st
   if (filters.jobId || filters.runId || filters.workItemId) {
     const jobIds = new Set<string>();
     if (filters.workItemId) {
-      for (const link of store.control.prepare("SELECT job_id FROM execution_links WHERE work_item_id=?").all(filters.workItemId) as Array<{ job_id: string | null }>) {
+      for (const link of ws.prepare("SELECT job_id FROM execution_links WHERE work_item_id=?").all(filters.workItemId) as Array<{ job_id: string | null }>) {
         if (link.job_id) jobIds.add(link.job_id);
       }
-      for (const link of store.control.prepare("SELECT run_id FROM execution_links WHERE work_item_id=?").all(filters.workItemId) as Array<{ run_id: string }>) {
+      for (const link of ws.prepare("SELECT run_id FROM execution_links WHERE work_item_id=?").all(filters.workItemId) as Array<{ run_id: string }>) {
         for (const job of store.control.prepare("SELECT id FROM jobs WHERE workflow_run_id=? AND organization_id=?").all(link.run_id, actor.organizationId) as Array<{ id: string }>) jobIds.add(job.id);
       }
     }

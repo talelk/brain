@@ -180,3 +180,35 @@ test("mission flow (manual): 'Ask me before each task' starts nothing until a pe
   expect(linkedRuns(w, missionId, "inspect")).toHaveLength(1);
   expect(errors).toEqual([]);
 });
+
+test("outputs (bulk): Request changes sends the task back, Accept explains the handoff other tasks need", async ({ page, governor }) => {
+  test.setTimeout(240_000);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const w = await world(page, governor);
+  const missionId = await createMission(page, w, governor.url, "Check the billing export carefully", false);
+  await proposePlan(w, missionId, "Inspect, then verify the export");
+  await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/plan`);
+  await page.getByRole("button", { name: "Confirm this plan", exact: true }).click();
+  await expect.poll(() => states(w, missionId)).toEqual({ inspect: "in-progress", verify: "backlog" });
+  await driveRuns(w, () => states(w, missionId)["inspect"] === "review");
+
+  // The finished task's output is a file waiting for review. Bulk Accept refuses to close work other
+  // tasks depend on until it is handed off, and a file without an independent check is refused with its reason.
+  await page.goto(`${governor.url}/w/ws-flow/outputs?folder=review`);
+  await page.getByRole("checkbox", { name: /^Select / }).first().check({ timeout: 30_000 });
+  const selection = page.getByRole("region", { name: "Selection actions" });
+  await expect(selection).toContainText("1 selected");
+  await selection.getByRole("button", { name: "Accept", exact: true }).click();
+  await expect(page.getByText(/Accepted 0 of 1\. .*No independent check has verified it yet\./)).toBeVisible({ timeout: 30_000 });
+  expect(states(w, missionId)["inspect"]).toBe("review");
+
+  // Request changes sends the ticked file's task back with one reason.
+  await page.getByRole("checkbox", { name: /^Select / }).first().check();
+  await selection.getByRole("button", { name: "Request changes", exact: true }).click();
+  await page.getByRole("dialog").getByRole("textbox").fill("Please cover the refund lines too.");
+  await page.getByRole("dialog").getByRole("button", { name: /^(Send back|Request changes)/ }).click();
+  await expect(page.getByText(/Sent back 1 item\./)).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => states(w, missionId)["inspect"]).toBe("in-progress");
+  expect(errors).toEqual([]);
+});
