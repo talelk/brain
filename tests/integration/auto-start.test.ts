@@ -152,6 +152,23 @@ describe("auto-start (ADR 0004: the Governor reacts to events and dispatches bou
     expect(item(w, id, "a").state).toBe("done");
   });
 
+  it("a workflow task with free-text criteria reaches Done on its run's verified evidence, and a failed check still blocks it", async () => {
+    const w = world();
+    const id = await confirmed(w, "prose", [triage("a", { criteria: ["Runner names are identified", "Blockers are noted"] }), triage("b", { dependsOn: ["a"] })]);
+    await finishRun(w, runsOf(w, item(w, id, "a").workItemId)[0]!);
+    const reviewing = item(w, id, "a");
+    const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    verifiedEvidence(w, `sha256:${"f".repeat(64)}`, ["structure", "safety"]);
+    ownBundleJob(ws, reviewing.workItemId, "job-seed", w.brain.store.now());
+    ws.prepare("UPDATE evidence_bundles SET manifest_json=json_set(manifest_json,'$.checks[1].status','failed') WHERE digest=?").run(`sha256:${"f".repeat(64)}`);
+    await run(w, "handoff.submit", "prose-handoff", { workItemId: reviewing.workItemId, notes: { summary: "a is complete" } });
+    await expect(run(w, "workItem.transition", "prose-fail", { workItemId: reviewing.workItemId, state: "done", evidenceDigest: `sha256:${"f".repeat(64)}` }, reviewing.version)).rejects.toThrow(/does not cover/i);
+    ws.prepare("UPDATE evidence_bundles SET manifest_json=json_set(manifest_json,'$.checks[1].status','passed') WHERE digest=?").run(`sha256:${"f".repeat(64)}`);
+    await run(w, "workItem.transition", "prose-ok", { workItemId: reviewing.workItemId, state: "done", evidenceDigest: `sha256:${"f".repeat(64)}` }, reviewing.version);
+    expect(item(w, id, "a").state).toBe("done");
+    expect(item(w, id, "b").state).not.toBe("backlog");
+  });
+
   it("starts a dependent when its dependency becomes Done", async () => {
     const w = world();
     const id = await confirmed(w, "chain", [triage("a"), triage("b", { dependsOn: ["a"] })]);

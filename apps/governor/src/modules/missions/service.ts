@@ -9,7 +9,7 @@ import { activeReleaseRecord } from "../configuration/index";
 import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
 import { admit, budgetOf, clockSet, hasHeadroom, reserve as reserveSpend, settle, usageOf } from "./budget";
 import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, sendMessage, verifyOutputs } from "./outputs";
-import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissionBundle, recordMissionVerdict, submitHandoff } from "../evidence/index";
+import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissionBundle, recordMissionVerdict, submitHandoff, workflowCovers } from "../evidence/index";
 import type { HandoffNotes } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
@@ -383,7 +383,7 @@ export class MissionService {
     const manifest = JSON.parse(bundle.manifest_json) as { checks?: Array<{ criterionId: string; status: string }> };
     const passed = new Set((manifest.checks ?? []).filter((check) => check.status === "passed").map((check) => check.criterionId));
     const criteria = JSON.parse(item.criteria_json) as string[];
-    const missing = criteria.filter((criterion) => !passed.has(criterion));
+    const missing = criteria.filter((criterion) => !passed.has(criterion) && !workflowCovers(manifest.checks, item.workflow_id !== null));
     if (missing.length > 0) throw new BrainDomainError("EVIDENCE_MISSING", `verified evidence does not cover criteria: ${missing.join(", ")}`);
   }
 

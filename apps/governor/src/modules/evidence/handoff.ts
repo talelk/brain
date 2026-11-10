@@ -60,11 +60,14 @@ export function finalizeHandoff(db: Db, workItemId: string, evidenceDigest: stri
   if (foreign.length > 0) throw new BrainDomainError("EVIDENCE_MISSING", `the handoff references outputs this work did not produce as final: ${foreign.join(", ")}`);
   const bundle = db.prepare("SELECT manifest_json FROM evidence_bundles WHERE digest=?").get(evidenceDigest) as { manifest_json: string } | undefined;
   const manifest = bundle ? JSON.parse(bundle.manifest_json) as { checks?: Array<{ criterionId: string; status: string }>; sourceRevision?: string } : {};
-  const criteria = JSON.parse((db.prepare("SELECT criteria_json FROM work_items WHERE id=?").get(workItemId) as { criteria_json: string }).criteria_json) as string[];
+  const itemRow = db.prepare("SELECT criteria_json, workflow_id FROM work_items WHERE id=?").get(workItemId) as { criteria_json: string; workflow_id: string | null };
+  const criteria = JSON.parse(itemRow.criteria_json) as string[];
+  const workflowBound = itemRow.workflow_id !== null;
   const facts: HandoffFacts = {
     evidenceDigest,
     criteria: criteria.map((criterionId) => {
       const check = (manifest.checks ?? []).find((entry) => entry.criterionId === criterionId);
+      if (!check && workflowCovers(manifest.checks, workflowBound)) return { criterionId, status: "passed" as const };
       return { criterionId, status: check ? (check.status === "passed" ? "passed" : "failed") : "missing" };
     }),
     outputVersions: finals, ...(manifest.sourceRevision ? { sourceRevision: manifest.sourceRevision } : {}),
@@ -120,4 +123,14 @@ export function latestMissionBundle(db: Db, missionId: string): MissionEvidenceB
   const checks = (db.prepare("SELECT criterion_id, evaluator, outcome, evidence_digest, advisory FROM mission_bundle_checks WHERE bundle_digest=? ORDER BY criterion_id, evaluator").all(row.digest) as Array<{ criterion_id: string; evaluator: string; outcome: "passed" | "failed" | "incomplete"; evidence_digest: string; advisory: number }>)
     .map((check) => ({ criterionId: check.criterion_id, evaluator: check.evaluator, outcome: check.outcome, evidenceDigest: check.evidence_digest, advisory: check.advisory === 1 }));
   return { ...manifest, digest: row.digest, state: row.state, findings: JSON.parse(row.findings_json) as string[], checks, createdAt: iso(row.created_at_ms) };
+}
+
+/**
+ * Free-text task criteria cannot name the checks a workflow's evaluator
+ * defines. For a task bound to a workflow, a criterion with no check of its
+ * own is covered when every check of its verified bundle passed (the
+ * independent verdict is asserted separately before Done).
+ */
+export function workflowCovers(checks: ReadonlyArray<{ status: string }> | undefined, workflowBound: boolean): boolean {
+  return workflowBound && (checks?.length ?? 0) > 0 && (checks ?? []).every((check) => check.status === "passed");
 }
