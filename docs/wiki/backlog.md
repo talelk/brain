@@ -4,7 +4,7 @@
 |---|------|-------|---------------------|
 | 1 | General-purpose research/write workflow + evaluator, readable deliverable; planner stops creating clarify-with-human tasks | A | built: `general-task` workflow + `task-validator`, planner no longer makes clarify tasks; needs release restage + activation on live |
 | 2 | Outputs: one result per task up front; Logs readable default | B | not started |
-| 3 | Administration screens audit + fixes | C | not started |
+| 3 | Administration screens audit + fixes | C | first pass done 2026-11-11 (`022b2c0`); follow-ups rows 8-12 |
 | 4 | Competitive/spec research -> `docs/research/` and ranked product gaps | D | done 2026-11-11 (`b350f76`); caveat: Codex page 403, gap 6 'no email/Slack' from limited grep |
 | 5 | Plain-language failure reasons for failed runs/tasks | B/C | not started |
 
@@ -23,3 +23,21 @@ Sequencing: after B -> #49 #50 #54 #55 #56 #57 #60 #61; after C -> #48 #53 #56; 
 
 ## Added 2026-11-11 (user: "look also for existing research & add them as default features, check also tools & memory & capitalization & fix them enhance them add also token budget meter of the repo & how to manage context")
 Track H (spec + tickets): existing-research-to-defaults, tools audit, memory audit, knowledge capitalization loop, token/cost budget meter (run/task/mission/workspace), agent context management, and a repo-side token budget meter for the agent workflow. Ambiguity noted: "of the repo" read both as product meter and as a developer meter for AGENTS.md/skills/docs size; track H covers both.
+
+## Track C follow-ups (2026-11-11, from report on `022b2c0`)
+| # | Item | Track | Status |
+|---|------|-------|--------|
+| 8 | Setup heading mismatch ("Models & Providers" under "Workspace setup"); Runners and Integrations empty states untouched; Security/Authentication only light changes | C2 | open |
+| 9 | Access page: person's name missing on rows (not investigated) | C2 | open |
+| 10 | Click through Releases with an existing release, the invite flow and failure states in a browser (only the operational spec covered them) | C2 | open |
+| 11 | Pending invitations depend on the outbox and nothing tells the admin to share the link | C2 | open |
+| 12 | Run the other viewports (390-dark etc.) and the dark/RTL projects for the admin specs; regenerate baselines intentionally | C2 | open |
+
+## Track A follow-ups and user addenda (2026-11-11)
+| # | Item | Track | Status |
+|---|------|-------|--------|
+| 13 | Stage + activate the new release (general-task, task-worker, task-validator, task.validate, plan-guide change) on the live server; confirm `general-task` in catalog; restart runners; validate with a plain-words mission in Chrome. Steps in track A report (see `docs/howto/compile-activate-release.md`); first find how the live release was built (starter vs `releases/cv-insights`) | chief | open, needs deploy password |
+| 14 | Outputs "Result" preview is raw JSON with escaped Markdown; render the deliverable as Markdown (track B row 2) | B | open |
+| 15 | Evaluator is deterministic (proves criteria answered, not correct); measure real-model quality; consider a model-judged independent check | A2 | open |
+| 16 | Downstream tasks only see upstream handoff summaries, not the full deliverable; provide selective full-deliverable context within a budget (ties to track H context management) | A2/H | open |
+| 17 | User addendum 2026-11-11: reuse and capitalisation must be first-class (search-before-plan, one-click play/knowledge from verified work, 'Start from previous', provenance/freshness, 'what Brain reused' on every result) | H | sent to track H |
