@@ -7,3 +7,9 @@
 | 3 | Administration screens audit + fixes | C | not started |
 | 4 | Competitive/spec research -> `docs/research/` and ranked product gaps | D | not started |
 | 5 | Plain-language failure reasons for failed runs/tasks | B/C | not started |
+
+## Added 2026-11-11 (user: "also implement all research outputs & beautify & polish ui more")
+| # | Item | Track | Status |
+|---|------|-------|--------|
+| 6 | Implement every gap in `docs/research/best-product-gap-2026-11.md` (track D output), ranked, as spec -> tickets -> implement-spec | F | waits for D |
+| 7 | Visual polish pass across all screens: spacing, type scale, empty states, motion, dark mode, mobile; one design language | E | waits for B and C (they edit the same files) |
