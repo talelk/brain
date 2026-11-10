@@ -2,7 +2,7 @@ import type { ActorContext, CommandReceipt, JsonValue, WorkflowCatalogEntry } fr
 import { payloadValidator } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
 import type { MissionService } from "../modules/missions/index";
-import { workItemSituation } from "../modules/workflows/index";
+import { GENERAL_TASK_WORKFLOW, workItemSituation } from "../modules/workflows/index";
 import type { Store } from "./store";
 
 /** Command types after which ready work may have appeared or a blocker may have cleared. */
@@ -78,12 +78,13 @@ export class AutoStart {
       let slots = mission.slots;
       for (const item of mission.items) {
         const note = (text: string) => missions.noteStartBlocker(organizationId, workspaceId, item.workItemId, text);
-        // The task's own workflow first; when it is missing or cannot take the task's situation, the mission's own (most used)
-        // workflow runs it, so nobody has to pick one.
-        const input = { situation: workItemSituation(item.title, item.criteria) } as JsonValue;
-        // A mission written in plain words has no workflow anywhere, so the catalog's first workflow that accepts the situation is the last resort.
+        // The task's own workflow first; when it is missing or cannot take the task's situation, the general task workflow
+        // (then the mission's own most used one) runs it, so nobody has to pick one.
+        const input = { situation: workItemSituation(item.title, item.criteria, item.upstream) } as JsonValue;
+        // A task without a workflow of its own goes to the general-purpose task workflow, which produces a written deliverable for any
+        // plain-words task; the mission's most used workflow and then the catalog's first workflow that accepts the situation follow.
         const catalogIds = catalog.map((candidate) => candidate.release.id).sort();
-        const candidates = [...new Set([item.workflowId, mission.defaultWorkflowId, ...catalogIds].filter((id): id is string => id !== null))];
+        const candidates = [...new Set([item.workflowId, GENERAL_TASK_WORKFLOW, mission.defaultWorkflowId, ...catalogIds].filter((id): id is string => id !== null))];
         if (candidates.length === 0) { note("Needs input before it can start: no workflow is available in this workspace"); continue; }
         let entry: WorkflowCatalogEntry | undefined;
         let problem = "";

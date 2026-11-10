@@ -809,7 +809,7 @@ export class MissionService {
    * member cap minus in-progress work), whether its budget still has headroom,
    * and its ready, unparked items oldest first.
    */
-  autoStartPlan(organizationId: string, workspaceId: string): Array<{ defaultWorkflowId: string | null; missionId: string; ownerId: string; slots: number; memberCap: number; headroom: boolean; items: Array<{ workItemId: string; title: string; criteria: string[]; workflowId: string | null; failedAttempts: number; runs: number; nextAction: string }> }> {
+  autoStartPlan(organizationId: string, workspaceId: string): Array<{ defaultWorkflowId: string | null; missionId: string; ownerId: string; slots: number; memberCap: number; headroom: boolean; items: Array<{ workItemId: string; title: string; criteria: string[]; upstream: Array<{ title: string; summary: string }>; workflowId: string | null; failedAttempts: number; runs: number; nextAction: string }> }> {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     const missions = db.prepare("SELECT id, owner_id, member_cap FROM missions WHERE state='active' AND auto_start=1 AND coordinator_member_id IS NULL").all() as Array<{ id: string; owner_id: string; member_cap: number }>;
     const plan = [];
@@ -820,10 +820,18 @@ export class MissionService {
       plan.push({
         defaultWorkflowId: (db.prepare("SELECT workflow_id AS id FROM work_items WHERE mission_id=? AND workflow_id IS NOT NULL ORDER BY (SELECT COUNT(*) FROM work_items x WHERE x.mission_id=work_items.mission_id AND x.workflow_id=work_items.workflow_id) DESC, created_at_ms LIMIT 1").get(mission.id) as { id: string } | undefined)?.id ?? null,
         missionId: mission.id, ownerId: mission.owner_id, memberCap: mission.member_cap, slots: Math.max(0, mission.member_cap - running), headroom: hasHeadroom(this.store, db, mission.id),
-        items: items.map((item) => ({ workItemId: item.id, title: item.title, criteria: JSON.parse(item.criteria_json) as string[], workflowId: item.workflow_id, failedAttempts: item.failed_attempts, runs: (db.prepare("SELECT COUNT(*) AS n FROM execution_links WHERE work_item_id=?").get(item.id) as { n: number }).n, nextAction: item.next_action })),
+        items: items.map((item) => ({ workItemId: item.id, title: item.title, criteria: JSON.parse(item.criteria_json) as string[], upstream: this.upstreamResults(db, item.id), workflowId: item.workflow_id, failedAttempts: item.failed_attempts, runs: (db.prepare("SELECT COUNT(*) AS n FROM execution_links WHERE work_item_id=?").get(item.id) as { n: number }).n, nextAction: item.next_action })),
       });
     }
     return plan;
+  }
+
+  /** What the direct dependencies of a work item concluded (their current handoff summaries), for the task that builds on them. */
+  private upstreamResults(db: ReturnType<Store["workspaceDb"]>, workItemId: string): Array<{ title: string; summary: string }> {
+    return dependencyHandoffs(db, workItemId).map((handoff) => ({
+      title: (db.prepare("SELECT title FROM work_items WHERE id=?").get(handoff.workItemId) as { title: string } | undefined)?.title ?? handoff.workItemId,
+      summary: handoff.notes.summary,
+    }));
   }
 
   /** Says, on a ready work item, why the Governor has not started it. Writes only when the text changes. */

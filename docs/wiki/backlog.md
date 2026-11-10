@@ -2,7 +2,7 @@
 
 | # | Item | Track | Status (2026-11-11) |
 |---|------|-------|---------------------|
-| 1 | General-purpose research/write workflow + evaluator, readable deliverable; planner stops creating clarify-with-human tasks | A | not started |
+| 1 | General-purpose research/write workflow + evaluator, readable deliverable; planner stops creating clarify-with-human tasks | A | built: `general-task` workflow + `task-validator`, planner no longer makes clarify tasks; needs release restage + activation on live |
 | 2 | Outputs: one result per task up front; Logs readable default | B | not started |
 | 3 | Administration screens audit + fixes | C | not started |
 | 4 | Competitive/spec research -> `docs/research/` and ranked product gaps | D | done 2026-11-11 (`b350f76`); caveat: Codex page 403, gap 6 'no email/Slack' from limited grep |

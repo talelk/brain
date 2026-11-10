@@ -49,7 +49,18 @@ export class FixtureEngine implements EngineAdapter {
             ],
           };
         }
-        if (typeof input["situation"] === "string") response = { summary: `Fixture: ${input["situation"]}`, blockers: [], nextActions: ["Inspect diagnostic inputs"] };
+        if (typeof input["situation"] === "string" && spec.instructions.includes("General Task Worker")) {
+          // The general task worker: a written deliverable that answers every acceptance criterion of the brief.
+          const lines = input["situation"].split("\n");
+          const criteria = lines.slice(lines.indexOf("Acceptance criteria:") + 1).map((line) => /^\d+\. (.+)$/u.exec(line)?.[1]).filter((line): line is string => line !== undefined && lines.includes("Acceptance criteria:"));
+          const title = lines[0] ?? "Task";
+          response = {
+            summary: `Fixture result for: ${title}`,
+            deliverable: `# ${title}\n\n## Findings\n\nThe fixture worker reasoned about this task and wrote a short report so that the whole path from the brief to a verified deliverable can be exercised end to end without a model.\n\n## Assumptions\n\nNo facts beyond the brief were available, so the fixture assumes the brief is complete and says so here.`,
+            criteria: criteria.map((criterion) => ({ criterion, met: true, evidence: "The Findings section of the deliverable addresses this criterion." })),
+            assumptions: ["The brief is complete"],
+          };
+        } else if (typeof input["situation"] === "string") response = { summary: `Fixture: ${input["situation"]}`, blockers: [], nextActions: ["Inspect diagnostic inputs"] };
         if (typeof input["title"] === "string" && typeof input["body"] === "string") response = { summary: `Fixture: ${input["title"]}`, missingInformation: [], risk: "low", proposedReply: `Fixture draft: ${input["body"]}` };
       } catch { /* Plain-text engine conformance tasks use the default response. */ }
       const text = spec.task.includes("BRAIN_OK") ? "BRAIN_OK" : JSON.stringify(response);

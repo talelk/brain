@@ -8,9 +8,23 @@ interface Host { query(actor: ActorContext, query: unknown): Promise<JsonValue>;
 interface DraftRow { id: string; actor_id: string; workflow_id: string; workflow_json: string; config_digest: string; input_json: string; origin_json: string | null; title: string; command_id: string; conversation_id?: string | null; state: "review" | "started"; run_id: string | null; created_at_ms: number }
 interface MessageRow { id: string; role: "user" | "assistant"; text: string; state: "pending" | "done" | "failed"; run_id: string | null; draft_id: string | null }
 interface PlanningRow { mission_id: string; actor_id: string; run_id: string; state: "running" | "ready" | "failed"; plan_version_id: string | null; error: string | null }
-/** What the Start form pre-fills from a card: its title and acceptance criteria. */
-export function workItemSituation(title: string, criteria: readonly string[]): string {
-  return title + (criteria.length ? `\nAcceptance criteria: ${criteria.join("; ")}` : "");
+/** The catalog's general-purpose task workflow: it takes any plain-words task as `{ situation }` and returns a written deliverable. */
+export const GENERAL_TASK_WORKFLOW = "general-task";
+/** Upstream results are bounded so a long chain can never push the situation past the workflows' input limit. */
+const UPSTREAM_ENTRY_CHARS = 1500;
+const SITUATION_CHARS = 9500;
+/**
+ * What the Start form pre-fills from a card, and what auto-start sends: the title, the acceptance criteria as numbered lines
+ * (the general task evaluator re-reads them from here) and, when earlier tasks fed this one, their handoff conclusions.
+ */
+export function workItemSituation(title: string, criteria: readonly string[], upstream: ReadonlyArray<{ title: string; summary: string }> = []): string {
+  const flat = (text: string) => text.split(/\s+/u).filter(Boolean).join(" ");
+  const head = flat(title) + (criteria.length ? `\nAcceptance criteria:\n${criteria.map((criterion, index) => `${index + 1}. ${flat(criterion)}`).join("\n")}` : "");
+  if (upstream.length === 0) return head;
+  const lines = upstream.map((entry) => `- ${flat(entry.title).slice(0, 200)}: ${flat(entry.summary).slice(0, UPSTREAM_ENTRY_CHARS)}`);
+  let text = `${head}\nUpstream results:\n${lines.join("\n")}`;
+  while (text.length > SITUATION_CHARS && lines.length > 1) { lines.shift(); text = `${head}\nUpstream results:\n${lines.join("\n")}`; }
+  return text.slice(0, SITUATION_CHARS);
 }
 export class TaskExperience {
   constructor(private readonly s: Store, private readonly host: Host) {}
@@ -47,7 +61,7 @@ export class TaskExperience {
     if (!row) throw new BrainDomainError("NOT_FOUND", "Work item not found in this workspace");
     const criteria = row.criteria_json ? JSON.parse(row.criteria_json) as unknown[] : [];
     let input: JsonValue = { situation: workItemSituation(row.title, criteria.map(String)) };
-    let workflowId = "operations-triage";
+    let workflowId = (await this.catalog(actor, workspaceId)).some((entry) => entry.release.id === GENERAL_TASK_WORKFLOW) ? GENERAL_TASK_WORKFLOW : "operations-triage";
     if (origin.kind === "ticket") {
       const ticket = await this.host.query(actor, { queryType: "ticket.get", workspaceId, resourceId: origin.id }) as unknown as { snapshot: { body?: string } };
       input = { title: row.title, body: ticket.snapshot.body ?? "" }; workflowId = "support-draft";
