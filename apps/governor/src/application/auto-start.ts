@@ -78,16 +78,23 @@ export class AutoStart {
       let slots = mission.slots;
       for (const item of mission.items) {
         const note = (text: string) => missions.noteStartBlocker(organizationId, workspaceId, item.workItemId, text);
-        // A task the plan left without a workflow runs the mission's own (most used) workflow, so nobody has to pick one.
-        const workflowId = item.workflowId ?? mission.defaultWorkflowId;
-        const entry = workflowId ? catalog.find((candidate) => candidate.release.id === workflowId) : undefined;
-        if (!workflowId) { note("Needs input before it can start: choose a workflow for this task"); continue; }
-        if (!entry) { note(`Needs input before it can start: workflow ${workflowId} is not in the active release`); continue; }
+        // The task's own workflow first; when it is missing or cannot take the task's situation, the mission's own (most used)
+        // workflow runs it, so nobody has to pick one.
         const input = { situation: workItemSituation(item.title, item.criteria) } as JsonValue;
-        // Without a declared input schema nothing can vouch for the input, so a person supplies it.
-        if (!entry.inputSchema) { note("Needs input before it can start: the workflow declares no input schema"); continue; }
-        const valid = payloadValidator(entry.inputSchema as object)(input);
-        if (!valid.ok) { note(`Needs input before it can start: ${valid.errors.join("; ")}`); continue; }
+        const candidates = [...new Set([item.workflowId, mission.defaultWorkflowId].filter((id): id is string => id !== null))];
+        if (candidates.length === 0) { note("Needs input before it can start: choose a workflow for this task"); continue; }
+        let entry: WorkflowCatalogEntry | undefined;
+        let problem = "";
+        for (const workflowId of candidates) {
+          const found = catalog.find((candidate) => candidate.release.id === workflowId);
+          if (!found) { problem ||= `workflow ${workflowId} is not in the active release`; continue; }
+          // Without a declared input schema nothing can vouch for the input, so a person supplies it.
+          if (!found.inputSchema) { problem ||= "the workflow declares no input schema"; continue; }
+          const valid = payloadValidator(found.inputSchema as object)(input);
+          if (!valid.ok) { problem ||= valid.errors.join("; "); continue; }
+          entry = found; break;
+        }
+        if (!entry) { note(`Needs input before it can start: ${problem}`); continue; }
         if (!mission.headroom) { note("Waiting for budget: raise the mission budget to continue"); continue; }
         if (slots <= 0) { note(`Waiting for a free member: ${mission.memberCap} tasks are already in progress`); continue; }
         // One id per attempt and per run, so sending a task back dispatches a fresh run instead of replaying the first.
