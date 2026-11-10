@@ -26,7 +26,7 @@
       "project": ["src/**/*.{ts,tsx}", "vite.config.ts"]
     },
     "packages/contracts": {
-      "entry": ["src/index.ts", "src/validate.ts"],
+      "entry": ["src/index.ts", "src/validate.ts", "src/machines.ts"],
       "project": ["src/**/*.ts"]
     }
   },

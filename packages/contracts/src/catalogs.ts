@@ -1,5 +1,4 @@
 import registryJson from "./registry.json" with { type: "json" };
-import stateMachinesJson from "./state-machines.json" with { type: "json" };
 import authMatrixJson from "./authorization-matrix.json" with { type: "json" };
 
 export interface CommandDef {
@@ -38,23 +37,7 @@ export function isKnownEvent(type: string): boolean {
   return EVENTS.has(type);
 }
 
-export const STATE_MACHINES = stateMachinesJson as unknown as {
-  readonly machines: Record<string, Record<string, readonly string[]>>;
-};
-
-export function canTransition(machine: string, from: string, to: string): boolean {
-  const m = STATE_MACHINES.machines[machine];
-  if (!m) return false;
-  return (m[from] ?? []).includes(to);
-}
-export function isTerminal(machine: string, state: string): boolean {
-  const m = STATE_MACHINES.machines[machine];
-  if (!m) return false;
-  return (m[state] ?? []).length === 0;
-}
-export function machineStates(machine: string): readonly string[] {
-  return Object.keys(STATE_MACHINES.machines[machine] ?? {});
-}
+export { STATE_MACHINES, canTransition, isTerminal, machineStates } from "./machines";
 
 export const AUTH_MATRIX = authMatrixJson as unknown as {
   readonly roles: Record<string, { readonly scopes: readonly string[]; readonly grantScope: string }>;

@@ -3,6 +3,8 @@ import {
   beginDecision, beginRecovery, returnToReview, settleDecision, type ApprovalState,
 } from "../../apps/web/src/ui/approval-controller";
 import { framesAfter } from "../../apps/web/src/ui/logs/frames";
+import { dragTargets, nextActionOf, workGraph } from "../../apps/web/src/ui/work/work-model";
+import type { WorkItem } from "@brain/contracts";
 import { EventSpool } from "../../apps/runner/src/spool";
 
 describe("web and runner unit mechanisms", () => {
@@ -78,5 +80,38 @@ describe("web and runner unit mechanisms", () => {
     // and the records merge (appendFresh) drops it by stream_seq.
     window.push(frame(900));
     expect(framesAfter(window, lastFrame).map((e) => e.id)).toEqual(["900"]);
+  });
+
+  it("the mission board offers a drag only for plain governed transitions", () => {
+    const item = (id: string, state: WorkItem["state"], extra: Partial<WorkItem> = {}): WorkItem => ({
+      workItemId: id, missionId: "m", planVersionId: "p", planTaskId: id, workspaceId: "w", title: id, state, criteria: [], dependsOn: [],
+      nextAction: "", version: 1, createdAt: "", updatedAt: "", failedAttempts: 0, parked: false, ...extra,
+    });
+    const items = [item("a", "done", { evidenceDigest: "sha256:x" }), item("b", "in-progress"), item("c", "review"), item("d", "ready"), item("e", "blocked", { dependsOn: ["b"] }), item("f", "blocked")];
+    const find = (id: string) => items.find((entry) => entry.workItemId === id)!;
+    expect(dragTargets(find("b"), items, true)).toEqual(["ready", "review"]);
+    expect(dragTargets(find("c"), items, true)).toEqual(["in-progress"]); // never Done: it needs verified evidence
+    expect(dragTargets(find("d"), items, true)).toEqual([]); // Start dispatches; it is not a drag
+    expect(dragTargets(find("e"), items, true)).toEqual([]); // its dependency is not done yet
+    expect(dragTargets(find("f"), items, true)).toEqual(["ready"]);
+    expect(dragTargets(item("g", "blocked", { parked: true }), items, true)).toEqual([]);
+    expect(dragTargets(find("b"), items, false)).toEqual([]);
+    expect(nextActionOf(find("c"), true, true)?.kind).toBe("handoff");
+    expect(nextActionOf(find("c"), false, true)?.kind).toBe("review");
+    expect(nextActionOf(find("d"), false, false)).toBeUndefined();
+  });
+
+  it("the roadmap stages work by its longest dependency chain and finds the critical path", () => {
+    const graph = workGraph([
+      { id: "build", deps: [], weight: 90, done: false },
+      { id: "draft", deps: [], weight: 30, done: false },
+      { id: "check", deps: ["build"], weight: 20, done: false },
+      { id: "publish", deps: ["check", "draft"], weight: 10, done: false },
+      { id: "kickoff", deps: [], weight: 5, done: true },
+    ]);
+    expect(graph.stages).toEqual([["build", "draft", "kickoff"], ["check"], ["publish"]]);
+    expect(graph.critical).toEqual(["build", "check", "publish"]);
+    expect(graph.criticalWeight).toBe(120);
+    expect(workGraph([{ id: "x", deps: [], weight: 1, done: true }]).critical).toEqual([]);
   });
 });

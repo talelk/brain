@@ -80,8 +80,6 @@
 /* Subtle, token-based motion (Phase 2): guarded globally by prefers-reduced-motion overrides. */
 .brain-region-enter > * { animation: brain-fade-in var(--duration-base, 160ms) var(--ease-standard, ease-out); }
 @keyframes brain-fade-in { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
-[data-kanban-card] { transition: transform var(--duration-fast, 120ms) var(--ease-standard, ease-out); }
-[data-kanban-card]:hover { transform: translateY(-1px); }
 /* Shared list/field rhythms (Phase 1 standardization): one definition, no per-page drift. */
 .brain-row-list > * { padding-block: var(--spacing-4, 1rem); }
 .brain-row-list > *:first-child { padding-top: 0; }
@@ -418,21 +416,23 @@
   }
 }
 
-@media (min-width: 1440px) {
-  .brain-kanban-fit [data-slot="kanban-board"] {
-    overflow-x: auto;
-  }
-
-  .brain-kanban-fit [data-slot="kanban-board"] ul[aria-label="Work items"] {
+/* Mission work board: on wide screens the five columns share the width instead of panning;
+   a card with no legal drag (data-kanban-locked) shows no grab affordance. */
+@media (min-width: 1280px) {
+  .brain-work-board [data-slot="kanban-board"] ul[aria-label="Work items"] {
     display: grid;
     min-width: 0;
-    grid-template-columns: repeat(6, minmax(200px, 1fr));
+    grid-template-columns: repeat(5, minmax(12rem, 1fr));
   }
 
-  .brain-kanban-fit [data-kanban-column] {
+  .brain-work-board [data-kanban-column] {
     width: auto;
-    min-width: 200px;
+    min-width: 0;
   }
+}
+
+.brain-work-board [data-kanban-card]:has([data-kanban-locked]) > * {
+  cursor: default;
 }
 
 @media (max-width: 639px) {

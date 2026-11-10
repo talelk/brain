@@ -4,7 +4,8 @@
     "types": ["node"],
     "paths": {
       "@brain/contracts": ["./packages/contracts/src/index.ts"],
-      "@brain/contracts/validate": ["./packages/contracts/src/validate.ts"]
+      "@brain/contracts/validate": ["./packages/contracts/src/validate.ts"],
+      "@brain/contracts/machines": ["./packages/contracts/src/machines.ts"]
     }
   },
   "include": [

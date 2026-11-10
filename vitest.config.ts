@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@brain/contracts/validate": fileURLToPath(new URL("./packages/contracts/src/validate.ts", import.meta.url)),
+      "@brain/contracts/machines": fileURLToPath(new URL("./packages/contracts/src/machines.ts", import.meta.url)),
       "@brain/contracts": fileURLToPath(new URL("./packages/contracts/src/index.ts", import.meta.url)),
     },
   },

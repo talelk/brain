@@ -1,10 +1,10 @@
-import { createEffect, createSignal, For, Show } from "solid-js";
-import { ParkedActions } from "./ParkedActions";
+import { createEffect, createMemo, createResource, createSignal, For, Match, Show, Switch, untrack } from "solid-js";
 import type { JSX } from "solid-js";
 import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
-import { useNavigate } from "@solidjs/router";
-import { Alert, Select } from "@talelk/newui-molecules";
-import type { WorkItem, WorkItemState } from "@brain/contracts";
+import { useNavigate, useSearchParams } from "@solidjs/router";
+import { Alert, Select, TabButtons } from "@talelk/newui-molecules";
+import type { Handoff, Mission, PlanVersion, WorkItem, WorkItemState } from "@brain/contracts";
+import { ParkedActions } from "./ParkedActions";
 import { useApp } from "../app-context";
 import { query } from "../../data/client";
 import { createScopedRead } from "../../data/screens";
@@ -14,33 +14,45 @@ import { WorkItemTasks } from "./WorkItemTasks";
 import { EvidenceBundleSelector } from "./ArtifactSelectors";
 import { EvidenceList } from "./EvidenceList";
 import { StatusBadge } from "./StatusBadge";
-import { WorkspaceSection } from "./Domain";import { FormSheet } from "./BrainForm";
+import { WorkspaceSection } from "./Domain";
+import { FormSheet } from "./BrainForm";
 import { createHandoffNeed, HandoffSheet } from "./HandoffStep";
+import { missionHref } from "../mission-links";
+import { formatUsd } from "../format";
+import { Meter } from "../viz/Meter";
+import { StateBar } from "../viz/StateBar";
+import { WorkBoard } from "../work/WorkBoard";
+import { WorkCard } from "../work/WorkCard";
+import { WorkRoadmap, type RoadmapNode } from "../work/WorkRoadmap";
+import { minutesText, workGraph, type BoardColumnId, type NextAction } from "../work/work-model";
 
 const STATES: readonly { id: WorkItemState; name: string }[] = [
   { id: "backlog", name: "Backlog" }, { id: "ready", name: "Ready" }, { id: "in-progress", name: "In Progress" },
   { id: "blocked", name: "Blocked" }, { id: "review", name: "Review" }, { id: "done", name: "Done" },
 ];
 
-/** Why a task is not moving, in plain words; undefined while it is simply progressing. */
-export function waitReason(item: WorkItem): string | undefined {
-  if (item.parked) return "Parked after repeated failures. It waits for a person; independent work carries on.";
-  if (item.state === "blocked") return `Blocked: ${item.blockedReason ?? "it is waiting on something outside the task"}`;
-  if (item.state === "backlog" && item.dependsOn.length) return "Waiting for earlier tasks to be verified done.";
-  if (item.state === "review") return "Finished; waiting for you to check the evidence.";
-  if (item.failedAttempts > 0 && item.state !== "done") return `${item.failedAttempts} failed attempt${item.failedAttempts === 1 ? "" : "s"} so far.`;
-  return undefined;
-}
+type View = "timeline" | "board" | "list";
+const VIEWS: readonly { value: View; label: string; icon: string }[] = [
+  { value: "timeline", label: "Timeline", icon: "lucide-chart-gantt" },
+  { value: "board", label: "Board", icon: "lucide-square-kanban" },
+  { value: "list", label: "List", icon: "lucide-list" },
+];
+
+type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 
 /**
- * The confirmed work of one mission, managed in place: state, next action,
- * criteria, linked runs and governed moves. Done stays gated by an
- * independently verified evidence bundle the Governor checks per criterion,
- * and every move carries the item version it was read at.
+ * The confirmed work of one mission (#43): an at-a-glance strip (progress,
+ * critical path, time and budget), then the same items as a dependency
+ * Timeline, a Kanban Board or a List — the view lives in the URL (?view=).
+ * Opening an item manages it in place. Done stays gated by an independently
+ * verified evidence bundle, and every move carries the item version it was
+ * read at.
  */
-export function MissionWorkItems(props: { missionId: string }): JSX.Element {
+export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
+  const [search, setSearch] = useSearchParams();
+  const view = (): View => (VIEWS.some((entry) => entry.value === search.view) ? search.view as View : "timeline");
   const [sheet, setSheet] = createSignal<"" | "move" | "comment" | "handoff">("");
   const [selectedId, setSelectedId] = createSignal("");
   const [move, setMove] = createSignal("");
@@ -48,22 +60,72 @@ export function MissionWorkItems(props: { missionId: string }): JSX.Element {
   const [evidence, setEvidence] = createSignal("");
   const [comment, setComment] = createSignal("");
   const [conflict, setConflict] = createSignal("");
+  const missionId = () => props.mission.missionId;
   const items = createScopedRead<WorkItem[]>({
     scope: app.scope,
     load: async (scope, signal) => {
-      const response = await query<{ snapshot: { items: WorkItem[] }; asOf: string; sourceWatermark: number }>({ queryType: "workItems.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
-      return { snapshot: response.snapshot.items.filter((item) => item.missionId === props.missionId), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+      const response = await query<Envelope<{ items: WorkItem[] }>>({ queryType: "workItems.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
+      return { snapshot: response.snapshot.items.filter((item) => item.missionId === missionId()), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     isEmpty: (list) => list.length === 0,
-    refreshMs: 15_000,
+    refreshMs: 5_000,
   });
-  createEffect(() => { void props.missionId; setSelectedId(""); void items.refresh({ force: true }); });
+  // The confirmed plan names each task's estimate and the team that owns it.
+  const plan = createScopedRead<PlanVersion | null>({
+    scope: app.scope,
+    resource: () => props.mission.activePlanVersionId ?? "",
+    load: async (scope, signal, planVersionId) => {
+      if (!planVersionId) return { snapshot: null, asOf: new Date().toISOString(), sourceWatermark: 0 };
+      const response = await query<Envelope<PlanVersion>>({ queryType: "plans.get", workspaceId: scope.workspaceId, resourceId: planVersionId }, signal);
+      return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+    },
+  });
+  createEffect(() => { void missionId(); setSelectedId(""); void items.refresh({ force: true }); });
+  const live = createMemo(() => (items.state().data ?? []).filter((item) => item.state !== "abandoned"));
   const selected = () => items.state().data?.find((item) => item.workItemId === selectedId());
-  const readyItems = () => (items.state().data ?? []).filter((item) => item.state === "ready");
-  const readyCount = () => readyItems().length;
   const reset = () => { setMove(""); setReason(""); setEvidence(""); setComment(""); };
 
+  const taskOf = (item: WorkItem) => plan.state().data?.tasks.find((task) => task.id === item.planTaskId);
+  const estimateOf = (item: WorkItem) => taskOf(item)?.estimatedMinutes;
+  const ownerOf = (item: WorkItem): string | undefined => {
+    const assignment = item.assignment ?? taskOf(item)?.assignment;
+    if (!assignment) return undefined;
+    const member = plan.state().data?.team?.find((entry) => entry.memberId === assignment.id);
+    return member ? `${member.role} (${member.memberId})` : assignment.kind === "human" ? `${assignment.id} (person)` : assignment.id;
+  };
+
+  // Work others depend on needs a handoff before Done: one batch read for every item in review.
+  const [handoffs] = createResource(
+    () => {
+      const review = live().filter((item) => item.state === "review" && live().some((other) => other.dependsOn.includes(item.workItemId)));
+      return `${app.workspaceId()}|${review.map((item) => `${item.workItemId}@${item.version}`).join(",")}`;
+    },
+    async (key) => {
+      const workspaceId = key.split("|")[0]!;
+      const due = new Set<string>();
+      const all = untrack(live);
+      await Promise.all(all.filter((item) => key.includes(`${item.workItemId}@`)).map(async (item) => {
+        const dependent = all.find((other) => other.dependsOn.includes(item.workItemId));
+        if (!dependent) return;
+        const received = await query<{ snapshot: { items: Handoff[] } }>({ queryType: "handoffs.forWorkItem", workspaceId, resourceId: dependent.workItemId });
+        if (!received.snapshot.items.some((handoff) => handoff.workItemId === item.workItemId)) due.add(item.workItemId);
+      }));
+      return due;
+    },
+  );
+  const handoffRequired = (item: WorkItem) => handoffs.latest?.has(item.workItemId) ?? false;
+
+  const graph = createMemo(() => workGraph(live().map((item) => ({ id: item.workItemId, deps: item.dependsOn, weight: estimateOf(item) ?? 1, done: item.state === "done" }))));
+  const critical = createMemo(() => new Set(graph().critical));
+
   const startHref = (item: WorkItem) => `/w/${app.workspaceId()}/plays?originKind=work-item&originId=${encodeURIComponent(item.workItemId)}`;
+  const open = (item: WorkItem, then?: "handoff") => { reset(); setConflict(""); setSelectedId(item.workItemId); if (then) setSheet(then); };
+  const act = (item: WorkItem, action: NextAction) => {
+    if (action.kind === "start") void navigate(startHref(item));
+    else if (action.kind === "follow") void navigate(missionHref(app.workspaceId(), missionId(), "live"));
+    else open(item, action.kind === "handoff" ? "handoff" : undefined);
+  };
+
   async function transition(item: WorkItem): Promise<void> {
     try {
       const result = await app.run("workItem.transition", { workItemId: item.workItemId, state: move() as WorkItemState, ...(evidence() ? { evidenceDigest: evidence() } : {}), ...(reason().trim() ? { reason: reason().trim() } : {}) }, { expectedVersion: item.version });
@@ -75,25 +137,58 @@ export function MissionWorkItems(props: { missionId: string }): JSX.Element {
     await items.refresh({ force: true });
   }
 
+  /** A board drag: the same governed transition, at the version the card was read at. */
+  async function boardMove(item: WorkItem, to: BoardColumnId): Promise<string | undefined> {
+    let refused: string | undefined;
+    try {
+      const result = await app.run("workItem.transition", { workItemId: item.workItemId, state: to }, { expectedVersion: item.version });
+      if (!result.accepted) refused = result.detail ?? "The move was refused";
+    } catch (error) {
+      refused = error instanceof Error ? error.message : "The move was refused";
+    }
+    await items.refresh({ force: true });
+    return refused;
+  }
+
   async function addComment(item: WorkItem): Promise<void> {
     if (!comment().trim()) return;
     await app.run("workItem.comment", { workItemId: item.workItemId, text: comment().trim() });
     setComment(""); setSheet("");
   }
 
+  const card = (item: WorkItem, showState: boolean) => <WorkCard item={item} items={live()} owner={ownerOf(item)} estimateMinutes={estimateOf(item)}
+    handoffRequired={handoffRequired(item)} canDispatch={app.canDispatch()} critical={critical().has(item.workItemId) && item.state !== "done"} showState={showState}
+    onOpen={() => open(item)} onAction={(action) => act(item, action)} />;
+
+  const roadmapNodes = (): RoadmapNode[] => live().map((item) => ({ id: item.workItemId, title: item.title, deps: item.dependsOn, weight: estimateOf(item) ?? 1, done: item.state === "done" }));
+
   return <WorkspaceSection title="Mission work" description="Confirmed work items of this mission. Done requires independently verified evidence for every criterion.">
-    <Show when={readyCount() > 1 && app.canDispatch()}><div class="flex flex-wrap items-center justify-between gap-2 rounded-card border border-outline-blue-1 bg-surface-blue-1 px-3 py-2">
-      <p class="text-interface text-ink-gray-8">{readyCount()} tasks are ready. Each one starts from its own Start button; this opens the first.</p>
-      <Button size="sm" variant="solid" theme="blue" iconLeft="lucide-play" onClick={() => { const first = readyItems()[0]; if (first) void navigate(startHref(first)); }}>Start the first of {readyCount()} ready tasks</Button>
-    </div></Show>
     <Show when={conflict() && sheet() !== "move"}><Alert theme="amber" variant="outline" title="This work changed; your intended move is preserved" description={conflict()} /></Show>
     <ScreenRegion state={items.state()} onRetry={() => void items.refresh({ force: true })} emptyTitle="No confirmed work yet" emptyDescription="Confirm a plan version to create this mission's work items.">
-      <Show when={selected()} keyed fallback={<div class="flex flex-col gap-2"><For each={items.state().data ?? []}>{(item) =>
-        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-outline-gray-1 py-2">
-          <div class="min-w-0"><p class="break-words text-interface font-medium text-ink-gray-9">{item.title}</p><p class="text-caption text-ink-gray-6">{item.nextAction}</p>
-            <Show when={waitReason(item)}>{(reason) => <p class="mt-0.5 flex items-center gap-1 text-caption text-ink-amber-8"><span class="lucide-hourglass size-3 shrink-0" aria-hidden="true" />{reason()}</p>}</Show></div>
-          <div class="flex items-center gap-2"><StatusBadge kind="workItem" status={item.state} /><Show when={item.state === "ready" && app.canDispatch()}><Button size="sm" variant="solid" theme="blue" iconLeft="lucide-play" aria-label={`Start ${item.title}`} onClick={() => void navigate(startHref(item))}>Start</Button></Show><Button size="sm" variant="outline" aria-label={`Manage ${item.title}`} onClick={() => { reset(); setConflict(""); setSelectedId(item.workItemId); }}>Manage</Button></div>
-        </div>}</For></div>}>
+      <Show when={selected()} keyed fallback={<div class="flex min-w-0 flex-col gap-4">
+        <WorkOverview mission={props.mission} items={live()} criticalSteps={graph().critical.length}
+          criticalMinutes={graph().critical.every((id) => estimateOf(live().find((item) => item.workItemId === id)!) !== undefined) ? graph().criticalWeight : undefined} />
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <TabButtons label="How to show the work" value={view()} onValueChange={(value) => setSearch({ view: value === "timeline" ? undefined : value }, { replace: true })}
+            options={VIEWS.map((entry) => ({ value: entry.value, label: entry.label, icon: entry.icon }))} />
+          <p class="flex items-center gap-1.5 text-caption text-ink-gray-6"><span class="inline-block h-0.5 w-5 rounded-full bg-surface-blue-7" aria-hidden="true" />Critical path: the longest chain of work still to do</p>
+        </div>
+        <Switch>
+          <Match when={view() === "timeline"}>
+            <WorkRoadmap nodes={roadmapNodes()} label="Mission work by stage"
+              renderNode={(node) => <Show when={live().find((item) => item.workItemId === node.id)}>{(item) => card(item(), true)}</Show>} />
+          </Match>
+          <Match when={view() === "board"}>
+            <WorkBoard items={live()} ownerOf={ownerOf} estimateOf={estimateOf} handoffRequired={handoffRequired} canDispatch={app.canDispatch()}
+              critical={critical()} onOpen={(item) => open(item)} onAction={act} onMove={boardMove} />
+          </Match>
+          <Match when={view() === "list"}>
+            <ul class="flex flex-col divide-y divide-outline-gray-1 border-y border-outline-gray-1" aria-label="Work items">
+              <For each={live()}>{(item) => <li class="py-3">{card(item, true)}</li>}</For>
+            </ul>
+          </Match>
+        </Switch>
+      </div>}>
         {(item) => {
           const handoff = createHandoffNeed(() => item);
           const verified = () => Boolean(item.evidenceDigest || evidence());
@@ -122,8 +217,8 @@ export function MissionWorkItems(props: { missionId: string }): JSX.Element {
               <EvidenceBundleSelector label={`Verified evidence for ${item.title}`} workItemId={item.workItemId} onSelect={setEvidence} />
               <Select label={`Move ${item.title}`} value={move() || null} options={STATES.filter((state) => state.id !== item.state).map((state) => ({ value: state.id, label: state.name, disabled: state.id === "done" && !verified() }))} onValueChange={(state) => setMove(state ?? "")} />
               <Show when={move() === "blocked"}><TextInput label="Blocking reason" value={reason()} onInput={(event) => setReason(event.currentTarget.value)} required /></Show>
-            <Show when={move() === "done" && handoff.required()}><Alert theme="amber" variant="outline" title="Hand off to the next tasks first" description="Other tasks depend on this one. Close this form and use Hand off to the next tasks on the work item." /></Show>
-            <Show when={move() === "done" && !verified()}><Alert theme="amber" variant="outline" title="Verified evidence is required" description="Choose an independently verified evidence bundle before selecting Done. Author output alone cannot complete this work." /></Show>
+              <Show when={move() === "done" && handoff.required()}><Alert theme="amber" variant="outline" title="Hand off to the next tasks first" description="Other tasks depend on this one. Close this form and use Hand off to the next tasks on the work item." /></Show>
+              <Show when={move() === "done" && !verified()}><Alert theme="amber" variant="outline" title="Verified evidence is required" description="Choose an independently verified evidence bundle before selecting Done. Author output alone cannot complete this work." /></Show>
             </FormSheet>
             <HandoffSheet item={item} open={sheet() === "handoff"} onClose={() => setSheet("")} onSubmitted={async () => { setSheet(""); await handoff.refresh(); await items.refresh({ force: true }); }} />
             <FormSheet open={sheet() === "comment"} onClose={() => setSheet("")} title="Add a comment" centered description="Comments are recorded on the work item's history." submit="Add comment" icon="lucide-message-square" disabled={!comment().trim()} onSubmit={() => addComment(item)}>
@@ -134,4 +229,45 @@ export function MissionWorkItems(props: { missionId: string }): JSX.Element {
       </Show>
     </ScreenRegion>
   </WorkspaceSection>;
+}
+
+/** Progress, the critical path, time and budget: the four numbers that say whether the mission is on course. */
+function WorkOverview(props: { mission: Mission; items: readonly WorkItem[]; criticalSteps: number; criticalMinutes?: number }): JSX.Element {
+  const counts = () => {
+    const out: Record<string, number> = {};
+    for (const item of props.items) out[item.state] = (out[item.state] ?? 0) + 1;
+    return out;
+  };
+  const done = () => counts().done ?? 0;
+  const activeMinutes = () => props.mission.usage.activeMs / 60_000;
+  const wallMinutes = () => (props.mission.budget.maxWallClockMs ?? 0) / 60_000;
+  const timeShare = () => (wallMinutes() > 0 ? Math.min(100, Math.round((activeMinutes() / wallMinutes()) * 100)) : 0);
+  return <section class="grid grid-cols-2 gap-x-4 gap-y-4 rounded-card border border-outline-gray-1 bg-surface-gray-1 p-3 sm:gap-x-6 sm:p-4 xl:grid-cols-4" aria-label="Mission work at a glance">
+    <div class="col-span-2 flex min-w-0 flex-col gap-1.5 xl:col-span-1">
+      <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-circle-check size-3.5" aria-hidden="true" />Progress</p>
+      <p class="text-base-medium text-ink-gray-9">{done()} of {props.items.length} verified done</p>
+      <StateBar counts={counts()} label="Mission work" />
+    </div>
+    <div class="flex min-w-0 flex-col gap-1.5">
+      <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-route size-3.5" aria-hidden="true" />Critical path</p>
+      <p class="text-base-medium text-ink-gray-9">{props.criticalSteps === 0 ? "Nothing left to do" : `${props.criticalSteps} ${props.criticalSteps === 1 ? "task" : "tasks"} in a row`}</p>
+      <p class="text-caption text-ink-gray-6">{props.criticalSteps === 0 ? "Every task is verified done." : props.criticalMinutes !== undefined ? `About ${minutesText(props.criticalMinutes)} of estimated work on the longest chain.` : "The longest chain of work still to do sets the finish."}</p>
+    </div>
+    <div class="flex min-w-0 flex-col gap-1.5">
+      <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-timer size-3.5" aria-hidden="true" />Time</p>
+      <p class="text-base-medium text-ink-gray-9">{minutesText(activeMinutes())} active{wallMinutes() > 0 ? ` of ${minutesText(wallMinutes())}` : ""}</p>
+      <Show when={wallMinutes() > 0} fallback={<p class="text-caption text-ink-gray-6">No time limit is set for this mission.</p>}>
+        <span role="progressbar" aria-label="Mission time used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={timeShare()} aria-valuetext={`${timeShare()}% of the time limit used`} class="flex h-2.5 w-full overflow-hidden rounded-full bg-surface-gray-3">
+          <span class={`h-full ${timeShare() >= 90 ? "bg-surface-amber-6" : "bg-surface-blue-9"}`} style={{ width: `${timeShare()}%` }} />
+        </span>
+      </Show>
+    </div>
+    <div class="flex min-w-0 flex-col gap-1.5">
+      <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-wallet size-3.5" aria-hidden="true" />Budget</p>
+      <Show when={props.mission.budget.maxMicroUsd} fallback={<><p class="text-base-medium text-ink-gray-9">{formatUsd(props.mission.usage.settledMicroUsd + props.mission.usage.reservedMicroUsd)} spent</p><p class="text-caption text-ink-gray-6">No spending limit is set.</p></>}>
+        {(limit) => <><p class="text-base-medium text-ink-gray-9">{formatUsd(props.mission.usage.settledMicroUsd + props.mission.usage.reservedMicroUsd)} of {formatUsd(limit())}</p>
+          <Meter label="Mission budget" settled={props.mission.usage.settledMicroUsd} reserved={props.mission.usage.reservedMicroUsd} limit={limit()} format={formatUsd} /></>}
+      </Show>
+    </div>
+  </section>;
 }
