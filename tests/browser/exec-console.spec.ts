@@ -202,6 +202,8 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   await page.goto(`${governor.url}/w/ws-console/outputs?folder=all&view=list`);
   await page.getByRole("checkbox", { name: "Select art-out-v1.md" }).check({ timeout: 30_000 });
   await page.getByRole("checkbox", { name: "Select art-out-v2.md" }).check();
+  // Each file card says how long ago it was produced.
+  await expect(page.getByTestId("output-file").first()).toContainText(/ago|just now|now/i);
   const selection = page.getByRole("region", { name: "Selection actions" });
   await expect(selection).toContainText("2 selected");
   // Bulk Save as knowledge uploads each ticked file as a document and reports the outcome once.

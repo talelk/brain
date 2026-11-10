@@ -9,7 +9,7 @@ import { useNavigate } from "@solidjs/router";
 import { useApp } from "../app-context";
 import { ScreenRegion } from "../screen-region";
 import type { ScreenState } from "../../data/screens";
-import { shortDigest } from "../format";
+import { formatRelative, shortDigest } from "../format";
 import { LIST_PAGE_SIZE, Pager } from "../components/primitives";
 import { ActionFeedback } from "../components/ActionFeedback";
 import type { FeedbackTone } from "../components/ActionFeedback";
@@ -503,6 +503,7 @@ function FolderTreeNode(props: { node: TreeItem; indexPath: number[] }): JSX.Ele
 function FileTile(props: { file: OutputFile; view: "grid" | "list"; previewed: boolean; checked: boolean; onOpen: () => void; onCheck: (on: boolean) => void }): JSX.Element {
   const meta = () => {
     const parts = [previewKindLabel(props.file.kind as ArtifactPreviewKind), formatBytes(props.file.artifact.bytes)];
+    if (props.file.artifact.createdAt) parts.push(formatRelative(props.file.artifact.createdAt));
     if (props.view === "list" && props.file.item) parts.push(props.file.item.title);
     if (props.file.link) parts.push(`from ${props.file.link.runId}`);
     if (props.view === "list" && props.file.item?.assignment) parts.push(`by ${props.file.item.assignment.id}`);

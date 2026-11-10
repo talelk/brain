@@ -31,7 +31,7 @@ export function previewKindLabel(kind: ArtifactPreviewKind): string {
 }
 
 /** An artifact with the state it was listed under (the list itself carries no state). */
-export type OutputItem = ArtifactRef & { state: string };
+export type OutputItem = ArtifactRef & { state: string; createdAt?: string };
 
 /** Where each artifact came from: its work item, that item's mission and the links that tie them together. */
 export interface OutputGrouping {

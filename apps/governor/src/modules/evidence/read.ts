@@ -91,8 +91,8 @@ export function listArtifacts(store: Store, actor: ActorContext, workspaceId: st
     clauses.push(`id IN (${boundedIds.map(() => "?").join(",")})`);
     parameters.push(...boundedIds);
   }
-  const rows = ws.prepare(`SELECT id,digest,bytes,media_type,classification FROM artifacts WHERE ${clauses.join(" AND ")} ORDER BY created_at_ms DESC,id LIMIT 100`).all(...parameters) as { id: string; digest: string; bytes: number; media_type: string; classification: string }[];
-  return { items: rows.map((row) => ({ artifactId: row.id, digest: row.digest, bytes: row.bytes, mediaType: row.media_type, classification: row.classification })) } as unknown as JsonValue;
+  const rows = ws.prepare(`SELECT id,digest,bytes,media_type,classification,created_at_ms FROM artifacts WHERE ${clauses.join(" AND ")} ORDER BY created_at_ms DESC,id LIMIT 100`).all(...parameters) as { id: string; digest: string; bytes: number; media_type: string; classification: string; created_at_ms: number }[];
+  return { items: rows.map((row) => ({ artifactId: row.id, digest: row.digest, bytes: row.bytes, mediaType: row.media_type, classification: row.classification, createdAt: iso(row.created_at_ms) })) } as unknown as JsonValue;
 }
 
 /** artifacts.history: the artifact, its producing attempt/job, and every bundle that pins it. */
