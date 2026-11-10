@@ -26,9 +26,24 @@ ended (stopped without claiming success) or cancelled (in-flight work cancelled)
 _Avoid_: result, resolution, done
 
 **Attention item**:
-Something in a mission that needs a human to act, such as an approval, a plan proposal,
-a parked work item or a paused mission. Only attention items notify outside the app.
+Something in a mission that a human must act on (a blocking item: an approval, a plan
+proposal, a parked work item or a paused mission) or wants to know (a **result ready**
+item). Only attention items notify; progress events never do.
 _Avoid_: alert, notification (the delivery, not the item), todo
+
+**Result ready**:
+The one non-blocking attention item: a mission closed achieved or a task reached Done on
+verified evidence. It sits below every blocking tier, never stops anything (closing
+included), is derived from the mission and work records for 24 hours, and notifies like
+any attention item under the per-mission throttle.
+_Avoid_: success notification, completion alert, progress update
+
+**Quality summary**:
+The owner's deterministic read over a trailing window of existing records: share of tasks
+verified without a human, stall rate, re-open rate, cost per verified task, median time
+to first result and top failure reasons. Every figure ships with its definition; no model
+computes or tunes anything.
+_Avoid_: score, health score, KPI, AI report
 
 **Since-last-visit summary**:
 A user's deterministic digest of a mission's notable events since they last saw it.
