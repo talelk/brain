@@ -86,7 +86,7 @@ export function outputDetail(db: Db, outputId: string): OutputDetail {
   const continuedBy = db.prepare("SELECT * FROM mission_outputs WHERE continues_output_id=? ORDER BY created_at_ms, id LIMIT 50").all(row.id) as OutputRow[];
   const output = outputOf(db, row);
   const artifacts = output.versions.flatMap((version) => {
-    const artifact = db.prepare("SELECT id,digest,bytes,media_type,classification FROM artifacts WHERE digest=? AND state<>'deleted' ORDER BY created_at_ms DESC, id LIMIT 1").get(version.artifactDigest) as { id: string; digest: string; bytes: number; media_type: string; classification: ArtifactRef["classification"] } | undefined;
+    const artifact = db.prepare("SELECT id,digest,bytes,media_type,classification FROM artifacts WHERE digest=? AND state<>'deleted' AND id NOT IN (SELECT id FROM document_versions) ORDER BY created_at_ms DESC, id LIMIT 1").get(version.artifactDigest) as { id: string; digest: string; bytes: number; media_type: string; classification: ArtifactRef["classification"] } | undefined;
     return artifact ? [{ versionId: version.versionId, artifact: { artifactId: artifact.id, digest: artifact.digest, bytes: artifact.bytes, mediaType: artifact.media_type, classification: artifact.classification } }] : [];
   });
   return { output, missionTitle: mission.title, ...(continues ? { continues: ref(continues) } : {}), continuedBy: continuedBy.map(ref), artifacts };

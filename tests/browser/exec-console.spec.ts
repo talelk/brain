@@ -204,6 +204,12 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   await page.getByRole("checkbox", { name: "Select art-out-v2.md" }).check();
   const selection = page.getByRole("region", { name: "Selection actions" });
   await expect(selection).toContainText("2 selected");
+  // Bulk Save as knowledge uploads each ticked file as a document and reports the outcome once.
+  await selection.getByRole("button", { name: "Save as knowledge", exact: true }).click();
+  await expect(page.getByText(/Saved to knowledge 2 items\./)).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("checkbox", { name: "Select art-out-v1.md" }).check();
+  await page.getByRole("checkbox", { name: "Select art-out-v2.md" }).check();
+  await expect(selection).toContainText("2 selected");
   await selection.getByRole("button", { name: "Compare", exact: true }).click();
   await expect(page).toHaveURL(/\/outputs\/art-out-v[12]\/compare\?left=art-out-v[12]&right=art-out-v[12]$/);
   await expect(page.getByText("rollout steps approved by verification", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
