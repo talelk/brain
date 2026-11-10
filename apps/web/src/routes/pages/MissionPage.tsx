@@ -9,7 +9,7 @@ import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { ScreenRegion } from "../../ui/screen-region";
 import { FormSheet } from "../../ui/components/BrainForm";
-import { BrainPage, PageStack, TechnicalDetails } from "../../ui/components/PageLayout";
+import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";
 import { MissionWorkItems } from "../../ui/components/MissionWorkItems";
 import { SchedulesPanel } from "../../ui/components/SchedulesPanel";
