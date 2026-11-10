@@ -1,4 +1,4 @@
-import { For, Match, Show, Switch, createEffect, createResource, onCleanup } from "solid-js";
+import { For, Match, Show, Switch, createEffect, createResource, createSignal, onCleanup } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import type { JSX } from "solid-js";
 import { Button } from "@talelk/newui-atoms";
@@ -6,6 +6,8 @@ import { Alert } from "@talelk/newui-molecules";
 import { shortDigest } from "../format";
 import { MEDIA_EMBED_LIMIT, TEXT_PREVIEW_LIMIT, artifactObjectUrl, decodeArtifactText, readArtifactBytes } from "./artifact-bytes";
 import type { ArtifactRef } from "../../data/exec-outputs";
+import { fileNameOf, previewKindLabel, previewKindOf } from "./output-files";
+import type { ArtifactPreviewKind } from "./output-files";
 
 /**
  * The single artifact preview policy (plan T61). Download is an action beside
@@ -17,28 +19,6 @@ import type { ArtifactRef } from "../../data/exec-outputs";
  * the Output Browser render the same component, so preview policy cannot
  * drift per surface again.
  */
-
-export type ArtifactPreviewKind = "markdown" | "csv" | "json" | "diff" | "text" | "image" | "pdf" | "none";
-
-const CODE_MEDIA = /^(application\/(x-ndjson|xml|yaml|x-yaml|javascript|typescript|sql))$/u;
-
-/** The native preview kind for a media type; "none" offers download only. */
-export function previewKindOf(mediaType: string): ArtifactPreviewKind {
-  const kind = mediaType.toLowerCase();
-  if (kind.includes("markdown")) return "markdown";
-  if (kind.includes("csv")) return "csv";
-  if (kind.includes("json")) return "json";
-  if (kind.includes("diff") || kind.includes("patch")) return "diff";
-  if (kind.startsWith("image/")) return "image";
-  if (kind.includes("pdf")) return "pdf";
-  if (kind.startsWith("text/") || kind === "application/xml" || CODE_MEDIA.test(kind) || /\+(json|xml)$/u.test(kind)) return "text";
-  return "none";
-}
-
-/** Row label for the preview kind, shown beside the media type. */
-export function previewKindLabel(kind: ArtifactPreviewKind): string {
-  return { markdown: "Markdown", csv: "Table", json: "JSON", diff: "Diff", text: "Text", image: "Image", pdf: "PDF", none: "Download only" }[kind];
-}
 
 interface LoadedPreview {
   kind: ArtifactPreviewKind;
@@ -95,7 +75,25 @@ export function ArtifactView(props: { artifact?: ArtifactRef; title?: string; co
     if (lastUrl) URL.revokeObjectURL(lastUrl);
   });
 
-  const heading = () => props.title ?? props.artifact?.artifactId ?? "";
+  // Copy puts the decoded text preview on the clipboard; media and download-only kinds have nothing to copy.
+  const [copied, setCopied] = createSignal(false);
+  const copyable = () => {
+    const loaded = preview();
+    return !preview.loading && loaded !== undefined && !loaded.error && typeof loaded.text === "string" && loaded.text.length > 0 && !loaded.truncated;
+  };
+  async function copy(): Promise<void> {
+    const text = preview()?.text;
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  const heading = () => props.title ?? (props.artifact ? fileNameOf(props.artifact) : "");
   const maxHeight = () => (props.compact ? "max-h-64" : "max-h-[32rem]");
   return (
     <Show when={props.artifact} fallback={<p class="text-base text-ink-gray-7">No artifact is attached.</p>}>
@@ -109,11 +107,18 @@ export function ArtifactView(props: { artifact?: ArtifactRef; title?: string; co
                 {artifact().classification} · <span class="brain-exec-log" title={artifact().digest}>{shortDigest(artifact().digest)}</span>
               </p>
             </div>
-            <a href={`/v1/artifacts/${encodeURIComponent(artifact().artifactId)}/content`} download={artifact().artifactId} class="inline-flex shrink-0">
-              <Button size="sm" variant="outline" iconLeft="lucide-download">
-                Download
-              </Button>
-            </a>
+            <div class="flex shrink-0 flex-wrap items-center gap-2">
+              <Show when={copyable()}>
+                <Button size="sm" variant="ghost" iconLeft={copied() ? "lucide-check" : "lucide-copy"} onClick={() => void copy()}>
+                  {copied() ? "Copied" : "Copy"}
+                </Button>
+              </Show>
+              <a href={`/v1/artifacts/${encodeURIComponent(artifact().artifactId)}/content`} download={fileNameOf(artifact())} class="inline-flex shrink-0">
+                <Button size="sm" variant="outline" iconLeft="lucide-download">
+                  Download
+                </Button>
+              </a>
+            </div>
           </div>
           <Show
             when={!preview.loading}

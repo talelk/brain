@@ -8,18 +8,9 @@ import { ActionFeedback } from "../components/ActionFeedback";
 import { missionHref } from "../mission-links";
 import type { ArtifactHistory } from "../../data/exec-outputs";
 import { verificationSummary } from "./OutputHistory";
+import { reviewStateOf } from "./output-files";
+import { moveWorkItem, verifiedBundle } from "./review-actions";
 import { createHandoffNeed, HandoffSheet } from "../components/HandoffStep";
-
-/** What a work item needs from the person looking at its output. */
-export function reviewStateOf(item: WorkItem | undefined): "review" | "done" | "other" {
-  if (!item) return "other";
-  return item.state === "review" ? "review" : item.state === "done" ? "done" : "other";
-}
-
-/** The newest evidence bundle that carries an independent "verified" verdict for this artifact. */
-function verifiedBundle(history: ArtifactHistory | undefined): string | undefined {
-  return history?.history.find((version) => version.verification?.outcome === "verified")?.bundleDigest;
-}
 
 /**
  * The one review action for an output: Accept moves its work item to Done on
@@ -34,6 +25,8 @@ export function OutputReview(props: {
   link: ExecutionLink | undefined;
   history: ArtifactHistory | undefined;
   onChanged: () => void;
+  /** Files ticked in a surrounding explorer: its selection bar owns the moves meanwhile, so one primary action shows. */
+  bulkSelected?: number;
 }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
@@ -51,29 +44,17 @@ export function OutputReview(props: {
   async function move(state: "done" | "in-progress"): Promise<void> {
     const item = props.item;
     if (!item) return;
+    const evidenceDigest = evidence();
+    if (state === "done" && !evidenceDigest) return;
     setBusy(true);
     setError("");
-    try {
-      const result = await app.run(
-        "workItem.transition",
-        {
-          workItemId: item.workItemId,
-          state,
-          ...(state === "done" && evidence() ? { evidenceDigest: evidence() } : {}),
-          ...(state === "in-progress" ? { reason: reason().trim() } : {}),
-        },
-        { expectedVersion: item.version },
-      );
-      if (result.accepted) {
-        setAsking(false);
-        setReason("");
-        props.onChanged();
-      } else setError(result.detail || "The move was refused");
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "The move was refused");
-    } finally {
-      setBusy(false);
-    }
+    const result = await moveWorkItem(app, item, state === "done" ? { state, evidenceDigest: evidenceDigest ?? "" } : { state, reason: reason().trim() });
+    setBusy(false);
+    if (result.accepted) {
+      setAsking(false);
+      setReason("");
+      props.onChanged();
+    } else setError(result.detail);
   }
 
   return (
@@ -89,6 +70,7 @@ export function OutputReview(props: {
               <Badge size="sm" theme="green" label="Accepted" />
             </Show>
           </div>
+          <Show when={!props.bulkSelected} fallback={<p class="text-caption text-ink-gray-7">{props.bulkSelected} {props.bulkSelected === 1 ? "file is" : "files are"} ticked. Use the selection bar to accept them or ask for changes.</p>}>
           <Show
             when={canMove()}
             fallback={
@@ -133,6 +115,7 @@ export function OutputReview(props: {
                 <Button size="sm" variant="ghost" onClick={() => setAsking(false)}>Cancel</Button>
               </div>
             </Show>
+          </Show>
           </Show>
           <ActionFeedback tone="error" message={error()} />
           <HandoffSheet item={item()} open={handingOff()} onClose={() => setHandingOff(false)} onSubmitted={async () => { setHandingOff(false); await handoff.refresh(); await move("done"); }} />

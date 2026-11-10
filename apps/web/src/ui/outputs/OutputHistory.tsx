@@ -71,7 +71,7 @@ export function ArtifactMetaStrip(props: {
       fallback={
         <Show when={!props.error} fallback={<Alert theme="amber" variant="outline" title="Metadata unavailable" description={props.error} />}>
           <Show when={props.history} fallback={<p class="text-base text-ink-gray-7">No artifact is identified yet.</p>}>
-            <dl class="grid grid-cols-2 border-y border-outline-gray-1 text-caption sm:grid-cols-3 xl:grid-cols-7" aria-label="Artifact metadata">
+            <dl class="grid grid-cols-2 gap-x-4 text-caption" aria-label="Artifact metadata">
               <MetaFact label="Workspace" value={props.history!.workspaceId} />
               <MetaFact label="Digest" value={<span class="brain-exec-log" title={props.history!.digest}>{shortDigest(props.history!.digest)}</span>} title="Immutable content address" />
               <MetaFact label="Producer" value={<ProducerLinks history={props.history!} />} />
@@ -98,7 +98,7 @@ export function ArtifactMetaStrip(props: {
 }
 
 function MetaFact(props: { label: string; value: JSX.Element; title?: string }): JSX.Element {
-  return <div class="min-w-0 border-outline-gray-1 px-2 py-2 first:pl-0 sm:border-l sm:first:border-l-0" title={props.title}><dt class="text-ink-gray-6">{props.label}</dt><dd class="mt-1 min-w-0 break-words font-medium text-ink-gray-9">{props.value}</dd></div>;
+  return <div class="min-w-0 py-1.5" title={props.title}><dt class="text-ink-gray-6">{props.label}</dt><dd class="mt-1 min-w-0 break-words font-medium text-ink-gray-9">{props.value}</dd></div>;
 }
 
 function ProducerLinks(props: { history: ArtifactHistory }): JSX.Element {
