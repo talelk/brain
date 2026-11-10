@@ -169,6 +169,23 @@ describe("auto-start (ADR 0004: the Governor reacts to events and dispatches bou
     expect(item(w, id, "b").state).not.toBe("backlog");
   });
 
+  it("completes by itself when the run's evidence was independently verified: handoff written, Done, dependent started", async () => {
+    const w = world();
+    const id = await confirmed(w, "auto-done", [triage("a", { criteria: ["Runner names are identified"] }), triage("b", { dependsOn: ["a"] })]);
+    const a = item(w, id, "a");
+    verifiedEvidence(w, `sha256:${"9".repeat(64)}`, ["structure", "safety"]);
+    ownBundleJob(w.brain.store.workspaceDb(w.workspaceId, w.org), a.workItemId, "job-seed", w.brain.store.now());
+    await finishRun(w, runsOf(w, a.workItemId)[0]!);
+    const done = item(w, id, "a");
+    expect(done.state).toBe("done");
+    expect(done.evidenceDigest).toBe(`sha256:${"9".repeat(64)}`);
+    const handoff = w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT notes_json, submitted_by FROM handoffs WHERE work_item_id=? AND superseded_by IS NULL").get(a.workItemId) as { notes_json: string; submitted_by: string };
+    expect(handoff.submitted_by).toBe("governor");
+    expect(JSON.parse(handoff.notes_json).summary).toBe("Triaged");
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(item(w, id, "b").state).toBe("in-progress");
+  });
+
   it("starts a dependent when its dependency becomes Done", async () => {
     const w = world();
     const id = await confirmed(w, "chain", [triage("a"), triage("b", { dependsOn: ["a"] })]);

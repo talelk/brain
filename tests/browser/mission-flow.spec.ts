@@ -85,23 +85,15 @@ async function driveRuns(w: World, until: () => boolean): Promise<void> {
   }
 }
 
-async function markDone(page: Page, w: World, missionId: string, title: string, task: string): Promise<void> {
-  await page.getByRole("button", { name: `Manage ${title}` }).click();
-  await page.getByRole("button", { name: "Move work item", exact: true }).click();
-  await page.getByLabel(`Verified evidence for ${title}`, { exact: true }).click();
-  // Bind the bundle this item's own run produced (never another item's), found through the run's jobs.
-  const jobs = linkedRuns(w, missionId, task).flatMap((runId) => (w.brain.store.control.prepare("SELECT id FROM jobs WHERE workflow_run_id=?").all(runId) as { id: string }[]).map((row) => row.id));
-  const own = (w.ws.prepare(`SELECT digest FROM evidence_bundles WHERE state='verified' AND job_id IN (${jobs.map(() => "?").join(",")})`).all(...jobs) as { digest: string }[]).map((row) => row.digest);
-  expect(own, `a verified evidence bundle produced by the ${task} run`).toHaveLength(1);
-  await page.getByRole("option", { name: new RegExp(own[0]!) }).click();
-  await page.getByLabel(`Move ${title}`, { exact: true }).click();
-  await page.getByRole("option", { name: "Done", exact: true }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Move work item", exact: true }).click();
-  await expect.poll(() => states(w, missionId)[task]).toBe("done");
-  await page.getByRole("button", { name: "Back to mission work", exact: true }).click();
+/** The manual-mode Start: the guided task form pre-filled from the card. */
+async function startFromCard(page: Page, title: string): Promise<void> {
+  await page.getByRole("button", { name: `Start ${title}`, exact: true }).first().click();
+  await page.getByRole("button", { name: "Review task", exact: true }).click();
+  await page.getByRole("button", { name: "Start task", exact: true }).click();
+  await page.waitForURL(/\/runs\//);
 }
 
-test("mission flow (auto): create, confirm, tasks start by themselves, run, review, verified Done, dependents unlock, finish", async ({ page, governor }) => {
+test("mission flow (auto): create, confirm, tasks start by themselves, run, verified Done by itself, dependents unlock, finish", async ({ page, governor }) => {
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -120,29 +112,15 @@ test("mission flow (auto): create, confirm, tasks start by themselves, run, revi
   expect(runs).toHaveLength(1);
   expect(linkedRuns(w, missionId, "verify")).toHaveLength(0);
 
-  // The runners finish the run; the Governor moves the item to review by itself.
-  await driveRuns(w, () => states(w, missionId)["inspect"] === "review");
+  // The runners finish the run; the verified evidence completes the task by itself (handoff written by the Governor),
+  // the dependent starts, finishes and completes the same way. No person touches evidence or handoffs.
+  await driveRuns(w, () => states(w, missionId)["inspect"] === "done");
   expect((w.ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runs[0]) as { state: string }).state).toBe("succeeded");
-  await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/plan`);
-  await expect(page.getByText("Finished; waiting for you to check the evidence.")).toBeVisible();
-
-  // Done needs verified evidence, bound explicitly in the UI; then the dependent unlocks and auto-starts.
-  // Work others depend on needs a handoff before Done: the UI offers it, pre-filled from the item's own verified evidence.
-  await page.reload();
-  await page.getByRole("button", { name: "Manage Inspect the sign-in flow" }).click();
-  await page.getByRole("button", { name: "Hand off to the next tasks", exact: true }).click();
-  const sheet = page.getByRole("dialog");
-  await expect(sheet.getByLabel(/^What was done/)).toHaveValue(/Independently verified: structure, safety/);
-  await sheet.getByRole("button", { name: "Hand off", exact: true }).click();
-  await expect.poll(() => (w.ws.prepare("SELECT COUNT(*) AS n FROM handoffs WHERE superseded_by IS NULL").get() as { n: number }).n).toBe(1);
-  await page.getByRole("button", { name: "Back to mission work", exact: true }).click();
-  await markDone(page, w, missionId, "Inspect the sign-in flow", "inspect");
-  await expect.poll(() => states(w, missionId)).toEqual({ inspect: "done", verify: "in-progress" });
+  expect((w.ws.prepare("SELECT submitted_by FROM handoffs WHERE superseded_by IS NULL").get() as { submitted_by: string }).submitted_by).toBe("governor");
+  await expect.poll(() => states(w, missionId)["verify"]).toBe("in-progress");
   expect(linkedRuns(w, missionId, "verify")).toHaveLength(1);
-
-  await driveRuns(w, () => states(w, missionId)["verify"] === "review");
-  await page.reload();
-  await markDone(page, w, missionId, "Verify the correction", "verify");
+  await driveRuns(w, () => states(w, missionId)["verify"] === "done");
+  await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/plan`);
   await expect(page.getByText("All work is done", { exact: true }).first()).toBeVisible();
 
   await page.getByRole("button", { name: "Finish mission", exact: true }).click();
@@ -186,11 +164,14 @@ test("outputs (bulk): Request changes sends the task back, Accept explains the h
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const w = await world(page, governor);
-  const missionId = await createMission(page, w, governor.url, "Check the billing export carefully", false);
+  // "Ask me before each task": the person starts the task and reviews its result (nothing completes it by itself).
+  const missionId = await createMission(page, w, governor.url, "Check the billing export carefully", true);
   await proposePlan(w, missionId, "Inspect, then verify the export");
   await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/plan`);
   await page.getByRole("button", { name: "Confirm this plan", exact: true }).click();
-  await expect.poll(() => states(w, missionId)).toEqual({ inspect: "in-progress", verify: "backlog" });
+  await expect.poll(() => states(w, missionId)).toEqual({ inspect: "ready", verify: "backlog" });
+  await startFromCard(page, "Inspect the sign-in flow");
+  await expect.poll(() => states(w, missionId)["inspect"]).toBe("in-progress");
   await driveRuns(w, () => states(w, missionId)["inspect"] === "review");
 
   // The finished task's output is a file waiting for review. Bulk Accept refuses to close work other
@@ -209,7 +190,10 @@ test("outputs (bulk): Request changes sends the task back, Accept explains the h
   await page.getByRole("dialog").getByRole("textbox").fill("Please cover the refund lines too.");
   await page.getByRole("dialog").getByRole("button", { name: /^(Send back|Request changes)/ }).click();
   await expect(page.getByText(/Sent back 1 item\./)).toBeVisible({ timeout: 30_000 });
-  // The task is ready again and starts a fresh run by itself (auto mode), then returns to review.
+  // The task is ready again; the person starts a fresh run, then it returns to review.
+  await expect.poll(() => states(w, missionId)["inspect"]).toBe("ready");
+  await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/plan`);
+  await startFromCard(page, "Inspect the sign-in flow");
   await expect.poll(() => linkedRuns(w, missionId, "inspect").length, { timeout: 60_000 }).toBe(2);
   await driveRuns(w, () => states(w, missionId)["inspect"] === "review");
   expect(errors).toEqual([]);

@@ -49,7 +49,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
   });
   /** A proposal opened by link (?proposal=) takes the place of the drafted strategy, with the confirmed plan beside it for the diff. */
   const linked = createScopedRead<{ proposal?: PlanVersion; confirmed?: PlanVersion }>({
-    scope: app.scope,
+    scope: app.scope, refreshMs: 5000,
     load: async (scope, signal) => {
       const get = async (id: string) => (await query<{ snapshot: PlanVersion }>({ queryType: "plans.get", workspaceId: scope.workspaceId, resourceId: id }, signal)).snapshot;
       const proposed = props.proposalId ? await get(props.proposalId) : undefined;
@@ -59,7 +59,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
   });
   /** The mission's confirmed plan, shown when no planning request holds a newer proposal (e.g. a plan confirmed from a play). */
   const active = createScopedRead<PlanVersion | null>({
-    scope: app.scope,
+    scope: app.scope, refreshMs: 5000,
     resource: () => props.mission.activePlanVersionId ?? "",
     load: async (scope, signal, planVersionId) => {
       if (!planVersionId) return { snapshot: null, asOf: new Date().toISOString(), sourceWatermark: 0 };

@@ -357,7 +357,7 @@ function LiveTab(props: ActProps): JSX.Element {
 function TeamTab(props: { mission: Mission }): JSX.Element {
   const app = useApp();
   const plan = createScopedRead<PlanVersion | null>({
-    scope: app.scope,
+    scope: app.scope, refreshMs: 5000,
     load: async (scope, signal) => {
       if (!props.mission.activePlanVersionId) return { snapshot: null, asOf: new Date().toISOString(), sourceWatermark: 0 };
       const response = await query<Envelope<PlanVersion>>({ queryType: "plans.get", workspaceId: scope.workspaceId, resourceId: props.mission.activePlanVersionId }, signal);
@@ -463,7 +463,7 @@ function LogsTab(props: { mission: Mission }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
   const links = createScopedRead<ExecutionLink[]>({
-    scope: app.scope,
+    scope: app.scope, refreshMs: 5000,
     load: async (scope, signal) => {
       const response = await query<Envelope<{ items: ExecutionLink[] }>>({ queryType: "executionLinks.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
       return { snapshot: response.snapshot.items.filter((link) => link.missionId === props.mission.missionId), asOf: response.asOf, sourceWatermark: response.sourceWatermark };

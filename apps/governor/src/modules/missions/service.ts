@@ -726,11 +726,42 @@ export class MissionService {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     this.store.inTx(db, () => {
       const items = db.prepare("SELECT w.* FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? AND w.state='in-progress'").all(runId) as WorkItemRow[];
+      const autoStart = new Map((db.prepare("SELECT id FROM missions WHERE auto_start=1 AND coordinator_member_id IS NULL AND state='active'").all() as Array<{ id: string }>).map((row) => [row.id, true]));
       for (const item of items) {
         transitionState(db, "workItem", item.id, "review", { set: { next_action: "The run finished: review the results and submit evidence", updated_at_ms: this.store.now() }, bumpVersion: true });
         this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.transitioned", payload: { workItemId: item.id, state: "review" } });
+        if (autoStart.get(item.mission_id)) this.autoComplete(db, item, runId);
       }
     });
+  }
+
+  /**
+   * An auto-start mission needs no person between a verified run and Done: the
+   * run's own verified evidence (independent verdict included) is bound, the
+   * Governor writes the handoff from the run's summary, and the item moves to
+   * Done, which releases its dependents. Any shortfall (no verified bundle, an
+   * unpassed check) leaves the item in review for a person.
+   */
+  private autoComplete(db: ReturnType<Store["workspaceDb"]>, item: WorkItemRow, runId: string): void {
+    const bundles = db.prepare("SELECT digest, job_id FROM evidence_bundles WHERE state='verified' ORDER BY created_at_ms DESC").all() as Array<{ digest: string; job_id: string }>;
+    const bundle = bundles.find((entry) => this.producedByLinkedExecution(db, item.id, entry.job_id));
+    if (!bundle) return;
+    try {
+      this.store.inTx(db, () => {
+        this.assertEvidence(db, item, bundle.digest);
+        const outputs = db.prepare("SELECT output_json FROM step_outputs WHERE run_id=? ORDER BY rowid").all(runId) as Array<{ output_json: string }>;
+        const summary = outputs.map((row) => { const parsed = JSON.parse(row.output_json) as { summary?: unknown }; return typeof parsed.summary === "string" ? parsed.summary : ""; }).find((text) => text.length > 0) ?? "The run finished and its evidence was independently verified.";
+        submitHandoff(this.store, db, { workItemId: item.id, submittedBy: "governor", notes: { summary: summary.slice(0, 2000) } });
+        finalizeHandoff(db, item.id, bundle.digest);
+        transitionState(db, "workItem", item.id, "done", { set: { evidence_digest: bundle.digest, blocked_reason: null, next_action: "No further action", failed_attempts: 0, updated_at_ms: this.store.now() }, bumpVersion: true });
+        this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.transitioned", payload: { workItemId: item.id, state: "done", evidenceDigest: bundle.digest } });
+        verifyOutputs(db, item.id);
+        this.releaseReadyItems(db, item.mission_id);
+        wake(this.store, db, item.mission_id, "work-verified", item.title);
+      });
+    } catch (cause) {
+      if (!(cause instanceof BrainDomainError)) throw cause;
+    }
   }
 
   /**
