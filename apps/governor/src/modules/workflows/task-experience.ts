@@ -14,6 +14,19 @@ export function workItemSituation(title: string, criteria: readonly string[]): s
 }
 export class TaskExperience {
   constructor(private readonly s: Store, private readonly host: Host) {}
+  /** Plan runs the Governor started itself after a first one failed: a person is never shown a failure the Governor could have retried once. */
+  private readonly autoRetried = new Set<string>();
+
+  /** The first failed draft is retried once by itself; the person only sees a failure that survived a second try. */
+  private async retryPlanOnce(actor: ActorContext, workspaceId: string, missionId: string, failedRunId: string): Promise<MissionPlanView | undefined> {
+    if (this.autoRetried.has(failedRunId)) return undefined;
+    this.autoRetried.add(failedRunId);
+    try {
+      const next = await this.startMissionPlan(actor, { workspaceId, missionId, requestId: `${failedRunId}-retry` });
+      this.autoRetried.add(next.runId);
+      return next;
+    } catch { return undefined; }
+  }
   private db(actor: ActorContext, workspaceId: string) { requireWorkspaceRead(this.s, actor, workspaceId); return this.s.workspaceDb(workspaceId, actor.organizationId); }
   private async catalog(actor: ActorContext, workspaceId: string): Promise<WorkflowCatalogEntry[]> {
     return (await this.host.query(actor, { queryType: "workflows.list", workspaceId }) as unknown as { snapshot: { items: WorkflowCatalogEntry[] } }).snapshot.items;
@@ -122,13 +135,17 @@ export class TaskExperience {
         db.prepare("UPDATE planning_requests SET state='ready',plan_version_id=?,updated_at_ms=? WHERE mission_id=?").run(proposed.resourceId, this.s.now(), missionId);
         return await this.missionPlan(actor, workspaceId, missionId);
       } catch (error) {
+        const retried = await this.retryPlanOnce(actor, workspaceId, missionId, row.run_id);
+        if (retried) return retried;
         const message = error instanceof Error ? error.message.slice(0, 1024) : "plan proposal failed validation";
         db.prepare("UPDATE planning_requests SET state='failed',error=?,updated_at_ms=? WHERE mission_id=?").run(message, this.s.now(), missionId);
         return { missionId, runId: row.run_id, state: "failed", error: message };
       }
     }
     if (["failed", "cancelled", "partial", "blocked"].includes(run.snapshot.workflowState ?? "")) {
-      const error = "The plan assistant did not produce an independently validated proposal. Review the run or choose another strategy.";
+      const retried = await this.retryPlanOnce(actor, workspaceId, missionId, row.run_id);
+      if (retried) return retried;
+      const error = "Brain could not draft a validated plan after two tries. Try again, or add the tasks yourself.";
       db.prepare("UPDATE planning_requests SET state='failed',error=?,updated_at_ms=? WHERE mission_id=?").run(error, this.s.now(), missionId);
       return { missionId, runId: row.run_id, state: "failed", error };
     }
