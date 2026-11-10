@@ -505,3 +505,10 @@
 @media (max-width: 767px) {
   [data-slot="stat-grid"] > *:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
+
+/* Live console reactions: a record that arrives while you watch flashes the accent once;
+   a live session's dot breathes. Both stop under prefers-reduced-motion (global rule above). */
+.brain-fresh { animation: brain-fresh 1.6s var(--ease-standard, ease-out); border-radius: var(--radius-card); }
+@keyframes brain-fresh { from { background-color: var(--surface-blue-2); } to { background-color: transparent; } }
+.brain-live-dot { animation: brain-live-dot 2s ease-in-out infinite; }
+@keyframes brain-live-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }

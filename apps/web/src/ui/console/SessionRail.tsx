@@ -1,16 +1,25 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import type { BrainSession, JobSnapshot } from "@brain/contracts";
-import { StatusBadge } from "../components/StatusBadge";
-import { RelativeTime } from "../screen-region";
+import { StatusBadge, statusLabel } from "../components/StatusBadge";
+import { createNow, elapsedText } from "./NowLine";
 
 /**
- * The console's left pane (plan §3): sessions and runs with their live state —
- * running, verifying, waiting — and instant switching between concurrent
- * sessions. Nothing here duplicates the Runs index screen; it links to it.
+ * The console's left pane (plan §3): who is working right now — each session
+ * with its agent, state and how long it has been at it — then what finished,
+ * then the runs. Switching is instant; nothing here duplicates the Runs index
+ * screen, it links to it.
  */
 
 const LIVE_STATES = ["starting", "running", "waiting"];
+
+const DOT: Record<string, string> = {
+  running: "bg-surface-green-7 brain-live-dot", starting: "bg-surface-blue-7 brain-live-dot", waiting: "bg-surface-amber-6 brain-live-dot",
+  stopping: "bg-surface-amber-6", failed: "bg-surface-red-7", stopped: "bg-surface-gray-5",
+};
+const STATE_INK: Record<string, string> = {
+  running: "text-ink-green-8", starting: "text-ink-blue-8", waiting: "text-ink-amber-8", stopping: "text-ink-amber-8", failed: "text-ink-red-8", stopped: "text-ink-gray-6",
+};
 
 export function SessionRail(props: {
   workspaceId: string;
@@ -23,6 +32,7 @@ export function SessionRail(props: {
 }): JSX.Element {
   const [query, setQuery] = createSignal("");
   const [liveOnly, setLiveOnly] = createSignal(false);
+  const now = createNow();
 
   const sessions = createMemo(() => {
     const needle = query().trim().toLowerCase();
@@ -34,6 +44,8 @@ export function SessionRail(props: {
         || session.agentId.toLowerCase().includes(needle))
       .slice(0, 50);
   });
+  const working = () => sessions().filter((session) => LIVE_STATES.includes(session.state));
+  const earlier = () => sessions().filter((session) => !LIVE_STATES.includes(session.state));
   const runs = createMemo(() => {
     const needle = query().trim().toLowerCase();
     return props.jobs
@@ -44,14 +56,36 @@ export function SessionRail(props: {
   });
   const liveCount = () => props.sessions.filter((session) => LIVE_STATES.includes(session.state)).length;
 
+  const row = (session: BrainSession) => {
+    const live = () => LIVE_STATES.includes(session.state);
+    const elapsed = () => elapsedText(session.createdAt, live() ? now() : Date.parse(session.updatedAt) || now());
+    const selected = () => props.selected === session.sessionId;
+    return <button type="button" data-testid="rail-session" data-session-id={session.sessionId} aria-pressed={selected()}
+      class={`group relative flex w-full cursor-pointer items-start gap-2.5 rounded-control px-2 py-2 text-start focus-visible:focus-ring ${selected() ? "bg-surface-blue-1 shadow-[inset_2px_0_var(--surface-blue-7)]" : "hover:bg-surface-gray-1"}`}
+      onClick={() => props.onSelect(session.sessionId)}>
+      <span class="relative mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-surface-gray-2 text-ink-gray-7" aria-hidden="true">
+        <span class="lucide-bot size-4" />
+        <span class={`absolute -end-0.5 -bottom-0.5 size-2.5 rounded-full ring-2 ring-surface-elevation-1 ${DOT[session.state] ?? DOT.stopped}`} />
+      </span>
+      <span class="min-w-0 flex-1">
+        <span class="block truncate text-caption font-medium text-ink-gray-9">{session.task || session.sessionId}</span>
+        <span class="block truncate text-caption text-ink-gray-6">{[session.agentId, session.engine.id].filter(Boolean).join(" · ")}</span>
+        <span class="mt-0.5 flex items-center gap-1.5 text-caption">
+          <span class={`font-medium ${STATE_INK[session.state] ?? "text-ink-gray-6"}`}>{statusLabel(undefined, session.state)}</span>
+          <Show when={elapsed()}><span class="tabular-nums text-ink-gray-6">· {live() ? "" : "ran "}{elapsed()}</span></Show>
+        </span>
+      </span>
+    </button>;
+  };
+
   return <div class="flex min-h-0 flex-1 flex-col" data-testid="console-rail">
-    <div class="flex flex-col gap-1.5 border-b border-outline-gray-1 p-2.5">
+    <div class="flex flex-col gap-2 border-b border-outline-gray-1 p-2.5">
       <div class="flex items-center justify-between gap-2">
         <h2 class="text-base-medium text-ink-gray-9">Sessions &amp; runs</h2>
         <button type="button" aria-pressed={liveOnly()}
-          class={`rounded-control border px-1.5 py-0.5 text-caption focus-visible:focus-ring ${liveOnly() ? "border-outline-blue-3 bg-surface-blue-1 text-ink-blue-8" : "border-outline-gray-2 text-ink-gray-7"}`}
+          class={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-caption focus-visible:focus-ring ${liveOnly() ? "border-outline-blue-3 bg-surface-blue-1 text-ink-blue-8" : "border-outline-gray-2 text-ink-gray-7 hover:bg-surface-gray-1"}`}
           onClick={() => setLiveOnly((value) => !value)}>
-          Live only ({liveCount()})
+          <span class={`size-1.5 rounded-full ${liveCount() > 0 ? "bg-surface-green-7" : "bg-surface-gray-5"}`} aria-hidden="true" />Live only ({liveCount()})
         </button>
       </div>
       <input type="search" class="w-full rounded-control border border-outline-gray-2 bg-surface-elevation-1 px-2 py-1 text-caption focus-visible:focus-ring"
@@ -60,33 +94,28 @@ export function SessionRail(props: {
     </div>
     <div class="brain-exec-scroll flex-1">
       <section class="flex flex-col gap-0.5 p-2" aria-label="Agent sessions">
-        <h3 class="px-1 pb-1 text-caption font-medium uppercase tracking-wide text-ink-gray-6">Sessions ({sessions().length})</h3>
         <Show when={sessions().length > 0} fallback={<p class="px-1 py-2 text-caption text-ink-gray-6">No sessions match.</p>}>
-          <For each={sessions()}>{(session) => (
-            <button type="button" data-testid="rail-session" data-session-id={session.sessionId} aria-pressed={props.selected === session.sessionId}
-              class={`flex w-full cursor-pointer items-center gap-2 rounded-control border px-2 py-1 text-start focus-visible:focus-ring ${props.selected === session.sessionId ? "border-outline-blue-3 bg-surface-blue-1" : "border-transparent hover:bg-surface-gray-1"}`}
-              onClick={() => props.onSelect(session.sessionId)}>
-              <span class={`size-1.5 shrink-0 rounded-full ${session.state === "running" ? "bg-surface-green-7" : session.state === "waiting" || session.state === "starting" ? "bg-surface-amber-7" : session.state === "failed" ? "bg-surface-red-7" : "bg-surface-gray-2"}`}
-                role="img" aria-label={`Session ${session.state}`} />
-              <span class="min-w-0 flex-1">
-                <span class="block truncate text-caption font-medium text-ink-gray-9">{session.task || session.sessionId}</span>
-                <span class="block truncate text-caption text-ink-gray-6">{session.engine.id} · <RelativeTime value={session.updatedAt} /></span>
-              </span>
-            </button>
-          )}</For>
+          <Show when={working().length > 0}>
+            <h3 class="flex items-center gap-1.5 px-1 pb-1 text-caption font-medium text-ink-gray-7"><span class="size-1.5 rounded-full bg-surface-green-7" aria-hidden="true" />Working now ({working().length})</h3>
+            <For each={working()}>{row}</For>
+          </Show>
+          <Show when={earlier().length > 0}>
+            <h3 class={`px-1 pb-1 text-caption font-medium text-ink-gray-7 ${working().length > 0 ? "pt-2" : ""}`}>Earlier ({earlier().length})</h3>
+            <For each={earlier()}>{row}</For>
+          </Show>
         </Show>
       </section>
       <section class="flex flex-col gap-0.5 border-t border-outline-gray-1 p-2" aria-label="Runs">
         <div class="flex items-center justify-between px-1 pb-1">
-          <h3 class="text-caption font-medium uppercase tracking-wide text-ink-gray-6">Runs ({runs().length})</h3>
+          <h3 class="text-caption font-medium text-ink-gray-7">Runs ({runs().length})</h3>
           <button type="button" class="text-caption text-ink-blue-link hover:underline focus-visible:focus-ring" onClick={props.onOpenRunsIndex}>All runs</button>
         </div>
         <Show when={runs().length > 0} fallback={<p class="px-1 py-2 text-caption text-ink-gray-6">No runs match.</p>}>
           <For each={runs()}>{(job) => (
             <button type="button" data-testid="rail-run" data-job-id={job.jobId}
-              class="flex w-full cursor-pointer items-center gap-2 rounded-control border border-transparent px-2 py-1 text-start hover:bg-surface-gray-1 focus-visible:focus-ring"
+              class="flex w-full cursor-pointer items-center gap-2 rounded-control px-2 py-1.5 text-start hover:bg-surface-gray-1 focus-visible:focus-ring"
               onClick={() => props.onOpenRun(job.jobId)}>
-              <span class="grid size-7 shrink-0 place-items-center rounded-control bg-surface-blue-2 text-ink-blue-8"><span class="lucide-workflow size-3.5" aria-hidden="true" /></span>
+              <span class="grid size-7 shrink-0 place-items-center rounded-full bg-surface-gray-2 text-ink-gray-7" aria-hidden="true"><span class="lucide-workflow size-3.5" /></span>
               <span class="min-w-0 flex-1">
                 <span class="block truncate text-caption font-medium text-ink-gray-9">{job.workflowTitle ?? job.jobId}</span>
                 <span class="block truncate text-caption text-ink-gray-6">{job.attempts.length} {job.attempts.length === 1 ? "attempt" : "attempts"}</span>

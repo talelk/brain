@@ -68,7 +68,7 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
   if (await navToggle.isVisible()) await navToggle.click();
   await page.getByRole("button", { name: "Live", exact: true }).click();
   await expect(page).toHaveURL(/\/w\/ws-nav\/live/);
-  await expect(page.getByText("The execution console is ready", { exact: true })).toBeVisible();
+  await expect(page.getByText("Nobody is working right now", { exact: true })).toBeVisible();
   if (await navToggle.isVisible()) await navToggle.click();
   await expect(page.getByRole("button", { name: "Logs", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Outputs", exact: true })).toBeVisible();

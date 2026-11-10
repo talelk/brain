@@ -9,14 +9,14 @@ import type { StreamEvent } from "../../data/screens";
 import { jobsQuery, sessionsQuery } from "../../data/governor";
 import { query } from "../../data/client";
 import { sessionDetailQuery, type SessionDetail } from "../../data/exec-console";
-import { streamContextQuery } from "../../data/exec-logs";
 import type { ExecLogFilters } from "../exec/exec-filters";
 import { ScreenRegion } from "../screen-region";
-import { PaneResizer } from "../components/primitives";import {
+import { PaneResizer } from "../components/primitives";
+import {
   consoleLayout, lastSelectedSession, rememberSelectedSession,
   setRailWidth, setRightWidth,
 } from "./ConsoleStore";
-import { ConsoleFeed, hydrateConsoleHistory, type FeedEntry } from "./ConsoleFeed";
+import { ConsoleFeed, hydrateConsoleHistory } from "./ConsoleFeed";
 import { ConsoleInspection, ConsoleToolbar, InterruptionChooser } from "./ConsoleControls";
 import { SessionRail } from "./SessionRail";
 import { ConsoleNowLine, NO_ACTIVITY, type FeedActivity } from "./NowLine";
@@ -24,11 +24,11 @@ import { EmptyState } from "@talelk/newui-molecules";
 
 /**
  * The Live console's three-pane desktop layout (plan §3): a resizable
- * sessions-and-runs rail on the left, the live console in the center (which
- * splits below or beside its record inspection pane), and outputs plus
- * contextual inspection on the right. Pane sizes and the split arrangement
- * persist per workspace in ConsoleStore; below the lg breakpoint the panes
- * stack and the resizers step aside.
+ * sessions-and-runs rail on the left (who is working, state, elapsed), the
+ * session in the center (what it is doing now, then its transcript), and its
+ * facts, outputs and verification on the right. Pane sizes persist per
+ * workspace in ConsoleStore; below the lg breakpoint the panes stack and the
+ * resizers step aside.
  */
 
 const COMPACT_QUERY = "(max-width: 1023px)";
@@ -50,17 +50,17 @@ export function ConsoleLayout(props: { workspaceId: string; rail: JSX.Element; c
   const resize = (apply: (delta: number) => void) => (delta: number) => { if (!compact()) apply(delta); };
   return <Show
     when={!compact()}
-    fallback={<div class="flex flex-col gap-2" style={{ "min-height": "36rem" }}>
-      <div class="brain-exec-pane max-h-64 shrink-0 overflow-auto border-b border-outline-gray-1">{props.rail}</div>
-      <div class="brain-exec-pane min-h-[28rem] flex-1">{props.center}</div>
-      <div class="brain-exec-pane max-h-72 shrink-0 overflow-auto border-t border-outline-gray-1">{props.right}</div>
+    fallback={<div class="flex flex-col gap-3" style={{ "min-height": "36rem" }}>
+      <div class="brain-exec-pane max-h-64 shrink-0 overflow-auto rounded-card border border-outline-gray-1 bg-surface-elevation-1">{props.rail}</div>
+      <div class="brain-exec-pane h-[70dvh] min-h-[28rem] rounded-card border border-outline-gray-1 bg-surface-elevation-1">{props.center}</div>
+      <div class="brain-exec-pane max-h-96 shrink-0 overflow-auto rounded-card border border-outline-gray-1 bg-surface-elevation-1">{props.right}</div>
     </div>}>
-    <div class="brain-exec-console w-full" style={{ height: "calc(100dvh - 14rem)", "min-height": "36rem" }}>
-      <div class="brain-exec-pane shrink-0" style={{ width: `${layout().railWidth}px` }}>{props.rail}</div>
+    <div class="brain-exec-console w-full overflow-hidden rounded-card border border-outline-gray-1 bg-surface-elevation-1" style={{ height: "calc(100dvh - 14rem)", "min-height": "36rem" }}>
+      <div class="brain-exec-pane shrink-0 bg-surface-gray-1/50" style={{ width: `${layout().railWidth}px` }}>{props.rail}</div>
       <PaneResizer orientation="row" label="Resize the sessions rail (left/right); double-click resets"
         onResize={resize((delta) => setRailWidth(props.workspaceId, layout().railWidth + delta))}
         onReset={() => setRailWidth(props.workspaceId, 288)} />
-      <div class="brain-exec-pane min-w-0 flex-1">{props.center}</div>
+      <div class="brain-exec-pane min-w-0 flex-1 border-x border-outline-gray-1">{props.center}</div>
       <PaneResizer orientation="row" label="Resize the outputs and inspection pane (left/right); double-click resets"
         onResize={resize((delta) => setRightWidth(props.workspaceId, layout().rightWidth - delta))}
         onReset={() => setRightWidth(props.workspaceId, 320)} />
@@ -135,8 +135,8 @@ export function ConsoleScreen(props: {
         emptyDescription="Sessions appear here the moment a run claims a runner. Dispatch declared work to start one."
         emptyAction={<Button variant="solid" theme="blue" onClick={() => void navigate(`/w/${ws()}/plays`)}>Start work</Button>}
         onRetry={() => void sessions.refresh({ force: true })}>
-        <EmptyState size="sm" icon="lucide-radio" title="The execution console is ready"
-          description="Live sessions, their tool activity and their outputs will stream in this three-pane console." />
+        <EmptyState size="sm" icon="lucide-radio" title="Nobody is working right now"
+          description="When an agent starts, you will see who it is, what it is doing and every step it takes, live." />
       </ScreenRegion>}>
       {(sessionId) => <SessionConsole workspaceId={ws()} sessionId={sessionId} rail={rail}
         jobs={jobs.state().data ?? []} filters={props.filters} onFiltersChange={props.onFiltersChange}
@@ -193,26 +193,13 @@ function SessionConsole(props: {
   });
 
   const [feedback, setFeedback] = createSignal("");
-  const [selectedEntry, setSelectedEntry] = createSignal<FeedEntry | undefined>();
-  const [resolveToken, setResolveToken] = createSignal(0);
-  const [inspectToken, setInspectToken] = createSignal(0);
-  const [approvalId, setApprovalId] = createSignal<string | undefined>();
   const [activity, setActivity] = createSignal<FeedActivity>(NO_ACTIVITY);
+  const [steerRequest, setSteerRequest] = createSignal(0);
 
   const canOperate = () => app.canDispatch() && session.state().canMutate;
-
-  async function findApproval(): Promise<void> {
-    const entry = selectedEntry();
-    if (!entry) { setFeedback("Select a tool call or effect record in the feed to resolve its approval."); return; }
-    try {
-      const loaded = await streamContextQuery(entry.event.eventId ?? entry.event.id);
-      const linked = loaded.snapshot.approval?.approvalId;
-      if (linked) { setApprovalId(linked); setFeedback(""); }
-      else setFeedback("No approval is linked to this record's invocation.");
-    } catch (e) {
-      setFeedback(e instanceof Error ? e.message : "The approval linkage could not be resolved.");
-    }
-  }
+  const live = () => ["starting", "running", "waiting"].includes(detail()?.state ?? "");
+  const canSteer = () => live() && canOperate() && (detail()?.engine.features ?? []).includes("steer");
+  const reply = () => (canSteer() ? () => setSteerRequest((value) => value + 1) : undefined);
 
   function resumePayload(current: SessionDetail) {
     // session.create requires the full prior-session authority; resume only
@@ -234,9 +221,8 @@ function SessionConsole(props: {
   }
 
   const center = <div class="flex min-h-0 flex-1 flex-col">
-    <ConsoleNowLine session={detail()} activity={activity()} />
     <ConsoleToolbar workspaceId={props.workspaceId} sessionId={props.sessionId}
-      session={detail()} canOperate={canOperate()} feedback={feedback()} selected={selectedEntry()}
+      session={detail()} canOperate={canOperate()} feedback={feedback()} steerRequest={steerRequest()}
       onRefresh={() => void session.refresh({ force: true })}
       onSteer={async (message) => {
         try {
@@ -259,10 +245,8 @@ function SessionConsole(props: {
           const result = await app.run("mission.message.send", { missionId: item.snapshot.missionId, recipient: { kind: "mission" }, workItemId: current.workItemId, body });
           setFeedback(result.detail);
         } catch (e) { setFeedback(e instanceof Error ? e.message : "Attaching context was refused."); }
-      }}
-      onOpenToolResult={() => setResolveToken((value) => value + 1)}
-      onInspectOutput={() => setInspectToken((value) => value + 1)}
-      onFindApproval={() => findApproval()} />
+      }} />
+    <ConsoleNowLine session={detail()} activity={activity()} onReply={reply()} />
     <Show when={detail()} keyed>
       {(current) => <InterruptionChooser session={current} canOperate={canOperate()}
         onResume={async () => {
@@ -297,13 +281,13 @@ function SessionConsole(props: {
       {(ready) => <ConsoleFeed workspaceId={props.workspaceId} sessionId={props.sessionId}
         streamCursor={ready.head || (detail()?.streamCursor ?? 0)} history={ready.history}
         filters={props.filters} onFiltersChange={props.onFiltersChange}
-        onResync={() => setReload((value) => value + 1)}
-        resolveToken={resolveToken()} onSelectionChange={setSelectedEntry} onActivity={setActivity} />}
+        onResync={() => setReload((value) => value + 1)} ended={!!detail() && !live()}
+        onReply={reply()} onActivity={setActivity} />}
     </Show>
   </div>;
 
   const right = <ConsoleInspection workspaceId={props.workspaceId} scope={app.scope}
-    session={detail()} job={boundJob()} approvalId={approvalId()} inspectToken={inspectToken()} />;
+    session={detail()} job={boundJob()} />;
 
   return <ConsoleLayout workspaceId={props.workspaceId} rail={props.rail} center={center} right={right} />;
 }

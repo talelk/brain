@@ -1,21 +1,18 @@
-import { For, Show, createEffect, createSignal } from "solid-js";
+import { For, Show, createEffect, createSignal, on } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { Button, Textarea } from "@talelk/newui-atoms";
-import type { ArtifactRef, ApprovalRequest, JobSnapshot } from "@brain/contracts";
+import type { ArtifactRef, JobSnapshot } from "@brain/contracts";
 import { createScopedRead } from "../../data/screens";
-import { approvalQuery } from "../../data/governor";
 import { artifactsListQuery } from "../../data/exec-outputs";
 import type { SessionContinuation, SessionDetail } from "../../data/exec-console";
 import { execLogsUrl } from "../exec/exec-filters";
 import { CorrelationLink } from "../exec/CorrelationLink";
 import { WorkItemLink } from "../exec/WorkItemLink";
-import { streamSummaryText } from "../exec/StreamEventRow";
-import type { FeedEntry } from "./ConsoleFeed";
 import { ArtifactView } from "../outputs/ArtifactView";
 import { EvidenceList } from "../components/EvidenceList";
 import { ReasonDialog } from "../components/ReasonDialog";
 import { StatusBadge } from "../components/StatusBadge";
-import { DateText } from "../screen-region";
+import { RelativeTime } from "../screen-region";
 import { formatUsd } from "../format";
 
 /** The read scope every contextual panel reads through (no fabricated scopes). */
@@ -24,9 +21,8 @@ type ConsoleScope = Accessor<{ organizationId: string; workspaceId: string; gene
 /**
  * The console's intervention surface (plan §3 action → command map, exact):
  * Steer → session.steer; Stop → session.stop; Attach context →
- * mission.message.send for the session's work item; Open tool result / Inspect current output → the feed's
- * record inspection and the job-scoped artifacts read; See related approval →
- * the invocation→approval linkage of stream.context. After an interruption the
+ * mission.message.send for the session's work item. A tool call's result and
+ * approval linkage open on its card in the transcript. After an interruption the
  * chooser names exactly one recovery operation (reconnect / continue native /
  * resume from verified checkpoint / restart / reconcile) — they are not
  * interchangeable, and the UI enables only the commands that exist.
@@ -38,14 +34,12 @@ export function ConsoleToolbar(props: {
   session?: SessionDetail;
   canOperate: boolean;
   feedback: string;
-  selected?: FeedEntry;
+  /** Bumped to open the steering form, e.g. from an inline request for input. */
+  steerRequest?: number;
   onRefresh: () => void;
   onSteer: (message: string) => Promise<void>;
   onStop: (reason: string) => Promise<void>;
   onAttach: (body: string) => Promise<void>;
-  onOpenToolResult: () => void;
-  onInspectOutput: () => void;
-  onFindApproval: () => Promise<void>;
 }): JSX.Element {
   const [dialog, setDialog] = createSignal<"none" | "steer" | "stop" | "attach" | "reconcile">("none");
   const [reason, setReason] = createSignal("");
@@ -58,6 +52,7 @@ export function ConsoleToolbar(props: {
   const canSteer = () => live() && props.canOperate && features().includes("steer");
   const canStop = () => !terminal() && props.canOperate;
   const canAttach = () => (live() || terminal()) && props.canOperate && !!session()?.workItemId;
+  createEffect(on(() => props.steerRequest ?? 0, (token) => { if (token > 0 && canSteer()) { setDialog("steer"); setReason(""); } }, { defer: true }));
 
   async function submit(kind: "steer" | "stop" | "attach"): Promise<void> {
     setBusy(true);
@@ -69,16 +64,19 @@ export function ConsoleToolbar(props: {
     } finally { setBusy(false); }
   }
 
-  return <div class="flex flex-col gap-1.5 border-b border-outline-gray-1 px-2.5 py-2">
-    <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-      <div class="min-w-0 flex-1 basis-48">
-        <div class="flex min-w-0 items-center gap-2">
-          <h2 class="min-w-0 truncate text-base-medium text-ink-gray-9" title={session()?.task || props.sessionId}>{session()?.task || props.sessionId}</h2>
-          <StatusBadge status={session()?.state ?? "unknown"} />
+  return <div class="flex flex-col gap-2 border-b border-outline-gray-1 px-3 py-2.5">
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div class="flex min-w-0 flex-1 basis-72 items-center gap-2.5">
+        <span class="grid size-8 shrink-0 place-items-center rounded-full bg-surface-blue-2 text-ink-blue-8" aria-hidden="true"><span class="lucide-bot size-4" /></span>
+        <div class="min-w-0">
+          <div class="flex min-w-0 items-center gap-2">
+            <h2 class="min-w-0 truncate text-base-medium text-ink-gray-9" title={session()?.task || props.sessionId}>{session()?.task || props.sessionId}</h2>
+            <StatusBadge status={session()?.state ?? "unknown"} />
+          </div>
+          <p class="truncate text-caption text-ink-gray-6" title={`${props.sessionId} · engine negotiation decides which controls exist`}>
+            {[session()?.agentId, session()?.engine.id ?? "engine unavailable"].filter(Boolean).join(" · ")}<Show when={features().length > 0}> ({features().join(", ")})</Show> · <span class="brain-exec-log text-[0.75rem]">{props.sessionId}</span>
+          </p>
         </div>
-        <p class="truncate text-caption text-ink-gray-6" title={`${props.sessionId} · engine negotiation decides which controls exist`}>
-          {props.sessionId} · {session()?.engine.id ?? "engine unavailable"}<Show when={features().length > 0}> · {features().join(", ")}</Show>
-        </p>
       </div>
       <div class="ms-auto flex flex-wrap items-center gap-1">
         <Show when={canSteer()}>
@@ -90,18 +88,13 @@ export function ConsoleToolbar(props: {
         <Show when={canAttach()}>
           <Button size="sm" variant="outline" iconLeft="lucide-paperclip" aria-label="Attach context" onClick={() => { setDialog("attach"); setReason(""); }}>Attach</Button>
         </Show>
-        <Button size="sm" variant="outline" aria-label="Open tool result" disabled={!props.selected || props.selected.kind !== "tool"}
-          title={props.selected?.kind === "tool" ? "Show the files and output this tool call produced" : "Pick a tool call in the transcript first, then show what it produced"}
-          onClick={() => props.onOpenToolResult()}>Open result</Button>
-        <Button size="sm" variant="outline" iconLeft="lucide-package" aria-label="Inspect current output" title="Preview the newest file this session has produced" onClick={() => props.onInspectOutput()}>Latest file</Button>
-        <Button size="sm" variant="outline" iconLeft="lucide-shield-check" aria-label="See related approval" title="Pick a tool call in the transcript, then see whether a person has to approve it" onClick={() => void props.onFindApproval()}>Needs approval?</Button>
         <Show when={canStop()}>
           <Button size="sm" variant="outline" theme="red" iconLeft="lucide-square" onClick={() => { setDialog("stop"); setReason(""); }}>Stop</Button>
         </Show>
         <Button size="sm" variant="ghost" iconLeft="lucide-refresh-cw" aria-label="Refresh session" onClick={props.onRefresh} />
         <a class="inline-flex items-center gap-1 rounded-control px-1.5 py-1 text-caption text-ink-blue-link hover:bg-surface-blue-1 focus-visible:focus-ring" aria-label="View logs for this session"
           title="Open the full log of this session"
-          href={execLogsUrl(props.workspaceId, { session: props.sessionId, severity: [], emitter: [] })}>View logs</a>
+          href={execLogsUrl(props.workspaceId, { session: props.sessionId, severity: [], emitter: [] })}><span class="lucide-scroll-text size-3.5" aria-hidden="true" />View logs</a>
       </div>
     </div>
     <Show when={terminal()}><p class="text-caption text-ink-gray-6">This session is stopping or has ended, so it can no longer be steered.</p></Show>
@@ -239,17 +232,14 @@ const checkable = (job: JobSnapshot | undefined, session: SessionDetail | undefi
   !!job?.evidenceDigest || session?.state === "stopped" || session?.state === "failed"
   || ["succeeded", "failed", "cancelled", "outcome_unknown"].includes(job?.workflowState ?? job?.state ?? "");
 
-/** Right pane: outputs plus contextual inspection (facts, evidence, approval). */
+/** Right pane: the session's facts and usage, its outputs, and the independent verification. */
 export function ConsoleInspection(props: {
   workspaceId: string;
   scope: ConsoleScope;
   session?: SessionDetail;
   job?: JobSnapshot;
-  approvalId?: string;
-  inspectToken: number;
 }): JSX.Element {
   const [previewId, setPreviewId] = createSignal<string | undefined>();
-  const [inspectSeen, setInspectSeen] = createSignal(0);
   const scopeFilter = () => props.session?.jobId ? { jobId: props.session.jobId } : props.session?.workItemId ? { workItemId: props.session.workItemId } : undefined;
   const artifacts = createScopedRead<{ items: readonly { artifactId: string; digest: string; bytes: number; mediaType: string; classification: string }[] }>({
     scope: props.scope,
@@ -263,45 +253,55 @@ export function ConsoleInspection(props: {
     },
     refreshMs: 15_000,
   });
-  createEffect(() => {
-    // "Inspect current output": reveal the newest artifact's preview.
-    if (props.inspectToken === inspectSeen()) return;
-    setInspectSeen(props.inspectToken);
-    const first = artifacts.state().data?.items[0];
-    if (first) setPreviewId(first.artifactId);
-  });
   const previewed = () => artifacts.state().data?.items.find((item) => item.artifactId === previewId());
+  const tokenShare = () => {
+    const max = props.session?.budget.maxTokens ?? 0;
+    return max > 0 ? Math.min(100, Math.round(((props.session?.usedTokens ?? 0) / max) * 100)) : 0;
+  };
+  const fileIcon = (mediaType: string) => mediaType.startsWith("image/") ? "lucide-image" : mediaType.includes("json") ? "lucide-braces" : mediaType.startsWith("text/") ? "lucide-file-text" : "lucide-file";
 
-  return <div class="brain-exec-scroll flex flex-col gap-3 p-2.5" data-testid="console-inspection">
-    <section class="flex flex-col gap-2" aria-label="Session facts">
-      <h3 class="text-base-medium text-ink-gray-9">Session facts</h3>
-      <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-caption">
-        <div class="min-w-0"><dt class="text-ink-gray-6">State</dt><dd class="mt-0.5"><StatusBadge status={props.session?.state ?? "unknown"} /></dd></div>
-        <div class="min-w-0"><dt class="text-ink-gray-6">Engine</dt><dd class="mt-0.5 break-words text-ink-gray-9">{props.session?.engine.id ?? "—"} {props.session?.engine.version ?? ""}</dd></div>
-        <div class="min-w-0"><dt class="text-ink-gray-6">Usage</dt><dd class="mt-0.5 break-words text-ink-gray-9">{(props.session?.usedTokens ?? 0).toLocaleString()} tokens · {formatUsd(props.session?.usedMicroUsd)}</dd></div>
-        <div class="min-w-0"><dt class="text-ink-gray-6">Budget</dt><dd class="mt-0.5 break-words text-ink-gray-9">{props.session?.budget.maxTurns ?? "—"} turns · {(props.session?.budget.maxTokens ?? 0).toLocaleString()} tokens</dd></div>
-        <Show when={props.session?.workItemId}><div class="col-span-2 min-w-0"><dt class="text-ink-gray-6">Work item</dt><dd class="mt-0.5 break-all"><WorkItemLink workspaceId={props.workspaceId} workItemId={props.session!.workItemId!} class="text-ink-blue-link hover:underline focus-visible:focus-ring">{props.session!.workItemId}</WorkItemLink></dd></div></Show>
-        <Show when={props.session?.jobId}><div class="col-span-2 min-w-0"><dt class="text-ink-gray-6">Run</dt><dd class="mt-0.5"><CorrelationLink target={{ kind: "job", jobId: props.session!.jobId! }} label={props.session!.jobId!} icon="lucide-workflow" class="max-w-full" /></dd></div></Show>
-        <div class="col-span-2 min-w-0"><dt class="text-ink-gray-6">Updated</dt><dd class="mt-0.5 text-ink-gray-9"><DateText value={props.session?.updatedAt} /></dd></div>
+  return <div class="brain-exec-scroll flex flex-col gap-4 p-3" data-testid="console-inspection">
+    <section class="flex flex-col gap-2.5" aria-label="Session facts">
+      <h3 class="text-base-medium text-ink-gray-9">Session</h3>
+      <div class="flex flex-col gap-1.5 rounded-card border border-outline-gray-1 p-2.5">
+        <div class="flex items-center justify-between gap-2 text-caption">
+          <span class="text-ink-gray-6">Tokens</span>
+          <span class="tabular-nums text-ink-gray-9">{(props.session?.usedTokens ?? 0).toLocaleString()} of {(props.session?.budget.maxTokens ?? 0).toLocaleString()}</span>
+        </div>
+        <span role="progressbar" aria-label="Tokens used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={tokenShare()} class="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-gray-3">
+          <span class={`h-full ${tokenShare() >= 90 ? "bg-surface-amber-6" : "bg-surface-blue-9"}`} style={{ width: `${tokenShare()}%` }} />
+        </span>
+        <div class="flex items-center justify-between gap-2 text-caption">
+          <span class="text-ink-gray-6">Cost so far</span><span class="tabular-nums text-ink-gray-9">{formatUsd(props.session?.usedMicroUsd)}</span>
+        </div>
+      </div>
+      <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-caption">
+        <dt class="text-ink-gray-6">State</dt><dd class="min-w-0"><StatusBadge status={props.session?.state ?? "unknown"} /></dd>
+        <dt class="text-ink-gray-6">Engine</dt><dd class="min-w-0 break-words text-ink-gray-9">{props.session?.engine.id ?? "—"} {props.session?.engine.version ?? ""}</dd>
+        <dt class="text-ink-gray-6">Turn limit</dt><dd class="min-w-0 text-ink-gray-9">{props.session?.budget.maxTurns ?? "—"} turns</dd>
+        <Show when={props.session?.workItemId}><dt class="text-ink-gray-6">Work item</dt><dd class="min-w-0 break-all"><WorkItemLink workspaceId={props.workspaceId} workItemId={props.session!.workItemId!} class="text-ink-blue-link hover:underline focus-visible:focus-ring">{props.session!.workItemId}</WorkItemLink></dd></Show>
+        <Show when={props.session?.jobId}><dt class="text-ink-gray-6">Run</dt><dd class="min-w-0"><CorrelationLink target={{ kind: "job", jobId: props.session!.jobId! }} label={props.session!.jobId!} icon="lucide-workflow" class="max-w-full" /></dd></Show>
+        <dt class="text-ink-gray-6">Updated</dt><dd class="min-w-0 text-ink-gray-9"><RelativeTime value={props.session?.updatedAt} /></dd>
       </dl>
     </section>
 
     <section class="flex flex-col gap-2" aria-label="Working outputs">
       <div class="flex items-center justify-between gap-2">
         <h3 class="text-base-medium text-ink-gray-9">Outputs</h3>
-        <Show when={scopeFilter()} fallback={<span class="text-caption text-ink-gray-6">Session is not bound to a run or work item.</span>}>
+        <Show when={scopeFilter()}>
           <a class="text-caption text-ink-blue-link hover:underline focus-visible:focus-ring" href={`/w/${props.workspaceId}/outputs?${props.session?.jobId ? `job=${props.session.jobId}` : `workItem=${props.session?.workItemId}`}`}>Open in Outputs</a>
         </Show>
       </div>
       <Show when={(artifacts.state().data?.items.length ?? 0) > 0} fallback={
-        <p class="text-caption text-ink-gray-6">{scopeFilter() ? "No verified artifact is bound yet. Final artifacts bind on completion with their digest and verification status." : "Bind this session to a run or work item to see its outputs."}</p>}>
+        <p class="text-caption text-ink-gray-6">{scopeFilter() ? "No file yet. Files bind here as the session produces them, each with its digest and verification." : "This session is not bound to a run or work item, so it has no outputs to show."}</p>}>
         <div class="flex flex-col gap-1">
           <For each={artifacts.state().data?.items.slice(0, 12)}>{(artifact) => (
             <button type="button" aria-pressed={previewId() === artifact.artifactId}
-              class={`flex w-full cursor-pointer items-center justify-between gap-2 rounded-control border px-2 py-1.5 text-start text-caption focus-visible:focus-ring ${previewId() === artifact.artifactId ? "border-outline-blue-2 bg-surface-blue-1" : "border-outline-gray-1 hover:bg-surface-gray-1"}`}
+              class={`flex w-full cursor-pointer items-center gap-2 rounded-control border px-2 py-1.5 text-start text-caption focus-visible:focus-ring ${previewId() === artifact.artifactId ? "border-outline-blue-2 bg-surface-blue-1" : "border-outline-gray-1 hover:bg-surface-gray-1"}`}
               onClick={() => setPreviewId((current) => (current === artifact.artifactId ? undefined : artifact.artifactId))}>
+              <span class={`${fileIcon(artifact.mediaType)} size-3.5 shrink-0 text-ink-gray-6`} aria-hidden="true" />
               <span class="min-w-0 flex-1 truncate text-ink-gray-8" title={artifact.digest}>{artifact.mediaType}</span>
-              <span class="shrink-0 text-ink-gray-6">{artifact.bytes.toLocaleString()} B</span>
+              <span class="shrink-0 tabular-nums text-ink-gray-6">{artifact.bytes.toLocaleString()} B</span>
             </button>
           )}</For>
         </div>
@@ -312,8 +312,8 @@ export function ConsoleInspection(props: {
     </section>
 
     <Show when={props.job && !checkable(props.job, props.session)}>
-      <p class="rounded-control bg-surface-gray-1 px-2.5 py-2 text-caption text-ink-gray-7">
-        <span class="lucide-shield-check me-1 size-3.5 align-text-bottom" aria-hidden="true" />Independent checking of the result starts when this work finishes.
+      <p class="flex items-start gap-1.5 rounded-control bg-surface-gray-1 px-2.5 py-2 text-caption text-ink-gray-7">
+        <span class="lucide-shield-check mt-0.5 size-3.5 shrink-0" aria-hidden="true" />Independent checking of the result starts when this work finishes.
       </p>
     </Show>
     <Show when={props.job && checkable(props.job, props.session)}>
@@ -323,43 +323,5 @@ export function ConsoleInspection(props: {
           emptyHint="No evidence bundle is bound to this run yet. Independent verification — not agent output — decides completion." />
       </section>
     </Show>
-
-    <Show when={props.approvalId} keyed>{(approvalId) => <ApprovalPanel scope={props.scope} approvalId={approvalId} />}</Show>
   </div>;
-}
-
-/**
- * The contextual approval panel (P1): exact-action review without leaving the
- * session. It copies the approvals screen's no-auto-refresh invariant — one
- * explicit fetch plus manual refresh — because a poll would replace the row
- * objects and destroy an open exact-review mid-decision.
- */
-function ApprovalPanel(props: { scope: ConsoleScope; approvalId: string }): JSX.Element {
-  const approval = createScopedRead<ApprovalRequest>({
-    scope: props.scope,
-    resource: () => props.approvalId,
-    load: async (_scope, signal, approvalId) => approvalQuery(approvalId!, signal),
-  });
-  const request = () => approval.state().data;
-  const subject = () => request()?.subject;
-  return <section class="flex flex-col gap-2 rounded-card border border-outline-blue-2 bg-surface-blue-1 p-3" aria-label="Related approval" data-testid="console-approval-panel">
-    <div class="flex items-center justify-between gap-2">
-      <h3 class="text-base-medium text-ink-gray-9">Related approval</h3>
-      <CorrelationLink target={{ kind: "approval", approvalId: props.approvalId }} label="Open full review" icon="lucide-shield-check" />
-    </div>
-    <Show when={request()} keyed fallback={<p class="text-caption text-ink-gray-6">Loading the approval request…</p>}>
-      {(request) => <div class="flex flex-col gap-2">
-        <div class="flex items-center gap-2">
-          <StatusBadge kind="approval" status={request.state} />
-          <span class="text-caption text-ink-gray-6"><DateText value={request.createdAt} /></span>
-        </div>
-        <p class="break-words text-caption text-ink-gray-8">{subject()?.operation ?? "Requested effect"} → {subject()?.target?.targetId ?? "declared target"}</p>
-        <details class="rounded-control bg-surface-elevation-1 p-2">
-          <summary class="cursor-pointer text-caption font-medium focus-visible:focus-ring">Exact proposed effect</summary>
-          <pre class="brain-exec-log mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words text-caption text-ink-gray-7">{streamSummaryText(JSON.stringify(subject() ?? {}, null, 2), 4_000) || "{}"}</pre>
-        </details>
-        <Button size="sm" variant="outline" onClick={() => void approval.refresh({ force: true })}>Refresh (no auto-poll by design)</Button>
-      </div>}
-    </Show>
-  </section>;
 }

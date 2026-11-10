@@ -162,6 +162,9 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   // (b) Switch between concurrent sessions without state loss: each session
   // shows only its own transcript; the selection is carried in the URL.
   await expect(page.getByText("Plan review notes: three risks accepted.")).toBeVisible({ timeout: 30_000 });
+  // The transcript reads as turns over a live connection.
+  await expect(page.getByRole("log", { name: "Transcript of session ses-plan" }).getByText("Turn 1", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /^Live$/ })).toBeVisible();
   await rail.locator('[data-session-id="ses-triage"]').click();
   await expect(page).toHaveURL(/session=ses-triage/);
   await expect(page.getByText("Triage: two incidents need owners.")).toBeVisible({ timeout: 30_000 });
@@ -227,6 +230,26 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   // transcript; delivery to the runner is asserted at the integration level.
   const steerRows = (ws.prepare("SELECT COUNT(*) AS c FROM session_controls WHERE session_id='ses-plan' AND kind='session.steer'").get() as { c: number }).c;
   expect(steerRows, "steer control recorded for the runner to pick up").toBe(1);
+
+  // A request for input surfaces inline in the transcript, with a reply that opens steering.
+  insertWsEvent.run("evt-plan-ask", "session", "ses-plan", 2, "human.input.requested", JSON.stringify({ sessionId: "ses-plan", prompt: "Which quarter should I summarize?" }), DIGEST, Date.now());
+  const ask = page.getByRole("note", { name: "The agent is waiting for input" });
+  await expect(ask).toBeVisible({ timeout: 30_000 });
+  await expect(ask.getByText("Which quarter should I summarize?")).toBeVisible();
+  await ask.getByRole("button", { name: "Reply to the agent", exact: true }).click();
+  await expect(page.getByLabel("Steering message")).toBeVisible();
+
+  // New records while the reader is scrolled up are counted, not forced into view; Jump to latest follows again.
+  for (let i = 1; i <= 60; i += 1) insertWsEvent.run(`evt-plan-line-${i}`, "session", "ses-plan", 2 + i, "text", JSON.stringify({ sessionId: "ses-plan", text: `Reading section ${i}.\n`, channel: "assistant" }), DIGEST, Date.now());
+  const planTranscript = page.getByRole("log", { name: "Transcript of session ses-plan" });
+  await expect(planTranscript.getByText("Reading section 60.")).toBeVisible({ timeout: 30_000 });
+  await planTranscript.evaluate((element) => { element.scrollTop = 0; element.dispatchEvent(new Event("scroll")); });
+  for (let i = 61; i <= 63; i += 1) insertWsEvent.run(`evt-plan-line-${i}`, "session", "ses-plan", 2 + i, "text", JSON.stringify({ sessionId: "ses-plan", text: `Reading section ${i}.\n`, channel: "assistant" }), DIGEST, Date.now());
+  const jump = page.getByRole("button", { name: /^Jump to latest \(3\)$/ });
+  await expect(jump).toBeVisible({ timeout: 30_000 });
+  await jump.click();
+  await expect(jump).toBeHidden();
+  await expect(planTranscript.getByText("Reading section 63.")).toBeInViewport();
 
   // Attach context is a mission message about the bound work item.
   await page.goto(`${governor.url}/w/ws-console/live?session=ses-report`);

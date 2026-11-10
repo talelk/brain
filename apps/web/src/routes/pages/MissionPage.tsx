@@ -290,35 +290,28 @@ function LiveTab(props: ActProps): JSX.Element {
     setBody(""); setAddToBrief(false); setComposeOpen(false);
     await messages.refresh({ force: true });
   });
+  const running = (memberId: string) => sessionsOf(memberId).filter((session) => session.state === "running" || session.state === "starting" || session.state === "waiting").length;
+  const chip = (selected: boolean) => `inline-flex min-w-0 cursor-pointer items-center gap-2 rounded-full border py-1 ps-1 pe-3 text-caption focus-visible:focus-ring ${selected ? "border-outline-blue-3 bg-surface-blue-1 text-ink-blue-8" : "border-outline-gray-2 bg-surface-elevation-1 text-ink-gray-8 hover:bg-surface-gray-1"}`;
   return <PageStack>
-    <div class="brain-run-layout">
-      <div class="brain-detail-stack">
-    <WorkspaceSection title="Team" description="Choose a member to follow only their sessions in the console.">
-      <div class="brain-queue">
-        <QueueRow title="Whole team" description={`${team.state().data?.sessions.length ?? 0} sessions`} icon="lucide-users" selected={!member()} label="Follow the whole team" onClick={() => setSearch({ member: undefined, session: undefined })} />
-        <For each={team.state().data?.members ?? []}>{(entry) => <QueueRow title={entry.role} description={`${entry.agentId} · ${entry.engine}`} eyebrow={entry.memberId} icon="lucide-bot"
-          tone={sessionsOf(entry.memberId).some((session) => session.state === "running") ? "blue" : "gray"} selected={member() === entry.memberId}
-          meta={<span>{sessionsOf(entry.memberId).filter((session) => session.state === "running").length} running · {sessionsOf(entry.memberId).length} sessions</span>}
-          label={`Follow ${entry.role} (${entry.memberId})`} onClick={() => setSearch({ member: entry.memberId, session: undefined })} />}</For>
-      </div>
-    </WorkspaceSection>
-    <WorkspaceSection title="Compare two sessions" description="Follow two members' sessions side by side; each keeps its own filters and live tail."
-      actions={<Show when={compared().length}><Button variant="outline" iconLeft="lucide-x" onClick={() => setSearch({ compare: undefined })}>Close comparison</Button></Show>}>
-      <div class="brain-field-grid">
-        <For each={[0, 1] as const}>{(index) => <Select label={index === 0 ? "Left session" : "Right session"} value={compared()[index] ?? ""} onValueChange={(value) => setCompared(index, value ?? "")}
-          options={(team.state().data?.sessions ?? []).map((session) => ({ value: session.sessionId, label: sessionLabel(session.sessionId) }))} />}</For>
-      </div>
-      <Show when={compared().length === 2 && compared()[0] !== compared()[1]}>
-        <div class="mt-3 grid gap-3 lg:grid-cols-2">
-          <For each={compared()}>{(id) => <SessionTranscript workspaceId={app.workspaceId()} sessionId={id} title={sessionLabel(id)} />}</For>
-        </div>
-      </Show>
-    </WorkspaceSection>
+    <fieldset class="m-0 flex min-w-0 flex-wrap items-center gap-2 border-0 p-0">
+      <legend class="sr-only">Whose sessions to follow</legend>
+      <span class="me-1 text-caption font-medium text-ink-gray-6" aria-hidden="true">Follow</span>
+      <button type="button" class={chip(!member())} aria-pressed={!member()} aria-label="Follow the whole team" onClick={() => setSearch({ member: undefined, session: undefined })}>
+        <span class="grid size-6 place-items-center rounded-full bg-surface-gray-2 text-ink-gray-7" aria-hidden="true"><span class="lucide-users size-3.5" /></span>
+        Whole team <span class="text-ink-gray-6">{team.state().data?.sessions.length ?? 0} sessions</span>
+      </button>
+      <For each={team.state().data?.members ?? []}>{(entry) => <button type="button" class={chip(member() === entry.memberId)} aria-pressed={member() === entry.memberId}
+        aria-label={`Follow ${entry.role} (${entry.memberId})`} title={`${entry.agentId} · ${entry.engine}`} onClick={() => setSearch({ member: entry.memberId, session: undefined })}>
+        <span class="relative grid size-6 place-items-center rounded-full bg-surface-gray-2 text-ink-gray-7" aria-hidden="true"><span class="lucide-bot size-3.5" />
+          <span class={`absolute -end-0.5 -bottom-0.5 size-2 rounded-full ring-2 ring-surface-elevation-1 ${running(entry.memberId) > 0 ? "bg-surface-green-7 brain-live-dot" : "bg-surface-gray-5"}`} /></span>
+        <span class="truncate">{entry.role}</span>
+        <span class="text-ink-gray-6">{running(entry.memberId) > 0 ? `${running(entry.memberId)} working` : `${sessionsOf(entry.memberId).length} sessions`}</span>
+      </button>}</For>
+    </fieldset>
     <ConsoleScreen workspaceId={app.workspaceId()} include={inScope} requestedSession={typeof search.session === "string" ? search.session : undefined}
       filters={filters()} onFiltersChange={(patch) => setSearch({ ...writeExecFilters({ ...filters(), ...patch }) })}
       onSessionChange={(sessionId) => setSearch({ session: sessionId }, { replace: true })} />
-      </div>
-      <div class="brain-detail-stack">
+    <div class="grid min-w-0 gap-4 lg:grid-cols-2">
       <WorkspaceSection title="While you were away" description="Notable events since you last looked; everything else is counted.">
         <ScreenRegion state={summary.state()} onRetry={() => void summary.refresh({ force: true })} emptyTitle="Nothing yet" emptyDescription="Events appear as the mission moves.">
           <Show when={summary.state().data}>{(s) => <>
@@ -330,7 +323,7 @@ function LiveTab(props: ActProps): JSX.Element {
           </>}</Show>
         </ScreenRegion>
       </WorkspaceSection>
-      <WorkspaceSection title="Messages" description="Reaches the coordinator or one member's running session when its engine can be steered. A message never approves anything." actions={<Button variant="solid" theme="blue" iconLeft="lucide-send" disabled={props.mission.state === "closed"} onClick={() => setComposeOpen(true)}>Message the mission</Button>}>
+      <WorkspaceSection title="Messages" description="Reaches the coordinator or one member's running session when its engine can be steered. A message never approves anything." actions={<Button variant="outline" theme="blue" iconLeft="lucide-send" disabled={props.mission.state === "closed"} onClick={() => setComposeOpen(true)}>Message the mission</Button>}>
         <FormSheet open={composeOpen()} onClose={() => setComposeOpen(false)} title="Message the mission" centered description="A message never approves anything." submit="Send" icon="lucide-send" busy={props.busy} disabled={!body().trim() || props.mission.state === "closed"} onSubmit={() => { if (body().trim() && !props.busy) send(); }}>
         <Select label="Recipient" value={recipient()} onValueChange={(value) => setRecipient(value ?? "mission")}
           options={[{ value: "mission", label: "The mission (coordinator)" }, ...(team.state().data?.members ?? []).map((entry) => ({ value: entry.memberId, label: `${entry.role} (${entry.memberId})` }))]} />
@@ -343,8 +336,19 @@ function LiveTab(props: ActProps): JSX.Element {
             <p class="break-words text-interface">{message.body}</p><p class="text-caption text-ink-gray-6">{message.recipient.kind === "member" ? `to ${message.recipient.memberId} · ` : ""}{message.senderId} · {message.delivery} · {formatDateTime(message.createdAt)}</p></li>}</For></ul>
         </ScreenRegion>
       </WorkspaceSection>
-      </div>
     </div>
+    <Show when={(team.state().data?.sessions.length ?? 0) >= 2 || compared().length}><WorkspaceSection title="Compare two sessions" description="Follow two members' sessions side by side; each keeps its own filters and live tail."
+      actions={<Show when={compared().length}><Button variant="outline" iconLeft="lucide-x" onClick={() => setSearch({ compare: undefined })}>Close comparison</Button></Show>}>
+      <div class="brain-field-grid">
+        <For each={[0, 1] as const}>{(index) => <Select label={index === 0 ? "Left session" : "Right session"} value={compared()[index] ?? ""} onValueChange={(value) => setCompared(index, value ?? "")}
+          options={(team.state().data?.sessions ?? []).map((session) => ({ value: session.sessionId, label: sessionLabel(session.sessionId) }))} />}</For>
+      </div>
+      <Show when={compared().length === 2 && compared()[0] !== compared()[1]}>
+        <div class="mt-3 grid gap-3 lg:grid-cols-2">
+          <For each={compared()}>{(id) => <SessionTranscript workspaceId={app.workspaceId()} sessionId={id} title={sessionLabel(id)} />}</For>
+        </div>
+      </Show>
+    </WorkspaceSection></Show>
   </PageStack>;
 }
 

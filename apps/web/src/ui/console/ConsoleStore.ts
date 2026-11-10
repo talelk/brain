@@ -2,8 +2,8 @@ import { createSignal } from "solid-js";
 import { clampPaneSize } from "../components/primitives";
 
 /**
- * The Live console's persisted view state (plan §3): pane sizes, the center
- * split arrangement and per-session feed scroll offsets. Selection and filters
+ * The Live console's persisted view state (plan §3): pane sizes and
+ * per-session transcript scroll offsets. Selection and filters
  * live in the URL; everything here survives navigating away and back (returning
  * from approvals, evidence or a work item restores the console exactly).
  *
@@ -12,26 +12,22 @@ import { clampPaneSize } from "../components/primitives";
  * without ever leaking one workspace's layout into another.
  */
 
-/** The center pane shows the feed plus an inspection sub-pane, split either way. */
-export type ConsoleSplit = "off" | "horizontal" | "vertical";
-
 export interface ConsoleLayoutState {
   railWidth: number;
   rightWidth: number;
-  split: ConsoleSplit;
 }
 
 /* Bounds mirror the plan: rail 16–20rem, right pane 18–22rem (16px = 1rem). */
 const RAIL_BOUNDS = [256, 320] as const;
 const RIGHT_BOUNDS = [288, 352] as const;
-const DEFAULTS: ConsoleLayoutState = { railWidth: 288, rightWidth: 320, split: "horizontal" };
+const DEFAULTS: ConsoleLayoutState = { railWidth: 288, rightWidth: 320 };
 
 interface ConsoleWorkspaceState extends ConsoleLayoutState {
   /** Feed scrollTop per selected session; restored when the session reopens. */
   scroll: Record<string, number>;
 }
 
-const STORAGE_KEY = "brain.exec-console.v1";
+const STORAGE_KEY = "brain.exec-console.v2";
 
 function readStored(): Record<string, ConsoleWorkspaceState> {
   if (typeof sessionStorage === "undefined") return {};
@@ -61,14 +57,13 @@ function stateFor(workspaceId: string): ConsoleWorkspaceState {
   return state;
 }
 
-/** The reactive layout arrangement (pane sizes + split) for one workspace. */
+/** The reactive pane sizes for one workspace. */
 export function consoleLayout(workspaceId: string): ConsoleLayoutState {
   version();
   const state = stateFor(workspaceId);
   return {
     railWidth: clampPaneSize(state.railWidth, RAIL_BOUNDS[0], RAIL_BOUNDS[1]),
     rightWidth: clampPaneSize(state.rightWidth, RIGHT_BOUNDS[0], RIGHT_BOUNDS[1]),
-    split: state.split,
   };
 }
 
@@ -80,17 +75,6 @@ export function setRailWidth(workspaceId: string, width: number): void {
 export function setRightWidth(workspaceId: string, width: number): void {
   stateFor(workspaceId).rightWidth = clampPaneSize(width, RIGHT_BOUNDS[0], RIGHT_BOUNDS[1]);
   persist();
-}
-
-export function setConsoleSplit(workspaceId: string, split: ConsoleSplit): void {
-  stateFor(workspaceId).split = split;
-  persist();
-}
-
-/** The current center-pane split arrangement for one workspace. */
-export function consoleSplit(workspaceId: string): ConsoleSplit {
-  version();
-  return stateFor(workspaceId).split;
 }
 
 /** The persisted feed scroll offset for one session (0 when never scrolled). */
