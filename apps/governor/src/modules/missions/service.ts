@@ -383,7 +383,7 @@ export class MissionService {
     const manifest = JSON.parse(bundle.manifest_json) as { checks?: Array<{ criterionId: string; status: string }> };
     const passed = new Set((manifest.checks ?? []).filter((check) => check.status === "passed").map((check) => check.criterionId));
     const criteria = JSON.parse(item.criteria_json) as string[];
-    const missing = criteria.filter((criterion) => !passed.has(criterion) && !workflowCovers(manifest.checks, item.workflow_id !== null));
+    const missing = criteria.filter((criterion) => !passed.has(criterion) && !workflowCovers(manifest.checks, criteria));
     if (missing.length > 0) throw new BrainDomainError("EVIDENCE_MISSING", `verified evidence does not cover criteria: ${missing.join(", ")}`);
   }
 
@@ -809,7 +809,7 @@ export class MissionService {
    * member cap minus in-progress work), whether its budget still has headroom,
    * and its ready, unparked items oldest first.
    */
-  autoStartPlan(organizationId: string, workspaceId: string): Array<{ missionId: string; ownerId: string; slots: number; memberCap: number; headroom: boolean; items: Array<{ workItemId: string; title: string; criteria: string[]; workflowId: string | null; failedAttempts: number; runs: number; nextAction: string }> }> {
+  autoStartPlan(organizationId: string, workspaceId: string): Array<{ defaultWorkflowId: string | null; missionId: string; ownerId: string; slots: number; memberCap: number; headroom: boolean; items: Array<{ workItemId: string; title: string; criteria: string[]; workflowId: string | null; failedAttempts: number; runs: number; nextAction: string }> }> {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     const missions = db.prepare("SELECT id, owner_id, member_cap FROM missions WHERE state='active' AND auto_start=1 AND coordinator_member_id IS NULL").all() as Array<{ id: string; owner_id: string; member_cap: number }>;
     const plan = [];
@@ -818,6 +818,7 @@ export class MissionService {
       if (items.length === 0) continue;
       const running = (db.prepare("SELECT COUNT(*) AS n FROM work_items WHERE mission_id=? AND state='in-progress'").get(mission.id) as { n: number }).n;
       plan.push({
+        defaultWorkflowId: (db.prepare("SELECT workflow_id AS id FROM work_items WHERE mission_id=? AND workflow_id IS NOT NULL ORDER BY (SELECT COUNT(*) FROM work_items x WHERE x.mission_id=work_items.mission_id AND x.workflow_id=work_items.workflow_id) DESC, created_at_ms LIMIT 1").get(mission.id) as { id: string } | undefined)?.id ?? null,
         missionId: mission.id, ownerId: mission.owner_id, memberCap: mission.member_cap, slots: Math.max(0, mission.member_cap - running), headroom: hasHeadroom(this.store, db, mission.id),
         items: items.map((item) => ({ workItemId: item.id, title: item.title, criteria: JSON.parse(item.criteria_json) as string[], workflowId: item.workflow_id, failedAttempts: item.failed_attempts, runs: (db.prepare("SELECT COUNT(*) AS n FROM execution_links WHERE work_item_id=?").get(item.id) as { n: number }).n, nextAction: item.next_action })),
       });

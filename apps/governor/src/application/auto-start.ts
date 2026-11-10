@@ -78,9 +78,11 @@ export class AutoStart {
       let slots = mission.slots;
       for (const item of mission.items) {
         const note = (text: string) => missions.noteStartBlocker(organizationId, workspaceId, item.workItemId, text);
-        const entry = item.workflowId ? catalog.find((candidate) => candidate.release.id === item.workflowId) : undefined;
-        if (!item.workflowId) { note("Needs input before it can start: choose a workflow for this task"); continue; }
-        if (!entry) { note(`Needs input before it can start: workflow ${item.workflowId} is not in the active release`); continue; }
+        // A task the plan left without a workflow runs the mission's own (most used) workflow, so nobody has to pick one.
+        const workflowId = item.workflowId ?? mission.defaultWorkflowId;
+        const entry = workflowId ? catalog.find((candidate) => candidate.release.id === workflowId) : undefined;
+        if (!workflowId) { note("Needs input before it can start: choose a workflow for this task"); continue; }
+        if (!entry) { note(`Needs input before it can start: workflow ${workflowId} is not in the active release`); continue; }
         const input = { situation: workItemSituation(item.title, item.criteria) } as JsonValue;
         // Without a declared input schema nothing can vouch for the input, so a person supplies it.
         if (!entry.inputSchema) { note("Needs input before it can start: the workflow declares no input schema"); continue; }

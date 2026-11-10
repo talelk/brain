@@ -60,14 +60,12 @@ export function finalizeHandoff(db: Db, workItemId: string, evidenceDigest: stri
   if (foreign.length > 0) throw new BrainDomainError("EVIDENCE_MISSING", `the handoff references outputs this work did not produce as final: ${foreign.join(", ")}`);
   const bundle = db.prepare("SELECT manifest_json FROM evidence_bundles WHERE digest=?").get(evidenceDigest) as { manifest_json: string } | undefined;
   const manifest = bundle ? JSON.parse(bundle.manifest_json) as { checks?: Array<{ criterionId: string; status: string }>; sourceRevision?: string } : {};
-  const itemRow = db.prepare("SELECT criteria_json, workflow_id FROM work_items WHERE id=?").get(workItemId) as { criteria_json: string; workflow_id: string | null };
-  const criteria = JSON.parse(itemRow.criteria_json) as string[];
-  const workflowBound = itemRow.workflow_id !== null;
+  const criteria = JSON.parse((db.prepare("SELECT criteria_json FROM work_items WHERE id=?").get(workItemId) as { criteria_json: string }).criteria_json) as string[];
   const facts: HandoffFacts = {
     evidenceDigest,
     criteria: criteria.map((criterionId) => {
       const check = (manifest.checks ?? []).find((entry) => entry.criterionId === criterionId);
-      if (!check && workflowCovers(manifest.checks, workflowBound)) return { criterionId, status: "passed" as const };
+      if (!check && workflowCovers(manifest.checks, criteria)) return { criterionId, status: "passed" as const };
       return { criterionId, status: check ? (check.status === "passed" ? "passed" : "failed") : "missing" };
     }),
     outputVersions: finals, ...(manifest.sourceRevision ? { sourceRevision: manifest.sourceRevision } : {}),
@@ -127,10 +125,13 @@ export function latestMissionBundle(db: Db, missionId: string): MissionEvidenceB
 
 /**
  * Free-text task criteria cannot name the checks a workflow's evaluator
- * defines. For a task bound to a workflow, a criterion with no check of its
- * own is covered when every check of its verified bundle passed (the
- * independent verdict is asserted separately before Done).
+ * defines. When none of the criteria share a name with any check (the checks
+ * speak the workflow's vocabulary, not the task's), they are covered if every
+ * check of the verified bundle passed; the bundle is the task's own run's and
+ * carries an independent verdict (both asserted before Done). Any overlap means
+ * the checks do address the criteria, so each criterion needs its own passed check.
  */
-export function workflowCovers(checks: ReadonlyArray<{ status: string }> | undefined, workflowBound: boolean): boolean {
-  return workflowBound && (checks?.length ?? 0) > 0 && (checks ?? []).every((check) => check.status === "passed");
+export function workflowCovers(checks: ReadonlyArray<{ criterionId?: string; status: string }> | undefined, criteria: readonly string[]): boolean {
+  const list = checks ?? [];
+  return list.length > 0 && list.every((check) => check.status === "passed") && !list.some((check) => check.criterionId !== undefined && criteria.includes(check.criterionId));
 }

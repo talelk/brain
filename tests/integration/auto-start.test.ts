@@ -98,6 +98,13 @@ describe("auto-start (ADR 0004: the Governor reacts to events and dispatches bou
     expect(runCount(w)).toBe(2);
   });
 
+  it("runs a task the plan left without a workflow on the mission's own workflow, so nobody has to pick one", async () => {
+    const w = world();
+    const id = await confirmed(w, "fallback", [triage("a"), { id: "bare", title: "No workflow", criteria: ["x"], dependsOn: [] }]);
+    expect(item(w, id, "bare").state).toBe("in-progress");
+    expect(runsOf(w, item(w, id, "bare").workItemId)).toHaveLength(1);
+  });
+
   it("leaves tasks without a workflow or with unsatisfiable input ready, with a visible next action, and invents no input", async () => {
     const w = world();
     const id = await confirmed(w, "needs-input", [
