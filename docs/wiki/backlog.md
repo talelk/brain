@@ -41,3 +41,8 @@ Track H (spec + tickets): existing-research-to-defaults, tools audit, memory aud
 | 15 | Evaluator is deterministic (proves criteria answered, not correct); measure real-model quality; consider a model-judged independent check | A2 | open |
 | 16 | Downstream tasks only see upstream handoff summaries, not the full deliverable; provide selective full-deliverable context within a budget (ties to track H context management) | A2/H | open |
 | 17 | User addendum 2026-11-11: reuse and capitalisation must be first-class (search-before-plan, one-click play/knowledge from verified work, 'Start from previous', provenance/freshness, 'what Brain reused' on every result) | H | sent to track H |
+
+## Track G published (2026-11-11, reuse, memory, tools, tokens, context)
+Spec `docs/specs/reuse-memory-tools-and-context.md` = issue #65; sub-issues #66-#85, native blocked-by edges. Owner direction: reuse and capitalization are first-class. Order: #66 reuse index, #67 readable knowledge assets, #68 planner receives reuse, #69 start-from-previous and Repeat entries on the Today box (blocked by #47), #70 'what Brain reused' line, #71 Library review inbox, #72 single-owner review decision, #73 Library navigation (needs-triage), #74 suggest a Play (needs-triage), then search, usage ledger, meter, token ceiling, spend-cap decision, context pack, compaction, knowledge.search tool, default tools, registry, repo context budget script.
+Small fix made: local memory search ranks by matched terms then recency (`memory.ts`).
+Not fixed on purpose: `maxMicroUsd: 0` fails paid-endpoint runs (decision ticket).

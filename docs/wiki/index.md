@@ -11,6 +11,8 @@ Historical record, not a description of the present. Every claim is dated and, f
 ## Research
 - [../research/best-product-gap-2026-11.md](../research/best-product-gap-2026-11.md) — 12 ranked product gaps (track D report, `talelk/brain@b350f76`, 2026-11-11).
 
+- [../specs/reuse-memory-tools-and-context.md](../specs/reuse-memory-tools-and-context.md) — track G spec: reuse/capitalization loop, memory, tools, token meter, context packs (issue #65).
+
 ## Operations
 - [ops-live-server.md](ops-live-server.md) — how to deploy to, inspect and test the live demo.
 
