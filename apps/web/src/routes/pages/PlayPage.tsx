@@ -11,7 +11,7 @@ import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";import { ActionFeedback } from "../../ui/components/ActionFeedback";
 import { TaskReview } from "../../ui/components/TaskReview";
 import type { TaskHandoff } from "../../ui/components/TaskReview";
-import { SchedulesPanel } from "../../ui/components/SchedulesPanel";
+import { SchedulesLink } from "../../ui/components/SchedulesPanel";
 import { formatDateTime, formatUsd, titleize } from "../../ui/format";
 import { missionHref } from "../../ui/mission-links";
 import { AgentDetail, authorCandidate } from "../catalog";
@@ -110,7 +110,7 @@ function PlayDetail(props: { play: PlayView; agents: readonly AgentCatalogEntry[
           <ul class="mt-1 list-disc pl-5 text-caption text-ink-gray-7"><For each={task.criteria}>{(criterion) => <li>{criterion}</li>}</For></ul>
         </li>}</For></ol>
       </WorkspaceSection>}</Show>
-      <SchedulesPanel scope={{ kind: "play", targets: [{ id: props.play.playId, label: props.play.title }] }} />
+      <SchedulesLink targetIds={[props.play.playId]} label={props.play.title} />
       <WorkspaceSection title="Missions started from this play" description="Newest first, whatever started them: a person, a schedule or a ticket or incident.">
         <ScreenRegion state={history.state()} onRetry={() => void history.refresh({ force: true })} emptyTitle="No missions yet" emptyDescription="Start the first mission from this play.">
           <div class="brain-queue"><For each={history.state().data ?? []}>{(mission) => <QueueRow title={mission.title} description={mission.intent} icon="lucide-flag"
@@ -148,7 +148,7 @@ function TaskDetail(props: { title: string; workflow: WorkflowCatalogEntry; agen
       <ActionFeedback tone="error" message={error()} />
       <TaskReview workflow={props.workflow} onBack={() => void navigate(`/w/${app.workspaceId()}/plays`)} onStarted={handoff} />
       <TeamRoles members={agents()} agents={props.agents} />
-      <SchedulesPanel scope={{ kind: "workflow", targets: [{ id: props.workflow.release.id, label: props.title }] }} />
+      <SchedulesLink targetIds={[props.workflow.release.id]} label={props.title} />
     </PageStack>
   </BrainPage>;
 }

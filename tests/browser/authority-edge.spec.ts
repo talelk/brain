@@ -83,7 +83,7 @@ test("draining runner retains busy allocation evidence as a separate state axis"
   await expect(page.getByText("runner-edge", { exact: true })).toBeVisible();
   await expect(page.getByText("Draining", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("online", { exact: true })).toBeVisible();
-  await expect(page.getByRole("progressbar", { name: "Attempt slots reserved" })).toHaveAttribute("aria-valuetext", /^1 of 2 reserved/);
+  await expect(page.getByRole("row", { name: /runner-edge/ }).getByRole("cell", { name: /^1 \/ 2/ })).toBeVisible();
   await expect(page.getByText("No new assignments; existing attempts continue with their leases.", { exact: true })).toBeVisible();
 });
 

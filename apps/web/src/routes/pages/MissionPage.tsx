@@ -12,7 +12,7 @@ import { FormSheet } from "../../ui/components/BrainForm";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";
 import { MissionWorkItems } from "../../ui/components/MissionWorkItems";
-import { SchedulesPanel } from "../../ui/components/SchedulesPanel";
+import { SchedulesLink } from "../../ui/components/SchedulesPanel";
 import { PlanCanvas } from "../../ui/components/PlanCanvas";
 import { formatDateTime, formatUsd } from "../../ui/format";
 import { FlowStepper, type FlowStep } from "../../ui/viz/FlowStepper";
@@ -398,7 +398,7 @@ function MissionSchedules(props: { missionId: string }): JSX.Element {
     },
   });
   return <Show when={items.state().data?.length}>
-    <SchedulesPanel title="Scheduled work item starts" scope={{ kind: "workItem", targets: (items.state().data ?? []).map((item) => ({ id: item.workItemId, label: item.title })) }} />
+    <SchedulesLink targetIds={(items.state().data ?? []).map((item) => item.workItemId)} label="this mission's tasks" />
   </Show>;
 }
 

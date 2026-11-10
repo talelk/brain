@@ -45,7 +45,7 @@ test("schedules: personal-host offline wait, recovery and fail are explicit (T58
     return article;
   }
 
-  await page.goto(`${governor.url}/plays/fixture-workflow`);
+  await page.goto(`${governor.url}/w/ws-schedules/schedules?target=fixture-workflow`);
   const waiting = await createPersonal("Personal wait", "wait");
   await waiting.getByRole("button", { name: "Run now", exact: true }).click();
   await waiting.getByRole("button", { name: "History", exact: true }).click();
@@ -89,7 +89,7 @@ test("schedules: revise, duplicate and retire without deleting occurrence histor
   const release = brain.stageRelease(actor, goldenDocs(), "sha256:6dd84c7f907477ea38ad355392cf876b39c122adf8038762894d56cc160956b4");
   brain.activateRelease(actor, release.digest);
 
-  await page.goto(`${governor.url}/plays/fixture-workflow`);
+  await page.goto(`${governor.url}/w/ws-schedule-lifecycle/schedules?target=fixture-workflow`);
   const panel = page.getByRole("region", { name: "Schedules", exact: true });
   const sheet = page.getByRole("dialog");
   await panel.getByRole("button", { name: "New schedule", exact: true }).click();

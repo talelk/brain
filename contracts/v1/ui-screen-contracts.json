@@ -173,6 +173,29 @@
    "title": "Play"
   },
   {
+   "route": "/w/:id/schedules",
+   "queries": [
+    "automations.list",
+    "automations.occurrences",
+    "plays.list",
+    "workflows.list"
+   ],
+   "actions": [
+    "automation.upsert",
+    "automation.control"
+   ],
+   "content": [
+    "schedules",
+    "history",
+    "execution host"
+   ],
+   "owner": "T58",
+   "navigationGroup": "schedules",
+   "icon": "lucide-calendar-clock",
+   "task": "Manage every schedule in one place: what it starts, when it fires next, which host runs it",
+   "title": "Schedules"
+  },
+  {
    "route": "/administration/workspaces",
    "queries": [
     "bridge"
@@ -754,6 +777,11 @@
    "id": "plays",
    "label": "Plays",
    "entryRoute": "/w/:id/plays"
+  },
+  {
+   "id": "schedules",
+   "label": "Schedules",
+   "entryRoute": "/w/:id/schedules"
   }
  ],
  "secondaryNavigation": {
@@ -907,6 +935,19 @@
     "adminOnly": true,
     "organizationOnly": true,
     "icon": "lucide-heart-pulse"
+   }
+  ],
+  "schedules": [
+   {
+    "label": "Schedules",
+    "route": "/w/:id/schedules",
+    "icon": "lucide-calendar-clock"
+   },
+   {
+    "label": "Runners",
+    "route": "/runners",
+    "adminOnly": true,
+    "icon": "lucide-server"
    }
   ]
  }

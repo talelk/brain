@@ -28,6 +28,7 @@ const PAGE_LOADERS = {
   NewMissionPage: () => import('./routes/pages/NewMissionPage'),
   MissionPage: () => import('./routes/pages/MissionPage'),
   PlaysPage: () => import('./routes/pages/PlaysPage'),
+  SchedulesPage: () => import('./routes/pages/SchedulesPage'),
   BridgePage: () => import('./routes/pages/BridgePage'),
   IntegrationsPage: () => import('./routes/administration/IntegrationsPage'),
   StudioListPage: () => import('./ui/studio/StudioPages').then((module) => ({ default: module.StudioListPage })),
@@ -249,6 +250,7 @@ export function App(): JSX.Element {
       <Route path="/missions/:missionId/:tab" component={page("MissionPage")} />
       <Route path="/missions/:missionId" component={() => <Navigate href={({ location }) => `${location.pathname}/live`} />} />
       <Route path="/w/:id/plays" component={workspacePage("PlaysPage")} />
+      <Route path="/w/:id/schedules" component={workspacePage("SchedulesPage")} />
       <Route path="/plays/:id" component={page("PlayPage")} />
       <Route path="/administration/workspaces" component={page("BridgePage")} />
       <Route path="/w/:id/live" component={workspacePage("LivePage")} />

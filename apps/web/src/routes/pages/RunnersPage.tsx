@@ -4,7 +4,8 @@ import { useNavigate, useSearchParams } from "@solidjs/router";
 import { Button } from "@talelk/newui-atoms";
 import { Pagination, EmptyState } from "@talelk/newui-molecules";
 import { FilterBar, StatGrid } from "@talelk/newui-organisms";
-import type { RunnerSnapshot } from "@brain/contracts";
+import type { Automation, RunnerSnapshot } from "@brain/contracts";
+import { query } from "../../data/client";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { runnersQuery } from "../../data/governor";
@@ -12,7 +13,7 @@ import { ScreenRegion } from "../../ui/screen-region";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { StatusBadge } from "../../ui/components/StatusBadge";
 import { IconTile } from "../../ui/components/primitives";
-import { Card } from "@talelk/newui-molecules";import { Freshness, WorkspaceSection } from "../../ui/components/Domain";import { RunnerEnrollmentDialog } from "../../ui/components/RunnerEnrollmentDialog";
+import { Freshness, WorkspaceSection } from "../../ui/components/Domain";import { RunnerEnrollmentDialog } from "../../ui/components/RunnerEnrollmentDialog";
 
 function placementNote(runner: RunnerSnapshot): string {
   if (runner.connectivity === "offline") return "Cannot accept new work while offline. Last heartbeat is not current capacity proof.";
@@ -24,16 +25,16 @@ function placementNote(runner: RunnerSnapshot): string {
 
 const PAGE_SIZE = 25;
 
-/** Reserved capacity against a runner's total, with what the runner last observed free; the sentence carries the meaning, not the fill. */
-function CapacityMeter(props: { label: string; used: number; total: number; free: number; format: (n: number) => string }): JSX.Element {
-  const pct = () => props.total > 0 ? Math.min(100, Math.max(0, props.used / props.total * 100)) : 0;
-  const text = () => `${props.format(props.used)} of ${props.format(props.total)} reserved, ${props.format(props.free)} free`;
-  return <div class="flex min-w-0 flex-col gap-1">
-    <div class="flex items-baseline justify-between gap-2 text-caption text-ink-gray-7"><span>{props.label}</span><span class="tabular-nums">{text()}</span></div>
-    <div role="progressbar" aria-label={`${props.label} reserved`} aria-valuemin={0} aria-valuemax={props.total} aria-valuenow={Math.min(props.used, props.total)} aria-valuetext={text()} class="h-2 w-full overflow-hidden rounded-full bg-surface-gray-3">
-      <span class={`block h-full ${pct() >= 90 ? "bg-surface-amber-6" : "bg-surface-blue-9"}`} style={{ width: `${pct()}%` }} />
-    </div>
-  </div>;
+const pct = (used: number, total: number) => total > 0 ? Math.round(Math.min(100, Math.max(0, used / total * 100))) : 0;
+
+/** One plain verdict per runner: can it take new work now, and if not, why. */
+function verdict(runner: RunnerSnapshot): { label: string; tone: "good" | "warn" | "bad" } {
+  if (runner.deregisteredAt) return { label: "Deregistered", tone: "bad" };
+  if (runner.connectivity === "offline") return { label: "Offline: no new work", tone: "bad" };
+  if (runner.adminState !== "enabled") return { label: `${runner.adminState[0]?.toUpperCase()}${runner.adminState.slice(1)}: no new work`, tone: "warn" };
+  if (runner.health !== "healthy") return { label: `${runner.health}: may refuse work`, tone: "warn" };
+  if (runner.observedFree.slots <= 0) return { label: "Full: waiting for a free slot", tone: "warn" };
+  return { label: "Ready for work", tone: "good" };
 }
 
 const FLEET_STATES = [
@@ -73,6 +74,15 @@ export default function RunnersPage(): JSX.Element {
     isEmpty: (items) => items.length === 0,
     refreshMs: 10_000,
   });
+  const automations = createScopedRead<Automation[]>({
+    scope: app.scope,
+    load: async (scope, signal) => {
+      const response = await query<{ snapshot: { items: Automation[] }; asOf: string; sourceWatermark: number }>({ queryType: "automations.list", workspaceId: scope.workspaceId }, signal);
+      return { snapshot: [...response.snapshot.items], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+    },
+    refreshMs: 30_000,
+  });
+  const pinnedCount = (runnerId: string) => (automations.state().data ?? []).filter((automation) => automation.state !== "retired" && automation.execution.mode === "personal-host" && automation.execution.runnerId === runnerId).length;
   const all = () => runners.state().data ?? [];
   const groups = () => [...new Set(all().map((runner) => runner.group))].sort();
   const visible = () => all().filter((runner) =>
@@ -85,7 +95,7 @@ export default function RunnersPage(): JSX.Element {
   const pageCount = () => Math.max(1, Math.ceil(visible().length / PAGE_SIZE));
   const currentPage = () => Math.min(Math.max(1, page()), pageCount());
   const pageRows = () => visible().slice((currentPage() - 1) * PAGE_SIZE, currentPage() * PAGE_SIZE);
-  return <BrainPage title="Execution fleet" description="Inspect who can execute, which capabilities are verified, and why work can or cannot be assigned."
+  return <BrainPage title="Runners" description="The machines that execute work. Each row says whether a runner can take new work right now, and why not if it cannot."
     actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={() => void runners.refresh({ force: true })}>Refresh</Button><Show when={app.identity()?.actor.scopes.includes("config:activate")}><Button variant="outline" iconLeft="lucide-file-cog" onClick={() => void navigate("/studio/RunnerGroup")}>Runner group drafts</Button></Show><Show when={app.identity()?.actor.scopes.includes("runner:admin")}><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setEnrollOpen(true)}>Enroll runner</Button></Show></>}>
     <PageStack>
       <FleetBar runners={all()} />
@@ -100,21 +110,24 @@ export default function RunnersPage(): JSX.Element {
         { label: "Health", value: value("health") || undefined, options: [{ value: "healthy", label: "Healthy" }, { value: "degraded", label: "Degraded" }, { value: "unhealthy", label: "Unhealthy" }], onValueChange: (health) => setParams({ health: health || undefined }) },
         { label: "Admin state", value: value("admin") || undefined, options: [{ value: "enabled", label: "Enabled" }, { value: "draining", label: "Draining" }, { value: "quarantined", label: "Quarantined" }, { value: "disabled", label: "Disabled" }], onValueChange: (admin) => setParams({ admin: admin || undefined }) },
       ]} onClearAll={value("group") || value("capability") || value("health") || value("admin") ? () => setParams({ group: undefined, capability: undefined, health: undefined, admin: undefined }) : undefined} />
-      <WorkspaceSection title="Runner fleet" description="Connectivity, health, allocation and administrative state are deliberately separate.">
+      <WorkspaceSection title="All runners" description="Reserved capacity is what Brain has promised to running attempts; it is not a live CPU reading.">
         <ScreenRegion state={runners.state()} skeleton="cards" emptyTitle="No runners enrolled" emptyDescription="Enroll an outbound runner supervisor to accept work for this organization." onRetry={() => void runners.refresh({ force: true })}>
           <Show when={visible().length} fallback={<EmptyState size="sm" icon="lucide-server-off" title="No runners match" description="Clear the group, capability, health or admin-state filters to see other enrolled runners." action={<Button size="sm" variant="outline" onClick={() => setParams({ group: undefined, capability: undefined, health: undefined, admin: undefined })}>Clear filters</Button>} />}>
-            <div class="grid gap-3 md:grid-cols-2 2xl:grid-cols-3"><For each={pageRows()}>{(runner) => <Card padding="lg" class="bg-surface-gray-1 flex flex-col gap-3 p-3">
-              <div class="flex flex-wrap items-start justify-between gap-2"><div class="flex min-w-0 items-center gap-2.5"><IconTile icon="lucide-server" tone={runner.connectivity === "online" ? "blue" : "gray"} /><div class="min-w-0"><h3 class="break-all text-base-medium">{runner.runnerId}</h3><p class="mt-0.5 break-words text-caption text-ink-gray-6">Group {runner.group}</p></div></div><StatusBadge kind="runner" status={runner.displayStatus} /></div>
-              <div class="flex flex-wrap gap-1.5"><StatusBadge kind="connection" status={runner.connectivity} /><StatusBadge kind="health" status={runner.health} /><Show when={runner.adminState !== "enabled"}><StatusBadge kind="runner" status={runner.adminState} /></Show></div>
-              <div class="flex flex-col gap-2.5">
-                <CapacityMeter label="Attempt slots" used={runner.reserved.slots} total={runner.capacity.slots} free={runner.observedFree.slots} format={(n) => String(n)} />
-                <CapacityMeter label="CPU" used={runner.reserved.cpuMillicores} total={runner.capacity.cpuMillicores} free={runner.observedFree.cpuMillicores} format={(n) => `${n}m`} />
-                <CapacityMeter label="Memory" used={runner.reserved.memoryMb} total={runner.capacity.memoryMb} free={runner.observedFree.memoryMb} format={(n) => `${n} MB`} />
-              </div>
-              <dl class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-x-3 gap-y-2 text-caption"><div class="min-w-0"><dt class="text-ink-gray-6">Verified capabilities</dt><dd class="mt-0.5 text-interface tabular-nums">{runner.capabilities.filter((capability) => capability.verified).length} / {runner.capabilities.length}</dd></div><div class="min-w-0"><dt class="text-ink-gray-6">Active attempts</dt><dd class="mt-0.5 text-interface tabular-nums">{runner.activeAttemptIds.length}</dd></div></dl>
-              <p class="break-words text-interface text-ink-gray-7">{placementNote(runner)}</p>
-              <div class="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-outline-gray-1 pt-2.5"><Freshness value={runner.lastSeenAt} stale={runner.connectivity === "offline"} label="Heartbeat" /><Button size="sm" variant="outline" iconRight="lucide-arrow-right" onClick={() => void navigate(`/runners/${runner.runnerId}`)}>Diagnostics</Button></div>
-            </Card>}</For></div>
+            <div class="overflow-x-auto"><table class="w-full min-w-[56rem] text-left text-interface">
+              <caption class="sr-only">Runner fleet</caption>
+              <thead class="text-caption text-ink-gray-6"><tr class="border-b border-outline-gray-2"><th scope="col" class="py-2 pe-3 font-medium">Runner</th><th scope="col" class="py-2 pe-3 font-medium">Can it take work?</th><th scope="col" class="py-2 pe-3 font-medium">Slots</th><th scope="col" class="py-2 pe-3 font-medium">CPU</th><th scope="col" class="py-2 pe-3 font-medium">Memory</th><th scope="col" class="py-2 pe-3 font-medium">Capabilities</th><th scope="col" class="py-2 pe-3 font-medium">Schedules</th><th scope="col" class="py-2 pe-3 font-medium">Heartbeat</th><th scope="col" class="py-2"><span class="sr-only">Actions</span></th></tr></thead>
+              <tbody><For each={pageRows()}>{(runner) => { const v = verdict(runner); const pinned = () => pinnedCount(runner.runnerId); return <tr class="border-b border-outline-gray-1 align-top">
+                <th scope="row" class="py-3 pe-3 font-normal"><div class="flex min-w-0 items-center gap-2"><IconTile icon="lucide-server" tone={runner.connectivity === "online" ? "blue" : "gray"} /><div class="min-w-0"><div class="break-all text-base-medium">{runner.runnerId}</div><div class="text-caption text-ink-gray-6">Group {runner.group}</div><div class="mt-1 flex flex-wrap gap-1"><StatusBadge kind="connection" status={runner.connectivity} /><Show when={runner.adminState !== "enabled"}><StatusBadge kind="runner" status={runner.adminState} /></Show></div></div></div></th>
+                <td class="py-3 pe-3"><div class="flex flex-col gap-1"><span class="inline-flex items-center gap-1.5"><span aria-hidden="true" class={`${v.tone === "good" ? "lucide-circle-check text-ink-green-3" : v.tone === "warn" ? "lucide-circle-alert text-ink-amber-3" : "lucide-circle-x text-ink-red-4"} size-4`} />{v.label}</span><span class="text-caption text-ink-gray-6">{placementNote(runner)}</span></div></td>
+                <td class="py-3 pe-3 tabular-nums">{runner.reserved.slots} / {runner.capacity.slots}<div class="text-caption text-ink-gray-6">{runner.activeAttemptIds.length} running</div></td>
+                <td class="py-3 pe-3 tabular-nums">{pct(runner.reserved.cpuMillicores, runner.capacity.cpuMillicores)}%<div class="text-caption text-ink-gray-6">{runner.reserved.cpuMillicores}m of {runner.capacity.cpuMillicores}m</div></td>
+                <td class="py-3 pe-3 tabular-nums">{pct(runner.reserved.memoryMb, runner.capacity.memoryMb)}%<div class="text-caption text-ink-gray-6">{runner.reserved.memoryMb} of {runner.capacity.memoryMb} MB</div></td>
+                <td class="py-3 pe-3 tabular-nums">{runner.capabilities.filter((capability) => capability.verified).length} / {runner.capabilities.length} verified</td>
+                <td class="py-3 pe-3"><Show when={pinned() > 0} fallback={<span class="text-ink-gray-6">None pinned</span>}><Button size="sm" variant="ghost" iconRight="lucide-calendar-clock" onClick={() => void navigate(`/w/${app.workspaceId()}/schedules`)}>{pinned()} pinned</Button></Show></td>
+                <td class="py-3 pe-3"><Freshness value={runner.lastSeenAt} stale={runner.connectivity === "offline"} label="Heartbeat" /></td>
+                <td class="py-3 text-end"><Button size="sm" variant="outline" iconRight="lucide-arrow-right" onClick={() => void navigate(`/runners/${runner.runnerId}`)}>Details</Button></td>
+              </tr>; }}</For></tbody>
+            </table></div>
             <Show when={visible().length > PAGE_SIZE}>
               <Pagination.Root aria-label="Runner fleet pages" count={visible().length} pageSize={PAGE_SIZE} page={currentPage()} onPageChange={setPage} class="mt-4 flex-wrap items-center gap-3">
                 <Pagination.Range class="me-auto" />
