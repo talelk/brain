@@ -58,7 +58,16 @@ export function createScopedRead<T>(input: {
   state: Accessor<ScreenState<T>>;
   refresh: (options?: { force?: boolean }) => Promise<void>;
 } {
-  const [state, setState] = createSignal<ScreenState<T>>({ status: "loading", clearedProtected: false, canMutate: false });
+  // A poll that finds the same thing must not notify: only a changed status, body, error or
+  // permission re-renders readers. The server clock still advances in place, so expiry math reads it fresh.
+  const [state, setState] = createSignal<ScreenState<T>>({ status: "loading", clearedProtected: false, canMutate: false }, {
+    equals: (before, after) => {
+      const same = before.status === after.status && before.data === after.data && before.error === after.error
+        && before.clearedProtected === after.clearedProtected && before.canMutate === after.canMutate;
+      if (same) (before as { asOf?: string }).asOf = after.asOf;
+      return same;
+    },
+  });
   let generation = 0;
   let controller: AbortController | undefined;
   let lastGood: { value: T; asOf: string } | undefined;
