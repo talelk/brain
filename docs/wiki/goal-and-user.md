@@ -6,3 +6,4 @@
 - Standing policy (AGENTS.md at `5b27f06`): build the target architecture directly; no compatibility shims or migrations.
 - The user typed the server sudo password into chat on 2026-11-10; it must never be copied into prompts, files or commits. Ask the user to rotate it.
 - On 2026-11-11 the user set a standing rule: "always use browser as user to validate enhance & fix & optimize". Passing tests is not enough; each change is checked by clicking through the real app as a first-time user (live site after deploy, or a local instance with Playwright screenshots for subagents).
+- On 2026-11-11 the user said "dont stop until nothing is left to do, fix, enhance even if newly discovered during agent work". Rule: discoveries join `backlog.md` and are worked, not only logged; done = clean browser walkthrough plus an empty backlog.
