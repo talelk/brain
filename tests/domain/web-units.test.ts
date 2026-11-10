@@ -5,7 +5,7 @@ import {
 import { framesAfter } from "../../apps/web/src/ui/logs/frames";
 import { dragTargets, nextActionOf, workGraph } from "../../apps/web/src/ui/work/work-model";
 import type { WorkItem } from "@brain/contracts";
-import { shareStructure } from "../../apps/web/src/data/screens";
+import { shareStructure } from "../../apps/web/src/data/share";
 import { EventSpool } from "../../apps/runner/src/spool";
 
 describe("web and runner unit mechanisms", () => {
