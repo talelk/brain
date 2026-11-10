@@ -1,4 +1,3 @@
-import { createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import type { ExecutionLink, Mission, WorkItem } from "@brain/contracts";
@@ -9,14 +8,16 @@ import { artifactsHistoryQuery, artifactsListQuery } from "../../data/exec-outpu
 import type { ArtifactHistory, ArtifactState } from "../../data/exec-outputs";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { OutputBrowser } from "../../ui/outputs/OutputBrowser";
-import type { OutputGrouping, OutputItem, OutputScope } from "../../ui/outputs/OutputBrowser";
+import type { OutputGrouping, OutputItem, OutputScope, OutputView } from "../../ui/outputs/OutputBrowser";
 import { execArtifactUrl } from "../../ui/exec/exec-filters";
 
 /**
- * The Output Browser route (`/w/:id/outputs`, T61): an independent, permanently
- * accessible primary experience — not a tab of run detail. Filters and the
- * selected artifact persist in the URL; compare picks hand off to the
- * workspace-free `/outputs/:id` route where `artifacts.diff` is declared.
+ * The Output Browser route (`/w/:id/outputs`, T61): a file explorer over
+ * everything the workspace's missions produced — an independent, permanently
+ * accessible primary experience, not a tab of run detail. Folder, layout,
+ * search, type, state filter and the previewed file persist in the URL; a
+ * two-file compare hands off to the workspace-free `/outputs/:id` route where
+ * `artifacts.diff` is declared.
  */
 export default function OutputsPage(): JSX.Element {
   const app = useApp();
@@ -29,8 +30,8 @@ export default function OutputsPage(): JSX.Element {
     ...(typeof searchParams.run === "string" && searchParams.run ? { runId: searchParams.run } : {}),
     ...(typeof searchParams.workItem === "string" && searchParams.workItem ? { workItemId: searchParams.workItem } : {}),
   });
-  const [compareIds, setCompareIds] = createSignal<readonly string[]>([]);
-  const [compareMode, setCompareMode] = createSignal(false);
+  const param = (key: string) => (typeof searchParams[key] === "string" ? (searchParams[key] as string) : "");
+  const view = (): OutputView => (param("view") === "list" ? "list" : "grid");
 
   // "current" lists fresh (still-uploading) and final output together so new
   // work is never hidden behind a "verified" default.
@@ -116,22 +117,18 @@ export default function OutputsPage(): JSX.Element {
       workItem: searchParams.workItem,
       artifact: searchParams.artifact,
       state: searchParams.state,
+      folder: searchParams.folder,
+      view: searchParams.view,
+      q: searchParams.q,
+      kind: searchParams.kind,
       ...patch,
-    });
-  };
-
-  const toggleCompare = (artifactId: string) => {
-    setCompareIds((current) => {
-      if (current.includes(artifactId)) return current.filter((id) => id !== artifactId);
-      if (current.length < 2) return [...current, artifactId];
-      return [current.at(-1) ?? artifactId, artifactId]; // keep the newest pick as the right side
     });
   };
 
   return (
     <BrainPage
       title="Outputs"
-      description="Everything your missions have produced. Review it, accept it or ask for changes."
+      description="Every file your missions produced. Review it, accept it or ask for changes."
     >
       <PageStack>
         <OutputBrowser
@@ -147,15 +144,16 @@ export default function OutputsPage(): JSX.Element {
             updateParams({ job: next.jobId, run: next.runId, workItem: next.workItemId, artifact: undefined });
             void artifacts.refresh({ force: true });
           }}
+          folder={param("folder") || undefined}
+          onFolder={(folder) => updateParams({ folder })}
+          view={view()}
+          onView={(next) => updateParams({ view: next === "grid" ? undefined : next })}
+          search={param("q")}
+          onSearch={(q) => setSearchParams({ q: q || undefined }, { replace: true })}
+          kind={param("kind")}
+          onKind={(kind) => updateParams({ kind: kind || undefined })}
           selectedId={selectedId()}
           onSelect={(artifactId) => updateParams({ artifact: artifactId })}
-          compareMode={compareMode()}
-          onCompareMode={(on) => {
-            setCompareMode(on);
-            if (!on) setCompareIds([]);
-          }}
-          compareIds={compareIds()}
-          onToggleCompare={toggleCompare}
           onCompare={(leftId, rightId) => void navigate(execArtifactUrl(rightId, { leftId, rightId }))}
           detail={{ history: detail.state().data ?? undefined, loading: detail.state().status === "loading", error: detail.state().error ?? "" }}
           grouping={grouping.state().data ?? { workItems: [], missionTitles: {}, groupOf: {}, links: [] }}

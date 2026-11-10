@@ -194,6 +194,17 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   await page.goto(`${governor.url}/outputs/art-out-v2/compare?left=art-out-v1&right=art-out-v2`);
   await expect(page.getByText("rollout steps approved by verification", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
 
+  // (d0) The Output Browser is a file explorer: ticking two files raises the
+  // one selection bar, whose Compare hands off to the same diff route.
+  await page.goto(`${governor.url}/w/ws-console/outputs?folder=all&view=list`);
+  await page.getByRole("checkbox", { name: "Select art-out-v1.md" }).check({ timeout: 30_000 });
+  await page.getByRole("checkbox", { name: "Select art-out-v2.md" }).check();
+  const selection = page.getByRole("region", { name: "Selection actions" });
+  await expect(selection).toContainText("2 selected");
+  await selection.getByRole("button", { name: "Compare", exact: true }).click();
+  await expect(page).toHaveURL(/\/outputs\/art-out-v[12]\/compare\?left=art-out-v[12]&right=art-out-v[12]$/);
+  await expect(page.getByText("rollout steps approved by verification", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
+
   // (d') The named output lists its versions newest first, opens one with
   // ?v= and compares an earlier version with the latest beside provenance.
   await page.goto(`${governor.url}/outputs/output-dossier`);
