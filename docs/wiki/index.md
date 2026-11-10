@@ -8,6 +8,9 @@ Historical record, not a description of the present. Every claim is dated and, f
 ## Findings
 - [dogfood-2026-11-11.md](dogfood-2026-11-11.md) — first-user walkthrough of the live site: what was broken, fixed, and still open.
 
+## Research
+- [../research/best-product-gap-2026-11.md](../research/best-product-gap-2026-11.md) — 12 ranked product gaps (track D report, `talelk/brain@b350f76`, 2026-11-11).
+
 ## Operations
 - [ops-live-server.md](ops-live-server.md) — how to deploy to, inspect and test the live demo.
 
