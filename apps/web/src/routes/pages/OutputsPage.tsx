@@ -86,13 +86,22 @@ export default function OutputsPage(): JSX.Element {
         read<WorkItem>("workItems.list"),
         read<Mission>("missions.list"),
       ]);
-      const linked = [...new Set(links.snapshot.items.map((link) => link.workItemId))].slice(0, 24);
+      // One producer per link: its job when the link names one (the artifact's
+      // direct owner), else the work item the index resolves server-side.
+      const producers = new Map<string, { workItemId: string; jobId?: string }>();
+      for (const link of links.snapshot.items) {
+        const key = link.jobId ? `job:${link.jobId}` : `item:${link.workItemId}`;
+        if (!producers.has(key)) producers.set(key, { workItemId: link.workItemId, ...(link.jobId ? { jobId: link.jobId } : {}) });
+      }
       const groupOf: Record<string, string> = {};
       await Promise.all(
-        linked.map(async (workItemId) => {
+        [...producers.values()].slice(0, 24).map(async (producer) => {
           for (const state of ["uploading", "verified"] as const) {
-            const found = await artifactsListQuery({ workspaceId: readScope.workspaceId, workItemId, state }, signal);
-            for (const artifact of found.snapshot.items) groupOf[artifact.artifactId] ??= workItemId;
+            const found = await artifactsListQuery(
+              { workspaceId: readScope.workspaceId, state, ...(producer.jobId ? { jobId: producer.jobId } : { workItemId: producer.workItemId }) },
+              signal,
+            );
+            for (const artifact of found.snapshot.items) groupOf[artifact.artifactId] ??= producer.workItemId;
           }
         }),
       );

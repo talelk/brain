@@ -50,7 +50,10 @@ export async function acceptFromArtifact(app: AppContextValue, item: WorkItem, a
     const history = await artifactsHistoryQuery({ artifactId });
     const evidence = verifiedBundle(history.snapshot);
     if (!evidence) return { accepted: false, detail: "No independent check has verified it yet." };
-    return await moveWorkItem(app, item, { state: "done", evidenceDigest: evidence });
+    const moved = await moveWorkItem(app, item, { state: "done", evidenceDigest: evidence });
+    // Work others depend on needs a handoff first; that step lives on the single file, not in bulk.
+    if (!moved.accepted && /handoff/iu.test(moved.detail)) return { accepted: false, detail: "Other tasks wait on it. Open the file to hand off, then accept." };
+    return moved;
   } catch (failure) {
     return { accepted: false, detail: failure instanceof Error ? failure.message : "Its evidence could not be read." };
   }

@@ -179,7 +179,7 @@ export function buildFolders(files: readonly OutputFile[]): FolderNode[] {
     { value: "review", label: "Needs review", icon: "lucide-inbox", count: reviewCount, attention: reviewCount > 0 },
     { value: "all", label: "All outputs", icon: "lucide-files", count: files.length },
     ...missionNodes,
-    ...(other.length ? [{ value: "other" as const, label: "Outside missions", icon: "lucide-folder-x", count: other.length }] : []),
+    ...(other.length ? [{ value: "other" as const, label: "Not linked to a work item", icon: "lucide-folder-x", count: other.length }] : []),
   ];
 }
 
@@ -204,7 +204,7 @@ export function groupByMission(files: readonly OutputFile[]): { key: string; tit
     const key = file.missionId ?? "";
     const group = groups.get(key) ?? {
       key,
-      title: file.missionTitle ?? "Outside missions",
+      title: file.missionTitle ?? "Not linked to a work item",
       ...(file.missionId ? { missionId: file.missionId } : {}),
       ...(file.item ? { workspaceId: file.item.workspaceId } : {}),
       files: [],

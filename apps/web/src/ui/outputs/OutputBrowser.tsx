@@ -504,7 +504,7 @@ function FileTile(props: { file: OutputFile; view: "grid" | "list"; previewed: b
   const meta = () => {
     const parts = [previewKindLabel(props.file.kind as ArtifactPreviewKind), formatBytes(props.file.artifact.bytes)];
     if (props.view === "list" && props.file.item) parts.push(props.file.item.title);
-    if (props.file.link) parts.push(`run ${shortDigest(props.file.link.runId, 8)}`);
+    if (props.file.link) parts.push(`from ${props.file.link.runId}`);
     if (props.view === "list" && props.file.item?.assignment) parts.push(`by ${props.file.item.assignment.id}`);
     return parts.join(" · ");
   };
