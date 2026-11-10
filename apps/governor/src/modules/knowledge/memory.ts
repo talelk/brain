@@ -67,11 +67,17 @@ export class MemoryStore {
     }
     const terms = query.query.toLowerCase().split(/\s+/).filter(Boolean);
     const limit = Math.min(Math.max(query.limit, 1), 8);
+    // Rank by how many distinct query terms an asset contains, then newest first,
+    // so the `limit` cut keeps the best matches rather than the oldest rows.
+    const score = (a: Asset): number => { const text = a.text.toLowerCase(); return new Set(terms.filter((t) => text.includes(t))).size; };
     const hits: MemoryResult[] = this.assets
       .filter((a) => !a.revoked && a.organizationId === scope.organizationId)
       .filter((a) => a.workspaceId === null || !scope.workspaceId || a.workspaceId === scope.workspaceId)
-      .filter((a) => terms.length === 0 || terms.some((t) => a.text.toLowerCase().includes(t)))
+      .map((a) => ({ a, hit: score(a) }))
+      .filter(({ hit }) => terms.length === 0 || hit > 0)
+      .sort((x, y) => y.hit - x.hit || y.a.createdAtMs - x.a.createdAtMs)
       .slice(0, limit)
+      .map(({ a }) => a)
       .map((a) => ({
         sourceId: a.sourceId,
         scope: a.workspaceId

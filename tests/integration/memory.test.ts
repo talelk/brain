@@ -115,4 +115,17 @@ describe("reviewed memory publication (T39)", () => {
     expect(exported.missing).toEqual(["tencentdb-wiki", "tencentdb-codegraph"]);
     await expect(w.brain.searchMemoryAsync(w.actor("mallory", w.workspaceId), w.workspaceId, mq(w))).rejects.toThrow();
   });
+  it("local search ranks by matched query terms so the limit keeps the best matches", () => {
+    world = setupWorld();
+    const w = world;
+    const base = { organizationId: w.org, workspaceId: w.workspaceId };
+    w.brain.memory.publish({ ...base, sourceId: "weak", text: "rollout notes" });
+    w.brain.memory.publish({ ...base, sourceId: "strong", text: "rollout checklist with rollback plan" });
+    w.brain.memory.publish({ ...base, sourceId: "none", text: "unrelated billing text" });
+    const query = { ...mq(w), query: "rollout rollback", limit: 1 } as MemoryQuery;
+    const found = w.brain.memory.search(query, { organizationId: w.org, workspaceId: w.workspaceId }).results;
+    expect(found.map((r) => r.sourceId)).toEqual(["strong"]);
+    const all = w.brain.memory.search({ ...query, limit: 8 } as MemoryQuery, { organizationId: w.org, workspaceId: w.workspaceId }).results;
+    expect(all.map((r) => r.sourceId)).toEqual(["strong", "weak"]);
+  });
 });
