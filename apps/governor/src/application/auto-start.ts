@@ -81,8 +81,10 @@ export class AutoStart {
         // The task's own workflow first; when it is missing or cannot take the task's situation, the mission's own (most used)
         // workflow runs it, so nobody has to pick one.
         const input = { situation: workItemSituation(item.title, item.criteria) } as JsonValue;
-        const candidates = [...new Set([item.workflowId, mission.defaultWorkflowId].filter((id): id is string => id !== null))];
-        if (candidates.length === 0) { note("Needs input before it can start: choose a workflow for this task"); continue; }
+        // A mission written in plain words has no workflow anywhere, so the catalog's first workflow that accepts the situation is the last resort.
+        const catalogIds = catalog.map((candidate) => candidate.release.id).sort();
+        const candidates = [...new Set([item.workflowId, mission.defaultWorkflowId, ...catalogIds].filter((id): id is string => id !== null))];
+        if (candidates.length === 0) { note("Needs input before it can start: no workflow is available in this workspace"); continue; }
         let entry: WorkflowCatalogEntry | undefined;
         let problem = "";
         for (const workflowId of candidates) {

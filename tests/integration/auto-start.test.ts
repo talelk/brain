@@ -111,22 +111,18 @@ describe("auto-start (ADR 0004: the Governor reacts to events and dispatches bou
     expect(item(w, id, "w").state).toBe("in-progress");
   });
 
-  it("leaves tasks without a workflow or with unsatisfiable input ready, with a visible next action, and invents no input", async () => {
+  it("runs a mission written in plain words, where no task or mission names a workflow, on the catalog's first workflow that takes the task", async () => {
     const w = world();
-    const id = await confirmed(w, "needs-input", [
+    const id = await confirmed(w, "plain-words", [
       { id: "bare", title: "No workflow", criteria: ["x"], dependsOn: [] },
       triage("wrong-shape", { workflowId: "support-draft" }),
       triage("ghost", { workflowId: "not-in-release" }),
     ]);
     for (const task of ["bare", "wrong-shape", "ghost"]) {
-      const waiting = item(w, id, task);
-      expect(waiting.state).toBe("ready");
-      expect(waiting.nextAction).toMatch(/^Needs input before it can start/);
-      expect(runsOf(w, waiting.workItemId)).toHaveLength(0);
+      const started = item(w, id, task);
+      expect(started.state).toBe("in-progress");
+      expect(runsOf(w, started.workItemId)).toHaveLength(1);
     }
-    expect(runCount(w)).toBe(0);
-    // Noting a blocker is advice, not a state change: the version is untouched so edits are not made stale.
-    expect(item(w, id, "bare").version).toBe(1);
   });
 
   it("starts nothing in manual mode (ask me before each task) until the switch is turned on", async () => {
@@ -142,10 +138,10 @@ describe("auto-start (ADR 0004: the Governor reacts to events and dispatches bou
 
   it("switching auto-start off restores the plain prompt on notes it left", async () => {
     const w = world();
-    const id = await confirmed(w, "off", [{ id: "bare", title: "No workflow", criteria: ["x"], dependsOn: [] }]);
-    expect(item(w, id, "bare").nextAction).toMatch(/^Needs input/);
+    const id = await confirmed(w, "off", [triage("a"), triage("b")], { budget: { memberCap: 1 } });
+    expect(item(w, id, "b").nextAction).toMatch(/^Waiting for a free member/);
     await run(w, "mission.policy.set", "off-set", { missionId: id, autoStart: false }, (await mission(w, id)).version);
-    expect(item(w, id, "bare").nextAction).toBe("Start this task");
+    expect(item(w, id, "b").nextAction).toBe("Start this task");
     expect((await mission(w, id)).autonomyPolicy.version).toBe(1);
   });
 
