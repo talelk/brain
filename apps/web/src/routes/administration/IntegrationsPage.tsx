@@ -93,15 +93,15 @@ export default function IntegrationsPage(): JSX.Element {
     finally { setBusy(false); }
   }
 
-  return <BrainPage title="Integrations" description="See which Git remotes are configured, verified and usable before binding them to workspace configuration or projects."
+  return <BrainPage title="Integrations" description="Connect Brain to your Git repositories, then bind a repository to a workspace so its workflows can use it. Credentials are stored encrypted and never shown again."
     actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={() => void refresh()}>Refresh</Button><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => { setError(""); setConnectOpen(true); }}>Connect remote</Button></>}>
     <PageStack>
       <Show when={error()}><Alert theme="red" variant="outline" title="Integration action failed" description={error()} /></Show>
       <StatGrid compact stats={[
         { label: "Connections", value: String(integrations.state().data?.connections.length ?? 0), hint: "Configured remotes", icon: "lucide-plug" },
-        { label: "Verified", value: String(integrations.state().data?.connections.filter((connection) => connection.status === "verified").length ?? 0), hint: "Protocol refs and push negotiated", icon: "lucide-circle-check" },
-        { label: "Bindings", value: String(integrations.state().data?.bindings.length ?? 0), hint: "Workspace repository relationships", icon: "lucide-link" },
-        { label: "Ref proposals", value: String(integrations.state().data?.proposals.length ?? 0), hint: "Inert until separately reviewed", icon: "lucide-git-pull-request" },
+        { label: "Verified", value: String(integrations.state().data?.connections.filter((connection) => connection.status === "verified").length ?? 0), hint: "Tested and working", icon: "lucide-circle-check" },
+        { label: "Bindings", value: String(integrations.state().data?.bindings.length ?? 0), hint: "Repositories linked to a workspace", icon: "lucide-link" },
+        { label: "Proposed changes", value: String(integrations.state().data?.proposals.length ?? 0), hint: "Nothing is pushed until reviewed", icon: "lucide-git-pull-request" },
       ]} />
       <div class="brain-detail-stack">
         <WorkspaceSection title="Configured connections" description="Configured, authenticated and workflow-usable are different states. Verification uses the real server response.">

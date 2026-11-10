@@ -25,13 +25,13 @@ const SETTINGS_PAGE_SIZE = 25;
 
 const PAGE: Record<string, { title: string; description: string }> = {
   setup: { title: "Workspace setup", description: "Connect a model, start the runners, then run one safe test task." },
-  security: { title: "Security center", description: "Manage authenticator, passkeys, sessions and notification hygiene for your account." },
-  people: { title: "People", description: "Manage organization identity, roles and current-organization sessions." },
-  invitations: { title: "Invitations", description: "Track intended access, acceptance and actual delivery state." },
-  policy: { title: "Authentication policy", description: "Understand the effective security posture and its configuration source." },
-  health: { title: "Platform operations", description: "Inspect service health, freshness and the scoped operational audit trail." },
-  members: { title: "Workspace access", description: "See exactly who has which workspace role and change access with a reason." },
-  release: { title: "Release management", description: "Inspect the active release and candidate contents before a separate authorized activation." },
+  security: { title: "Security", description: "Protect your own account: two-factor sign-in, passkeys, your signed-in devices and notifications." },
+  people: { title: "People", description: "Everyone in your organization and what each person may administer. Invite someone, change their organization roles, or suspend them." },
+  invitations: { title: "Invitations", description: "People you invited and whether they have joined yet. Invitations are sent by email and expire." },
+  policy: { title: "Authentication", description: "How people sign in to this organization. This page is read-only; the policy is set in the server configuration." },
+  health: { title: "Health", description: "Is Brain working? One verdict first, then each service and the latest recorded activity." },
+  members: { title: "Workspace access", description: "Who can do what in this workspace. Grant or revoke a role; every change needs a reason and is recorded." },
+  release: { title: "Releases", description: "A release is the set of workflows and agents Brain runs. Activating a release makes it the one new work uses; running work keeps the release it started on." },
 };
 
 export function SettingsScreen(props: {
@@ -59,7 +59,6 @@ export function SettingsScreen(props: {
   const [principalId, setPrincipalId] = createSignal("");
   const [role, setRole] = createSignal("viewer");
   const [reason, setReason] = createSignal("");
-  const [activateDigest, setActivateDigest] = createSignal("");
   const [memberPage, setMemberPage] = createSignal(1);
   const [auditPage, setAuditPage] = createSignal(1);
   const principalName = (id: string) => id === props.viewerId ? props.viewerName ?? id : id;
@@ -79,15 +78,16 @@ export function SettingsScreen(props: {
       <Show when={tab() === "invitations" && identityAdmin()}><OrganizationInvitations /></Show>
       <Show when={tab() === "policy" && identityAdmin()}><OrganizationAuthPolicy /></Show>
       <Show when={tab() === "health"}><PageStack>
-        <Show when={organizationAdmin()}><DiagnosticExport /></Show>
-        <WorkspaceSection title="Service status" description="Current health, detail and observation time reported by Governor. Unknown or unsupported states are not rendered green.">
-          <ScreenRegion state={props.state} skeleton="rows" emptyTitle="Health unavailable" emptyDescription="The Governor did not return a service snapshot." onRetry={props.onRefresh}>
-            <div class="grid gap-3 md:grid-cols-2"><For each={props.health?.services ?? []}>{(service) => <article class="min-w-0 border-y border-outline-gray-1 py-3"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="flex min-w-0 items-center gap-2 break-words text-base-medium capitalize"><StatusIcon state={service.status} theme={statusTheme("health", service.status)} class="size-4" />{service.id}</h3><StatusBadge kind="health" status={service.status} /></div><p class="mt-1.5 break-words text-interface text-ink-gray-7">{service.detail}</p><p class="mt-1.5 text-caption text-ink-gray-6">Checked <DateText value={service.checkedAt} /></p></article>}</For></div>
-            <Show when={props.health} keyed>{(health) => <Show when={health.status !== "healthy"}><Alert theme="amber" variant="outline" title="Platform is degraded" description={`${health.pendingOutbox} outbox deliveries are pending (oldest ${health.oldestOutboxAgeMs}ms).`} /></Show>}</Show>
+                <HealthVerdict health={props.health} />
+        <WorkspaceSection title="Services" description="What each part of Brain reported on its last check. A grey or unknown state is never shown as healthy.">
+          <ScreenRegion state={props.state} skeleton="rows" emptyTitle="Health unavailable" emptyDescription="Brain could not read its own status. Retry; if it keeps failing, the server may be down." onRetry={props.onRefresh}>
+            <div class="grid gap-3 md:grid-cols-2"><For each={props.health?.services ?? []}>{(service) => <article class="min-w-0 border-y border-outline-gray-1 py-3"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="flex min-w-0 items-center gap-2 break-words text-base-medium"><StatusIcon state={service.status} theme={statusTheme("health", service.status)} class="size-4" />{serviceName(service.id)}</h3><StatusBadge kind="health" status={service.status} /></div><p class="mt-1.5 break-words text-interface text-ink-gray-7">{service.detail}</p><p class="mt-1.5 text-caption text-ink-gray-6">Checked <DateText value={service.checkedAt} /></p></article>}</For></div>
+            
           </ScreenRegion>
         </WorkspaceSection>
-        <WorkspaceSection title="Operational audit timeline" description="Actor, operation, object and time in one scoped append-only sequence. Technical cursors remain secondary.">
-          <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No audited events yet" emptyDescription="Actions appear here as the Governor records them." onRetry={props.onRefresh}>
+        <WorkspaceSection title="Recent activity" description="Who did what and when, newest first. Entries cannot be edited or removed.">
+          <ScreenRegion state={props.state} skeleton="rows" emptyTitle="Nothing recorded yet" emptyDescription="Sign-ins, approvals, grants and releases appear here as they happen." onRetry={props.onRefresh}>
+            <Show when={props.audit.length === 0}><p class="brain-empty-inline">Nothing recorded yet. Sign-ins, approvals, grants and releases appear here as they happen.</p></Show>
             <Timeline items={auditRows().map((entry) => ({ id: String(entry.cursor), title: <span class="break-words">{entry.action}</span>, description: <span class="break-all">{entry.actorId} · {entry.resourceId}</span>, timestamp: <span class="whitespace-nowrap"><DateText value={entry.occurredAt} /> · cursor {entry.cursor}</span>, icon: "lucide-history" }))} />
             <Show when={auditPageCount() > 1}><Pagination.Root aria-label="Audit timeline pagination" class="mt-3 flex-wrap items-center justify-between gap-2 border-t border-outline-gray-1 pt-3" count={props.audit.length} pageSize={SETTINGS_PAGE_SIZE} page={currentAuditPage()} onPageChange={setAuditPage}>
               <Pagination.Range />
@@ -95,22 +95,50 @@ export function SettingsScreen(props: {
             </Pagination.Root></Show>
           </ScreenRegion>
         </WorkspaceSection>
+        <Show when={organizationAdmin()}><DiagnosticExport /></Show>
       </PageStack></Show>
-      <Show when={tab() === "members"}><WorkspaceSection title="People and workspace access" description="Organization membership alone does not grant workspace content. Roles below are explicit workspace grants." actions={props.canAdminister ? <Button variant="solid" theme="blue" iconLeft="lucide-user-plus" onClick={() => setAccessOpen(true)}>Manage access</Button> : undefined}>
-        <ScreenRegion state={props.state} skeleton="rows" emptyTitle="No members listed" emptyDescription="Nobody has been granted access to this workspace yet." onRetry={props.onRefresh}>
-          <div class="grid gap-3 md:grid-cols-2"><For each={memberRows()}>{(member) => <article class="min-w-0 rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-3"><div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0"><h3 class="break-words text-base-medium">{principalName(member.principalId)}</h3><p class="mt-0.5 break-all text-caption text-ink-gray-6">{member.principalId}</p></div><StatusBadge status={member.revoked ? "revoked" : "active"} /></div><div class="mt-2 flex flex-wrap gap-1.5"><For each={member.roles}>{(role) => <Badge variant="outline" theme="blue" label={role} />}</For></div><dl class="mt-3 grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2 text-caption"><div class="min-w-0"><dt class="text-ink-gray-6">Granted</dt><dd class="mt-0.5 break-words"><DateText value={member.createdAt} /></dd></div><div class="min-w-0"><dt class="text-ink-gray-6">Record version</dt><dd class="mt-0.5 tabular-nums">{member.version}</dd></div></dl></article>}</For></div>
+      <Show when={tab() === "members"}><WorkspaceSection title="Who has access" description="Being in the organization does not give access to a workspace; each person needs one of the roles below." actions={props.canAdminister ? <Button variant="solid" theme="blue" iconLeft="lucide-user-plus" onClick={() => setAccessOpen(true)}>Manage access</Button> : undefined}>
+        <RoleLegend />
+        <ScreenRegion state={props.state} skeleton="rows" emptyTitle="Nobody has access yet" emptyDescription="Use Manage access to give someone a role in this workspace." onRetry={props.onRefresh}>
+          <div class="grid gap-3 md:grid-cols-2"><For each={memberRows()}>{(member) => <article class="min-w-0 rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-3"><div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0"><h3 class="break-words text-base-medium">{principalName(member.principalId)}</h3><p class="mt-0.5 break-all text-caption text-ink-gray-6">{member.principalId}</p></div><StatusBadge status={member.revoked ? "revoked" : "active"} /></div><div class="mt-2 flex flex-wrap gap-1.5"><For each={member.roles}>{(role) => <Badge variant="outline" theme="blue" label={role} />}</For></div><dl class="mt-3 grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2 text-caption"><div class="min-w-0"><dt class="text-ink-gray-6">Granted</dt><dd class="mt-0.5 break-words"><DateText value={member.createdAt} /></dd></div><div class="min-w-0"><dt class="text-ink-gray-6">Status</dt><dd class="mt-0.5">{member.revoked ? "Access revoked" : "Has access"}</dd></div></dl></article>}</For></div>
           <Show when={memberPageCount() > 1}><Pagination.Root aria-label="Workspace access pagination" class="mt-3 flex-wrap items-center justify-between gap-2 border-t border-outline-gray-1 pt-3" count={props.members.length} pageSize={SETTINGS_PAGE_SIZE} page={currentMemberPage()} onPageChange={setMemberPage}>
             <Pagination.Range />
             <div class="flex items-center gap-1"><Pagination.PrevTrigger /><Pagination.Pages /><Pagination.NextTrigger /></div>
           </Pagination.Root></Show>
         </ScreenRegion>
       </WorkspaceSection></Show>
-      <Show when={tab() === "release"}><WorkspaceSection title="Release readiness" description="Active identity and candidate contents precede the high-risk activation control."><Show when={organizationAdmin()} fallback={<p class="text-interface text-ink-gray-7">Staging and activating releases requires an administrator role.</p>}><InspectRelease activeConfigDigest={props.activeConfigDigest} onActivate={props.onActivate} /></Show></WorkspaceSection></Show>
-      <Show when={tab() === "release"}><WorkspaceSection title="Effective configuration" description="Trace where a value comes from in the active release. Raw provenance remains secondary to the effective value."><PageStack><div class="max-w-xl"><TextInput label="Config pointer" value={activateDigest()} description="For example /workflows/fixture-workflow" onInput={(event) => setActivateDigest(event.currentTarget.value)} /></div><Show when={props.explanation}><div class="grid gap-3 lg:grid-cols-2"><KeyValue label="Pointer" value={<span class="break-all">{props.explanation!.pointer}</span>} /><KeyValue label="Active digest" value={<code class="break-all">{props.explanation!.configDigest}</code>} orientation="vertical" /><For each={props.explanation!.sources}>{(source) => <KeyValue label={`Rule (${source.rule})`} value={<span class="break-all">{source.path}:{source.line}</span>} orientation="vertical" />}</For></div></Show></PageStack></WorkspaceSection></Show>
+      <Show when={tab() === "release"}><WorkspaceSection title="Active and available releases" description="Pick a release, check what is in it, then activate it. Nothing changes until you activate."><Show when={organizationAdmin()} fallback={<p class="text-interface text-ink-gray-7">Only an organization administrator can view or activate releases. Ask one to do it.</p>}><InspectRelease activeConfigDigest={props.activeConfigDigest} onActivate={props.onActivate} /></Show></WorkspaceSection></Show>
+      <Show when={tab() === "release" && organizationAdmin() && props.explanation}><TechnicalDetails label="Where the workflow settings come from"><PageStack><Show when={props.explanation}><div class="grid gap-3 lg:grid-cols-2"><KeyValue label="Pointer" value={<span class="break-all">{props.explanation!.pointer}</span>} /><KeyValue label="Active digest" value={<code class="break-all">{props.explanation!.configDigest}</code>} orientation="vertical" /><For each={props.explanation!.sources}>{(source) => <KeyValue label={`Rule (${source.rule})`} value={<span class="break-all">{source.path}:{source.line}</span>} orientation="vertical" />}</For></div></Show></PageStack></TechnicalDetails></Show>
       <Show when={tab() === "security"}><WorkspaceSection title="Notifications" description="Attention hints never replace sign-in and exact review."><PushControls /></WorkspaceSection></Show>
       <Dialog.Root open={accessOpen()} onOpenChange={setAccessOpen}><Dialog.Content size="md"><Dialog.Header><Dialog.Title>Manage workspace access</Dialog.Title><Dialog.Description>Grant or revoke one role for an active organization member. The current record version and reason are checked by Governor.</Dialog.Description></Dialog.Header><BrainForm bare label="Manage workspace access" onSubmit={() => { if (principalId().trim() && reason().trim()) { void props.onGrant(principalId().trim(), role(), reason().trim()); setAccessOpen(false); } }}><div class="my-3 flex flex-col gap-3"><OrganizationMemberSelect value={principalId()} onChange={setPrincipalId} /><Select label="Role" value={role()} options={[{ value: "viewer", label: "Viewer" }, { value: "operator", label: "Operator" }, { value: "workspace-lead", label: "Workspace lead" }, { value: "approver", label: "Approver" }]} onValueChange={(value) => setRole(value ?? "viewer")} /><TextInput label="Reason" required value={reason()} onInput={(event) => setReason(event.currentTarget.value)} /><Alert theme="amber" variant="outline" title="Scope and consequence" description={`${role()} access applies to workspace ${props.workspaceId}. Revocation stops new reads and writes; it does not delete organization membership.`} /></div><Dialog.Footer class="flex-wrap justify-end gap-2"><Button variant="outline" onClick={() => setAccessOpen(false)}>Cancel</Button><Button variant="outline" theme="red" disabled={!principalId().trim() || !reason().trim()} onClick={() => { void props.onRevoke(principalId().trim(), role(), reason().trim()); setAccessOpen(false); }}>Revoke</Button><Button type="submit" variant="solid" theme="blue" disabled={!principalId().trim() || !reason().trim()}>Grant</Button></Dialog.Footer></BrainForm></Dialog.Content></Dialog.Root>
     </PageStack>
   </BrainPage>;
+}
+
+const SERVICE_NAMES: Record<string, string> = { governor: "Brain server", "memory-local": "Memory (built-in store)", memory: "Memory service", runner: "Runners", runners: "Runners" };
+const serviceName = (id: string) => SERVICE_NAMES[id.toLowerCase()] ?? id.replace(/[-_]/gu, " ");
+
+/** One overall verdict before any detail: healthy, needs a look, or unknown. Disabled optional services do not count against it. */
+function HealthVerdict(props: { health?: HealthView }): JSX.Element {
+  const verdict = () => {
+    const health = props.health;
+    if (!health) return { theme: "gray" as const, title: "Health is unknown", text: "Brain could not read its status, so nothing here can be called healthy. Press Refresh." };
+    const bad = health.services.filter((service) => service.status !== "healthy" && service.status !== "disabled");
+    if (health.status === "healthy" && bad.length === 0) return { theme: "green" as const, title: "Everything is working", text: `${health.services.length} services checked, none need attention.` };
+    return { theme: "amber" as const, title: "Something needs attention", text: `${bad.length ? `${bad.map((service) => serviceName(service.id)).join(", ")} ${bad.length === 1 ? "is" : "are"} not healthy. ` : ""}${health.pendingOutbox > 0 ? `${health.pendingOutbox} outgoing messages are waiting to be delivered (the oldest for ${Math.round(health.oldestOutboxAgeMs / 1000)} s). ` : ""}Details are below.` };
+  };
+  return <Alert theme={verdict().theme} variant="outline" title={verdict().title} description={verdict().text} />;
+}
+
+const ROLE_HELP: [string, string][] = [
+  ["Viewer", "can read missions, outputs and logs"],
+  ["Operator", "can also start, steer and stop work"],
+  ["Approver", "can approve or reject actions that ask for it"],
+  ["Workspace lead", "can also manage who has access"],
+];
+
+function RoleLegend(): JSX.Element {
+  return <dl class="mb-3 grid gap-x-6 gap-y-1 text-caption text-ink-gray-7 sm:grid-cols-2" aria-label="What each role can do"><For each={ROLE_HELP}>{([name, text]) => <div><dt class="inline font-medium text-ink-gray-9">{name}</dt> <dd class="inline">{text}</dd></div>}</For></dl>;
 }
 
 function InspectRelease(props: { activeConfigDigest?: string; onActivate: (digest: string, expectedActiveDigest: string | null) => Promise<void> }) {
@@ -121,30 +149,29 @@ function InspectRelease(props: { activeConfigDigest?: string; onActivate: (diges
   const [error, setError] = createSignal<{ text: string; tone: "error" | "success" }>(); const [busy, setBusy] = createSignal(false);
   async function loadReleases() {
     try { const result = await governor<{ items: ReleaseSummary[] }>("/v1/config/releases"); setReleases(result.items); if (!digest() && result.items[0]) setDigest(result.items[0].digest); }
-    catch (reason) { setError({ text: reason instanceof Error ? reason.message : "Could not list staged releases", tone: "error" }); }
+    catch (reason) { setError({ text: reason instanceof Error ? reason.message : "Could not list releases. Press Refresh to try again.", tone: "error" }); }
   }
   onMount(() => void loadReleases());
   async function inspect() {
     setBusy(true); setInspection(undefined);
     try { setInspection(await governor(`/v1/config/releases/${encodeURIComponent(digest())}`)); }
-    catch (reason) { setError({ text: reason instanceof Error ? reason.message : "Inspection failed", tone: "error" }); }
+    catch (reason) { setError({ text: reason instanceof Error ? reason.message : "Could not open this release. Press Refresh and pick it again.", tone: "error" }); }
     finally { setBusy(false); }
   }
   const current = () => releases().find((release) => release.digest === digest());
   const active = () => releases().find((release) => release.active);
   return <PageStack>
     <StatGrid compact stats={[
-      { label: "Active source", value: <span title={active()?.sourceRevision} class="font-mono text-base">{active()?.sourceRevision ? `${active()!.sourceRevision.slice(0, 19)}…` : "No active release"}</span>, hint: active() ? "Currently activated source commit" : "Activate an inspected candidate first", icon: "lucide-git-branch" },
-      { label: "Candidates", value: String(releases().length), hint: "Immutable staged releases", icon: "lucide-package" },
-      { label: "Selected", value: current()?.active ? "Active" : current() ? "Candidate" : "None", hint: current() ? `${current()!.workflows} workflows · ${current()!.agents} agents` : "Choose a staged release", icon: "lucide-scan-search" },
-      { label: "Gate evidence", value: "Not supplied", hint: "A build alone does not prove verified readiness", icon: "lucide-shield-question" },
+      { label: "Active release", value: <span title={active()?.sourceRevision} class="text-base">{active() ? `${active()!.workflows} workflows · ${active()!.agents} agents` : "None yet"}</span>, hint: active() ? `Activated from ${active()!.sourceRevision.slice(0, 12)}` : "New work cannot start until one is activated", icon: "lucide-rocket" },
+      { label: "Available", value: String(releases().length), hint: "Compiled releases ready to inspect", icon: "lucide-package" },
+      { label: "Selected", value: current()?.active ? "Already active" : current() ? "Not active" : "None", hint: current() ? `${current()!.workflows} workflows · ${current()!.agents} agents` : "Choose a release below", icon: "lucide-scan-search" },
     ]} />
-    <div class="grid gap-2 border-y border-outline-gray-1 py-3 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-end"><Select label="Staged release" value={digest() || null} options={releases().map((release) => ({ value: release.digest, label: `${release.workflows} Workflows · ${release.agents} Agents${release.active ? " · active" : ""}`, description: `${formatDateTime(release.createdAt)} · ${release.digest}` }))} onValueChange={(value) => { setDigest(value ?? ""); setInspection(undefined); }} /><Button size="sm" variant="outline" class="justify-self-start" onClick={() => void loadReleases()}>Refresh</Button><Button variant="outline" class="justify-self-start" onClick={() => void inspect()} disabled={!digest() || busy()} loading={busy()}>Inspect selected release</Button></div>
+    <div class="grid gap-2 border-y border-outline-gray-1 py-3 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-end"><Select label="Release" value={digest() || null} options={releases().map((release) => ({ value: release.digest, label: `${release.workflows} Workflows · ${release.agents} Agents${release.active ? " · active" : ""}`, description: `${formatDateTime(release.createdAt)} · ${release.digest}` }))} onValueChange={(value) => { setDigest(value ?? ""); setInspection(undefined); }} /><Button size="sm" variant="outline" class="justify-self-start" onClick={() => void loadReleases()}>Refresh</Button><Button variant="outline" class="justify-self-start" onClick={() => void inspect()} disabled={!digest() || busy()} loading={busy()}>See what is inside</Button></div>
     <Show when={current()}>{(release) => <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-interface text-ink-gray-7"><span class="min-w-0 break-all">Source {release().sourceRevision}</span><span>{release().assets} supporting assets</span><Freshness value={release().createdAt} label="Staged" /></div>}</Show>
-    <Show when={!releases().length && !error()}><EmptyState size="sm" icon="lucide-package" title="No staged releases" description="Compile the complete starter directory, then refresh this list. Activation is never inferred from compilation." /></Show>
-    <Show when={inspection()} keyed>{(release) => <PageStack><div class="border-y border-outline-gray-1 py-3"><h3 class="text-base-medium">Candidate contents</h3><ul class="mt-2 grid gap-2 sm:grid-cols-2"><For each={release.manifest.documents ?? []}>{(document) => <li class="min-w-0 break-words text-interface text-ink-gray-7"><strong>{document.kind}</strong> · <span class="break-all">{document.id}</span></li>}</For></ul></div><TechnicalDetails label="Technical manifest and digest"><p class="break-all">{release.digest}</p><pre class="brain-readable mt-3 max-h-96 max-w-full overflow-auto whitespace-pre-wrap break-all text-caption">{JSON.stringify(release.manifest, null, 2)}</pre></TechnicalDetails><Alert theme="amber" variant="outline" title="High-risk activation" description="Activation changes the active release only after exact authorization and expected-active-digest validation. It does not claim runtime gate evidence." /><Button variant="solid" theme="blue" iconLeft="lucide-check" class="self-start" disabled={busy()} onClick={async () => { setBusy(true); setError(undefined); try { await props.onActivate(release.digest, release.expectedActiveDigest); setInspection(undefined); setError({ text: "Release activated. Inspect Agents and Workflows to continue.", tone: "success" }); await loadReleases(); } catch (reason) { setError({ text: reason instanceof Error ? reason.message : "Activation failed", tone: "error" }); } finally { setBusy(false); } }}>Activate inspected release</Button></PageStack>}</Show>
+    <Show when={!releases().length && !error()}><EmptyState size="sm" icon="lucide-package" title="No releases compiled yet" description="Compile the starter directory with the command under Compile a new release, then press Refresh. Compiling alone never changes what Brain runs." /></Show>
+    <Show when={inspection()} keyed>{(release) => <PageStack><div class="border-y border-outline-gray-1 py-3"><h3 class="text-base-medium">What this release contains</h3><ul class="mt-2 grid gap-2 sm:grid-cols-2"><For each={release.manifest.documents ?? []}>{(document) => <li class="min-w-0 break-words text-interface text-ink-gray-7"><strong>{document.kind}</strong> · <span class="break-all">{document.id}</span></li>}</For></ul></div><TechnicalDetails label="Technical details (manifest and digest)"><p class="break-all">{release.digest}</p><pre class="brain-readable mt-3 max-h-96 max-w-full overflow-auto whitespace-pre-wrap break-all text-caption">{JSON.stringify(release.manifest, null, 2)}</pre></TechnicalDetails><Alert theme="amber" variant="outline" title="Activating changes what new work uses" description="New missions and tasks will use this release from now on. Work already running keeps the release it started with. Activation is refused if someone else changed the active release since you opened this page." /><Button variant="solid" theme="blue" iconLeft="lucide-check" class="self-start" disabled={busy()} onClick={async () => { setBusy(true); setError(undefined); try { await props.onActivate(release.digest, release.expectedActiveDigest); setInspection(undefined); setError({ text: "This release is now active. New work will use it.", tone: "success" }); await loadReleases(); } catch (reason) { setError({ text: reason instanceof Error ? reason.message : "Activation failed. Press Refresh, check which release is active, and try again.", tone: "error" }); } finally { setBusy(false); } }}>Activate this release</Button></PageStack>}</Show>
     <ActionFeedback tone={error()?.tone} message={error()?.text} title={error()?.tone === "success" ? "Release active" : undefined} />
-    <TechnicalDetails label="Compile a new release"><p>Compile the complete directory, including Markdown instructions, tool scripts, and schemas:</p><code class="mt-2 block break-all">brain config compile examples/v1/starter-release</code></TechnicalDetails>
+    <TechnicalDetails label="Compile a new release"><p>Run this on the server, then refresh this page. It compiles the whole directory: instructions, tool scripts and schemas.</p><code class="mt-2 block break-all">brain config compile examples/v1/starter-release</code></TechnicalDetails>
   </PageStack>;
 }
 

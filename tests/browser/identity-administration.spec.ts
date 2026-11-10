@@ -88,7 +88,7 @@ test("passkey registration and passwordless sign-in with an emulated authenticat
   await page.getByRole("menuitem", { name: "Sign out", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Sign in to Keyrus Brain", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Sign in with a passkey", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Security center", exact: true, level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Security", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByText("Owner laptop", { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
   await cdp.send("WebAuthn.removeVirtualAuthenticator", { authenticatorId });

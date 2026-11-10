@@ -24,14 +24,14 @@ export function BridgeScreen(props: {
   const canCreate = () => Boolean(app.identity()?.actor.scopes.includes("config:activate"));
   const total = () => props.workspaces.reduce((sum, ws) => sum + ws.pendingApprovals + ws.blockedJobs, 0);
   const ordered = () => [...props.workspaces].sort((a, b) => (b.pendingApprovals + b.blockedJobs) - (a.pendingApprovals + a.blockedJobs) || a.displayName.localeCompare(b.displayName));
-  return <BrainPage title="Bridge" description="Enter the workspace that needs you first; health stays scoped to its own observations."
+  return <BrainPage title="Workspaces" description="Every workspace you can see, with anything waiting on a person first. Open one to work in it, or manage it to rename, pause or archive it."
     actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button><Show when={canCreate() && props.workspaces.length > 0}><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setCreateOpen(true)}>Create workspace</Button></Show></>}>
     <PageStack>
       <StatGrid compact stats={[
-        { label: "Readable workspaces", value: String(props.workspaces.length), hint: "Authorized to your account", icon: "lucide-building-2" },
-        { label: "Actionable exceptions", value: String(total()), hint: "Pending approvals and blocked runs", icon: "lucide-inbox" },
+        { label: "Workspaces", value: String(props.workspaces.length), hint: "You have access to", icon: "lucide-building-2" },
+        { label: "Waiting on someone", value: String(total()), hint: "Pending approvals and blocked runs", icon: "lucide-inbox" },
       ]} />
-      <WorkspaceSection title="Workspace control" description="Actionable workspaces are first. Quiet workspaces remain available without implying systemwide health.">
+      <WorkspaceSection title="Your workspaces" description="Workspaces that need an approval or have a blocked run come first.">
         <ScreenRegion state={props.state} skeleton="cards" emptyTitle={canCreate() ? "Create your first workspace" : "No workspaces assigned"}
           emptyDescription={canCreate() ? "A workspace holds your missions, runs and approvals. Create one to start; you can add more later." : "Ask an organization administrator to grant you workspace access."}
           emptyAction={canCreate() ? <Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setCreateOpen(true)}>Create workspace</Button> : <Button onClick={props.onRefresh}>Reload</Button>} onRetry={props.onRefresh}>
