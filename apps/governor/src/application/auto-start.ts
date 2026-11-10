@@ -63,6 +63,12 @@ export class AutoStart {
   }
 
   private async pass(organizationId: string, workspaceId: string): Promise<void> {
+    this.ports.missions.reconcileFinished(organizationId, workspaceId);
+    await this.startReady(organizationId, workspaceId);
+    this.ports.missions.completeFinishedMissions(organizationId, workspaceId);
+  }
+
+  private async startReady(organizationId: string, workspaceId: string): Promise<void> {
     const { missions } = this.ports;
     const plan = missions.autoStartPlan(organizationId, workspaceId);
     if (plan.length === 0) return;

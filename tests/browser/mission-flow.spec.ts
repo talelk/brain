@@ -120,11 +120,8 @@ test("mission flow (auto): create, confirm, tasks start by themselves, run, veri
   await expect.poll(() => states(w, missionId)["verify"]).toBe("in-progress");
   expect(linkedRuns(w, missionId, "verify")).toHaveLength(1);
   await driveRuns(w, () => states(w, missionId)["verify"] === "done");
-  await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/plan`);
-  await expect(page.getByText("All work is done", { exact: true }).first()).toBeVisible();
-
-  await page.getByRole("button", { name: "Finish mission", exact: true }).click();
-  await expect.poll(() => (w.ws.prepare("SELECT state FROM missions WHERE id=?").get(missionId) as { state: string }).state).toMatch(/^(verifying|closed)$/);
+  // Nobody presses Finish: the Governor proposes completion, records the verdict over the complete bundle and closes as achieved.
+  await expect.poll(() => w.ws.prepare("SELECT state, outcome FROM missions WHERE id=?").get(missionId), { timeout: 30_000 }).toEqual({ state: "closed", outcome: "achieved" });
   expect(errors).toEqual([]);
 });
 

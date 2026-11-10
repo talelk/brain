@@ -736,6 +736,44 @@ export class MissionService {
   }
 
   /**
+   * Recovery and completion for auto-start missions, idempotent and run on every
+   * sweep: a run that succeeded while the Governor was not looking (a restart,
+   * a release without this rule) still moves its work forward, and a mission
+   * whose work is all Done and independently verified finishes by itself.
+   */
+  reconcileFinished(organizationId: string, workspaceId: string): void {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    const rows = db.prepare(`SELECT w.*, l.run_id AS link_run FROM work_items w
+      JOIN missions m ON m.id=w.mission_id AND m.state='active' AND m.auto_start=1 AND m.coordinator_member_id IS NULL
+      JOIN execution_links l ON l.work_item_id=w.id JOIN workflow_runs r ON r.id=l.run_id AND r.state='succeeded'
+      WHERE w.state IN ('in-progress','review') ORDER BY l.created_at_ms`).all() as Array<WorkItemRow & { link_run: string }>;
+    for (const row of rows) {
+      if (row.state === "in-progress") this.recordRunSuccess(organizationId, workspaceId, row.link_run);
+      else this.store.inTx(db, () => this.autoComplete(db, row, row.link_run));
+    }
+  }
+
+  completeFinishedMissions(organizationId: string, workspaceId: string): void {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    const missions = db.prepare(`SELECT * FROM missions m WHERE m.state='active' AND m.auto_start=1 AND m.coordinator_member_id IS NULL
+      AND EXISTS (SELECT 1 FROM work_items w WHERE w.mission_id=m.id AND w.state!='abandoned')
+      AND NOT EXISTS (SELECT 1 FROM work_items w WHERE w.mission_id=m.id AND w.state NOT IN ('done','abandoned'))`).all() as MissionRow[];
+    for (const mission of missions) {
+      const actor: ActorContext = { kind: "workflow", actorId: mission.owner_id, organizationId, workspaceId, scopes: [], authMethod: "service-credential", authGeneration: 1 };
+      try {
+        this.changeState(actor, workspaceId, "mission.proposeCompletion", { missionId: mission.id });
+        const bundle = latestMissionBundle(db, mission.id);
+        if (!bundle || bundle.state === "incomplete") continue;
+        // Every task is Done on its own independent verified verdict; the Governor records the mission-level verdict over that complete bundle.
+        this.verdict(actor, workspaceId, { missionId: mission.id, bundleDigest: bundle.digest, outcome: "verified", findings: [] });
+        this.changeState(actor, workspaceId, "mission.close", { missionId: mission.id, outcome: "achieved" });
+      } catch (cause) {
+        if (!(cause instanceof BrainDomainError)) throw cause;
+      }
+    }
+  }
+
+  /**
    * An auto-start mission needs no person between a verified run and Done: the
    * run's own verified evidence (independent verdict included) is bound, the
    * Governor writes the handoff from the run's summary, and the item moves to

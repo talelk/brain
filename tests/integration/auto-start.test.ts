@@ -186,6 +186,30 @@ describe("auto-start (ADR 0004: the Governor reacts to events and dispatches bou
     expect(item(w, id, "b").state).toBe("in-progress");
   });
 
+  it("recovers a finished run on the next sweep, completes the chain and closes the mission as achieved, with nobody acting", async () => {
+    const w = world();
+    const id = await confirmed(w, "recover", [triage("a"), triage("b", { dependsOn: ["a"] })]);
+    const a = item(w, id, "a");
+    // The run finishes while no evidence exists yet: the task waits in review (what an older release left behind).
+    await finishRun(w, runsOf(w, a.workItemId)[0]!);
+    expect(item(w, id, "a").state).toBe("review");
+    verifiedEvidence(w, `sha256:${"8".repeat(64)}`, ["structure", "safety"]);
+    ownBundleJob(w.brain.store.workspaceDb(w.workspaceId, w.org), a.workItemId, "job-seed", w.brain.store.now());
+    await w.brain.autoStart.sweep(w.org, w.workspaceId);
+    expect(item(w, id, "a").state).toBe("done");
+    expect(item(w, id, "b").state).toBe("in-progress");
+    const b = item(w, id, "b");
+    verifiedEvidence(w, `sha256:${"7".repeat(64)}`, ["structure", "safety"]);
+    w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("UPDATE execution_links SET job_id='job-seed-b' WHERE work_item_id=?").run(b.workItemId);
+    w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("UPDATE evidence_bundles SET job_id='job-seed-b' WHERE digest=?").run(`sha256:${"7".repeat(64)}`);
+    await finishRun(w, runsOf(w, b.workItemId)[0]!);
+    await w.brain.autoStart.sweep(w.org, w.workspaceId);
+    expect(item(w, id, "b").state).toBe("done");
+    const finished = await mission(w, id);
+    expect(finished.state).toBe("closed");
+    expect(finished.outcome).toBe("achieved");
+  });
+
   it("starts a dependent when its dependency becomes Done", async () => {
     const w = world();
     const id = await confirmed(w, "chain", [triage("a"), triage("b", { dependsOn: ["a"] })]);
