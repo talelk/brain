@@ -40,7 +40,7 @@
     {
       "path": "packages/contracts",
       "owns": "Canonical generated DTOs, validators and wire catalogs shared by executable consumers",
-      "public": "src/index.ts; src/validate.ts",
+      "public": "src/index.ts; src/validate.ts; src/machines.ts",
       "forbidden": "Vendor SDKs; database IO; application authorization"
     }
   ],

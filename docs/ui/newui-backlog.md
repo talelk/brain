@@ -33,6 +33,15 @@ change + changeset + publish in that repo, then bump the exact pins in
    times in Brain (`today.tsx`, `workspace.tsx`, `SessionFeed.tsx`) and
    belongs in `newui-atoms` next to Badge, with tone props.
 
+6. **KanbanBoard drag permissions.** Every card lifts and every column accepts
+   a drop; `onMove` only reports after the drop. Brain's mission board must
+   offer a drag only for transitions the Governor accepts, so it stops the
+   press of a card with no legal move in a capture-phase `pointerdown` guard
+   (`ui/work/WorkBoard.tsx`) and rejects an illegal drop in `onMove` (the
+   controlled card snaps back). Add `canDrag(item)` and
+   `canDrop(item, columnId)` so the board can refuse during the gesture and
+   show which columns accept the card.
+
 7. **EmptyState guidance slot.** Brain's first-run/no-workspace fallbacks
    hand-roll cards (`app.tsx:197-203`) because `EmptyState` lacks a
    multi-step guidance/children region for setup checklists.

@@ -34,8 +34,11 @@ is unavailable to your role.
 | Approvals | `/approvals` | Reviewers | Find pending decisions |
 | Approval review | `/approvals/:id` | Reviewers | Approve or reject the exact proposed effect |
 
-A mission has tabs: **Live** (what is running now), **Team**, **Plan** (proposed tasks
-and their state), **Brief** (goal and settings), **Logs** and **Outputs**. A banner
+A mission has tabs: **Live** (what is running now: the team's sessions, what each agent
+is doing and its transcript by turn), **Team**, **Plan** (the proposed or confirmed plan,
+then its work as a dependency Timeline with the critical path, a Board you can drag
+plain moves on, or a List, with progress, time and budget), **Brief** (goal and
+settings), **Logs** and **Outputs**. A banner
 suggests the one next step, such as preparing a plan, starting ready tasks, following
 running work or reviewing outputs. You can pause, resume, message, propose completion
 and close from here.

@@ -506,7 +506,7 @@ function EntryView(props: {
           <p class="flex items-center gap-2 text-interface font-medium text-ink-gray-9"><span class="lucide-hand size-4 text-ink-amber-8" aria-hidden="true" />The agent is waiting for your input</p>
           <Show when={props.entry.detail}><p class="brain-prose whitespace-pre-wrap text-interface text-ink-gray-8">{props.entry.detail}</p></Show>
           <Show when={props.onReply} fallback={<p class="text-caption text-ink-gray-7">This engine cannot be steered while it runs; message the mission or stop and restart the task.</p>}>
-            <div><Button size="sm" variant="solid" theme="blue" iconLeft="lucide-corner-down-right" onClick={() => props.onReply?.()}>Reply to the agent</Button></div>
+            <div><Button size="sm" variant="outline" theme="blue" iconLeft="lucide-corner-down-right" onClick={() => props.onReply?.()}>Reply to the agent</Button></div>
           </Show>
         </div>
       </Show>}>
