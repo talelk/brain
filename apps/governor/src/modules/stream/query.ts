@@ -246,6 +246,32 @@ export function contextBundle(store: Store, actor: ActorContext, eventId: string
   if (!approvalId && c.invocationId) {
     approvalId = (store.control.prepare("SELECT approval_id FROM approval_consumptions WHERE invocation_id=?").get(c.invocationId) as { approval_id: string } | undefined)?.approval_id;
   }
+  // A call that has not run yet has no permit, so no invocation link. The approval it is waiting for names
+  // the same tool input, so match on that digest within the workspace (newest request first).
+  if (!approvalId && workspaceId) {
+    const inputDigests = new Set<string>();
+    const findInput = (value: unknown): void => {
+      if (!value || typeof value !== "object") return;
+      if (Array.isArray(value)) { for (const entry of value) findInput(entry); return; }
+      for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+        if (key === "inputDigest" && typeof child === "string" && /^sha256:[0-9a-f]{64}$/u.test(child)) inputDigests.add(child);
+        else findInput(child);
+      }
+    };
+    findInput(record.summary);
+    // The proposal record carries the input digest; the result record of the same call only points back to it.
+    if (c.proposalId) {
+      for (const sibling of store.control.prepare("SELECT summary_json FROM execution_stream WHERE organization_id=? AND workspace_id=? AND proposal_id=? LIMIT 6")
+        .all(actor.organizationId, workspaceId, c.proposalId) as Array<{ summary_json: string }>) {
+        try { findInput(JSON.parse(sibling.summary_json)); } catch { /* an unreadable summary just adds nothing */ }
+      }
+    }
+    for (const inputDigest of [...inputDigests].slice(0, 5)) {
+      const match = store.control.prepare("SELECT id FROM approval_requests WHERE organization_id=? AND workspace_id=? AND json_extract(subject_json,'$.inputDigest')=? ORDER BY created_at_ms DESC LIMIT 1")
+        .get(actor.organizationId, workspaceId, inputDigest) as { id: string } | undefined;
+      if (match) { approvalId = match.id; break; }
+    }
+  }
   if (approvalId) {
     const row = store.control.prepare("SELECT id, state, workspace_id FROM approval_requests WHERE id=? AND organization_id=?").get(approvalId, actor.organizationId) as Record<string, unknown> | undefined;
     if (row) {

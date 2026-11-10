@@ -1,6 +1,8 @@
 // G08 doc-10 protocol: three comparable steady-state trials (default 10 min each)
 // over the initial dataset, then a short 10x-history repeat and a fault-load phase.
-// Env: BRAIN_BENCH_TRIAL_MS (default 600000), BRAIN_BENCH_TRIALS (default 3).
+// Env: BRAIN_BENCH_TRIAL_MS (default 600000), BRAIN_BENCH_TRIALS (default 3), BRAIN_BENCH_OUT
+// (default artifacts/runtime/G08). `pnpm bench:steady:quick` runs 3 x 1 min into .cache/ as a smoke check
+// against the same budgets; only the full default run is gate evidence.
 import { mkdtempSync, mkdirSync, writeFileSync, statSync } from "node:fs";
 import { tmpdir, cpus, platform, release } from "node:os";
 import { join } from "node:path";
@@ -159,8 +161,9 @@ const result = {
   budgets: { queryP95Ms: 150, queryP99Ms: 400, commandP95Ms: 200, commandP99Ms: 500, eventLoopP99Ms: 50, rssMb: 1024 },
   trials, trial10x: trial10, faultLoad: fault, at: new Date().toISOString(),
 };
-mkdirSync("artifacts/runtime/G08", { recursive: true });
-writeFileSync("artifacts/runtime/G08/bench-steady.json", JSON.stringify(result, null, 2));
+const outDir = process.env["BRAIN_BENCH_OUT"] ?? "artifacts/runtime/G08";
+mkdirSync(outDir, { recursive: true });
+writeFileSync(`${outDir}/bench-steady.json`, JSON.stringify(result, null, 2));
 console.log("[steady] RESULT", JSON.stringify(result.medians));
 const m = result.medians, b = result.budgets;
 const miss: string[] = [];

@@ -26,6 +26,7 @@
     "test:chaos": "vitest run tests/chaos",
     "test:browser": "pnpm build && playwright test --forbid-only --update-snapshots=none",
     "bench": "tsx benchmarks/run.ts",
+    "bench:steady:quick": "BRAIN_BENCH_TRIAL_MS=60000 BRAIN_BENCH_TRIALS=3 BRAIN_BENCH_OUT=.cache/bench-quick tsx benchmarks/steady.ts",
     "verify:fast": "pnpm check:static && pnpm typecheck && pnpm typecheck:web && pnpm typecheck:browser && pnpm check:boundaries && pnpm --filter @brain/governor auth:schema --check && pnpm test:contracts && pnpm test:domain",
     "verify:change": "pnpm verify:fast && pnpm test:integration && pnpm test:security",
     "verify:full": "pnpm verify:change && pnpm test:chaos && pnpm test:certification && pnpm test:browser",

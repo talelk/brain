@@ -213,7 +213,9 @@ function runGate(gateId) {
 }
 
 const args = process.argv.slice(2);
-const only = args.includes("--gates") ? args[args.indexOf("--gates") + 1].split(",") : Object.keys(GATES);
+// G08 is the 30-minute steady-state benchmark (three 10-minute trials), so a plain run covers G01-G07.
+// Run it on a quiet machine with `--gates G08` (or add `--all`); `pnpm bench:steady:quick` is the 3-minute smoke check.
+const only = args.includes("--gates") ? args[args.indexOf("--gates") + 1].split(",") : Object.keys(GATES).filter((gateId) => args.includes("--all") || gateId !== "G08");
 for (const gateId of only) {
   const m = runGate(gateId);
   console.log(`${gateId}: ${m.status} (${m.executedScenarios.length}/${m.selectedScenarios.length} scenarios, ${m.commands.length} commands)`);

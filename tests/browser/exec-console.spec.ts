@@ -119,6 +119,10 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   const insertAssociation = s.control.prepare("INSERT INTO artifact_associations(artifact_id, organization_id, workspace_id, digest, owner_kind, owner_id, classification, verified_at_ms) VALUES (?,?,?,?,?,?,?,?)");
   insertAssociation.run("art-out-v1", org, "ws-console", digestV1, "job", "job-console", "internal", now);
   insertAssociation.run("art-out-v2", org, "ws-console", digestV2, "job", "job-console", "internal", now);
+  // The approval the shell call needed names the same tool input, so the call links to it by that digest alone
+  // (no permit exists for a call that has not run yet).
+  s.control.prepare("INSERT INTO approval_requests(id, organization_id, workspace_id, requested_by, subject_digest, subject_json, state, expires_at_ms, created_at_ms) VALUES ('apr-shell',?,?,?,?,?,'pending',?,?)")
+    .run(org, "ws-console", "agent", `sha256:${"9".repeat(64)}`, JSON.stringify({ inputDigest: `sha256:${"3".repeat(64)}` }), now + 3_600_000, now);
   // The same two artifacts as versions of the mission's named output "dossier".
   ws.prepare("INSERT INTO mission_outputs(id,mission_id,name,created_at_ms) VALUES ('output-dossier','obj-console','dossier',?)").run(now);
   ws.prepare("INSERT INTO output_versions(id,output_id,work_item_id,artifact_digest,state,verified,created_at_ms) VALUES ('outver-1','output-dossier','wi-console',?,'draft',0,?)").run(digestV1, now);
@@ -184,6 +188,8 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   await expect(page.getByText("make dossier", { exact: false }).first()).toBeVisible();
   await expect(page.getByText("Exit status").first()).toBeVisible();
   await page.getByRole("button", { name: "Open tool result" }).first().click();
+  await expect(page.getByText("Related approval").first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "apr-shell" }).first()).toBeVisible();
   await expect(page.getByText("text/markdown", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Deployment dossier", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
 
