@@ -9,7 +9,8 @@ import { query } from "../../data/client";
 import { artifactsHistoryQuery } from "../../data/exec-outputs";
 import type { ArtifactHistory } from "../../data/exec-outputs";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
-import { WorkspaceSection } from "../../ui/components/Domain";import { ScreenRegion } from "../../ui/screen-region";
+import { WorkspaceSection } from "../../ui/components/Domain";
+import { ScreenRegion } from "../../ui/screen-region";
 import { ArtifactView } from "../../ui/outputs/ArtifactView";
 import { ArtifactMetaStrip, OutputHistory } from "../../ui/outputs/OutputHistory";
 import { OutputDiff } from "../../ui/outputs/OutputDiff";
@@ -74,7 +75,7 @@ export default function ArtifactDetailPage(): JSX.Element {
   };
 
   return (
-    <BrainPage title="Artifact" description="One output: preview, review status and version history.">
+    <BrainPage title="Artifact" description="One produced file: preview, version history and where it came from.">
       <PageStack>
         <div class="flex flex-wrap items-center justify-between gap-control-gap">
           <Show when={history.state().data} keyed fallback={<span />}>
@@ -106,31 +107,30 @@ export default function ArtifactDetailPage(): JSX.Element {
               emptyTitle="Artifact not found"
               emptyDescription="No authorized artifact with this id exists for your organization — it may have been removed, or it belongs to a workspace you cannot read."
             >
-              <div class="brain-detail-stack">
-                <WorkspaceSection title="Preview" description="Read it here; download is an action beside it.">
+              <div class="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+                <WorkspaceSection title="Preview" description="Read it here; copy and download sit beside it.">
                   <ArtifactView artifact={previewArtifact()} />
                 </WorkspaceSection>
-                <WorkspaceSection
-                  title="Version history"
-                  description="Each check of this output, newest first."
-                >
-                  <OutputHistory
-                    history={history.state().data ?? undefined}
-                    loading={history.state().status === "loading"}
-                    error={history.state().error ?? ""}
-                  />
-                </WorkspaceSection>
-                <details class="rounded-card border border-outline-gray-2 p-3">
-                  <summary class="cursor-pointer text-interface font-medium text-ink-gray-9">Details: source, producer, digest</summary>
-                  <div class="mt-2">
-                <ArtifactMetaStrip
-                    history={history.state().data ?? undefined}
-                    loading={history.state().status === "loading"}
-                    error={history.state().error ?? ""}
-                    executions={executions.state().data}
-                  />
-  </div>
-                </details>
+                <div class="flex min-w-0 flex-col gap-4">
+                  <WorkspaceSection title="Version history" description="Each check of this file, newest first.">
+                    <OutputHistory
+                      history={history.state().data ?? undefined}
+                      loading={history.state().status === "loading"}
+                      error={history.state().error ?? ""}
+                    />
+                  </WorkspaceSection>
+                  <details class="rounded-card border border-outline-gray-2 bg-surface-elevation-1 p-3">
+                    <summary class="cursor-pointer text-interface font-medium text-ink-gray-9">Details</summary>
+                    <div class="mt-2">
+                      <ArtifactMetaStrip
+                        history={history.state().data ?? undefined}
+                        loading={history.state().status === "loading"}
+                        error={history.state().error ?? ""}
+                        executions={executions.state().data}
+                      />
+                    </div>
+                  </details>
+                </div>
               </div>
             </ScreenRegion>
           }

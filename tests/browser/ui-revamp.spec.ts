@@ -39,6 +39,8 @@ function targets(jobId: string, approvalId: string): ScreenTarget[] {
     { id: "10c-logs", route: "/w/operations/logs", heading: "Logs" },
     { id: "10d-outputs", route: "/w/operations/outputs", heading: "Outputs" },
     { id: "10e-artifact", route: "/outputs/artifact-visual", heading: "Artifact" },
+    { id: "10f-output-preview", route: "/w/operations/outputs?artifact=artifact-visual-v2&view=list", heading: "Outputs" },
+    { id: "10g-mission-outputs", route: "/missions/obj-visual/outputs", heading: "Stabilize authentication" },
     { id: "11-agents", route: "/studio/Agent", heading: "Agent Studio" },
     { id: "12-support", route: "/w/operations/plays/support", heading: "Support" },
     { id: "13-ticket-detail", route: "/tickets/ticket-visual", heading: "Ticket casework" },

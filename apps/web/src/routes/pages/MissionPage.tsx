@@ -3,7 +3,7 @@ import type { JSX } from "solid-js";
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Badge, Button, Checkbox, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Dialog, Dropdown, Select, TabButtons } from "@talelk/newui-molecules";
-import type { BrainSession, ExecutionLink, TeamMember, WorkItem, Mission, MissionBrief, MissionMessage, Output, PlanVersion, SinceLastVisitSummary } from "@brain/contracts";
+import type { BrainSession, ExecutionLink, TeamMember, WorkItem, Mission, MissionBrief, MissionMessage, PlanVersion, SinceLastVisitSummary } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
@@ -23,6 +23,7 @@ import { ConsoleScreen } from "../../ui/console/ConsoleLayout";
 import { SessionTranscript } from "../../ui/console/SessionTranscript";
 import { readExecFilters, writeExecFilters } from "../../ui/exec/exec-filters";
 import { StatGrid } from "@talelk/newui-organisms";
+import { MissionOutputs } from "../../ui/outputs/MissionOutputs";
 
 const TABS: readonly { id: MissionTab; label: string }[] = [
   { id: "live", label: "Live" }, { id: "team", label: "Team" }, { id: "plan", label: "Plan" },
@@ -203,7 +204,7 @@ export default function MissionPage(): JSX.Element {
             <Match when={tab() === "plan"}><PlanTab mission={m()} onAct={act} busy={busy()} /></Match>
             <Match when={tab() === "brief"}><BriefTab mission={m()} onAct={act} busy={busy()} /></Match>
             <Match when={tab() === "logs"}><LogsTab mission={m()} /></Match>
-            <Match when={tab() === "outputs"}><OutputsTab mission={m()} /></Match>
+            <Match when={tab() === "outputs"}><MissionOutputs mission={m()} /></Match>
           </Switch>
         </>}</Show>
       </ScreenRegion>
@@ -477,41 +478,3 @@ function LogsTab(props: { mission: Mission }): JSX.Element {
   </WorkspaceSection>;
 }
 
-/** Outputs: named outputs with their immutable versions and verification (#41). */
-function OutputsTab(props: { mission: Mission }): JSX.Element {
-  const app = useApp();
-  const navigate = useNavigate();
-  const outputs = useMissionRead<Output[]>(props.mission.missionId, "missionOutputs.list", (raw) => [...(raw as { items: Output[] }).items], (items) => items.length === 0);
-  const items = createScopedRead<WorkItem[]>({
-    scope: app.scope,
-    load: async (scope, signal) => {
-      const response = await query<Envelope<{ items: WorkItem[] }>>({ queryType: "workItems.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
-      return { snapshot: response.snapshot.items.filter((item) => item.missionId === props.mission.missionId), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
-    },
-  });
-  /** Outputs grouped by the plan task whose work produced their latest version. */
-  const groups = () => {
-    const byTask = new Map<string, Output[]>();
-    for (const output of outputs.state().data ?? []) {
-      const producer = items.state().data?.find((item) => item.workItemId === output.versions.at(-1)?.workItemId);
-      const task = producer?.title ?? "Not yet produced";
-      byTask.set(task, [...(byTask.get(task) ?? []), output]);
-    }
-    return [...byTask.entries()];
-  };
-  return <WorkspaceSection title="Mission outputs" description="Named outputs grouped by the plan task that produces them; only verified final versions are consumed by other work.">
-    <ScreenRegion state={outputs.state()} onRetry={() => void outputs.refresh({ force: true })} emptyTitle="No outputs yet" emptyDescription="Outputs appear when work records a version of a named output.">
-      <For each={groups()}>{([task, entries]) => <section class="mb-4" aria-label={`Outputs of ${task}`}>
-        <h3 class="mb-2 text-base-medium">{task}</h3>
-        <div class="brain-queue"><For each={entries}>{(output) => {
-          const latest = output.versions.at(-1);
-          return <QueueRow title={output.name} description={`${output.versions.length} version${output.versions.length === 1 ? "" : "s"}${output.continues ? " · continues an earlier mission's output" : ""}`} icon="lucide-file-text"
-            tone={latest?.verified ? "green" : latest?.state === "final" ? "blue" : "gray"} label={`Open output ${output.name}`}
-            meta={<span>{latest ? `latest ${latest.state}${latest.verified ? " · verified" : ""} · ${formatDateTime(latest.createdAt)}` : "no version yet"}</span>}
-            onClick={() => void navigate(`/outputs/${encodeURIComponent(output.outputId)}`)} />;
-        }}</For></div>
-      </section>}</For>
-      <TechnicalDetails label="About output versions"><p>Versions are immutable. A task input pins one exact verified final version when its attempt is admitted.</p></TechnicalDetails>
-    </ScreenRegion>
-  </WorkspaceSection>;
-}
