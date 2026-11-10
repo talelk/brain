@@ -9,7 +9,8 @@
     "productionHumanApproval": "required",
     "defaultEffect": "deny",
     "allowedOperations": [
-      "operations.validate"
+      "operations.validate",
+      "task.validate"
     ],
     "deniedOperations": [],
     "maxMicroUsd": 0,

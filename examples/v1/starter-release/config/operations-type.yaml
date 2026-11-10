@@ -8,7 +8,7 @@
   "spec": {
     "defaultPolicy": {
       "id": "operations-policy",
-      "digest": "sha256:bbd7fe7098a681fcedeb4b6308bf1d6eeb4ff52bc57dd77418638807f0008baa"
+      "digest": "sha256:b8641ac5541e68f9716fd513bd9ea9adbf61788d314ed7072b869db1927137d4"
     },
     "packs": [],
     "maxConcurrentJobs": 2
