@@ -28,6 +28,10 @@ GitHub Issues on `talelk/brain`, via the `gh` CLI. See `docs/agents/issue-tracke
 
 Five canonical roles, used as-is (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
 
+### Context budget
+
+`pnpm context:budget` reports always-loaded vs on-demand tokens and fails above `docs/agents/context-budget.json` ceilings (part of `verify:fast`). Raise a ceiling only with a reason in the commit.
+
 ### Domain docs
 
 Single-context: `GLOSSARY.md` at the root, ADRs under `docs/adr/`. See `docs/agents/domain.md`.

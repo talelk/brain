@@ -1,0 +1,18 @@
+{
+  "bytesPerToken": 4,
+  "always": {
+    "ceilingTokens": 7800,
+    "files": ["AGENTS.md"],
+    "skillDirs": [".claude/skills", ".agents/skills", "skills"]
+  },
+  "onDemand": {
+    "ceilingTokens": 140000,
+    "paths": ["GLOSSARY.md", "docs/functional-spec.md", "docs/implementation", "docs/adr", "docs/specs", "docs/howto", "docs/agents", "docs/wiki"]
+  },
+  "fileCeilingTokens": {
+    "AGENTS.md": 900,
+    "IMPLEMENTATION_PROMPT.md": 4300,
+    "GLOSSARY.md": 5400,
+    "docs/implementation/23-runtime-status.md": 13800
+  }
+}
