@@ -1,47 +1,46 @@
 # Backlog: open items only (lean on purpose)
 
-Dated 2026-11-11, at `talelk/brain@e38aa19`. The full history of every track, report and finding is in [archive/backlog-2026-11-11.md](archive/backlog-2026-11-11.md) (excluded from the agent context budget: read it only when you need the history). Keep THIS file short: when an item is done, delete the row here and note it in the archive/history pages, never the other way round.
+Dated 2026-11-11 ~15:45, at `talelk/brain@bd16582`+ (deployed: waves 1-3, tracks K M N P Q R S T U V W X). History of every track and report: [archive/backlog-2026-11-11.md](archive/backlog-2026-11-11.md) and [archive/backlog-2026-11-11-evening.md](archive/backlog-2026-11-11-evening.md) (excluded from the agent context budget). Keep THIS file short: when an item is done, delete its row and note it in the archive/history pages.
 
-## In progress
-- Track M (UI editor), rows 47-50 done locally (not deployed): auto-published self-reviewed write-ups (setting `library_settings`, Approve all verified, Today line), substantive write-ups with a 200-character threshold and supersede, six starter Plays with `plays.addStarter` (live has none: restage or click "Add starter Plays"), Library tab strip, one-segment bars, 24-hour times. Still open from M: Health "Recent activity" plain sentences (`payload.message` of `tool.read.refused`); Setup stepper third circle shows "3" not a tick; row 53. Deploy note: schema adds two DEFAULT columns on `knowledge_assets` and the table `library_settings`; the first sweep rebuilds and publishes the 19 thin unreviewed write-ups (Withdraw undoes one).
+## Process rules learned
+- Run at most 2 agents at once and cap vitest workers (`maxWorkers: 4`): uncapped parallel test runs OOM-killed the machine and restarted the session twice on 2026-11-11. After a restart check the agents' worktrees: their commits survive; merge them yourself.
+- Stop each agent and remove its worktree + `~/.cache/tmp-<name>` as soon as its report is taken. Avoid deploying while missions run (each deploy interrupts running attempts).
+- Deploy = `scripts/deploy-demo.sh` (pre-check on a VACUUM INTO snapshot pulled with rsync) then `scripts/stage-demo-release.sh` when `examples/v1` changed; new columns on existing tables need DEFAULT.
 
-- Track R (time limit counts working time, ADR 0016; row 36 done): local, not deployed. Schema adds two DEFAULT columns on `missions` (`budget_wall_explicit`, `wall_extended`). Starter Plays changed (2 h, research 4 h, member cap 3): restage the starter release, then add Plays again or recreate them; missions already paused for time resume with one click on Today.
+## Open product work (GitHub issues, `talelk/brain`)
+| Issue | Item | Notes |
+|-------|------|-------|
+| #58 | Phone-first Today | never built |
+| #59 | Install prompt and queue-count app badge | never built; depends on #58 |
+| #77 | Token and cost meter: remaining gap = interactive runs outside missions are not in the usage ledger (row 26) | meter itself works live |
+| #69, #65, #46 | Parent/umbrella issues: close once #58, #59, #77 are done | |
+| #3, #4, #5 | Domain vocabulary: Run aggregate type, WorkflowJob naming, WorkflowState vs WorkflowRunState | needs-triage, docs/ADR + contract rename |
 
-## Open
+## Open UI / quality rows
 | # | Item | Notes |
 |---|------|-------|
-| 15 | Evaluator proves criteria were answered, not that answers are correct; real-model quality 10/12 pass in `scripts/qualification/task-quality.mjs` | measure/improve; consider a model-judged independent check |
-| 26 | #77 meter: interactive runs outside missions are not in the usage ledger | |
-| 27 | Sidebar highlights Live on /runners; Passkeys paragraph jargon | UI |
+| 61 | Schedule "Repeat this" dialog still formats dates with the browser's French locale ("jeu. 12 nov., 08:00"); W's English 24-hour policy missed it | UI, live-confirmed |
+| 62 | Health "Recent activity" is plain now but generic ("A task was queued"): name the task/tool | UI |
+| 57 | Version-history tile: raw task ids ("inspect") as names, truncated "updated..." (verify after W) | UI |
+| 40 | Share page is text only (no Markdown rendering/branding) | UI |
 | 32 | "Reading N sources" doing-now sentence missing on session rail / Plan rows | needs transcript |
-| 33 | `first-launch` and a few integration tests still time out under heavy machine load | pass alone; E2 timing factor helps |
 | 35 | Trust read lacks per-criterion evidence link and mission-level aggregate | |
 | 38 | Run all new specs at 390-dark / 768 / RTL (only 1440-light, 390-dark, 768-light fully covered) | QA |
-| 40 | Share page is text only (no Markdown rendering/branding) | |
-| 54 | Notification-throttle behaviour across restart and share-token expiry races not examined (K item 7); a read job interrupted 5 times keeps its reservation until a person resolves it (by design) | adversarial tests |
+
+## Open engine / quality rows
+| # | Item | Notes |
+|---|------|-------|
+| 15 | Evaluator proves criteria were answered, not that answers are correct; real-model quality 10/12 first-try pass (`scripts/qualification/task-quality.mjs`, plans via `--plans N`) | measure/improve; consider a model-judged independent check |
+| 33 | `first-launch` and a few integration tests time out under heavy load | mitigated by `maxWorkers: 4` and the timing factor; re-check |
+| 54 | Notification-throttle across restart and share-token expiry races not examined; a read job interrupted 20 times keeps its reservation until a person resolves it | adversarial tests |
 | 55 | Saved documents are searchable but not queued for Review; result-ready announcement not extended to the inbox | I3 leftover |
+| 63 | Effectful (tool) jobs left `outcome_unknown` do not appear in Needs you; UI says "running" for ~1 min between interruption and cooldown retry | U leftover |
+| 64 | Multi-slot runner loop untested with >1 concurrent attempts; session refresh (13 min) briefly lowers concurrency for very long attempts; Health/Runners show "busy" without slots | T leftover |
+| 65 | Compaction and the new tools (documents.read, web.fetch, csv.query, knowledge.search) untested with a real model; web.fetch needs outbound access from the runner host; handoff summaries may appear twice in a prompt | I4 leftover |
+| 66 | Email transport for notifications is not built (in-app + push + signed webhook only) | G3 decision (ADR 0010-0015) |
 
-## Track U deployed (2026-11-11 ~14:00, `99915aa`)
-Evidence (live, read-only): job `job-mwbxl67a-1o-6bfqmakh` attempts 1-4 failed, watchdog restarted it after 98 min, attempt 5 lost its lease at the deploy and became `outcome_unknown` with attempt_counter 5, so `expireLeases` could not restart it and nothing surfaced it. Fixes: platform interruptions (`job_attempts.interruption='platform'`) never use the 5-restart budget (cap 20); a read-only job with no budget left waits `BRAIN_PARKED_COOLDOWN_SECONDS` (60) then retries once (`jobs.auto_retries`), then fails with `AGENT_INTERRUPTED` and the task parks "Stopped: waiting for you to try again" with a Needs-you Try again; UI no longer says "running" for a stopped task. Live confirmation: after deploy the sweep queued a new attempt for the stuck job (mission tokens 44k -> 46k).
-Open: effectful (tool) jobs left `outcome_unknown` still do not appear in Needs you; between an interruption and the end of the cooldown (~1 min) the UI still says "running".
-
-## Live walkthrough 2026-11-11 ~14:10 (finished note-taking mission, deployed `99915aa`)
-Confirmed: mission finished 6/6 (204k tokens, $0) after stuck/pause/resume (S, R, T, U fixes); deliverable excellent (recommendation, scored criteria, runner-up, caveats; Markdown rendered); "Author's own checklist 3 of 3 met" with evidence; "Challenge this result" works live (state running); "Propose as Play" and "What Brain reused" present; Repeat this button on the closed mission.
-Track V (done locally, not deployed): root cause of "Not independently checked yet": an agent job uploads its raw reply as text/plain and pins only the normalised JSON output in its evidence bundle; the two digests differ when a model indents its JSON, so `artifacts.history` (digest match only) found no verdict for the Result artifact. `artifactHistory` now also matches the bundle of the attempt that wrote the artifact. Result cards keep their open state and scroll across refreshes (keyed by task id, `?result=`, no skeleton on refresh); named-output versions are a "Version history" inside each card (row 53 closed); share link and challenge result appear on the mission card (challenge also when collapsed).
-
-## Track V deployed and confirmed live (2026-11-11 ~15:00, `71e2623`)
-Root cause: the Result card shows the agent's raw `text/plain` reply, the evidence bundle pins the normalised JSON; when a model indents its JSON the digests differ so `artifacts.history` found no verdict (the fixture engine emitted compact JSON and hid it). Fixed in `evidence/read.ts` (also matches the bundle of the attempt that wrote the artifact); fixture engine now indents. Live: every Result card reads "4 of 4 criteria checked by tests, files or hashes; 0 by human sign-off; 0 by model opinion"; opened cards stay open (keyed by task, `?result=`); duplicate "Documents with versions" folded into per-card Version history; share link on mission Result cards; Challenge shows inline (the live challenge finished: 5 points incl. a likely-wrong pricing figure) and its usage is charged to the mission (tokens 204k -> 234k). "Repeat this" picker works live (3 presets, next 5 runs in Africa/Tunis, plain copy).
-New rows:
-| # | Item | Track | Status |
-|---|------|-------|--------|
-| 56 | Challenge points show literal `**bold**` markdown asterisks: render inline Markdown in claims | UI | open |
-| 57 | Version-history tile shows raw plan task id as name ("inspect", "write-recommendation") and truncates "updated..." | UI | open |
-| 58 | Every collapsed Result card polls challenges every 4 s (chatty with 6 cards): one poll per page | UI/perf | open |
-| 59 | "Repeat this" says each run still needs the person to confirm the plan: hands-off schedules should reuse the already-confirmed plan (auto-confirm identical plan, with a setting) | product | done (track X): ADR 0017, schedule confirms an identical verified plan itself under 7 conditions, otherwise Needs you with the reason |
-| 60 | Dates in schedule previews use browser locale (French "jeu. 12 nov.") while UI is English: pick one locale policy | UI | open |
-
-## Not yet walked live (blocked on deploy of K and M)
-Share links, Challenge this result, Repeat this (now creates real missions), Context received tab, Tools registry, Quality page, Usage meter in depth.
+## Not yet walked live
+Context received tab, Tools registry, Quality page, Share link page (`/shared/:token`), Library Plays shelf after "Add starter Plays", scheduled Repeat occurrence (auto-confirm), Notification preferences (Security).
 
 ## Standing rules (see goal-and-user.md)
-Validate every change in a real browser as a first-time user; do not stop until nothing is left; new columns on existing tables need DEFAULT; deploy through scripts/deploy-demo.sh then scripts/stage-demo-release.sh when `examples/v1` changed.
+Validate every change in a real browser as a first-time user; do not stop until nothing is left; reuse and capitalisation are first-class.
