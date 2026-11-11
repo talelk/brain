@@ -25,7 +25,7 @@ Reading across these: the best products win on (a) not making the user answer qu
 
 Strong: persistent missions, plan proposals with human confirm (`docs/functional-spec.md` UF-11), independent evaluator, scheduler with misfire/overlap (UF-12), attention items with in-app inbox plus web push, rate-limited to one per mission per 15 min (`apps/governor/src/modules/operations/attention-notify.ts`), since-last-visit summary (`apps/web/src/routes/pages/MissionPage.tsx` line ~241), budget meter (same file line ~102), PWA assets (`apps/web/public/manifest.webmanifest`, `sw.js`), TV boards.
 
-Weak, from `docs/wiki/dogfood-2026-11-11.md`: only two workflows, so unrelated tasks were marked Done with nonsense (item 1); 6-12 machine files per task and raw JSON logs (item 2); planner produces human "requester" tasks that stall hands-off missions (item 3, `examples/v1/starter-release/agents/plan-guide.md` line "Identify human decisions as tasks when requirements are ambiguous"); failed runs unexplained (item 4); new-mission dialog mode flips (item 6).
+Weak, from `docs/wiki/archive/dogfood-2026-11-11.md`: only two workflows, so unrelated tasks were marked Done with nonsense (item 1); 6-12 machine files per task and raw JSON logs (item 2); planner produces human "requester" tasks that stall hands-off missions (item 3, `examples/v1/starter-release/agents/plan-guide.md` line "Identify human decisions as tasks when requirements are ambiguous"); failed runs unexplained (item 4); new-mission dialog mode flips (item 6).
 
 ## 3. Ranked gaps (12)
 
