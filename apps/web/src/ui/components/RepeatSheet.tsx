@@ -6,7 +6,7 @@ import type { Mission, WorkflowCatalogEntry } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { query } from "../../data/client";
 import { FormSheet } from "./BrainForm";
-import { CLOCK_24 } from "../format";
+import { formatOccurrence } from "../format";
 
 /** One preset as the server returns it: the cron and timezone are the server's, the browser only shows them. */
 interface PresetView { presetId: string; label: string; cron: string; timezone: string; nextOccurrences: string[] }
@@ -17,13 +17,6 @@ export const DESCRIBED_WORK_WORKFLOW = "general-task";
 
 function browserTimezone(): string {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch { return "UTC"; }
-}
-
-/** An instant as the weekday, date and clock time of the chosen timezone, so "08:00" reads as 08:00. */
-function inZone(iso: string, timeZone: string): string {
-  try {
-    return new Intl.DateTimeFormat(undefined, { ...CLOCK_24, timeZone, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
-  } catch { return iso; }
 }
 
 /**
@@ -97,7 +90,7 @@ export function RepeatSheet(props: { mission: Mission; open: boolean; onClose: (
           <span class="text-base-medium text-ink-gray-9">{preset.label}</span>
           <Show when={chosen() === preset.presetId}>
             <span class="text-caption text-ink-gray-6">Next runs ({preset.timezone})</span>
-            <ol class="flex flex-col gap-0.5 text-interface text-ink-gray-8" data-testid="repeat-next-runs"><For each={preset.nextOccurrences}>{(at) => <li>{inZone(at, preset.timezone)}</li>}</For></ol>
+            <ol class="flex flex-col gap-0.5 text-interface text-ink-gray-8" data-testid="repeat-next-runs"><For each={preset.nextOccurrences}>{(at) => <li>{formatOccurrence(at, preset.timezone)}</li>}</For></ol>
           </Show>
         </label>}</For>
       </Show>

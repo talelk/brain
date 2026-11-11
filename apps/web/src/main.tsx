@@ -3,7 +3,9 @@ import { UIProvider } from "@talelk/newui-atoms";
 import { App } from "./app";
 import "./ui/theme";
 import "./index.css";
+import { listenForInstall } from "./ui/install";
 
+listenForInstall();
 const root = document.getElementById("root");
 if (!root) throw new Error("missing #root");
 const dispose = render(() => <UIProvider dir="ltr"><App /></UIProvider>, root);

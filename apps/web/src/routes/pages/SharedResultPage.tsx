@@ -20,7 +20,7 @@ export default function SharedResultPage(): JSX.Element {
   const missing = () => outcome()?.kind === "missing";
   return <main class="mx-auto flex min-h-dvh w-full max-w-3xl min-w-0 flex-col gap-4 px-4 py-6 sm:px-6" data-testid="shared-result">
     <header class="flex min-w-0 flex-col gap-1">
-      <p class="text-caption font-medium uppercase tracking-wide text-ink-gray-6">Keyrus Brain · shared result · read only</p>
+      <p class="m-0 mb-2 flex items-center gap-2 text-interface font-medium text-ink-gray-8"><img src="/icon-192.png" alt="" width="24" height="24" class="size-6 rounded-md" />Keyrus Brain<span class="font-normal text-ink-gray-6">· shared with you, read only</span></p>
       <Show when={ok()} fallback={<h1 class="text-heading">{gone() ? "This link is no longer available" : missing() ? "This link does not exist" : "Opening the result…"}</h1>}>{(result) => <>
         <h1 class="break-words text-heading">{result().name}</h1>
         <p class="text-interface text-ink-gray-7">{result().versionLabel} · verified by Brain · recorded {formatDateTime(result().recordedAt)} · this link expires {formatDateTime(result().expiresAt)}</p>
@@ -29,7 +29,7 @@ export default function SharedResultPage(): JSX.Element {
     <Show when={ok()}>{(result) => {
       const structured = () => parseStructuredResult(result().text);
       const prose = () => result().mediaType.startsWith("text/markdown") || result().mediaType.startsWith("text/plain");
-      return <article class="min-w-0 rounded-card border border-outline-gray-2 bg-surface-white p-4 sm:p-6" aria-label="Shared result">
+      return <article class="min-w-0 rounded-card border border-outline-gray-2 bg-surface-elevation-1 p-4 sm:p-6" aria-label="Shared result">
         <Show when={structured()} fallback={<Markdown text={prose() ? result().text : `\`\`\`\n${result().text}\n\`\`\``} />}>
           {(document) => <ResultReader result={document()} title={result().name} />}
         </Show>

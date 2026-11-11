@@ -115,7 +115,7 @@ export function createStartController() {
 export type StartController = ReturnType<typeof createStartController>;
 
 /** The sentence box, the play chips, the reuse chips and the "more options" disclosure. */
-export function StartFields(props: { start: StartController; large?: boolean; /** One tight row of chips under the box, for Today where the box leads. */ compact?: boolean; onSubmit?: () => void; /** Blocks the box (setup is not done); chips stay visible but cannot be used. */ disabled?: boolean; /** Offers the "Try a sample goal" chip. */ sample?: boolean }): JSX.Element {
+export function StartFields(props: { start: StartController; large?: boolean; /** One tight row of chips under the box, for Today where the box leads. */ compact?: boolean; onSubmit?: () => void; /** Blocks the box (setup is not done); chips stay visible but cannot be used. */ disabled?: boolean; /** Offers the "Try a sample goal" chip. */ sample?: boolean; /** Phone only: the primary action sits beside the box in a bar fixed to the bottom of the screen (the box leaves the card). */ dockAction?: JSX.Element }): JSX.Element {
   const navigate = useNavigate();
   const s = props.start;
   const [panel, setPanel] = createSignal<"" | "previous" | "repeat">("");
@@ -149,9 +149,12 @@ export function StartFields(props: { start: StartController; large?: boolean; /*
   const chip = (label: string, icon: string, pressed: boolean, onClick: () => void, extra?: { expanded?: boolean }) =>
     <Button variant={pressed ? "subtle" : "outline"} theme={pressed ? "blue" : "gray"} size="sm" iconLeft={icon} aria-pressed={extra?.expanded === undefined ? pressed : undefined} aria-expanded={extra?.expanded} disabled={props.disabled} onClick={onClick}>{label}</Button>;
   return <div class="flex min-w-0 flex-col gap-3">
-    <Textarea label="What do you want done?" value={s.intent()} onInput={(event) => s.setIntent(event.currentTarget.value)} error={s.shownProblem()} rows={props.large && !props.compact ? 3 : 2} disabled={props.disabled}
+    <div class={props.dockAction ? "brain-start-dock" : "contents"}>
+      <Textarea label="What do you want done?" value={s.intent()} onInput={(event) => s.setIntent(event.currentTarget.value)} error={s.shownProblem()} rows={props.large && !props.compact ? 3 : 2} disabled={props.disabled}
       required={!s.playId() && !s.source()} placeholder="For example: summarise this week's support tickets and draft replies"
       onKeyDown={(event: KeyboardEvent) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); props.onSubmit?.(); } }} />
+      {props.dockAction}
+    </div>
     <Show when={chosen()}>{(name) => <p class="flex min-w-0 flex-wrap items-center gap-2 text-interface text-ink-gray-8" data-testid="start-seed">
       <span class="lucide-corner-down-right size-4 shrink-0" aria-hidden="true" />
       <span class="min-w-0 break-words">{s.source() ? "Starting from the earlier mission" : "Starting from the play"} <strong>{name()}</strong>. {s.intent().trim() ? "Your sentence replaces its goal." : "Add a sentence to change the goal, or just start."}</span>

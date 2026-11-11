@@ -1,5 +1,6 @@
 import { lazy, Show, onMount, onCleanup, createSignal } from "solid-js";
 import { blockingCount, createAttentionRead } from "./ui/attention";
+import { createAppBadge } from "./ui/install";
 import { AttentionDrawer } from "./ui/components/AttentionDrawer";
 import type { JSX } from "solid-js";
 import { Navigate, Route, Router, useLocation, useNavigate, useParams } from "@solidjs/router";
@@ -161,6 +162,7 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
   const location = useLocation();
   const [searchOpen, setSearchOpen] = createSignal(false);
   const attention = createAttentionRead();
+  createAppBadge(() => blockingCount(attention.state().data ?? []));
   onMount(() => {
     const shortcut = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setSearchOpen(true); }

@@ -593,3 +593,29 @@ body { background: var(--surface-canvas); color: var(--ink-gray-9); }
   .brain-shelf { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 0.75rem; row-gap: 0.125rem; padding: 0.75rem; }
   .brain-shelf > .brain-shelf-note { grid-column: 1 / -1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 }
+
+/* Phone-first Today (#58): the box and Start live in a bar fixed to the bottom (thumb reach, safe-area aware, rises with the
+   keyboard); chips are one horizontally scrolling row; Needs-you actions are full-width thumb targets. Desktop keeps the card. */
+.brain-start-dock { display: contents; }
+.brain-dock-start { display: none; }
+.brain-dock-spacer { display: none; }
+@media (max-width: 639px) {
+  .brain-start-dock {
+    position: fixed; inset-inline: 0; bottom: 0; z-index: 30;
+    display: flex; align-items: flex-end; gap: 0.5rem;
+    padding: 0.625rem 0.75rem calc(0.625rem + env(safe-area-inset-bottom, 0px));
+    background: var(--surface-elevation-1, var(--surface-white, #fff)); border-top: 1px solid var(--outline-gray-2);
+    box-shadow: 0 -8px 20px -12px rgb(0 0 0 / 0.35);
+  }
+  .brain-start-dock > :first-child { flex: 1 1 auto; min-width: 0; }
+  .brain-start-dock textarea { min-height: 2.75rem; max-height: 7rem; }
+  .brain-dock-start { display: inline-flex; flex: none; }
+  .brain-footer-start { display: none; }
+  .brain-dock-spacer { display: block; height: 7rem; }
+  .brain-start-compact { flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; margin-inline: -0.25rem; padding: 0.125rem 0.25rem; }
+  .brain-start-compact::-webkit-scrollbar { display: none; }
+  .brain-start-compact [data-slot="button"], .brain-start-compact span { flex: none; white-space: nowrap; scroll-snap-align: start; }
+  .brain-start-compact > div { flex: none; }
+  .brain-needs-actions .flex-wrap { flex-direction: column; align-items: stretch; }
+  .brain-needs-actions [data-slot="button"][data-variant="solid"], .brain-needs-actions [data-slot="button"][data-variant="outline"] { width: 100%; justify-content: center; }
+}

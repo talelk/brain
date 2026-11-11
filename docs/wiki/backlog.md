@@ -10,19 +10,13 @@ Dated 2026-11-11 ~15:45, at `talelk/brain@bd16582`+ (deployed: waves 1-3, tracks
 ## Open product work (GitHub issues, `talelk/brain`)
 | Issue | Item | Notes |
 |-------|------|-------|
-| #58 | Phone-first Today | never built |
-| #59 | Install prompt and queue-count app badge | never built; depends on #58 |
 | #77 | Token and cost meter: remaining gap = interactive runs outside missions are not in the usage ledger (row 26) | meter itself works live |
-| #69, #65, #46 | Parent/umbrella issues: close once #58, #59, #77 are done | |
+| #69, #65, #46 | Parent/umbrella issues: close once #77 is done | |
 | #3, #4, #5 | Domain vocabulary: Run aggregate type, WorkflowJob naming, WorkflowState vs WorkflowRunState | needs-triage, docs/ADR + contract rename |
 
 ## Open UI / quality rows
 | # | Item | Notes |
 |---|------|-------|
-| 61 | Schedule "Repeat this" dialog still formats dates with the browser's French locale ("jeu. 12 nov., 08:00"); W's English 24-hour policy missed it | UI, live-confirmed |
-| 62 | Health "Recent activity" is plain now but generic ("A task was queued"): name the task/tool | UI |
-| 57 | Version-history tile: raw task ids ("inspect") as names, truncated "updated..." (verify after W) | UI |
-| 40 | Share page is text only (no Markdown rendering/branding) | UI |
 | 32 | "Reading N sources" doing-now sentence missing on session rail / Plan rows | needs transcript |
 | 35 | Trust read lacks per-criterion evidence link and mission-level aggregate | |
 | 38 | Run all new specs at 390-dark / 768 / RTL (only 1440-light, 390-dark, 768-light fully covered) | QA |

@@ -104,6 +104,17 @@ export function listPack(store: Store, actor: ActorContext, queryType: string, w
         return row?.title?.slice(0, 200);
       } catch { return undefined; }
     };
+    /** The task a job (a queued or progressing run step) serves, found through its run's execution link. */
+    const titleOfRun = (runId: unknown): string | undefined => {
+      if (typeof runId !== "string") return undefined;
+      try {
+        const row = ws.prepare("SELECT wi.title AS title FROM execution_links el JOIN work_items wi ON wi.id=el.work_item_id WHERE el.run_id=? ORDER BY el.created_at_ms DESC LIMIT 1").get(runId) as { title?: string } | undefined;
+        return row?.title?.slice(0, 200);
+      } catch { return undefined; }
+    };
+    const runOfJob = (jobId: string): string | undefined => {
+      try { return (store.control.prepare("SELECT workflow_run_id AS run FROM jobs WHERE id=? AND organization_id=?").get(jobId, actor.organizationId) as { run?: string } | undefined)?.run; } catch { return undefined; }
+    };
     return { items: rows.map((r) => {
       let actorId = "system";
       let message: string | undefined;
@@ -114,7 +125,7 @@ export function listPack(store: Store, actor: ActorContext, queryType: string, w
         // Where the writer already put a plain sentence in the event (a declined tool request does), the page shows that sentence.
         if (typeof payload["message"] === "string" && payload["message"].trim()) message = payload["message"].trim().slice(0, 500);
         const type = String(r["event_type"]);
-        subject = type.startsWith("workItem.") ? titleOf("workItem", payload["workItemId"]) : type.startsWith("mission.") ? titleOf("mission", payload["missionId"]) : undefined;
+        subject = type.startsWith("workItem.") ? titleOf("workItem", payload["workItemId"]) : type.startsWith("mission.") ? titleOf("mission", payload["missionId"]) : type.startsWith("job.") ? titleOfRun(payload["runId"] ?? runOfJob(String(r["aggregate_id"]))) : undefined;
         if (!message && type === "workItem.transitioned") {
           const verb = ({ done: "finished", "in-progress": "started", in_progress: "started", review: "is ready for review", blocked: "is blocked", abandoned: "was dropped", ready: "is ready to start" } as Record<string, string>)[String(payload["state"])];
           if (verb) message = `Task${subject ? ` "${subject}"` : ""} ${verb}`;

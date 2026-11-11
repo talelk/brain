@@ -4,6 +4,7 @@
  * at the requested widths and colour schemes, full page, and reports pages that scroll sideways.
  *
  *   pnpm build
+ *   (--viewport: one 390x844-style viewport shot per screen instead of the full page)
  *   TMPDIR=$HOME/.cache/tmp pnpm exec tsx scripts/capture-screens.ts [outDir] [--widths 1440,768,390] [--schemes light,dark] [--only today,logs]
  *
  * outDir defaults to ~/.cache/shots/<timestamp>. Files are <screen>-<width>-<scheme>.png. Look at them.
@@ -23,6 +24,7 @@ const positional = args.filter((a, i) => !a.startsWith("--") && !(i > 0 && args[
 const outDir = positional[0] ?? join(homedir(), ".cache", "shots", new Date().toISOString().replace(/[:.]/g, "-"));
 const widths = flag("widths", "1440,768,390").split(",").map(Number);
 const schemes = flag("schemes", "light,dark").split(",") as Array<"light" | "dark">;
+const viewportOnly = args.includes("--viewport");
 const only = flag("only", "").split(",").filter(Boolean);
 
 type Demo = Awaited<ReturnType<typeof seedBrowserDemo>>;
@@ -89,6 +91,14 @@ async function main(): Promise<void> {
         await page.goto(`${url}${route(demo)}`);
         await page.waitForLoadState("networkidle").catch(() => undefined);
         await page.waitForTimeout(500);
+        if (viewportOnly) {
+          // What a person sees without scrolling (390x844 is a phone): fixed bars are visible, nothing is grown.
+          await page.setViewportSize({ width, height: 844 });
+          await page.waitForTimeout(200);
+          await page.screenshot({ path: join(outDir, `${id}-${width}-${scheme}-vp.png`) });
+          await page.setViewportSize({ width, height: 900 });
+          continue;
+        }
         const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
         // The shell scrolls inside <main>, so a full-page shot would only show one viewport: grow the viewport to the tallest scroller.
         const tall = await page.evaluate(() => Math.max(document.documentElement.scrollHeight, ...[...document.querySelectorAll("*")].filter((el) => el.scrollHeight > el.clientHeight + 8 && ["auto", "scroll"].includes(getComputedStyle(el).overflowY)).map((el) => el.scrollHeight + el.getBoundingClientRect().top)));

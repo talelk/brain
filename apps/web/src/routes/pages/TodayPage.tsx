@@ -15,6 +15,7 @@ import { PlainSummary } from "../../ui/viz/PlainSummary";
 import { createStartController, StartFields } from "../../ui/start/StartBox";
 import { blockedBy, TodaySetup } from "../../ui/components/TodaySetup";
 import { createReadiness } from "../../ui/components/OperationalChecklist";
+import { InstallPrompt } from "../../ui/install";
 import { KnowledgeLine } from "../../ui/components/LibraryControls";
 
 const SEEN_KEY = "brain-results-seen";
@@ -58,12 +59,13 @@ export default function TodayPage(): JSX.Element {
     <PageStack>
       {/* The box always leads, even while setup is unfinished (it is then disabled and the checklist sits right under it). */}
       <Card padding="md" class="flex min-w-0 flex-col gap-3" aria-label="Start a mission" data-blocked={blocked() ? "true" : "false"}>
-        <StartFields start={start} compact sample disabled={blocked()} onSubmit={() => void start.start()} />
+        <StartFields start={start} compact sample disabled={blocked()} onSubmit={() => void start.start()}
+          dockAction={<Button class="brain-dock-start" variant="solid" theme="blue" iconLeft="lucide-flag" loading={start.busy()} disabled={start.busy() || !start.canStart() || blocked()} onClick={() => void start.start()}>Start</Button>} />
         <Show when={!blocked() && busyCount() > 0}><p class="m-0 flex items-center gap-2 text-caption text-ink-gray-7" data-testid="today-busy-note"><span class="lucide-loader size-4 shrink-0" aria-hidden="true" />Brain is working on {busyCount()} {busyCount() === 1 ? "thing" : "things"}; yours queues and starts next.</p></Show>
         <Show when={start.error()}><p role="alert" class="text-interface text-ink-red-7">{start.error()}</p></Show>
-        <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="brain-start-footer flex flex-wrap items-center justify-between gap-3">
           <p class="m-0 text-caption text-ink-gray-7">{blocked() ? "Blocked until the setup below is done." : "Nothing runs until you confirm the plan."}</p>
-          <Button variant="solid" theme="blue" iconLeft="lucide-flag" loading={start.busy()} disabled={start.busy() || !start.canStart() || blocked()} onClick={() => void start.start()}>Start</Button>
+          <Button class="brain-footer-start" variant="solid" theme="blue" iconLeft="lucide-flag" loading={start.busy()} disabled={start.busy() || !start.canStart() || blocked()} onClick={() => void start.start()}>Start</Button>
         </div>
       </Card>
       <Show when={waitingItems().length}>
@@ -96,6 +98,7 @@ export default function TodayPage(): JSX.Element {
           </div>
         </details>
       </Show>
+      <Show when={(start.missions.state().data ?? []).some((mission) => mission.outcome === "achieved")}><InstallPrompt /></Show>
       <KnowledgeLine summary={start.library.state().data} onChanged={() => void start.library.refresh({ force: true })} />
       <Show when={recent().length}>
         <WorkspaceSection title="Latest missions" description="The five most recently updated."
@@ -106,6 +109,7 @@ export default function TodayPage(): JSX.Element {
               onClick={() => void navigate(missionHref(app.workspaceId(), mission.missionId, "live"))} />}</For></div>
         </WorkspaceSection>
       </Show>
+      <div class="brain-dock-spacer" aria-hidden="true" />
     </PageStack>
   </BrainPage>;
 }

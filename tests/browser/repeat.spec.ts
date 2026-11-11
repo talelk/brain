@@ -53,6 +53,9 @@ test("repeat this: preset schedule from a finished mission, then what changed be
   await expect(sheet.getByRole("radio")).toHaveCount(3);
   await expect(sheet.getByRole("radio", { name: /Every weekday at 08:00/ })).toBeChecked();
   await expect(sheet.getByTestId("repeat-next-runs").locator("li")).toHaveCount(5);
+  // Dates read in the one English 24-hour form ("Thu 12 Nov, 08:00"), whatever language the browser is set to.
+  for (const item of await sheet.getByTestId("repeat-next-runs").locator("li").all()) await expect(item).toHaveText(/^[A-Z][a-z]{2} \d{1,2} [A-Z][a-z]{2}, \d{2}:\d{2}$/u);
+  if (process.env["BRAIN_SHOT_DIR"]) await page.screenshot({ path: `${process.env["BRAIN_SHOT_DIR"]}/repeat-dialog-${page.viewportSize()?.width}.png` });
   await sheet.getByRole("radio", { name: /Every Monday at 08:00/ }).check({ force: true });
   await expect(sheet.getByTestId("repeat-next-runs").locator("li")).toHaveCount(5);
   await expect(sheet.getByText("You confirm its plan")).toHaveCount(0);

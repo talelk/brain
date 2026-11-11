@@ -226,7 +226,7 @@ export function NeedsYouQueue(props: { items: readonly AttentionItem[]; missions
         </div>
         <Badge variant="outline" theme={TIER_TONE[item.tier] ?? "gray"} label={`Tier ${item.tier}`} />
       </div>
-      <div class="ps-0 sm:ps-[3.25rem]">
+      <div class="brain-needs-actions ps-0 sm:ps-[3.25rem]">
         {item.kind === "approval" ? <ApprovalBody item={item} onReviewOpen={reviewOpen} />
           : item.kind === "plan-proposal" ? <PlanBody item={item} mission={mission(item)} onChanged={props.onChanged} />
           : item.kind === "budget-pause" ? <BudgetBody item={item} onChanged={props.onChanged} />

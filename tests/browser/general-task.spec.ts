@@ -207,6 +207,8 @@ test("a plain-words mission runs on the general task workflow and shows a readab
   // Named-output versions live under their Result card; there is no second list of the same tasks.
   await expect(page.getByText("Documents with versions")).toHaveCount(0);
   await expect(first.getByTestId("version-history")).toContainText("1 version");
+  await expect(first.getByTestId("version-history")).not.toContainText("…");
+  if (process.env["BRAIN_SHOT_DIR"]) await first.getByTestId("version-history").screenshot({ path: `${process.env["BRAIN_SHOT_DIR"]}/version-history-${page.viewportSize()?.width}.png` });
   // The read-only link is offered next to the challenge on a verified result.
   await expect(first.getByRole("button", { name: "Share a read-only link" })).toBeVisible();
   // Challenges are read once for the whole page, not once per card every few seconds; the version tile names the task, not its plan id.
