@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { ActorContext } from "@brain/contracts";
 import type { Store } from "../../application/store";
-import { hasWorkspaceMembership, requireWorkspaceRead } from "../../application/authz";
+import { hasWorkspaceMembership, requireWorkspaceRead, scopesForPrincipal } from "../../application/authz";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { readVerified } from "../artifacts/index";
@@ -129,6 +129,10 @@ export class ShareService {
     if (!workspace || workspace.status !== "active") return { kind: "gone", reason: "revoked" };
     // A link outlives nobody's access: when its creator loses the workspace, the link stops working.
     if (!hasWorkspaceMembership(this.store, row.created_by, row.organization_id, row.workspace_id)) return { kind: "gone", reason: "revoked" };
+    // ... nor does it outlive the right to share: a creator who was disabled, or downgraded below mission:write, no longer vouches for it.
+    const creator = this.store.control.prepare("SELECT kind, disabled_at_ms FROM principals WHERE id=? AND organization_id=?").get(row.created_by, row.organization_id) as { kind: string; disabled_at_ms: number | null } | undefined;
+    if (!creator || creator.kind !== "human" || creator.disabled_at_ms !== null) return { kind: "gone", reason: "revoked" };
+    if (!scopesForPrincipal(this.store, row.created_by, row.organization_id, row.workspace_id).includes("mission:write")) return { kind: "gone", reason: "revoked" };
     const db = this.store.workspaceDb(row.workspace_id, row.organization_id);
     let target: ReturnType<typeof shareable>;
     try { target = shareable(db, row.version_id); } catch { return { kind: "gone", reason: "revoked" }; }

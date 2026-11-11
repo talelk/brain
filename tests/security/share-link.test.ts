@@ -134,6 +134,46 @@ describe("share link authorization (#60)", () => {
     expect((await view(created.token)).status).toBe(410);
   });
 
+  it("a link viewed exactly at its expiry is gone, and a view after revocation is neither shown nor counted (row 54)", async () => {
+    const { w, versionId } = await fixture();
+    const created = w.brain.shares.create(w.owner, w.workspaceId, { versionId });
+    const control = w.brain.store.control;
+    control.prepare("UPDATE result_shares SET expires_at_ms=? WHERE id=?").run(w.brain.store.now() + 120_000, created.shareId);
+    expect((await view(created.token)).status).toBe(200);
+    // The instant of expiry is already expired, in the public read and in the list.
+    control.prepare("UPDATE result_shares SET expires_at_ms=? WHERE id=?").run(w.brain.store.now(), created.shareId);
+    expect((await view(created.token)).status).toBe(410);
+    expect(w.brain.shares.list(w.owner, w.workspaceId, versionId)[0]).toMatchObject({ state: "expired", views: 1 });
+    // Revoked while it is still inside its time: the next view is refused and the counter stays.
+    const live = w.brain.shares.create(w.owner, w.workspaceId, { versionId });
+    expect((await view(live.token)).status).toBe(200);
+    w.brain.shares.revoke(w.owner, w.workspaceId, live.shareId);
+    expect((await view(live.token)).status).toBe(410);
+    expect(w.brain.shares.list(w.owner, w.workspaceId, versionId).find((entry) => entry.shareId === live.shareId)).toMatchObject({ state: "revoked", views: 1 });
+    // Expired and revoked at once reads as revoked, never as a working link.
+    control.prepare("UPDATE result_shares SET expires_at_ms=? WHERE id=?").run(w.brain.store.now() - 1, live.shareId);
+    expect((await view(live.token)).status).toBe(410);
+  });
+
+  it("stops working when its creator is downgraded below the sharing scope or disabled mid-share (row 54)", async () => {
+    const { w, versionId } = await fixture();
+    seedHuman(w.brain, w.org, "sharer-4");
+    const control = w.brain.store.control;
+    control.prepare("INSERT INTO workspace_memberships(workspace_id, organization_id, principal_id, role, version, granted_by, granted_at_ms) VALUES (?, ?, 'sharer-4', 'operator', 1, 'owner-1', ?)").run(w.workspaceId, w.org, w.brain.store.now());
+    const operator = w.actor("sharer-4", w.workspaceId);
+    const created = w.brain.shares.create(operator, w.workspaceId, { versionId });
+    expect((await view(created.token)).status).toBe(200);
+    // Downgraded to a read-only viewer: still a member, but no longer allowed to share, so the link stops with the right.
+    control.prepare("UPDATE workspace_memberships SET revoked_at_ms=? WHERE principal_id='sharer-4' AND role='operator'").run(w.brain.store.now());
+    control.prepare("INSERT INTO workspace_memberships(workspace_id, organization_id, principal_id, role, version, granted_by, granted_at_ms) VALUES (?, ?, 'sharer-4', 'viewer', 1, 'owner-1', ?)").run(w.workspaceId, w.org, w.brain.store.now());
+    expect((await view(created.token)).status).toBe(410);
+    // Restored, the link works again (nothing was deleted); a disabled person's links stop.
+    control.prepare("INSERT OR REPLACE INTO workspace_memberships(workspace_id, organization_id, principal_id, role, version, granted_by, granted_at_ms, revoked_at_ms) VALUES (?, ?, 'sharer-4', 'operator', 1, 'owner-1', ?, NULL)").run(w.workspaceId, w.org, w.brain.store.now());
+    expect((await view(created.token)).status).toBe(200);
+    control.prepare("UPDATE principals SET disabled_at_ms=? WHERE id='sharer-4'").run(w.brain.store.now());
+    expect((await view(created.token)).status).toBe(410);
+  });
+
   it("works over the signed-in HTTP surface: the token is returned once and the link is the only secret", async () => {
     const { w, versionId } = await fixture();
     const { token } = seedHuman(w.brain, w.org, "owner-1");

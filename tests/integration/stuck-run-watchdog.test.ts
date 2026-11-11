@@ -166,6 +166,32 @@ describe("stuck-run watchdog", () => {
     }
   });
 
+  it("a read step past the 20-attempt safety cap does not hold its reservation: one last try, then it fails and every reservation is released (row 54)", async () => {
+    const w = setupWorld();
+    const previous = process.env["BRAIN_PARKED_COOLDOWN_SECONDS"];
+    process.env["BRAIN_PARKED_COOLDOWN_SECONDS"] = "0";
+    try {
+      const offer = await authorFinished(w, "wd-cap", "runner-cap1");
+      const c = w.brain.store.control;
+      c.prepare("UPDATE jobs SET attempt_counter=20 WHERE id=?").run(offer.jobId);
+      age(w, offer, 30);
+      expect(w.brain.jobProtocol.sweepStuckJobs(15 * MIN)).toBeGreaterThan(0);
+      expect(job(w, offer.jobId)).toMatchObject({ state: "queued", queue_reason: "RESTARTED_AFTER_INTERRUPTION" });
+      const runner = seedRunner(w, "runner-cap2");
+      const again = w.brain.jobProtocol.claim(runner, "req-wd-cap") as unknown as Offer;
+      w.brain.jobProtocol.ack(runner, again.attemptId, { leaseId: again.leaseId, jobFence: again.jobFence });
+      w.brain.jobProtocol.complete(runner, again.attemptId, { result: "succeeded", output: { ok: true }, jobFence: again.jobFence, cleanupConfirmed: true });
+      age(w, again, 30);
+      expect(w.brain.jobProtocol.sweepStuckJobs(15 * MIN)).toBeGreaterThan(0);
+      expect(job(w, offer.jobId).state).toBe("failed");
+      const open = c.prepare("SELECT COUNT(*) AS n FROM capacity_reservations WHERE released_at_ms IS NULL").get() as { n: number };
+      expect(open.n).toBe(0);
+    } finally {
+      if (previous === undefined) delete process.env["BRAIN_PARKED_COOLDOWN_SECONDS"]; else process.env["BRAIN_PARKED_COOLDOWN_SECONDS"] = previous;
+      w.brain.close();
+    }
+  });
+
   it("requeues a running job whose attempt is gone", async () => {
     const w = setupWorld();
     try {
