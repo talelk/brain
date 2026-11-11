@@ -34,8 +34,16 @@ Dated 2026-11-11 ~15:45, at `talelk/brain@bd16582`+ (deployed: waves 1-3, tracks
 Live confirmed: install card on Today; workspace usage panel with "Outside missions". Z found and fixed a real security bug (a share link kept working after its creator was disabled or downgraded below `mission:write`). Z added: outcome-unknown tool steps in Needs you ("Treat as failed" / "Try again" for read steps only), "Restarting" state, saved documents in the Review inbox, `workspace_spend` bucket.
 Not seen live yet: Needs-you outcome-unknown row, Saved document in Review inbox, phone layout on a real phone, install prompt on a real phone.
 
+## Live walkthrough 2026-11-11 ~16:50 (deployed `bd57d39`)
+Confirmed: Quality page live with real numbers (97% verified without human help 32/33, stall rate 3%, re-open 12.5%, definitions shown); Tools registry live with per-tool calls/failures and agents allowed; workspace usage panel "Outside missions".
+| # | Item | Notes |
+|---|------|-------|
+| 67 | Tools wasted on failing calls: `documents.read` 21/21 failed (workspace has 0 documents), `web.fetch` 50/66 failed (egress/allowlist?), `csv.query` never used; registry detail shows "Preview unavailable: artifact not found" for tool script evidence | track AA running: availability logic, honest registry, fix or hide web.fetch |
+| 68 | Capitalisation is not hands-off for hands-off missions: 10 write-ups "Awaiting review" (+ "Approve all verified (10)") because auto-publish only applies to missions a person signed off; missions closed by the Governor after independent verification (completeFinishedMissions/autoComplete) never publish; on a single-owner install verified achieved missions should auto-publish as self-reviewed | next agent (Library/knowledge) |
+| 69 | Library overview says "Awaiting your review: 18" mixing write-ups with tool/Play proposals; count only what needs a person | UI |
+
 ## Not yet walked live
-Context received tab, Tools registry, Quality page, Share link page (`/shared/:token`), Library Plays shelf after "Add starter Plays", scheduled Repeat occurrence (auto-confirm), Notification preferences (Security).
+Context received tab, Share link page (`/shared/:token`), Library Plays shelf after "Add starter Plays", scheduled Repeat occurrence (auto-confirm), Notification preferences (Security).
 
 ## Standing rules (see goal-and-user.md)
 Validate every change in a real browser as a first-time user; do not stop until nothing is left; reuse and capitalisation are first-class.
