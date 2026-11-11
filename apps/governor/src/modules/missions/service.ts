@@ -11,7 +11,7 @@ import { admit, budgetOf, clockSet, DEFAULT_MISSION_BUDGET, hasHeadroom, reserve
 import { capReached, missionUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUsage } from "./usage";
 import { planEstimate } from "./estimate";
 import { listEvalCases, recordEvalCase } from "./eval-cases";
-import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, sendMessage, verifyOutputs } from "./outputs";
+import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, recordTaskResult, sendMessage, taskResult, verifyOutputs } from "./outputs";
 import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissionBundle, needsSignOff, recordMissionVerdict, submitHandoff, trustForBundle, workflowCovers } from "../evidence/index";
 import type { HandoffNotes } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
@@ -442,9 +442,41 @@ export class MissionService {
     const actor: ActorContext = { kind: "workflow", actorId: input.startedBy, organizationId: input.organizationId, workspaceId: input.workspaceId, scopes: [], authMethod: "service-credential", authGeneration: 1 };
     const existing = this.store.workspaceDb(input.workspaceId, input.organizationId).prepare("SELECT id FROM missions WHERE started_by_occurrence=?").get(input.occurrenceId) as { id: string } | undefined;
     if (existing) return existing.id;
-    const id = this.createMission(actor, input.workspaceId, { title: play.spec.title, playId: input.playId, ...(input.subjects ? { subjects: input.subjects } : {}) });
-    this.store.workspaceDb(input.workspaceId, input.organizationId).prepare("UPDATE missions SET started_by_occurrence=? WHERE id=?").run(input.occurrenceId, id);
-    return id;
+    const db = this.store.workspaceDb(input.workspaceId, input.organizationId);
+    // One transaction: a crash between the mission and its occurrence marker must not leave a mission the retry would duplicate.
+    return this.store.inTx(db, () => {
+      const id = this.createMission(actor, input.workspaceId, { title: play.spec.title, playId: input.playId, ...(input.subjects ? { subjects: input.subjects } : {}) });
+      db.prepare("UPDATE missions SET started_by_occurrence=? WHERE id=?").run(input.occurrenceId, id);
+      return id;
+    });
+  }
+
+  /**
+   * A scheduled start of described work ("Repeat this" on a mission that came from plain words). Each occurrence is a real mission with
+   * its own plan and Results, started on behalf of the person who scheduled it and idempotent per occurrence. The plan is the source
+   * mission's confirmed plan when the schedule names one (so every occurrence has the same task ids and results compare task by task),
+   * else one task named `result`. Scheduling the work is the person's approval of exactly this description, so the plan is confirmed
+   * here (the mission budget, the member cap and the workspace spend cap still bound it); a Play's plan, which can add a team and tools,
+   * stays a proposal for a person (#37).
+   */
+  startFromDescription(input: { organizationId: string; workspaceId: string; title: string; situation: string; startedBy: string; occurrenceId: string; sourceMissionId?: string }): string {
+    const db = this.store.workspaceDb(input.workspaceId, input.organizationId);
+    const existing = db.prepare("SELECT id FROM missions WHERE started_by_occurrence=?").get(input.occurrenceId) as { id: string } | undefined;
+    if (existing) return existing.id;
+    const actor: ActorContext = { kind: "workflow", actorId: input.startedBy, organizationId: input.organizationId, workspaceId: input.workspaceId, scopes: [], authMethod: "service-credential", authGeneration: 1 };
+    const described = describedWork(input.situation, input.title);
+    const source = input.sourceMissionId ? db.prepare("SELECT p.tasks_json AS tasks, p.team_json AS team FROM missions m JOIN plan_versions p ON p.id=m.active_plan_version_id WHERE m.id=?").get(input.sourceMissionId) as { tasks: string; team: string } | undefined : undefined;
+    const tasks: PlanTask[] = source
+      ? (JSON.parse(source.tasks) as PlanTask[]).map(({ inputs: _inputs, ...task }) => task)
+      : [{ id: "result", title: input.title.slice(0, 200), criteria: described.criteria, dependsOn: [] }];
+    // One transaction: a crash between the mission and its occurrence marker must not leave a mission the retry would duplicate.
+    return this.store.inTx(db, () => {
+      const id = this.createMission(actor, input.workspaceId, { title: input.title.slice(0, 200), intent: described.intent, successCriteria: described.criteria });
+      db.prepare("UPDATE missions SET started_by_occurrence=? WHERE id=?").run(input.occurrenceId, id);
+      const planId = this.proposePlan(actor, input.workspaceId, { missionId: id, origin: "template", summary: source ? "The plan of the mission this schedule repeats" : "The described work, as one task", tasks, team: source ? JSON.parse(source.team) as TeamMember[] : [] });
+      this.confirmPlan(actor, input.workspaceId, { planVersionId: planId }, undefined, true);
+      return id;
+    });
   }
 
   isOpen(organizationId: string, workspaceId: string, missionId: string): boolean {
@@ -774,6 +806,7 @@ export class MissionService {
       const items = db.prepare("SELECT w.* FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? AND w.state='in-progress'").all(runId) as WorkItemRow[];
       const autoStart = new Map((db.prepare("SELECT id FROM missions WHERE auto_start=1 AND coordinator_member_id IS NULL AND state='active'").all() as Array<{ id: string }>).map((row) => [row.id, true]));
       for (const item of items) {
+        try { recordTaskResult(this.store, db, item.id); } catch (cause) { if (!(cause instanceof BrainDomainError)) throw cause; /* a result that cannot be versioned never blocks the task */ }
         transitionState(db, "workItem", item.id, "review", { set: { next_action: "The run finished: review the results and submit evidence", updated_at_ms: this.store.now() }, bumpVersion: true });
         this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.transitioned", payload: { workItemId: item.id, state: "review" } });
         if (autoStart.get(item.mission_id)) this.autoComplete(db, item, runId, organizationId);
@@ -898,15 +931,7 @@ export class MissionService {
   }
 
   private deliverableOf(db: ReturnType<Store["workspaceDb"]>, workItemId: string): string | undefined {
-    const rows = db.prepare(`SELECT o.output_json FROM execution_links l JOIN workflow_runs r ON r.id=l.run_id AND r.state='succeeded'
-      JOIN step_outputs o ON o.run_id=r.id WHERE l.work_item_id=? ORDER BY l.created_at_ms DESC, o.rowid`).all(workItemId) as Array<{ output_json: string }>;
-    for (const row of rows) {
-      try {
-        const parsed = JSON.parse(row.output_json) as { deliverable?: unknown };
-        if (typeof parsed.deliverable === "string" && parsed.deliverable.trim()) return parsed.deliverable;
-      } catch { /* a step output that is not JSON carries no deliverable */ }
-    }
-    return undefined;
+    return taskResult(db, workItemId)?.text;
   }
 
   /** Says, on a ready work item, why the Governor has not started it. Writes only when the text changes. */
@@ -994,6 +1019,20 @@ export const START_NOTE_PREFIXES = ["Needs input before it can start", "Waiting 
 function clearStartNotes(db: ReturnType<Store["workspaceDb"]>, missionId: string): void {
   for (const prefix of START_NOTE_PREFIXES) db.prepare(`UPDATE work_items SET next_action='Start this task'
     WHERE mission_id=? AND state='ready' AND next_action LIKE ?`).run(missionId, `${prefix}%`);
+}
+
+/**
+ * The intent and success criteria in a described piece of work: the situation text "Repeat this" writes
+ * ("<intent>\n\nDone when:\n- <criterion>..."). Bounded so a long description still fits the mission brief.
+ */
+export function describedWork(situation: string, fallbackTitle: string): { intent: string; criteria: string[] } {
+  const marker = /\n\s*Done when:\s*\n/iu.exec(situation);
+  const head = marker ? situation.slice(0, marker.index) : situation;
+  const criteria = marker
+    ? situation.slice(marker.index + marker[0].length).split("\n").map((line) => line.replace(/^\s*(?:[-*]|\d+[.)])\s+/u, "").trim()).filter(Boolean).map((line) => line.slice(0, 500)).slice(0, 12)
+    : [];
+  const intent = head.trim().slice(0, BRIEF_CHAR_CAP - 2000) || fallbackTitle;
+  return { intent, criteria: criteria.length > 0 ? criteria : ["The written result addresses the request and states its assumptions"] };
 }
 
 function assertNotClosed(mission: { state: string }): void {

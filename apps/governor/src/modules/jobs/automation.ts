@@ -50,6 +50,8 @@ export interface AutomationDispatchDeps {
   startRun: (input: { organizationId: string; workspaceId: string; actorId: string; workflowId: string; workflow: unknown; configDigest: string; runInput: JsonValue; executionKey: string; runnerId?: string }) => { runId: string };
   /** Starts a mission from a Play of the active release on behalf of the automation's creator; returns the mission id. */
   startMission?: (input: { organizationId: string; workspaceId: string; playId: string; startedBy: string; occurrenceId: string; subjects?: readonly { pack: "support" | "sre"; kind: "ticket" | "incident"; id: string }[] }) => string;
+  /** Starts a mission from described work (a schedule made by "Repeat this" on a mission that came from plain words); returns the mission id. */
+  startDescribedMission?: (input: { organizationId: string; workspaceId: string; title: string; situation: string; startedBy: string; occurrenceId: string; sourceMissionId?: string }) => string;
   /** Whether a mission an earlier occurrence started is still open (for the skip overlap policy). */
   missionOpen?: (organizationId: string, workspaceId: string, missionId: string) => boolean;
 }
@@ -61,6 +63,28 @@ const MISFIRE_GRACE_MS = 60_000;
 
 function digestOccurrence(automationId: string, kind: string, subjectId: string): string {
   return `occ-subject-${createHash("sha256").update(`${automationId}\u0000${kind}\u0000${subjectId}`).digest("hex").slice(0, 32)}`;
+}
+
+/** The general task workflow takes described work as a `situation`; a schedule of it with a situation is described work (the UI's "Repeat this"). */
+const DESCRIBED_WORKFLOW = "general-task";
+const SITUATION_CAP = 30_000;
+
+/**
+ * Described work a schedule repeats: the general task workflow with a plain-words `situation`, optionally naming the finished mission
+ * it repeats (`sourceMissionId`, whose confirmed plan every occurrence then reuses).
+ */
+export function describedSchedule(row: Pick<AutomationRow, "target_kind" | "target_id" | "input_json">): { situation: string; sourceMissionId?: string } | undefined {
+  if (row.target_kind !== "workflow" || row.target_id !== DESCRIBED_WORKFLOW || !row.input_json) return undefined;
+  try {
+    const input = JSON.parse(row.input_json) as { situation?: unknown; sourceMissionId?: unknown };
+    if (typeof input.situation !== "string" || !input.situation.trim()) return undefined;
+    return { situation: input.situation.slice(0, SITUATION_CAP), ...(typeof input.sourceMissionId === "string" && input.sourceMissionId ? { sourceMissionId: input.sourceMissionId } : {}) };
+  } catch { return undefined; }
+}
+
+/** "Repeat: Weekly report" planned for 12 Nov 2026 is the mission "Weekly report · 2026-11-12". */
+function occurrenceTitle(title: string, plannedAtMs: number): string {
+  return `${title.replace(/^Repeat:\s*/u, "").trim() || "Repeated work"} · ${iso(plannedAtMs).slice(0, 10)}`;
 }
 
 export function occurrenceId(automationId: string, revision: number, plannedAtMs: number): string {
@@ -320,9 +344,25 @@ export class AutomationService {
             continue;
           }
         }
-        if (automation.overlap === "skip" && this.lastDispatchStillRunning(db, automation.id)) {
+        if (automation.overlap === "skip" && this.lastDispatchStillRunning(db, organizationId, workspaceId, automation.id)) {
           this.finish(db, occurrence, "skipped", null, "previous occurrence is still running");
           skipped++;
+          continue;
+        }
+        const described = automation.execution_mode === "managed" ? describedSchedule(automation) : undefined;
+        if (described && this.deps.startDescribedMission) {
+          // Described work repeats as a real mission occurrence (its own plan and Results), not a bare workflow run.
+          try {
+            const missionId = this.deps.startDescribedMission({
+              organizationId, workspaceId, startedBy: automation.created_by, occurrenceId: occurrence.id, situation: described.situation,
+              title: occurrenceTitle(automation.title, occurrence.planned_at_ms), ...(described.sourceMissionId ? { sourceMissionId: described.sourceMissionId } : {}),
+            });
+            this.finish(db, occurrence, "dispatched", missionId, null);
+            dispatched++;
+          } catch (reason) {
+            this.finish(db, occurrence, "failed", null, reason instanceof Error ? reason.message.slice(0, 500) : "mission start failed");
+            skipped++;
+          }
           continue;
         }
         try {
@@ -375,9 +415,11 @@ export class AutomationService {
     return { dispatched, skipped };
   }
 
-  private lastDispatchStillRunning(db: ReturnType<Store["workspaceDb"]>, automationId: string): boolean {
+  private lastDispatchStillRunning(db: ReturnType<Store["workspaceDb"]>, organizationId: string, workspaceId: string, automationId: string): boolean {
     const last = db.prepare("SELECT dispatch_ref FROM automation_occurrences WHERE automation_id=? AND state='dispatched' ORDER BY planned_at_ms DESC, id DESC LIMIT 1").get(automationId) as { dispatch_ref: string | null } | undefined;
     if (!last?.dispatch_ref) return false;
+    // A described schedule's occurrence is a mission: it is running while that mission is open.
+    if (db.prepare("SELECT 1 FROM missions WHERE id=?").get(last.dispatch_ref)) return Boolean(this.deps.missionOpen?.(organizationId, workspaceId, last.dispatch_ref));
     const run = db.prepare("SELECT state FROM workflow_runs WHERE id=?").get(last.dispatch_ref) as { state: string } | undefined;
     return Boolean(run && !FINISHED_RUN_STATES.has(run.state));
   }

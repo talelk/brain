@@ -38,21 +38,14 @@ export function occurrenceDiff(store: Store, db: Db, ref: string): JsonValue {
   const base = { occurrenceId: current.id, plannedAt: iso(current.planned_at_ms) };
   if (!previous) return { kind: "first-run", ...base, outputs: [] } as unknown as JsonValue;
   const prior = { occurrenceId: previous.id, plannedAt: iso(previous.planned_at_ms), ...(previous.dispatch_ref ? { ref: previous.dispatch_ref } : {}) };
-  const now = current.dispatch_ref ? resultsOf(db, current.dispatch_ref) : undefined;
-  const before = previous.dispatch_ref ? resultsOf(db, previous.dispatch_ref) : undefined;
+  const now = current.dispatch_ref ? resultsOf(store, db, current.dispatch_ref) : undefined;
+  const before = previous.dispatch_ref ? resultsOf(store, db, previous.dispatch_ref) : undefined;
   if (!now || !before) return { kind: "previous-pending", ...base, previous: prior, waitingFor: now ? "previous" : "current", outputs: [] } as unknown as JsonValue;
 
-  const names = (map: Map<string, string>) => [...map.keys()].sort().join("\n");
-  // Planner-chosen output names can differ between missions; then compare the whole deliverable as one.
-  const all = (map: Map<string, string>) => [...map.keys()].sort().map((key) => map.get(key)!);
-  const pairs: Array<[string, string[], string[]]> = names(now) === names(before)
-    ? [...now.keys()].sort().map((name) => [name, [before.get(name)!], [now.get(name)!]])
-    : [["Result", all(before), all(now)]];
+  const pairs = pairOutputs(before, now);
   const outputs: OutputChange[] = pairs.map(([name, was, is]) => {
-    const a = was.map((digest) => textOf(store, digest)).join("\n\n");
-    const b = is.map((digest) => textOf(store, digest)).join("\n\n");
-    if (was.join() === is.join() || a === b) return { name, status: "unchanged", added: 0, removed: 0, hunks: [] };
-    const hunks = unifiedHunks(a.split("\n"), b.split("\n"));
+    if (was === is) return { name, status: "unchanged", added: 0, removed: 0, hunks: [] };
+    const hunks = unifiedHunks(was.split("\n"), is.split("\n"));
     const lines = hunks.flatMap((hunk) => hunk.lines);
     return {
       name, status: "changed", added: lines.filter((line) => line.type === "add").length, removed: lines.filter((line) => line.type === "del").length,
@@ -63,18 +56,47 @@ export function occurrenceDiff(store: Store, db: Db, ref: string): JsonValue {
   return { kind: changed ? "changed" : "unchanged", ...base, previous: prior, outputs } as unknown as JsonValue;
 }
 
-/** Digest of each named output's latest version of a mission, or of a workflow run's output. Undefined: no result yet. */
-function resultsOf(db: Db, ref: string): Map<string, string> | undefined {
+/**
+ * Pairs the outputs of two results so like is compared with like. Outputs are named by the producing task's id (or the name its plan
+ * declared), so a repeated plan pairs by name. When the planner named them differently, equal counts pair by position in plan order;
+ * unequal counts compare the whole result as one document. Returns [name, was, is].
+ */
+export function pairOutputs(before: ReadonlyMap<string, string>, now: ReadonlyMap<string, string>): Array<[string, string, string]> {
+  const was = [...before.keys()];
+  const is = [...now.keys()];
+  if (was.length === is.length && [...was].sort().join("\n") === [...is].sort().join("\n")) return [...is].sort().map((name) => [name, before.get(name)!, now.get(name)!]);
+  if (was.length === is.length) return is.map((name, index) => [name, before.get(was[index]!)!, now.get(name)!]);
+  return [["Result", was.map((key) => before.get(key)!).join("\n\n"), is.map((key) => now.get(key)!).join("\n\n")]];
+}
+
+/**
+ * The comparable text of each output of a mission (keyed by output name, in the order its task first produced it) or of a workflow
+ * run (one "Result"). Undefined: no result yet.
+ */
+function resultsOf(store: Store, db: Db, ref: string): Map<string, string> | undefined {
   const out = new Map<string, string>();
   if (db.prepare("SELECT 1 FROM missions WHERE id=?").get(ref)) {
     const rows = db.prepare(`SELECT o.name AS name,
         COALESCE((SELECT artifact_digest FROM output_versions v WHERE v.output_id=o.id AND v.verified=1 ORDER BY v.created_at_ms DESC, v.id DESC LIMIT 1),
                  (SELECT artifact_digest FROM output_versions v WHERE v.output_id=o.id ORDER BY v.created_at_ms DESC, v.id DESC LIMIT 1)) AS digest
-      FROM mission_outputs o WHERE o.mission_id=? ORDER BY o.name`).all(ref) as Array<{ name: string; digest: string | null }>;
-    for (const row of rows) if (row.digest) out.set(row.name, row.digest);
+      FROM mission_outputs o WHERE o.mission_id=? ORDER BY o.created_at_ms, o.rowid`).all(ref) as Array<{ name: string; digest: string | null }>;
+    // Plan order, not completion order: parallel tasks finish in any order, positions must still agree between two missions.
+    const plan = db.prepare("SELECT p.tasks_json AS tasks FROM missions m JOIN plan_versions p ON p.id=m.active_plan_version_id WHERE m.id=?").get(ref) as { tasks: string } | undefined;
+    const order = plan ? (JSON.parse(plan.tasks) as Array<{ id: string }>).map((task) => task.id) : [];
+    const position = (name: string) => { const at = order.indexOf(name); return at < 0 ? order.length : at; };
+    rows.sort((a, b) => position(a.name) - position(b.name));
+    for (const row of rows) if (row.digest) out.set(row.name, textOf(store, row.digest));
   } else {
     const run = db.prepare("SELECT output_digest FROM workflow_runs WHERE id=?").get(ref) as { output_digest: string | null } | undefined;
-    if (run?.output_digest) out.set("Result", run.output_digest);
+    if (run?.output_digest) out.set("Result", textOf(store, run.output_digest));
+    else {
+      for (const step of db.prepare("SELECT output_json FROM step_outputs WHERE run_id=? ORDER BY rowid").all(ref) as Array<{ output_json: string }>) {
+        try {
+          const parsed = JSON.parse(step.output_json) as { deliverable?: unknown };
+          if (typeof parsed.deliverable === "string" && parsed.deliverable.trim()) { out.set("Result", parsed.deliverable.trim()); break; }
+        } catch { /* not a written result */ }
+      }
+    }
   }
   return out.size ? out : undefined;
 }

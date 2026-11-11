@@ -37,6 +37,7 @@ export interface JobProtocolPorts {
   /** Starts a mission from a Play for a scheduled occurrence. */
   startMission?(input: { organizationId: string; workspaceId: string; playId: string; startedBy: string; occurrenceId: string }): string;
   /** Whether a mission is still open. */
+  startDescribedMission?(input: { organizationId: string; workspaceId: string; title: string; situation: string; startedBy: string; occurrenceId: string; sourceMissionId?: string }): string;
   missionOpen?(organizationId: string, workspaceId: string, missionId: string): boolean;
   /** Records the admitted attempt's reservation against its mission. */
   missionReserve?(organizationId: string, workspaceId: string, input: { missionId: string; runId: string; attemptId: string; microUsd: number }): void;
@@ -64,6 +65,7 @@ export class JobProtocol {
       resolveWorkflow: (organizationId, workflowId) => this.ports.resolveWorkflow(organizationId, workflowId),
       startRun: (input) => this.ports.startRun(input),
       ...(this.ports.startMission ? { startMission: (input: Parameters<NonNullable<JobProtocolPorts["startMission"]>>[0]) => this.ports.startMission!(input) } : {}),
+      ...(this.ports.startDescribedMission ? { startDescribedMission: (input: Parameters<NonNullable<JobProtocolPorts["startDescribedMission"]>>[0]) => this.ports.startDescribedMission!(input) } : {}),
       ...(this.ports.missionOpen ? { missionOpen: (organizationId: string, workspaceId: string, missionId: string) => this.ports.missionOpen!(organizationId, workspaceId, missionId) } : {}),
     });
   }

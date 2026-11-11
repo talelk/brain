@@ -120,7 +120,8 @@ export function sweepStorage(store: Store, graceMs = 24 * 3600_000): { scanned: 
   for (const workspace of s.control.prepare("SELECT id,organization_id FROM workspaces").all() as Array<{ id: string; organization_id: string }>) {
     const db = s.workspaceDb(workspace.id, workspace.organization_id);
     const workspaceRefs = db.prepare(`SELECT digest FROM document_versions
-      UNION SELECT content_digest FROM support_drafts UNION SELECT content_digest FROM memory_publications`).all() as Array<{ digest: string }>;
+      UNION SELECT content_digest FROM support_drafts UNION SELECT content_digest FROM memory_publications
+      UNION SELECT artifact_digest FROM output_versions`).all() as Array<{ digest: string }>;
     for (const ref of workspaceRefs) referenced.add(ref.digest.replace("sha256:", ""));
   }
   const casDir = join(s.dataDir, "cas");

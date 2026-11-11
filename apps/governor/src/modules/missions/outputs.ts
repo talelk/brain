@@ -2,6 +2,7 @@ import type { ArtifactRef, MissionMessage, Output, OutputDetail, OutputInput, Ou
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
+import { putBytes } from "../artifacts/index";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 type OutputRow = { id: string; mission_id: string; name: string; continues_output_id: string | null; created_at_ms: number };
@@ -24,7 +25,8 @@ export function taskOf(db: Db, workItemId: string): { missionId: string; task: P
  */
 export function recordOutputVersion(store: Store, db: Db, input: { workItemId: string; name: string; artifactDigest: string; state: "draft" | "final"; continues?: { missionId: string; name: string } }): string {
   const { missionId, task } = taskOf(db, input.workItemId);
-  if (!(task.outputs ?? []).includes(input.name)) throw new BrainDomainError("INVALID_ARGUMENT", `plan task ${task.id} declares no output ${input.name}`);
+  // A task's own id is its implicit output name: the written result of every task is a versioned output without the planner naming it.
+  if (!(task.outputs ?? []).includes(input.name) && input.name !== task.id) throw new BrainDomainError("INVALID_ARGUMENT", `plan task ${task.id} declares no output ${input.name}`);
   const id = store.id("outver");
   store.inTx(db, () => {
     let output = db.prepare("SELECT * FROM mission_outputs WHERE mission_id=? AND name=?").get(missionId, input.name) as OutputRow | undefined;
@@ -38,6 +40,34 @@ export function recordOutputVersion(store: Store, db: Db, input: { workItemId: s
     store.emit(db, { aggregateType: "output", aggregateId: output.id, eventType: "output.versionRecorded", payload: { missionId, workItemId: input.workItemId } });
   });
   return id;
+}
+
+/** The written result of a work item: the deliverable of its latest succeeded run, with the immutable step output that holds it. */
+export function taskResult(db: Db, workItemId: string): { text: string; digest: string | null } | undefined {
+  const rows = db.prepare(`SELECT o.output_json AS json, s.output_digest AS digest FROM execution_links l JOIN workflow_runs r ON r.id=l.run_id AND r.state='succeeded'
+    JOIN step_outputs o ON o.run_id=r.id LEFT JOIN workflow_steps s ON s.run_id=o.run_id AND s.step_id=o.step_id
+    WHERE l.work_item_id=? ORDER BY l.created_at_ms DESC, o.rowid`).all(workItemId) as Array<{ json: string; digest: string | null }>;
+  for (const row of rows) {
+    try {
+      const parsed = JSON.parse(row.json) as { deliverable?: unknown };
+      if (typeof parsed.deliverable === "string" && parsed.deliverable.trim()) return { text: parsed.deliverable, digest: row.digest };
+    } catch { /* a step output that is not JSON carries no deliverable */ }
+  }
+  return undefined;
+}
+
+/**
+ * A finished run's written result becomes a version of the task's implicit output (named by the task id, so the name is the same in
+ * every mission that repeats the plan). Idempotent: the same step output is recorded once. It stays unverified until the task is Done.
+ */
+export function recordTaskResult(store: Store, db: Db, workItemId: string): string | undefined {
+  const result = taskResult(db, workItemId);
+  if (!result) return undefined;
+  const { missionId, task } = taskOf(db, workItemId);
+  // The version holds the deliverable text itself (readable by previews, reuse and shares), not the machine step output around it.
+  const digest = putBytes(store, new TextEncoder().encode(result.text));
+  const known = db.prepare("SELECT 1 FROM output_versions v JOIN mission_outputs o ON o.id=v.output_id WHERE o.mission_id=? AND o.name=? AND v.work_item_id=? AND v.artifact_digest=?").get(missionId, task.id, workItemId, digest);
+  return known ? undefined : recordOutputVersion(store, db, { workItemId, name: task.id, artifactDigest: digest, state: "final" });
 }
 
 /** A work item reached Done on verified evidence: its final output versions are verified. */
