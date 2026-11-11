@@ -1,5 +1,10 @@
 import { test, expect } from "./fixtures";
 
+// The service worker takes control mid-load (skipWaiting + clients.claim) and re-serves later chunks through
+// fetch(), which hands the page their DECODED size as encodedBodySize. That inflates the "gzip-encoded" budget
+// with bytes that never crossed the wire, so the budget is measured with the worker out of the way.
+test.use({ serviceWorkers: "block" });
+
 test("web vitals: shell LCP, interaction latency, JS budget (E099 browser)", async ({ page, governor }, info) => {
   await page.addInitScript(() => {
     const w = window as unknown as { __vitals: { lcp: number; inp: number; longTasks: number } };
