@@ -4,6 +4,7 @@ import { Button } from "@talelk/newui-atoms";
 import type { WorkItem } from "@brain/contracts";
 import { statusLabel, statusTheme } from "../components/StatusBadge";
 import { StatusIcon } from "../viz/StatusIcon";
+import { TaskNowLine } from "./TaskNow";
 import { minutesText, nextActionOf, waitReason, type NextAction } from "./work-model";
 
 const ACCENT: Record<string, string> = {
@@ -63,6 +64,7 @@ export function WorkCard(props: {
       <Show when={evidence()}>{(entry) => <li class={`inline-flex items-center gap-1 ${entry().tone}`}><span class={`${entry().icon} size-3.5`} aria-hidden="true" />{entry().text}</li>}</Show>
       <Show when={props.handoffRequired && props.item.state === "review"}><li class="inline-flex items-center gap-1 text-ink-amber-8"><span class="lucide-send size-3.5" aria-hidden="true" />Hand-off due</li></Show>
     </ul>
+    <TaskNowLine item={props.item} {...(props.estimateMinutes !== undefined ? { estimateMinutes: props.estimateMinutes } : {})} />
     <Show when={waitReason(props.item)}>{(reason) => <p class="flex items-start gap-1 text-caption text-ink-amber-8"><span class="lucide-hourglass mt-0.5 size-3 shrink-0" aria-hidden="true" />{reason()}</p>}</Show>
     <Show when={action()}>{(next) => <div>
       <Button size="sm" variant={next().kind === "follow" ? "ghost" : "outline"} theme={next().kind === "follow" ? "gray" : "blue"} iconLeft={next().icon}

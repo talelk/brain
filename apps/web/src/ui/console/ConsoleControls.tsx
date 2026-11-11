@@ -36,6 +36,12 @@ export function ConsoleToolbar(props: {
   feedback: string;
   /** Bumped to open the steering form, e.g. from an inline request for input. */
   steerRequest?: number;
+  /** The session works a mission task, so a steer is recorded in the mission brief even when the engine cannot be redirected. */
+  recordsSteer?: boolean;
+  /** The mission's state when known; Pause and Resume act on the whole mission. */
+  missionState?: "active" | "paused" | string;
+  onPause?: () => Promise<void>;
+  onResume?: () => Promise<void>;
   onRefresh: () => void;
   onSteer: (message: string) => Promise<void>;
   onStop: (reason: string) => Promise<void>;
@@ -49,7 +55,10 @@ export function ConsoleToolbar(props: {
   const terminal = () => session()?.state === "stopping" || session()?.state === "stopped" || session()?.state === "failed";
   const live = () => session()?.state === "running" || session()?.state === "starting" || session()?.state === "waiting";
   const features = () => session()?.engine.features ?? [];
-  const canSteer = () => live() && props.canOperate && features().includes("steer");
+  const engineSteers = () => features().includes("steer");
+  const canSteer = () => live() && props.canOperate && (engineSteers() || Boolean(props.recordsSteer));
+  const canPause = () => live() && props.canOperate && props.missionState === "active" && Boolean(props.onPause);
+  const canResume = () => props.canOperate && props.missionState === "paused" && Boolean(props.onResume);
   const canStop = () => !terminal() && props.canOperate;
   const canAttach = () => (live() || terminal()) && props.canOperate && !!session()?.workItemId;
   createEffect(on(() => props.steerRequest ?? 0, (token) => { if (token > 0 && canSteer()) { setDialog("steer"); setReason(""); } }, { defer: true }));
@@ -79,9 +88,17 @@ export function ConsoleToolbar(props: {
         </div>
       </div>
       <div class="ms-auto flex flex-wrap items-center gap-1">
+        <Show when={canPause()}>
+          <Button size="sm" variant="outline" iconLeft="lucide-pause" title="Pause the whole mission: no new task starts until you resume" disabled={busy()}
+            onClick={() => { setBusy(true); void props.onPause?.().finally(() => setBusy(false)); }}>Pause</Button>
+        </Show>
+        <Show when={canResume()}>
+          <Button size="sm" variant="outline" theme="blue" iconLeft="lucide-play" title="Resume the paused mission" disabled={busy()}
+            onClick={() => { setBusy(true); void props.onResume?.().finally(() => setBusy(false)); }}>Resume</Button>
+        </Show>
         <Show when={canSteer()}>
           <Button size="sm" variant="outline" theme="blue" iconLeft="lucide-corner-down-right"
-            title="Applies at the engine's next turn boundary" onClick={() => { setDialog("steer"); setReason(""); }}>
+            title={engineSteers() ? "Saved to the mission brief, then applied at the agent's next turn" : "Saved to the mission brief; applies from the next task"} onClick={() => { setDialog("steer"); setReason(""); }}>
             Steer{session()?.continuation.reconnectable ? " (reconnect)" : ""}
           </Button>
         </Show>
@@ -107,7 +124,7 @@ export function ConsoleToolbar(props: {
           onInput={(event) => setReason(event.currentTarget.value)} />
         <div class="mt-2 flex items-center gap-2">
           <Button size="sm" variant="solid" theme="blue" disabled={!reason().trim() || busy()} loading={busy()} onClick={() => void submit("steer")}>Send steering</Button>
-          <span class="text-caption text-ink-gray-6">Applies at the engine's next turn boundary — not a rewrite of past turns.</span>
+          <span class="text-caption text-ink-gray-6">{props.recordsSteer ? (engineSteers() ? "Saved to the mission brief as a constraint, then applied at the agent's next turn. Not a rewrite of past turns." : "Saved to the mission brief as a constraint. This agent cannot be redirected while it works, so it applies from its next task.") : "Applies at the engine's next turn boundary, not a rewrite of past turns."}</span>
         </div>
       </div>
     </Show>

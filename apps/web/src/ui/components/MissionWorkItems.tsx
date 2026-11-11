@@ -3,7 +3,7 @@ import type { JSX } from "solid-js";
 import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { Alert, Select, TabButtons } from "@talelk/newui-molecules";
-import type { Handoff, Mission, PlanVersion, WorkItem, WorkItemState } from "@brain/contracts";
+import type { BrainSession, Handoff, Mission, PlanVersion, WorkItem, WorkItemState } from "@brain/contracts";
 import { ParkedActions } from "./ParkedActions";
 import { useApp } from "../app-context";
 import { query } from "../../data/client";
@@ -23,6 +23,7 @@ import { Meter } from "../viz/Meter";
 import { StateBar } from "../viz/StateBar";
 import { WorkBoard } from "../work/WorkBoard";
 import { WorkCard } from "../work/WorkCard";
+import { TaskSessionsContext } from "../work/TaskNow";
 import { WorkRoadmap, type RoadmapNode } from "../work/WorkRoadmap";
 import { minutesText, workGraph, type BoardColumnId, type NextAction } from "../work/work-model";
 
@@ -69,6 +70,15 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
     },
     isEmpty: (list) => list.length === 0,
     refreshMs: 5_000,
+  });
+  // Sessions let each active task row say what it is doing now (#61).
+  const sessions = createScopedRead<BrainSession[]>({
+    scope: app.scope,
+    load: async (scope, signal) => {
+      const response = await query<Envelope<{ items: BrainSession[] }>>({ queryType: "sessions.list", workspaceId: scope.workspaceId }, signal);
+      return { snapshot: [...response.snapshot.items], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+    },
+    refreshMs: 10_000,
   });
   // The confirmed plan names each task's estimate and the team that owns it.
   const plan = createScopedRead<PlanVersion | null>({
@@ -162,7 +172,7 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
 
   const roadmapNodes = (): RoadmapNode[] => live().map((item) => ({ id: item.workItemId, title: item.title, deps: item.dependsOn, weight: estimateOf(item) ?? 1, done: item.state === "done" }));
 
-  return <WorkspaceSection title="Mission work" description="Confirmed work items of this mission. Done requires independently verified evidence for every criterion.">
+  return <TaskSessionsContext.Provider value={() => sessions.state().data ?? []}><WorkspaceSection title="Mission work" description="Confirmed work items of this mission. Done requires independently verified evidence for every criterion.">
     <Show when={conflict() && sheet() !== "move"}><Alert theme="amber" variant="outline" title="This work changed; your intended move is preserved" description={conflict()} /></Show>
     <ScreenRegion state={items.state()} onRetry={() => void items.refresh({ force: true })} emptyTitle="No confirmed work yet" emptyDescription="Confirm a plan version to create this mission's work items.">
       <Show when={selected()} keyed fallback={<div class="flex min-w-0 flex-col gap-4">
@@ -228,7 +238,7 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
         }}
       </Show>
     </ScreenRegion>
-  </WorkspaceSection>;
+  </WorkspaceSection></TaskSessionsContext.Provider>;
 }
 
 /** Progress, the critical path, time and budget: the four numbers that say whether the mission is on course. */

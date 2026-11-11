@@ -13,7 +13,7 @@ import type { ExecLogFilters } from "../exec/exec-filters";
 import { DisclosureCard } from "../components/primitives";
 import { DateText } from "../screen-region";
 import { feedScroll, setFeedScroll } from "./ConsoleStore";
-import { summarizeActivity, type FeedActivity } from "./NowLine";
+import { summarizeActivity, type FeedActivity } from "./doing-now";
 
 /**
  * The live transcript (plan §3): one streaming conversation per selected

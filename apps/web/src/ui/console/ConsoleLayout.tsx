@@ -19,7 +19,10 @@ import {
 import { ConsoleFeed, hydrateConsoleHistory } from "./ConsoleFeed";
 import { ConsoleInspection, ConsoleToolbar, InterruptionChooser } from "./ConsoleControls";
 import { SessionRail } from "./SessionRail";
-import { ConsoleNowLine, NO_ACTIVITY, type FeedActivity } from "./NowLine";
+import { ConsoleNowLine } from "./NowLine";
+import { createTaskFacts } from "./task-estimate";
+import { steerSession } from "./steer";
+import { NO_ACTIVITY, type FeedActivity } from "./doing-now";
 import { EmptyState } from "@talelk/newui-molecules";
 
 /**
@@ -196,9 +199,10 @@ function SessionConsole(props: {
   const [activity, setActivity] = createSignal<FeedActivity>(NO_ACTIVITY);
   const [steerRequest, setSteerRequest] = createSignal(0);
 
+  const facts = createTaskFacts(() => detail()?.workItemId);
   const canOperate = () => app.canDispatch() && session.state().canMutate;
   const live = () => ["starting", "running", "waiting"].includes(detail()?.state ?? "");
-  const canSteer = () => live() && canOperate() && (detail()?.engine.features ?? []).includes("steer");
+  const canSteer = () => live() && canOperate() && ((detail()?.engine.features ?? []).includes("steer") || Boolean(facts().missionId));
   const reply = () => (canSteer() ? () => setSteerRequest((value) => value + 1) : undefined);
 
   function resumePayload(current: SessionDetail) {
@@ -224,10 +228,39 @@ function SessionConsole(props: {
     <ConsoleToolbar workspaceId={props.workspaceId} sessionId={props.sessionId}
       session={detail()} canOperate={canOperate()} feedback={feedback()} steerRequest={steerRequest()}
       onRefresh={() => void session.refresh({ force: true })}
-      onSteer={async (message) => {
+      recordsSteer={Boolean(facts().missionId)} missionState={facts().mission?.state}
+      onPause={facts().missionId ? async () => {
+        const mission = facts().mission;
         try {
-          const result = await app.run("session.steer", { sessionId: props.sessionId, message });
-          setFeedback(result.detail);
+          const result = await app.run("mission.pause", { missionId: facts().missionId! }, mission ? { expectedVersion: mission.version } : {});
+          setFeedback(result.accepted ? "Mission paused. No new task starts until you resume; work already running keeps going until you stop it." : result.detail);
+        } catch (e) { setFeedback(e instanceof Error ? e.message : "Pausing was refused."); }
+        await facts.refresh();
+      } : undefined}
+      onResume={facts().missionId ? async () => {
+        const mission = facts().mission;
+        try {
+          const result = await app.run("mission.resume", { missionId: facts().missionId! }, mission ? { expectedVersion: mission.version } : {});
+          setFeedback(result.accepted ? "Mission resumed." : result.detail);
+        } catch (e) { setFeedback(e instanceof Error ? e.message : "Resuming was refused."); }
+        await facts.refresh();
+      } : undefined}
+      onSteer={async (message) => {
+        const missionId = facts().missionId;
+        const delivers = (detail()?.engine.features ?? []).includes("steer");
+        const deliver = delivers ? async (text: string) => app.run("session.steer", { sessionId: props.sessionId, message: text }) : undefined;
+        try {
+          if (!missionId) {
+            const result = await app.run("session.steer", { sessionId: props.sessionId, message });
+            setFeedback(result.detail);
+            return;
+          }
+          const outcome = await steerSession({
+            readBrief: async () => (await query<{ snapshot: { version: number; constraints: string[] } }>({ queryType: "missions.brief", workspaceId: app.scope().workspaceId, resourceId: missionId })).snapshot,
+            editBrief: (input) => app.run("mission.brief.edit", { missionId, baseVersion: input.baseVersion, constraints: input.constraints }),
+            ...(deliver ? { deliver } : {}),
+          }, message);
+          setFeedback(outcome.message);
         } catch (e) { setFeedback(e instanceof Error ? e.message : "Steering was refused."); }
       }}
       onStop={async (reason) => {
@@ -246,7 +279,7 @@ function SessionConsole(props: {
           setFeedback(result.detail);
         } catch (e) { setFeedback(e instanceof Error ? e.message : "Attaching context was refused."); }
       }} />
-    <ConsoleNowLine session={detail()} activity={activity()} onReply={reply()} />
+    <ConsoleNowLine session={detail()} activity={activity()} onReply={reply()} {...(facts().estimatedMinutes !== undefined ? { estimatedMinutes: facts().estimatedMinutes! } : {})} {...(facts().taskState ? { taskState: facts().taskState! } : {})} />
     <Show when={detail()} keyed>
       {(current) => <InterruptionChooser session={current} canOperate={canOperate()}
         onResume={async () => {

@@ -3,60 +3,9 @@ import { A } from "@solidjs/router";
 import { createAttentionRead } from "../attention";
 import type { JSX } from "solid-js";
 import type { SessionDetail } from "../../data/exec-console";
-import type { FeedEntry } from "./ConsoleFeed";
+import { elapsedText, etaBand, nowSentence, type EtaBand, type FeedActivity, type TaskState } from "./doing-now";
 import { Button } from "@talelk/newui-atoms";
 import { formatTokens } from "../format";
-
-/** What the feed has seen so far, reported upward so the header can say what the session is doing. */
-export interface FeedActivity {
-  readonly latest?: FeedEntry;
-  readonly lastTool?: FeedEntry;
-  readonly lastMessage?: FeedEntry;
-  readonly toolCalls: number;
-  readonly firstAt?: string;
-}
-
-export const NO_ACTIVITY: FeedActivity = { toolCalls: 0 };
-
-export function summarizeActivity(entries: readonly FeedEntry[]): FeedActivity {
-  let lastTool: FeedEntry | undefined;
-  let lastMessage: FeedEntry | undefined;
-  let toolCalls = 0;
-  for (const entry of entries) {
-    if (entry.kind === "tool") { lastTool = entry; toolCalls += 1; }
-    else if (entry.kind === "message" && entry.type === "text") lastMessage = entry;
-  }
-  const latest = entries.at(-1);
-  return { ...(latest ? { latest } : {}), ...(lastTool ? { lastTool } : {}), ...(lastMessage ? { lastMessage } : {}), toolCalls, ...(entries[0] ? { firstAt: entries[0].at } : {}) };
-}
-
-/** The plain sentence for the session's current condition, built from its latest tool and message. */
-export function nowSentence(session: SessionDetail | undefined, activity: FeedActivity): string {
-  const state = session?.state;
-  if (state === "failed") return "This session stopped because of an error. The last activity is listed below.";
-  if (state === "stopped") return "This session has finished. Its full transcript is below.";
-  if (state === "stopping") return "A stop was requested; the session is wrapping up.";
-  if (state === "starting") return "The agent is starting up and will begin working shortly.";
-  if (state === "waiting") return "The agent is waiting for a person before it continues.";
-  const tool = activity.lastTool;
-  const message = activity.lastMessage;
-  if (tool && (!message || tool.streamSeq > message.streamSeq)) {
-    const name = tool.tool?.name ?? "a tool";
-    return tool.tool?.result ? `Ran ${name}; deciding the next step.` : `Running ${name}…`;
-  }
-  if (message) return "Writing an update; the latest message is at the bottom of the transcript.";
-  return state === "running" ? "Working. The first activity will appear here in a moment." : "No activity has been recorded for this session yet.";
-}
-
-/** "42s", "3 min 5s", "2 h 4 min" — or undefined for a start time that is missing or implausible (an unset timestamp). */
-export function elapsedText(from: string | undefined, to: number): string | undefined {
-  const start = from ? Date.parse(from) : Number.NaN;
-  if (!Number.isFinite(start) || start <= 0 || to < start || to - start > 30 * 86_400_000) return undefined;
-  const seconds = Math.floor((to - start) / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  return minutes < 60 ? `${minutes} min ${seconds % 60}s` : `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
-}
 
 /** A clock that ticks once a second while the component lives. */
 export function createNow(): () => number {
@@ -79,7 +28,7 @@ const ORB: Record<string, string> = {
  * much of its allowance is used. A session waiting for a person turns the line
  * amber and offers the reply in place.
  */
-export function ConsoleNowLine(props: { session?: SessionDetail; activity: FeedActivity; onReply?: () => void }): JSX.Element {
+export function ConsoleNowLine(props: { session?: SessionDetail; activity: FeedActivity; onReply?: () => void; estimatedMinutes?: number; taskState?: TaskState }): JSX.Element {
   const now = createNow();
   const live = () => props.session?.state === "running" || props.session?.state === "starting" || props.session?.state === "waiting";
   const waiting = () => props.session?.state === "waiting";
@@ -90,6 +39,7 @@ export function ConsoleNowLine(props: { session?: SessionDetail; activity: FeedA
   const startedAt = () => (elapsedText(props.session?.createdAt, now()) ? props.session?.createdAt : props.activity.firstAt);
   const endMs = () => (live() ? now() : Date.parse(props.session?.updatedAt ?? "") || now());
   const elapsed = () => elapsedText(startedAt(), endMs());
+  const band = (): EtaBand => etaBand({ ...(props.estimatedMinutes !== undefined ? { estimatedMinutes: props.estimatedMinutes } : {}), ...(startedAt() ? { startedAt: startedAt()! } : {}), nowMs: now(), endedAtMs: endMs(), finished: !live() });
   const budgetShare = () => {
     const max = props.session?.budget.maxTokens ?? 0;
     return max > 0 ? Math.min(100, Math.round(((props.session?.usedTokens ?? 0) / max) * 100)) : 0;
@@ -97,7 +47,7 @@ export function ConsoleNowLine(props: { session?: SessionDetail; activity: FeedA
   return <section class={`flex flex-col gap-2 border-b px-3 py-2.5 ${waiting() ? "border-outline-amber-2 bg-surface-amber-1" : "border-outline-gray-1 bg-surface-gray-1"}`} data-testid="console-now" aria-label="What this session is doing now">
     <div class="flex items-start gap-2.5">
       <span class={`mt-1.5 size-2.5 shrink-0 rounded-full ${ORB[props.session?.state ?? ""] ?? "bg-surface-gray-5"}`} aria-hidden="true" />
-      <p class="min-w-0 flex-1 text-base text-ink-gray-9" role="status">{nowSentence(props.session, props.activity)}</p>
+      <p class="min-w-0 flex-1 text-base text-ink-gray-9" role="status">{nowSentence(props.session, props.activity, props.taskState)}</p>
       <Show when={waiting() && pendingApprovals() > 0}>
         <A class="inline-flex shrink-0 items-center gap-1 rounded-sm px-2 py-1 text-interface font-medium text-ink-amber-8 hover:bg-surface-amber-2" href="/approvals"><span class="lucide-shield-check size-3.5" aria-hidden="true" />Review {pendingApprovals()} pending {pendingApprovals() === 1 ? "approval" : "approvals"}</A>
       </Show>
@@ -106,6 +56,7 @@ export function ConsoleNowLine(props: { session?: SessionDetail; activity: FeedA
     <Show when={props.session}>
       <div class="flex flex-wrap items-center gap-x-4 gap-y-1 ps-5 text-caption text-ink-gray-7">
         <Show when={elapsed()}><span class="inline-flex items-center gap-1 tabular-nums" title="Time since the session started"><span class="lucide-timer size-3.5" aria-hidden="true" />{live() ? "Running for" : "Ran for"} {elapsed()}</span></Show>
+        <Show when={props.session?.workItemId}><EtaBandView band={band()} /></Show>
         <span class="inline-flex items-center gap-1" title="Tool calls so far in the loaded transcript"><span class="lucide-wrench size-3.5" aria-hidden="true" />{props.activity.toolCalls} {props.activity.toolCalls === 1 ? "step" : "steps"} taken</span>
         <span class="inline-flex items-center gap-2" title="Share of this session's token allowance already used">
           <span class="inline-flex items-center gap-1"><span class="lucide-gauge size-3.5" aria-hidden="true" />Allowance used {budgetShare()}%<Show when={(props.session?.usedTokens ?? 0) > 0}> · {formatTokens(props.session?.usedTokens)} tokens so far</Show></span>
@@ -116,4 +67,16 @@ export function ConsoleNowLine(props: { session?: SessionDetail; activity: FeedA
       </div>
     </Show>
   </section>;
+}
+
+/** The ETA band: elapsed time against the plan's estimate, as words and a thin bar; "unknown" when the plan gave no estimate. */
+export function EtaBandView(props: { band: EtaBand }): JSX.Element {
+  return <span class="inline-flex items-center gap-2" data-testid="eta-band" data-kind={props.band.kind} title="Elapsed time against the plan's estimate for this task">
+    <span class={`inline-flex items-center gap-1 ${props.band.kind === "over" ? "text-ink-amber-8" : ""}`}><span class="lucide-hourglass size-3.5" aria-hidden="true" />{props.band.label}</span>
+    <Show when={props.band.fraction !== undefined}>
+      <span role="progressbar" aria-label="Share of the estimated time used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((props.band.fraction ?? 0) * 100)} class="flex h-1.5 w-20 overflow-hidden rounded-full bg-surface-gray-3">
+        <span class={`h-full ${props.band.kind === "over" ? "bg-surface-amber-6" : props.band.kind === "done" ? "bg-surface-green-7" : "bg-surface-blue-9"}`} style={{ width: `${Math.round((props.band.fraction ?? 0) * 100)}%` }} />
+      </span>
+    </Show>
+  </span>;
 }
