@@ -241,7 +241,7 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   // (d') The named output lists its versions newest first, opens one with
   // ?v= and compares an earlier version with the latest beside provenance.
   await page.goto(`${governor.url}/outputs/output-dossier`);
-  await expect(page.getByRole("heading", { name: "dossier", exact: true, level: 1 })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "Dossier", exact: true, level: 1 })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("button", { name: "Open Version 2", exact: true })).toHaveAttribute("data-selected", "true");
   await page.getByRole("button", { name: "Open Version 1", exact: true }).click();
   await expect(page).toHaveURL(/\/outputs\/output-dossier\?v=outver-1$/);
@@ -359,9 +359,9 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   // the named output; Watch is a toggle with the viewer's state.
   await page.goto(`${governor.url}/missions/obj-console/outputs`);
   // A named output sits under the Result card of the task that wrote it ("Version history"), or under "Other documents" when no card exists.
-  await page.getByRole("button", { name: "Open output dossier", exact: true }).click();
+  await page.getByRole("button", { name: "Open output Produce the deployment dossier", exact: true }).click();
   await expect(page).toHaveURL(/\/outputs\/output-dossier$/);
-  await expect(page.getByRole("heading", { name: "dossier", exact: true, level: 1 })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "Dossier", exact: true, level: 1 })).toBeVisible({ timeout: 30_000 });
   await page.goto(`${governor.url}/missions/obj-console/live`);
   await page.getByRole("button", { name: "Watch", exact: true }).click();
   await expect(page.getByRole("button", { name: "Unwatch", exact: true })).toHaveAttribute("aria-pressed", "true");
