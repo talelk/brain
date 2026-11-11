@@ -53,3 +53,12 @@ Not fixed on purpose: `maxMicroUsd: 0` fails paid-endpoint runs (decision ticket
 - Wave 2 started: A2 (live failure + evaluator robustness), I1 (#47 Today), I2 (#76-#79, #54, #55 usage/cost), I3 (#66-#75 reuse/capitalisation), I4 (#80-#85 context/tools/repo budget). UI polish E and #48/#49/#51/#53/#56-#62 wait for these to land.
 - Environment fixes: eslint ignores `.claude/worktrees/**` (`ee0638e`) so verify:fast works with parallel worktrees; credentials stored in `~/.config/brain-dev/credentials.env` (never copy values).
 - Known flaky under load: `tests/integration/storage.test.ts` LRU and `first-launch.test.ts` time out when run in parallel with other suites; pass alone.
+
+## Live browser findings after deploy of `f470178` (2026-11-11 ~01:25)
+| # | Item | Track | Status |
+|---|------|-------|--------|
+| 18 | Logs Readable shows raw streamed fragments ("The agent said: ution:** Day 2 ... \n\n") and repeats generic lines ("A tool made a change", "Brain reported progress"): aggregate token chunks into one message per turn, collapse repeated generic lines, name the task on every line | L (logs readability) | open |
+| 19 | Mission page Outputs tab says "No outputs yet / Named outputs" while tasks produced Result cards; workspace Outputs preview shows raw JSON with escaped Markdown; trust line is jargon ("No evidence bundle pins this digest") | I6 | in progress |
+| 20 | New-mission dialog still defaults to "Start from a play" tab although plain-words is the common path (I1 / #47 removes the toggle) | I1 | in progress |
+| 21 | Review task (general-task, real model) produced a good review but stayed Unverified and parked after 3 attempts, overlapping a deploy restart | A2 | in progress |
+Confirmed good live: planner no longer creates clarify tasks; plan drafts by itself and opens on Plan; tasks 1-2 finished by themselves ~20s after confirm; Outputs leads with one Result per task with technical files collapsed; mission page slimmer (Live/Plan/Outputs + More views); "Result ready" items appear in Missions and the bell; Administration in sidebar.
