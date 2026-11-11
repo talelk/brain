@@ -102,6 +102,15 @@ describe("web.fetch broker (GET only, host allowlist, bounds)", () => {
     const binding = { release: { id: "web.fetch", digest: `sha256:${"a".repeat(64)}` }, allowedHosts: ["no-such-host.invalid"] } as unknown as EngineToolBinding;
     expect(await brokerRead(binding, { url: "https://no-such-host.invalid/page" }, "att-x", { toolRead: async () => { throw new Error("not used"); } })).toEqual({ ok: false, error: expect.stringContaining("no-such-host.invalid") });
   });
+
+  it("tells the model what to do after a refused or failed fetch: the allowed hosts, and not to retry or invent the page (row 65)", async () => {
+    const binding = { release: { id: "web.fetch", digest: `sha256:${"a".repeat(64)}` }, allowedHosts: ["docs.example.org", "wiki.example.org"] } as unknown as EngineToolBinding;
+    const client = { toolRead: async () => { throw new Error("not used"); } };
+    const refused = await brokerRead(binding, { url: "https://evil.example.com/x" }, "att-y", client);
+    expect(refused).toEqual({ ok: false, error: expect.stringMatching(/evil\.example\.com is not on this tool's allowlist; only these hosts can be fetched: docs\.example\.org, wiki\.example\.org\. Do not retry this address; carry on without that page and say in your answer that it could not be read\.$/u) });
+    const down = await brokerRead({ ...binding, allowedHosts: ["no-such-host.invalid"] } as unknown as EngineToolBinding, { url: "https://no-such-host.invalid/p" }, "att-y", client);
+    expect(down).toEqual({ ok: false, error: expect.stringMatching(/outbound.*Do not retry this address/u) });
+  });
 });
 
 describe("Governor-brokered read tools: documents.read and csv.query", () => {

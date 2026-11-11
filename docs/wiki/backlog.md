@@ -10,8 +10,7 @@ Dated 2026-11-11 ~15:45, at `talelk/brain@bd16582`+ (deployed: waves 1-3, tracks
 ## Open product work (GitHub issues, `talelk/brain`)
 | Issue | Item | Notes |
 |-------|------|-------|
-| #77 | Token and cost meter: remaining gap = interactive runs outside missions are not in the usage ledger (row 26) | meter itself works live |
-| #69, #65, #46 | Parent/umbrella issues: close once #77 is done | |
+| #69, #65, #46 | Parent/umbrella issues: #77 is done (interactive runs are metered); close these after review | |
 | #3, #4, #5 | Domain vocabulary: Run aggregate type, WorkflowJob naming, WorkflowState vs WorkflowRunState | needs-triage, docs/ADR + contract rename |
 
 ## Open UI / quality rows
@@ -26,11 +25,8 @@ Dated 2026-11-11 ~15:45, at `talelk/brain@bd16582`+ (deployed: waves 1-3, tracks
 |---|------|-------|
 | 15 | Evaluator proves criteria were answered, not that answers are correct; real-model quality 10/12 first-try pass (`scripts/qualification/task-quality.mjs`, plans via `--plans N`) | measure/improve; consider a model-judged independent check |
 | 33 | `first-launch` and a few integration tests time out under heavy load | mitigated by `maxWorkers: 4` and the timing factor; re-check |
-| 54 | Notification-throttle across restart and share-token expiry races not examined; a read job interrupted 20 times keeps its reservation until a person resolves it | adversarial tests |
-| 55 | Saved documents are searchable but not queued for Review; result-ready announcement not extended to the inbox | I3 leftover |
-| 63 | Effectful (tool) jobs left `outcome_unknown` do not appear in Needs you; UI says "running" for ~1 min between interruption and cooldown retry | U leftover |
 | 64 | Multi-slot runner loop untested with >1 concurrent attempts; session refresh (13 min) briefly lowers concurrency for very long attempts; Health/Runners show "busy" without slots | T leftover |
-| 65 | Compaction and the new tools (documents.read, web.fetch, csv.query, knowledge.search) untested with a real model; web.fetch needs outbound access from the runner host; handoff summaries may appear twice in a prompt | I4 leftover |
+| 65 | Compaction and the new tools (documents.read, web.fetch, csv.query, knowledge.search) untested with a real model; web.fetch needs outbound access from the runner host (failures now tell the model not to retry) | I4 leftover |
 | 66 | Email transport for notifications is not built (in-app + push + signed webhook only) | G3 decision (ADR 0010-0015) |
 
 ## Not yet walked live

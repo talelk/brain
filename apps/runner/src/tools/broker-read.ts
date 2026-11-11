@@ -10,9 +10,13 @@ import { GOVERNOR_BROKERED, plainFetchError, RUNNER_BROKERED, webFetch, type Bro
 export async function brokerRead(binding: EngineToolBinding, input: Readonly<Record<string, unknown>>, attemptId: string, client: Pick<GovernorClient, "toolRead">): Promise<BrokerResult | undefined> {
   const id = binding.release.id;
   if (RUNNER_BROKERED.has(id)) {
-    // A network failure is a failed tool call with a plain reason the model and the person can read, never a crashed attempt.
-    try { return await webFetch(input, binding.allowedHosts); }
-    catch (error) { return { ok: false, error: plainFetchError(error, (() => { try { return new URL(String(input["url"])).hostname; } catch { return "the address"; } })()) }; }
+    // A refused or failed fetch is a failed tool call with a plain reason the model and the person can read, never a crashed attempt.
+    // The reply also says what to do next, so the model does not retry the same address or invent the page's content.
+    const guided = (reason: string): BrokerResult => ({ ok: false, error: `${reason.replace(/[.\s]+$/u, "")}. Do not retry this address; carry on without that page and say in your answer that it could not be read.` });
+    try {
+      const result = await webFetch(input, binding.allowedHosts);
+      return result.ok ? result : guided(result.error);
+    } catch (error) { return guided(plainFetchError(error, (() => { try { return new URL(String(input["url"])).hostname; } catch { return "the address"; } })())); }
   }
   if (!GOVERNOR_BROKERED.has(id)) return undefined;
   try {
