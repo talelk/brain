@@ -5,6 +5,7 @@ import type { JSX } from "solid-js";
 import type { SessionDetail } from "../../data/exec-console";
 import type { FeedEntry } from "./ConsoleFeed";
 import { Button } from "@talelk/newui-atoms";
+import { formatTokens } from "../format";
 
 /** What the feed has seen so far, reported upward so the header can say what the session is doing. */
 export interface FeedActivity {
@@ -107,7 +108,7 @@ export function ConsoleNowLine(props: { session?: SessionDetail; activity: FeedA
         <Show when={elapsed()}><span class="inline-flex items-center gap-1 tabular-nums" title="Time since the session started"><span class="lucide-timer size-3.5" aria-hidden="true" />{live() ? "Running for" : "Ran for"} {elapsed()}</span></Show>
         <span class="inline-flex items-center gap-1" title="Tool calls so far in the loaded transcript"><span class="lucide-wrench size-3.5" aria-hidden="true" />{props.activity.toolCalls} {props.activity.toolCalls === 1 ? "step" : "steps"} taken</span>
         <span class="inline-flex items-center gap-2" title="Share of this session's token allowance already used">
-          <span class="inline-flex items-center gap-1"><span class="lucide-gauge size-3.5" aria-hidden="true" />Allowance used {budgetShare()}%</span>
+          <span class="inline-flex items-center gap-1"><span class="lucide-gauge size-3.5" aria-hidden="true" />Allowance used {budgetShare()}%<Show when={(props.session?.usedTokens ?? 0) > 0}> · {formatTokens(props.session?.usedTokens)} tokens so far</Show></span>
           <span role="progressbar" aria-label="Session allowance used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={budgetShare()} class="flex h-1.5 w-28 overflow-hidden rounded-full bg-surface-gray-3">
             <span class={`h-full ${budgetShare() >= 90 ? "bg-surface-amber-6" : "bg-surface-blue-9"}`} style={{ width: `${budgetShare()}%` }} />
           </span>

@@ -23,6 +23,8 @@ import { ConsoleScreen } from "../../ui/console/ConsoleLayout";
 import { SessionTranscript } from "../../ui/console/SessionTranscript";
 import { readExecFilters, writeExecFilters } from "../../ui/exec/exec-filters";
 import { MissionOutputs } from "../../ui/outputs/MissionOutputs";
+import { MissionUsage } from "../../ui/usage/Usage";
+import { PlanEstimate } from "../../ui/usage/PlanEstimate";
 
 const TABS: readonly { id: MissionTab; label: string }[] = [
   { id: "live", label: "Live" }, { id: "team", label: "Team" }, { id: "plan", label: "Plan" },
@@ -62,7 +64,7 @@ function missionGuide(m: Mission, items: readonly WorkItem[], canStart: boolean)
 }
 
 /** The mission at a glance: the flow stepper with one primary action for the current step, task states, completion and the budget against its cap. */
-function MissionSnapshot(props: { mission: Mission; items: WorkItem[]; tab: MissionTab }): JSX.Element {
+function MissionSnapshot(props: { mission: Mission; items: WorkItem[]; tab: MissionTab; onAct: (fn: () => Promise<unknown>) => Promise<void>; busy: boolean }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
   const guide = () => missionGuide(props.mission, props.items, app.canDispatch());
@@ -71,7 +73,7 @@ function MissionSnapshot(props: { mission: Mission; items: WorkItem[]; tab: Miss
     const out: string[] = [];
     const c = counts();
     const parked = props.items.filter((item) => item.parked).length;
-    if (props.mission.state === "paused") out.push(`The mission is paused${props.mission.pauseReason === "budget" ? " because its budget was reached" : " by a person"}.`);
+    if (props.mission.state === "paused") out.push(`The mission is paused${props.mission.pauseReason === "budget" ? " because a spending or token limit was reached. Next: use Raise limits below" : " by a person"}.`);
     if (parked) out.push(`${parked} ${parked === 1 ? "task is" : "tasks are"} parked after repeated failures and need a person. Next: open ${parked === 1 ? "it" : "them"} in the plan and press Decide.`);
     const blockedItems = props.items.filter((item) => item.state === "blocked" && !item.parked);
     if (blockedItems.length) out.push(`${blockedItems.length} ${blockedItems.length === 1 ? "task is" : "tasks are"} blocked: ${blockedItems[0]?.blockedReason ?? "waiting on something outside the task"}. Next: fix that, then press Unblock on the task.`);
@@ -103,6 +105,7 @@ function MissionSnapshot(props: { mission: Mission; items: WorkItem[]; tab: Miss
       <div class="flex min-w-0 flex-col gap-1"><p class="text-base-medium">{props.items.length ? `${percent()}% complete` : "No tasks yet"}</p><StateBar counts={counts()} /></div>
       <Show when={props.tab !== "plan" ? props.mission.budget.maxMicroUsd : undefined}>{(limit) => <div class="flex min-w-0 flex-col gap-1"><p class="text-base-medium">Budget</p><Meter label="Mission budget" settled={props.mission.usage.settledMicroUsd} reserved={props.mission.usage.reservedMicroUsd} limit={limit()} format={formatUsd} /></div>}</Show>
     </div>
+    <MissionUsage mission={props.mission} onAct={props.onAct} busy={props.busy} />
   </div>;
 }
 
@@ -186,7 +189,7 @@ export default function MissionPage(): JSX.Element {
       <ScreenRegion state={mission.state()} onRetry={() => void mission.refresh({ force: true })} emptyTitle="Mission not found" emptyDescription="It may belong to another workspace.">
         <Show when={current()}>{(m) => <>
           <Show when={!m().autoStart && m().state !== "closed"}><Alert theme="blue" variant="outline" title="Tasks start when you start them" description="This mission asks before each task. Use More to let it start ready tasks automatically." /></Show>
-          <MissionSnapshot mission={m()} items={items.state().data ?? []} tab={tab()} />
+          <MissionSnapshot mission={m()} items={items.state().data ?? []} tab={tab()} onAct={act} busy={busy()} />
           <Dialog.Root open={ending()} onOpenChange={(open) => { if (!open) setEnding(false); }}>
             <Dialog.Content size="md">
               <Dialog.Header><Dialog.Title>End this mission</Dialog.Title><Dialog.Description>Ending closes the mission now without proposing completion. Use Finish mission when the work is done and verified.</Dialog.Description></Dialog.Header>
@@ -384,7 +387,9 @@ function TeamTab(props: { mission: Mission }): JSX.Element {
 function PlanTab(props: ActProps): JSX.Element {
   const [search] = useSearchParams();
   const proposalId = () => typeof search.proposal === "string" ? search.proposal : "";
+  const estimated = () => proposalId() || props.mission.activePlanVersionId || "";
   return <PageStack>
+    <Show when={estimated()} keyed>{(id) => <PlanEstimate planVersionId={id} />}</Show>
     <PlanCanvas mission={props.mission} proposalId={proposalId() || undefined} onChanged={() => props.onAct(async () => undefined)} />
     <MissionWorkItems mission={props.mission} />
     <MissionSchedules missionId={props.mission.missionId} />

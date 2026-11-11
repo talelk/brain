@@ -16,6 +16,7 @@ import { AttentionRows, attentionHref } from "../../ui/components/AttentionDrawe
 import { blockingCount } from "../../ui/attention";
 import { EmptyState } from "@talelk/newui-molecules";
 import { Meter } from "../../ui/viz/Meter";
+import { WorkspaceUsage } from "../../ui/usage/Usage";
 import { PlainSummary } from "../../ui/viz/PlainSummary";
 
 /** Search only earns its place once the list is long enough to need it. */
@@ -84,6 +85,7 @@ export default function MissionsPage(): JSX.Element {
     <PageStack>
       <Show when={!noMissionsAtAll()} fallback={firstMission}>
         <PlainSummary icon={attentionCount() ? "lucide-bell-ring" : "lucide-circle-check"}>{summary()}</PlainSummary>
+        <WorkspaceUsage />
         <Show when={showSearch()}>
           <FilterBar resultCount={attentionItems().length + shown().length}
             query={{ value: filter(), placeholder: "Search attention and missions…", onInput: setFilter }}

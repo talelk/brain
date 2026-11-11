@@ -78,21 +78,35 @@ export function capReached(db: Db, now: number, reserve: number): boolean {
   return reached(view.dailySpentMicroUsd, view.dailyMicroUsd) || reached(view.weeklySpentMicroUsd, view.weeklyMicroUsd);
 }
 
+const TERMINAL_ATTEMPT = new Set(["succeeded", "failed", "partial", "cancelled", "declined", "expired", "outcome_unknown"]);
+
+/**
+ * One run's attempts, mission or interactive: settled attempts read the ledger, an attempt still in
+ * flight shows what its engine has reported so far. The summary totals finished attempts only,
+ * so settled and in-flight usage are never mixed.
+ */
 export function runUsage(store: Store, db: Db, workspaceId: string, runId: string): UsageView {
-  const attempts = store.control.prepare(`SELECT ja.id AS attempt_id FROM job_attempts ja JOIN jobs j ON j.id=ja.job_id
-    WHERE j.workflow_run_id=? AND j.workspace_id=? ORDER BY ja.attempt_no`).all(runId, workspaceId) as Array<{ attempt_id: string }>;
-  const attemptRows = attempts.map(({ attempt_id: attemptId }) => {
+  const attempts = store.control.prepare(`SELECT ja.id AS attempt_id, ja.state AS state FROM job_attempts ja JOIN jobs j ON j.id=ja.job_id
+    WHERE j.workflow_run_id=? AND j.workspace_id=? ORDER BY j.created_at_ms, ja.attempt_no`).all(runId, workspaceId) as Array<{ attempt_id: string; state: string }>;
+  const attemptRows = attempts.map(({ attempt_id: attemptId, state }) => {
     const ledger = db.prepare("SELECT reserved_micro_usd, settled_at_ms, settled_micro_usd, input_tokens, output_tokens, cached_input_tokens, accounting, estimated FROM mission_spend WHERE attempt_id=?").get(attemptId) as
       { reserved_micro_usd: number; settled_at_ms: number | null; settled_micro_usd: number | null; input_tokens: number; output_tokens: number; cached_input_tokens: number; accounting: "final-total" | "incremental" | null; estimated: number } | undefined;
     if (ledger?.settled_at_ms) {
       return { attemptId, runId, settled: true, inputTokens: ledger.input_tokens, outputTokens: ledger.output_tokens, cachedInputTokens: ledger.cached_input_tokens, microUsd: ledger.settled_micro_usd ?? 0, reservedMicroUsd: 0, ...(ledger.accounting ? { accounting: ledger.accounting } : {}), estimated: ledger.estimated === 1 };
     }
-    // An attempt still running (or not yet settled): what its engine has reported so far.
     const events = (store.control.prepare("SELECT event_json FROM attempt_events WHERE attempt_id=? ORDER BY seq").all(attemptId) as Array<{ event_json: string }>).map((r) => JSON.parse(r.event_json) as UsageEvent);
     const live = tallyUsage(events);
-    return { attemptId, runId, settled: false, inputTokens: live.inputTokens, outputTokens: live.outputTokens, cachedInputTokens: live.cachedInputTokens, microUsd: live.microUsd, reservedMicroUsd: ledger?.reserved_micro_usd ?? 0, accounting: live.accounting, estimated: live.estimated };
+    return { attemptId, runId, settled: TERMINAL_ATTEMPT.has(state), inputTokens: live.inputTokens, outputTokens: live.outputTokens, cachedInputTokens: live.cachedInputTokens, microUsd: live.microUsd, reservedMicroUsd: ledger?.reserved_micro_usd ?? 0, accounting: live.accounting, estimated: live.estimated };
   });
-  return { scope: "run", id: runId, usage: summarize(db, "WHERE run_id=?", runId), attemptRows };
+  const done = attemptRows.filter((row) => row.settled);
+  const sum = (pick: (row: (typeof attemptRows)[number]) => number, rows = done): number => rows.reduce((total, row) => total + pick(row), 0);
+  const usage: UsageSummary = {
+    settledMicroUsd: sum((row) => row.microUsd), reservedMicroUsd: sum((row) => row.reservedMicroUsd, attemptRows.filter((row) => !row.settled)),
+    settledTokens: sum((row) => row.inputTokens + row.outputTokens + row.cachedInputTokens), reservedTokens: (db.prepare("SELECT COALESCE(SUM(reserved_tokens),0) AS v FROM mission_spend WHERE run_id=? AND settled_at_ms IS NULL").get(runId) as { v: number }).v,
+    inputTokens: sum((row) => row.inputTokens), outputTokens: sum((row) => row.outputTokens), cachedInputTokens: sum((row) => row.cachedInputTokens),
+    attempts: attemptRows.length, openAttempts: attemptRows.length - done.length, estimated: done.some((row) => row.estimated),
+  };
+  return { scope: "run", id: runId, usage, attemptRows };
 }
 
 /** Stores the workspace cap; an omitted limit means no cap of that kind (a limit of 0 blocks all new work). */

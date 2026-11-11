@@ -62,3 +62,6 @@ Not fixed on purpose: `maxMicroUsd: 0` fails paid-endpoint runs (decision ticket
 | 20 | New-mission dialog still defaults to "Start from a play" tab although plain-words is the common path (I1 / #47 removes the toggle) | I1 | in progress |
 | 21 | Review task (general-task, real model) produced a good review but stayed Unverified and parked after 3 attempts, overlapping a deploy restart | A2 | in progress |
 Confirmed good live: planner no longer creates clarify tasks; plan drafts by itself and opens on Plan; tasks 1-2 finished by themselves ~20s after confirm; Outputs leads with one Result per task with technical files collapsed; mission page slimmer (Live/Plan/Outputs + More views); "Result ready" items appear in Missions and the bell; Administration in sidebar.
+
+## Track I2 (usage and cost), 2026-11-11
+- #76 usage ledger, #77 meter at run/task/mission/workspace, #78 token ceiling, #54 plan estimates, #55 result cost and workspace spend cap, #79 zero cap rule (ADR 0006): built; see ADR 0007. Open: interactive (non-mission) runs are not in the ledger totals or the cap; Live console per-session token readout not added.

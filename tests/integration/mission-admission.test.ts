@@ -71,7 +71,7 @@ describe("mission admission (T19)", () => {
     expect(w.brain.jobProtocol.claim(runner, "req-b-3")).toBeNull();
     const paused = await mission(w, id);
     expect(paused).toMatchObject({ state: "paused", pauseReason: "budget", usage: { settledMicroUsd: 70, reservedMicroUsd: 0, runningMembers: 0 } });
-    await expect(Promise.resolve().then(async () => await run(w, "mission.resume", "b-resume-early", { missionId: id }, paused.version))).rejects.toThrow(/raise the mission budget/);
+    await expect(Promise.resolve().then(async () => await run(w, "mission.resume", "b-resume-early", { missionId: id }, paused.version))).rejects.toThrow(/raise the limit that was reached/);
     await run(w, "mission.budget.set", "b-raise", { missionId: id, budget: { maxMicroUsd: 500, memberCap: 3, attemptReserveMicroUsd: 60 } }, paused.version);
     await run(w, "mission.resume", "b-resume", { missionId: id }, (await mission(w, id)).version);
     expect((w.brain.jobProtocol.claim(runner, "req-b-4") as unknown as Offer).jobId).toBe("job-b-b");
@@ -146,7 +146,7 @@ describe("mission admission (T19)", () => {
     expect(queueReason(w, "job-k-b")).toBe("waiting: budget");
     const paused = await mission(w, id);
     expect(paused).toMatchObject({ state: "paused", pauseReason: "budget", usage: { settledTokens: 950, settledMicroUsd: 0 } });
-    await expect(Promise.resolve().then(async () => await run(w, "mission.resume", "k-resume-early", { missionId: id }, paused.version))).rejects.toThrow(/raise the mission budget/);
+    await expect(Promise.resolve().then(async () => await run(w, "mission.resume", "k-resume-early", { missionId: id }, paused.version))).rejects.toThrow(/raise the limit that was reached/);
     await run(w, "mission.budget.set", "k-raise", { missionId: id, budget: { maxTokens: 5000, memberCap: 3, attemptReserveTokens: 100 } }, paused.version);
     await run(w, "mission.resume", "k-resume", { missionId: id }, (await mission(w, id)).version);
     expect((w.brain.jobProtocol.claim(runner, "req-k-3") as unknown as Offer).jobId).toBe("job-k-b");

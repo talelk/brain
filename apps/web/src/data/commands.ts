@@ -1,5 +1,5 @@
 import { runCommand } from "../data/governor";
-import type { CommandReceipt, OrganizationAdminCommand, PlanTask, WorkItemState } from "@brain/contracts";
+import type { CommandReceipt, MissionBudget, OrganizationAdminCommand, PlanTask, WorkItemState } from "@brain/contracts";
 
 /**
  * Explicit Brain commands, one per declared command type.
@@ -14,6 +14,7 @@ export type CommandKind =
   | "runner.control"
   | "mission.create" | "mission.policy.set" | "mission.pause" | "mission.resume" | "mission.proposeCompletion" | "mission.close" | "mission.watch" | "mission.seen"
   | "mission.brief.edit" | "decision.accept" | "plan.propose" | "plan.confirm" | "plan.reject" | "workItem.transition" | "workItem.comment" | "handoff.submit" | "mission.message.send"
+  | "mission.budget.set" | "workspace.spendCap.set"
   | "automation.upsert" | "automation.control"
   | "document.upload" | "document.revise" | "document.associate" | "document.delete"
   | "integration.connect" | "integration.verify" | "integration.bind"
@@ -35,6 +36,8 @@ export type PayloadFor<K extends CommandKind> =
     : K extends "mission.policy.set" ? { missionId: string; autoStart?: boolean; preset?: "supervised" | "standard" | "autonomous" }
     : K extends "mission.pause" | "mission.resume" | "mission.proposeCompletion" ? { missionId: string }
     : K extends "mission.close" ? { missionId: string; outcome: "achieved" | "ended" | "cancelled" }
+    : K extends "mission.budget.set" ? { missionId: string; budget: MissionBudget }
+    : K extends "workspace.spendCap.set" ? { dailyMicroUsd?: number; weeklyMicroUsd?: number }
     : K extends "mission.watch" ? { missionId: string; watch: boolean }
     : K extends "mission.seen" ? { missionId: string; cursor: number }
     : K extends "mission.brief.edit" ? { missionId: string; baseVersion: number; intent?: string; constraints?: string[] }

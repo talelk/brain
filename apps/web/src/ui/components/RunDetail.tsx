@@ -19,6 +19,7 @@ import { StructuredOutputView } from "./StructuredOutputView";
 import { BrainPage, TechnicalDetails } from "./PageLayout";
 import { ReasonDialog } from "./ReasonDialog";
 import { DetailAside, WorkspaceSection } from "./Domain";
+import { RunUsage } from "../usage/Usage";
 /**
  * The run inspector (T60): state, attempts, evidence and placement for one
  * run, linked out to the execution surfaces. It deliberately does not
@@ -167,6 +168,7 @@ export function RunDetail(props: {
                 </Show>
                 <Show when={job()?.queueReasons.length}><Alert theme="amber" variant="outline" title="Why the run is waiting" description={queueReasonLabel(job()!.queueReasons)} /></Show>
               </WorkspaceSection>
+              <Show when={job()?.workflowRunId}>{(runId) => <WorkspaceSection title="Tokens and cost" description="What this run's attempts used, in tokens and dollars. Local models cost $0, so tokens are the measure."><RunUsage runId={runId()} /></WorkspaceSection>}</Show>
               <Show when={Object.keys(job()?.runOutputs ?? {}).length}>
                 <WorkspaceSection title="Structured output" description="Readable author output; independent evidence is checked separately."><div class="flex flex-col gap-4">
                   <For each={Object.entries(job()?.runOutputs ?? {}).filter(([step]) => step !== "validate")}>{([step, output]) => <div class="min-w-0"><h3 class="mb-2 text-base-medium capitalize">{step === "respond" ? "Result" : step.replaceAll("-", " ")}</h3><StructuredOutputView value={output} /></div>}</For>

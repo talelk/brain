@@ -48,6 +48,14 @@ export function formatUsd(microUsd?: number): string {
   return `$${(microUsd / 1_000_000).toFixed(2).replace(/\.00$/, "")}`;
 }
 
+/** Token counts compactly: 950 -> "950", 12450 -> "12.5k", 3200000 -> "3.2M"; exact figures stay in tooltips. */
+export function formatTokens(tokens?: number): string {
+  if (tokens === undefined || tokens === null) return "unknown";
+  if (tokens < 1000) return String(tokens);
+  if (tokens < 1_000_000) return `${(tokens / 1000).toFixed(tokens < 10_000 ? 1 : 0).replace(/\.0$/, "")}k`;
+  return `${(tokens / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+}
+
 /** `operations-triage` → `Operations triage`, matching the historical label helper. */
 export function titleize(value: string): string {
   return value.replaceAll("-", " ").replace(/^./u, (letter) => letter.toUpperCase());

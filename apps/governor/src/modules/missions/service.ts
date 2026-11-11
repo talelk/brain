@@ -518,7 +518,7 @@ export class MissionService {
     let next: Mission["state"]; const set: Record<string, unknown> = { updated_at_ms: now, pause_reason: null };
     if (type === "mission.pause") { next = "paused"; set["pause_reason"] = "human"; }
     else if (type === "mission.resume") {
-      if (mission.pause_reason === "budget" && !hasHeadroom(this.store, this.db(actor, workspaceId), mission.id)) throw new BrainDomainError("CONFLICT", "raise the mission budget before resuming a budget pause");
+      if (mission.pause_reason === "budget" && !hasHeadroom(this.store, this.db(actor, workspaceId), mission.id)) throw new BrainDomainError("CONFLICT", "raise the limit that was reached (the mission budget, its token ceiling or the workspace spend cap) before resuming a budget pause");
       next = "active";
     } else if (type === "mission.proposeCompletion") next = "verifying";
     else {
@@ -932,7 +932,12 @@ export class MissionService {
       return { ...this.mission(workspaceId, row), watching } as unknown as JsonValue;
     }
     if (queryType === "usage.run") return runUsage(this.store, db, workspaceId, String(resourceId)) as unknown as JsonValue;
-    if (queryType === "usage.task") return { scope: "task", id: this.workItemRow(actor, workspaceId, String(resourceId)).id, usage: (settleAll(this.store, db), taskUsage(db, String(resourceId))) } as unknown as JsonValue;
+    if (queryType === "usage.task") {
+      const item = this.workItemRow(actor, workspaceId, String(resourceId));
+      settleAll(this.store, db);
+      const planned = (JSON.parse(this.planRow(actor, workspaceId, item.plan_version_id).tasks_json) as PlanTask[]).find((task) => task.id === item.plan_task_id);
+      return { scope: "task", id: item.id, usage: taskUsage(db, item.id), ...(planned && (planned.estimatedMinutes !== undefined || planned.maxMicroUsd !== undefined) ? { planEstimate: { ...(planned.estimatedMinutes !== undefined ? { estimatedMinutes: planned.estimatedMinutes } : {}), ...(planned.maxMicroUsd !== undefined ? { maxMicroUsd: planned.maxMicroUsd } : {}) } } : {}) } as unknown as JsonValue;
+    }
     if (queryType === "usage.mission") return { scope: "mission", id: this.missionRow(actor, workspaceId, String(resourceId)).id, usage: (settleAll(this.store, db), missionUsage(db, String(resourceId))) } as unknown as JsonValue;
     if (queryType === "usage.workspace") { settleAll(this.store, db); return { scope: "workspace", id: workspaceId, usage: workspaceUsage(db), spendCap: spendCapOf(db, this.store.now()) } as unknown as JsonValue; }
     if (queryType === "plans.estimate") return planEstimate(this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))), db) as unknown as JsonValue;

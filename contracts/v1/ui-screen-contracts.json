@@ -26,6 +26,7 @@
   {
    "route": "/w/:id/missions",
    "queries": [
+    "usage.workspace",
     "attention.list",
     "missions.list"
    ],
@@ -68,6 +69,9 @@
   {
    "route": "/missions/:missionId/:tab",
    "queries": [
+    "usage.mission",
+    "usage.workspace",
+    "plans.estimate",
     "missions.get",
     "missions.brief",
     "missions.sinceLastVisit",
@@ -272,6 +276,7 @@
   {
    "route": "/w/:id/outputs",
    "queries": [
+    "usage.task",
     "artifacts.list",
     "artifacts.history",
     "executionLinks.list",
@@ -375,6 +380,7 @@
   {
    "route": "/runs/:id",
    "queries": [
+    "usage.run",
     "job.get",
     "job.explain"
    ],

@@ -33,6 +33,7 @@ import {
 } from "./output-files";
 import type { ArtifactPreviewKind, FolderId, FolderNode, OutputFile, OutputGrouping, OutputItem } from "./output-files";
 import { acceptFromArtifact, downloadArtifacts, moveWorkItem, saveAsKnowledge } from "./review-actions";
+import { TaskUsage } from "../usage/Usage";
 
 /**
  * The Output Browser as a file explorer (plan T61): a folder tree (Needs
@@ -331,6 +332,7 @@ export function OutputBrowser(props: {
                               </div>
                             )}
                           </Show>
+                          <Show when={task.item}>{(item) => <TaskUsage workItemId={item().workItemId} />}</Show>
                           <Show when={task.technical.length > 0}>
                             <details class="min-w-0 rounded-card border border-outline-gray-2 px-3 py-1.5" data-testid="output-technical" open={task.technical.some((file) => checked().has(file.artifact.artifactId) || props.selectedId === file.artifact.artifactId)}>
                               <summary class="cursor-pointer text-caption text-ink-gray-7">
