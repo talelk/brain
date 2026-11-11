@@ -39,7 +39,6 @@ export function tallyUsage(events: readonly UsageEvent[]): AttemptUsage {
   return total;
 }
 
-export const tokensOf = (usage: Pick<AttemptUsage, "inputTokens" | "outputTokens" | "cachedInputTokens">): number => usage.inputTokens + usage.outputTokens + usage.cachedInputTokens;
 
 const SUMMARY_SQL = `SELECT
   COALESCE(SUM(settled_micro_usd),0) AS settledMicroUsd,
