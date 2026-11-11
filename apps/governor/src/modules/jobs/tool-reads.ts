@@ -33,9 +33,14 @@ export function brokerToolRead(s: Store, ports: ToolReadPorts, runner: { runnerI
   const organizationId = String(row["organization_id"]);
   const workspaceId = String(row["workspace_id"]);
   const refuse = (reason: string, code: "FORBIDDEN" | "INVALID_ARGUMENT" | "NOT_FOUND" = "FORBIDDEN"): never => {
+    // The audit entry says in plain words which tool, for which task and why, so a person reading Health does not need the event name.
+    let task: string | undefined;
+    try {
+      task = (s.workspaceDb(workspaceId, organizationId).prepare("SELECT w.title FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? ORDER BY l.created_at_ms DESC LIMIT 1").get(String(row["workflow_run_id"])) as { title: string } | undefined)?.title;
+    } catch { /* an audit entry never fails because its wording could not be completed */ }
     s.emit(s.control, {
       organizationId, workspaceId, aggregateType: "attempt", aggregateId: attemptId, eventType: "tool.read.refused",
-      payload: { attemptId, toolId: request.tool.id, reason }, destinations: [`workspace:${workspaceId}`],
+      payload: { attemptId, toolId: request.tool.id, reason, ...(task ? { task } : {}), message: `A tool request was declined: ${request.tool.id}${task ? ` for "${task}"` : ""}. ${reason}` }, destinations: [`workspace:${workspaceId}`],
     });
     throw new BrainDomainError(code, reason);
   };
@@ -55,17 +60,17 @@ export function brokerToolRead(s: Store, ports: ToolReadPorts, runner: { runnerI
   if (request.tool.id === "documents.read") {
     const documentId = typeof input["documentId"] === "string" ? input["documentId"] : "";
     const maxChars = typeof input["maxChars"] === "number" && Number.isInteger(input["maxChars"]) ? Math.min(Math.max(1, input["maxChars"]), MAX_DOCUMENT_CHARS) : 8000;
-    if (!documentId) return refuse("documentId is required", "INVALID_ARGUMENT");
+    if (!documentId) return refuse("documentId is required: pass the id of a document of this workspace (search with knowledge.search to find one), or an artifact:sha256:... reference from your context pack", "INVALID_ARGUMENT");
     try { return ports.documentText(organizationId, workspaceId, documentId, maxChars); } catch (error) { return refuseFrom(refuse, error); }
   }
   if (request.tool.id === "csv.query") {
     const artifactId = typeof input["artifactId"] === "string" ? input["artifactId"] : "";
-    if (!artifactId) return refuse("artifactId is required", "INVALID_ARGUMENT");
+    if (!artifactId) return refuse("artifactId is required: pass the id of a verified CSV artifact of this workspace", "INVALID_ARGUMENT");
     try { return ports.csvArtifact(organizationId, workspaceId, artifactId); } catch (error) { return refuseFrom(refuse, error); }
   }
   if (!ports.knowledgeSearch) return refuse("knowledge search is not available");
   const query = typeof input["query"] === "string" ? input["query"].trim() : "";
-  if (!query) return refuse("query is required", "INVALID_ARGUMENT");
+  if (!query) return refuse("query is required: pass the words to search for as \"query\" (a non-empty string)", "INVALID_ARGUMENT");
   // The scope is the attempt's own workspace, derived here from the run, never from the request. An agent that names another workspace is refused.
   if (input["workspaceId"] !== undefined && input["workspaceId"] !== workspaceId) return refuse("knowledge.search is limited to the workspace of this mission; the requested workspace is outside it");
   const limit = typeof input["limit"] === "number" && Number.isInteger(input["limit"]) ? Math.min(Math.max(1, input["limit"]), 10) : 5;
@@ -79,7 +84,8 @@ export function brokerToolRead(s: Store, ports: ToolReadPorts, runner: { runnerI
 function refuseFrom(refuse: (reason: string, code?: "FORBIDDEN" | "INVALID_ARGUMENT" | "NOT_FOUND") => never, error: unknown): never {
   if (error instanceof BrainDomainError) {
     const code = error.code === "NOT_FOUND" || error.code === "INVALID_ARGUMENT" ? error.code : "FORBIDDEN";
-    return refuse(error.message, code);
+    // A bare "not found" teaches the model nothing; say what to try instead.
+    return refuse(code === "NOT_FOUND" ? `${error.message}. Use an id exactly as given in your context or returned by knowledge.search; do not guess ids or titles.` : error.message, code);
   }
   throw error;
 }

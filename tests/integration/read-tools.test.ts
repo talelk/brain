@@ -145,9 +145,10 @@ describe("Governor-brokered read tools: documents.read and csv.query", () => {
       expect(csv).toEqual({ ok: true, data: { artifactId: csvArtifactId, digest: expect.stringMatching(/^sha256:/), csv: "city,pop\nOslo,700000\nBergen,285000\n" } });
 
       // Refusals: unknown document, an artifact that is not text, an artifact id that does not exist, a context reference nobody stored.
-      expect(await brokerRead(binding("documents.read"), { documentId: "doc-nope" }, offer.attemptId, client)).toEqual({ ok: false, error: "document not found in this workspace" });
+      expect(await brokerRead(binding("documents.read"), { documentId: "doc-nope" }, offer.attemptId, client)).toEqual({ ok: false, error: expect.stringMatching(/^document not found in this workspace\. Use an id exactly as given/u) });
+      expect(refusals().at(-1)).toMatchObject({ toolId: "documents.read", message: expect.stringMatching(/^A tool request was declined: documents\.read/u) });
       expect(await brokerRead(binding("csv.query"), { artifactId: pdfArtifactId, sql: "SELECT 1" }, offer.attemptId, client)).toEqual({ ok: false, error: expect.stringContaining("not readable by this tool") });
-      expect(await brokerRead(binding("csv.query"), { artifactId: "art-elsewhere", sql: "SELECT 1" }, offer.attemptId, client)).toEqual({ ok: false, error: "artifact not found in this workspace" });
+      expect(await brokerRead(binding("csv.query"), { artifactId: "art-elsewhere", sql: "SELECT 1" }, offer.attemptId, client)).toEqual({ ok: false, error: expect.stringContaining("artifact not found in this workspace") });
       expect(await brokerRead(binding("documents.read"), { documentId: `artifact:sha256:${"1".repeat(64)}` }, offer.attemptId, client)).toEqual({ ok: false, error: expect.stringContaining("no context reference") });
 
       // A stored context reference is readable through documents.read, so compaction by reference is reversible by the agent itself.

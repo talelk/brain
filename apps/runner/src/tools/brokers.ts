@@ -60,7 +60,7 @@ function hostKey(url: URL): string {
 function checkUrl(url: URL, allowedHosts: readonly string[]): string | undefined {
   if (url.protocol !== "https:" && url.protocol !== "http:") return `only http and https addresses can be fetched, not ${url.protocol}`;
   if (url.username || url.password) return "addresses with embedded credentials are refused";
-  if (!allowedHosts.map((host) => host.toLowerCase()).includes(hostKey(url))) return `host ${hostKey(url)} is not on this tool's allowlist`;
+  if (!allowedHosts.map((host) => host.toLowerCase()).includes(hostKey(url))) return `host ${hostKey(url)} is not on this tool's allowlist; only these hosts can be fetched: ${allowedHosts.join(", ")}`;
   return undefined;
 }
 
