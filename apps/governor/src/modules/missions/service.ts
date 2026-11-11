@@ -8,7 +8,7 @@ import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor
 import { activeReleaseRecord } from "../configuration/index";
 import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
 import { admit, budgetOf, clockSet, DEFAULT_MISSION_BUDGET, hasHeadroom, reserve as reserveSpend, settle, settleAll, usageOf } from "./budget";
-import { missionUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUsage } from "./usage";
+import { capReached, missionUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUsage } from "./usage";
 import { planEstimate } from "./estimate";
 import { listEvalCases, recordEvalCase } from "./eval-cases";
 import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, sendMessage, verifyOutputs } from "./outputs";
@@ -889,10 +889,12 @@ export class MissionService {
   }
 
   /** What an independent re-check of a result reads: the task, its criteria and the deliverable the finished run wrote (issue #50). */
-  resultOf(actor: ActorContext, workspaceId: string, workItemId: string): { missionId: string; title: string; state: WorkItemState; criteria: string[]; deliverable?: string } {
+  resultOf(actor: ActorContext, workspaceId: string, workItemId: string): { missionId: string; title: string; state: WorkItemState; criteria: string[]; deliverable?: string; spendCapReached: boolean } {
     const item = this.workItemRow(actor, workspaceId, workItemId);
-    const deliverable = this.deliverableOf(this.db(actor, workspaceId), item.id);
-    return { missionId: item.mission_id, title: item.title, state: item.state, criteria: JSON.parse(item.criteria_json) as string[], ...(deliverable ? { deliverable } : {}) };
+    const db = this.db(actor, workspaceId);
+    const deliverable = this.deliverableOf(db, item.id);
+    // A challenge is a model run that no mission budget covers, so it honours the workspace spend cap like every other run.
+    return { missionId: item.mission_id, title: item.title, state: item.state, criteria: JSON.parse(item.criteria_json) as string[], spendCapReached: capReached(db, this.store.now(), 0), ...(deliverable ? { deliverable } : {}) };
   }
 
   private deliverableOf(db: ReturnType<Store["workspaceDb"]>, workItemId: string): string | undefined {

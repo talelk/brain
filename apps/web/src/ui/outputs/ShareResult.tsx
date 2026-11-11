@@ -58,7 +58,7 @@ export function ShareResult(props: { versionId: string | undefined; verified: bo
           <Show when={created()}>{(link) => <div class="flex min-w-0 flex-col gap-1 rounded-control border border-outline-green-2 bg-surface-green-1 p-3" data-testid="share-created">
             <p class="text-interface font-medium text-ink-green-9">Link created. Copy it now: Brain will not show it again.</p>
             <div class="flex min-w-0 flex-wrap items-center gap-2">
-              <code class="min-w-0 flex-1 basis-72 break-all rounded-control border border-outline-gray-2 bg-surface-white px-2 py-1.5 text-interface" data-testid="share-url" aria-label="Read-only link">{link().url}</code>
+              <code class="min-w-0 flex-1 basis-72 break-all rounded-control border border-outline-gray-2 bg-surface-white px-2 py-1.5 text-interface" data-testid="share-url">{link().url}</code>
               <Button variant="outline" iconLeft="lucide-copy" onClick={() => void copy(link().url)}>{copied() ? "Copied" : "Copy"}</Button>
             </div>
             <p class="text-caption text-ink-gray-7">Expires {formatDateTime(link().expiresAt)}.</p>

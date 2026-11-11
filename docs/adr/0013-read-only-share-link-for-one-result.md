@@ -15,6 +15,6 @@ Stakeholders need to read one result without a workspace account. Nothing in the
 
 **Audit.** `share.created` and `share.revoked` are workspace events; each view increments a counter and last-viewed time on the link and writes a `share.viewed` event at most once per minute per link, so a hostile reader cannot flood the log. No visitor address or user agent is stored.
 
-**Response hardening.** `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex, nofollow`, `X-Content-Type-Options: nosniff`, and the shared page renders the text through the safe Markdown renderer (never HTML).
+**Response hardening.** The JSON answer and the HTML page at `/shared/<token>` both carry `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex, nofollow` and `X-Content-Type-Options: nosniff`, and the page renders the text through the safe Markdown renderer (never HTML). The Governor does not log request paths.
 
 Rejected: a signed stateless token (cannot be revoked or counted); a per-recipient account (the whole point is no account); sharing a whole mission (grants far more than asked).

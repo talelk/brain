@@ -92,6 +92,7 @@ export class Challenges {
         const result = missions.resultOf(actor, workspaceId, workItemId);
         if (result.state !== "done" && result.state !== "review") throw new BrainDomainError("CONFLICT", "only a finished task's result can be challenged");
         if (!result.deliverable) throw new BrainDomainError("EVIDENCE_MISSING", "this task has no written result to challenge");
+        if (result.spendCapReached) throw new BrainDomainError("BUDGET_EXHAUSTED", "the workspace spend cap is reached; raise it before asking a reviewer to read this result");
         if (db.prepare("SELECT 1 FROM result_challenges WHERE work_item_id=? AND state IN ('requested','running')").get(workItemId)) throw new BrainDomainError("CONFLICT", "a challenge of this result is already in progress");
         const id = store.id("challenge");
         db.prepare("INSERT INTO result_challenges(id,work_item_id,requested_by,state,created_at_ms) VALUES (?,?,?, 'requested', ?)").run(id, workItemId, actor.actorId, store.now());
@@ -147,6 +148,7 @@ export class Challenges {
     try {
       const result = missions.resultOf(reviewer, workspaceId, row.work_item_id);
       if (!result.deliverable) { this.fail(db, row.id, "the result has no written text to review"); return; }
+      if (result.spendCapReached) { this.fail(db, row.id, "the workspace spend cap is reached"); return; }
       situation = workItemSituation(`Challenge the result of the task "${result.title}"`, CHALLENGE_CRITERIA, [{ title: result.title, summary: `The result under review, written by another run for the task "${result.title}".`, deliverable: result.deliverable }], true);
     } catch (error) { this.fail(db, row.id, error instanceof Error ? error.message : "the result could not be read"); return; }
     const entry = this.ports.catalog(organizationId).find((candidate) => candidate.release.id === GENERAL_TASK_WORKFLOW);

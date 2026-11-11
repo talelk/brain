@@ -78,6 +78,11 @@ test("a result is shared as a read-only link, read without an account, and withd
   await shot(guest, "2-shared-view");
   const accessibility = await new AxeBuilder({ page: guest }).analyze();
   expect(accessibility.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical"), "shared page accessibility").toEqual([]);
+  // A link that does not exist says so, without revealing anything.
+  await guest.goto(`${governor.url}/shared/not-a-real-token-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`);
+  await expect(guest.getByRole("heading", { name: "This link does not exist" })).toBeVisible();
+  await guest.goto(url);
+  await expect(guest.getByRole("heading", { name: "churn-report.md", level: 1 })).toBeVisible();
   // The page itself is the only thing the link opens: the app is not reachable with it.
   await guest.goto(`${governor.url}/w/ws-share/missions`);
   await expect(guest.getByLabel(/^Email/)).toBeVisible();

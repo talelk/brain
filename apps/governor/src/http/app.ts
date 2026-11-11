@@ -827,7 +827,12 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       return serveFile(file, type);
     }
     const index = join(dist, "index.html");
-    if (existsSync(index)) return serveFile(index, "text/html");
+    if (existsSync(index)) {
+      const page = serveFile(index, "text/html");
+      // A shared-result page carries a bearer token in its address: no referrer, no caching, no indexing (ADR 0013).
+      if (c.req.path.startsWith("/shared/")) for (const [name, value] of Object.entries(shareHeaders)) page.headers.set(name, value);
+      return page;
+    }
     return c.json(brainError("NOT_FOUND", "web bundle not built; run pnpm --filter @brain/web build", correlation(c)), 404);
   });
 

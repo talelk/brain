@@ -136,6 +136,14 @@ describe("Challenge this result (#50, ADR 0012)", () => {
     expect((await run(w, "result.challenge", "challenge-f2", { workItemId: workItem.workItemId })).accepted).toBe(true);
   }, 60_000);
 
+  it("honours the workspace spend cap like every other model run", async () => {
+    const w = world();
+    const { workItem } = await finishedTask(w);
+    await run(w, "workspace.spendCap.set", "cap-1", { dailyMicroUsd: 0 });
+    await expect(run(w, "result.challenge", "capped", { workItemId: workItem.workItemId })).rejects.toThrow(/spend cap is reached/u);
+    expect(await challenges(w, workItem.workItemId)).toEqual([]);
+  }, 60_000);
+
   it("refuses a task that is not finished and a task without a written result", async () => {
     const w = world();
     const task: PlanTask = { id: "a", title: "Not done yet", criteria: ["x"], dependsOn: [] };
