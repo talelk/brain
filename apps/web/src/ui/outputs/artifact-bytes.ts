@@ -31,10 +31,10 @@ export async function readArtifactBytes(artifactId: string, read: ArtifactConten
   }
   const declared = Number(response.headers.get("content-length") ?? "0");
   if (declared > read.maxBytes)
-    throw new Error(`The artifact is ${declared.toLocaleString()} bytes; inline preview stops at ${read.maxBytes.toLocaleString()}.`);
+    throw new Error(`The artifact is ${declared.toLocaleString("en-GB")} bytes; inline preview stops at ${read.maxBytes.toLocaleString("en-GB")}.`);
   const bytes = new Uint8Array(await response.arrayBuffer());
   if (bytes.length > read.maxBytes)
-    throw new Error(`The artifact is ${bytes.length.toLocaleString()} bytes; inline preview stops at ${read.maxBytes.toLocaleString()}.`);
+    throw new Error(`The artifact is ${bytes.length.toLocaleString("en-GB")} bytes; inline preview stops at ${read.maxBytes.toLocaleString("en-GB")}.`);
   return bytes;
 }
 

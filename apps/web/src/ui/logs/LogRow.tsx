@@ -4,7 +4,7 @@ import { streamSummaryText } from "../exec/StreamEventRow";
 import { severityDotClass, severityLabel } from "../screen-region";
 import type { LogRecord } from "./LogTail";
 import { plainSentence } from "./plain-event";
-import { CLOCK_24 } from "../format";
+import { formatClock } from "../format";
 
 /**
  * One row of the Log Explorer's virtualized list: fixed height (the window
@@ -214,7 +214,7 @@ function rowMembers(row: LogRowModel): readonly LogRecord[] {
 
 function timeOfDay(at: string): string {
   const date = new Date(at);
-  return Number.isFinite(date.getTime()) ? date.toLocaleTimeString([], CLOCK_24) : at;
+  return Number.isFinite(date.getTime()) ? formatClock(date) : at;
 }
 
 /** Time-of-day for the Readable mode; absolute ISO time in the tooltip. */

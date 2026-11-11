@@ -98,7 +98,7 @@ function VersionChip(props: { side: { artifactId: string; digest: string; bytes:
     >
       <span class="shrink-0 font-medium text-ink-gray-7">{props.label}</span>
       <span class="truncate text-ink-gray-8">{shortDigest(props.side.digest)}</span>
-      <span class="shrink-0 text-ink-gray-6">{props.side.bytes.toLocaleString()} B</span>
+      <span class="shrink-0 text-ink-gray-6">{props.side.bytes.toLocaleString("en-GB")} B</span>
     </span>
   );
 }

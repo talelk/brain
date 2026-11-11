@@ -14,7 +14,7 @@ import { CorrelationChips, CorrelationLink } from "../exec/CorrelationLink";
 import { VirtualLogList } from "../exec/VirtualLogList";
 import { DisclosureCard } from "../components/primitives";import { severityLabel } from "../screen-region";
 import { useApp } from "../app-context";
-import { CLOCK_24, shortDigest } from "../format";
+import { formatDateTime, shortDigest } from "../format";
 import { streamSummaryText } from "../exec/StreamEventRow";
 import { createLogTail, recordOfView, tailAxes } from "./LogTail";
 import { LogRow, ROW_HEIGHT, ContextLines, buildLogRows, rowKey } from "./LogRow";
@@ -407,7 +407,7 @@ function RecordDetail(props: { row: LogRowModel; mode: LogViewMode }): JSX.Eleme
 
 function AbsoluteTime(props: { at: string }): JSX.Element {
   const date = new Date(props.at);
-  return <span title={props.at}>{Number.isFinite(date.getTime()) ? date.toLocaleString(undefined, CLOCK_24) : props.at}</span>;
+  return <span title={props.at}>{Number.isFinite(date.getTime()) ? formatDateTime(date) : props.at}</span>;
 }
 
 export function LogExplorer(): JSX.Element {

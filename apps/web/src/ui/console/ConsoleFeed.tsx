@@ -14,7 +14,7 @@ import { DisclosureCard } from "../components/primitives";
 import { DateText } from "../screen-region";
 import { feedScroll, setFeedScroll } from "./ConsoleStore";
 import { summarizeActivity, type FeedActivity } from "./doing-now";
-import { CLOCK_24 } from "../format";
+import { formatClock } from "../format";
 
 /**
  * The live transcript (plan §3): one streaming conversation per selected
@@ -161,7 +161,7 @@ function describe(event: StreamEvent): { kind: FeedEntry["kind"]; title: string;
   if (event.type === "usage") {
     const input = typeof payload["inputTokens"] === "number" ? payload["inputTokens"] : 0;
     const output = typeof payload["outputTokens"] === "number" ? payload["outputTokens"] : 0;
-    return { kind: "state", title: "Usage recorded", detail: `${input.toLocaleString()} in · ${output.toLocaleString()} out` };
+    return { kind: "state", title: "Usage recorded", detail: `${input.toLocaleString("en-GB")} in · ${output.toLocaleString("en-GB")} out` };
   }
   if (event.type === "artifact") {
     const ref = obj(payload["artifact"]);
@@ -298,7 +298,7 @@ function toRecordFrame(event: StreamEvent): Rec {
 
 const timeOf = (value: string) => {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "" : date.toLocaleTimeString(undefined, { ...CLOCK_24, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return Number.isNaN(date.getTime()) ? "" : formatClock(date);
 };
 
 export function ConsoleFeed(props: {
@@ -593,7 +593,7 @@ function ToolCard(props: { entry: FeedEntry; open: boolean; onToggle: () => void
             <div class="flex flex-col gap-2">
               <For each={loaded().artifacts}>{(artifact) => <div class="rounded-control border border-outline-gray-1 p-2">
                 <div class="mb-1 flex items-center justify-between gap-2">
-                  <span class="brain-exec-log truncate text-caption text-ink-gray-8" title={artifact.digest}>{artifact.mediaType} · {artifact.bytes.toLocaleString()} bytes · {artifact.classification}</span>
+                  <span class="brain-exec-log truncate text-caption text-ink-gray-8" title={artifact.digest}>{artifact.mediaType} · {artifact.bytes.toLocaleString("en-GB")} bytes · {artifact.classification}</span>
                   <CorrelationLink target={{ kind: "artifact", artifactId: artifact.artifactId }} label="Open artifact" icon="lucide-file-search" />
                 </div>
                 <ArtifactView artifact={artifact as unknown as ArtifactRef} compact />

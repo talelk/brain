@@ -110,7 +110,7 @@ export function AgentDetail(props: { agent: AgentCatalogEntry; onBack?: () => vo
     <StatGrid compact stats={[
       { label: "Engine requirement", value: spec().engine.anyOf.join(" or "), hint: "One compatible engine is required", icon: "lucide-cpu" },
       { label: "Allowed tools", value: String(spec().tools.length), hint: spec().tools.length ? "Pinned releases only" : "No tool authority", icon: "lucide-wrench" },
-      { label: "Turn / token limits", value: `${spec().maxTurns} · ${spec().maxTokens.toLocaleString()}`, hint: "Per attempt", icon: "lucide-gauge" },
+      { label: "Turn / token limits", value: `${spec().maxTurns} · ${spec().maxTokens.toLocaleString("en-GB")}`, hint: "Per attempt", icon: "lucide-gauge" },
       { label: "Maximum cost", value: formatUsd(spec().maxMicroUsd), hint: `${spec().maxChildren} children · depth ${spec().maxDepth}`, icon: "lucide-wallet-cards" },
     ]} />
     <WorkspaceSection title="Purpose and responsibility" description="Derived from the pinned instruction asset; not an inferred model capability."><p class="brain-prose whitespace-pre-wrap text-interface text-ink-gray-8">{purpose()}</p></WorkspaceSection>

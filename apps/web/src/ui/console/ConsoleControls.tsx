@@ -283,7 +283,7 @@ export function ConsoleInspection(props: {
       <div class="flex flex-col gap-1.5 rounded-card border border-outline-gray-1 p-2.5">
         <div class="flex items-center justify-between gap-2 text-caption">
           <span class="text-ink-gray-6">Tokens</span>
-          <span class="tabular-nums text-ink-gray-9">{(props.session?.usedTokens ?? 0).toLocaleString()} of {(props.session?.budget.maxTokens ?? 0).toLocaleString()}</span>
+          <span class="tabular-nums text-ink-gray-9">{(props.session?.usedTokens ?? 0).toLocaleString("en-GB")} of {(props.session?.budget.maxTokens ?? 0).toLocaleString("en-GB")}</span>
         </div>
         <span role="progressbar" aria-label="Tokens used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={tokenShare()} class="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-gray-3">
           <span class={`h-full ${tokenShare() >= 90 ? "bg-surface-amber-6" : "bg-surface-blue-9"}`} style={{ width: `${tokenShare()}%` }} />
@@ -318,7 +318,7 @@ export function ConsoleInspection(props: {
               onClick={() => setPreviewId((current) => (current === artifact.artifactId ? undefined : artifact.artifactId))}>
               <span class={`${fileIcon(artifact.mediaType)} size-3.5 shrink-0 text-ink-gray-6`} aria-hidden="true" />
               <span class="min-w-0 flex-1 truncate text-ink-gray-8" title={artifact.digest}>{artifact.mediaType}</span>
-              <span class="shrink-0 tabular-nums text-ink-gray-6">{artifact.bytes.toLocaleString()} B</span>
+              <span class="shrink-0 tabular-nums text-ink-gray-6">{artifact.bytes.toLocaleString("en-GB")} B</span>
             </button>
           )}</For>
         </div>

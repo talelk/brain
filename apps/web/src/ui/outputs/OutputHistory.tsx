@@ -76,7 +76,7 @@ export function ArtifactMetaStrip(props: {
               <MetaFact label="Digest" value={<span class="brain-exec-log" title={props.history!.digest}>{shortDigest(props.history!.digest)}</span>} title="Immutable content address" />
               <MetaFact label="Producer" value={<ProducerLinks history={props.history!} />} />
               <MetaFact label="Generated" value={<DateText value={props.history!.createdAt} />} />
-              <MetaFact label="Size" value={`${props.history!.bytes.toLocaleString()} B`} />
+              <MetaFact label="Size" value={`${props.history!.bytes.toLocaleString("en-GB")} B`} />
               <MetaFact label="Verification" value={<span class="inline-flex items-center gap-1.5"><StatusIcon state={verification().label} theme={verification().theme} /><Badge size="sm" theme={verification().theme} label={verification().label} /></span>} title={verification().detail} />
               <MetaFact label="Work item" value={
                 <Show when={link()} fallback={<span class="text-ink-gray-6">Not linked</span>}>

@@ -11,7 +11,7 @@ import { isFreshFromServer, ScreenRegion } from "../../ui/screen-region";
 import { ThemeToggle } from "../../ui/components/ThemeToggle";
 import { StatusBadge } from "../../ui/components/StatusBadge";
 import { StatusIcon } from "../../ui/viz/StatusIcon";
-import { formatRelative, formatSlaMinutes } from "../../ui/format";
+import { formatDateTime, formatRelative, formatSlaMinutes } from "../../ui/format";
 import { monthPeriod } from "./helpers";
 
 type Tone = "red" | "amber" | "blue" | "green" | "gray";
@@ -179,7 +179,7 @@ function SreBoard(props: { incidents: IncidentSummary[]; asOf?: string; state: S
         <Show when={props.incidents[0]} keyed>{(incident) => <section aria-label="Highest severity incident" class={`rounded-card border-s-8 p-6 2xl:p-8 ${incident.severity === "critical" ? "border-s-outline-red-6 bg-surface-red-1" : "border-s-outline-amber-5 bg-surface-amber-1"}`}>
           <div class="flex flex-wrap items-center gap-3"><StatusBadge kind="severity" status={incident.severity} /><StatusBadge kind="incident" status={incident.state} /><Show when={!isFreshFromServer(incident.expiresAt, props.asOf)}><Badge size="lg" theme="amber" label="Stale observation" /></Show></div>
           <h2 class="mt-3 text-3xl font-semibold tracking-tight 2xl:text-4xl">{incident.title}</h2><p class="mt-2 text-xl text-ink-gray-8 2xl:text-2xl">{incident.targetKey}</p>
-          <p class="mt-4 text-base text-ink-gray-7 2xl:text-lg">Observed {formatRelative(incident.observedAt)}, valid until {new Date(incident.expiresAt).toLocaleString()}</p>
+          <p class="mt-4 text-base text-ink-gray-7 2xl:text-lg">Observed {formatRelative(incident.observedAt)}, valid until {formatDateTime(incident.expiresAt)}</p>
         </section>}</Show>
         <section aria-label="Other observed incidents"><h2 class="mb-3 text-xl font-semibold 2xl:text-2xl">Observed incident queue</h2>
           <Show when={props.incidents.length > 1} fallback={<p class="rounded-card border border-outline-gray-2 bg-surface-elevation-1 p-5 text-lg text-ink-gray-7">No other incidents are open.</p>}>

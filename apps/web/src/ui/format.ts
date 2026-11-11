@@ -27,12 +27,43 @@ export function shortDigest(digest: string | undefined, hexChars = 12): string {
   return `${prefix}${hex.slice(0, hexChars)}…`;
 }
 
-/** Times read on a 24-hour clock everywhere (no AM/PM); the locale still orders the date. */
+/**
+ * Locale policy (one for the whole UI): the interface is English, so every date and time is formatted with the explicit
+ * `en-GB` locale (day before month, 24-hour clock, never the browser's own language) in the viewer's own timezone, or in an
+ * explicit IANA zone when a schedule names one. Do not call `toLocaleString(undefined, ...)` or `Intl.DateTimeFormat(undefined)`
+ * elsewhere: use these helpers.
+ */
+export const UI_LOCALE = "en-GB";
+
+/** Times read on a 24-hour clock everywhere (no AM/PM). */
 export const CLOCK_24 = { hourCycle: "h23" } as const;
 
-/** The locale date-time form DateText renders, for string-only contexts (table columns, descriptions). */
-export function formatDateTime(value?: string | number | Date): string {
-  return value ? new Date(value).toLocaleString(undefined, CLOCK_24) : "—";
+/** The viewer's IANA timezone ("Africa/Tunis"), or "UTC" when the browser does not say. */
+export function userTimeZone(): string {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch { return "UTC"; }
+}
+
+/** Formats an instant with the UI locale in `timeZone` (default: the viewer's); an unreadable value comes back unchanged. */
+export function formatInstant(value: string | number | Date | undefined, options: Intl.DateTimeFormatOptions, timeZone: string = userTimeZone()): string {
+  if (value === undefined || value === "") return "—";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return String(value);
+  try { return new Intl.DateTimeFormat(UI_LOCALE, { ...CLOCK_24, ...options, timeZone }).format(date); } catch { return String(value); }
+}
+
+/** "12 Nov 2026, 14:05" in the viewer's timezone: the one form DateText renders, for string-only contexts too. */
+export function formatDateTime(value?: string | number | Date, timeZone?: string): string {
+  return formatInstant(value, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }, timeZone);
+}
+
+/** "14:05:09" (or "14:05" without seconds) in the viewer's timezone. */
+export function formatClock(value: string | number | Date | undefined, seconds = true, timeZone?: string): string {
+  return formatInstant(value, seconds ? { hour: "2-digit", minute: "2-digit", second: "2-digit" } : { hour: "2-digit", minute: "2-digit" }, timeZone);
+}
+
+/** "Thu 12 Nov, 08:00" in the given timezone (a schedule's own zone, so 08:00 reads as 08:00). */
+export function formatOccurrence(value: string | number | Date | undefined, timeZone?: string): string {
+  return formatInstant(value, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }, timeZone);
 }
 
 /** Compact relative form for meta stamps: "3 min ago", "in 2 h", "5 d ago". */
@@ -70,6 +101,16 @@ export function formatTokens(tokens?: number): string {
 const EVENT_WORDS: Record<string, string> = { "mission.created": "mission started", "mission.seen": "visit recorded", "plan.confirmed": "plan confirmed", "plan.proposed": "plan drafted" };
 export function eventWords(type: string): string {
   return EVENT_WORDS[type] ?? type.replace(/([a-z])([A-Z])/gu, "$1 $2").replaceAll(".", " ").replaceAll("-", " ").toLowerCase();
+}
+
+/**
+ * A named output's name for people. Workflow outputs are named after their plan task id ("write-recommendation"), so a task title
+ * wins when the caller knows it; otherwise the id is spelled out as words ("Write recommendation").
+ */
+export function friendlyOutputName(name: string, taskTitle?: string): string {
+  if (taskTitle?.trim()) return taskTitle.trim();
+  if (!/^[a-z0-9._-]+$/u.test(name) || /^[._-]|[._-]$/u.test(name)) return name;
+  return titleize(name.replaceAll("_", "-").replaceAll(".", "-"));
 }
 
 export function titleize(value: string): string {

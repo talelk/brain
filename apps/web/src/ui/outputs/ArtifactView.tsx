@@ -114,7 +114,7 @@ export function ArtifactView(props: { artifact?: ArtifactRef; title?: string; co
               <h3 class="break-words text-base-medium text-ink-gray-9">{heading()}</h3>
               <Show when={!preview()?.result}>
               <p class="break-words text-caption text-ink-gray-6">
-                {previewKindLabel(previewKindOf(artifact().mediaType))} · {artifact().mediaType} · {artifact().bytes.toLocaleString()} B ·{" "}
+                {previewKindLabel(previewKindOf(artifact().mediaType))} · {artifact().mediaType} · {artifact().bytes.toLocaleString("en-GB")} B ·{" "}
                 {artifact().classification} · <span class="brain-exec-log" title={artifact().digest}>{shortDigest(artifact().digest)}</span>
               </p>
               </Show>
@@ -321,7 +321,7 @@ function TablePreview(props: { preview: LoadedPreview; maxHeight: string }): JSX
           </table>
         </div>
         <figcaption class="mt-1 text-caption text-ink-gray-6">
-          First {parsed().rows.length.toLocaleString()} data rows of {Math.max(0, parsed().totalRecords - 1).toLocaleString()}.
+          First {parsed().rows.length.toLocaleString("en-GB")} data rows of {Math.max(0, parsed().totalRecords - 1).toLocaleString("en-GB")}.
         </figcaption>
       </figure>
     </Show>

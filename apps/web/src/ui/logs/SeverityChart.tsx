@@ -6,7 +6,7 @@ import { streamTailQuery } from "../../data/exec-logs";
 import { readExecFilters, type ExecLogFilters } from "../exec/exec-filters";
 import { tailAxes } from "./LogTail";
 import { useApp } from "../app-context";
-import { CLOCK_24 } from "../format";
+import { formatClock } from "../format";
 
 /** The chart engine is heavy: it loads on the Logs route only, after the page is interactive. */
 const BarChart = lazy(() => import("@talelk/newui-charts").then((module) => ({ default: module.BarChart })));
@@ -28,7 +28,7 @@ export function bucketSeverity(records: readonly { at: string; severity: string 
   const count = last === first ? 1 : buckets;
   const width = (last - first) / count || 1;
   const spanSeconds = (last - first) / 1000;
-  const label = (ms: number): string => new Date(ms).toLocaleTimeString([], spanSeconds < 600 ? { ...CLOCK_24, hour: "2-digit", minute: "2-digit", second: "2-digit" } : { ...CLOCK_24, hour: "2-digit", minute: "2-digit" });
+  const label = (ms: number): string => formatClock(ms, spanSeconds < 600);
   const out = Array.from({ length: count }, (_, index) => ({ time: label(first + index * width), Info: 0, Warning: 0, Error: 0 }));
   for (const record of stamped) {
     const bucket = out[Math.min(count - 1, Math.floor((record.ms - first) / width))]!;

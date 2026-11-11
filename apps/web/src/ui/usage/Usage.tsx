@@ -42,7 +42,7 @@ export function UsageFigures(props: { label: string; usage: Figures; tokenLimit?
   return <section class="flex min-w-0 flex-col gap-1" aria-label={`${props.label} usage`} data-testid="usage-figures">
     <Show when={!empty()} fallback={<p class="text-interface text-ink-gray-7" data-testid="usage-none">{running() > 0 ? `${count(running(), "attempt")} running; usage is recorded when ${running() === 1 ? "it finishes" : "they finish"}.` : "No usage recorded yet."}</p>}>
       <p class="flex flex-wrap items-baseline gap-x-2 text-base-medium text-ink-gray-9">
-        <span title={`${total().toLocaleString()} tokens`} data-testid="usage-tokens">{formatTokens(total())} tokens</span>
+        <span title={`${total().toLocaleString("en-GB")} tokens`} data-testid="usage-tokens">{formatTokens(total())} tokens</span>
         <span class="text-ink-gray-6" aria-hidden="true">·</span>
         <span data-testid="usage-dollars">{props.usage.settledMicroUsd === 0 && total() > 0 ? "$0 (local models report no cost)" : formatUsd(props.usage.settledMicroUsd)}</span>
         <Show when={props.usage.estimated}><Badge size="sm" theme="amber" label="includes estimates" /></Show>
