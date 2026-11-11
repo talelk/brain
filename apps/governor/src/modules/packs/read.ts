@@ -95,13 +95,32 @@ export function listPack(store: Store, actor: ActorContext, queryType: string, w
   }
   if (queryType === "audit.list") {
     const rows = store.control.prepare("SELECT cursor, event_id, event_type, aggregate_id, payload_json, payload_digest, created_at_ms FROM events WHERE organization_id=? AND workspace_id=? ORDER BY cursor DESC LIMIT 50").all(actor.organizationId, workspaceId) as Array<Record<string, unknown>>;
+    const ws = store.workspaceDb(workspaceId, actor.organizationId);
+    /** The title of the task or mission an event is about, so a person reads "Draft the summary" and not an id. */
+    const titleOf = (kind: "workItem" | "mission", id: unknown): string | undefined => {
+      if (typeof id !== "string") return undefined;
+      try {
+        const row = ws.prepare(kind === "workItem" ? "SELECT title FROM work_items WHERE id=?" : "SELECT title FROM missions WHERE id=?").get(id) as { title?: string } | undefined;
+        return row?.title?.slice(0, 200);
+      } catch { return undefined; }
+    };
     return { items: rows.map((r) => {
       let actorId = "system";
+      let message: string | undefined;
+      let subject: string | undefined;
       try {
         const payload = JSON.parse(String(r["payload_json"])) as Record<string, unknown>;
         actorId = String(payload["actorId"] ?? payload["actorRef"] ?? payload["requestedBy"] ?? "system");
+        // Where the writer already put a plain sentence in the event (a declined tool request does), the page shows that sentence.
+        if (typeof payload["message"] === "string" && payload["message"].trim()) message = payload["message"].trim().slice(0, 500);
+        const type = String(r["event_type"]);
+        subject = type.startsWith("workItem.") ? titleOf("workItem", payload["workItemId"]) : type.startsWith("mission.") ? titleOf("mission", payload["missionId"]) : undefined;
+        if (!message && type === "workItem.transitioned") {
+          const verb = ({ done: "finished", "in-progress": "started", in_progress: "started", review: "is ready for review", blocked: "is blocked", abandoned: "was dropped", ready: "is ready to start" } as Record<string, string>)[String(payload["state"])];
+          if (verb) message = `Task${subject ? ` "${subject}"` : ""} ${verb}`;
+        }
       } catch { /* payload is digest-bound; actor stays system */ }
-      return { id: String(r["event_id"]), cursor: Number(r["cursor"]), actorId, action: String(r["event_type"]), resourceId: String(r["aggregate_id"]), occurredAt: iso(Number(r["created_at_ms"])), payloadDigest: String(r["payload_digest"]) };
+      return { id: String(r["event_id"]), cursor: Number(r["cursor"]), actorId, action: String(r["event_type"]), resourceId: String(r["aggregate_id"]), occurredAt: iso(Number(r["created_at_ms"])), payloadDigest: String(r["payload_digest"]), ...(message ? { message } : {}), ...(subject ? { subject } : {}) };
     }) } as unknown as JsonValue;
   }
   const table = LIST_TABLES[queryType];

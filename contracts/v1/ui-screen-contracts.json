@@ -1058,12 +1058,6 @@
     "label": "Schedules",
     "route": "/w/:id/schedules",
     "icon": "lucide-calendar-clock"
-   },
-   {
-    "label": "Runners",
-    "route": "/runners",
-    "adminOnly": true,
-    "icon": "lucide-server"
    }
   ],
   "library": [

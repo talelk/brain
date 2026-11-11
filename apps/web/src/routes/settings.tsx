@@ -16,7 +16,8 @@ import { BrainPage, PageStack, TechnicalDetails } from "../ui/components/PageLay
 import type { AuditEntry, HealthView, MemberGrantView, ConfigExplanation, OrganizationSessionView } from "@brain/contracts";
 import { DateText, ScreenRegion } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
-import { eventWords, formatDateTime } from "../ui/format";
+import { formatDateTime } from "../ui/format";
+import { auditSentence } from "../ui/audit-text";
 import { ActionFeedback } from "../ui/components/ActionFeedback";
 import { Freshness, WorkspaceSection } from "../ui/components/Domain";import { StatusBadge, statusTheme } from "../ui/components/StatusBadge";
 import { StatusIcon } from "../ui/viz/StatusIcon";
@@ -88,7 +89,7 @@ export function SettingsScreen(props: {
         <WorkspaceSection title="Recent activity" description="Who did what and when, newest first. Entries cannot be edited or removed.">
           <ScreenRegion state={props.state} skeleton="rows" emptyTitle="Nothing recorded yet" emptyDescription="Sign-ins, approvals, grants and releases appear here as they happen." onRetry={props.onRefresh}>
             <Show when={props.audit.length === 0}><p class="brain-empty-inline">Nothing recorded yet. Sign-ins, approvals, grants and releases appear here as they happen.</p></Show>
-            <Timeline items={auditRows().map((entry) => ({ id: String(entry.cursor), title: <span class="break-words first-letter:uppercase">{eventWords(entry.action)}</span>, description: <span class="break-words" title={entry.resourceId}>By {app.personName(entry.actorId)}</span>, timestamp: <span class="whitespace-nowrap"><DateText value={entry.occurredAt} /></span>, icon: "lucide-history" }))} />
+            <Timeline items={auditRows().map((entry) => ({ id: String(entry.cursor), title: <span class="block whitespace-normal break-words">{auditSentence(entry)}</span>, description: <span class="break-words" title={entry.resourceId}>By {app.personName(entry.actorId)}</span>, timestamp: <span class="whitespace-nowrap"><DateText value={entry.occurredAt} /></span>, icon: "lucide-history" }))} />
             <Show when={auditPageCount() > 1}><Pagination.Root aria-label="Audit timeline pagination" class="mt-3 flex-wrap items-center justify-between gap-2 border-t border-outline-gray-1 pt-3" count={props.audit.length} pageSize={SETTINGS_PAGE_SIZE} page={currentAuditPage()} onPageChange={setAuditPage}>
               <Pagination.Range />
               <div class="flex items-center gap-1"><Pagination.PrevTrigger /><Pagination.Pages /><Pagination.NextTrigger /></div>
@@ -243,8 +244,8 @@ function PushControls(): JSX.Element {
       const keyBytes = Uint8Array.from(atob(publicKey.replace(/-/gu, "+").replace(/_/gu, "/")), (character) => character.charCodeAt(0));
       const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes as BufferSource });
       await fetch("/v1/push/subscriptions", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(subscription.toJSON()) });
-      setState("Notifications enabled. They are attention hints only — decisions still happen here after sign-in and step-up.");
+      setState("Notifications enabled. They are attention hints only — decisions still happen here, after you sign in and confirm with your authenticator code.");
     } catch (reason) { setState(reason instanceof Error ? reason.message : "Could not enable notifications."); }
   }
-  return <div class="flex flex-col items-start gap-3"><p class="brain-readable text-interface text-ink-gray-7">Push notifications are attention hints for pending approvals. Decisions always happen here after sign-in and step-up verification.</p><Button variant="outline" theme="blue" iconLeft="lucide-bell" onClick={() => void enable()}>Enable notifications</Button><Show when={state()}><p role="status" class="brain-readable text-interface">{state()}</p></Show></div>;
+  return <div class="flex flex-col items-start gap-3"><p class="brain-readable text-interface text-ink-gray-7">Push notifications are attention hints for pending approvals. Decisions always happen here, after you sign in and confirm with your authenticator code.</p><Button variant="outline" theme="blue" iconLeft="lucide-bell" onClick={() => void enable()}>Enable notifications</Button><Show when={state()}><p role="status" class="brain-readable text-interface">{state()}</p></Show></div>;
 }

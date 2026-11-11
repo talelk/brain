@@ -197,6 +197,9 @@ describe("Governor-brokered read tools: documents.read and csv.query", () => {
       await client.ack(offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
       await expect(client.toolRead(offer.attemptId, { tool: { id: "documents.read", digest: digestOf("documents.read") }, input: { documentId: "doc-1" } })).rejects.toThrow(/does not allow documents.read/);
       expect(w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM events WHERE event_type='tool.read.refused'").get()).toEqual({ n: 1 });
+      // Health's "Recent activity" reads the sentence the refusal carries, not the event name.
+      const audit = ((await w.brain.executeQuery(w.owner, { queryType: "audit.list", workspaceId: w.workspaceId })) as unknown as { snapshot: { items: Array<{ action: string; message?: string }> } }).snapshot.items;
+      expect(audit.find((entry) => entry.action === "tool.read.refused")?.message).toMatch(/^A tool request was declined: documents\.read/);
     } finally { await app.close(); rmSync(root, { recursive: true, force: true }); }
   });
 });

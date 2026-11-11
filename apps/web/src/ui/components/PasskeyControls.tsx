@@ -33,7 +33,7 @@ export function PasskeyControls(): JSX.Element {
 
   onMount(() => { void run(async () => undefined); });
 
-  return <Section title="Passkeys" description="Use a device passkey or security key for phishing-resistant sign-in. Passkeys do not replace the authenticator step-up required for exact approvals." surface="card">
+  return <Section title="Passkeys" description="Use a device passkey or security key for phishing-resistant sign-in. A passkey signs you in; approving a specific request still asks for a code from your authenticator app." surface="card">
     <div class="flex flex-col items-start gap-3">
       <Show when={passkeys().length} fallback={<p class="text-interface text-ink-gray-7">No passkeys are registered for this account.</p>}>
         <div class="w-full divide-y divide-outline-gray-1"><For each={passkeys()}>{(passkey) => <article class="flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">

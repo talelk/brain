@@ -4,12 +4,13 @@ import { For, Show, createSignal, onCleanup, onMount } from "solid-js";
 import type { JSX } from "solid-js";
 import { Button, TextInput } from "@talelk/newui-atoms";
 import { Section } from "@talelk/newui-organisms";
-import { Alert, Stepper } from "@talelk/newui-molecules";
+import { Alert } from "@talelk/newui-molecules";
 import type { LocalRuntimeStatus } from "@brain/contracts";
 import { governor } from "../../data/client";
 import { OperationalChecklist, createReadiness } from "./OperationalChecklist";
 import { TechnicalDetails } from "./PageLayout";
 import { FormSheet } from "./BrainForm";
+import { formatDateTime } from "../format";
 
 export function LocalModelSetup() {
   const app = useApp(); const navigate = useNavigate();
@@ -70,10 +71,20 @@ export function LocalModelSetup() {
   return <div class="flex flex-col gap-4">
     <Section title="Models & Providers" description="Three steps to a working workspace. Saved credentials are never returned to the browser." surface="card">
       <div class="flex flex-col gap-4">
-        <Stepper label="Setup progress" linear value={current()} steps={[{ value: "model", label: "Connect a model" }, { value: "runners", label: "Start runners" }, { value: "smoke", label: "Run a smoke task" }]} />
+        <nav aria-label="Setup progress" data-testid="setup-progress"><ol class="flex w-full list-none flex-col gap-3 p-0 sm:flex-row sm:items-start sm:gap-0">
+          <For each={[{ id: "model", label: "Connect a model", done: modelDone }, { id: "runners", label: "Start runners", done: runnersDone }, { id: "smoke", label: "Run a smoke task", done: smokeDone }]}>{(step, index) => {
+            const state = () => step.done() ? "done" : current() === step.id ? "current" : "upcoming";
+            return <li class="flex min-w-0 flex-1 items-center gap-2" data-state={state()}>
+              <span class={`grid size-6 shrink-0 place-items-center rounded-full border text-xs tabular-nums ${state() === "done" ? "border-outline-green-3 bg-surface-green-2 text-ink-green-8" : state() === "current" ? "border-outline-blue-6 bg-surface-blue-9 text-white" : "border-outline-gray-3 text-ink-gray-6"}`} {...(state() === "current" ? { "aria-current": "step" } : {})}>
+                <Show when={state() === "done"} fallback={<span>{index() + 1}</span>}><span class="lucide-check size-3.5" aria-hidden="true" /></Show>
+              </span>
+              <span class={`min-w-0 truncate text-interface font-medium ${state() === "upcoming" ? "text-ink-gray-6" : "text-ink-gray-9"}`}>{step.label}<Show when={state() === "done"}><span class="sr-only"> (done)</span></Show></span>
+            </li>;
+          }}</For>
+        </ol></nav>
         <Show when={allDone()}><Alert theme="green" variant="outline" title="Setup complete" description="A model is connected, runners are ready and a read-only smoke task passed. Brain is ready for real tasks." /></Show>
         <ol class="flex flex-col gap-2">
-          {stepRow("model", "Connect a model", modelDone, () => <div class="mt-1 flex flex-wrap items-center justify-between gap-2"><p class="min-w-0 break-all text-interface text-ink-gray-7">{status()?.modelId ? `${status()!.modelId} verified` : "Model verified"}{status()?.testedAt ? ` · ${new Date(status()!.testedAt!).toLocaleString()}` : ""}</p>{modelButton()}</div>, () => <div class="mt-1 flex flex-col items-start gap-2">
+          {stepRow("model", "Connect a model", modelDone, () => <div class="mt-1 flex flex-wrap items-center justify-between gap-2"><p class="min-w-0 break-all text-interface text-ink-gray-7">{status()?.modelId ? `${status()!.modelId} verified` : "Model verified"}{status()?.testedAt ? ` · ${formatDateTime(status()!.testedAt ?? undefined)}` : ""}</p>{modelButton()}</div>, () => <div class="mt-1 flex flex-col items-start gap-2">
             <p class="brain-readable text-interface text-ink-gray-7">Point Brain at an OpenAI-compatible endpoint and the exact model ID. Brain tests both before saving.</p>
             <Show when={canConfigure()} fallback={<p class="brain-readable text-interface text-ink-gray-7">Guided local setup is available when this installation starts with <code>pnpm brain start</code>. Other deployments use their configured runner connections.</p>}>{modelButton()}</Show>
           </div>)}
