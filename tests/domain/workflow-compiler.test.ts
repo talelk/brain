@@ -18,7 +18,7 @@ function mutated(fn: (wf: Workflow) => void): Workflow {
 }
 
 describe("workflow compiler (T10)", () => {
-  it("orders jobs topologically and rejects cycles, unknown needs and empty graphs", () => {
+  it("orders steps topologically and rejects cycles, unknown needs and empty graphs", () => {
     expect(compileWorkflowGraph(goldenWorkflow(), "golden")).toEqual(["echo", "verify"]);
     expect(() => compileWorkflowGraph(mutated((wf) => {
       (wf.spec.jobs["echo"] as unknown as { needs: string[] }).needs = ["verify"];
@@ -28,7 +28,7 @@ describe("workflow compiler (T10)", () => {
     }), "unknown-need")).toThrow();
     expect(() => compileWorkflowGraph(mutated((wf) => {
       (wf.spec as unknown as { jobs: Record<string, unknown> }).jobs = {};
-    }), "empty")).toThrow(/no jobs/);
+    }), "empty")).toThrow(/no steps/);
   });
 
   it("bindings resolve literal/input/job pointers and fail on missing paths — never substitute", () => {

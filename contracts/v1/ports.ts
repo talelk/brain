@@ -3,7 +3,7 @@ import type {
   EngineInfo, EngineSessionSpec, EvidenceBundle, ExecutionGrant, JobOffer,
   JobReceipt, MemoryQuery, MemoryResult, Placement, PlacementExplanation,
   JsonValue, LauncherCreate, LauncherInspection, ReleaseRef, ToolInvocation,
-  ToolReceipt, VerificationVerdict, WorkflowIR, WorkflowState, Target,
+  ToolReceipt, VerificationVerdict, WorkflowIR, RunState, Target,
 } from './brain.generated';
 
 // Internal ports. Implementations normalize vendor types at their own boundary.
@@ -16,7 +16,7 @@ export interface WorkflowEnginePort {
   start(input: { runId: string; engineWorkflowId: string; input: JsonValue; executionKey: string }): Promise<void>;
   resume(input: { runId: string; waitGeneration: number; wakeEventId: string }): Promise<void>;
   cancel(runId: string, reason: string): Promise<void>;
-  inspect(runId: string): Promise<{ state: WorkflowState; waits: readonly WorkflowWait[]; snapshotDigest?: Digest }>;
+  inspect(runId: string): Promise<{ state: RunState; waits: readonly WorkflowWait[]; snapshotDigest?: Digest }>;
   dispose(): Promise<void>;
 }
 export interface WorkflowWait {

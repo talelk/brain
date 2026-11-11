@@ -157,8 +157,8 @@ describe("stuck-run watchdog", () => {
       c.prepare("UPDATE job_attempts SET lease_expires_at_ms=?, offer_expires_at_ms=? WHERE id=?").run(Date.now() - 10_000, Date.now() - 11_000, offer.attemptId);
       w.brain.jobProtocol.sweepStuckJobs(1);
       expect(job(w, offer.jobId).state).toBe("outcome_unknown");
-      const view = (await w.brain.executeQuery(w.owner, { queryType: "job.get", resourceId: offer.jobId } as never)) as unknown as { snapshot: { restarting?: boolean; workflowState?: string } };
-      expect(view.snapshot).toMatchObject({ restarting: true, workflowState: "running" });
+      const view = (await w.brain.executeQuery(w.owner, { queryType: "job.get", resourceId: offer.jobId } as never)) as unknown as { snapshot: { restarting?: boolean; runState?: string } };
+      expect(view.snapshot).toMatchObject({ restarting: true, runState: "running" });
       expect((await attention(w)).some((entry) => entry.kind === "outcome-unknown")).toBe(false);
     } finally {
       if (previous === undefined) delete process.env["BRAIN_PARKED_COOLDOWN_SECONDS"]; else process.env["BRAIN_PARKED_COOLDOWN_SECONDS"] = previous;

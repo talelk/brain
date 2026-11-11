@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { DIGEST_A, setupWorld, stepUp, workView } from "../helpers";
 import { approvalSubjectDigest } from "@brain/contracts";
+import { validate } from "@brain/contracts/validate";
 import type { JsonValue } from "@brain/contracts";
+import { readRun } from "../../apps/governor/src/modules/workflows";
 
 function subject(world: ReturnType<typeof setupWorld>, nonce: string): Record<string, unknown> {
   return {
@@ -24,8 +26,22 @@ describe("core integration", () => {
       const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
       w.brain.store.control.prepare("UPDATE jobs SET state='succeeded' WHERE workflow_run_id=?").run(runId);
       ws.prepare("UPDATE workflow_runs SET state='failed' WHERE id=?").run(runId);
-      const detail = (await w.brain.executeQuery(w.owner, { queryType: "job.get", workspaceId: w.workspaceId, resourceId: runId })) as unknown as { snapshot: { state: string; workflowState: string } };
-      expect(detail.snapshot).toMatchObject({ state: "succeeded", workflowState: "failed" });
+      const detail = (await w.brain.executeQuery(w.owner, { queryType: "job.get", workspaceId: w.workspaceId, resourceId: runId })) as unknown as { snapshot: { state: string; runState: string } };
+      expect(detail.snapshot).toMatchObject({ state: "succeeded", runState: "failed" });
+    } finally { w.brain.close(); }
+  });
+
+  it("readRun returns the Run aggregate that validates against the contract", async () => {
+    const w = setupWorld();
+    try {
+      await w.brain.auth.ready();
+      const digest = w.brain.activeRelease(w.org)!.digest;
+      const result = await w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: "run-agg", idempotencyKey: "run-agg", commandType: "workflow.dispatch", workspaceId: w.workspaceId, payload: { workflow: { id: "fixture-workflow", digest }, input: { message: "Aggregate" } } }, "run-agg");
+      const runId = result.receipt.resourceId!;
+      const run = readRun(w.brain.store, w.org, w.workspaceId, runId)!;
+      expect(run).toMatchObject({ runId, organizationId: w.org, workspaceId: w.workspaceId, release: { id: "fixture-workflow" } });
+      expect(validate("Run", run).ok).toBe(true);
+      expect(readRun(w.brain.store, w.org, w.workspaceId, "run-missing")).toBeUndefined();
     } finally { w.brain.close(); }
   });
 

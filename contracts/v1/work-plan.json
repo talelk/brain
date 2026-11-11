@@ -57,7 +57,7 @@
    "contractDefinitions": [
     "JobState",
     "AttemptState",
-    "WorkflowState",
+    "RunState",
     "BrainError"
    ],
    "ownerModule": "domain"
@@ -580,7 +580,7 @@
    "evidenceDirectory": "artifacts/runtime/T30",
    "contractDefinitions": [
     "ApprovalRequest",
-    "WorkflowState"
+    "RunState"
    ],
    "ownerModule": "workflows"
   },

@@ -100,7 +100,7 @@ export function RunDetail(props: {
   const [reason, setReason] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const job = () => props.job;
-  const state = () => job()?.restarting ? "restarting" : job()?.workflowState ?? job()?.state;
+  const state = () => job()?.restarting ? "restarting" : job()?.runState ?? job()?.state;
   const unknown = () => job()?.state === "outcome_unknown" && !job()?.restarting;
   const latestEvent = () => job()?.engineEvents?.at(-1);
   const engineId = () => {
@@ -139,7 +139,7 @@ export function RunDetail(props: {
       <div class="flex min-w-0 flex-col gap-4">
         <DetailHeader title={job()?.workflowTitle ?? "Task run"} headingLevel={2}
           subtitle={job()?.origin ? "Execution linked to an originating work item." : "Authoritative execution, output and independent verification."}
-          status={{ label: state() === "succeeded" ? job()?.workflowState ? "Completed and verified" : "Step completed" : (state() ?? "unknown").replaceAll("_", " "), theme: statusHeaderTheme("job", state() ?? "") }} />
+          status={{ label: state() === "succeeded" ? job()?.runState ? "Completed and verified" : "Step completed" : (state() ?? "unknown").replaceAll("_", " "), theme: statusHeaderTheme("job", state() ?? "") }} />
         <Show when={unknown()}><Alert theme="amber" variant="outline" title="Effect outcome is unknown" description="The effect may already have applied. Reconcile against the target system before considering another attempt; generic Retry is intentionally unavailable." /></Show>
         <Show when={problem()}>{(note) => <Alert theme={note().theme} variant="outline" title={note().title} description={`${note().reason} Next: ${note().next}`} />}</Show>
         <Show when={job()?.origin}>{(origin) => origin().kind === "work-item"

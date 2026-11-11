@@ -10,6 +10,12 @@
       "maxLength": 128,
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
     },
+    "RunId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
     "ConfigId": {
       "type": "string",
       "minLength": 1,
@@ -346,7 +352,7 @@
           "$ref": "#/$defs/Id"
         },
         "runId": {
-          "$ref": "#/$defs/Id"
+          "$ref": "#/$defs/RunId"
         }
       },
       "required": [
@@ -485,7 +491,7 @@
       ],
       "additionalProperties": false
     },
-    "DispatchJob": {
+    "DispatchStep": {
       "type": "object",
       "properties": {
         "kind": {
@@ -542,7 +548,7 @@
       ],
       "additionalProperties": false
     },
-    "GateJob": {
+    "GateStep": {
       "type": "object",
       "properties": {
         "kind": {
@@ -595,7 +601,7 @@
       ],
       "additionalProperties": false
     },
-    "EvalJob": {
+    "EvalStep": {
       "type": "object",
       "properties": {
         "kind": {
@@ -652,7 +658,7 @@
       ],
       "additionalProperties": false
     },
-    "SteerJob": {
+    "SteerStep": {
       "type": "object",
       "properties": {
         "kind": {
@@ -699,7 +705,7 @@
       ],
       "additionalProperties": false
     },
-    "MergeJob": {
+    "MergeStep": {
       "type": "object",
       "properties": {
         "kind": {
@@ -751,7 +757,7 @@
       ],
       "additionalProperties": false
     },
-    "SubgraphJob": {
+    "SubgraphStep": {
       "type": "object",
       "properties": {
         "kind": {
@@ -794,25 +800,25 @@
       ],
       "additionalProperties": false
     },
-    "WorkflowJob": {
+    "WorkflowStep": {
       "oneOf": [
         {
-          "$ref": "#/$defs/DispatchJob"
+          "$ref": "#/$defs/DispatchStep"
         },
         {
-          "$ref": "#/$defs/GateJob"
+          "$ref": "#/$defs/GateStep"
         },
         {
-          "$ref": "#/$defs/EvalJob"
+          "$ref": "#/$defs/EvalStep"
         },
         {
-          "$ref": "#/$defs/SteerJob"
+          "$ref": "#/$defs/SteerStep"
         },
         {
-          "$ref": "#/$defs/MergeJob"
+          "$ref": "#/$defs/MergeStep"
         },
         {
-          "$ref": "#/$defs/SubgraphJob"
+          "$ref": "#/$defs/SubgraphStep"
         }
       ]
     },
@@ -866,7 +872,7 @@
                 "$ref": "#/$defs/ConfigId"
               },
               "additionalProperties": {
-                "$ref": "#/$defs/WorkflowJob"
+                "$ref": "#/$defs/WorkflowStep"
               }
             },
             "outputs": {
@@ -1861,7 +1867,7 @@
         "jobs": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/$defs/WorkflowJob"
+            "$ref": "#/$defs/WorkflowStep"
           },
           "maxProperties": 100
         },
@@ -2731,7 +2737,7 @@
           }
         },
         "workflowRunId": {
-          "$ref": "#/$defs/Id"
+          "$ref": "#/$defs/RunId"
         }
       },
       "required": [
@@ -5320,7 +5326,7 @@
           "$ref": "#/$defs/Id"
         },
         "workflowRunId": {
-          "$ref": "#/$defs/Id"
+          "$ref": "#/$defs/RunId"
         },
         "jobId": {
           "$ref": "#/$defs/Id"
@@ -6829,7 +6835,7 @@
           "$ref": "#/$defs/Id"
         },
         "runId": {
-          "$ref": "#/$defs/Id"
+          "$ref": "#/$defs/RunId"
         },
         "jobId": {
           "$ref": "#/$defs/Id"
@@ -7394,7 +7400,7 @@
           "$ref": "#/$defs/Id"
         },
         "runId": {
-          "$ref": "#/$defs/Id"
+          "$ref": "#/$defs/RunId"
         },
         "state": {
           "type": "string",
@@ -7680,7 +7686,7 @@
           "type": "object",
           "properties": {
             "runId": {
-              "$ref": "#/$defs/Id"
+              "$ref": "#/$defs/RunId"
             },
             "reason": {
               "type": "string",
@@ -11221,7 +11227,7 @@
           "$ref": "#/$defs/Id"
         },
         "runId": {
-          "$ref": "#/$defs/Id"
+          "$ref": "#/$defs/RunId"
         },
         "attemptId": {
           "$ref": "#/$defs/Id"
@@ -11546,7 +11552,7 @@
           "$ref": "#/$defs/Id"
         },
         "runId": {
-          "$ref": "#/$defs/Id"
+          "$ref": "#/$defs/RunId"
         },
         "state": {
           "type": "string",
@@ -11566,7 +11572,7 @@
       "type": "object",
       "properties": {
         "runId": {
-          "$ref": "#/$defs/Id"
+          "$ref": "#/$defs/RunId"
         },
         "state": {
           "type": "string",
@@ -13145,7 +13151,7 @@
               "$ref": "#/$defs/Id"
             },
             "runId": {
-              "$ref": "#/$defs/Id"
+              "$ref": "#/$defs/RunId"
             },
             "workItemId": {
               "$ref": "#/$defs/Id"
@@ -13245,7 +13251,7 @@
               "$ref": "#/$defs/Id"
             },
             "runId": {
-              "$ref": "#/$defs/Id"
+              "$ref": "#/$defs/RunId"
             },
             "attemptId": {
               "$ref": "#/$defs/Id"
@@ -13306,7 +13312,7 @@
               "$ref": "#/$defs/Id"
             },
             "runId": {
-              "$ref": "#/$defs/Id"
+              "$ref": "#/$defs/RunId"
             },
             "attemptId": {
               "$ref": "#/$defs/Id"
@@ -15364,7 +15370,61 @@
         "cancelled"
       ]
     },
-    "WorkflowState": {
+    "Run": {
+      "type": "object",
+      "description": "One execution of a released workflow: the aggregate behind every runId. Source of truth is the workflow_runs row; missionId and workItemId come from mission_runs and execution_links.",
+      "properties": {
+        "runId": {
+          "$ref": "#/$defs/RunId"
+        },
+        "organizationId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "release": {
+          "$ref": "#/$defs/ReleaseRef"
+        },
+        "configDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "state": {
+          "$ref": "#/$defs/RunState"
+        },
+        "version": {
+          "$ref": "#/$defs/Counter"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "inputDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "outputDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
+        }
+      },
+      "required": [
+        "runId",
+        "organizationId",
+        "workspaceId",
+        "release",
+        "configDigest",
+        "state",
+        "version",
+        "createdAt",
+        "inputDigest"
+      ],
+      "additionalProperties": false
+    },
+    "RunState": {
       "type": "string",
       "enum": [
         "created",
@@ -15422,7 +15482,7 @@
           "$ref": "#/$defs/Id"
         },
         "workflowRunId": {
-          "$ref": "#/$defs/Id"
+          "$ref": "#/$defs/RunId"
         },
         "state": {
           "$ref": "#/$defs/JobState"
@@ -15472,8 +15532,8 @@
           },
           "maxItems": 200
         },
-        "workflowState": {
-          "$ref": "#/$defs/WorkflowRunState"
+        "runState": {
+          "$ref": "#/$defs/RunState"
         },
         "restarting": {
           "type": "boolean"
@@ -19428,7 +19488,7 @@
       "type": "object",
       "properties": {
         "runId": {
-          "$ref": "#/$defs/Id"
+          "$ref": "#/$defs/RunId"
         },
         "workspaceId": {
           "$ref": "#/$defs/Id"
@@ -19805,21 +19865,6 @@
       ],
       "additionalProperties": false
     },
-    "WorkflowRunState": {
-      "type": "string",
-      "enum": [
-        "created",
-        "validated",
-        "ready",
-        "running",
-        "suspended",
-        "succeeded",
-        "partial",
-        "failed",
-        "cancelled",
-        "blocked"
-      ]
-    },
     "TaskPresentation": {
       "type": "object",
       "properties": {
@@ -19928,7 +19973,7 @@
           ]
         },
         "runId": {
-          "$ref": "#/$defs/Id"
+          "$ref": "#/$defs/RunId"
         },
         "createdAt": {
           "$ref": "#/$defs/Timestamp"
@@ -19972,7 +20017,7 @@
             "type": "object",
             "properties": {
               "runId": {
-                "$ref": "#/$defs/Id"
+                "$ref": "#/$defs/RunId"
               },
               "title": {
                 "type": "string",
@@ -20083,7 +20128,7 @@
                 ]
               },
               "runId": {
-                "$ref": "#/$defs/Id"
+                "$ref": "#/$defs/RunId"
               },
               "draftId": {
                 "$ref": "#/$defs/Id"
@@ -23078,7 +23123,7 @@
                 "$ref": "#/$defs/Id"
               },
               "runId": {
-                "$ref": "#/$defs/Id"
+                "$ref": "#/$defs/RunId"
               },
               "settled": {
                 "type": "boolean"
@@ -23560,7 +23605,7 @@
           "const": "brain.context-manifest/v1"
         },
         "runId": {
-          "$ref": "#/$defs/Id"
+          "$ref": "#/$defs/RunId"
         },
         "jobId": {
           "$ref": "#/$defs/Id"
@@ -23696,7 +23741,7 @@
       ],
       "properties": {
         "runId": {
-          "$ref": "#/$defs/Id"
+          "$ref": "#/$defs/RunId"
         },
         "jobId": {
           "$ref": "#/$defs/Id"

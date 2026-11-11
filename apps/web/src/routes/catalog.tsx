@@ -25,8 +25,8 @@ function summary(text: string | undefined, fallback: string, max = 160): string 
 /** Agent releases a published recipe dispatches — derived from the pinned definition, never invented. */
 function recipeAgents(workflow: WorkflowCatalogEntry): string[] {
   const agents = new Set<string>();
-  for (const job of Object.values(workflow.definition.spec.jobs)) {
-    if (job.kind === "dispatch" && job.uses.type === "agent") agents.add(job.uses.release.id);
+  for (const step of Object.values(workflow.definition.spec.jobs)) {
+    if (step.kind === "dispatch" && step.uses.type === "agent") agents.add(step.uses.release.id);
   }
   return [...agents];
 }
@@ -54,7 +54,7 @@ export function TaskCatalog(props: { search: string; diagnostics?: boolean }) {
         <div class="brain-queue"><For each={pagedWorkflows()}>{(workflow) => {
           const title = workflow.definition.spec.presentation?.title ?? titleize(workflow.release.id);
           const description = summary(workflow.definition.spec.presentation?.description, "Review the declared inputs and expected result before starting.");
-          const external = Object.values(workflow.definition.spec.jobs).some((job) => "effectClass" in job && job.effectClass !== "read");
+          const external = Object.values(workflow.definition.spec.jobs).some((step) => "effectClass" in step && step.effectClass !== "read");
           return <QueueRow title={title} description={description} icon="lucide-workflow" tone={external ? "amber" : "blue"}
             label={`Start task: ${workflow.release.id}`}
             meta={<><Badge variant="outline" theme="gray" label={`${Object.keys(workflow.definition.spec.jobs).length} steps`} /><Badge variant="outline" theme={external ? "amber" : "blue"} label={external ? "Governed effects" : "Analysis / draft"} /><For each={recipeAgents(workflow)}>{(agent) => <Badge variant="outline" theme="gray" label={`Runs ${titleize(agent)}`} />}</For></>}
@@ -82,7 +82,7 @@ export function AgentDetail(props: { agent: AgentCatalogEntry; onBack?: () => vo
     const view = await query<{ snapshot: { items: WorkflowCatalogEntry[] }; asOf: string; sourceWatermark: number }>({ queryType: "workflows.list", workspaceId: scope.workspaceId }, signal);
     return { ...view, snapshot: [...view.snapshot.items] };
   } });
-  const related = () => (workflows.state().data ?? []).filter((item) => Object.values(item.definition.spec.jobs).some((job) => job.kind === "dispatch" && job.uses.type === "agent" && job.uses.release.digest === props.agent.release.digest));
+  const related = () => (workflows.state().data ?? []).filter((item) => Object.values(item.definition.spec.jobs).some((step) => step.kind === "dispatch" && step.uses.type === "agent" && step.uses.release.digest === props.agent.release.digest));
   const purpose = () => {
     const paragraphs = props.agent.instructions.split(/\n\s*\n/u).map((part) => part.trim()).filter(Boolean);
     return paragraphs.find((part) => !part.startsWith("#"))?.trim()

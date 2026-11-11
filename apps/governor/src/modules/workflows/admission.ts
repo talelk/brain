@@ -63,29 +63,29 @@ export function admitStep(store: Store, ports: AdmissionPorts, run: AdmissionRun
   const row = ws.prepare("SELECT state FROM workflow_steps WHERE run_id=? AND step_id=?").get(runId, stepId) as { state: string } | undefined;
   if (!row) throw new BrainDomainError("NOT_FOUND", "workflow step not found");
   if (row.state !== "pending") return SETTLED[row.state] ?? "waiting";
-  const job = run.workflow.spec.jobs[stepId];
-  if (!job) throw new BrainDomainError("INVALID_CONTRACT", `missing job ${stepId}`);
-  if (job.kind === "eval") return "waiting";
-  if (job.kind === "steer") {
-    const steered = steer(ports.host, run, job, outputs);
+  const step = run.workflow.spec.jobs[stepId];
+  if (!step) throw new BrainDomainError("INVALID_CONTRACT", `missing step ${stepId}`);
+  if (step.kind === "eval") return "waiting";
+  if (step.kind === "steer") {
+    const steered = steer(ports.host, run, step, outputs);
     ws.prepare("INSERT OR REPLACE INTO step_outputs(run_id, step_id, output_json) VALUES (?,?,?)").run(runId, stepId, JSON.stringify(steered.output));
     ws.prepare("UPDATE workflow_steps SET state=? WHERE run_id=? AND step_id=?").run(steered.ok ? "succeeded" : "failed", runId, stepId);
     outputs[stepId] = steered.output;
     return steered.ok ? "succeeded" : "failed";
   }
-  const bound = resolveBinding(job.input as unknown as Record<string, unknown>, run.input, outputs);
-  if (job.kind === "gate") {
+  const bound = resolveBinding(step.input as unknown as Record<string, unknown>, run.input, outputs);
+  if (step.kind === "gate") {
     const subject = (bound["subject"] ?? bound) as JsonValue;
     const approvalId = ports.host.createApprovalForGate({
       organizationId, workspaceId, runId, stepId, subject,
-      expiresAtMs: s.now() + ((job as { expiresAfterSeconds?: number }).expiresAfterSeconds ?? 3600) * 1000, requestedBy: run.actorId,
+      expiresAtMs: s.now() + ((step as { expiresAfterSeconds?: number }).expiresAfterSeconds ?? 3600) * 1000, requestedBy: run.actorId,
     });
     ws.prepare("UPDATE workflow_steps SET state='waiting', job_id=? WHERE run_id=? AND step_id=?").run(approvalId, runId, stepId);
-    transitionState(ws, "workflow", runId, "suspended", { rawSet: ["wait_generation=wait_generation+1"], bumpVersion: true });
+    transitionState(ws, "run", runId, "suspended", { rawSet: ["wait_generation=wait_generation+1"], bumpVersion: true });
     return "waiting";
   }
-  if (job.kind === "subgraph") {
-    const ref = (job as { workflow?: { id?: string } }).workflow?.id;
+  if (step.kind === "subgraph") {
+    const ref = (step as { workflow?: { id?: string } }).workflow?.id;
     if (!ref) throw new BrainDomainError("INVALID_CONTRACT", `subgraph ${stepId} missing workflow ref`);
     const child = ports.host.loadWorkflow(organizationId, ref);
     const { runId: childRunId } = ports.startChildRun({
@@ -96,15 +96,15 @@ export function admitStep(store: Store, ports: AdmissionPorts, run: AdmissionRun
     ws.prepare("UPDATE workflow_steps SET state='running', job_id=? WHERE run_id=? AND step_id=?").run(childRunId, runId, stepId);
     return "waiting";
   }
-  const placement = "runsOn" in job ? (job as { runsOn: unknown }).runsOn : undefined;
-  const effectClass = job.kind === "dispatch" && "effectClass" in job ? String((job as { effectClass: string }).effectClass) : "read";
+  const placement = "runsOn" in step ? (step as { runsOn: unknown }).runsOn : undefined;
+  const effectClass = step.kind === "dispatch" && "effectClass" in step ? String((step as { effectClass: string }).effectClass) : "read";
   const executionDigest = domainDigest("brain:step-exec:v1", { stepId, bound } as unknown as JsonValue);
   const jobId = ports.host.createJobForStep({
     organizationId, workspaceId, runId, stepId,
     executionKey: `${runId}:${stepId}`, configDigest: run.configDigest, runnerId: runnerPin(ws, runId),
     placementJson: JSON.stringify(placement ?? {}),
-    executionDigest, effectClass, kind: job.kind,
-    payload: { step: job as unknown as JsonValue, input: bound as unknown as JsonValue },
+    executionDigest, effectClass, kind: step.kind,
+    payload: { step: step as unknown as JsonValue, input: bound as unknown as JsonValue },
   });
   ws.prepare("UPDATE workflow_steps SET state='running', job_id=? WHERE run_id=? AND step_id=?").run(jobId, runId, stepId);
   return "waiting";
@@ -116,8 +116,8 @@ export function admitStep(store: Store, ports: AdmissionPorts, run: AdmissionRun
  * workspace, or an empty message, fails the step instead of reporting a
  * steer nobody receives.
  */
-function steer(host: WorkflowHost, run: AdmissionRun, job: Workflow["spec"]["jobs"][string], outputs: Readonly<Record<string, JsonValue>>): { output: JsonValue; ok: boolean } {
-  const { sessionFrom, messageFrom } = job as { sessionFrom: unknown; messageFrom: unknown };
+function steer(host: WorkflowHost, run: AdmissionRun, step: Workflow["spec"]["jobs"][string], outputs: Readonly<Record<string, JsonValue>>): { output: JsonValue; ok: boolean } {
+  const { sessionFrom, messageFrom } = step as { sessionFrom: unknown; messageFrom: unknown };
   try {
     const target = resolveBinding({ sessionId: sessionFrom, message: messageFrom }, run.input, outputs);
     const sessionId = target["sessionId"];

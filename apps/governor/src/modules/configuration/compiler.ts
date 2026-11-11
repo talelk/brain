@@ -60,23 +60,23 @@ export function parseRestrictedYaml(text: string, path: string): Record<string, 
 }
 
 export function compileWorkflowGraph(workflow: Workflow, label: string): readonly string[] {
-  const jobs = workflow.spec.jobs;
-  const ids = Object.keys(jobs);
-  if (ids.length === 0) throw new BrainDomainError("INVALID_CONTRACT", `${label}: workflow has no jobs`);
-  if (ids.length > 100) throw new BrainDomainError("INVALID_CONTRACT", `${label}: workflow exceeds 100 jobs`);
-  for (const [id, job] of Object.entries(jobs)) {
-    for (const need of job.needs) {
-      if (!(need in jobs)) throw new BrainDomainError("INVALID_CONTRACT", `${label}: job ${id} needs unknown job ${need}`);
+  const steps = workflow.spec.jobs;
+  const ids = Object.keys(steps);
+  if (ids.length === 0) throw new BrainDomainError("INVALID_CONTRACT", `${label}: workflow has no steps`);
+  if (ids.length > 100) throw new BrainDomainError("INVALID_CONTRACT", `${label}: workflow exceeds 100 steps`);
+  for (const [id, step] of Object.entries(steps)) {
+    for (const need of step.needs) {
+      if (!(need in steps)) throw new BrainDomainError("INVALID_CONTRACT", `${label}: step ${id} needs unknown step ${need}`);
     }
-    if (job.kind === "gate" && !("proposalFrom" in job)) throw new BrainDomainError("INVALID_CONTRACT", `${label}: gate ${id} missing proposal`);
+    if (step.kind === "gate" && !("proposalFrom" in step)) throw new BrainDomainError("INVALID_CONTRACT", `${label}: gate ${id} missing proposal`);
   }
   // Kahn topological sort, lexicographic tie-break; cycle => reject.
   const indeg = new Map<string, number>();
   const dependents = new Map<string, string[]>();
   for (const id of ids) { indeg.set(id, 0); dependents.set(id, []); }
-  for (const [id, job] of Object.entries(jobs)) {
-    indeg.set(id, job.needs.length);
-    for (const n of job.needs) dependents.get(n)?.push(id);
+  for (const [id, step] of Object.entries(steps)) {
+    indeg.set(id, step.needs.length);
+    for (const n of step.needs) dependents.get(n)?.push(id);
   }
   const order: string[] = [];
   const ready = ids.filter((id) => (indeg.get(id) ?? 0) === 0).sort();
@@ -98,7 +98,7 @@ export function compileWorkflowGraph(workflow: Workflow, label: string): readonl
   const ROOT = "\u0000root";
   const preds = new Map<string, string[]>();
   for (const id of ids) {
-    const needs = jobs[id]?.needs ?? [];
+    const needs = steps[id]?.needs ?? [];
     preds.set(id, needs.length > 0 ? [...needs] : [ROOT]);
   }
   const dom = new Map<string, Set<string>>();
@@ -123,15 +123,15 @@ export function compileWorkflowGraph(workflow: Workflow, label: string): readonl
     }
   }
   for (const id of order) {
-    const job = jobs[id];
-    if (!job) continue;
+    const step = steps[id];
+    if (!step) continue;
     const dominators = dom.get(id) ?? new Set<string>();
-    const dominatedByGate = [...dominators].some((a) => a !== id && jobs[a]?.kind === "gate");
-    if (job.kind === "dispatch" && "effectClass" in job && (job as { effectClass: string }).effectClass !== "read") {
-      if (!dominatedByGate) throw new BrainDomainError("INVALID_CONTRACT", `${label}: effect job ${id} has no dominating gate`);
+    const dominatedByGate = [...dominators].some((a) => a !== id && steps[a]?.kind === "gate");
+    if (step.kind === "dispatch" && "effectClass" in step && (step as { effectClass: string }).effectClass !== "read") {
+      if (!dominatedByGate) throw new BrainDomainError("INVALID_CONTRACT", `${label}: effect step ${id} has no dominating gate`);
     }
-    if (job.kind === "merge" && !dominatedByGate) {
-      throw new BrainDomainError("INVALID_CONTRACT", `${label}: merge job ${id} has no dominating gate`);
+    if (step.kind === "merge" && !dominatedByGate) {
+      throw new BrainDomainError("INVALID_CONTRACT", `${label}: merge step ${id} has no dominating gate`);
     }
   }
   return order;
@@ -145,10 +145,10 @@ export function assertSubgraphBounds(workflows: Readonly<Record<string, Workflow
     const wf = workflows[id];
     if (!wf) throw new BrainDomainError("INVALID_CONTRACT", `${label}: subgraph references unknown workflow ${id}`);
     let depth = 0;
-    for (const job of Object.values(wf.spec.jobs)) {
-      if (job.kind !== "subgraph") continue;
-      const ref = (job as { workflow?: { id?: string } }).workflow?.id;
-      if (!ref) throw new BrainDomainError("INVALID_CONTRACT", `${label}: subgraph job missing workflow ref`);
+    for (const step of Object.values(wf.spec.jobs)) {
+      if (step.kind !== "subgraph") continue;
+      const ref = (step as { workflow?: { id?: string } }).workflow?.id;
+      if (!ref) throw new BrainDomainError("INVALID_CONTRACT", `${label}: subgraph step missing workflow ref`);
       depth = Math.max(depth, 1 + depthOf(ref, new Set([...visiting, id])));
     }
     return depth;
@@ -324,20 +324,20 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
     if (!agents[instruction.agentId]) throw new BrainDomainError("INVALID_CONTRACT", "instruction asset names an undeclared Agent");
   }
   assertSubgraphBounds(workflows, sourceRevision);
-  for (const workflow of Object.values(workflows)) for (const job of Object.values(workflow.spec.jobs)) {
-    if (job.kind === "dispatch" && job.uses.type === "agent") {
-      for (const path of [workflow.spec.inputSchemaRef, workflow.spec.outputSchemaRef, job.outputSchemaRef]) {
+  for (const workflow of Object.values(workflows)) for (const step of Object.values(workflow.spec.jobs)) {
+    if (step.kind === "dispatch" && step.uses.type === "agent") {
+      for (const path of [workflow.spec.inputSchemaRef, workflow.spec.outputSchemaRef, step.outputSchemaRef]) {
         if (!schemaMap[path]) throw new BrainDomainError("INVALID_CONTRACT", `agent workflow schema asset missing: ${path}`);
       }
-      const ref = job.uses.release;
+      const ref = step.uses.release;
       const agent = agents[ref.id];
-      if (agent && job.runsOn.engine && !agent.spec.engine.anyOf.some((id)=>job.runsOn.engine!.anyOf.includes(id))) throw new BrainDomainError("INVALID_CONTRACT","workflow and agent engine requirements do not intersect");
+      if (agent && step.runsOn.engine && !agent.spec.engine.anyOf.some((id)=>step.runsOn.engine!.anyOf.includes(id))) throw new BrainDomainError("INVALID_CONTRACT","workflow and agent engine requirements do not intersect");
       if (!agents[ref.id] || !entries.some((entry) => entry.kind === "Agent" && entry.id === ref.id && entry.digest === ref.digest)) {
         throw new BrainDomainError("INVALID_CONTRACT", `agent ${ref.id} must match an immutable document in this release`);
       }
     }
-    if (job.kind !== "eval") continue;
-    if (!evaluators[job.evaluator.id] || !entries.some((entry) => entry.kind === "Evaluator" && entry.id === job.evaluator.id && entry.digest === job.evaluator.digest)) throw new BrainDomainError("INVALID_CONTRACT", `evaluator ${job.evaluator.id} must match an immutable document in this release`);
+    if (step.kind !== "eval") continue;
+    if (!evaluators[step.evaluator.id] || !entries.some((entry) => entry.kind === "Evaluator" && entry.id === step.evaluator.id && entry.digest === step.evaluator.digest)) throw new BrainDomainError("INVALID_CONTRACT", `evaluator ${step.evaluator.id} must match an immutable document in this release`);
   }
   // Conversation inference is allowed before task confirmation. Its reserved
   // helper must therefore stay tool-free with only independent read validation.

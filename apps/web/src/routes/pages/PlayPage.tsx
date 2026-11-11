@@ -128,7 +128,7 @@ function TaskDetail(props: { title: string; workflow: WorkflowCatalogEntry; agen
   const [error, setError] = createSignal("");
   const agents = () => {
     const ids = new Set<string>();
-    for (const job of Object.values(props.workflow.definition.spec.jobs)) if (job.kind === "dispatch" && job.uses.type === "agent") ids.add(job.uses.release.id);
+    for (const step of Object.values(props.workflow.definition.spec.jobs)) if (step.kind === "dispatch" && step.uses.type === "agent") ids.add(step.uses.release.id);
     return [...ids].map((agentId) => ({ memberId: agentId, role: titleize(agentId), agentId }));
   };
   const handoff = (target: TaskHandoff) => {

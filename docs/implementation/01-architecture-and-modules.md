@@ -72,7 +72,7 @@ The canonical layout is [module-layout.json](../../contracts/v1/module-layout.js
 | `apps/launcher` | Trusted rootless Docker launcher, fixed profiles and cleanup journal | `src/main.ts; Unix HTTP protocol` | Arbitrary Docker passthrough; product business decisions |
 | `apps/web` | Solid/NewUI SPA, domain compositions in src/ui, Governor client and route state | `src/app.tsx; src/index.css` | Server imports; NewUI internals; direct database access |
 | `apps/cli` | Thin typed Governor client, human login and output formatting | `src/main.ts` | Direct database or module-private access |
-| `packages/contracts` | Canonical generated DTOs, validators and wire catalogs shared by executable consumers | `src/index.ts; src/validate.ts` | Vendor SDKs; database IO; application authorization |
+| `packages/contracts` | Canonical generated DTOs, validators and wire catalogs shared by executable consumers | `src/index.ts; src/validate.ts; src/machines.ts` | Vendor SDKs; database IO; application authorization |
 
 Governor module folders share this one deployment:
 

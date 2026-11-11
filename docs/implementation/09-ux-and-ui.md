@@ -15,11 +15,14 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 <!-- BEGIN GENERATED ROUTES -->
 | Route | Main area | Primary task | Essential content |
 |---|---|---|---|
+| `/w/:id/today` | today | Say what you want done, then act on what needs you | intent, play, reuse, attention, mission |
 | `/w/:id/missions` | missions | Act on what needs you, then open a mission | attention, tier, mission, state, spend |
 | `/w/:id/missions/new` | missions | Start a mission from a play or a description | play, intent, criteria, constraints, autonomy, budget |
 | `/missions/:missionId/:tab` | missions | Follow and steer one mission | live, team, plan, brief, logs, outputs |
+| `/w/:id/library` | library | See everything Brain can reuse in one place: documents, knowledge, Plays and tools, and what is waiting for review | counts, review, documents, plays, tools |
 | `/w/:id/plays` | plays | Start a mission from a play, run a single task, or describe the work | play, task, describe, origin, review |
 | `/plays/:id` | plays | Review a play or single task, its schedules and history, then start it | brief, team, plan, inputs, schedules, history |
+| `/w/:id/schedules` | schedules | Manage every schedule in one place: what it starts, when it fires next, which host runs it | schedules, history, execution host |
 | `/administration/workspaces` | administration | Manage workspaces | workspace, state, counts |
 | `/w/:id/live` | live | Run, steer and inspect live agent sessions without losing session state | sessions, console, outputs, controls, mission |
 | `/w/:id/logs` | logs | Search execution and platform logs and jump between correlated contexts | records, filters, search, correlation, runs, state |
@@ -28,7 +31,7 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/outputs/:id/compare` | outputs | Compare two versions of an output with their provenance | diff, provenance |
 | `/approvals` | missions | Review exact proposed effects and recover submitted decisions | action, workspace, target, expiry, evidence |
 | `/approvals/:id` | missions | Review exact proposed effects and recover submitted decisions | exactContent, precondition, subjectDigest, history |
-| `/runs/:id` | live | Inspect one run's state, attempts, evidence and links without duplicating the console, logs or outputs | state, attempts, blocker, evidence |
+| `/runs/:id` | live | Inspect one run's state, attempts, evidence and links without duplicating the console, logs or outputs | state, attempts, blocker, evidence, context |
 | `/runners` | live | Inspect a run, its attempts, events and evidence | group, trust, health, capacity, freshness |
 | `/runners/:id` | live | Inspect a run, its attempts, events and evidence | capabilities, attempts, reservations |
 | `/sessions/:id` | live | Open one session in the Live console: active and historical are state, not layout | console, task, usage, context |
@@ -37,13 +40,15 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/w/:id/plays/sre` | plays | Review workspace work and pack details | severity, target, state, freshness |
 | `/incidents/:id` | plays | Review workspace work and pack details | observations, remediation, evidence |
 | `/w/:id/knowledge` | knowledge | Find scoped knowledge, documents and trusted tools | source, scope, freshness, review, capitalization, provenance, candidateTests, releaseGate, documents, tools |
-| `/w/:id/knowledge/review` | knowledge | Review knowledge and capability candidates | runs, assets, candidates, decision |
+| `/w/:id/knowledge/review` | knowledge | Approve what Brain learned from finished missions, and review tool candidates | runs, assets, candidates, decision |
 | `/settings` | administration | Manage explicitly authorized administration | members, people, invitations, access, authenticationPolicy, audit, health |
 | `/accept-invitation/:id` | administration | Verify an invited account and accept organization membership | invitedSignUp, emailVerification, explicitAcceptance |
 | `/tv/:play` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
 | `/studio/:kind` | knowledge | Create and validate a capability without editing YAML | definitions, drafts, validation, dependencies |
 | `/studio/:kind/:draftId` | knowledge | Edit, test, review and publish an immutable definition | editor, diagnostics, diff, tests, publication |
+| `/quality` | administration | See whether Brain is getting better | metric, definition, window, failure |
 | `/administration/integrations` | administration | Connect Git providers and bind repositories to workspaces | providers, organizations, repositories, permissions, webhooks, status |
+| `/shared/:token` | outputs | Read one shared result without signing in: read-only, expiring, revocable (ADR 0013) | result |
 <!-- END GENERATED ROUTES -->
 
 Routes use immutable object IDs; workspace slug is presentation only. Cross-workspace links check access before displaying data. Deep links preserve selected workspace, filters and view; Back returns to list position. Global search is permission-filtered and uses typed categories.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { STATE_MACHINES, canTransition, isTerminal } from "@brain/contracts";
+import { STATE_MACHINES, canTransition, isTerminal, machineStates } from "@brain/contracts";
+import schema from "../../contracts/v1/brain.schema.json";
 import { assertTransition, assertExpectedVersion } from "../../apps/governor/src/domain/states";
 import { evaluateRunner, fits, available, type RunnerView } from "../../apps/governor/src/domain/placement";
 import { compileWorkflowGraph, compileRelease, parseRestrictedYaml } from "../../apps/governor/src/modules/configuration/index";
@@ -20,6 +21,13 @@ describe("domain states (T03)", () => {
     expect(() => assertTransition("job", "succeeded", "running")).toThrow();
     expect(() => assertExpectedVersion(3, 2)).toThrow();
     assertExpectedVersion(3, 3);
+  });
+
+  it("run state has one definition: the schema enum equals the run machine's states", () => {
+    const defs = (schema as unknown as { $defs: Record<string, { enum?: string[] }> }).$defs;
+    expect(defs["WorkflowState"]).toBeUndefined();
+    expect(defs["WorkflowRunState"]).toBeUndefined();
+    expect([...(defs["RunState"]?.enum ?? [])].sort()).toEqual([...machineStates("run")].sort());
   });
 
   it("placement denies expired/unverified capabilities distinctly (E034/E035)", () => {

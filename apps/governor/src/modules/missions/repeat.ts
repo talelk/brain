@@ -41,13 +41,13 @@ export function effectfulStep(workflows: Readonly<Record<string, Workflow>>, wor
   if (!workflow) return `workflow ${workflowId} is not in the active release`;
   if (seen.has(workflowId) || depth > 6) return undefined;
   seen.add(workflowId);
-  for (const [name, job] of Object.entries(workflow.spec.jobs)) {
-    if (job.kind === "gate") return `step ${name} of ${workflowId} waits for an approval`;
-    if (job.kind === "merge") return `step ${name} of ${workflowId} merges changes`;
-    if (job.kind === "dispatch" && job.effectClass !== "read") return `step ${name} of ${workflowId} can ${job.effectClass === "write" ? "write" : "act with privileges"}`;
-    if (job.kind === "steer") return `step ${name} of ${workflowId} steers a live session`;
-    if (job.kind === "subgraph") {
-      const inner = effectfulStep(workflows, job.workflow.id, seen, depth + 1);
+  for (const [name, step] of Object.entries(workflow.spec.jobs)) {
+    if (step.kind === "gate") return `step ${name} of ${workflowId} waits for an approval`;
+    if (step.kind === "merge") return `step ${name} of ${workflowId} merges changes`;
+    if (step.kind === "dispatch" && step.effectClass !== "read") return `step ${name} of ${workflowId} can ${step.effectClass === "write" ? "write" : "act with privileges"}`;
+    if (step.kind === "steer") return `step ${name} of ${workflowId} steers a live session`;
+    if (step.kind === "subgraph") {
+      const inner = effectfulStep(workflows, step.workflow.id, seen, depth + 1);
       if (inner) return inner;
     }
   }

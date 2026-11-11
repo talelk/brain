@@ -28,7 +28,7 @@ export interface JobSnapshotView {
   attempts: JobAttemptView[];
   configDigest: string;
   createdAt: string;
-  workflowState?: string;
+  runState?: string;
   /** The Governor is restarting an interrupted read-only step by itself: the run is not running right now, and nobody needs to act. */
   restarting?: boolean;
   workflowTitle?: string;
@@ -60,7 +60,7 @@ export function jobSnapshot(store: Store, row: Record<string, unknown>): JobSnap
   const ws = store.workspaceDb(String(row["workspace_id"]), String(row["organization_id"]));
   const boundSession = ws.prepare("SELECT id FROM sessions WHERE job_id=? ORDER BY updated_at_ms DESC LIMIT 1").get(String(row["id"])) as { id: string } | undefined;
   const runId = String(row["workflow_run_id"]);
-  const workflowState = ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string } | undefined;
+  const runState = ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string } | undefined;
   const workflow = ws.prepare("SELECT json_extract(workflow_json,'$.spec.presentation.title') AS title,json_extract(workflow_json,'$.metadata.id') AS id FROM run_inputs WHERE run_id=?").get(runId) as { title: string | null; id: string } | undefined;
   const origin = ws.prepare("SELECT origin_json FROM task_drafts WHERE run_id=? AND origin_json IS NOT NULL LIMIT 1").get(runId) as { origin_json: string } | undefined;
   const outputs = ws.prepare("SELECT step_id,output_json FROM step_outputs WHERE run_id=?").all(runId) as { step_id: string; output_json: string }[];
@@ -84,7 +84,7 @@ export function jobSnapshot(store: Store, row: Record<string, unknown>): JobSnap
     })),
     configDigest: String(row["config_digest"]),
     createdAt: iso(Number(row["created_at_ms"])),
-    ...(workflowState ? { workflowState: workflowState.state } : {}),
+    ...(runState ? { runState: runState.state } : {}),
     ...(isRestarting(store, row) ? { restarting: true } : {}),
     ...(workflow ? { workflowTitle: workflow.title ?? workflow.id.replaceAll("-", " ") } : {}),
     ...(origin ? { origin: JSON.parse(origin.origin_json) as JsonValue } : {}),

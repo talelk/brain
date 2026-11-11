@@ -24,7 +24,7 @@ interface DraftDetails {
   impact: DraftImpact;
 }
 interface ReleaseSummary { digest: string; active: boolean }
-interface JobRow { id: string; kind: string; needs: string; value: Record<string, unknown> }
+interface StepRow { id: string; kind: string; needs: string; value: Record<string, unknown> }
 
 export function StudioListPage(): JSX.Element {
   const app = useApp();
@@ -67,7 +67,7 @@ export function StudioListPage(): JSX.Element {
           options={[{ value: "Agent", label: "Agents" }, { value: "Workflow", label: "Workflows" }, { value: "Play", label: "Plays" }]} />
       </div>
       <Show when={kind() === "Agent"}><AgentCatalog /></Show>
-      <FormSheet open={createOpen()} onClose={() => setCreateOpen(false)} title="New draft" centered description={kind() === "Workflow" ? "Start with visual jobs or restricted YAML. Publication never edits the active release directly." : kind() === "Agent" ? "Start with the agent contract and versioned instructions, then validate the complete release before publication." : "Author a reviewed definition with restricted YAML, validation, diff and explicit publication."}
+      <FormSheet open={createOpen()} onClose={() => setCreateOpen(false)} title="New draft" centered description={kind() === "Workflow" ? "Start with visual steps or restricted YAML. Publication never edits the active release directly." : kind() === "Agent" ? "Start with the agent contract and versioned instructions, then validate the complete release before publication." : "Author a reviewed definition with restricted YAML, validation, diff and explicit publication."}
         submit="Create draft" icon="lucide-plus" busy={busy()} onSubmit={create} error={error()} errorTitle="Draft creation failed">
         <TextInput label="Definition title" required value={title()} onInput={(event) => setTitle(event.currentTarget.value)} error={attempted() && !title().trim() ? "Give the draft a title." : undefined} placeholder="Operations workflow" />
       </FormSheet>
@@ -92,7 +92,7 @@ export function StudioEditorPage(): JSX.Element {
   const draftId = () => params.draftId ?? "";
   const [content, setContent] = createSignal("");
   const [instructions, setInstructions] = createSignal("");
-  const [jobs, setJobs] = createSignal<JobRow[]>([]);
+  const [steps, setSteps] = createSignal<StepRow[]>([]);
   const [mode, setMode] = createSignal<"visual" | "yaml">("visual");
   const [dirty, setDirty] = createSignal(false);
   const [bindingId, setBindingId] = createSignal("");
@@ -127,19 +127,19 @@ export function StudioEditorPage(): JSX.Element {
     setBindingId(detail.state().data?.draft.bindingId ?? "");
     try {
       const value = parse(document.text) as { spec?: { jobs?: Record<string, Record<string, unknown>> } };
-      setJobs(Object.entries(value.spec?.jobs ?? {}).map(([id, job]) => ({ id, kind: String(job["kind"] ?? "dispatch"), needs: Array.isArray(job["needs"]) ? job["needs"].join(", ") : "", value: job })));
-    } catch { setJobs([]); }
+      setSteps(Object.entries(value.spec?.jobs ?? {}).map(([id, step]) => ({ id, kind: String(step["kind"] ?? "dispatch"), needs: Array.isArray(step["needs"]) ? step["needs"].join(", ") : "", value: step })));
+    } catch { setSteps([]); }
   });
 
-  function updateJob(index: number, field: "id" | "kind" | "needs", value: string): void {
+  function updateStep(index: number, field: "id" | "kind" | "needs", value: string): void {
     setDirty(true);
-    setJobs((rows) => rows.map((row, position) => position === index ? { ...row, [field]: value } : row));
+    setSteps((rows) => rows.map((row, position) => position === index ? { ...row, [field]: value } : row));
   }
 
-  function applyJobs(): void {
+  function applySteps(): void {
     const value = parse(content()) as { spec?: { jobs?: Record<string, Record<string, unknown>> } };
     value.spec ??= {};
-    value.spec.jobs = Object.fromEntries(jobs().map((row) => [row.id, { ...row.value, kind: row.kind, needs: row.needs.split(",").map((need) => need.trim()).filter(Boolean) }]));
+    value.spec.jobs = Object.fromEntries(steps().map((row) => [row.id, { ...row.value, kind: row.kind, needs: row.needs.split(",").map((need) => need.trim()).filter(Boolean) }]));
     setContent(stringify(value));
     setDirty(true);
   }
@@ -149,7 +149,7 @@ export function StudioEditorPage(): JSX.Element {
     if (!draft || busy()) return;
     setBusy(true); setError("");
     try {
-      if (mode() === "visual") applyJobs();
+      if (mode() === "visual") applySteps();
       const revision = current()!;
       const updated = await app.run("configDraft.update", {
         draftId: draft.draftId, source: mode(), documents: [{ path: revision.documents[0]!.path, text: content() }, ...revision.documents.slice(1)],
@@ -205,17 +205,17 @@ export function StudioEditorPage(): JSX.Element {
       <Show when={error()}><Alert theme="red" variant="outline" title="Studio action failed" description={error()} /></Show>
       <ScreenRegion state={detail.state()} onRetry={() => void detail.refresh()} emptyTitle="Draft not found" emptyDescription="The draft may belong to another workspace or no longer exist.">
         <div class="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <Section title="Definition editor" description={detail.state().data?.draft.kind === "Workflow" ? "Visual jobs use canonical spec.jobs. Advanced YAML follows the same restricted grammar." : "The restricted declaration and pinned assets remain immutable once published."} surface="card" density="compact" class="p-3 sm:p-4">
-            <Show when={detail.state().data?.draft.kind === "Workflow"}><div class="mb-2 flex flex-wrap gap-1.5"><Button size="sm" variant={mode() === "visual" ? "solid" : "outline"} onClick={() => setMode("visual")}>Visual jobs</Button><Button size="sm" variant={mode() === "yaml" ? "solid" : "outline"} onClick={() => setMode("yaml")}>Advanced YAML</Button></div></Show>
+          <Section title="Definition editor" description={detail.state().data?.draft.kind === "Workflow" ? "Visual steps are stored under the canonical spec.jobs key. Advanced YAML follows the same restricted grammar." : "The restricted declaration and pinned assets remain immutable once published."} surface="card" density="compact" class="p-3 sm:p-4">
+            <Show when={detail.state().data?.draft.kind === "Workflow"}><div class="mb-2 flex flex-wrap gap-1.5"><Button size="sm" variant={mode() === "visual" ? "solid" : "outline"} onClick={() => setMode("visual")}>Visual steps</Button><Button size="sm" variant={mode() === "yaml" ? "solid" : "outline"} onClick={() => setMode("yaml")}>Advanced YAML</Button></div></Show>
             <Show when={mode() === "visual"} fallback={<Textarea label="Restricted YAML" value={content()} onInput={(event) => { setContent(event.currentTarget.value); setDirty(true); }} class="min-h-[28rem] min-w-0 max-w-full font-mono text-caption" />}>
-              <div class="min-w-0 divide-y divide-outline-gray-1 border-y border-outline-gray-1"><For each={jobs()}>{(job, index) => <div class="grid min-w-0 gap-2 py-3 first:pt-0 last:pb-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] lg:items-end">
-                <TextInput label="Job id" value={job.id} onInput={(event) => updateJob(index(), "id", event.currentTarget.value)} />
-                <Select label="Kind" value={job.kind} options={["dispatch", "gate", "eval", "merge", "subgraph", "steer"].map((value) => ({ value, label: value }))} onValueChange={(value) => updateJob(index(), "kind", value ?? "dispatch")} />
-                <TextInput label="Needs (comma separated)" value={job.needs} onInput={(event) => updateJob(index(), "needs", event.currentTarget.value)} />
-                <Button size="sm" class="justify-self-start" variant="ghost" theme="red" iconLeft="lucide-x" onClick={() => { setJobs((rows) => rows.filter((_row, position) => position !== index())); setDirty(true); }}>Remove job</Button>
+              <div class="min-w-0 divide-y divide-outline-gray-1 border-y border-outline-gray-1"><For each={steps()}>{(step, index) => <div class="grid min-w-0 gap-2 py-3 first:pt-0 last:pb-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] lg:items-end">
+                <TextInput label="Step id" value={step.id} onInput={(event) => updateStep(index(), "id", event.currentTarget.value)} />
+                <Select label="Kind" value={step.kind} options={["dispatch", "gate", "eval", "merge", "subgraph", "steer"].map((value) => ({ value, label: value }))} onValueChange={(value) => updateStep(index(), "kind", value ?? "dispatch")} />
+                <TextInput label="Needs (comma separated)" value={step.needs} onInput={(event) => updateStep(index(), "needs", event.currentTarget.value)} />
+                <Button size="sm" class="justify-self-start" variant="ghost" theme="red" iconLeft="lucide-x" onClick={() => { setSteps((rows) => rows.filter((_row, position) => position !== index())); setDirty(true); }}>Remove job</Button>
               </div>}</For></div>
-              <Show when={!jobs().length}><p class="py-3 text-caption text-ink-gray-6">No jobs defined. Add a job or use Advanced YAML.</p></Show>
-              <Button size="sm" class="mt-2" variant="outline" iconLeft="lucide-plus" onClick={() => { setJobs((rows) => [...rows, { id: `job-${rows.length + 1}`, kind: "dispatch", needs: "", value: {} }]); setDirty(true); }}>Add job</Button>
+              <Show when={!steps().length}><p class="py-3 text-caption text-ink-gray-6">No steps defined. Add a step or use Advanced YAML.</p></Show>
+              <Button size="sm" class="mt-2" variant="outline" iconLeft="lucide-plus" onClick={() => { setSteps((rows) => [...rows, { id: `step-${rows.length + 1}`, kind: "dispatch", needs: "", value: {} }]); setDirty(true); }}>Add step</Button>
             </Show>
             <Show when={detail.state().data?.draft.kind === "Agent"}><div class="mt-3 border-t border-outline-gray-1 pt-3"><Textarea label="Versioned instructions (Markdown)" value={instructions()} onInput={(event) => { setInstructions(event.currentTarget.value); setDirty(true); }} class="min-h-64 min-w-0 max-w-full" /><p class="mt-2 text-caption text-ink-gray-6">Attempts keep their pinned instructions and tools. This candidate has no effect until its exact release is activated.</p></div></Show>
             <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-outline-gray-1 pt-3"><Button size="sm" variant="solid" theme="blue" loading={busy()} disabled={busy() || !dirty()} onClick={() => void save()}>Save immutable revision</Button><Show when={dirty()}><Badge size="sm" theme="amber" label="unsaved" /></Show></div>

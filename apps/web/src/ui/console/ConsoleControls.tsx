@@ -247,7 +247,7 @@ export function InterruptionChooser(props: {
 /** Evidence exists only once the work has ended; while it runs, "no evidence" is expected, not a problem. */
 const checkable = (job: JobSnapshot | undefined, session: SessionDetail | undefined): boolean =>
   !!job?.evidenceDigest || session?.state === "stopped" || session?.state === "failed"
-  || ["succeeded", "failed", "cancelled", "outcome_unknown"].includes(job?.workflowState ?? job?.state ?? "");
+  || ["succeeded", "failed", "cancelled", "outcome_unknown"].includes(job?.runState ?? job?.state ?? "");
 
 /** Right pane: the session's facts and usage, its outputs, and the independent verification. */
 export function ConsoleInspection(props: {

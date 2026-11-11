@@ -208,8 +208,8 @@ export class TaskExperience {
       return { missionId, runId: row.run_id, state: "ready", planVersionId: row.plan_version_id, plan: plan.snapshot };
     }
     if (row.state === "failed") return { missionId, runId: row.run_id, state: "failed", ...(row.error ? { error: row.error } : {}) };
-    const run = await this.host.query(actor, { queryType: "job.get", workspaceId, resourceId: row.run_id }) as unknown as { snapshot: { workflowState?: string; runOutputs?: Record<string, JsonValue> } };
-    if (run.snapshot.workflowState === "succeeded") {
+    const run = await this.host.query(actor, { queryType: "job.get", workspaceId, resourceId: row.run_id }) as unknown as { snapshot: { runState?: string; runOutputs?: Record<string, JsonValue> } };
+    if (run.snapshot.runState === "succeeded") {
       const output = run.snapshot.runOutputs?.["propose"] as { summary?: string; tasks?: PlanTask[] } | undefined;
       try {
         if (!output?.tasks) throw new BrainDomainError("INVALID_CONTRACT", "plan assistant returned no task list");
@@ -229,7 +229,7 @@ export class TaskExperience {
         return { missionId, runId: row.run_id, state: "failed", error: message };
       }
     }
-    if (["failed", "cancelled", "partial", "blocked"].includes(run.snapshot.workflowState ?? "")) {
+    if (["failed", "cancelled", "partial", "blocked"].includes(run.snapshot.runState ?? "")) {
       const retried = await this.retryPlanOnce(actor, workspaceId, missionId, row.run_id);
       if (retried) return retried;
       const error = "Brain could not draft a validated plan after two tries. Try again, or add the tasks yourself.";
@@ -261,8 +261,8 @@ export class TaskExperience {
     if (!db.prepare("SELECT 1 FROM conversations WHERE id=? AND actor_id=?").get(id, actor.actorId)) throw new BrainDomainError("NOT_FOUND", "Conversation not found");
     const rows = db.prepare("SELECT * FROM conversation_messages WHERE conversation_id=? ORDER BY created_at_ms,id LIMIT 100").all(id) as MessageRow[];
     for (const row of rows.filter((message) => message.role === "assistant" && message.state === "pending" && message.run_id)) {
-      const run = await this.host.query(actor, { queryType: "job.get", workspaceId, resourceId: row.run_id }) as unknown as { snapshot: { workflowState?: string; runOutputs?: Record<string, JsonValue> } };
-      if (run.snapshot.workflowState === "succeeded") {
+      const run = await this.host.query(actor, { queryType: "job.get", workspaceId, resourceId: row.run_id }) as unknown as { snapshot: { runState?: string; runOutputs?: Record<string, JsonValue> } };
+      if (run.snapshot.runState === "succeeded") {
         const output = run.snapshot.runOutputs?.["respond"] as { reply?: unknown; workflowId?: unknown; input?: JsonValue; questions?: unknown } | undefined;
         let text = typeof output?.reply === "string" ? output.reply.slice(0, 2000) : "Choose a task from the catalog to continue.";
         if (Array.isArray(output?.questions)) text += "\n" + output.questions.filter((value): value is string => typeof value === "string").slice(0, 3).join("\n");
@@ -272,7 +272,7 @@ export class TaskExperience {
           catch (error) { if (!(error instanceof BrainDomainError) || !["INVALID_ARGUMENT", "NOT_FOUND", "FORBIDDEN"].includes(error.code)) throw error; text += "\nMore input is needed before a task can be prepared. You can also choose the task and complete its form."; }
         }
         db.prepare("UPDATE conversation_messages SET state='done',text=?,draft_id=? WHERE id=? AND state='pending'").run(text, draftId ?? null, row.id);
-      } else if (["failed", "cancelled", "partial", "blocked"].includes(run.snapshot.workflowState ?? "")) {
+      } else if (["failed", "cancelled", "partial", "blocked"].includes(run.snapshot.runState ?? "")) {
         db.prepare("UPDATE conversation_messages SET state='failed',text=? WHERE id=?").run("Brain could not prepare a verified proposal. You can choose a task directly, or send a new message after checking the model connection.", row.id);
       }
     }

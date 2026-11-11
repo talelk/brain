@@ -118,7 +118,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     s.inTx(ws, () => {
       ws.prepare("UPDATE workflow_steps SET state=? WHERE run_id=? AND step_id=?").run(approved ? "succeeded" : "failed", row.run_id, row.step_id);
       ws.prepare("INSERT OR REPLACE INTO step_outputs(run_id, step_id, output_json) VALUES (?,?,?)").run(row.run_id, row.step_id, JSON.stringify({ approved }));
-      transitionState(ws, "workflow", row.run_id, approved ? "running" : "failed", { bumpVersion: true });
+      transitionState(ws, "run", row.run_id, approved ? "running" : "failed", { bumpVersion: true });
     });
     if (approved) this.admit(organizationId, workspaceId, row.run_id);
     this.track(this.drive(organizationId, workspaceId, row.run_id, "resume", row.step_id));
@@ -126,7 +126,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
 
   cancelRun(organizationId: string, workspaceId: string, runId: string): void {
     const ws = this.store.workspaceDb(workspaceId, organizationId);
-    bulkTransition(ws, "workflow", "cancelled", { and: { id: runId }, bumpVersion: true });
+    bulkTransition(ws, "run", "cancelled", { and: { id: runId }, bumpVersion: true });
     ws.prepare("UPDATE workflow_steps SET state='skipped' WHERE run_id=? AND state='pending'").run(runId);
     const pending = this.runs.get(runId);
     if (pending) this.track(pending.then((run) => run.cancel?.()).catch(() => undefined));
@@ -151,7 +151,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
       }
       ws.prepare("INSERT OR REPLACE INTO step_outputs(run_id, step_id, output_json) VALUES (?,?,?)").run(runId, stepId, JSON.stringify(output));
       ws.prepare("UPDATE workflow_steps SET state=?,output_digest=? WHERE run_id=? AND step_id=?").run(ok ? "succeeded" : "failed", digest, runId, stepId);
-      if (!ok) failedNow = transitionState(ws, "workflow", runId, "failed", { bumpVersion: true });
+      if (!ok) failedNow = transitionState(ws, "run", runId, "failed", { bumpVersion: true });
     });
     if (failedNow) this.host.runFailed({ organizationId, workspaceId, runId, diagnostic: `Step ${stepId} failed` });
   }
@@ -172,11 +172,11 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     const outputs = this.readOutputs(workspaceId, organizationId, runId);
     for (const stepId of order) {
       const row = byId.get(stepId);
-      const job = workflow.spec.jobs[stepId];
-      if (!row || !job) continue;
+      const declared = workflow.spec.jobs[stepId];
+      if (!row || !declared) continue;
       if (row.state === "succeeded") continue;
-      const needsDone = job.needs.every((n) => byId.get(n)?.state === "succeeded");
-      const needsFailed = job.needs.some((n) => ["failed", "cancelled", "skipped"].includes(byId.get(n)?.state ?? ""));
+      const needsDone = declared.needs.every((n) => byId.get(n)?.state === "succeeded");
+      const needsFailed = declared.needs.some((n) => ["failed", "cancelled", "skipped"].includes(byId.get(n)?.state ?? ""));
       if (needsFailed && row.state === "pending") {
         ws.prepare("UPDATE workflow_steps SET state='skipped' WHERE run_id=? AND step_id=?").run(runId, stepId);
         byId.set(stepId, { ...row, state: "skipped" });
@@ -184,7 +184,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
       }
       if (!needsDone) continue;
       if (row.state !== "pending") continue;
-      if (job.kind === "eval") continue; // admitted by evidenceSubmitted
+      if (declared.kind === "eval") continue; // admitted by evidenceSubmitted
       const admitted = admitStep(s, this.admission, run, stepId, outputs);
       byId.set(stepId, { ...row, state: admitted === "waiting" ? "running" : admitted });
       // One active step at a time; a steer completes synchronously and
@@ -194,7 +194,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     const refreshed = ws.prepare("SELECT state FROM workflow_steps WHERE run_id=?").all(runId) as Array<{ state: string }>;
     if (refreshed.length > 0 && refreshed.every((r) => r.state === "succeeded" || r.state === "skipped")) {
       const anySkipped = refreshed.some((r) => r.state === "skipped");
-      transitionState(ws, "workflow", runId, anySkipped ? "partial" : "succeeded", { bumpVersion: true });
+      transitionState(ws, "run", runId, anySkipped ? "partial" : "succeeded", { bumpVersion: true });
       if (!anySkipped) this.host.runSucceeded({ organizationId, workspaceId, runId });
     }
   }
@@ -307,7 +307,7 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
         if (!["succeeded", "failed", "cancelled", "partial"].includes(state)) return;
       }
       const ws = this.store.workspaceDb(workspaceId, organizationId);
-      bulkTransition(ws, "workflow", "blocked", { and: { id: runId }, bumpVersion: true });
+      bulkTransition(ws, "run", "blocked", { and: { id: runId }, bumpVersion: true });
       if (process.env["BRAIN_DEBUG_ENGINE"]) console.error(`[mastra-engine] drive ${mode} ${runId} failed`, e);
     }
   }
@@ -322,9 +322,9 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
       if (mastraStatus === "success") {
         const steps = ws.prepare("SELECT state FROM workflow_steps WHERE run_id=?").all(runId) as Array<{ state: string }>;
         const anySkipped = steps.some((r) => r.state === "skipped");
-        transitionState(ws, "workflow", runId, anySkipped ? "partial" : "succeeded", { bumpVersion: true });
+        transitionState(ws, "run", runId, anySkipped ? "partial" : "succeeded", { bumpVersion: true });
       } else {
-        transitionState(ws, "workflow", runId, "failed", { bumpVersion: true });
+        transitionState(ws, "run", runId, "failed", { bumpVersion: true });
         failed = true;
       }
     }
@@ -402,9 +402,9 @@ export class MastraWorkflowEngine implements WorkflowEnginePort {
     const loose = () => z.unknown();
     let builder: unknown = createWorkflow({ id: mastraWorkflowId, inputSchema: loose(), outputSchema: loose() } as never);
     for (const stepId of order) {
-      const job = workflow.spec.jobs[stepId];
-      if (!job) throw new BrainDomainError("INVALID_CONTRACT", `missing job ${stepId}`);
-      const suspendable = job.kind !== "steer";
+      const declared = workflow.spec.jobs[stepId];
+      if (!declared) throw new BrainDomainError("INVALID_CONTRACT", `missing step ${stepId}`);
+      const suspendable = declared.kind !== "steer";
       const step = createStep({
         id: stepId,
         inputSchema: loose(),

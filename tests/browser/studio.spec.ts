@@ -35,7 +35,7 @@ test("studio: edit spec.jobs, validate, publish exact commit and activate separa
     await page.getByLabel(/^Definition title/).fill("Browser Workflow");
     await page.getByRole("dialog").getByRole("button", { name: "Create draft", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Browser Workflow", exact: true, level: 1 })).toBeVisible();
-    await page.getByLabel("Job id", { exact: true }).fill("audit");
+    await page.getByLabel("Step id", { exact: true }).fill("audit");
     await page.getByRole("button", { name: "Save immutable revision", exact: true }).click();
     await expect(page.getByText("unsaved", { exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: "Validate", exact: true }).click();

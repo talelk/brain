@@ -31,7 +31,7 @@ export const MACHINE_TABLE: Readonly<Record<string, { table: string; key: string
   attempt: { table: "job_attempts", key: "id" },
   approval: { table: "approval_requests", key: "id" },
   evidence: { table: "evidence_bundles", key: "digest" },
-  workflow: { table: "workflow_runs", key: "id" },
+  run: { table: "workflow_runs", key: "id" },
   mission: { table: "missions", key: "id" },
   planVersion: { table: "plan_versions", key: "id" },
   workItem: { table: "work_items", key: "id" },

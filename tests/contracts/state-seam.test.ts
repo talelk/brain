@@ -127,7 +127,7 @@ describe("state-machine seam", () => {
   it("bulkTransition honours extra CAS predicates", () => {
     const db = freshDb();
     db.prepare("INSERT INTO workflow_runs(id,state) VALUES('r1','running'),('r2','running'),('r3','succeeded')").run();
-    expect(bulkTransition(db, "workflow", "cancelled", { and: { id: "r1" }, bumpVersion: true })).toBe(1);
+    expect(bulkTransition(db, "run", "cancelled", { and: { id: "r1" }, bumpVersion: true })).toBe(1);
     expect(db.prepare("SELECT state FROM workflow_runs WHERE id='r1'").get()).toEqual({ state: "cancelled" });
     expect(db.prepare("SELECT state FROM workflow_runs WHERE id='r2'").get()).toEqual({ state: "running" });
   });

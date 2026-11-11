@@ -118,7 +118,7 @@
    "rejected": [],
    "incomplete": []
   },
-  "workflow": {
+  "run": {
    "created": [
     "validated",
     "failed",

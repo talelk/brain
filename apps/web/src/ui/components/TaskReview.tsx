@@ -31,7 +31,7 @@ export function TaskReview(props: { workflow: WorkflowCatalogEntry; initialInput
   const blockers = () => readiness.state().data?.checks.filter((check) => check.status === "missing" && ["model", "release", `workflow:${props.workflow.release.id}`].includes(check.id)) ?? [];
   const presentation = () => props.workflow.definition.spec.presentation;
   const title = () => presentation()?.title ?? props.workflow.release.id.replaceAll("-", " ");
-  const external = () => Object.values(props.workflow.definition.spec.jobs).some((job) => "effectClass" in job && job.effectClass !== "read");
+  const external = () => Object.values(props.workflow.definition.spec.jobs).some((step) => "effectClass" in step && step.effectClass !== "read");
   const workspaceName = () => app.workspaceOptions().find((workspace) => workspace.value === app.workspaceId())?.label ?? app.workspaceId();
   async function prepare(input: Record<string, unknown>) {
     setBusy(true); setError("");
