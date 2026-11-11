@@ -13,13 +13,13 @@ import { ScreenRegion } from "../screen-region";
 import { WorkspaceSection } from "../components/Domain";
 import { KnowledgeProposalNote, ReusedLine } from "../components/Reuse";
 import { TechnicalDetails } from "../components/PageLayout";
-import { formatRelative } from "../format";
+import { formatRelative, friendlyOutputName } from "../format";
 import { execOutputsUrl } from "../exec/exec-filters";
 import { ArtifactView } from "./ArtifactView";
 import { OutputReview } from "./OutputReview";
 import { resolveWorkItemLink } from "./OutputHistory";
 import { TrustNote } from "./ResultReader";
-import { ChallengeResult } from "./ChallengeResult";
+import { ChallengeFeedProvider, ChallengeResult } from "./ChallengeResult";
 import { ShareResult } from "./ShareResult";
 import { ProposePlay } from "./ProposePlay";
 import { trustLineOf } from "./result-model";
@@ -42,18 +42,19 @@ function outputStatus(output: Output): { label: string; theme: FileBadgeTheme } 
 }
 
 /** One named output as a card: its version count, latest status and a way into the output page. */
-function DocumentCard(props: { output: Output }): JSX.Element {
+function DocumentCard(props: { output: Output; titles: ReadonlyMap<string, string> }): JSX.Element {
   const navigate = useNavigate();
   const status = () => outputStatus(props.output);
   const count = () => props.output.versions.length;
   const latestAt = () => props.output.versions.at(-1)?.createdAt ?? props.output.createdAt;
+  const name = () => friendlyOutputName(props.output.name, props.titles.get(props.output.versions.at(-1)?.workItemId ?? ""));
   return (
     <FileCard
       as="button"
       size="md"
-      name={props.output.name}
+      name={name()}
       icon="lucide-file-text"
-      aria-label={`Open output ${props.output.name}`}
+      aria-label={`Open output ${name()}`}
       meta={`${count()} ${count() === 1 ? "version" : "versions"} · updated ${formatRelative(latestAt())}${props.output.continues ? " · continues earlier work" : ""}`}
       badge={<Badge size="sm" theme={status().theme} label={status().label} />}
       onClick={() => void navigate(`/outputs/${encodeURIComponent(props.output.outputId)}`)}
@@ -62,7 +63,7 @@ function DocumentCard(props: { output: Output }): JSX.Element {
 }
 
 /** One task's Result: title, status and trust up front; opened, the written result and the accept / request-changes bar. */
-function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; documents: readonly Output[]; initiallyOpen: boolean; scrollTo: boolean; onToggle: (open: boolean) => void; onChanged: () => void }): JSX.Element {
+function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; documents: readonly Output[]; titles: ReadonlyMap<string, string>; initiallyOpen: boolean; scrollTo: boolean; onToggle: (open: boolean) => void; onChanged: () => void }): JSX.Element {
   const [open, setOpen] = createSignal(props.initiallyOpen);
   const toggle = () => {
     setOpen(!open());
@@ -130,7 +131,7 @@ function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; 
             <section class="flex min-w-0 flex-col gap-2" aria-label="Version history" data-testid="version-history">
               <h4 class="text-interface font-medium text-ink-gray-9">Version history</h4>
               <div class="grid min-w-0 grid-cols-[repeat(auto-fill,minmax(min(100%,22rem),1fr))] gap-2">
-                <For each={props.documents}>{(output) => <DocumentCard output={output} />}</For>
+                <For each={props.documents}>{(output) => <DocumentCard output={output} titles={props.titles} />}</For>
               </div>
             </section>
           </Show>
@@ -173,6 +174,8 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
   const taskKey = (task: ResultTask) => task.item?.workItemId ?? task.result.artifact.artifactId;
   /** Cards are keyed by task id, so a refresh that rebuilds the task objects re-orders or updates cards but never remounts them. */
   const taskIds = createMemo(() => tasks().map(taskKey), [], { equals: (before, after) => before.length === after.length && before.every((id, index) => id === after[index]) });
+  /** Work item id to task title, so version tiles read "Write recommendation", not the plan task id. */
+  const titles = createMemo(() => new Map(tasks().flatMap((task) => (task.item && task.title ? [[task.item.workItemId, task.title] as const] : []))));
   const taskById = createMemo(() => new Map(tasks().map((task) => [taskKey(task), task] as const)));
   const wanted = () => (typeof search["result"] === "string" ? search["result"] : undefined);
   /** A card opens first when the link names it, or (with no link) when it leads a short list. Read once, as a card appears. */
@@ -210,6 +213,7 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
   };
 
   return (
+    <ChallengeFeedProvider>
     <WorkspaceSection
       title="Results"
       description="What each task produced. Open one to read it, see how it was checked, then accept it or ask for changes."
@@ -239,6 +243,7 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
                 task={taskById().get(id)!}
                 links={files.state().data?.grouping.links ?? []}
                 documents={documentsOf(id)}
+                titles={titles()}
                 initiallyOpen={opensFirst(id)}
                 scrollTo={wanted() === id}
                 onToggle={(open) => remember(id, open)}
@@ -252,7 +257,7 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
         <div class="mt-6 flex min-w-0 flex-col gap-2" data-testid="other-documents">
           <h3 class="text-base-medium text-ink-gray-9">Other documents</h3>
           <div class="grid min-w-0 grid-cols-[repeat(auto-fill,minmax(min(100%,16rem),1fr))] gap-2">
-            <For each={strays()}>{(output) => <DocumentCard output={output} />}</For>
+            <For each={strays()}>{(output) => <DocumentCard output={output} titles={titles()} />}</For>
           </div>
           <TechnicalDetails label="About document versions">
             <p>Versions are immutable. A task input pins one exact verified final version when its attempt is admitted.</p>
@@ -260,5 +265,6 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
         </div>
       </Show>
     </WorkspaceSection>
+    </ChallengeFeedProvider>
   );
 }

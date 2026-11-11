@@ -14,9 +14,9 @@ import { ActionFeedback } from "../../ui/components/ActionFeedback";
 import { ArtifactView } from "../../ui/outputs/ArtifactView";
 import { saveAsKnowledge } from "../../ui/outputs/review-actions";
 import { ShareResult } from "../../ui/outputs/ShareResult";
-import { ChallengeResult } from "../../ui/outputs/ChallengeResult";
+import { ChallengeFeedProvider, ChallengeResult } from "../../ui/outputs/ChallengeResult";
 import { OutputDiff } from "../../ui/outputs/OutputDiff";
-import { formatDateTime, formatRelative, shortDigest } from "../../ui/format";
+import { formatDateTime, formatRelative, friendlyOutputName, shortDigest } from "../../ui/format";
 import { missionHref } from "../../ui/mission-links";
 
 const single = (value: unknown): string => (typeof value === "string" && value ? value : "");
@@ -75,7 +75,7 @@ export default function NamedOutputPage(): JSX.Element {
     <span class="text-caption text-ink-gray-6">Recorded {formatDateTime(version.createdAt)} by work item {version.workItemId}</span>
   </div>;
 
-  return <BrainPage title={detail.state().data?.output.name ?? "Output"} description="A named mission output: read any version, see its lineage and compare versions."
+  return <ChallengeFeedProvider><BrainPage title={friendlyOutputName(detail.state().data?.output.name ?? "Output")} description="A named mission output: read any version, see its lineage and compare versions."
     actions={<Show when={detail.state().data}>{(loaded) => <div class="flex flex-wrap gap-2">
       <Button variant="outline" iconLeft="lucide-library" disabled={!artifactOf(selected()) || saving()} loading={saving()} onClick={() => void saveSelected()}>Save as knowledge</Button>
       <Button variant="outline" iconLeft="lucide-flag" onClick={() => void navigate(missionHref(app.workspaceId(), loaded().output.missionId, "outputs"))}>{loaded().missionTitle}</Button>
@@ -128,8 +128,8 @@ export default function NamedOutputPage(): JSX.Element {
               <WorkspaceSection title="Lineage" description="The output this one continues and the follow-up missions that continue it.">
                 <Show when={detail.state().data?.continues || detail.state().data?.continuedBy.length} fallback={<p class="text-interface text-ink-gray-7">This output starts its own line: it continues no earlier output and nothing continues it yet.</p>}>
                   <div class="brain-queue">
-                    <Show when={detail.state().data?.continues}>{(ref) => <QueueRow title={ref().name} description="Continued by this output" eyebrow="Continues" icon="lucide-history" label={`Open the continued output ${ref().name}`} onClick={() => openRef(ref())} />}</Show>
-                    <For each={detail.state().data?.continuedBy ?? []}>{(ref) => <QueueRow title={ref.name} description="A follow-up mission's output" eyebrow="Continued by" icon="lucide-git-branch" label={`Open the follow-up output ${ref.name}`} onClick={() => openRef(ref)} />}</For>
+                    <Show when={detail.state().data?.continues}>{(ref) => <QueueRow title={friendlyOutputName(ref().name)} description="Continued by this output" eyebrow="Continues" icon="lucide-history" label={`Open the continued output ${ref().name}`} onClick={() => openRef(ref())} />}</Show>
+                    <For each={detail.state().data?.continuedBy ?? []}>{(ref) => <QueueRow title={friendlyOutputName(ref.name)} description="A follow-up mission's output" eyebrow="Continued by" icon="lucide-git-branch" label={`Open the follow-up output ${ref.name}`} onClick={() => openRef(ref)} />}</For>
                   </div>
                 </Show>
               </WorkspaceSection>
@@ -148,5 +148,5 @@ export default function NamedOutputPage(): JSX.Element {
         </Show>
       </ScreenRegion>
     </PageStack>
-  </BrainPage>;
+  </BrainPage></ChallengeFeedProvider>;
 }

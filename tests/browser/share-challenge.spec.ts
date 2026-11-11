@@ -120,9 +120,13 @@ test("a result is shared as a read-only link, read without an account, and withd
   const row = await expect.poll(() => ws.prepare("SELECT run_id FROM result_challenges WHERE work_item_id=?").get(item.id) as { run_id: string | null } | undefined, { timeout: 20_000 }).toMatchObject({ run_id: expect.any(String) }).then(() => ws.prepare("SELECT run_id FROM result_challenges WHERE work_item_id=?").get(item.id) as { run_id: string });
   // The reviewer run finishes (a real run needs a runner; here its stored answer is written the way the engine would).
   ws.prepare("UPDATE workflow_runs SET state='succeeded' WHERE id=?").run(row.run_id);
-  ws.prepare("INSERT INTO step_outputs(run_id, step_id, output_json) VALUES (?,?,?)").run(row.run_id, "respond", JSON.stringify({ summary: "One point needs a figure.", assumptions: [], criteria: [], deliverable: "# Review\n\n- The claim that pricing confusion drove most cancellations has no figure behind it.\n\nNothing else stood out." }));
+  ws.prepare("INSERT INTO step_outputs(run_id, step_id, output_json) VALUES (?,?,?)").run(row.run_id, "respond", JSON.stringify({ summary: "One point needs a figure.", assumptions: [], criteria: [], deliverable: "# Review\n\n- The claim that pricing confusion drove most cancellations has **no figure** behind it, see `churn.csv`.\n\nNothing else stood out." }));
   await governor.app.brain.challenges.sweep();
   await expect(challenge.getByTestId("challenge-claims")).toContainText("no figure behind it", { timeout: 15_000 });
+  // Inline Markdown in a claim renders as bold and code, never as literal asterisks or backticks.
+  await expect(challenge.getByTestId("challenge-claims").locator("strong")).toHaveText("no figure");
+  await expect(challenge.getByTestId("challenge-claims").locator("code")).toHaveText("churn.csv");
+  await expect(challenge.getByTestId("challenge-claims")).not.toContainText("**");
   await expect(challenge.getByTestId("challenge-result")).toContainText("model opinion");
   await shot(page, "5-challenge-claims");
   // Never a verdict: the task is exactly as verified as before.

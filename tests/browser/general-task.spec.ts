@@ -209,6 +209,10 @@ test("a plain-words mission runs on the general task workflow and shows a readab
   await expect(first.getByTestId("version-history")).toContainText("1 version");
   // The read-only link is offered next to the challenge on a verified result.
   await expect(first.getByRole("button", { name: "Share a read-only link" })).toBeVisible();
+  // Challenges are read once for the whole page, not once per card every few seconds; the version tile names the task, not its plan id.
+  const challengeReads: string[] = [];
+  page.on("request", (request) => { if ((request.postData() ?? "").includes("challenges.list")) challengeReads.push(request.url()); });
+  await expect(first.getByTestId("version-history")).not.toContainText(/\b(inspect|verify-the-correction|write-[a-z-]+)\b/u);
   // A refresh that changes the data keeps the opened card open and the page where it was.
   const scrolled = await page.evaluate(() => { window.scrollTo(0, 120); return window.scrollY; });
   w.ws.prepare("UPDATE work_items SET next_action='Nothing further', version=version+1 WHERE mission_id=?").run(missionId);
@@ -217,6 +221,7 @@ test("a plain-words mission runs on the general task workflow and shows a readab
   await expect(first.getByTestId("result-reader")).toBeVisible();
   expect(Math.abs((await page.evaluate(() => window.scrollY)) - scrolled)).toBeLessThan(40);
   await expect(page).toHaveURL(/outputs\?result=/);
+  expect(challengeReads.length, "challenge reads while the page sat open for ~17 s").toBeLessThanOrEqual(1);
   if (shots) await page.screenshot({ path: `${shots}/3-mission-outputs.png`, fullPage: true });
   // The workspace Outputs page opens the same Result as a document too.
   await page.goto(`${governor.url}/w/ws-flow/outputs`);

@@ -63,7 +63,7 @@ export interface Challenge {
   independence: "L1";
 }
 
-export async function listChallenges(workspaceId: string, workItemId: string, signal?: AbortSignal): Promise<Challenge[]> {
+export async function listChallenges(workspaceId: string, workItemId: string | undefined, signal?: AbortSignal): Promise<Challenge[]> {
   const response = await query<{ snapshot: { items: Challenge[] } }>({ queryType: "challenges.list", workspaceId, resourceId: workItemId }, signal);
   return [...response.snapshot.items];
 }
