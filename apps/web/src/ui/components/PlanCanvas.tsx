@@ -18,6 +18,7 @@ import { ReasonDialog } from "./ReasonDialog";
 import { DisclosureCard } from "./primitives";
 import { WorkRoadmap, type RoadmapNode } from "../work/WorkRoadmap";
 import { minutesText } from "../work/work-model";
+import { InlineMarkdown } from "../outputs/Markdown";
 
 /**
  * The mission's one plan area (T58, #25). Brain prepares a strategy on request
@@ -26,6 +27,9 @@ import { minutesText } from "../work/work-model";
  * to turn them into tracked work. Confirm is the single primary action; Reject
  * asks for a reason in a dialog. Nothing executes before confirmation.
  */
+/** What the plan draft is doing right now, from `MissionPlanView.stage`. */
+const STAGE_LINES = { reading: "Reading what the workspace knows...", drafting: "Drafting the steps...", checking: "Checking the plan..." } as const;
+
 export function PlanCanvas(props: { mission: Mission; proposalId?: string; onChanged: () => Promise<void> | void }): JSX.Element {
   const app = useApp();
   const [editedTasks, setEditedTasks] = createSignal<PlanTask[]>([]);
@@ -163,9 +167,9 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
   };
   const roadmap = (): RoadmapNode[] => editedTasks().map((task) => ({ id: task.id, title: task.title, deps: task.dependsOn, weight: task.estimatedMinutes ?? 1, done: false }));
   const stepCard = (task: PlanTask, critical: boolean): JSX.Element => <div class="flex min-w-0 flex-col gap-2">
-    <p class="flex items-start gap-2"><span class="lucide-circle-dashed mt-0.5 size-4 shrink-0 text-ink-gray-6" aria-hidden="true" /><span class="min-w-0 break-words text-interface font-medium text-ink-gray-9">{task.title}</span></p>
+    <p class="flex items-start gap-2"><span class="lucide-circle-dashed mt-0.5 size-4 shrink-0 text-ink-gray-6" aria-hidden="true" /><span class="min-w-0 break-words text-interface font-medium text-ink-gray-9"><InlineMarkdown text={task.title} /></span></p>
     <Show when={critical}><span class="inline-flex w-fit items-center gap-1 rounded-full bg-surface-blue-2 px-1.5 text-caption text-ink-blue-8"><span class="lucide-route size-3" aria-hidden="true" />Critical path</span></Show>
-    <Show when={task.criteria.length}><ul class="flex flex-col gap-0.5 text-caption text-ink-gray-7" aria-label="Done when"><For each={task.criteria}>{(criterion) => <li class="flex items-start gap-1"><span class="lucide-check mt-0.5 size-3 shrink-0 text-ink-gray-6" aria-hidden="true" />{criterion}</li>}</For></ul></Show>
+    <Show when={task.criteria.length}><ul class="flex flex-col gap-0.5 text-caption text-ink-gray-7" aria-label="Done when"><For each={task.criteria}>{(criterion) => <li class="flex items-start gap-1"><span class="lucide-check mt-0.5 size-3 shrink-0 text-ink-gray-6" aria-hidden="true" /><InlineMarkdown text={criterion} /></li>}</For></ul></Show>
     <p class="flex flex-wrap gap-x-3 gap-y-1 text-caption text-ink-gray-6">
       <Show when={member(task)}>{(name) => <span class="inline-flex items-center gap-1"><span class="lucide-bot size-3.5" aria-hidden="true" />{name()}</span>}</Show>
       <Show when={task.estimatedMinutes}>{(minutes) => <span class="inline-flex items-center gap-1"><span class="lucide-clock size-3.5" aria-hidden="true" />{minutesText(minutes())}</span>}</Show>
@@ -182,7 +186,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
       </PlainSummary>
       <div class="flex flex-col gap-1">
         <div class="flex flex-wrap items-center gap-2"><p class="text-base-medium">{label(plan)}</p><StatusBadge kind="plan" status={plan.state} /><Show when={dirty()}><Badge theme="amber" label="Unsaved edits" /></Show></div>
-        <Show when={plan.summary}><p class="brain-prose text-interface text-ink-gray-7">{plan.summary}</p></Show>
+        <Show when={plan.summary}><p class="brain-prose text-interface text-ink-gray-7"><InlineMarkdown text={plan.summary ?? ""} /></p></Show>
         <p class="flex flex-wrap gap-x-4 gap-y-1 text-caption text-ink-gray-6">
           <span class="inline-flex items-center gap-1"><span class="lucide-list-checks size-3.5" aria-hidden="true" />{editedTasks().length} {editedTasks().length === 1 ? "step" : "steps"}</span>
           <Show when={estimate() > 0}><span class="inline-flex items-center gap-1"><span class="lucide-clock size-3.5" aria-hidden="true" />About {minutesText(estimate())} of estimated work</span></Show>
@@ -230,7 +234,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     <Show when={error()}><Alert theme="red" variant="outline" title="Planning action failed" description={error()} /></Show>
     <PastWorkUsed missionId={props.mission.missionId} workspaceId={props.mission.workspaceId} pending={busy() ? sent() : []} busy={busy()} canEdit={app.canDispatch() && props.mission.state !== "closed"} refreshKey={reuseKey()}
       onRedraft={(kept, dropped) => void generate(kept, dropped)} />
-    <Show when={proposal.state().data?.state === "running"}><Alert theme="blue" variant="outline" title="Preparing a validated proposal" description="The mission is durable. No tasks have been created and no execution has started." /></Show>
+    <Show when={proposal.state().data?.state === "running"}><Alert theme="blue" variant="outline" title="Preparing a validated proposal" description={`${STAGE_LINES[proposal.state().data?.stage ?? "reading"]} The mission is saved; no task has been created and nothing has started.`} /></Show>
     <Show when={proposal.state().data?.state === "failed"}><Alert theme="amber" variant="outline" title="No validated proposal yet" description={proposal.state().data?.error} /></Show>
     <Show when={linked.state().data?.proposal ?? (proposal.state().data?.plan ? undefined : active.state().data ?? undefined)} keyed fallback={
       <ScreenRegion state={proposal.state()} onRetry={() => void proposal.refresh()} emptyTitle="No plan yet" emptyDescription="Ask Brain to prepare a strategy. Nothing becomes tracked work or executes before you confirm it.">

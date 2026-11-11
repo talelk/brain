@@ -14,7 +14,8 @@ import "./prose.css";
  * document never re-shapes the page outline.
  */
 
-function Inlines(props: { text: string }): JSX.Element {
+/** Inline-only Markdown (bold, italics, code, http(s) links) for single-line agent text; never injects HTML. */
+export function InlineMarkdown(props: { text: string }): JSX.Element {
   return (
     <For each={parseInline(props.text)}>
       {(part) => {
@@ -33,7 +34,7 @@ function ListView(props: { list: ListNode }): JSX.Element {
     <For each={props.list.items}>
       {(item) => (
         <li>
-          <Inlines text={item.text} />
+          <InlineMarkdown text={item.text} />
           <For each={item.children}>{(child) => <ListView list={child} />}</For>
         </li>
       )}
@@ -48,9 +49,9 @@ const HEADING_TAGS = ["h3", "h4", "h5", "h6", "h6", "h6"] as const;
 function renderBlock(block: Block): JSX.Element {
   switch (block.kind) {
     case "heading":
-      return <Dynamic component={HEADING_TAGS[Math.min(block.level, 6) - 1] ?? "h6"} data-level={block.level}><Inlines text={block.text} /></Dynamic>;
-    case "paragraph": return <p><Inlines text={block.text} /></p>;
-    case "quote": return <blockquote><Inlines text={block.text} /></blockquote>;
+      return <Dynamic component={HEADING_TAGS[Math.min(block.level, 6) - 1] ?? "h6"} data-level={block.level}><InlineMarkdown text={block.text} /></Dynamic>;
+    case "paragraph": return <p><InlineMarkdown text={block.text} /></p>;
+    case "quote": return <blockquote><InlineMarkdown text={block.text} /></blockquote>;
     case "code": return <pre><code>{block.text}</code></pre>;
     case "list": return <ListView list={block.list} />;
     case "hr": return <hr />;
@@ -58,9 +59,9 @@ function renderBlock(block: Block): JSX.Element {
       return (
         <section class="brain-prose-table" tabindex="0" aria-label="Table">
           <table>
-            <thead><tr><For each={block.header}>{(cell, i) => <th style={{ "text-align": block.align[i()] ?? "start" }}><Inlines text={cell} /></th>}</For></tr></thead>
+            <thead><tr><For each={block.header}>{(cell, i) => <th style={{ "text-align": block.align[i()] ?? "start" }}><InlineMarkdown text={cell} /></th>}</For></tr></thead>
             <tbody>
-              <For each={block.rows}>{(row) => <tr><For each={row}>{(cell, i) => <td style={{ "text-align": block.align[i()] ?? "start" }}><Inlines text={cell} /></td>}</For></tr>}</For>
+              <For each={block.rows}>{(row) => <tr><For each={row}>{(cell, i) => <td style={{ "text-align": block.align[i()] ?? "start" }}><InlineMarkdown text={cell} /></td>}</For></tr>}</For>
             </tbody>
           </table>
         </section>

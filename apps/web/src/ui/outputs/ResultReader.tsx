@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { Button } from "@talelk/newui-atoms";
-import { Markdown } from "./Markdown";
+import { InlineMarkdown, Markdown } from "./Markdown";
 import { titleize } from "../format";
 import { markdownFileName, resultMarkdown } from "./result-model";
 import type { StructuredResult, TrustLine } from "./result-model";
@@ -93,7 +93,7 @@ export function ResultReader(props: { result: StructuredResult; title: string; t
       <Show when={props.result.summary.trim()}>
         <section class="min-w-0 rounded-card border border-outline-gray-2 bg-surface-gray-1 px-4 py-3" aria-label="Summary">
           <p class="m-0 text-caption font-medium uppercase tracking-wide text-ink-gray-6">Summary</p>
-          <p class="m-0 mt-1 max-w-[72ch] text-base leading-relaxed text-ink-gray-9">{props.result.summary}</p>
+          <p class="m-0 mt-1 max-w-[72ch] text-base leading-relaxed text-ink-gray-9"><InlineMarkdown text={props.result.summary} /></p>
         </section>
       </Show>
       <Markdown text={props.result.deliverable} />
@@ -108,8 +108,8 @@ export function ResultReader(props: { result: StructuredResult; title: string; t
                 <li class="flex min-w-0 items-start gap-2.5" data-met={row.met ? "true" : "false"}>
                   <span class={`${row.met ? "lucide-circle-check text-ink-green-7" : "lucide-circle-x text-ink-red-7"} mt-1 size-4 shrink-0`} role="img" aria-label={row.met ? "Met" : "Not met"} />
                   <div class="min-w-0 max-w-[72ch]">
-                    <p class="m-0 text-base text-ink-gray-9">{row.criterion}</p>
-                    <Show when={row.evidence}><p class="m-0 text-caption text-ink-gray-6">{row.evidence}</p></Show>
+                    <p class="m-0 text-base text-ink-gray-9"><InlineMarkdown text={row.criterion} /></p>
+                    <Show when={row.evidence}><p class="m-0 text-caption text-ink-gray-6"><InlineMarkdown text={row.evidence ?? ""} /></p></Show>
                   </div>
                 </li>
               )}
