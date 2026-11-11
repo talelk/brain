@@ -6,6 +6,7 @@ import type { Workflow } from "@brain/contracts";
 import { Brain } from "../../apps/governor/src/application/brain";
 import { MastraWorkflowEngine, type WorkflowHost } from "../../apps/governor/src/modules/workflows/index";
 import { setupWorld, tempBrain, DIGEST_A } from "../helpers";
+import { scaled } from "../support/timing";
 
 function wf(id: string, jobs: Record<string, unknown>): Workflow {
   return {
@@ -67,7 +68,7 @@ describe("Mastra WorkflowEnginePort conformance (T29/T30)", () => {
     const steps = ws.prepare("SELECT step_id, state FROM workflow_steps WHERE run_id=? ORDER BY step_id").all(runId) as Array<{ step_id: string; state: string }>;
     expect(steps.every((s) => s.state === "succeeded")).toBe(true);
     brain.close();
-  }, 120_000);
+  }, scaled(120_000));
 
   it("holds 100 suspended gates and wakes each exactly once after restart (T30)", async () => {
     const { brain, dir } = tempBrain();
@@ -93,7 +94,7 @@ describe("Mastra WorkflowEnginePort conformance (T29/T30)", () => {
     const ws = brain.store.workspaceDb(w.workspaceId, w.org);
     await waitFor(() => runIds.every((id) => (ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(id) as { state: string }).state === "succeeded"), 60_000);
     brain.close();
-  }, 240_000);
+  }, scaled(240_000));
 
   it("covers steer, merge and subgraph primitives through the port (T29)", async () => {
     const { brain, dir } = tempBrain();
@@ -126,7 +127,7 @@ describe("Mastra WorkflowEnginePort conformance (T29/T30)", () => {
     const steps = ws.prepare("SELECT step_id, state FROM workflow_steps WHERE run_id=?").all(runId) as Array<{ step_id: string; state: string }>;
     expect(steps.every((s2) => s2.state === "succeeded")).toBe(true);
     brain.close();
-  }, 120_000);
+  }, scaled(120_000));
 
   it("admits every step exactly once although Brain's scheduler and the Mastra steps both reach it", async () => {
     const { brain, dir } = tempBrain();
@@ -168,7 +169,7 @@ describe("Mastra WorkflowEnginePort conformance (T29/T30)", () => {
     expect(host.steers).toBe(1);
     expect((ws.prepare("SELECT COUNT(*) AS n FROM workflow_runs WHERE execution_key LIKE ?").get(`${runId}:%`) as { n: number }).n).toBe(1);
     brain.close();
-  }, 120_000);
+  }, scaled(120_000));
 
   it("registration/store failure blocks the run; no step is guessed successful (E025)", async () => {
     const { brain, dir } = tempBrain();
@@ -193,7 +194,7 @@ describe("Mastra WorkflowEnginePort conformance (T29/T30)", () => {
     expect(steps.every((r) => r.state !== "succeeded")).toBe(true);
     expect(host.jobs.includes("first")).toBe(true); // admitted queue only; never marked done
     brain.close();
-  }, 60_000);
+  }, scaled(60_000));
 
   it("Brain in mastra mode creates real jobs and fails the run on step failure", async () => {
     const brain = new Brain({ dataDir: mkdtempSync(join(tmpdir(), "brain-mastra-mode-")), allowTestActor: true });
@@ -220,5 +221,5 @@ describe("Mastra WorkflowEnginePort conformance (T29/T30)", () => {
     const ws = s.workspaceDb(w.workspaceId, w.org);
     await waitFor(() => (ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runId) as { state: string }).state === "failed");
     brain.close();
-  }, 120_000);
+  }, scaled(120_000));
 });

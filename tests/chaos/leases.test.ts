@@ -10,6 +10,7 @@ import { domainDigest } from "@brain/contracts";
 import type { JsonValue } from "@brain/contracts";
 import { createApp } from "../../apps/governor/src/http/app";
 import { setupWorld, DIGEST_A } from "../helpers";
+import { scaled } from "../support/timing";
 
 const run = promisify(execFile);
 
@@ -50,7 +51,7 @@ describe("lease contention across processes (T18)", () => {
         tokens.push(session.sessionToken);
       }
       const children = await Promise.all(tokens.map(async (token, i) => {
-        const { stdout } = await run("pnpm", ["exec", "tsx", "tests/support/claim-once.ts", url, token, `req-lease-${i}`], { cwd: process.cwd(), timeout: 120_000 });
+        const { stdout } = await run("pnpm", ["exec", "tsx", "tests/support/claim-once.ts", url, token, `req-lease-${i}`], { cwd: process.cwd(), timeout: scaled(120_000) });
         return JSON.parse(stdout) as { status: number; attemptId: string | null };
       }));
       expect(children.filter((c) => c.status === 200 && c.attemptId)).toHaveLength(1);
@@ -64,5 +65,5 @@ describe("lease contention across processes (T18)", () => {
       await new Promise<void>((resolve) => server.close(() => resolve()));
       await app.close();
     }
-  }, 180_000);
+  }, scaled(180_000));
 });

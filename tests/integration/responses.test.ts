@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { validate } from "@brain/contracts/validate";
 import { createApp } from "../../apps/governor/src/http/app";
 import { seedHuman, seedWorkItem, setupWorld } from "../helpers";
+import { scaled } from "../support/timing";
 
 // T02: every registered route is declared in the OpenAPI surface and every
 // declared non-parameterized GET round-trips with a JSON body (200 or an
@@ -60,7 +61,7 @@ describe("endpoint surface conformance (T02)", () => {
       await app.close?.();
       app.brain.close();
     }
-  }, 120_000);
+  }, scaled(120_000));
 
   it("per-operation 200 bodies validate against their declared response schemas", async () => {
     const app = await createApp({ dataDir: mkdtempSync(join(tmpdir(), "brain-responses-schema-")), allowTestActor: true });
@@ -120,5 +121,5 @@ describe("endpoint surface conformance (T02)", () => {
       await app.close?.();
       app.brain.close();
     }
-  }, 120_000);
+  }, scaled(120_000));
 });

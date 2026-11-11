@@ -3,6 +3,7 @@ import type { CommandReceipt, JsonValue, Mission, PlanTask, WorkItem } from "@br
 import { ownBundleJob } from "../support/evidence";
 import { setupWorld, DIGEST_A } from "../helpers";
 import { fixtureStarter } from "../support/starter";
+import { scaled } from "../support/timing";
 
 type World = ReturnType<typeof setupWorld>;
 const worlds: World[] = [];
@@ -119,7 +120,7 @@ describe("Challenge this result (#50, ADR 0012)", () => {
     expect(done).toMatchObject({ state: "done", summary: "Two points need evidence." });
     expect(done!.claims.map((claim) => claim.text)).toEqual(["The claim that pricing confusion came first has no figure behind it.", "The export period is assumed, not shown."]);
     expect(governance(w, workItem.workItemId, missionId)).toBe(before);
-  }, 60_000);
+  }, scaled(60_000));
 
   it("a failed reviewer run says so and changes nothing; a new challenge may follow", async () => {
     const w = world();
@@ -134,7 +135,7 @@ describe("Challenge this result (#50, ADR 0012)", () => {
     expect(failed).toMatchObject({ state: "failed", reason: "the reviewer run failed", claims: [] });
     expect(governance(w, workItem.workItemId, missionId)).toBe(before);
     expect((await run(w, "result.challenge", "challenge-f2", { workItemId: workItem.workItemId })).accepted).toBe(true);
-  }, 60_000);
+  }, scaled(60_000));
 
   it("honours the workspace spend cap like every other model run", async () => {
     const w = world();
@@ -142,7 +143,7 @@ describe("Challenge this result (#50, ADR 0012)", () => {
     await run(w, "workspace.spendCap.set", "cap-1", { dailyMicroUsd: 0 });
     await expect(run(w, "result.challenge", "capped", { workItemId: workItem.workItemId })).rejects.toThrow(/spend cap is reached/u);
     expect(await challenges(w, workItem.workItemId)).toEqual([]);
-  }, 60_000);
+  }, scaled(60_000));
 
   it("refuses a task that is not finished and a task without a written result", async () => {
     const w = world();
@@ -154,7 +155,7 @@ describe("Challenge this result (#50, ADR 0012)", () => {
     const open = item(w, missionId);
     await expect(run(w, "result.challenge", "n-challenge", { workItemId: open.workItemId })).rejects.toThrow("only a finished task's result can be challenged");
     expect(await challenges(w, open.workItemId)).toEqual([]);
-  }, 60_000);
+  }, scaled(60_000));
 });
 
 function seedAgentRunner(w: World, runnerId: string) {
@@ -190,7 +191,7 @@ describe("a challenge is charged to the mission it reviews (row 39)", () => {
     const after = await missionUsage(w, missionId);
     expect(Number(after["settledMicroUsd"]) - Number(before["settledMicroUsd"])).toBe(4200);
     expect(Number(after["settledTokens"]) - Number(before["settledTokens"])).toBe(350);
-  }, 60_000);
+  }, scaled(60_000));
 
   it("refuses a challenge once the mission's budget is spent, says so plainly, and stops a run that was waiting for budget", async () => {
     const w = world();
@@ -217,5 +218,5 @@ describe("a challenge is charged to the mission it reviews (row 39)", () => {
     expect(failed).toMatchObject({ state: "failed" });
     expect(failed!.reason).toMatch(/budget/u);
     expect((db(w).prepare("SELECT state FROM workflow_runs WHERE id=?").get(running!.runId) as { state: string }).state).toBe("cancelled");
-  }, 60_000);
+  }, scaled(60_000));
 });

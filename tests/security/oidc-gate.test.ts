@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { oidcConfigFromEnv } from "../../apps/governor/src/modules/identity/oidc";
 import { createApp } from "../../apps/governor/src/http/app";
+import { scaled } from "../support/timing";
 
 // T47: external IdP federation is opt-in and all-or-nothing. No local IdP is
 // available in this environment, so the matrix proves the gate: unconfigured
@@ -52,5 +53,5 @@ describe("OIDC configuration gate (T47)", () => {
     } finally {
       delete process.env["BRAIN_OIDC_ISSUER"];
     }
-  }, 120_000);
+  }, scaled(120_000));
 });

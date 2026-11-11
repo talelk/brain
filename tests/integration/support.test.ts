@@ -4,6 +4,7 @@ import { sha256Digest } from "@brain/contracts";
 import { computeSlaMinutes } from "../../apps/governor/src/modules/packs/sla";
 import { approvalSubjectDigest, type JsonValue } from "@brain/contracts";
 import { setupWorld, DIGEST_A } from "../helpers";
+import { scaled } from "../support/timing";
 
 // T42 packet acceptance (local slice): deterministic SLA accounting from
 // immutable responsibility intervals, and ticket evidence readiness that
@@ -108,5 +109,5 @@ describe("support draft lifecycle (T42)", () => {
       await new Promise((r) => server.close(r));
       w.brain.close();
     }
-  }, 120_000);
+  }, scaled(120_000));
 });

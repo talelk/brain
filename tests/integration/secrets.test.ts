@@ -1,3 +1,4 @@
+import { scaled } from "../support/timing";
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -58,7 +59,7 @@ function stubLauncher(): LauncherClient {
     createSandbox: async () => ({ sandboxId: "sb-test" }),
     exec: async (_sandboxId: string, script: string) => {
       const result = spawnSync("/bin/bash", [script.replace(/^\/tools/, toolsDir)], {
-        input: "", encoding: "utf8", timeout: 30_000,
+        input: "", encoding: "utf8", timeout: scaled(30_000),
         env: { PATH: "/usr/local/bin:/usr/bin:/bin", HOME: "/tmp", TARGET_TOKEN: SECRET_VALUE },
       });
       return { exitCode: result.status ?? 1, stdout: result.stdout ?? "", stderr: result.stderr ?? "", timedOut: result.error !== undefined };

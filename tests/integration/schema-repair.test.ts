@@ -5,6 +5,7 @@ import { join } from "node:path";
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import { loadSchemaSql } from "../../apps/governor/src/infrastructure/persistence/open";
+import { scaled } from "../support/timing";
 
 // The live repair rebuilds the declared tables whose keys changed (releases
 // owned per organization) in place, keeping every row and index.
@@ -103,7 +104,7 @@ describe("live schema repair", () => {
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }
-  }, 60_000);
+  }, scaled(60_000));
 
   it("adds a column the schema declares with a default, keeping existing rows", () => {
     const dataDir = mkdtempSync(join(tmpdir(), "brain-repair-"));
@@ -130,5 +131,5 @@ describe("live schema repair", () => {
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }
-  }, 60_000);
+  }, scaled(60_000));
 });

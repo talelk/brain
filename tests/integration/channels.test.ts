@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../../apps/governor/src/http/app";
 import { setupWorld } from "../helpers";
+import { scaled } from "../support/timing";
 
 // T32 packet acceptance: one command/query surface across channels. HTTP and
 // MCP execute identical handlers (same idempotency), humans are refused on
@@ -60,5 +61,5 @@ describe("channel parity (T32)", () => {
     });
     expect(decision.status).toBe(403);
     expect(await decision.clone().text()).toMatch(/not available over MCP/);
-  }, 120_000);
+  }, scaled(120_000));
 });

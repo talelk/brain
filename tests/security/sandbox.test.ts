@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startLauncher } from "../../apps/launcher/src/server";
+import { scaled } from "../support/timing";
 
 // T21 packet acceptance (validation boundary): the trusted launcher accepts
 // only fixed profiles/preinstalled images and an exact field allowlist —
@@ -35,7 +36,7 @@ describe("launcher validation boundary (T21)", () => {
     expect(health.status).toBe(200);
     expect(health.json["profiles"]).toEqual(["agent", "privileged-tool", "evaluator"]);
     expect(health.json["images"]).toEqual(["brain-sandbox-agent", "brain-sandbox-tool", "brain-sandbox-evaluator"]);
-  }, 60_000);
+  }, scaled(60_000));
 
   it("smuggled fields, unknown profiles and foreign images are 422 before docker", async () => {
     const socket = join(tmpdir(), `brain-launcher-sec2-${Date.now()}`, "launcher.sock");
@@ -61,5 +62,5 @@ describe("launcher validation boundary (T21)", () => {
     // Unknown sandbox stop is a clean 404, not a docker error leak.
     const stop = await unixJson(socket, "POST", "/v1/sandboxes/nope/stop", { graceMs: 1 }, token);
     expect(stop.status).toBe(404);
-  }, 60_000);
+  }, scaled(60_000));
 });

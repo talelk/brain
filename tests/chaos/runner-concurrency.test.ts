@@ -8,6 +8,7 @@ import { GovernorProtocolError } from "../../apps/runner/src/governor-client";
 import { enrollAndHello, newRunnerControls, refreshSession, runClaimLoops, runOnce, type RunnerConfig } from "../../apps/runner/src/supervisor";
 import { setupWorld } from "../helpers";
 import { fixtureStarter } from "../support/starter";
+import { scaled } from "../support/timing";
 
 // Backlog row 64: a runner of 3 slots runs 3 attempts at the same time. Reservations, the one-claim rule, per-attempt isolation,
 // lease renewal, a session refresh while attempts run, and a runner restart mid-flight, all on the fixture engine with latency the test controls.
@@ -110,7 +111,7 @@ describe("a runner with 3 slots running 3 attempts at the same time (row 64)", (
     expect(await runOnce(cfg, () => session.token, session.epoch, controls)).toBe(true);
     expect(runs).toHaveLength(4);
     for (const id of attempts.map((a) => a.id)) expect(existsSync(join(cfg.stateDir, "spool", `${id}.jsonl`))).toBe(false);
-  }, 60_000);
+  }, scaled(60_000));
 
   it("a refresh in the middle of a long attempt does not drop it, and a short attempt claimed after it finishes with the new token", async () => {
     const gate = holdFirst(2);
@@ -126,7 +127,7 @@ describe("a runner with 3 slots running 3 attempts at the same time (row 64)", (
     gate.release();
     expect(await Promise.all(long)).toEqual([true, true]);
     expect(s().control.prepare("SELECT state, COUNT(*) AS n FROM job_attempts WHERE runner_id='runner-slots' GROUP BY state").all()).toEqual([{ state: "verifying", n: 3 }]);
-  }, 60_000);
+  }, scaled(60_000));
 
   it("a runner restarted mid-flight is a new epoch: the old attempts are fenced, their reservations are freed when the leases lapse, and the new process claims again", async () => {
     const gate = holdFirst(3);
@@ -162,7 +163,7 @@ describe("a runner with 3 slots running 3 attempts at the same time (row 64)", (
     for (let i = 0; i < 4; i++) if (await runOnce(cfg, () => restarted.sessionToken, restarted.epoch, fresh)) claimed += 1;
     expect(claimed).toBeGreaterThanOrEqual(1);
     expect(runner().epoch).toBe(restarted.epoch);
-  }, 60_000);
+  }, scaled(60_000));
 });
 
 describe("the claim loops across a session refresh (row 64)", () => {

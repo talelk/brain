@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { sha256Digest } from "@brain/contracts";
 import { parseJudgeResponse } from "../../apps/governor/src/modules/packs/judge";
 import { setupWorld, DIGEST_A, type TestWorld } from "../helpers";
+import { scaled } from "../support/timing";
 
 // T44 optional judge: parsing fails closed (inconclusive, never passed),
 // transcripts are CAS evidence, outcomes flow through the ordinary rubric
@@ -70,5 +71,5 @@ describe("judge on a mission evidence bundle (T44)", () => {
     await expect(w.brain.judgeMissionBundle({ actor: w.owner, workspaceId: w.workspaceId, missionId, criteria: [{ criterionId: "c2", criterionText: "x", evidenceDigest: evidence }] })).rejects.toThrow(/judge model unavailable/);
     expect((ws.prepare("SELECT COUNT(*) AS c FROM mission_bundle_checks WHERE criterion_id='c2'").get() as { c: number }).c).toBe(0);
     expect(() => w.brain.recordBundleCheck({ actor: w.owner, workspaceId: w.workspaceId, missionId, criterionId: "c3", evaluator: "eval-1", outcome: "passed", evidenceDigest: `sha256:${"f".repeat(64)}` })).toThrow(/evidence artifact not found/);
-  }, 120_000);
+  }, scaled(120_000));
 });

@@ -1,3 +1,4 @@
+import { scaled } from "../support/timing";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -13,7 +14,7 @@ it("reset clears only registered instance state, refuses active writers and pres
     registerInstance(paths);
     for (const directory of [paths.data, paths.run, paths.cli]) { mkdirSync(directory); writeFileSync(join(directory, "private-state"), "fixture"); }
     writeFileSync(join(root, "keep.txt"), "unrelated");
-    const refused = spawnSync(process.execPath, ["--import", "tsx", "scripts/brain.ts", "reset"], { encoding: "utf8", env: { ...process.env, BRAIN_INSTANCE_DIR: root, BRAIN_DATA_DIR: paths.data, BRAIN_RUN_DIR: paths.run, BRAIN_CLI_STATE_DIR: paths.cli }, timeout: 15000 });
+    const refused = spawnSync(process.execPath, ["--import", "tsx", "scripts/brain.ts", "reset"], { encoding: "utf8", env: { ...process.env, BRAIN_INSTANCE_DIR: root, BRAIN_DATA_DIR: paths.data, BRAIN_RUN_DIR: paths.run, BRAIN_CLI_STATE_DIR: paths.cli }, timeout: scaled(15000) });
     expect(refused.status).not.toBe(0); expect(refused.stderr).toContain("--yes"); expect(existsSync(join(paths.data, "private-state"))).toBe(true);
     const release = acquireDirectory(paths.data);
     expect(() => resetInstance(paths)).toThrow(/in use/); release();

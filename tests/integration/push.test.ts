@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { Brain } from "../../apps/governor/src/application/brain";
 import { setupWorld } from "../helpers";
+import { scaled } from "../support/timing";
 
 // T45: Web Push round-trip against a local mock push service. The receiver
 // side below is an independent RFC 8291 decryption (not shared code with the
@@ -107,5 +108,5 @@ describe("web push delivery (T45)", () => {
     const after = brain.store.control.prepare("SELECT revoked_at_ms FROM notification_subscriptions WHERE id=?").get(subscriptionId) as { revoked_at_ms: number | null };
     expect(after.revoked_at_ms).not.toBeNull();
     expect(await brain.notifyPrincipal(w.org, "owner-1", { title: "Third", body: "nobody" })).toBe(0);
-  }, 120_000);
+  }, scaled(120_000));
 });

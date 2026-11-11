@@ -3,6 +3,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeF
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { scaled } from "../support/timing";
 
 // T18: kill -9 mid-operation must lose nothing durable; a corrupted WAL/DB
 // must fail loudly at startup, never silently reinitialize over the data.
@@ -76,7 +77,7 @@ describe("kill-9 and WAL corruption drills (T18)", () => {
     const integrity = db.pragma("integrity_check", { simple: true });
     expect(integrity).toBe("ok");
     db.close();
-  }, 240_000);
+  }, scaled(240_000));
 
   it("corrupted control database: startup fails loudly and leaves the bytes untouched", async () => {
     const dir = mkdtempSync(join(tmpdir(), "brain-wal-"));
@@ -109,5 +110,5 @@ describe("kill-9 and WAL corruption drills (T18)", () => {
     expect(exited).not.toBe(0);
     // The corrupted bytes were preserved, not wiped/reinitialized over.
     expect(readFileSync(target).subarray(0, 64).toString("hex")).toBe(corruptedHash);
-  }, 240_000);
+  }, scaled(240_000));
 });

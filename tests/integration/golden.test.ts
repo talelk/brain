@@ -10,13 +10,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 async function serveOnRandomPort(fetchFn: (r: Request) => Response | Promise<Response>): Promise<{ url: string; close: () => void }> {
-  const server = createAdaptorServer({ fetch: fetchFn });
+  const server = createAdaptorServer({ fetch: fetchFn }) as import("node:http").Server;
+  // The runner's fetch reuses a pooled socket. Node closes idle server sockets after 5 s; under heavy load the gap between two
+  // runner calls can pass that, and the client then writes into a socket the server is already resetting (ECONNRESET). Keep idle
+  // sockets for the whole test, and drop them on close so the listener still shuts down at once.
+  server.keepAliveTimeout = 120_000;
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(0, "127.0.0.1", () => { server.off("error", reject); resolve(); });
   });
   const addr = server.address() as { port: number };
-  return { url: `http://127.0.0.1:${addr.port}`, close: () => server.close() };
+  return { url: `http://127.0.0.1:${addr.port}`, close: () => { server.close(); server.closeAllConnections(); } };
 }
 
 describe("golden workflow end-to-end (T29/T30, G03 smoke)", () => {

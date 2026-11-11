@@ -1,6 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import { setupWorld, type TestWorld } from "../helpers";
+import { scaled } from "../support/timing";
 
 // T41 packet acceptance: read-only fact discovery seeds local ticket facts
 // idempotently; changed remote facts advance the local version exactly once;
@@ -53,5 +54,5 @@ describe("connector onboarding discovery (T41)", () => {
     // Unreachable project: explicit dependency failure, no partial facts.
     await expect(w.brain.discoverGitLabFacts({ ...input, baseUrl: "http://127.0.0.1:9" })).rejects.toThrow(/not reachable/);
     expect((ws.prepare("SELECT COUNT(*) AS c FROM tickets").get() as { c: number }).c).toBe(2);
-  }, 120_000);
+  }, scaled(120_000));
 });

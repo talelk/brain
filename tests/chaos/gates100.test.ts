@@ -4,6 +4,7 @@ import { Brain } from "../../apps/governor/src/application/brain";
 import { scopesForPrincipal } from "../../apps/governor/src/application/authz";
 import { approvalSubjectDigest } from "@brain/contracts";
 import type { JsonValue } from "@brain/contracts";
+import { scaled } from "../support/timing";
 
 const GATE_WORKFLOW = `apiVersion: brain.keyrus/v1
 kind: Workflow
@@ -125,5 +126,5 @@ describe("G03 brain durability: 100 suspended gates", () => {
     const distinctKeys = brain2.store.control.prepare("SELECT COUNT(DISTINCT execution_key) AS c FROM jobs").get() as { c: number };
     expect(distinctKeys.c).toBe(100);
     brain2.close();
-  }, 180_000);
+  }, scaled(180_000));
 });

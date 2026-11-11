@@ -1,6 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import { GitLabConnector } from "../../apps/governor/src/modules/packs/index";
+import { scaled } from "../support/timing";
 
 // T41 packet acceptance (wire level): the reference connector talks real
 // GitLab REST v4 over a socket to a local mock — auth header, bounded
@@ -58,5 +59,5 @@ describe("gitlab connector over the wire (T41)", () => {
     await expect(gl.getIssue(3)).rejects.toMatchObject({ code: "RATE_LIMITED" });
     expect((await gl.probe()).reachable).toBe(false);
     expect(await gl.reconcileNote(3, "x")).toEqual({ outcome: "unknown" });
-  }, 60_000);
+  }, scaled(60_000));
 });

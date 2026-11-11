@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../../apps/governor/src/http/app";
 import { setupCredential } from "../helpers";
+import { scaled } from "../support/timing";
 
 // T47 online matrix: issuer (base URL), audience (trusted origins), session
 // cookie attributes and redirect handling across the credential plane.
@@ -44,7 +45,7 @@ describe("auth online matrix (T47)", () => {
 
     const unknownUser = await post("/api/auth/sign-in/email", { email: "nobody@example.test", password: PASSWORD });
     expect(unknownUser.status).not.toBe(200);
-  }, 120_000);
+  }, scaled(120_000));
 
   it("audience: foreign Origin on cookie-carrying auth mutations is refused; same-origin passes", async () => {
     const { post, boot } = await application();
@@ -60,7 +61,7 @@ describe("auth online matrix (T47)", () => {
     const sameOrigin = await post("/api/auth/sign-out", {}, { origin: ORIGIN, cookie });
     expect(sameOrigin.status).toBe(200);
     void boot;
-  }, 120_000);
+  }, scaled(120_000));
 
   it("session cookies are HttpOnly and scoped to the auth path", async () => {
     const { post } = await application();
@@ -72,7 +73,7 @@ describe("auth online matrix (T47)", () => {
     }
     const sessionCookie = cookies.find((c) => c.includes("session"));
     expect(sessionCookie).toBeTruthy();
-  }, 120_000);
+  }, scaled(120_000));
 
   it("redirect: callback URLs to foreign origins are not honored", async () => {
     const { post } = await application();
@@ -89,7 +90,7 @@ describe("auth online matrix (T47)", () => {
       const body = (await res.json()) as { url?: string };
       if (body.url) expect(new URL(body.url, ORIGIN).origin).toBe(ORIGIN);
     }
-  }, 120_000);
+  }, scaled(120_000));
 
   it("sign-up after bootstrap does not grant organization membership", async () => {
     const { app, post } = await application();
@@ -103,5 +104,5 @@ describe("auth online matrix (T47)", () => {
     } else {
       expect(signup.status).toBeGreaterThanOrEqual(400);
     }
-  }, 120_000);
+  }, scaled(120_000));
 });

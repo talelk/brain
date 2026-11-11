@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { setupWorld, DIGEST_A } from "../helpers";
 import { approvalSubjectDigest, type JsonValue } from "@brain/contracts";
+import { scaled } from "../support/timing";
 
 // T43 packet acceptance (local slice): observation ingestion is debounced
 // and collision-safe, and incident views are freshness-aware (latest
@@ -78,5 +79,5 @@ describe("remediation proposal lifecycle (T43)", () => {
     // Decided proposals cannot be re-decided; approval is terminal for the proposal.
     expect(() => w.brain.decideRemediation({ actor: w.owner, workspaceId: w.workspaceId, proposalId, approvalId: "apr-sre-1" })).toThrow(/already decided/);
     w.brain.close();
-  }, 120_000);
+  }, scaled(120_000));
 });
