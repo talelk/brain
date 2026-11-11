@@ -180,12 +180,37 @@ test("a plain-words mission runs on the general task workflow and shows a readab
   if (shots) {
     await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/plan`);
     await page.screenshot({ path: `${shots}/2-mission-done.png`, fullPage: true });
-    await page.goto(`${governor.url}/w/ws-flow/outputs`);
-    await page.waitForTimeout(1500);
-    await page.screenshot({ path: `${shots}/3-outputs.png`, fullPage: true });
-    await page.getByText(/^Result /).first().click();
-    await page.waitForTimeout(1500);
-    await page.screenshot({ path: `${shots}/4-result.png`, fullPage: true });
+  }
+  // The mission's own Outputs tab leads with one Result per task and reads the deliverable as a document.
+  await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/outputs`);
+  const cards = page.getByTestId("mission-result");
+  await expect(cards).toHaveCount(2, { timeout: 30_000 });
+  await expect(page.getByText("No outputs yet")).toHaveCount(0);
+  await expect(page.getByText(/named outputs/i)).toHaveCount(0);
+  const first = cards.filter({ hasText: "Inspect the sign-in flow" });
+  await first.getByRole("button", { name: /Inspect the sign-in flow/ }).click();
+  const reader = first.getByTestId("result-reader");
+  await expect(reader.getByRole("heading", { name: "Inspect the sign-in flow", level: 3 })).toBeVisible({ timeout: 30_000 });
+  await expect(reader.getByRole("heading", { name: "Findings", level: 4 })).toBeVisible();
+  await expect(reader.getByRole("region", { name: "Summary" })).toContainText("Fixture result for: Inspect the sign-in flow");
+  await expect(reader.getByRole("region", { name: "Criteria" })).toContainText("2 of 2 met");
+  await expect(reader.getByRole("region", { name: "Assumptions" })).toContainText("The brief is complete");
+  await expect(reader.getByTestId("trust-line")).toContainText("Checked by an independent reviewer: 2 of 2 criteria met");
+  await expect(reader.getByText('"deliverable"')).toHaveCount(0);
+  await expect(reader.getByRole("button", { name: "Download .md" })).toBeVisible();
+  if (shots) await page.screenshot({ path: `${shots}/3-mission-outputs.png`, fullPage: true });
+  // The workspace Outputs page opens the same Result as a document too.
+  await page.goto(`${governor.url}/w/ws-flow/outputs`);
+  await page.getByText(/^Result: Inspect the sign-in flow/).first().click();
+  const preview = page.getByTestId("outputs-preview").getByTestId("result-reader");
+  await expect(preview.getByRole("heading", { name: "Findings", level: 4 })).toBeVisible({ timeout: 30_000 });
+  await expect(preview.getByTestId("trust-line")).toContainText("Checked by an independent reviewer");
+  if (shots) await page.screenshot({ path: `${shots}/4-result.png`, fullPage: true });
+  if (shots) {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/outputs`);
+    await expect(page.getByTestId("result-reader").first()).toBeVisible({ timeout: 30_000 });
+    await page.screenshot({ path: `${shots}/5-mobile.png`, fullPage: true });
   }
   expect(errors).toEqual([]);
 });

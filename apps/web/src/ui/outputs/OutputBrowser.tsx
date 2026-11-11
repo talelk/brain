@@ -384,7 +384,7 @@ export function OutputBrowser(props: {
                     Back to files
                   </Button>
                 </div>
-                <ArtifactView artifact={file().artifact} />
+                <ArtifactView artifact={file().artifact} resultTitle={file().item?.title} history={props.detail.history?.artifactId === file().artifact.artifactId ? props.detail.history : undefined} />
                 <OutputReview
                   item={file().item}
                   link={file().link ?? resolveWorkItemLink(props.grouping.links, props.detail.history)}

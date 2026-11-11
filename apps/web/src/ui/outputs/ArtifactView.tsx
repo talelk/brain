@@ -1,11 +1,14 @@
 import { For, Match, Show, Switch, createEffect, createResource, createSignal, onCleanup } from "solid-js";
-import { Dynamic } from "solid-js/web";
 import type { JSX } from "solid-js";
 import { Button } from "@talelk/newui-atoms";
 import { Alert } from "@talelk/newui-molecules";
 import { shortDigest } from "../format";
 import { MEDIA_EMBED_LIMIT, TEXT_PREVIEW_LIMIT, artifactObjectUrl, decodeArtifactText, readArtifactBytes } from "./artifact-bytes";
-import type { ArtifactRef } from "../../data/exec-outputs";
+import type { ArtifactHistory, ArtifactRef } from "../../data/exec-outputs";
+import { Markdown } from "./Markdown";
+import { ResultReader } from "./ResultReader";
+import { parseStructuredResult, trustLineOf } from "./result-model";
+import type { StructuredResult } from "./result-model";
 import { fileNameOf, previewKindLabel, previewKindOf } from "./output-files";
 import type { ArtifactPreviewKind } from "./output-files";
 
@@ -23,6 +26,8 @@ import type { ArtifactPreviewKind } from "./output-files";
 interface LoadedPreview {
   kind: ArtifactPreviewKind;
   text?: string;
+  /** The artifact is a task result (summary, deliverable, checklist): shown as a document, not as source. */
+  result?: StructuredResult;
   objectUrl?: string;
   /** The full artifact exceeds the inline bound; the shown content is clipped. */
   truncated: boolean;
@@ -46,6 +51,8 @@ async function loadPreview(artifact: ArtifactRef): Promise<LoadedPreview> {
     const bytes = await readArtifactBytes(artifact.artifactId, { maxBytes });
     if (kind === "image" || kind === "pdf") return { kind, objectUrl: artifactObjectUrl(bytes, artifact.mediaType), truncated: artifact.bytes > maxBytes };
     let text = decodeArtifactText(bytes, maxBytes);
+    const result = kind === "json" || kind === "text" ? parseStructuredResult(text) : undefined;
+    if (result) return { kind, text, result, truncated: false };
     if (kind === "json") {
       try {
         text = JSON.stringify(JSON.parse(text) as unknown, null, 2);
@@ -59,7 +66,7 @@ async function loadPreview(artifact: ArtifactRef): Promise<LoadedPreview> {
   }
 }
 
-export function ArtifactView(props: { artifact?: ArtifactRef; title?: string; compact?: boolean }): JSX.Element {
+export function ArtifactView(props: { artifact?: ArtifactRef; title?: string; compact?: boolean; resultTitle?: string | undefined; history?: ArtifactHistory | null | undefined }): JSX.Element {
   const [preview] = createResource(
     () => props.artifact,
     (artifact) => loadPreview(artifact),
@@ -79,7 +86,7 @@ export function ArtifactView(props: { artifact?: ArtifactRef; title?: string; co
   const [copied, setCopied] = createSignal(false);
   const copyable = () => {
     const loaded = preview();
-    return !preview.loading && loaded !== undefined && !loaded.error && typeof loaded.text === "string" && loaded.text.length > 0 && !loaded.truncated;
+    return !preview.loading && loaded !== undefined && !loaded.error && typeof loaded.text === "string" && loaded.text.length > 0 && !loaded.truncated && !loaded.result;
   };
   async function copy(): Promise<void> {
     const text = preview()?.text;
@@ -93,7 +100,7 @@ export function ArtifactView(props: { artifact?: ArtifactRef; title?: string; co
     }
   }
 
-  const heading = () => props.title ?? (props.artifact ? fileNameOf(props.artifact) : "");
+  const heading = () => (preview()?.result && props.resultTitle ? props.resultTitle : (props.title ?? (props.artifact ? fileNameOf(props.artifact) : "")));
   const maxHeight = () => (props.compact ? "max-h-64" : "max-h-[32rem]");
   return (
     <Show when={props.artifact} fallback={<p class="text-base text-ink-gray-7">No artifact is attached.</p>}>
@@ -102,10 +109,12 @@ export function ArtifactView(props: { artifact?: ArtifactRef; title?: string; co
           <div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
             <div class="min-w-0">
               <h3 class="break-words text-base-medium text-ink-gray-9">{heading()}</h3>
+              <Show when={!preview()?.result}>
               <p class="break-words text-caption text-ink-gray-6">
                 {previewKindLabel(previewKindOf(artifact().mediaType))} · {artifact().mediaType} · {artifact().bytes.toLocaleString()} B ·{" "}
                 {artifact().classification} · <span class="brain-exec-log" title={artifact().digest}>{shortDigest(artifact().digest)}</span>
               </p>
+              </Show>
             </div>
             <div class="flex shrink-0 flex-wrap items-center gap-2">
               <Show when={copyable()}>
@@ -133,7 +142,9 @@ export function ArtifactView(props: { artifact?: ArtifactRef; title?: string; co
                 loaded.error ? (
                   <Alert theme="amber" variant="outline" title="Preview unavailable" description={loaded.error} />
                 ) : (
-                  <PreviewBody artifact={artifact()} preview={loaded} maxHeight={maxHeight()} />
+                  <Show when={loaded.result} fallback={<PreviewBody artifact={artifact()} preview={loaded} maxHeight={maxHeight()} />}>
+                    {(result) => <ResultReader result={result()} title={props.resultTitle ?? heading()} trust={props.history ? trustLineOf(props.history, result()) : undefined} />}
+                  </Show>
                 )}
             </Show>
           </Show>
@@ -218,112 +229,15 @@ function DiffPreview(props: { preview: LoadedPreview; maxHeight: string }): JSX.
   );
 }
 
-/** Bounded block-level markdown rendering: headings, lists, quotes, fenced code. Text nodes only — a preview never injects HTML. */
+/** Markdown artifacts read as a document (headings, lists, tables, quotes, code); text nodes only. */
 function MarkdownPreview(props: { preview: LoadedPreview; maxHeight: string }): JSX.Element {
   return (
     <Show when={props.preview.text !== undefined} fallback={NO_PREVIEW_FALLBACK}>
-      <div class={`brain-readable overflow-auto rounded-card bg-surface-gray-1 p-4 text-caption text-ink-gray-8 ${props.maxHeight}`}>
-        <For each={markdownBlocks(props.preview.text ?? "")}>
-          {(block) => {
-            if (block.kind === "code") return <pre class="brain-exec-log my-2 overflow-auto rounded-control bg-surface-elevation-1 p-3">{block.text}</pre>;
-            if (block.kind === "heading")
-              // Preview headings stay below the page's own h1/h2 so a
-              // document never re-shapes the app outline.
-              return (
-                <Dynamic
-                  component={block.level === 1 ? "h3" : block.level === 2 ? "h4" : "h5"}
-                  class={`mb-1 mt-3 font-semibold text-ink-gray-9 ${block.level <= 2 ? "text-section" : "text-base-medium"}`}
-                >
-                  {block.text}
-                </Dynamic>
-              );
-            if (block.kind === "quote") return <blockquote class="my-2 border-s-2 border-outline-blue-3 ps-3 text-ink-gray-7">{block.text}</blockquote>;
-            if (block.kind === "list")
-              return (
-                <ul class="my-2 list-disc ps-5">
-                  <For each={block.items}>{(item) => <li class="my-0.5">{item}</li>}</For>
-                </ul>
-              );
-            if (block.kind === "hr") return <hr class="my-3 border-outline-gray-2" />;
-            return <p class="my-1.5 whitespace-pre-wrap">{block.text}</p>;
-          }}
-        </For>
+      <div class={`overflow-auto rounded-card bg-surface-gray-1 p-4 sm:p-6 ${props.maxHeight}`}>
+        <Markdown text={props.preview.text ?? ""} />
       </div>
     </Show>
   );
-}
-
-type MarkdownBlock =
-  | { kind: "heading"; level: number; text: string }
-  | { kind: "paragraph"; text: string }
-  | { kind: "quote"; text: string }
-  | { kind: "code"; text: string }
-  | { kind: "list"; items: string[] }
-  | { kind: "hr" };
-
-/** Line-based block parse of the markdown subset Brain previews; input is already bounded by the preview limit. */
-function markdownBlocks(text: string): MarkdownBlock[] {
-  const blocks: MarkdownBlock[] = [];
-  const lines = text.split("\n");
-  let paragraph: string[] = [];
-  const flush = () => {
-    if (paragraph.length > 0) {
-      blocks.push({ kind: "paragraph", text: paragraph.join("\n") });
-      paragraph = [];
-    }
-  };
-  let index = 0;
-  while (index < lines.length) {
-    const line = lines[index] ?? "";
-    if (/^```/u.test(line)) {
-      flush();
-      const body: string[] = [];
-      for (index += 1; index < lines.length; index += 1) {
-        const next = lines[index] ?? "";
-        if (/^```/u.test(next)) break;
-        body.push(next);
-      }
-      blocks.push({ kind: "code", text: body.join("\n") });
-      index += 1;
-      continue;
-    }
-    const heading = /^(#{1,6})\s+(.*)$/u.exec(line);
-    if (heading) {
-      flush();
-      blocks.push({ kind: "heading", level: heading[1]?.length ?? 1, text: heading[2] ?? "" });
-      index += 1;
-      continue;
-    }
-    if (/^(-{3,}|\*{3,})$/u.test(line.trim())) {
-      flush();
-      blocks.push({ kind: "hr" });
-      index += 1;
-      continue;
-    }
-    const quote = /^>\s?(.*)$/u.exec(line);
-    if (quote) {
-      flush();
-      blocks.push({ kind: "quote", text: quote[1] ?? "" });
-      index += 1;
-      continue;
-    }
-    if (/^\s*[-*]\s+/u.test(line)) {
-      flush();
-      const items: string[] = [];
-      for (; index < lines.length; index += 1) {
-        const next = lines[index] ?? "";
-        if (!/^\s*[-*]\s+/u.test(next)) break;
-        items.push(next.replace(/^\s*[-*]\s+/u, ""));
-      }
-      blocks.push({ kind: "list", items });
-      continue;
-    }
-    if (line.trim() === "") flush();
-    else paragraph.push(line);
-    index += 1;
-  }
-  flush();
-  return blocks;
 }
 
 const CSV_PREVIEW_ROWS = 50;

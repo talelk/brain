@@ -29,14 +29,14 @@ export interface VerificationSummary {
 export function verificationSummary(history: ArtifactHistory | undefined): VerificationSummary {
   const verdict = history?.history.find((version) => version.verification)?.verification;
   if (verdict?.outcome === "verified")
-    return { label: "Verified", theme: "green", detail: "An independent evaluator verified an evidence bundle pinning this digest." };
-  if (verdict?.outcome === "rejected") return { label: "Rejected", theme: "red", detail: "The newest independent verdict against this digest was rejected." };
+    return { label: "Verified", theme: "green", detail: "A separate, independent reviewer checked this and approved it." };
+  if (verdict?.outcome === "rejected") return { label: "Rejected", theme: "red", detail: "The independent reviewer found problems with this." };
   if (verdict?.outcome === "incomplete")
-    return { label: "Inconclusive", theme: "amber", detail: "The newest independent verdict could not complete its checks." };
+    return { label: "Inconclusive", theme: "amber", detail: "The independent reviewer could not finish the check." };
   return {
-    label: "Unverified",
+    label: "Not checked yet",
     theme: "gray",
-    detail: "No evidence bundle with an independent verdict pins this digest yet. Verification remains authoritative for completion.",
+    detail: "A separate reviewer has not checked this yet. Only that check can mark the work as done.",
   };
 }
 
@@ -154,7 +154,7 @@ export function OutputHistory(props: { history: ArtifactHistory | undefined; loa
                 when={props.history!.history.length}
                 fallback={
                   <p class="text-base text-ink-gray-7">
-                    No evidence bundle pins this digest yet. Brain binds the final artifact digest and its verification when the run completes.
+                    Nobody has checked this yet. Once the work finishes, a separate reviewer checks it and the result is recorded here.
                   </p>
                 }
               >

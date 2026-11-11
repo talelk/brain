@@ -24,6 +24,7 @@ export function attentionHref(item: AttentionItem): string {
   if (item.kind === "approval") return `/approvals/${item.resourceId}`;
   const tab = item.kind === "result-ready" ? "outputs" : item.kind === "plan-proposal" || item.kind === "parked" || item.kind === "needs-attention" ? "plan" : item.kind === "routed" ? "live" : "brief";
   const href = missionHref(item.workspaceId, item.missionId ?? item.resourceId, tab);
+  if (item.kind === "result-ready" && item.missionId && item.resourceId !== item.missionId) return `${href}&result=${encodeURIComponent(item.resourceId)}`;
   return item.kind === "plan-proposal" ? `${href}&proposal=${encodeURIComponent(item.resourceId)}` : href;
 }
 

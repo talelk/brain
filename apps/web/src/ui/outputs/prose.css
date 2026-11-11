@@ -1,0 +1,28 @@
+/* Long-form Markdown (a task's written deliverable): calm, book-like reading rhythm. */
+.brain-prose { max-width: 72ch; color: var(--ink-gray-8); font-size: 1rem; line-height: 1.75; overflow-wrap: anywhere; }
+.brain-prose > :first-child { margin-top: 0; }
+.brain-prose > :last-child { margin-bottom: 0; }
+.brain-prose p { margin: 0 0 1rem; }
+.brain-prose h3, .brain-prose h4, .brain-prose h5, .brain-prose h6 { color: var(--ink-gray-9); font-weight: 600; line-height: 1.3; margin: 2rem 0 0.625rem; }
+.brain-prose h3 { font-size: 1.5rem; letter-spacing: -0.01em; }
+.brain-prose h4 { font-size: 1.25rem; }
+.brain-prose h5 { font-size: 1.0625rem; }
+.brain-prose h6 { font-size: 1rem; }
+.brain-prose h3 + h4, .brain-prose h4 + h5 { margin-top: 1.25rem; }
+.brain-prose ul, .brain-prose ol { margin: 0 0 1rem; padding-inline-start: 1.5rem; }
+.brain-prose ul { list-style: disc; }
+.brain-prose ol { list-style: decimal; }
+.brain-prose li { margin: 0.25rem 0; padding-inline-start: 0.25rem; }
+.brain-prose li > ul, .brain-prose li > ol { margin: 0.25rem 0; }
+.brain-prose strong { color: var(--ink-gray-9); font-weight: 600; }
+.brain-prose a { color: var(--ink-blue-7, #1d4ed8); text-decoration: underline; text-underline-offset: 2px; }
+.brain-prose code { font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace); font-size: 0.875em; background: var(--surface-gray-2, rgba(127,127,127,.14)); border-radius: 0.25rem; padding: 0.1em 0.35em; }
+.brain-prose pre { margin: 0 0 1rem; padding: 0.875rem 1rem; overflow-x: auto; border-radius: 0.5rem; background: var(--surface-gray-1, rgba(127,127,127,.08)); line-height: 1.55; font-size: 0.875rem; }
+.brain-prose pre code { background: none; padding: 0; font-size: inherit; }
+.brain-prose blockquote { margin: 0 0 1rem; padding: 0.125rem 0 0.125rem 1rem; border-inline-start: 3px solid var(--outline-gray-3, rgba(127,127,127,.4)); color: var(--ink-gray-7); }
+.brain-prose hr { border: 0; border-top: 1px solid var(--outline-gray-2, rgba(127,127,127,.3)); margin: 2rem 0; }
+.brain-prose-table { margin: 0 0 1.25rem; overflow-x: auto; max-width: 100%; border: 1px solid var(--outline-gray-2, rgba(127,127,127,.3)); border-radius: 0.5rem; }
+.brain-prose-table table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; line-height: 1.5; }
+.brain-prose-table th { background: var(--surface-gray-1, rgba(127,127,127,.08)); color: var(--ink-gray-7); font-weight: 600; font-size: 0.8125rem; white-space: nowrap; }
+.brain-prose-table th, .brain-prose-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--outline-gray-1, rgba(127,127,127,.2)); vertical-align: top; overflow-wrap: normal; }
+.brain-prose-table tr:last-child td { border-bottom: 0; }
