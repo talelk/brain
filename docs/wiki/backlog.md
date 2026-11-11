@@ -98,8 +98,8 @@ Leftovers: saved documents are searchable at once as unverified but do not queue
 Shipped #56 Repeat this (3 presets, server-computed cron + next 5 runs), #57 occurrence diff, #61 live "doing now" line + ETA band, #62 Pause/Steer/Stop (steer written into the brief first, then sent when the engine allows). New queries `automations.preview`, `automations.diff`; no new columns. Not yet deployed.
 | # | Item | Track | Status |
 |---|------|-------|--------|
-| 30 | A repeated *described* mission runs as a bare workflow run: its result appears only as a diff in schedule history, not as a Result card on a mission page; give each occurrence a mission/Result | next | open |
-| 31 | `automations.diff` falls back to whole-deliverable compare when the planner names outputs differently between runs; stabilise output naming | next | open |
+| 30 | A repeated *described* mission runs as a bare workflow run: its result appears only as a diff in schedule history, not as a Result card on a mission page; give each occurrence a mission/Result | next | done (track K), see Track K below |
+| 31 | `automations.diff` falls back to whole-deliverable compare when the planner names outputs differently between runs; stabilise output naming | next | done (track K) |
 | 32 | "Reading N sources" doing-now sentence not shown on session rail / Plan rows (needs transcript); extend | next | open |
 | 33 | G2 could not confirm `first-launch.test.ts` alone (flaky under load): E2's timing factor should cover; re-verify on main | chief | open |
 
@@ -111,7 +111,7 @@ Leftovers: pinned verified outputs as plan inputs when starting from a previous 
 Shipped #48 inline setup card + sample goal (box blocked until install is ready), #49 trust line ("Unverified" for model-only support, "How this was checked", Accept = human sign-off recorded as `signedOffBy`; an agent cannot complete a task resting on model opinion alone), #51 Needs-you queue leads Today with inline approve/reject/confirm/retry/sign-off. No schema or release change; Governor redeploy only. Not yet deployed.
 | # | Item | Track | Status |
 |---|------|-------|--------|
-| 34 | #69 still open: starting from a previous mission records the source in the brief but does not pin the old verified outputs as plan inputs | next | open |
+| 34 | #69 still open: starting from a previous mission records the source in the brief but does not pin the old verified outputs as plan inputs | next | done (track K) |
 | 35 | Trust read lacks per-criterion evidence link and mission-level aggregate | next | open |
 | 36 | Budget-pause and routed attention items open their page instead of acting inline | next | open |
 | 37 | "Verify the install" row clears only when `agent-smoke` runs, not when the sample mission finishes; release fix has no return path to Today | next | open |
@@ -133,7 +133,7 @@ Decisions are ADRs 0010-0015 (numbers skip 0008-0009 to avoid collisions with pa
 - Track E (UI polish, one agent, only UI editor now) started; notes go in `docs/wiki/ui-polish-2026-11-11.md`.
 | # | Item | Track | Status |
 |---|------|-------|--------|
-| 39 | Challenge runs honour the workspace spend cap but are not charged to the mission budget/usage ledger | next | open |
+| 39 | Challenge runs honour the workspace spend cap but are not charged to the mission budget/usage ledger | next | done (track K) |
 | 40 | Share page is text only (no Markdown rendering/branding) | next | open |
 | 41 | Live browser walkthrough of waves 2-3 (Today, setup card, needs-you, trust line, Library, share/challenge, repeat, usage, context tab, admin) blocked: demo browser session signed out; needs the user to sign in once | chief | blocked on user |
 
@@ -162,3 +162,14 @@ Confirmed good live: Setup says "Setup complete" truthfully; Health leads with "
 |---|------|-------|--------|
 | 51 | Health "Recent activity" uses jargon ("job updated", "job queued", "tool read refused", "By Brain"): plain sentences naming task/tool; Setup stepper's 3rd circle shows "3" instead of a tick when complete | M (UI) | open |
 | 52 | Live broker events "tool read refused" during the onboarding mission (09:06-09:07): find cause, fix or make refusal self-explaining | K | sent to K |
+
+
+## Track K (2026-11-11): Governor backend follow-ups
+- Row 30: `describedSchedule` (jobs/automation.ts) treats a schedule of workflow `general-task` with `input.situation` as described work; each occurrence calls `MissionService.startFromDescription` (one transaction, idempotent per occurrence, plan confirmed because scheduling is the approval; budget, member cap and spend cap still bound it). Optional `input.sourceMissionId` makes every occurrence reuse that mission's confirmed plan (same task ids). Overlap `skip` uses the previous mission being open. No schema change. **For E3**: `RepeatSheet` should send `sourceMissionId` in `input`, and the schedule history should link `dispatchRef` values starting `mission-` to the mission page (today only play targets link).
+- Row 31 and foundation: nothing in production wrote `mission_outputs` before; now a finished run records its deliverable text as a version of an output named by the task id (`recordTaskResult`, verified when the task is Done). `workflow_runs.output_digest` is never set in production, so the diff now reads step outputs. CAS sweep keeps output version blobs. **For E3**: the mission Outputs tab will list these under "Documents with versions" in addition to the Result cards; hide or merge them.
+- Row 34: `MissionService.startedFrom` reads the "Started from the earlier mission ... (id);" brief constraint the Today box already writes (no UI change needed), attaches the source as a kept reuse item and pins up to 6 verified outputs by version as `inputs` of root tasks; tasks see their text (4000 chars each) as quoted upstream material. Optional later: send a typed `startedFrom` on `mission.create`.
+- Row 39: challenge runs are found by execution key `challenge-<id>`, get ledger rows under the reviewed mission, and the mission budget, token ceiling and workspace cap apply; no member-cap or state gate, never pause the mission; refused or failed with plain reasons, waiting runs cancelled (ADR 0012).
+- A2: the runner repairs invalid escapes and raw control characters in model JSON, then makes one corrective second session (usage of both charged). The 0.3 word-overlap rule is unchanged: the corpus (`task-validate-corpus.test.ts`) shows it is too loose (a shared stopword passes), not too strict; tightening needs a restage so it was left.
+- I4: handoff summaries already quoted by the brief are dropped from the pack; pack budget = min(25% of ceiling, 50% of ceiling minus brief minus instructions); `tools.list` reads the new control table `tool_calls` (counting starts at zero, no backfill; a new table, no column on an existing table); `releases/cv-insights` regenerated with `scripts/build_cv_release.py` (a generated superset of the starter) and its provisioning script resolves workflow digests from the active release instead of pinning them; web.fetch network failures are plain tool errors.
+- Declined tool reads (live finding): live broker events could not be read from here (production read denied by the permission system), so the cause is inferred from the code: the refusals are requests outside the tool contract (unknown document id, missing argument, host outside the allowlist), not legitimate calls refused. Replies to the model now say what to do instead, and the audit event carries `message` ("A tool request was declined: <tool> for "<task>". <reason>"). **For E3 (row 51)**: Health "Recent activity" should show `payload.message` for `tool.read.refused` instead of the event name. Someone with live access should confirm the real reasons from the `events` table (`event_type='tool.read.refused'`).
+- Adversarial review (item 7): settlement, reuse staleness, share tokens and the interruption restart paths were read; defects found and fixed: a described/play mission was not created atomically with its occurrence marker, and output version blobs were not protected from the CAS sweep. Leftover: a read job interrupted 5 times keeps its ledger reservation and a member slot until a person resolves it (by design). Not exercised with new adversarial tests: notification throttle across a restart, share-token expiry races.
