@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { test, expect } from "./fixtures";
+import type { Page } from "@playwright/test";
 
 // Acceptance flow (plan §7, exec-console): three simultaneously running agents,
 // switching between them without state loss, a tool call expanded to its
