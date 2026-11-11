@@ -126,3 +126,13 @@ Decisions are ADRs 0010-0015 (numbers skip 0008-0009 to avoid collisions with pa
 - #73 (ADR 0014): Library replaces Plays in the primary nav and Knowledge in More; `/w/:id/library` with exact counts (`library.summary`); Plays, Knowledge, Documents, Tools and Review inbox share one tab bar; routes unchanged.
 - #74 (ADR 0015): `play.propose` on an achieved mission, `play.proposal.review` (config:activate) opens a Studio draft only.
 - Leftovers: challenge runs are not charged to the mission budget or usage ledger; `visual-baseline` snapshots were already stale before the nav change and were not regenerated (row 29); the `visual-baseline`/`ui-revamp` sidebars need regenerating once the UI settles; the share page is text only (no PDF/image); live needs a deploy for all of this and a webhook only if the owner sets the env vars.
+
+## Track G3 done and wave 3 deployed (2026-11-11 ~04:40, `talelk/brain@12dd18a`)
+- G3 (`625f103`,`19ccb8c`,`050dc73`,`1f0a9d9`; ADRs 0010-0015): #53 notifications (in-app always, push default, signed link-only webhook only if `BRAIN_NOTIFY_WEBHOOK_URL`; no email), #50 Challenge this result (re-runs general-task + task.validate, claims are model opinion, never touch a verdict), #60 read-only share link (digest-only 32-byte token, 7d default/30d max, revocable, audited, public `/shared/:token`), #64 rejected verdicts become `eval_cases`, #73 Library replaces Plays/Knowledge in nav, #74 Propose as Play (opens a Studio draft only).
+- Deployed together with G1, G2, E2: first real run of E2's pre-deploy repair check; schema upgrades created `result_shares`, `notification_preferences`, `eval_cases`, `result_challenges`, `play_proposals` and indexes cleanly; no restage needed (release `sha256:3deb9d0f…` still active); released-schema fixture refreshed (`12dd18a`).
+- Track E (UI polish, one agent, only UI editor now) started; notes go in `docs/wiki/ui-polish-2026-11-11.md`.
+| # | Item | Track | Status |
+|---|------|-------|--------|
+| 39 | Challenge runs honour the workspace spend cap but are not charged to the mission budget/usage ledger | next | open |
+| 40 | Share page is text only (no Markdown rendering/branding) | next | open |
+| 41 | Live browser walkthrough of waves 2-3 (Today, setup card, needs-you, trust line, Library, share/challenge, repeat, usage, context tab, admin) blocked: demo browser session signed out; needs the user to sign in once | chief | blocked on user |
