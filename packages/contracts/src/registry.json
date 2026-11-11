@@ -739,7 +739,9 @@
     "usage.workspace",
     "plans.estimate",
     "reuse.search",
-    "reuse.forMission"
+    "reuse.forMission",
+    "contextPacks.forRun",
+    "contextPacks.reference"
   ],
   "events": [
     {

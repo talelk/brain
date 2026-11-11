@@ -1193,6 +1193,22 @@
             "testEntrypoint": {
               "type": "string",
               "const": "test.sh"
+            },
+            "description": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 400
+            },
+            "allowedHosts": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "minItems": 1,
+              "maxItems": 100,
+              "uniqueItems": true
             }
           },
           "required": [
@@ -7352,7 +7368,9 @@
             "plans.estimate",
             "missions.forSubject",
             "reuse.search",
-            "reuse.forMission"
+            "reuse.forMission",
+            "contextPacks.forRun",
+            "contextPacks.reference"
           ]
         },
         "workspaceId": {
@@ -7422,7 +7440,9 @@
             "plans.estimate",
             "missions.forSubject",
             "reuse.search",
-            "reuse.forMission"
+            "reuse.forMission",
+            "contextPacks.forRun",
+            "contextPacks.reference"
           ]
         },
         "snapshot": {
@@ -17410,6 +17430,56 @@
         },
         "createdAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "allowedHosts": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "allowedAgents": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/ConfigId"
+          }
+        },
+        "usage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "calls",
+            "failures"
+          ],
+          "properties": {
+            "calls": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failures": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "lastCallAt": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "lastCallRunId": {
+              "$ref": "#/$defs/Id"
+            },
+            "lastFailureAt": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "lastFailureRunId": {
+              "$ref": "#/$defs/Id"
+            }
+          }
         }
       },
       "required": [
@@ -17420,7 +17490,9 @@
         "inputSchemaRef",
         "outputSchemaRef",
         "evidence",
-        "createdAt"
+        "createdAt",
+        "allowedAgents",
+        "usage"
       ],
       "additionalProperties": false
     },
@@ -23226,6 +23298,178 @@
         "payload"
       ],
       "additionalProperties": false
+    },
+    "ContextManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "runId",
+        "jobId",
+        "workItemId",
+        "agentId",
+        "budgetTokens",
+        "estimatedTokens",
+        "estimateNote",
+        "overBudget",
+        "sections",
+        "truncations",
+        "textDigest"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "brain.context-manifest/v1"
+        },
+        "runId": {
+          "$ref": "#/$defs/Id"
+        },
+        "jobId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "agentId": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "budgetTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "estimatedTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "estimateNote": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "overBudget": {
+          "type": "boolean"
+        },
+        "sections": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "title",
+              "label",
+              "items",
+              "estimatedTokens",
+              "sourceDigest"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "title": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "label": {
+                "type": "string",
+                "enum": [
+                  "fact",
+                  "claim",
+                  "reference"
+                ]
+              },
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "estimatedTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sourceDigest": {
+                "$ref": "#/$defs/Digest"
+              }
+            }
+          }
+        },
+        "truncations": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "sectionId",
+              "itemId",
+              "mode",
+              "originalTokens",
+              "keptTokens",
+              "reference"
+            ],
+            "properties": {
+              "sectionId": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "itemId": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "truncated",
+                  "referenced"
+                ]
+              },
+              "originalTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "keptTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "reference": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 200
+              }
+            }
+          }
+        },
+        "textDigest": {
+          "$ref": "#/$defs/Digest"
+        }
+      }
+    },
+    "ContextPackView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runId",
+        "jobId",
+        "stepId",
+        "manifest"
+      ],
+      "properties": {
+        "runId": {
+          "$ref": "#/$defs/Id"
+        },
+        "jobId": {
+          "$ref": "#/$defs/Id"
+        },
+        "stepId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "manifest": {
+          "$ref": "#/$defs/ContextManifest"
+        }
+      }
     }
   }
 }

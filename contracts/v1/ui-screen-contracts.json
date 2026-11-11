@@ -409,7 +409,9 @@
    "queries": [
     "usage.run",
     "job.get",
-    "job.explain"
+    "job.explain",
+    "contextPacks.forRun",
+    "contextPacks.reference"
    ],
    "actions": [
     "workflow.cancel",
@@ -419,7 +421,8 @@
     "state",
     "attempts",
     "blocker",
-    "evidence"
+    "evidence",
+    "context"
    ],
    "owner": "T60",
    "navigationGroup": "live",

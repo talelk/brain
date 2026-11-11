@@ -18,7 +18,7 @@ export interface CompiledRelease {
   readonly agents: Readonly<Record<string, Agent>>;
   readonly plays: Readonly<Record<string, Play>>;
   readonly evaluators: Readonly<Record<string, Evaluator>>;
-  readonly tools: readonly { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; entrypoint?: string; entrypointDigest?: string }[];
+  readonly tools: readonly { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; description?: string; allowedHosts?: string[]; entrypoint?: string; entrypointDigest?: string }[];
   readonly documents: readonly { kind: string; id: string; digest: string }[];
 }
 
@@ -231,7 +231,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
   const evaluators: Record<string, Evaluator> = {};
   const plays: Record<string, Play> = {};
   const entries: { kind: string; id: string; digest: string; bytes: number; path: string }[] = [];
-  const tools: { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; entrypoint?: string; entrypointDigest?: string }[] = [];
+  const tools: { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; description?: string; allowedHosts?: string[]; entrypoint?: string; entrypointDigest?: string }[] = [];
   const seenIds = new Set<string>();
   const policies: { name: string; spec: Record<string, unknown> }[] = [];
   let brainConfigUi: Record<string, unknown> | undefined;
@@ -306,7 +306,9 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
         ? { entrypoint: script.entrypoint, entrypointDigest: sha256Digest(new Uint8Array(Buffer.from(script.bytesBase64, "base64"))) }
         : undefined;
       tools.push({ id, digest: docDigest, effectClass: effectClass as "read" | "write" | "privileged", inputSchemaRef, outputSchemaRef,
-        allowedEnvironments: Array.isArray(spec?.["allowedEnvironments"]) ? (spec["allowedEnvironments"] as string[]) : [], ...(pin ?? {}) });
+        allowedEnvironments: Array.isArray(spec?.["allowedEnvironments"]) ? (spec["allowedEnvironments"] as string[]) : [],
+        ...(typeof spec?.["description"] === "string" ? { description: spec["description"] } : {}),
+        ...(Array.isArray(spec?.["allowedHosts"]) ? { allowedHosts: spec["allowedHosts"] as string[] } : {}), ...(pin ?? {}) });
     }
     entries.push({ kind, id, digest: docDigest, bytes: Buffer.byteLength(text, "utf8"), path });
   }

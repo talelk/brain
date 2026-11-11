@@ -35,6 +35,8 @@ export interface EngineToolBinding {
   inputSchema: Readonly<Record<string, JsonValue>>;
   effectClass: 'read' | 'write' | 'privileged';
   target: Target;
+  /** Hosts a network-reading tool may reach, from the pinned Tool document; the runner broker refuses everything else. */
+  allowedHosts?: readonly string[];
 }
 export interface EngineToolExecutionResult {
   proposalId: string;

@@ -211,6 +211,13 @@ export class GovernorClient {
     return { entrypoint: body.entrypoint, bytes: new Uint8Array(Buffer.from(body.bytesBase64, "base64")) };
   }
 
+  /** Asks the Governor for the data a governed read tool needs; scope is rechecked there and a refusal comes back as an HTTP error. */
+  async toolRead(attemptId: string, request: { tool: { id: string; digest: string }; input: Record<string, unknown> }): Promise<unknown> {
+    const res = await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/tool-read`, request);
+    if (res.status !== 200) throw new GovernorProtocolError("tool read", res.status, res.json);
+    return (res.json as { data: unknown }).data;
+  }
+
   // --- outputs -------------------------------------------------------------
 
   /** Uploads bytes as a CAS artifact; the digest is computed here so an

@@ -11,7 +11,7 @@ import { PaneLayout } from "@talelk/newui-templates";
 import type { Classification, MemoryResult, MemoryScope, ToolCatalogEntry, ToolCandidateView } from "@brain/contracts";
 import { ScreenRegion, DateText } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
-import { shortDigest } from "../ui/format";
+import { formatDateTime, shortDigest } from "../ui/format";
 import { BrainPage, PageStack, TechnicalDetails } from "../ui/components/PageLayout";
 import { StatusBadge } from "../ui/components/StatusBadge";
 import { ReasonDialog } from "../ui/components/ReasonDialog";
@@ -372,6 +372,16 @@ export interface ToolProposalInput {
   evidence: string[];
 }
 
+/** "never used" or "N calls, last used …": the list row's one honest sentence about a tool. */
+function usageSummary(tool: ToolCatalogEntry): string {
+  if (tool.usage.calls === 0) return "never used";
+  return `${callsText(tool)}${tool.usage.lastCallAt ? `, last used ${formatDateTime(tool.usage.lastCallAt)}` : ""}`;
+}
+function callsText(tool: ToolCatalogEntry): string {
+  if (tool.usage.calls === 0) return "never used";
+  return `${tool.usage.calls} ${tool.usage.calls === 1 ? "call" : "calls"}${tool.usage.failures ? `, ${tool.usage.failures} failed` : ", none failed"}`;
+}
+
 export function ToolsScreen(props: {
   tools: ToolCatalogEntry[];
   candidates: ToolCandidateView[];
@@ -480,7 +490,7 @@ export function ToolsScreen(props: {
                     {(tool) => (
                       <QueueRow
                         title={tool.id}
-                        description={`${tool.effectClass} effect · ${tool.evidence.length} evidence artifacts`}
+                        description={`${tool.effectClass} effect · ${usageSummary(tool)}`}
                         icon={tool.effectClass === "read" ? "lucide-scan-search" : "lucide-wrench"}
                         tone={tool.effectClass === "read" ? "blue" : "amber"}
                         meta={<span>Release {shortDigest(tool.release.digest)}</span>}
@@ -514,9 +524,8 @@ export function ToolsScreen(props: {
                     <div>
                       <StatusBadge status={tool.status} />
                       <h2 class="mt-3 text-section">{tool.id}</h2>
-                      <p class="mt-2 text-interface text-ink-gray-7">
-                        This read model does not expose a TOOL.md summary or supported runner targets. Those facts are not inferred; exact contracts and
-                        evidence are below.
+                      <p class="mt-2 text-interface text-ink-gray-7" data-tool-description>
+                        {tool.description ?? "This tool's definition carries no description."}
                       </p>
                     </div>
                     <dl class="grid gap-4 border-y border-outline-gray-1 py-4 sm:grid-cols-2">
@@ -526,6 +535,12 @@ export function ToolsScreen(props: {
                         orientation="vertical"
                       />
                       <KeyValue label="Publication" value={tool.status} orientation="vertical" />
+                      <KeyValue label="Agents allowed to call it" value={<span data-tool-agents>{tool.allowedAgents.length ? tool.allowedAgents.join(", ") : "No agent has this tool in its allowlist"}</span>} orientation="vertical" />
+                      <KeyValue label="Active since" value={<DateText value={tool.createdAt} />} orientation="vertical" />
+                      <KeyValue label="Calls" value={<span data-tool-calls>{callsText(tool)}</span>} orientation="vertical" />
+                      <KeyValue label="Last call" value={<Show when={tool.usage.lastCallAt} fallback={<span>never used</span>}><span class="flex flex-wrap items-center gap-2"><DateText value={tool.usage.lastCallAt} /><Show when={tool.usage.lastCallRunId}>{(runId) => <A class="text-ink-blue-7 underline focus-visible:focus-ring" href={`/runs/${runId()}`}>Open the run</A>}</Show></span></Show>} orientation="vertical" />
+                      <KeyValue label="Last failure" value={<Show when={tool.usage.lastFailureAt} fallback={<span>{tool.usage.calls ? "none recorded" : "never used"}</span>}><span class="flex flex-wrap items-center gap-2"><DateText value={tool.usage.lastFailureAt} /><Show when={tool.usage.lastFailureRunId}>{(runId) => <A class="text-ink-blue-7 underline focus-visible:focus-ring" href={`/runs/${runId()}`}>Open the run</A>}</Show></span></Show>} orientation="vertical" />
+                      <Show when={tool.allowedHosts?.length}><KeyValue label="Hosts it may reach" value={<span data-tool-hosts>{tool.allowedHosts!.join(", ")}</span>} orientation="vertical" /></Show>
                       <KeyValue label="Input schema" value={tool.inputSchemaRef} orientation="vertical" />
                       <KeyValue label="Output schema" value={tool.outputSchemaRef} orientation="vertical" />
                     </dl>

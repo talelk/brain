@@ -6,4 +6,5 @@
  */
 export { casFilePath, putBytes, readVerified, sweepStorage, verifyStored } from "./cas";
 export { recordWorkspaceArtifact, registerArtifact } from "./registry";
+export { readWorkspaceArtifactText } from "./read";
 export { completeUpload, completeUploadStream, initUpload } from "./uploads";

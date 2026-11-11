@@ -187,6 +187,23 @@ export class DocumentService {
     return document.id;
   }
 
+  /**
+   * The text of one document for a governed read tool, on behalf of an attempt that already proved its workspace. A revoked document, one
+   * in another workspace or one whose text could not be extracted is refused; nothing here widens what the workspace may read.
+   */
+  readForTool(organizationId: string, workspaceId: string, documentId: string, maxChars: number): { documentId: string; title: string; revision: number; mediaType: string; digest: string; text: string; truncated: boolean } {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    const document = db.prepare("SELECT * FROM documents WHERE id=?").get(documentId) as DocumentRow | undefined;
+    if (!document) throw new BrainDomainError("NOT_FOUND", "document not found in this workspace");
+    if (document.state !== "active") throw new BrainDomainError("FORBIDDEN", "document has been revoked");
+    const version = db.prepare("SELECT * FROM document_versions WHERE id=?").get(document.current_version_id) as VersionRow | undefined;
+    if (!version || version.extraction_status !== "ready" || version.extracted_text === null) throw new BrainDomainError("EVIDENCE_MISSING", "document text is not available");
+    return {
+      documentId: document.id, title: document.title, revision: version.revision, mediaType: version.media_type, digest: version.digest,
+      text: version.extracted_text.slice(0, maxChars), truncated: version.extracted_text.length > maxChars,
+    };
+  }
+
   query(actor: ActorContext, queryType: string, workspaceId: string, resourceId?: string, limit = 100, search?: string): JsonValue {
     const db = this.db(actor, workspaceId);
     if (queryType === "documents.list") {

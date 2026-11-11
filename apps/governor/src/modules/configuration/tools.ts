@@ -33,13 +33,13 @@ export function readReleaseAgentInstructions(
   organizationId: string,
   releaseDigest: string,
   agentId: string,
-): { agent: Agent; agentDigest: string; path: string; instructionsDigest: string; bytes: Uint8Array; toolBindings: { release: { id: string; digest: string }; inputSchema: Record<string, import("@brain/contracts").JsonValue>; effectClass: "read" | "write" | "privileged"; target: { targetId: string; environmentId: string; preconditionDigest: string } }[] } {
+): { agent: Agent; agentDigest: string; path: string; instructionsDigest: string; bytes: Uint8Array; toolBindings: { release: { id: string; digest: string }; inputSchema: Record<string, import("@brain/contracts").JsonValue>; effectClass: "read" | "write" | "privileged"; target: { targetId: string; environmentId: string; preconditionDigest: string }; allowedHosts?: string[] }[] } {
   const release = s.control.prepare("SELECT organization_id,manifest_json FROM config_releases WHERE digest=?").get(releaseDigest) as
     | { organization_id: string; manifest_json: string } | undefined;
   if (!release || release.organization_id !== organizationId) throw new BrainDomainError("NOT_FOUND", "release not found");
   const stored = JSON.parse(release.manifest_json) as {
     agents?: Record<string, Agent>;
-    tools?: Array<{ id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; allowedEnvironments: string[] }>;
+    tools?: Array<{ id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; allowedEnvironments: string[]; allowedHosts?: string[] }>;
     schemas?: Record<string, Record<string, import("@brain/contracts").JsonValue>>;
     manifest?: { agents?: Array<{ id: string; digest: string; instructions: { path: string; digest: string } }> };
   };
@@ -56,7 +56,8 @@ export function readReleaseAgentInstructions(
     const inputSchema = tool ? stored.schemas?.[tool.inputSchemaRef] : undefined;
     if (!tool || !inputSchema || !tool.allowedEnvironments[0]) throw new BrainDomainError("EVIDENCE_MISSING", `Agent tool ${allowed.id} lacks a pinned definition, schema or environment`);
     return { release: allowed, inputSchema, effectClass: tool.effectClass,
-      target: { targetId: `tool:${tool.id}`, environmentId: tool.allowedEnvironments[0], preconditionDigest: tool.digest } };
+      target: { targetId: `tool:${tool.id}`, environmentId: tool.allowedEnvironments[0], preconditionDigest: tool.digest },
+      ...(tool.allowedHosts ? { allowedHosts: tool.allowedHosts } : {}) };
   });
   return { agent, agentDigest: view.digest, path: row.entrypoint, instructionsDigest: row.digest, bytes, toolBindings };
 }

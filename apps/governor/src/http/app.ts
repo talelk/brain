@@ -681,6 +681,14 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       });
     } catch (e) { return fail(c as never, e); }
   });
+  app.post("/runner/v1/attempts/:id/tool-read", async (c) => {
+    try {
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      const body = (await readJson(c)) as { tool?: { id?: string; digest?: string }; input?: Record<string, unknown> };
+      if (!body.tool?.id || !body.tool.digest || !body.input || typeof body.input !== "object") throw new BrainDomainError("INVALID_ARGUMENT", "tool and input are required");
+      return c.json({ data: brain.jobProtocol.toolRead(runner, c.req.param("id"), { tool: { id: body.tool.id, digest: body.tool.digest }, input: body.input }) } as never);
+    } catch (e) { return fail(c as never, e); }
+  });
   app.post("/runner/v1/attempts/:id/artifacts", async (c) => {
     try {
       const runner = brain.jobProtocol.authenticate(c.req.raw.headers);

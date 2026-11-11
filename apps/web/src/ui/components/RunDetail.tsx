@@ -20,6 +20,7 @@ import { BrainPage, TechnicalDetails } from "./PageLayout";
 import { ReasonDialog } from "./ReasonDialog";
 import { DetailAside, WorkspaceSection } from "./Domain";
 import { RunUsage } from "../usage/Usage";
+import { ContextReceived } from "./ContextReceived";
 /**
  * The run inspector (T60): state, attempts, evidence and placement for one
  * run, linked out to the execution surfaces. It deliberately does not
@@ -33,7 +34,7 @@ export type RunJobSnapshot = JobSnapshot & { readonly sessionId?: string };
 
 const TABS = [
   { value: "summary", label: "Summary" }, { value: "attempts", label: "Attempts" },
-  { value: "evidence", label: "Evidence" }, { value: "placement", label: "Placement" },
+  { value: "context", label: "Context received" }, { value: "evidence", label: "Evidence" }, { value: "placement", label: "Placement" },
 ];
 
 type AttemptTheme = "green" | "red" | "blue" | "amber";
@@ -191,6 +192,7 @@ export function RunDetail(props: {
                 };
               })} /></Show>
             </WorkspaceSection></Show>
+            <Show when={tab() === "context"}><ContextReceived runId={job()?.workflowRunId} /></Show>
             <Show when={tab() === "evidence"}><WorkspaceSection title="Independent evidence" description="Verification is accepted only from the independent evaluator authority."><EvidenceList bundleDigest={job()?.evidenceDigest} workspaceId={job()?.workspaceId} /></WorkspaceSection></Show>
             <Show when={tab() === "placement"}><WorkspaceSection title="Placement explanation" description="Why this run can or cannot be assigned to a runner."><PlacementPanel explanation={props.explanation} /></WorkspaceSection></Show>
           </div>

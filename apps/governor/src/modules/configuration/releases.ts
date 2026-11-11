@@ -20,7 +20,7 @@ import { compileRelease, type AgentInstruction, type SourceDoc, type ToolScript 
 export interface StoredRelease {
   manifest: {
     documents: Array<{ kind: string; id: string; digest: string }>;
-    tools?: Array<{ id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string }>;
+    tools?: Array<{ id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments?: string[]; description?: string; allowedHosts?: string[]; entrypoint?: string; entrypointDigest?: string }>;
     primitiveVersions?: Record<string, string>;
     compilerDigest?: string;
   } & Record<string, unknown>;

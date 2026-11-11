@@ -9,6 +9,7 @@
  * operations restore holds every live job through quarantineJobsForRestore.
  */
 export { JobProtocol, type JobProtocolPorts } from "./job-protocol";
+export type { ToolReadPorts } from "./tool-reads";
 export type { CreateJobInput } from "./lifecycle";
 export { quarantineJobsForRestore } from "./lifecycle";
 export { issueEnrollment } from "./protocol";

@@ -1,5 +1,5 @@
 import { domainDigest } from "@brain/contracts";
-import type { ActorContext, BrainSession, Checkpoint, CheckpointInput, Delegation, JsonValue, MissionBrief, MissionMessage, SessionBudget, SessionContext, SessionScope } from "@brain/contracts";
+import type { ActorContext, BrainSession, ContextManifest, ContextPackView, Checkpoint, CheckpointInput, Delegation, JsonValue, MissionBrief, MissionMessage, SessionBudget, SessionContext, SessionScope } from "@brain/contracts";
 import { dependencyHandoffs } from "../evidence/index";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
@@ -7,6 +7,8 @@ import { assertExpectedVersion } from "../../domain/states";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { enqueueSessionControl } from "./controls";
+import { readVerified } from "../artifacts/index";
+import { buildContextPack, type BuiltPack, type PackItem, type PackSection } from "./context-pack";
 
 export interface SessionCommand {
   readonly commandType: string;
@@ -347,6 +349,120 @@ export class SessionService {
     };
   }
 
+  /**
+   * The pack a workflow-driven agent step receives (issue #80): built by the
+   * Governor from declared sections only, for the work item the run serves.
+   * Returns nothing for a run that serves no work item. Messages waiting for
+   * the item are delivered by this pack, exactly as a managed session start
+   * would deliver them.
+   */
+  contextPackForRun(organizationId: string, workspaceId: string, input: { runId: string; jobId: string; agentId: string; budgetTokens: number }): BuiltPack | undefined {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    const link = db.prepare("SELECT work_item_id FROM execution_links WHERE run_id=? ORDER BY created_at_ms DESC LIMIT 1").get(input.runId) as { work_item_id: string } | undefined;
+    if (!link) return undefined;
+    const item = db.prepare("SELECT * FROM work_items WHERE id=?").get(link.work_item_id) as { id: string; mission_id: string; title: string; criteria_json: string; assignment_json: string | null; parked_diagnostic: string | null } | undefined;
+    if (!item) return undefined;
+    const mission = db.prepare("SELECT intent, success_criteria_json, brief_version FROM missions WHERE id=?").get(item.mission_id) as { intent: string; success_criteria_json: string; brief_version: number };
+    const brief = db.prepare("SELECT intent, constraints_json FROM mission_brief_versions WHERE mission_id=? ORDER BY version DESC LIMIT 1").get(item.mission_id) as { intent: string; constraints_json: string } | undefined;
+    const lines = (list: readonly string[]): string => list.map((entry, index) => `${index + 1}. ${entry}`).join("\n");
+    const bullets = (list: readonly string[]): string => list.map((entry) => `- ${entry}`).join("\n");
+    const fact = (id: string, text: string): PackItem => ({ id, text, prose: false });
+    const prose = (id: string, text: string): PackItem => ({ id, text, prose: true });
+
+    const constraints = brief ? JSON.parse(brief.constraints_json) as string[] : [];
+    const criteria = JSON.parse(item.criteria_json) as string[];
+    const missionCriteria = JSON.parse(mission.success_criteria_json) as string[];
+    const decisions = (db.prepare("SELECT id, statement FROM accepted_decisions WHERE mission_id=? AND superseded_by IS NULL ORDER BY introduced_version, id").all(item.mission_id) as Array<{ id: string; statement: string }>);
+    const handoffs = dependencyHandoffs(db, item.id);
+    const titleOf = (workItemId: string): string => (db.prepare("SELECT title FROM work_items WHERE id=?").get(workItemId) as { title: string } | undefined)?.title ?? workItemId;
+    const inputs = db.prepare("SELECT output_version_id AS outputVersionId, artifact_digest AS artifactDigest FROM work_item_inputs WHERE work_item_id=? AND run_id=? ORDER BY output_version_id").all(item.id, input.runId) as Array<{ outputVersionId: string; artifactDigest: string }>;
+    const member = item.assignment_json ? (JSON.parse(item.assignment_json) as { id?: string }).id ?? "" : "";
+    const where = `mission_id=? AND (work_item_id=? OR (recipient_kind='member' AND recipient_member_id=? AND work_item_id IS NULL))`;
+    db.prepare(`UPDATE mission_messages SET delivery='delivered-at-session-start' WHERE delivery='pending' AND ${where}`).run(item.mission_id, item.id, member);
+    const messages = (db.prepare(`SELECT id, body FROM mission_messages WHERE delivery IN ('delivered-at-session-start','delivered-live') AND ${where} ORDER BY created_at_ms DESC, id DESC LIMIT 20`).all(item.mission_id, item.id, member) as Array<{ id: string; body: string }>).reverse();
+    const session = db.prepare("SELECT checkpoint_json FROM sessions WHERE work_item_id=? AND checkpoint_json IS NOT NULL ORDER BY updated_at_ms DESC, id DESC LIMIT 1").get(item.id) as { checkpoint_json: string } | undefined;
+    const checkpoint = session ? JSON.parse(session.checkpoint_json) as Checkpoint : undefined;
+    const failure = this.lastFailure(db, item.id, input.runId) ?? item.parked_diagnostic ?? undefined;
+
+    const sections: PackSection[] = [
+      { id: "brief", title: "Mission brief and this task's criteria", label: "fact", items: [
+        fact("goal", `Goal: ${brief?.intent ?? mission.intent}`),
+        ...(constraints.length > 0 ? [fact("constraints", `Constraints:\n${bullets(constraints)}`)] : []),
+        ...(missionCriteria.length > 0 ? [fact("mission-criteria", `Mission success criteria:\n${lines(missionCriteria)}`)] : []),
+        fact("task", `This task: ${item.title}`),
+        ...(criteria.length > 0 ? [fact("criteria", `This task's acceptance criteria:\n${lines(criteria)}`)] : []),
+      ] },
+      { id: "decisions", title: "Accepted decisions", label: "fact", items: decisions.map((row) => fact(row.id, `- ${row.statement}`)) },
+      { id: "handoff-facts", title: "Verified results of the tasks this one builds on", label: "fact", items: handoffs.map((handoff) => {
+        const passed = handoff.facts ? handoff.facts.criteria.filter((entry) => entry.status === "passed").length : 0;
+        const total = handoff.facts?.criteria.length ?? 0;
+        return fact(handoff.workItemId, handoff.facts
+          ? `- ${titleOf(handoff.workItemId)}: ${passed} of ${total} criteria passed; evidence ${handoff.facts.evidenceDigest}${handoff.facts.outputVersions.length > 0 ? `; outputs ${handoff.facts.outputVersions.join(", ")}` : ""}`
+          : `- ${titleOf(handoff.workItemId)}: no verified facts recorded yet`);
+      }) },
+      { id: "handoff-notes", title: "Handoff notes from those tasks (written by the member)", label: "claim", items: handoffs.map((handoff) => {
+        const notes = handoff.notes;
+        const parts = [notes.summary, ...(notes.decisions?.length ? [`Decisions: ${notes.decisions.join("; ")}`] : []), ...(notes.openQuestions?.length ? [`Open questions: ${notes.openQuestions.join("; ")}`] : []), ...(notes.nextAction ? [`Suggested next action: ${notes.nextAction}`] : [])];
+        return prose(handoff.workItemId, `- ${titleOf(handoff.workItemId)}: ${parts.join(" ")}`);
+      }) },
+      { id: "inputs", title: "Inputs pinned for this task (fetch by reference)", label: "reference", items: inputs.map((row) => fact(row.outputVersionId, `- ${row.outputVersionId}: artifact:${row.artifactDigest}`)) },
+      { id: "messages", title: "Messages sent to this task", label: "claim", items: messages.map((row) => prose(row.id, `- ${row.body}`)) },
+      { id: "checkpoint", title: "Where earlier work on this task stopped", label: "fact", items: checkpoint ? [
+        prose("next-action", `Next action: ${checkpoint.nextAction}`),
+        ...(checkpoint.completedCriteria.length > 0 ? [fact("completed", `Criteria already completed: ${checkpoint.completedCriteria.join(", ")}`)] : []),
+      ] : [] },
+      { id: "last-failure", title: "The previous attempt failed", label: "fact", items: failure ? [fact("error", failure)] : [] },
+    ];
+    return buildContextPack({ sections, budgetTokens: input.budgetTokens, identity: { runId: input.runId, jobId: input.jobId, workItemId: item.id, agentId: input.agentId } });
+  }
+
+  /** The error text of the work item's most recent failed run before this one, so a retry sees why the last attempt failed. */
+  private lastFailure(db: ReturnType<Store["workspaceDb"]>, workItemId: string, currentRunId: string): string | undefined {
+    const row = db.prepare(`SELECT o.output_json AS output FROM execution_links l
+      JOIN workflow_runs r ON r.id=l.run_id AND r.state='failed'
+      JOIN workflow_steps s ON s.run_id=r.id AND s.state='failed'
+      LEFT JOIN step_outputs o ON o.run_id=s.run_id AND o.step_id=s.step_id
+      WHERE l.work_item_id=? AND l.run_id!=? ORDER BY r.created_at_ms DESC, r.id DESC, s.step_id LIMIT 1`).get(workItemId, currentRunId) as { output: string | null } | undefined;
+    if (!row) return undefined;
+    if (!row.output) return "The previous attempt failed without recording an error.";
+    let text = row.output;
+    try {
+      const parsed = JSON.parse(row.output) as Record<string, unknown>;
+      const found = ["error", "message", "diagnostic", "detail"].map((key) => parsed[key]).find((value) => typeof value === "string");
+      if (typeof found === "string") text = found;
+    } catch { /* keep the raw text */ }
+    return `Previous attempt error: ${text.slice(0, 1200)}`;
+  }
+
+  /** The stored manifests of the context packs the run's agent steps received (issue #81 panel). */
+  private contextPacks(actor: ActorContext, workspaceId: string, runId: string): { items: ContextPackView[] } {
+    const db = this.db(actor, workspaceId);
+    if (!db.prepare("SELECT 1 FROM workflow_runs WHERE id=?").get(runId)) throw new BrainDomainError("NOT_FOUND", "run not found");
+    const jobs = this.store.control.prepare("SELECT id, step_id FROM jobs WHERE workflow_run_id=? AND workspace_id=? AND organization_id=? ORDER BY created_at_ms, id").all(runId, workspaceId, actor.organizationId) as Array<{ id: string; step_id: string }>;
+    const items: ContextPackView[] = [];
+    for (const job of jobs) {
+      const assoc = this.store.control.prepare("SELECT digest FROM artifact_associations WHERE artifact_id=? AND organization_id=? AND workspace_id=?").get(`ctx-${job.id}`, actor.organizationId, workspaceId) as { digest: string } | undefined;
+      if (!assoc) continue;
+      items.push({ runId, jobId: job.id, stepId: job.step_id, manifest: JSON.parse(new TextDecoder().decode(readVerified(this.store, assoc.digest))) as ContextManifest });
+    }
+    return { items };
+  }
+
+  /** The full text behind a truncated or referenced item: only digests this workspace's packs stored. */
+  private contextReference(actor: ActorContext, workspaceId: string, reference: string): { reference: string; text: string } {
+    this.db(actor, workspaceId);
+    return { reference, text: this.contextReferenceText(actor.organizationId, workspaceId, reference) };
+  }
+
+  /** The full text behind a context reference for a governed read tool (documents.read accepts these references). */
+  contextReferenceText(organizationId: string, workspaceId: string, reference: string): string {
+    const digest = /^artifact:(sha256:[0-9a-f]{64})$/.exec(reference)?.[1];
+    if (!digest) throw new BrainDomainError("INVALID_ARGUMENT", "reference must look like artifact:sha256:<digest>");
+    const found = this.store.control.prepare("SELECT 1 AS ok FROM artifact_associations WHERE digest=? AND organization_id=? AND workspace_id=? AND artifact_id LIKE 'ctxref-%' LIMIT 1").get(digest, organizationId, workspaceId);
+    if (!found) throw new BrainDomainError("NOT_FOUND", "no context reference with this digest in this workspace");
+    return new TextDecoder().decode(readVerified(this.store, digest));
+  }
+
   workItemForDispatch(actor: ActorContext, workspaceId: string, sessionId: string): string {
     const session = this.row(actor, workspaceId, sessionId);
     if (session.mode !== "managed" || session.state !== "waiting" || session.job_id || !session.work_item_id) throw new BrainDomainError("CONFLICT", "only an unbound managed session can be dispatched");
@@ -376,6 +492,8 @@ export class SessionService {
       return { items: rows.map((row) => this.delegation(workspaceId, row)) } as unknown as JsonValue;
     }
     if (queryType === "sessions.context") return this.context(actor, workspaceId, String(resourceId)) as unknown as JsonValue;
+    if (queryType === "contextPacks.forRun") return this.contextPacks(actor, workspaceId, String(resourceId)) as unknown as JsonValue;
+    if (queryType === "contextPacks.reference") return this.contextReference(actor, workspaceId, String(resourceId)) as unknown as JsonValue;
     throw new BrainDomainError("UNSUPPORTED_CAPABILITY", `unsupported session query ${queryType}`);
   }
 }

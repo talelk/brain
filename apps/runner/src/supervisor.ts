@@ -6,10 +6,11 @@ import { domainDigest, sha256Digest } from "@brain/contracts";
 import type { ArtifactRef, EvaluationAssignment, JsonValue, ReleaseRef, VerificationVerdict } from "@brain/contracts";
 import Ajv2020 from "ajv/dist/2020.js";
 import { executeToolPayload, normalizeEvaluation } from "./tools/invoke";
+import { brokerRead } from "./tools/broker-read";
 import { DurableEventSpool } from "./spool-durable";
 import { GovernorClient, GovernorProtocolError } from "./governor-client";
 import { LauncherClient } from "./launcher-client";
-import { runAgentExecution, selectEngine } from "./engines/run";
+import { promptWithContext, runAgentExecution, selectEngine } from "./engines/run";
 
 export interface RunnerConfig {
   readonly governorUrl: string;
@@ -124,7 +125,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
   const ack = await client.ack(offer.attemptId, ackBody);
   // Execution input travels as a digest-pinned CAS artifact, never inline.
   const artifactBytes = await client.executionArtifact(offer.attemptId, offer.execution.artifact.digest, offer.execution.artifact.bytes);
-  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment };
+  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment; contextPack?: { text?: string } };
   // The execution deadline is the lease: a monotonic clock (performance.now)
   // is armed from the ack's server lease expiry and refreshed by every
   // successful renewal, so wall-clock adjustments cannot extend the window.
@@ -227,7 +228,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
       if (!engine) throw new Error(`none of the required engines (${asset.agent.spec.engine.anyOf.join(", ")}) is configured on this runner`);
       const engineProbe = await engine.probe();
       engineInfo = { id: engineProbe.id, adapterDigest: engineProbe.adapterDigest, features: [...engineProbe.features] };
-      const task = step.task ?? JSON.stringify(payload.input ?? {});
+      const task = promptWithContext(step.task ?? JSON.stringify(payload.input ?? {}), payload.contextPack);
       const launcher = LauncherClient.configured() ? LauncherClient.fromEnv() : undefined;
       const toolPins = (offer as { toolPins?: Record<string, string> }).toolPins;
       const ajv = new Ajv2020({ allErrors: true, strict: true });
@@ -277,8 +278,11 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
             nestedPermit = { token: granted.token, permitId: invocationId };
           }
           const startedAt = new Date().toISOString();
-          const executed = await executeToolPayload({
-            offer: { payload: { input: proposal.input as Record<string, unknown>, invocationId,
+          // Read tools that need data the sandboxed script cannot reach get it from a broker first; a refusal is a failed call with a
+          // receipt, never a script run on missing data.
+          const brokered = await brokerRead(binding, proposal.input as Record<string, unknown>, offer.attemptId, client);
+          const executed = brokered && !brokered.ok ? { ok: false as const, output: { error: brokered.error } as JsonValue } : await executeToolPayload({
+            offer: { payload: { input: brokered ? { ...(proposal.input as Record<string, unknown>), broker: brokered.data } : proposal.input as Record<string, unknown>, invocationId,
               step: { uses: { type: "tool", release: proposal.tool }, effectClass: binding.effectClass, target: binding.target } },
               execution: { kind: "tool" }, workspaceId: offer.workspaceId },
             cfg, signal: controller.signal, launcher, permit: nestedPermit, toolPins,

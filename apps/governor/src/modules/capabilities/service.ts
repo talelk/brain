@@ -12,6 +12,8 @@ import { iso } from "../../domain/clock";
 import { looksLikeSecret, type MemoryStore, type ReuseService } from "../knowledge/index";
 import { putBytes, readVerified } from "../artifacts/index";
 
+interface ToolUsage { calls: number; failures: number; lastCallAt?: string; lastCallRunId?: string; lastFailureAt?: string; lastFailureRunId?: string }
+
 export interface CapitalizationCommand {
   readonly commandId: string;
   readonly commandType: string;
@@ -421,19 +423,83 @@ export class CapitalizationService {
     return people.map((row) => row.id).filter((id) => scopesForPrincipal(this.store, id, actor.organizationId, workspaceId).includes("memory:publish"));
   }
 
-  private activeTools(organizationId: string): ToolCatalogEntry[] {
+  /** When the organization's active release was activated: the config.activated event, else the release's own staging time. */
+  private activatedAt(organizationId: string, releaseDigest: string): string {
+    const event = this.store.control.prepare("SELECT created_at_ms FROM events WHERE organization_id=? AND event_type='config.activated' AND aggregate_id=? ORDER BY created_at_ms DESC LIMIT 1").get(organizationId, releaseDigest) as { created_at_ms: number } | undefined;
+    const staged = this.store.control.prepare("SELECT created_at_ms FROM config_releases WHERE organization_id=? AND digest=?").get(organizationId, releaseDigest) as { created_at_ms: number } | undefined;
+    return iso(event?.created_at_ms ?? staged?.created_at_ms ?? 0);
+  }
+
+  /**
+   * The registry of the active release's tools. Everything is read, none invented: the activation time of the release, the agents whose
+   * allowlist pins this exact tool digest, the pinned script as proof, and call counts from the tool events the runners recorded.
+   */
+  private activeTools(organizationId: string, workspaceId?: string): ToolCatalogEntry[] {
     const active = activeReleaseRecord(this.store, organizationId);
     if (!active) return [];
-    return (active.release.manifest.tools ?? []).map((tool) => ({
-      id: tool.id, release: { id: tool.id, digest: tool.digest }, status: "trusted", effectClass: tool.effectClass,
-      inputSchemaRef: tool.inputSchemaRef, outputSchemaRef: tool.outputSchemaRef, evidence: [], createdAt: this.store.nowIso(),
-    }));
+    const createdAt = this.activatedAt(organizationId, active.digest);
+    const usage = workspaceId ? this.toolUsage(organizationId, workspaceId) : new Map<string, ToolUsage>();
+    const candidates = workspaceId
+      ? new Map((this.store.workspaceDb(workspaceId, organizationId).prepare("SELECT package_digest,operation_id,state FROM tool_candidates").all() as Array<{ package_digest: string; operation_id: string; state: string }>).map((row) => [`${row.operation_id}@${row.package_digest}`, row.state]))
+      : new Map<string, string>();
+    return (active.release.manifest.tools ?? []).map((tool) => {
+      const allowedAgents = Object.entries(active.release.agents ?? {}).filter(([, agent]) => agent.spec.tools.some((allowed) => allowed.id === tool.id && allowed.digest === tool.digest)).map(([agentId]) => agentId).sort();
+      const candidate = candidates.get(`${tool.id}@${tool.digest}`);
+      const status: ToolCatalogEntry["status"] = candidate === "quarantined" ? "candidate" : candidate === "reviewed" ? "reviewing" : "trusted";
+      const used = usage.get(tool.id);
+      const script = tool.entrypointDigest ? this.store.control.prepare("SELECT bytes FROM release_files WHERE release_digest=? AND tool_id=?").get(active.digest, tool.id) as { bytes: number } | undefined : undefined;
+      return {
+        id: tool.id, release: { id: tool.id, digest: tool.digest }, status, effectClass: tool.effectClass,
+        inputSchemaRef: tool.inputSchemaRef, outputSchemaRef: tool.outputSchemaRef,
+        // The proof is the pinned script itself: the exact bytes the runners verify before executing.
+        evidence: tool.entrypointDigest && script ? [{ artifactId: `tool-script:${tool.id}`, digest: tool.entrypointDigest, bytes: script.bytes, mediaType: "text/x-shellscript", classification: "internal" as const }] : [],
+        createdAt, allowedAgents,
+        ...(tool.description ? { description: tool.description } : {}), ...(tool.allowedHosts ? { allowedHosts: tool.allowedHosts } : {}),
+        usage: used ?? { calls: 0, failures: 0 },
+      };
+    });
+  }
+
+  /** Per-tool calls and failures from the recorded engine tool events of this workspace (most recent 20000 events). */
+  private toolUsage(organizationId: string, workspaceId: string): Map<string, ToolUsage> {
+    const rows = this.store.control.prepare(`SELECT e.event_json AS json, j.workflow_run_id AS runId FROM attempt_events e
+      JOIN job_attempts a ON a.id=e.attempt_id JOIN jobs j ON j.id=a.job_id
+      WHERE j.organization_id=? AND j.workspace_id=? AND json_extract(e.event_json,'$.payload.kind') IN ('tool.proposed','tool.result')
+      ORDER BY e.rowid DESC LIMIT 20000`).all(organizationId, workspaceId) as Array<{ json: string; runId: string }>;
+    type Ev = { payload: { kind: string; occurredAt?: string; payload: { proposalId?: string; tool?: { id: string }; receipt?: { result?: string; finishedAt?: string } } } };
+    const proposals = new Map<string, { toolId: string; at: string | undefined; runId: string }>();
+    const results: Array<{ proposalId: string; failed: boolean; at: string | undefined; runId: string }> = [];
+    for (const row of rows) {
+      const event = JSON.parse(row.json) as Ev;
+      const body = event.payload.payload;
+      if (event.payload.kind === "tool.proposed" && body.tool?.id && body.proposalId) proposals.set(`${row.runId}:${body.proposalId}`, { toolId: body.tool.id, at: event.payload.occurredAt, runId: row.runId });
+      else if (event.payload.kind === "tool.result" && body.proposalId) results.push({ proposalId: `${row.runId}:${body.proposalId}`, failed: body.receipt?.result === "failed", at: body.receipt?.finishedAt ?? event.payload.occurredAt, runId: row.runId });
+    }
+    const out = new Map<string, ToolUsage>();
+    const entry = (toolId: string): ToolUsage => {
+      let value = out.get(toolId);
+      if (!value) { value = { calls: 0, failures: 0 }; out.set(toolId, value); }
+      return value;
+    };
+    for (const proposal of proposals.values()) {
+      const value = entry(proposal.toolId);
+      value.calls += 1;
+      if (proposal.at && (!value.lastCallAt || proposal.at > value.lastCallAt)) { value.lastCallAt = proposal.at; value.lastCallRunId = proposal.runId; }
+    }
+    for (const result of results) {
+      const proposal = proposals.get(result.proposalId);
+      if (!proposal || !result.failed) continue;
+      const value = entry(proposal.toolId);
+      value.failures += 1;
+      if (result.at && (!value.lastFailureAt || result.at > value.lastFailureAt)) { value.lastFailureAt = result.at; value.lastFailureRunId = result.runId; }
+    }
+    return out;
   }
 
   query(actor: ActorContext, queryType: string, workspaceId: string, limit: number): JsonValue {
     requireWorkspaceRead(this.store, actor, workspaceId);
     const db = this.store.workspaceDb(workspaceId, actor.organizationId);
-    if (queryType === "tools.list") return { items: this.activeTools(actor.organizationId).slice(0, limit) } as unknown as JsonValue;
+    if (queryType === "tools.list") return { items: this.activeTools(actor.organizationId, workspaceId).slice(0, limit) } as unknown as JsonValue;
     if (queryType === "knowledgeAssets.list") {
       const rows = db.prepare("SELECT * FROM knowledge_assets ORDER BY updated_at_ms DESC,id LIMIT ?").all(limit) as AssetRow[];
       return { items: rows.map((row) => this.asset(workspaceId, db, row)) } as unknown as JsonValue;

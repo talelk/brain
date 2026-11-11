@@ -3,6 +3,9 @@ import { sha256Digest } from "@brain/contracts";
 import type { EngineAdapter, EngineEvent, EngineSessionSpec } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
 
+/** Where the task starts when a Governor context pack precedes it in the prompt. */
+const TASK_MARK = "\n\n# Task\n";
+
 export class FixtureEngine implements EngineAdapter {
   readonly id = "fixture";
   private seq = 0;
@@ -32,7 +35,7 @@ export class FixtureEngine implements EngineAdapter {
     void Promise.resolve().then(() => {
       let response: unknown = { text: "fixture complete" };
       try {
-        const input = JSON.parse(spec.task) as Record<string, unknown>;
+        const input = JSON.parse(spec.task.includes(TASK_MARK) ? spec.task.slice(spec.task.indexOf(TASK_MARK) + TASK_MARK.length) : spec.task) as Record<string, unknown>;
         if (typeof input["message"] === "string" && typeof input["tasks"] === "string") {
           const tasks = JSON.parse(input["tasks"]) as { id: string }[];
           const support = /support|reply|ticket|sign in/iu.test(input["message"]);

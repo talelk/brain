@@ -9,7 +9,7 @@ import { Store, type BrainOptions } from "./store";
 import { hasWorkspaceMembership, resolveActor, requireWorkspaceRead, scopesForPrincipal, type ResolvedActor } from "./authz";
 import { CommandFunnel } from "./command-funnel";
 import { workspaceAdminCommands } from "./workspace-admin";
-import { completeUpload, completeUploadStream, initUpload, readVerified, sweepStorage } from "../modules/artifacts/index";
+import { completeUpload, completeUploadStream, initUpload, readVerified, readWorkspaceArtifactText, sweepStorage } from "../modules/artifacts/index";
 import { orgWorkspaces, textMatcher } from "./query";
 import { executeOrganizationQuery, isOrganizationQuery, organizationCommandHandlers } from "./organization-admin";
 import { activateRelease, activeReleaseAssets, activeReleaseRecord, activeSourceDocuments, activeWorkflow, configurationCommands, inspectRelease, listReleases, stageRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
@@ -106,6 +106,20 @@ export class Brain {
         startRun: (input) => this.workflows.startRun(input as Parameters<WorkflowEnginePort["startRun"]>[0]),
         missionAdmission: (organizationId, workspaceId, runId) => this.missions.admission(organizationId, workspaceId, runId),
         missionReserve: (organizationId, workspaceId, input) => this.missions.recordReservation(organizationId, workspaceId, input),
+        contextPack: (organizationId, workspaceId, input) => this.sessions.contextPackForRun(organizationId, workspaceId, input),
+        toolReads: {
+          documentText: (organizationId, workspaceId, documentId, maxChars) => {
+            if (documentId.startsWith("artifact:")) {
+              const text = this.sessions.contextReferenceText(organizationId, workspaceId, documentId);
+              return { documentId, title: "Context reference", revision: 1, mediaType: "text/plain", digest: documentId.slice("artifact:".length), text: text.slice(0, maxChars), truncated: text.length > maxChars };
+            }
+            return this.documents.readForTool(organizationId, workspaceId, documentId, maxChars);
+          },
+          csvArtifact: (organizationId, workspaceId, artifactId) => {
+            const artifact = readWorkspaceArtifactText(this.store, organizationId, workspaceId, artifactId, { maxBytes: 2 * 1024 * 1024, mediaTypes: ["text/csv", "text/plain", "application/csv"] });
+            return { artifactId: artifact.artifactId, digest: artifact.digest, csv: artifact.text };
+          },
+        },
         startMission: (input) => this.missions.startFromPlay(input),
         missionOpen: (organizationId, workspaceId, missionId) => this.missions.isOpen(organizationId, workspaceId, missionId),
       });
@@ -772,7 +786,7 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.documents.query(actor, q.queryType, q.workspaceId, q.resourceId, limit, (raw as { search?: string }).search));
       }
-      case "sessions.list": case "session.get": case "delegations.list": case "sessions.context": {
+      case "sessions.list": case "session.get": case "delegations.list": case "sessions.context": case "contextPacks.forRun": case "contextPacks.reference": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         const snapshot = this.sessions.query(actor, q.queryType, q.workspaceId, q.resourceId, limit);
         if (q.queryType !== "session.get") return this.envelope(q.queryType, snapshot);

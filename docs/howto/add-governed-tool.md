@@ -63,6 +63,28 @@ Invocation count is bounded by the Agent's `maxTurns`; output by `maxOutputBytes
 execution by the step timeout. Any mismatch (unauthorized id/digest, wrong target,
 schema rejection, refused permit) aborts the tool call, not the run silently.
 
+## 4a. Read tools that need data or the network (brokers)
+
+A pinned script runs sandboxed with no network and no Governor access, so a read tool that needs more is
+**brokered**: before the script runs, the runner supervisor obtains the data and hands it to the script under a
+reserved `broker` key (an agent cannot supply it: the pinned input schema has `additionalProperties: false`).
+The script only bounds and shapes what it receives. A refusal is a failed call with a receipt, never a script run on
+missing data.
+
+| Tool | Broker | What the broker enforces |
+|---|---|---|
+| `documents.read` | Governor (`POST /runner/v1/attempts/:id/tool-read`) | live attempt, the attempt's agent lists the exact tool digest, document is in the attempt's workspace and not revoked, size bound. Also reads a context reference (`artifact:sha256:...`) stored with the workspace's context packs |
+| `csv.query` | Governor | artifact is a verified text row of the workspace, size bound; the script loads only that CSV into an in-memory SQLite table `data` behind an authorizer (no write, attach, pragma or other table) with a 5 s limit |
+| `knowledge.search` | Governor | mission scope rechecked, bounded ranked hits with provenance |
+| `web.fetch` | runner (network) | GET only; host must equal an entry of the Tool document's `allowedHosts` (re-checked on every redirect, at most 3); public addresses only (loopback, private, link-local and metadata ranges refused at connect time); 10 s per hop; 1 MiB counted while streaming; readable text content types only |
+
+Refusals by the Governor are written to the audit trail as `tool.read.refused` (tool, attempt, reason). Calls appear
+as the usual `tool.proposed` / `tool.result` events with receipts and in the evidence bundle's tool releases.
+
+A Tool document may carry `description` (shown in the registry) and `allowedHosts` (network tools). To add a new
+brokered tool, add its id to `GOVERNOR_BROKERED` / `RUNNER_BROKERED` (`apps/runner/src/tools/brokers.ts`) and, for the
+Governor kind, a branch in `apps/governor/src/modules/jobs/tool-reads.ts`.
+
 ## 5. Verify
 
 ```bash

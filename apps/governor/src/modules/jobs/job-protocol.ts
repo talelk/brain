@@ -1,7 +1,9 @@
 import type { JsonValue } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { authRunner, enrollRunner, heartbeat, issueEnrollment, operateRunner, runnerChallenge, runnerHello, type HeartbeatCommand } from "./protocol";
-import { ackAttempt, attemptEvents, claim, completeAttempt, expireLeases, readExecutionArtifact, releaseAttempt, releaseReservation, renewAttempt } from "./attempts";
+import { ackAttempt, attemptEvents, claim, completeAttempt, expireLeases, readExecutionArtifact, releaseAttempt, releaseReservation, renewAttempt, type ContextPackPort } from "./attempts";
+import { brokerToolRead, type ToolReadPorts, type ToolReadRequest } from "./tool-reads";
+import { BrainDomainError } from "../../domain/errors";
 import { runScheduledDispatch } from "./scheduler";
 import { AutomationService } from "./automation";
 import { cancelJobsForRun, concludeAttempt, createJobForStep, resolveReconciliation, workspaceJobLoad, type CreateJobInput, type ReconciliationOutcome } from "./lifecycle";
@@ -38,6 +40,10 @@ export interface JobProtocolPorts {
   missionOpen?(organizationId: string, workspaceId: string, missionId: string): boolean;
   /** Records the admitted attempt's reservation against its mission. */
   missionReserve?(organizationId: string, workspaceId: string, input: { missionId: string; runId: string; attemptId: string; microUsd: number }): void;
+  /** Where governed read tools get their data (documents, CSV artifacts, knowledge). */
+  toolReads?: ToolReadPorts;
+  /** The context pack of an agent step's work item, built at the step's first offer. */
+  contextPack?(organizationId: string, workspaceId: string, input: { runId: string; jobId: string; agentId: string; budgetTokens: number }): ReturnType<ContextPackPort>;
 }
 
 export type MissionAdmission = { missionId?: string; admitted: true; reserve: number; running: number } | { missionId: string; admitted: false; reason: string; running: number };
@@ -101,8 +107,15 @@ export class JobProtocol {
       isEvaluatorEligible: (runnerId, jobId) => this.ports.evaluatorEligible(runnerId, jobId),
       isRunnerCurrent: (runnerId) => this.ports.runnerCurrent(runner.organizationId, runnerId),
       ...(this.ports.missionAdmission ? { missionAdmission: (workspaceId: string, runId: string) => this.ports.missionAdmission!(runner.organizationId, workspaceId, runId) } : {}),
+      ...(this.ports.contextPack ? { contextPack: (organizationId: string, workspaceId: string, input: Parameters<ContextPackPort>[2]) => this.ports.contextPack!(organizationId, workspaceId, input) } : {}),
       ...(this.ports.missionReserve ? { missionReserve: (workspaceId: string, input: { missionId: string; runId: string; attemptId: string; microUsd: number }) => this.ports.missionReserve!(runner.organizationId, workspaceId, input) } : {}),
     }, runner, requestId);
+  }
+
+  /** A governed read tool call from a live attempt: scope and allowlist are rechecked here and refusals audited. */
+  toolRead(runner: RunnerIdentity, attemptId: string, request: ToolReadRequest): JsonValue {
+    if (!this.ports.toolReads) throw new BrainDomainError("UNSUPPORTED_CAPABILITY", "governed read tools are not available");
+    return brokerToolRead(this.store, this.ports.toolReads, runner, attemptId, request);
   }
 
   executionArtifact(runner: RunnerIdentity, attemptId: string): Uint8Array {

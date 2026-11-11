@@ -1,6 +1,6 @@
 import type { JsonValue } from "@brain/contracts";
 import { domainDigest, sha256Digest } from "@brain/contracts";
-import { releaseToolPins } from "../configuration/index";
+import { releaseRecord, releaseToolPins } from "../configuration/index";
 import { authorEvidenceFor, toolReleasesForPayload } from "../evidence/index";
 import { putBytes, readVerified, registerArtifact } from "../artifacts/index";
 import { endAttemptSession, recordAttemptProgress, recordAttemptSession } from "../sessions/index";
@@ -48,6 +48,7 @@ export function claim(s: Store, deps: {
   isEvaluatorEligible: (runnerId: string, jobId: string) => boolean; isRunnerCurrent?: (runnerId: string) => boolean;
   missionAdmission?: (workspaceId: string, runId: string) => import("./job-protocol").MissionAdmission;
   missionReserve?: (workspaceId: string, input: { missionId: string; runId: string; attemptId: string; microUsd: number }) => void;
+  contextPack?: ContextPackPort;
 }, runner: { runnerId: string; epoch: number; organizationId: string }, requestId: string): JsonValue | null {
   let offer: JsonValue | null = null;
   s.inTx(s.control, () => {
@@ -149,6 +150,7 @@ export function claim(s: Store, deps: {
         .run(runner.runnerId, runner.epoch, requestId, attemptId, requestId, s.now());
       if (decision?.admitted && decision.missionId && deps.missionReserve) deps.missionReserve(String(job["workspace_id"]), { missionId: decision.missionId, runId: String(job["workflow_run_id"]), attemptId, microUsd: decision.reserve });
       s.control.prepare("UPDATE jobs SET queue_reason=NULL WHERE id=?").run(String(job["id"]));
+      if (deps.contextPack) ensureContextPack(s, deps.contextPack, runner.organizationId, job);
       offer = offerJson(s, attemptId);
       return;
     }
@@ -156,6 +158,44 @@ export function claim(s: Store, deps: {
       .run(runner.runnerId, runner.epoch, requestId, requestId, s.now());
   });
   return offer;
+}
+
+/** Share of an agent's token ceiling that its context pack may use. */
+export const CONTEXT_BUDGET_SHARE = 0.25;
+
+export interface ContextPackPort {
+  (organizationId: string, workspaceId: string, input: { runId: string; jobId: string; agentId: string; budgetTokens: number }):
+    { text: string; manifest: { estimatedTokens: number; budgetTokens: number }; bodies: ReadonlyMap<string, string> } | undefined;
+}
+
+/**
+ * Builds the context pack of an agent step once, at its first offer, and pins
+ * it into the job payload (which the execution artifact then freezes). The
+ * manifest and the full text behind every truncation become immutable
+ * artifacts of the job. A repeat claim finds the pack and leaves it alone.
+ */
+export function ensureContextPack(s: Store, build: ContextPackPort, organizationId: string, job: Record<string, unknown>): void {
+  const jobId = String(job["id"]);
+  const row = s.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(jobId) as { payload_json: string } | undefined;
+  if (!row) return;
+  const payload = JSON.parse(row.payload_json) as { step?: { uses?: { type?: string; release?: { id: string } } }; contextPack?: unknown };
+  const agentId = payload.step?.uses?.type === "agent" ? payload.step.uses.release?.id : undefined;
+  if (!agentId || payload.contextPack) return;
+  const workspaceId = String(job["workspace_id"]);
+  const maxTokens = releaseRecord(s, organizationId, String(job["config_digest"]))?.release.agents?.[agentId]?.spec.maxTokens ?? 0;
+  const pack = build(organizationId, workspaceId, { runId: String(job["workflow_run_id"]), jobId, agentId, budgetTokens: Math.max(256, Math.floor(maxTokens * CONTEXT_BUDGET_SHARE)) });
+  if (!pack) return;
+  const store = (artifactId: string, text: string, mediaType: string) => {
+    const bytes = new TextEncoder().encode(text);
+    const digest = sha256Digest(bytes);
+    putBytes(s, bytes);
+    registerArtifact(s, { artifactId, organizationId, workspaceId, digest, bytes: bytes.length, mediaType, classification: "internal", owner: { kind: "job", id: jobId } });
+    return { artifactId, digest, bytes: bytes.length };
+  };
+  for (const [reference, body] of pack.bodies) store(`ctxref-${jobId}-${reference.slice("artifact:sha256:".length, "artifact:sha256:".length + 16)}`, body, "text/plain");
+  const manifest = store(`ctx-${jobId}`, JSON.stringify(pack.manifest), "application/json");
+  payload.contextPack = { text: pack.text, manifestArtifact: manifest, estimatedTokens: pack.manifest.estimatedTokens, budgetTokens: pack.manifest.budgetTokens };
+  s.control.prepare("UPDATE job_payloads SET payload_json=? WHERE job_id=?").run(JSON.stringify(payload), jobId);
 }
 
 // Materializes a job's execution payload as a scoped CAS artifact so the

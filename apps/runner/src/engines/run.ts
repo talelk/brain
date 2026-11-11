@@ -17,6 +17,15 @@ export function selectEngine(configured: string | undefined, toolBindings: reado
   }
 }
 
+/**
+ * The engine prompt of a workflow-driven agent step: the Governor-built context
+ * pack (when the step serves a work item) followed by the task. Nothing else is
+ * added; the pack names its own sections and labels claims as claims.
+ */
+export function promptWithContext(task: string, contextPack?: { text?: unknown }): string {
+  return typeof contextPack?.text === "string" && contextPack.text.length > 0 ? `${contextPack.text}\n\n# Task\n${task}` : task;
+}
+
 export interface AgentExecutionInput {
   engine: EngineAdapter;
   attemptId: string;
