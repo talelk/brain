@@ -26,6 +26,12 @@ Dated 2026-11-11, at `talelk/brain@e38aa19`. The full history of every track, re
 - Tool refusals on live (Health "tool read refused") confirmed as `documents.read` calls with an unknown document id / missing context reference (model guessing ids), not a broker bug; K's fix makes refusals explain themselves.
 - Repo token budget check tripped (141k/140k): history moved to `docs/wiki/archive/` (excluded from the budget); keep this file lean.
 
+## Found live 2026-11-11 ~10:50 (tracks M, N deployed; release `sha256:d2401bce…` active)
+Confirmed good: six starter Plays as chips on Today; "Brain learned 2 things this week (2 on its own)"; Play flow text "Add a sentence to change the goal, or just start".
+- Track P (running): Play + sentence loses the Play name in the mission title; the reuse panel now blocks auto-drafting with a manual "Draft the plan with these 3" step and suggests irrelevant items (a support-reply Play for a note-taking comparison).
+- Plan drafting for the Play mission took over 90 s (plan-guide now has knowledge.search): watch planning latency and the one-retry path; if it fails, check `planning_requests`.
+- Pre-deploy check hardened twice (VACUUM INTO snapshot, gzip, one retry); first deploy with it passed. `scripts/snapshot-live-dbs.mjs` runs inside the container.
+
 ## Not yet walked live (blocked on deploy of K and M)
 Share links, Challenge this result, Repeat this (now creates real missions), Context received tab, Tools registry, Quality page, Usage meter in depth.
 
