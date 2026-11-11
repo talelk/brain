@@ -86,3 +86,10 @@ Leftovers: saved documents are searchable at once as unverified but do not queue
 | 27 | Sidebar highlights Live on /runners (area mapping); Passkeys paragraph jargon; inviting own address returns "internal operation failed" server-side | C3 | open |
 | 28 | Reuse seams: #66 index, #56 schedule picker, #68 planner reuse; #48 inline setup fixes + sample goal | I3 / next | open |
 | 29 | Stale `artifacts/ui-revamp` baselines (sidebar Today entry, live/logs/plays); regenerate once UI settles (polish pass) | E | open |
+
+## Wave 2 landed and deployed (2026-11-11 ~03:10)
+- Deployed to live: I3 reuse/capitalisation (`1879568`), I4 context/tools/repo budget (`4a5f53f`,`a074813`,`9591f6d`), usage ledger, Today landing, plus schema repair hardening. Live release re-staged three times (`sha256:3deb9d0f…` active).
+- Live outage 2026-11-11 ~02:40 (several minutes): `repair-live-schema.ts` refused two columns without DEFAULT, deploy left the Governor stopped. Fixed: DEFAULT NULL columns + repair now creates missing indexes and FTS tables (`scripts/repair-live-schema.ts`, test in `schema-repair.test.ts`); verified against copies of the real live databases before deploying I3.
+- Browser session on the demo was signed out after the deploys (sign-in form at `/`); the assistant does not type passwords into hosted sign-in forms: the user signs in, then browser validation resumes.
+- I4 leftovers: handoff summaries appear twice in a prompt; pack budget sits on top of a brief of ~7000 tokens; `tools.list` scans 20000 events unindexed; compaction and new tools untested with a real model; `releases/cv-insights` and `scripts/demo/provision-cv-insights.py` carry old plan-guide digests; web.fetch needs outbound access from the runner host.
+- I3 leftovers: saved documents searchable but not queued for review; #73/#74 not started; #69 (switch Today from fromMissions to reuseSearch) open.
