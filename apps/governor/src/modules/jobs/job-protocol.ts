@@ -36,9 +36,9 @@ export interface JobProtocolPorts {
   /** Mission-local admission for a run's next attempt (member cap, then budget); no mission means interactive work. */
   missionAdmission?(organizationId: string, workspaceId: string, runId: string): MissionAdmission;
   /** Starts a mission from a Play for a scheduled occurrence. */
-  startMission?(input: { organizationId: string; workspaceId: string; playId: string; startedBy: string; occurrenceId: string }): string;
+  startMission?(input: { organizationId: string; workspaceId: string; playId: string; startedBy: string; occurrenceId: string; automationId?: string; sourceMissionId?: string; autoConfirm?: boolean; subjects?: readonly { pack: "support" | "sre"; kind: "ticket" | "incident"; id: string }[] }): string;
   /** Whether a mission is still open. */
-  startDescribedMission?(input: { organizationId: string; workspaceId: string; title: string; situation: string; startedBy: string; occurrenceId: string; sourceMissionId?: string }): string;
+  startDescribedMission?(input: { organizationId: string; workspaceId: string; title: string; situation: string; startedBy: string; occurrenceId: string; automationId?: string; sourceMissionId?: string; autoConfirm?: boolean }): string;
   missionOpen?(organizationId: string, workspaceId: string, missionId: string): boolean;
   /** Records the admitted attempt's reservation against its mission. */
   missionReserve?(organizationId: string, workspaceId: string, input: { missionId: string; runId: string; attemptId: string; microUsd: number }): void;

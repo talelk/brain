@@ -8,6 +8,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { nextCronFire, parseCron } from "../workflows/index";
 import { occurrenceDiff } from "./occurrence-diff";
+import { repeatSettings } from "../missions/repeat";
 import { presetPreview } from "./schedule-presets";
 
 /**
@@ -49,9 +50,9 @@ export interface AutomationDispatchDeps {
   resolveWorkflow: (organizationId: string, workflowId: string) => { workflow: unknown; configDigest: string };
   startRun: (input: { organizationId: string; workspaceId: string; actorId: string; workflowId: string; workflow: unknown; configDigest: string; runInput: JsonValue; executionKey: string; runnerId?: string }) => { runId: string };
   /** Starts a mission from a Play of the active release on behalf of the automation's creator; returns the mission id. */
-  startMission?: (input: { organizationId: string; workspaceId: string; playId: string; startedBy: string; occurrenceId: string; subjects?: readonly { pack: "support" | "sre"; kind: "ticket" | "incident"; id: string }[] }) => string;
+  startMission?: (input: { organizationId: string; workspaceId: string; playId: string; startedBy: string; occurrenceId: string; automationId?: string; sourceMissionId?: string; autoConfirm?: boolean; subjects?: readonly { pack: "support" | "sre"; kind: "ticket" | "incident"; id: string }[] }) => string;
   /** Starts a mission from described work (a schedule made by "Repeat this" on a mission that came from plain words); returns the mission id. */
-  startDescribedMission?: (input: { organizationId: string; workspaceId: string; title: string; situation: string; startedBy: string; occurrenceId: string; sourceMissionId?: string }) => string;
+  startDescribedMission?: (input: { organizationId: string; workspaceId: string; title: string; situation: string; startedBy: string; occurrenceId: string; automationId?: string; sourceMissionId?: string; autoConfirm?: boolean }) => string;
   /** Whether a mission an earlier occurrence started is still open (for the skip overlap policy). */
   missionOpen?: (organizationId: string, workspaceId: string, missionId: string) => boolean;
 }
@@ -354,7 +355,7 @@ export class AutomationService {
           // Described work repeats as a real mission occurrence (its own plan and Results), not a bare workflow run.
           try {
             const missionId = this.deps.startDescribedMission({
-              organizationId, workspaceId, startedBy: automation.created_by, occurrenceId: occurrence.id, situation: described.situation,
+              organizationId, workspaceId, startedBy: automation.created_by, occurrenceId: occurrence.id, automationId: automation.id, autoConfirm: repeatSettings(automation.input_json).autoConfirm, situation: described.situation,
               title: occurrenceTitle(automation.title, occurrence.planned_at_ms), ...(described.sourceMissionId ? { sourceMissionId: described.sourceMissionId } : {}),
             });
             this.finish(db, occurrence, "dispatched", missionId, null);
@@ -391,8 +392,9 @@ export class AutomationService {
         }
         try {
           if (!this.deps.startMission) throw new Error("missions are not available");
+          const repeat = repeatSettings(automation.input_json);
           const subject = (db.prepare("SELECT subject_json FROM automation_occurrences WHERE id=?").get(occurrence.id) as { subject_json: string | null } | undefined)?.subject_json;
-          const missionId = this.deps.startMission({ organizationId, workspaceId, playId: automation.target_id, startedBy: automation.created_by, occurrenceId: occurrence.id, ...(subject ? { subjects: [JSON.parse(subject) as { pack: "support" | "sre"; kind: "ticket" | "incident"; id: string }] } : {}) });
+          const missionId = this.deps.startMission({ organizationId, workspaceId, playId: automation.target_id, startedBy: automation.created_by, occurrenceId: occurrence.id, automationId: automation.id, ...(repeat.sourceMissionId ? { sourceMissionId: repeat.sourceMissionId } : {}), autoConfirm: repeat.autoConfirm, ...(subject ? { subjects: [JSON.parse(subject) as { pack: "support" | "sre"; kind: "ticket" | "incident"; id: string }] } : {}) });
           this.finish(db, occurrence, "dispatched", missionId, null);
           dispatched++;
         } catch (reason) {

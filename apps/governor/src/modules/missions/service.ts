@@ -6,6 +6,7 @@ import { assertExpectedVersion, assertTransition, transitionState } from "../../
 import { assertPlanTasks } from "../../domain/work-plan";
 import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations, withinCeiling, type AgentCapabilities } from "../../domain/mission-policy";
 import { activeReleaseRecord } from "../configuration/index";
+import { repeatGate, type RepeatPlan, type RepeatSchedule } from "./repeat";
 import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
 import { admit, admitChallenge, budgetOf, DEFAULT_MISSION_BUDGET, hasHeadroom, limitChangeNote, minutesWord, reserve as reserveSpend, settle, settleAll, usageOf } from "./budget";
 import { capReached, missionUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUsage } from "./usage";
@@ -446,21 +447,24 @@ export class MissionService {
   }
 
   /**
-   * A scheduled or triggered start of a Play (T52): the mission is started on
-   * behalf of the person who set up the automation, so ownership and
-   * notification follow them; its plan and team wait for human confirmation.
+   * A scheduled Play start. The occurrence is a real mission started on behalf of the person who set up the automation, so ownership
+   * and notification follow them. When the schedule repeats a finished mission, the occurrence takes that mission's budget and autonomy
+   * and its plan is confirmed by the schedule only when every condition of ADR 0017 holds; otherwise the plan stays a proposal for a
+   * person (#37) and Needs you says why.
    */
-  startFromPlay(input: { organizationId: string; workspaceId: string; playId: string; startedBy: string; occurrenceId: string; subjects?: readonly { pack: "support" | "sre"; kind: "ticket" | "incident"; id: string }[] }): string {
+  startFromPlay(input: { organizationId: string; workspaceId: string; playId: string; startedBy: string; occurrenceId: string; automationId?: string; sourceMissionId?: string; autoConfirm?: boolean; subjects?: readonly { pack: "support" | "sre"; kind: "ticket" | "incident"; id: string }[] }): string {
     const play = activeReleaseRecord(this.store, input.organizationId)?.release.plays?.[input.playId];
     if (!play) throw new BrainDomainError("NOT_FOUND", `play ${input.playId} is not in the active release`);
-    const actor: ActorContext = { kind: "workflow", actorId: input.startedBy, organizationId: input.organizationId, workspaceId: input.workspaceId, scopes: [], authMethod: "service-credential", authGeneration: 1 };
-    const existing = this.store.workspaceDb(input.workspaceId, input.organizationId).prepare("SELECT id FROM missions WHERE started_by_occurrence=?").get(input.occurrenceId) as { id: string } | undefined;
-    if (existing) return existing.id;
+    const actor = this.scheduleActor(input);
     const db = this.store.workspaceDb(input.workspaceId, input.organizationId);
-    // One transaction: a crash between the mission and its occurrence marker must not leave a mission the retry would duplicate.
+    const existing = db.prepare("SELECT id FROM missions WHERE started_by_occurrence=?").get(input.occurrenceId) as { id: string } | undefined;
+    if (existing) return existing.id;
+    // One transaction: a crash between the mission, its plan decision and its occurrence marker must not leave a mission the retry would duplicate or a plan nobody decides.
     return this.store.inTx(db, () => {
-      const id = this.createMission(actor, input.workspaceId, { title: play.spec.title, playId: input.playId, ...(input.subjects ? { subjects: input.subjects } : {}) });
-      db.prepare("UPDATE missions SET started_by_occurrence=? WHERE id=?").run(input.occurrenceId, id);
+      const terms = this.sourceTerms(db, input.sourceMissionId);
+      const id = this.createMission(actor, input.workspaceId, { title: play.spec.title, playId: input.playId, ...terms.payload, ...(input.subjects ? { subjects: input.subjects } : {}) });
+      db.prepare("UPDATE missions SET started_by_occurrence=?,budget_wall_explicit=COALESCE(?,budget_wall_explicit) WHERE id=?").run(input.occurrenceId, terms.wallExplicit, id);
+      this.settleOccurrence(actor, input, db, id, { tasks: play.spec.plan.tasks, team: play.spec.team });
       return id;
     });
   }
@@ -468,34 +472,68 @@ export class MissionService {
   /**
    * A scheduled start of described work ("Repeat this" on a mission that came from plain words). Each occurrence is a real mission with
    * its own plan and Results, started on behalf of the person who scheduled it and idempotent per occurrence. The plan is the source
-   * mission's confirmed plan when the schedule names one (so every occurrence has the same task ids and results compare task by task),
-   * else one task named `result`. Scheduling the work is the person's approval of exactly this description, so the plan is confirmed
-   * here (the mission budget, the member cap and the workspace spend cap still bound it); a Play's plan, which can add a team and tools,
-   * stays a proposal for a person (#37).
+   * mission's confirmed plan (so every occurrence has the same task ids and results compare task by task), else one task named `result`.
+   * The schedule confirms it only under the conditions of ADR 0017; the mission budget, the member cap and the workspace spend cap bound it.
    */
-  startFromDescription(input: { organizationId: string; workspaceId: string; title: string; situation: string; startedBy: string; occurrenceId: string; sourceMissionId?: string }): string {
+  startFromDescription(input: { organizationId: string; workspaceId: string; title: string; situation: string; startedBy: string; occurrenceId: string; automationId?: string; sourceMissionId?: string; autoConfirm?: boolean }): string {
     const db = this.store.workspaceDb(input.workspaceId, input.organizationId);
     const existing = db.prepare("SELECT id FROM missions WHERE started_by_occurrence=?").get(input.occurrenceId) as { id: string } | undefined;
     if (existing) return existing.id;
-    const actor: ActorContext = { kind: "workflow", actorId: input.startedBy, organizationId: input.organizationId, workspaceId: input.workspaceId, scopes: [], authMethod: "service-credential", authGeneration: 1 };
+    const actor = this.scheduleActor(input);
     const described = describedWork(input.situation, input.title);
     const source = input.sourceMissionId ? db.prepare("SELECT p.tasks_json AS tasks, p.team_json AS team FROM missions m JOIN plan_versions p ON p.id=m.active_plan_version_id WHERE m.id=?").get(input.sourceMissionId) as { tasks: string; team: string } | undefined : undefined;
     const tasks: PlanTask[] = source
       ? (JSON.parse(source.tasks) as PlanTask[]).map(({ inputs: _inputs, ...task }) => task)
       : [{ id: "result", title: input.title.slice(0, 200), criteria: described.criteria, dependsOn: [] }];
-    // One transaction: a crash between the mission and its occurrence marker must not leave a mission the retry would duplicate.
+    const team = source ? JSON.parse(source.team) as TeamMember[] : [];
+    // One transaction: a crash between the mission, its plan decision and its occurrence marker must not leave a mission the retry would duplicate.
     return this.store.inTx(db, () => {
-      const id = this.createMission(actor, input.workspaceId, { title: input.title.slice(0, 200), intent: described.intent, successCriteria: described.criteria });
-      db.prepare("UPDATE missions SET started_by_occurrence=? WHERE id=?").run(input.occurrenceId, id);
-      const planId = this.proposePlan(actor, input.workspaceId, { missionId: id, origin: "template", summary: source ? "The plan of the mission this schedule repeats" : "The described work, as one task", tasks, team: source ? JSON.parse(source.team) as TeamMember[] : [] });
-      this.confirmPlan(actor, input.workspaceId, { planVersionId: planId }, undefined, true);
+      const terms = this.sourceTerms(db, input.sourceMissionId);
+      const id = this.createMission(actor, input.workspaceId, { title: input.title.slice(0, 200), intent: described.intent, successCriteria: described.criteria, ...terms.payload });
+      db.prepare("UPDATE missions SET started_by_occurrence=?,budget_wall_explicit=COALESCE(?,budget_wall_explicit) WHERE id=?").run(input.occurrenceId, terms.wallExplicit, id);
+      this.proposePlan(actor, input.workspaceId, { missionId: id, origin: "template", summary: source ? "The plan of the mission this schedule repeats" : "The described work, as one task", tasks, team });
+      this.settleOccurrence(actor, input, db, id, { tasks, team });
       return id;
     });
   }
 
+  private scheduleActor(input: { organizationId: string; workspaceId: string; startedBy: string }): ActorContext {
+    return { kind: "workflow", actorId: input.startedBy, organizationId: input.organizationId, workspaceId: input.workspaceId, scopes: [], authMethod: "service-credential", authGeneration: 1 };
+  }
+
+  /** What an occurrence inherits from the confirmed mission it repeats: its budget and autonomy as confirmed, and whether a person named its time limit. */
+  private sourceTerms(db: ReturnType<Store["workspaceDb"]>, sourceMissionId: string | undefined): { payload: Record<string, unknown>; wallExplicit: number | null } {
+    const row = sourceMissionId ? db.prepare("SELECT * FROM missions WHERE id=?").get(sourceMissionId) as (Parameters<typeof budgetOf>[0] & { policy_json: string; budget_wall_explicit: number }) | undefined : undefined;
+    if (!row) return { payload: {}, wallExplicit: null };
+    const preset = (JSON.parse(row.policy_json) as { preset?: AutonomyPreset }).preset;
+    return { payload: { budget: budgetOf(row), ...(preset ? { autonomy: preset } : {}) }, wallExplicit: row.budget_wall_explicit };
+  }
+
+  /**
+   * ADR 0017: the occurrence's first plan is confirmed by the schedule, on behalf of the person who created it, when every safety
+   * condition holds; otherwise it stays a proposal and the reason is recorded for Needs you. Both outcomes are events on the plan, which is
+   * the workspace audit trail.
+   */
+  private settleOccurrence(actor: ActorContext, input: { organizationId: string; workspaceId: string; startedBy: string; automationId?: string; sourceMissionId?: string; autoConfirm?: boolean }, db: ReturnType<Store["workspaceDb"]>, missionId: string, proposed: RepeatPlan): void {
+    const plan = db.prepare("SELECT id, digest FROM plan_versions WHERE mission_id=? AND state='proposed' ORDER BY revision DESC LIMIT 1").get(missionId) as { id: string; digest: string } | undefined;
+    if (!plan) return;
+    const schedule: RepeatSchedule = { automationId: input.automationId ?? "unknown", createdBy: input.startedBy, ...(input.sourceMissionId ? { sourceMissionId: input.sourceMissionId } : {}), autoConfirm: input.autoConfirm !== false };
+    const verdict = repeatGate(this.store, db, { organizationId: input.organizationId, workspaceId: input.workspaceId, schedule, missionId, proposed });
+    const base = { missionId, planVersionId: plan.id, digest: plan.digest, actorId: `schedule:${schedule.automationId}`, automationId: schedule.automationId, createdBy: schedule.createdBy };
+    if (verdict.ok) {
+      this.confirmPlan(actor, input.workspaceId, { planVersionId: plan.id }, undefined, true);
+      this.store.emit(db, { aggregateType: "plan", aggregateId: plan.id, eventType: "plan.confirmedBySchedule", payload: { ...base, note: `confirmed by schedule ${schedule.automationId} created by ${schedule.createdBy}` } });
+    } else {
+      this.store.emit(db, { aggregateType: "plan", aggregateId: plan.id, eventType: "plan.heldBySchedule", payload: { ...base, reason: verdict.reason, ...(verdict.diff ? { diff: verdict.diff as unknown as JsonValue } : {}) } });
+    }
+  }
+
   isOpen(organizationId: string, workspaceId: string, missionId: string): boolean {
     const row = this.store.workspaceDb(workspaceId, organizationId).prepare("SELECT state FROM missions WHERE id=?").get(missionId) as { state: string } | undefined;
-    return Boolean(row && row.state !== "closed");
+    if (!row || row.state === "closed") return false;
+    // A mission whose evidence is verified and only waits for a person's sign-off has finished its work: it must not stop the schedule's next run (hands-off).
+    if (row.state === "verifying") return (this.store.workspaceDb(workspaceId, organizationId).prepare("SELECT state FROM mission_evidence_bundles WHERE mission_id=? ORDER BY created_at_ms DESC, rowid DESC LIMIT 1").get(missionId) as { state: string } | undefined)?.state !== "verified";
+    return true;
   }
 
   /** A human sets the workspace's daily and weekly spend cap; missions paused by it resume once the cap is raised (#55). */

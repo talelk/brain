@@ -37,7 +37,7 @@ New rows:
 | 56 | Challenge points show literal `**bold**` markdown asterisks: render inline Markdown in claims | UI | open |
 | 57 | Version-history tile shows raw plan task id as name ("inspect", "write-recommendation") and truncates "updated..." | UI | open |
 | 58 | Every collapsed Result card polls challenges every 4 s (chatty with 6 cards): one poll per page | UI/perf | open |
-| 59 | "Repeat this" says each run still needs the person to confirm the plan: hands-off schedules should reuse the already-confirmed plan (auto-confirm identical plan, with a setting) | product | open |
+| 59 | "Repeat this" says each run still needs the person to confirm the plan: hands-off schedules should reuse the already-confirmed plan (auto-confirm identical plan, with a setting) | product | done (track X): ADR 0017, schedule confirms an identical verified plan itself under 7 conditions, otherwise Needs you with the reason |
 | 60 | Dates in schedule previews use browser locale (French "jeu. 12 nov.") while UI is English: pick one locale policy | UI | open |
 
 ## Not yet walked live (blocked on deploy of K and M)

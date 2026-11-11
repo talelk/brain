@@ -9,6 +9,8 @@ import { reachedLimits, PARKED_INTERRUPTED_REASON } from "../missions/index";
 type Db = ReturnType<Store["workspaceDb"]>;
 
 /** Result-ready items (ADR 0005) are derived for this long after the mission closed or the task reached Done. */
+/** A failed scheduled run stays in Needs you for this long unless a later run starts. */
+export const SCHEDULE_FAILURE_WINDOW_MS = 7 * 24 * 60 * 60_000;
 export const RESULT_READY_WINDOW_MS = 24 * 60 * 60_000;
 
 /**
@@ -37,7 +39,23 @@ export function attentionItems(store: Store, organizationId: string, workspaceId
     }
     for (const row of db.prepare(`SELECT p.id, p.mission_id, p.created_at_ms, m.title FROM plan_versions p JOIN missions m ON m.id=p.mission_id
       WHERE p.state='proposed' AND m.state!='closed' AND p.revision=(SELECT MAX(revision) FROM plan_versions q WHERE q.mission_id=p.mission_id)`).all() as Array<{ id: string; mission_id: string; created_at_ms: number; title: string }>) {
-      items.push({ id: `proposal:${row.id}`, workspaceId, missionId: row.mission_id, kind: "plan-proposal", tier: 3, title: `Plan proposal for ${row.title}`, resourceId: row.id, waitingSince: iso(row.created_at_ms) });
+      // A plan a schedule did not confirm by itself says why (ADR 0017); the reason is the plan's own event, so nothing extra is stored.
+      const held = db.prepare("SELECT payload_json FROM events WHERE event_type='plan.heldBySchedule' AND aggregate_id=? ORDER BY cursor DESC LIMIT 1").get(row.id) as { payload_json: string } | undefined;
+      const reason = held ? (JSON.parse(held.payload_json) as { reason?: string }).reason : undefined;
+      items.push({ id: `proposal:${row.id}`, workspaceId, missionId: row.mission_id, kind: "plan-proposal", tier: 3,
+        title: reason ? `${row.title} needs your OK: ${reason}` : `Plan proposal for ${row.title}`,
+        ...(reason ? { detail: "The schedule starts this run only after you confirm the plan." } : {}), resourceId: row.id, waitingSince: iso(row.created_at_ms) });
+    }
+    // A schedule whose latest run failed, or whose mission ended without reaching its goal, until a later run starts or succeeds (self-clearing).
+    for (const row of db.prepare(`SELECT a.id, a.title, o.state, o.detail, o.dispatch_ref, COALESCE(o.fired_at_ms, o.planned_at_ms) AS at_ms FROM automations a
+      JOIN automation_occurrences o ON o.id=(SELECT x.id FROM automation_occurrences x WHERE x.automation_id=a.id AND x.state IN ('dispatched','failed') ORDER BY x.planned_at_ms DESC, x.id DESC LIMIT 1)
+      WHERE a.state='active' AND COALESCE(o.fired_at_ms, o.planned_at_ms)>?`).all(store.now() - SCHEDULE_FAILURE_WINDOW_MS) as Array<{ id: string; title: string; state: string; detail: string | null; dispatch_ref: string | null; at_ms: number }>) {
+      if (row.state === "failed") {
+        items.push({ id: `schedule:${row.id}`, workspaceId, kind: "schedule-failed", tier: 2, title: `${row.title} could not start its latest run`, ...(row.detail ? { detail: row.detail.slice(0, 1024) } : {}), resourceId: row.id, waitingSince: iso(row.at_ms) });
+        continue;
+      }
+      const ended = row.dispatch_ref ? db.prepare("SELECT id, title FROM missions WHERE id=? AND state='closed' AND outcome='ended'").get(row.dispatch_ref) as { id: string; title: string } | undefined : undefined;
+      if (ended) items.push({ id: `schedule:${row.id}`, workspaceId, missionId: ended.id, kind: "schedule-failed", tier: 2, title: `${ended.title} ended without reaching its goal`, detail: "Its schedule keeps running; open the mission to see why.", resourceId: row.id, waitingSince: iso(row.at_ms) });
     }
     for (const row of db.prepare(`SELECT w.id, w.mission_id, w.title, w.updated_at_ms, w.parked_diagnostic, w.blocked_reason,
       (SELECT COUNT(*) FROM work_item_dependencies d JOIN work_items x ON x.id=d.work_item_id WHERE d.depends_on_work_item_id=w.id AND x.state NOT IN ('done','abandoned')) AS waiting
@@ -75,6 +93,8 @@ const NOTABLE: Readonly<Record<string, (payload: Record<string, unknown>, title:
   "plan.proposed": () => "Plan proposal awaiting review",
   "plan.confirmed": () => "Plan version confirmed",
   "plan.autoConfirmed": () => "Coordinator plan version confirmed within the autonomy policy",
+  "plan.confirmedBySchedule": (payload) => typeof payload["note"] === "string" ? `Plan ${payload["note"]}` : "Plan confirmed by its schedule",
+  "plan.heldBySchedule": (payload) => `Plan held for your OK: ${String(payload["reason"] ?? "the schedule could not confirm it")}`,
   "mission.stateChanged": (payload) => `Mission is now ${String(payload["missionState"])}`,
   "output.versionRecorded": () => "Output version recorded",
   "mission.briefChanged": (payload) => `Brief updated to version ${String(payload["briefVersion"])}`,

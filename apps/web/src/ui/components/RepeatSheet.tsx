@@ -1,7 +1,7 @@
 import { For, Show, createResource, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
-import { TextInput } from "@talelk/newui-atoms";
+import { Checkbox, TextInput } from "@talelk/newui-atoms";
 import type { Mission, WorkflowCatalogEntry } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { query } from "../../data/client";
@@ -38,6 +38,7 @@ export function RepeatSheet(props: { mission: Mission; open: boolean; onClose: (
   const [timezone, setTimezone] = createSignal(browserTimezone());
   const [zoneDraft, setZoneDraft] = createSignal(timezone());
   const [chosen, setChosen] = createSignal("weekdays-0800");
+  const [autoConfirm, setAutoConfirm] = createSignal(true);
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
 
@@ -74,7 +75,8 @@ export function RepeatSheet(props: { mission: Mission; open: boolean; onClose: (
         target: to,
         trigger: { kind: "cron", cron: preset.cron, timezone: preset.timezone },
         overlap: "skip", misfire: "skip",
-        ...(to.kind === "workflow" ? { input: { situation: situation() } } : {}),
+        // The mission this repeats: every run reuses its confirmed plan, and the switch says whether the schedule may confirm it for you (ADR 0017).
+        input: { sourceMissionId: props.mission.missionId, autoConfirm: autoConfirm(), ...(to.kind === "workflow" ? { situation: situation() } : {}) },
       });
       if (!saved.accepted) throw new Error(saved.detail);
       props.onCreated?.();
@@ -104,10 +106,17 @@ export function RepeatSheet(props: { mission: Mission; open: boolean; onClose: (
     <div class="flex items-end gap-2">
       <div class="min-w-0 flex-1"><TextInput label="Timezone" value={zoneDraft()} onInput={(event) => setZoneDraft(event.currentTarget.value)} onBlur={() => { if (zoneDraft().trim()) setTimezone(zoneDraft().trim()); }} description="A place name such as Europe/Paris; Brain handles daylight saving." /></div>
     </div>
+    <div class="flex min-w-0 flex-col gap-1 rounded-control border border-outline-gray-2 bg-surface-elevation-1 px-3 py-2.5" data-testid="repeat-autoconfirm">
+      <Checkbox checked={autoConfirm()} onCheckedChange={(checked) => setAutoConfirm(Boolean(checked))} label="Confirm the plan automatically each time" />
+      <p class="m-0 text-caption text-ink-gray-6">
+        {autoConfirm()
+          ? "Brain starts each run with the plan you already confirmed, with no action from you, as long as that plan is unchanged, this mission was verified as achieved, no step writes or needs an approval, autonomy is standard or higher, there is budget left and you can still confirm plans; otherwise the run waits in Needs you with the reason."
+          : "Each run waits in Needs you until you confirm its plan."}
+      </p>
+    </div>
     <p class="text-caption text-ink-gray-6">
-      <Show when={props.mission.playId} fallback={<>Each run does the same work again and keeps its result, so you can see what changed. If the previous run is still going, the next one is skipped.</>}>
-        Each run starts a new mission from the same play. You confirm its plan, as you did the first time. If the previous mission is still open, the next run is skipped.
-      </Show>
+      Each run is a new mission with its own Results, so you can see what changed.{" "}
+      <Show when={props.mission.playId} fallback={<>If the previous run is still going, the next one is skipped.</>}>If the previous mission is still open, the next run is skipped.</Show> A run that fails appears in Needs you.
     </p>
     <Show when={cannotTarget()}><p class="text-interface text-ink-amber-8" role="alert">This workspace has no task Brain can repeat a described mission with, so it cannot be scheduled yet.</p></Show>
   </FormSheet>;

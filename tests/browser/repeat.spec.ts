@@ -56,6 +56,14 @@ test("repeat this: preset schedule from a finished mission, then what changed be
   await sheet.getByRole("radio", { name: /Every Monday at 08:00/ }).check({ force: true });
   await expect(sheet.getByTestId("repeat-next-runs").locator("li")).toHaveCount(5);
   await expect(sheet.getByText("You confirm its plan")).toHaveCount(0);
+  // Hands-off by default (ADR 0017): the plan is confirmed by the schedule, with the exact conditions in one sentence.
+  const auto = sheet.getByRole("checkbox", { name: "Confirm the plan automatically each time" });
+  await expect(auto).toBeChecked();
+  await expect(sheet.getByTestId("repeat-autoconfirm")).toContainText(/no step writes or needs an approval.*otherwise the run waits in Needs you with the reason/);
+  await auto.uncheck({ force: true });
+  await expect(sheet.getByTestId("repeat-autoconfirm")).toContainText("Each run waits in Needs you until you confirm its plan.");
+  await auto.check({ force: true });
+  await expect(auto).toBeChecked();
   await shot(page, "1-picker");
   await sheet.getByLabel("Timezone").fill("Europe/Paris");
   await sheet.getByLabel("Timezone").blur();
@@ -71,6 +79,8 @@ test("repeat this: preset schedule from a finished mission, then what changed be
   const db = brain.store.workspaceDb("ws-repeat", actor.organizationId);
   const row = db.prepare("SELECT target_kind,target_id,cron,timezone,state FROM automations").get() as Record<string, string>;
   expect(row).toMatchObject({ target_kind: "workflow", target_id: "general-task", cron: "0 8 * * 1", timezone: "Europe/Paris", state: "active" });
+  const input = JSON.parse((db.prepare("SELECT input_json FROM automations").get() as { input_json: string }).input_json) as Record<string, unknown>;
+  expect(input).toMatchObject({ sourceMissionId: first, autoConfirm: true });
 
   // 3. Scheduled runs of a play: the first says so, the next says what changed, a skipped one says why.
   const play = (await brain.executeCommand(scoped, {

@@ -58,6 +58,9 @@ async function sourceMission(w: World): Promise<string> {
   const planId = (await run(w, "plan.propose", "src-plan", { missionId: id, origin: "manual", tasks: [task("gather"), task("write")] })).resourceId ?? "";
   const version = ((await w.brain.executeQuery(w.owner, { queryType: "missions.get", workspaceId: w.workspaceId, resourceId: id })) as { snapshot: Mission }).snapshot.version;
   await run(w, "plan.confirm", "src-confirm", { planVersionId: planId }, version);
+  // "Repeat this" is offered on a finished mission: its work is verified and it is closed as achieved.
+  db(w).prepare("INSERT INTO mission_evidence_bundles(digest,mission_id,state,manifest_json,findings_json,created_at_ms) VALUES (?,?,'verified','{}','[]',?)").run(`sha256:${"7".repeat(64)}`, id, Date.now());
+  db(w).prepare("UPDATE missions SET state='closed', outcome='achieved' WHERE id=?").run(id);
   return id;
 }
 
@@ -121,10 +124,11 @@ describe("a repeated described mission is a real mission occurrence (rows 30 and
     const automationId = saved.resourceId ?? "";
     await runNow(w, automationId);
     const first = occurrences(w, automationId).find((entry) => entry.state === "dispatched")!;
-    // Without a named source the described work is one task called "result" with the described criteria.
-    const planned = db(w).prepare("SELECT plan_task_id, criteria_json FROM work_items WHERE mission_id=?").all(first.dispatchRef!) as Array<{ plan_task_id: string; criteria_json: string }>;
-    expect(planned.map((row) => row.plan_task_id)).toEqual(["result"]);
-    expect(JSON.parse(planned[0]!.criteria_json)).toEqual(["the summary is written", "it states its assumptions"]);
+    // Without a named source the described work is one task called "result" with the described criteria, and a person confirms it (ADR 0017).
+    const planned = JSON.parse((db(w).prepare("SELECT tasks_json, state FROM plan_versions WHERE mission_id=?").get(first.dispatchRef!) as { tasks_json: string; state: string }).tasks_json) as Array<{ id: string; criteria: string[] }>;
+    expect(planned.map((row) => row.id)).toEqual(["result"]);
+    expect(planned[0]!.criteria).toEqual(["the summary is written", "it states its assumptions"]);
+    expect((db(w).prepare("SELECT state FROM plan_versions WHERE mission_id=?").get(first.dispatchRef!) as { state: string }).state).toBe("proposed");
     expect(w.brain.missions.startFromDescription({ organizationId: w.org, workspaceId: w.workspaceId, title: "again", situation: "x", startedBy: "owner-1", occurrenceId: first.occurrenceId })).toBe(first.dispatchRef);
     // The first mission is still open, so the next occurrence is skipped rather than piled on.
     await runNow(w, automationId);
