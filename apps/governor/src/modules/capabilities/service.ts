@@ -655,7 +655,7 @@ export class CapitalizationService {
     const db = this.store.workspaceDb(workspaceId, actor.organizationId);
     if (queryType === "library.summary") {
       const count = (sql: string) => (db.prepare(sql).get() as { n: number }).n;
-      const writeups = count(`SELECT COUNT(*) AS n FROM knowledge_assets WHERE state='extracted' AND superseded_by IS NULL AND (rejection_reason IS NULL OR rejection_reason LIKE '${NEEDS_PERSON_NOTE}%')`);
+      const writeups = count(`SELECT COUNT(*) AS n FROM knowledge_assets WHERE state='extracted' AND operation_id IN ('mission-knowledge','saved-document') AND superseded_by IS NULL AND (rejection_reason IS NULL OR rejection_reason LIKE '${NEEDS_PERSON_NOTE}%')`);
       const tools = count("SELECT COUNT(*) AS n FROM tool_candidates WHERE state='quarantined'");
       const plays = count("SELECT COUNT(*) AS n FROM play_proposals WHERE state='proposed'");
       return {
