@@ -346,13 +346,17 @@ _Avoid_: autonomy, objectivity
 ### Memory
 
 **Knowledge asset**:
-A reusable, signed fact extracted from verified past work, with provenance and a
-lifecycle of extracted, reviewed, published or revoked.
+A reusable, readable record extracted from verified past work (a closed achieved
+mission), with provenance to the mission's evidence bundles and a lifecycle of
+extracted, published or revoked. It is a claim when reused: it never counts as evidence
+for a criterion.
 _Avoid_: memory (unqualified), insight, learning
 
 **Memory publication**:
-The governed promotion of vetted knowledge into a broader scope, requiring a reviewer
-who is not the publisher. It is the only mechanism for either act.
+The governed promotion of vetted knowledge into a broader scope, requiring an approver
+who is not the producer of the knowledge. A single owner with no other reviewer may
+approve their own knowledge; it is then marked self-reviewed (ADR 0006). Approving
+publishes in the same action. It is the only mechanism for either act.
 _Avoid_: memory entry, promotion (there is no separate promotion step)
 
 **Capability candidate**:
