@@ -80,6 +80,10 @@ test("approve, reject a plan, confirm a plan, retry parked work and sign off a v
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`${governor.url}/w/ws-queue/today`);
   const queue = page.getByTestId("needs-you");
+  // Today shows the first three, with the rest one click away ("N more").
+  await expect(queue.getByTestId("needs-you-item")).toHaveCount(3, { timeout: 30_000 });
+  const expandQueue = async () => { await expect(queue.getByTestId("needs-you-item").first()).toBeVisible({ timeout: 30_000 }); const more = page.getByRole("button", { name: "3 more", exact: true }); if (await more.count()) await more.click(); };
+  await expandQueue();
   await expect(queue.getByTestId("needs-you-item")).toHaveCount(6, { timeout: 30_000 });
   // The order is the existing attention tiers: approval, then plans and parked work, then the verdict.
   const kinds = await queue.getByTestId("needs-you-item").evaluateAll((rows) => rows.map((row) => row.getAttribute("data-kind")));
@@ -97,6 +101,7 @@ test("approve, reject a plan, confirm a plan, retry parked work and sign off a v
   expect(memberships.length).toBeGreaterThan(0);
   brain.store.control.prepare("UPDATE workspace_memberships SET role='viewer' WHERE workspace_id='ws-queue' AND principal_id=? AND revoked_at_ms IS NULL").run(actor.actorId);
   await page.reload();
+  await expandQueue();
   const approvalRow = queue.locator('[data-kind="approval"]');
   await expect(queue.getByTestId("needs-you-item")).toHaveCount(6, { timeout: 30_000 });
   await expect(approvalRow).toContainText("Publish fixture on t-queue in prod");
@@ -112,6 +117,7 @@ test("approve, reject a plan, confirm a plan, retry parked work and sign off a v
   brain.store.control.prepare("INSERT INTO workspace_memberships(workspace_id, organization_id, principal_id, role, version, granted_by, granted_at_ms) VALUES ('ws-queue', ?, ?, 'approver', 1, ?, ?)")
     .run(actor.organizationId, actor.actorId, actor.actorId, Date.now());
   await page.reload();
+  await expandQueue();
   await expect(queue.getByTestId("needs-you-item")).toHaveCount(6, { timeout: 30_000 });
 
   // Approve inline: exact digest in the row, step-up in the dialog, the row leaves the queue without a reload.
