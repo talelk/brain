@@ -43,13 +43,13 @@ test("keyboard, 200% zoom, French input, RTL and reduced motion remain contained
   await search.fill(french);
   await expect(search).toHaveValue(french);
   await page.keyboard.press("Escape");
-  await page.evaluate(() => { document.documentElement.dir = "rtl"; });
-  for (const route of [`/w/${workspaceId}/missions`, `/w/${workspaceId}/plays?mode=catalog`, "/approvals", "/tv/sre"]) {
+  for (const route of [`/w/${workspaceId}/missions?dir=rtl`, `/w/${workspaceId}/plays?mode=catalog&dir=rtl`, "/approvals?dir=rtl", "/tv/sre?dir=rtl"]) {
     await page.goto(`${governor.url}${route}`);
+    expect(await page.evaluate(() => document.documentElement.dir), `${route} reads right-to-left`).toBe("rtl");
     const contained = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
     expect(contained, `${route} at 200% zoom and RTL`).toBe(true);
   }
-  await page.goto(`${governor.url}/w/${workspaceId}/missions`);
+  await page.goto(`${governor.url}/w/${workspaceId}/missions?dir=ltr`);
   await expect(page.getByRole("heading", { name: "Missions", exact: true, level: 1 })).toBeVisible();
   const duration = await page.getByRole("main").evaluate((element) => {
     element.classList.add("brain-region-enter");

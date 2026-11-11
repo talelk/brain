@@ -12507,6 +12507,7 @@
           },
           "required": [
             "queryType",
+            "workspaceId",
             "resourceId"
           ],
           "additionalProperties": false

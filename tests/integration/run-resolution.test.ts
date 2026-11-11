@@ -138,6 +138,13 @@ describe("Runs search", () => {
       expect(await search("failed quarterly")).toEqual(["job-q1"]);
       expect(await search("job-q1")).toEqual(["job-q1"]);
       expect(await search("nothing like this")).toEqual([]);
+      // Paging keeps the total stable: page 2 does not shrink "results N".
+      const paged = async (cursor?: string) => (await w.brain.executeQuery(w.owner, { queryType: "jobs.list", workspaceId: w.workspaceId, search: "job-", limit: 1, ...(cursor ? { cursor } : {}) } as never)) as unknown as { snapshot: { items: JobSnapshot[]; totalEstimate: number }; cursor: string };
+      const first = await paged();
+      const second = await paged(first.cursor);
+      expect([first.snapshot.totalEstimate, second.snapshot.totalEstimate]).toEqual([2, 2]);
+      expect(new Set([first.snapshot.items[0]?.jobId, second.snapshot.items[0]?.jobId]).size).toBe(2);
+      expect(second.cursor).toBe("");
     } finally { w.brain.close(); }
   });
 });

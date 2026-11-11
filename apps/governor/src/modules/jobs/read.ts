@@ -142,14 +142,17 @@ export function listJobs(
   const clauses = [`organization_id=?`, `workspace_id IN (${marks})`];
   const parameters: Array<string | number> = [actor.organizationId, ...workspaceIds];
   if (filters.states?.length) { clauses.push(`state IN (${filters.states.map(() => "?").join(",")})`); parameters.push(...filters.states); }
+  const baseClauses = [...clauses];
+  const baseParameters = [...parameters];
+  let position: { createdAt: number; id: string } | undefined;
   if (filters.cursor) {
     try {
-      const position = JSON.parse(Buffer.from(filters.cursor, "base64url").toString("utf8")) as { createdAt: number; id: string };
+      position = JSON.parse(Buffer.from(filters.cursor, "base64url").toString("utf8")) as { createdAt: number; id: string };
       clauses.push("(created_at_ms<? OR (created_at_ms=? AND id<?))"); parameters.push(position.createdAt, position.createdAt, position.id);
     } catch { throw new BrainDomainError("INVALID_ARGUMENT", "invalid jobs cursor"); }
   }
   const where = clauses.join(" AND ");
-  if (filters.search?.trim()) return searchJobPage(store, where, parameters, limit, filters.search.trim().toLowerCase());
+  if (filters.search?.trim()) return searchJobPage(store, baseClauses.join(" AND "), baseParameters, position, limit, filters.search.trim().toLowerCase());
   const rows = store.control.prepare(`SELECT * FROM jobs WHERE ${where} ORDER BY created_at_ms DESC, id DESC LIMIT ?`).all(...parameters, limit + 1) as Array<Record<string, unknown>>;
   const page = rows.slice(0, limit);
   const last = page.at(-1);
@@ -174,15 +177,24 @@ function jobSearchText(store: Store, row: Record<string, unknown>): string {
     .filter((part): part is string => typeof part === "string").join("\n").toLowerCase();
 }
 
-/** Runs search: every word typed must appear in the run's ids, state, workflow name, task title or mission title. */
-function searchJobPage(store: Store, where: string, parameters: Array<string | number>, limit: number, search: string): QuerySnapshot {
+/**
+ * Runs search: every word typed must appear in the run's ids, state, workflow name, task title or mission title.
+ * Titles live in the workspace databases, so they are matched in code over the newest RUN_SEARCH_SCAN runs; ids are
+ * matched in SQL over every run, so an old run is still found by its id. `where` carries the filters but not the cursor.
+ */
+function searchJobPage(store: Store, where: string, parameters: Array<string | number>, position: { createdAt: number; id: string } | undefined, limit: number, search: string): QuerySnapshot {
   const words = search.split(/\s+/).filter(Boolean);
-  const candidates = store.control.prepare(`SELECT * FROM jobs WHERE ${where} ORDER BY created_at_ms DESC, id DESC LIMIT ?`).all(...parameters, RUN_SEARCH_SCAN) as Array<Record<string, unknown>>;
-  const matched = candidates.filter((row) => { const text = jobSearchText(store, row); return words.every((word) => text.includes(word)); });
-  const page = matched.slice(0, limit);
+  const newest = store.control.prepare(`SELECT * FROM jobs WHERE ${where} ORDER BY created_at_ms DESC, id DESC LIMIT ?`).all(...parameters, RUN_SEARCH_SCAN) as Array<Record<string, unknown>>;
+  const byId = store.control.prepare(`SELECT * FROM jobs WHERE ${where} AND (instr(LOWER(id), ?) > 0 OR instr(LOWER(workflow_run_id), ?) > 0)`).all(...parameters, search, search) as Array<Record<string, unknown>>;
+  const matched = new Map<string, Record<string, unknown>>();
+  for (const row of newest) { const text = jobSearchText(store, row); if (words.every((word) => text.includes(word))) matched.set(String(row["id"]), row); }
+  for (const row of byId) matched.set(String(row["id"]), row);
+  const ordered = [...matched.values()].sort((a, b) => Number(b["created_at_ms"]) - Number(a["created_at_ms"]) || String(b["id"]).localeCompare(String(a["id"])));
+  const remaining = position ? ordered.filter((row) => Number(row["created_at_ms"]) < position.createdAt || (Number(row["created_at_ms"]) === position.createdAt && String(row["id"]) < position.id)) : ordered;
+  const page = remaining.slice(0, limit);
   const last = page.at(-1);
-  const cursor = matched.length > limit && last ? Buffer.from(JSON.stringify({ createdAt: Number(last["created_at_ms"]), id: String(last["id"]) })).toString("base64url") : "";
-  return { snapshot: { items: page.map((row) => jobSnapshot(store, row)), totalEstimate: matched.length } as unknown as JsonValue, cursor };
+  const cursor = remaining.length > limit && last ? Buffer.from(JSON.stringify({ createdAt: Number(last["created_at_ms"]), id: String(last["id"]) })).toString("base64url") : "";
+  return { snapshot: { items: page.map((row) => jobSnapshot(store, row)), totalEstimate: ordered.length } as unknown as JsonValue, cursor };
 }
 
 /** job.get: one job (or the newest job of a run) with its full snapshot. */

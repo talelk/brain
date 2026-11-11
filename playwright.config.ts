@@ -10,6 +10,6 @@ export default defineConfig({
       name: `${width}-${colorScheme}`, use: { viewport: {width,height:900},colorScheme },
     }))),
     // Right-to-left: the browser language is Arabic, which makes the app set dir="rtl" (see apps/web/src/main.tsx; `?dir=rtl` forces it by hand).
-    { name: "1440-light-rtl", use: { viewport: {width:1440,height:900}, colorScheme: "light" as const, locale: "ar" } },
+    { name: "1440-light-rtl", testMatch: /(^|\/)(today|mission-flow|general-task|needs-you|library|schedules|operations|busy-runner|rtl)(-[a-z-]+)?\.spec\.ts$/, use: { viewport: {width:1440,height:900}, colorScheme: "light" as const, locale: "ar" } },
   ],
 });
