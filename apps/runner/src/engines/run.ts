@@ -8,7 +8,7 @@ import { OpenCodeEngine } from "./opencode";
 
 export function selectEngine(configured: string | undefined, toolBindings: readonly EngineToolBinding[] = []): EngineAdapter | undefined {
   switch (configured) {
-    case "fixture": return new FixtureEngine();
+    case "fixture": return new FixtureEngine(toolBindings);
     case "pi": return new PiEngine(toolBindings);
     case "claude": return new ClaudeEngine(toolBindings);
     case "acp": return new AcpEngine();

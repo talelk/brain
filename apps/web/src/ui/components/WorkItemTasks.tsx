@@ -44,6 +44,7 @@ export function WorkItemTasks(props: { origin: TaskOrigin }) {
               <Show when={binding()?.sessionId}><Button variant="ghost" iconLeft="lucide-radio" onClick={() => void navigate(`/w/${app.workspaceId()}/live?session=${encodeURIComponent(binding()?.sessionId ?? "")}`)}>Console</Button></Show>
               <Show when={binding()?.jobId || binding()?.sessionId}><Button variant="ghost" iconLeft="lucide-scroll-text" onClick={() => void navigate(binding()?.jobId ? `/w/${app.workspaceId()}/logs?job=${encodeURIComponent(binding()?.jobId ?? "")}` : `/w/${app.workspaceId()}/logs?session=${encodeURIComponent(binding()?.sessionId ?? "")}`)}>Logs</Button></Show>
               <Button variant="ghost" iconLeft="lucide-package" onClick={() => void navigate(binding()?.jobId ? `/w/${app.workspaceId()}/outputs?job=${encodeURIComponent(binding()?.jobId ?? "")}` : `/w/${app.workspaceId()}/outputs?run=${encodeURIComponent(run.runId)}`)}>Outputs</Button>
+              <Button variant="ghost" iconLeft="lucide-layers" onClick={() => void navigate(`/runs/${run.runId}?tab=context`)}>Context received</Button>
               <Button variant="outline" iconRight="lucide-arrow-right" onClick={() => void navigate(`/runs/${run.runId}`)}>Inspect run</Button>
             </span>
           </div>;

@@ -115,6 +115,11 @@ export class Brain {
             }
             return this.documents.readForTool(organizationId, workspaceId, documentId, maxChars);
           },
+          // The unified search (memory.search); scope is the mission's workspace, fixed by the caller, never taken from the agent.
+          knowledgeSearch: (organizationId, workspaceId, scope, input) => {
+            const found = this.memory.search({ contractVersion: "brain.memory/v1", queryId: this.store.id("kq"), scope: { organizationId, visibility: "workspace", workspaceId }, query: input.query, sourceTypes: ["chat", "skill", "wiki", "codegraph"], limit: input.limit, maxChars: 1500 }, { organizationId, workspaceId });
+            return { query: input.query, ...(scope.missionId ? { missionId: scope.missionId } : {}), results: found.results.map((hit) => ({ sourceId: hit.sourceId, content: hit.content, updatedAt: hit.updatedAt, status: hit.status, provenance: hit.provenance })) };
+          },
           csvArtifact: (organizationId, workspaceId, artifactId) => {
             const artifact = readWorkspaceArtifactText(this.store, organizationId, workspaceId, artifactId, { maxBytes: 2 * 1024 * 1024, mediaTypes: ["text/csv", "text/plain", "application/csv"] });
             return { artifactId: artifact.artifactId, digest: artifact.digest, csv: artifact.text };

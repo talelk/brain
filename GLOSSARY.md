@@ -318,6 +318,14 @@ the member's own notes (what was done, decisions assumed, open questions, next a
 which stay claims. A dependent receives the handoffs of its direct dependencies only.
 _Avoid_: summary, transcript, note
 
+**Context pack**:
+The ordered, budgeted text the Governor puts in front of an agent step that serves a task:
+brief and constraints, accepted decisions, dependency handoff facts and notes, pinned inputs,
+messages, checkpoint and the last failure. Only these declared sections enter. Over budget it
+compacts deterministically (facts kept, prose cut at sentence ends or replaced by a reference to
+the full text), never by a model summary. Its manifest is stored with the run; sizes are estimates.
+_Avoid_: context dump, prompt stuffing
+
 **Evidence bundle**:
 The concrete, digest-addressed set of artifacts, checks, approvals and effect records
 that an evaluator judges.

@@ -51,7 +51,6 @@ async function world(page: Page, governor: GovernorFixture) {
 
 type World = Awaited<ReturnType<typeof world>>;
 const states = (w: World, missionId: string) => Object.fromEntries((w.ws.prepare("SELECT plan_task_id AS t, state AS s FROM work_items WHERE mission_id=? AND state!='abandoned'").all(missionId) as { t: string; s: string }[]).map((row) => [row.t, row.s]));
-const linkedRuns = (w: World, missionId: string, task: string) => (w.ws.prepare("SELECT l.run_id FROM execution_links l JOIN work_items i ON i.id=l.work_item_id WHERE i.mission_id=? AND i.plan_task_id=?").all(missionId, task) as { run_id: string }[]).map((row) => row.run_id);
 
 /** Creates the mission in the New mission form (describe path) and returns its id. */
 async function createMission(page: Page, w: World, base: string, sentence: string, manual: boolean): Promise<string> {
@@ -118,15 +117,15 @@ test("Context received tab shows the sections an agent was given, what was short
   await expect.poll(async () => { for (const session of w.sessions.slice(0, 1)) await runOnce(session.cfg, session.sessionToken, session.epoch); return w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM artifact_associations WHERE artifact_id LIKE 'ctx-job%'").get(); }, { timeout: 30_000 }).toEqual({ n: 2 });
   const verifyRun = (w.ws.prepare("SELECT run_id FROM execution_links WHERE work_item_id=?").get(verifyItem.id) as { run_id: string }).run_id;
   const verifyJob = (w.brain.store.control.prepare("SELECT id FROM jobs WHERE workflow_run_id=? AND step_id='respond'").get(verifyRun) as { id: string }).id;
-  await page.goto(`${governor.url}/runs/${encodeURIComponent(verifyJob)}`);
-  await page.getByRole("radio", { name: "Context received" }).click();
+  await page.goto(`${governor.url}/runs/${encodeURIComponent(verifyJob)}?tab=context`);
+  await expect(page.getByRole("radio", { name: "Context received" })).toBeChecked();
   const panel = page.getByRole("region", { name: "Context this task received" });
   await expect(panel).toBeVisible();
   await expect(panel.locator("[data-context-total]")).toContainText("(estimated)");
   for (const section of ["brief", "handoff-facts", "messages"]) await expect(panel.locator(`[data-section="${section}"]`)).toBeVisible();
   await expect(panel.locator('[data-section="messages"]')).toContainText("Claim: written by a person or an agent, not verified");
   const cut = panel.locator("[data-truncation]").first();
-  await expect(cut).toContainText(/Cut|Replaced by a pointer/);
+  await expect(cut).toContainText("A message sent to this task");
   await expect(panel).toContainText("No model wrote a summary");
   if (shots) await page.screenshot({ path: `${shots}/ctx-1-panel.png`, fullPage: true });
   await cut.getByRole("button", { name: "Show the full text" }).click();

@@ -18,7 +18,7 @@
         },
         "outputSchemaRef": "schemas/plan-guide-output.json",
         "timeoutSeconds": 180,
-        "uses": { "type": "agent", "release": { "id": "plan-guide-assistant", "digest": "sha256:ce2a173fc1bdd82e8e9e1ba5bb9c6fcd9ac556ca66bb7503e7b005723d12752b" } },
+        "uses": { "type": "agent", "release": { "id": "plan-guide-assistant", "digest": "sha256:8afd5aca0bf783415a24d151c726c636e1876d2735349523935fb46b5c64484d" } },
         "runsOn": {
           "group": "agents",
           "engine": { "anyOf": ["pi"], "features": ["sessions"] },

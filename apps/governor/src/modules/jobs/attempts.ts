@@ -181,8 +181,18 @@ export function ensureContextPack(s: Store, build: ContextPackPort, organization
   const payload = JSON.parse(row.payload_json) as { step?: { uses?: { type?: string; release?: { id: string } } }; contextPack?: unknown };
   const agentId = payload.step?.uses?.type === "agent" ? payload.step.uses.release?.id : undefined;
   if (!agentId || payload.contextPack) return;
+  // A job whose execution artifact is already pinned (offered before this code, or by an earlier claim) keeps exactly those bytes.
+  if (s.control.prepare("SELECT 1 FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(`exec-${jobId}`, organizationId)) return;
   const workspaceId = String(job["workspace_id"]);
   const maxTokens = releaseRecord(s, organizationId, String(job["config_digest"]))?.release.agents?.[agentId]?.spec.maxTokens ?? 0;
+  try {
+    pinContextPack(s, build, organizationId, workspaceId, job, jobId, agentId, maxTokens, payload);
+  } catch {
+    // A pack that cannot be built or stored must never stall the runner: the step runs with its own input only and the run page shows no pack.
+  }
+}
+
+function pinContextPack(s: Store, build: ContextPackPort, organizationId: string, workspaceId: string, job: Record<string, unknown>, jobId: string, agentId: string, maxTokens: number, payload: { contextPack?: unknown }): void {
   const pack = build(organizationId, workspaceId, { runId: String(job["workflow_run_id"]), jobId, agentId, budgetTokens: Math.max(256, Math.floor(maxTokens * CONTEXT_BUDGET_SHARE)) });
   if (!pack) return;
   const store = (artifactId: string, text: string, mediaType: string) => {

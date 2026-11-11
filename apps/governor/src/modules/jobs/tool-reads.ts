@@ -25,7 +25,6 @@ export const GOVERNOR_READ_TOOLS = ["documents.read", "csv.query", "knowledge.se
 export interface ToolReadRequest { readonly tool: { readonly id: string; readonly digest: string }; readonly input: Readonly<Record<string, unknown>> }
 
 const MAX_DOCUMENT_CHARS = 20_000;
-const MAX_CSV_BYTES = 2 * 1024 * 1024;
 
 export function brokerToolRead(s: Store, ports: ToolReadPorts, runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, request: ToolReadRequest): JsonValue {
   const row = loadAttempt(s, attemptId);
@@ -67,9 +66,14 @@ export function brokerToolRead(s: Store, ports: ToolReadPorts, runner: { runnerI
   if (!ports.knowledgeSearch) return refuse("knowledge search is not available");
   const query = typeof input["query"] === "string" ? input["query"].trim() : "";
   if (!query) return refuse("query is required", "INVALID_ARGUMENT");
+  // The scope is the attempt's own workspace, derived here from the run, never from the request. An agent that names another workspace is refused.
+  if (input["workspaceId"] !== undefined && input["workspaceId"] !== workspaceId) return refuse("knowledge.search is limited to the workspace of this mission; the requested workspace is outside it");
   const limit = typeof input["limit"] === "number" && Number.isInteger(input["limit"]) ? Math.min(Math.max(1, input["limit"]), 10) : 5;
-  const link = s.workspaceDb(workspaceId, organizationId).prepare("SELECT mission_id, work_item_id FROM execution_links WHERE run_id=? ORDER BY created_at_ms DESC LIMIT 1").get(String(row["workflow_run_id"])) as { mission_id: string; work_item_id: string } | undefined;
-  try { return ports.knowledgeSearch(organizationId, workspaceId, { missionId: link?.mission_id, workItemId: link?.work_item_id }, { query, limit }); } catch (error) { return refuseFrom(refuse, error); }
+  const ws = s.workspaceDb(workspaceId, organizationId);
+  const runId = String(row["workflow_run_id"]);
+  const work = ws.prepare("SELECT mission_id, work_item_id FROM execution_links WHERE run_id=? ORDER BY created_at_ms DESC LIMIT 1").get(runId) as { mission_id: string; work_item_id: string } | undefined;
+  const planning = work ? undefined : ws.prepare("SELECT mission_id FROM planning_requests WHERE run_id=?").get(runId) as { mission_id: string } | undefined;
+  try { return ports.knowledgeSearch(organizationId, workspaceId, { missionId: work?.mission_id ?? planning?.mission_id, workItemId: work?.work_item_id }, { query, limit }); } catch (error) { return refuseFrom(refuse, error); }
 }
 
 function refuseFrom(refuse: (reason: string, code?: "FORBIDDEN" | "INVALID_ARGUMENT" | "NOT_FOUND") => never, error: unknown): never {
@@ -80,4 +84,3 @@ function refuseFrom(refuse: (reason: string, code?: "FORBIDDEN" | "INVALID_ARGUM
   throw error;
 }
 
-export const TOOL_READ_LIMITS = { maxDocumentChars: MAX_DOCUMENT_CHARS, maxCsvBytes: MAX_CSV_BYTES } as const;

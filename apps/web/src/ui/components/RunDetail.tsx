@@ -93,7 +93,8 @@ export function RunDetail(props: {
   onCancel: (reason: string) => Promise<void>;
   onReconcile: (reason: string) => Promise<void>;
 }): JSX.Element {
-  const [tab, setTab] = createSignal("summary");
+  const requested = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("tab");
+  const [tab, setTab] = createSignal(TABS.some((option) => option.value === requested) ? requested! : "summary");
   const [reasonOpen, setReasonOpen] = createSignal<false | "cancel" | "reconcile">(false);
   const [reason, setReason] = createSignal("");
   const [busy, setBusy] = createSignal(false);

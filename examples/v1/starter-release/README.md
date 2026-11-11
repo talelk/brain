@@ -2,7 +2,7 @@
 
 Compile this directory with `brain config compile`, inspect the returned digest, then activate it explicitly.
 
-The agents use Pi and have no child agents. Operations Assistant may call only the pinned read-only `operations.context` demonstration tool; Support Analyst has no tools. All outputs are checked by a separate deterministic evaluator attempt restricted to the Claude-provisioned `evaluators` runner group. L1 proves a separate attempt; it does not attest a separate physical host or model quality.
+The agents use Pi and have no child agents. Operations Assistant may call only the pinned read-only `operations.context` demonstration tool; Support Analyst has no tools. The Task Worker may call the read-only governed tools `documents.read`, `web.fetch`, `csv.query` and `knowledge.search`, and the Plan Guide `knowledge.search` (the Task Guide stays tool-free by compiler rule). Governor-brokered tools are described in `docs/howto/add-governed-tool.md`. All outputs are checked by a separate deterministic evaluator attempt restricted to the Claude-provisioned `evaluators` runner group. L1 proves a separate attempt; it does not attest a separate physical host or model quality.
 
 - `agent-smoke`: input `{"message":"BRAIN_OK"}`; exact expected model output is the JSON string `"BRAIN_OK"`.
 - `runner-topology-smoke`: the same input and output contract, with explicit Pi-author and Claude-evaluator placement for startup verification.

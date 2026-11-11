@@ -125,7 +125,7 @@ describe("context pack delivery (issue #80)", () => {
       expect(payloadOf().contextPack!.text).toBe(pack.text);
       // Over a tiny budget the same sources compact by reference: the manifest is stored, the full text stays fetchable.
       const control = w.brain.store.control;
-      control.prepare("DELETE FROM artifact_associations WHERE artifact_id LIKE ?").run(`ctx%-${jobB.id}%`);
+      control.prepare("DELETE FROM artifact_associations WHERE artifact_id LIKE ? OR artifact_id=?").run(`ctx%-${jobB.id}%`, `exec-${jobB.id}`);
       control.prepare("UPDATE job_payloads SET payload_json=? WHERE job_id=?").run(JSON.stringify({ ...payloadOf(), contextPack: undefined }), jobB.id);
       ensureContextPack(w.brain.store, (organizationId, workspaceId, input) => w.brain.sessions.contextPackForRun(organizationId, workspaceId, { ...input, budgetTokens: 120 }), w.org, { id: jobB.id, workspace_id: w.workspaceId, workflow_run_id: runB, config_digest: (control.prepare("SELECT config_digest FROM jobs WHERE id=?").get(jobB.id) as { config_digest: string }).config_digest });
       const listed = await w.brain.executeQuery(w.owner, { queryType: "contextPacks.forRun", workspaceId: w.workspaceId, resourceId: runB } as never) as unknown as { snapshot: { items: Array<{ manifest: { truncations: Array<{ sectionId: string; mode: string; reference: string }>; budgetTokens: number } }> } };

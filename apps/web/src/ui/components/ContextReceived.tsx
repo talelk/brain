@@ -60,7 +60,7 @@ function Pack(props: { workspaceId: string; pack: ContextPackView }): JSX.Elemen
         <ul class="flex flex-col gap-2"><For each={manifest().truncations}>{(entry) =>
           <li class="flex min-w-0 flex-col gap-1.5 rounded-control border border-outline-gray-1 p-3" data-truncation={entry.itemId}>
             <span class="text-interface text-ink-gray-9">
-              {entry.mode === "truncated" ? "Cut" : "Replaced by a pointer"}: {entry.itemId} in {entry.sectionId}
+              {entry.label ?? entry.itemId}: {entry.mode === "truncated" ? "cut at a sentence end" : "left out and replaced by a pointer"}
               {" "}({entry.originalTokens} tokens, {entry.keptTokens} kept)
             </span>
             <span class="break-all text-caption text-ink-gray-6">{entry.reference}</span>

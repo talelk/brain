@@ -23,6 +23,8 @@ export interface PackItem {
   readonly text: string;
   /** Prose may be truncated or replaced by a reference; everything else is kept whole. */
   readonly prose: boolean;
+  /** What a person calls this item ("Handoff note from Research"); shown in the manifest when the item is shortened. */
+  readonly label?: string;
 }
 
 export interface PackSection {
@@ -46,6 +48,8 @@ export interface ManifestTruncation {
   readonly sectionId: string;
   readonly itemId: string;
   readonly mode: "truncated" | "referenced";
+  /** A plain-words name of the shortened item. */
+  readonly label?: string;
   readonly originalTokens: number;
   readonly keptTokens: number;
   /** `artifact:sha256:...`: the full text, fetchable through a read tool or the run page. */
@@ -133,7 +137,7 @@ export function buildContextPack(input: {
   }
   if (!fits()) {
     // Largest prose first; ties break on the key so repeat runs agree.
-    for (const { key, item } of [...prose].sort((a, b) => b.item.text.length - a.item.text.length || a.key.localeCompare(b.key))) {
+    for (const { key } of [...prose].sort((a, b) => b.item.text.length - a.item.text.length || a.key.localeCompare(b.key))) {
       modes.set(key, { kind: "referenced" });
       if (fits()) break;
     }
@@ -149,7 +153,7 @@ export function buildContextPack(input: {
       const reference = referenceOf(item.text);
       bodies.set(reference, item.text);
       truncations.push({
-        sectionId: section.id, itemId: item.id, mode: mode.kind, originalTokens: estimateTokens(item.text),
+        sectionId: section.id, itemId: item.id, mode: mode.kind, ...(item.label ? { label: item.label } : {}), originalTokens: estimateTokens(item.text),
         keptTokens: estimateTokens(itemText(item, mode)), reference,
       });
     }

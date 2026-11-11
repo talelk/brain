@@ -34,6 +34,11 @@
     },
     {
       "method": "POST",
+      "path": "/runner/v1/attempts/{id}/tool-read",
+      "purpose": "runner asks for the data a governed read tool needs (documents, CSV artifacts, knowledge); the Governor rechecks the live attempt, the agent's tool allowlist and workspace scope, and audits refusals"
+    },
+    {
+      "method": "POST",
       "path": "/mcp",
       "purpose": "Brain knowledge/session tools exposed over MCP to agent runtimes"
     },

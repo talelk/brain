@@ -367,7 +367,7 @@ export class SessionService {
     const lines = (list: readonly string[]): string => list.map((entry, index) => `${index + 1}. ${entry}`).join("\n");
     const bullets = (list: readonly string[]): string => list.map((entry) => `- ${entry}`).join("\n");
     const fact = (id: string, text: string): PackItem => ({ id, text, prose: false });
-    const prose = (id: string, text: string): PackItem => ({ id, text, prose: true });
+    const prose = (id: string, text: string, label?: string): PackItem => ({ id, text, prose: true, ...(label ? { label } : {}) });
 
     const constraints = brief ? JSON.parse(brief.constraints_json) as string[] : [];
     const criteria = JSON.parse(item.criteria_json) as string[];
@@ -403,12 +403,12 @@ export class SessionService {
       { id: "handoff-notes", title: "Handoff notes from those tasks (written by the member)", label: "claim", items: handoffs.map((handoff) => {
         const notes = handoff.notes;
         const parts = [notes.summary, ...(notes.decisions?.length ? [`Decisions: ${notes.decisions.join("; ")}`] : []), ...(notes.openQuestions?.length ? [`Open questions: ${notes.openQuestions.join("; ")}`] : []), ...(notes.nextAction ? [`Suggested next action: ${notes.nextAction}`] : [])];
-        return prose(handoff.workItemId, `- ${titleOf(handoff.workItemId)}: ${parts.join(" ")}`);
+        return prose(handoff.workItemId, `- ${titleOf(handoff.workItemId)}: ${parts.join(" ")}`, `Handoff note from ${titleOf(handoff.workItemId)}`);
       }) },
       { id: "inputs", title: "Inputs pinned for this task (fetch by reference)", label: "reference", items: inputs.map((row) => fact(row.outputVersionId, `- ${row.outputVersionId}: artifact:${row.artifactDigest}`)) },
-      { id: "messages", title: "Messages sent to this task", label: "claim", items: messages.map((row) => prose(row.id, `- ${row.body}`)) },
+      { id: "messages", title: "Messages sent to this task", label: "claim", items: messages.map((row) => prose(row.id, `- ${row.body}`, "A message sent to this task")) },
       { id: "checkpoint", title: "Where earlier work on this task stopped", label: "fact", items: checkpoint ? [
-        prose("next-action", `Next action: ${checkpoint.nextAction}`),
+        prose("next-action", `Next action: ${checkpoint.nextAction}`, "The next action saved by earlier work"),
         ...(checkpoint.completedCriteria.length > 0 ? [fact("completed", `Criteria already completed: ${checkpoint.completedCriteria.join(", ")}`)] : []),
       ] : [] },
       { id: "last-failure", title: "The previous attempt failed", label: "fact", items: failure ? [fact("error", failure)] : [] },

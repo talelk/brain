@@ -18,7 +18,7 @@ import { fixtureStarter } from "../support/starter";
 const tmp = process.env["TMPDIR"] ?? "/tmp";
 
 describe("shipped read tools: pinned scripts", () => {
-  for (const tool of ["documents.read", "web.fetch", "csv.query"]) {
+  for (const tool of ["documents.read", "web.fetch", "csv.query", "knowledge.search"]) {
     it(`${tool} passes its own test.sh (bounds, read-only SQL, no side effects)`, () => {
       const run = spawnSync("bash", [`examples/v1/starter-release/tools/${tool}/test.sh`], { encoding: "utf8" });
       expect(run.status, run.stderr + run.stdout).toBe(0);
@@ -125,7 +125,7 @@ describe("Governor-brokered read tools: documents.read and csv.query", () => {
 
       const read = await brokerRead(binding("documents.read"), { documentId: noteId, maxChars: 100 }, offer.attemptId, client);
       expect(read).toEqual({ ok: true, data: expect.objectContaining({ documentId: noteId, title: "notes.md", mediaType: "text/markdown", revision: 1, truncated: true }) });
-      expect(((read as { data: { text: string } }).data.text).length).toBe(100);
+      expect(((read as unknown as { data: { text: string } }).data.text).length).toBe(100);
 
       const csv = await brokerRead(binding("csv.query"), { artifactId: csvArtifactId, sql: "SELECT 1" }, offer.attemptId, client);
       expect(csv).toEqual({ ok: true, data: { artifactId: csvArtifactId, digest: expect.stringMatching(/^sha256:/), csv: "city,pop\nOslo,700000\nBergen,285000\n" } });

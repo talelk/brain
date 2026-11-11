@@ -19,6 +19,10 @@
       {
         "id": "csv.query",
         "digest": "sha256:38cbefcec8395c13f3273b24e26b83594a5af97cc26cf3ccad76981dc46929f7"
+      },
+      {
+        "id": "knowledge.search",
+        "digest": "sha256:3994d2c88f1d2c2bc3c07637a7d95224b19a2c1fa4b1d89b8ef30867b2023bfb"
       }
     ],
     "engine": {
