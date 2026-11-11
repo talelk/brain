@@ -148,6 +148,7 @@ export function MissionUsage(props: { mission: Mission; onAct: (fn: () => Promis
   const [editing, setEditing] = createSignal(false);
   const [tokens, setTokens] = createSignal("");
   const [dollars, setDollars] = createSignal("");
+  const [minutes, setMinutes] = createSignal("");
   const [error, setError] = createSignal("");
   const workspace = useUsage("usage.workspace", () => undefined);
   const cap = () => workspace.state().data?.spendCap;
@@ -155,17 +156,19 @@ export function MissionUsage(props: { mission: Mission; onAct: (fn: () => Promis
   const [capWeekly, setCapWeekly] = createSignal("");
   const hasCap = () => cap()?.dailyMicroUsd !== undefined || cap()?.weeklyMicroUsd !== undefined;
   const budgetPaused = () => props.mission.state === "paused" && props.mission.pauseReason === "budget";
-  const open = () => { setTokens(props.mission.budget.maxTokens === undefined ? "" : String(props.mission.budget.maxTokens)); setDollars(toDollars(props.mission.budget.maxMicroUsd)); setCapDaily(toDollars(cap()?.dailyMicroUsd)); setCapWeekly(toDollars(cap()?.weeklyMicroUsd)); setError(""); setEditing(true); };
+  const open = () => { setTokens(props.mission.budget.maxTokens === undefined ? "" : String(props.mission.budget.maxTokens)); setDollars(toDollars(props.mission.budget.maxMicroUsd)); setMinutes(props.mission.budget.maxWallClockMs === undefined ? "" : String(Math.round(props.mission.budget.maxWallClockMs / 60_000))); setCapDaily(toDollars(cap()?.dailyMicroUsd)); setCapWeekly(toDollars(cap()?.weeklyMicroUsd)); setError(""); setEditing(true); };
   async function save(resume: boolean): Promise<void> {
     const maxTokens = tokens().trim() === "" ? undefined : Math.round(Number(tokens()));
     const maxMicroUsd = toMicro(dollars());
+    const maxWallClockMs = minutes().trim() === "" ? undefined : Math.round(Number(minutes()) * 60_000);
+    if (maxWallClockMs !== undefined && (!Number.isFinite(maxWallClockMs) || maxWallClockMs < 0)) { setError("The time limit must be a number of minutes of working time, or empty for no limit."); return; }
     if (maxTokens !== undefined && (!Number.isFinite(maxTokens) || maxTokens < 0)) { setError("The token ceiling must be a whole number of tokens, or empty for no ceiling."); return; }
     const capChanged = hasCap() && (toMicro(capDaily()) !== cap()?.dailyMicroUsd || toMicro(capWeekly()) !== cap()?.weeklyMicroUsd);
-    const { maxTokens: _t, maxMicroUsd: _u, ...rest } = props.mission.budget;
+    const { maxTokens: _t, maxMicroUsd: _u, maxWallClockMs: _w, ...rest } = props.mission.budget;
     setEditing(false);
     await props.onAct(async () => {
       if (capChanged) { const dailyMicroUsd = toMicro(capDaily()), weeklyMicroUsd = toMicro(capWeekly()); await app.run("workspace.spendCap.set", { ...(dailyMicroUsd !== undefined ? { dailyMicroUsd } : {}), ...(weeklyMicroUsd !== undefined ? { weeklyMicroUsd } : {}) }); await workspace.refresh({ force: true }); }
-      const set = await app.run("mission.budget.set", { missionId: props.mission.missionId, budget: { ...rest, ...(maxTokens !== undefined ? { maxTokens } : {}), ...(maxMicroUsd !== undefined ? { maxMicroUsd } : {}) } }, { expectedVersion: props.mission.version });
+      const set = await app.run("mission.budget.set", { missionId: props.mission.missionId, budget: { ...rest, ...(maxTokens !== undefined ? { maxTokens } : {}), ...(maxMicroUsd !== undefined ? { maxMicroUsd } : {}), ...(maxWallClockMs !== undefined ? { maxWallClockMs } : {}) } }, { expectedVersion: props.mission.version });
       if (resume && set.accepted) await app.run("mission.resume", { missionId: props.mission.missionId });
     });
   }
@@ -178,10 +181,11 @@ export function MissionUsage(props: { mission: Mission; onAct: (fn: () => Promis
     <Show when={props.mission.budget.maxTokens === undefined}><p class="text-caption text-ink-gray-6">No token ceiling is set.</p></Show>
     <Dialog.Root open={editing()} onOpenChange={(next) => { if (!next) setEditing(false); }}>
       <Dialog.Content size="md">
-        <Dialog.Header><Dialog.Title>{budgetPaused() ? "Raise this mission's limits" : "Mission limits"}</Dialog.Title><Dialog.Description>{budgetPaused() ? "This mission paused because a limit was reached (its dollar budget, its token ceiling or the workspace spend cap). Raise what was reached, then resume." : "Brain stops starting new work when these are reached. Leave a field empty for no limit."}</Dialog.Description></Dialog.Header>
+        <Dialog.Header><Dialog.Title>{budgetPaused() ? "Raise this mission's limits" : "Mission limits"}</Dialog.Title><Dialog.Description>{budgetPaused() ? "This mission paused because a limit was reached (its time limit, its dollar budget, its token ceiling or the workspace spend cap). Raise what was reached, then resume." : "Brain stops starting new work when these are reached. Leave a field empty for no limit."}</Dialog.Description></Dialog.Header>
         <div class="flex flex-col gap-3 py-2">
           <TextInput label="Token ceiling (tokens)" inputMode="numeric" value={tokens()} onInput={(event) => setTokens(event.currentTarget.value)} />
           <TextInput label="Dollar budget (US dollars)" inputMode="decimal" value={dollars()} onInput={(event) => setDollars(event.currentTarget.value)} />
+          <TextInput label="Time limit (minutes of working time, not counting waiting for a person)" inputMode="numeric" value={minutes()} onInput={(event) => setMinutes(event.currentTarget.value)} />
           <Show when={hasCap()}>
             <TextInput label="Workspace daily cap (US dollars, shared by all missions)" inputMode="decimal" value={capDaily()} onInput={(event) => setCapDaily(event.currentTarget.value)} />
             <TextInput label="Workspace weekly cap (US dollars, shared by all missions)" inputMode="decimal" value={capWeekly()} onInput={(event) => setCapWeekly(event.currentTarget.value)} />

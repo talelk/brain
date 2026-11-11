@@ -13,6 +13,7 @@ import { DigestValue } from "./DigestValue";
 import { IconTile } from "./primitives";
 import { isFreshFromServer } from "../screen-region";
 import { formatDateTime } from "../format";
+import { PlanEstimate } from "../usage/PlanEstimate";
 
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 
@@ -83,6 +84,7 @@ function PlanBody(props: { item: AttentionItem; mission?: Mission; onChanged: ()
       <Show when={version().summary}>{(summary) => <>{summary()} </>}</Show>
       {version().tasks.length} {version().tasks.length === 1 ? "task" : "tasks"}: {version().tasks.slice(0, 3).map((task) => task.title).join(", ")}{version().tasks.length > 3 ? ", and more" : ""}.
     </p>}</Show>
+    <PlanEstimate planVersionId={props.item.resourceId} compact />
     <Show when={app.canDispatch()} fallback={<NoScope who="an operator" />}>
       <Show when={!rejecting()} fallback={<div class="flex min-w-0 flex-col gap-2">
         <TextInput label="Why not this plan?" value={reason()} onInput={(event) => setReason(event.currentTarget.value)} />
@@ -121,6 +123,55 @@ function ParkedBody(props: { item: AttentionItem; onChanged: () => void }): JSX.
           <Button size="sm" variant="ghost" onClick={() => setDropping(false)}>Keep it</Button>
         </>}><Button size="sm" variant="outline" iconLeft="lucide-trash-2" disabled={row.busy()} onClick={() => setDropping(true)}>Drop</Button></Show>
         <Button size="sm" variant="ghost" iconRight="lucide-arrow-right" onClick={() => void navigate(attentionHref(props.item))}>Open the work</Button>
+      </div>
+    </Show>
+    <Show when={row.error()}><p role="alert" class="text-caption text-ink-red-7">{row.error()}</p></Show>
+  </div>;
+}
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+
+/**
+ * A budget pause, settled on Today (backlog 36): the item says which limit was reached and offers one-click raises. A click is a
+ * mission.budget.set of the whole current budget plus the preset (read at the moment of the click, so a stale row never overwrites a
+ * newer limit), then mission.resume; both are audited with the person's name.
+ */
+function BudgetBody(props: { item: AttentionItem; onChanged: () => void }): JSX.Element {
+  const app = useApp();
+  const navigate = useNavigate();
+  const row = createRowAction(props.onChanged);
+  const limits = () => props.item.limits ?? [];
+  const raise = (extra: { wallMs?: number; microUsd?: number; tokens?: number }) => row.act(async () => {
+    const current = (await query<Envelope<Mission>>({ queryType: "missions.get", workspaceId: props.item.workspaceId, resourceId: props.item.resourceId })).snapshot;
+    const { budget, usage } = current;
+    const next = {
+      ...budget,
+      ...(extra.wallMs !== undefined ? { maxWallClockMs: Math.max(budget.maxWallClockMs ?? 0, usage.activeMs) + extra.wallMs } : {}),
+      ...(extra.microUsd !== undefined ? { maxMicroUsd: Math.max(budget.maxMicroUsd ?? 0, usage.settledMicroUsd + usage.reservedMicroUsd) + extra.microUsd } : {}),
+      ...(extra.tokens !== undefined ? { maxTokens: Math.max(budget.maxTokens ?? 0, usage.settledTokens + usage.reservedTokens) + extra.tokens } : {}),
+    };
+    const set = await app.run("mission.budget.set", { missionId: current.missionId, budget: next }, { expectedVersion: current.version });
+    if (!set.accepted) throw new Error(set.detail);
+    const fresh = (await query<Envelope<Mission>>({ queryType: "missions.get", workspaceId: props.item.workspaceId, resourceId: props.item.resourceId })).snapshot;
+    const resumed = await app.run("mission.resume", { missionId: fresh.missionId }, { expectedVersion: fresh.version });
+    if (!resumed.accepted) throw new Error(resumed.detail);
+  });
+  const resume = () => row.act(async () => {
+    const current = (await query<Envelope<Mission>>({ queryType: "missions.get", workspaceId: props.item.workspaceId, resourceId: props.item.resourceId })).snapshot;
+    const resumed = await app.run("mission.resume", { missionId: current.missionId }, { expectedVersion: current.version });
+    if (!resumed.accepted) throw new Error(resumed.detail);
+  });
+  const preset = (label: string, extra: Parameters<typeof raise>[0], testId: string) =>
+    <Button size="sm" variant="solid" theme="blue" iconLeft="lucide-play" disabled={row.busy()} loading={row.busy()} data-testid={testId} onClick={() => void raise(extra)}>{label}</Button>;
+  return <div class="flex min-w-0 flex-col gap-2">
+    <Show when={app.canDispatch()} fallback={<NoScope who="an operator" />}>
+      <div class="flex flex-wrap items-center gap-2">
+        <Show when={limits().length === 0}><Button size="sm" variant="solid" theme="blue" iconLeft="lucide-play" disabled={row.busy()} loading={row.busy()} data-testid="budget-resume" onClick={() => void resume()}>Resume</Button></Show>
+        <Show when={limits().includes("time")}>{preset("Add 30 min and resume", { wallMs: 30 * MINUTE }, "budget-add-30min")}{preset("Add 2 h and resume", { wallMs: 2 * HOUR }, "budget-add-2h")}</Show>
+        <Show when={limits().includes("money")}>{preset("Add $1 and resume", { microUsd: 1_000_000 }, "budget-add-1usd")}{preset("Add $5 and resume", { microUsd: 5_000_000 }, "budget-add-5usd")}</Show>
+        <Show when={limits().includes("tokens")}>{preset("Add 200k tokens and resume", { tokens: 200_000 }, "budget-add-tokens")}</Show>
+        <Button size="sm" variant="ghost" iconRight="lucide-arrow-right" onClick={() => void navigate(attentionHref(props.item))}>{limits().includes("workspace cap") ? "Open to raise the workspace cap" : "Open"}</Button>
       </div>
     </Show>
     <Show when={row.error()}><p role="alert" class="text-caption text-ink-red-7">{row.error()}</p></Show>
@@ -178,6 +229,7 @@ export function NeedsYouQueue(props: { items: readonly AttentionItem[]; missions
       <div class="ps-0 sm:ps-[3.25rem]">
         {item.kind === "approval" ? <ApprovalBody item={item} onReviewOpen={reviewOpen} />
           : item.kind === "plan-proposal" ? <PlanBody item={item} mission={mission(item)} onChanged={props.onChanged} />
+          : item.kind === "budget-pause" ? <BudgetBody item={item} onChanged={props.onChanged} />
           : item.kind === "parked" ? <ParkedBody item={item} onChanged={props.onChanged} />
           : item.kind === "verdict-ready" ? <VerdictBody item={item} mission={mission(item)} onChanged={props.onChanged} />
           : <Button size="sm" variant="outline" iconRight="lucide-arrow-right" onClick={() => void navigate(attentionHref(item))}>{attentionAction(item)}</Button>}

@@ -265,12 +265,13 @@ function WorkOverview(props: { mission: Mission; items: readonly WorkItem[]; cri
     </div>
     <div class="flex min-w-0 flex-col gap-1.5">
       <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-timer size-3.5" aria-hidden="true" />Time</p>
-      <p class="text-base-medium text-ink-gray-9">{minutesText(activeMinutes())} active{wallMinutes() > 0 ? ` of ${minutesText(wallMinutes())}` : ""}</p>
-      <Show when={wallMinutes() > 0} fallback={<p class="text-caption text-ink-gray-6">No time limit is set for this mission.</p>}>
+      <p class="text-base-medium text-ink-gray-9">{minutesText(activeMinutes())} working{wallMinutes() > 0 ? ` of ${minutesText(wallMinutes())}` : ""}</p>
+      <Show when={wallMinutes() > 0} fallback={<p class="text-caption text-ink-gray-6">No time limit is set for this mission. Time counts only while work is running.</p>}>
         <span role="progressbar" aria-label="Mission time used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={timeShare()} aria-valuetext={`${timeShare()}% of the time limit used`} class="flex h-2.5 w-full overflow-hidden rounded-full bg-surface-gray-3">
           <span class={`h-full ${timeShare() >= 90 ? "bg-surface-amber-6" : "bg-surface-blue-9"}`} style={{ width: `${timeShare()}%` }} />
         </span>
       </Show>
+      <Show when={props.mission.timeExtendedByBrain}><p class="text-caption text-ink-gray-7" data-testid="time-extended-note">Brain extended the time limit once.</p></Show>
     </div>
     <div class="flex min-w-0 flex-col gap-1.5">
       <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-wallet size-3.5" aria-hidden="true" />Budget</p>

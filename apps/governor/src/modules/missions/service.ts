@@ -7,9 +7,9 @@ import { assertPlanTasks } from "../../domain/work-plan";
 import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations, withinCeiling, type AgentCapabilities } from "../../domain/mission-policy";
 import { activeReleaseRecord } from "../configuration/index";
 import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
-import { admit, admitChallenge, budgetOf, clockSet, DEFAULT_MISSION_BUDGET, hasHeadroom, reserve as reserveSpend, settle, settleAll, usageOf } from "./budget";
+import { admit, admitChallenge, budgetOf, DEFAULT_MISSION_BUDGET, hasHeadroom, limitChangeNote, minutesWord, reserve as reserveSpend, settle, settleAll, usageOf } from "./budget";
 import { capReached, missionUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUsage } from "./usage";
-import { planEstimate } from "./estimate";
+import { planEstimate, planWallLimit } from "./estimate";
 import { listEvalCases, recordEvalCase } from "./eval-cases";
 import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, recordTaskResult, sendMessage, taskOf, taskResult, verifyOutputs } from "./outputs";
 import { readVerified } from "../artifacts/index";
@@ -31,7 +31,7 @@ type MissionRow = {
   outcome: MissionOutcome | null; brief_version: number; policy_json: string; parking_threshold: number; auto_start: number;
   budget_micro_usd: number | null; budget_wall_ms: number | null; member_cap: number; attempt_reserve_micro_usd: number; final_allowance_micro_usd: number; budget_tokens: number | null; attempt_reserve_tokens: number;
   coordinator_member_id: string | null; coordinator_workflow: string | null; play_id: string | null;
-  active_ms: number; active_since_ms: number | null;
+  budget_wall_explicit: number; wall_extended: number;
   version: number; created_at_ms: number; updated_at_ms: number;
 };
 type BriefRow = { mission_id: string; version: number; intent: string; constraints_json: string; change: string; rebased_from: number | null; created_by: string; created_at_ms: number };
@@ -114,13 +114,14 @@ export class MissionService {
     const db = this.store.workspaceDb(workspaceId, this.organizationOf(workspaceId));
     settle(this.store, db, row.id);
     return {
-      budget: budgetOf(row), usage: usageOf(db, row, this.store.now()),
+      budget: budgetOf(row), usage: usageOf(this.store, db, row, this.store.now()),
       subjects: (db.prepare("SELECT pack, kind, subject_id FROM mission_subjects WHERE mission_id=? ORDER BY kind, subject_id").all(row.id) as Array<{ pack: "support" | "sre"; kind: "ticket" | "incident"; subject_id: string }>).map((entry) => ({ pack: entry.pack, kind: entry.kind, id: entry.subject_id })),
       missionId: row.id, workspaceId, title: row.title, intent: row.intent, ...(row.play_id ? { playId: row.play_id } : {}),
       successCriteria: JSON.parse(row.success_criteria_json) as string[], ownerId: row.owner_id,
       ...(row.active_plan_version_id ? { activePlanVersionId: row.active_plan_version_id } : {}),
       state: row.state, ...(row.pause_reason ? { pauseReason: row.pause_reason } : {}), ...(row.outcome ? { outcome: row.outcome } : {}),
       briefVersion: row.brief_version, autonomyPolicy: JSON.parse(row.policy_json) as AutonomyPolicy, parkingThreshold: row.parking_threshold, autoStart: row.auto_start === 1,
+      ...(row.wall_extended === 1 ? { timeExtendedByBrain: true } : {}),
       version: row.version, createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
     };
   }
@@ -192,9 +193,9 @@ export class MissionService {
     this.store.inTx(db, () => {
       const now = this.store.now();
       const budget = (payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap?: number; attemptReserveMicroUsd?: number; finalAllowanceMicroUsd?: number; maxTokens?: number; attemptReserveTokens?: number } | undefined) ?? play?.spec.budget ?? DEFAULT_MISSION_BUDGET;
-      db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,policy_json,parking_threshold,auto_start,budget_micro_usd,budget_wall_ms,member_cap,attempt_reserve_micro_usd,active_since_ms,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+      db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,policy_json,parking_threshold,auto_start,budget_micro_usd,budget_wall_ms,member_cap,attempt_reserve_micro_usd,budget_wall_explicit,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
         .run(id, String(payload["title"]), intent, JSON.stringify(successCriteria), actor.actorId, JSON.stringify(policy), Number(payload["parkingThreshold"] ?? play?.spec.parkingThreshold ?? 3), payload["autoStart"] === false ? 0 : 1,
-          budget.maxMicroUsd ?? null, budget.maxWallClockMs ?? null, budget.memberCap ?? 3, budget.attemptReserveMicroUsd ?? 0, now, now, now);
+          budget.maxMicroUsd ?? null, budget.maxWallClockMs ?? null, budget.memberCap ?? 3, budget.attemptReserveMicroUsd ?? 0, payload["budget"] !== undefined && budget.maxWallClockMs !== undefined ? 1 : 0, now, now);
       if (budget.finalAllowanceMicroUsd) db.prepare("UPDATE missions SET final_allowance_micro_usd=? WHERE id=?").run(budget.finalAllowanceMicroUsd, id);
       db.prepare("UPDATE missions SET budget_tokens=?,attempt_reserve_tokens=? WHERE id=?").run(budget.maxTokens ?? null, budget.attemptReserveTokens ?? 0, id);
       db.prepare("INSERT INTO mission_brief_versions(mission_id,version,intent,constraints_json,change,created_by,created_at_ms) VALUES (?,1,?,?,'created',?,?)")
@@ -338,6 +339,12 @@ export class MissionService {
         }
       }
       transitionState(db, "planVersion", plan.id, "confirmed", { set: { confirmed_at_ms: now } });
+      // A default time limit follows the plan it now has to fit (ADR 0016); a limit a person named stays as it is.
+      const wall = planWallLimit(mission.budget_wall_ms, mission.budget_wall_explicit === 1, tasks);
+      if (wall.raised && wall.limitMs !== null) {
+        db.prepare("UPDATE missions SET budget_wall_ms=? WHERE id=?").run(wall.limitMs, mission.id);
+        this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.budgetChanged", payload: { missionId: mission.id, by: "brain", note: `Time limit set to ${minutesWord(wall.limitMs)} to fit the plan` } });
+      }
       db.prepare("UPDATE missions SET active_plan_version_id=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?")
         .run(plan.id, now, mission.id, mission.version);
       this.store.emit(db, { aggregateType: "plan", aggregateId: plan.id, eventType: "plan.confirmed", payload: { missionId: mission.id, planVersionId: plan.id, digest: plan.digest } });
@@ -500,7 +507,7 @@ export class MissionService {
     return workspaceId;
   }
 
-  /** A human sets the mission's budget; raising it is what lifts a budget pause on resume. */
+  /** A human sets the mission's budget (the note names what changed); raising it is what lifts a budget pause on resume. */
   private setBudget(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
     if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only humans set a mission budget");
     const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
@@ -509,9 +516,9 @@ export class MissionService {
     const budget = payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap: number; attemptReserveMicroUsd?: number; finalAllowanceMicroUsd?: number; maxTokens?: number; attemptReserveTokens?: number };
     const db = this.db(actor, workspaceId);
     this.store.inTx(db, () => {
-      db.prepare("UPDATE missions SET budget_micro_usd=?,budget_wall_ms=?,member_cap=?,attempt_reserve_micro_usd=?,final_allowance_micro_usd=?,budget_tokens=?,attempt_reserve_tokens=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?")
-        .run(budget.maxMicroUsd ?? null, budget.maxWallClockMs ?? null, budget.memberCap, budget.attemptReserveMicroUsd ?? mission.attempt_reserve_micro_usd, budget.finalAllowanceMicroUsd ?? mission.final_allowance_micro_usd, budget.maxTokens ?? null, budget.attemptReserveTokens ?? mission.attempt_reserve_tokens, this.store.now(), mission.id, mission.version);
-      this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.budgetChanged", payload: { missionId: mission.id } });
+      db.prepare("UPDATE missions SET budget_micro_usd=?,budget_wall_ms=?,member_cap=?,attempt_reserve_micro_usd=?,final_allowance_micro_usd=?,budget_tokens=?,attempt_reserve_tokens=?,budget_wall_explicit=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?")
+        .run(budget.maxMicroUsd ?? null, budget.maxWallClockMs ?? null, budget.memberCap, budget.attemptReserveMicroUsd ?? mission.attempt_reserve_micro_usd, budget.finalAllowanceMicroUsd ?? mission.final_allowance_micro_usd, budget.maxTokens ?? null, budget.attemptReserveTokens ?? mission.attempt_reserve_tokens, budget.maxWallClockMs !== undefined && budget.maxWallClockMs !== mission.budget_wall_ms ? 1 : mission.budget_wall_explicit, this.store.now(), mission.id, mission.version);
+      this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.budgetChanged", payload: { missionId: mission.id, by: actor.actorId, note: limitChangeNote(mission, budget) } });
       wake(this.store, db, mission.id, "budget-changed");
     });
     return mission.id;
@@ -532,8 +539,15 @@ export class MissionService {
       const decision = this.store.inTx(db, () => admitChallenge(this.store, db, challenged.mission_id));
       return { missionId: challenged.mission_id, ...decision };
     }
-    const decision = this.store.inTx(db, () => admit(this.store, db, link.mission_id, Boolean(coordinatorRun), (missionId) => wake(this.store, db, missionId, "mission-paused", "budget exhausted; write the final checkpoint")));
+    const decision = this.store.inTx(db, () => admit(this.store, db, link.mission_id, Boolean(coordinatorRun), (missionId) => wake(this.store, db, missionId, "mission-paused", "budget exhausted; write the final checkpoint"), () => this.soleHuman(workspaceId)));
     return { missionId: link.mission_id, ...decision };
+  }
+
+  /** True when the workspace has exactly one person who could pause, resume or approve: nobody else could object to a time extension. */
+  private soleHuman(workspaceId: string): boolean {
+    const row = this.store.control.prepare(`SELECT COUNT(DISTINCT m.principal_id) AS n FROM workspace_memberships m JOIN principals p ON p.id=m.principal_id AND p.organization_id=m.organization_id
+      WHERE m.workspace_id=? AND m.revoked_at_ms IS NULL AND p.kind='human' AND p.disabled_at_ms IS NULL AND m.role IN ('operator','workspace-lead','approver')`).get(workspaceId) as { n: number };
+    return row.n === 1;
   }
 
   recordReservation(organizationId: string, workspaceId: string, input: { missionId: string; runId: string; attemptId: string; microUsd: number }): void {
@@ -581,7 +595,7 @@ export class MissionService {
     }
     if (next !== "closed" && mission.state === next) throw new BrainDomainError("CONFLICT", `mission is already ${next}`);
     this.store.inTx(db, () => {
-      transitionState(db, "mission", mission.id, next, { set: { ...set, ...clockSet(next, mission, now) }, bumpVersion: true, and: { version: mission.version } });
+      transitionState(db, "mission", mission.id, next, { set, bumpVersion: true, and: { version: mission.version } });
       if (set["outcome"] === "cancelled") {
         const open = db.prepare("SELECT id FROM work_items WHERE mission_id=? AND state NOT IN ('done','abandoned')").all(mission.id) as Array<{ id: string }>;
         for (const item of open) transitionState(db, "workItem", item.id, "abandoned", { set: { next_action: "Mission cancelled", updated_at_ms: now }, bumpVersion: true });

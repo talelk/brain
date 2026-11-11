@@ -10,6 +10,7 @@ Historical record, not a description of the present. Every claim is dated and, f
 - [parked-review-task-2026-11-11.md](parked-review-task-2026-11-11.md) — why a live review task parked after three attempts, and the fixes.
 
 - [plan-latency-2026-11-11.md](plan-latency-2026-11-11.md) — plan drafting failure rate and latency measured live, and the fixes (track Q).
+- [budget-pause-2026-11-11.md](budget-pause-2026-11-11.md) — a free-model mission paused for budget: the time limit counted waiting, now working time only (track R, ADR 0016).
 
 ## Research
 - [../research/best-product-gap-2026-11.md](../research/best-product-gap-2026-11.md) — 12 ranked product gaps (track D report, `talelk/brain@b350f76`, 2026-11-11).

@@ -33,10 +33,14 @@ describe("starter Plays (row 49)", () => {
     const list = await plays(w);
     expect(list.map((play) => play.playId).sort()).toEqual(STARTER);
     for (const play of list) {
-      const detail = ((await w.brain.executeQuery(w.owner, { queryType: "plays.get", workspaceId: w.workspaceId, resourceId: play.playId })) as unknown as { snapshot: { spec: { intent: string; successCriteria: string[]; budget: { memberCap: number; maxMicroUsd: number }; plan: { tasks: Array<{ criteria: string[] }> } } } }).snapshot.spec;
+      const detail = ((await w.brain.executeQuery(w.owner, { queryType: "plays.get", workspaceId: w.workspaceId, resourceId: play.playId })) as unknown as { snapshot: { spec: { intent: string; successCriteria: string[]; budget: { memberCap: number; maxMicroUsd: number; maxWallClockMs: number }; plan: { tasks: Array<{ criteria: string[]; estimatedMinutes?: number }> } } } }).snapshot.spec;
       expect(detail.intent.length).toBeGreaterThan(40);
       expect(detail.successCriteria.length).toBeGreaterThanOrEqual(3);
-      expect(detail.budget).toMatchObject({ memberCap: 2, maxMicroUsd: 2_000_000 });
+      expect(detail.budget).toMatchObject({ memberCap: 3, maxMicroUsd: 2_000_000 });
+      // A Play's time limit is working time and never shorter than 2 h or than its own plan's estimate x 3 (ADR 0016).
+      const estimateMs = detail.plan.tasks.reduce((sum, task) => sum + (task.estimatedMinutes ?? 0), 0) * 60_000;
+      expect(detail.budget.maxWallClockMs).toBeGreaterThanOrEqual(Math.max(2 * 3_600_000, estimateMs * 3));
+      expect(detail.budget.maxWallClockMs).toBeLessThanOrEqual(4 * 3_600_000);
       expect(detail.plan.tasks.every((task) => task.criteria.length > 0)).toBe(true);
     }
     expect(await summary(w)).toMatchObject({ plays: 6, starterPlays: { total: 6, installed: 6, installable: 0, blocked: [] } });

@@ -66,8 +66,8 @@
     "parkingThreshold": 3,
     "budget": {
       "maxMicroUsd": 2000000,
-      "maxWallClockMs": 1800000,
-      "memberCap": 2,
+      "maxWallClockMs": 7200000,
+      "memberCap": 3,
       "attemptReserveMicroUsd": 0
     }
   }

@@ -6485,6 +6485,9 @@
         },
         "autoStart": {
           "type": "boolean"
+        },
+        "timeExtendedByBrain": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -22309,6 +22312,19 @@
         },
         "expiresAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "limits": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "time",
+              "money",
+              "tokens",
+              "workspace cap"
+            ]
+          },
+          "maxItems": 4
         }
       },
       "required": [
@@ -23147,6 +23163,9 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991
+        },
+        "timeLimitBelowEstimate": {
+          "type": "boolean"
         }
       },
       "required": [

@@ -74,7 +74,7 @@ function MissionSnapshot(props: { mission: Mission; items: WorkItem[]; tab: Miss
     const out: string[] = [];
     const c = counts();
     const parked = props.items.filter((item) => item.parked).length;
-    if (props.mission.state === "paused") out.push(`The mission is paused${props.mission.pauseReason === "budget" ? " because a spending or token limit was reached. Next: use Raise limits below" : " by a person"}.`);
+    if (props.mission.state === "paused") out.push(`The mission is paused${props.mission.pauseReason === "budget" ? " because a time, spending or token limit was reached. Next: use Raise limits below" : " by a person"}.`);
     if (parked) out.push(`${parked} ${parked === 1 ? "task is" : "tasks are"} parked after repeated failures and need a person. Next: open ${parked === 1 ? "it" : "them"} in the plan and press Decide.`);
     const blockedItems = props.items.filter((item) => item.state === "blocked" && !item.parked);
     if (blockedItems.length) out.push(`${blockedItems.length} ${blockedItems.length === 1 ? "task is" : "tasks are"} blocked: ${blockedItems[0]?.blockedReason ?? "waiting on something outside the task"}. Next: fix that, then press Unblock on the task.`);

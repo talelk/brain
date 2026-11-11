@@ -5,6 +5,8 @@ Dated 2026-11-11, at `talelk/brain@e38aa19`. The full history of every track, re
 ## In progress
 - Track M (UI editor), rows 47-50 done locally (not deployed): auto-published self-reviewed write-ups (setting `library_settings`, Approve all verified, Today line), substantive write-ups with a 200-character threshold and supersede, six starter Plays with `plays.addStarter` (live has none: restage or click "Add starter Plays"), Library tab strip, one-segment bars, 24-hour times. Still open from M: Health "Recent activity" plain sentences (`payload.message` of `tool.read.refused`); Setup stepper third circle shows "3" not a tick; row 53. Deploy note: schema adds two DEFAULT columns on `knowledge_assets` and the table `library_settings`; the first sweep rebuilds and publishes the 19 thin unreviewed write-ups (Withdraw undoes one).
 
+- Track R (time limit counts working time, ADR 0016; row 36 done): local, not deployed. Schema adds two DEFAULT columns on `missions` (`budget_wall_explicit`, `wall_extended`). Starter Plays changed (2 h, research 4 h, member cap 3): restage the starter release, then add Plays again or recreate them; missions already paused for time resume with one click on Today.
+
 ## Open
 | # | Item | Notes |
 |---|------|-------|
@@ -14,7 +16,6 @@ Dated 2026-11-11, at `talelk/brain@e38aa19`. The full history of every track, re
 | 32 | "Reading N sources" doing-now sentence missing on session rail / Plan rows | needs transcript |
 | 33 | `first-launch` and a few integration tests still time out under heavy machine load | pass alone; E2 timing factor helps |
 | 35 | Trust read lacks per-criterion evidence link and mission-level aggregate | |
-| 36 | Budget-pause and routed attention items open their page instead of acting inline | |
 | 38 | Run all new specs at 390-dark / 768 / RTL (only 1440-light, 390-dark, 768-light fully covered) | QA |
 | 40 | Share page is text only (no Markdown rendering/branding) | |
 | 53 | UI for track K: send `sourceMissionId` from `RepeatSheet`; link schedule history `dispatchRef` starting `mission-` to the mission page; mission Outputs tab shows recorded named outputs under "Documents with versions" next to Result cards: hide or merge | UI |

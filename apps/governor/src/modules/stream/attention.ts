@@ -4,6 +4,7 @@ import { handlersFor, type CommandHandlers } from "../../application/command-fun
 import { requireWorkspaceRead } from "../../application/authz";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
+import { reachedLimits } from "../missions/index";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 
@@ -25,7 +26,11 @@ export function attentionItems(store: Store, organizationId: string, workspaceId
     }
     const db = store.workspaceDb(workspaceId, organizationId);
     for (const m of db.prepare("SELECT id, title, state, pause_reason, updated_at_ms FROM missions WHERE state!='closed'").all() as Array<{ id: string; title: string; state: string; pause_reason: string | null; updated_at_ms: number }>) {
-      if (m.state === "paused" && m.pause_reason === "budget") items.push({ id: `budget:${m.id}`, workspaceId, missionId: m.id, kind: "budget-pause", tier: 2, title: `${m.title} is paused: budget exhausted`, resourceId: m.id, waitingSince: iso(m.updated_at_ms) });
+      if (m.state === "paused" && m.pause_reason === "budget") {
+        const limits = reachedLimits(store, db, m.id);
+        const wording = limits.length === 0 ? "a limit was reached" : `${limits.join(" and ")} ${limits.length === 1 && limits[0] !== "workspace cap" ? "limit" : "limits"} reached`;
+        items.push({ id: `budget:${m.id}`, workspaceId, missionId: m.id, kind: "budget-pause", tier: 2, title: `${m.title} is paused: ${wording}`, ...(limits.length ? { limits } : {}), resourceId: m.id, waitingSince: iso(m.updated_at_ms) });
+      }
       if (m.state === "active" && needsAttention(db, m.id)) items.push({ id: `stuck:${m.id}`, workspaceId, missionId: m.id, kind: "needs-attention", tier: 2, title: `${m.title} needs attention: all remaining work is parked`, resourceId: m.id, waitingSince: iso(m.updated_at_ms) });
       const latest = db.prepare("SELECT bundle.state, bundle.created_at_ms FROM mission_evidence_bundles bundle WHERE mission_id=? ORDER BY created_at_ms DESC LIMIT 1").get(m.id) as { state: string; created_at_ms: number } | undefined;
       if (m.state === "verifying" && latest?.state === "verified") items.push({ id: `verdict:${m.id}`, workspaceId, missionId: m.id, kind: "verdict-ready", tier: 4, title: `${m.title} is verified and ready to close`, resourceId: m.id, waitingSince: iso(latest.created_at_ms) });
@@ -72,7 +77,7 @@ const NOTABLE: Readonly<Record<string, (payload: Record<string, unknown>, title:
   "mission.stateChanged": (payload) => `Mission is now ${String(payload["missionState"])}`,
   "output.versionRecorded": () => "Output version recorded",
   "mission.briefChanged": (payload) => `Brief updated to version ${String(payload["briefVersion"])}`,
-  "mission.budgetChanged": () => "Budget changed",
+  "mission.budgetChanged": (payload) => typeof payload["note"] === "string" ? payload["note"] : "Budget changed",
   "mission.verdictRecorded": () => "Mission verdict recorded",
 };
 

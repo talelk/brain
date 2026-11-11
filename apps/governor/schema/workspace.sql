@@ -29,6 +29,8 @@ CREATE TABLE missions (
   budget_tokens INTEGER DEFAULT NULL CHECK(budget_tokens IS NULL OR budget_tokens >= 0),
   attempt_reserve_tokens INTEGER NOT NULL DEFAULT 0 CHECK(attempt_reserve_tokens >= 0),
   active_ms INTEGER NOT NULL DEFAULT 0 CHECK(active_ms >= 0), active_since_ms INTEGER,
+  budget_wall_explicit INTEGER NOT NULL DEFAULT 0 CHECK(budget_wall_explicit IN (0,1)),
+  wall_extended INTEGER NOT NULL DEFAULT 0 CHECK(wall_extended IN (0,1)),
   policy_json TEXT NOT NULL DEFAULT '{"preset":"standard","operations":["conflictTask.create","decision.accept","member.addExistingRole","task.add","task.change","task.reassign","task.remove"],"version":1}' CHECK(json_valid(policy_json)),
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,

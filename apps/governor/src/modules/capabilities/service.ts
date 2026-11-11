@@ -12,6 +12,7 @@ import { iso } from "../../domain/clock";
 import { looksLikeSecret, type MemoryStore, type ReuseService } from "../knowledge/index";
 import { putBytes } from "../artifacts/index";
 import { buildWriteup, goalKey } from "./writeup";
+import { workingMs } from "../missions/index";
 
 interface ToolUsage { calls: number; failures: number; lastCallAt?: string; lastCallRunId?: string; lastFailureAt?: string; lastFailureRunId?: string }
 
@@ -191,13 +192,13 @@ export class CapitalizationService {
 
   /** The write-up of an achieved, verified mission, or nothing when the mission is not closed as achieved. */
   private writeupOf(db: ReturnType<Store["workspaceDb"]>, missionId: string) {
-    const mission = db.prepare("SELECT id, title, intent, success_criteria_json, owner_id, outcome, state, active_ms FROM missions WHERE id=?").get(missionId) as
-      | { id: string; title: string; intent: string; success_criteria_json: string; owner_id: string; outcome: string | null; state: string; active_ms: number } | undefined;
+    const mission = db.prepare("SELECT id, title, intent, success_criteria_json, owner_id, outcome, state FROM missions WHERE id=?").get(missionId) as
+      | { id: string; title: string; intent: string; success_criteria_json: string; owner_id: string; outcome: string | null; state: string } | undefined;
     if (!mission || mission.state !== "closed" || mission.outcome !== "achieved") return undefined;
     const bundles = db.prepare("SELECT digest, state, findings_json, created_at_ms FROM mission_evidence_bundles WHERE mission_id=? AND state IN ('verified','rejected') ORDER BY created_at_ms, rowid").all(missionId) as Array<{ digest: string; state: "verified" | "rejected"; findings_json: string; created_at_ms: number }>;
     const verified = bundles.filter((bundle) => bundle.state === "verified").at(-1);
     if (!verified) return undefined;
-    const writeup = buildWriteup(this.store, db, mission, verified, bundles.filter((bundle) => bundle.state === "rejected"));
+    const writeup = buildWriteup(this.store, db, { ...mission, active_ms: workingMs(this.store, db, missionId, this.store.now()) }, verified, bundles.filter((bundle) => bundle.state === "rejected"));
     const evidence = (db.prepare("SELECT DISTINCT evidence_digest FROM mission_bundle_checks WHERE bundle_digest=? AND advisory=0 AND outcome='passed' ORDER BY evidence_digest").all(verified.digest) as Array<{ evidence_digest: string }>).map((row) => row.evidence_digest);
     const provenance = [verified.digest, ...evidence].slice(0, 20).map((evidenceDigest) => ({ rootRunId: missionId, evidenceDigest }));
     return { mission, writeup, provenance, bundles: bundles.length };

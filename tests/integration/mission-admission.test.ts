@@ -15,8 +15,8 @@ const mission = async (w: World, id: string) => ((await w.brain.executeQuery(w.o
 const task = (id: string): PlanTask => ({ id, title: `Task ${id}`, criteria: [`${id}-done`], dependsOn: [] });
 
 /** A mission with confirmed work items linked to runs run-<key>-<task>, and a queued job per run. */
-async function missionWithJobs(w: World, key: string, budget: Record<string, number>, tasks: string[]): Promise<string> {
-  const id = (await run(w, "mission.create", `${key}-create`, { title: key, intent: `Deliver ${key}`, successCriteria: ["delivered"], budget })).resourceId ?? "";
+async function missionWithJobs(w: World, key: string, budget: Record<string, number>, tasks: string[], extra: Record<string, unknown> = {}): Promise<string> {
+  const id = (await run(w, "mission.create", `${key}-create`, { title: key, intent: `Deliver ${key}`, successCriteria: ["delivered"], budget, ...extra })).resourceId ?? "";
   const planId = (await run(w, "plan.propose", `${key}-plan`, { missionId: id, origin: "manual", tasks: tasks.map(task) })).resourceId ?? "";
   await run(w, "plan.confirm", `${key}-confirm`, { planVersionId: planId }, (await mission(w, id)).version);
   for (const item of (await workView(w)).items.filter((entry) => entry.missionId === id)) {
@@ -92,16 +92,103 @@ describe("mission admission (T19)", () => {
     w.brain.close();
   });
 
-  it("wall-clock time excludes paused time and exhausting it pauses for budget", async () => {
+  /** Makes an attempt look like it has been running for `minutes`: its ledger row starts that long ago and its lease covers the span. */
+  const backdate = (w: World, attemptId: string, minutes: number): void => {
+    const now = w.brain.store.now();
+    w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("UPDATE mission_spend SET created_at_ms=? WHERE attempt_id=?").run(now - minutes * 60_000, attemptId);
+    w.brain.store.control.prepare("UPDATE job_attempts SET lease_expires_at_ms=? WHERE id=?").run(now + 3_600_000, attemptId);
+  };
+  const attention = async (w: World) => ((await w.brain.executeQuery(w.owner, { queryType: "attention.list", workspaceId: w.workspaceId } as never)) as unknown as { snapshot: { items: Array<{ kind: string; limits?: string[]; title: string }> } }).snapshot.items;
+
+  it("working time counts only attempts, once for parallel ones; exhausting it pauses naming the time limit (ADR 0016)", async () => {
     const w = setupWorld();
-    const id = await missionWithJobs(w, "c", { maxWallClockMs: 1, memberCap: 2 }, ["a"]);
+    const id = await missionWithJobs(w, "c", { maxWallClockMs: 30 * 60_000, memberCap: 2 }, ["a", "b", "c"], { autonomy: "supervised" });
+    const runner = seedRunner(w, "runner-clock", 4);
+    // The mission has existed for a while with nobody working on it (planning, waiting for Confirm): no working time.
+    w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("UPDATE missions SET created_at_ms=? WHERE id=?").run(w.brain.store.now() - 3 * 3_600_000, id);
+    expect((await mission(w, id)).usage.activeMs).toBe(0);
+    const first = w.brain.jobProtocol.claim(runner, "req-c-1") as unknown as Offer;
+    const second = w.brain.jobProtocol.claim(runner, "req-c-2") as unknown as Offer;
+    backdate(w, first.attemptId, 20); backdate(w, second.attemptId, 20);
+    const running = (await mission(w, id)).usage.activeMs;
+    expect(running).toBeGreaterThanOrEqual(20 * 60_000); expect(running).toBeLessThan(21 * 60_000); // parallel attempts overlap: not 40 minutes
+    finishAttempt(w, first.attemptId, 0); finishAttempt(w, second.attemptId, 0);
+    const stopped = (await mission(w, id)).usage.activeMs;
     await new Promise((resolve) => setTimeout(resolve, 5));
-    expect(w.brain.jobProtocol.claim(seedRunner(w, "runner-clock"), "req-c-1")).toBeNull();
-    expect(queueReason(w, "job-c-a")).toBe("waiting: budget");
+    expect((await mission(w, id)).usage.activeMs).toBe(stopped); // the clock stops with the attempts
+    backdate(w, first.attemptId, 40);
+    expect((await mission(w, id)).usage.activeMs).toBeGreaterThan(30 * 60_000);
+    expect(w.brain.jobProtocol.claim(runner, "req-c-3")).toBeNull();
+    expect(queueReason(w, "job-c-c")).toBe("waiting: budget");
     expect(await mission(w, id)).toMatchObject({ state: "paused", pauseReason: "budget" });
-    const frozen = (await mission(w, id)).usage.activeMs;
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    expect((await mission(w, id)).usage.activeMs).toBe(frozen);
+    expect((await attention(w)).find((item) => item.kind === "budget-pause")).toMatchObject({ limits: ["time"], title: expect.stringContaining("time limit") });
+    const paused = await mission(w, id);
+    await expect(Promise.resolve().then(async () => await run(w, "mission.resume", "c-resume-early", { missionId: id }, paused.version))).rejects.toThrow(/raise the limit/);
+    await run(w, "mission.budget.set", "c-raise", { missionId: id, budget: { ...paused.budget, maxWallClockMs: 2 * 3_600_000 } }, paused.version);
+    await run(w, "mission.resume", "c-resume", { missionId: id }, (await mission(w, id)).version);
+    expect((w.brain.jobProtocol.claim(runner, "req-c-4") as unknown as Offer).jobId).toBe("job-c-c");
+    w.brain.close();
+  });
+
+  it("a restart does not bill the downtime: an attempt in flight ends at its lease (ADR 0016)", async () => {
+    const w = setupWorld();
+    const id = await missionWithJobs(w, "r", { maxWallClockMs: 3_600_000, memberCap: 1 }, ["a"]);
+    const attempt = w.brain.jobProtocol.claim(seedRunner(w, "runner-restart"), "req-r-1") as unknown as Offer;
+    const now = w.brain.store.now();
+    w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("UPDATE mission_spend SET created_at_ms=? WHERE attempt_id=?").run(now - 5 * 3_600_000, attempt.attemptId);
+    w.brain.store.control.prepare("UPDATE job_attempts SET lease_expires_at_ms=? WHERE id=?").run(now - 5 * 3_600_000 + 10 * 60_000, attempt.attemptId);
+    // The Governor was down for hours; recovery releases the attempt late.
+    w.brain.jobProtocol.releaseReservation(attempt.attemptId);
+    expect((await mission(w, id)).usage.activeMs).toBe(10 * 60_000);
+    w.brain.close();
+  });
+
+  it("on a one-person install with standard autonomy, a time-only pause is extended once by half, with a note", async () => {
+    const w = setupWorld();
+    const id = await missionWithJobs(w, "x1", { maxWallClockMs: 30 * 60_000, memberCap: 1 }, ["a", "b", "c"]);
+    const runner = seedRunner(w, "runner-extend", 4);
+    const first = w.brain.jobProtocol.claim(runner, "req-x1-1") as unknown as Offer;
+    backdate(w, first.attemptId, 40);
+    finishAttempt(w, first.attemptId, 0);
+    const next = w.brain.jobProtocol.claim(runner, "req-x1-2") as unknown as Offer;
+    expect(next.jobId).toBe("job-x1-b"); // admitted: the limit grew instead of pausing
+    expect(await mission(w, id)).toMatchObject({ state: "active", timeExtendedByBrain: true, budget: { maxWallClockMs: 45 * 60_000 } });
+    backdate(w, next.attemptId, 120);
+    finishAttempt(w, next.attemptId, 0);
+    expect(w.brain.jobProtocol.claim(runner, "req-x1-3")).toBeNull(); // only once
+    expect(await mission(w, id)).toMatchObject({ state: "paused", pauseReason: "budget", timeExtendedByBrain: true });
+    w.brain.close();
+  });
+
+  it("does not extend time when money ran out too", async () => {
+    const w = setupWorld();
+    const both = await missionWithJobs(w, "x2", { maxWallClockMs: 30 * 60_000, maxMicroUsd: 100, memberCap: 1, attemptReserveMicroUsd: 60 }, ["a", "b"]);
+    const runner = seedRunner(w, "runner-noext", 4);
+    const first = w.brain.jobProtocol.claim(runner, "req-x2-1") as unknown as Offer;
+    backdate(w, first.attemptId, 40);
+    finishAttempt(w, first.attemptId, 70);
+    expect(w.brain.jobProtocol.claim(runner, "req-x2-2")).toBeNull();
+    expect(await mission(w, both)).toMatchObject({ state: "paused", pauseReason: "budget" });
+    expect((await mission(w, both)).timeExtendedByBrain).toBeUndefined();
+    w.brain.close();
+  });
+
+  it("confirming a plan raises a default time limit to fit it, keeps a named one, and the estimate warns before confirming", async () => {
+    const w = setupWorld();
+    const db = () => w.brain.store.workspaceDb(w.workspaceId, w.org);
+    const defaulted = (await run(w, "mission.create", "w1-create", { title: "w1", intent: "Fit", successCriteria: ["done"] })).resourceId ?? "";
+    db().prepare("UPDATE missions SET budget_wall_ms=? WHERE id=?").run(30 * 60_000, defaulted); // what a Play's default looks like
+    const longPlan = (await run(w, "plan.propose", "w1-plan", { missionId: defaulted, origin: "manual", tasks: [{ ...task("a"), estimatedMinutes: 85 }] })).resourceId ?? "";
+    const before = ((await w.brain.executeQuery(w.owner, { queryType: "plans.estimate", workspaceId: w.workspaceId, resourceId: longPlan })) as unknown as { snapshot: Record<string, unknown> }).snapshot;
+    expect(before).toMatchObject({ ceilingWallClockMs: 255 * 60_000 }); expect(before).not.toHaveProperty("timeLimitBelowEstimate");
+    await run(w, "plan.confirm", "w1-confirm", { planVersionId: longPlan }, (await mission(w, defaulted)).version);
+    expect((await mission(w, defaulted)).budget.maxWallClockMs).toBe(255 * 60_000);
+    const named = (await run(w, "mission.create", "w2-create", { title: "w2", intent: "Named", successCriteria: ["done"], budget: { maxWallClockMs: 30 * 60_000, memberCap: 2 } })).resourceId ?? "";
+    const plan = (await run(w, "plan.propose", "w2-plan", { missionId: named, origin: "manual", tasks: [{ ...task("a"), estimatedMinutes: 85 }] })).resourceId ?? "";
+    const warned = ((await w.brain.executeQuery(w.owner, { queryType: "plans.estimate", workspaceId: w.workspaceId, resourceId: plan })) as unknown as { snapshot: Record<string, unknown> }).snapshot;
+    expect(warned).toMatchObject({ ceilingWallClockMs: 30 * 60_000, timeLimitBelowEstimate: true });
+    await run(w, "plan.confirm", "w2-confirm", { planVersionId: plan }, (await mission(w, named)).version);
+    expect((await mission(w, named)).budget.maxWallClockMs).toBe(30 * 60_000);
     w.brain.close();
   });
 
