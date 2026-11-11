@@ -155,3 +155,10 @@ E3 shipped: Today box leads at every width, Needs you capped at 3 + "N more", Re
 | 48 | Knowledge write-ups are thin: sections read "None." (verified outputs, decisions); include the Result summary/deliverable excerpt and criteria evidence so reuse has substance; do not capitalise trivial/test missions (threshold) | M | open |
 | 49 | Plays shelf is empty (0) so "Start from a play" is useless: ship default Plays from existing research/starter workflows (research-and-write, compare-options, checklist, weekly status, customer-support draft, incident triage), reviewable and editable in Studio | M | open |
 | 50 | Library tab strip wraps to two indented rows at 390; Approvals/Runners single-segment summary bars heavy; Logs chart shows 12-hour AM/PM | M (UI) | open |
+
+## Live walkthrough of Administration (2026-11-11 ~09:15, deployed `c78ab97`)
+Confirmed good live: Setup says "Setup complete" truthfully; Health leads with "Everything is working" then services; Access shows name, email, role legend and "Has access". 
+| # | Item | Track | Status |
+|---|------|-------|--------|
+| 51 | Health "Recent activity" uses jargon ("job updated", "job queued", "tool read refused", "By Brain"): plain sentences naming task/tool; Setup stepper's 3rd circle shows "3" instead of a tick when complete | M (UI) | open |
+| 52 | Live broker events "tool read refused" during the onboarding mission (09:06-09:07): find cause, fix or make refusal self-explaining | K | sent to K |
