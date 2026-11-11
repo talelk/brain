@@ -99,7 +99,7 @@ test("usage: tokens and dollars at run, task, mission and workspace level; token
   // The next attempt would pass the ceiling: admission refuses and the mission pauses with the budget reason.
   expect(brain.jobProtocol.claim(runner, "req-u-2")).toBeNull();
   await page.reload();
-  await expect(page.getByText(/paused because a spending or token limit was reached/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/paused because a time, spending or token limit was reached/)).toBeVisible({ timeout: 15_000 });
   await page.screenshot({ path: testInfo.outputPath("mission-paused.png"), fullPage: true });
   await page.getByRole("button", { name: "Raise limits" }).click();
   const dialog = page.getByRole("dialog");
