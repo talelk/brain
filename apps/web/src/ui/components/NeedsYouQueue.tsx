@@ -129,6 +129,30 @@ function ParkedBody(props: { item: AttentionItem; onChanged: () => void }): JSX.
   </div>;
 }
 
+/**
+ * A step Brain lost contact with that may have changed something outside: never retried by itself. "Treat as failed" always works;
+ * "Try again" is offered only when the Governor says a second run is harmless.
+ */
+function UnknownBody(props: { item: AttentionItem; onChanged: () => void }): JSX.Element {
+  const app = useApp();
+  const navigate = useNavigate();
+  const row = createRowAction(props.onChanged);
+  const settle = (resolution: "fail" | "retry") => row.act(async () => {
+    const receipt = await app.run("job.reconcile", { jobId: props.item.resourceId, reason: resolution === "fail" ? "Treated as failed by a person" : "Tried again by a person: the step only reads", resolution }, { expectedVersion: props.item.version ?? 1 });
+    if (!receipt.accepted) throw new Error(receipt.detail);
+  });
+  return <div class="flex min-w-0 flex-col gap-2">
+    <Show when={app.canDispatch()} fallback={<NoScope who="an operator" />}>
+      <div class="flex flex-wrap items-center gap-2">
+        <Show when={props.item.safeToRetry}><Button size="sm" variant="solid" theme="blue" iconLeft="lucide-rotate-ccw" disabled={row.busy()} data-testid="unknown-retry" onClick={() => void settle("retry")}>Try again</Button></Show>
+        <Button size="sm" variant={props.item.safeToRetry ? "outline" : "solid"} theme={props.item.safeToRetry ? "gray" : "red"} iconLeft="lucide-circle-x" disabled={row.busy()} data-testid="unknown-fail" onClick={() => void settle("fail")}>Treat as failed</Button>
+        <Button size="sm" variant="ghost" iconRight="lucide-arrow-right" onClick={() => void navigate(attentionHref(props.item))}>Open the work</Button>
+      </div>
+    </Show>
+    <Show when={row.error()}><p role="alert" class="text-caption text-ink-red-7">{row.error()}</p></Show>
+  </div>;
+}
+
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 
@@ -230,6 +254,7 @@ export function NeedsYouQueue(props: { items: readonly AttentionItem[]; missions
         {item.kind === "approval" ? <ApprovalBody item={item} onReviewOpen={reviewOpen} />
           : item.kind === "plan-proposal" ? <PlanBody item={item} mission={mission(item)} onChanged={props.onChanged} />
           : item.kind === "budget-pause" ? <BudgetBody item={item} onChanged={props.onChanged} />
+          : item.kind === "outcome-unknown" ? <UnknownBody item={item} onChanged={props.onChanged} />
           : item.kind === "parked" ? <ParkedBody item={item} onChanged={props.onChanged} />
           : item.kind === "verdict-ready" ? <VerdictBody item={item} mission={mission(item)} onChanged={props.onChanged} />
           : <Button size="sm" variant="outline" iconRight="lucide-arrow-right" onClick={() => void navigate(attentionHref(item))}>{attentionAction(item)}</Button>}

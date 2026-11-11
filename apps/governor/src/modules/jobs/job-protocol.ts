@@ -5,6 +5,7 @@ import { ackAttempt, attemptEvents, claim, completeAttempt, expireLeases, readEx
 import { brokerToolRead, type ToolReadPorts, type ToolReadRequest } from "./tool-reads";
 import { BrainDomainError } from "../../domain/errors";
 import { sweepStuckJobs } from "./watchdog";
+import { resolveUnknownJob, type UnknownResolution } from "./unknown";
 import { runScheduledDispatch } from "./scheduler";
 import { AutomationService } from "./automation";
 import { cancelJobsForRun, concludeAttempt, createJobForStep, resolveReconciliation, workspaceJobLoad, type CreateJobInput, type ReconciliationOutcome } from "./lifecycle";
@@ -156,6 +157,11 @@ export class JobProtocol {
     return sweepStuckJobs(this.store, {
       completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.ports.completeStep(organizationId, workspaceId, runId, stepId, output, ok),
     }, stuckMs);
+  }
+
+  /** A person settles a step left outcome unknown: treat it as failed, or try again when a second run is harmless. */
+  resolveUnknown(input: { organizationId: string; jobId: string; resolution: UnknownResolution; expectedVersion?: number }): { jobId: string; resolution: UnknownResolution } {
+    return resolveUnknownJob(this.store, { completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.ports.completeStep(organizationId, workspaceId, runId, stepId, output, ok) }, input);
   }
 
   releaseReservation(attemptId: string): void {

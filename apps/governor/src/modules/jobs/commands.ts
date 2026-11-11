@@ -16,6 +16,11 @@ export function jobCommands(store: Store, jobs: JobProtocol): CommandHandlers {
       kind: "control",
       handle: ({ actor, cmd }) => {
         const jobId = String(cmd.payload["jobId"]);
+        // Needs you: a person treats the step as failed, or tries it again when a second run is harmless.
+        const resolution = cmd.payload["resolution"];
+        if (resolution === "fail" || resolution === "retry") {
+          return { resourceId: jobs.resolveUnknown({ organizationId: actor.organizationId, jobId, resolution, ...(cmd.expectedVersion !== undefined ? { expectedVersion: cmd.expectedVersion } : {}) }).jobId };
+        }
         const job = s.control.prepare("SELECT state, version FROM jobs WHERE id=? AND organization_id=?").get(jobId, actor.organizationId) as { state: string; version: number } | undefined;
         if (!job) throw new BrainDomainError("NOT_FOUND", "job not found");
         if (job.state !== "outcome_unknown") throw new BrainDomainError("CONFLICT", "only outcome_unknown jobs can be reconciled");

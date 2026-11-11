@@ -5,7 +5,7 @@ import { evaluateRunner, rankRunners } from "../../domain/placement";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import type { QuerySnapshot } from "../../application/query";
-import { runnerView } from "./attempts";
+import { isReadOnlyReasoningJob, runnerView } from "./attempts";
 
 export interface JobAttemptView {
   attemptId: string;
@@ -29,12 +29,26 @@ export interface JobSnapshotView {
   configDigest: string;
   createdAt: string;
   workflowState?: string;
+  /** The Governor is restarting an interrupted read-only step by itself: the run is not running right now, and nobody needs to act. */
+  restarting?: boolean;
   workflowTitle?: string;
   origin?: JsonValue;
   runOutputs: JsonValue;
   engineEvents: JsonValue[];
   evidenceDigest?: string;
   sessionId?: string;
+}
+
+/**
+ * True while an interrupted read-only step waits to be started again: queued for its restart, or left outcome unknown during the
+ * short cooldown before the automatic retry. The run itself still reads "running", which is wrong for that moment.
+ */
+function isRestarting(store: Store, row: Record<string, unknown>): boolean {
+  const state = String(row["state"]);
+  if (state === "queued") return row["queue_reason"] === "RESTARTED_AFTER_INTERRUPTION";
+  if (state !== "outcome_unknown") return false;
+  const attempt = store.control.prepare("SELECT id FROM job_attempts WHERE job_id=? AND job_fence=? ORDER BY attempt_no DESC LIMIT 1").get(String(row["id"]), Number(row["job_fence"])) as { id: string } | undefined;
+  return attempt !== undefined && isReadOnlyReasoningJob(store, String(row["id"]), attempt.id);
 }
 
 /**
@@ -71,6 +85,7 @@ export function jobSnapshot(store: Store, row: Record<string, unknown>): JobSnap
     configDigest: String(row["config_digest"]),
     createdAt: iso(Number(row["created_at_ms"])),
     ...(workflowState ? { workflowState: workflowState.state } : {}),
+    ...(isRestarting(store, row) ? { restarting: true } : {}),
     ...(workflow ? { workflowTitle: workflow.title ?? workflow.id.replaceAll("-", " ") } : {}),
     ...(origin ? { origin: JSON.parse(origin.origin_json) as JsonValue } : {}),
     runOutputs: Object.fromEntries(outputs.map((entry) => [entry.step_id, JSON.parse(entry.output_json)])) as JsonValue,

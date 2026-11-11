@@ -17,3 +17,4 @@ export {
   explainJob, getJob, getRunner, listJobs, listRunners, searchJobs,
 } from "./read";
 export { jobCommands } from "./commands";
+export { unknownJobsForWorkspace, type UnknownJobView, type UnknownResolution } from "./unknown";

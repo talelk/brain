@@ -16,14 +16,15 @@ export const TIER_TONE: Record<number, "red" | "amber" | "blue" | "green" | "gra
 export const KIND_ICON: Record<AttentionItem["kind"], string> = {
   approval: "lucide-shield-check", "budget-pause": "lucide-wallet", "needs-attention": "lucide-octagon-alert",
   "plan-proposal": "lucide-list-tree", parked: "lucide-circle-pause", "verdict-ready": "lucide-badge-check", routed: "lucide-message-square-warning",
-  "result-ready": "lucide-circle-check-big", "schedule-failed": "lucide-calendar-x",
+  "result-ready": "lucide-circle-check-big", "schedule-failed": "lucide-calendar-x", "outcome-unknown": "lucide-circle-help",
 };
 
 /** Where an attention item is acted on: the approval review or the mission view that owns it. */
 export function attentionHref(item: AttentionItem): string {
   if (item.kind === "approval") return `/approvals/${item.resourceId}`;
+  if (item.kind === "outcome-unknown" && !item.missionId) return `/runs/${encodeURIComponent(item.resourceId)}`;
   if (item.kind === "schedule-failed" && !item.missionId) return `/w/${encodeURIComponent(item.workspaceId)}/schedules`;
-  const tab = item.kind === "result-ready" ? "outputs" : item.kind === "plan-proposal" || item.kind === "parked" || item.kind === "needs-attention" ? "plan" : item.kind === "routed" ? "live" : "brief";
+  const tab = item.kind === "result-ready" ? "outputs" : item.kind === "plan-proposal" || item.kind === "parked" || item.kind === "needs-attention" || item.kind === "outcome-unknown" ? "plan" : item.kind === "routed" ? "live" : "brief";
   const href = missionHref(item.workspaceId, item.missionId ?? item.resourceId, tab);
   if (item.kind === "result-ready" && item.missionId && item.resourceId !== item.missionId) return `${href}&result=${encodeURIComponent(item.resourceId)}`;
   return item.kind === "plan-proposal" ? `${href}&proposal=${encodeURIComponent(item.resourceId)}` : href;
@@ -37,6 +38,7 @@ export function attentionAction(item: AttentionItem): string {
     case "verdict-ready": return "Review verdict";
     case "result-ready": return "See result";
     case "schedule-failed": return "See what happened";
+    case "outcome-unknown": return "Check this step";
     default: return "Open";
   }
 }

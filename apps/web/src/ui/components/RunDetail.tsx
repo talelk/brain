@@ -73,6 +73,7 @@ function runSentence(state: string, attempt: { state: string; number: number } |
   if (state === "failed") return attempts > 1 ? `This run failed after ${attempts} attempts.` : "This run failed. Open the logs to see why.";
   if (state === "cancelled") return "This run was cancelled before it finished.";
   if (state === "outcome_unknown") return "Brain lost contact before the run reported back. Check the target system, then reconcile.";
+  if (state === "restarting") return "Brain lost contact with the agent and is starting it again. Nothing needs doing.";
   if (state === "blocked") return "This run is blocked and needs attention before it can continue.";
   if (state === "queued" || reasons.length > 0) return "This run is waiting for a runner that can take it.";
   if (state === "verifying") return "The work is done and is being independently checked.";
@@ -99,8 +100,8 @@ export function RunDetail(props: {
   const [reason, setReason] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const job = () => props.job;
-  const state = () => job()?.workflowState ?? job()?.state;
-  const unknown = () => job()?.state === "outcome_unknown";
+  const state = () => job()?.restarting ? "restarting" : job()?.workflowState ?? job()?.state;
+  const unknown = () => job()?.state === "outcome_unknown" && !job()?.restarting;
   const latestEvent = () => job()?.engineEvents?.at(-1);
   const engineId = () => {
     const current = job()?.engineEvents?.find((event) => event.kind === "session.started");

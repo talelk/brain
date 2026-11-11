@@ -17,7 +17,7 @@ const JOB: StatusMap = {
   succeeded: { theme: "green", label: "Succeeded" }, partial: { theme: "amber", label: "Partial" },
   failed: { theme: "red", label: "Failed" }, cancelled: { theme: "gray", label: "Cancelled" },
   blocked: { theme: "red", label: "Blocked" }, outcome_unknown: { theme: "red", label: "Outcome unknown" },
-  suspended: { theme: "amber", label: "Suspended" }, created: { theme: "gray", label: "Created" },
+  restarting: { theme: "amber", label: "Restarting" }, suspended: { theme: "amber", label: "Suspended" }, created: { theme: "gray", label: "Created" },
   validated: { theme: "gray", label: "Validated" }, ready: { theme: "green", label: "Ready" },
 };
 

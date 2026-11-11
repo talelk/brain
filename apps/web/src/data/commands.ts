@@ -58,7 +58,7 @@ export type PayloadFor<K extends CommandKind> =
             : K extends "mission.message.send" ? { missionId: string; recipient: { kind: "mission" | "member"; memberId?: string }; workItemId?: string; body: string; correctionOf?: string; interrupt?: boolean }
             : K extends "workflow.dispatch" ? { workflow: { id: string; digest: string }; input: Record<string, unknown>; workItemId?: string }
     : K extends "workflow.cancel" ? { runId: string; reason: string }
-      : K extends "job.reconcile" ? { jobId: string; reason: string }
+      : K extends "job.reconcile" ? { jobId: string; reason: string; resolution?: "fail" | "retry" }
         : K extends "session.steer" ? { sessionId: string; message: string }
           : K extends "session.stop" ? { sessionId: string; reason: string }
             : K extends "session.create" ? { workItemId: string; agentId: string; engineId: string; task: string; budget: { maxTokens: number; maxMicroUsd: number; maxTurns: number }; scope: { allowedPaths: string[]; prohibitedPaths: string[]; allowedTools: string[] }; worktreeId: string; resumeFromSessionId?: string }

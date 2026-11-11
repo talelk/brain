@@ -15475,6 +15475,9 @@
         "workflowState": {
           "$ref": "#/$defs/WorkflowRunState"
         },
+        "restarting": {
+          "type": "boolean"
+        },
         "workflowTitle": {
           "type": "string",
           "maxLength": 256
@@ -16796,6 +16799,13 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 512
+            },
+            "resolution": {
+              "type": "string",
+              "enum": [
+                "fail",
+                "retry"
+              ]
             }
           },
           "required": [
@@ -22316,7 +22326,8 @@
             "verdict-ready",
             "routed",
             "result-ready",
-            "schedule-failed"
+            "schedule-failed",
+            "outcome-unknown"
           ]
         },
         "tier": {
@@ -22354,6 +22365,14 @@
             ]
           },
           "maxItems": 4
+        },
+        "safeToRetry": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
         }
       },
       "required": [

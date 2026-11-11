@@ -54,6 +54,7 @@ function runTone(job: JobSnapshot): "blue" | "gray" | "red" {
 }
 
 function nextRunAction(job: JobSnapshot): string {
+  if (job.restarting) return "Brain is restarting it";
   if (job.state === "outcome_unknown") return "Reconcile outcome";
   if (job.state === "blocked") return "Inspect blocker";
   if (job.state === "succeeded") return "View verified result";
@@ -137,7 +138,7 @@ export function RunsScreen(props: {
                 <span class="min-w-0 break-words">{job.queueReasons.length ? queueReasonLabel(job.queueReasons) : nextRunAction(job)}</span>
                 <Show when={job.attempts.at(-1)?.runnerId}><span class="min-w-0 break-all">Runner {job.attempts.at(-1)?.runnerId}</span></Show>
               </>}
-              trailing={<StatusBadge kind="job" status={job.workflowState ?? job.state} />}
+              trailing={<StatusBadge kind="job" status={job.restarting ? "restarting" : job.workflowState ?? job.state} />}
               label={`Open run inspector: ${job.workflowTitle ?? job.jobId}`}
               onClick={() => props.onOpenJob(job.jobId)} />
             <div class="flex flex-row items-center justify-end gap-1 px-2 pb-2 sm:flex-col sm:justify-center sm:px-0 sm:pb-0 sm:pe-1">

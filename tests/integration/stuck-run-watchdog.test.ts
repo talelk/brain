@@ -103,6 +103,69 @@ describe("stuck-run watchdog", () => {
     } finally { w.brain.close(); }
   });
 
+  const attention = async (w: World) => ((await w.brain.executeQuery(w.owner, { queryType: "attention.list" } as never)) as unknown as { snapshot: { items: Array<{ id: string; kind: string; detail?: string; safeToRetry?: boolean; version?: number; resourceId: string }> } }).snapshot.items;
+  const settle = async (w: World, jobId: string, resolution: "fail" | "retry", version: number) => (await w.brain.executeCommand(w.owner, {
+    contractVersion: "brain.command/v1", commandId: `cmd-${resolution}-${jobId}`, commandType: "job.reconcile", workspaceId: w.workspaceId, idempotencyKey: `${resolution}-${jobId}`,
+    expectedVersion: version, payload: { jobId, reason: "test", resolution },
+  } as never, `${resolution}-${jobId}`)).receipt;
+
+  it("a tool step left outcome_unknown appears in Needs you with a plain reason; Treat as failed fails the step, never retried automatically", async () => {
+    const w = setupWorld();
+    try {
+      const offer = await authorFinished(w, "wd-unk-write", "runner-unk1", false);
+      w.brain.store.control.prepare("UPDATE jobs SET effect_class='write' WHERE id=?").run(offer.jobId);
+      age(w, offer, 30);
+      w.brain.jobProtocol.sweepStuckJobs(15 * MIN);
+      expect(w.brain.jobProtocol.sweepStuckJobs(15 * MIN)).toBe(0);
+      const item = (await attention(w)).find((entry) => entry.kind === "outcome-unknown");
+      expect(item).toMatchObject({ id: `unknown:${offer.jobId}`, safeToRetry: false });
+      expect(item?.detail).toMatch(/may already have changed something outside Brain/);
+      // Try again is refused for an effectful step.
+      await expect(Promise.resolve().then(async () => await settle(w, offer.jobId, "retry", item!.version!))).rejects.toThrow(/not safe/);
+      expect(job(w, offer.jobId).state).toBe("outcome_unknown");
+      await settle(w, offer.jobId, "fail", item!.version!);
+      expect(job(w, offer.jobId).state).toBe("failed");
+      expect((await attention(w)).some((entry) => entry.kind === "outcome-unknown")).toBe(false);
+      const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
+      expect((ws.prepare("SELECT state FROM workflow_runs LIMIT 1").get() as { state: string }).state).toBe("failed");
+    } finally { w.brain.close(); }
+  });
+
+  it("a read-only tool step left outcome_unknown offers Try again, which queues it once for a fresh attempt", async () => {
+    const w = setupWorld();
+    try {
+      const offer = await authorFinished(w, "wd-unk-read", "runner-unk2", false);
+      age(w, offer, 30);
+      w.brain.jobProtocol.sweepStuckJobs(15 * MIN);
+      const item = (await attention(w)).find((entry) => entry.kind === "outcome-unknown");
+      expect(item).toMatchObject({ safeToRetry: true });
+      await settle(w, offer.jobId, "retry", item!.version!);
+      expect(job(w, offer.jobId).state).toBe("queued");
+      expect((await attention(w)).some((entry) => entry.kind === "outcome-unknown")).toBe(false);
+    } finally { w.brain.close(); }
+  });
+
+  it("an interrupted agent step shows as restarting, not running, and is not offered to a person", async () => {
+    const w = setupWorld();
+    const previous = process.env["BRAIN_PARKED_COOLDOWN_SECONDS"];
+    process.env["BRAIN_PARKED_COOLDOWN_SECONDS"] = "300";
+    try {
+      const offer = await authorFinished(w, "wd-restarting", "runner-unk3");
+      const c = w.brain.store.control;
+      for (let i = 0; i < 4; i++) c.prepare(`INSERT INTO job_attempts(id, job_id, runner_id, runner_epoch, attempt_no, lease_id, job_fence, state, offer_expires_at_ms, lease_expires_at_ms)
+        VALUES (?,?,?,?,?,?,?,'failed',1,1)`).run(`att-r-${i}`, offer.jobId, "runner-unk3", 1, 100 + i, `lease-r-${i}`, 100 + i);
+      c.prepare("UPDATE job_attempts SET lease_expires_at_ms=?, offer_expires_at_ms=? WHERE id=?").run(Date.now() - 10_000, Date.now() - 11_000, offer.attemptId);
+      w.brain.jobProtocol.sweepStuckJobs(1);
+      expect(job(w, offer.jobId).state).toBe("outcome_unknown");
+      const view = (await w.brain.executeQuery(w.owner, { queryType: "job.get", resourceId: offer.jobId } as never)) as unknown as { snapshot: { restarting?: boolean; workflowState?: string } };
+      expect(view.snapshot).toMatchObject({ restarting: true, workflowState: "running" });
+      expect((await attention(w)).some((entry) => entry.kind === "outcome-unknown")).toBe(false);
+    } finally {
+      if (previous === undefined) delete process.env["BRAIN_PARKED_COOLDOWN_SECONDS"]; else process.env["BRAIN_PARKED_COOLDOWN_SECONDS"] = previous;
+      w.brain.close();
+    }
+  });
+
   it("requeues a running job whose attempt is gone", async () => {
     const w = setupWorld();
     try {

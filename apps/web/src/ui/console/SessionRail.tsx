@@ -122,7 +122,7 @@ export function SessionRail(props: {
                 <span class="block truncate text-caption font-medium text-ink-gray-9">{job.workflowTitle ?? "Run"}</span>
                 <span class="block truncate text-caption text-ink-gray-6">{job.attempts.length} {job.attempts.length === 1 ? "attempt" : "attempts"}</span>
               </span>
-              <StatusBadge kind="job" status={job.workflowState ?? job.state} />
+              <StatusBadge kind="job" status={job.restarting ? "restarting" : job.workflowState ?? job.state} />
             </button>
           )}</For>
         </Show>
