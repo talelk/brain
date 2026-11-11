@@ -85,7 +85,7 @@ Leftovers: saved documents are searchable at once as unverified but do not queue
 | 26 | #77 meter: interactive runs outside missions not in ledger | I2b | open |
 | 27 | Sidebar highlights Live on /runners (area mapping); Passkeys paragraph jargon; inviting own address returns "internal operation failed" server-side | C3 | server-side own-address invite done (E2: 422 INVALID_ARGUMENT); sidebar and Passkeys copy still open |
 | 28 | Reuse seams: #66 index, #56 schedule picker, #68 planner reuse; #48 inline setup fixes + sample goal | I3 / next | open |
-| 29 | Stale `artifacts/ui-revamp` baselines (sidebar Today entry, live/logs/plays); regenerate once UI settles (polish pass) | E | specs no longer write into tracked `artifacts/ui-revamp` (now `test-results/ui-revamp`); committed screenshots are stale outputs, not compared baselines; regenerate only after the UI settles |
+| 29 | Stale `artifacts/ui-revamp` baselines (sidebar Today entry, live/logs/plays); regenerate once UI settles (polish pass) | E | specs no longer write into tracked `artifacts/ui-revamp` (now `test-results/ui-revamp`); committed screenshots are stale outputs, not compared baselines; regenerate only after the UI settles ; 2026-11-11 track E: compared baselines in `tests/browser/visual-baseline.spec.ts-snapshots` regenerated for 1440-light, 390-dark and new 768-light; `artifacts/ui-revamp` PNGs still uncompared outputs |
 
 ## Wave 2 landed and deployed (2026-11-11 ~03:10)
 - Deployed to live: I3 reuse/capitalisation (`1879568`), I4 context/tools/repo budget (`4a5f53f`,`a074813`,`9591f6d`), usage ledger, Today landing, plus schema repair hardening. Live release re-staged three times (`sha256:3deb9d0f…` active).
@@ -115,7 +115,7 @@ Shipped #48 inline setup card + sample goal (box blocked until install is ready)
 | 35 | Trust read lacks per-criterion evidence link and mission-level aggregate | next | open |
 | 36 | Budget-pause and routed attention items open their page instead of acting inline | next | open |
 | 37 | "Verify the install" row clears only when `agent-smoke` runs, not when the sample mission finishes; release fix has no return path to Today | next | open |
-| 38 | G1 exercised 390 px only on screenshotted screens; run all new specs at 390-dark/768/RTL | polish/QA | open |
+| 38 | G1 exercised 390 px only on screenshotted screens; run all new specs at 390-dark/768/RTL | polish/QA | open ; 2026-11-11 track E: whole suite run at 1440-light, 390-dark, 768-light (199 of 207 passed before final fixes), see ui-polish-2026-11-11.md; RTL and 1440-dark covered only by the a11y spec and screenshots |
 
 ## Track G3 (2026-11-11): #53 #50 #60 #64 #73 #74 decided and built
 Decisions are ADRs 0010-0015 (numbers skip 0008-0009 to avoid collisions with parallel tracks). Verified first: no email or Slack delivery existed (only in-app and Web Push).

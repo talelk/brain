@@ -1,10 +1,10 @@
 /**
- * Visual baselines for the key screens at 1440-light and 390-dark (the two projects that are run).
+ * Visual baselines for the key screens at 1440-light, 768-light and 390-dark.
  *
  * UPDATING THESE SNAPSHOTS IS A DELIBERATE ACT. A diff here means the UI changed: look at the actual
  * and diff images in test-results/, decide the change is intended, then regenerate with
  *   TMPDIR=$HOME/.cache/bt npx playwright test tests/browser/visual-baseline.spec.ts \
- *     --project=1440-light --project=390-dark --update-snapshots
+ *     --project=1440-light --project=768-light --project=390-dark --update-snapshots
  * and commit the new PNGs in tests/browser/visual-baseline.spec.ts-snapshots/ in the same change as
  * the UI work. Never refresh them just to make a red run green. Comparisons allow 2% of pixels to
  * differ (seeded timestamps and ids vary per run); they run on the seeded workspace from

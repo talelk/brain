@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, For, lazy, onCleanup, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Button } from "@talelk/newui-atoms";
@@ -6,7 +6,7 @@ import { Dialog } from "@talelk/newui-molecules";
 import type { OperationalReadiness } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { IconTile } from "./primitives";
-import { LocalModelSetup } from "./LocalModelSetup";
+const LocalModelSetup = lazy(() => import("./LocalModelSetup").then((module) => ({ default: module.LocalModelSetup })));
 import type { createReadiness } from "./OperationalChecklist";
 
 type Check = OperationalReadiness["checks"][number];
@@ -82,7 +82,7 @@ export function TodaySetup(props: { readiness: ReturnType<typeof createReadiness
     <Dialog.Root open={open()} onOpenChange={(next) => { setOpen(next); if (!next) void props.readiness.refresh({ force: true }); }}>
       <Dialog.Content size="2xl" class="flex max-h-[calc(100dvh-2rem)] flex-col max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none">
         <Dialog.Header><Dialog.Title>Set up Brain</Dialog.Title><Dialog.Description>The same guided setup as Administration. Close this when you are done; the checklist is already up to date.</Dialog.Description></Dialog.Header>
-        <div class="my-3 min-h-0 flex-1 overflow-y-auto pe-1"><LocalModelSetup /></div>
+        <div class="my-3 min-h-0 flex-1 overflow-y-auto pe-1"><Show when={open()}><LocalModelSetup /></Show></div>
         <Dialog.Footer class="justify-end"><Button size="sm" variant="outline" onClick={() => setOpen(false)}>Close</Button></Dialog.Footer>
       </Dialog.Content>
     </Dialog.Root>
