@@ -193,7 +193,7 @@ describe("mission admission (T19)", () => {
     const barePlan = (await run(w, "plan.propose", "e2-plan", { missionId: bare, origin: "manual", tasks: [task("a")] })).resourceId ?? "";
     const none = ((await w.brain.executeQuery(w.owner, { queryType: "plans.estimate", workspaceId: w.workspaceId, resourceId: barePlan })) as unknown as { snapshot: Record<string, unknown> }).snapshot;
     expect(none).toMatchObject({ unknownMinutesTasks: 1, unknownCostTasks: 1 });
-    expect(none).not.toHaveProperty("totalEstimatedMinutes"); expect(none).not.toHaveProperty("totalMicroUsd"); expect(none).not.toHaveProperty("ceilingMicroUsd");
+    expect(none).not.toHaveProperty("totalEstimatedMinutes"); expect(none).not.toHaveProperty("totalMicroUsd"); expect(none).toMatchObject({ ceilingMicroUsd: 5_000_000 }); // the Governor's default budget (#47)
     w.brain.close();
   });
 });
