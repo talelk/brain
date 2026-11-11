@@ -159,7 +159,7 @@ test("reuse entries: empty state, start from a previous mission via the reuse in
   await page.getByRole("button", { name: "Repeat this", exact: true }).click();
   await shot(page, "today-repeat-list");
   await page.getByRole("region", { name: "Choose a mission to repeat" }).getByRole("button", { name: "Repeat Auth sweep" }).click();
-  await expect(page).toHaveURL(/\/w\/ws-today\/schedules\?create=auth-stabilize$/);
+  await expect(page).toHaveURL(new RegExp(`/w/ws-today/schedules\\?repeat=${fromPlay}$`));
 });
 
 test("landing rule: Today when nothing is active or the queue is not empty, Live when work is active and nothing waits", async ({ page, governor }) => {
