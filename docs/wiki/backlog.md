@@ -61,6 +61,10 @@ Confirmed live: job `job-mwbxl67a-1o-6bfqmakh` (run `run-mwbxl678-1n-zo5903gh`) 
 Evidence (live, read-only): job `job-mwbxl67a-1o-6bfqmakh` attempts 1-4 failed, watchdog restarted it after 98 min, attempt 5 lost its lease at the deploy and became `outcome_unknown` with attempt_counter 5, so `expireLeases` could not restart it and nothing surfaced it. Fixes: platform interruptions (`job_attempts.interruption='platform'`) never use the 5-restart budget (cap 20); a read-only job with no budget left waits `BRAIN_PARKED_COOLDOWN_SECONDS` (60) then retries once (`jobs.auto_retries`), then fails with `AGENT_INTERRUPTED` and the task parks "Stopped: waiting for you to try again" with a Needs-you Try again; UI no longer says "running" for a stopped task. Live confirmation: after deploy the sweep queued a new attempt for the stuck job (mission tokens 44k -> 46k).
 Open: effectful (tool) jobs left `outcome_unknown` still do not appear in Needs you; between an interruption and the end of the cooldown (~1 min) the UI still says "running".
 
+## Live walkthrough 2026-11-11 ~14:10 (finished note-taking mission, deployed `99915aa`)
+Confirmed: mission finished 6/6 (204k tokens, $0) after stuck/pause/resume (S, R, T, U fixes); deliverable excellent (recommendation, scored criteria, runner-up, caveats; Markdown rendered); "Author's own checklist 3 of 3 met" with evidence; "Challenge this result" works live (state running); "Propose as Play" and "What Brain reused" present; Repeat this button on the closed mission.
+Track V (running): trust line says "Not independently checked yet" on every Done+verified Result card (find why `trust` read misses the verdict for auto-completed tasks); opened Result card collapses and scroll jumps on background refresh; duplicate "Documents with versions" section; share link reachability on mission Result cards; show finished Challenge inline.
+
 ## Not yet walked live (blocked on deploy of K and M)
 Share links, Challenge this result, Repeat this (now creates real missions), Context received tab, Tools registry, Quality page, Usage meter in depth.
 
