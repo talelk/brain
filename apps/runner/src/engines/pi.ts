@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { sha256Digest } from "@brain/contracts";
 import type { ArtifactRef, Checkpoint, EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
+import { overCostCap } from "./limits";
 import { GovernedToolCalls } from "./tool-calls";
 
 export class PiEngine implements EngineAdapter {
@@ -128,7 +129,7 @@ export class PiEngine implements EngineAdapter {
       this.push("usage", { usageId: `pi-usage-${spec.attemptId}`, inputTokens: usage.tokens.input,
         outputTokens: usage.tokens.output, cachedInputTokens: usage.tokens.cacheRead,
         microUsd: Math.ceil(usage.cost*1000000), accounting: "final-total", estimated: false });
-      if (usage.tokens.total > spec.limits.maxTokens || usage.cost*1000000 > spec.limits.maxMicroUsd || usage.assistantMessages > spec.limits.maxTurns) throw new Error("Pi execution exceeded its pinned token/cost/turn budget");
+      if (usage.tokens.total > spec.limits.maxTokens || overCostCap(usage.cost*1000000, spec.limits.maxMicroUsd) || usage.assistantMessages > spec.limits.maxTurns) throw new Error("Pi execution exceeded its pinned token/cost/turn budget");
       const bytes = new TextEncoder().encode(this.output);
       const artifact = {
         artifactId: `pi-output-${spec.attemptId}`, digest: sha256Digest(bytes), bytes: bytes.length,

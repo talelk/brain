@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import type { EngineEvent, EngineSessionSpec } from "@brain/contracts";
 import { sha256Digest } from "@brain/contracts";
 import { ClaudeEngine } from "../../apps/runner/src/engines/claude";
+import { overCostCap } from "../../apps/runner/src/engines/limits";
 
 const sdk = vi.hoisted(() => ({ query: vi.fn(), close: vi.fn(), tool: vi.fn(), createSdkMcpServer: vi.fn() }));
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({ query: sdk.query, tool: sdk.tool, createSdkMcpServer: sdk.createSdkMcpServer }));
@@ -47,9 +48,19 @@ describe("Claude SDK lifecycle mapping", () => {
     expect(events.at(-1)).toMatchObject({ kind: "session.stopped", payload: { reason: "completed" } });
     await engine.dispose();
   });
+  it("treats a zero per-attempt cost cap as unbounded so a paid run completes (#79)", async () => {
+    const base = spec(), value = { ...base, limits: { ...base.limits, maxMicroUsd: 0 } }, engine = new ClaudeEngine();
+    messages([{ type: "assistant", message: { content: [{ type: "text", text: "BRAIN_OK" }] } }, { type: "result", subtype: "success", result: "BRAIN_OK", total_cost_usd: 0.25, usage: { input_tokens: 10, output_tokens: 3 } }]);
+    const { events } = await execute(engine, value);
+    expect(sdk.query.mock.calls[0]![0].options.maxBudgetUsd).toBeUndefined();
+    expect(events.find((event) => event.kind === "usage")?.payload).toMatchObject({ microUsd: 250000 });
+    expect(events.at(-1)).toMatchObject({ kind: "session.stopped", payload: { reason: "completed" } });
+    await engine.dispose();
+  });
   it.each(["error-result", "missing-result", "over-budget", "unbound-tools"])("fails closed for %s", async (scenario) => {
     let value = spec(); const engine = new ClaudeEngine();
     messages(scenario === "missing-result" ? [] : [{ type: "result", subtype: scenario === "error-result" ? "error_max_turns" : "success", result: "partial", total_cost_usd: scenario === "over-budget" ? 1 : 0 }]);
+    if (scenario === "over-budget") value = { ...value, limits: { ...value.limits, maxMicroUsd: 100 } };
     if (scenario === "unbound-tools") value = { ...value, allowedTools: [{ id: "unbound", digest: value.configDigest }] };
     const { events } = await execute(engine, value);
     expect(events.some((event) => event.kind === "error")).toBe(true);
@@ -88,5 +99,13 @@ describe("Claude SDK lifecycle mapping", () => {
     for await (const event of engine.events(sessionId, 0, new AbortController().signal)) void event;
     await expect(engine.steer(sessionId, "m2", "Too late")).rejects.toMatchObject({ code: "UNSUPPORTED_CAPABILITY" });
     await engine.dispose();
+  });
+});
+
+describe("per-attempt cost cap rule shared by Claude and Pi (#79)", () => {
+  it("enforces only a positive cap", () => {
+    expect(overCostCap(5_000_000, 0)).toBe(false);
+    expect(overCostCap(100, 100)).toBe(false);
+    expect(overCostCap(101, 100)).toBe(true);
   });
 });

@@ -2,6 +2,7 @@ import { readFileSync, statSync } from "node:fs";
 import { sha256Digest } from "@brain/contracts";
 import type { EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
+import { overCostCap } from "./limits";
 import { GovernedToolCalls } from "./tool-calls";
 import { z } from "zod";
 import type { ZodTypeAny } from "zod";
@@ -208,7 +209,7 @@ export class ClaudeEngine implements EngineAdapter {
           const inputTokens = m.usage?.input_tokens ?? 0, outputTokens = m.usage?.output_tokens ?? 0, cachedInputTokens = m.usage?.cache_read_input_tokens ?? 0;
           const microUsd = resolveAnthropicEndpoint(process.env).local ? 0 : Math.ceil((m.total_cost_usd ?? 0)*1000000);
           this.push("usage",{usageId:`claude-usage-${spec.attemptId}`,inputTokens,outputTokens,cachedInputTokens,microUsd,accounting:"final-total",estimated:false});
-          if (inputTokens+outputTokens+cachedInputTokens > spec.limits.maxTokens || microUsd > spec.limits.maxMicroUsd) throw new Error("Claude execution exceeded its pinned token/cost budget");
+          if (inputTokens+outputTokens+cachedInputTokens > spec.limits.maxTokens || overCostCap(microUsd, spec.limits.maxMicroUsd)) throw new Error("Claude execution exceeded its pinned token/cost budget");
           completed = true;
           if (typeof m.result === "string") resultText = m.result;
         }
