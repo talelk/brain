@@ -113,7 +113,9 @@
     "live.status",
     "reuse.search",
     "reuse.forMission",
-    "knowledgeAssets.list"
+    "knowledgeAssets.list",
+    "challenges.list",
+    "playProposals.list"
    ],
    "actions": [
     "mission.policy.set",
@@ -136,7 +138,9 @@
     "session.stop",
     "workflow.dispatch",
     "job.reconcile",
-    "mission.reuse.decide"
+    "mission.reuse.decide",
+    "result.challenge",
+    "play.propose"
    ],
    "content": [
     "live",
@@ -151,6 +155,31 @@
    "icon": "lucide-crosshair",
    "task": "Follow and steer one mission",
    "title": "Mission"
+  },
+  {
+   "route": "/w/:id/library",
+   "queries": [
+    "library.summary",
+    "knowledgeAssets.list",
+    "documents.list",
+    "plays.list",
+    "tools.list",
+    "playProposals.list"
+   ],
+   "actions": [],
+   "content": [
+    "counts",
+    "review",
+    "documents",
+    "plays",
+    "tools"
+   ],
+   "owner": "T39",
+   "navigationGroup": "library",
+   "area": "library",
+   "icon": "lucide-library",
+   "task": "See everything Brain can reuse in one place: documents, knowledge, Plays and tools, and what is waiting for review",
+   "title": "Library"
   },
   {
    "route": "/w/:id/plays",
@@ -172,7 +201,8 @@
    "navigationGroup": "plays",
    "icon": "lucide-book-open-check",
    "task": "Start a mission from a play, run a single task, or describe the work",
-   "title": "Plays"
+   "title": "Plays",
+   "area": "library"
   },
   {
    "route": "/plays/:id",
@@ -203,7 +233,8 @@
    "navigationGroup": "plays",
    "icon": "lucide-play",
    "task": "Review a play or single task, its schedules and history, then start it",
-   "title": "Play"
+   "title": "Play",
+   "area": "library"
   },
   {
    "route": "/w/:id/schedules",
@@ -515,7 +546,8 @@
    "navigationGroup": "plays",
    "icon": "lucide-headset",
    "task": "Review workspace work and pack details",
-   "title": "Support"
+   "title": "Support",
+   "area": "library"
   },
   {
    "route": "/tickets/:id",
@@ -535,7 +567,8 @@
    "navigationGroup": "plays",
    "icon": "lucide-ticket",
    "task": "Review workspace work and pack details",
-   "title": "Ticket detail"
+   "title": "Ticket detail",
+   "area": "library"
   },
   {
    "route": "/w/:id/plays/sre",
@@ -555,7 +588,8 @@
    "navigationGroup": "plays",
    "icon": "lucide-siren",
    "task": "Review workspace work and pack details",
-   "title": "Incidents"
+   "title": "Incidents",
+   "area": "library"
   },
   {
    "route": "/incidents/:id",
@@ -574,7 +608,8 @@
    "navigationGroup": "plays",
    "icon": "lucide-triangle-alert",
    "task": "Review workspace work and pack details",
-   "title": "Incident detail"
+   "title": "Incident detail",
+   "area": "library"
   },
   {
    "route": "/w/:id/knowledge",
@@ -612,21 +647,24 @@
    "navigationGroup": "knowledge",
    "icon": "lucide-library",
    "task": "Find scoped knowledge, documents and trusted tools",
-   "title": "Knowledge"
+   "title": "Knowledge",
+   "area": "library"
   },
   {
    "route": "/w/:id/knowledge/review",
    "queries": [
     "knowledgeAssets.list",
     "capabilityCandidates.list",
-    "capitalizationRuns.list"
+    "capitalizationRuns.list",
+    "playProposals.list"
    ],
    "actions": [
     "capitalization.run",
     "capability.review",
     "tool.publish",
     "knowledge.review",
-    "memory.revoke"
+    "memory.revoke",
+    "play.proposal.review"
    ],
    "content": [
     "runs",
@@ -638,7 +676,8 @@
    "navigationGroup": "knowledge",
    "icon": "lucide-list-checks",
    "task": "Approve what Brain learned from finished missions, and review tool candidates",
-   "title": "Review inbox"
+   "title": "Review inbox",
+   "area": "library"
   },
   {
    "route": "/settings",
@@ -735,7 +774,8 @@
    "navigationGroup": "knowledge",
    "icon": "lucide-flask-conical",
    "task": "Create and validate a capability without editing YAML",
-   "title": "Studio"
+   "title": "Studio",
+   "area": "library"
   },
   {
    "route": "/studio/:kind/:draftId",
@@ -760,7 +800,8 @@
    "navigationGroup": "knowledge",
    "icon": "lucide-pencil-ruler",
    "task": "Edit, test, review and publish an immutable definition",
-   "title": "Configuration Studio"
+   "title": "Configuration Studio",
+   "area": "library"
   },
   {
    "route": "/quality",
@@ -805,6 +846,20 @@
    "icon": "lucide-plug",
    "task": "Connect Git providers and bind repositories to workspaces",
    "title": "Integrations"
+  },
+  {
+   "route": "/shared/:token",
+   "queries": [],
+   "actions": [],
+   "content": [
+    "result"
+   ],
+   "owner": "T39",
+   "navigationGroup": "outputs",
+   "area": "outputs",
+   "icon": "lucide-share-2",
+   "task": "Read one shared result without signing in: read-only, expiring, revocable (ADR 0013)",
+   "title": "Shared result"
   }
  ],
  "specialActions": [
@@ -841,9 +896,9 @@
    "entryRoute": "/w/:id/outputs"
   },
   {
-   "id": "plays",
-   "label": "Plays",
-   "entryRoute": "/w/:id/plays"
+   "id": "library",
+   "label": "Library",
+   "entryRoute": "/w/:id/library"
   },
   {
    "id": "schedules",
@@ -852,7 +907,6 @@
   }
  ],
  "secondaryNavigation": {
-  "knowledge": "/w/:id/knowledge",
   "administration": "account-menu",
   "tv": "dedicated-kiosk-entry"
  },
@@ -912,40 +966,6 @@
     "route": "/runners",
     "adminOnly": true,
     "icon": "lucide-server"
-   }
-  ],
-  "plays": [
-   {
-    "label": "Plays",
-    "route": "/w/:id/plays",
-    "icon": "lucide-book-open-check"
-   },
-   {
-    "label": "Support",
-    "route": "/w/:id/plays/support",
-    "icon": "lucide-headset"
-   },
-   {
-    "label": "Incidents",
-    "route": "/w/:id/plays/sre",
-    "icon": "lucide-siren"
-   }
-  ],
-  "knowledge": [
-   {
-    "label": "Knowledge",
-    "route": "/w/:id/knowledge",
-    "icon": "lucide-library"
-   },
-   {
-    "label": "Review",
-    "route": "/w/:id/knowledge/review",
-    "icon": "lucide-list-checks"
-   },
-   {
-    "label": "Studio",
-    "route": "/studio/Agent",
-    "icon": "lucide-flask-conical"
    }
   ],
   "administration": [
@@ -1034,6 +1054,43 @@
     "route": "/runners",
     "adminOnly": true,
     "icon": "lucide-server"
+   }
+  ],
+  "library": [
+   {
+    "label": "Library",
+    "route": "/w/:id/library",
+    "icon": "lucide-library"
+   },
+   {
+    "label": "Plays",
+    "route": "/w/:id/plays",
+    "icon": "lucide-book-open-check"
+   },
+   {
+    "label": "Knowledge",
+    "route": "/w/:id/knowledge",
+    "icon": "lucide-brain"
+   },
+   {
+    "label": "Review inbox",
+    "route": "/w/:id/knowledge/review",
+    "icon": "lucide-list-checks"
+   },
+   {
+    "label": "Support",
+    "route": "/w/:id/plays/support",
+    "icon": "lucide-headset"
+   },
+   {
+    "label": "Incidents",
+    "route": "/w/:id/plays/sre",
+    "icon": "lucide-siren"
+   },
+   {
+    "label": "Studio",
+    "route": "/studio/Agent",
+    "icon": "lucide-flask-conical"
    }
   ]
  }

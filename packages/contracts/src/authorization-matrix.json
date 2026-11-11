@@ -256,6 +256,56 @@
       "humanOnly": true,
       "requireFactorWhenConfigured": true,
       "currentMembershipRequired": true
+    },
+    "share.create": {
+      "scope": "mission:write",
+      "actors": [
+        "human"
+      ],
+      "humanOnly": true,
+      "currentMembershipRequired": true,
+      "scopeMode": "workspace",
+      "originalActorOnly": false
+    },
+    "share.list": {
+      "scope": "workspace:read",
+      "actors": [
+        "human"
+      ],
+      "humanOnly": true,
+      "currentMembershipRequired": true,
+      "scopeMode": "workspace",
+      "originalActorOnly": false
+    },
+    "share.revoke": {
+      "scope": "mission:write",
+      "actors": [
+        "human"
+      ],
+      "humanOnly": true,
+      "currentMembershipRequired": true,
+      "scopeMode": "workspace",
+      "originalActorOnly": true
+    },
+    "share.view": {
+      "scope": "none:bearer-token",
+      "actors": [
+        "external"
+      ],
+      "publicReadOnly": true,
+      "boundTo": "one verified final output version",
+      "expires": true,
+      "revocable": true,
+      "currentCreatorMembershipRequired": true
+    },
+    "notification.preferences": {
+      "scope": "workspace:read",
+      "actors": [
+        "human"
+      ],
+      "humanOnly": true,
+      "currentMembershipRequired": false,
+      "originalActorOnly": true
     }
   },
   "separationOfDuties": "request author cannot approve own high-risk effect; organization administration grants no bypass",
@@ -697,6 +747,21 @@
       "redactPrivilegedDetails": false
     },
     "evalCases.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "library.summary": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "challenges.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "playProposals.list": {
       "scope": "workspace:read",
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false

@@ -8,7 +8,7 @@ import { createScopedRead } from "../../data/screens";
 import { memorySearchQuery, toolsQuery } from "../../data/governor";
 import { KnowledgeScreen, type MemoryPublicationInput } from "../knowledge";
 import { ActionFeedback } from "../../ui/components/ActionFeedback";
-import { KnowledgeTabs, type KnowledgeTab } from "../../ui/components/KnowledgeTabs";
+import { LibraryTabs, type LibraryTab } from "../../ui/components/LibraryTabs";
 import ResourcesPage from "./ResourcesPage";
 import ToolsPage from "./ToolsPage";
 
@@ -22,7 +22,7 @@ export default function KnowledgePage(): JSX.Element {
   const navigate = useNavigate();
   const [searchText, setSearchText] = createSignal("");
   const [params] = useSearchParams();
-  const journey = (): KnowledgeTab => (params.tab === "documents" || params.tab === "tools" ? params.tab : "find");
+  const journey = (): LibraryTab => (params.tab === "documents" || params.tab === "tools" ? params.tab : "find");
   const knowledge = createScopedRead<{ results: MemoryResult[]; degraded: boolean; storeLabel?: string; tools: ToolCatalogEntry[] }>({
     scope: app.scope,
     load: async (scope, signal) => {
@@ -46,7 +46,7 @@ export default function KnowledgePage(): JSX.Element {
   const [message, setMessage] = createSignal("");
   return <div class="flex min-w-0 flex-col gap-3">
     <ActionFeedback message={message()} />
-    <KnowledgeTabs value={journey()} trailing={<Show when={journey() === "find" && app.identity()?.integrations.memoryUiUrl}>
+    <LibraryTabs value={journey()} trailing={<Show when={journey() === "find" && app.identity()?.integrations.memoryUiUrl}>
         <a class="inline-flex min-h-8 items-center gap-1.5 rounded-control px-2 text-caption font-medium text-ink-blue-link hover:bg-surface-gray-2 focus-visible:focus-ring" href={app.identity()!.integrations.memoryUiUrl!} target="_blank" rel="noopener noreferrer">
           <span class="lucide-external-link size-3.5" aria-hidden="true" />Open Memory UI
         </a>

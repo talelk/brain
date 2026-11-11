@@ -888,6 +888,13 @@ export class MissionService {
     });
   }
 
+  /** What an independent re-check of a result reads: the task, its criteria and the deliverable the finished run wrote (issue #50). */
+  resultOf(actor: ActorContext, workspaceId: string, workItemId: string): { missionId: string; title: string; state: WorkItemState; criteria: string[]; deliverable?: string } {
+    const item = this.workItemRow(actor, workspaceId, workItemId);
+    const deliverable = this.deliverableOf(this.db(actor, workspaceId), item.id);
+    return { missionId: item.mission_id, title: item.title, state: item.state, criteria: JSON.parse(item.criteria_json) as string[], ...(deliverable ? { deliverable } : {}) };
+  }
+
   private deliverableOf(db: ReturnType<Store["workspaceDb"]>, workItemId: string): string | undefined {
     const rows = db.prepare(`SELECT o.output_json FROM execution_links l JOIN workflow_runs r ON r.id=l.run_id AND r.state='succeeded'
       JOIN step_outputs o ON o.run_id=r.id WHERE l.work_item_id=? ORDER BY l.created_at_ms DESC, o.rowid`).all(workItemId) as Array<{ output_json: string }>;

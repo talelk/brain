@@ -654,6 +654,33 @@
       "actors": [
         "human"
       ]
+    },
+    {
+      "type": "result.challenge",
+      "schema": "ResultChallengeCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "play.propose",
+      "schema": "PlayProposeCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "play.proposal.review",
+      "schema": "PlayProposalReviewCommand",
+      "scope": "config:activate",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
     }
   ],
   "queries": [
@@ -744,7 +771,10 @@
     "reuse.forMission",
     "contextPacks.forRun",
     "contextPacks.reference",
-    "evalCases.list"
+    "evalCases.list",
+    "library.summary",
+    "challenges.list",
+    "playProposals.list"
   ],
   "events": [
     {

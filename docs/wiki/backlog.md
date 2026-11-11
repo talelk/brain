@@ -116,3 +116,13 @@ Shipped #48 inline setup card + sample goal (box blocked until install is ready)
 | 36 | Budget-pause and routed attention items open their page instead of acting inline | next | open |
 | 37 | "Verify the install" row clears only when `agent-smoke` runs, not when the sample mission finishes; release fix has no return path to Today | next | open |
 | 38 | G1 exercised 390 px only on screenshotted screens; run all new specs at 390-dark/768/RTL | polish/QA | open |
+
+## Track G3 (2026-11-11): #53 #50 #60 #64 #73 #74 decided and built
+Decisions are ADRs 0010-0015 (numbers skip 0008-0009 to avoid collisions with parallel tracks). Verified first: no email or Slack delivery existed (only in-app and Web Push).
+- #64 (ADR 0010): rejected sign-offs and sent-back tasks save `eval_cases` rows; `evalCases.list`; `scripts/qualification/task-quality.mjs --cases <file>` replays them before a release; nothing tunes a prompt.
+- #53 (ADR 0011): per-person preferences (`notification_preferences`, `GET/POST /v1/notification-preferences`), a link-only signed webhook only when the server sets `BRAIN_NOTIFY_WEBHOOK_URL` (+ optional `BRAIN_NOTIFY_WEBHOOK_SECRET`), daily digest of result-ready items, approvals bypass throttle and digest. Email is not built.
+- #50 (ADR 0012): `result.challenge` runs the existing `general-task` workflow as a reviewer over a finished result; claims in `result_challenges`, labelled model opinion, never a verdict. No new agent, no release restage needed.
+- #60 (ADR 0013): `/v1/shares` and the public `/v1/shared/{token}` + page `/shared/:token`; one verified final version, 7 days default (30 max), revocable, audited, creator's access re-checked at view time.
+- #73 (ADR 0014): Library replaces Plays in the primary nav and Knowledge in More; `/w/:id/library` with exact counts (`library.summary`); Plays, Knowledge, Documents, Tools and Review inbox share one tab bar; routes unchanged.
+- #74 (ADR 0015): `play.propose` on an achieved mission, `play.proposal.review` (config:activate) opens a Studio draft only.
+- Leftovers: challenge runs are not charged to the mission budget or usage ledger; `visual-baseline` snapshots were already stale before the nav change and were not regenerated (row 29); the `visual-baseline`/`ui-revamp` sidebars need regenerating once the UI settles; the share page is text only (no PDF/image); live needs a deploy for all of this and a webhook only if the owner sets the env vars.

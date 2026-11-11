@@ -25,7 +25,7 @@ test("knowledge studio: capitalize verified operations with governed L3 promotio
   for (const root of ["browser-cap-1", "browser-cap-2", "browser-cap-3"]) captureOperation(fixture, root);
 
   await page.goto(`${governor.url}/w/ws-capitalization/knowledge`);
-  await page.getByRole("radio", { name: "Review inbox", exact: true }).click();
+  await page.getByRole("radio", { name: /^Review inbox/ }).click();
   await expect(page.getByRole("heading", { name: "Review inbox", exact: true }).first()).toBeVisible();
   await page.getByRole("button", { name: "Run capitalization", exact: true }).click();
   // The click's command lands over HTTP; process only once its run is queued

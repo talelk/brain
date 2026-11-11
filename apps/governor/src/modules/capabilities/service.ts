@@ -499,6 +499,15 @@ export class CapitalizationService {
   query(actor: ActorContext, queryType: string, workspaceId: string, limit: number): JsonValue {
     requireWorkspaceRead(this.store, actor, workspaceId);
     const db = this.store.workspaceDb(workspaceId, actor.organizationId);
+    if (queryType === "library.summary") {
+      const count = (sql: string) => (db.prepare(sql).get() as { n: number }).n;
+      return {
+        awaitingReview: count("SELECT COUNT(*) AS n FROM knowledge_assets WHERE state='extracted'") + count("SELECT COUNT(*) AS n FROM tool_candidates WHERE state='quarantined'") + count("SELECT COUNT(*) AS n FROM play_proposals WHERE state='proposed'"),
+        publishedKnowledge: count("SELECT COUNT(*) AS n FROM knowledge_assets WHERE state='published'"),
+        documents: count("SELECT COUNT(*) AS n FROM documents WHERE state='active'"),
+        tools: this.activeTools(actor.organizationId, workspaceId).length,
+      } as unknown as JsonValue;
+    }
     if (queryType === "tools.list") return { items: this.activeTools(actor.organizationId, workspaceId).slice(0, limit) } as unknown as JsonValue;
     if (queryType === "knowledgeAssets.list") {
       const rows = db.prepare("SELECT * FROM knowledge_assets ORDER BY updated_at_ms DESC,id LIMIT ?").all(limit) as AssetRow[];

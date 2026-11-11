@@ -38,10 +38,12 @@ import { searchSessions } from "../modules/sessions/index";
 import { jobCommands, JobProtocol, type CreateJobInput } from "../modules/jobs/index";
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
-import { MissionService, missionCommands } from "../modules/missions/index";
+import { MissionService, ShareService, missionCommands } from "../modules/missions/index";
 import { AutoStart, AUTO_START_TRIGGERS } from "./auto-start";
+import { Challenges } from "./challenges";
+import { PlayProposals } from "./play-proposals";
 import { attentionCommands, attentionQuery, qualitySummary } from "../modules/stream/index";
-import { notificationsFor, notifyAttention, watchCommands } from "../modules/operations/index";
+import { absoluteLink, channelsFor, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
 import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
@@ -68,6 +70,9 @@ export class Brain {
   readonly evidence: EvidenceService;
   readonly commands: CommandFunnel;
   readonly autoStart: AutoStart;
+  readonly challenges: Challenges;
+  readonly playProposals: PlayProposals;
+  readonly shares: ShareService;
 
   constructor(opts: BrainOptions & { runtime?: RuntimeConfig }) {
     this.runtime = opts.runtime ?? readRuntimeConfig();
@@ -133,8 +138,21 @@ export class Brain {
         completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.workflows.completeStep(organizationId, workspaceId, runId, stepId, output, ok),
         concludeAttempt: (input) => this.jobProtocol.concludeAttempt(input),
       });
+      this.shares = new ShareService(this.store);
+      this.challenges = new Challenges({
+        store: this.store, missions: this.missions,
+        dispatch: (actor, command) => this.commands.run(actor, command as Parameters<CommandFunnel["run"]>[1]),
+        catalog: (organizationId) => (releaseDefinitions(this.store, organizationId, "workflows") as unknown as { items: WorkflowCatalogEntry[] }).items,
+      });
+      this.playProposals = new PlayProposals({
+        store: this.store,
+        createDraft: (actor, workspaceId, input) => this.drafts.apply(actor, { commandType: "configDraft.create", workspaceId, payload: input }),
+        existingPlayIds: (organizationId) => Object.keys(activeReleaseRecord(this.store, organizationId)?.release.plays ?? {}),
+      });
       this.commands = new CommandFunnel(this.store, [
         missionCommands(this.missions),
+        this.challenges.commands(),
+        this.playProposals.commands(),
         attentionCommands(this.store),
         watchCommands(this.store),
         sessionCommands(this.sessions),
@@ -344,19 +362,43 @@ export class Brain {
     return delivered;
   }
 
+  /** Every outbound message goes out on the channels the person allows: web push and, when the server has one, the webhook (link only). */
+  private readonly deliver: Sender = async (organizationId, principalId, message, channels) => {
+    let delivered = 0;
+    if (channels.push) delivered += await this.notifyPrincipal(organizationId, principalId, { title: message.title, body: message.body, url: message.url });
+    const target = channels.webhook ? webhookTarget() : undefined;
+    if (target && await sendWebhook(target, webhookBody({ kind: message.kind, link: absoluteLink(message.url), ...(message.count !== undefined ? { count: message.count } : {}) }))) delivered += 1;
+    return delivered;
+  };
+
   /** Maintenance pass: attention items reach their mission's people (T65). */
   notifyAttention(): number {
-    return notifyAttention(this.store, (organizationId, principalId, payload) => this.notifyPrincipal(organizationId, principalId, payload));
+    return notifyAttention(this.store, this.deliver);
+  }
+
+  /** Maintenance pass: one summary of ready results for each person who asked for it (ADR 0011). */
+  notifyDigests(): number {
+    return sendDigests(this.store, this.deliver);
+  }
+
+  notificationPreferences(actor: ActorContext): ReturnType<typeof preferencesView> {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "notification preferences belong to a person");
+    return preferencesView(this.store, actor.organizationId, actor.actorId);
+  }
+
+  setNotificationPreferences(actor: ActorContext, input: { push?: unknown; webhook?: unknown; digest?: unknown }): ReturnType<typeof preferencesView> {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "notification preferences belong to a person");
+    setNotificationPreferences(this.store, actor.organizationId, actor.actorId, input);
+    return preferencesView(this.store, actor.organizationId, actor.actorId);
   }
 
   private notifyApprovers(input: { organizationId: string; workspaceId: string }): void {
     const approvers = this.store.control.prepare(
       "SELECT DISTINCT principal_id FROM workspace_memberships WHERE workspace_id=? AND organization_id=? AND role IN ('approver','workspace-lead') AND revoked_at_ms IS NULL",
     ).all(input.workspaceId, input.organizationId) as Array<{ principal_id: string }>;
+    // Approvals bypass the per-mission throttle and the summary; a person's channel switches still apply (ADR 0011). A message is a link: the decision happens after sign-in and step-up.
     for (const a of approvers) {
-      void this.notifyPrincipal(input.organizationId, a.principal_id, {
-        title: "Approval requested", body: "A workflow gate is waiting for your review.", url: "/#/approvals",
-      }).catch(() => undefined);
+      void this.deliver(input.organizationId, a.principal_id, { title: "Approval requested", body: "A workflow gate is waiting for your review.", url: "/approvals", kind: "approval" }, channelsFor(this.store, input.organizationId, a.principal_id)).catch(() => undefined);
     }
   }
 
@@ -389,6 +431,8 @@ export class Brain {
       if (outcome.receipt.accepted && cmd.workspaceId && AUTO_START_TRIGGERS.has(String(cmd.commandType))) {
         try { await this.autoStart.sweep(actor.organizationId, cmd.workspaceId); } catch { /* the maintenance pass retries */ }
       }
+      // A requested challenge starts its reviewer run now; the maintenance pass collects the answer.
+      if (outcome.receipt.accepted && cmd.workspaceId && cmd.commandType === "result.challenge") void this.challenges.sweep(actor.organizationId, cmd.workspaceId).catch(() => undefined);
       return outcome;
     });
   }
@@ -872,6 +916,21 @@ export class Brain {
       case "tools.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.capitalization.query(actor, q.queryType, q.workspaceId, limit));
+      }
+      case "playProposals.list": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        return this.envelope(q.queryType, this.playProposals.list(actor, q.workspaceId, limit) as unknown as JsonValue);
+      }
+      case "challenges.list": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        return this.envelope(q.queryType, this.challenges.list(actor, q.workspaceId, q.resourceId, limit) as unknown as JsonValue);
+      }
+      case "library.summary": {
+        // One truthful count per Library shelf (issue #73); counted in the database, never from a paginated list.
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        const counts = this.capitalization.query(actor, q.queryType, q.workspaceId, limit) as unknown as Record<string, number>;
+        const plays = Object.keys(activeReleaseRecord(s, actor.organizationId)?.release.plays ?? {}).length;
+        return this.envelope(q.queryType, { ...counts, plays } as unknown as JsonValue);
       }
       case "tickets.list": case "incidents.list": case "members.list": case "audit.list": {
         requireRead();

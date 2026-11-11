@@ -372,6 +372,17 @@ A proposed reusable tool or operation derived from repeated verified work, quara
 until reviewed and gated by tests.
 _Avoid_: tool proposal, suggestion
 
+**Play proposal**:
+A reviewable description of an achieved mission's confirmed plan, team and criteria.
+Approving it opens a Studio draft; it is never a Play until released (ADR 0015).
+
+**Challenge**:
+An independent reviewer run over a finished result whose findings are stored as claims,
+labelled as one model's opinion; it never changes a verdict (ADR 0012).
+
+**Share link**:
+A read-only, expiring, revocable bearer link to one verified result version (ADR 0013).
+
 **Capitalization run**:
 An autonomous pass that extracts knowledge assets and capability candidates from
 verified history. It runs when a mission closes, or on demand, and never extracts from
@@ -440,11 +451,13 @@ _Avoid_: principal (an actor is a principal mid-command), caller
 
 ### Surfaces
 
-Unqualified area names denote where you look, never what something is: **Missions**,
-**Live**, **Logs**, **Outputs** and **Plays**. Inside a mission the **Team**, **Plan**
-and **Brief** views are places too, not the mission team, a plan version or the mission
-brief themselves. **Knowledge** and **Administration** are secondary places reached
-from the account menu.
+Unqualified area names denote where you look, never what something is: **Today**,
+**Missions**, **Live**, **Logs**, **Outputs**, **Library** and **Schedules**. Inside a
+mission the **Team**, **Plan** and **Brief** views are places too, not the mission team,
+a plan version or the mission brief themselves. The **Library** holds what Brain can
+reuse (documents, knowledge, Plays, tools and the Review inbox; ADR 0014); **Plays** and
+**Knowledge** are shelves of it, not areas. **Administration** is a secondary place
+reached from the sidebar's More group.
 
 **Build-process vocabulary is not domain vocabulary.** Task cards (`T01`–`T50`), gates
 (`G01`–`G08`), the implementation ledger and checkpoint, and pack verifiers describe how

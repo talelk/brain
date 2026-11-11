@@ -12,6 +12,7 @@ import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";import {
 import type { TaskHandoff } from "../../ui/components/TaskReview";
 import { TaskCatalog } from "../catalog";
 import { EmptyState } from "@talelk/newui-molecules";
+import { LibraryTabs } from "../../ui/components/LibraryTabs";
 
 /**
  * Plays (#25/#43): the catalog of mission templates and single tasks of the
@@ -70,11 +71,11 @@ export default function PlaysPage(): JSX.Element {
       <Button variant="ghost" iconLeft="lucide-life-buoy" onClick={() => void navigate(`/w/${app.workspaceId()}/plays/support`)}>Support tickets</Button>
       <Button variant="ghost" iconLeft="lucide-siren" onClick={() => void navigate(`/w/${app.workspaceId()}/plays/sre`)}>Incidents</Button></p>
   </PageStack>;
-  return <BrainPage title="Plays" description="Search for a play or task, or describe the goal and review what Brain proposes."
+  return <div class="flex min-w-0 flex-col gap-3"><LibraryTabs value="plays" /><BrainPage title="Plays" description="Search for a play or task, or describe the goal and review what Brain proposes."
     actions={<Show when={canAuthor()}><div class="flex flex-wrap gap-2">
       <Button variant="outline" iconLeft="lucide-file-pen" onClick={() => void navigate("/studio/Play")}>Play drafts</Button>
       <Button variant="outline" iconLeft="lucide-file-pen" onClick={() => void navigate("/studio/Workflow")}>Task drafts</Button>
     </div></Show>}>
     <TaskEntry workflows={workflows.state().data ?? []} onStarted={handoff} catalog={catalog} />
-  </BrainPage>;
+  </BrainPage></div>;
 }

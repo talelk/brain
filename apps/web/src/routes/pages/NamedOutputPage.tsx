@@ -13,6 +13,8 @@ import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";
 import { ActionFeedback } from "../../ui/components/ActionFeedback";
 import { ArtifactView } from "../../ui/outputs/ArtifactView";
 import { saveAsKnowledge } from "../../ui/outputs/review-actions";
+import { ShareResult } from "../../ui/outputs/ShareResult";
+import { ChallengeResult } from "../../ui/outputs/ChallengeResult";
 import { OutputDiff } from "../../ui/outputs/OutputDiff";
 import { formatDateTime, formatRelative, shortDigest } from "../../ui/format";
 import { missionHref } from "../../ui/mission-links";
@@ -61,7 +63,7 @@ export default function NamedOutputPage(): JSX.Element {
     setSaved(undefined);
     const result = await saveAsKnowledge(app, artifact, `${detail.state().data?.output.name ?? "Output"} (${label(version)})`);
     setSaving(false);
-    setSaved(result.accepted ? { tone: "success", message: `${label(version)} was saved to the knowledge library.` } : { tone: "error", message: result.detail });
+    setSaved(result.accepted ? { tone: "success", message: result.searchable ? `${label(version)} was saved to the Library. It is searchable by agents now.` : `${label(version)} was saved to the Library, but this file type cannot be read, so agents cannot search it.` } : { tone: "error", message: result.detail });
   }
 
   const provenance = (version: OutputVersion) => <div class="flex flex-col gap-1">
@@ -92,6 +94,8 @@ export default function NamedOutputPage(): JSX.Element {
                   <span class="text-caption text-ink-gray-6">Recorded {formatRelative(version.createdAt)}</span>
                 </div>
                 <ArtifactView artifact={artifactOf(version)} title={label(version)} />
+                <ShareResult versionId={version.versionId} verified={version.verified && version.state === "final"} />
+                <ChallengeResult workItemId={version.workItemId} finished={version.verified} />
                 <details class="rounded-card border border-outline-gray-2 p-3">
                   <summary class="cursor-pointer text-interface font-medium text-ink-gray-9">Details</summary>
                   <dl class="mt-2 grid gap-x-4 gap-y-2 text-caption sm:grid-cols-2">

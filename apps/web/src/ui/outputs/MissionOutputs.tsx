@@ -19,6 +19,8 @@ import { ArtifactView } from "./ArtifactView";
 import { OutputReview } from "./OutputReview";
 import { resolveWorkItemLink } from "./OutputHistory";
 import { TrustNote } from "./ResultReader";
+import { ChallengeResult } from "./ChallengeResult";
+import { ProposePlay } from "./ProposePlay";
 import { trustLineOf } from "./result-model";
 import { createTrust } from "./trust-read";
 import { OccurrenceChange } from "./OccurrenceChange";
@@ -89,6 +91,7 @@ function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; 
               props.onChanged();
             }}
           />
+          <ChallengeResult workItemId={props.task.item?.workItemId} finished={props.task.item?.state === "done" || props.task.item?.state === "review"} />
         </div>
       </Show>
     </section>
@@ -170,6 +173,7 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
         <OccurrenceChange refId={props.mission.missionId} />
         <ReusedLine missionId={props.mission.missionId} workspaceId={props.mission.workspaceId} />
         <KnowledgeProposalNote missionId={props.mission.missionId} workspaceId={props.mission.workspaceId} achieved={props.mission.outcome === "achieved"} />
+        <ProposePlay missionId={props.mission.missionId} achieved={props.mission.state === "closed" && props.mission.outcome === "achieved"} />
       </div>
       <ScreenRegion
         state={files.state()}

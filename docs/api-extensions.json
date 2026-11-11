@@ -66,6 +66,36 @@
       "method": "GET",
       "path": "/v1/config/releases",
       "purpose": "list staged immutable configuration releases for administrative inspection and activation"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shares",
+      "purpose": "create a read-only, expiring, revocable share link for one verified final result version (ADR 0013); the token is returned once"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/shares",
+      "purpose": "list the share links of a workspace (own links, or all for a workspace admin); never returns a token"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shares/revoke",
+      "purpose": "revoke a share link at once (its creator or a workspace admin)"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/shared/{token}",
+      "purpose": "public read of the one result a share link names; the token alone authorises it, no session is read; 404 unknown, 410 expired or revoked"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/notification-preferences",
+      "purpose": "the signed-in person's notification channels (in-app always on; push; webhook; daily digest) and which channels the server offers (ADR 0011)"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/notification-preferences",
+      "purpose": "set the signed-in person's push, webhook and digest preferences"
     }
   ]
 }

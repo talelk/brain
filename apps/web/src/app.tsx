@@ -16,7 +16,7 @@ import { GlobalSearchDialog } from "./ui/components/GlobalSearch";
 import { BrandMark, IconTile } from "./ui/components/primitives";import { BrainForm, FormActions } from "./ui/components/BrainForm";
 import { PageHeaderProvider, usePageHeader } from "./ui/page-context";
 import { LandingRedirect } from "./ui/LandingRedirect";
-import { PRIMARY_NAVIGATION, AREA_NAVIGATION, SECONDARY_NAVIGATION, ICONS, ROUTES } from "./routes/index.gen";
+import { PRIMARY_NAVIGATION, AREA_NAVIGATION, ICONS, ROUTES } from "./routes/index.gen";
 
 const PAGE_LOADERS = {
   LivePage: () => import('./routes/pages/LivePage'),
@@ -29,6 +29,7 @@ const PAGE_LOADERS = {
   NewMissionPage: () => import('./routes/pages/NewMissionPage'),
   MissionPage: () => import('./routes/pages/MissionPage'),
   PlaysPage: () => import('./routes/pages/PlaysPage'),
+  LibraryPage: () => import('./routes/pages/LibraryPage'),
   SchedulesPage: () => import('./routes/pages/SchedulesPage'),
   QualityPage: () => import('./routes/pages/QualityPage'),
   BridgePage: () => import('./routes/pages/BridgePage'),
@@ -49,6 +50,7 @@ const PAGE_LOADERS = {
   KnowledgeReviewPage: () => import('./routes/pages/KnowledgeReviewPage'),
   SettingsPage: () => import('./routes/pages/SettingsPage'),
   TvPage: () => import('./routes/pages/TvPage'),
+  SharedResultPage: () => import('./routes/pages/SharedResultPage'),
 };
 type PageKey = keyof typeof PAGE_LOADERS;
 const page = (key: PageKey) => lazy(PAGE_LOADERS[key]);
@@ -108,15 +110,12 @@ function Navigation(attentionCount: () => number): AppSidebarGroup[] {
     ...(entry.route === "/w/:id/missions" ? { get count() { return attentionCount() || undefined; } } : {}),
     onClick: go(entry.route),
   }));
-  // Knowledge is a secondary place (#43): below the five areas, never one of them.
-  const knowledgeRoute = SECONDARY_NAVIGATION["knowledge"] ?? "/w/:id/knowledge";
   // Administration is a place, not a menu item to hunt for: it sits under More for everyone (people without admin rights get their own security page).
   const secondary = [
-    { label: "Knowledge", icon: ICONS[knowledgeRoute] ?? FALLBACK_ICON, active: area() === "knowledge", onClick: go(knowledgeRoute) },
     { label: app.canAdminister() ? "Administration" : "Account", icon: "lucide-settings", active: area() === "administration", onClick: go(settingsRoute(app)) },
   ];
   const scopes = () => app.identity()?.actor.scopes ?? [];
-  const shown = new Set([...PRIMARY_NAVIGATION.map((entry) => entry.route), knowledgeRoute].map(href));
+  const shown = new Set(PRIMARY_NAVIGATION.map((entry) => entry.route).map(href));
   const contextual = (AREA_NAVIGATION[area()] ?? []).filter((entry) =>
     (!entry.adminOnly || app.canAdminister() || Boolean(entry.identityOnly && scopes().includes("identity:read")))
     && (!entry.organizationOnly || scopes().includes("config:activate"))
@@ -230,7 +229,7 @@ function RootLayout(props: RouteSectionProps): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
   const location = useLocation();
-  const invitation = () => location.pathname.startsWith("/accept-invitation/");
+  const invitation = () => location.pathname.startsWith("/accept-invitation/") || location.pathname.startsWith("/shared/");
   return <Show when={app.ready()} fallback={
     <main class="grid h-dvh place-items-center"><h1 class="text-heading">Keyrus Brain</h1><p role="status">Connecting to Governor…</p></main>}>
     <Show when={app.identity() || invitation()} fallback={<>
@@ -248,6 +247,8 @@ export function App(): JSX.Element {
     {/* TV kiosk: dedicated read-only entries, no app shell. */}
     <Route path="/tv/:play" component={page("TvPage")} />
     <Route path="/accept-invitation/:id" component={InvitationAcceptancePage} />
+    {/* A shared result opens for anyone holding the link: read-only, no shell, no sign-in (ADR 0013). */}
+    <Route path="/shared/:token" component={page("SharedResultPage")} />
     <Route path="/" component={ShellLayout}>
       {/* Default landing: live.status routes active work to the console (never a deep link). */}
       <Route path="/" component={LandingRedirect} />
@@ -256,6 +257,7 @@ export function App(): JSX.Element {
       <Route path="/w/:id/missions/new" component={workspacePage("NewMissionPage")} />
       <Route path="/missions/:missionId/:tab" component={page("MissionPage")} />
       <Route path="/missions/:missionId" component={() => <Navigate href={({ location }) => `${location.pathname}/live`} />} />
+      <Route path="/w/:id/library" component={workspacePage("LibraryPage")} />
       <Route path="/w/:id/plays" component={workspacePage("PlaysPage")} />
       <Route path="/w/:id/schedules" component={workspacePage("SchedulesPage")} />
       <Route path="/plays/:id" component={page("PlayPage")} />

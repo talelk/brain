@@ -5,4 +5,5 @@ export { loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscripti
 export { operationalReadiness } from "./readiness";
 export { localRuntimeStatus, connectLocalModel, restoreLocalRuntimeHandoff, localRunnerSettingsCurrent } from "./local-runtime";
 export { liveStatus, platformHealth, workspaceContext } from "./read";
-export { notifyAttention, notificationsFor, watchCommands } from "./attention-notify";
+export { channelsFor, notifyAttention, notificationsFor, sendDigests, watchCommands, type Sender } from "./attention-notify";
+export { absoluteLink, preferencesView, sendWebhook, setPreferences as setNotificationPreferences, webhookBody, webhookTarget } from "./channels";

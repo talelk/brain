@@ -4,6 +4,7 @@ import { artifactsHistoryQuery } from "../../data/exec-outputs";
 import type { ArtifactHistory, ArtifactRef } from "../../data/exec-outputs";
 import { readArtifactBytes } from "./artifact-bytes";
 import { fileNameOf } from "./output-files";
+import { documentSearchable } from "../../data/library";
 
 /**
  * The review and file actions every output surface shares (T61): one
@@ -22,6 +23,8 @@ export function verifiedBundle(history: ArtifactHistory | undefined): string | u
 export interface MoveResult {
   accepted: boolean;
   detail: string;
+  /** Save as knowledge only: the saved document has been read and agents can search it. */
+  searchable?: boolean;
 }
 
 /**
@@ -72,7 +75,7 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-/** Copy an artifact into the workspace knowledge library as a new document. */
+/** Copy an artifact into the workspace Library as a new document, and say whether agents can search it. */
 export async function saveAsKnowledge(app: AppContextValue, artifact: ArtifactRef, title?: string): Promise<MoveResult> {
   if (artifact.bytes > KNOWLEDGE_MAX_BYTES) return { accepted: false, detail: "It is larger than the 8 MB knowledge limit." };
   try {
@@ -84,7 +87,8 @@ export async function saveAsKnowledge(app: AppContextValue, artifact: ArtifactRe
       mediaType: KNOWLEDGE_MEDIA.has(base) ? base : "application/octet-stream",
       bytesBase64: toBase64(bytes),
     });
-    return { accepted: result.accepted, detail: result.accepted ? "" : result.detail || "The library refused it" };
+    if (!result.accepted) return { accepted: false, detail: result.detail || "The library refused it" };
+    return { accepted: true, detail: "", searchable: await documentSearchable(app.workspaceId(), result.resourceId) };
   } catch (failure) {
     return { accepted: false, detail: failure instanceof Error ? failure.message : "It could not be read." };
   }

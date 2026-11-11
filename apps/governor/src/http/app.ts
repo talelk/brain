@@ -562,6 +562,58 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     } catch (e) { return fail(c as never, e); }
   });
 
+  // --- notification preferences (ADR 0011): the signed-in person's own switches only ---
+  app.get("/v1/notification-preferences", async (c) => {
+    try {
+      const { actor } = await actorFor(c);
+      return c.json(brain.notificationPreferences(actor));
+    } catch (e) { return fail(c as never, e); }
+  });
+  app.post("/v1/notification-preferences", async (c) => {
+    try {
+      const body = (await readJson(c)) as { push?: unknown; webhook?: unknown; digest?: unknown };
+      const { actor } = await actorFor(c);
+      return c.json(brain.setNotificationPreferences(actor, { push: body.push, webhook: body.webhook, digest: body.digest }));
+    } catch (e) { return fail(c as never, e); }
+  });
+
+  // --- read-only share links for one result (ADR 0013) ---
+  // Creating, listing and revoking need a signed-in person with mission:write. Viewing needs only the unguessable token: the public
+  // route reads no cookie or Authorization header, and every answer is uncacheable, unindexed and referrer-free.
+  const shareHeaders = { "cache-control": "no-store", "referrer-policy": "no-referrer", "x-robots-tag": "noindex, nofollow", "x-content-type-options": "nosniff" };
+  app.post("/v1/shares", async (c) => {
+    try {
+      const body = (await readJson(c)) as { workspaceId?: string; versionId?: string; expiresInHours?: number };
+      if (!body.workspaceId || !body.versionId) return c.json(brainError("INVALID_ARGUMENT", "workspaceId and versionId required", correlation(c)), 400);
+      const { actor } = await actorFor(c, body.workspaceId);
+      const created = brain.shares.create(actor, body.workspaceId, { versionId: body.versionId, ...(body.expiresInHours !== undefined ? { expiresInHours: body.expiresInHours } : {}) });
+      const base = (publicOrigin ?? new URL(c.req.url).origin).replace(/\/$/u, "");
+      return c.json({ shareId: created.shareId, expiresAt: created.expiresAt, url: `${base}/shared/${created.token}` }, 201, shareHeaders);
+    } catch (e) { return fail(c as never, e); }
+  });
+  app.get("/v1/shares", async (c) => {
+    try {
+      const workspaceId = c.req.query("workspaceId") ?? "";
+      if (!workspaceId) return c.json(brainError("INVALID_ARGUMENT", "workspaceId required", correlation(c)), 400);
+      const { actor } = await actorFor(c, workspaceId);
+      return c.json({ items: brain.shares.list(actor, workspaceId, c.req.query("versionId") ?? undefined) }, 200, shareHeaders);
+    } catch (e) { return fail(c as never, e); }
+  });
+  app.post("/v1/shares/revoke", async (c) => {
+    try {
+      const body = (await readJson(c)) as { workspaceId?: string; shareId?: string };
+      if (!body.workspaceId || !body.shareId) return c.json(brainError("INVALID_ARGUMENT", "workspaceId and shareId required", correlation(c)), 400);
+      const { actor } = await actorFor(c, body.workspaceId);
+      return c.json(brain.shares.revoke(actor, body.workspaceId, body.shareId), 200, shareHeaders);
+    } catch (e) { return fail(c as never, e); }
+  });
+  app.get("/v1/shared/:token", (c) => {
+    const found = brain.shares.view(c.req.param("token"));
+    if (found.kind === "ok") return c.json(found.result, 200, shareHeaders);
+    if (found.kind === "gone") return c.json({ state: found.reason, detail: found.reason === "expired" ? "This link has expired." : "This link was withdrawn." }, 410, shareHeaders);
+    return c.json(brainError("NOT_FOUND", "this link does not exist", correlation(c)), 404, shareHeaders);
+  });
+
   app.post("/v1/runner-tokens", async (c) => {
     try {
       const body = (await readJson(c)) as { groupId: string };
@@ -814,8 +866,11 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     try { brain.missions.pumpCoordinators(); } catch { /* a coordinator failure must not break expiry */ }
     // Auto-start: ready work of missions in auto mode starts; also the crash-recovery backstop.
     void brain.autoStart.sweepAll().catch(() => undefined);
+    // #50: requested challenges start their reviewer run and finished ones are collected.
+    void brain.challenges.sweep().catch(() => undefined);
     // T65: attention items notify the mission's starter and watchers.
     try { brain.notifyAttention(); } catch { /* notification is best-effort; the inbox is the record */ }
+    try { brain.notifyDigests(); } catch { /* the summary is best-effort too */ }
     brain.runCapitalization();
     void brain.integrations.verifyPending().catch(() => undefined);
     void brain.drafts.publishPending().catch(() => undefined);

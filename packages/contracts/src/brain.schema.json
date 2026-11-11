@@ -7471,7 +7471,10 @@
             "reuse.forMission",
             "contextPacks.forRun",
             "contextPacks.reference",
-            "evalCases.list"
+            "evalCases.list",
+            "library.summary",
+            "challenges.list",
+            "playProposals.list"
           ]
         },
         "workspaceId": {
@@ -7546,7 +7549,10 @@
             "reuse.forMission",
             "contextPacks.forRun",
             "contextPacks.reference",
-            "evalCases.list"
+            "evalCases.list",
+            "library.summary",
+            "challenges.list",
+            "playProposals.list"
           ]
         },
         "snapshot": {
@@ -11078,6 +11084,15 @@
         },
         {
           "$ref": "#/$defs/MissionWatchCommand"
+        },
+        {
+          "$ref": "#/$defs/ResultChallengeCommand"
+        },
+        {
+          "$ref": "#/$defs/PlayProposeCommand"
+        },
+        {
+          "$ref": "#/$defs/PlayProposalReviewCommand"
         }
       ]
     },
@@ -23577,6 +23592,149 @@
           "$ref": "#/$defs/ContextManifest"
         }
       }
+    },
+    "ResultChallengeCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "result.challenge"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "workItemId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "workItemId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "PlayProposeCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "play.propose"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "missionId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "PlayProposalReviewCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "play.proposal.review"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "proposalId": {
+              "$ref": "#/$defs/Id"
+            },
+            "decision": {
+              "type": "string",
+              "enum": [
+                "approve",
+                "reject"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          "required": [
+            "proposalId",
+            "decision",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
     }
   }
 }

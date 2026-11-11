@@ -451,3 +451,19 @@ CREATE TABLE memory_assets (
 ) STRICT;
 CREATE UNIQUE INDEX memory_assets_source ON memory_assets(organization_id, COALESCE(workspace_id,''), source_id) WHERE revoked=0;
 CREATE VIRTUAL TABLE memory_fts USING fts5(asset_id UNINDEXED,title,body,tokenize='unicode61 remove_diacritics 2');
+-- Read-only share links for one result (ADR 0013). Only the keyed digest of the bearer token is stored.
+CREATE TABLE result_shares (
+  id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id), workspace_id TEXT NOT NULL,
+  version_id TEXT NOT NULL, mission_id TEXT NOT NULL, token_digest TEXT NOT NULL UNIQUE, created_by TEXT NOT NULL,
+  expires_at_ms INTEGER NOT NULL, revoked_at_ms INTEGER, revoked_by TEXT, views INTEGER NOT NULL DEFAULT 0,
+  last_viewed_at_ms INTEGER, created_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX result_shares_version ON result_shares(organization_id, workspace_id, version_id, created_at_ms);
+-- Per-person notification channels (ADR 0011). A missing row means the default: push on, webhook off, digest off. In-app is always on.
+CREATE TABLE notification_preferences (
+  organization_id TEXT NOT NULL REFERENCES organizations(id), principal_id TEXT NOT NULL,
+  push INTEGER NOT NULL DEFAULT 1 CHECK(push IN (0,1)), webhook INTEGER NOT NULL DEFAULT 0 CHECK(webhook IN (0,1)),
+  digest INTEGER NOT NULL DEFAULT 0 CHECK(digest IN (0,1)), digest_last_ms INTEGER NOT NULL DEFAULT 0, updated_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(organization_id, principal_id)
+) STRICT;
+
