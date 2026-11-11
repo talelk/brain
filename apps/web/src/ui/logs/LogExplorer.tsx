@@ -5,6 +5,7 @@ import { Badge, Button } from "@talelk/newui-atoms";
 import { Alert } from "@talelk/newui-molecules";
 import { statusTheme } from "../components/StatusBadge";
 import { createScopedRead } from "../../data/screens";
+import { query } from "../../data/client";
 import { streamSearchQuery, streamContextQuery } from "../../data/exec-logs";
 import type { StreamSearchPage, StreamSeverity, StreamEmitter, StreamContextBundle } from "../../data/exec-logs";
 import { readExecFilters, writeExecFilters } from "../exec/exec-filters";
@@ -20,6 +21,7 @@ import { LogRow, ROW_HEIGHT, ContextLines, buildLogRows, rowKey } from "./LogRow
 import type { LogRowModel } from "./LogRow";
 import { LogFilters } from "./LogFilters";
 import type { LogViewMode } from "./LogFilters";
+import { plainSentence, setTaskTitles } from "./plain-event";
 import { ToolCallGroup } from "./ToolCallGroup";
 import { AttemptCompare } from "./AttemptCompare";
 import { contextAround, failureJump, rowMembers } from "./errorJump";
@@ -356,6 +358,7 @@ function RecordDetail(props: { row: LogRowModel; mode: LogViewMode }): JSX.Eleme
         <Show when={record().tsApproximate}> · time set at projection</Show>
       </span>
     </div>
+    <p class="text-base-medium text-ink-gray-9">{plainSentence(record(), undefined, props.row.kind === "message" ? props.row.text : undefined)}</p>
     <p class="brain-exec-log whitespace-pre-wrap break-words text-ink-gray-8">{props.row.kind === "message" ? props.row.text : streamSummaryText(record().summary, 2000)}</p>
     <div class="flex flex-wrap items-center gap-1" data-testid="log-detail-links">
       <CorrelationChips correlation={record().correlation} />
@@ -396,6 +399,14 @@ export function LogExplorer(): JSX.Element {
   const app = useApp();
   const [searchParams, setSearchParams] = useSearchParams();
   const [mode, setMode] = createSignal<LogViewMode>("readable");
+  // Task titles let the Readable mode say which task an event was for.
+  createEffect(() => {
+    const workspaceId = app.workspaceId();
+    if (!workspaceId) return;
+    void query<{ snapshot: { items: { workItemId: string; title: string }[] } }>({ queryType: "workItems.list", workspaceId, limit: 100 })
+      .then((response) => setTaskTitles(Object.fromEntries(response.snapshot.items.map((item) => [item.workItemId, item.title]))))
+      .catch(() => undefined);
+  });
   const [compareOpen, setCompareOpen] = createSignal(false);
 
   const filters = createMemo(() => readExecFilters(searchParams as Record<string, string | string[] | undefined>));

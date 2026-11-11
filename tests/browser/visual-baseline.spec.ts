@@ -23,7 +23,7 @@ const SCREENS: Array<{ id: string; route: (demo: Awaited<ReturnType<typeof seedB
   { id: "outputs", route: () => "/w/operations/outputs", heading: "Outputs" },
   { id: "approvals", route: () => "/approvals", heading: "Approvals" },
   { id: "approval-review", route: (d) => `/approvals/${d.seed.approvalId}`, heading: "Approval review" },
-  { id: "runners", route: () => "/runners", heading: "Execution fleet" },
+  { id: "runners", route: () => "/runners", heading: "Runners" },
   { id: "settings-setup", route: () => "/settings?tab=setup", heading: "Workspace setup" },
   { id: "knowledge", route: () => "/w/operations/knowledge", heading: "Knowledge" },
 ];

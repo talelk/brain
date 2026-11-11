@@ -231,3 +231,40 @@ export function groupByMission(files: readonly OutputFile[]): { key: string; tit
     .sort((left, right) => rank(left) - rank(right))
     .map((group) => ({ ...group, files: [...group.files].sort((left, right) => Number(needsReview(right)) - Number(needsReview(left))) }));
 }
+
+/** How deliverable-like a file is: lower ranks are what a person reads; 4+ are machine records. */
+function deliverableRank(file: OutputFile): number {
+  if (file.artifact.artifactId.startsWith("exec-")) return 9;
+  return { markdown: 0, text: 1, pdf: 2, csv: 2, image: 2, diff: 3, json: 4, none: 5 }[file.kind];
+}
+
+export interface TaskResults {
+  key: string;
+  /** The task's title; absent for files outside any task. */
+  title?: string;
+  item?: WorkItem;
+  /** The one deliverable shown up front, when the task has a readable one. */
+  result?: OutputFile;
+  /** Run records and data files, tucked under "Technical files". */
+  technical: OutputFile[];
+}
+
+/** One Result per task: the best readable file leads, every other file is a technical file. */
+export function groupByTask(files: readonly OutputFile[]): TaskResults[] {
+  const tasks = new Map<string, OutputFile[]>();
+  for (const file of files) {
+    const key = file.item?.workItemId ?? `file:${file.artifact.artifactId}`;
+    tasks.set(key, [...(tasks.get(key) ?? []), file]);
+  }
+  return [...tasks.entries()].map(([key, members]) => {
+    const ranked = [...members].sort((left, right) => deliverableRank(left) - deliverableRank(right));
+    const best = ranked[0]!;
+    const result = deliverableRank(best) < 4 ? best : undefined;
+    return {
+      key,
+      ...(best.item ? { title: best.item.title, item: best.item } : {}),
+      ...(result ? { result } : {}),
+      technical: ranked.filter((file) => file !== result),
+    };
+  });
+}

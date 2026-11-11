@@ -104,6 +104,19 @@ export function RunDetail(props: {
     return current?.kind === "session.started" ? current.payload.engine.id : "Not reported";
   };
   const lastAttempt = () => job()?.attempts.at(-1);
+  /** A failed, blocked or cancelled run says why in plain words and names the one next action. */
+  const problem = (): { theme: "red" | "amber"; title: string; reason: string; next: string } | undefined => {
+    const current = state() ?? "";
+    if (unknown() || !["failed", "blocked", "cancelled", "expired"].includes(current)) return undefined;
+    const last = lastAttempt();
+    const where = last ? ` on ${last.runnerId}` : "";
+    if (current === "cancelled") return { theme: "amber", title: "This run was stopped", reason: "Someone cancelled it before it finished, so there is no result.", next: "start the task again from its mission if you still need it." };
+    if (current === "blocked") return { theme: "amber", title: "This run cannot continue", reason: job()?.queueReasons.length ? queueReasonLabel(job()!.queueReasons) : "It is waiting for something outside the run.", next: "open the Placement tab to see what is missing, then fix it." };
+    const why = last?.state === "expired" ? `The runner${where} stopped answering and the attempt timed out.`
+      : last?.state === "declined" ? `The runner${where} declined the work.`
+      : last ? `The attempt${where} stopped with an error before it produced a verified result.` : "It failed before any attempt could start.";
+    return { theme: "red", title: "This run did not work", reason: `${why}${(job()?.attempts.length ?? 0) > 1 ? ` It was tried ${job()!.attempts.length} times.` : ""}`, next: "open View logs below to read what happened, then start the task again from its mission." };
+  };
   const eventTitle = (kind: string) => kind.replaceAll(".", " · ").replaceAll("-", " ");
   async function confirm() {
     const kind = reasonOpen();
@@ -124,6 +137,7 @@ export function RunDetail(props: {
           subtitle={job()?.origin ? "Execution linked to an originating work item." : "Authoritative execution, output and independent verification."}
           status={{ label: state() === "succeeded" ? job()?.workflowState ? "Completed and verified" : "Step completed" : (state() ?? "unknown").replaceAll("_", " "), theme: statusHeaderTheme("job", state() ?? "") }} />
         <Show when={unknown()}><Alert theme="amber" variant="outline" title="Effect outcome is unknown" description="The effect may already have applied. Reconcile against the target system before considering another attempt; generic Retry is intentionally unavailable." /></Show>
+        <Show when={problem()}>{(note) => <Alert theme={note().theme} variant="outline" title={note().title} description={`${note().reason} Next: ${note().next}`} />}</Show>
         <Show when={job()?.origin}>{(origin) => origin().kind === "work-item"
           ? <WorkItemLink workspaceId={job()?.workspaceId ?? ""} workItemId={origin().id} class="inline-flex w-fit items-center gap-2 rounded-control text-interface font-medium text-ink-blue-link focus-visible:focus-ring"><span class="lucide-arrow-left size-4" aria-hidden="true" />Back to the mission plan</WorkItemLink>
           : <A class="inline-flex w-fit items-center gap-2 rounded-control text-interface font-medium text-ink-blue-link focus-visible:focus-ring" href={origin().kind === "ticket" ? `/tickets/${origin().id}` : `/incidents/${origin().id}`}><span class="lucide-arrow-left size-4" aria-hidden="true" />Back to the {origin().kind === "ticket" ? "ticket" : "incident"}</A>}</Show>

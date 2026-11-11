@@ -24,6 +24,7 @@ import {
   buildFolders,
   formatBytes,
   groupByMission,
+  groupByTask,
   inFolder,
   matchesSearch,
   needsReview,
@@ -304,17 +305,54 @@ export function OutputBrowser(props: {
                     </Show>
                     <span class="text-caption tabular-nums text-ink-gray-6">{group.files.length}</span>
                   </header>
-                  <div class={props.view === "grid" ? "grid min-w-0 grid-cols-[repeat(auto-fill,minmax(min(100%,15rem),1fr))] gap-2" : "flex min-w-0 flex-col gap-1.5"}>
-                    <For each={group.files}>
-                      {(file) => (
-                        <FileTile
-                          file={file}
-                          view={props.view}
-                          previewed={props.selectedId === file.artifact.artifactId}
-                          checked={checked().has(file.artifact.artifactId)}
-                          onOpen={() => props.onSelect(file.artifact.artifactId)}
-                          onCheck={(on) => toggle(file.artifact.artifactId, on)}
-                        />
+                  <div class="flex min-w-0 flex-col gap-3">
+                    <For each={groupByTask(group.files)}>
+                      {(task) => (
+                        <div class="flex min-w-0 flex-col gap-1.5" data-testid="output-task">
+                          <Show
+                            when={task.result}
+                            fallback={
+                              <p class="text-caption text-ink-gray-6">
+                                {task.title ? `${task.title}: ` : ""}no readable result yet. Its technical files are below.
+                              </p>
+                            }
+                          >
+                            {(result) => (
+                              <div class={props.view === "grid" ? "grid min-w-0 grid-cols-[repeat(auto-fill,minmax(min(100%,15rem),1fr))] gap-2" : "flex min-w-0 flex-col gap-1.5"}>
+                                <FileTile
+                                  file={result()}
+                                  heading={task.title ? `Result: ${task.title}` : undefined}
+                                  view={props.view}
+                                  previewed={props.selectedId === result().artifact.artifactId}
+                                  checked={checked().has(result().artifact.artifactId)}
+                                  onOpen={() => props.onSelect(result().artifact.artifactId)}
+                                  onCheck={(on) => toggle(result().artifact.artifactId, on)}
+                                />
+                              </div>
+                            )}
+                          </Show>
+                          <Show when={task.technical.length > 0}>
+                            <details class="min-w-0 rounded-card border border-outline-gray-2 px-3 py-1.5" data-testid="output-technical" open={task.technical.some((file) => checked().has(file.artifact.artifactId) || props.selectedId === file.artifact.artifactId)}>
+                              <summary class="cursor-pointer text-caption text-ink-gray-7">
+                                Technical files ({task.technical.length}): run records and data
+                              </summary>
+                              <div class={`mt-2 ${props.view === "grid" ? "grid min-w-0 grid-cols-[repeat(auto-fill,minmax(min(100%,15rem),1fr))] gap-2" : "flex min-w-0 flex-col gap-1.5"}`}>
+                                <For each={task.technical}>
+                                  {(file) => (
+                                    <FileTile
+                                      file={file}
+                                      view={props.view}
+                                      previewed={props.selectedId === file.artifact.artifactId}
+                                      checked={checked().has(file.artifact.artifactId)}
+                                      onOpen={() => props.onSelect(file.artifact.artifactId)}
+                                      onCheck={(on) => toggle(file.artifact.artifactId, on)}
+                                    />
+                                  )}
+                                </For>
+                              </div>
+                            </details>
+                          </Show>
+                        </div>
                       )}
                     </For>
                   </div>
@@ -500,7 +538,7 @@ function FolderTreeNode(props: { node: TreeItem; indexPath: number[] }): JSX.Ele
   );
 }
 
-function FileTile(props: { file: OutputFile; view: "grid" | "list"; previewed: boolean; checked: boolean; onOpen: () => void; onCheck: (on: boolean) => void }): JSX.Element {
+function FileTile(props: { file: OutputFile; heading?: string | undefined; view: "grid" | "list"; previewed: boolean; checked: boolean; onOpen: () => void; onCheck: (on: boolean) => void }): JSX.Element {
   const meta = () => {
     const parts = [previewKindLabel(props.file.kind as ArtifactPreviewKind), formatBytes(props.file.artifact.bytes)];
     if (props.file.artifact.createdAt) parts.push(formatRelative(props.file.artifact.createdAt));
@@ -514,12 +552,12 @@ function FileTile(props: { file: OutputFile; view: "grid" | "list"; previewed: b
       <FileCard
         as="button"
         size={props.view === "grid" ? "md" : "sm"}
-        name={props.file.name}
+        name={props.heading ?? props.file.name}
         icon={KIND_ICONS[props.file.kind]}
         meta={meta()}
         badge={<Badge size="sm" variant="subtle" theme={props.file.status.theme} label={props.file.status.label} />}
         selected={props.previewed}
-        aria-label={`Preview ${props.file.name}`}
+        aria-label={`Preview ${props.heading ?? props.file.name}`}
         class={`pe-10 ${props.checked ? "ring-1 ring-outline-blue-4" : ""}`}
         onClick={props.onOpen}
       />

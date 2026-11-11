@@ -50,11 +50,11 @@ export function dragTargets(item: WorkItem, items: readonly WorkItem[], canMove:
 
 /** Why an item is not moving, in plain words; undefined while it is simply progressing. */
 export function waitReason(item: WorkItem): string | undefined {
-  if (item.parked) return "Parked after repeated failures. It waits for a person; independent work carries on.";
-  if (item.state === "blocked") return `Blocked: ${item.blockedReason ?? "it is waiting on something outside the task"}`;
+  if (item.parked) return "Parked after repeated failures. It waits for a person; independent work carries on. Next: press Decide to retry, change or take over the task.";
+  if (item.state === "blocked") return `Blocked: ${item.blockedReason ?? "it is waiting on something outside the task"}. Next: sort that out, then press Unblock.`;
   if (item.state === "backlog" && item.dependsOn.length) return "Waiting for earlier tasks to be verified done.";
   if (item.state === "review") return "Finished; waiting for you to check the evidence.";
-  if (item.failedAttempts > 0 && item.state !== "done") return `${item.failedAttempts} failed attempt${item.failedAttempts === 1 ? "" : "s"} so far.`;
+  if (item.failedAttempts > 0 && item.state !== "done") return `The last ${item.failedAttempts === 1 ? "attempt" : `${item.failedAttempts} attempts`} did not work. Next: Brain tries again; if it keeps failing, open this task's logs to see why.`;
   return undefined;
 }
 

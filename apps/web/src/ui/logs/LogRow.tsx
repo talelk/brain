@@ -3,6 +3,7 @@ import type { JSX } from "solid-js";
 import { streamSummaryText } from "../exec/StreamEventRow";
 import { severityDotClass, severityLabel } from "../screen-region";
 import type { LogRecord } from "./LogTail";
+import { plainSentence } from "./plain-event";
 
 /**
  * One row of the Log Explorer's virtualized list: fixed height (the window
@@ -224,6 +225,7 @@ export function LogRow(props: {
   const repeat = () => (props.row.kind === "repeat" ? props.row : undefined);
   const message = () => (props.row.kind === "message" ? props.row.text.replace(/\s+/gu, " ").trim() : undefined);
   const receipt = () => receiptOf(tool()?.result);
+  const sentence = () => plainSentence(record(), tool() ? toolIdentity(tool()!.proposed ?? tool()!.members[0]) : undefined, message());
   return <button type="button" data-stream-seq={record().streamSeq} data-event-id={record().eventId}
     data-row-kind={props.row.kind} data-mode={props.mode}
     aria-pressed={props.selected}
@@ -232,21 +234,10 @@ export function LogRow(props: {
     <Show when={props.mode === "readable"} fallback={<RawRowCells row={props.row} record={record()} />}>
       <span class={`size-2 shrink-0 rounded-full ${severityDotClass(rowSeverity(props.row))}`} role="img" aria-label={severityLabel(rowSeverity(props.row))} />
       <TimeCell at={record().at} />
-      <Show when={tool()} fallback={
-        <span class="brain-exec-log hidden w-20 shrink-0 truncate text-ink-gray-6 md:block" title={`emitter: ${record().emitter} · source: ${record().source ?? "frame"}`}>{record().emitter}</span>
-      }>
-        <span class="lucide-wrench size-3.5 shrink-0 text-ink-blue-8" aria-hidden="true" />
-      </Show>
-      <span class="brain-exec-log hidden w-44 shrink-0 truncate text-ink-gray-8 md:block" title={record().type}>
-        {tool() ? toolIdentity(tool()!.proposed ?? tool()!.members[0]) : record().type}
-      </span>
-      <span class="brain-exec-log min-w-0 flex-1 truncate text-ink-gray-9">
-        {tool() ?
-          <span class={`truncate ${receipt()?.result === "failed" ? "text-ink-red-8" : ""}`}>
-            {streamSummaryText(record().summary)}
-            <Show when={!tool()!.result}><span class="ms-2 text-ink-amber-8">no result yet</span></Show>
-          </span>
-          : message() !== undefined ? streamSummaryText(message(), 400) : streamSummaryText(record().summary)}
+      <span class={`min-w-0 flex-1 truncate text-interface ${receipt()?.result === "failed" ? "text-ink-red-8" : "text-ink-gray-9"}`}
+        title={`${record().type} · ${record().emitter}`} data-testid="log-sentence">
+        {sentence()}
+        <Show when={tool() && !tool()!.result}><span class="ms-2 text-ink-amber-8">no result yet</span></Show>
       </span>
       <Show when={repeat()}><span class="shrink-0 rounded-control bg-surface-gray-2 px-1.5 text-xs text-ink-gray-7" title={`${repeat()!.members.length} consecutive identical records`}>×{repeat()!.members.length}</span></Show>
       <Show when={tool()}><span class="shrink-0 text-xs text-ink-gray-6" title="Tool invocation duration">{receiptDuration(receipt())}</span></Show>

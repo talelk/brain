@@ -87,6 +87,10 @@ test("Log Explorer: bounded DOM, scroll and selection survive streaming, pause/u
     el.scrollTop = 100 * 32;
   });
   await expect(page.locator('[data-testid="log-list"] li [data-row-kind="repeat"]').first()).toBeVisible({ timeout: 15_000 });
+  // Readable mode: each event is one plain sentence, never a JSON line.
+  const sentences = await page.locator('[data-testid="log-sentence"]').allTextContents();
+  expect(sentences.length).toBeGreaterThan(0);
+  for (const sentence of sentences) expect(sentence.trimStart().startsWith("{")).toBe(false);
 
   // Scroll away from the newest end; the requested offset must survive.
   const ROW = 32;

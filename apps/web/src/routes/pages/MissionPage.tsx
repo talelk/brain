@@ -22,13 +22,15 @@ import { missionHref, type MissionTab } from "../../ui/mission-links";
 import { ConsoleScreen } from "../../ui/console/ConsoleLayout";
 import { SessionTranscript } from "../../ui/console/SessionTranscript";
 import { readExecFilters, writeExecFilters } from "../../ui/exec/exec-filters";
-import { StatGrid } from "@talelk/newui-organisms";
 import { MissionOutputs } from "../../ui/outputs/MissionOutputs";
 
 const TABS: readonly { id: MissionTab; label: string }[] = [
   { id: "live", label: "Live" }, { id: "team", label: "Team" }, { id: "plan", label: "Plan" },
   { id: "brief", label: "Brief" }, { id: "logs", label: "Logs" }, { id: "outputs", label: "Outputs" },
 ];
+
+/** The views a person needs day to day; the rest sit under "More views". */
+const MAIN_TABS: readonly MissionTab[] = ["live", "plan", "outputs"];
 
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 
@@ -70,9 +72,9 @@ function MissionSnapshot(props: { mission: Mission; items: WorkItem[]; tab: Miss
     const c = counts();
     const parked = props.items.filter((item) => item.parked).length;
     if (props.mission.state === "paused") out.push(`The mission is paused${props.mission.pauseReason === "budget" ? " because its budget was reached" : " by a person"}.`);
-    if (parked) out.push(`${parked} ${parked === 1 ? "task is" : "tasks are"} parked after repeated failures and need a person.`);
+    if (parked) out.push(`${parked} ${parked === 1 ? "task is" : "tasks are"} parked after repeated failures and need a person. Next: open ${parked === 1 ? "it" : "them"} in the plan and press Decide.`);
     const blockedItems = props.items.filter((item) => item.state === "blocked" && !item.parked);
-    if (blockedItems.length) out.push(`${blockedItems.length} ${blockedItems.length === 1 ? "task is" : "tasks are"} blocked: ${blockedItems[0]?.blockedReason ?? "waiting on something outside the task"}`);
+    if (blockedItems.length) out.push(`${blockedItems.length} ${blockedItems.length === 1 ? "task is" : "tasks are"} blocked: ${blockedItems[0]?.blockedReason ?? "waiting on something outside the task"}. Next: fix that, then press Unblock on the task.`);
     if ((c.review ?? 0) > 0) out.push(`${c.review} ${c.review === 1 ? "task is" : "tasks are"} waiting for your review.`);
     return out;
   };
@@ -165,14 +167,17 @@ export default function MissionPage(): JSX.Element {
     breadcrumbs={[{ label: "Missions", href: `/w/${app.workspaceId()}/missions` }, { label: current()?.title ?? missionId() }]}
     actions={<Show when={current()}>{(m) => <div class="flex flex-wrap gap-2">
       <Button variant={m().watching ? "solid" : "outline"} iconLeft={m().watching ? "lucide-eye-off" : "lucide-eye"} aria-pressed={m().watching ? "true" : "false"} disabled={busy()} onClick={() => void act(() => app.run("mission.watch", { missionId: m().missionId, watch: !m().watching }))}>{m().watching ? "Unwatch" : "Watch"}</Button>
-      <Show when={m().state === "active"}><Button variant="outline" iconLeft="lucide-pause" disabled={busy()} onClick={() => void act(() => app.run("mission.pause", { missionId: m().missionId }, { expectedVersion: m().version }))}>Pause</Button></Show>
-      <Show when={m().state === "paused"}><Button variant="outline" iconLeft="lucide-play" disabled={busy()} onClick={() => void act(() => app.run("mission.resume", { missionId: m().missionId }, { expectedVersion: m().version }))}>Resume</Button></Show>
-      <Show when={m().state === "active"}><Button variant={missionGuide(m(), items.state().data ?? [], app.canDispatch()).allDone ? "solid" : "outline"} theme="blue" iconLeft="lucide-badge-check" disabled={busy()} onClick={() => void act(() => app.run("mission.proposeCompletion", { missionId: m().missionId }, { expectedVersion: m().version }))}>Finish mission</Button></Show>
+      <Show when={m().state === "paused"}><Button variant="solid" theme="blue" iconLeft="lucide-play" disabled={busy()} onClick={() => void act(() => app.run("mission.resume", { missionId: m().missionId }, { expectedVersion: m().version }))}>Resume</Button></Show>
+      <Show when={m().state === "active" && missionGuide(m(), items.state().data ?? [], app.canDispatch()).allDone}><Button variant="solid" theme="blue" iconLeft="lucide-badge-check" disabled={busy()} onClick={() => void act(() => app.run("mission.proposeCompletion", { missionId: m().missionId }, { expectedVersion: m().version }))}>Finish mission</Button></Show>
       <Show when={m().state !== "closed"}><Dropdown aria-label="More mission actions" options={[
+          ...(m().state === "active" ? [{ value: "pause", label: "Pause the mission", icon: "lucide-pause" }] : []),
+          ...(m().state === "active" && !missionGuide(m(), items.state().data ?? [], app.canDispatch()).allDone ? [{ value: "finish", label: "Finish mission (propose completion)", icon: "lucide-badge-check" }] : []),
           { value: "autoStart", label: m().autoStart ? "Starting tasks: automatic (switch to ask me first)" : "Starting tasks: Ask me before each task (switch to automatic)", icon: m().autoStart ? "lucide-zap" : "lucide-hand" },
           { value: "end", label: "End mission without completion", icon: "lucide-square" }]}
         onSelect={(value) => {
           if (value === "end") setEnding(true);
+          if (value === "pause") void act(() => app.run("mission.pause", { missionId: m().missionId }, { expectedVersion: m().version }));
+          if (value === "finish") void act(() => app.run("mission.proposeCompletion", { missionId: m().missionId }, { expectedVersion: m().version }));
           if (value === "autoStart") void act(() => app.run("mission.policy.set", { missionId: m().missionId, autoStart: !m().autoStart }, { expectedVersion: m().version }));
         }}><span class="flex items-center gap-1.5"><span class="lucide-ellipsis size-4" aria-hidden="true" />More</span></Dropdown></Show>
     </div>}</Show>}>
@@ -180,11 +185,6 @@ export default function MissionPage(): JSX.Element {
       <Show when={error()}><Alert theme="red" variant="outline" title="The mission refused this change" description={error()} /></Show>
       <ScreenRegion state={mission.state()} onRetry={() => void mission.refresh({ force: true })} emptyTitle="Mission not found" emptyDescription="It may belong to another workspace.">
         <Show when={current()}>{(m) => <>
-          <StatGrid compact stats={[
-            { label: "State", value: `${m().state}${m().pauseReason ? ` (${m().pauseReason})` : ""}${m().outcome ? ` · ${m().outcome}` : ""}`, hint: `Brief version ${m().briefVersion}`, icon: "lucide-flag" },
-            { label: "Members running", value: `${m().usage.runningMembers} of ${m().budget.memberCap}`, hint: `Spend ${formatUsd(m().usage.settledMicroUsd + m().usage.reservedMicroUsd)}`, icon: "lucide-users" },
-            { label: "Autonomy", value: m().autonomyPolicy.preset ?? "custom", hint: `${m().autonomyPolicy.operations.length} operations · policy v${m().autonomyPolicy.version}`, icon: "lucide-shield" },
-          ]} />
           <Show when={!m().autoStart && m().state !== "closed"}><Alert theme="blue" variant="outline" title="Tasks start when you start them" description="This mission asks before each task. Use More to let it start ready tasks automatically." /></Show>
           <MissionSnapshot mission={m()} items={items.state().data ?? []} tab={tab()} />
           <Dialog.Root open={ending()} onOpenChange={(open) => { if (!open) setEnding(false); }}>
@@ -196,8 +196,12 @@ export default function MissionPage(): JSX.Element {
               </Dialog.Footer>
             </Dialog.Content>
           </Dialog.Root>
-          <TabButtons label="Mission views" value={tab()} wrap onValueChange={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}
-            options={TABS.map((entry) => ({ value: entry.id, label: entry.label }))} />
+          <div class="flex flex-wrap items-center gap-2">
+            <TabButtons label="Mission views" value={tab()} wrap onValueChange={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}
+              options={TABS.filter((entry) => MAIN_TABS.includes(entry.id) || entry.id === tab()).map((entry) => ({ value: entry.id, label: entry.label }))} />
+            <Dropdown aria-label="More views" options={TABS.filter((entry) => !MAIN_TABS.includes(entry.id) && entry.id !== tab()).map((entry) => ({ value: entry.id, label: entry.label }))}
+              onSelect={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}><span class="flex items-center gap-1.5"><span class="lucide-ellipsis size-4" aria-hidden="true" />More views</span></Dropdown>
+          </div>
           <Switch>
             <Match when={tab() === "live"}><LiveTab mission={m()} onAct={act} busy={busy()} /></Match>
             <Match when={tab() === "team"}><TeamTab mission={m()} /></Match>
