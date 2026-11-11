@@ -29,6 +29,17 @@ Open: effectful (tool) jobs left `outcome_unknown` still do not appear in Needs 
 Confirmed: mission finished 6/6 (204k tokens, $0) after stuck/pause/resume (S, R, T, U fixes); deliverable excellent (recommendation, scored criteria, runner-up, caveats; Markdown rendered); "Author's own checklist 3 of 3 met" with evidence; "Challenge this result" works live (state running); "Propose as Play" and "What Brain reused" present; Repeat this button on the closed mission.
 Track V (done locally, not deployed): root cause of "Not independently checked yet": an agent job uploads its raw reply as text/plain and pins only the normalised JSON output in its evidence bundle; the two digests differ when a model indents its JSON, so `artifacts.history` (digest match only) found no verdict for the Result artifact. `artifactHistory` now also matches the bundle of the attempt that wrote the artifact. Result cards keep their open state and scroll across refreshes (keyed by task id, `?result=`, no skeleton on refresh); named-output versions are a "Version history" inside each card (row 53 closed); share link and challenge result appear on the mission card (challenge also when collapsed).
 
+## Track V deployed and confirmed live (2026-11-11 ~15:00, `71e2623`)
+Root cause: the Result card shows the agent's raw `text/plain` reply, the evidence bundle pins the normalised JSON; when a model indents its JSON the digests differ so `artifacts.history` found no verdict (the fixture engine emitted compact JSON and hid it). Fixed in `evidence/read.ts` (also matches the bundle of the attempt that wrote the artifact); fixture engine now indents. Live: every Result card reads "4 of 4 criteria checked by tests, files or hashes; 0 by human sign-off; 0 by model opinion"; opened cards stay open (keyed by task, `?result=`); duplicate "Documents with versions" folded into per-card Version history; share link on mission Result cards; Challenge shows inline (the live challenge finished: 5 points incl. a likely-wrong pricing figure) and its usage is charged to the mission (tokens 204k -> 234k). "Repeat this" picker works live (3 presets, next 5 runs in Africa/Tunis, plain copy).
+New rows:
+| # | Item | Track | Status |
+|---|------|-------|--------|
+| 56 | Challenge points show literal `**bold**` markdown asterisks: render inline Markdown in claims | UI | open |
+| 57 | Version-history tile shows raw plan task id as name ("inspect", "write-recommendation") and truncates "updated..." | UI | open |
+| 58 | Every collapsed Result card polls challenges every 4 s (chatty with 6 cards): one poll per page | UI/perf | open |
+| 59 | "Repeat this" says each run still needs the person to confirm the plan: hands-off schedules should reuse the already-confirmed plan (auto-confirm identical plan, with a setting) | product | open |
+| 60 | Dates in schedule previews use browser locale (French "jeu. 12 nov.") while UI is English: pick one locale policy | UI | open |
+
 ## Not yet walked live (blocked on deploy of K and M)
 Share links, Challenge this result, Repeat this (now creates real missions), Context received tab, Tools registry, Quality page, Usage meter in depth.
 
