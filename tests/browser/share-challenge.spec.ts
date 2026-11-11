@@ -92,7 +92,7 @@ test("a result is shared as a read-only link, read without an account, and withd
   await page.getByRole("button", { name: "Share a read-only link", exact: true }).click();
   const list = page.getByTestId("share-list");
   await expect(list).toContainText("Active");
-  await expect(list).toContainText("opened 1 time");
+  await expect(list).toContainText("opened 2 times");
   await list.getByRole("button", { name: "Withdraw link", exact: true }).click();
   await expect(list).toContainText("Withdrawn");
   await guest.goto(url);
