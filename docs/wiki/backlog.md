@@ -31,7 +31,9 @@ Prompts: task-worker criteria semantics (`met` is about the deliverable; reviews
 Browser: the Chrome extension lost site access to brain.mykeyrus.tn (tab group changed; "Chrome blocked the extension from accessing this page"): the owner needs to re-allow it in chrome://extensions and sign in.
 
 ## Not yet seen live
-Needs-you "outcome unknown" row, Saved document in the Review inbox, scheduled Repeat occurrence (auto-confirm), notification preferences (email section), phone layout and install prompt on a real phone, the renamed runtime under a fresh mission.
+Needs-you "outcome unknown" row, Saved document in the Review inbox, scheduled Repeat occurrence (auto-confirm), notification preferences (email section), phone layout and install prompt on a real phone.
+
+Seen live 2026-11-12 (API-driven, no browser): fresh plain-words mission on the deployed build (renamed runtime + tightened prompts): plan drafted in 25 s (2 tasks), confirmed, both tasks done, mission closed/achieved at 146 s with no manual step. Still needs a browser look when the owner re-allows the extension.
 
 ## Standing rules (see goal-and-user.md)
 Validate every change in a real browser as a first-time user; do not stop until nothing is left; reuse and capitalisation are first-class.
