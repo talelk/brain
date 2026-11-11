@@ -134,6 +134,7 @@ CREATE TABLE jobs (
   created_at_ms INTEGER NOT NULL, ready_at_ms INTEGER NOT NULL, deadline_ms INTEGER NOT NULL,
   attempt_counter INTEGER NOT NULL DEFAULT 0 CHECK(attempt_counter >= 0),
   job_fence INTEGER NOT NULL DEFAULT 0 CHECK(job_fence >= 0),
+  auto_retries INTEGER NOT NULL DEFAULT 0 CHECK(auto_retries >= 0),
   UNIQUE(organization_id, execution_key),
   FOREIGN KEY(workspace_id, organization_id) REFERENCES workspaces(id, organization_id),
   FOREIGN KEY(organization_id, config_digest) REFERENCES config_releases(organization_id, digest)
@@ -149,6 +150,7 @@ CREATE TABLE job_attempts (
   offer_expires_at_ms INTEGER NOT NULL, lease_expires_at_ms INTEGER NOT NULL,
   last_event_seq INTEGER NOT NULL DEFAULT 0 CHECK(last_event_seq >= 0),
   receipt_digest TEXT, cleanup_confirmed INTEGER NOT NULL DEFAULT 0 CHECK(cleanup_confirmed IN (0,1)),
+  interruption TEXT DEFAULT NULL CHECK(interruption IS NULL OR interruption IN ('platform')),
   UNIQUE(job_id, attempt_no), UNIQUE(job_id, job_fence)
 ) STRICT;
 CREATE UNIQUE INDEX one_active_attempt ON job_attempts(job_id)
