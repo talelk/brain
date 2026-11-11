@@ -25,6 +25,9 @@ cases = [
  (situation, mutate(criteria=[good["criteria"][0], {**good["criteria"][1], "criterion": "Something else entirely"}]), False),
  (situation, mutate(criteria=[good["criteria"][0], {**good["criteria"][1], "evidence": "Yes."}]), False),
  (situation, mutate(criteria=[good["criteria"][0], good["criteria"][0]]), False),
+ (situation, mutate(criteria=[{**good["criteria"][0], "criterion": "1. NAMES the cheaper vendor."}, {**good["criteria"][1], "criterion": "  states the   assumptions "}]), True),
+ (situation, mutate(criteria=[good["criteria"][0], {**good["criteria"][1], "criterion": "The assumptions that were made are stated"}]), True),
+ (situation, mutate(criteria=[good["criteria"][1], good["criteria"][0]]), True),
  ("Free-form task without criteria", mutate(criteria=[]), True),
  ("Free-form task without criteria", mutate(criteria=good["criteria"]), False),
 ]

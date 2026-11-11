@@ -701,10 +701,11 @@ export class MissionService {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     this.store.inTx(db, () => {
       const items = db.prepare("SELECT w.* FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? AND w.state IN ('ready','in-progress','review')").all(runId) as WorkItemRow[];
+      const reason = this.failureReason(db, runId);
       for (const item of items) {
         const threshold = (db.prepare("SELECT parking_threshold AS n FROM missions WHERE id=?").get(item.mission_id) as { n: number }).n;
         const failed = item.failed_attempts + 1;
-        const detail = diagnostic.slice(0, 1024);
+        const detail = (reason ? `${diagnostic}: ${reason}` : diagnostic).slice(0, 1024);
         const now = this.store.now();
         if (failed >= threshold) {
           transitionState(db, "workItem", item.id, "blocked", { set: { failed_attempts: failed, parked: 1, parked_diagnostic: detail, blocked_reason: `Parked after ${failed} failed attempts`, next_action: "A human retries, reassigns, edits or drops this work", updated_at_ms: now }, bumpVersion: true });
@@ -715,6 +716,22 @@ export class MissionService {
         }
       }
     });
+  }
+
+  /** Why a failed run failed, in words: the agent's own error, or the checks an independent verdict did not pass. */
+  private failureReason(db: ReturnType<Store["workspaceDb"]>, runId: string): string | undefined {
+    try {
+      for (const row of db.prepare("SELECT o.output_json FROM step_outputs o JOIN workflow_steps s ON s.run_id=o.run_id AND s.step_id=o.step_id WHERE o.run_id=? AND s.state='failed'").all(runId) as Array<{ output_json: string }>) {
+        const error = (JSON.parse(row.output_json) as { error?: unknown }).error;
+        if (typeof error === "string" && error) return error.slice(0, 300);
+      }
+      const verdict = db.prepare(`SELECT v.manifest_json FROM verification_verdicts v JOIN evidence_bundles b ON b.digest=v.bundle_digest
+        WHERE json_extract(b.manifest_json,'$.workflowRunId')=? AND v.outcome!='verified' ORDER BY v.created_at_ms DESC LIMIT 1`).get(runId) as { manifest_json: string } | undefined;
+      if (!verdict) return undefined;
+      const checks = (JSON.parse(verdict.manifest_json) as { checks?: Array<{ checkId?: string; criterionId?: string; status?: string }> }).checks ?? [];
+      const failedChecks = checks.filter((check) => check.status !== "passed").map((check) => check.checkId ?? check.criterionId ?? "a check");
+      return failedChecks.length > 0 ? `the independent check did not pass (${failedChecks.join(", ")})` : "the independent check did not verify the result";
+    } catch { return undefined; }
   }
 
   /**
@@ -809,7 +826,7 @@ export class MissionService {
    * member cap minus in-progress work), whether its budget still has headroom,
    * and its ready, unparked items oldest first.
    */
-  autoStartPlan(organizationId: string, workspaceId: string): Array<{ defaultWorkflowId: string | null; missionId: string; ownerId: string; slots: number; memberCap: number; headroom: boolean; items: Array<{ workItemId: string; title: string; criteria: string[]; upstream: Array<{ title: string; summary: string }>; workflowId: string | null; failedAttempts: number; runs: number; nextAction: string }> }> {
+  autoStartPlan(organizationId: string, workspaceId: string): Array<{ defaultWorkflowId: string | null; missionId: string; ownerId: string; slots: number; memberCap: number; headroom: boolean; items: Array<{ workItemId: string; title: string; criteria: string[]; upstream: Array<{ title: string; summary: string; deliverable?: string }>; workflowId: string | null; failedAttempts: number; runs: number; nextAction: string }> }> {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     const missions = db.prepare("SELECT id, owner_id, member_cap FROM missions WHERE state='active' AND auto_start=1 AND coordinator_member_id IS NULL").all() as Array<{ id: string; owner_id: string; member_cap: number }>;
     const plan = [];
@@ -826,12 +843,32 @@ export class MissionService {
     return plan;
   }
 
-  /** What the direct dependencies of a work item concluded (their current handoff summaries), for the task that builds on them. */
-  private upstreamResults(db: ReturnType<Store["workspaceDb"]>, workItemId: string): Array<{ title: string; summary: string }> {
-    return dependencyHandoffs(db, workItemId).map((handoff) => ({
-      title: (db.prepare("SELECT title FROM work_items WHERE id=?").get(handoff.workItemId) as { title: string } | undefined)?.title ?? handoff.workItemId,
-      summary: handoff.notes.summary,
-    }));
+  /**
+   * What the direct dependencies of a work item concluded: their current handoff summaries and, when the latest succeeded run
+   * that carried them out wrote a deliverable, that deliverable (the run's immutable step output). The caller bounds how much
+   * of it reaches the brief.
+   */
+  private upstreamResults(db: ReturnType<Store["workspaceDb"]>, workItemId: string): Array<{ title: string; summary: string; deliverable?: string }> {
+    return dependencyHandoffs(db, workItemId).map((handoff) => {
+      const deliverable = this.deliverableOf(db, handoff.workItemId);
+      return {
+        title: (db.prepare("SELECT title FROM work_items WHERE id=?").get(handoff.workItemId) as { title: string } | undefined)?.title ?? handoff.workItemId,
+        summary: handoff.notes.summary,
+        ...(deliverable ? { deliverable } : {}),
+      };
+    });
+  }
+
+  private deliverableOf(db: ReturnType<Store["workspaceDb"]>, workItemId: string): string | undefined {
+    const rows = db.prepare(`SELECT o.output_json FROM execution_links l JOIN workflow_runs r ON r.id=l.run_id AND r.state='succeeded'
+      JOIN step_outputs o ON o.run_id=r.id WHERE l.work_item_id=? ORDER BY l.created_at_ms DESC, o.rowid`).all(workItemId) as Array<{ output_json: string }>;
+    for (const row of rows) {
+      try {
+        const parsed = JSON.parse(row.output_json) as { deliverable?: unknown };
+        if (typeof parsed.deliverable === "string" && parsed.deliverable.trim()) return parsed.deliverable;
+      } catch { /* a step output that is not JSON carries no deliverable */ }
+    }
+    return undefined;
   }
 
   /** Says, on a ready work item, why the Governor has not started it. Writes only when the text changes. */

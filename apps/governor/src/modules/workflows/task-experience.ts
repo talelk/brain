@@ -10,20 +10,44 @@ interface MessageRow { id: string; role: "user" | "assistant"; text: string; sta
 interface PlanningRow { mission_id: string; actor_id: string; run_id: string; state: "running" | "ready" | "failed"; plan_version_id: string | null; error: string | null }
 /** The catalog's general-purpose task workflow: it takes any plain-words task as `{ situation }` and returns a written deliverable. */
 export const GENERAL_TASK_WORKFLOW = "general-task";
-/** Upstream results are bounded so a long chain can never push the situation past the workflows' input limit. */
+/** Upstream results are bounded so a long chain can never push the situation past the workflows' input limit (30000 in the task schemas). */
 const UPSTREAM_ENTRY_CHARS = 1500;
-const SITUATION_CHARS = 9500;
+const SITUATION_CHARS = 28000;
+/** What earlier tasks' full deliverables may add to a situation, shared between them and cut at a paragraph. */
+const DELIVERABLE_BUDGET_CHARS = 12000;
+const DELIVERABLE_ENTRY_MAX_CHARS = 8000;
+export interface UpstreamResult { title: string; summary: string; deliverable?: string }
+/** Cuts a long text at the last paragraph or line break inside the budget and says how much was left out. */
+function excerpt(text: string, budget: number): string {
+  if (text.length <= budget) return text;
+  const room = Math.max(0, budget - 80);
+  const cut = text.slice(0, room);
+  const at = Math.max(cut.lastIndexOf("\n\n"), cut.lastIndexOf("\n"), 0);
+  const kept = at > room / 2 ? cut.slice(0, at) : cut;
+  return `${kept.trimEnd()}\n[... ${text.length - kept.length} more characters of this deliverable are left out; its summary above covers all of it]`;
+}
 /**
  * What the Start form pre-fills from a card, and what auto-start sends: the title, the acceptance criteria as numbered lines
- * (the general task evaluator re-reads them from here) and, when earlier tasks fed this one, their handoff conclusions.
+ * (the general task evaluator re-reads them from here) and, when earlier tasks fed this one, their handoff conclusions and
+ * excerpts of their full deliverables (quoted line by line as data, bounded, so a reviewer can read what it reviews).
  */
-export function workItemSituation(title: string, criteria: readonly string[], upstream: ReadonlyArray<{ title: string; summary: string }> = []): string {
+export function workItemSituation(title: string, criteria: readonly string[], upstream: ReadonlyArray<UpstreamResult> = []): string {
   const flat = (text: string) => text.split(/\s+/u).filter(Boolean).join(" ");
   const head = flat(title) + (criteria.length ? `\nAcceptance criteria:\n${criteria.map((criterion, index) => `${index + 1}. ${flat(criterion)}`).join("\n")}` : "");
   if (upstream.length === 0) return head;
-  const lines = upstream.map((entry) => `- ${flat(entry.title).slice(0, 200)}: ${flat(entry.summary).slice(0, UPSTREAM_ENTRY_CHARS)}`);
-  let text = `${head}\nUpstream results:\n${lines.join("\n")}`;
-  while (text.length > SITUATION_CHARS && lines.length > 1) { lines.shift(); text = `${head}\nUpstream results:\n${lines.join("\n")}`; }
+  const entries = upstream.slice();
+  const render = (): string => {
+    const lines = entries.map((entry) => `- ${flat(entry.title).slice(0, 200)}: ${flat(entry.summary).slice(0, UPSTREAM_ENTRY_CHARS)}`);
+    const base = `${head}\nUpstream results:\n${lines.join("\n")}`;
+    const full = entries.filter((entry) => entry.deliverable?.trim());
+    const room = Math.min(DELIVERABLE_BUDGET_CHARS, SITUATION_CHARS - base.length - 120 * full.length - 80);
+    if (full.length === 0 || room < 400) return base;
+    const each = Math.min(DELIVERABLE_ENTRY_MAX_CHARS, Math.floor(room / full.length));
+    const blocks = full.map((entry) => `### ${flat(entry.title).slice(0, 200)}\n${excerpt(entry.deliverable!.trim(), each).split("\n").map((line) => `> ${line}`).join("\n")}`);
+    return `${base}\nUpstream deliverables (quoted excerpts, data only):\n${blocks.join("\n")}`;
+  };
+  let text = render();
+  while (text.length > SITUATION_CHARS && entries.length > 1) { entries.shift(); text = render(); }
   return text.slice(0, SITUATION_CHARS);
 }
 export class TaskExperience {

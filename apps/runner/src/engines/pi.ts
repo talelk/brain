@@ -64,7 +64,7 @@ export class PiEngine implements EngineAdapter {
           name: "Local Qwen (vLLM)", baseUrl: this.modelUrl(), api: "openai-completions", apiKey: process.env["BRAIN_LOCAL_MODEL_API_KEY"] || "local-no-key",
           models: [{
             id: spec.modelId || this.modelId(), name: spec.modelId || this.modelId(), reasoning: true, input: ["text"],
-            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 262144, maxTokens: Math.min(8192, spec.limits.maxTokens),
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 262144, maxTokens: Math.min(spec.limits.maxTokens, 16384, Math.max(8192, spec.limits.maxTokens - 4096)),
           }],
         },
       },
@@ -111,6 +111,8 @@ export class PiEngine implements EngineAdapter {
           const text = message.content.filter((part) => part.type === "text").map((part) => part.text ?? "").join("");
           if (text) { this.output = text; this.push("text", { text, channel: "assistant", provisional: true }); }
         }
+        // A reasoning model can spend its whole output allowance thinking and never write the answer; say so instead of "no output".
+        if (message.stopReason === "length" && !this.output.trim()) this.failure = "the model used its whole output limit before writing an answer";
       }
     });
     return { sessionId: this.sessionId };

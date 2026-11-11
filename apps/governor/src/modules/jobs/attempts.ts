@@ -346,6 +346,7 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
       transitionState(s.control, "attempt", attemptId, "outcome_unknown", { set: { receipt_digest: receiptDigest, cleanup_confirmed: cleanup } });
       transitionState(s.control, "job", String(row["job_id"]), "outcome_unknown", { bumpVersion: true });
       jobState = "outcome_unknown";
+      if (restartInterruptedReadJob(s, String(row["job_id"]), attemptId)) jobState = "queued";
     } else if (result === "succeeded") {
       transitionState(s.control, "attempt", attemptId, "verifying", { set: { receipt_digest: receiptDigest, cleanup_confirmed: cleanup } });
       transitionState(s.control, "job", String(row["job_id"]), "verifying", { bumpVersion: true });
@@ -383,6 +384,30 @@ export function releaseAttempt(s: Store, runner: { runnerId: string; epoch: numb
   return { attemptId, released: true } as unknown as JsonValue;
 }
 
+/** A read-only job interrupted this many times stays outcome_unknown for a person: a restart loop must not run forever. */
+const MAX_INTERRUPTION_RESTARTS = 5;
+
+/**
+ * An agent or evaluator job that only reads, and never held an effect permit or resource lease, has nothing to reconcile after an
+ * interruption (runner restart, lost lease, unknown outcome): its attempt is concluded as interrupted and the job queues
+ * for a fresh attempt. This is not a failure of the work, so no run failure is reported and no failed attempt counts.
+ * Returns true when the job was restarted.
+ */
+function restartInterruptedReadJob(s: Store, jobId: string, attemptId: string): boolean {
+  const job = s.control.prepare("SELECT effect_class, attempt_counter, state FROM jobs WHERE id=?").get(jobId) as { effect_class: string; attempt_counter: number; state: string } | undefined;
+  if (!job || job.effect_class !== "read" || job.state !== "outcome_unknown" || job.attempt_counter >= MAX_INTERRUPTION_RESTARTS) return false;
+  const effects = s.control.prepare("SELECT (SELECT COUNT(*) FROM effect_permits WHERE attempt_id=?) + (SELECT COUNT(*) FROM resource_leases WHERE attempt_id=?) AS n").get(attemptId, attemptId) as { n: number };
+  if (effects.n > 0) return false;
+  // Only reasoning (agent) and evaluator steps restart themselves: they hold no effect of their own and a second run is harmless.
+  const payload = s.control.prepare("SELECT kind, payload_json FROM job_payloads WHERE job_id=?").get(jobId) as { kind: string; payload_json: string } | undefined;
+  const usesType = payload ? (JSON.parse(payload.payload_json) as { step?: { uses?: { type?: string } } }).step?.uses?.type : undefined;
+  if (!payload || (payload.kind !== "eval" && usesType !== "agent")) return false;
+  transitionState(s.control, "attempt", attemptId, "failed");
+  transitionState(s.control, "job", jobId, "queued", { set: { queue_reason: "RESTARTED_AFTER_INTERRUPTION" }, bumpVersion: true });
+  releaseReservation(s, attemptId);
+  return true;
+}
+
 export function expireLeases(s: Store): number {
   let count = 0;
   s.inTx(s.control, () => {
@@ -397,6 +422,7 @@ export function expireLeases(s: Store): number {
     for (const a of running) {
       transitionState(s.control, "attempt", a.id, "outcome_unknown");
       transitionState(s.control, "job", a.job_id, "outcome_unknown", { bumpVersion: true });
+      restartInterruptedReadJob(s, a.job_id, a.id);
       count++;
     }
   });
