@@ -40,6 +40,10 @@ Confirmed: Quality page live with real numbers (97% verified without human help 
 |---|------|-------|
 | 67 | Tools wasted on failing calls: `documents.read` 21/21 failed (workspace has 0 documents), `web.fetch` 50/66 failed (egress/allowlist?), `csv.query` never used; registry detail shows "Preview unavailable: artifact not found" for tool script evidence | track AA running: availability logic, honest registry, fix or hide web.fetch |
 
+## Deployed 2026-11-11 ~17:50 (tracks AA, AB + my follow-up, `41fd905`)
+Live: Library shows "Awaiting your review: 4" (tool proposals only) and "Published automatically: 5". The 10 "waiting write-ups" were old mission notes with no mission and no title (AB could not reproduce my guessed cause: Governor-closed missions already auto-publish); the sweep now sets such notes aside with a reason. AA: web.fetch failures were 33 "tool input too large" + 17 host not on allowlist (egress is fine); runner reduces HTML to <48 KiB, unavailable tools are dropped from the tool list with reasons, registry shows failure rates. Check next mission: Tools registry failure counts should stop growing.
+Open: 4 quarantined tool proposals in Library need a person (decide: review UI wording); `git push` failed once with "Could not resolve host: github.com" (network hiccup, retry works).
+
 ## Not yet walked live
 Context received tab, Share link page (`/shared/:token`), Library Plays shelf after "Add starter Plays", scheduled Repeat occurrence (auto-confirm), Notification preferences (Security).
 
