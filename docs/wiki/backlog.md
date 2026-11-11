@@ -45,6 +45,10 @@ Confirmed: Play+sentence mission drafted its plan with zero clicks ("6 steps - n
 - Track S (running): run `run-mwbxl678-1n-zo5903gh` of mission `mission-mwbxiijh-d-otaijyxj` stuck "running" ~80 min after deploy restarts; A2's crash-restart did not recover it; add stuck-run watchdog + fix root cause; mission also exceeds its wall budget yet stays active.
 - UI to follow: show plan `stage` ("Reading what the workspace knows / Drafting steps / Checking the plan") while "Preparing a validated proposal".
 
+## Track S deployed (2026-11-11 ~12:40, `cd1862f`)
+Root cause of the stuck run: the runner listed the same artifact id three times in its evidence bundle (identical tool results share a content-derived id); the Governor rejected it as non-retryable ("duplicate artifact identity"); job stayed `verifying` with the evaluator step pending and nothing swept it. Fixed both ends + `sweepStuckJobs` watchdog (default 15 min, `BRAIN_STUCK_JOB_MINUTES`; requeues read-only agent/evaluator jobs, fails with a plain reason when restarts are used up; idempotent; emits `job.updated` with reason). Live confirmation: after deploy the stuck job was restarted (mission tokens 9.6k -> 44k) and the mission then paused on its 30-minute wall budget: that is track R's bug (wall clock must be active time). Tests: `stuck-run-watchdog.test.ts`, chaos `stuck-run-restart.test.ts`.
+Housekeeping 2026-11-11 ~12:00: stopped lingering agents (A2 9 h, E), removed 25 stale worktrees and ~16 temp dirs, killed a leaked ssh-agent. Rule: stop each agent and remove its worktree/tmp as soon as its report is taken.
+
 ## Not yet walked live (blocked on deploy of K and M)
 Share links, Challenge this result, Repeat this (now creates real missions), Context received tab, Tools registry, Quality page, Usage meter in depth.
 
