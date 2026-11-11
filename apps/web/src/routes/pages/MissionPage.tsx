@@ -212,7 +212,7 @@ export default function MissionPage(): JSX.Element {
             <Match when={tab() === "team"}><TeamTab mission={m()} /></Match>
             <Match when={tab() === "plan"}><PlanTab mission={m()} onAct={act} busy={busy()} /></Match>
             <Match when={tab() === "brief"}><BriefTab mission={m()} onAct={act} busy={busy()} /></Match>
-            <Match when={tab() === "logs"}><LogsTab mission={m()} /></Match>
+            <Match when={tab() === "logs"}><LogsTab mission={m()} items={items.state().data ?? []} /></Match>
             <Match when={tab() === "outputs"}><MissionOutputs mission={m()} onChanged={() => void act(async () => undefined)} /></Match>
           </Switch>
         </>}</Show>
@@ -471,7 +471,7 @@ function BriefTab(props: ActProps): JSX.Element {
 }
 
 /** Logs: the mission's runs, each opening the Log Explorer filtered to it. */
-function LogsTab(props: { mission: Mission }): JSX.Element {
+function LogsTab(props: { mission: Mission; items: WorkItem[] }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
   const links = createScopedRead<ExecutionLink[]>({
@@ -484,8 +484,11 @@ function LogsTab(props: { mission: Mission }): JSX.Element {
   });
   return <WorkspaceSection title="Mission runs" description="Every run linked to this mission's work.">
     <ScreenRegion state={links.state()} onRetry={() => void links.refresh({ force: true })} emptyTitle="No runs yet" emptyDescription="Runs appear once work is dispatched.">
-      <div class="brain-queue"><For each={links.state().data ?? []}>{(link) => <QueueRow title={link.runId} description={`Work item ${link.workItemId}`} icon="lucide-scroll-text"
-        meta={<span>{formatDateTime(link.createdAt)}</span>} label={`Open logs for run ${link.runId}`} onClick={() => void navigate(`/w/${app.workspaceId()}/logs?run=${encodeURIComponent(link.runId)}`)} />}</For></div>
+      <div class="brain-queue"><For each={links.state().data ?? []}>{(link, index) => {
+        const task = () => props.items.find((item) => item.workItemId === link.workItemId)?.title;
+        return <QueueRow title={task() ?? `Run ${(links.state().data ?? []).length - index()}`} description={task() ? "Open this task's run in the log explorer" : "Task details are no longer listed"} icon="lucide-scroll-text"
+        meta={<span>{formatDateTime(link.createdAt)}</span>} label={`Open logs for ${task() ?? "this run"}`} onClick={() => void navigate(`/w/${app.workspaceId()}/logs?run=${encodeURIComponent(link.runId)}`)} />;
+      }}</For></div>
     </ScreenRegion>
   </WorkspaceSection>;
 }

@@ -66,7 +66,7 @@ export function TodaySetup(props: { readiness: ReturnType<typeof createReadiness
           : "Brain is ready to take work. Run the installation check once to confirm it end to end."}</p>
       </div>
       <ul class="m-0 flex list-none flex-col gap-2 p-0">
-        <For each={rows()}>{(row) => <li class="flex min-w-0 flex-wrap items-center gap-3 rounded-control bg-surface-white p-3" data-step={row.step} data-status={row.status}>
+        <For each={rows()}>{(row) => <li class="flex min-w-0 flex-wrap items-center gap-3 rounded-control bg-surface-white p-3 max-sm:[&>[data-slot=button]]:basis-full" data-step={row.step} data-status={row.status}>
           <IconTile icon={row.status === "ready" ? "lucide-check" : row.status === "missing" ? "lucide-circle-alert" : "lucide-circle-help"} tone={row.status === "ready" ? "green" : row.status === "missing" ? "amber" : "gray"} />
           <div class="min-w-0 flex-1">
             <h3 class="m-0 text-base-medium text-ink-gray-9">{row.title}<Show when={row.status === "ready"}><span class="sr-only"> (done)</span></Show></h3>

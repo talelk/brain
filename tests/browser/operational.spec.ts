@@ -18,7 +18,7 @@ test("optional-factor operator inspects a release, activates it, dispatches both
   await page.getByLabel(/^Email/).fill("operator@example.test");
   await page.getByLabel(/^Password/).fill("operator-password-123");
   await page.getByRole("button",{name:"Sign in",exact:true}).click();
-  await expect(page.getByRole("heading",{name:"Missions",exact:true,level:1})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"Today",exact:true,level:1})).toBeVisible();
   await expect(page.getByRole("region",{name:"Authenticator setup"})).toHaveCount(0);
   await capture("today");
   await page.goto(`${governor.url}/settings`);

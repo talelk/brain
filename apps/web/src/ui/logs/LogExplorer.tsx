@@ -271,7 +271,7 @@ function TailSurface(props: SurfaceProps): JSX.Element {
       <Alert theme="amber" variant="outline" title="Search could not complete"
         description={search.state().status === "no-access"
           ? "Your account no longer has access to these logs; the view was cleared."
-          : search.state().error ?? "The search read failed; retry when Governor is reachable."}
+          : search.state().error ?? "The search read failed; retry when Brain is reachable."}
         action={{ label: "Retry", onClick: () => void search.refresh({ force: true }) }} />
     </Show>
     <Show when={searchActive() && older().error}>

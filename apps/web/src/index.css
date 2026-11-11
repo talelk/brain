@@ -512,3 +512,59 @@
 @keyframes brain-fresh { from { background-color: var(--surface-blue-2); } to { background-color: transparent; } }
 .brain-live-dot { animation: brain-live-dot 2s ease-in-out infinite; }
 @keyframes brain-live-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+/* ───────── Polish layer (2026-11-11): one language for focus, feedback, plan actions and touch ───────── */
+
+/* Focus: every interactive thing shows the same two-pixel accent ring, in light and dark. */
+:where(a, button, input, select, textarea, summary, [role="tab"], [role="button"], [tabindex="0"]):focus-visible {
+  outline: 2px solid var(--outline-blue-5);
+  outline-offset: 2px;
+}
+
+/* Instant feedback: a press is acknowledged on the same frame; page content eases in once. */
+[data-slot="button"]:not(:disabled):active { transform: translateY(0.5px) scale(0.985); }
+[data-slot="button"] { transition: transform var(--duration-fast, 120ms) var(--ease-standard, ease-out), background-color var(--duration-fast, 120ms), border-color var(--duration-fast, 120ms), box-shadow var(--duration-fast, 120ms); }
+[data-slot="app-shell-page-header"] ~ * { animation: brain-fade-in var(--duration-base, 160ms) var(--ease-standard, ease-out); }
+[data-slot="app-shell-page-header"] p { text-wrap: pretty; }
+
+/* The plan's decision bar: Confirm sits at the top of the plan area and follows you while you read the steps (desktop),
+   and sits at the thumb on phones (sticky bottom, safe-area aware). One primary action. */
+.brain-plan-actions {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  order: -1;
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2, 0.5rem) var(--spacing-4, 1rem);
+  padding: var(--spacing-3, 0.75rem) var(--spacing-4, 1rem);
+  border: 1px solid var(--outline-blue-3, var(--outline-gray-2));
+  border-radius: var(--radius-card);
+  background: var(--surface-blue-1, var(--surface-gray-1));
+  box-shadow: 0 6px 16px -10px rgb(0 0 0 / 0.35);
+}
+.brain-plan-actions-hint { display: inline-flex; min-width: 0; align-items: center; gap: 0.5rem; margin: 0; font-size: 0.875rem; color: var(--ink-gray-8); }
+.brain-plan-actions-buttons { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: var(--spacing-2, 0.5rem); }
+@media (max-width: 639px) {
+  .brain-plan-actions { top: auto; bottom: 0; order: 0; flex-direction: column; align-items: stretch; padding-bottom: calc(var(--spacing-3, 0.75rem) + env(safe-area-inset-bottom, 0px)); border-radius: var(--radius-card) var(--radius-card) 0 0; }
+  .brain-plan-actions-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .brain-plan-actions-buttons > * { width: 100%; }
+  .brain-plan-actions-buttons > .brain-plan-primary { grid-column: 1 / -1; }
+}
+
+/* Phone: every control is a 44 px target; nothing scrolls sideways. */
+@media (max-width: 639px) {
+  [data-slot="button"], [data-slot="select-control"], [data-slot="select-trigger"], [role="tab"], input:not([type="checkbox"], [type="radio"], [type="range"]) { min-height: 2.75rem; }
+  [data-slot="button"]:where([data-size="sm"], [data-size="xs"]) { min-height: 2.75rem; }
+  [data-slot="tab-trigger"], [data-slot="toggle-group-item"], header button { min-height: 2.75rem; min-width: 2.75rem; }
+  [data-slot="breadcrumbs"] a, [data-slot="breadcrumbs"] button { display: inline-flex; min-height: 2.75rem; align-items: center; }
+}
+
+/* Sections: a title row with a quiet description; the card edge is the only chrome. */
+.brain-section-header p, [data-slot="section"] > header p { color: var(--ink-gray-6); text-wrap: pretty; }
+
+/* Pages outside the app shell (shared result, sign-in, wallboard) sit on the same themed canvas as everything else. */
+body { background: var(--surface-canvas); color: var(--ink-gray-9); }

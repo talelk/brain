@@ -30,7 +30,7 @@ export function PlacementPanel(props: { explanation?: PlacementExplanation; erro
   const currentPage = () => Math.min(Math.max(1, page()), pageCount());
   const visibleRunners = () => runners().slice((currentPage() - 1) * PAGE_SIZE, currentPage() * PAGE_SIZE);
   return (
-    <Show when={explanation()} fallback={<Alert theme="gray" variant="outline" title="Placement not evaluated" description={props.error ?? "The Governor has not returned a placement for this run yet."} />}>
+    <Show when={explanation()} fallback={<Alert theme="gray" variant="outline" title="Placement not evaluated" description={props.error ?? "Brain has not returned a placement for this run yet."} />}>
       <div class="flex flex-col gap-field-gap">
         <KeyValue label="Primary reason" value={<Badge theme={statusTheme("placement", explanation()!.primaryReason)} label={explanation()!.primaryReason} />} />
         <p class="text-base text-ink-gray-8">{REASON_COPY[explanation()!.primaryReason] ?? explanation()!.primaryReason}</p>

@@ -81,7 +81,7 @@ export function LogFilters(props: {
       <Show when={!props.filters.session}>
         <span class="flex items-end gap-1">
           <TextInput class="w-56" label="Session scope" value={sessionDraft()}
-            placeholder="Scope by session id…"
+            placeholder="Paste a session reference…"
             onInput={(event) => setSessionDraft(event.currentTarget.value)}
             onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitSession(); } }} />
           <Button size="sm" variant="outline" theme="gray" disabled={!sessionDraft().trim()} onClick={commitSession}>Scope</Button>

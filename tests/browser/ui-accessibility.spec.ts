@@ -92,7 +92,7 @@ test("loading, no-access, stale, partial failure and retry states use real respo
 
   await page.route("**/v1/query", (route) => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "Injected read failure" }) }));
   await page.reload();
-  await expect(page.getByRole("alert").first()).toContainText("Governor could not complete this read");
+  await expect(page.getByRole("alert").first()).toContainText("Brain could not complete this read");
   await expect(page.getByRole("button", { name: "Try again", exact: true }).first()).toBeVisible();
   await page.unroute("**/v1/query");
 

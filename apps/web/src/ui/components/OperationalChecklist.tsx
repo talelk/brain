@@ -38,10 +38,10 @@ export function OperationalChecklist(props: { check?: ReturnType<typeof createRe
   return <WorkspaceSection title="Workspace and platform setup" description="Readiness is verified per prerequisite. Each action opens the owning flow instead of repeating a generic Resolve control.">
     <ScreenRegion state={check.state()} onRetry={() => void check.refresh()} emptyTitle="Readiness unavailable" emptyDescription="Select an accessible workspace.">
       <StatGrid compact stats={[
-        { label: "Ready checks", value: String(check.state().data?.checks.filter((item) => item.status === "ready").length ?? 0), hint: "Verified by Governor", icon: "lucide-circle-check" },
+        { label: "Ready checks", value: String(check.state().data?.checks.filter((item) => item.status === "ready").length ?? 0), hint: "Verified by Brain", icon: "lucide-circle-check" },
         { label: "Missing gates", value: String(check.state().data?.checks.filter((item) => item.status === "missing").length ?? 0), hint: "Setup cannot be called ready", icon: "lucide-circle-alert" },
         { label: "Unverified", value: String(check.state().data?.checks.filter((item) => item.status === "unverified").length ?? 0), hint: "Requires real verification", icon: "lucide-circle-help" },
-        { label: "Checked", value: <DateText value={check.state().data?.asOf} />, hint: "Governor observation time", icon: "lucide-clock-3" },
+        { label: "Checked", value: <DateText value={check.state().data?.asOf} />, hint: "Brain observation time", icon: "lucide-clock-3" },
       ]} />
       <For each={["Identity and workspace", "Supported model", "Runners", "Configuration release", "Workflow verification"]}>{(name) => {
         const items = () => (check.state().data?.checks ?? []).filter((item) => name === "Identity and workspace" ? !item.action : group(item) === name);

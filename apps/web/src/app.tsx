@@ -231,7 +231,7 @@ function RootLayout(props: RouteSectionProps): JSX.Element {
   const location = useLocation();
   const invitation = () => location.pathname.startsWith("/accept-invitation/") || location.pathname.startsWith("/shared/");
   return <Show when={app.ready()} fallback={
-    <main class="grid h-dvh place-items-center"><h1 class="text-heading">Keyrus Brain</h1><p role="status">Connecting to Governor…</p></main>}>
+    <main class="grid h-dvh place-items-center"><h1 class="text-heading">Keyrus Brain</h1><p role="status">Connecting to Brain…</p></main>}>
     <Show when={app.identity() || invitation()} fallback={<>
       <Show when={app.globalError()}><p role="alert" class="p-4">{app.globalError()}</p></Show>
       <Authentication setupRequired={app.setupRequired()} onAuthenticated={() => app.reloadIdentity()} />

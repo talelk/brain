@@ -69,7 +69,7 @@ export function SessionRail(props: {
         <span class={`absolute -end-0.5 -bottom-0.5 size-2.5 rounded-full ring-2 ring-surface-elevation-1 ${DOT[session.state] ?? DOT.stopped}`} />
       </span>
       <span class="min-w-0 flex-1">
-        <span class="block truncate text-caption font-medium text-ink-gray-9">{session.task || session.sessionId}</span>
+        <span class="block truncate text-caption font-medium text-ink-gray-9">{session.task || `${session.agentId ?? "Agent"} session`}</span>
         <span class="block truncate text-caption text-ink-gray-6">{[session.agentId, session.engine.id].filter(Boolean).join(" · ")}</span>
         <span class="mt-0.5 flex items-center gap-1.5 text-caption">
           <span class={`font-medium ${STATE_INK[session.state] ?? "text-ink-gray-6"}`}>{statusLabel(undefined, session.state)}</span>
@@ -119,7 +119,7 @@ export function SessionRail(props: {
               onClick={() => props.onOpenRun(job.jobId)}>
               <span class="grid size-7 shrink-0 place-items-center rounded-full bg-surface-gray-2 text-ink-gray-7" aria-hidden="true"><span class="lucide-workflow size-3.5" /></span>
               <span class="min-w-0 flex-1">
-                <span class="block truncate text-caption font-medium text-ink-gray-9">{job.workflowTitle ?? job.jobId}</span>
+                <span class="block truncate text-caption font-medium text-ink-gray-9">{job.workflowTitle ?? "Run"}</span>
                 <span class="block truncate text-caption text-ink-gray-6">{job.attempts.length} {job.attempts.length === 1 ? "attempt" : "attempts"}</span>
               </span>
               <StatusBadge kind="job" status={job.workflowState ?? job.state} />

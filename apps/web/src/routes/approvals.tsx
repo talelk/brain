@@ -19,6 +19,7 @@ import type { ApprovalIntent, ApprovalOutcome } from "../ui/approval-controller"
 import { ReasonDialog } from "../ui/components/ReasonDialog";
 import { DisclosureCard } from "../ui/components/primitives";
 import { QueueRow, WorkspaceSection } from "../ui/components/Domain";
+import { useApp } from "../ui/app-context";
 const workspaceLabel = (approval: ApprovalRequest) => approval.subject.workspaceId;
 const INBOX_PAGE_SIZE = 25;
 const isDecided = (state: string) => ["approved", "rejected", "revoked"].includes(state);
@@ -46,7 +47,7 @@ function ApprovalMix(props: { approvals: ApprovalRequest[] }): JSX.Element {
 /** Who asked and when it lapses, one line. */
 function AskLine(props: { approval: ApprovalRequest; asOf?: string }): JSX.Element {
   return <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-interface text-ink-gray-7">
-    <span>Asked by {props.approval.requestedBy}</span>
+    <span>Asked by {useApp().personName(props.approval.requestedBy)}</span>
     <Show when={props.approval.state === "pending"} fallback={<span>Expiry <DateText value={props.approval.subject.expiresAt} asOf={props.asOf} /></span>}>
       <ExpiryCountdown expiresAt={props.approval.subject.expiresAt} asOf={props.asOf} />
     </Show>
@@ -78,7 +79,7 @@ function ApprovalFacts(props: { approval: ApprovalRequest; asOf?: string }): JSX
     <Fact label="Current record" value={`Version ${props.approval.version}`} />
     <Fact label="Expires" value={<DateText value={props.approval.subject.expiresAt} asOf={props.asOf} />} wide class="md:col-span-1" />
     <Fact label="Target / environment" value={`${effect().target} / ${effect().environment ?? "No environment declared"}`} wide />
-    <Fact label="Requester" value={props.approval.requestedBy} wide />
+    <Fact label="Requester" value={useApp().personName(props.approval.requestedBy)} wide />
   </dl>;
 }
 
@@ -94,6 +95,7 @@ export function ApprovalsScreen(props: {
   submitDecision: (intent: ApprovalIntent, stepUpEvidenceId: string) => Promise<ApprovalOutcome>;
   checkDecision: (intent: ApprovalIntent) => Promise<ApprovalOutcome>;
 }): JSX.Element {
+  const app = useApp();
   const [query, setQuery] = createSignal("");
   const [view, setView] = createSignal("pending");
   const [selected, setSelected] = createSignal<string>();
@@ -126,7 +128,7 @@ export function ApprovalsScreen(props: {
             <div class="brain-queue"><For each={paged()}>{(approval) => {
               const effect = effectParts(approval);
               return <QueueRow label={`Review: ${approval.approvalId}`} title={`${effect.operation} on ${effect.target}`}
-                description={`By ${approval.requestedBy} · ${workspaceLabel(approval)}`}
+                description={`By ${app.personName(approval.requestedBy)} · ${workspaceLabel(approval)}`}
                 icon="lucide-shield-check" tone={approval.state === "pending" ? "amber" : "gray"} selected={current()?.approvalId === approval.approvalId}
                 eyebrow="Exact effect review" meta={approval.state === "pending" ? <ExpiryCountdown expiresAt={approval.subject.expiresAt} asOf={props.asOf} /> : <span>Expiry <RelativeTime value={approval.subject.expiresAt} /></span>}
                 trailing={<StatusBadge kind="approval" status={approval.state} />} onClick={() => setSelected(approval.approvalId)} />;
@@ -146,7 +148,7 @@ export function ApprovalsScreen(props: {
               <div class="mt-1"><AskLine approval={approval} asOf={props.asOf} /></div>
             </div>
             <div class="flex min-w-0 flex-wrap items-center gap-2"><ApprovalReview active={props.active} requireTwoFactor={props.requireTwoFactor} approvalId={approval.approvalId}
-              summary={dialogSummary(approval)} requestedBy={approval.requestedBy} expiresAt={approval.subject.expiresAt} asOf={props.asOf}
+              summary={dialogSummary(approval)} requestedBy={app.personName(approval.requestedBy)} expiresAt={approval.subject.expiresAt} asOf={props.asOf}
               targetLabel={`${effect.operation} on ${effect.target}`} exactContent={exactJson(approval)} subjectDigest={approval.subjectDigest} version={approval.version}
               fresh={props.state.canMutate && approval.state === "pending" && isFreshFromServer(approval.subject.expiresAt, props.state.asOf ?? props.asOf)}
               createIdempotencyKey={() => `web-${crypto.randomUUID()}`} verifyIdentity={props.verifyIdentity} submitDecision={props.submitDecision} checkDecision={props.checkDecision} />
@@ -176,6 +178,7 @@ export function ApprovalDetailScreen(props: {
   submitDecision: (intent: ApprovalIntent, stepUpEvidenceId: string) => Promise<ApprovalOutcome>;
   checkDecision: (intent: ApprovalIntent) => Promise<ApprovalOutcome>;
 }): JSX.Element {
+  const app = useApp();
   const [revokeReason, setRevokeReason] = createSignal("");
   const [revokeOpen, setRevokeOpen] = createSignal(false);
   const approval = () => props.approval;
@@ -197,7 +200,7 @@ export function ApprovalDetailScreen(props: {
         <Show when={approval()?.state === "expired"}><Alert theme="amber" variant="outline" title="This proposal expired" description="No new decision can be recorded. Ask the requester for a new exact proposal with a fresh expiry." /></Show>
         <div class="flex min-w-0 flex-wrap items-center gap-3">
           <ApprovalReview requireTwoFactor={props.requireTwoFactor} active={props.active} approvalId={approval()?.approvalId ?? ""} targetLabel={`${effect().operation} on ${effect().target}`}
-            summary={dialogSummary(approval())} requestedBy={approval()?.requestedBy} expiresAt={approval()?.subject.expiresAt} asOf={props.asOf}
+            summary={dialogSummary(approval())} requestedBy={approval() ? app.personName(approval()!.requestedBy) : undefined} expiresAt={approval()?.subject.expiresAt} asOf={props.asOf}
             exactContent={exactJson(approval())} subjectDigest={approval()?.subjectDigest ?? ""} version={approval()?.version ?? 0} fresh={fresh()}
             createIdempotencyKey={() => `web-${crypto.randomUUID()}`} verifyIdentity={props.verifyIdentity} submitDecision={props.submitDecision} checkDecision={props.checkDecision} />
           <p class="min-w-0 text-caption text-ink-gray-6">Approve, reject or request changes in the review. If the response is lost, check the original decision; never dispatch a new effect to recover it.</p>
@@ -215,7 +218,7 @@ export function ApprovalDetailScreen(props: {
             <WorkspaceSection title="Decision history" description="The audit trail remains distinct from the current effect state.">
               <Show when={props.history.length} fallback={<p class="text-interface text-ink-gray-7">No prior decisions recorded for this approval.</p>}>
                 <ol class="min-w-0 divide-y divide-outline-gray-1 border-y border-outline-gray-1"><For each={props.history}>{(entry) => <li class="grid min-w-0 gap-1 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-baseline sm:gap-4">
-                  <div class="min-w-0"><p class="break-words [overflow-wrap:anywhere] text-interface font-medium text-ink-gray-9">{entry.action}</p><p class="mt-0.5 break-words [overflow-wrap:anywhere] text-caption text-ink-gray-6">{entry.actorId}</p></div>
+                  <div class="min-w-0"><p class="break-words [overflow-wrap:anywhere] text-interface font-medium text-ink-gray-9">{entry.action}</p><p class="mt-0.5 break-words [overflow-wrap:anywhere] text-caption text-ink-gray-6">{app.personName(entry.actorId)}</p></div>
                   <div class="text-caption text-ink-gray-6 sm:text-end"><DateText value={entry.occurredAt} /></div>
                 </li>}</For></ol>
               </Show>

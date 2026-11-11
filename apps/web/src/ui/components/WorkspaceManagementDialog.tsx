@@ -112,7 +112,7 @@ export function WorkspaceManagementDialog(props: {
         </section>
       </div>
       <Show when={error()}><Alert theme="red" variant="outline" title="Workspace action failed" description={error()} /></Show>
-      <Show when={message()}><Alert theme="green" variant="outline" title="Governor confirmed" description={message()} /></Show>
+      <Show when={message()}><Alert theme="green" variant="outline" title="Brain confirmed" description={message()} /></Show>
       <Dialog.Footer class="justify-end"><Button variant="outline" onClick={props.onClose}>Close</Button></Dialog.Footer>
     </Dialog.Content></Dialog.Root>
     <ReasonDialog open={Boolean(operation())} onClose={() => { setOperation(undefined); setReason(""); }} title={operationTitle()} description={operationDescription()} reason={reason()} onReason={setReason} reasonLabel="Operations reason" confirmLabel={operationTitle()} tone={operation() === "archive" ? "red" : "blue"} onConfirm={(value) => { const action = operation(); if (action) void control(action, value); }} />

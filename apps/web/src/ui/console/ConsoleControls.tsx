@@ -79,11 +79,11 @@ export function ConsoleToolbar(props: {
         <span class="grid size-8 shrink-0 place-items-center rounded-full bg-surface-blue-2 text-ink-blue-8" aria-hidden="true"><span class="lucide-bot size-4" /></span>
         <div class="min-w-0">
           <div class="flex min-w-0 items-center gap-2">
-            <h2 class="min-w-0 truncate text-base-medium text-ink-gray-9" title={session()?.task || props.sessionId}>{session()?.task || props.sessionId}</h2>
+            <h2 class="min-w-0 truncate text-base-medium text-ink-gray-9" title={session()?.task || props.sessionId}>{session()?.task || `${session()?.agentId ?? "Agent"} session`}</h2>
             <StatusBadge status={session()?.state ?? "unknown"} />
           </div>
-          <p class="truncate text-caption text-ink-gray-6" title={`${props.sessionId} · engine negotiation decides which controls exist`}>
-            {[session()?.agentId, session()?.engine.id ?? "engine unavailable"].filter(Boolean).join(" · ")}<Show when={features().length > 0}> ({features().join(", ")})</Show> · <span class="brain-exec-log text-[0.75rem]">{props.sessionId}</span>
+          <p class="truncate text-caption text-ink-gray-6" title="The engine decides which controls exist">
+            {[session()?.agentId, session()?.engine.id ?? "engine unavailable"].filter(Boolean).join(" · ")}<Show when={features().length > 0}> ({features().join(", ")})</Show>
           </p>
         </div>
       </div>

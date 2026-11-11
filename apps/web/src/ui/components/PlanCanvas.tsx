@@ -204,12 +204,15 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
           <Textarea label="Acceptance criteria" value={task.criteria.join("\n")} onInput={(event) => updateTask(index(), "criteria", event.currentTarget.value)} />
         </section>}</For>
       </FormSheet>
-      <Show when={!confirmedQuiet()}><div class="flex flex-wrap items-center gap-2 border-t border-outline-gray-1 pt-4">
-        <Show when={canConfirm()}><Button variant="solid" theme="blue" iconLeft="lucide-check-check" loading={busy()} disabled={busy() || !editedTasks().length} onClick={() => void confirm()}>Confirm this plan</Button></Show>
-        <Button variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => setEditOpen(true)}>Edit steps</Button>
-        <Show when={dirty()}><Button variant="ghost" iconLeft="lucide-undo-2" onClick={() => { setDirty(false); setEditedTasks(plan.tasks.map((task) => ({ ...task, criteria: [...task.criteria], dependsOn: [...task.dependsOn] }))); }}>Reset edits</Button></Show>
-        <Show when={plan.state === "proposed"}><Button variant="ghost" theme="red" iconLeft="lucide-x" disabled={busy()} onClick={() => { setRejectReason(""); setRejectOpen(true); }}>Reject this proposal</Button></Show>
-      </div></Show>
+      <Show when={!confirmedQuiet()}><section class="brain-plan-actions" aria-label="Plan decision">
+        <p class="brain-plan-actions-hint"><span class="lucide-shield-check size-4 shrink-0" aria-hidden="true" /><span>{editedTasks().length} {editedTasks().length === 1 ? "step" : "steps"} · nothing runs until you confirm</span></p>
+        <div class="brain-plan-actions-buttons">
+          <Show when={canConfirm()}><Button class="brain-plan-primary" variant="solid" theme="blue" iconLeft="lucide-check-check" loading={busy()} disabled={busy() || !editedTasks().length} onClick={() => void confirm()}>Confirm this plan</Button></Show>
+          <Button variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => setEditOpen(true)}>Edit steps</Button>
+          <Show when={dirty()}><Button variant="ghost" iconLeft="lucide-undo-2" onClick={() => { setDirty(false); setEditedTasks(plan.tasks.map((task) => ({ ...task, criteria: [...task.criteria], dependsOn: [...task.dependsOn] }))); }}>Reset edits</Button></Show>
+          <Show when={plan.state === "proposed"}><Button variant="ghost" theme="red" iconLeft="lucide-x" disabled={busy()} onClick={() => { setRejectReason(""); setRejectOpen(true); }}>Reject this proposal</Button></Show>
+        </div>
+      </section></Show>
       <ReasonDialog open={rejectOpen()} onClose={() => setRejectOpen(false)} title="Reject this proposal" description="The proposal is kept in history. The mission continues on its last confirmed plan." reason={rejectReason()} onReason={setRejectReason}
         reasonLabel="Rejection reason" confirmLabel="Reject proposal" tone="red" busy={busy()} onConfirm={() => void reject(plan.planVersionId)} />
       <Show when={!confirmedQuiet()}><TechnicalDetails label="Plan version"><p class="break-all">{plan.planVersionId} · digest {plan.digest} · origin {plan.origin}</p></TechnicalDetails></Show>

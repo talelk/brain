@@ -35,6 +35,8 @@ export interface AppContextValue {
   readonly canAdminister: Accessor<boolean>;
   readonly canApprove: Accessor<boolean>;
   readonly canPublish: Accessor<boolean>;
+  /** A person's friendly name for an actor id: "you", their display name, or "a teammate" — never the raw id. */
+  personName: (actorId: string | undefined) => string;
   selectWorkspace: (workspaceId: string) => void;
   start: () => Promise<void>;
   reloadIdentity: () => Promise<void>;
@@ -138,7 +140,7 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
         }
       }
     } catch (e) {
-      setGlobalError(e instanceof Error ? e.message : "Governor is unavailable.");
+      setGlobalError(e instanceof Error ? e.message : "Brain is unavailable.");
     } finally { setReady(true); }
   }
 
@@ -154,7 +156,7 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
     setIdentity(null);
     setWorkspaceId("");
     try { await governor("/api/auth/sign-out", {}); setGlobalError(""); }
-    catch { setGlobalError("Sign-out could not be confirmed. Retry when Governor is available."); }
+    catch { setGlobalError("Sign-out could not be confirmed. Retry when Brain is available."); }
   }
 
   async function run<K extends CommandKind>(
@@ -174,7 +176,7 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
       detail: receipt.accepted
         ? receipt.outcome === "pending-approval" ? "Recorded — this effect needs an approval before it runs."
           : receipt.outcome === "applied" ? "Applied." : "Queued for execution."
-        : (receipt as { error?: { detail: string } }).error?.detail ?? "the Governor refused this request",
+        : (receipt as { error?: { detail: string } }).error?.detail ?? "Brain refused this request",
       resourceId: receipt.resourceId,
     };
   }
@@ -216,6 +218,12 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
     canAdminister: () => identity()?.actor.kind === "human" && (myRoles().includes("workspace-lead") || Boolean(identity()?.actor.scopes.includes("config:activate"))),
     canApprove: () => identity()?.actor.kind === "human" && hasRole("approver"),
     canPublish: () => identity()?.actor.kind === "human" && hasRole("operator"),
+    personName: (actorId) => {
+      if (!actorId) return "someone";
+      if (actorId === identity()?.actor.actorId) return "you";
+      const member = (members.state().data ?? []).find((m) => m.principalId === actorId);
+      return member?.displayName ?? "a teammate";
+    },
     selectWorkspace, start, reloadIdentity, signOut, run,
     verifyIdentity, submitDecision, checkDecision,
     useMembers: () => ({ state: members.state, refresh: members.refresh }),

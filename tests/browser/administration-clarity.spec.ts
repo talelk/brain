@@ -10,7 +10,7 @@ test("administration pages open with a plain verdict, honest status and who-can-
   await page.getByRole("button", { name: "Create organization", exact: true }).click();
   await page.getByLabel("Display name").fill("Clarity workspace");
   await page.getByRole("button", { name: "Create workspace", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Missions", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
 
   await page.goto(`${governor.url}/administration/workspaces`);
   await expect(page.getByRole("heading", { name: "Workspaces", exact: true, level: 1 })).toBeVisible();

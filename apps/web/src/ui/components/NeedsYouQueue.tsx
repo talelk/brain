@@ -45,12 +45,12 @@ function ApprovalBody(props: { item: AttentionItem; onReviewOpen: (open: boolean
     return <div class="flex min-w-0 flex-col gap-2">
       <p class="m-0 break-words text-interface text-ink-gray-9">{plainSentence(approval())}</p>
       <p class="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-ink-gray-7">
-        <span>Asked by {approval().requestedBy}</span><ExpiryCountdown expiresAt={approval().subject.expiresAt} asOf={view().asOf} />
+        <span>Asked by {app.personName(approval().requestedBy)}</span><ExpiryCountdown expiresAt={approval().subject.expiresAt} asOf={view().asOf} />
         <DigestValue value={approval().subjectDigest} label="Subject digest" />
       </p>
       <div class="flex flex-wrap items-center gap-2">
         <ApprovalReview active={app.canApprove()} requireTwoFactor={app.identity()?.requireTwoFactor} approvalId={approval().approvalId}
-          summary={dialogSummary(approval())} requestedBy={approval().requestedBy} expiresAt={approval().subject.expiresAt} asOf={view().asOf}
+          summary={dialogSummary(approval())} requestedBy={app.personName(approval().requestedBy)} expiresAt={approval().subject.expiresAt} asOf={view().asOf}
           targetLabel={`${effect().operation} on ${effect().target}`} exactContent={exactJson(approval())} subjectDigest={approval().subjectDigest} version={approval().version}
           fresh={approval().state === "pending" && isFreshFromServer(approval().subject.expiresAt, view().asOf)}
           createIdempotencyKey={() => `web-${crypto.randomUUID()}`} verifyIdentity={app.verifyIdentity} submitDecision={app.submitDecision} checkDecision={app.checkDecision}

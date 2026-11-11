@@ -45,7 +45,7 @@ export default function TodayPage(): JSX.Element {
       {/* Anything that blocks work leads the page (the box stays one scroll away); an empty queue leaves the box first. */}
       <Show when={waitingItems().length}>
         <PlainSummary icon={blockingCount(items()) ? "lucide-bell-ring" : "lucide-circle-check"}>{summary()}</PlainSummary>
-        <WorkspaceSection title="Needs you" description="Approvals and decisions that block work, in fixed order: approvals first, then stopped missions, plans, parked work and verdicts. Decide each one here.">
+        <WorkspaceSection title="Needs you" description="Decisions that block work, approvals first. Decide each one right here.">
           <NeedsYouQueue items={waitingItems()} missions={start.missions.state().data ?? []} onChanged={changed} />
         </WorkspaceSection>
       </Show>

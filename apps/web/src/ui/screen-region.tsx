@@ -61,8 +61,8 @@ export function ScreenRegion<T>(props: {
       error={
         state().status === "ready" || state().status === "stale" || state().status === "partial-failure" ? undefined
           : state().status === "no-access" ? <>Your account no longer has access to this content, so it was cleared from this view. Ask a workspace lead if you need it restored.</>
-            : state().status === "offline" ? <>Governor is unreachable while you are offline. {state().error ?? ""}</>
-              : state().status === "retry" ? <>Governor could not complete this read. {state().error ?? ""}</>
+            : state().status === "offline" ? <>Brain cannot be reached right now. {state().error ?? ""}</>
+              : state().status === "retry" ? <>Brain could not complete this read. {state().error ?? ""}</>
                 : <span/>
       }
       onRetry={state().status === "retry" || state().status === "offline" ? props.onRetry : undefined}
@@ -74,7 +74,7 @@ export function ScreenRegion<T>(props: {
         </Show>
         <Show when={state().status === "stale"}>
           {/* Failure retains the last authorized snapshot, but says so. */}
-          <Alert theme="amber" variant="outline" title="Showing the last authorized result" description="The Governor could not be reached, so this data may be out of date. Effect actions are disabled until it is reachable again." />
+          <Alert theme="amber" variant="outline" title="Showing the last authorized result" description="Brain could not be reached, so this data may be out of date. Effect actions are disabled until it is reachable again." />
         </Show>
         {props.children}
       </div>

@@ -38,7 +38,7 @@ export function RunnerDetailScreen(props: {
     ({
       drain: `Prevent new assignments while ${runner()?.activeAttemptIds.length ?? 0} active attempts continue.`,
       quarantine: "Request stop and credential revocation in addition to refusing new assignments. Completion waits for supervisor acknowledgement.",
-      enable: "Governor rechecks the current heartbeat, health and a fresh verified capability before permitting new assignments.",
+      enable: "Brain rechecks the current heartbeat, health and a fresh verified capability before permitting new assignments.",
       disable: "Stop future scheduling without deleting runner history. Current attempt outcomes remain explicit.",
       rotate: "Revoke the current identity and sessions, then issue a one-use replacement enrollment token. Active attempts must be finished first.",
       deregister: "Retire this identity from the active fleet after all attempts and unresolved effects are handled. History remains available by deep link.",

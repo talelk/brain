@@ -10,7 +10,7 @@ test("admin invites a person, gets a link to share, and sees clear failures and 
   await page.getByLabel(/^Email/).fill("owner@example.test");
   await page.getByLabel(/^Password/).fill("owner-password-1234");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Missions", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
 
   await page.goto(`${governor.url}/settings?tab=people`);
   await page.getByRole("button", { name: "Invite person" }).click();
