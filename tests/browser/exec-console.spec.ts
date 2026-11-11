@@ -209,7 +209,7 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   // Each task leads with one Result; its other files sit under a collapsed "Technical files" toggle.
   await expect(page.getByTestId("output-task").first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("output-technical").first()).not.toHaveAttribute("open", "");
-  await page.getByTestId("output-technical").evaluateAll((nodes) => nodes.forEach((node) => ((node as HTMLDetailsElement).open = true)));
+  await page.getByTestId("output-technical").evaluateAll((nodes) => { for (const node of nodes) (node as HTMLDetailsElement).open = true; });
   await page.getByRole("checkbox", { name: "Select art-out-v1.md" }).check({ timeout: 30_000 });
   await page.getByRole("checkbox", { name: "Select art-out-v2.md" }).check();
   // Each file card says how long ago it was produced.
@@ -220,7 +220,7 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   await selection.getByRole("button", { name: "Save as knowledge", exact: true }).click();
   await expect(page.getByText(/Saved to knowledge 2 items\./)).toBeVisible({ timeout: 30_000 });
   // The bulk action cleared the ticks, so the Technical files toggle folded again; open it to tick them once more.
-  await page.getByTestId("output-technical").evaluateAll((nodes) => nodes.forEach((node) => ((node as HTMLDetailsElement).open = true)));
+  await page.getByTestId("output-technical").evaluateAll((nodes) => { for (const node of nodes) (node as HTMLDetailsElement).open = true; });
   await page.getByRole("checkbox", { name: "Select art-out-v1.md" }).check();
   await page.getByRole("checkbox", { name: "Select art-out-v2.md" }).check();
   await expect(selection).toContainText("2 selected");
