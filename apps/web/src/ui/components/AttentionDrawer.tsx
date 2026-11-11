@@ -22,6 +22,7 @@ export const KIND_ICON: Record<AttentionItem["kind"], string> = {
 /** Where an attention item is acted on: the approval review or the mission view that owns it. */
 export function attentionHref(item: AttentionItem): string {
   if (item.kind === "approval") return `/approvals/${item.resourceId}`;
+  if (item.kind === "result-ready" && item.knowledgeAssetId) return `/w/${encodeURIComponent(item.workspaceId)}/knowledge/review?asset=${encodeURIComponent(item.knowledgeAssetId)}`;
   if (item.kind === "outcome-unknown" && !item.missionId) return `/runs/${encodeURIComponent(item.resourceId)}`;
   if (item.kind === "schedule-failed" && !item.missionId) return `/w/${encodeURIComponent(item.workspaceId)}/schedules`;
   const tab = item.kind === "result-ready" ? "outputs" : item.kind === "plan-proposal" || item.kind === "parked" || item.kind === "needs-attention" || item.kind === "outcome-unknown" ? "plan" : item.kind === "routed" ? "live" : "brief";

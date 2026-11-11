@@ -22366,7 +22366,10 @@
           },
           "maxItems": 4
         },
-        "safeToRetry": {
+"knowledgeAssetId": {
+          "$ref": "#/$defs/Id"
+        },
+                "safeToRetry": {
           "type": "boolean"
         },
         "version": {

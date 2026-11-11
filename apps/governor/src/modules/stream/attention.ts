@@ -77,7 +77,10 @@ export function attentionItems(store: Store, organizationId: string, workspaceId
     }
     const since = store.now() - RESULT_READY_WINDOW_MS;
     for (const row of db.prepare("SELECT id, title, updated_at_ms FROM missions WHERE state='closed' AND outcome='achieved' AND updated_at_ms>?").all(since) as Array<{ id: string; title: string; updated_at_ms: number }>) {
-      items.push({ id: `result:${row.id}`, workspaceId, missionId: row.id, kind: "result-ready", tier: 6, title: `Result ready: ${row.title}`, resourceId: row.id, waitingSince: iso(row.updated_at_ms) });
+      // Once the mission's write-up is in the Library (or waiting in the Review inbox) the announcement links to that item.
+      const writeup = db.prepare("SELECT id, state FROM knowledge_assets WHERE mission_id=? AND operation_id='mission-knowledge' AND superseded_by IS NULL AND rejection_reason IS NULL AND state IN ('extracted','published') ORDER BY created_at_ms DESC LIMIT 1").get(row.id) as { id: string; state: string } | undefined;
+      items.push({ id: `result:${row.id}`, workspaceId, missionId: row.id, kind: "result-ready", tier: 6, title: `Result ready: ${row.title}`,
+        ...(writeup ? { detail: writeup.state === "published" ? "Its write-up is saved to the Library." : "Its write-up is waiting in the Review inbox.", knowledgeAssetId: writeup.id } : {}), resourceId: row.id, waitingSince: iso(row.updated_at_ms) });
     }
     for (const row of db.prepare(`SELECT w.id, w.mission_id, w.title, w.updated_at_ms FROM work_items w JOIN missions m ON m.id=w.mission_id
       WHERE w.state='done' AND m.state!='closed' AND w.updated_at_ms>?`).all(since) as Array<{ id: string; mission_id: string; title: string; updated_at_ms: number }>) {

@@ -36,6 +36,12 @@ export interface OperationObservationInput {
   readonly verified: boolean;
 }
 
+/** Knowledge the Review inbox decides: a finished mission's write-up, or a document a person (or Brain) saved. */
+const REVIEWABLE: readonly string[] = ["mission-knowledge", "saved-document"];
+/** The most of a saved document's text that is proposed (and published) as knowledge. */
+const SAVED_DOCUMENT_CHARS = 20_000;
+const REMOVED_NOTE = "The document was removed";
+
 type AssetRow = {
   id: string; signature: string; operation_id: string; state: KnowledgeAsset["state"];
   classification: KnowledgeAsset["classification"]; content: string; source_count: number;
@@ -258,6 +264,7 @@ export class CapitalizationService {
         }
       }
       // A finished run may have left a verified write-up that publishes itself (row 47); a crash between the two is repaired by the next pass.
+      try { this.syncSavedDocuments(workspace.organization_id, workspace.id); } catch { /* the next pass tries again */ }
       try { this.autoPublishSweep(workspace.organization_id, workspace.id); } catch { /* the inbox keeps it */ }
     }
     return { processed, failed };
@@ -400,7 +407,7 @@ export class CapitalizationService {
     const reason = String(payload["reason"] ?? "").trim();
     const asset = db.prepare("SELECT * FROM knowledge_assets WHERE id=?").get(assetId) as AssetRow | undefined;
     if (!asset) throw new BrainDomainError("NOT_FOUND", "knowledge asset not found");
-    if (asset.operation_id !== "mission-knowledge") throw new BrainDomainError("CONFLICT", "only proposed knowledge from a closed mission is reviewed here");
+    if (!REVIEWABLE.includes(asset.operation_id)) throw new BrainDomainError("CONFLICT", "only proposed knowledge from a closed mission or a saved document is reviewed here");
     if (decision === "reject") {
       if (asset.state !== "extracted") throw new BrainDomainError("CONFLICT", `a ${asset.state} knowledge asset cannot be rejected`);
       db.prepare("UPDATE knowledge_assets SET rejection_reason=?,updated_at_ms=? WHERE id=?").run(reason.slice(0, 512), this.store.now(), assetId);
@@ -461,7 +468,7 @@ export class CapitalizationService {
   private approveVerified(actor: ActorContext, workspaceId: string): string {
     if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only a person reviews knowledge");
     const db = this.store.workspaceDb(workspaceId, actor.organizationId);
-    const waiting = db.prepare("SELECT id FROM knowledge_assets WHERE operation_id='mission-knowledge' AND state='extracted' AND rejection_reason IS NULL AND superseded_by IS NULL ORDER BY created_at_ms, id").all() as Array<{ id: string }>;
+    const waiting = db.prepare("SELECT id FROM knowledge_assets WHERE operation_id IN ('mission-knowledge','saved-document') AND state='extracted' AND rejection_reason IS NULL AND superseded_by IS NULL ORDER BY created_at_ms, id").all() as Array<{ id: string }>;
     for (const row of waiting) {
       try { this.reviewKnowledge(actor, workspaceId, { assetId: row.id, decision: "approve", reason: "Approved with all verified write-ups" }); } catch { /* left in the inbox with its own reason on the next look */ }
     }
@@ -479,19 +486,19 @@ export class CapitalizationService {
   autoPublishSweep(organizationId: string, workspaceId: string): number {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     if (!this.autoPublishOn(db)) return 0;
-    const waiting = db.prepare("SELECT * FROM knowledge_assets WHERE operation_id='mission-knowledge' AND state='extracted' AND rejection_reason IS NULL AND superseded_by IS NULL AND mission_id IS NOT NULL ORDER BY created_at_ms, id").all() as AssetRow[];
+    const waiting = db.prepare("SELECT * FROM knowledge_assets WHERE operation_id IN ('mission-knowledge','saved-document') AND state='extracted' AND rejection_reason IS NULL AND superseded_by IS NULL AND (mission_id IS NOT NULL OR operation_id='saved-document') ORDER BY created_at_ms, id").all() as AssetRow[];
     let published = 0;
     for (const listed of waiting) {
       try {
         // Earlier rows of this pass may have changed this one (superseded, set aside): read it again before acting.
         let asset = db.prepare("SELECT * FROM knowledge_assets WHERE id=?").get(listed.id) as AssetRow;
         if (asset.state !== "extracted" || asset.rejection_reason || asset.superseded_by) continue;
-        const newer = this.newerSameGoal(db, asset);
+        const newer = asset.operation_id === "mission-knowledge" ? this.newerSameGoal(db, asset) : undefined;
         if (newer) {
           db.prepare("UPDATE knowledge_assets SET superseded_by=?,rejection_reason='Replaced by a newer write-up of the same goal',updated_at_ms=? WHERE id=?").run(newer, this.store.now(), asset.id);
           continue;
         }
-        if (!asset.content.includes("Claim basis: [verified")) {
+        if (asset.operation_id === "mission-knowledge" && !asset.content.includes("Claim basis: [verified")) {
           const rebuilt = this.writeupOf(db, asset.mission_id!);
           if (!rebuilt || rebuilt.writeup.skipped) {
             db.prepare("UPDATE knowledge_assets SET rejection_reason=?,updated_at_ms=? WHERE id=?").run(`Not kept: ${rebuilt?.writeup.skipped ?? "the mission is no longer a verified, achieved one"}`.slice(0, 512), this.store.now(), asset.id);
@@ -505,7 +512,7 @@ export class CapitalizationService {
         if (!producer || !this.isActivePerson(organizationId, workspaceId, producer)) continue;
         if (this.otherReviewers(organizationId, workspaceId, producer).length > 0) continue;
         if (looksLikeSecret(asset.content) || looksLikeSecret(asset.title)) {
-          db.prepare("UPDATE knowledge_assets SET rejection_reason=?,updated_at_ms=? WHERE id=?").run("Left for a person: the write-up appears to contain a secret", this.store.now(), asset.id);
+          db.prepare("UPDATE knowledge_assets SET rejection_reason=?,updated_at_ms=? WHERE id=?").run("Left for a person: the text appears to contain a secret", this.store.now(), asset.id);
           continue;
         }
         this.publishAsset(organizationId, workspaceId, asset, producer, true, true);
@@ -513,6 +520,60 @@ export class CapitalizationService {
       } catch { /* stays in the inbox; the next pass tries again */ }
     }
     return published;
+  }
+
+  /**
+   * Saved documents become reviewable (row 55). Every readable, active document version that was saved to the workspace is proposed
+   * once as a "saved document" asset in the Review inbox; a person approves it (or says Not now) like a write-up. A document saved by a
+   * person on a one-person install publishes itself under ADR 0007 (the sweep above); one saved by Brain or by an agent waits for a
+   * person. A newer version of the document, or removing it, takes the older proposal out of the inbox and out of search.
+   */
+  syncSavedDocuments(organizationId: string, workspaceId: string): number {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    const now = this.store.now();
+    let created = 0;
+    const docs = db.prepare(`SELECT d.id, d.title, v.id AS version_id, v.digest, v.extracted_text, v.created_by FROM documents d JOIN document_versions v ON v.id=d.current_version_id
+      WHERE d.state='active' AND v.extraction_status='ready' AND v.extracted_text IS NOT NULL ORDER BY d.created_at_ms, d.id LIMIT 500`).all() as Array<{ id: string; title: string; version_id: string; digest: string; extracted_text: string; created_by: string }>;
+    for (const doc of docs) {
+      const text = doc.extracted_text.trim();
+      if (!text) continue;
+      const signature = domainDigest("brain:saved-document:v1", { documentId: doc.id, versionId: doc.version_id });
+      const id = digestId("knowledge", signature);
+      const inserted = db.prepare(`INSERT OR IGNORE INTO knowledge_assets(id,signature,operation_id,state,classification,content,source_count,title,mission_id,producer_id,provenance_json,created_at_ms,updated_at_ms)
+        VALUES (?,?, 'saved-document', 'extracted', 'internal', ?, 1, ?, NULL, ?, ?, ?, ?)`)
+        .run(id, signature, text.slice(0, SAVED_DOCUMENT_CHARS), doc.title.slice(0, 256), doc.created_by, JSON.stringify([{ rootRunId: doc.id, evidenceDigest: doc.digest }]), now, now);
+      if (Number(inserted.changes) > 0) {
+        created++;
+        this.supersedeDocumentAssets(organizationId, workspaceId, db, doc.id, id, "Replaced by a newer version of the document", now);
+      }
+    }
+    // A removed document leaves the inbox and search with it.
+    const live = db.prepare(`SELECT a.id, a.state, json_extract(a.provenance_json,'$[0].rootRunId') AS document_id FROM knowledge_assets a
+      WHERE a.operation_id='saved-document' AND a.superseded_by IS NULL AND a.state IN ('extracted','reviewed','published') AND (a.rejection_reason IS NULL OR a.rejection_reason<>?)`).all(REMOVED_NOTE) as Array<{ id: string; state: string; document_id: string }>;
+    for (const row of live) {
+      if (db.prepare("SELECT 1 FROM documents WHERE id=? AND state='active'").get(row.document_id)) continue;
+      if (row.state === "published") {
+        this.ports.memory.revoke(organizationId, workspaceId, row.id);
+        db.prepare("UPDATE knowledge_assets SET state='revoked',rejection_reason=?,updated_at_ms=? WHERE id=?").run(REMOVED_NOTE, now, row.id);
+        this.ports.reuse.unindex(organizationId, workspaceId, `knowledge:${row.id}`);
+      } else db.prepare("UPDATE knowledge_assets SET rejection_reason=?,updated_at_ms=? WHERE id=?").run(REMOVED_NOTE, now, row.id);
+    }
+    return created;
+  }
+
+  /** Takes every other live proposal of the same document out of the inbox (and out of search when it was published). Nothing is deleted. */
+  private supersedeDocumentAssets(organizationId: string, workspaceId: string, db: ReturnType<Store["workspaceDb"]>, documentId: string, keepId: string, reason: string, now: number): void {
+    const older = db.prepare(`SELECT id, state FROM knowledge_assets WHERE operation_id='saved-document' AND superseded_by IS NULL AND state IN ('extracted','reviewed','published')
+      AND json_extract(provenance_json,'$[0].rootRunId')=? AND id<>?`).all(documentId, keepId) as Array<{ id: string; state: string }>;
+    for (const row of older) {
+      if (row.state === "published") {
+        this.ports.memory.revoke(organizationId, workspaceId, row.id);
+        db.prepare("UPDATE knowledge_assets SET state='revoked',superseded_by=?,rejection_reason=?,updated_at_ms=? WHERE id=?").run(keepId, reason, now, row.id);
+        this.ports.reuse.unindex(organizationId, workspaceId, `knowledge:${row.id}`);
+      } else {
+        db.prepare("UPDATE knowledge_assets SET superseded_by=?,rejection_reason=?,updated_at_ms=? WHERE id=?").run(keepId, reason, now, row.id);
+      }
+    }
   }
 
   private isActivePerson(organizationId: string, workspaceId: string, principalId: string): boolean {
@@ -612,7 +673,7 @@ export class CapitalizationService {
 
   private asset(workspaceId: string, db: ReturnType<Store["workspaceDb"]>, row: AssetRow): KnowledgeAsset {
     // Mission assets carry their own provenance (the mission's evidence bundles); operation assets look it up by signature.
-    const provenance = row.mission_id
+    const provenance = row.mission_id || row.operation_id === "saved-document"
       ? (JSON.parse(row.provenance_json) as Array<{ rootRunId: string; evidenceDigest: string }>)
       : (db.prepare("SELECT root_run_id,evidence_digest FROM operation_observations WHERE signature=? AND verified_success=1 ORDER BY root_run_id").all(row.signature) as Array<{ root_run_id: string; evidence_digest: string }>)
         .map((item) => ({ rootRunId: item.root_run_id, evidenceDigest: item.evidence_digest }));

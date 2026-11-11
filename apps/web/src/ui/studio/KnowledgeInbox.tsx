@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from "solid-js";
+import { For, Show, createEffect, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Badge, Button, TextInput } from "@talelk/newui-atoms";
@@ -9,7 +9,7 @@ import { DateText } from "../screen-region";
 import { DigestValue } from "../components/DigestValue";
 
 /** Knowledge Brain wrote up from a finished mission; the other assets come from repeated tool use. */
-export const isMissionKnowledge = (asset: KnowledgeAsset): boolean => asset.operationId === "mission-knowledge";
+export const isMissionKnowledge = (asset: KnowledgeAsset): boolean => asset.operationId === "mission-knowledge" || asset.operationId === "saved-document";
 
 type Review = (asset: KnowledgeAsset, decision: "approve" | "reject", reason: string) => Promise<void>;
 
@@ -24,6 +24,14 @@ export function KnowledgeInbox(props: { assets: readonly KnowledgeAsset[]; canRe
   const [rejecting, setRejecting] = createSignal<string>();
   const [reason, setReason] = createSignal("");
   const [busy, setBusy] = createSignal<string>();
+  // A link from a result-ready announcement (?asset=) brings that item into view once.
+  let scrolled = false;
+  createEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("asset");
+    if (scrolled || !id || !props.assets.some((asset) => asset.assetId === id)) return;
+    scrolled = true;
+    queueMicrotask(() => document.getElementById(`knowledge-proposal-${id}`)?.scrollIntoView({ block: "center" }));
+  });
   const waiting = () => props.assets.filter((asset) => asset.state === "extracted" && !asset.rejectionReason);
   const [approvingAll, setApprovingAll] = createSignal(false);
   const approveAll = async () => { setApprovingAll(true); try { await props.onApproveAll?.(); } finally { setApprovingAll(false); } };
@@ -42,10 +50,11 @@ export function KnowledgeInbox(props: { assets: readonly KnowledgeAsset[]; canRe
     {props.setting}
     <Show when={props.assets.length > 0} fallback={<p class="border-y border-outline-gray-1 py-4 text-interface text-ink-gray-6">Nothing to review yet. A mission closed as achieved writes up its knowledge here.</p>}>
       <ul class="min-w-0 divide-y divide-outline-gray-1 border-y border-outline-gray-1">
-        <For each={props.assets}>{(asset) => <li class="min-w-0 py-3 first:pt-0 last:pb-0" data-testid={`knowledge-proposal-${asset.assetId}`}>
+        <For each={props.assets}>{(asset) => <li class="min-w-0 py-3 first:pt-0 last:pb-0" id={`knowledge-proposal-${asset.assetId}`} data-testid={`knowledge-proposal-${asset.assetId}`}>
           <div class="flex min-w-0 flex-wrap items-center gap-1.5">
             <strong class="min-w-0 break-words text-base-medium">{asset.title ?? asset.operationId}</strong>
             <Badge size="sm" theme={asset.supersededBy ? "gray" : asset.state === "published" ? "green" : asset.state === "revoked" ? "red" : "amber"} label={asset.supersededBy ? "Replaced" : asset.state === "extracted" ? (asset.rejectionReason ? "Not published" : "Awaiting review") : asset.state === "published" ? (asset.autoPublished ? "Published automatically" : "Published") : asset.state} />
+            <Show when={asset.operationId === "saved-document"}><Badge size="sm" variant="outline" theme="blue" label="Saved document" /></Show>
             <Show when={asset.selfReviewed}><Badge size="sm" variant="outline" theme="amber" label="Self-reviewed" /></Show>
           </div>
           <Show when={asset.rejectionReason}><p class="mt-1 text-caption text-ink-gray-7">{asset.supersededBy ? "" : "Left out: "}{asset.rejectionReason}</p></Show>

@@ -120,7 +120,9 @@ export class MemoryStore {
         const db = this.store.workspaceDb(scope.workspaceId, scope.organizationId);
         const docs = db.prepare(`SELECT d.id, d.title, d.updated_at_ms, v.id AS version_id, v.extracted_text, bm25(document_fts, 1.0, 1.0, 3.0, 1.0) AS rank
           FROM document_fts f JOIN documents d ON d.id=f.document_id JOIN document_versions v ON v.id=d.current_version_id
-          WHERE document_fts MATCH ? AND d.state='active' ORDER BY rank, d.updated_at_ms DESC LIMIT ?`).all(ftsOr(terms), limit) as Array<{ id: string; title: string; updated_at_ms: number; version_id: string; extracted_text: string | null; rank: number }>;
+          WHERE document_fts MATCH ? AND d.state='active'
+            AND NOT EXISTS (SELECT 1 FROM knowledge_assets k WHERE k.operation_id='saved-document' AND k.state='published' AND k.superseded_by IS NULL AND json_extract(k.provenance_json,'$[0].rootRunId')=d.id)
+          ORDER BY rank, d.updated_at_ms DESC LIMIT ?`).all(ftsOr(terms), limit) as Array<{ id: string; title: string; updated_at_ms: number; version_id: string; extracted_text: string | null; rank: number }>;
         for (const d of docs) {
           ranked.push({ rank: d.rank, at: d.updated_at_ms, result: {
             sourceId: d.id,
