@@ -59,15 +59,21 @@ if [ "${BRAIN_DEPLOY_SKIP_PRECHECK:-0}" != 1 ]; then
     PRECHECK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/brain-precheck-XXXXXX")"
     trap 'rm -rf "$PRECHECK_DIR"' EXIT
     chmod 700 "$PRECHECK_DIR"
-    # A consistent snapshot (VACUUM INTO inside the container), then a copy of the static snapshot: copying files
-    # that are being written is what made a raw tar of the live databases fail at random.
-    if ! $SSH "docker exec -i $GOV_ID node --input-type=module -" < scripts/snapshot-live-dbs.mjs >/dev/null \
-      || { ! $SSH "docker exec $GOV_ID tar czf - -C /tmp/precheck-snap ." | tar xzf - -C "$PRECHECK_DIR" \
-           && echo "   (copy interrupted; retrying once)" >&2 && ! $SSH "docker exec $GOV_ID tar czf - -C /tmp/precheck-snap ." | tar xzf - -C "$PRECHECK_DIR"; } \
-      || [ ! -s "$PRECHECK_DIR/control.db" ]; then
+    # A consistent snapshot (VACUUM INTO inside the container), moved to the host, then pulled with rsync: resumable,
+    # compressed and retried. A piped tar of 40+ MB over the VPN broke at random ("Error is not recoverable").
+    REMOTE_SNAP="/tmp/brain-precheck-$$"
+    copied=0
+    if $SSH "docker exec -i $GOV_ID node --input-type=module -" < scripts/snapshot-live-dbs.mjs >/dev/null \
+      && $SSH "rm -rf $REMOTE_SNAP && docker cp $GOV_ID:/tmp/precheck-snap $REMOTE_SNAP && docker exec $GOV_ID rm -rf /tmp/precheck-snap"; then
+      for attempt in 1 2 3 4; do
+        if rsync -az --partial -e "ssh -p $PORT -o ConnectTimeout=15" "$USER_SSH@$HOST:$REMOTE_SNAP/" "$PRECHECK_DIR/" && [ -s "$PRECHECK_DIR/control.db" ]; then copied=1; break; fi
+        echo "   (copy interrupted; retry $attempt of 4)" >&2
+      done
+    fi
+    $SSH "rm -rf $REMOTE_SNAP" >/dev/null 2>&1 || true
+    if [ "$copied" != 1 ]; then
       echo "!! Could not snapshot the live databases; aborting before any change (old container untouched)" >&2; exit 1
     fi
-    $SSH "docker exec $GOV_ID rm -rf /tmp/precheck-snap" >/dev/null 2>&1 || true
     if ! BRAIN_DATA_DIR="$PRECHECK_DIR" pnpm exec tsx scripts/repair-live-schema.ts; then
       echo "!! Schema repair FAILED against a copy of the live databases; aborting before any change (old container still running)." >&2
       echo "   A new column on an existing table needs DEFAULT (see docs/wiki/ops-live-server.md)." >&2
