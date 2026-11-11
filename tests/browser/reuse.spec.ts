@@ -71,7 +71,6 @@ test("reuse loop: approve once, find it in search, get it offered before plannin
   // 3. A similar new mission is offered the past work before the plan is drafted.
   await page.goto(`${governor.url}/w/ws-reuse/missions/new`);
   const form = page.getByRole("dialog");
-  await form.getByRole("button", { name: /Describe what you want/ }).click();
   await form.getByLabel(/^What do you want done/).fill("Write the quarterly churn report for the board");
   await form.getByRole("button", { name: "Start mission", exact: true }).click();
   await expect(page).toHaveURL(/\/missions\/[^/]+\/plan/);
