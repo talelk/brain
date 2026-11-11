@@ -938,7 +938,11 @@ export class MissionService {
       const planned = (JSON.parse(this.planRow(actor, workspaceId, item.plan_version_id).tasks_json) as PlanTask[]).find((task) => task.id === item.plan_task_id);
       return { scope: "task", id: item.id, usage: taskUsage(db, item.id), ...(planned && (planned.estimatedMinutes !== undefined || planned.maxMicroUsd !== undefined) ? { planEstimate: { ...(planned.estimatedMinutes !== undefined ? { estimatedMinutes: planned.estimatedMinutes } : {}), ...(planned.maxMicroUsd !== undefined ? { maxMicroUsd: planned.maxMicroUsd } : {}) } } : {}) } as unknown as JsonValue;
     }
-    if (queryType === "usage.mission") return { scope: "mission", id: this.missionRow(actor, workspaceId, String(resourceId)).id, usage: (settleAll(this.store, db), missionUsage(db, String(resourceId))) } as unknown as JsonValue;
+    if (queryType === "usage.mission") {
+      const mission = this.missionRow(actor, workspaceId, String(resourceId));
+      settleAll(this.store, db);
+      return { scope: "mission", id: mission.id, usage: missionUsage(db, String(resourceId)) } as unknown as JsonValue;
+    }
     if (queryType === "usage.workspace") { settleAll(this.store, db); return { scope: "workspace", id: workspaceId, usage: workspaceUsage(db), spendCap: spendCapOf(db, this.store.now()) } as unknown as JsonValue; }
     if (queryType === "plans.estimate") return planEstimate(this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))), db) as unknown as JsonValue;
     if (queryType === "plans.get") return this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;

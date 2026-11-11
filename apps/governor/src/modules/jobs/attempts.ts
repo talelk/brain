@@ -163,10 +163,11 @@ export function claim(s: Store, deps: {
 /** Share of an agent's token ceiling that its context pack may use. */
 export const CONTEXT_BUDGET_SHARE = 0.25;
 
-export interface ContextPackPort {
-  (organizationId: string, workspaceId: string, input: { runId: string; jobId: string; agentId: string; budgetTokens: number }):
-    { text: string; manifest: { estimatedTokens: number; budgetTokens: number }; bodies: ReadonlyMap<string, string> } | undefined;
-}
+export type ContextPackPort = (
+  organizationId: string,
+  workspaceId: string,
+  input: { runId: string; jobId: string; agentId: string; budgetTokens: number },
+) => { text: string; manifest: { estimatedTokens: number; budgetTokens: number }; bodies: ReadonlyMap<string, string> } | undefined;
 
 /**
  * Builds the context pack of an agent step once, at its first offer, and pins
