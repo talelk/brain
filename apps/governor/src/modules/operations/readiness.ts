@@ -1,5 +1,5 @@
 import { localModelConfigured, localModelTestedAt, localRunnerSettingsCurrent } from "./local-runtime";
-import type { ActorContext, Agent, OperationalReadiness, Workflow } from "@brain/contracts";
+import type { ActorContext, Agent, OperationalReadiness, Resources, Workflow } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { activeReleaseRecord } from "../configuration/index";
 import { requireWorkspaceRead } from "../../application/authz";
@@ -15,15 +15,23 @@ export function operationalReadiness(s: Store, actor: ActorContext, workspaceId:
   checks.push({ id: "release", action: "release", status: row ? "ready" : "missing", detail: row?.digest ?? "No active configuration release", nextAction: row ? "Inspect Agents and Workflows" : "Compile, inspect, and activate examples/v1/starter-release" });
   const release = { agents: row?.release.agents ?? {} as Record<string, Agent>, workflows: row?.release.workflows ?? {} as Record<string, Workflow> };
   const runners = (s.control.prepare("SELECT id FROM runners WHERE organization_id=?").all(actor.organizationId) as { id: string }[]).map(({ id }) => runnerView(s,id)).filter((view) => view !== undefined).filter((view) => localRunnerSettingsCurrent(s, actor.organizationId, view.id));
+  const idle: Resources = { cpuMillicores: 0, memoryMb: 0, diskMb: 0, slots: 0 };
   for (const [id, workflow] of Object.entries(release.workflows)) {
     const missing: string[] = [];
+    let busy: { slotsInUse: number; slotsTotal: number } | undefined;
     for (const step of Object.values(workflow.spec.jobs)) {
       if (step.kind !== "dispatch" && step.kind !== "eval") continue;
       const agent = step.kind === "dispatch" && step.uses.type === "agent" ? release.agents[step.uses.release.id] : undefined;
       const placement = { ...step.runsOn, ...(agent ? { engine: agent.spec.engine } : {}) };
-      if (!runners.some((runner) => evaluateRunner(placement,placement.resources,runner,s.now()).eligible)) missing.push(`${placement.group}${agent ? ` with ${agent.spec.engine.anyOf.join(" or ")}` : ""}`);
+      // Capability is judged against an idle runner: a runner that is merely busy still exists and will take the work next.
+      const capable = runners.filter((runner) => evaluateRunner(placement, placement.resources, { ...runner, reserved: idle }, s.now()).eligible);
+      if (!capable.length) { missing.push(`${placement.group}${agent ? ` with ${agent.spec.engine.anyOf.join(" or ")}` : ""}`); continue; }
+      if (capable.some((runner) => evaluateRunner(placement, placement.resources, runner, s.now()).eligible)) continue;
+      const inUse = capable.reduce((sum, runner) => sum + runner.reserved.slots, 0), total = capable.reduce((sum, runner) => sum + runner.capacity.slots, 0);
+      if (!busy || inUse >= busy.slotsInUse) busy = { slotsInUse: inUse, slotsTotal: total };
     }
-    checks.push({ id: `workflow:${id}`, workflowId: id, action: missing.length ? "runners" : "task", status: missing.length ? "missing" : "ready", detail: missing.length ? `No online capable runner: ${[...new Set(missing)].join(", ")}` : "Agent/model requirements and runner placement are available", nextAction: missing.length ? "Start the required runner group and check engine/model connectivity" : `Dispatch ${id}` });
+    const detail = missing.length ? `No online capable runner: ${[...new Set(missing)].join(", ")}` : busy ? `busy: ${busy.slotsInUse} of ${busy.slotsTotal} slots in use; new work queues and starts next` : "Agent/model requirements and runner placement are available";
+    checks.push({ id: `workflow:${id}`, workflowId: id, action: missing.length ? "runners" : "task", status: missing.length ? "missing" : "ready", detail, nextAction: missing.length ? "Start the required runner group and check engine/model connectivity" : `Dispatch ${id}`, ...(!missing.length && busy ? { busy } : {}) });
   }
   if (!Object.keys(release.workflows).length) checks.push({ id: "workflows", action: "release", status: "missing", detail: "No workflows are available", nextAction: "Activate the starter release" });
   const ws = s.workspaceDb(workspaceId,actor.organizationId);

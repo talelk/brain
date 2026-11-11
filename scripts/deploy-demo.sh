@@ -193,6 +193,14 @@ if ! $SSH "grep -q BRAIN_TENCENTDB_URL $REMOTE_DIR/.env"; then
 fi
 
 # ---- launcher + runner systemd units ----
+# Concurrent sessions per runner (BRAIN_DEPLOY_AGENT_SLOTS / BRAIN_DEPLOY_EVALUATOR_SLOTS) and what they may reserve on the host.
+for v in BRAIN_DEPLOY_AGENT_SLOTS BRAIN_DEPLOY_EVALUATOR_SLOTS BRAIN_DEPLOY_RUNNER_CPU_MILLICORES BRAIN_DEPLOY_RUNNER_MEMORY_MB; do
+  [[ -z "${!v:-}" || "${!v}" =~ ^[1-9][0-9]*$ ]] || { echo "$v must be a positive integer" >&2; exit 1; }
+done
+AGENT_SLOTS="${BRAIN_DEPLOY_AGENT_SLOTS:-3}"; EVALUATOR_SLOTS="${BRAIN_DEPLOY_EVALUATOR_SLOTS:-2}"
+RUNNER_CPU_MILLICORES="${BRAIN_DEPLOY_RUNNER_CPU_MILLICORES:-4000}"; RUNNER_MEMORY_MB="${BRAIN_DEPLOY_RUNNER_MEMORY_MB:-8192}"
+# set_runner_env FILE KEY VALUE: idempotent upsert of one KEY=VALUE line in a runner env file on the host.
+set_runner_env() { $SSH "f=$REMOTE_DIR/$1; [ -f \$f ] || exit 0; if grep -q '^$2=' \$f; then sed -i 's|^$2=.*|$2=$3|' \$f; else echo '$2=$3' >> \$f; fi"; }
 if ! $SSH "systemctl list-unit-files --type=service" 2>/dev/null | grep -q "brain-runner-agents.service"; then
   echo "==> First deploy: installing launcher + runner units and enrolling runners"
   # create the evaluator memory binding (user/team/agent + claude user key)
@@ -266,6 +274,9 @@ BRAIN_LAUNCHER_SOCKET=/srv/demos/brain/run/launcher.sock
 BRAIN_RUNNER_STATE_DIR=/srv/demos/brain/run/runner-agents-1-state
 BRAIN_RUNNER_ID=runner-agents-1
 BRAIN_RUNNER_ENGINE=pi
+BRAIN_RUNNER_SLOTS=$AGENT_SLOTS
+BRAIN_RUNNER_CPU_MILLICORES=$RUNNER_CPU_MILLICORES
+BRAIN_RUNNER_MEMORY_MB=$RUNNER_MEMORY_MB
 BRAIN_RUNNER_CAPABILITIES=os:linux,arch:amd64,tool:bash,tool:python3,isolation:ephemeral-container
 BRAIN_LOCAL_MODEL_URL=$MODEL_URL
 BRAIN_LOCAL_MODEL_ID=$MODEL_ID
@@ -277,6 +288,9 @@ BRAIN_LAUNCHER_SOCKET=/srv/demos/brain/run/launcher.sock
 BRAIN_RUNNER_STATE_DIR=/srv/demos/brain/run/runner-evaluators-1-state
 BRAIN_RUNNER_ID=runner-evaluators-1
 BRAIN_RUNNER_ENGINE=claude
+BRAIN_RUNNER_SLOTS=$EVALUATOR_SLOTS
+BRAIN_RUNNER_CPU_MILLICORES=$RUNNER_CPU_MILLICORES
+BRAIN_RUNNER_MEMORY_MB=$RUNNER_MEMORY_MB
 BRAIN_RUNNER_CAPABILITIES=os:linux,arch:amd64,tool:bash,tool:python3,isolation:ephemeral-container
 BRAIN_LOCAL_MODEL_URL=$MODEL_URL
 BRAIN_LOCAL_MODEL_ID=$MODEL_ID
@@ -289,7 +303,12 @@ BRAIN_RUNNER_ENROLL_TOKEN=$TOK_EV
 EOF
   $SSH "$SUDO systemctl enable --now brain-launcher brain-runner-agents brain-runner-evaluators >/dev/null 2>&1"
 else
-  echo "==> Restarting launcher + runners to pick up synced code"
+  echo "==> Updating runner capacity (agents $AGENT_SLOTS slots, evaluators $EVALUATOR_SLOTS slots), then restarting launcher + runners to pick up synced code"
+  for kv in "SLOTS:$AGENT_SLOTS:$EVALUATOR_SLOTS" "CPU_MILLICORES:$RUNNER_CPU_MILLICORES:$RUNNER_CPU_MILLICORES" "MEMORY_MB:$RUNNER_MEMORY_MB:$RUNNER_MEMORY_MB"; do
+    IFS=: read -r key agents_value evaluators_value <<<"$kv"
+    set_runner_env runner-agents.env "BRAIN_RUNNER_$key" "$agents_value"
+    set_runner_env runner-evaluators.env "BRAIN_RUNNER_$key" "$evaluators_value"
+  done
   $SSH "$SUDO systemctl restart brain-launcher brain-runner-agents brain-runner-evaluators"
 fi
 

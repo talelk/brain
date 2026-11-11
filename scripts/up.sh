@@ -95,11 +95,13 @@ log "launcher socket ready at $LAUNCHER_SOCKET"
 if [[ -n "${BRAIN_LOCAL_RUNTIME_DIR:-}" ]]; then
   for group in agents evaluators; do
     name="runner-${group}-1"
+    # Concurrent sessions per runner: agents 3, evaluators 2 (BRAIN_AGENT_SLOTS / BRAIN_EVALUATOR_SLOTS); CPU and memory reservation per job stay inside the runner capacity.
+    if [[ "$group" == agents ]]; then SLOTS="${BRAIN_AGENT_SLOTS:-3}"; else SLOTS="${BRAIN_EVALUATOR_SLOTS:-2}"; fi
     mkdir -p "${RUN_DIR}/${name}-state"
     chmod 700 "${RUN_DIR}" "${RUN_DIR}/${name}-state"
     start_detached "$name" "${RUN_DIR}/${name}.log" \
       env -u BRAIN_TOKEN -u BRAIN_PASSWORD -u BRAIN_ADMIN_PASSWORD -u BRAIN_ADMIN_PASSWORD_FILE -u BRAIN_ADMIN_EMAIL -u BRAIN_ADMIN_TOTP -u BRAIN_TOTP -u BRAIN_AUTH_SECRET -u BRAIN_SETUP_TOKEN -u BRAIN_CLI_STATE_DIR -u BRAIN_DATA_DIR -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN \
-      BRAIN_GOVERNOR_URL="$BASE_URL" BRAIN_LOCAL_RUNNER=true BRAIN_RUNNER_ID="$name" \
+      BRAIN_GOVERNOR_URL="$BASE_URL" BRAIN_LOCAL_RUNNER=true BRAIN_RUNNER_ID="$name" BRAIN_RUNNER_SLOTS="$SLOTS" \
       BRAIN_RUNNER_STATE_DIR="${RUN_DIR}/${name}-state" BRAIN_LAUNCHER_SOCKET="$LAUNCHER_SOCKET" \
       pnpm exec tsx apps/runner/src/main.ts
   done

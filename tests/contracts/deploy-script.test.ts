@@ -24,6 +24,17 @@ describe("deploy-demo.sh safety order", () => {
     expect(script).toContain("docker compose start governor");
   });
 
+  it("gives the runners concurrent sessions and re-applies them to the unit env on every deploy, not only the first", () => {
+    expect(script).toContain('AGENT_SLOTS="${BRAIN_DEPLOY_AGENT_SLOTS:-3}"');
+    expect(script).toContain('EVALUATOR_SLOTS="${BRAIN_DEPLOY_EVALUATOR_SLOTS:-2}"');
+    expect(script).toContain("BRAIN_RUNNER_SLOTS=$AGENT_SLOTS");
+    expect(script).toContain("BRAIN_RUNNER_SLOTS=$EVALUATOR_SLOTS");
+    const rerun = script.slice(script.indexOf("\nelse\n  echo \"==> Updating runner capacity"));
+    expect(rerun.indexOf("set_runner_env runner-agents.env")).toBeGreaterThan(-1);
+    expect(rerun.indexOf("set_runner_env runner-agents.env")).toBeLessThan(rerun.indexOf("systemctl restart brain-launcher brain-runner-agents"));
+    expect(script).toMatch(/set_runner_env\(\) \{[^\n]*grep -q[^\n]*sed -i[^\n]*>>/u);
+  });
+
   it("never prints credential values", () => {
     expect(script).not.toMatch(/echo[^\n]*BRAIN_DEPLOY_SUDO_PASSWORD/u);
   });

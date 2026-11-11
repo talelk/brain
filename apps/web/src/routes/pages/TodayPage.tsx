@@ -35,6 +35,8 @@ export default function TodayPage(): JSX.Element {
   const readiness = createReadiness(6000);
   /** Missing model, release or runners block the box; while readiness is unknown nothing is blocked. */
   const blocked = () => blockedBy(readiness.state().data?.checks ?? []).length > 0;
+  /** Every slot of a capable runner is in use: the mission still starts, it queues behind the work in progress. */
+  const busyCount = () => (readiness.state().data?.checks ?? []).reduce((most, check) => Math.max(most, check.busy?.slotsInUse ?? 0), 0);
   /** After an inline decision: every attention read (this one and the bell) and the missions list (their versions) re-read. */
   const changed = () => { window.dispatchEvent(new Event(ATTENTION_CHANGED)); void start.missions.refresh({ force: true }); };
   const items = () => attention.state().data ?? [];
@@ -57,6 +59,7 @@ export default function TodayPage(): JSX.Element {
       {/* The box always leads, even while setup is unfinished (it is then disabled and the checklist sits right under it). */}
       <Card padding="md" class="flex min-w-0 flex-col gap-3" aria-label="Start a mission" data-blocked={blocked() ? "true" : "false"}>
         <StartFields start={start} compact sample disabled={blocked()} onSubmit={() => void start.start()} />
+        <Show when={!blocked() && busyCount() > 0}><p class="m-0 flex items-center gap-2 text-caption text-ink-gray-7" data-testid="today-busy-note"><span class="lucide-loader size-4 shrink-0" aria-hidden="true" />Brain is working on {busyCount()} {busyCount() === 1 ? "thing" : "things"}; yours queues and starts next.</p></Show>
         <Show when={start.error()}><p role="alert" class="text-interface text-ink-red-7">{start.error()}</p></Show>
         <div class="flex flex-wrap items-center justify-between gap-3">
           <p class="m-0 text-caption text-ink-gray-7">{blocked() ? "Blocked until the setup below is done." : "Nothing runs until you confirm the plan."}</p>

@@ -43,11 +43,21 @@ export interface RunnerConfig {
 export interface RunnerControls {
   stopRequests: Set<string>;
   steerQueue: Array<{ attemptId: string; messageId: string; message: string }>;
-  activeAttemptId?: string | undefined;
+  /** Attempts executing right now (one per busy slot). */
+  activeAttemptIds: Set<string>;
 }
 
 export function newRunnerControls(): RunnerControls {
-  return { stopRequests: new Set(), steerQueue: [] };
+  return { stopRequests: new Set(), steerQueue: [], activeAttemptIds: new Set() };
+}
+
+/**
+ * What this runner offers the Governor: concurrent sessions (slots) and the CPU and memory those sessions may reserve.
+ * BRAIN_RUNNER_SLOTS (default 1), BRAIN_RUNNER_CPU_MILLICORES (default 4000), BRAIN_RUNNER_MEMORY_MB (default 8192).
+ */
+export function runnerCapacity(env: NodeJS.ProcessEnv = process.env): { cpuMillicores: number; memoryMb: number; diskMb: number; slots: number } {
+  const positive = (name: string, fallback: number): number => { const value = Number(env[name]); return Number.isInteger(value) && value > 0 ? value : fallback; };
+  return { cpuMillicores: positive("BRAIN_RUNNER_CPU_MILLICORES", 4000), memoryMb: positive("BRAIN_RUNNER_MEMORY_MB", 8192), diskMb: 20480, slots: positive("BRAIN_RUNNER_SLOTS", 1) };
 }
 
 export function loadOrCreateKeys(stateDir: string): { publicKeyPem: string; privateKeyPem: string } {
@@ -88,7 +98,7 @@ async function challengeHello(cfg: RunnerConfig, credential: string): Promise<{ 
     configDigest: `sha256:${"0".repeat(64)}`,
     capabilities: capabilities.map((capability) => ({ capability, observedAt: new Date().toISOString(), source: "runner-probe", verified: true, expiresAt: new Date(Date.now() + 5 * 60_000).toISOString() })),
     engines,
-    capacity: { cpuMillicores: 4000, memoryMb: 8192, diskMb: 20480, slots: 1 },
+    capacity: runnerCapacity(),
     isolationModes: ["ephemeral-container"],
   };
   const helloDigest = domainDigest("brain:runner-hello:v1", helloBody as unknown as JsonValue);
@@ -126,7 +136,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
   client.setToken(sessionToken);
   const offer = await client.claim(`claim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   if (!offer) return false;
-  controls.activeAttemptId = offer.attemptId;
+  controls.activeAttemptIds.add(offer.attemptId);
   const ackBody: Record<string, unknown> = { leaseId: offer.leaseId, jobFence: offer.jobFence };
   if (offer.execution.kind === "tool") ackBody["engine"] = { id: "tool-broker", adapterDigest: sha256Digest(new TextEncoder().encode("tool-broker:v1")), features: [] as string[] };
   const ack = await client.ack(offer.attemptId, ackBody);
@@ -377,7 +387,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
   } finally {
     clearInterval(renew);
     clearInterval(watchdog);
-    if (controls.activeAttemptId === offer.attemptId) controls.activeAttemptId = undefined;
+    controls.activeAttemptIds.delete(offer.attemptId);
   }
 }
 
@@ -422,9 +432,9 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
         cpuMillicores: cpus().length * 1000,
         memoryMb: Math.floor(freemem() / 1_048_576),
         diskMb: 0,
-        slots: controls.activeAttemptId ? 0 : 1,
+        slots: Math.max(0, runnerCapacity().slots - controls.activeAttemptIds.size),
       },
-      activeAttemptIds: controls.activeAttemptId ? [controls.activeAttemptId] : [],
+      activeAttemptIds: [...controls.activeAttemptIds],
       observedAt: new Date().toISOString(),
       capabilities: [...cfg.capabilities.filter((cap) => !/^engine(:|-feature:)/u.test(cap)), ...engines.map((engine) => `engine:${engine.id}`), ...engines.flatMap((engine) => engine.features.map((feature) => `engine-feature:${engine.id}:${feature}`))]
         .map((capability) => ({ capability, verified: true, source: "runner-probe", observedAt: new Date().toISOString(), expiresAt: new Date(Date.now()+300000).toISOString() })),
@@ -445,21 +455,33 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
       else { /* transient; the claim loop surfaces errors */ }
     });
   }, 15_000).unref();
-  try { for (;;) {
-    try {
-      if (configurationChanged?.()) return;
-      if (session.stale || Date.now() - session.sinceMs > 10 * 60_000) await refresh();
-      const worked = await runOnce(cfg, session.token, session.epoch, controls);
-      if (!worked) await new Promise((r) => setTimeout(r, 2000));
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (/\b401\b/.test(msg) && !session.stale) {
-        session.stale = true;
-        try { await refresh(); continue; } catch { /* fall through to backoff */ }
+  // One claim loop per slot. A refresh re-hellos with a new epoch, which revokes the old session token, so
+  // it only happens while no attempt is executing; once the token is old, workers stop claiming until the
+  // running attempts finish, then one worker refreshes and all resume.
+  const slots = runnerCapacity().slots;
+  let stopped = false;
+  let refreshing: Promise<void> | undefined;
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      if (stopped) return;
+      try {
+        if (configurationChanged?.()) { stopped = true; return; }
+        const aged = Date.now() - session.sinceMs > 10 * 60_000;
+        if (session.stale || aged) {
+          if (controls.activeAttemptIds.size === 0) { refreshing ??= refresh().finally(() => { refreshing = undefined; }); await refreshing; }
+          else if (session.stale || Date.now() - session.sinceMs > 13 * 60_000) { await new Promise((r) => setTimeout(r, 1000)); continue; }
+        }
+        if (refreshing) { await refreshing; continue; }
+        const worked = await runOnce(cfg, session.token, session.epoch, controls);
+        if (!worked) await new Promise((r) => setTimeout(r, 2000));
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (/\b401\b/.test(msg) && !session.stale) { session.stale = true; continue; }
+        console.error("runner loop error", msg);
+        await new Promise((r) => setTimeout(r, 3000));
       }
-      console.error("runner loop error", msg);
-      await new Promise((r) => setTimeout(r, 3000));
     }
-  }
+  };
+  try { await Promise.all(Array.from({ length: slots }, () => worker()));
   } finally { clearInterval(heartbeatTimer); }
 }

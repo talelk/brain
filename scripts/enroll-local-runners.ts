@@ -34,6 +34,7 @@ for (const group of [process.env["BRAIN_RUNNER_GROUP"] ?? (profile === "fixture"
     const offset=existsSync(logfile)?statSync(logfile).size:0;
     const fd=openSync(logfile,"a",0o600);
     const runnerEnv={...process.env,BRAIN_GOVERNOR_URL:env.BRAIN_GOVERNOR_URL,BRAIN_RUNNER_ID:name,BRAIN_RUNNER_STATE_DIR:join(runDir,`${name}-state`),BRAIN_RUNNER_ENROLL_TOKEN:String(token),
+      BRAIN_RUNNER_SLOTS:process.env["BRAIN_RUNNER_SLOTS"]??(group.endsWith("evaluators")?process.env["BRAIN_EVALUATOR_SLOTS"]??"2":process.env["BRAIN_AGENT_SLOTS"]??"3"),
       BRAIN_RUNNER_ENGINE:group.endsWith("evaluators")?(profile==="fixture"?"fixture":"claude"):process.env["BRAIN_RUNNER_ENGINE"]??(profile==="fixture"?"fixture":"pi"),
       BRAIN_RUNNER_CAPABILITIES:process.env["BRAIN_RUNNER_CAPABILITIES"]??"os:linux,tool:bash,tool:python3,isolation:ephemeral-container"};
     for (const key of ["BRAIN_AUTH_SECRET","BRAIN_TOKEN","BRAIN_PASSWORD","BRAIN_ADMIN_PASSWORD","BRAIN_ADMIN_EMAIL","BRAIN_ADMIN_PASSWORD_FILE","BRAIN_ADMIN_TOTP","BRAIN_TOTP"]) delete runnerEnv[key];
