@@ -355,7 +355,7 @@ _Avoid_: memory (unqualified), insight, learning
 **Memory publication**:
 The governed promotion of vetted knowledge into a broader scope, requiring an approver
 who is not the producer of the knowledge. A single owner with no other reviewer may
-approve their own knowledge; it is then marked self-reviewed (ADR 0006). Approving
+approve their own knowledge; it is then marked self-reviewed (ADR 0007). Approving
 publishes in the same action. It is the only mechanism for either act.
 _Avoid_: memory entry, promotion (there is no separate promotion step)
 

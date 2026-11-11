@@ -5679,11 +5679,13 @@
               "chat",
               "skill",
               "wiki",
-              "codegraph"
+              "codegraph",
+              "knowledge",
+              "document"
             ]
           },
           "minItems": 1,
-          "maxItems": 4,
+          "maxItems": 6,
           "uniqueItems": true
         },
         "limit": {
@@ -5748,6 +5750,25 @@
             "unverified",
             "stale"
           ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sourceType": {
+          "type": "string",
+          "enum": [
+            "chat",
+            "skill",
+            "wiki",
+            "codegraph",
+            "knowledge",
+            "document"
+          ]
+        },
+        "selfReviewed": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -7232,6 +7253,15 @@
           },
           "minItems": 1,
           "maxItems": 100
+        },
+        "reuse": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200
+          },
+          "maxItems": 20
         }
       },
       "required": [
@@ -7320,7 +7350,9 @@
             "usage.mission",
             "usage.workspace",
             "plans.estimate",
-            "missions.forSubject"
+            "missions.forSubject",
+            "reuse.search",
+            "reuse.forMission"
           ]
         },
         "workspaceId": {
@@ -7388,7 +7420,9 @@
             "usage.mission",
             "usage.workspace",
             "plans.estimate",
-            "missions.forSubject"
+            "missions.forSubject",
+            "reuse.search",
+            "reuse.forMission"
           ]
         },
         "snapshot": {
@@ -10743,6 +10777,12 @@
         },
         {
           "$ref": "#/$defs/PlanRejectCommand"
+        },
+        {
+          "$ref": "#/$defs/MissionReuseDecideCommand"
+        },
+        {
+          "$ref": "#/$defs/KnowledgeReviewCommand"
         },
         {
           "$ref": "#/$defs/WorkItemTransitionCommand"
@@ -18964,6 +19004,34 @@
         },
         "updatedAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "producedBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "reviewedBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "reviewedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "selfReviewed": {
+          "type": "boolean"
+        },
+        "rejectionReason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "contentDigest": {
+          "$ref": "#/$defs/Digest"
         }
       },
       "required": [
@@ -22911,6 +22979,241 @@
             }
           },
           "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "ReuseItem": {
+      "type": "object",
+      "properties": {
+        "itemRef": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 200
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "mission",
+            "output",
+            "knowledge",
+            "play",
+            "handoff"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "lastVerifiedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "usedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "selfReviewed": {
+          "type": "boolean"
+        },
+        "provenance": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "verdictDigest": {
+              "$ref": "#/$defs/Digest"
+            },
+            "evidenceDigests": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Digest"
+              },
+              "maxItems": 20
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "evidenceDigests"
+          ],
+          "additionalProperties": false
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "kept",
+            "dropped"
+          ]
+        },
+        "decidedBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "startFrom": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "intent": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8000
+            },
+            "successCriteria": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "maxItems": 100
+            }
+          },
+          "required": [
+            "title",
+            "intent",
+            "successCriteria"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "itemRef",
+        "kind",
+        "title",
+        "summary",
+        "lastVerifiedAt",
+        "usedCount",
+        "provenance"
+      ],
+      "additionalProperties": false
+    },
+    "KnowledgeReviewCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "knowledge.review"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "assetId": {
+              "$ref": "#/$defs/Id"
+            },
+            "decision": {
+              "type": "string",
+              "enum": [
+                "approve",
+                "reject"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          "required": [
+            "assetId",
+            "decision",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "MissionReuseDecideCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "mission.reuse.decide"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "itemRef": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 200
+            },
+            "decision": {
+              "type": "string",
+              "enum": [
+                "keep",
+                "drop"
+              ]
+            }
+          },
+          "required": [
+            "missionId",
+            "itemRef",
+            "decision"
+          ],
           "additionalProperties": false
         }
       },

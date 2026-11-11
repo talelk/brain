@@ -20,7 +20,7 @@ export function KnowledgeTabs(props: { value: KnowledgeTab; trailing?: JSX.Eleme
   return <div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
     <TabButtons label="Knowledge journeys" value={props.value} wrap onValueChange={go} options={[
       { value: "find", label: "Find & publish knowledge" }, { value: "documents", label: "Documents" },
-      { value: "tools", label: "Tools" }, { value: "review", label: "Review capability candidates" },
+      { value: "tools", label: "Tools" }, { value: "review", label: "Review inbox" },
     ]} />
     {props.trailing}
   </div>;

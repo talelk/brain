@@ -8,6 +8,7 @@ import { PaneLayout } from "@talelk/newui-templates";
 import { useNavigate } from "@solidjs/router";
 import { useApp } from "../app-context";
 import { ScreenRegion } from "../screen-region";
+import { ReusedLine } from "../components/Reuse";
 import type { ScreenState } from "../../data/screens";
 import { formatRelative, shortDigest } from "../format";
 import { LIST_PAGE_SIZE, Pager } from "../components/primitives";
@@ -306,6 +307,7 @@ export function OutputBrowser(props: {
                     </Show>
                     <span class="text-caption tabular-nums text-ink-gray-6">{group.files.length}</span>
                   </header>
+                  <Show when={group.missionId && group.workspaceId}><ReusedLine missionId={group.missionId!} workspaceId={group.workspaceId!} /></Show>
                   <div class="flex min-w-0 flex-col gap-3">
                     <For each={groupByTask(group.files)}>
                       {(task) => (

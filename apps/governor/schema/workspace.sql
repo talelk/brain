@@ -318,8 +318,29 @@ CREATE TABLE knowledge_assets (
   state TEXT NOT NULL CHECK(state IN ('extracted','reviewed','published','revoked')),
   classification TEXT NOT NULL CHECK(classification IN ('public','internal','confidential','restricted')),
   content TEXT NOT NULL, source_count INTEGER NOT NULL CHECK(source_count >= 1),
+  title TEXT NOT NULL DEFAULT '', mission_id TEXT, producer_id TEXT,
+  provenance_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(provenance_json)),
+  reviewed_by TEXT, self_reviewed INTEGER NOT NULL DEFAULT 0 CHECK(self_reviewed IN (0,1)),
+  reviewed_at_ms INTEGER, rejection_reason TEXT, content_digest TEXT,
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
 ) STRICT;
+-- Reuse (#66): what Brain can offer a new mission. Rows are written when the source becomes
+-- reusable and re-checked against the live source on every read. The FTS table ranks by BM25.
+CREATE TABLE reuse_items (
+  item_ref TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('mission','output','knowledge','play','handoff')),
+  mission_id TEXT, title TEXT NOT NULL, body TEXT NOT NULL, source_digest TEXT,
+  verified_at_ms INTEGER NOT NULL, indexed_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE VIRTUAL TABLE reuse_fts USING fts5(item_ref UNINDEXED,title,body,tokenize='unicode61 remove_diacritics 2');
+-- Attach records: the only source of "used N times" and of the Reused line (#68, #70).
+CREATE TABLE reuse_attachments (
+  id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), item_ref TEXT NOT NULL,
+  kind TEXT NOT NULL, title TEXT NOT NULL, last_verified_ms INTEGER NOT NULL, provenance_json TEXT NOT NULL CHECK(json_valid(provenance_json)),
+  self_reviewed INTEGER NOT NULL DEFAULT 0 CHECK(self_reviewed IN (0,1)), used INTEGER NOT NULL DEFAULT 0 CHECK(used IN (0,1)),
+  decision TEXT NOT NULL CHECK(decision IN ('kept','dropped')), decided_by TEXT NOT NULL, decided_at_ms INTEGER NOT NULL,
+  UNIQUE(mission_id,item_ref)
+) STRICT;
+CREATE INDEX reuse_attachments_item ON reuse_attachments(item_ref,decision);
 CREATE TABLE tool_candidates (
   id TEXT PRIMARY KEY, signature TEXT NOT NULL UNIQUE,
   state TEXT NOT NULL CHECK(state IN ('quarantined','reviewed','rejected','published')),

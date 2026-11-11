@@ -39,7 +39,7 @@ function scopeLabel(scope: MemoryScope): string {
 export function KnowledgeScreen(props: {
   workspaceId: string;
   tools: ToolCatalogEntry[];
-  state: ScreenState<{ results: MemoryResult[]; degraded: boolean; tools: ToolCatalogEntry[] }>;
+  state: ScreenState<{ results: MemoryResult[]; degraded: boolean; storeLabel?: string; tools: ToolCatalogEntry[] }>;
   searched: boolean;
   onRefresh: () => void;
   onSearch: (text: string) => void;
@@ -142,6 +142,9 @@ export function KnowledgeScreen(props: {
               Search
             </Button>
           </form>
+          <Show when={props.searched && !props.state.data?.degraded && props.state.data?.storeLabel}>
+            <p class="mt-1 mb-2 text-caption text-ink-gray-7" data-testid="memory-store-label"><span class="lucide-hard-drive mr-1 inline-block size-3.5 align-text-bottom" aria-hidden="true" />{props.state.data?.storeLabel}: saved documents and approved knowledge, ranked by how well they match.</p>
+          </Show>
           <Show when={props.state.data?.degraded}>
             <Alert
               theme="amber"
@@ -179,7 +182,10 @@ export function KnowledgeScreen(props: {
                   {(result) => (
                     <article class="min-w-0 py-3 first:pt-0 last:pb-0">
                       <div class="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <Show when={result.title}><strong class="min-w-0 break-words text-base-medium text-ink-gray-9">{result.title}</strong></Show>
                         <StatusBadge kind="knowledge" status={result.status} />
+                        <Show when={result.sourceType}><Badge size="sm" variant="outline" theme="gray" label={result.sourceType === "document" ? "Saved document" : result.sourceType === "knowledge" ? "Approved knowledge" : result.sourceType!} /></Show>
+                        <Show when={result.selfReviewed}><Badge size="sm" variant="outline" theme="amber" label="Self-reviewed" /></Show>
                         <Badge size="sm" variant="outline" theme="blue" label={result.classification} />
                         <Badge size="sm" variant="outline" theme="gray" label={scopeLabel(result.scope)} />
                       </div>

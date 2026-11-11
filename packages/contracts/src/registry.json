@@ -40,6 +40,24 @@
       ]
     },
     {
+      "type": "knowledge.review",
+      "schema": "KnowledgeReviewCommand",
+      "scope": "memory:publish",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "mission.reuse.decide",
+      "schema": "MissionReuseDecideCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "workItem.transition",
       "schema": "WorkItemTransitionCommand",
       "scope": "mission:write",
@@ -719,7 +737,9 @@
     "usage.task",
     "usage.mission",
     "usage.workspace",
-    "plans.estimate"
+    "plans.estimate",
+    "reuse.search",
+    "reuse.forMission"
   ],
   "events": [
     {

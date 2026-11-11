@@ -50,7 +50,7 @@ function withReviewer(w: TestWorld): void {
 }
 
 describe("reviewed memory publication (T39)", () => {
-  it("publishes reviewed CAS content and retrieves it with provenance; degraded honesty preserved", async () => {
+  it("publishes reviewed CAS content and retrieves it with provenance; the local store is labelled, not degraded", async () => {
     world = setupWorld();
     const w = world;
     withReviewer(w);
@@ -65,8 +65,8 @@ describe("reviewed memory publication (T39)", () => {
       expect(found.snapshot.results.map((r) => r.sourceId)).toContain("golden-doc");
       expect(found.snapshot.results[0]?.content).toContain("golden workflow rollout checklist");
       expect(found.snapshot.results[0]?.provenance).toEqual(["golden-doc"]);
-      expect(found.snapshot.degraded).toBe(true);
-      expect(found.snapshot.reason).toMatch(/TencentDB not configured/);
+      expect(found.snapshot.degraded).toBe(false);
+      expect((found.snapshot as unknown as { storeLabel: string }).storeLabel).toBe("Local store");
     } finally {
       if (prev !== undefined) process.env["BRAIN_TENCENTDB_URL"] = prev;
     }

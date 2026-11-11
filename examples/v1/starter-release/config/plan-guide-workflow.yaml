@@ -13,7 +13,8 @@
           "title": { "source": "input", "pointer": "/title" },
           "intent": { "source": "input", "pointer": "/intent" },
           "successCriteria": { "source": "input", "pointer": "/successCriteria" },
-          "capabilities": { "source": "input", "pointer": "/capabilities" }
+          "capabilities": { "source": "input", "pointer": "/capabilities" },
+          "reused": { "source": "input", "pointer": "/reused" }
         },
         "outputSchemaRef": "schemas/plan-guide-output.json",
         "timeoutSeconds": 180,

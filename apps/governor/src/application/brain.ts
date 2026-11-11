@@ -14,7 +14,7 @@ import { orgWorkspaces, textMatcher } from "./query";
 import { executeOrganizationQuery, isOrganizationQuery, organizationCommandHandlers } from "./organization-admin";
 import { activateRelease, activeReleaseAssets, activeReleaseRecord, activeSourceDocuments, activeWorkflow, configurationCommands, inspectRelease, listReleases, stageRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
 import { MastraWorkflowEngine, workflowCommands, type WorkflowEnginePort } from "../modules/workflows/index";
-import { knowledgeCommands, MemoryStore, TencentDbClient } from "../modules/knowledge/index";
+import { knowledgeCommands, LOCAL_ONLY_SOURCE_TYPES, MemoryStore, ReuseService, TencentDbClient } from "../modules/knowledge/index";
 import { admitApprovalDecision, governanceCommands, StepUpService } from "../modules/governance/index";
 import { createBrainAuth, bootstrapIdentity, assertHumanIdentity, type BootstrapResult, type BrainAuth } from "../modules/identity/index";
 import { localRunnerSettingsCurrent, quarantineRestoredAuthority, loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscription, type VapidKeys } from "../modules/operations/index";
@@ -62,6 +62,7 @@ export class Brain {
   readonly jobProtocol: JobProtocol;
   readonly capitalization: CapitalizationService;
   readonly memory: MemoryStore;
+  readonly reuse: ReuseService;
   readonly auth: BrainAuth;
   readonly stepUp: StepUpService;
   readonly evidence: EvidenceService;
@@ -77,6 +78,7 @@ export class Brain {
       this.auth.ensureTables();
       this.stepUp = new StepUpService(this.store, this.auth);
       this.memory = new MemoryStore(this.store);
+      this.reuse = new ReuseService(this.store);
       this.missions = new MissionService(this.store, { deliver: (organizationId, workspaceId, messageId, interrupt) => this.sessions.deliverMessage(organizationId, workspaceId, messageId, interrupt) }, {
         startCoordinatorRun: (input) => {
           const { workflow, configDigest } = activeWorkflow(this.store, input.organizationId, input.workflowId);
@@ -107,7 +109,7 @@ export class Brain {
         startMission: (input) => this.missions.startFromPlay(input),
         missionOpen: (organizationId, workspaceId, missionId) => this.missions.isOpen(organizationId, workspaceId, missionId),
       });
-      this.capitalization = new CapitalizationService(this.store);
+      this.capitalization = new CapitalizationService(this.store, { memory: this.memory, reuse: this.reuse });
       this.evidence = new EvidenceService(this.store, {
         completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.workflows.completeStep(organizationId, workspaceId, runId, stepId, output, ok),
         concludeAttempt: (input) => this.jobProtocol.concludeAttempt(input),
@@ -131,7 +133,7 @@ export class Brain {
           attachSessionRun: (actor, workspaceId, sessionId, runId) => this.sessions.attachRun(actor, workspaceId, sessionId, runId),
           cancelJobs: (runId) => this.jobProtocol.cancelForRun(runId),
         }),
-        knowledgeCommands(this.store, this.memory, {
+        knowledgeCommands(this.store, this.memory, this.reuse, {
           markKnowledgePublished: (org, ws, sourceId) => this.capitalization.markKnowledgePublished(org, ws, sourceId),
           markKnowledgeRevoked: (org, ws, sourceId) => this.capitalization.markKnowledgeRevoked(org, ws, sourceId),
         }),
@@ -811,6 +813,15 @@ export class Brain {
         const commandId = String((raw as { commandId?: string }).commandId ?? q.resourceId ?? "");
         return this.envelope(q.queryType, commandReceipt(s, actor, commandId));
       }
+      case "reuse.search": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        const text = String((q as typeof q & { search?: string }).search ?? "").trim();
+        return this.envelope(q.queryType, { items: this.reuse.search(actor, q.workspaceId, text, { ...(q.resourceId ? { missionId: q.resourceId } : {}), limit: Math.min(limit, 20) }) } as unknown as JsonValue);
+      }
+      case "reuse.forMission": {
+        if (!q.workspaceId || !q.resourceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId and resourceId required");
+        return this.envelope(q.queryType, { items: this.reuse.forMission(actor, q.workspaceId, q.resourceId) } as unknown as JsonValue);
+      }
       case "memory.search": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         requireWorkspaceRead(s, actor, q.workspaceId);
@@ -1013,16 +1024,23 @@ export class Brain {
     requireWorkspaceRead(this.store, actor, workspaceId);
     const client = TencentDbClient.fromEnv();
     if (client) {
-      try {
-        const results = await client.search(mq, actor.actorId);
-        // Brain re-checks tenant separation after vendor filtering.
-        const scoped = results.filter((r) => r.scope.organizationId === actor.organizationId);
-        return this.envelope("memory.search", { results: scoped, degraded: false } as unknown as import("@brain/contracts").JsonValue);
-      } catch {
-        throw new BrainDomainError("DEPENDENCY_UNAVAILABLE", "TencentDB memory search failed; the managed runtime does not fall back to local memory", { retryable: true });
+      // Saved documents and approved knowledge are always local; only remote-capable source types go to TencentDB.
+      const remoteTypes = mq.sourceTypes.filter((type) => !LOCAL_ONLY_SOURCE_TYPES.includes(type));
+      const localTypes = mq.sourceTypes.filter((type) => LOCAL_ONLY_SOURCE_TYPES.includes(type));
+      const local = localTypes.length > 0 ? this.memory.search({ ...mq, sourceTypes: localTypes as typeof mq.sourceTypes }, { organizationId: actor.organizationId, workspaceId }).results : [];
+      let remote: import("@brain/contracts").MemoryResult[] = [];
+      if (remoteTypes.length > 0) {
+        try {
+          const results = await client.search({ ...mq, sourceTypes: remoteTypes as typeof mq.sourceTypes }, actor.actorId);
+          // Brain re-checks tenant separation after vendor filtering.
+          remote = results.filter((r) => r.scope.organizationId === actor.organizationId);
+        } catch {
+          throw new BrainDomainError("DEPENDENCY_UNAVAILABLE", "TencentDB memory search failed; the managed runtime does not fall back to local memory", { retryable: true });
+        }
       }
+      return this.envelope("memory.search", { results: [...remote, ...local].slice(0, mq.limit), degraded: false, store: "remote", storeLabel: "TencentDB" } as unknown as import("@brain/contracts").JsonValue);
     }
-    const found = this.memory.search(mq, { organizationId: actor.organizationId, workspaceId });
-    return this.envelope("memory.search", { ...found, degraded: true, reason: "TencentDB not configured; local scoped store used" } as unknown as import("@brain/contracts").JsonValue);
+    // No remote service is configured: the local store is the memory, not a degraded fallback.
+    return this.envelope("memory.search", this.memory.search(mq, { organizationId: actor.organizationId, workspaceId }) as unknown as import("@brain/contracts").JsonValue);
   }
 }

@@ -23,22 +23,22 @@ export default function KnowledgePage(): JSX.Element {
   const [searchText, setSearchText] = createSignal("");
   const [params] = useSearchParams();
   const journey = (): KnowledgeTab => (params.tab === "documents" || params.tab === "tools" ? params.tab : "find");
-  const knowledge = createScopedRead<{ results: MemoryResult[]; degraded: boolean; tools: ToolCatalogEntry[] }>({
+  const knowledge = createScopedRead<{ results: MemoryResult[]; degraded: boolean; storeLabel?: string; tools: ToolCatalogEntry[] }>({
     scope: app.scope,
     load: async (scope, signal) => {
       const identity = app.identity();
-      type MemorySearch = { snapshot: { results: readonly MemoryResult[]; degraded: boolean } };
+      type MemorySearch = { snapshot: { results: readonly MemoryResult[]; degraded: boolean; storeLabel?: string } };
       const memory: MemorySearch = searchText().trim() && identity
         ? await memorySearchQuery(scope.workspaceId, {
           contractVersion: "brain.memory/v1", queryId: `web-${crypto.randomUUID()}`,
           scope: { organizationId: identity.actor.organizationId, visibility: "workspace", workspaceId: scope.workspaceId },
-          query: searchText().trim(), sourceTypes: ["chat", "skill", "wiki", "codegraph"], limit: 10, maxChars: 4000,
+          query: searchText().trim(), sourceTypes: ["document", "knowledge", "wiki", "chat", "skill", "codegraph"], limit: 8, maxChars: 1500,
         }, signal).catch(() => ({ snapshot: { results: [] as MemoryResult[], degraded: true } }))
         : { snapshot: { results: [], degraded: false } };
       const tools = await toolsQuery(scope.workspaceId, signal);
       return {
         asOf: tools.asOf, sourceWatermark: tools.sourceWatermark,
-        snapshot: { results: [...memory.snapshot.results], degraded: memory.snapshot.degraded, tools: [...tools.snapshot.items] },
+        snapshot: { results: [...memory.snapshot.results], degraded: memory.snapshot.degraded, ...(memory.snapshot.storeLabel ? { storeLabel: memory.snapshot.storeLabel } : {}), tools: [...tools.snapshot.items] },
       };
     },
     isEmpty: (data) => data.results.length === 0,
@@ -53,7 +53,7 @@ export default function KnowledgePage(): JSX.Element {
       </Show>} />
     <Show when={journey() === "find"}>
       <div class="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3" data-testid="knowledge-capture">
-        <p class="min-w-0 flex-1 text-interface text-ink-gray-7">Knowledge gets in three ways: documents you upload, outputs you save as knowledge, and capability candidates a reviewer approves.</p>
+        <p class="min-w-0 flex-1 text-interface text-ink-gray-7">Knowledge arrives three ways: documents you add (searchable at once), knowledge Brain writes up from finished missions (approve it in the Review inbox), and outputs you save as knowledge.</p>
         <Button variant="solid" theme="blue" iconLeft="lucide-file-plus" onClick={() => void navigate(`/w/${app.workspaceId()}/knowledge?tab=documents&add=1`)}>Add a document</Button>
       </div>
     </Show>

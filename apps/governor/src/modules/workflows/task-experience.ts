@@ -4,7 +4,12 @@ import type { Store } from "../../application/store";
 import { authorizeCommand, requireWorkspaceRead } from "../../application/authz";
 import { BrainDomainError } from "../../domain/errors";
 
-interface Host { query(actor: ActorContext, query: unknown): Promise<JsonValue>; dispatch(actor: ActorContext, command: unknown): Promise<{ receipt: CommandReceipt }> }
+interface Host {
+  query(actor: ActorContext, query: unknown): Promise<JsonValue>;
+  dispatch(actor: ActorContext, command: unknown): Promise<{ receipt: CommandReceipt }>;
+  /** The kept reuse items of a mission as the planner's `reused` input (claims with provenance); empty when nothing was kept. */
+  reusePrompt?(actor: ActorContext, workspaceId: string, missionId: string): string;
+}
 interface DraftRow { id: string; actor_id: string; workflow_id: string; workflow_json: string; config_digest: string; input_json: string; origin_json: string | null; title: string; command_id: string; conversation_id?: string | null; state: "review" | "started"; run_id: string | null; created_at_ms: number }
 interface MessageRow { id: string; role: "user" | "assistant"; text: string; state: "pending" | "done" | "failed"; run_id: string | null; draft_id: string | null }
 interface PlanningRow { mission_id: string; actor_id: string; run_id: string; state: "running" | "ready" | "failed"; plan_version_id: string | null; error: string | null }
@@ -148,8 +153,16 @@ export class TaskExperience {
     const guide = (await this.catalog(actor, request.workspaceId)).find((entry) => entry.release.id === "plan-guide");
     if (!guide) throw new BrainDomainError("UNSUPPORTED_CAPABILITY", "this release has no governed plan assistant");
     const capabilities = JSON.stringify((await this.catalog(actor, request.workspaceId)).filter((entry) => !entry.definition.spec.presentation?.system).slice(0, 20).map((entry) => ({ id: entry.release.id, title: entry.definition.spec.presentation?.title, description: entry.definition.spec.presentation?.description })));
+    // Items the person kept are attached through an audited command (idempotent per mission and item); the Governor
+    // then renders them from its own attach records, so the planner never sees text a client supplied.
+    for (const ref of request.reuse ?? []) {
+      const attachId = `reuse-keep-${missionId}-${ref}`.slice(0, 200);
+      const attached = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId: attachId, commandType: "mission.reuse.decide", workspaceId: request.workspaceId, idempotencyKey: attachId, payload: { missionId, itemRef: ref, decision: "keep" } })).receipt;
+      if (!attached.accepted) throw new BrainDomainError("CONFLICT", "a reused item could not be attached");
+    }
+    const reused = this.host.reusePrompt?.(actor, request.workspaceId, missionId) ?? "";
     const commandId = `plan-run-${request.requestId}`;
-    const started = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId, commandType: "workflow.dispatch", workspaceId: request.workspaceId, idempotencyKey: commandId, payload: { workflow: guide.release, input: { title, intent, successCriteria, capabilities } } })).receipt;
+    const started = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId, commandType: "workflow.dispatch", workspaceId: request.workspaceId, idempotencyKey: commandId, payload: { workflow: guide.release, input: { title, intent, successCriteria, capabilities, reused } } })).receipt;
     if (!started.accepted || !started.resourceId) throw new BrainDomainError("CONFLICT", "plan assistant could not be started");
     db.prepare("INSERT INTO planning_requests(mission_id,actor_id,run_id,state,created_at_ms,updated_at_ms) VALUES (?,?,?,'running',?,?) ON CONFLICT(mission_id) DO UPDATE SET run_id=excluded.run_id,state='running',plan_version_id=NULL,error=NULL,updated_at_ms=excluded.updated_at_ms")
       .run(missionId, actor.actorId, started.resourceId, this.s.now(), this.s.now());

@@ -2,10 +2,12 @@ import { createEffect, createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert } from "@talelk/newui-molecules";
-import type { Mission, MissionPlanView, PlanTask, PlanVersion } from "@brain/contracts";
+import type { Mission, MissionPlanView, PlanTask, PlanVersion, ReuseItem } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { governor, query } from "../../data/client";
 import { createScopedRead } from "../../data/screens";
+import { reuseSearch } from "../../data/reuse";
+import { ReuseSuggestions } from "./Reuse";
 import { ScreenRegion } from "../screen-region";
 import { TechnicalDetails } from "./PageLayout";
 import { StatusBadge } from "./StatusBadge";
@@ -67,16 +69,27 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
   });
+  /** Similar past work, searched once before the first plan is drafted (#68). Zero hits leaves the flow unchanged. */
+  const [reuseHandled, setReuseHandled] = createSignal(false);
+  const suggestions = createScopedRead<ReuseItem[]>({
+    scope: app.scope,
+    resource: () => props.mission.missionId,
+    load: async (scope, signal) => reuseSearch(scope.workspaceId, `${props.mission.title}. ${props.mission.intent}`, props.mission.missionId, signal),
+  });
+  const pendingSuggestions = (): ReuseItem[] => (reuseHandled() ? [] : suggestions.state().data ?? []);
   const shownPlan = (): PlanVersion | undefined => linked.state().data?.proposal ?? proposal.state().data?.plan ?? active.state().data ?? undefined;
   createEffect(() => {
     const plan = shownPlan();
     if (plan && !dirty()) setEditedTasks(plan.tasks.map((task) => ({ ...task, criteria: [...task.criteria], dependsOn: [...task.dependsOn] })));
   });
-  async function generate() {
+  async function generate(kept: readonly string[] = [], dropped: readonly string[] = []) {
     if (busy()) return;
     setBusy(true); setError("");
     try {
-      await governor<MissionPlanView>("/v1/plans", { workspaceId: app.workspaceId(), requestId: `web-plan-${crypto.randomUUID()}`, missionId: props.mission.missionId });
+      // A dropped suggestion is remembered, so it is never offered to this mission again.
+      for (const itemRef of dropped) await app.run("mission.reuse.decide", { missionId: props.mission.missionId, itemRef, decision: "drop" });
+      setReuseHandled(true);
+      await governor<MissionPlanView>("/v1/plans", { workspaceId: app.workspaceId(), requestId: `web-plan-${crypto.randomUUID()}`, missionId: props.mission.missionId, ...(kept.length ? { reuse: kept } : {}) });
       setDirty(false);
       await proposal.refresh({ force: true });
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Plan generation failed"); }
@@ -90,6 +103,9 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     if (drafted || !settled || view.data || props.proposalId || !app.canDispatch()) return;
     if (props.mission.state !== "active" || props.mission.activePlanVersionId || linked.state().status === "loading" || active.state().status === "loading") return;
     if (linked.state().data?.proposal) return;
+    // Ask the person about similar past work before the first draft; with none found the draft starts by itself.
+    if (suggestions.state().status === "loading") return;
+    if (pendingSuggestions().length > 0) return;
     drafted = true;
     void generate();
   });
@@ -201,8 +217,11 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
   };
   const hasPlan = () => Boolean(shownPlan());
   return <WorkspaceSection title="Plan" description="The steps Brain will track as work once you confirm them."
-    actions={<Show when={app.canDispatch() && props.mission.state !== "closed" && !props.proposalId}><Button variant={hasPlan() ? "ghost" : "solid"} theme="blue" iconLeft="lucide-sparkles" loading={busy()} disabled={busy()} onClick={() => void generate()}>{hasPlan() ? "Generate another strategy" : "Prepare plan proposal"}</Button></Show>}>
+    actions={<Show when={app.canDispatch() && props.mission.state !== "closed" && !props.proposalId}><Button variant={hasPlan() ? "ghost" : "solid"} theme="blue" iconLeft="lucide-sparkles" loading={busy()} disabled={busy()} onClick={() => void generate(pendingSuggestions().map((item) => item.itemRef))}>{hasPlan() ? "Generate another strategy" : "Prepare plan proposal"}</Button></Show>}>
     <Show when={error()}><Alert theme="red" variant="outline" title="Planning action failed" description={error()} /></Show>
+    <Show when={!hasPlan() && !proposal.state().data && !props.proposalId && pendingSuggestions().length > 0}>
+      <ReuseSuggestions items={pendingSuggestions()} busy={busy()} onDraft={(kept, dropped) => void generate(kept, dropped)} />
+    </Show>
     <Show when={proposal.state().data?.state === "running"}><Alert theme="blue" variant="outline" title="Preparing a validated proposal" description="The mission is durable. No tasks have been created and no execution has started." /></Show>
     <Show when={proposal.state().data?.state === "failed"}><Alert theme="amber" variant="outline" title="No validated proposal yet" description={proposal.state().data?.error} /></Show>
     <Show when={linked.state().data?.proposal ?? (proposal.state().data?.plan ? undefined : active.state().data ?? undefined)} keyed fallback={

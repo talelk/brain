@@ -12,7 +12,6 @@ const ROOT = join(__dirname, "../..");
 const BROWSER = join(ROOT, "tests/browser");
 /** Routes no spec opens by URL, with the reason. Keep this list short. */
 const ALLOWLIST: Readonly<Record<string, string>> = {
-  "/w/:id/knowledge/review": "capitalization.spec.ts reaches it by clicking the Review capability candidates tab",
   "/accept-invitation/:id": "identity-administration.spec.ts opens the emailed invitation url taken from the outbox row",
   "/studio/:kind/:draftId": "studio.spec.ts lands on it by creating a draft, so the id is not known in advance",
 };

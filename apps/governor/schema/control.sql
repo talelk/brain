@@ -444,5 +444,10 @@ CREATE TABLE job_outputs (job_id TEXT PRIMARY KEY, output_json TEXT NOT NULL) ST
 CREATE TABLE memory_assets (
  id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT,
  source_id TEXT NOT NULL, body TEXT NOT NULL, acl_generation INTEGER NOT NULL,
+ source_type TEXT NOT NULL DEFAULT 'wiki' CHECK(source_type IN ('chat','skill','wiki','codegraph','knowledge')),
+ status TEXT NOT NULL DEFAULT 'unverified' CHECK(status IN ('reviewed','unverified')),
+ title TEXT NOT NULL DEFAULT '', self_reviewed INTEGER NOT NULL DEFAULT 0 CHECK(self_reviewed IN (0,1)),
  revoked INTEGER NOT NULL DEFAULT 0, created_at_ms INTEGER NOT NULL
 ) STRICT;
+CREATE UNIQUE INDEX memory_assets_source ON memory_assets(organization_id, COALESCE(workspace_id,''), source_id) WHERE revoked=0;
+CREATE VIRTUAL TABLE memory_fts USING fts5(asset_id UNINDEXED,title,body,tokenize='unicode61 remove_diacritics 2');

@@ -1,4 +1,4 @@
-# 6. A single owner may review their own knowledge, with a visible mark
+# 7. A single owner may review their own knowledge, with a visible mark
 
 Date: 2026-11-11
 Status: Accepted (issue #72)

@@ -1,0 +1,76 @@
+import { For, Show, createSignal } from "solid-js";
+import type { JSX } from "solid-js";
+import { useNavigate } from "@solidjs/router";
+import { Badge, Button, TextInput } from "@talelk/newui-atoms";
+import type { KnowledgeAsset } from "@brain/contracts";
+import { useApp } from "../app-context";
+import { missionHref } from "../mission-links";
+import { DateText } from "../screen-region";
+
+/** Knowledge Brain wrote up from a finished mission; the other assets come from repeated tool use. */
+export const isMissionKnowledge = (asset: KnowledgeAsset): boolean => asset.operationId === "mission-knowledge";
+
+type Review = (asset: KnowledgeAsset, decision: "approve" | "reject", reason: string) => Promise<void>;
+
+/**
+ * The Library review inbox (#71): each finished mission proposes one readable record. One
+ * approval reviews and publishes it, so search and future plans can use it at once. A person
+ * who produced it may approve it only while nobody else can review; the card says so (ADR 0007).
+ */
+export function KnowledgeInbox(props: { assets: readonly KnowledgeAsset[]; canReview: boolean; canRevoke: boolean; onReview: Review; onRevoke: (asset: KnowledgeAsset, reason: string) => Promise<void> }): JSX.Element {
+  const app = useApp();
+  const navigate = useNavigate();
+  const [rejecting, setRejecting] = createSignal<string>();
+  const [reason, setReason] = createSignal("");
+  const [busy, setBusy] = createSignal<string>();
+  const waiting = () => props.assets.filter((asset) => asset.state === "extracted" && !asset.rejectionReason);
+  const run = async (asset: KnowledgeAsset, action: () => Promise<void>) => {
+    setBusy(asset.assetId);
+    try { await action(); setRejecting(undefined); setReason(""); } finally { setBusy(undefined); }
+  };
+  return <section class="min-w-0" aria-labelledby="knowledge-inbox" data-testid="knowledge-inbox">
+    <h3 id="knowledge-inbox" class="mb-1 text-base-medium text-ink-gray-9">Knowledge to review <Show when={waiting().length > 0}><Badge size="sm" theme="amber" label={`${waiting().length} to review`} /></Show></h3>
+    <p class="mb-2 text-interface text-ink-gray-7">When a mission finishes and its result is verified, Brain writes up what happened. Approve it once and it becomes searchable and is offered to future plans. It is a record of past work, never proof for new work.</p>
+    <Show when={props.assets.length > 0} fallback={<p class="border-y border-outline-gray-1 py-4 text-interface text-ink-gray-6">Nothing to review yet. A mission closed as achieved writes up its knowledge here.</p>}>
+      <ul class="min-w-0 divide-y divide-outline-gray-1 border-y border-outline-gray-1">
+        <For each={props.assets}>{(asset) => <li class="min-w-0 py-3 first:pt-0 last:pb-0" data-testid={`knowledge-proposal-${asset.assetId}`}>
+          <div class="flex min-w-0 flex-wrap items-center gap-1.5">
+            <strong class="min-w-0 break-words text-base-medium">{asset.title ?? asset.operationId}</strong>
+            <Badge size="sm" theme={asset.state === "published" ? "green" : asset.state === "revoked" ? "red" : "amber"} label={asset.state === "extracted" ? (asset.rejectionReason ? "Not published" : "Awaiting review") : asset.state === "published" ? "Published" : asset.state} />
+            <Show when={asset.selfReviewed}><Badge size="sm" variant="outline" theme="amber" label="Self-reviewed" /></Show>
+          </div>
+          <Show when={asset.rejectionReason}><p class="mt-1 text-caption text-ink-gray-7">Left out: {asset.rejectionReason}</p></Show>
+          <details class="mt-2 min-w-0" open={asset.state === "extracted" && !asset.rejectionReason}>
+            <summary class="cursor-pointer text-caption font-medium text-ink-gray-7">Read the record</summary>
+            <div class="brain-prose mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3 text-interface text-ink-gray-8" data-testid="knowledge-proposal-text">{asset.content}</div>
+          </details>
+          <p class="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-caption text-ink-gray-6">
+            <Show when={asset.missionId}><a class="text-ink-blue-link hover:underline" href={missionHref(app.workspaceId(), asset.missionId!, "outputs")} onClick={(event) => { event.preventDefault(); void navigate(missionHref(app.workspaceId(), asset.missionId!, "outputs")); }}>From this mission</a></Show>
+            <span>{asset.provenance.length} evidence {asset.provenance.length === 1 ? "reference" : "references"}</span>
+            <span>Proposed <DateText value={asset.createdAt} /></span>
+            <Show when={asset.reviewedBy}><span>Approved by {asset.reviewedBy === app.identity()?.actor.actorId ? "you" : "another reviewer"}</span></Show>
+          </p>
+          <Show when={asset.provenance.length}><details class="mt-1 min-w-0"><summary class="cursor-pointer text-caption font-medium text-ink-gray-6">Provenance</summary>
+            <ul class="mt-1 flex min-w-0 flex-col gap-1"><For each={asset.provenance}>{(reference) => <li class="min-w-0"><code class="break-all text-caption text-ink-gray-7">{reference.evidenceDigest}</code></li>}</For></ul></details></Show>
+          <Show when={props.canReview && asset.state === "extracted"}>
+            <div class="mt-3 flex min-w-0 flex-col gap-2 border-t border-outline-gray-1 pt-3">
+              <div class="flex flex-wrap gap-2">
+                <Button size="sm" variant="solid" theme="blue" iconLeft="lucide-check" loading={busy() === asset.assetId} disabled={busy() !== undefined} onClick={() => void run(asset, () => props.onReview(asset, "approve", "Reviewed the record and its provenance"))}>Approve and publish</Button>
+                <Button size="sm" variant="outline" disabled={busy() !== undefined} onClick={() => { setRejecting(rejecting() === asset.assetId ? undefined : asset.assetId); setReason(""); }}>Not now</Button>
+              </div>
+              <Show when={rejecting() === asset.assetId}>
+                <form class="flex min-w-0 flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); if (reason().trim()) void run(asset, () => props.onReview(asset, "reject", reason().trim())); }}>
+                  <div class="min-w-0 flex-1"><TextInput label="Why leave it out?" value={reason()} onInput={(event) => setReason(event.currentTarget.value)} placeholder="Too thin, wrong scope, or already covered" /></div>
+                  <Button size="sm" type="submit" variant="outline" disabled={!reason().trim() || busy() !== undefined}>Keep it out of search</Button>
+                </form>
+              </Show>
+            </div>
+          </Show>
+          <Show when={props.canRevoke && asset.state === "published"}>
+            <div class="mt-3 border-t border-outline-gray-1 pt-3"><Button size="sm" variant="outline" theme="red" iconLeft="lucide-undo-2" disabled={busy() !== undefined} onClick={() => void run(asset, () => props.onRevoke(asset, "Withdrawn from search and reuse"))}>Withdraw from search</Button></div>
+          </Show>
+        </li>}</For>
+      </ul>
+    </Show>
+  </section>;
+}

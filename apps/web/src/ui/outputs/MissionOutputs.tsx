@@ -11,6 +11,7 @@ import type { ArtifactHistory } from "../../data/exec-outputs";
 import { artifactsHistoryQuery } from "../../data/exec-outputs";
 import { ScreenRegion } from "../screen-region";
 import { WorkspaceSection } from "../components/Domain";
+import { KnowledgeProposalNote, ReusedLine } from "../components/Reuse";
 import { TechnicalDetails } from "../components/PageLayout";
 import { formatRelative } from "../format";
 import { execOutputsUrl } from "../exec/exec-filters";
@@ -161,6 +162,10 @@ export function MissionOutputs(props: { mission: Mission }): JSX.Element {
         </Button>
       }
     >
+      <div class="mb-3 flex min-w-0 flex-col gap-3">
+        <ReusedLine missionId={props.mission.missionId} workspaceId={props.mission.workspaceId} />
+        <KnowledgeProposalNote missionId={props.mission.missionId} workspaceId={props.mission.workspaceId} achieved={props.mission.outcome === "achieved"} />
+      </div>
       <ScreenRegion
         state={files.state()}
         skeleton="cards"

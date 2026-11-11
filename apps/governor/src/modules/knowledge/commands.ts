@@ -5,6 +5,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { activeRelease } from "../configuration/index";
 import { readVerified } from "../artifacts/index";
 import type { MemoryStore } from "./memory";
+import type { ReuseService } from "./reuse";
 
 export interface KnowledgeCommandPorts {
   markKnowledgePublished(organizationId: string, workspaceId: string, sourceId: string): void;
@@ -12,7 +13,7 @@ export interface KnowledgeCommandPorts {
 }
 
 /** Memory publication commands. Memory assets live in control.db. */
-export function knowledgeCommands(store: Store, memory: MemoryStore, ports: KnowledgeCommandPorts): CommandHandlers {
+export function knowledgeCommands(store: Store, memory: MemoryStore, reuse: ReuseService, ports: KnowledgeCommandPorts): CommandHandlers {
   const s = store;
   return {
     "memory.publish": {
@@ -56,6 +57,15 @@ export function knowledgeCommands(store: Store, memory: MemoryStore, ports: Know
         });
         ports.markKnowledgePublished(actor.organizationId, sourceWorkspaceId, String(p["candidateId"]));
         return { resourceId: id };
+      },
+    },
+    // A person keeps or drops one suggested item for one mission (#68, #70). Dropping is audited by the command record.
+    "mission.reuse.decide": {
+      kind: "workspace",
+      handle: ({ actor, cmd, workspaceId }) => {
+        const missionId = String(cmd.payload["missionId"]);
+        reuse.decide(actor, workspaceId, missionId, String(cmd.payload["itemRef"]), cmd.payload["decision"] === "keep" ? "keep" : "drop");
+        return { resourceId: missionId };
       },
     },
     "memory.revoke": {

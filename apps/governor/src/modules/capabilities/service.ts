@@ -5,11 +5,12 @@ import type {
 } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { activeReleaseRecord } from "../configuration/index";
-import { requireWorkspaceRead } from "../../application/authz";
+import { requireWorkspaceRead, scopesForPrincipal } from "../../application/authz";
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
 import { iso } from "../../domain/clock";
-import { looksLikeSecret } from "../knowledge/memory";
+import { looksLikeSecret, type MemoryStore, type ReuseService } from "../knowledge/index";
+import { putBytes, readVerified } from "../artifacts/index";
 
 export interface CapitalizationCommand {
   readonly commandId: string;
@@ -34,6 +35,8 @@ export interface OperationObservationInput {
 type AssetRow = {
   id: string; signature: string; operation_id: string; state: KnowledgeAsset["state"];
   classification: KnowledgeAsset["classification"]; content: string; source_count: number;
+  title: string; mission_id: string | null; producer_id: string | null; provenance_json: string;
+  reviewed_by: string | null; self_reviewed: number; reviewed_at_ms: number | null; rejection_reason: string | null; content_digest: string | null;
   created_at_ms: number; updated_at_ms: number;
 };
 type CandidateRow = {
@@ -62,8 +65,22 @@ function parameterShape(value: unknown): Record<string, string> {
   return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, Array.isArray(item) ? "array" : item === null ? "null" : typeof item]));
 }
 
+/** The readable asset stays inside the contract's 12000 characters, cut section by section. */
+const ASSET_CHARS = 12000;
+const section = (heading: string, lines: readonly string[], budget: number): string => {
+  const body: string[] = [];
+  let used = 0;
+  for (const line of lines) {
+    if (used + line.length + 1 > budget) { body.push(`(${lines.length - body.length} more not shown)`); break; }
+    body.push(line); used += line.length + 1;
+  }
+  return `${heading}\n${body.length ? body.join("\n") : "None."}`;
+};
+
+export interface CapitalizationPorts { readonly memory: MemoryStore; readonly reuse: ReuseService }
+
 export class CapitalizationService {
-  constructor(private readonly store: Store) {}
+  constructor(private readonly store: Store, private readonly ports: CapitalizationPorts) {}
 
   apply(actor: ActorContext, command: CapitalizationCommand): string {
     const workspaceId = command.workspaceId;
@@ -74,6 +91,7 @@ export class CapitalizationService {
       case "capability.review": return this.review(actor, workspaceId, command.payload);
       case "tool.propose": return this.propose(actor, workspaceId, command.payload);
       case "tool.publish": return this.publish(actor, workspaceId, command.payload);
+      case "knowledge.review": return this.reviewKnowledge(actor, workspaceId, command.payload);
       default: throw new BrainDomainError("INVALID_CONTRACT", `unsupported capitalization command ${command.commandType}`);
     }
   }
@@ -157,32 +175,57 @@ export class CapitalizationService {
   }
 
   /**
-   * Knowledge candidates from one mission's verified material only (#42):
-   * accepted decisions, verified output versions, verdict findings and the
-   * Governor-derived facts frozen on handoffs. Member notes, messages and
-   * transcripts are claims and are never read here (E120).
+   * One readable knowledge asset per achieved mission (#67), built from verified
+   * material only with a fixed template and no model summary: the goal, success
+   * criteria with how the verdict checked them, accepted decisions, verified
+   * outputs, what the verdict rejected, workflows used, cost and time. Member
+   * notes, handoff notes, messages and transcripts are claims and are never read
+   * (GLOSSARY: Capitalization run). Provenance is the mission's evidence bundles.
    */
   private extractMissionKnowledge(db: ReturnType<Store["workspaceDb"]>, missionId: string, now: number): number {
-    const sources: Array<{ signature: string; content: JsonValue }> = [];
-    for (const row of db.prepare("SELECT id, statement, source_kind, source_ref FROM accepted_decisions WHERE mission_id=? AND superseded_by IS NULL ORDER BY introduced_version, id").all(missionId) as Array<{ id: string; statement: string; source_kind: string; source_ref: string | null }>) {
-      sources.push({ signature: `mission:${missionId}:decision:${row.id}`, content: { kind: "accepted-decision", missionId, statement: row.statement, source: { kind: row.source_kind, ...(row.source_ref ? { ref: row.source_ref } : {}) } } });
-    }
-    for (const row of db.prepare("SELECT v.id, o.name, v.artifact_digest FROM output_versions v JOIN mission_outputs o ON o.id=v.output_id WHERE o.mission_id=? AND v.verified=1 ORDER BY v.id").all(missionId) as Array<{ id: string; name: string; artifact_digest: string }>) {
-      sources.push({ signature: `mission:${missionId}:output:${row.id}`, content: { kind: "verified-output", missionId, output: row.name, artifactDigest: row.artifact_digest } });
-    }
-    for (const row of db.prepare("SELECT digest, findings_json FROM mission_evidence_bundles WHERE mission_id=? AND state IN ('verified','rejected') ORDER BY created_at_ms").all(missionId) as Array<{ digest: string; findings_json: string }>) {
-      for (const [index, finding] of (JSON.parse(row.findings_json) as string[]).entries()) {
-        sources.push({ signature: `mission:${missionId}:finding:${row.digest}:${index}`, content: { kind: "verdict-finding", missionId, finding, bundleDigest: row.digest } });
-      }
-    }
-    for (const row of db.prepare("SELECT id, work_item_id, facts_json FROM handoffs WHERE mission_id=? AND superseded_by IS NULL AND facts_json IS NOT NULL ORDER BY id").all(missionId) as Array<{ id: string; work_item_id: string; facts_json: string }>) {
-      sources.push({ signature: `mission:${missionId}:handoff:${row.id}`, content: { kind: "handoff-facts", missionId, workItemId: row.work_item_id, facts: JSON.parse(row.facts_json) as JsonValue } });
-    }
-    for (const source of sources) {
-      db.prepare(`INSERT OR IGNORE INTO knowledge_assets(id,signature,operation_id,state,classification,content,source_count,created_at_ms,updated_at_ms) VALUES (?,?, 'mission-knowledge', 'extracted', 'internal', ?, 1, ?, ?)`)
-        .run(digestId("knowledge", domainDigest("brain:mission-knowledge:v1", { signature: source.signature })), source.signature, JSON.stringify(source.content), now, now);
-    }
-    return sources.length;
+    const mission = db.prepare("SELECT id, title, intent, success_criteria_json, owner_id, outcome, state, active_ms FROM missions WHERE id=?").get(missionId) as
+      | { id: string; title: string; intent: string; success_criteria_json: string; owner_id: string; outcome: string | null; state: string; active_ms: number } | undefined;
+    if (!mission || mission.state !== "closed" || mission.outcome !== "achieved") return 0;
+    const bundles = db.prepare("SELECT digest, state, findings_json, created_at_ms FROM mission_evidence_bundles WHERE mission_id=? AND state IN ('verified','rejected') ORDER BY created_at_ms, rowid").all(missionId) as Array<{ digest: string; state: "verified" | "rejected"; findings_json: string; created_at_ms: number }>;
+    const verified = bundles.filter((bundle) => bundle.state === "verified").at(-1);
+    if (!verified) return 0;
+    const checks = db.prepare("SELECT evaluator, outcome, advisory, evidence_digest FROM mission_bundle_checks WHERE bundle_digest=? ORDER BY criterion_id, evaluator").all(verified.digest) as Array<{ evaluator: string; outcome: string; advisory: number; evidence_digest: string }>;
+    const independent = checks.filter((check) => check.advisory === 0 && check.outcome === "passed");
+    const advisory = checks.filter((check) => check.advisory === 1);
+    const verdictDay = new Date(verified.created_at_ms).toISOString().slice(0, 10);
+    const basis = independent.length > 0
+      ? `verified: ${independent.length} independent check${independent.length === 1 ? "" : "s"} passed (${[...new Set(independent.map((check) => check.evaluator))].join(", ")}) and a mission verdict recorded by a person on ${verdictDay}${advisory.length ? `; ${advisory.length} advisory model-opinion check${advisory.length === 1 ? "" : "s"} did not decide the outcome` : ""}`
+      : `verified: human sign-off, mission verdict recorded by a person on ${verdictDay}`;
+    const criteria = (JSON.parse(mission.success_criteria_json) as string[]).map((text) => `- ${text} [${basis}]`);
+    const decisions = (db.prepare("SELECT statement, source_kind FROM accepted_decisions WHERE mission_id=? AND superseded_by IS NULL ORDER BY introduced_version, id").all(missionId) as Array<{ statement: string; source_kind: string }>)
+      .map((row) => `- ${row.statement} (accepted by a person; source: ${row.source_kind})`);
+    const outputs = (db.prepare("SELECT o.name, v.artifact_digest FROM output_versions v JOIN mission_outputs o ON o.id=v.output_id WHERE o.mission_id=? AND v.verified=1 ORDER BY o.name, v.id").all(missionId) as Array<{ name: string; artifact_digest: string }>)
+      .map((row) => {
+        let preview = "";
+        try { preview = new TextDecoder("utf-8", { fatal: true }).decode(readVerified(this.store, row.artifact_digest)).replace(/\s+/gu, " ").trim().slice(0, 240); } catch { preview = "(binary or unreadable content)"; }
+        return `- ${row.name} [${row.artifact_digest}]${preview ? `: ${preview}` : ""}`;
+      });
+    const rejected = bundles.filter((bundle) => bundle.state === "rejected").flatMap((bundle) => (JSON.parse(bundle.findings_json) as string[]).map((finding) => `- ${finding} (verdict ${bundle.digest.slice(0, 19)}...)`));
+    const workflows = (db.prepare("SELECT DISTINCT workflow_id FROM work_items WHERE mission_id=? AND workflow_id IS NOT NULL ORDER BY workflow_id").all(missionId) as Array<{ workflow_id: string }>).map((row) => row.workflow_id);
+    const spend = (db.prepare("SELECT COALESCE(SUM(settled_micro_usd),0) AS micro FROM mission_spend WHERE mission_id=?").get(missionId) as { micro: number }).micro;
+    const minutes = Math.max(1, Math.round(mission.active_ms / 60_000));
+    const content = [
+      `# ${mission.title}`,
+      section("## Goal", [mission.intent], 1800),
+      section("## Success criteria and how each was checked", criteria, 2600),
+      section("## Decisions accepted along the way", decisions, 1800),
+      section("## Verified outputs", outputs, 2600),
+      section("## What the verdict rejected, and why", rejected, 1800),
+      section("## Workflows used", workflows.map((id) => `- ${id}`), 400),
+      section("## Cost and time", [`- Settled spend: $${(spend / 1_000_000).toFixed(4)}`, `- Active time: about ${minutes} minute${minutes === 1 ? "" : "s"}`], 300),
+      "Claim basis: statements tagged [verified: ...] come from the mission's verified evidence bundle. This is a record of past work, not evidence for a new mission.",
+    ].join("\n\n").slice(0, ASSET_CHARS);
+    const signature = domainDigest("brain:mission-knowledge:v1", { missionId });
+    const provenance = [verified.digest, ...new Set(independent.map((check) => check.evidence_digest))].slice(0, 20).map((evidenceDigest) => ({ rootRunId: missionId, evidenceDigest }));
+    const inserted = db.prepare(`INSERT OR IGNORE INTO knowledge_assets(id,signature,operation_id,state,classification,content,source_count,title,mission_id,producer_id,provenance_json,created_at_ms,updated_at_ms)
+      VALUES (?,?, 'mission-knowledge', 'extracted', 'internal', ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(digestId("knowledge", signature), signature, content, Math.max(1, bundles.length), mission.title, missionId, mission.owner_id, JSON.stringify(provenance), now, now);
+    return Number(inserted.changes);
   }
 
   processPending(): { processed: number; failed: number } {
@@ -217,6 +260,8 @@ export class CapitalizationService {
       transitionState(db, "capitalizationRun", runId, "running", { rawSet: [`started_at_ms=COALESCE(started_at_ms,${now})`, "error=NULL"] });
       if (run.mission_id) {
         const extracted = this.extractMissionKnowledge(db, run.mission_id, now);
+        // An achieved mission is also offered for reuse (#66); the reuse index re-checks the live source on every read.
+        this.ports.reuse.indexMission(organizationId, workspaceId, run.mission_id);
         transitionState(db, "capitalizationRun", runId, "succeeded", { set: { extracted_count: extracted, completed_at_ms: this.store.now() } });
         return;
       }
@@ -319,11 +364,61 @@ export class CapitalizationService {
   markKnowledgePublished(organizationId: string, workspaceId: string, sourceId: string): void {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     db.prepare("UPDATE knowledge_assets SET state='published',updated_at_ms=? WHERE id=? AND state IN ('extracted','reviewed')").run(this.store.now(), sourceId);
+    this.ports.reuse.indexKnowledge(organizationId, workspaceId, sourceId);
   }
 
   markKnowledgeRevoked(organizationId: string, workspaceId: string, sourceId: string): void {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     db.prepare("UPDATE knowledge_assets SET state='revoked',updated_at_ms=? WHERE id=?").run(this.store.now(), sourceId);
+    this.ports.reuse.unindex(organizationId, workspaceId, `knowledge:${sourceId}`);
+  }
+
+  /**
+   * The Library review inbox decision (#71, ADR 0007). Approve reviews and publishes in one
+   * action: secret scan, digest-pinned content artifact, memory publication as reviewed
+   * knowledge, then the asset's own state, reviewer and reuse index. Every step is idempotent
+   * on the asset id, so a crash between the control.db and workspace.db writes is repaired by
+   * repeating the command. Producer is not approver unless nobody else can review (self-reviewed).
+   */
+  private reviewKnowledge(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only a person reviews knowledge");
+    const db = this.store.workspaceDb(workspaceId, actor.organizationId);
+    const assetId = String(payload["assetId"]);
+    const decision = String(payload["decision"]);
+    const reason = String(payload["reason"] ?? "").trim();
+    const asset = db.prepare("SELECT * FROM knowledge_assets WHERE id=?").get(assetId) as AssetRow | undefined;
+    if (!asset) throw new BrainDomainError("NOT_FOUND", "knowledge asset not found");
+    if (asset.operation_id !== "mission-knowledge") throw new BrainDomainError("CONFLICT", "only proposed knowledge from a closed mission is reviewed here");
+    if (decision === "reject") {
+      if (asset.state !== "extracted") throw new BrainDomainError("CONFLICT", `a ${asset.state} knowledge asset cannot be rejected`);
+      db.prepare("UPDATE knowledge_assets SET rejection_reason=?,updated_at_ms=? WHERE id=?").run(reason.slice(0, 512), this.store.now(), assetId);
+      return assetId;
+    }
+    if (asset.state === "published") return assetId;
+    if (asset.state !== "extracted") throw new BrainDomainError("CONFLICT", `a ${asset.state} knowledge asset cannot be approved`);
+    const self = asset.producer_id === actor.actorId;
+    if (self && this.otherReviewers(actor, workspaceId).length > 0) {
+      throw new BrainDomainError("FORBIDDEN", "another reviewer in this workspace must approve knowledge you produced");
+    }
+    if (looksLikeSecret(asset.content) || looksLikeSecret(asset.title)) {
+      throw new BrainDomainError("INVALID_ARGUMENT", "this knowledge appears to contain a secret; it was not published");
+    }
+    const digest = putBytes(this.store, new TextEncoder().encode(asset.content));
+    this.ports.memory.publish({ organizationId: actor.organizationId, workspaceId, sourceId: assetId, text: asset.content, sourceType: "knowledge", status: "reviewed", title: asset.title, selfReviewed: self });
+    const now = this.store.now();
+    this.store.inTx(db, () => {
+      db.prepare("UPDATE knowledge_assets SET state='published',reviewed_by=?,self_reviewed=?,reviewed_at_ms=?,content_digest=?,rejection_reason=NULL,updated_at_ms=? WHERE id=? AND state='extracted'")
+        .run(actor.actorId, self ? 1 : 0, now, digest, now, assetId);
+    });
+    this.ports.reuse.indexKnowledge(actor.organizationId, workspaceId, assetId);
+    return assetId;
+  }
+
+  /** Other active people who could review: when none exist, a producer may review their own knowledge (ADR 0007). */
+  private otherReviewers(actor: ActorContext, workspaceId: string): string[] {
+    const people = this.store.control.prepare(`SELECT p.id FROM principals p JOIN workspace_memberships m ON m.principal_id=p.id AND m.workspace_id=? AND m.revoked_at_ms IS NULL
+      WHERE p.organization_id=? AND p.kind='human' AND p.disabled_at_ms IS NULL AND p.id<>?`).all(workspaceId, actor.organizationId, actor.actorId) as Array<{ id: string }>;
+    return people.map((row) => row.id).filter((id) => scopesForPrincipal(this.store, id, actor.organizationId, workspaceId).includes("memory:publish"));
   }
 
   private activeTools(organizationId: string): ToolCatalogEntry[] {
@@ -357,11 +452,19 @@ export class CapitalizationService {
   }
 
   private asset(workspaceId: string, db: ReturnType<Store["workspaceDb"]>, row: AssetRow): KnowledgeAsset {
-    const provenance = db.prepare("SELECT root_run_id,evidence_digest FROM operation_observations WHERE signature=? AND verified_success=1 ORDER BY root_run_id").all(row.signature) as Array<{ root_run_id: string; evidence_digest: string }>;
+    // Mission assets carry their own provenance (the mission's evidence bundles); operation assets look it up by signature.
+    const provenance = row.mission_id
+      ? (JSON.parse(row.provenance_json) as Array<{ rootRunId: string; evidenceDigest: string }>)
+      : (db.prepare("SELECT root_run_id,evidence_digest FROM operation_observations WHERE signature=? AND verified_success=1 ORDER BY root_run_id").all(row.signature) as Array<{ root_run_id: string; evidence_digest: string }>)
+        .map((item) => ({ rootRunId: item.root_run_id, evidenceDigest: item.evidence_digest }));
     return {
       assetId: row.id, workspaceId, signature: row.signature, operationId: row.operation_id, state: row.state,
       classification: row.classification, content: row.content, sourceCount: row.source_count,
-      provenance: provenance.map((item) => ({ rootRunId: item.root_run_id, evidenceDigest: item.evidence_digest })),
+      provenance,
+      ...(row.title ? { title: row.title } : {}), ...(row.mission_id ? { missionId: row.mission_id } : {}),
+      ...(row.producer_id ? { producedBy: row.producer_id } : {}), ...(row.reviewed_by ? { reviewedBy: row.reviewed_by } : {}),
+      ...(row.reviewed_at_ms ? { reviewedAt: iso(row.reviewed_at_ms) } : {}), ...(row.self_reviewed ? { selfReviewed: true } : {}),
+      ...(row.rejection_reason ? { rejectionReason: row.rejection_reason } : {}), ...(row.content_digest ? { contentDigest: row.content_digest } : {}),
       createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
     };
   }

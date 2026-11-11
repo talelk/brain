@@ -20,7 +20,7 @@ export type CommandKind =
   | "integration.connect" | "integration.verify" | "integration.bind"
   | "configDraft.create" | "configDraft.update" | "configDraft.validate" | "configDraft.test" | "configDraft.publish"
   | "member.grant" | "member.revoke" | "config.activate" | "memory.publish" | "memory.revoke"
-  | "tool.propose" | "tool.publish" | "capitalization.run" | "capability.review" | "approval.revoke" | "workspace.update" | "workspace.control" | "workspace.export" | "workspace.import"
+  | "tool.propose" | "tool.publish" | "capitalization.run" | "capability.review" | "knowledge.review" | "mission.reuse.decide" | "approval.revoke" | "workspace.update" | "workspace.control" | "workspace.export" | "workspace.import"
   | OrganizationAdminCommand["commandType"];
 
 export interface CommandContext {
@@ -45,6 +45,8 @@ export type PayloadFor<K extends CommandKind> =
     : K extends "plan.propose" ? { missionId: string; origin: "manual" | "agent" | "template" | "capitalization"; summary?: string; tasks: PlanTask[] }
       : K extends "plan.confirm" ? { planVersionId: string }
       : K extends "plan.reject" ? { planVersionId: string; reason: string }
+      : K extends "knowledge.review" ? { assetId: string; decision: "approve" | "reject"; reason: string }
+      : K extends "mission.reuse.decide" ? { missionId: string; itemRef: string; decision: "keep" | "drop" }
         : K extends "workItem.transition" ? { workItemId: string; state: WorkItemState; evidenceDigest?: string; reason?: string }
           : K extends "handoff.submit" ? { workItemId: string; notes: { summary: string; decisions?: string[]; openQuestions?: string[]; nextAction?: string; referencedOutputs?: string[] } }
           : K extends "workItem.comment" ? { workItemId: string; text: string }

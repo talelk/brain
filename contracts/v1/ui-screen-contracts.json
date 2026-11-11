@@ -108,7 +108,10 @@
     "automations.occurrences",
     "jobs.list",
     "session.get",
-    "live.status"
+    "live.status",
+    "reuse.search",
+    "reuse.forMission",
+    "knowledgeAssets.list"
    ],
    "actions": [
     "mission.policy.set",
@@ -130,7 +133,8 @@
     "session.steer",
     "session.stop",
     "workflow.dispatch",
-    "job.reconcile"
+    "job.reconcile",
+    "mission.reuse.decide"
    ],
    "content": [
     "live",
@@ -612,7 +616,9 @@
    "actions": [
     "capitalization.run",
     "capability.review",
-    "tool.publish"
+    "tool.publish",
+    "knowledge.review",
+    "memory.revoke"
    ],
    "content": [
     "runs",
@@ -623,8 +629,8 @@
    "owner": "T58",
    "navigationGroup": "knowledge",
    "icon": "lucide-list-checks",
-   "task": "Review knowledge and capability candidates",
-   "title": "Knowledge review"
+   "task": "Approve what Brain learned from finished missions, and review tool candidates",
+   "title": "Review inbox"
   },
   {
    "route": "/settings",
