@@ -1,11 +1,11 @@
-import type { Mission, PlayView } from "@brain/contracts";
+import type { Mission, PlayView, ReuseItem } from "@brain/contracts";
 
 /**
  * Reuse entry points of the Today box (#69). Everything the box offers to
- * start from is a `ReuseCandidate`; today they are derived from the
- * workspace's finished missions. The reuse index (#66) will supply the same
- * shape (verified outputs, freshness, search ranking) by replacing
- * `fromMissions`; nothing else in the UI changes.
+ * start from is a `ReuseCandidate`. "Start from a previous mission" is fed by
+ * the reuse index (`fromReuseItems`: verified work only, ranked by search);
+ * "Repeat this" lists finished missions (`fromMissions`) because a schedule
+ * can target any of them.
  */
 export interface ReuseCandidate {
   readonly id: string;
@@ -21,11 +21,22 @@ export interface ReuseCandidate {
   readonly playId?: string;
 }
 
-/** HOOK for #66: replace with a query against the reuse index. */
-export type ReuseSource = (missions: readonly Mission[], plays: readonly PlayView[]) => ReuseCandidate[];
+/** Mission hits of the reuse index (#66), which carry what a new mission is seeded with. Other kinds cannot seed one. */
+export function fromReuseItems(items: readonly ReuseItem[], missions: readonly Mission[]): ReuseCandidate[] {
+  return items.flatMap((item): ReuseCandidate[] => {
+    const missionId = item.provenance.missionId;
+    if (item.kind !== "mission" || !item.startFrom || !missionId) return [];
+    const playId = missions.find((mission) => mission.missionId === missionId)?.playId;
+    return [{
+      id: missionId, title: item.startFrom.title, intent: item.startFrom.intent, successCriteria: item.startFrom.successCriteria,
+      provenance: `${item.provenance.source ?? "Achieved mission"}${item.usedCount ? ` · reused ${item.usedCount} ${item.usedCount === 1 ? "time" : "times"}` : ""}`,
+      lastVerifiedAt: item.lastVerifiedAt, verified: true, ...(playId ? { playId } : {}),
+    }];
+  });
+}
 
 /** A mission is reusable once it is closed; achieved ones count as verified. */
-export const fromMissions: ReuseSource = (missions, plays) => missions
+export const fromMissions = (missions: readonly Mission[], plays: readonly PlayView[]): ReuseCandidate[] => missions
   .filter((mission) => mission.state === "closed")
   .map((mission): ReuseCandidate => {
     const verified = mission.outcome === "achieved";

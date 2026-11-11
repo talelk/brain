@@ -1,6 +1,8 @@
 import { test, expect } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { goldenDocs } from "../helpers";
+import type { TestWorld } from "../helpers";
+import { achievedMission } from "../support/reuse";
 import { scopesForPrincipal } from "../../apps/governor/src/application/authz";
 
 /**
@@ -115,41 +117,47 @@ test("the New mission dialog is the same box on every open: no mode toggle, one 
   expect((w.db.prepare("SELECT budget_micro_usd AS b FROM missions").get() as { b: number }).b).toBe(5_000_000);
 });
 
-test("reuse entries: empty state, start from a previous mission (names the source), Repeat this", async ({ page, governor }) => {
+test("reuse entries: empty state, start from a previous mission via the reuse index (names the source), Repeat this, phone width", async ({ page, governor }) => {
   test.setTimeout(120_000);
   const w = await world(page, governor);
   await page.goto(`${governor.url}/w/ws-today/today`);
   await page.getByRole("button", { name: "Start from a previous mission", exact: true }).click();
-  await expect(page.getByText("Nothing to reuse yet.")).toBeVisible();
+  await expect(page.getByText("Type a few words above or here")).toBeVisible();
+  await page.getByLabel("Search verified missions").fill("weekly digest");
+  await expect(page.getByText("Nothing to reuse yet for that.")).toBeVisible();
   await shot(page, "today-reuse-empty");
 
-  // One finished, verified mission that came from a play, and one described by hand.
+  // One verified (achieved, capitalized) mission described by hand, and one closed mission that came from a play.
   const command = async (commandType: string, key: string, payload: Record<string, unknown>) => (await w.brain.executeCommand(w.ws, {
     contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType, workspaceId: "ws-today", idempotencyKey: key, payload,
   } as never, key)).receipt;
   const fromPlay = (await command("mission.create", "r-play", { title: "Auth sweep", playId: "auth-stabilize" })).resourceId ?? "";
-  const described = (await command("mission.create", "r-desc", { title: "Weekly digest", intent: "Write the weekly digest", successCriteria: ["digest written"] })).resourceId ?? "";
-  w.db.prepare("UPDATE missions SET state='closed', outcome='achieved' WHERE id IN (?,?)").run(fromPlay, described);
+  w.db.prepare("UPDATE missions SET state='closed', outcome='achieved' WHERE id=?").run(fromPlay);
+  const testWorld = { brain: w.brain, owner: w.ws, workspaceId: "ws-today", org: w.actor.organizationId } as unknown as TestWorld;
+  const described = await achievedMission(testWorld, "digest", { title: "Weekly digest", intent: "Write the weekly digest of support tickets", criteria: ["digest written"] });
 
   await page.goto(`${governor.url}/w/ws-today/today`);
+  await page.getByLabel(/^What do you want done/).fill("weekly digest of support tickets");
   await page.getByRole("button", { name: "Start from a previous mission", exact: true }).click();
   const list = page.getByRole("region", { name: "Choose a previous mission" });
-  await expect(list.getByRole("button", { name: "Start from Auth sweep" })).toContainText("From play Stabilize authentication");
-  await expect(list.getByRole("button", { name: "Start from Weekly digest" })).toContainText("Described by you");
-  await expect(list.getByRole("button", { name: "Start from Weekly digest" })).toContainText("Last verified");
+  const row = list.getByRole("button", { name: "Start from Weekly digest" });
+  await expect(row).toContainText("Achieved mission");
+  await expect(row).toContainText("Last verified");
   await shot(page, "today-reuse-list");
-  await list.getByRole("button", { name: "Start from Weekly digest" }).click();
+  await row.click();
   await expect(page.getByTestId("start-seed")).toContainText("Weekly digest");
+  await page.getByLabel(/^What do you want done/).fill("");
   await page.getByRole("button", { name: "Start", exact: true }).click();
   await expect(page).toHaveURL(/\/missions\/[^/]+\/(brief|plan)/);
   const seeded = w.db.prepare("SELECT m.id, m.intent, m.success_criteria_json AS criteria, b.constraints_json AS constraints FROM missions m JOIN mission_brief_versions b ON b.mission_id=m.id WHERE m.title='Weekly digest' AND m.id!=?").get(described) as { id: string; intent: string; criteria: string; constraints: string };
-  expect(seeded.intent).toBe("Write the weekly digest");
+  expect(seeded.intent).toBe("Write the weekly digest of support tickets");
   expect(seeded.criteria).toContain("digest written");
   expect(seeded.constraints).toContain(described); // the brief names its source
 
   // Repeat this opens the schedule editor for the chosen mission's play.
   await page.goto(`${governor.url}/w/ws-today/today`);
   await page.getByRole("button", { name: "Repeat this", exact: true }).click();
+  await shot(page, "today-repeat-list");
   await page.getByRole("region", { name: "Choose a mission to repeat" }).getByRole("button", { name: "Repeat Auth sweep" }).click();
   await expect(page).toHaveURL(/\/w\/ws-today\/schedules\?create=auth-stabilize$/);
 });

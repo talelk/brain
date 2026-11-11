@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
@@ -9,7 +9,8 @@ import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { missionHref } from "../mission-links";
 import { formatDateTime } from "../format";
-import { fromMissions, repeatHref, sourceConstraint } from "./reuse";
+import { reuseSearch } from "../../data/reuse";
+import { fromMissions, fromReuseItems, repeatHref, sourceConstraint } from "./reuse";
 import type { ReuseCandidate } from "./reuse";
 
 type Envelope<T> = { snapshot: { items: T[] }; asOf: string; sourceWatermark: number };
@@ -50,6 +51,7 @@ export function createStartController() {
   const [attempted, setAttempted] = createSignal(false);
   const playList = () => plays.state().data ?? [];
   const play = () => playList().find((candidate) => candidate.playId === playId());
+  /** Finished missions a schedule can repeat. */
   const candidates = createMemo(() => fromMissions(missions.state().data ?? [], playList()));
   const firstLine = () => intent().trim().split("\n")[0] ?? "";
   /** The title a person did not type: the play's or source's own, or the first words of the sentence. */
@@ -85,7 +87,7 @@ export function createStartController() {
     } catch (reason) { setError(reason instanceof Error ? reason.message : "The mission was not started."); } finally { setBusy(false); }
   }
   return { intent, setIntent, playId, play, playList, pickPlay, source, pickSource, candidates, title, setTitle, startMode, setStartMode, busy, error, shownProblem, derivedTitle, start,
-    canStart: () => app.canDispatch(), workspaceId: () => app.workspaceId(), plays, missions };
+    canStart: () => app.canDispatch(), workspaceId: () => app.workspaceId(), plays, missions, listMissions: () => missions.state().data ?? [] };
 }
 export type StartController = ReturnType<typeof createStartController>;
 
@@ -95,7 +97,20 @@ export function StartFields(props: { start: StartController; large?: boolean; on
   const s = props.start;
   const [panel, setPanel] = createSignal<"" | "previous" | "repeat">("");
   const [filter, setFilter] = createSignal("");
-  const matching = () => { const needle = filter().trim().toLowerCase(); return s.candidates().filter((c) => !needle || `${c.title} ${c.intent} ${c.provenance}`.toLowerCase().includes(needle)); };
+  /** What the reuse index is asked: the search field, else the sentence already typed in the box. */
+  const [asked, setAsked] = createSignal("");
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  createEffect(() => {
+    const text = (filter().trim() || s.intent().trim());
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => setAsked(text), 250);
+  });
+  onCleanup(() => { if (timer) clearTimeout(timer); });
+  const [found] = createResource(() => (panel() === "previous" && asked() ? { workspaceId: s.workspaceId(), text: asked() } : false), async (key) => {
+    try { return { items: (await reuseSearch(key.workspaceId, key.text)).snapshot, failed: false }; } catch { return { items: [], failed: true }; }
+  });
+  const previous = () => fromReuseItems(found()?.items ?? [], s.listMissions());
+  const repeatable = () => { const needle = filter().trim().toLowerCase(); return s.candidates().filter((c) => !needle || `${c.title} ${c.intent} ${c.provenance}`.toLowerCase().includes(needle)); };
   const toggle = (next: "previous" | "repeat") => { setPanel(panel() === next ? "" : next); setFilter(""); };
   const chosen = () => s.play()?.title ?? s.source()?.title;
   const clear = () => { if (s.playId()) s.pickPlay(s.playId()); s.pickSource(undefined); };
@@ -103,6 +118,11 @@ export function StartFields(props: { start: StartController; large?: boolean; on
     if (panel() === "repeat") { void navigate(repeatHref(s.workspaceId(), candidate)); return; }
     s.pickSource(candidate); setPanel("");
   };
+  const candidateRow = (candidate: ReuseCandidate) => <li><button type="button" class="brain-queue-row w-full" aria-label={`${panel() === "repeat" ? "Repeat" : "Start from"} ${candidate.title}`} onClick={() => choose(candidate)}>
+    <span class="lucide-flag size-5 shrink-0 text-ink-gray-6" aria-hidden="true" />
+    <span class="min-w-0 text-left"><span class="block break-words text-base-medium">{candidate.title}</span>
+      <span class="block break-words text-caption text-ink-gray-7">{candidate.provenance} · {candidate.lastVerifiedAt ? `Last verified ${formatDateTime(candidate.lastVerifiedAt)}` : "Not verified"}</span></span>
+  </button></li>;
   const chip = (label: string, icon: string, pressed: boolean, onClick: () => void, extra?: { expanded?: boolean }) =>
     <Button variant={pressed ? "subtle" : "outline"} theme={pressed ? "blue" : "gray"} size="sm" iconLeft={icon} aria-pressed={extra?.expanded === undefined ? pressed : undefined} aria-expanded={extra?.expanded} onClick={onClick}>{label}</Button>;
   return <div class="flex min-w-0 flex-col gap-3">
@@ -124,19 +144,28 @@ export function StartFields(props: { start: StartController; large?: boolean; on
         {chip("Repeat this", "lucide-repeat", panel() === "repeat", () => toggle("repeat"), { expanded: panel() === "repeat" })}
       </div>
     </fieldset>
-    <Show when={panel()}>
-      <section class="flex min-w-0 flex-col gap-2 rounded-lg border border-outline-gray-2 p-3" aria-label={panel() === "repeat" ? "Choose a mission to repeat" : "Choose a previous mission"}>
-        <p class="text-caption text-ink-gray-7">{panel() === "repeat" ? "Pick a finished mission to run again on a schedule." : "Pick a finished mission. Its goal and criteria seed the new one, and it names the source."}</p>
+    <Show when={panel() === "previous"}>
+      <section class="flex min-w-0 flex-col gap-2 rounded-lg border border-outline-gray-2 p-3" aria-label="Choose a previous mission">
+        <p class="text-caption text-ink-gray-7">Brain searches the missions it verified. Pick one: its goal and criteria seed the new mission, and the new brief names the source.</p>
+        <TextInput label="Search verified missions" value={filter()} onInput={(event) => setFilter(event.currentTarget.value)} placeholder={s.intent().trim() ? "Searching for what you typed above" : "A few words, for example: churn report"} />
+        <Show when={asked()} fallback={<p class="text-interface text-ink-gray-8" role="status">Type a few words above or here and Brain looks for earlier verified work.</p>}>
+          <Show when={!found.loading} fallback={<p class="text-interface text-ink-gray-7" role="status">Searching...</p>}>
+            <Show when={!found()?.failed} fallback={<p class="text-interface text-ink-red-7" role="alert">The search did not run. Try again in a moment.</p>}>
+              <Show when={previous().length} fallback={<p class="text-interface text-ink-gray-8" role="status">Nothing to reuse yet for that. Missions Brain verified will appear here, with when they were last verified.</p>}>
+                <ul class="m-0 flex max-h-72 list-none flex-col gap-1 overflow-y-auto p-0"><For each={previous()}>{candidateRow}</For></ul>
+              </Show>
+            </Show>
+          </Show>
+        </Show>
+      </section>
+    </Show>
+    <Show when={panel() === "repeat"}>
+      <section class="flex min-w-0 flex-col gap-2 rounded-lg border border-outline-gray-2 p-3" aria-label="Choose a mission to repeat">
+        <p class="text-caption text-ink-gray-7">Pick a finished mission to run again on a schedule.</p>
         <Show when={s.candidates().length >= SEARCH_FROM}><TextInput label="Search finished missions" value={filter()} onInput={(event) => setFilter(event.currentTarget.value)} /></Show>
         <Show when={s.candidates().length} fallback={<p class="text-interface text-ink-gray-8" role="status">Nothing to reuse yet. Missions you finish will appear here, with when they were last verified.</p>}>
-          <Show when={matching().length} fallback={<p class="text-interface text-ink-gray-8" role="status">No finished mission matches that search.</p>}>
-            <ul class="m-0 flex max-h-72 list-none flex-col gap-1 overflow-y-auto p-0">
-              <For each={matching()}>{(candidate) => <li><button type="button" class="brain-queue-row w-full" aria-label={`${panel() === "repeat" ? "Repeat" : "Start from"} ${candidate.title}`} onClick={() => choose(candidate)}>
-                <span class="lucide-flag size-5 shrink-0 text-ink-gray-6" aria-hidden="true" />
-                <span class="min-w-0 text-left"><span class="block break-words text-base-medium">{candidate.title}</span>
-                  <span class="block break-words text-caption text-ink-gray-7">{candidate.provenance} · {candidate.lastVerifiedAt ? `Last verified ${formatDateTime(candidate.lastVerifiedAt)}` : "Not verified"}</span></span>
-              </button></li>}</For>
-            </ul>
+          <Show when={repeatable().length} fallback={<p class="text-interface text-ink-gray-8" role="status">No finished mission matches that search.</p>}>
+            <ul class="m-0 flex max-h-72 list-none flex-col gap-1 overflow-y-auto p-0"><For each={repeatable()}>{candidateRow}</For></ul>
           </Show>
         </Show>
       </section>

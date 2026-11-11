@@ -2,6 +2,8 @@
 
 For the Today box and the new-mission page (issue #69), and for any screen that starts work. Reuse is a Governor read plus one kept-refs list on the plan request; the new-mission files do not need to change for the plan-time suggestions, which already live on the mission's Plan tab.
 
+Status: the Today box and the New mission dialog use this read (`apps/web/src/ui/start/StartBox.tsx`, `fromReuseItems` in `start/reuse.ts`). The index needs words to search, so the panel searches what the person typed in the box (or its own search field); "Repeat this" lists finished missions instead, because a schedule can target any of them.
+
 ## Read: what can be reused
 
 `apps/web/src/data/reuse.ts`
