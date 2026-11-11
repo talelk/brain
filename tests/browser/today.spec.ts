@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 import { goldenDocs } from "../helpers";
 import type { TestWorld } from "../helpers";
 import { achievedMission } from "../support/reuse";
+import { enrollRunners } from "../support/flow";
 import { scopesForPrincipal } from "../../apps/governor/src/application/authz";
 
 /**
@@ -48,6 +49,8 @@ async function world(page: Page, governor: { url: string; credential: string; ap
   brain.createWorkspace(actor, { workspaceId: "ws-today", slug: "today" });
   const release = brain.stageRelease(actor, [...goldenDocs(), agent, play], SOURCE, [], [{ agentId: "builder", path: "agents/builder.md", text: "# Builder\n" }]);
   brain.activateRelease(actor, release.digest);
+  // An installed machine: online runners for the release's groups, so the box is not blocked by setup.
+  await enrollRunners(governor, actor, "today", ["fixture-tools", "fixture-evaluators"]);
   const ws = { ...actor, workspaceId: "ws-today", scopes: scopesForPrincipal(brain.store, actor.actorId, actor.organizationId, "ws-today") };
   const db = brain.store.workspaceDb("ws-today", actor.organizationId);
   return { brain, actor, ws, db };

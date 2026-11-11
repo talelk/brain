@@ -14,6 +14,12 @@ import { fromMissions, fromReuseItems, repeatHref, sourceConstraint } from "./re
 import type { ReuseCandidate } from "./reuse";
 
 type Envelope<T> = { snapshot: { items: T[] }; asOf: string; sourceWatermark: number };
+/** What "Try a sample goal" starts: plain, read-only and small enough to finish in a minute or two. */
+export const SAMPLE_GOAL = {
+  title: "Sample goal: check this install",
+  intent: "Write a short plain-language note, three to five sentences, that explains to a new colleague what Brain does and that a person confirms the plan before anything runs.",
+  successCriteria: ["The note is three to five sentences long", "The note says what Brain does in plain words", "The note says a person confirms the plan before anything runs"],
+};
 /** Search only earns its place once the list is long enough to need it. */
 const SEARCH_FROM = 6;
 
@@ -86,13 +92,23 @@ export function createStartController() {
       void navigate(missionHref(app.workspaceId(), receipt.resourceId, "plan"));
     } catch (reason) { setError(reason instanceof Error ? reason.message : "The mission was not started."); } finally { setBusy(false); }
   }
-  return { intent, setIntent, playId, play, playList, pickPlay, source, pickSource, candidates, title, setTitle, startMode, setStartMode, busy, error, shownProblem, derivedTitle, start,
+  /** The sample goal (#48): a small real mission on the shipped general workflow, so finishing it proves the install end to end. */
+  async function startSample(): Promise<void> {
+    if (busy()) return;
+    setBusy(true); setError("");
+    try {
+      const receipt = await app.run("mission.create", { ...SAMPLE_GOAL, autoStart: true });
+      if (!receipt.accepted || !receipt.resourceId) throw new Error(receipt.detail ?? "The sample goal was not started.");
+      void navigate(missionHref(app.workspaceId(), receipt.resourceId, "plan"));
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "The sample goal was not started."); } finally { setBusy(false); }
+  }
+  return { startSample, intent, setIntent, playId, play, playList, pickPlay, source, pickSource, candidates, title, setTitle, startMode, setStartMode, busy, error, shownProblem, derivedTitle, start,
     canStart: () => app.canDispatch(), workspaceId: () => app.workspaceId(), plays, missions, listMissions: () => missions.state().data ?? [] };
 }
 export type StartController = ReturnType<typeof createStartController>;
 
 /** The sentence box, the play chips, the reuse chips and the "more options" disclosure. */
-export function StartFields(props: { start: StartController; large?: boolean; onSubmit?: () => void }): JSX.Element {
+export function StartFields(props: { start: StartController; large?: boolean; onSubmit?: () => void; /** Blocks the box (setup is not done); chips stay visible but cannot be used. */ disabled?: boolean; /** Offers the "Try a sample goal" chip. */ sample?: boolean }): JSX.Element {
   const navigate = useNavigate();
   const s = props.start;
   const [panel, setPanel] = createSignal<"" | "previous" | "repeat">("");
@@ -124,9 +140,9 @@ export function StartFields(props: { start: StartController; large?: boolean; on
       <span class="block break-words text-caption text-ink-gray-7">{candidate.provenance} · {candidate.lastVerifiedAt ? `Last verified ${formatDateTime(candidate.lastVerifiedAt)}` : "Not verified"}</span></span>
   </button></li>;
   const chip = (label: string, icon: string, pressed: boolean, onClick: () => void, extra?: { expanded?: boolean }) =>
-    <Button variant={pressed ? "subtle" : "outline"} theme={pressed ? "blue" : "gray"} size="sm" iconLeft={icon} aria-pressed={extra?.expanded === undefined ? pressed : undefined} aria-expanded={extra?.expanded} onClick={onClick}>{label}</Button>;
+    <Button variant={pressed ? "subtle" : "outline"} theme={pressed ? "blue" : "gray"} size="sm" iconLeft={icon} aria-pressed={extra?.expanded === undefined ? pressed : undefined} aria-expanded={extra?.expanded} disabled={props.disabled} onClick={onClick}>{label}</Button>;
   return <div class="flex min-w-0 flex-col gap-3">
-    <Textarea label="What do you want done?" value={s.intent()} onInput={(event) => s.setIntent(event.currentTarget.value)} error={s.shownProblem()} rows={props.large ? 3 : 2}
+    <Textarea label="What do you want done?" value={s.intent()} onInput={(event) => s.setIntent(event.currentTarget.value)} error={s.shownProblem()} rows={props.large ? 3 : 2} disabled={props.disabled}
       required={!s.playId() && !s.source()} placeholder="For example: summarise this week's support tickets and draft replies"
       onKeyDown={(event: KeyboardEvent) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); props.onSubmit?.(); } }} />
     <Show when={chosen()}>{(name) => <p class="flex min-w-0 flex-wrap items-center gap-2 text-interface text-ink-gray-8" data-testid="start-seed">
@@ -143,6 +159,11 @@ export function StartFields(props: { start: StartController; large?: boolean; on
         {chip("Start from a previous mission", "lucide-history", panel() === "previous", () => toggle("previous"), { expanded: panel() === "previous" })}
         {chip("Repeat this", "lucide-repeat", panel() === "repeat", () => toggle("repeat"), { expanded: panel() === "repeat" })}
       </div>
+      <Show when={props.sample}>
+        <div class="flex min-w-0 flex-wrap items-center gap-2"><span class="text-caption text-ink-gray-7">New here</span>
+          {chip("Try a sample goal", "lucide-sparkles", false, () => void s.startSample())}
+          <span class="text-caption text-ink-gray-7">A small real mission that proves this install works, start to finish.</span></div>
+      </Show>
     </fieldset>
     <Show when={panel() === "previous"}>
       <section class="flex min-w-0 flex-col gap-2 rounded-lg border border-outline-gray-2 p-3" aria-label="Choose a previous mission">

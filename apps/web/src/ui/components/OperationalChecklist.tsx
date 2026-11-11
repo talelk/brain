@@ -11,13 +11,13 @@ import { StatusBadge } from "./StatusBadge";
 import { WorkspaceSection } from "./Domain";
 import { StatGrid } from "@talelk/newui-organisms";
 /** The doctor's readiness read, shared by the guided setup (next step) and the full checklist (every check). */
-export function createReadiness() {
+export function createReadiness(refreshMs = 15000) {
   const app = useApp();
   return createScopedRead<OperationalReadiness>({ scope: app.scope,
     load: async (scope, signal) => {
       const snapshot = await governor<OperationalReadiness>(`/v1/doctor?workspaceId=${encodeURIComponent(scope.workspaceId)}`, undefined, signal);
       return { snapshot, asOf: snapshot.asOf, sourceWatermark: 0 };
-    }, refreshMs: 15000,
+    }, refreshMs,
   });
 }
 

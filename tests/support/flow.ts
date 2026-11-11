@@ -24,10 +24,10 @@ export async function signUpOwner(page: Page, governor: GovernorFixture, label: 
 }
 
 /** Enrolls one fixture runner per group (agents, evaluators) the way an installed machine would. */
-export async function enrollRunners(governor: GovernorFixture, actor: ActorContext, prefix: string): Promise<RunnerSession[]> {
+export async function enrollRunners(governor: GovernorFixture, actor: ActorContext, prefix: string, groups: readonly string[] = ["agents", "evaluators"]): Promise<RunnerSession[]> {
   const brain = governor.app.brain;
   const sessions: RunnerSession[] = [];
-  for (const group of ["agents", "evaluators"]) {
+  for (const group of groups) {
     const cfg = { governorUrl: governor.url, runnerId: `${prefix}-${group}`, stateDir: join(brain.store.dataDir, `${prefix}-${group}`), engines: ["fixture"], capabilities: ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"] };
     const hello = await enrollAndHello(cfg, brain.jobProtocol.issueEnrollment(actor, group).token);
     sessions.push({ cfg, sessionToken: hello.sessionToken, epoch: hello.epoch });

@@ -13,6 +13,8 @@ import { missionHref } from "../../ui/mission-links";
 import { formatRelative } from "../../ui/format";
 import { PlainSummary } from "../../ui/viz/PlainSummary";
 import { createStartController, StartFields } from "../../ui/start/StartBox";
+import { blockedBy, TodaySetup } from "../../ui/components/TodaySetup";
+import { createReadiness } from "../../ui/components/OperationalChecklist";
 
 /**
  * Today (#47): where Brain lands. The first element is one box; anything that
@@ -24,6 +26,9 @@ export default function TodayPage(): JSX.Element {
   const navigate = useNavigate();
   const start = createStartController();
   const attention = createAttentionRead();
+  const readiness = createReadiness(6000);
+  /** Missing model, release or runners block the box; while readiness is unknown nothing is blocked. */
+  const blocked = () => blockedBy(readiness.state().data?.checks ?? []).length > 0;
   /** After an inline decision: every attention read (this one and the bell) and the missions list (their versions) re-read. */
   const changed = () => { window.dispatchEvent(new Event(ATTENTION_CHANGED)); void start.missions.refresh({ force: true }); };
   const items = () => attention.state().data ?? [];
@@ -44,12 +49,13 @@ export default function TodayPage(): JSX.Element {
           <NeedsYouQueue items={waitingItems()} missions={start.missions.state().data ?? []} onChanged={changed} />
         </WorkspaceSection>
       </Show>
-      <Card padding="lg" class="flex min-w-0 flex-col gap-4" aria-label="Start a mission">
-        <StartFields start={start} large onSubmit={() => void start.start()} />
+      <TodaySetup readiness={readiness} />
+      <Card padding="lg" class="flex min-w-0 flex-col gap-4" aria-label="Start a mission" data-blocked={blocked() ? "true" : "false"}>
+        <StartFields start={start} large sample disabled={blocked()} onSubmit={() => void start.start()} />
         <Show when={start.error()}><p role="alert" class="text-interface text-ink-red-7">{start.error()}</p></Show>
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <p class="text-caption text-ink-gray-7">Nothing runs until you confirm the plan.</p>
-          <Button variant="solid" theme="blue" iconLeft="lucide-flag" loading={start.busy()} disabled={start.busy() || !start.canStart()} onClick={() => void start.start()}>Start</Button>
+          <p class="text-caption text-ink-gray-7">{blocked() ? "Blocked until setup above is done." : "Nothing runs until you confirm the plan."}</p>
+          <Button variant="solid" theme="blue" iconLeft="lucide-flag" loading={start.busy()} disabled={start.busy() || !start.canStart() || blocked()} onClick={() => void start.start()}>Start</Button>
         </div>
       </Card>
       <Show when={!waitingItems().length && (items().length || recent().length)}>
