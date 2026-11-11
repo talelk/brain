@@ -107,7 +107,7 @@ describe("operations module read surface", () => {
     const live = liveStatus(w.brain.store, w.owner, w.workspaceId) as Record<string, unknown>;
     expect(live.pendingApprovals).toBe(1);
     expect(live.needsAttention).toBe(true);
-    expect(live.defaultRoute).toBe("missions"); // no active sessions/runs
+    expect(live.defaultRoute).toBe("today"); // no active sessions/runs
 
     const health = platformHealth(w.brain.store, { status: "disabled", detail: "local store", checkedAt: "" }) as Record<string, unknown>;
     expect(health.status).toBe("healthy");

@@ -18,7 +18,7 @@ test("primitives and tokens render across widths and themes (T33)", async ({ pag
   const cookies = await page.context().cookies();
   const identity = await governor.app.brain.resolveActor(new Headers({ cookie: cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ") }));
   governor.app.brain.createWorkspace(identity.actor, { workspaceId: "ws-primitives", slug: "primitives" });
-  await page.reload();
+  await page.goto(`${governor.url}/w/ws-primitives/missions`);
   await expect(page.getByRole("heading", { name: "Missions", exact: true, level: 1 })).toBeVisible();
 
   // Every visible button is a design-system button (carries classes), never a

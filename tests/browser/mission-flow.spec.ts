@@ -48,9 +48,9 @@ const linkedRuns = (w: World, missionId: string, task: string) => (w.ws.prepare(
 async function createMission(page: Page, w: World, base: string, sentence: string, manual: boolean): Promise<string> {
   await page.goto(`${base}/w/ws-flow/missions/new`);
   const form = page.getByRole("dialog");
-  await form.getByRole("button", { name: /Describe what you want/ }).click();
   await form.getByLabel(/^What do you want done/).fill(sentence);
   if (manual) {
+    await form.getByText("More options", { exact: true }).click();
     await form.getByLabel("Starting tasks", { exact: true }).click();
     await page.getByRole("option", { name: "Ask me before each task", exact: true }).click();
   }

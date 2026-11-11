@@ -91,8 +91,8 @@ export function liveStatus(store: Store, actor: ActorContext, workspaceId: strin
     needsAttention: pendingApprovals > 0 || unknownJobs > 0,
     pendingApprovals,
     unknownJobs,
-    // Default-landing rule: active sessions/runs open the Live console.
-    defaultRoute: activeSessions > 0 || activeRuns > 0 ? "live" : "missions",
+    // Default-landing rule (#47): Live only while work is active and nothing waits on a person; otherwise Today (the web also counts its decision queue).
+    defaultRoute: (activeSessions > 0 || activeRuns > 0) && !(pendingApprovals > 0 || unknownJobs > 0) ? "live" : "today",
     observedAt: store.nowIso(),
   } as unknown as JsonValue;
 }

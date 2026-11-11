@@ -24,6 +24,29 @@
  ],
  "screens": [
   {
+   "route": "/w/:id/today",
+   "queries": [
+    "attention.list",
+    "missions.list",
+    "plays.list"
+   ],
+   "actions": [
+    "mission.create"
+   ],
+   "content": [
+    "intent",
+    "play",
+    "reuse",
+    "attention",
+    "mission"
+   ],
+   "owner": "T34",
+   "navigationGroup": "today",
+   "icon": "lucide-sun",
+   "task": "Say what you want done, then act on what needs you",
+   "title": "Today"
+  },
+  {
    "route": "/w/:id/missions",
    "queries": [
     "usage.workspace",
@@ -779,6 +802,11 @@
  },
  "primaryNavigation": [
   {
+   "id": "today",
+   "label": "Today",
+   "entryRoute": "/w/:id/today"
+  },
+  {
    "id": "missions",
    "label": "Missions",
    "entryRoute": "/w/:id/missions"
@@ -835,6 +863,18 @@
   "effectSuccessImpliedByDecision": false
  },
  "areaNavigation": {
+  "today": [
+   {
+    "label": "Today",
+    "route": "/w/:id/today",
+    "icon": "lucide-sun"
+   },
+   {
+    "label": "Approvals",
+    "route": "/approvals",
+    "icon": "lucide-shield-check"
+   }
+  ],
   "missions": [
    {
     "label": "Missions",

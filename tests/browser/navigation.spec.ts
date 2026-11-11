@@ -28,7 +28,7 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
     .run(actor.organizationId, actor.actorId, `sha256:${"c".repeat(64)}`, JSON.stringify(subject), Date.now() + 3600000, Date.now());
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Missions", exact: true, level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
   const navToggle = page.getByRole("button", { name: "Open application navigation", exact: true });
   if (await navToggle.isVisible()) await navToggle.click();
   await expect(page.getByText("Keyrus Brain", { exact: true }).filter({ visible: true }).first()).toBeVisible();

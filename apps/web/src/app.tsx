@@ -25,6 +25,7 @@ const PAGE_LOADERS = {
   OutputPage: () => import('./routes/pages/OutputPage'),
   PlayPage: () => import('./routes/pages/PlayPage'),
   MissionsPage: () => import('./routes/pages/MissionsPage'),
+  TodayPage: () => import('./routes/pages/TodayPage'),
   NewMissionPage: () => import('./routes/pages/NewMissionPage'),
   MissionPage: () => import('./routes/pages/MissionPage'),
   PlaysPage: () => import('./routes/pages/PlaysPage'),
@@ -250,6 +251,7 @@ export function App(): JSX.Element {
     <Route path="/" component={ShellLayout}>
       {/* Default landing: live.status routes active work to the console (never a deep link). */}
       <Route path="/" component={LandingRedirect} />
+      <Route path="/w/:id/today" component={workspacePage("TodayPage")} />
       <Route path="/w/:id/missions" component={workspacePage("MissionsPage")} />
       <Route path="/w/:id/missions/new" component={workspacePage("NewMissionPage")} />
       <Route path="/missions/:missionId/:tab" component={page("MissionPage")} />

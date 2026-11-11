@@ -126,3 +126,12 @@ export function hasHeadroom(store: Store, db: Db, missionId: string): boolean {
     && (row.budget_wall_ms === null || usage.activeMs < row.budget_wall_ms)
     && !tokensExhausted(row, usage) && !capReached(db, store.now(), row.attempt_reserve_micro_usd);
 }
+
+/**
+ * The budget a mission gets when its command (and its play) names none (#47):
+ * a person who types one sentence is not asked to pick a ceiling, and no
+ * mission runs without one. $5 of settled spend, three members at a time, no
+ * wall-clock limit (wall time counts only while a mission runs, and a bound on
+ * it would pause long-lived work for no cost reason). Raise it in the plan.
+ */
+export const DEFAULT_MISSION_BUDGET: MissionBudget = { maxMicroUsd: 5_000_000, memberCap: 3, attemptReserveMicroUsd: 0 };

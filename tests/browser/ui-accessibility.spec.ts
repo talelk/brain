@@ -16,13 +16,13 @@ async function createWorkspace(page: import("@playwright/test").Page, governor: 
   await page.getByLabel("Display name").fill("Accessible workspace");
   await page.getByRole("button", { name: "Create workspace", exact: true }).focus();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: "Missions", exact: true, level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
   const row = governor.app.brain.store.control.prepare("SELECT id, organization_id FROM workspaces LIMIT 1").get() as { id: string; organization_id: string };
   // A workspace with no mission at all shows the first-mission invitation; these specs exercise the loaded screen, so seed one mission.
   const now = Date.now();
   governor.app.brain.store.workspaceDb(row.id, row.organization_id)
     .prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-a11y','Accessibility mission','Fixture intent','[\"echo\"]','owner',?,?)").run(now, now);
-  await page.reload();
+  await page.goto(`${governor.url}/w/${row.id}/missions`);
   await expect(page.getByRole("heading", { name: "Missions", exact: true, level: 1 })).toBeVisible();
   return row.id;
 }

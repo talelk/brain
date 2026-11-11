@@ -65,3 +65,5 @@ Confirmed good live: planner no longer creates clarify tasks; plan drafts by its
 
 ## Track I2 (usage and cost), 2026-11-11
 - #76 usage ledger, #77 meter at run/task/mission/workspace, #78 token ceiling, #54 plan estimates, #55 result cost and workspace spend cap, #79 zero cap rule (ADR 0006): built; see ADR 0007. Open: interactive (non-mission) runs are not in the ledger totals or the cap; Live console per-session token readout not added.
+## Track I1 (2026-11-11): Today landing and reuse entries (#47, #69 partial)
+Built: `/w/:id/today` (first nav entry, landing target), one "What do you want done?" box shared with the New mission dialog (no mode toggle; plays, "Start from a previous mission" and "Repeat this" are chips), Governor default budget (`DEFAULT_MISSION_BUDGET`: $5, 3 members, no wall limit), landing rule (Today unless work is active and the queue is empty). Seams for later tracks: `apps/web/src/ui/start/reuse.ts` (`ReuseSource` -> #66 index; `repeatHref` -> #56 picker). Not done: pinning the old verified outputs as typed inputs (needs the planner to read the source mission, #68); the brief only names the source mission.
