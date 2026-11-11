@@ -65,21 +65,70 @@ export interface AgentExecutionResult {
   cleanupConfirmed?: boolean;
 }
 
-function decodedOutput(text: string): JsonValue {
-  const trimmed = text.trim();
-  const fenced = trimmed.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/iu)?.[1];
-  try { return JSON.parse(fenced ?? trimmed) as JsonValue; }
-  catch {
-    // A model sometimes wraps its one JSON object in a sentence; the object between the first "{" and the last "}" is still its answer.
-    const open = trimmed.indexOf("{"); const close = trimmed.lastIndexOf("}");
-    if (open >= 0 && close > open) {
-      try { const inner = JSON.parse(trimmed.slice(open, close + 1)) as JsonValue; if (inner !== null && typeof inner === "object" && !Array.isArray(inner)) return inner; } catch { /* not one object: keep the text */ }
+/**
+ * Repairs the two mistakes models most often make inside a JSON string: a backslash that is not a JSON escape (a path, a regular
+ * expression, LaTeX: `\d`, `\(`, `\_`) and a raw control character such as a line break. A lone backslash is doubled so it reads as the
+ * backslash the model meant; line breaks and tabs become their escapes. Text outside strings is untouched, and so is any valid escape,
+ * so repairing text that already parses never changes its meaning.
+ */
+export function repairJsonStrings(text: string): string {
+  let out = "";
+  let inString = false;
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index]!;
+    if (!inString) { out += char; if (char === "\"") inString = true; continue; }
+    if (char === "\"") { out += char; inString = false; continue; }
+    if (char === "\\") {
+      const next = text[index + 1];
+      if (next !== undefined && "\"\\/bfnrt".includes(next)) { out += char + next; index++; continue; }
+      if (next === "u" && /^[0-9a-fA-F]{4}$/u.test(text.slice(index + 2, index + 6))) { out += text.slice(index, index + 6); index += 5; continue; }
+      out += "\\\\";
+      continue;
     }
-    return trimmed;
+    const code = char.charCodeAt(0);
+    if (code < 0x20) { out += char === "\n" ? "\\n" : char === "\r" ? "\\r" : char === "\t" ? "\\t" : `\\u${code.toString(16).padStart(4, "0")}`; continue; }
+    out += char;
   }
+  return out;
 }
 
-export async function runAgentExecution(input: AgentExecutionInput): Promise<AgentExecutionResult> {
+function parseJson(text: string): { value: JsonValue } | undefined {
+  try { return { value: JSON.parse(text) as JsonValue }; } catch { return undefined; }
+}
+
+/** The JSON a model's answer holds, if any: the answer itself, in a code fence, or its one object inside a sentence; as written, else with strings repaired. */
+export function decodeModelJson(text: string): { value: JsonValue; repaired: boolean } | undefined {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/iu)?.[1];
+  const open = trimmed.indexOf("{"); const close = trimmed.lastIndexOf("}");
+  for (const repaired of [false, true]) {
+    const prepare = (candidate: string) => (repaired ? repairJsonStrings(candidate) : candidate);
+    const whole = parseJson(prepare(fenced ?? trimmed));
+    if (whole) return { value: whole.value, repaired };
+    // A model sometimes wraps its one JSON object in a sentence; the object between the first "{" and the last "}" is still its answer.
+    if (open >= 0 && close > open) {
+      const inner = parseJson(prepare(trimmed.slice(open, close + 1)));
+      if (inner && inner.value !== null && typeof inner.value === "object" && !Array.isArray(inner.value)) return { value: inner.value, repaired };
+    }
+  }
+  return undefined;
+}
+
+function decodedOutput(text: string): JsonValue {
+  return decodeModelJson(text)?.value ?? text.trim();
+}
+
+/** A reply that tried to be a JSON object but cannot be read as one: worth one corrective try. */
+function brokenJson(text: string, output: JsonValue): boolean {
+  return typeof output === "string" && /^\s*(?:```(?:json)?\s*)?\{/iu.test(text);
+}
+
+const CORRECTION_CHARS = 30_000;
+function correctiveTask(previous: string): string {
+  return `Your previous reply was meant to be one JSON object but it is not valid JSON, so it could not be used. Reply again with only the corrected JSON object: the same content, valid JSON, with every double quote and backslash inside a string escaped, and no text, code fence or comment around it.\n\nYour previous reply:\n${previous.trim().slice(0, CORRECTION_CHARS)}`;
+}
+
+async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecutionResult> {
   const { engine } = input;
   const deadline = new AbortController();
   const timer = setTimeout(() => deadline.abort(new Error("agent execution deadline exceeded")), input.timeoutMs);
@@ -207,4 +256,46 @@ export async function runAgentExecution(input: AgentExecutionInput): Promise<Age
     cleanupConfirmed = terminationConfirmed && disposed;
   }
   return { ...result, ok: result.ok && cleanupConfirmed, cleanupConfirmed };
+}
+
+type UsageTotals = { inputTokens: number; outputTokens: number; cachedInputTokens: number; microUsd: number };
+const totalsOf = (payload: Record<string, unknown>): UsageTotals => {
+  const n = (value: unknown) => (typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0);
+  return { inputTokens: n(payload["inputTokens"]), outputTokens: n(payload["outputTokens"]), cachedInputTokens: n(payload["cachedInputTokens"]), microUsd: n(payload["microUsd"]) };
+};
+
+/**
+ * Runs the agent step. Strings are repaired when decoding (see `decodeModelJson`); a reply that is still not valid JSON gets one
+ * corrective second session that sees its own reply and the parse problem. Both sessions are charged: an engine that reports a final
+ * total per session has the first session's total added to the second's, so "the last total wins" still counts everything.
+ */
+export async function runAgentExecution(input: AgentExecutionInput): Promise<AgentExecutionResult> {
+  let first: UsageTotals | undefined;
+  const first$ = await runAgentSession({
+    ...input,
+    emit: async (kind, payload) => {
+      const event = payload as { kind?: string; payload?: Record<string, unknown> };
+      if (kind === "engine" && event.kind === "usage" && event.payload?.["accounting"] === "final-total") first = totalsOf(event.payload);
+      await input.emit(kind, payload);
+    },
+  });
+  if (!first$.ok || !brokenJson(first$.outputText, first$.output) || input.signal.aborted) return first$;
+  const carried = first;
+  const second = await runAgentSession({
+    ...input,
+    task: correctiveTask(first$.outputText),
+    emit: async (kind, payload) => {
+      const event = payload as { kind?: string; payload?: Record<string, unknown> };
+      if (carried && kind === "engine" && event.kind === "usage" && event.payload?.["accounting"] === "final-total") {
+        const now = totalsOf(event.payload);
+        await input.emit(kind, { ...event, payload: { ...event.payload, usageId: `${String(event.payload["usageId"] ?? "usage")}-corrected`,
+          inputTokens: carried.inputTokens + now.inputTokens, outputTokens: carried.outputTokens + now.outputTokens,
+          cachedInputTokens: carried.cachedInputTokens + now.cachedInputTokens, microUsd: carried.microUsd + now.microUsd } });
+        return;
+      }
+      await input.emit(kind, payload);
+    },
+  });
+  // A correction that is still not JSON, or whose session failed, changes nothing: the first reply stands and fails validation as before.
+  return second.ok && typeof second.output !== "string" ? second : first$;
 }
