@@ -1,6 +1,6 @@
 import type { EngineToolBinding } from "@brain/contracts";
 import { GovernorProtocolError, type GovernorClient } from "../governor-client";
-import { GOVERNOR_BROKERED, RUNNER_BROKERED, webFetch, type BrokerResult } from "./brokers";
+import { GOVERNOR_BROKERED, plainFetchError, RUNNER_BROKERED, webFetch, type BrokerResult } from "./brokers";
 
 /**
  * Resolves the data a brokered read tool needs: the Governor answers documents, CSV artifacts and knowledge (rechecking scope and the
@@ -9,7 +9,11 @@ import { GOVERNOR_BROKERED, RUNNER_BROKERED, webFetch, type BrokerResult } from 
  */
 export async function brokerRead(binding: EngineToolBinding, input: Readonly<Record<string, unknown>>, attemptId: string, client: Pick<GovernorClient, "toolRead">): Promise<BrokerResult | undefined> {
   const id = binding.release.id;
-  if (RUNNER_BROKERED.has(id)) return webFetch(input, binding.allowedHosts);
+  if (RUNNER_BROKERED.has(id)) {
+    // A network failure is a failed tool call with a plain reason the model and the person can read, never a crashed attempt.
+    try { return await webFetch(input, binding.allowedHosts); }
+    catch (error) { return { ok: false, error: plainFetchError(error, (() => { try { return new URL(String(input["url"])).hostname; } catch { return "the address"; } })()) }; }
+  }
   if (!GOVERNOR_BROKERED.has(id)) return undefined;
   try {
     return { ok: true, data: (await client.toolRead(attemptId, { tool: binding.release, input: { ...input } })) as never };

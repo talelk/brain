@@ -460,41 +460,24 @@ export class CapitalizationService {
     });
   }
 
-  /** Per-tool calls and failures from the recorded engine tool events of this workspace (most recent 20000 events). */
+  /**
+   * Per-tool calls and failures of this workspace from the `tool_calls` table, which attempt-event ingestion keeps current (one row per
+   * proposed call, written when its event is first stored). A grouped read of an indexed table, never a scan of event history. Calls made
+   * before the table existed are not counted: usage starts at zero (no backfill).
+   */
   private toolUsage(organizationId: string, workspaceId: string): Map<string, ToolUsage> {
-    const rows = this.store.control.prepare(`SELECT e.event_json AS json, j.workflow_run_id AS runId FROM attempt_events e
-      JOIN job_attempts a ON a.id=e.attempt_id JOIN jobs j ON j.id=a.job_id
-      WHERE j.organization_id=? AND j.workspace_id=? AND json_extract(e.event_json,'$.payload.kind') IN ('tool.proposed','tool.result')
-      ORDER BY e.rowid DESC LIMIT 20000`).all(organizationId, workspaceId) as Array<{ json: string; runId: string }>;
-    type Ev = { payload: { kind: string; occurredAt?: string; payload: { proposalId?: string; tool?: { id: string }; receipt?: { result?: string; finishedAt?: string } } } };
-    const proposals = new Map<string, { toolId: string; at: string | undefined; runId: string }>();
-    const results: Array<{ proposalId: string; failed: boolean; at: string | undefined; runId: string }> = [];
-    for (const row of rows) {
-      const event = JSON.parse(row.json) as Ev;
-      const body = event.payload.payload;
-      if (event.payload.kind === "tool.proposed" && body.tool?.id && body.proposalId) proposals.set(`${row.runId}:${body.proposalId}`, { toolId: body.tool.id, at: event.payload.occurredAt, runId: row.runId });
-      else if (event.payload.kind === "tool.result" && body.proposalId) results.push({ proposalId: `${row.runId}:${body.proposalId}`, failed: body.receipt?.result === "failed", at: body.receipt?.finishedAt ?? event.payload.occurredAt, runId: row.runId });
-    }
-    const out = new Map<string, ToolUsage>();
-    const entry = (toolId: string): ToolUsage => {
-      let value = out.get(toolId);
-      if (!value) { value = { calls: 0, failures: 0 }; out.set(toolId, value); }
-      return value;
-    };
-    for (const proposal of proposals.values()) {
-      const value = entry(proposal.toolId);
-      value.calls += 1;
-      if (proposal.at && (!value.lastCallAt || proposal.at > value.lastCallAt)) { value.lastCallAt = proposal.at; value.lastCallRunId = proposal.runId; }
-    }
-    for (const result of results) {
-      const proposal = proposals.get(result.proposalId);
-      if (!proposal || !result.failed) continue;
-      const value = entry(proposal.toolId);
-      value.failures += 1;
-      if (result.at && (!value.lastFailureAt || result.at > value.lastFailureAt)) { value.lastFailureAt = result.at; value.lastFailureRunId = result.runId; }
-    }
-    return out;
+    const rows = this.store.control.prepare(`SELECT t.tool_id AS toolId, COUNT(*) AS calls, COALESCE(SUM(t.failed),0) AS failures,
+        MAX(NULLIF(t.proposed_at,'')) AS lastCallAt, MAX(CASE WHEN t.failed=1 THEN NULLIF(t.finished_at,'') END) AS lastFailureAt,
+        (SELECT c.run_id FROM tool_calls c WHERE c.organization_id=t.organization_id AND c.workspace_id=t.workspace_id AND c.tool_id=t.tool_id ORDER BY c.proposed_at DESC, c.rowid DESC LIMIT 1) AS lastCallRunId,
+        (SELECT c.run_id FROM tool_calls c WHERE c.organization_id=t.organization_id AND c.workspace_id=t.workspace_id AND c.tool_id=t.tool_id AND c.failed=1 ORDER BY c.finished_at DESC, c.rowid DESC LIMIT 1) AS lastFailureRunId
+      FROM tool_calls t WHERE t.organization_id=? AND t.workspace_id=? GROUP BY t.tool_id`).all(organizationId, workspaceId) as Array<{ toolId: string; calls: number; failures: number; lastCallAt: string | null; lastFailureAt: string | null; lastCallRunId: string | null; lastFailureRunId: string | null }>;
+    return new Map(rows.map((row): [string, ToolUsage] => [row.toolId, {
+      calls: row.calls, failures: row.failures,
+      ...(row.lastCallAt ? { lastCallAt: row.lastCallAt } : {}), ...(row.lastCallAt && row.lastCallRunId ? { lastCallRunId: row.lastCallRunId } : {}),
+      ...(row.lastFailureAt ? { lastFailureAt: row.lastFailureAt } : {}), ...(row.lastFailureAt && row.lastFailureRunId ? { lastFailureRunId: row.lastFailureRunId } : {}),
+    }]));
   }
+
 
   query(actor: ActorContext, queryType: string, workspaceId: string, limit: number): JsonValue {
     requireWorkspaceRead(this.store, actor, workspaceId);

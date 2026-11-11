@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "artifactId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "sql": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "maxRows": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    }
+  },
+  "required": [
+    "artifactId",
+    "sql"
+  ],
+  "additionalProperties": false
+}

@@ -44,7 +44,7 @@ export interface JobProtocolPorts {
   /** Where governed read tools get their data (documents, CSV artifacts, knowledge). */
   toolReads?: ToolReadPorts;
   /** The context pack of an agent step's work item, built at the step's first offer. */
-  contextPack?(organizationId: string, workspaceId: string, input: { runId: string; jobId: string; agentId: string; budgetTokens: number }): ReturnType<ContextPackPort>;
+  contextPack?(organizationId: string, workspaceId: string, input: { runId: string; jobId: string; agentId: string; budgetTokens: number; taskText: string }): ReturnType<ContextPackPort>;
 }
 
 export type MissionAdmission = { missionId?: string; admitted: true; reserve: number; running: number } | { missionId: string; admitted: false; reason: string; running: number };

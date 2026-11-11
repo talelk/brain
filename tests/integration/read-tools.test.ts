@@ -86,7 +86,21 @@ describe("web.fetch broker (GET only, host allowlist, bounds)", () => {
     const big = await webFetch({ url: `${site.base}/big` }, [site.host], { ...local, maxBytes: 5000 });
     expect(big.ok && big.data && typeof big.data === "object" && !Array.isArray(big.data) ? [(big.data as { body: string }).body.length, (big.data as { truncated: boolean }).truncated] : big).toEqual([5000, true]);
     expect(await webFetch({ url: `${site.base}/bin` }, [site.host], local)).toEqual({ ok: false, error: expect.stringContaining("not readable text") });
-    expect(await webFetch({ url: `${site.base}/slow` }, [site.host], { ...local, timeoutMs: 300 })).toEqual({ ok: false, error: expect.stringContaining("web.fetch failed") });
+    expect(await webFetch({ url: `${site.base}/slow` }, [site.host], { ...local, timeoutMs: 300 })).toEqual({ ok: false, error: expect.stringContaining("could not reach") });
+  });
+
+  it("turns an outbound-access failure into a plain tool error that names the host and the likely cause", async () => {
+    // A name that cannot resolve (the .invalid TLD never does) and a port nothing listens on: the runner host cannot reach the page.
+    const unresolved = await webFetch({ url: "https://no-such-host.invalid/page" }, ["no-such-host.invalid"]);
+    expect(unresolved).toEqual({ ok: false, error: expect.stringMatching(/web\.fetch could not (look up|reach) no-such-host\.invalid.*outbound/u) });
+    const closed = createServer(); await new Promise<void>((resolve) => closed.listen(0, "127.0.0.1", resolve));
+    const port = (closed.address() as AddressInfo).port; await new Promise<void>((resolve) => closed.close(() => resolve()));
+    const refused = await webFetch({ url: `http://127.0.0.1:${port}/x` }, [`127.0.0.1:${port}`], local);
+    expect(refused).toEqual({ ok: false, error: expect.stringContaining("could not reach 127.0.0.1") });
+    for (const result of [unresolved, refused]) expect(result.ok ? "" : result.error).not.toMatch(/ECONN|EAI_|getaddrinfo|AggregateError/u);
+    // Through the broker the supervisor calls, a failing fetch is still a failed read, not a thrown error.
+    const binding = { release: { id: "web.fetch", digest: `sha256:${"a".repeat(64)}` }, allowedHosts: ["no-such-host.invalid"] } as unknown as EngineToolBinding;
+    expect(await brokerRead(binding, { url: "https://no-such-host.invalid/page" }, "att-x", { toolRead: async () => { throw new Error("not used"); } })).toEqual({ ok: false, error: expect.stringContaining("no-such-host.invalid") });
   });
 });
 

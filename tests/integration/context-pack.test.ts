@@ -6,7 +6,7 @@ import { sha256Digest } from "@brain/contracts";
 import { createApp } from "../../apps/governor/src/http/app";
 import { enrollAndHello, runOnce } from "../../apps/runner/src/supervisor";
 import { readVerified } from "../../apps/governor/src/modules/artifacts/index";
-import { ensureContextPack } from "../../apps/governor/src/modules/jobs/attempts";
+import { contextBudget, ensureContextPack } from "../../apps/governor/src/modules/jobs/attempts";
 import { ownBundleJob } from "../support/evidence";
 import { setupWorld, DIGEST_A } from "../helpers";
 import { fixtureStarter } from "../support/starter";
@@ -103,8 +103,11 @@ describe("context pack delivery (issue #80)", () => {
       expect(pack.text).toContain("- Stay under 5000 EUR");
       expect(pack.text).toContain("- Use the north hall");
       expect(pack.text).toMatch(/- Task a: \d+ of \d+ criteria passed; evidence sha256:/);
-      expect(pack.text).toContain("## Handoff notes from those tasks (written by the member) [claim, not verified]");
-      expect(pack.text).toContain("Option north hall wins on cost.");
+      // The brief the task itself receives already quotes the upstream summary, so the pack does not say it a second time.
+      const situation = (JSON.parse((db.prepare("SELECT input_json FROM run_inputs WHERE run_id=?").get(runB) as { input_json: string }).input_json) as { situation: string }).situation;
+      expect(situation).toContain("Option north hall wins on cost.");
+      expect(pack.text).not.toContain("## Handoff notes from those tasks");
+      expect(pack.text).not.toContain("Option north hall wins on cost.");
       // Nothing outside the declared sections is injected.
       const declared = ["Mission brief and this task's criteria", "Accepted decisions", "Verified results of the tasks this one builds on", "Handoff notes from those tasks (written by the member)", "Inputs pinned for this task (fetch by reference)", "Messages sent to this task", "Where earlier work on this task stopped", "The previous attempt failed"];
       const headings = [...pack.text.matchAll(/^## (.+?) \[[^\]]+\]$/gm)].map((match) => match[1]);
@@ -117,16 +120,16 @@ describe("context pack delivery (issue #80)", () => {
       expect(stored.estimateNote).toMatch(/Estimated/);
       expect(stored.estimatedTokens).toBe(pack.estimatedTokens);
       expect([stored.jobId, stored.runId]).toEqual([jobB.id, runB]);
-      expect(stored.sections.map((section) => section.id)).toEqual(expect.arrayContaining(["brief", "decisions", "handoff-facts", "handoff-notes"]));
+      expect(stored.sections.map((section) => section.id)).toEqual(expect.arrayContaining(["brief", "decisions", "handoff-facts"]));
       expect(w.brain.store.control.prepare("SELECT digest FROM artifact_associations WHERE artifact_id=?").get(`ctx-${jobB.id}`)).toEqual({ digest: pack.manifestArtifact.digest });
       // The run completed with the pack in front of the task (the fixture engine still parsed the task after it).
       await until(() => (db.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runB) as { state: string }).state === "succeeded");
       // The pinned execution artifact, not a recomputation, is what a repeat claim would see.
       expect(payloadOf().contextPack!.text).toBe(pack.text);
-      // Over a tiny budget the same sources compact by reference: the manifest is stored, the full text stays fetchable.
+      // Over a tiny budget, for a task whose brief does not carry the upstream summary, the same sources compact by reference: the manifest is stored, the full text stays fetchable.
       const control = w.brain.store.control;
       control.prepare("DELETE FROM artifact_associations WHERE artifact_id LIKE ? OR artifact_id=?").run(`ctx%-${jobB.id}%`, `exec-${jobB.id}`);
-      control.prepare("UPDATE job_payloads SET payload_json=? WHERE job_id=?").run(JSON.stringify({ ...payloadOf(), contextPack: undefined }), jobB.id);
+      control.prepare("UPDATE job_payloads SET payload_json=? WHERE job_id=?").run(JSON.stringify({ ...payloadOf(), contextPack: undefined, input: { situation: "Task b" } }), jobB.id);
       ensureContextPack(w.brain.store, (organizationId, workspaceId, input) => w.brain.sessions.contextPackForRun(organizationId, workspaceId, { ...input, budgetTokens: 120 }), w.org, { id: jobB.id, workspace_id: w.workspaceId, workflow_run_id: runB, config_digest: (control.prepare("SELECT config_digest FROM jobs WHERE id=?").get(jobB.id) as { config_digest: string }).config_digest });
       const listed = await w.brain.executeQuery(w.owner, { queryType: "contextPacks.forRun", workspaceId: w.workspaceId, resourceId: runB } as never) as unknown as { snapshot: { items: Array<{ manifest: { truncations: Array<{ sectionId: string; mode: string; reference: string }>; budgetTokens: number } }> } };
       const compact = listed.snapshot.items[0]!.manifest;
@@ -139,5 +142,20 @@ describe("context pack delivery (issue #80)", () => {
       // The first task, which has no dependencies, still gets its brief; the pack never contains member notes it was not given.
       expect(pack.text).not.toContain("Task b\nAcceptance criteria");
     });
+  });
+});
+
+describe("the overall prompt budget (I4 residual)", () => {
+  it("leaves the pack its own quarter of the ceiling when the brief is small, and shrinks it as the brief grows", () => {
+    expect(contextBudget(32768, "short brief")).toBe(8192);
+    // A long brief (~7000 tokens, the 28000-character situation) leaves the pack what half the ceiling allows after it.
+    const long = "x".repeat(28000);
+    expect(contextBudget(32768, long)).toBe(Math.min(8192, 16384 - 7000 - 1500));
+    expect(contextBudget(16384, long)).toBe(256);
+    // pack + brief + instructions never exceed half of the ceiling unless the floor applies.
+    for (const [max, text] of [[8192, "a".repeat(2000)], [32768, "b".repeat(20000)], [16384, "c".repeat(4000)]] as const) {
+      const pack = contextBudget(max, text);
+      if (pack > 256) expect(pack + Math.ceil(text.length / 4) + 1500).toBeLessThanOrEqual(max / 2);
+    }
   });
 });

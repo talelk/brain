@@ -356,7 +356,7 @@ export class SessionService {
    * the item are delivered by this pack, exactly as a managed session start
    * would deliver them.
    */
-  contextPackForRun(organizationId: string, workspaceId: string, input: { runId: string; jobId: string; agentId: string; budgetTokens: number }): BuiltPack | undefined {
+  contextPackForRun(organizationId: string, workspaceId: string, input: { runId: string; jobId: string; agentId: string; budgetTokens: number; taskText?: string }): BuiltPack | undefined {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     const link = db.prepare("SELECT work_item_id FROM execution_links WHERE run_id=? ORDER BY created_at_ms DESC LIMIT 1").get(input.runId) as { work_item_id: string } | undefined;
     if (!link) return undefined;
@@ -400,10 +400,15 @@ export class SessionService {
           ? `- ${titleOf(handoff.workItemId)}: ${passed} of ${total} criteria passed; evidence ${handoff.facts.evidenceDigest}${handoff.facts.outputVersions.length > 0 ? `; outputs ${handoff.facts.outputVersions.join(", ")}` : ""}`
           : `- ${titleOf(handoff.workItemId)}: no verified facts recorded yet`);
       }) },
-      { id: "handoff-notes", title: "Handoff notes from those tasks (written by the member)", label: "claim", items: handoffs.map((handoff) => {
+      { id: "handoff-notes", title: "Handoff notes from those tasks (written by the member)", label: "claim", items: handoffs.flatMap((handoff) => {
         const notes = handoff.notes;
-        const parts = [notes.summary, ...(notes.decisions?.length ? [`Decisions: ${notes.decisions.join("; ")}`] : []), ...(notes.openQuestions?.length ? [`Open questions: ${notes.openQuestions.join("; ")}`] : []), ...(notes.nextAction ? [`Suggested next action: ${notes.nextAction}`] : [])];
-        return prose(handoff.workItemId, `- ${titleOf(handoff.workItemId)}: ${parts.join(" ")}`, `Handoff note from ${titleOf(handoff.workItemId)}`);
+        // The task's own brief already quotes an upstream summary (the "Upstream results" lines): saying it twice only spends the prompt.
+        const flat = (text: string): string => text.split(/\s+/u).filter(Boolean).join(" ");
+        const summary = flat(notes.summary);
+        const said = summary.length > 0 && flat(input.taskText ?? "").includes(summary.slice(0, 160));
+        const parts = [...(said ? [] : [notes.summary]), ...(notes.decisions?.length ? [`Decisions: ${notes.decisions.join("; ")}`] : []), ...(notes.openQuestions?.length ? [`Open questions: ${notes.openQuestions.join("; ")}`] : []), ...(notes.nextAction ? [`Suggested next action: ${notes.nextAction}`] : [])];
+        // Nothing left to add beyond what the brief says: the item is left out.
+        return parts.length === 0 ? [] : [prose(handoff.workItemId, `- ${titleOf(handoff.workItemId)}: ${parts.join(" ")}`, `Handoff note from ${titleOf(handoff.workItemId)}`)];
       }) },
       { id: "inputs", title: "Inputs pinned for this task (fetch by reference)", label: "reference", items: inputs.map((row) => fact(row.outputVersionId, `- ${row.outputVersionId}: artifact:${row.artifactDigest}`)) },
       { id: "messages", title: "Messages sent to this task", label: "claim", items: messages.map((row) => prose(row.id, `- ${row.body}`, "A message sent to this task")) },

@@ -1,0 +1,21 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Evaluator",
+  "metadata": {
+    "id": "task-validator",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "tool": {
+      "id": "task.validate",
+      "digest": "sha256:e10eaeb8489b73bbdec9ef0e20c658e7936c84abeca4ba38e919d3dc9f10e22d"
+    },
+    "requiredChecks": [
+      "structure",
+      "safety",
+      "deliverable",
+      "criteria-met"
+    ],
+    "independence": "L1"
+  }
+}

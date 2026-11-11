@@ -1,0 +1,33 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Tool",
+  "metadata": {
+    "id": "web.fetch",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "effectClass": "read",
+    "inputSchemaRef": "schemas/web-fetch-input.json",
+    "outputSchemaRef": "schemas/web-fetch-output.json",
+    "requiredCapabilities": [
+      "tool:bash",
+      "tool:python3"
+    ],
+    "timeoutSeconds": 30,
+    "maxOutputBytes": 65536,
+    "allowedEnvironments": [
+      "local"
+    ],
+    "owner": "team_operations",
+    "license": "LicenseRef-Internal",
+    "description": "Fetches one web page with a plain GET from an approved host and returns its readable text, cut to a size limit, with the address it came from.",
+    "allowedHosts": [
+      "en.wikipedia.org",
+      "developer.mozilla.org",
+      "docs.python.org",
+      "www.rfc-editor.org"
+    ],
+    "entrypoint": "run.sh",
+    "testEntrypoint": "test.sh"
+  }
+}

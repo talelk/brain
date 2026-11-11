@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "general-task"
+      ]
+    },
+    "situation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 30000
+    },
+    "report": {}
+  },
+  "required": [
+    "kind",
+    "situation",
+    "report"
+  ],
+  "additionalProperties": false
+}

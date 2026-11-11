@@ -10,7 +10,7 @@
     "displayName": "Operations",
     "typeRef": {
       "id": "operations-type",
-      "digest": "sha256:9fdc87accd1d0a5626d7fa936b96c66a155ac830c9f74b81377c8a4e06c9ee32"
+      "digest": "sha256:e6d19c80e35801c1800f24a4eb8da95784328ae4632e6020708a47ddb6605cce"
     },
     "repositories": [],
     "runnerGroups": [
@@ -21,6 +21,10 @@
       {
         "id": "agent-smoke",
         "digest": "sha256:9a3997862941842658559601aceb6ffe6eac48b9a8559dabffed42a08d7adcb4"
+      },
+      {
+        "id": "general-task",
+        "digest": "sha256:f22e6f842bbc404ce9d2f497cf2a8ada92c1c57ec267c75141871e6d76539af2"
       },
       {
         "id": "operations-triage",

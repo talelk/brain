@@ -120,7 +120,9 @@ function decodedOutput(text: string): JsonValue {
 
 /** A reply that tried to be a JSON object but cannot be read as one: worth one corrective try. */
 function brokenJson(text: string, output: JsonValue): boolean {
-  return typeof output === "string" && /^\s*(?:```(?:json)?\s*)?\{/iu.test(text);
+  if (typeof output !== "string") return false;
+  const head = text.trimStart();
+  return (head.startsWith("{") || head.slice(0, 20).toLowerCase().startsWith("```json") || head.startsWith("```")) && head.slice(0, 200).includes("{");
 }
 
 const CORRECTION_CHARS = 30_000;

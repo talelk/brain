@@ -162,11 +162,24 @@ export function claim(s: Store, deps: {
 
 /** Share of an agent's token ceiling that its context pack may use. */
 export const CONTEXT_BUDGET_SHARE = 0.25;
+/** The whole prompt (context pack, the task's own brief and the agent's instructions) may use this share of the agent's token ceiling; the rest is for the reply. */
+export const PROMPT_BUDGET_SHARE = 0.5;
+const INSTRUCTION_RESERVE_TOKENS = 1500;
+
+/**
+ * The pack's token budget: its own share of the ceiling, but never more than what the overall prompt budget leaves after the task's brief
+ * (a long brief with upstream deliverables can be ~7000 tokens) and the instructions. A floor keeps the facts of the brief in.
+ */
+export function contextBudget(maxTokens: number, taskText: string): number {
+  const own = Math.floor(maxTokens * CONTEXT_BUDGET_SHARE);
+  const left = Math.floor(maxTokens * PROMPT_BUDGET_SHARE) - Math.ceil(taskText.length / 4) - INSTRUCTION_RESERVE_TOKENS;
+  return Math.max(256, Math.min(own, left));
+}
 
 export type ContextPackPort = (
   organizationId: string,
   workspaceId: string,
-  input: { runId: string; jobId: string; agentId: string; budgetTokens: number },
+  input: { runId: string; jobId: string; agentId: string; budgetTokens: number; taskText: string },
 ) => { text: string; manifest: { estimatedTokens: number; budgetTokens: number }; bodies: ReadonlyMap<string, string> } | undefined;
 
 /**
@@ -179,7 +192,7 @@ export function ensureContextPack(s: Store, build: ContextPackPort, organization
   const jobId = String(job["id"]);
   const row = s.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(jobId) as { payload_json: string } | undefined;
   if (!row) return;
-  const payload = JSON.parse(row.payload_json) as { step?: { uses?: { type?: string; release?: { id: string } } }; contextPack?: unknown };
+  const payload = JSON.parse(row.payload_json) as { step?: { task?: string; uses?: { type?: string; release?: { id: string } } }; input?: unknown; contextPack?: unknown };
   const agentId = payload.step?.uses?.type === "agent" ? payload.step.uses.release?.id : undefined;
   if (!agentId || payload.contextPack) return;
   // A job whose execution artifact is already pinned (offered before this code, or by an earlier claim) keeps exactly those bytes.
@@ -193,8 +206,11 @@ export function ensureContextPack(s: Store, build: ContextPackPort, organization
   }
 }
 
-function pinContextPack(s: Store, build: ContextPackPort, organizationId: string, workspaceId: string, job: Record<string, unknown>, jobId: string, agentId: string, maxTokens: number, payload: { contextPack?: unknown }): void {
-  const pack = build(organizationId, workspaceId, { runId: String(job["workflow_run_id"]), jobId, agentId, budgetTokens: Math.max(256, Math.floor(maxTokens * CONTEXT_BUDGET_SHARE)) });
+function pinContextPack(s: Store, build: ContextPackPort, organizationId: string, workspaceId: string, job: Record<string, unknown>, jobId: string, agentId: string, maxTokens: number, payload: { step?: { task?: string }; input?: unknown; contextPack?: unknown }): void {
+  // The prompt the runner sends is this pack followed by the step's task (or its input): the pack budget leaves room for it, and the pack skips what the task already says.
+  const situation = (payload.input as { situation?: unknown } | null | undefined)?.situation;
+  const taskText = payload.step?.task ?? (typeof situation === "string" ? situation : JSON.stringify(payload.input ?? {}));
+  const pack = build(organizationId, workspaceId, { runId: String(job["workflow_run_id"]), jobId, agentId, budgetTokens: contextBudget(maxTokens, taskText), taskText });
   if (!pack) return;
   const store = (artifactId: string, text: string, mediaType: string) => {
     const bytes = new TextEncoder().encode(text);
@@ -349,7 +365,9 @@ export function attemptEvents(s: Store, runner: { runnerId: string; epoch: numbe
     for (const ev of events) {
       const seq = Number((ev as { sequence?: number }).sequence ?? (lastSeq + 1));
       if (seq <= lastSeq) continue;
-      s.control.prepare("INSERT OR IGNORE INTO attempt_events(attempt_id, seq, event_json) VALUES (?,?,?)").run(attemptId, seq, JSON.stringify(ev));
+      const stored = s.control.prepare("INSERT OR IGNORE INTO attempt_events(attempt_id, seq, event_json) VALUES (?,?,?)").run(attemptId, seq, JSON.stringify(ev));
+      // Tool calls are counted when their event is first stored; a replayed batch inserts nothing and so counts nothing twice.
+      if (stored.changes === 1) recordToolCall(s, row, attemptId, ev);
       lastSeq = seq;
     }
     s.control.prepare("UPDATE job_attempts SET last_event_seq=? WHERE id=?").run(lastSeq, attemptId);
@@ -364,6 +382,20 @@ export function attemptEvents(s: Store, runner: { runnerId: string; epoch: numbe
     });
   });
   return { attemptId, lastCommittedSequence: lastSeq } as unknown as JsonValue;
+}
+
+/** Keeps the tool catalog's call counts current: a proposed call opens a row, its result marks it failed or finished. */
+function recordToolCall(s: Store, attempt: Record<string, unknown>, attemptId: string, ev: Record<string, unknown>): void {
+  const engineEvent = ev["payload"] as { kind?: string; occurredAt?: string; payload?: { proposalId?: unknown; tool?: { id?: unknown }; receipt?: { result?: unknown; finishedAt?: unknown } } } | undefined;
+  const body = engineEvent?.payload;
+  if (!engineEvent || !body || typeof body.proposalId !== "string") return;
+  if (engineEvent.kind === "tool.proposed" && typeof body.tool?.id === "string") {
+    s.control.prepare("INSERT OR IGNORE INTO tool_calls(attempt_id, proposal_id, organization_id, workspace_id, run_id, tool_id, proposed_at) VALUES (?,?,?,?,?,?,?)")
+      .run(attemptId, body.proposalId, String(attempt["organization_id"]), String(attempt["workspace_id"]), String(attempt["workflow_run_id"]), body.tool.id, String(engineEvent.occurredAt ?? ""));
+  } else if (engineEvent.kind === "tool.result") {
+    const finished = typeof body.receipt?.finishedAt === "string" ? body.receipt.finishedAt : String(engineEvent.occurredAt ?? "");
+    s.control.prepare("UPDATE tool_calls SET failed=?, finished_at=? WHERE attempt_id=? AND proposal_id=?").run(body.receipt?.result === "failed" ? 1 : 0, finished, attemptId, body.proposalId);
+  }
 }
 
 export function releaseReservation(s: Store, attemptId: string): void {

@@ -10,11 +10,7 @@ BASE = "http://127.0.0.1:3100"
 WS = "ws-cvinsights"
 WSDB = f"/data/workspaces/{WS}.db"
 ADMIN = {"email": "admin@brain.local", "password": "92hXhRoNn9luCYlcAQ"}
-WF = {  # workflow id -> document digest in the active config release
-    "operations-triage": "sha256:97f17aeb2424d064bd6aa6d38140ccbbe691ace2afd4bf3a73b11e45cd44356b",
-    "support-draft": "sha256:b940949b49bca33088b582792988a7c01f64d9c5886ac2cec706f94a035da3fd",
-    "plan-guide": "sha256:879c113253d5413cc9a8182b35f585d8084eff8087be7eefbecb6b1eeb91d3e4",
-}
+WF = {}  # workflow id -> document digest, read from the active config release after login (never pinned here: digests change with every release)
 MISSION_TITLE = "Operate, evolve and support Keyrus CV Insights"
 TOKEN = ""
 
@@ -98,6 +94,8 @@ if st >= 400:
     raise SystemExit(f"login failed {st}: {res}")
 TOKEN = res["token"]
 print("login ok")
+for entry in query("workflows.list").get("items", []):
+    WF[entry["release"]["id"]] = entry["release"]["digest"]
 
 # 2. workspace (201 first time, conflict afterwards is fine)
 st, res = api("POST", "/v1/setup/workspace", {"workspaceId": WS, "slug": "cv-insights",
@@ -153,6 +151,9 @@ def dispatch(task_id, wf_id, inp):
     if item["workItemId"] in already:
         print(f"  {task_id} already has a linked run")
         return
+    if wf_id not in WF:
+        print(f"  !! workflow {wf_id} is not in the active release")
+        return
     r = cmd("workflow.dispatch", {"workflow": {"id": wf_id, "digest": WF[wf_id]},
                                   "input": inp, "workItemId": item["workItemId"]})
     dispatches[task_id] = r["resourceId"]
@@ -168,7 +169,8 @@ dispatch("evolve-roadmap", "plan-guide", {
     "title": "CV Insights evolution roadmap",
     "intent": "Plan the next improvements to Keyrus CV Insights: candidate dedup (M1), resume intel extraction (M3/M4 orgs/tenures/tech), and geo coverage beyond TN.",
     "successCriteria": ["Prioritized roadmap with owners", "Effort + risk noted per item"],
-    "capabilities": "Teamtailor MCP connector, DuckDB star schema, parquet read model, Rill dashboards, daily watermark sync"})
+    "capabilities": "Teamtailor MCP connector, DuckDB star schema, parquet read model, Rill dashboards, daily watermark sync",
+    "reused": ""})
 
 # 7. poll runs
 print("polling runs...")

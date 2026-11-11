@@ -1,0 +1,122 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Workflow",
+  "metadata": {
+    "id": "general-task",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "inputSchemaRef": "schemas/task-input.json",
+    "outputSchemaRef": "schemas/workflow-output.json",
+    "jobs": {
+      "respond": {
+        "kind": "dispatch",
+        "needs": [],
+        "input": {
+          "situation": {
+            "source": "input",
+            "pointer": "/situation"
+          }
+        },
+        "outputSchemaRef": "schemas/task-output.json",
+        "timeoutSeconds": 600,
+        "uses": {
+          "type": "agent",
+          "release": {
+            "id": "task-worker",
+            "digest": "sha256:b09967f00f2f43f87437de18460c8ed067a1d9e82b5fa4b1ad1bcd83a418ed61"
+          }
+        },
+        "runsOn": {
+          "group": "agents",
+          "engine": {
+            "anyOf": ["pi"],
+            "features": ["sessions"]
+          },
+          "all": [
+            "os:linux"
+          ],
+          "resources": {
+            "cpuMillicores": 500,
+            "memoryMb": 512,
+            "diskMb": 256,
+            "slots": 1
+          },
+          "isolation": "ephemeral-container"
+        },
+        "effectClass": "read"
+      },
+      "validate": {
+        "kind": "eval",
+        "needs": [
+          "respond"
+        ],
+        "input": {
+          "kind": {
+            "source": "literal",
+            "value": "general-task"
+          },
+          "situation": {
+            "source": "input",
+            "pointer": "/situation"
+          },
+          "report": {
+            "source": "job",
+            "jobId": "respond",
+            "pointer": ""
+          }
+        },
+        "outputSchemaRef": "schemas/task-validation-output.json",
+        "timeoutSeconds": 30,
+        "evaluator": {
+          "id": "task-validator",
+          "digest": "sha256:2e1c5115766a4272e13c597569a58f52f732bed8e9f55d6c34659b9b4ee6507c"
+        },
+        "runsOn": {
+          "group": "evaluators",
+          "engine": {
+            "anyOf": ["claude"],
+            "features": ["sessions"]
+          },
+          "all": [
+            "os:linux",
+            "tool:bash",
+            "tool:python3"
+          ],
+          "resources": {
+            "cpuMillicores": 500,
+            "memoryMb": 256,
+            "diskMb": 256,
+            "slots": 1
+          },
+          "isolation": "ephemeral-container"
+        },
+        "independence": "L1"
+      }
+    },
+    "outputs": {
+      "response": {
+        "source": "job",
+        "jobId": "respond",
+        "pointer": ""
+      },
+      "passed": {
+        "source": "job",
+        "jobId": "validate",
+        "pointer": "/passed"
+      }
+    },
+    "failFast": true,
+    "deadlineSeconds": 900,
+    "presentation": {
+      "title": "Do a task",
+      "description": "Work on any task in plain words and get a readable written result, checked against its success criteria. Nothing is sent or changed.",
+      "examples": [
+        {
+          "situation": "Compare two options for the team offsite and recommend one\nAcceptance criteria:\n1. Names the recommended option\n2. States the assumptions made"
+        }
+      ],
+      "system": false
+    }
+  }
+}

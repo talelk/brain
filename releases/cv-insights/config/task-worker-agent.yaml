@@ -1,0 +1,43 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Agent",
+  "metadata": {
+    "id": "task-worker",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "instructionsPath": "agents/task-worker.md",
+    "tools": [
+      {
+        "id": "documents.read",
+        "digest": "sha256:3b3246a626f529b88067426f40cd55d4f2d694664d1e04a17ae7a558a54de1f6"
+      },
+      {
+        "id": "web.fetch",
+        "digest": "sha256:9faa5f1de76b6b9e394655ce0d5f11a79235d6b21e2833dc344cfb3a4de04f1d"
+      },
+      {
+        "id": "csv.query",
+        "digest": "sha256:38cbefcec8395c13f3273b24e26b83594a5af97cc26cf3ccad76981dc46929f7"
+      },
+      {
+        "id": "knowledge.search",
+        "digest": "sha256:3994d2c88f1d2c2bc3c07637a7d95224b19a2c1fa4b1d89b8ef30867b2023bfb"
+      }
+    ],
+    "engine": {
+      "anyOf": [
+        "pi",
+        "claude"
+      ],
+      "features": [
+        "sessions"
+      ]
+    },
+    "maxTurns": 8,
+    "maxChildren": 0,
+    "maxDepth": 0,
+    "maxTokens": 32768,
+    "maxMicroUsd": 0
+  }
+}

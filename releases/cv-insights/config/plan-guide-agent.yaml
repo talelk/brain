@@ -4,9 +4,9 @@
   "metadata": { "id": "plan-guide-assistant", "version": "1.0.0" },
   "spec": {
     "instructionsPath": "agents/plan-guide.md",
-    "tools": [],
+    "tools": [{ "id": "knowledge.search", "digest": "sha256:3994d2c88f1d2c2bc3c07637a7d95224b19a2c1fa4b1d89b8ef30867b2023bfb" }],
     "engine": { "anyOf": ["pi", "claude"], "features": ["sessions"] },
-    "maxTurns": 3,
+    "maxTurns": 6,
     "maxChildren": 0,
     "maxDepth": 0,
     "maxTokens": 32768,

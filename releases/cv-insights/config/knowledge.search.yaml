@@ -1,0 +1,27 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Tool",
+  "metadata": {
+    "id": "knowledge.search",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "effectClass": "read",
+    "inputSchemaRef": "schemas/knowledge-search-input.json",
+    "outputSchemaRef": "schemas/knowledge-search-output.json",
+    "requiredCapabilities": [
+      "tool:bash",
+      "tool:python3"
+    ],
+    "timeoutSeconds": 20,
+    "maxOutputBytes": 65536,
+    "allowedEnvironments": [
+      "local"
+    ],
+    "owner": "team_operations",
+    "license": "LicenseRef-Internal",
+    "description": "Searches the knowledge Brain has stored for this mission's workspace and returns the best few matches with where each came from. Matches are claims, not verified facts.",
+    "entrypoint": "run.sh",
+    "testEntrypoint": "test.sh"
+  }
+}

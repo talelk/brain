@@ -66,6 +66,12 @@ describe("tool registry read (issue #84)", () => {
       const runId = offer.workflowRunId!;
       expect(used.get("documents.read")!.usage).toEqual({ calls: 2, failures: 1, lastCallAt: "2026-11-11T10:05:00.000Z", lastCallRunId: runId, lastFailureAt: "2026-11-11T10:05:01.000Z", lastFailureRunId: runId });
       expect(used.get("csv.query")!.usage).toEqual({ calls: 1, failures: 0, lastCallAt: "2026-11-11T10:06:00.000Z", lastCallRunId: runId });
+      // Counts come from the call table kept by event ingestion: a replayed batch (same sequences) counts nothing twice.
+      await client.events(offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence, events: [
+        proposed("p1", "documents.read", "2026-11-11T10:00:00.000Z"), result("p1", "succeeded", "2026-11-11T10:00:01.000Z"),
+      ].map((entry, index) => ({ ...entry, sequence: index + 1 })) });
+      expect(new Map((await read()).map((entry) => [entry.id, entry])).get("documents.read")!.usage).toMatchObject({ calls: 2, failures: 1 });
+      expect(w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM tool_calls").get()).toEqual({ n: 3 });
       // A tool nobody called still reads never used, and createdAt did not move.
       expect(used.get("web.fetch")!.usage).toEqual({ calls: 0, failures: 0 });
       expect(used.get("documents.read")!.createdAt).toBe(first[0]!.createdAt);

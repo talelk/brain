@@ -135,7 +135,30 @@ export async function webFetch(input: Readonly<Record<string, unknown>>, allowed
       return { ok: true, data: { url: original, finalUrl: url.toString(), status: fetched.status, contentType: contentType || "text/plain", fetchedAt: new Date().toISOString(), body: new TextDecoder("utf-8", { fatal: false }).decode(fetched.body), truncated: fetched.truncated } };
     }
   } catch (error) {
-    const reason = error instanceof Error ? error.message : "the request failed";
-    return { ok: false, error: /non-public address/u.test(reason) ? "the host resolves to a non-public address and was refused" : `web.fetch failed: ${reason}` };
+    return { ok: false, error: plainFetchError(error, url.hostname) };
   }
+}
+
+/**
+ * A network failure in words a person can act on. A runner host without outbound access is the usual cause, so that is named; the
+ * raw system message (`getaddrinfo EAI_AGAIN`, an empty AggregateError) never reaches the model or the person.
+ */
+export function plainFetchError(error: unknown, host: string): string {
+  const codes = new Set<string>();
+  const collect = (value: unknown): void => {
+    if (!value || typeof value !== "object") return;
+    const { code, errors, cause } = value as { code?: unknown; errors?: unknown; cause?: unknown };
+    if (typeof code === "string") codes.add(code);
+    if (Array.isArray(errors)) errors.forEach(collect);
+    collect(cause);
+  };
+  collect(error);
+  const message = error instanceof Error ? error.message : "";
+  if (codes.has("EBRAIN_PRIVATE_ADDRESS") || /non-public address/u.test(message)) return "the host resolves to a non-public address and was refused";
+  if (codes.has("ENOTFOUND") || codes.has("EAI_AGAIN") || codes.has("EAI_FAIL") || codes.has("EAI_NODATA")) return `web.fetch could not look up ${host}: this runner host has no outbound internet access to it, or the name does not exist`;
+  if (["ECONNREFUSED", "ECONNRESET", "EHOSTUNREACH", "ENETUNREACH", "ETIMEDOUT", "EPIPE", "ECONNABORTED", "UND_ERR_CONNECT_TIMEOUT"].some((code) => codes.has(code)) || /did not answer within|timed out|aborted due to timeout/iu.test(message) || (error instanceof Error && error.name === "TimeoutError")) {
+    return `web.fetch could not reach ${host}: the connection failed or timed out, which usually means this runner host has no outbound access to it`;
+  }
+  if (/certificate|CERT_|SSL|TLS/iu.test(`${message} ${[...codes].join(" ")}`)) return `web.fetch could not make a secure connection to ${host}: its certificate was not accepted`;
+  return `web.fetch could not read ${host}${message ? ` (${message.slice(0, 160)})` : ""}`;
 }
