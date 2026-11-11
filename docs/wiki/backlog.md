@@ -55,6 +55,10 @@ Housekeeping 2026-11-11 ~12:00: stopped lingering agents (A2 9 h, E), removed 25
 - My own regression, fixed: gating the Library auto-publish switch on `identity.actor.scopes` disabled it for the workspace lead on the live site (browser identity has no workspace scopes). Reverted to `canAdminister()` (`LibraryControls.tsx`); spec `hands-off-library` passes again.
 - Track T (done locally, not deployed): readiness separates capability from capacity (busy runner = ready with `busy` field), Today shows a calm queue note and never blocks for it, runners run N concurrent sessions (`BRAIN_RUNNER_SLOTS`; demo 3 agents / 2 evaluators, applied to the unit env on each deploy). See ops-live-server.md.
 
+## Track T deployed and confirmed live (2026-11-11 ~13:05, `0a16184`)
+Readiness separates capability from capacity (busy runner = ready, `busy: {slotsInUse, slotsTotal}`); Today box never blocked by a busy runner ("Brain is working on N things; yours queues and starts next"); runner supervisor runs one claim loop per slot (`BRAIN_RUNNER_SLOTS`), deploy sets agents 3 / evaluators 2 slots in `runner-*.env` on every deploy. Live: runner rows show slot_capacity 3 and 2, healthy; Today unblocked; the 6-task on-call mission finished "closed - achieved" after the R/S/T fixes; note-taking mission resumed with limit "$2 or 5 h of working time".
+Leftovers (T): multi-worker supervisor loop untested with >1 concurrent attempts; session refresh (13 min) briefly lowers concurrency for very long attempts; busy-runner spec only at 1440-light; Health/Runners UI still says "busy".
+
 ## Not yet walked live (blocked on deploy of K and M)
 Share links, Challenge this result, Repeat this (now creates real missions), Context received tab, Tools registry, Quality page, Usage meter in depth.
 
