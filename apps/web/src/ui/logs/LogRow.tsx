@@ -313,7 +313,7 @@ export function ContextLines(props: { records: readonly LogRecord[] }): JSX.Elem
   return <ul class="brain-exec-log m-0 list-none p-0 text-ink-gray-7">
     <For each={props.records}>{(record) => (
       <li class="flex items-baseline gap-2 border-b border-outline-gray-1 py-0.5">
-        <span class="w-16 shrink-0 text-right text-ink-gray-6 tabular-nums" title={record.at}>{record.streamSeq}</span>
+        <span class="w-16 shrink-0 text-end text-ink-gray-6 tabular-nums" title={record.at}>{record.streamSeq}</span>
         <span class={`size-1.5 shrink-0 translate-y-[-1px] rounded-full ${severityDotClass(record.severity)}`} aria-hidden="true" />
         <span class="w-40 shrink-0 truncate" title={record.type}>{record.type}</span>
         <span class="min-w-0 flex-1 break-words">{streamSummaryText(record.summary, 300)}</span>

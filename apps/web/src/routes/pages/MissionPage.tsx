@@ -389,7 +389,7 @@ function TeamTab(props: { mission: Mission }): JSX.Element {
   });
   return <WorkspaceSection title="Mission team" description={`Up to ${props.mission.budget.memberCap} members run at once; ${props.mission.usage.runningMembers} running now.`}>
     <ScreenRegion state={plan.state()} onRetry={() => void plan.refresh({ force: true })} emptyTitle="No team yet" emptyDescription="A plan version with a team is proposed by a play or a coordinator and confirmed by a person.">
-      <table class="w-full text-left text-interface"><thead><tr><th>Member</th><th>Role</th><th>Agent</th><th>Engine</th><th>Tasks</th></tr></thead>
+      <table class="w-full text-start text-interface"><thead><tr><th>Member</th><th>Role</th><th>Agent</th><th>Engine</th><th>Tasks</th></tr></thead>
         <tbody><For each={plan.state().data?.team ?? []}>{(member) => <tr>
           <td>{member.memberId}</td><td>{member.role}</td><td>{member.agentId}</td><td>{member.engine}</td>
           <td>{(plan.state().data?.tasks ?? []).filter((task) => task.assignment?.kind === "agent" && task.assignment.id === member.memberId).map((task) => task.title).join(", ") || "—"}</td>
@@ -447,7 +447,7 @@ function BriefTab(props: ActProps): JSX.Element {
     <Show when={brief.state().data}>{(b) => <PageStack>
       <WorkspaceSection title={`Brief, version ${b().version}`} description={`${b().writtenChars} of 8000 written characters · updated ${formatDateTime(b().updatedAt)}`} actions={<Button variant="outline" iconLeft="lucide-pencil" onClick={() => { setIntent(undefined); setConstraints(undefined); setEditOpen(true); }}>Edit brief</Button>}>
         <div class="brain-brief"><h3 class="text-base-medium">Intent</h3><p class="brain-readable whitespace-pre-line text-interface">{b().intent}</p>
-          <h3 class="mt-3 text-base-medium">Constraints</h3><Show when={b().constraints.length} fallback={<p class="text-interface text-ink-gray-6">None recorded.</p>}><ul class="ml-4 list-disc text-interface"><For each={b().constraints}>{(line) => <li>{line}</li>}</For></ul></Show></div>
+          <h3 class="mt-3 text-base-medium">Constraints</h3><Show when={b().constraints.length} fallback={<p class="text-interface text-ink-gray-6">None recorded.</p>}><ul class="ms-4 list-disc text-interface"><For each={b().constraints}>{(line) => <li>{line}</li>}</For></ul></Show></div>
         <FormSheet open={editOpen()} onClose={() => setEditOpen(false)} title="Edit the brief" description="Saving creates a new brief version; earlier versions stay in the history." submit="Save brief" icon="lucide-save" busy={props.busy} disabled={intent() === undefined && constraints() === undefined} onSubmit={() => { if (!props.busy && (intent() !== undefined || constraints() !== undefined)) return saveBrief(b()); }}>
         <Textarea label="Intent" value={intent() ?? b().intent} onInput={(event) => setIntent(event.currentTarget.value)} />
         <Textarea label="Constraints (one per line)" value={constraints() ?? b().constraints.join("\n")} onInput={(event) => setConstraints(event.currentTarget.value)} />

@@ -143,7 +143,7 @@ export function StartFields(props: { start: StartController; large?: boolean; /*
   };
   const candidateRow = (candidate: ReuseCandidate) => <li><button type="button" class="brain-queue-row w-full" aria-label={`${panel() === "repeat" ? "Repeat" : "Start from"} ${candidate.title}`} onClick={() => choose(candidate)}>
     <span class="lucide-flag size-5 shrink-0 text-ink-gray-6" aria-hidden="true" />
-    <span class="min-w-0 text-left"><span class="block break-words text-base-medium">{candidate.title}</span>
+    <span class="min-w-0 text-start"><span class="block break-words text-base-medium">{candidate.title}</span>
       <span class="block break-words text-caption text-ink-gray-7">{candidate.provenance} · {candidate.lastVerifiedAt ? `Last verified ${formatDateTime(candidate.lastVerifiedAt)}` : "Not verified"}</span></span>
   </button></li>;
   const chip = (label: string, icon: string, pressed: boolean, onClick: () => void, extra?: { expanded?: boolean }) =>

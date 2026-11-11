@@ -40,7 +40,7 @@ export function PlacementPanel(props: { explanation?: PlacementExplanation; erro
         ]} />
         <Show when={explanation()!.runners.length} fallback={<Alert theme="amber" variant="outline" title="No runners registered" description="Enroll a runner that matches this job's capability and resource demand." />}>
           <div class="max-w-full overflow-x-auto rounded-control border border-outline-gray-1">
-            <table class="w-full min-w-[28rem] border-collapse text-left text-interface">
+            <table class="w-full min-w-[28rem] border-collapse text-start text-interface">
               <caption class="sr-only">Runner eligibility for this placement</caption>
               <thead><tr class="border-b border-outline-gray-2 bg-surface-gray-1 text-caption text-ink-gray-7">
                 <th scope="col" class="px-2 py-1.5 font-medium">Runner</th><th scope="col" class="px-2 py-1.5 font-medium">Eligible</th><th scope="col" class="px-2 py-1.5 font-medium">Reasons</th>

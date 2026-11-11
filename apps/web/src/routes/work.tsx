@@ -75,7 +75,7 @@ function Donut(props: { label: string; slices: Slice[] }): JSX.Element {
 function Bars(props: { label: string; rows: Slice[] }): JSX.Element {
   const max = () => Math.max(1, ...props.rows.map((row) => row.count));
   return <ul class="flex flex-col gap-1.5" aria-label={props.label}><For each={props.rows}>{(row) => <li class="grid grid-cols-[6rem_1fr_2rem] items-center gap-2 text-caption text-ink-gray-7">
-    <span>{row.label}</span><span class="h-2 overflow-hidden rounded-full bg-surface-gray-3"><span class={`block h-full ${TONE_BG[row.tone]}`} style={{ width: `${(row.count / max()) * 100}%` }} /></span><span class="text-right tabular-nums">{row.count}</span></li>}</For></ul>;
+    <span>{row.label}</span><span class="h-2 overflow-hidden rounded-full bg-surface-gray-3"><span class={`block h-full ${TONE_BG[row.tone]}`} style={{ width: `${(row.count / max()) * 100}%` }} /></span><span class="text-end tabular-nums">{row.count}</span></li>}</For></ul>;
 }
 
 const DAY = 86_400_000;

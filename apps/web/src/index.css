@@ -619,3 +619,14 @@ body { background: var(--surface-canvas); color: var(--ink-gray-9); }
   .brain-needs-actions .flex-wrap { flex-direction: column; align-items: stretch; }
   .brain-needs-actions [data-slot="button"][data-variant="solid"], .brain-needs-actions [data-slot="button"][data-variant="outline"] { width: 100%; justify-content: center; }
 }
+
+/* Right-to-left (see main.tsx: `?dir=rtl` or an Arabic/Hebrew/Persian/Urdu browser language).
+   Directional icons point along the reading direction, so they mirror; symmetric and rotated icons stay as drawn. */
+[dir="rtl"] :is(.lucide-arrow-left, .lucide-arrow-right, .lucide-arrow-up-right, .lucide-chevron-left, .lucide-chevron-right, .lucide-corner-down-right, .lucide-corner-down-left):not([class*="rotate-"]) {
+  scale: -1 1;
+}
+
+/* NewUI's sliding tab indicator is measured from the track's left edge but has no inset, so in RTL it starts at the right edge and lands on the wrong tab. */
+[dir="rtl"] [data-slot="tab-indicator"] {
+  left: 0;
+}

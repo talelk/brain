@@ -149,15 +149,15 @@ export function RunDetail(props: {
           ? <WorkItemLink workspaceId={job()?.workspaceId ?? ""} workItemId={origin().id} class="inline-flex w-fit items-center gap-2 rounded-control text-interface font-medium text-ink-blue-link focus-visible:focus-ring"><span class="lucide-arrow-left size-4" aria-hidden="true" />Back to the mission plan</WorkItemLink>
           : <A class="inline-flex w-fit items-center gap-2 rounded-control text-interface font-medium text-ink-blue-link focus-visible:focus-ring" href={origin().kind === "ticket" ? `/tickets/${origin().id}` : `/incidents/${origin().id}`}><span class="lucide-arrow-left size-4" aria-hidden="true" />Back to the {origin().kind === "ticket" ? "ticket" : "incident"}</A>}</Show>
         <dl class="grid grid-cols-2 border-y border-outline-gray-1 text-caption sm:grid-cols-4" aria-label="Run summary">
-          <div class="min-w-0 py-2 pr-3" title="Authoritative workflow state"><dt class="text-ink-gray-6">State</dt><dd class="mt-1"><StatusBadge kind="job" status={settled() ?? state() ?? "unknown"} /></dd></div>
-          <div class="min-w-0 py-2 pr-3" title="Recorded execution attempts"><dt class="text-ink-gray-6">Attempts</dt><dd class="mt-1 font-medium tabular-nums text-ink-gray-9">{job()?.attempts.length ?? 0}</dd></div>
-          <div class="min-w-0 py-2 pr-3" title={job()?.evidenceDigest ? "Inspect independent verification" : "Author output alone is insufficient"}><dt class="text-ink-gray-6">Evidence</dt><dd class="mt-1 font-medium text-ink-gray-9">{job()?.evidenceDigest ? "Bundle attached" : "Not complete"}</dd></div>
-          <div class="min-w-0 py-2 pr-3" title={`Workspace ${job()?.workspaceId ?? "—"}`}><dt class="text-ink-gray-6">Created</dt><dd class="mt-1 break-words font-medium text-ink-gray-9"><DateText value={job()?.createdAt} /></dd></div>
+          <div class="min-w-0 py-2 pe-3" title="Authoritative workflow state"><dt class="text-ink-gray-6">State</dt><dd class="mt-1"><StatusBadge kind="job" status={settled() ?? state() ?? "unknown"} /></dd></div>
+          <div class="min-w-0 py-2 pe-3" title="Recorded execution attempts"><dt class="text-ink-gray-6">Attempts</dt><dd class="mt-1 font-medium tabular-nums text-ink-gray-9">{job()?.attempts.length ?? 0}</dd></div>
+          <div class="min-w-0 py-2 pe-3" title={job()?.evidenceDigest ? "Inspect independent verification" : "Author output alone is insufficient"}><dt class="text-ink-gray-6">Evidence</dt><dd class="mt-1 font-medium text-ink-gray-9">{job()?.evidenceDigest ? "Bundle attached" : "Not complete"}</dd></div>
+          <div class="min-w-0 py-2 pe-3" title={`Workspace ${job()?.workspaceId ?? "—"}`}><dt class="text-ink-gray-6">Created</dt><dd class="mt-1 break-words font-medium text-ink-gray-9"><DateText value={job()?.createdAt} /></dd></div>
         </dl>
         <Show when={job()?.workspaceId}>
           <fieldset class="m-0 flex flex-wrap items-center gap-1.5 border-0 p-0">
             <legend class="sr-only">Open this run in the execution surfaces</legend>
-            <span class="mr-1 text-caption text-ink-gray-6">Continue in</span>
+            <span class="me-1 text-caption text-ink-gray-6">Continue in</span>
             <Show when={job()?.sessionId}><CorrelationLink target={{ kind: "session", sessionId: job()!.sessionId! }} label="Live console" icon="lucide-square-terminal" /></Show>
             <CorrelationLink target={{ kind: "logs", workspaceId: job()?.workspaceId ?? "", filters: { job: props.jobId, ...(lastAttempt() ? { attempt: lastAttempt()!.attemptId } : {}), severity: [], emitter: [] } }} label="View logs" icon="lucide-scroll-text" />
             <CorrelationLink target={{ kind: "outputs", workspaceId: job()?.workspaceId ?? "", jobId: props.jobId }} label="Outputs" icon="lucide-package" />

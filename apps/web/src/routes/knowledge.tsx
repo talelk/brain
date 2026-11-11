@@ -143,7 +143,7 @@ export function KnowledgeScreen(props: {
             </Button>
           </form>
           <Show when={props.searched && !props.state.data?.degraded && props.state.data?.storeLabel}>
-            <p class="mt-1 mb-2 text-caption text-ink-gray-7" data-testid="memory-store-label"><span class="lucide-hard-drive mr-1 inline-block size-3.5 align-text-bottom" aria-hidden="true" />{props.state.data?.storeLabel}: saved documents and approved knowledge, ranked by how well they match.</p>
+            <p class="mt-1 mb-2 text-caption text-ink-gray-7" data-testid="memory-store-label"><span class="lucide-hard-drive me-1 inline-block size-3.5 align-text-bottom" aria-hidden="true" />{props.state.data?.storeLabel}: saved documents and approved knowledge, ranked by how well they match.</p>
           </Show>
           <Show when={props.state.data?.degraded}>
             <Alert

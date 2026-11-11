@@ -46,7 +46,7 @@ function AttemptColumn(props: { comparison: StreamCompareResult; attemptId: stri
         const record = row.kind === "tool" ? row.proposed ?? row.members[0]! : row.record;
         const repeatCount = row.kind === "repeat" ? row.members.length : undefined;
         return <li class="flex items-baseline gap-2 border-b border-outline-gray-1 py-0.5">
-          <span class="w-14 shrink-0 text-right text-ink-gray-6 tabular-nums">{record.streamSeq}</span>
+          <span class="w-14 shrink-0 text-end text-ink-gray-6 tabular-nums">{record.streamSeq}</span>
           <span class={`size-1.5 shrink-0 translate-y-[-1px] rounded-full ${severityDotClass(rowSeverity(row))}`} aria-hidden="true" />
           <span class="min-w-0 flex-1 break-words">{record.type}
             <Show when={repeatCount !== undefined}><span class="ms-1 text-ink-gray-6">×{repeatCount}</span></Show>

@@ -94,7 +94,9 @@ export function PaneResizer(props: {
 }): JSX.Element {
   const [dragging, setDragging] = createSignal(false);
   let lastPosition = 0;
-  const position = (event: PointerEvent) => (props.orientation === "row" ? event.clientX : event.clientY);
+  // Right-to-left reading order puts the first pane on the right, so horizontal movement and arrow keys mean the opposite.
+  const flip = () => (props.orientation === "row" && document.documentElement.dir === "rtl" ? -1 : 1);
+  const position = (event: PointerEvent) => (props.orientation === "row" ? event.clientX * flip() : event.clientY);
   return <button type="button" aria-label={props.label} title={props.label}
     data-orientation={props.orientation} data-dragging={dragging()}
     class="brain-exec-divider"
@@ -114,8 +116,10 @@ export function PaneResizer(props: {
     onDblClick={() => props.onReset?.()}
     onKeyDown={(event) => {
       const step = event.shiftKey ? 64 : 16;
-      const grows = event.key === "ArrowRight" || event.key === "ArrowDown";
-      const shrinks = event.key === "ArrowLeft" || event.key === "ArrowUp";
+      const forward = flip() === 1 ? "ArrowRight" : "ArrowLeft";
+      const backward = flip() === 1 ? "ArrowLeft" : "ArrowRight";
+      const grows = event.key === forward || event.key === "ArrowDown";
+      const shrinks = event.key === backward || event.key === "ArrowUp";
       if (grows || shrinks) {
         event.preventDefault();
         props.onResize(grows ? step : -step);

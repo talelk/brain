@@ -98,8 +98,8 @@ function PlayDetail(props: { play: PlayView; agents: readonly AgentCatalogEntry[
       <Show when={spec()}>{(brief) => <WorkspaceSection title="Brief" description="What every mission started from this play is asked to achieve.">
         <p class="brain-prose whitespace-pre-wrap text-interface text-ink-gray-8">{brief().intent}</p>
         <h3 class="mt-4 text-base-medium">Success criteria</h3>
-        <ul class="mt-2 list-disc pl-5 text-interface"><For each={brief().successCriteria}>{(criterion) => <li>{criterion}</li>}</For></ul>
-        <Show when={brief().constraints?.length}><h3 class="mt-4 text-base-medium">Constraints</h3><ul class="mt-2 list-disc pl-5 text-interface"><For each={brief().constraints}>{(constraint) => <li>{constraint}</li>}</For></ul></Show>
+        <ul class="mt-2 list-disc ps-5 text-interface"><For each={brief().successCriteria}>{(criterion) => <li>{criterion}</li>}</For></ul>
+        <Show when={brief().constraints?.length}><h3 class="mt-4 text-base-medium">Constraints</h3><ul class="mt-2 list-disc ps-5 text-interface"><For each={brief().constraints}>{(constraint) => <li>{constraint}</li>}</For></ul></Show>
       </WorkspaceSection>}</Show>
       <TeamRoles members={props.play.team} agents={props.agents} />
       <Show when={spec()}>{(brief) => <WorkspaceSection title="Plan shape" description="The tasks proposed as the first plan version; the coordinator may revise it within the mission's autonomy.">
@@ -107,7 +107,7 @@ function PlayDetail(props: { play: PlayView; agents: readonly AgentCatalogEntry[
           <div class="flex flex-wrap items-center gap-2"><span class="text-base-medium">{index() + 1}. {task.title}</span>
             <Show when={task.dependsOn?.length}><Badge variant="outline" theme="gray" label={`after ${task.dependsOn!.join(", ")}`} /></Show>
             <Show when={task.outputs?.length}><Badge variant="outline" theme="blue" label={`outputs ${task.outputs!.join(", ")}`} /></Show></div>
-          <ul class="mt-1 list-disc pl-5 text-caption text-ink-gray-7"><For each={task.criteria}>{(criterion) => <li>{criterion}</li>}</For></ul>
+          <ul class="mt-1 list-disc ps-5 text-caption text-ink-gray-7"><For each={task.criteria}>{(criterion) => <li>{criterion}</li>}</For></ul>
         </li>}</For></ol>
       </WorkspaceSection>}</Show>
       <SchedulesLink targetIds={[props.play.playId]} label={props.play.title} />

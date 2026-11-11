@@ -45,12 +45,12 @@ function Pack(props: { workspaceId: string; pack: ContextPackView }): JSX.Elemen
     </p>
     <p class="text-caption text-ink-gray-6">{manifest().estimateNote}</p>
     <table class="w-full min-w-0 border-collapse text-interface" aria-label="Context sections">
-      <thead><tr class="text-left text-caption text-ink-gray-6"><th class="py-1 pr-3 font-medium">Section</th><th class="py-1 pr-3 font-medium">Items</th><th class="py-1 text-right font-medium">Tokens (est.)</th></tr></thead>
+      <thead><tr class="text-start text-caption text-ink-gray-6"><th class="py-1 pe-3 font-medium">Section</th><th class="py-1 pe-3 font-medium">Items</th><th class="py-1 text-end font-medium">Tokens (est.)</th></tr></thead>
       <tbody><For each={manifest().sections}>{(section) =>
         <tr class="border-t border-outline-gray-1 align-top" data-section={section.id}>
-          <td class="py-2 pr-3"><span class="block break-words font-medium text-ink-gray-9">{section.title}</span><span class="block text-caption text-ink-gray-6">{LABELS[section.label]}</span></td>
-          <td class="py-2 pr-3 tabular-nums">{section.items}</td>
-          <td class="py-2 text-right tabular-nums">{section.estimatedTokens}</td>
+          <td class="py-2 pe-3"><span class="block break-words font-medium text-ink-gray-9">{section.title}</span><span class="block text-caption text-ink-gray-6">{LABELS[section.label]}</span></td>
+          <td class="py-2 pe-3 tabular-nums">{section.items}</td>
+          <td class="py-2 text-end tabular-nums">{section.estimatedTokens}</td>
         </tr>}</For></tbody>
     </table>
     <Show when={manifest().truncations.length} fallback={<p class="text-interface text-ink-gray-7" data-no-truncation>Nothing was shortened: everything fit the budget.</p>}>
