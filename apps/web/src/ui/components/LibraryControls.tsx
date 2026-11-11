@@ -14,8 +14,10 @@ import type { LibrarySummary } from "../../data/library";
 export function AutoPublishSetting(props: { summary: LibrarySummary | undefined; onChanged: () => void }): JSX.Element {
   const app = useApp();
   const [message, setMessage] = createSignal("");
-  // The command needs memory:publish; showing the switch to anyone else would offer a control that fails.
-  const canChange = () => (app.identity()?.actor.scopes ?? []).includes("memory:publish");
+  // Workspace leads hold memory:publish. The browser identity does not carry workspace-level scopes (checking
+  // `identity.actor.scopes` here disabled the switch for the workspace lead itself on the live site), so the
+  // workspace role decides; the Governor still refuses anyone without the scope.
+  const canChange = () => app.canAdminister();
   async function change(on: boolean): Promise<void> {
     setMessage("");
     try {
