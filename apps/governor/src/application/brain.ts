@@ -44,7 +44,7 @@ import { Challenges } from "./challenges";
 import { PlayProposals } from "./play-proposals";
 import { StarterPlays } from "./starter-plays";
 import { attentionCommands, attentionQuery, qualitySummary } from "../modules/stream/index";
-import { absoluteLink, channelsFor, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
+import { absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
 import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
@@ -373,6 +373,7 @@ export class Brain {
     if (channels.push) delivered += await this.notifyPrincipal(organizationId, principalId, { title: message.title, body: message.body, url: message.url });
     const target = channels.webhook ? webhookTarget() : undefined;
     if (target && await sendWebhook(target, webhookBody({ kind: message.kind, link: absoluteLink(message.url), ...(message.count !== undefined ? { count: message.count } : {}) }))) delivered += 1;
+    if (channels.email && await sendEmail(this.store, organizationId, principalId, { kind: message.kind, url: message.url, ...(message.count !== undefined ? { count: message.count } : {}) })) delivered += 1;
     return delivered;
   };
 
@@ -391,7 +392,7 @@ export class Brain {
     return preferencesView(this.store, actor.organizationId, actor.actorId);
   }
 
-  setNotificationPreferences(actor: ActorContext, input: { push?: unknown; webhook?: unknown; digest?: unknown }): ReturnType<typeof preferencesView> {
+  setNotificationPreferences(actor: ActorContext, input: { push?: unknown; webhook?: unknown; digest?: unknown; email?: unknown }): ReturnType<typeof preferencesView> {
     if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "notification preferences belong to a person");
     setNotificationPreferences(this.store, actor.organizationId, actor.actorId, input);
     return preferencesView(this.store, actor.organizationId, actor.actorId);

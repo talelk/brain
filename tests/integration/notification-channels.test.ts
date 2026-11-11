@@ -59,17 +59,17 @@ describe("notification channels, preferences and digest (#53, ADR 0011)", () => 
   it("defaults keep today's behaviour: push on, no webhook, no digest, no email; a webhook cannot be switched on without server configuration", async () => {
     const w = setupWorld(); worlds.push(w);
     delete process.env["BRAIN_NOTIFY_WEBHOOK_URL"];
-    expect(w.brain.notificationPreferences(w.owner)).toEqual({ preferences: { push: true, webhook: false, digest: false }, available: { inApp: true, push: true, webhook: false, email: false } });
+    expect(w.brain.notificationPreferences(w.owner)).toEqual({ preferences: { push: true, webhook: false, digest: false, email: false }, available: { inApp: true, push: true, webhook: false, email: false }, emailDeliveries: [] });
     expect(() => w.brain.setNotificationPreferences(w.owner, { webhook: true })).toThrow(/no webhook configured/u);
     expect(() => w.brain.setNotificationPreferences(w.owner, { push: "yes" })).toThrow(/true or false/u);
     expect(() => w.brain.setNotificationPreferences({ ...w.owner, kind: "agent" }, { push: false })).toThrow(/belong to a person/u);
     const id = await mission(w, "defaults", [task("a")]);
     await finish(w, id, "a");
-    const calls: Array<{ channels: { push: boolean; webhook: boolean }; kind: string }> = [];
+    const calls: Array<{ channels: { push: boolean; webhook: boolean; email: boolean }; kind: string }> = [];
     const spy: Sender = async (_org, _principal, message, channels) => { calls.push({ channels, kind: message.kind }); return 1; };
     expect(notifyAttention(w.brain.store, spy)).toBe(1);
     await quiet();
-    expect(calls).toEqual([{ channels: { push: true, webhook: false }, kind: "result-ready" }]);
+    expect(calls).toEqual([{ channels: { push: true, webhook: false, email: false }, kind: "result-ready" }]);
     // Switching push off keeps the in-app record and sends nothing outbound.
     w.brain.setNotificationPreferences(w.owner, { push: false });
     const other = await mission(w, "off", [task("b")]);

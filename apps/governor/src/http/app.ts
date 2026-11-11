@@ -571,9 +571,9 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
   });
   app.post("/v1/notification-preferences", async (c) => {
     try {
-      const body = (await readJson(c)) as { push?: unknown; webhook?: unknown; digest?: unknown };
+      const body = (await readJson(c)) as { push?: unknown; webhook?: unknown; digest?: unknown; email?: unknown };
       const { actor } = await actorFor(c);
-      return c.json(brain.setNotificationPreferences(actor, { push: body.push, webhook: body.webhook, digest: body.digest }));
+      return c.json(brain.setNotificationPreferences(actor, { push: body.push, webhook: body.webhook, digest: body.digest, email: body.email }));
     } catch (e) { return fail(c as never, e); }
   });
 

@@ -1,10 +1,12 @@
-import { Show, createResource, createSignal } from "solid-js";
+import { For, Show, createResource, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { Checkbox } from "@talelk/newui-atoms";
 import { governor } from "../../data/client";
 
-interface Preferences { push: boolean; webhook: boolean; digest: boolean }
-interface View { preferences: Preferences; available: { inApp: true; push: true; webhook: boolean; email: false } }
+interface Preferences { push: boolean; webhook: boolean; digest: boolean; email: boolean }
+interface Delivery { kind: string; status: "sent" | "failed"; reason: string; at: string }
+interface View { preferences: Preferences; available: { inApp: true; push: true; webhook: boolean; email: boolean }; emailDeliveries: Delivery[] }
+const kindLabel = (kind: string): string => (kind === "digest" ? "Daily summary" : kind === "result-ready" ? "Result ready" : kind === "approval" ? "Approval" : "Needs you");
 
 /**
  * Where Brain may reach you (issue #53, ADR 0011): the in-app inbox is always on; web push, a server-configured webhook and a daily
@@ -26,8 +28,18 @@ export function NotificationPreferences(): JSX.Element {
       <Checkbox checked={loaded().preferences.push} onCheckedChange={(checked) => void set({ push: checked === true })} label="Browser notifications for what needs you or is ready (after you enable them above)." />
       <Checkbox checked={loaded().preferences.webhook} disabled={!loaded().available.webhook} onCheckedChange={(checked) => void set({ webhook: checked === true })}
         label={loaded().available.webhook ? "Also send a link to the team webhook (for chat or a mail relay)." : "Webhook: not set up on this server. An administrator turns it on in the server settings."} />
+      <Checkbox checked={loaded().preferences.email} disabled={!loaded().available.email} onCheckedChange={(checked) => void set({ email: checked === true })}
+        label={loaded().available.email ? "Also email me a link when something needs a decision, and a daily summary of finished results." : "Email is not configured on this server. An administrator turns it on in the server settings."} />
       <Checkbox checked={loaded().preferences.digest} onCheckedChange={(checked) => void set({ digest: checked === true })} label="Batch finished results into one message a day. Things that need a decision are never batched." />
-      <p class="text-caption text-ink-gray-6">Every message is a link. Opening it takes you to Brain, where you sign in and, for an approval, confirm again. Email is not offered.</p>
+      <p class="text-caption text-ink-gray-6">Every message is a link. Opening it takes you to Brain, where you sign in and, for an approval, confirm again.</p>
+      <Show when={loaded().available.email && loaded().emailDeliveries.length > 0}>
+        <div class="flex flex-col gap-1" data-testid="email-deliveries">
+          <h4 class="text-interface-medium text-ink-gray-8">Recent emails</h4>
+          <ul class="m-0 flex list-none flex-col gap-1 p-0 text-caption text-ink-gray-7">
+            <For each={loaded().emailDeliveries}>{(delivery) => <li>{kindLabel(delivery.kind)}, {new Date(delivery.at).toLocaleString()}: {delivery.status === "sent" ? "sent" : `failed (${delivery.reason})`}</li>}</For>
+          </ul>
+        </div>
+      </Show>
     </fieldset>}</Show>
     <Show when={message()}><p role="status" class="text-interface text-ink-gray-8">{message()}</p></Show>
   </div>;

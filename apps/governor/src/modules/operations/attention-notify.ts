@@ -6,6 +6,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { attentionItems } from "../stream/index";
 import { preferencesOf, webhookTarget } from "./channels";
+import { smtpTarget } from "./smtp";
 
 /** One notification per mission per recipient in this window; approvals notify immediately elsewhere (#40). */
 const MISSION_WINDOW_MS = 15 * 60_000;
@@ -13,13 +14,13 @@ const MISSION_WINDOW_MS = 15 * 60_000;
 /** One outbound message: the words and the in-app path it links to. The webhook sends only the kind and the link. */
 export interface OutboundMessage { title: string; body: string; url: string; kind: string; count?: number }
 /** Which outbound channels the person's preferences allow for this message (in-app is always written). */
-export interface Channels { push: boolean; webhook: boolean }
+export interface Channels { push: boolean; webhook: boolean; email: boolean }
 export type Sender = (organizationId: string, principalId: string, message: OutboundMessage, channels: Channels) => Promise<number>;
 
 /** The channels a message may use right now: the person's switches, and a webhook only when the server has one. */
 export function channelsFor(store: Store, organizationId: string, principalId: string): Channels {
   const prefs = preferencesOf(store, organizationId, principalId);
-  return { push: prefs.push, webhook: prefs.webhook && webhookTarget() !== undefined };
+  return { push: prefs.push, webhook: prefs.webhook && webhookTarget() !== undefined, email: prefs.email && smtpTarget() !== undefined };
 }
 
 /** The only non-urgent kind (ADR 0005): the one a daily digest may batch. Everything else is blocking and goes out at once. */
@@ -51,8 +52,8 @@ export function notifyAttention(store: Store, send: Sender | undefined): number 
         if (recent) continue;
         const allowed = channelsFor(store, ws.organization_id, principalId);
         const held = batchable(item.kind) && preferencesOf(store, ws.organization_id, principalId).digest;
-        const channels: Channels = held ? { push: false, webhook: false } : allowed;
-        const pushed = Boolean(send) && (channels.push || channels.webhook);
+        const channels: Channels = held ? { push: false, webhook: false, email: false } : allowed;
+        const pushed = Boolean(send) && (channels.push || channels.webhook || channels.email);
         db.prepare("INSERT INTO attention_notifications(principal_id,item_id,mission_id,title,pushed,sent_at_ms) VALUES (?,?,?,?,?,?)").run(principalId, item.id, item.missionId, item.title, pushed ? 1 : 0, store.now());
         const url = item.kind === "result-ready" && item.knowledgeAssetId ? `/w/${item.workspaceId}/knowledge/review?asset=${item.knowledgeAssetId}` : item.kind === "result-ready" ? `/missions/${item.missionId}/outputs?w=${item.workspaceId}${item.resourceId === item.missionId ? "" : `&result=${item.resourceId}`}` : `/missions/${item.missionId}/live?w=${item.workspaceId}`;
         if (send && pushed) void send(ws.organization_id, principalId, { title: item.title, body: item.detail ?? (item.kind === "result-ready" ? "A result is ready." : "A mission needs you."), url, kind: item.kind }, channels).catch(() => undefined);
@@ -77,7 +78,7 @@ export function sendDigests(store: Store, send: Sender): number {
   for (const row of rows) {
     if (now - row.digest_last_ms < DIGEST_INTERVAL_MS) continue;
     const channels = channelsFor(store, row.organization_id, row.principal_id);
-    if (!channels.push && !channels.webhook) continue;
+    if (!channels.push && !channels.webhook && !channels.email) continue;
     let count = 0;
     let firstWorkspace: string | undefined;
     const memberships = store.control.prepare("SELECT workspace_id FROM workspace_memberships WHERE organization_id=? AND principal_id=? AND revoked_at_ms IS NULL ORDER BY workspace_id").all(row.organization_id, row.principal_id) as Array<{ workspace_id: string }>;

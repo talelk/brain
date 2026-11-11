@@ -38,7 +38,7 @@ test("notification preferences: in-app always on, digest is a choice, webhook sa
   await expect(webhook).toBeDisabled();
   await expect(prefs.getByRole("checkbox", { name: /Batch finished results/ })).not.toBeChecked();
   await expect(prefs).toContainText("Every message is a link");
-  await expect(prefs).toContainText("Email is not offered");
+  await expect(prefs.getByRole("checkbox", { name: /Email is not configured on this server/ })).toBeDisabled();
   await shot(page, "1-defaults");
 
   await prefs.getByRole("checkbox", { name: /Batch finished results/ }).check();
