@@ -65,11 +65,26 @@ describe("an interrupted reasoning step restarts itself", () => {
     } finally { w.brain.close(); }
   });
 
-  it("gives up after a bounded number of interruptions and leaves the job for a person", async () => {
+  it("does not spend the restart budget on interruptions caused by the platform, up to a high safety cap", async () => {
     const w = setupWorld();
     try {
-      const { offer } = await running(w, "agent-bound", "runner-bound", true);
-      w.brain.store.control.prepare("UPDATE jobs SET attempt_counter=5 WHERE id=?").run(offer.jobId);
+      const { offer } = await running(w, "agent-platform", "runner-platform", true);
+      const c = w.brain.store.control;
+      for (let i = 0; i < 6; i++) c.prepare(`INSERT INTO job_attempts(id, job_id, runner_id, runner_epoch, attempt_no, lease_id, job_fence, state, offer_expires_at_ms, lease_expires_at_ms, interruption)
+        VALUES (?,?,?,?,?,?,?,'failed',1,1,'platform')`).run(`att-old-${i}`, offer.jobId, "runner-platform", 1, 100 + i, `lease-old-${i}`, 100 + i);
+      c.prepare("UPDATE jobs SET attempt_counter=7 WHERE id=?").run(offer.jobId);
+      c.prepare("UPDATE job_attempts SET lease_expires_at_ms=? WHERE id=?").run(Date.now() - 1000, offer.attemptId);
+      w.brain.jobProtocol.expireLeases();
+      expect(job(w, offer.jobId)).toMatchObject({ state: "queued", queue_reason: "RESTARTED_AFTER_INTERRUPTION" });
+      expect((c.prepare("SELECT interruption FROM job_attempts WHERE id=?").get(offer.attemptId) as { interruption: string }).interruption).toBe("platform");
+    } finally { w.brain.close(); }
+  });
+
+  it("stops restarting at the safety cap even when every interruption was the platform's", async () => {
+    const w = setupWorld();
+    try {
+      const { offer } = await running(w, "agent-cap", "runner-cap", true);
+      w.brain.store.control.prepare("UPDATE jobs SET attempt_counter=20 WHERE id=?").run(offer.jobId);
       w.brain.store.control.prepare("UPDATE job_attempts SET lease_expires_at_ms=? WHERE id=?").run(Date.now() - 1000, offer.attemptId);
       w.brain.jobProtocol.expireLeases();
       expect(job(w, offer.jobId).state).toBe("outcome_unknown");

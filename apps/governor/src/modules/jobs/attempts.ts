@@ -426,6 +426,7 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
     if (row["state"] !== "running" || row["job_state"] !== "running") throw new BrainDomainError("CONFLICT", "attempt cannot accept a new completion receipt");
     const cleanup = body["cleanupConfirmed"] === true ? 1 : 0;
     if (result === "unknown-outcome" || result === "unknown") {
+      markPlatformInterruption(s, attemptId);
       transitionState(s.control, "attempt", attemptId, "outcome_unknown", { set: { receipt_digest: receiptDigest, cleanup_confirmed: cleanup } });
       transitionState(s.control, "job", String(row["job_id"]), "outcome_unknown", { bumpVersion: true });
       jobState = "outcome_unknown";
@@ -467,8 +468,37 @@ export function releaseAttempt(s: Store, runner: { runnerId: string; epoch: numb
   return { attemptId, released: true } as unknown as JsonValue;
 }
 
-/** A read-only job interrupted this many times stays outcome_unknown for a person: a restart loop must not run forever. */
+/** Interruptions that count against a read-only job before the Governor stops restarting it by itself. */
 const MAX_INTERRUPTION_RESTARTS = 5;
+/** Safety cap on all attempts of one job, platform interruptions included, so a restart loop can never run forever. */
+const MAX_TOTAL_ATTEMPTS = 20;
+
+/** How many attempts of the job were interrupted or failed for a reason of their own (not a platform restart). */
+export function countedInterruptions(s: Store, jobId: string): number {
+  return (s.control.prepare("SELECT COUNT(*) AS n FROM job_attempts WHERE job_id=? AND state IN ('failed','outcome_unknown') AND interruption IS NULL").get(jobId) as { n: number }).n;
+}
+
+/** How many attempts of the job ended without a result, whatever the cause; the number a person is told. */
+export function interruptionTotal(s: Store, jobId: string): number {
+  return (s.control.prepare("SELECT COUNT(*) AS n FROM job_attempts WHERE job_id=? AND state IN ('failed','outcome_unknown')").get(jobId) as { n: number }).n;
+}
+
+/**
+ * Whether the Governor may queue the job for another attempt by itself. An attempt that the platform interrupted (a
+ * Governor or runner restart, a lease lost while the runner process was replaced) never consumes the budget of
+ * MAX_INTERRUPTION_RESTARTS; only the safety cap of MAX_TOTAL_ATTEMPTS bounds it.
+ */
+export function restartBudgetLeft(s: Store, jobId: string, attemptId?: string): boolean {
+  const job = s.control.prepare("SELECT attempt_counter FROM jobs WHERE id=?").get(jobId) as { attempt_counter: number } | undefined;
+  if (!job || job.attempt_counter >= MAX_TOTAL_ATTEMPTS) return false;
+  if (attemptId && (s.control.prepare("SELECT interruption FROM job_attempts WHERE id=?").get(attemptId) as { interruption: string | null } | undefined)?.interruption === "platform") return true;
+  return countedInterruptions(s, jobId) < MAX_INTERRUPTION_RESTARTS;
+}
+
+/** Records that the platform, not the attempt, ended it. */
+export function markPlatformInterruption(s: Store, attemptId: string): void {
+  s.control.prepare("UPDATE job_attempts SET interruption='platform' WHERE id=? AND interruption IS NULL").run(attemptId);
+}
 
 /**
  * An agent or evaluator job that only reads, and never held an effect permit or resource lease, has nothing to reconcile after an
@@ -477,8 +507,8 @@ const MAX_INTERRUPTION_RESTARTS = 5;
  * Returns true when the job was restarted.
  */
 export function restartInterruptedReadJob(s: Store, jobId: string, attemptId: string): boolean {
-  const job = s.control.prepare("SELECT attempt_counter, state FROM jobs WHERE id=?").get(jobId) as { attempt_counter: number; state: string } | undefined;
-  if (!job || job.state !== "outcome_unknown" || job.attempt_counter >= MAX_INTERRUPTION_RESTARTS) return false;
+  const job = s.control.prepare("SELECT state FROM jobs WHERE id=?").get(jobId) as { state: string } | undefined;
+  if (!job || job.state !== "outcome_unknown" || !restartBudgetLeft(s, jobId, attemptId)) return false;
   if (!isReadOnlyReasoningJob(s, jobId, attemptId)) return false;
   transitionState(s.control, "attempt", attemptId, "failed");
   transitionState(s.control, "job", jobId, "queued", { set: { queue_reason: "RESTARTED_AFTER_INTERRUPTION" }, bumpVersion: true });
@@ -498,7 +528,7 @@ export function isReadOnlyReasoningJob(s: Store, jobId: string, attemptId: strin
   return !!payload && (payload.kind === "eval" || usesType === "agent");
 }
 
-export { MAX_INTERRUPTION_RESTARTS };
+export { MAX_INTERRUPTION_RESTARTS, MAX_TOTAL_ATTEMPTS };
 
 export function expireLeases(s: Store): number {
   let count = 0;
@@ -512,6 +542,8 @@ export function expireLeases(s: Store): number {
     }
     const running = s.control.prepare("SELECT id, job_id FROM job_attempts WHERE state='running' AND lease_expires_at_ms<=?").all(s.now()) as Array<{ id: string; job_id: string }>;
     for (const a of running) {
+      // The runner stopped renewing the lease: its process was replaced or the Governor was down. That is the platform's doing.
+      markPlatformInterruption(s, a.id);
       transitionState(s.control, "attempt", a.id, "outcome_unknown");
       transitionState(s.control, "job", a.job_id, "outcome_unknown", { bumpVersion: true });
       restartInterruptedReadJob(s, a.job_id, a.id);

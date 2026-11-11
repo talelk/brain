@@ -4,7 +4,7 @@ import { handlersFor, type CommandHandlers } from "../../application/command-fun
 import { requireWorkspaceRead } from "../../application/authz";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
-import { reachedLimits } from "../missions/index";
+import { reachedLimits, PARKED_INTERRUPTED_REASON } from "../missions/index";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 
@@ -39,10 +39,11 @@ export function attentionItems(store: Store, organizationId: string, workspaceId
       WHERE p.state='proposed' AND m.state!='closed' AND p.revision=(SELECT MAX(revision) FROM plan_versions q WHERE q.mission_id=p.mission_id)`).all() as Array<{ id: string; mission_id: string; created_at_ms: number; title: string }>) {
       items.push({ id: `proposal:${row.id}`, workspaceId, missionId: row.mission_id, kind: "plan-proposal", tier: 3, title: `Plan proposal for ${row.title}`, resourceId: row.id, waitingSince: iso(row.created_at_ms) });
     }
-    for (const row of db.prepare(`SELECT w.id, w.mission_id, w.title, w.updated_at_ms, w.parked_diagnostic,
+    for (const row of db.prepare(`SELECT w.id, w.mission_id, w.title, w.updated_at_ms, w.parked_diagnostic, w.blocked_reason,
       (SELECT COUNT(*) FROM work_item_dependencies d JOIN work_items x ON x.id=d.work_item_id WHERE d.depends_on_work_item_id=w.id AND x.state NOT IN ('done','abandoned')) AS waiting
-      FROM work_items w JOIN missions m ON m.id=w.mission_id WHERE w.parked=1 AND m.state!='closed'`).all() as Array<{ id: string; mission_id: string; title: string; updated_at_ms: number; parked_diagnostic: string | null; waiting: number }>) {
-      items.push({ id: `parked:${row.id}`, workspaceId, missionId: row.mission_id, kind: "parked", tier: 3, title: `${row.title} is parked`, ...(row.parked_diagnostic ? { detail: `${row.parked_diagnostic}${row.waiting ? ` · ${row.waiting} dependent(s) waiting` : ""}`.slice(0, 1024) } : {}), resourceId: row.id, waitingSince: iso(row.updated_at_ms) });
+      FROM work_items w JOIN missions m ON m.id=w.mission_id WHERE w.parked=1 AND m.state!='closed'`).all() as Array<{ id: string; mission_id: string; title: string; updated_at_ms: number; parked_diagnostic: string | null; blocked_reason: string | null; waiting: number }>) {
+      const stopped = row.blocked_reason === PARKED_INTERRUPTED_REASON;
+      items.push({ id: `parked:${row.id}`, workspaceId, missionId: row.mission_id, kind: "parked", tier: 3, title: stopped ? `${row.title} stopped: waiting for you to try again` : `${row.title} is parked`, ...(row.parked_diagnostic ? { detail: `${row.parked_diagnostic}${row.waiting ? ` · ${row.waiting} dependent(s) waiting` : ""}`.slice(0, 1024) } : {}), resourceId: row.id, waitingSince: iso(row.updated_at_ms) });
     }
     for (const row of db.prepare(`SELECT msg.id, msg.mission_id, msg.body, msg.created_at_ms FROM mission_messages msg JOIN missions m ON m.id=msg.mission_id
       WHERE msg.sender_id='governor' AND msg.delivery='pending' AND m.state!='closed'`).all() as Array<{ id: string; mission_id: string; body: string; created_at_ms: number }>) {

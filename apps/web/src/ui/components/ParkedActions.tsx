@@ -7,6 +7,7 @@ import type { Mission, PlanTask, PlanVersion, WorkItem } from "@brain/contracts"
 import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
+import { isStoppedForRetry } from "../work/work-model";
 
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 
@@ -54,10 +55,10 @@ export function ParkedActions(props: { item: WorkItem; onChanged: () => Promise<
   });
   const lines = () => criteria().split("\n").map((line) => line.trim()).filter(Boolean);
   return <section aria-label="Parked work item" class="flex flex-col gap-3 rounded-control border border-outline-amber-3 p-3">
-    <Alert theme="amber" variant="outline" title="Parked after repeated failures" description={props.item.blockedReason ?? "This work waits for a person. Independent work and the mission carry on."} />
+    <Alert theme="amber" variant="outline" title={isStoppedForRetry(props.item) ? "Stopped: waiting for you to try again" : "Parked after repeated failures"} description={isStoppedForRetry(props.item) ? "The agent was interrupted too often to carry on by itself. Independent work and the mission carry on." : props.item.blockedReason ?? "This work waits for a person. Independent work and the mission carry on."} />
     <Show when={error()}><Alert theme="red" variant="outline" title="The change was refused" description={error()} /></Show>
     <div class="flex flex-wrap gap-2">
-      <Button variant="solid" theme="blue" iconLeft="lucide-rotate-ccw" disabled={busy()} onClick={() => void move("ready")}>Retry</Button>
+      <Button variant="solid" theme="blue" iconLeft="lucide-rotate-ccw" disabled={busy()} onClick={() => void move("ready")}>{isStoppedForRetry(props.item) ? "Try again" : "Retry"}</Button>
       <Show when={!dropping()} fallback={<>
         <Button theme="red" iconLeft="lucide-trash-2" disabled={busy()} onClick={() => void move("abandoned")}>Confirm drop</Button>
         <Button variant="ghost" onClick={() => setDropping(false)}>Keep it</Button>

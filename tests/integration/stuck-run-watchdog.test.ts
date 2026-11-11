@@ -54,18 +54,43 @@ describe("stuck-run watchdog", () => {
     } finally { w.brain.close(); }
   });
 
-  it("fails the step with a plain reason once the restarts are used up", async () => {
+  it("retries once more after the cooldown when restarts are used up, then stops the step with a plain 'try again' reason", async () => {
     const w = setupWorld();
+    const previous = process.env["BRAIN_PARKED_COOLDOWN_SECONDS"];
+    process.env["BRAIN_PARKED_COOLDOWN_SECONDS"] = "30";
     try {
       const offer = await authorFinished(w, "wd-exhausted", "runner-wd2");
-      w.brain.store.control.prepare("UPDATE jobs SET attempt_counter=5 WHERE id=?").run(offer.jobId);
-      age(w, offer, 30);
+      const c = w.brain.store.control;
+      for (let i = 0; i < 4; i++) c.prepare(`INSERT INTO job_attempts(id, job_id, runner_id, runner_epoch, attempt_no, lease_id, job_fence, state, offer_expires_at_ms, lease_expires_at_ms)
+        VALUES (?,?,?,?,?,?,?,'failed',1,1)`).run(`att-old-${i}`, offer.jobId, "runner-wd2", 1, 100 + i, `lease-old-${i}`, 100 + i);
+      // Fifth interruption, but the cooldown has not passed yet.
+      c.prepare("UPDATE job_attempts SET lease_expires_at_ms=?, offer_expires_at_ms=? WHERE id=?").run(Date.now() - 10_000, Date.now() - 11_000, offer.attemptId);
+      w.brain.jobProtocol.sweepStuckJobs(1);
+      expect(job(w, offer.jobId).state).toBe("outcome_unknown");
+      expect(w.brain.jobProtocol.sweepStuckJobs(1)).toBe(0);
+      // After the cooldown it is queued once more, exactly once.
+      c.prepare("UPDATE job_attempts SET lease_expires_at_ms=?, offer_expires_at_ms=? WHERE id=?").run(Date.now() - 60_000, Date.now() - 61_000, offer.attemptId);
       expect(w.brain.jobProtocol.sweepStuckJobs(15 * MIN)).toBe(1);
+      expect(job(w, offer.jobId)).toMatchObject({ state: "queued", queue_reason: "RESTARTED_AFTER_INTERRUPTION" });
+      expect((c.prepare("SELECT auto_retries FROM jobs WHERE id=?").get(offer.jobId) as { auto_retries: number }).auto_retries).toBe(1);
+      // The extra try is interrupted too: the step stops with a plain reason and the run fails for a person.
+      const runner = seedRunner(w, "runner-wd2b");
+      const again = w.brain.jobProtocol.claim(runner, "req-wd-extra") as unknown as Offer;
+      w.brain.jobProtocol.ack(runner, again.attemptId, { leaseId: again.leaseId, jobFence: again.jobFence });
+      w.brain.jobProtocol.complete(runner, again.attemptId, { result: "succeeded", output: { ok: true }, jobFence: again.jobFence, cleanupConfirmed: true });
+      c.prepare("UPDATE job_attempts SET lease_expires_at_ms=1, offer_expires_at_ms=1 WHERE id=?").run(offer.attemptId);
+      age(w, again, 40);
+      expect(w.brain.jobProtocol.sweepStuckJobs(15 * MIN)).toBeGreaterThan(0);
       expect(job(w, offer.jobId).state).toBe("failed");
       const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
       expect((ws.prepare("SELECT state FROM workflow_runs LIMIT 1").get() as { state: string }).state).toBe("failed");
+      const out = ws.prepare("SELECT output_json FROM step_outputs LIMIT 1").get() as { output_json: string };
+      expect(JSON.parse(out.output_json)).toMatchObject({ code: "AGENT_INTERRUPTED", error: "The agent was interrupted 6 times; try again." });
       expect(w.brain.jobProtocol.sweepStuckJobs(15 * MIN)).toBe(0);
-    } finally { w.brain.close(); }
+    } finally {
+      if (previous === undefined) delete process.env["BRAIN_PARKED_COOLDOWN_SECONDS"]; else process.env["BRAIN_PARKED_COOLDOWN_SECONDS"] = previous;
+      w.brain.close();
+    }
   });
 
   it("never blind-restarts a tool step; it stays outcome_unknown for a person", async () => {

@@ -117,7 +117,7 @@ function ParkedBody(props: { item: AttentionItem; onChanged: () => void }): JSX.
   return <div class="flex min-w-0 flex-col gap-2">
     <Show when={app.canDispatch()} fallback={<NoScope who="an operator" />}>
       <div class="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="solid" theme="blue" iconLeft="lucide-rotate-ccw" disabled={row.busy()} onClick={() => void move("ready")}>Retry</Button>
+        <Button size="sm" variant="solid" theme="blue" iconLeft="lucide-rotate-ccw" disabled={row.busy()} onClick={() => void move("ready")}>{props.item.title.endsWith("waiting for you to try again") ? "Try again" : "Retry"}</Button>
         <Show when={!dropping()} fallback={<>
           <Button size="sm" variant="solid" theme="red" iconLeft="lucide-trash-2" disabled={row.busy()} onClick={() => void move("abandoned")}>Confirm drop</Button>
           <Button size="sm" variant="ghost" onClick={() => setDropping(false)}>Keep it</Button>

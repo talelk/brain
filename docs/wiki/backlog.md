@@ -22,11 +22,6 @@ Dated 2026-11-11, at `talelk/brain@e38aa19`. The full history of every track, re
 | 54 | Notification-throttle behaviour across restart and share-token expiry races not examined (K item 7); a read job interrupted 5 times keeps its reservation until a person resolves it (by design) | adversarial tests |
 | 55 | Saved documents are searchable but not queued for Review; result-ready announcement not extended to the inbox | I3 leftover |
 
-## Found live 2026-11-11 ~09:15 (track K deployed, `bd16582`)
-- Token meter is empty: `mission_spend` has 59 rows, all with 0 input/output tokens, `estimated=0`; closed mission shows "No usage recorded yet". Agents emit usage; it does not reach the ledger. Track N is tracing it (Pi engine -> attempt usage -> settlement) and will add estimated counts when an endpoint reports none.
-- Tool refusals on live (Health "tool read refused") confirmed as `documents.read` calls with an unknown document id / missing context reference (model guessing ids), not a broker bug; K's fix makes refusals explain themselves.
-- Repo token budget check tripped (141k/140k): history moved to `docs/wiki/archive/` (excluded from the budget); keep this file lean.
-
 ## Found live 2026-11-11 ~10:50 (tracks M, N deployed; release `sha256:d2401bce…` active)
 Confirmed good: six starter Plays as chips on Today; "Brain learned 2 things this week (2 on its own)"; Play flow text "Add a sentence to change the goal, or just start".
 - Track P (running): Play + sentence loses the Play name in the mission title; the reuse panel now blocks auto-drafting with a manual "Draft the plan with these 3" step and suggests irrelevant items (a support-reply Play for a note-taking comparison).
@@ -59,8 +54,8 @@ Housekeeping 2026-11-11 ~12:00: stopped lingering agents (A2 9 h, E), removed 25
 Readiness separates capability from capacity (busy runner = ready, `busy: {slotsInUse, slotsTotal}`); Today box never blocked by a busy runner ("Brain is working on N things; yours queues and starts next"); runner supervisor runs one claim loop per slot (`BRAIN_RUNNER_SLOTS`), deploy sets agents 3 / evaluators 2 slots in `runner-*.env` on every deploy. Live: runner rows show slot_capacity 3 and 2, healthy; Today unblocked; the 6-task on-call mission finished "closed - achieved" after the R/S/T fixes; note-taking mission resumed with limit "$2 or 5 h of working time".
 Leftovers (T): multi-worker supervisor loop untested with >1 concurrent attempts; session refresh (13 min) briefly lowers concurrency for very long attempts; busy-runner spec only at 1440-light; Health/Runners UI still says "busy".
 
-## Found live 2026-11-11 ~13:15
-Note-taking mission still shows "1 task is running, 17%, 44k tokens" unchanged 10+ min after Resume and the 3-slot runner deploy: likely the watchdog's last allowed restart (attempt 5) was interrupted by my own deploys and the job now waits for a person while the UI says "running"; Needs-you says nothing. Track U (running): platform-caused interruptions must not consume the restart budget; leftover read jobs retry once automatically then surface in Needs you with "Try again"; UI must not say "running" for a job without a live attempt. Rule for me: avoid deploying while missions are running unless needed (each deploy interrupts running attempts).
+## Track U (2026-11-11, local, not deployed): interrupted reasoning jobs
+Confirmed live: job `job-mwbxl67a-1o-6bfqmakh` (run `run-mwbxl678-1n-zo5903gh`) was `outcome_unknown` with attempt 5 `outcome_unknown` (lease expired ~13:00 local, the deploys), `attempt_counter` 5, and no event for a person while the UI said "running". Fix: attempts ended by lease loss or an unknown outcome are tagged `interruption='platform'` and do not use the 5-restart budget (safety cap 20 attempts); a read-only job with no budget left waits `BRAIN_PARKED_COOLDOWN_SECONDS` (60), is retried once (`jobs.auto_retries`), then the step fails with `AGENT_INTERRUPTED` ("The agent was interrupted N times; try again.") and the task parks at once with blocked reason "Stopped: waiting for you to try again" (Needs you + task: Try again). Two new DEFAULT columns on control tables (`jobs.auto_retries`, `job_attempts.interruption`); no restage. Effectful jobs left `outcome_unknown` are still not surfaced in Needs you (open). Avoid deploying while missions run unless needed.
 
 ## Not yet walked live (blocked on deploy of K and M)
 Share links, Challenge this result, Repeat this (now creates real missions), Context received tab, Tools registry, Quality page, Usage meter in depth.

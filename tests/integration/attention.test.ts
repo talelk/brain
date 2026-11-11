@@ -43,6 +43,23 @@ describe("attention and since-last-visit (T59)", () => {
     w.brain.close();
   });
 
+  it("parks a task at once, with a one-click Try again, when its agent was interrupted too often", async () => {
+    const w = setupWorld();
+    const id = await mission(w, "interrupted", [task("a")]);
+    const a = (await workView(w)).items.find((item) => item.missionId === id)!;
+    const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    w.brain.missions.linkExecution(w.owner, w.workspaceId, a.workItemId, "run-int");
+    db.prepare("INSERT INTO workflow_runs(id, execution_key, config_digest, workflow_digest, adapter_digest, engine_run_id, state, input_digest, created_at_ms) VALUES ('run-int','k','d','d','d','e','failed','d',1)").run();
+    db.prepare("INSERT INTO workflow_steps(run_id, step_id, execution_key, state) VALUES ('run-int','respond','sk','failed')").run();
+    db.prepare("INSERT INTO step_outputs(run_id, step_id, output_json) VALUES ('run-int','respond',?)").run(JSON.stringify({ code: "AGENT_INTERRUPTED", error: "The agent was interrupted 7 times; try again." }));
+    w.brain.missions.recordRunFailure(w.org, w.workspaceId, "run-int", "Step respond failed");
+    const item = (await workView(w)).items.find((entry) => entry.workItemId === a.workItemId)!;
+    expect(item).toMatchObject({ parked: true, blockedReason: "Stopped: waiting for you to try again", failedAttempts: 0 });
+    const parked = (await query<{ items: AttentionItem[] }>(w, w.owner, "attention.list")).items.find((entry) => entry.kind === "parked");
+    expect(parked).toMatchObject({ title: "Task a stopped: waiting for you to try again", detail: "The agent was interrupted 7 times; try again." });
+    w.brain.close();
+  });
+
   it("shows notable events since the user's last visit once, wherever they look, and counts the rest (E119)", async () => {
     const w = setupWorld();
     const id = await mission(w, "visit", [task("a")]);

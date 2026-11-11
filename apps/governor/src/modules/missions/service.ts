@@ -62,6 +62,9 @@ export interface MissionDeliveryPort {
   deliver(organizationId: string, workspaceId: string, messageId: string, interrupt: boolean): unknown;
 }
 
+/** The blocked reason of a task stopped because its agent was interrupted too often; the interface offers Try again for it. */
+export const PARKED_INTERRUPTED_REASON = "Stopped: waiting for you to try again";
+
 export class MissionService {
   constructor(private readonly store: Store, private readonly delivery?: MissionDeliveryPort, private readonly coordinatorPort?: CoordinatorPort, private readonly capitalization?: { requestMissionRun(organizationId: string, workspaceId: string, missionId: string): string }) {}
 
@@ -789,12 +792,17 @@ export class MissionService {
     this.store.inTx(db, () => {
       const items = db.prepare("SELECT w.* FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? AND w.state IN ('ready','in-progress','review')").all(runId) as WorkItemRow[];
       const reason = this.failureReason(db, runId);
+      const interrupted = this.interruptedReason(db, runId);
       for (const item of items) {
         const threshold = (db.prepare("SELECT parking_threshold AS n FROM missions WHERE id=?").get(item.mission_id) as { n: number }).n;
         const failed = item.failed_attempts + 1;
         const detail = (reason ? `${diagnostic}: ${reason}` : diagnostic).slice(0, 1024);
         const now = this.store.now();
-        if (failed >= threshold) {
+        if (interrupted) {
+          // The agent was interrupted over and over: stop at once, do not count it as a failure of the work, and ask for one click.
+          transitionState(db, "workItem", item.id, "blocked", { set: { parked: 1, parked_diagnostic: interrupted, blocked_reason: PARKED_INTERRUPTED_REASON, next_action: "A person tries again, reassigns, edits or drops this work", updated_at_ms: now }, bumpVersion: true });
+          this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.parked", payload: { workItemId: item.id, missionId: item.mission_id, state: "blocked" } });
+        } else if (failed >= threshold) {
           transitionState(db, "workItem", item.id, "blocked", { set: { failed_attempts: failed, parked: 1, parked_diagnostic: detail, blocked_reason: `Parked after ${failed} failed attempts`, next_action: "A human retries, reassigns, edits or drops this work", updated_at_ms: now }, bumpVersion: true });
           this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.parked", payload: { workItemId: item.id, missionId: item.mission_id, state: "blocked" } });
         } else {
@@ -803,6 +811,17 @@ export class MissionService {
         }
       }
     });
+  }
+
+  /** The plain sentence of a run whose agent was interrupted too many times, when that is why it failed. */
+  private interruptedReason(db: ReturnType<Store["workspaceDb"]>, runId: string): string | undefined {
+    try {
+      for (const row of db.prepare("SELECT o.output_json FROM step_outputs o JOIN workflow_steps s ON s.run_id=o.run_id AND s.step_id=o.step_id WHERE o.run_id=? AND s.state='failed'").all(runId) as Array<{ output_json: string }>) {
+        const out = JSON.parse(row.output_json) as { code?: unknown; error?: unknown };
+        if (out.code === "AGENT_INTERRUPTED" && typeof out.error === "string") return out.error.slice(0, 300);
+      }
+    } catch { /* fall through */ }
+    return undefined;
   }
 
   /** Why a failed run failed, in words: the agent's own error, or the checks an independent verdict did not pass. */

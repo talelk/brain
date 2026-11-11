@@ -12,6 +12,7 @@ import { FormSheet } from "../../ui/components/BrainForm";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";
 import { MissionWorkItems } from "../../ui/components/MissionWorkItems";
+import { isStoppedForRetry } from "../../ui/work/work-model";
 import { SchedulesLink } from "../../ui/components/SchedulesPanel";
 import { PlanCanvas } from "../../ui/components/PlanCanvas";
 import { eventWords, formatDateTime, formatUsd } from "../../ui/format";
@@ -60,6 +61,8 @@ function missionGuide(m: Mission, items: readonly WorkItem[], canStart: boolean)
   if (ready && canStart) return { step: "confirm", tab: "plan", icon: "lucide-play", title: `${plural(n("ready"), "task is", "tasks are")} ready to start`, detail: "The plan is confirmed. Start a ready task to put an agent on it.", allDone, action: { label: `Start ${ready.title}`, start: ready } };
   if (ready) return { step: "confirm", tab: "plan", icon: "lucide-play", title: `${plural(n("ready"), "task is", "tasks are")} ready to start`, detail: "Someone with dispatch rights has to start them.", allDone };
   if (allDone) return { step: "review", tab: "outputs", icon: "lucide-package", title: "All work is done", detail: "Review the outputs, then finish the mission.", allDone, action: { label: "Review outputs", tab: "outputs" } };
+  const stoppedItems = items.filter((item) => isStoppedForRetry(item));
+  if (stoppedItems.length > 0 && n("review") === 0) return { step: "review", tab: "plan", icon: "lucide-circle-pause", title: "Stopped: waiting for you to try again", detail: `${plural(stoppedItems.length, "task was", "tasks were")} interrupted too often to carry on by itself. Press Try again on ${stoppedItems.length === 1 ? "it" : "each"}.`, allDone, action: { label: "Open the work", tab: "plan" } };
   if (n("review") > 0 || n("blocked") > 0) return { step: "review", tab: "plan", icon: "lucide-badge-check", title: n("review") > 0 ? "Work is waiting for your review" : "Some work is blocked", detail: `${n("review")} in review · ${n("blocked")} blocked. Done needs verified evidence.`, allDone, action: { label: "Open the work", tab: "plan" } };
   return { step: "start", tab: "live", icon: "lucide-hourglass", title: "Waiting for work to unlock", detail: "Remaining tasks wait for earlier ones to be verified done.", allDone };
 }
@@ -73,7 +76,9 @@ function MissionSnapshot(props: { mission: Mission; items: WorkItem[]; tab: Miss
   const waits = () => {
     const out: string[] = [];
     const c = counts();
-    const parked = props.items.filter((item) => item.parked).length;
+    const stopped = props.items.filter((item) => isStoppedForRetry(item)).length;
+    const parked = props.items.filter((item) => item.parked).length - stopped;
+    if (stopped) out.push(`${stopped} ${stopped === 1 ? "task has" : "tasks have"} stopped: waiting for you to try again. The agent was interrupted too often to carry on by itself. Next: open ${stopped === 1 ? "it" : "them"} in the plan and press Try again.`);
     if (props.mission.state === "paused") out.push(`The mission is paused${props.mission.pauseReason === "budget" ? " because a time, spending or token limit was reached. Next: use Raise limits below" : " by a person"}.`);
     if (parked) out.push(`${parked} ${parked === 1 ? "task is" : "tasks are"} parked after repeated failures and need a person. Next: open ${parked === 1 ? "it" : "them"} in the plan and press Decide.`);
     const blockedItems = props.items.filter((item) => item.state === "blocked" && !item.parked);
