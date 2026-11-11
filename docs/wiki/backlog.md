@@ -29,6 +29,7 @@ Dated 2026-11-11, at `talelk/brain@e38aa19`. The full history of every track, re
 ## Found live 2026-11-11 ~10:50 (tracks M, N deployed; release `sha256:d2401bce…` active)
 Confirmed good: six starter Plays as chips on Today; "Brain learned 2 things this week (2 on its own)"; Play flow text "Add a sentence to change the goal, or just start".
 - Track P (running): Play + sentence loses the Play name in the mission title; the reuse panel now blocks auto-drafting with a manual "Draft the plan with these 3" step and suggests irrelevant items (a support-reply Play for a note-taking comparison).
+- CONFIRMED LIVE ~10:58: token meter works after track N (`8e426f3`): Usage block shows "8.1k tokens, $0 (local models report no cost), 4.5k in / 1.0k out / 6 cached" on a running Play mission; two tasks ran in parallel; Play limit shown ("$2 or 30 min of active time"). Old zero rows stay zero by design (no historical backfill).
 - Plan drafting for the Play mission took over 90 s (plan-guide now has knowledge.search): watch planning latency and the one-retry path; if it fails, check `planning_requests`.
 - Pre-deploy check hardened twice (VACUUM INTO snapshot, gzip, one retry); first deploy with it passed. `scripts/snapshot-live-dbs.mjs` runs inside the container.
 
