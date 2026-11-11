@@ -136,3 +136,13 @@ Decisions are ADRs 0010-0015 (numbers skip 0008-0009 to avoid collisions with pa
 | 39 | Challenge runs honour the workspace spend cap but are not charged to the mission budget/usage ledger | next | open |
 | 40 | Share page is text only (no Markdown rendering/branding) | next | open |
 | 41 | Live browser walkthrough of waves 2-3 (Today, setup card, needs-you, trust line, Library, share/challenge, repeat, usage, context tab, admin) blocked: demo browser session signed out; needs the user to sign in once | chief | blocked on user |
+
+## Live walkthrough 2026-11-11 ~06:30 (user signed in; deployed `5efba47`; browser, first-time-user pass)
+Confirmed good live: Today leads with inline Needs-you actions; plan decision bar at the top ("4 steps - nothing runs until you confirm" + Confirm/Edit/Reject); planner step 1 reuses workspace knowledge; mission runs by itself after one Confirm; Usage block ("What this plan may take": time, cost unknown honestly, stops at $5); 25% done within ~2 min.
+| # | Item | Track | Status |
+|---|------|-------|--------|
+| 42 | Today: the "What do you want done?" box is ~800px down (below Needs-you, setup banner); box must lead | E3 | sent to E3 |
+| 43 | Today: "Results ready" = 6+ large cards "Waiting since..." (wrong) -> collapse to one summary + "Mark all seen"; titles "Result ready: X is verified and done" duplicate | E3 | sent to E3 |
+| 44 | Today: "Verify the install: Not checked yet" banner persists after verified missions; return path from release fix (row 37) | E3 | sent to E3 |
+| 45 | Mission Live tab: "1 task is running" but "Nobody is working right now / 0 sessions" for workflow-driven runs; raw "mission.created" in "While you were away" | E3 | sent to E3 |
+| 46 | Deploy script pre-check failed on `tar` "file changed" exit 1 (intermittent on a busy server): fixed `5efba47` (tolerate <=1, require control.db) | chief | done |
