@@ -12,6 +12,7 @@ import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";import {
 import type { TaskHandoff } from "../../ui/components/TaskReview";
 import { TaskCatalog } from "../catalog";
 import { EmptyState } from "@talelk/newui-molecules";
+import { count } from "../../ui/format";
 import { LibraryTabs } from "../../ui/components/LibraryTabs";
 import { AddStarterPlays } from "../../ui/components/LibraryControls";
 import { librarySummary, type LibrarySummary } from "../../data/library";
@@ -65,7 +66,7 @@ export default function PlaysPage(): JSX.Element {
         <ScreenRegion state={plays.state()} onRetry={() => void plays.refresh({ force: true })} emptyTitle="No plays yet" emptyDescription={(library.state().data?.starterPlays.installable ?? 0) > 0 ? "Add the ready-made Plays with one click, or draft your own in the Studio." : "Draft a play in the Studio and activate the release that contains it."}>
           <Show when={shownPlays().length} fallback={<EmptyState size="sm" icon="lucide-search" title="No matching plays" description="Clear the search to see every play in the active release." />}>
             <div class="brain-queue"><For each={shownPlays()}>{(play) => <QueueRow title={play.title} description={play.description ?? `${play.taskCount} tasks`} icon="lucide-book-open-check"
-              meta={<><span>{play.team.length} members</span><span>{play.taskCount} tasks</span></>}
+              meta={<><span>{count(play.team.length, "member")}</span><span>{count(play.taskCount, "task")}</span></>}
               label={`Open play ${play.title}`} onClick={() => void navigate(`/plays/${encodeURIComponent(play.playId)}`)} />}</For></div>
           </Show>
         </ScreenRegion>
