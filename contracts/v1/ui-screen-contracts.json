@@ -28,10 +28,12 @@
    "queries": [
     "attention.list",
     "missions.list",
-    "plays.list"
+    "plays.list",
+    "library.summary"
    ],
    "actions": [
-    "mission.create"
+    "mission.create",
+    "knowledge.approveVerified"
    ],
    "content": [
     "intent",
@@ -166,7 +168,11 @@
     "tools.list",
     "playProposals.list"
    ],
-   "actions": [],
+   "actions": [
+    "library.settings.set",
+    "knowledge.approveVerified",
+    "plays.addStarter"
+   ],
    "content": [
     "counts",
     "review",
@@ -188,7 +194,8 @@
     "workflows.list"
    ],
    "actions": [
-    "workflow.dispatch"
+    "workflow.dispatch",
+    "plays.addStarter"
    ],
    "content": [
     "play",
@@ -656,7 +663,8 @@
     "knowledgeAssets.list",
     "capabilityCandidates.list",
     "capitalizationRuns.list",
-    "playProposals.list"
+    "playProposals.list",
+    "library.summary"
    ],
    "actions": [
     "capitalization.run",
@@ -664,7 +672,9 @@
     "tool.publish",
     "knowledge.review",
     "memory.revoke",
-    "play.proposal.review"
+    "play.proposal.review",
+    "knowledge.approveVerified",
+    "library.settings.set"
    ],
    "content": [
     "runs",

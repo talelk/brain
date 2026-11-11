@@ -10,7 +10,8 @@ import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
 import { iso } from "../../domain/clock";
 import { looksLikeSecret, type MemoryStore, type ReuseService } from "../knowledge/index";
-import { putBytes, readVerified } from "../artifacts/index";
+import { putBytes } from "../artifacts/index";
+import { buildWriteup, goalKey } from "./writeup";
 
 interface ToolUsage { calls: number; failures: number; lastCallAt?: string; lastCallRunId?: string; lastFailureAt?: string; lastFailureRunId?: string }
 
@@ -39,6 +40,7 @@ type AssetRow = {
   classification: KnowledgeAsset["classification"]; content: string; source_count: number;
   title: string; mission_id: string | null; producer_id: string | null; provenance_json: string;
   reviewed_by: string | null; self_reviewed: number; reviewed_at_ms: number | null; rejection_reason: string | null; content_digest: string | null;
+  superseded_by: string | null; auto_published: number;
   created_at_ms: number; updated_at_ms: number;
 };
 type CandidateRow = {
@@ -67,18 +69,6 @@ function parameterShape(value: unknown): Record<string, string> {
   return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, Array.isArray(item) ? "array" : item === null ? "null" : typeof item]));
 }
 
-/** The readable asset stays inside the contract's 12000 characters, cut section by section. */
-const ASSET_CHARS = 12000;
-const section = (heading: string, lines: readonly string[], budget: number): string => {
-  const body: string[] = [];
-  let used = 0;
-  for (const line of lines) {
-    if (used + line.length + 1 > budget) { body.push(`(${lines.length - body.length} more not shown)`); break; }
-    body.push(line); used += line.length + 1;
-  }
-  return `${heading}\n${body.length ? body.join("\n") : "None."}`;
-};
-
 export interface CapitalizationPorts { readonly memory: MemoryStore; readonly reuse: ReuseService }
 
 export class CapitalizationService {
@@ -94,6 +84,8 @@ export class CapitalizationService {
       case "tool.propose": return this.propose(actor, workspaceId, command.payload);
       case "tool.publish": return this.publish(actor, workspaceId, command.payload);
       case "knowledge.review": return this.reviewKnowledge(actor, workspaceId, command.payload);
+      case "knowledge.approveVerified": return this.approveVerified(actor, workspaceId);
+      case "library.settings.set": return this.setLibrarySettings(actor, workspaceId, command.payload);
       default: throw new BrainDomainError("INVALID_CONTRACT", `unsupported capitalization command ${command.commandType}`);
     }
   }
@@ -177,57 +169,58 @@ export class CapitalizationService {
   }
 
   /**
-   * One readable knowledge asset per achieved mission (#67), built from verified
-   * material only with a fixed template and no model summary: the goal, success
-   * criteria with how the verdict checked them, accepted decisions, verified
-   * outputs, what the verdict rejected, workflows used, cost and time. Member
-   * notes, handoff notes, messages and transcripts are claims and are never read
-   * (GLOSSARY: Capitalization run). Provenance is the mission's evidence bundles.
+   * One readable knowledge asset per achieved mission (#67, row 48), built from verified
+   * material with a fixed template and no model call: see `writeup.ts`. A mission below the
+   * substance threshold is not written up. A newer write-up of the same goal supersedes the
+   * older one (it leaves search and the Review inbox, and says what replaced it). Member
+   * notes, handoff notes, messages and transcripts are never read (GLOSSARY: Capitalization
+   * run). Provenance is the mission's evidence bundles.
    */
-  private extractMissionKnowledge(db: ReturnType<Store["workspaceDb"]>, missionId: string, now: number): number {
-    const mission = db.prepare("SELECT id, title, intent, success_criteria_json, owner_id, outcome, state, active_ms FROM missions WHERE id=?").get(missionId) as
-      | { id: string; title: string; intent: string; success_criteria_json: string; owner_id: string; outcome: string | null; state: string; active_ms: number } | undefined;
-    if (!mission || mission.state !== "closed" || mission.outcome !== "achieved") return 0;
-    const bundles = db.prepare("SELECT digest, state, findings_json, created_at_ms FROM mission_evidence_bundles WHERE mission_id=? AND state IN ('verified','rejected') ORDER BY created_at_ms, rowid").all(missionId) as Array<{ digest: string; state: "verified" | "rejected"; findings_json: string; created_at_ms: number }>;
-    const verified = bundles.filter((bundle) => bundle.state === "verified").at(-1);
-    if (!verified) return 0;
-    const checks = db.prepare("SELECT evaluator, outcome, advisory, evidence_digest FROM mission_bundle_checks WHERE bundle_digest=? ORDER BY criterion_id, evaluator").all(verified.digest) as Array<{ evaluator: string; outcome: string; advisory: number; evidence_digest: string }>;
-    const independent = checks.filter((check) => check.advisory === 0 && check.outcome === "passed");
-    const advisory = checks.filter((check) => check.advisory === 1);
-    const verdictDay = new Date(verified.created_at_ms).toISOString().slice(0, 10);
-    const basis = independent.length > 0
-      ? `verified: ${independent.length} independent check${independent.length === 1 ? "" : "s"} passed (${[...new Set(independent.map((check) => check.evaluator))].join(", ")}) and a mission verdict recorded by a person on ${verdictDay}${advisory.length ? `; ${advisory.length} advisory model-opinion check${advisory.length === 1 ? "" : "s"} did not decide the outcome` : ""}`
-      : `verified: human sign-off, mission verdict recorded by a person on ${verdictDay}`;
-    const criteria = (JSON.parse(mission.success_criteria_json) as string[]).map((text) => `- ${text} [${basis}]`);
-    const decisions = (db.prepare("SELECT statement, source_kind FROM accepted_decisions WHERE mission_id=? AND superseded_by IS NULL ORDER BY introduced_version, id").all(missionId) as Array<{ statement: string; source_kind: string }>)
-      .map((row) => `- ${row.statement} (accepted by a person; source: ${row.source_kind})`);
-    const outputs = (db.prepare("SELECT o.name, v.artifact_digest FROM output_versions v JOIN mission_outputs o ON o.id=v.output_id WHERE o.mission_id=? AND v.verified=1 ORDER BY o.name, v.id").all(missionId) as Array<{ name: string; artifact_digest: string }>)
-      .map((row) => {
-        let preview = "";
-        try { preview = new TextDecoder("utf-8", { fatal: true }).decode(readVerified(this.store, row.artifact_digest)).replace(/\s+/gu, " ").trim().slice(0, 240); } catch { preview = "(binary or unreadable content)"; }
-        return `- ${row.name} [${row.artifact_digest}]${preview ? `: ${preview}` : ""}`;
-      });
-    const rejected = bundles.filter((bundle) => bundle.state === "rejected").flatMap((bundle) => (JSON.parse(bundle.findings_json) as string[]).map((finding) => `- ${finding} (verdict ${bundle.digest.slice(0, 19)}...)`));
-    const workflows = (db.prepare("SELECT DISTINCT workflow_id FROM work_items WHERE mission_id=? AND workflow_id IS NOT NULL ORDER BY workflow_id").all(missionId) as Array<{ workflow_id: string }>).map((row) => row.workflow_id);
-    const spend = (db.prepare("SELECT COALESCE(SUM(settled_micro_usd),0) AS micro FROM mission_spend WHERE mission_id=?").get(missionId) as { micro: number }).micro;
-    const minutes = Math.max(1, Math.round(mission.active_ms / 60_000));
-    const content = [
-      `# ${mission.title}`,
-      section("## Goal", [mission.intent], 1800),
-      section("## Success criteria and how each was checked", criteria, 2600),
-      section("## Decisions accepted along the way", decisions, 1800),
-      section("## Verified outputs", outputs, 2600),
-      section("## What the verdict rejected, and why", rejected, 1800),
-      section("## Workflows used", workflows.map((id) => `- ${id}`), 400),
-      section("## Cost and time", [`- Settled spend: $${(spend / 1_000_000).toFixed(4)}`, `- Active time: about ${minutes} minute${minutes === 1 ? "" : "s"}`], 300),
-      "Claim basis: statements tagged [verified: ...] come from the mission's verified evidence bundle. This is a record of past work, not evidence for a new mission.",
-    ].join("\n\n").slice(0, ASSET_CHARS);
+  private extractMissionKnowledge(organizationId: string, workspaceId: string, db: ReturnType<Store["workspaceDb"]>, missionId: string, now: number): number {
+    const prepared = this.writeupOf(db, missionId);
+    if (!prepared || prepared.writeup.skipped) return 0;
+    const { mission, writeup, provenance, bundles } = prepared;
     const signature = domainDigest("brain:mission-knowledge:v1", { missionId });
-    const provenance = [verified.digest, ...new Set(independent.map((check) => check.evidence_digest))].slice(0, 20).map((evidenceDigest) => ({ rootRunId: missionId, evidenceDigest }));
+    const id = digestId("knowledge", signature);
     const inserted = db.prepare(`INSERT OR IGNORE INTO knowledge_assets(id,signature,operation_id,state,classification,content,source_count,title,mission_id,producer_id,provenance_json,created_at_ms,updated_at_ms)
       VALUES (?,?, 'mission-knowledge', 'extracted', 'internal', ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(digestId("knowledge", signature), signature, content, Math.max(1, bundles.length), mission.title, missionId, mission.owner_id, JSON.stringify(provenance), now, now);
+      .run(id, signature, writeup.content, Math.max(1, bundles), writeup.title, missionId, mission.owner_id, JSON.stringify(provenance), now, now);
+    if (Number(inserted.changes) > 0) this.supersedeSameGoal(organizationId, workspaceId, db, id, mission.intent, now);
     return Number(inserted.changes);
+  }
+
+  /** The write-up of an achieved, verified mission, or nothing when the mission is not closed as achieved. */
+  private writeupOf(db: ReturnType<Store["workspaceDb"]>, missionId: string) {
+    const mission = db.prepare("SELECT id, title, intent, success_criteria_json, owner_id, outcome, state, active_ms FROM missions WHERE id=?").get(missionId) as
+      | { id: string; title: string; intent: string; success_criteria_json: string; owner_id: string; outcome: string | null; state: string; active_ms: number } | undefined;
+    if (!mission || mission.state !== "closed" || mission.outcome !== "achieved") return undefined;
+    const bundles = db.prepare("SELECT digest, state, findings_json, created_at_ms FROM mission_evidence_bundles WHERE mission_id=? AND state IN ('verified','rejected') ORDER BY created_at_ms, rowid").all(missionId) as Array<{ digest: string; state: "verified" | "rejected"; findings_json: string; created_at_ms: number }>;
+    const verified = bundles.filter((bundle) => bundle.state === "verified").at(-1);
+    if (!verified) return undefined;
+    const writeup = buildWriteup(this.store, db, mission, verified, bundles.filter((bundle) => bundle.state === "rejected"));
+    const evidence = (db.prepare("SELECT DISTINCT evidence_digest FROM mission_bundle_checks WHERE bundle_digest=? AND advisory=0 AND outcome='passed' ORDER BY evidence_digest").all(verified.digest) as Array<{ evidence_digest: string }>).map((row) => row.evidence_digest);
+    const provenance = [verified.digest, ...evidence].slice(0, 20).map((evidenceDigest) => ({ rootRunId: missionId, evidenceDigest }));
+    return { mission, writeup, provenance, bundles: bundles.length };
+  }
+
+  /**
+   * An older write-up of the same goal (same words, ignoring case and punctuation) is superseded by this newer one.
+   * A published one leaves search and reuse at once; an unreviewed one leaves the Review inbox. Nothing is deleted.
+   */
+  private supersedeSameGoal(organizationId: string, workspaceId: string, db: ReturnType<Store["workspaceDb"]>, newId: string, intent: string, now: number): void {
+    const key = goalKey(intent);
+    const older = db.prepare(`SELECT a.id, a.state, m.intent FROM knowledge_assets a JOIN missions m ON m.id=a.mission_id
+      WHERE a.operation_id='mission-knowledge' AND a.id<>? AND a.superseded_by IS NULL AND a.state IN ('extracted','reviewed','published') ORDER BY a.created_at_ms LIMIT 500`).all(newId) as Array<{ id: string; state: string; intent: string }>;
+    for (const row of older) {
+      if (goalKey(row.intent) !== key) continue;
+      if (row.state === "published") {
+        this.ports.memory.revoke(organizationId, workspaceId, row.id);
+        db.prepare("UPDATE knowledge_assets SET state='revoked',superseded_by=?,rejection_reason='Replaced by a newer write-up of the same goal',updated_at_ms=? WHERE id=?").run(newId, now, row.id);
+        this.ports.reuse.unindex(organizationId, workspaceId, `knowledge:${row.id}`);
+      } else {
+        db.prepare("UPDATE knowledge_assets SET superseded_by=?,rejection_reason='Replaced by a newer write-up of the same goal',updated_at_ms=? WHERE id=?").run(newId, now, row.id);
+      }
+    }
   }
 
   processPending(): { processed: number; failed: number } {
@@ -249,6 +242,8 @@ export class CapitalizationService {
           }
         }
       }
+      // A finished run may have left a verified write-up that publishes itself (row 47); a crash between the two is repaired by the next pass.
+      try { this.autoPublishSweep(workspace.organization_id, workspace.id); } catch { /* the inbox keeps it */ }
     }
     return { processed, failed };
   }
@@ -261,7 +256,7 @@ export class CapitalizationService {
       const now = this.store.now();
       transitionState(db, "capitalizationRun", runId, "running", { rawSet: [`started_at_ms=COALESCE(started_at_ms,${now})`, "error=NULL"] });
       if (run.mission_id) {
-        const extracted = this.extractMissionKnowledge(db, run.mission_id, now);
+        const extracted = this.extractMissionKnowledge(organizationId, workspaceId, db, run.mission_id, now);
         // An achieved mission is also offered for reuse (#66); the reuse index re-checks the live source on every read.
         this.ports.reuse.indexMission(organizationId, workspaceId, run.mission_id);
         transitionState(db, "capitalizationRun", runId, "succeeded", { set: { extracted_count: extracted, completed_at_ms: this.store.now() } });
@@ -398,29 +393,110 @@ export class CapitalizationService {
     }
     if (asset.state === "published") return assetId;
     if (asset.state !== "extracted") throw new BrainDomainError("CONFLICT", `a ${asset.state} knowledge asset cannot be approved`);
+    if (asset.superseded_by) throw new BrainDomainError("CONFLICT", "a newer write-up of the same goal replaced this one");
     const self = asset.producer_id === actor.actorId;
-    if (self && this.otherReviewers(actor, workspaceId).length > 0) {
+    if (self && this.otherReviewers(actor.organizationId, workspaceId, actor.actorId).length > 0) {
       throw new BrainDomainError("FORBIDDEN", "another reviewer in this workspace must approve knowledge you produced");
     }
+    this.publishAsset(actor.organizationId, workspaceId, asset, actor.actorId, self, false);
+    return assetId;
+  }
+
+  /** Publication itself, shared by a person's approval and the automatic path: secret scan, content artifact, memory publication, asset state, reuse index. */
+  private publishAsset(organizationId: string, workspaceId: string, asset: AssetRow, reviewerId: string, selfReviewed: boolean, auto: boolean): void {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
     if (looksLikeSecret(asset.content) || looksLikeSecret(asset.title)) {
       throw new BrainDomainError("INVALID_ARGUMENT", "this knowledge appears to contain a secret; it was not published");
     }
     const digest = putBytes(this.store, new TextEncoder().encode(asset.content));
-    this.ports.memory.publish({ organizationId: actor.organizationId, workspaceId, sourceId: assetId, text: asset.content, sourceType: "knowledge", status: "reviewed", title: asset.title, selfReviewed: self });
+    this.ports.memory.publish({ organizationId, workspaceId, sourceId: asset.id, text: asset.content, sourceType: "knowledge", status: "reviewed", title: asset.title, selfReviewed });
     const now = this.store.now();
     this.store.inTx(db, () => {
-      db.prepare("UPDATE knowledge_assets SET state='published',reviewed_by=?,self_reviewed=?,reviewed_at_ms=?,content_digest=?,rejection_reason=NULL,updated_at_ms=? WHERE id=? AND state='extracted'")
-        .run(actor.actorId, self ? 1 : 0, now, digest, now, assetId);
+      db.prepare("UPDATE knowledge_assets SET state='published',reviewed_by=?,self_reviewed=?,auto_published=?,reviewed_at_ms=?,content_digest=?,rejection_reason=NULL,updated_at_ms=? WHERE id=? AND state='extracted'")
+        .run(reviewerId, selfReviewed ? 1 : 0, auto ? 1 : 0, now, digest, now, asset.id);
     });
-    this.ports.reuse.indexKnowledge(actor.organizationId, workspaceId, assetId);
-    return assetId;
+    this.ports.reuse.indexKnowledge(organizationId, workspaceId, asset.id);
   }
 
   /** Other active people who could review: when none exist, a producer may review their own knowledge (ADR 0007). */
-  private otherReviewers(actor: ActorContext, workspaceId: string): string[] {
+  private otherReviewers(organizationId: string, workspaceId: string, producerId: string): string[] {
     const people = this.store.control.prepare(`SELECT p.id FROM principals p JOIN workspace_memberships m ON m.principal_id=p.id AND m.workspace_id=? AND m.revoked_at_ms IS NULL
-      WHERE p.organization_id=? AND p.kind='human' AND p.disabled_at_ms IS NULL AND p.id<>?`).all(workspaceId, actor.organizationId, actor.actorId) as Array<{ id: string }>;
-    return people.map((row) => row.id).filter((id) => scopesForPrincipal(this.store, id, actor.organizationId, workspaceId).includes("memory:publish"));
+      WHERE p.organization_id=? AND p.kind='human' AND p.disabled_at_ms IS NULL AND p.id<>?`).all(workspaceId, organizationId, producerId) as Array<{ id: string }>;
+    return people.map((row) => row.id).filter((id) => scopesForPrincipal(this.store, id, organizationId, workspaceId).includes("memory:publish"));
+  }
+
+  /** Whether verified write-ups publish themselves. On unless the workspace turned it off (library_settings has no row until then). */
+  private autoPublishOn(db: ReturnType<Store["workspaceDb"]>): boolean {
+    const row = db.prepare("SELECT auto_publish_knowledge AS on_ FROM library_settings WHERE id=1").get() as { on_: number } | undefined;
+    return row ? row.on_ === 1 : true;
+  }
+
+  private setLibrarySettings(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only a person changes the Library settings");
+    const db = this.store.workspaceDb(workspaceId, actor.organizationId);
+    const on = payload["autoPublishKnowledge"] === true ? 1 : 0;
+    db.prepare(`INSERT INTO library_settings(id,auto_publish_knowledge,updated_by,updated_at_ms) VALUES (1,?,?,?)
+      ON CONFLICT(id) DO UPDATE SET auto_publish_knowledge=excluded.auto_publish_knowledge,updated_by=excluded.updated_by,updated_at_ms=excluded.updated_at_ms`).run(on, actor.actorId, this.store.now());
+    // Turning it on also lets the waiting verified write-ups through, without a second click.
+    if (on) this.autoPublishSweep(actor.organizationId, workspaceId);
+    return workspaceId;
+  }
+
+  /** "Approve all verified": every waiting write-up this person may approve, in one action. Each follows the single-asset rules; the rest stay in the inbox. */
+  private approveVerified(actor: ActorContext, workspaceId: string): string {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only a person reviews knowledge");
+    const db = this.store.workspaceDb(workspaceId, actor.organizationId);
+    const waiting = db.prepare("SELECT id FROM knowledge_assets WHERE operation_id='mission-knowledge' AND state='extracted' AND rejection_reason IS NULL AND superseded_by IS NULL ORDER BY created_at_ms, id").all() as Array<{ id: string }>;
+    for (const row of waiting) {
+      try { this.reviewKnowledge(actor, workspaceId, { assetId: row.id, decision: "approve", reason: "Approved with all verified write-ups" }); } catch { /* left in the inbox with its own reason on the next look */ }
+    }
+    return workspaceId;
+  }
+
+  /**
+   * The hands-off path for a single-owner install (ADR 0007): a verified mission's write-up publishes itself as
+   * self-reviewed by its producer, marked as automatic so the card says so, undoable with Withdraw. It only happens
+   * while nobody else could review it, the producer is still an active person, the write-up has no secret, and the
+   * workspace setting is on. Anything else stays in the Review inbox. Effects, approvals, capability candidates and
+   * tool publication never come through here. A write-up still in the earlier, thinner shape is rebuilt from the
+   * mission's stored results first (or set aside when the mission has too little substance).
+   */
+  autoPublishSweep(organizationId: string, workspaceId: string): number {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    if (!this.autoPublishOn(db)) return 0;
+    const waiting = db.prepare("SELECT * FROM knowledge_assets WHERE operation_id='mission-knowledge' AND state='extracted' AND rejection_reason IS NULL AND superseded_by IS NULL AND mission_id IS NOT NULL ORDER BY created_at_ms, id").all() as AssetRow[];
+    let published = 0;
+    for (const stored of waiting) {
+      try {
+        let asset = stored;
+        if (!asset.content.includes("Claim basis: [verified")) {
+          const rebuilt = this.writeupOf(db, asset.mission_id!);
+          if (!rebuilt || rebuilt.writeup.skipped) {
+            db.prepare("UPDATE knowledge_assets SET rejection_reason=?,updated_at_ms=? WHERE id=?").run(`Not kept: ${rebuilt?.writeup.skipped ?? "the mission is no longer a verified, achieved one"}`.slice(0, 512), this.store.now(), asset.id);
+            continue;
+          }
+          db.prepare("UPDATE knowledge_assets SET content=?,updated_at_ms=? WHERE id=?").run(rebuilt.writeup.content, this.store.now(), asset.id);
+          asset = { ...asset, content: rebuilt.writeup.content };
+          this.supersedeSameGoal(organizationId, workspaceId, db, asset.id, rebuilt.mission.intent, this.store.now());
+          if ((db.prepare("SELECT superseded_by FROM knowledge_assets WHERE id=?").get(asset.id) as { superseded_by: string | null }).superseded_by) continue;
+        }
+        const producer = asset.producer_id;
+        if (!producer || !this.isActivePerson(organizationId, workspaceId, producer)) continue;
+        if (this.otherReviewers(organizationId, workspaceId, producer).length > 0) continue;
+        if (looksLikeSecret(asset.content) || looksLikeSecret(asset.title)) {
+          db.prepare("UPDATE knowledge_assets SET rejection_reason=?,updated_at_ms=? WHERE id=?").run("Left for a person: the write-up appears to contain a secret", this.store.now(), asset.id);
+          continue;
+        }
+        this.publishAsset(organizationId, workspaceId, asset, producer, true, true);
+        published++;
+      } catch { /* stays in the inbox; the next pass tries again */ }
+    }
+    return published;
+  }
+
+  private isActivePerson(organizationId: string, workspaceId: string, principalId: string): boolean {
+    return Boolean(this.store.control.prepare(`SELECT 1 FROM principals p JOIN workspace_memberships m ON m.principal_id=p.id AND m.workspace_id=? AND m.revoked_at_ms IS NULL
+      WHERE p.id=? AND p.organization_id=? AND p.kind='human' AND p.disabled_at_ms IS NULL`).get(workspaceId, principalId, organizationId)) && scopesForPrincipal(this.store, principalId, organizationId, workspaceId).includes("memory:publish");
   }
 
   /** When the organization's active release was activated: the config.activated event, else the release's own staging time. */
@@ -485,8 +561,12 @@ export class CapitalizationService {
     if (queryType === "library.summary") {
       const count = (sql: string) => (db.prepare(sql).get() as { n: number }).n;
       return {
-        awaitingReview: count("SELECT COUNT(*) AS n FROM knowledge_assets WHERE state='extracted'") + count("SELECT COUNT(*) AS n FROM tool_candidates WHERE state='quarantined'") + count("SELECT COUNT(*) AS n FROM play_proposals WHERE state='proposed'"),
+        awaitingReview: count("SELECT COUNT(*) AS n FROM knowledge_assets WHERE state='extracted' AND rejection_reason IS NULL") + count("SELECT COUNT(*) AS n FROM tool_candidates WHERE state='quarantined'") + count("SELECT COUNT(*) AS n FROM play_proposals WHERE state='proposed'"),
         publishedKnowledge: count("SELECT COUNT(*) AS n FROM knowledge_assets WHERE state='published'"),
+        // What Brain learned lately, for the quiet line on Today: mission write-ups published in the last seven days, and how many of those it published itself.
+        learnedThisWeek: count(`SELECT COUNT(*) AS n FROM knowledge_assets WHERE operation_id='mission-knowledge' AND state='published' AND reviewed_at_ms>=${this.store.now() - 7 * 86_400_000}`),
+        learnedAutomatically: count(`SELECT COUNT(*) AS n FROM knowledge_assets WHERE operation_id='mission-knowledge' AND state='published' AND auto_published=1 AND reviewed_at_ms>=${this.store.now() - 7 * 86_400_000}`),
+        autoPublishKnowledge: this.autoPublishOn(db),
         documents: count("SELECT COUNT(*) AS n FROM documents WHERE state='active'"),
         tools: this.activeTools(actor.organizationId, workspaceId).length,
       } as unknown as JsonValue;
@@ -522,7 +602,7 @@ export class CapitalizationService {
       ...(row.title ? { title: row.title } : {}), ...(row.mission_id ? { missionId: row.mission_id } : {}),
       ...(row.producer_id ? { producedBy: row.producer_id } : {}), ...(row.reviewed_by ? { reviewedBy: row.reviewed_by } : {}),
       ...(row.reviewed_at_ms ? { reviewedAt: iso(row.reviewed_at_ms) } : {}), ...(row.self_reviewed ? { selfReviewed: true } : {}),
-      ...(row.rejection_reason ? { rejectionReason: row.rejection_reason } : {}), ...(row.content_digest ? { contentDigest: row.content_digest } : {}),
+      ...(row.rejection_reason ? { rejectionReason: row.rejection_reason } : {}), ...(row.auto_published ? { autoPublished: true } : {}), ...(row.superseded_by ? { supersededBy: row.superseded_by } : {}), ...(row.content_digest ? { contentDigest: row.content_digest } : {}),
       createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
     };
   }

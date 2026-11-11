@@ -11093,6 +11093,15 @@
         },
         {
           "$ref": "#/$defs/PlayProposalReviewCommand"
+        },
+        {
+          "$ref": "#/$defs/KnowledgeApproveVerifiedCommand"
+        },
+        {
+          "$ref": "#/$defs/LibrarySettingsSetCommand"
+        },
+        {
+          "$ref": "#/$defs/PlaysAddStarterCommand"
         }
       ]
     },
@@ -19226,6 +19235,12 @@
         },
         "contentDigest": {
           "$ref": "#/$defs/Digest"
+        },
+        "autoPublished": {
+          "type": "boolean"
+        },
+        "supersededBy": {
+          "$ref": "#/$defs/Id"
         }
       },
       "required": [
@@ -23723,6 +23738,123 @@
             "decision",
             "reason"
           ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "KnowledgeApproveVerifiedCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "knowledge.approveVerified"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "LibrarySettingsSetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "library.settings.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "autoPublishKnowledge": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "autoPublishKnowledge"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "PlaysAddStarterCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "plays.addStarter"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {},
+          "required": [],
           "additionalProperties": false
         }
       },

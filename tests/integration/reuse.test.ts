@@ -185,7 +185,7 @@ describe("Library review inbox and one searchable memory (#71, #75)", () => {
   it("never offers output text that looks like a secret for reuse", async () => {
     world = setupWorld();
     const w = world;
-    await achievedMission(w, "leak", { title: "Credentials audit", intent: "Audit credentials for the quarter", criteria: ["audited"], outputs: [{ name: "audit.md", text: "api_key = AKIAABCDEFGHIJKLMNOP" }] });
+    await achievedMission(w, "leak", { title: "Credentials audit", intent: "Audit credentials for the quarter", criteria: ["audited"], decision: "Rotate the key api_key = AKIAABCDEFGHIJKLMNOP first" });
     const hits = await reuseSearch(w, "audit credentials quarter");
     expect(JSON.stringify(hits)).not.toContain("AKIA");
   });
@@ -193,7 +193,7 @@ describe("Library review inbox and one searchable memory (#71, #75)", () => {
   it("refuses to publish knowledge that contains a secret", async () => {
     world = setupWorld();
     const w = world;
-    await achievedMission(w, "sec", { title: "Credentials audit", intent: "Audit credentials", criteria: ["audited"], outputs: [{ name: "audit.md", text: "api_key = AKIAABCDEFGHIJKLMNOP" }] });
+    await achievedMission(w, "sec", { title: "Credentials audit", intent: "Audit credentials", criteria: ["audited"], decision: "Rotate the key api_key = AKIAABCDEFGHIJKLMNOP first" });
     const asset = (await assets(w))[0]!;
     await expect(command(w, w.owner, "knowledge.review", "sec-approve", { assetId: asset.assetId, decision: "approve", reason: "ok" })).rejects.toThrow(/secret/);
     expect((await assets(w))[0]!.state).toBe("extracted");

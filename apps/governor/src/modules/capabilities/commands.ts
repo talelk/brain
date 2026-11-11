@@ -15,5 +15,7 @@ export function capitalizationCommands(capitalization: CapitalizationService): C
     "tool.publish": handler("applied"),
     // Approving writes control.db (memory) and workspace.db (asset): idempotent on the asset id, so a retry repairs a crash between them.
     "knowledge.review": { kind: "self", handle: ({ actor, cmd }) => ({ outcome: "applied", resourceId: capitalization.apply(actor, cmd as Parameters<CapitalizationService["apply"]>[1]) }) },
+    "knowledge.approveVerified": { kind: "self", handle: ({ actor, cmd }) => ({ outcome: "applied", resourceId: capitalization.apply(actor, cmd as Parameters<CapitalizationService["apply"]>[1]) }) },
+    "library.settings.set": handler("applied"),
   };
 }

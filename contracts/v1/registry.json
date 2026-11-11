@@ -681,6 +681,33 @@
       "actors": [
         "human"
       ]
+    },
+    {
+      "type": "knowledge.approveVerified",
+      "schema": "KnowledgeApproveVerifiedCommand",
+      "scope": "memory:publish",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "library.settings.set",
+      "schema": "LibrarySettingsSetCommand",
+      "scope": "memory:admin",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "plays.addStarter",
+      "schema": "PlaysAddStarterCommand",
+      "scope": "config:activate",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
     }
   ],
   "queries": [
