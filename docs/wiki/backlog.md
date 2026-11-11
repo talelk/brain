@@ -39,6 +39,12 @@ Play + sentence now titles the mission "Write a checklist or runbook: <topic>"; 
 ## 2026-11-11 ~11:35 live check
 Confirmed: Play+sentence mission drafted its plan with zero clicks ("6 steps - nothing runs until you confirm" + Confirm), confirm -> task running; "Used from past work" line replaces blocking panel. Plan showed "revision 2" and took ~2 min for the second mission in a row: first attempt likely fails and the auto-retry rescues it. Track Q (running) measures failure rate/latency from live data and fixes causes (tool turns, validator feedback in retry, prompt-side reuse context).
 
+## Found live 2026-11-11 ~11:50 (deployed `409e4bc`, release restaged)
+- Track Q (done, `409e4bc`): plan failures are rare (2/10, both pre-knowledge.search: human assignment missing `id`); "revision 2" is NOT a retry (rev 1 = Play template draft); latency 64-71 s came from the extra knowledge.search tool turn; now one model session with `related` hits in the prompt (expected ~20-35 s), runner corrective retry also for schema violations, `MissionPlanView.stage` (reading/drafting/checking) read field added (UI not yet showing it). Notes: `docs/wiki/plan-latency-2026-11-11.md`.
+- Track R (running): Play default wall-clock limit (30 min) is below the plan's own estimate (1 h 25 min) so a Play mission paused "budget exhausted" after ~10-20 min; wall clock must be ACTIVE running time; plan-aware default limit; inline "Add time and resume" on the Needs-you budget pause; auto-extend time once on a single-owner install.
+- Track S (running): run `run-mwbxl678-1n-zo5903gh` of mission `mission-mwbxiijh-d-otaijyxj` stuck "running" ~80 min after deploy restarts; A2's crash-restart did not recover it; add stuck-run watchdog + fix root cause; mission also exceeds its wall budget yet stays active.
+- UI to follow: show plan `stage` ("Reading what the workspace knows / Drafting steps / Checking the plan") while "Preparing a validated proposal".
+
 ## Not yet walked live (blocked on deploy of K and M)
 Share links, Challenge this result, Repeat this (now creates real missions), Context received tab, Tools registry, Quality page, Usage meter in depth.
 
