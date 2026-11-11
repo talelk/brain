@@ -132,6 +132,12 @@ Make reuse the central loop, and meter and manage context:
 - Source-watching connectors and domain Play content (gap analysis G1, G7).
 - Dollar caps and estimates (#54, #55), the Quality page (#63).
 
+## Addendum: hands-off capitalisation and starter Plays (track M, backlog 47-50)
+
+- Write-ups add the worker's Result summary, a 2400-character deliverable excerpt, per-criterion worker evidence, assumptions and what was reused (`capabilities/writeup.ts`); empty sections are omitted. Not written up: titles starting `Sample goal`/`Test`/`Smoke`/`Demo`/`Dummy`/`Hello`, or under 200 characters of result. A newer write-up of the same goal supersedes the older (`superseded_by`).
+- Auto-publish: `library_settings` (no row = on). A sweep after each capitalization pass publishes a waiting write-up as self-reviewed and automatic when nobody else could review it and it has no secret; `knowledge.approveVerified` approves all waiting ones; Withdraw is `memory.revoke`. Today shows "Brain learned N things this week".
+- Starter Plays: six documents in `examples/v1/starter-release/config/plays/`; `plays.addStarter` merges missing ones into the active release, stages and activates it, skipping Plays whose agent is absent.
+
 ## Further Notes
 
 - Small fix made with this spec: local memory search ranking (`memory.ts`, with a test).

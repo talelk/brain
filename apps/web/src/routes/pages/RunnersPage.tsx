@@ -52,8 +52,8 @@ function FleetBar(props: { runners: RunnerSnapshot[] }): JSX.Element {
   const summary = () => `Runner fleet: ${rows().map((row) => `${row.count} ${row.label.toLowerCase()}`).join(", ")}`;
   return <Show when={props.runners.length > 0}>
     <div class="flex min-w-0 flex-col gap-2">
-      <div role="img" aria-label={summary()} class="flex h-2.5 w-full gap-px overflow-hidden rounded-full bg-surface-gray-3"><For each={rows()}>{(row) => <span class={`h-full ${row.fill}`} style={{ width: `${row.count / props.runners.length * 100}%` }} />}</For></div>
-      <ul class="flex flex-wrap gap-x-3 gap-y-1 text-caption text-ink-gray-7" aria-hidden="true"><For each={rows()}>{(row) => <li class="inline-flex items-center gap-1"><span class={`${row.icon} size-3`} />{row.label} {row.count}</li>}</For></ul>
+      <Show when={rows().length > 1}><div role="img" aria-label={summary()} class="flex h-1.5 w-full gap-px overflow-hidden rounded-full bg-surface-gray-3"><For each={rows()}>{(row) => <span class={`h-full ${row.fill}`} style={{ width: `${row.count / props.runners.length * 100}%` }} />}</For></div></Show>
+      <ul class="flex flex-wrap gap-x-3 gap-y-1 text-caption text-ink-gray-7" aria-hidden={rows().length > 1}><For each={rows()}>{(row) => <li class="inline-flex items-center gap-1"><span class={`${row.icon} size-3`} />{row.label} {row.count}</li>}</For></ul>
     </div>
   </Show>;
 }

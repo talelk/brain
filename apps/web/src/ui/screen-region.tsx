@@ -3,7 +3,7 @@ import { Show, createMemo } from "solid-js";
 import { Alert } from "@talelk/newui-molecules";
 import { DataState } from "@talelk/newui-organisms";
 import type { ScreenState } from "../data/screens";
-import { formatRelative } from "./format";
+import { CLOCK_24, formatRelative } from "./format";
 
 /**
  * Execution-stream severity presentation, shared by every execution surface
@@ -84,7 +84,7 @@ export function ScreenRegion<T>(props: {
 
 /** Server-bound date text: locale-formatted, absolute tooltip, never browser expiry. */
 export function DateText(props: { value?: string; asOf?: string; tone?: "expired" | "upcoming" }): JSX.Element {
-  const formatted = () => (props.value ? new Date(props.value).toLocaleString() : "—");
+  const formatted = () => (props.value ? new Date(props.value).toLocaleString(undefined, CLOCK_24) : "—");
   return (
     <span title={props.value ? `Absolute time: ${props.value}` : undefined}>{formatted()}</span>
   );

@@ -8,6 +8,8 @@ import { ActionFeedback } from "../../ui/components/ActionFeedback";
 import { BrainPage } from "../../ui/components/PageLayout";
 import { LibraryTabs } from "../../ui/components/LibraryTabs";
 import { PlayProposals } from "../../ui/studio/PlayProposals";
+import { AutoPublishSetting } from "../../ui/components/LibraryControls";
+import { librarySummary, type LibrarySummary } from "../../data/library";
 
 /**
  * `/w/:id/knowledge/review` (#43): the knowledge candidate review queue —
@@ -29,6 +31,7 @@ export default function KnowledgeReviewPage(): JSX.Element {
     isEmpty: (snapshot) => snapshot.assets.length === 0 && snapshot.candidates.length === 0 && snapshot.runs.length === 0,
     refreshMs: 3000,
   });
+  const library = createScopedRead<LibrarySummary>({ scope: app.scope, load: async (scope, signal) => librarySummary(scope.workspaceId, signal), refreshMs: 10_000 });
   const [message, setMessage] = createSignal("");
   const emptyCapitalization = { assets: [], candidates: [], runs: [] } satisfies CapitalizationSnapshot;
   return <div class="flex min-w-0 flex-col gap-3">
@@ -38,6 +41,8 @@ export default function KnowledgeReviewPage(): JSX.Element {
       <CapitalizationStudio snapshot={capitalization.state().data ?? emptyCapitalization} canRun={app.canPublish()} canReview={app.identity()?.actor.scopes.includes("tool:publish") ?? false}
           canReviewKnowledge={app.canAdminister()} canRevokeKnowledge={app.identity()?.actor.scopes.includes("memory:admin") ?? false}
           onReviewKnowledge={async (asset, decision, reason) => { try { const result = await app.run("knowledge.review", { assetId: asset.assetId, decision, reason }); setMessage(decision === "approve" ? "Published. It is now searchable and offered to future plans." : result.detail); await capitalization.refresh({ force: true }); } catch (error) { setMessage(error instanceof Error ? error.message : "The review was not saved."); } }}
+          setting={<div class="mb-3"><AutoPublishSetting summary={library.state().data} onChanged={() => void library.refresh({ force: true })} /></div>}
+          onApproveAllKnowledge={async () => { const before = (capitalization.state().data ?? emptyCapitalization).assets.filter((asset) => asset.state === "extracted" && !asset.rejectionReason).length; try { await app.run("knowledge.approveVerified", {}); await capitalization.refresh({ force: true }); void library.refresh({ force: true }); setMessage(`Approved. ${before === 1 ? "The write-up is" : "Every write-up you may approve is"} now searchable and offered to future plans.`); } catch (error) { setMessage(error instanceof Error ? error.message : "The approval was not saved."); } }}
           onRevokeKnowledge={async (asset, reason) => { try { const result = await app.run("memory.revoke", { sourceId: asset.assetId, reason }); setMessage(result.detail); await capitalization.refresh({ force: true }); } catch (error) { setMessage(error instanceof Error ? error.message : "Withdrawing was not saved."); } }}
           onRun={async () => { try { const result = await app.run("capitalization.run", {}); setMessage(result.detail); await capitalization.refresh({ force: true }); } catch (error) { setMessage(error instanceof Error ? error.message : "Capitalization failed."); } }}
           onReview={async (candidate, decision) => { try { const result = await app.run("capability.review", { candidateId: candidate.candidateId, decision, reason: decision === "approve" ? "Verified provenance and tests reviewed" : "Candidate rejected after review" }); setMessage(result.detail); await capitalization.refresh({ force: true }); } catch (error) { setMessage(error instanceof Error ? error.message : "Review failed."); } }}

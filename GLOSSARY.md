@@ -357,7 +357,8 @@ _Avoid_: autonomy, objectivity
 A reusable, readable record extracted from verified past work (a closed achieved
 mission), with provenance to the mission's evidence bundles and a lifecycle of
 extracted, published or revoked. It is a claim when reused: it never counts as evidence
-for a criterion.
+for a criterion. On a single-owner install a verified mission's asset publishes itself
+(self-reviewed and automatic, ADR 0007); a newer asset of the same goal supersedes the older.
 _Avoid_: memory (unqualified), insight, learning
 
 **Memory publication**:
@@ -386,7 +387,11 @@ A read-only, expiring, revocable bearer link to one verified result version (ADR
 **Capitalization run**:
 An autonomous pass that extracts knowledge assets and capability candidates from
 verified history. It runs when a mission closes, or on demand, and never extracts from
-member notes, messages or transcripts.
+member notes, messages or transcripts. A mission's write-up may quote the worker's own
+Result summary, a bounded deliverable excerpt, per-criterion evidence and assumptions
+from its verified result, each labelled as the worker's statement (not independent proof);
+there is still no model call. A mission with too little result (see the write-up threshold
+in the reuse spec) is not written up.
 _Avoid_: learning run, consolidation
 
 **Memory scope**:

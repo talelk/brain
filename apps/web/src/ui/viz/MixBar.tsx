@@ -12,10 +12,10 @@ export function MixBar(props: { label: string; segments: MixSegment[]; empty?: s
   return <Show when={total() > 0} fallback={<p class="text-interface text-ink-gray-6">{props.empty ?? "Nothing to show yet."}</p>}>
     <div class="flex min-w-0 flex-col gap-1.5">
       <p class="text-caption font-medium text-ink-gray-7">{props.label}</p>
-      <div role="img" aria-label={`${props.label}: ${rows().map((segment) => `${segment.count} ${segment.label.toLowerCase()}`).join(", ")}`} class="flex h-2.5 w-full gap-px overflow-hidden rounded-full bg-surface-gray-3">
+      <Show when={rows().length > 1}><div role="img" aria-label={`${props.label}: ${rows().map((segment) => `${segment.count} ${segment.label.toLowerCase()}`).join(", ")}`} class="flex h-1.5 w-full gap-px overflow-hidden rounded-full bg-surface-gray-3">
         <For each={rows()}>{(segment) => <span class={`h-full ${FILL[segment.tone ?? "gray"]}`} style={{ width: `${(segment.count / total()) * 100}%` }} />}</For>
-      </div>
-      <ul class="flex flex-wrap gap-x-3 gap-y-0.5 text-caption text-ink-gray-7" aria-hidden="true">
+      </div></Show>
+      <ul class="flex flex-wrap gap-x-3 gap-y-0.5 text-caption text-ink-gray-7" aria-hidden={rows().length > 1}>
         <For each={rows()}>{(segment) => <li>{segment.label} {segment.count}</li>}</For>
       </ul>
     </div>

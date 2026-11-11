@@ -23,6 +23,9 @@ export function CapitalizationStudio(props: {
   canRevokeKnowledge: boolean;
   onReviewKnowledge: (asset: KnowledgeAsset, decision: "approve" | "reject", reason: string) => Promise<void>;
   onRevokeKnowledge: (asset: KnowledgeAsset, reason: string) => Promise<void>;
+  onApproveAllKnowledge?: () => Promise<void>;
+  /** The auto-publish setting, rendered beside the inbox. */
+  setting?: JSX.Element;
   onRun: () => Promise<void>;
   onReview: (candidate: CapabilityCandidate, decision: "approve" | "reject") => Promise<void>;
   onPublish: (candidate: CapabilityCandidate) => Promise<void>;
@@ -33,7 +36,7 @@ export function CapitalizationStudio(props: {
   return <Section title="What Brain learned" description="Approve what Brain learned from finished missions, and review tools it noticed you keep reusing. Nothing here grants execution authority." surface="card" density="compact" class="p-3 sm:p-4"
     actions={<Button size="sm" variant="outline" iconLeft="lucide-sparkles" disabled={!props.canRun} onClick={() => void props.onRun()}>Run capitalization</Button>}>
     <div class="flex min-w-0 flex-col gap-4">
-      <KnowledgeInbox assets={proposals()} canReview={props.canReviewKnowledge} canRevoke={props.canRevokeKnowledge} onReview={props.onReviewKnowledge} onRevoke={props.onRevokeKnowledge} />
+      <KnowledgeInbox assets={proposals()} canReview={props.canReviewKnowledge} canRevoke={props.canRevokeKnowledge} onReview={props.onReviewKnowledge} onRevoke={props.onRevokeKnowledge} onApproveAll={props.onApproveAllKnowledge} setting={props.setting} />
       <Alert theme="blue" variant="outline" title="L0–L3 promotion boundary" description="L0 captures verified evidence, L1 extracts scoped knowledge and L2 prepares tested candidates. L3 always requires independent review and an exact active configuration release." />
       <div class="grid min-w-0 gap-4 sm:grid-cols-2" data-testid="capitalization-funnel">
         <MixBar label="L1 extracted knowledge" empty="No extracted knowledge yet." segments={(["extracted", "reviewed", "published", "revoked"] as const).map((state) => ({

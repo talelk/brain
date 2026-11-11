@@ -34,10 +34,11 @@ function ApprovalMix(props: { approvals: ApprovalRequest[] }): JSX.Element {
   const total = () => rows().reduce((sum, row) => sum + row.count, 0);
   return <Show when={total() > 0}>
     <div class="flex min-w-0 flex-col gap-2">
-      <div role="img" aria-label={`Approvals: ${rows().map((row) => `${row.count} ${row.label.toLowerCase()}`).join(", ")}`} class="flex h-2.5 w-full gap-px overflow-hidden rounded-full bg-surface-gray-3">
+      {/* One segment says nothing a legend does not: the bar only appears when there is a split to show. */}
+      <Show when={rows().length > 1}><div role="img" aria-label={`Approvals: ${rows().map((row) => `${row.count} ${row.label.toLowerCase()}`).join(", ")}`} class="flex h-1.5 w-full gap-px overflow-hidden rounded-full bg-surface-gray-3">
         <For each={rows()}>{(row) => <span class={`h-full ${row.fill}`} style={{ width: `${(row.count / total()) * 100}%` }} />}</For>
-      </div>
-      <ul class="flex flex-wrap gap-x-3 gap-y-1 text-caption text-ink-gray-7" aria-hidden="true">
+      </div></Show>
+      <ul class="flex flex-wrap gap-x-3 gap-y-1 text-caption text-ink-gray-7" aria-hidden={rows().length > 1}>
         <For each={rows()}>{(row) => <li class="inline-flex items-center gap-1"><StatusIcon state={row.key === "decided" ? "ready" : row.key} theme={row.theme} />{row.label} {row.count}</li>}</For>
       </ul>
     </div>

@@ -1,0 +1,74 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Play",
+  "metadata": {
+    "id": "research-and-write",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "title": "Research and write a brief",
+    "description": "Gather what is known about a topic, then write a short brief a colleague can read in two minutes. Every claim says where it came from. Nothing is sent or changed.",
+    "intent": "Research the topic in the brief and write a short written brief (one page) that a colleague can read in two minutes and act on.",
+    "successCriteria": [
+      "The brief answers the question asked in the goal",
+      "Every claim names where it came from, or says it is an assumption",
+      "Open questions and what was not checked are listed"
+    ],
+    "constraints": [
+      "Read-only research: do not send, post or change anything"
+    ],
+    "team": [
+      {
+        "memberId": "worker",
+        "role": "Researcher and writer",
+        "agentId": "task-worker",
+        "engine": "pi"
+      }
+    ],
+    "plan": {
+      "tasks": [
+        {
+          "id": "gather",
+          "title": "Gather the key facts and sources for the topic",
+          "criteria": [
+            "The key facts needed to answer the goal are listed",
+            "Each fact names its source"
+          ],
+          "dependsOn": [],
+          "assignment": {
+            "kind": "agent",
+            "id": "worker",
+            "role": "specialist"
+          },
+          "estimatedMinutes": 10
+        },
+        {
+          "id": "write",
+          "title": "Write the one-page brief from what was gathered",
+          "criteria": [
+            "The brief answers the question asked in the goal in its first lines",
+            "Claims are tied to the gathered sources",
+            "Open questions and assumptions are listed"
+          ],
+          "dependsOn": [
+            "gather"
+          ],
+          "assignment": {
+            "kind": "agent",
+            "id": "worker",
+            "role": "specialist"
+          },
+          "estimatedMinutes": 10
+        }
+      ]
+    },
+    "autonomy": "standard",
+    "parkingThreshold": 3,
+    "budget": {
+      "maxMicroUsd": 2000000,
+      "maxWallClockMs": 1800000,
+      "memberCap": 2,
+      "attemptReserveMicroUsd": 0
+    }
+  }
+}

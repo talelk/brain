@@ -10,6 +10,13 @@ export interface LibrarySummary {
   documents: number;
   plays: number;
   tools: number;
+  /** Write-ups published in the last seven days, and how many of those Brain published itself. */
+  learnedThisWeek: number;
+  learnedAutomatically: number;
+  /** The workspace setting: verified write-ups publish themselves (on unless turned off). */
+  autoPublishKnowledge: boolean;
+  /** Ready-made Plays Brain ships: how many are in the release, how many can be added now, and why the rest cannot. */
+  starterPlays: { total: number; installed: number; installable: number; blocked: ReadonlyArray<{ playId: string; reason: string }> };
 }
 
 export async function librarySummary(workspaceId: string, signal?: AbortSignal): Promise<Envelope<LibrarySummary>> {

@@ -15,6 +15,7 @@ import { PlainSummary } from "../../ui/viz/PlainSummary";
 import { createStartController, StartFields } from "../../ui/start/StartBox";
 import { blockedBy, TodaySetup } from "../../ui/components/TodaySetup";
 import { createReadiness } from "../../ui/components/OperationalChecklist";
+import { KnowledgeLine } from "../../ui/components/LibraryControls";
 
 const SEEN_KEY = "brain-results-seen";
 const readSeen = (): string[] => { try { return JSON.parse(localStorage.getItem(SEEN_KEY) ?? "[]") as string[]; } catch { return []; } };
@@ -92,6 +93,7 @@ export default function TodayPage(): JSX.Element {
           </div>
         </details>
       </Show>
+      <KnowledgeLine summary={start.library.state().data} onChanged={() => void start.library.refresh({ force: true })} />
       <Show when={recent().length}>
         <WorkspaceSection title="Latest missions" description="The five most recently updated."
           actions={<Button variant="ghost" iconRight="lucide-arrow-right" onClick={() => void navigate(`/w/${app.workspaceId()}/missions`)}>All missions</Button>}>

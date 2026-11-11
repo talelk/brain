@@ -42,6 +42,7 @@ import { MissionService, ShareService, missionCommands } from "../modules/missio
 import { AutoStart, AUTO_START_TRIGGERS } from "./auto-start";
 import { Challenges } from "./challenges";
 import { PlayProposals } from "./play-proposals";
+import { StarterPlays } from "./starter-plays";
 import { attentionCommands, attentionQuery, qualitySummary } from "../modules/stream/index";
 import { absoluteLink, channelsFor, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
 import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
@@ -72,6 +73,7 @@ export class Brain {
   readonly autoStart: AutoStart;
   readonly challenges: Challenges;
   readonly playProposals: PlayProposals;
+  readonly starterPlays: StarterPlays;
   readonly shares: ShareService;
 
   constructor(opts: BrainOptions & { runtime?: RuntimeConfig }) {
@@ -150,10 +152,12 @@ export class Brain {
         createDraft: (actor, workspaceId, input) => this.drafts.apply(actor, { commandType: "configDraft.create", workspaceId, payload: input }),
         existingPlayIds: (organizationId) => Object.keys(activeReleaseRecord(this.store, organizationId)?.release.plays ?? {}),
       });
+      this.starterPlays = new StarterPlays(this.store);
       this.commands = new CommandFunnel(this.store, [
         missionCommands(this.missions),
         this.challenges.commands(),
         this.playProposals.commands(),
+        this.starterPlays.commands(),
         attentionCommands(this.store),
         watchCommands(this.store),
         sessionCommands(this.sessions),
@@ -931,7 +935,7 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         const counts = this.capitalization.query(actor, q.queryType, q.workspaceId, limit) as unknown as Record<string, number>;
         const plays = Object.keys(activeReleaseRecord(s, actor.organizationId)?.release.plays ?? {}).length;
-        return this.envelope(q.queryType, { ...counts, plays } as unknown as JsonValue);
+        return this.envelope(q.queryType, { ...counts, plays, starterPlays: this.starterPlays.status(actor.organizationId) } as unknown as JsonValue);
       }
       case "tickets.list": case "incidents.list": case "members.list": case "audit.list": {
         requireRead();

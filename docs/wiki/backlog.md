@@ -3,7 +3,7 @@
 Dated 2026-11-11, at `talelk/brain@e38aa19`. The full history of every track, report and finding is in [archive/backlog-2026-11-11.md](archive/backlog-2026-11-11.md) (excluded from the agent context budget: read it only when you need the history). Keep THIS file short: when an item is done, delete the row here and note it in the archive/history pages, never the other way round.
 
 ## In progress
-- Track M (UI editor): default-publish capitalisation for a single owner + bulk approve; substantive knowledge write-ups; default Plays; Library tab strip at 390; heavy summary bars; 24-hour log chart labels; Health "Recent activity" plain sentences (use `payload.message` of `tool.read.refused`); Setup stepper third circle shows "3" not a tick.
+- Track M (UI editor), rows 47-50 done locally (not deployed): auto-published self-reviewed write-ups (setting `library_settings`, Approve all verified, Today line), substantive write-ups with a 200-character threshold and supersede, six starter Plays with `plays.addStarter` (live has none: restage or click "Add starter Plays"), Library tab strip, one-segment bars, 24-hour times. Still open from M: Health "Recent activity" plain sentences (`payload.message` of `tool.read.refused`); Setup stepper third circle shows "3" not a tick; row 53. Deploy note: schema adds two DEFAULT columns on `knowledge_assets` and the table `library_settings`; the first sweep rebuilds and publishes the 19 thin unreviewed write-ups (Withdraw undoes one).
 
 ## Open
 | # | Item | Notes |

@@ -25,6 +25,7 @@ knowledge:
   to approvals, external effects, capability candidates or tool publication, which keep
   their own separation of duties.
 - Revoking removes the asset from search and reuse at once.
+- **Automatic publication (backlog 47).** While the exception applies and the workspace setting "Publish verified write-ups automatically" is on (default), a verified mission's write-up publishes itself as self-reviewed and auto-published; Withdraw undoes it. It stops when another reviewer exists or the write-up appears to hold a secret. With the setting off, "Approve all verified" approves every waiting write-up.
 
 Why this is safe: knowledge is advisory. A reused item enters planning and sessions as a
 claim with provenance, never as evidence for a criterion, so approving bad knowledge cannot

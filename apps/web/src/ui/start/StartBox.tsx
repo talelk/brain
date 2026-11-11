@@ -10,6 +10,8 @@ import { query } from "../../data/client";
 import { missionHref } from "../mission-links";
 import { formatDateTime } from "../format";
 import { reuseSearch } from "../../data/reuse";
+import { librarySummary, type LibrarySummary } from "../../data/library";
+import { AddStarterPlays } from "../components/LibraryControls";
 import { fromMissions, fromReuseItems, repeatHref, sourceConstraint } from "./reuse";
 import type { ReuseCandidate } from "./reuse";
 
@@ -22,6 +24,8 @@ export const SAMPLE_GOAL = {
 };
 /** Search only earns its place once the list is long enough to need it. */
 const SEARCH_FROM = 6;
+/** Plays shown as chips on a phone before the rest sit behind "N more Plays". */
+const PHONE_PLAYS = 3;
 
 /**
  * The one way to start a mission (#47): a sentence, optionally seeded by a play
@@ -39,6 +43,13 @@ export function createStartController() {
       return { snapshot: [...response.snapshot.items], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
   });
+  /** The Library's counts: whether starter Plays can be added, and what Brain learned lately (Today's quiet line). */
+  const library = createScopedRead<LibrarySummary>({
+    scope: app.scope,
+    load: async (scope, signal) => librarySummary(scope.workspaceId, signal),
+    refreshMs: 20_000,
+  });
+  const reloadLibrary = () => { void plays.refresh({ force: true }); void library.refresh({ force: true }); };
   const missions = createScopedRead<Mission[]>({
     scope: app.scope,
     load: async (scope, signal) => {
@@ -103,7 +114,7 @@ export function createStartController() {
     } catch (reason) { setError(reason instanceof Error ? reason.message : "The sample goal was not started."); } finally { setBusy(false); }
   }
   return { startSample, intent, setIntent, playId, play, playList, pickPlay, source, pickSource, candidates, title, setTitle, startMode, setStartMode, busy, error, shownProblem, derivedTitle, start,
-    canStart: () => app.canDispatch(), workspaceId: () => app.workspaceId(), plays, missions, listMissions: () => missions.state().data ?? [] };
+    canStart: () => app.canDispatch(), workspaceId: () => app.workspaceId(), plays, missions, library, reloadLibrary, listMissions: () => missions.state().data ?? [] };
 }
 export type StartController = ReturnType<typeof createStartController>;
 
@@ -151,9 +162,12 @@ export function StartFields(props: { start: StartController; large?: boolean; /*
       <Button variant="ghost" size="sm" iconLeft="lucide-x" onClick={clear}>Remove</Button>
     </p>}</Show>
     <fieldset class={`m-0 flex min-w-0 flex-col gap-2 border-0 p-0${props.compact ? " brain-start-compact" : ""}`} aria-label="Start from something ready">
-      <Show when={s.playList().length}>
-        <div class="flex min-w-0 flex-wrap items-center gap-2"><span class="text-caption text-ink-gray-7">Plays</span>
-          <For each={s.playList()}>{(play) => chip(play.title, "lucide-book-open-check", s.playId() === play.playId, () => s.pickPlay(play.playId))}</For></div>
+      <Show when={s.playList().length || (s.library.state().data?.starterPlays.installable ?? 0) > 0}>
+        <div class="flex min-w-0 flex-wrap items-center gap-2" data-testid="play-chips"><span class="text-caption text-ink-gray-7">Plays</span>
+          {/* On a phone the first three Plays show and the rest sit behind one chip, so six Plays do not push the box off the screen. */}
+          <For each={s.playList()}>{(play, index) => <span class={index() >= PHONE_PLAYS && s.playId() !== play.playId ? "hidden sm:contents" : "contents"}>{chip(play.title, "lucide-book-open-check", s.playId() === play.playId, () => s.pickPlay(play.playId))}</span>}</For>
+          <Show when={s.playList().length > PHONE_PLAYS}><span class="contents sm:hidden">{chip(`${s.playList().length - PHONE_PLAYS} more Plays`, "lucide-ellipsis", false, () => void navigate(`/w/${s.workspaceId()}/plays`))}</span></Show>
+          <Show when={!s.playList().length}><AddStarterPlays summary={s.library.state().data} onAdded={s.reloadLibrary} variant="chip" /></Show></div>
       </Show>
       <div class="flex min-w-0 flex-wrap items-center gap-2"><span class="text-caption text-ink-gray-7">Reuse</span>
         {chip("Start from a previous mission", "lucide-history", panel() === "previous", () => toggle("previous"), { expanded: panel() === "previous" })}

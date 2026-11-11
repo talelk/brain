@@ -102,7 +102,7 @@ function defaultDraft(title: string, kind: string): { documents: SourceDoc[]; as
   return { documents, assets: kind === "Agent" ? [{ path: `agents/${id}.md`, text: `# ${title}\n\nDescribe the agent's read-only purpose, expected output and acceptance conditions.\n` }] : [] };
 }
 
-function releaseAssets(documents: readonly SourceDoc[], assets: readonly SourceDoc[]): ReleaseAssets {
+export function releaseAssets(documents: readonly SourceDoc[], assets: readonly SourceDoc[]): ReleaseAssets {
   const instructions: AgentInstruction[] = [];
   const scripts: ToolScript[] = [];
   for (const document of documents) {

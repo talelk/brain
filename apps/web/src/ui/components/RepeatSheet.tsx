@@ -6,6 +6,7 @@ import type { Mission, WorkflowCatalogEntry } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { query } from "../../data/client";
 import { FormSheet } from "./BrainForm";
+import { CLOCK_24 } from "../format";
 
 /** One preset as the server returns it: the cron and timezone are the server's, the browser only shows them. */
 interface PresetView { presetId: string; label: string; cron: string; timezone: string; nextOccurrences: string[] }
@@ -21,7 +22,7 @@ function browserTimezone(): string {
 /** An instant as the weekday, date and clock time of the chosen timezone, so "08:00" reads as 08:00. */
 function inZone(iso: string, timeZone: string): string {
   try {
-    return new Intl.DateTimeFormat(undefined, { timeZone, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+    return new Intl.DateTimeFormat(undefined, { ...CLOCK_24, timeZone, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
   } catch { return iso; }
 }
 

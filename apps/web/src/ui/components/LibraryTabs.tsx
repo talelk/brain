@@ -31,14 +31,14 @@ export function LibraryTabs(props: { value: LibraryTab; trailing?: JSX.Element }
     void navigate(target);
   };
   return <div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
-    <TabButtons label="Library places" value={props.value} wrap onValueChange={go} options={[
+    <div class="min-w-0 max-w-full overflow-x-auto" data-testid="library-tab-strip"><div class="w-max min-w-full [&_[role=radio]]:shrink-0 [&_[role=radio]]:whitespace-nowrap"><TabButtons label="Library places" value={props.value} onValueChange={go} options={[
       { value: "overview", label: "Overview" },
       { value: "plays", label: `Plays${count((data) => data.plays)}` },
       { value: "find", label: "Knowledge" },
       { value: "documents", label: `Documents${count((data) => data.documents)}` },
       { value: "tools", label: `Tools${count((data) => data.tools)}` },
       { value: "review", label: `Review inbox${count((data) => data.awaitingReview)}` },
-    ]} />
+    ]} /></div></div>
     {props.trailing}
   </div>;
 }

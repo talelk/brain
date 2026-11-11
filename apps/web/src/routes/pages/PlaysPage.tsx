@@ -13,6 +13,8 @@ import type { TaskHandoff } from "../../ui/components/TaskReview";
 import { TaskCatalog } from "../catalog";
 import { EmptyState } from "@talelk/newui-molecules";
 import { LibraryTabs } from "../../ui/components/LibraryTabs";
+import { AddStarterPlays } from "../../ui/components/LibraryControls";
+import { librarySummary, type LibrarySummary } from "../../data/library";
 
 /**
  * Plays (#25/#43): the catalog of mission templates and single tasks of the
@@ -39,6 +41,8 @@ export default function PlaysPage(): JSX.Element {
       return { snapshot: [...response.snapshot.items], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
   });
+  const library = createScopedRead<LibrarySummary>({ scope: app.scope, load: async (scope, signal) => librarySummary(scope.workspaceId, signal) });
+  const onAdded = () => { void plays.refresh({ force: true }); void library.refresh({ force: true }); };
   const shownPlays = () => (plays.state().data ?? []).filter((play) => `${play.playId} ${play.title} ${play.description ?? ""}`.toLowerCase().includes(search().toLowerCase()));
   const canAuthor = () => Boolean(app.identity()?.actor.scopes.includes("config:activate"));
   /** Dispatch handoff: the live console when the run already binds a session, else the run inspector. */
@@ -55,9 +59,10 @@ export default function PlaysPage(): JSX.Element {
         <Button variant="solid" theme="blue" iconLeft="lucide-sparkles" onClick={describe}>Describe it to Brain</Button>
       </div></Show>
     </div>
-    <Show when={(plays.state().data ?? []).length > 0 || !["ready", "empty-authorized", "loading"].includes(plays.state().status)}>
-      <WorkspaceSection title="Plays" description="Mission templates: a team, a plan shape and a brief.">
-        <ScreenRegion state={plays.state()} onRetry={() => void plays.refresh({ force: true })} emptyTitle="No plays yet" emptyDescription="Draft a play in the Studio and activate the release that contains it.">
+    <Show when={(plays.state().data ?? []).length > 0 || (library.state().data?.starterPlays.installable ?? 0) > 0 || !["ready", "empty-authorized", "loading"].includes(plays.state().status)}>
+      <WorkspaceSection title="Plays" description="Mission templates: a team, a plan shape and a brief."
+        actions={<AddStarterPlays summary={library.state().data} onAdded={onAdded} />}>
+        <ScreenRegion state={plays.state()} onRetry={() => void plays.refresh({ force: true })} emptyTitle="No plays yet" emptyDescription={(library.state().data?.starterPlays.installable ?? 0) > 0 ? "Add the ready-made Plays with one click, or draft your own in the Studio." : "Draft a play in the Studio and activate the release that contains it."}>
           <Show when={shownPlays().length} fallback={<EmptyState size="sm" icon="lucide-search" title="No matching plays" description="Clear the search to see every play in the active release." />}>
             <div class="brain-queue"><For each={shownPlays()}>{(play) => <QueueRow title={play.title} description={play.description ?? `${play.taskCount} tasks`} icon="lucide-book-open-check"
               meta={<><span>{play.team.length} members</span><span>{play.taskCount} tasks</span></>}

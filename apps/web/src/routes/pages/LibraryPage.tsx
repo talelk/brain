@@ -1,4 +1,4 @@
-import { For } from "solid-js";
+import { For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Button } from "@talelk/newui-atoms";
@@ -9,6 +9,7 @@ import { ScreenRegion } from "../../ui/screen-region";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { WorkspaceSection } from "../../ui/components/Domain";
 import { LibraryTabs } from "../../ui/components/LibraryTabs";
+import { AddStarterPlays, AutoPublishSetting } from "../../ui/components/LibraryControls";
 
 /**
  * `/w/:id/library` (ADR 0014): the first-class place for everything Brain can reuse. One screen counts what is waiting for
@@ -24,7 +25,7 @@ export default function LibraryPage(): JSX.Element {
   });
   const base = () => `/w/${app.workspaceId()}`;
   const shelves = (): Array<{ id: string; label: string; count: (value: LibrarySummary) => number; description: string; icon: string; href: string; emphasis?: boolean }> => [
-    { id: "review", label: "Awaiting your review", count: (value) => value.awaitingReview, description: "What Brain wrote up from finished missions, and tool or Play proposals. Approve once and it is reused.", icon: "lucide-list-checks", href: `${base()}/knowledge/review`, emphasis: true },
+    { id: "review", label: "Awaiting your review", count: (value) => value.awaitingReview, description: summary.state().data?.autoPublishKnowledge === false ? "What Brain wrote up from finished missions, and tool or Play proposals. Approve once and it is reused." : "Tool and Play proposals, and any write-up that needs a second person. Verified write-ups publish themselves.", icon: "lucide-list-checks", href: `${base()}/knowledge/review`, emphasis: true },
     { id: "knowledge", label: "Published knowledge", count: (value) => value.publishedKnowledge, description: "Approved write-ups. Search and future plans use them, with their source.", icon: "lucide-brain", href: `${base()}/knowledge` },
     { id: "documents", label: "Documents", count: (value) => value.documents, description: "Files you added or saved from a result. Searchable by agents as soon as they are read.", icon: "lucide-file-text", href: `${base()}/knowledge?tab=documents` },
     { id: "plays", label: "Plays", count: (value) => value.plays, description: "Ready-made teams and plans you can start a mission from.", icon: "lucide-book-open-check", href: `${base()}/plays` },
@@ -48,6 +49,17 @@ export default function LibraryPage(): JSX.Element {
               </button>}</For>
             </div>
           </ScreenRegion>
+        </WorkspaceSection>
+        <WorkspaceSection title="Hands-off" description="What Brain does for you without a click.">
+          <div class="flex min-w-0 flex-col gap-3">
+            <AutoPublishSetting summary={summary.state().data} onChanged={() => void summary.refresh({ force: true })} />
+            <Show when={(summary.state().data?.starterPlays.installable ?? 0) > 0}>
+              <div class="flex min-w-0 flex-wrap items-center gap-3">
+                <AddStarterPlays summary={summary.state().data} onAdded={() => void summary.refresh({ force: true })} />
+                <span class="text-caption text-ink-gray-7">Research and write, compare options, checklist, weekly status, customer reply draft, incident triage. They become ordinary Plays you can edit.</span>
+              </div>
+            </Show>
+          </div>
         </WorkspaceSection>
         <p class="text-interface text-ink-gray-7">Reuse is on by default: Brain looks here before it plans, offers similar past work, and says on each result what it reused. Withdraw anything from search at any time.</p>
       </PageStack>

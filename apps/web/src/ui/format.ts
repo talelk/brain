@@ -27,9 +27,12 @@ export function shortDigest(digest: string | undefined, hexChars = 12): string {
   return `${prefix}${hex.slice(0, hexChars)}…`;
 }
 
+/** Times read on a 24-hour clock everywhere (no AM/PM); the locale still orders the date. */
+export const CLOCK_24 = { hourCycle: "h23" } as const;
+
 /** The locale date-time form DateText renders, for string-only contexts (table columns, descriptions). */
 export function formatDateTime(value?: string | number | Date): string {
-  return value ? new Date(value).toLocaleString() : "—";
+  return value ? new Date(value).toLocaleString(undefined, CLOCK_24) : "—";
 }
 
 /** Compact relative form for meta stamps: "3 min ago", "in 2 h", "5 d ago". */

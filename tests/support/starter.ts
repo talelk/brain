@@ -8,6 +8,12 @@ export function fixtureStarter() {
   const replacements = new Map<string, string>();
   for (const doc of bundle.documents) {
     const value = JSON.parse(doc.text);
+    if (value.kind === "Play") {
+      // A Play's team names the engine its agent runs on; the fixture agents run on the fixture engine.
+      for (const member of value.spec.team as Array<{ engine: string }>) member.engine = "fixture";
+      doc.text = JSON.stringify(value, null, 2) + "\n";
+      continue;
+    }
     if (value.kind !== "Agent" && value.kind !== "Workflow") continue;
     const prior = sha256Digest(new TextEncoder().encode(doc.text));
     if (value.kind === "Agent") value.spec.engine.anyOf = ["fixture"];

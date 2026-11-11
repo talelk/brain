@@ -14,6 +14,7 @@ import { DisclosureCard } from "../components/primitives";
 import { DateText } from "../screen-region";
 import { feedScroll, setFeedScroll } from "./ConsoleStore";
 import { summarizeActivity, type FeedActivity } from "./doing-now";
+import { CLOCK_24 } from "../format";
 
 /**
  * The live transcript (plan §3): one streaming conversation per selected
@@ -297,7 +298,7 @@ function toRecordFrame(event: StreamEvent): Rec {
 
 const timeOf = (value: string) => {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "" : date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleTimeString(undefined, { ...CLOCK_24, hour: "2-digit", minute: "2-digit", second: "2-digit" });
 };
 
 export function ConsoleFeed(props: {

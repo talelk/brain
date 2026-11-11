@@ -1,0 +1,75 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Play",
+  "metadata": {
+    "id": "support-reply-draft",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "title": "Draft a customer support reply",
+    "description": "Read a customer request and draft a polite, accurate reply for a person to review and send. The reply stays a draft: Brain sends nothing.",
+    "intent": "Read the customer request in the brief and draft a polite, accurate reply that a support person can review and send.",
+    "successCriteria": [
+      "The reply answers what the customer asked",
+      "The tone is polite and plain, without promises the team has not made",
+      "Anything that needs a person to confirm is flagged"
+    ],
+    "constraints": [
+      "Draft only: nothing is sent to the customer",
+      "Do not promise refunds, dates or fixes that are not in the notes"
+    ],
+    "team": [
+      {
+        "memberId": "worker",
+        "role": "Support writer",
+        "agentId": "task-worker",
+        "engine": "pi"
+      }
+    ],
+    "plan": {
+      "tasks": [
+        {
+          "id": "understand",
+          "title": "Work out what the customer needs and what is known",
+          "criteria": [
+            "The customer's request is restated in one sentence",
+            "Known facts and missing facts are listed"
+          ],
+          "dependsOn": [],
+          "assignment": {
+            "kind": "agent",
+            "id": "worker",
+            "role": "specialist"
+          },
+          "estimatedMinutes": 6
+        },
+        {
+          "id": "draft",
+          "title": "Draft the reply for review",
+          "criteria": [
+            "The reply answers what the customer asked",
+            "Anything that needs a person to confirm is flagged",
+            "The reply is marked as a draft"
+          ],
+          "dependsOn": [
+            "understand"
+          ],
+          "assignment": {
+            "kind": "agent",
+            "id": "worker",
+            "role": "specialist"
+          },
+          "estimatedMinutes": 8
+        }
+      ]
+    },
+    "autonomy": "standard",
+    "parkingThreshold": 3,
+    "budget": {
+      "maxMicroUsd": 2000000,
+      "maxWallClockMs": 1800000,
+      "memberCap": 2,
+      "attemptReserveMicroUsd": 0
+    }
+  }
+}
