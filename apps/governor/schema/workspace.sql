@@ -26,6 +26,8 @@ CREATE TABLE missions (
   budget_wall_ms INTEGER CHECK(budget_wall_ms IS NULL OR budget_wall_ms >= 0),
   member_cap INTEGER NOT NULL DEFAULT 3 CHECK(member_cap BETWEEN 1 AND 50),
   attempt_reserve_micro_usd INTEGER NOT NULL DEFAULT 0 CHECK(attempt_reserve_micro_usd >= 0),
+  budget_tokens INTEGER CHECK(budget_tokens IS NULL OR budget_tokens >= 0),
+  attempt_reserve_tokens INTEGER NOT NULL DEFAULT 0 CHECK(attempt_reserve_tokens >= 0),
   active_ms INTEGER NOT NULL DEFAULT 0 CHECK(active_ms >= 0), active_since_ms INTEGER,
   policy_json TEXT NOT NULL DEFAULT '{"preset":"standard","operations":["conflictTask.create","decision.accept","member.addExistingRole","task.add","task.change","task.reassign","task.remove"],"version":1}' CHECK(json_valid(policy_json)),
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
@@ -66,7 +68,16 @@ CREATE TABLE mission_spend (
   attempt_id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), run_id TEXT NOT NULL,
   reserved_micro_usd INTEGER NOT NULL CHECK(reserved_micro_usd >= 0),
   settled_micro_usd INTEGER CHECK(settled_micro_usd IS NULL OR settled_micro_usd >= 0),
+  reserved_tokens INTEGER NOT NULL DEFAULT 0 CHECK(reserved_tokens >= 0),
+  input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, cached_input_tokens INTEGER NOT NULL DEFAULT 0,
+  accounting TEXT CHECK(accounting IS NULL OR accounting IN ('final-total','incremental')), estimated INTEGER NOT NULL DEFAULT 0,
   created_at_ms INTEGER NOT NULL, settled_at_ms INTEGER
+) STRICT;
+CREATE INDEX mission_spend_run ON mission_spend(run_id);
+CREATE INDEX mission_spend_settled ON mission_spend(settled_at_ms);
+CREATE TABLE workspace_spend_cap (
+  id INTEGER PRIMARY KEY CHECK(id = 1), daily_micro_usd INTEGER CHECK(daily_micro_usd IS NULL OR daily_micro_usd >= 0),
+  weekly_micro_usd INTEGER CHECK(weekly_micro_usd IS NULL OR weekly_micro_usd >= 0), updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
 ) STRICT;
 CREATE INDEX mission_spend_open ON mission_spend(mission_id, settled_at_ms);
 CREATE TABLE mission_brief_versions (

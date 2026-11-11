@@ -7315,6 +7315,11 @@
             "missions.sinceLastVisit",
             "notifications.list",
             "quality.summary",
+            "usage.run",
+            "usage.task",
+            "usage.mission",
+            "usage.workspace",
+            "plans.estimate",
             "missions.forSubject"
           ]
         },
@@ -7378,6 +7383,11 @@
             "missions.sinceLastVisit",
             "notifications.list",
             "quality.summary",
+            "usage.run",
+            "usage.task",
+            "usage.mission",
+            "usage.workspace",
+            "plans.estimate",
             "missions.forSubject"
           ]
         },
@@ -10892,6 +10902,9 @@
         },
         {
           "$ref": "#/$defs/MissionBudgetSetCommand"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceSpendCapSetCommand"
         },
         {
           "$ref": "#/$defs/WorkspaceAutonomyCeilingSetCommand"
@@ -21703,6 +21716,16 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991
+        },
+        "maxTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "attemptReserveTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
         }
       },
       "required": [
@@ -21732,13 +21755,47 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991
+        },
+        "settledTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "reservedTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "inputTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "outputTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cachedInputTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "estimated": {
+          "type": "boolean"
         }
       },
       "required": [
         "settledMicroUsd",
         "reservedMicroUsd",
         "activeMs",
-        "runningMembers"
+        "runningMembers",
+        "settledTokens",
+        "reservedTokens",
+        "inputTokens",
+        "outputTokens",
+        "cachedInputTokens",
+        "estimated"
       ],
       "additionalProperties": false
     },
@@ -22524,6 +22581,331 @@
           }
         }
       }
+    },
+    "UsageSummary": {
+      "type": "object",
+      "properties": {
+        "settledMicroUsd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "reservedMicroUsd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "settledTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "reservedTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "inputTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "outputTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cachedInputTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "attempts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "openAttempts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "estimated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "settledMicroUsd",
+        "reservedMicroUsd",
+        "settledTokens",
+        "reservedTokens",
+        "inputTokens",
+        "outputTokens",
+        "cachedInputTokens",
+        "attempts",
+        "openAttempts",
+        "estimated"
+      ],
+      "additionalProperties": false
+    },
+    "SpendCapView": {
+      "type": "object",
+      "properties": {
+        "dailyMicroUsd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "weeklyMicroUsd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "dailySpentMicroUsd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "weeklySpentMicroUsd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "dailySpentMicroUsd",
+        "weeklySpentMicroUsd"
+      ],
+      "additionalProperties": false
+    },
+    "UsageView": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "run",
+            "task",
+            "mission",
+            "workspace"
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/Id"
+        },
+        "usage": {
+          "$ref": "#/$defs/UsageSummary"
+        },
+        "attemptRows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "attemptId": {
+                "$ref": "#/$defs/Id"
+              },
+              "runId": {
+                "$ref": "#/$defs/Id"
+              },
+              "settled": {
+                "type": "boolean"
+              },
+              "inputTokens": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "outputTokens": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "cachedInputTokens": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "microUsd": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "reservedMicroUsd": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "accounting": {
+                "type": "string",
+                "enum": [
+                  "final-total",
+                  "incremental"
+                ]
+              },
+              "estimated": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "attemptId",
+              "runId",
+              "settled",
+              "inputTokens",
+              "outputTokens",
+              "cachedInputTokens",
+              "microUsd",
+              "reservedMicroUsd",
+              "estimated"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "spendCap": {
+          "$ref": "#/$defs/SpendCapView"
+        }
+      },
+      "required": [
+        "scope",
+        "id",
+        "usage"
+      ],
+      "additionalProperties": false
+    },
+    "PlanEstimate": {
+      "type": "object",
+      "properties": {
+        "planVersionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "taskId": {
+                "$ref": "#/$defs/ConfigId"
+              },
+              "title": {
+                "type": "string"
+              },
+              "estimatedMinutes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10080
+              },
+              "maxMicroUsd": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "taskId",
+              "title"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "taskCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "totalEstimatedMinutes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "unknownMinutesTasks": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "totalMicroUsd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "unknownCostTasks": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "ceilingMicroUsd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "ceilingTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "ceilingWallClockMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "planVersionId",
+        "tasks",
+        "taskCount",
+        "unknownMinutesTasks",
+        "unknownCostTasks"
+      ],
+      "additionalProperties": false
+    },
+    "WorkspaceSpendCapSetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "workspace.spendCap.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "dailyMicroUsd": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "weeklyMicroUsd": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
     }
   }
 }

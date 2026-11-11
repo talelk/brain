@@ -7,7 +7,9 @@ import { assertPlanTasks } from "../../domain/work-plan";
 import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations, withinCeiling, type AgentCapabilities } from "../../domain/mission-policy";
 import { activeReleaseRecord } from "../configuration/index";
 import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
-import { admit, budgetOf, clockSet, hasHeadroom, reserve as reserveSpend, settle, usageOf } from "./budget";
+import { admit, budgetOf, clockSet, hasHeadroom, reserve as reserveSpend, settle, settleAll, usageOf } from "./budget";
+import { missionUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUsage } from "./usage";
+import { planEstimate } from "./estimate";
 import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, sendMessage, verifyOutputs } from "./outputs";
 import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissionBundle, recordMissionVerdict, submitHandoff, workflowCovers } from "../evidence/index";
 import type { HandoffNotes } from "@brain/contracts";
@@ -25,7 +27,7 @@ type MissionRow = {
   id: string; title: string; intent: string; success_criteria_json: string; owner_id: string;
   active_plan_version_id: string | null; state: Mission["state"]; pause_reason: "human" | "budget" | null;
   outcome: MissionOutcome | null; brief_version: number; policy_json: string; parking_threshold: number; auto_start: number;
-  budget_micro_usd: number | null; budget_wall_ms: number | null; member_cap: number; attempt_reserve_micro_usd: number; final_allowance_micro_usd: number;
+  budget_micro_usd: number | null; budget_wall_ms: number | null; member_cap: number; attempt_reserve_micro_usd: number; final_allowance_micro_usd: number; budget_tokens: number | null; attempt_reserve_tokens: number;
   coordinator_member_id: string | null; coordinator_workflow: string | null; play_id: string | null;
   active_ms: number; active_since_ms: number | null;
   version: number; created_at_ms: number; updated_at_ms: number;
@@ -156,6 +158,7 @@ export class MissionService {
       case "mission.policy.set": return this.setPolicy(actor, workspaceId, command.payload, command.expectedVersion);
       case "mission.message.send": return this.message(actor, workspaceId, command.payload);
       case "mission.budget.set": return this.setBudget(actor, workspaceId, command.payload, command.expectedVersion);
+      case "workspace.spendCap.set": return this.setSpendCap(actor, workspaceId, command.payload);
       case "handoff.submit": return this.handoff(actor, workspaceId, command.payload);
       case "mission.verdict.record": return this.verdict(actor, workspaceId, command.payload);
       case "plan.propose": return this.proposePlan(actor, workspaceId, command.payload);
@@ -183,11 +186,12 @@ export class MissionService {
     const policy = withinCeiling(policyFor(preset, 1), this.ceiling(workspaceId));
     this.store.inTx(db, () => {
       const now = this.store.now();
-      const budget = (payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap?: number; attemptReserveMicroUsd?: number; finalAllowanceMicroUsd?: number } | undefined) ?? play?.spec.budget ?? {};
+      const budget = (payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap?: number; attemptReserveMicroUsd?: number; finalAllowanceMicroUsd?: number; maxTokens?: number; attemptReserveTokens?: number } | undefined) ?? play?.spec.budget ?? {};
       db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,policy_json,parking_threshold,auto_start,budget_micro_usd,budget_wall_ms,member_cap,attempt_reserve_micro_usd,active_since_ms,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
         .run(id, String(payload["title"]), intent, JSON.stringify(successCriteria), actor.actorId, JSON.stringify(policy), Number(payload["parkingThreshold"] ?? play?.spec.parkingThreshold ?? 3), payload["autoStart"] === false ? 0 : 1,
           budget.maxMicroUsd ?? null, budget.maxWallClockMs ?? null, budget.memberCap ?? 3, budget.attemptReserveMicroUsd ?? 0, now, now, now);
       if (budget.finalAllowanceMicroUsd) db.prepare("UPDATE missions SET final_allowance_micro_usd=? WHERE id=?").run(budget.finalAllowanceMicroUsd, id);
+      db.prepare("UPDATE missions SET budget_tokens=?,attempt_reserve_tokens=? WHERE id=?").run(budget.maxTokens ?? null, budget.attemptReserveTokens ?? 0, id);
       db.prepare("INSERT INTO mission_brief_versions(mission_id,version,intent,constraints_json,change,created_by,created_at_ms) VALUES (?,1,?,?,'created',?,?)")
         .run(id, intent, JSON.stringify(constraints), actor.actorId, now);
       for (const subject of (payload["subjects"] as Array<{ pack: string; kind: "ticket" | "incident"; id: string }> | undefined) ?? []) {
@@ -439,17 +443,29 @@ export class MissionService {
     return Boolean(row && row.state !== "closed");
   }
 
+  /** A human sets the workspace's daily and weekly spend cap; missions paused by it resume once the cap is raised (#55). */
+  private setSpendCap(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only humans set the workspace spend cap");
+    const db = this.db(actor, workspaceId);
+    this.store.inTx(db, () => {
+      setSpendCap(db, actor.actorId, this.store.now(), { daily: payload["dailyMicroUsd"] as number | undefined, weekly: payload["weeklyMicroUsd"] as number | undefined });
+      for (const { id } of db.prepare("SELECT id FROM missions WHERE state='paused' AND pause_reason='budget'").all() as Array<{ id: string }>) wake(this.store, db, id, "budget-changed");
+      this.store.emit(db, { aggregateType: "workspace", aggregateId: workspaceId, eventType: "mission.budgetChanged", payload: {} });
+    });
+    return workspaceId;
+  }
+
   /** A human sets the mission's budget; raising it is what lifts a budget pause on resume. */
   private setBudget(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>, expectedVersion?: number): string {
     if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only humans set a mission budget");
     const mission = this.missionRow(actor, workspaceId, String(payload["missionId"]));
     assertExpectedVersion(mission.version, expectedVersion);
     assertNotClosed(mission);
-    const budget = payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap: number; attemptReserveMicroUsd?: number; finalAllowanceMicroUsd?: number };
+    const budget = payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap: number; attemptReserveMicroUsd?: number; finalAllowanceMicroUsd?: number; maxTokens?: number; attemptReserveTokens?: number };
     const db = this.db(actor, workspaceId);
     this.store.inTx(db, () => {
-      db.prepare("UPDATE missions SET budget_micro_usd=?,budget_wall_ms=?,member_cap=?,attempt_reserve_micro_usd=?,final_allowance_micro_usd=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?")
-        .run(budget.maxMicroUsd ?? null, budget.maxWallClockMs ?? null, budget.memberCap, budget.attemptReserveMicroUsd ?? mission.attempt_reserve_micro_usd, budget.finalAllowanceMicroUsd ?? mission.final_allowance_micro_usd, this.store.now(), mission.id, mission.version);
+      db.prepare("UPDATE missions SET budget_micro_usd=?,budget_wall_ms=?,member_cap=?,attempt_reserve_micro_usd=?,final_allowance_micro_usd=?,budget_tokens=?,attempt_reserve_tokens=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?")
+        .run(budget.maxMicroUsd ?? null, budget.maxWallClockMs ?? null, budget.memberCap, budget.attemptReserveMicroUsd ?? mission.attempt_reserve_micro_usd, budget.finalAllowanceMicroUsd ?? mission.final_allowance_micro_usd, budget.maxTokens ?? null, budget.attemptReserveTokens ?? mission.attempt_reserve_tokens, this.store.now(), mission.id, mission.version);
       this.store.emit(db, { aggregateType: "mission", aggregateId: mission.id, eventType: "mission.budgetChanged", payload: { missionId: mission.id } });
       wake(this.store, db, mission.id, "budget-changed");
     });
@@ -915,6 +931,11 @@ export class MissionService {
       const watching = Boolean(db.prepare("SELECT 1 FROM mission_watchers WHERE principal_id=? AND mission_id=?").get(actor.actorId, row.id));
       return { ...this.mission(workspaceId, row), watching } as unknown as JsonValue;
     }
+    if (queryType === "usage.run") return runUsage(this.store, db, workspaceId, String(resourceId)) as unknown as JsonValue;
+    if (queryType === "usage.task") return { scope: "task", id: this.workItemRow(actor, workspaceId, String(resourceId)).id, usage: (settleAll(this.store, db), taskUsage(db, String(resourceId))) } as unknown as JsonValue;
+    if (queryType === "usage.mission") return { scope: "mission", id: this.missionRow(actor, workspaceId, String(resourceId)).id, usage: (settleAll(this.store, db), missionUsage(db, String(resourceId))) } as unknown as JsonValue;
+    if (queryType === "usage.workspace") { settleAll(this.store, db); return { scope: "workspace", id: workspaceId, usage: workspaceUsage(db), spendCap: spendCapOf(db, this.store.now()) } as unknown as JsonValue; }
+    if (queryType === "plans.estimate") return planEstimate(this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))), db) as unknown as JsonValue;
     if (queryType === "plans.get") return this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "workItems.list") {
       const rows = db.prepare("SELECT * FROM work_items WHERE state!='abandoned' ORDER BY updated_at_ms DESC,id LIMIT ?").all(limit) as WorkItemRow[];

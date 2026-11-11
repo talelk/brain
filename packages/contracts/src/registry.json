@@ -602,6 +602,15 @@
       ]
     },
     {
+      "type": "workspace.spendCap.set",
+      "schema": "WorkspaceSpendCapSetCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "workspace.autonomyCeiling.set",
       "schema": "WorkspaceAutonomyCeilingSetCommand",
       "scope": "config:activate",
@@ -705,7 +714,12 @@
     "missions.sinceLastVisit",
     "notifications.list",
     "missions.forSubject",
-    "quality.summary"
+    "quality.summary",
+    "usage.run",
+    "usage.task",
+    "usage.mission",
+    "usage.workspace",
+    "plans.estimate"
   ],
   "events": [
     {
