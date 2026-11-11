@@ -17404,6 +17404,14 @@
         },
         "createdAt": {
           "$ref": "#/$defs/Timestamp"
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 320
         }
       },
       "required": [

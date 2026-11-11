@@ -84,6 +84,9 @@ export default function RunnersPage(): JSX.Element {
   });
   const pinnedCount = (runnerId: string) => (automations.state().data ?? []).filter((automation) => automation.state !== "retired" && automation.execution.mode === "personal-host" && automation.execution.runnerId === runnerId).length;
   const all = () => runners.state().data ?? [];
+  /** No runner has ever enrolled: explain what a runner is and the one next step, instead of zeroed stats and empty filters. */
+  const firstUse = () => runners.state().status === "empty-authorized";
+  const canEnroll = () => Boolean(app.identity()?.actor.scopes.includes("runner:admin"));
   const groups = () => [...new Set(all().map((runner) => runner.group))].sort();
   const visible = () => all().filter((runner) =>
     (!value("group") || runner.group === value("group")) &&
@@ -98,26 +101,35 @@ export default function RunnersPage(): JSX.Element {
   return <BrainPage title="Runners" description="The machines that execute work. Each row says whether a runner can take new work right now, and why not if it cannot."
     actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={() => void runners.refresh({ force: true })}>Refresh</Button><Show when={app.identity()?.actor.scopes.includes("config:activate")}><Button variant="outline" iconLeft="lucide-file-cog" onClick={() => void navigate("/studio/RunnerGroup")}>Runner group drafts</Button></Show><Show when={app.identity()?.actor.scopes.includes("runner:admin")}><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setEnrollOpen(true)}>Enroll runner</Button></Show></>}>
     <PageStack>
-      <FleetBar runners={all()} />
-      <StatGrid compact stats={[
+      <Show when={firstUse()}><div class="flex flex-col items-center gap-3 rounded-card border border-outline-gray-1 bg-surface-elevation-1 px-4 py-10 text-center">
+        <IconTile icon="lucide-server" tone="gray" />
+        <h2 class="text-base-medium">No runner is connected yet</h2>
+        <p class="brain-readable max-w-xl text-interface text-ink-gray-7">A runner is the machine that actually does the work Brain plans. Until one connects, missions can be planned but their tasks wait in the queue and nothing runs.</p>
+        <Show when={canEnroll()} fallback={<p class="max-w-xl text-interface text-ink-gray-7">Ask an administrator to enroll a runner. It takes one credential and one command.</p>}>
+          <ol class="max-w-xl list-decimal ps-5 text-start text-interface text-ink-gray-7"><li>Choose Enroll runner to get a one-use credential (valid ten minutes).</li><li>Start the runner on the machine that should do the work, with that credential.</li><li>Come back here: it appears with a verdict on whether it can take work.</li></ol>
+          <Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setEnrollOpen(true)}>Enroll your first runner</Button>
+        </Show>
+      </div></Show>
+      <Show when={!firstUse()}><FleetBar runners={all()} /></Show>
+      <Show when={!firstUse()}><StatGrid compact stats={[
         { label: "Online / offline", value: `${all().filter((runner) => runner.connectivity === "online").length} / ${all().filter((runner) => runner.connectivity === "offline").length}`, hint: "Connectivity, independent of admin state", icon: "lucide-radio" },
         { label: "Idle / busy", value: `${all().filter((runner) => runner.displayStatus === "idle").length} / ${all().filter((runner) => runner.displayStatus === "busy").length}`, hint: "Current allocation", icon: "lucide-activity" },
         { label: "Draining / quarantined", value: `${all().filter((runner) => runner.adminState === "draining").length} / ${all().filter((runner) => runner.adminState === "quarantined").length}`, hint: "Administrative restrictions", icon: "lucide-shield-alert" },
         { label: "Reserved slots", value: `${all().reduce((sum, runner) => sum + runner.reserved.slots, 0)} / ${all().reduce((sum, runner) => sum + runner.capacity.slots, 0)}`, hint: "Across this authorized fleet", icon: "lucide-layout-grid" },
-      ]} />
-      <FilterBar resultCount={visible().length} query={{ value: value("capability"), placeholder: "Filter verified capability…", onInput: (capability) => setParams({ capability: capability || undefined }) }} selects={[
+      ]} /></Show>
+      <Show when={!firstUse()}><FilterBar resultCount={visible().length} query={{ value: value("capability"), placeholder: "Filter verified capability…", onInput: (capability) => setParams({ capability: capability || undefined }) }} selects={[
         { label: "Group", value: value("group") || undefined, options: groups().map((group) => ({ value: group, label: group })), onValueChange: (group) => setParams({ group: group || undefined }) },
         { label: "Health", value: value("health") || undefined, options: [{ value: "healthy", label: "Healthy" }, { value: "degraded", label: "Degraded" }, { value: "unhealthy", label: "Unhealthy" }], onValueChange: (health) => setParams({ health: health || undefined }) },
         { label: "Admin state", value: value("admin") || undefined, options: [{ value: "enabled", label: "Enabled" }, { value: "draining", label: "Draining" }, { value: "quarantined", label: "Quarantined" }, { value: "disabled", label: "Disabled" }], onValueChange: (admin) => setParams({ admin: admin || undefined }) },
-      ]} onClearAll={value("group") || value("capability") || value("health") || value("admin") ? () => setParams({ group: undefined, capability: undefined, health: undefined, admin: undefined }) : undefined} />
-      <WorkspaceSection title="All runners" description="Reserved capacity is what Brain has promised to running attempts; it is not a live CPU reading.">
+      ]} onClearAll={value("group") || value("capability") || value("health") || value("admin") ? () => setParams({ group: undefined, capability: undefined, health: undefined, admin: undefined }) : undefined} /></Show>
+      <Show when={!firstUse()}><WorkspaceSection title="All runners" description="Reserved capacity is what Brain has promised to running attempts; it is not a live CPU reading.">
         <ScreenRegion state={runners.state()} skeleton="cards" emptyTitle="No runners enrolled" emptyDescription="Enroll an outbound runner supervisor to accept work for this organization." onRetry={() => void runners.refresh({ force: true })}>
           <Show when={visible().length} fallback={<EmptyState size="sm" icon="lucide-server-off" title="No runners match" description="Clear the group, capability, health or admin-state filters to see other enrolled runners." action={<Button size="sm" variant="outline" onClick={() => setParams({ group: undefined, capability: undefined, health: undefined, admin: undefined })}>Clear filters</Button>} />}>
-            <div class="overflow-x-auto"><table class="w-full min-w-[56rem] text-left text-interface">
+            <div class="relative w-full max-w-full min-w-0 overflow-x-auto"><table class="w-full min-w-[56rem] text-left text-interface">
               <caption class="sr-only">Runner fleet</caption>
               <thead class="text-caption text-ink-gray-6"><tr class="border-b border-outline-gray-2"><th scope="col" class="py-2 pe-3 font-medium">Runner</th><th scope="col" class="py-2 pe-3 font-medium">Can it take work?</th><th scope="col" class="py-2 pe-3 font-medium">Slots</th><th scope="col" class="py-2 pe-3 font-medium">CPU</th><th scope="col" class="py-2 pe-3 font-medium">Memory</th><th scope="col" class="py-2 pe-3 font-medium">Capabilities</th><th scope="col" class="py-2 pe-3 font-medium">Schedules</th><th scope="col" class="py-2 pe-3 font-medium">Heartbeat</th><th scope="col" class="py-2"><span class="sr-only">Actions</span></th></tr></thead>
               <tbody><For each={pageRows()}>{(runner) => { const v = verdict(runner); const pinned = () => pinnedCount(runner.runnerId); return <tr class="border-b border-outline-gray-1 align-top">
-                <th scope="row" class="py-3 pe-3 font-normal"><div class="flex min-w-0 items-center gap-2"><IconTile icon="lucide-server" tone={runner.connectivity === "online" ? "blue" : "gray"} /><div class="min-w-0"><div class="break-all text-base-medium">{runner.runnerId}</div><div class="text-caption text-ink-gray-6">Group {runner.group}</div><div class="mt-1 flex flex-wrap gap-1"><StatusBadge kind="connection" status={runner.connectivity} /><Show when={runner.adminState !== "enabled"}><StatusBadge kind="runner" status={runner.adminState} /></Show></div></div></div></th>
+                <th scope="row" class="min-w-[11rem] py-3 pe-3 font-normal"><div class="flex min-w-0 items-center gap-2"><IconTile icon="lucide-server" tone={runner.connectivity === "online" ? "blue" : "gray"} /><div class="min-w-0"><div class="break-words text-base-medium">{runner.runnerId}</div><div class="text-caption text-ink-gray-6">Group {runner.group}</div><div class="mt-1 flex flex-wrap gap-1"><StatusBadge kind="connection" status={runner.connectivity} /><Show when={runner.adminState !== "enabled"}><StatusBadge kind="runner" status={runner.adminState} /></Show></div></div></div></th>
                 <td class="py-3 pe-3"><div class="flex flex-col gap-1"><span class="inline-flex items-center gap-1.5"><span aria-hidden="true" class={`${v.tone === "good" ? "lucide-circle-check text-ink-green-3" : v.tone === "warn" ? "lucide-circle-alert text-ink-amber-3" : "lucide-circle-x text-ink-red-4"} size-4`} />{v.label}</span><span class="text-caption text-ink-gray-6">{placementNote(runner)}</span></div></td>
                 <td class="py-3 pe-3 tabular-nums">{runner.reserved.slots} / {runner.capacity.slots}<div class="text-caption text-ink-gray-6">{runner.activeAttemptIds.length} running</div></td>
                 <td class="py-3 pe-3 tabular-nums">{pct(runner.reserved.cpuMillicores, runner.capacity.cpuMillicores)}%<div class="text-caption text-ink-gray-6">{runner.reserved.cpuMillicores}m of {runner.capacity.cpuMillicores}m</div></td>
@@ -136,7 +148,7 @@ export default function RunnersPage(): JSX.Element {
             </Show>
           </Show>
         </ScreenRegion>
-      </WorkspaceSection>
+      </WorkspaceSection></Show>
       <RunnerEnrollmentDialog open={enrollOpen()} onClose={() => { setEnrollOpen(false); void runners.refresh({ force: true }); }} defaultGroup={groups()[0]} />
     </PageStack>
   </BrainPage>;

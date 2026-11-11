@@ -117,7 +117,7 @@ test("axe: key seeded screens have no serious or critical violations", async ({ 
     ["outputs", "/w/operations/outputs", "Outputs"],
     ["approvals", "/approvals", "Approvals"],
     ["plays", "/w/operations/plays?mode=catalog", "Plays"],
-    ["settings-setup", "/settings?tab=setup", "Workspace setup"],
+    ["settings-setup", "/settings?tab=setup", "Setup"],
     ["runners", "/runners", "Runners"],
   ];
   const failures: string[] = [];

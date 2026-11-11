@@ -45,18 +45,19 @@ export default function SettingsPage(): JSX.Element {
       onGrant={async (principalId, role, reason) => {
         const expectedVersion = Math.max(1, ...(settings.state().data?.members.map((member) => member.version) ?? []));
         const result = await app.run("member.grant", { principalId, role: role as "viewer" | "operator" | "workspace-lead" | "approver", reason }, { expectedVersion });
-        setMessage(result.detail);
+        setMessage(result.outcome === "applied" ? `Role ${role} granted.` : result.detail);
         await settings.refresh({ force: true });
       }}
       onRevoke={async (principalId, role, reason) => {
         const expectedVersion = Math.max(1, ...(settings.state().data?.members.map((member) => member.version) ?? []));
         const result = await app.run("member.revoke", { principalId, role: role as "viewer" | "operator" | "workspace-lead" | "approver", reason }, { expectedVersion });
-        setMessage(result.detail);
+        setMessage(result.outcome === "applied" ? `Role ${role} revoked.` : result.detail);
         await settings.refresh({ force: true });
       }}
       onActivate={async (configDigest, expectedActiveDigest) => {
         const result = await app.run("config.activate", { configDigest, expectedActiveDigest });
-        setMessage(result.detail);
+        if (!result.accepted) throw new Error(result.detail);
+        setMessage("");
         await Promise.all([settings.refresh({ force: true }), context.refresh({ force: true })]);
       }}
       activeConfigDigest={context.state().data?.release.configDigest}

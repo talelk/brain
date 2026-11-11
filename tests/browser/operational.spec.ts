@@ -31,7 +31,7 @@ test("optional-factor operator inspects a release, activates it, dispatches both
   await expect(page.getByRole("heading",{name:"Invitations",exact:true,level:1})).toBeVisible();
   await page.goto(`${governor.url}/settings?tab=policy`);
   await expect(page.getByRole("heading",{name:"Authentication",exact:true})).toBeVisible();
-  await expect(page.getByText("Enabled · sign-in only",{exact:true})).toBeVisible();
+  await expect(page.getByText("On · for signing in",{exact:true})).toBeVisible();
   await page.goto(`${governor.url}/w/operations/knowledge`);
   await expect(page.getByRole("link",{name:"Open Memory UI"})).toHaveAttribute("href","https://memory.example.test/");
   await expect(page.getByRole("link",{name:"Open Memory UI"})).toHaveAttribute("rel","noopener noreferrer");

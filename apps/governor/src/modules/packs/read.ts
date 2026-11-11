@@ -80,10 +80,16 @@ export function listPack(store: Store, actor: ActorContext, queryType: string, w
       cur.createdAtMs = Math.min(cur.createdAtMs, Number(r["granted_at_ms"]));
       byPrincipal.set(pid, cur);
     }
-    const items = [...byPrincipal.entries()].map(([principalId, g]) => ({
-      id: `grant-${workspaceId}-${principalId}`, workspaceId, principalId,
-      roles: g.roles, version: g.version, revoked: g.revoked, createdAt: iso(g.createdAtMs),
-    }));
+    // A grant names a principal id; people read names, so join the sign-in account's name and email.
+    const people = new Map((store.control.prepare('SELECT p.id AS id, u.name AS name, u.email AS email FROM principals p JOIN "user" u ON u.id=p.auth_subject_id WHERE p.organization_id=? AND p.kind=\'human\'').all(actor.organizationId) as Array<{ id: string; name: string; email: string }>).map((person) => [person.id, person]));
+    const items = [...byPrincipal.entries()].map(([principalId, g]) => {
+      const person = people.get(principalId);
+      return {
+        id: `grant-${workspaceId}-${principalId}`, workspaceId, principalId,
+        roles: g.roles, version: g.version, revoked: g.revoked, createdAt: iso(g.createdAtMs),
+        ...(person ? { displayName: person.name.slice(0, 256), email: person.email.slice(0, 320) } : {}),
+      };
+    });
     return { items } as unknown as JsonValue;
   }
   if (queryType === "audit.list") {

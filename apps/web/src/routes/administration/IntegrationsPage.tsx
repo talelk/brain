@@ -53,6 +53,9 @@ export default function IntegrationsPage(): JSX.Element {
     refreshMs: 3000,
   });
 
+  /** Nothing connected yet: one explanation and one next step instead of four zeroes and two empty boxes. */
+  const firstUse = () => integrations.state().status === "empty-authorized";
+
   async function refresh(): Promise<void> {
     await Promise.all([integrations.refresh({ force: true }), repositories.refresh({ force: true })]);
   }
@@ -97,14 +100,21 @@ export default function IntegrationsPage(): JSX.Element {
     actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={() => void refresh()}>Refresh</Button><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => { setError(""); setConnectOpen(true); }}>Connect remote</Button></>}>
     <PageStack>
       <Show when={error()}><Alert theme="red" variant="outline" title="Integration action failed" description={error()} /></Show>
-      <StatGrid compact stats={[
+      <Show when={firstUse()}><div class="flex flex-col items-center gap-3 rounded-card border border-outline-gray-1 bg-surface-elevation-1 px-4 py-10 text-center">
+        <IconTile icon="lucide-plug" tone="gray" />
+        <h2 class="text-base-medium">No repository is connected</h2>
+        <p class="brain-readable max-w-xl text-interface text-ink-gray-7">Brain works without this. Connect a repository when you want a workspace's workflows to read project files, or when you want Brain to propose changes to your configuration for review. Nothing is ever pushed without your approval.</p>
+        <ol class="max-w-xl list-decimal ps-5 text-start text-interface text-ink-gray-7"><li>Choose Connect remote and give the repository URL (and a token if it is private).</li><li>Verify it: Brain checks the real server response.</li><li>Bind a repository to a workspace so its workflows can use it.</li></ol>
+        <Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => { setError(""); setConnectOpen(true); }}>Connect a repository</Button>
+      </div></Show>
+      <Show when={!firstUse()}><StatGrid compact stats={[
         { label: "Connections", value: String(integrations.state().data?.connections.length ?? 0), hint: "Configured remotes", icon: "lucide-plug" },
         { label: "Verified", value: String(integrations.state().data?.connections.filter((connection) => connection.status === "verified").length ?? 0), hint: "Tested and working", icon: "lucide-circle-check" },
         { label: "Bindings", value: String(integrations.state().data?.bindings.length ?? 0), hint: "Repositories linked to a workspace", icon: "lucide-link" },
         { label: "Proposed changes", value: String(integrations.state().data?.proposals.length ?? 0), hint: "Nothing is pushed until reviewed", icon: "lucide-git-pull-request" },
-      ]} />
+      ]} /></Show>
       <div class="brain-detail-stack">
-        <WorkspaceSection title="Configured connections" description="Configured, authenticated and workflow-usable are different states. Verification uses the real server response.">
+        <Show when={!firstUse()}><WorkspaceSection title="Configured connections" description="Configured, authenticated and workflow-usable are different states. Verification uses the real server response.">
           <ScreenRegion state={integrations.state()} onRetry={() => void integrations.refresh()} emptyTitle="No Git connections" emptyDescription="Use Connect remote to add one. Credentials stay hidden after creation.">
             <div class="brain-queue"><For each={integrations.state().data?.connections}>{(connection) => <article class="flex gap-3 border-b border-outline-gray-1 py-3">
               <IconTile icon="lucide-git-branch" tone={connection.status === "verified" ? "green" : connection.status === "failed" ? "red" : "amber"} />
@@ -116,17 +126,17 @@ export default function IntegrationsPage(): JSX.Element {
               </div>
             </article>}</For></div>
           </ScreenRegion>
-        </WorkspaceSection>
+        </WorkspaceSection></Show>
         <FormSheet open={Boolean(selectedConnection())} onClose={() => setSelectedConnection("")} title="Bind a verified repository" centered description="Configuration and project bindings are separate authority classes. No binding activates a release or mutates Git."
           submit="Bind repository" icon="lucide-link" busy={busy()} disabled={!repositoryKey() || repositories.state().data?.status !== "verified"} onSubmit={bind} error={error()} errorTitle="Repository binding failed">
           <ScreenRegion state={repositories.state()} onRetry={() => void repositories.refresh()} emptyTitle="No verified remote" emptyDescription="Test the connection successfully to inspect protocol refs and push capability.">
             <div class="flex flex-col gap-4"><Select label="Repository" value={repositoryKey()} options={(repositories.state().data?.items ?? []).map((repository) => ({ value: repository.repositoryKey, label: `${repository.displayName} · ${repository.defaultBranch}` }))} onValueChange={(value) => setRepositoryKey(value ?? "")} /><Select label="Binding class" value={kind()} options={[{ value: "configuration", label: "Configuration" }, { value: "project", label: "Project" }]} onValueChange={(value) => setKind((value ?? "configuration") as "configuration" | "project")} /><Select label="Required access" value={access()} options={[{ value: "read", label: "Read only" }, { value: "write", label: "Read and write" }]} onValueChange={(value) => setAccess((value ?? "read") as "read" | "write")} /><TextInput label="Workspace" value={app.workspaceId()} readonly /></div>
           </ScreenRegion>
         </FormSheet>
-        <WorkspaceSection title="Repository bindings" description="Meaningful target, scope and state for existing relationships.">
+        <Show when={!firstUse()}><WorkspaceSection title="Repository bindings" description="Meaningful target, scope and state for existing relationships.">
           <Show when={integrations.state().data?.bindings.length} fallback={<EmptyState size="sm" icon="lucide-link" title="No repository bindings" description="Verify a connection and bind a repository to make it available to its intended workflow." />}><div class="brain-queue"><For each={integrations.state().data?.bindings}>{(binding) => <div class="min-w-0 border-b border-outline-gray-1 py-2.5"><div class="flex flex-wrap items-center justify-between gap-2"><strong class="min-w-0 break-all">{binding.repositoryKey}</strong><StatusBadge kind="connection" status={binding.status} /></div><p class="mt-1 break-words text-caption text-ink-gray-6">{binding.kind} · {binding.access} · {binding.workspaceId}</p><Show when={binding.detail}><p class="mt-1 break-words text-caption text-ink-red-7">{binding.detail}</p></Show></div>}</For></div></Show>
         </WorkspaceSection>
-        <TechnicalDetails label="Git ref proposals"><Show when={integrations.state().data?.proposals.length} fallback={<p>No ref-change proposals yet.</p>}><ul class="flex flex-col gap-2"><For each={integrations.state().data?.proposals}>{(proposal) => <li class="min-w-0 break-words text-caption"><strong>{proposal.kind} proposal</strong> · <span class="break-all">{proposal.sourceEventId}</span><p class="break-all text-ink-gray-6">{proposal.digest}</p></li>}</For></ul></Show></TechnicalDetails>
+        <TechnicalDetails label="Git ref proposals"><Show when={integrations.state().data?.proposals.length} fallback={<p>No ref-change proposals yet.</p>}><ul class="flex flex-col gap-2"><For each={integrations.state().data?.proposals}>{(proposal) => <li class="min-w-0 break-words text-caption"><strong>{proposal.kind} proposal</strong> · <span class="break-all">{proposal.sourceEventId}</span><p class="break-all text-ink-gray-6">{proposal.digest}</p></li>}</For></ul></Show></TechnicalDetails></Show>
       <FormSheet open={connectOpen()} onClose={() => setConnectOpen(false)} title="Connect a Git remote" centered description="One connection per remote repository. Optional HTTP credentials are encrypted at rest and never returned."
         submit="Connect remote" icon="lucide-plus" busy={busy()} onSubmit={connect} error={error()} errorTitle="Connection failed">
         <TextInput label="Connection name" value={name()} onInput={(event) => setName(event.currentTarget.value)} required error={attempted() && !name().trim() ? "Name this connection." : undefined} placeholder="Configuration repository" /><TextInput label="Remote repository URL" value={repositoryUrl()} onInput={(event) => setRepositoryUrl(event.currentTarget.value)} required error={attempted() && !repositoryUrl().trim() ? "Enter the remote repository URL." : undefined} placeholder="https://git.example.test/team/brain.git" /><TextInput label="HTTP username (optional)" value={username()} onInput={(event) => setUsername(event.currentTarget.value)} /><TextInput label="HTTP token (optional)" type="password" value={token()} onInput={(event) => setToken(event.currentTarget.value)} />

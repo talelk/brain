@@ -52,7 +52,7 @@ function targets(jobId: string, approvalId: string): ScreenTarget[] {
     { id: "20-runner-detail", route: "/runners/runner-visual", heading: "Runner detail" },
     { id: "21-approvals", route: "/approvals", heading: "Approvals" },
     { id: "22-approval-detail", route: `/approvals/${approvalId}`, heading: "Approval review" },
-    { id: "24-settings-setup", route: "/settings?tab=setup", heading: "Workspace setup" },
+    { id: "24-settings-setup", route: "/settings?tab=setup", heading: "Setup" },
     { id: "25-settings-security", route: "/settings?tab=security", heading: "Security" },
     { id: "26-settings-integrations", route: "/administration/integrations", heading: "Integrations" },
     { id: "27-settings-release", route: "/settings?tab=release", heading: "Releases" },
