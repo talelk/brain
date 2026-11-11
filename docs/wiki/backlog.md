@@ -1,59 +1,34 @@
 # Backlog: open items only (lean on purpose)
 
-Dated 2026-11-11 ~15:45, at `talelk/brain@bd16582`+ (deployed: waves 1-3, tracks K M N P Q R S T U V W X). History of every track and report: [archive/backlog-2026-11-11.md](archive/backlog-2026-11-11.md) and [archive/backlog-2026-11-11-evening.md](archive/backlog-2026-11-11-evening.md) (excluded from the agent context budget). Keep THIS file short: when an item is done, delete its row and note it in the archive/history pages.
+Dated 2026-11-11 ~23:15, at `talelk/brain@9393922` (deployed: everything through track AF). History of every track, report and finding: [archive/](archive/) (excluded from the agent context budget; latest [archive/backlog-2026-11-11-night.md](archive/backlog-2026-11-11-night.md)). Keep THIS file short: when an item is done, delete its row and note it in the archive.
 
 ## Process rules learned
-- Run at most 2 agents at once and cap vitest workers (`maxWorkers: 4`): uncapped parallel test runs OOM-killed the machine and restarted the session twice on 2026-11-11. After a restart check the agents' worktrees: their commits survive; merge them yourself.
-- Stop each agent and remove its worktree + `~/.cache/tmp-<name>` as soon as its report is taken. Avoid deploying while missions run (each deploy interrupts running attempts).
-- If Playwright says "Executable doesn't exist", the browser cache vanished (session restart): `npx playwright install chromium` (about 120 MB), then rerun. Run the browser specs for every UI/read-model change before deploying: agents often skip them.
-- Deploy = `scripts/deploy-demo.sh` (pre-check on a VACUUM INTO snapshot pulled with rsync) then `scripts/stage-demo-release.sh` when `examples/v1` changed; new columns on existing tables need DEFAULT.
+- Run at most 2 agents at once and cap vitest workers (`maxWorkers: 4`): uncapped parallel test runs OOM-killed the machine and restarted the session twice. After a restart check each agent's worktree: its commits survive; merge them yourself.
+- Stop each agent, remove its worktree and `~/.cache/tmp-<name>`, and kill only its own wait-loops (by exact pid, never `pkill -f` patterns that can match your own shell) as soon as its report is taken. Avoid deploying while missions run (a deploy interrupts running attempts).
+- Playwright "Executable doesn't exist" means the browser cache vanished: `npx playwright install chromium`; `pnpm build` before browser specs; run the specs for every UI/read-model change before deploying (agents often skip them).
+- Deploy = `scripts/deploy-demo.sh` (pre-check on a VACUUM INTO snapshot pulled with rsync) then `scripts/stage-demo-release.sh` when `examples/v1` changed; new columns on existing tables need DEFAULT; retry a failed `git push` (github.com is sometimes unreachable).
+- The demo browser session signs out after deploys; the assistant never types passwords into the hosted sign-in form: the owner signs in.
 
-## Open product work (GitHub issues, `talelk/brain`)
-| Issue | Item | Notes |
-|-------|------|-------|
-
-## Open UI / quality rows
-| # | Item | Notes |
-|---|------|-------|
+## Needs the owner
+| Item | Why |
+|------|-----|
+| Sign in once in the Chrome tab | to run a real mission end to end through the renamed runtime (ADRs 0018-0020) and walk session-gated pages |
+| Create one share link and open it signed out | creating a public link grants access: the assistant is blocked from doing it; verify `/shared/:token` is read-only |
+| Decide the 4 quarantined tool proposals in Library | they need a person by design |
+| Rotate the server sudo password | it was typed into chat several times |
+| Optionally set `BRAIN_NOTIFY_SMTP_URL` / `BRAIN_NOTIFY_FROM` on the server | enables email notifications (off by default) |
 
 ## Open engine / quality rows
 | # | Item | Notes |
 |---|------|-------|
-| 15 | Evaluator quality, MEASURED 2026-11-11 on `qwen3.8-flash-next-a5b` (`scripts/qualification/task-quality.mjs --runs 2 --judge`): answers parsed 8/8, deterministic validator passed 7/8 (the miss: old-style prose criteria, `criteria-met`), model-judge agreement 100% on 6 of 8 samples and 50% on both old-style-criteria samples (the model sets `met:false` or words criteria differently); plans (`--plans 2`): valid first try 2/2 but 46-58 s per draft (model time, one session), slower than Q's 20-35 s estimate | next: tighten the worker prompt for criteria that are phrased as checks on the OTHER task's output; consider a faster model for planning; add an independent judge pass only if agreement stays < 100% |
-| 33 | `first-launch` and a few integration tests time out under heavy load | mitigated by `maxWorkers: 4` and the timing factor; re-check |
-| 65 | Compaction and the new tools (documents.read, web.fetch, csv.query, knowledge.search) untested with a real model; web.fetch egress works live; its failures were the 64 KiB script-input cap (fixed, needs runner redeploy) and off-list hosts (hosts now in the pack); see web-fetch-and-tool-availability-2026-11-11.md | I4 leftover |
+| 15 | Evaluator quality, measured 2026-11-11 on `qwen3.8-flash-next-a5b`: answers parsed 8/8, validator passed 7/8, judge agreement 100% on 6/8 and 50% on the two old-style-criteria samples; plans valid first try 2/2 but 46-58 s per draft | tighten the worker prompt for criteria about another task's output; consider a faster planning model; add a judge pass only if agreement stays < 100% |
+| 33 | `golden`, `first-launch` and a few integration tests still time out under heavy load | pass alone; mitigated by `maxWorkers: 4` and the timing factor |
+| 65 | Compaction and the new tools (documents.read, web.fetch, csv.query, knowledge.search) not yet exercised by real missions after the availability/size fixes | check Tools registry failure counts after the next missions |
+| 66 | Email: STARTTLS/smtps only tested against a fake server; whole `startSupervisor` loop not run end to end (only `runClaimLoops`) | test against a real relay before relying on it |
+| 67 | RTL: mixed English/Arabic bidi quirks need real Arabic strings; result-reader compare view not seen in RTL | needs translations |
 
-## Deployed 2026-11-11 ~16:40 (tracks Y, Z; `297a40e`)
-Live confirmed: install card on Today; workspace usage panel with "Outside missions". Z found and fixed a real security bug (a share link kept working after its creator was disabled or downgraded below `mission:write`). Z added: outcome-unknown tool steps in Needs you ("Treat as failed" / "Try again" for read steps only), "Restarting" state, saved documents in the Review inbox, `workspace_spend` bucket.
-Not seen live yet: Needs-you outcome-unknown row, Saved document in Review inbox, phone layout on a real phone, install prompt on a real phone.
-
-## Live walkthrough 2026-11-11 ~16:50 (deployed `bd57d39`)
-Confirmed: Quality page live with real numbers (97% verified without human help 32/33, stall rate 3%, re-open 12.5%, definitions shown); Tools registry live with per-tool calls/failures and agents allowed; workspace usage panel "Outside missions".
-| # | Item | Notes |
-|---|------|-------|
-| 67 | Tools wasted on failing calls: `documents.read` 21/21 failed (workspace has 0 documents), `web.fetch` 50/66 failed (egress/allowlist?), `csv.query` never used; registry detail shows "Preview unavailable: artifact not found" for tool script evidence | track AA running: availability logic, honest registry, fix or hide web.fetch |
-
-## Deployed 2026-11-11 ~17:50 (tracks AA, AB + my follow-up, `41fd905`)
-Live: Library shows "Awaiting your review: 4" (tool proposals only) and "Published automatically: 5". The 10 "waiting write-ups" were old mission notes with no mission and no title (AB could not reproduce my guessed cause: Governor-closed missions already auto-publish); the sweep now sets such notes aside with a reason. AA: web.fetch failures were 33 "tool input too large" + 17 host not on allowlist (egress is fine); runner reduces HTML to <48 KiB, unavailable tools are dropped from the tool list with reasons, registry shows failure rates. Check next mission: Tools registry failure counts should stop growing.
-Open: 4 quarantined tool proposals in Library need a person (decide: review UI wording); `git push` failed once with "Could not resolve host: github.com" (network hiccup, retry works).
-
-## Live walkthrough 2026-11-11 ~18:10
-Confirmed live: run inspector (plain failure reason + next step), **Context received** tab ("About 452 tokens of an 8192-token budget for task-worker, step respond": sections with fact/claim labels, "Nothing was shortened", digest + copy).
-| # | Item | Notes |
-|---|------|-------|
-
-## Track AC deployed (2026-11-11 ~20:45, `4a2b03b`)
-Vocabulary (ADRs 0018-0020, GLOSSARY): `Run`/`RunId` first-class contract types (`readRun` mapper, served by the `run.get` query), `WorkflowStep` (steps) vs jobs (runtime unit), one `RunState` (state machine `run`); no DB renames; persisted names kept on purpose (`spec.jobs` keys, binding `jobId`, `workflowRunId` in evidence/attempt/job rows). Checked after deploy: Governor readiness ready, smoke verified, 9/9 checks ready; runner reconnected, no errors after the restart window. Browser signed out again after the deploy: a full live mission to prove the renamed runtime end to end still needs the owner to sign in (or the next heartbeat after sign-in).
-
-## Deployed 2026-11-11 ~21:55 (tracks AD, AE; `fd282af`)
-AD: one Governor rule (`jobs/run-context.ts`) decides what needs a person (Today's Needs-you and Runs > Needs intervention agree; resolved attempts show "Retried and succeeded"), Runs rows show "task · mission" with the id as a copyable detail, session `activity` ("Reading N sources...", "Writing the draft..."), per-criterion "See the check" links and the mission `taskTrust` line. AE: runner concurrency proven with a 3-slot chaos test; **bug fixed**: every 13-min session refresh used a fresh boot nonce, bumping the epoch and revoking the old token (workers waited for long attempts, a token could expire under busy slots): refresh now keeps the nonce and refreshes on a timer; Runners/Health say "N of M slots in use"; optional email channel (`BRAIN_NOTIFY_SMTP_URL`, `BRAIN_NOTIFY_FROM`, off when unset, per-person opt-in, 6/h per person, delivery recorded; own minimal SMTP client; tested only against a fake server).
-Open from AD/AE (RTL, Runs search, activity sentence closed by track AF): STARTTLS/smtps untested against a real relay; whole `startSupervisor` loop not run end to end (only `runClaimLoops`).
-
-## Deployed 2026-11-11 ~23:00 (track AF, `9393922`)
-RTL: `?dir=rtl|ltr` (stored in `brain.dir`, or an Arabic/Hebrew/Persian/Urdu browser language) and a `1440-light-rtl` Playwright project over key specs (17 tests pass); fixed non-mirrored icons, wrong sliding-tab indicator, backwards Live dividers, ~30 physical spacing classes; Runs search matches ids, state, workflow name, task title and mission title; `run.get` query returns the `Run` DTO; Studio wording no longer says `jobs`; activity sentence verified with seeded tool calls ("Reading 2 sources..." then "Read 2 sources; writing the draft..."). Runners under the Live area (sidebar highlights Live on /runners) is by contract, not a bug. Open: mixed English/RTL bidi quirks need real Arabic strings; result-reader compare view not seen in RTL (single version seed).
-
-## Not yet walked live
-Share link page (creating a public link needs the owner's explicit OK: the assistant is blocked from granting access; ask the user to create one and confirm it opens read-only without sign-in) (`/shared/:token`), Library Plays shelf after "Add starter Plays", scheduled Repeat occurrence (auto-confirm), Notification preferences (Security).
+## Not yet seen live
+Needs-you "outcome unknown" row, Saved document in the Review inbox, scheduled Repeat occurrence (auto-confirm), notification preferences (email section), phone layout and install prompt on a real phone, the renamed runtime under a fresh mission.
 
 ## Standing rules (see goal-and-user.md)
 Validate every change in a real browser as a first-time user; do not stop until nothing is left; reuse and capitalisation are first-class.
