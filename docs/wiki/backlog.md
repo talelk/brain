@@ -15,9 +15,7 @@ Dated 2026-11-11 ~15:45, at `talelk/brain@bd16582`+ (deployed: waves 1-3, tracks
 ## Open UI / quality rows
 | # | Item | Notes |
 |---|------|-------|
-| 32 | "Reading N sources" doing-now sentence missing on session rail / Plan rows | needs transcript |
-| 35 | Trust read lacks per-criterion evidence link and mission-level aggregate | |
-| 38 | Run all new specs at 390-dark / 768 / RTL (only 1440-light, 390-dark, 768-light fully covered) | QA |
+| 38 | Key specs now pass at 390-dark and 768-light too; playwright.config.ts has no RTL project (only 390/768/1440 x light/dark), so RTL layout is still unchecked | QA |
 
 ## Open engine / quality rows
 | # | Item | Notes |
@@ -44,8 +42,6 @@ Open: 4 quarantined tool proposals in Library need a person (decide: review UI w
 Confirmed live: run inspector (plain failure reason + next step), **Context received** tab ("About 452 tokens of an 8192-token budget for task-worker, step respond": sections with fact/claim labels, "Nothing was shortened", digest + copy).
 | # | Item | Notes |
 |---|------|-------|
-| 70 | Logs > Runs "Needs intervention 4": four old failed attempts of tasks that later succeeded (missions achieved) stay flagged for ever, while Today says nothing needs you: only unresolved runs (work item not done through a later attempt) belong there | UI/read model |
-| 71 | Runs list rows show raw job ids ("job-mwc4rxdd-2w-66kagflk") and the generic title "Do a task": show the work item/mission title and a plain state | UI |
 
 ## Track AC deployed (2026-11-11 ~20:45, `4a2b03b`)
 Vocabulary (ADRs 0018-0020, GLOSSARY): `Run`/`RunId` first-class contract types (`readRun` mapper, no `run.get` query yet), `WorkflowStep` (steps) vs jobs (runtime unit), one `RunState` (state machine `run`); no DB renames; persisted names kept on purpose (`spec.jobs` keys, binding `jobId`, `workflowRunId` in evidence/attempt/job rows). Checked after deploy: Governor readiness ready, smoke verified, 9/9 checks ready; runner reconnected, no errors after the restart window. Browser signed out again after the deploy: a full live mission to prove the renamed runtime end to end still needs the owner to sign in (or the next heartbeat after sign-in).
