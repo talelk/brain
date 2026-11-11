@@ -440,6 +440,13 @@ CREATE TABLE stream_watermarks (
 CREATE TABLE job_payloads (job_id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload_json TEXT NOT NULL) STRICT;
 CREATE TABLE attempt_events (attempt_id TEXT NOT NULL, seq INTEGER NOT NULL, event_json TEXT NOT NULL, PRIMARY KEY(attempt_id, seq)) STRICT;
 CREATE TABLE job_outputs (job_id TEXT PRIMARY KEY, output_json TEXT NOT NULL) STRICT;
+-- Tool calls of agent attempts, written once when their events are first stored, so the tool catalog counts calls without scanning event history.
+CREATE TABLE tool_calls (
+  attempt_id TEXT NOT NULL, proposal_id TEXT NOT NULL, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, run_id TEXT NOT NULL, tool_id TEXT NOT NULL,
+  proposed_at TEXT NOT NULL DEFAULT '', failed INTEGER NOT NULL DEFAULT 0 CHECK(failed IN (0,1)), finished_at TEXT,
+  PRIMARY KEY(attempt_id, proposal_id)
+) STRICT;
+CREATE INDEX tool_calls_tool ON tool_calls(organization_id, workspace_id, tool_id);
 -- Local scoped memory assets behind the MemoryStore gateway port.
 CREATE TABLE memory_assets (
  id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT,
