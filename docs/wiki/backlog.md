@@ -146,3 +146,12 @@ Confirmed good live: Today leads with inline Needs-you actions; plan decision ba
 | 44 | Today: "Verify the install: Not checked yet" banner persists after verified missions; return path from release fix (row 37) | E3 | sent to E3 |
 | 45 | Mission Live tab: "1 task is running" but "Nobody is working right now / 0 sessions" for workflow-driven runs; raw "mission.created" in "While you were away" | E3 | sent to E3 |
 | 46 | Deploy script pre-check failed on `tar` "file changed" exit 1 (intermittent on a busy server): fixed `5efba47` (tolerate <=1, require control.db) | chief | done |
+
+## Track E3 done and deployed; live check (2026-11-11 ~08:20, `talelk/brain@c78ab97`)
+E3 shipped: Today box leads at every width, Needs you capped at 3 + "N more", Results ready = one summary row + "Mark all seen", install check clears on any verified work item, mission Live finds workflow-run sessions (`recordAttemptSession` sets the work item) with "Starting: waiting for a runner" wording, skeleton shimmer, compact Library on phones, copy controls for fingerprints, `scripts/capture-screens.ts`, new 1440-dark/768-dark/390-light baselines. Vitals "264 KB" was a service-worker measurement artefact (real 207 KB). Rows 42-45 resolved. Live confirmed by eye: Today layout, plain parked reason ("the independent check did not pass (criteria-met)"), Library overview (counts exact), Review inbox readable.
+| # | Item | Track | Status |
+|---|------|-------|--------|
+| 47 | Capitalisation is not hands-off: 19 items await review one by one; default for a single-owner install should auto-publish the owner's own verified missions (marked self-reviewed, undoable) and offer "Approve all verified" bulk action | M | open |
+| 48 | Knowledge write-ups are thin: sections read "None." (verified outputs, decisions); include the Result summary/deliverable excerpt and criteria evidence so reuse has substance; do not capitalise trivial/test missions (threshold) | M | open |
+| 49 | Plays shelf is empty (0) so "Start from a play" is useless: ship default Plays from existing research/starter workflows (research-and-write, compare-options, checklist, weekly status, customer-support draft, incident triage), reviewable and editable in Studio | M | open |
+| 50 | Library tab strip wraps to two indented rows at 390; Approvals/Runners single-segment summary bars heavy; Logs chart shows 12-hour AM/PM | M (UI) | open |
