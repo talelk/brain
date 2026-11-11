@@ -41,14 +41,14 @@ export interface JobProtocolPorts {
   startDescribedMission?(input: { organizationId: string; workspaceId: string; title: string; situation: string; startedBy: string; occurrenceId: string; automationId?: string; sourceMissionId?: string; autoConfirm?: boolean }): string;
   missionOpen?(organizationId: string, workspaceId: string, missionId: string): boolean;
   /** Records the admitted attempt's reservation against its mission. */
-  missionReserve?(organizationId: string, workspaceId: string, input: { missionId: string; runId: string; attemptId: string; microUsd: number }): void;
+  missionReserve?(organizationId: string, workspaceId: string, input: { missionId?: string; runId: string; attemptId: string; microUsd: number }): void;
   /** Where governed read tools get their data (documents, CSV artifacts, knowledge). */
   toolReads?: ToolReadPorts;
   /** The context pack of an agent step's work item, built at the step's first offer. */
   contextPack?(organizationId: string, workspaceId: string, input: { runId: string; jobId: string; agentId: string; budgetTokens: number; taskText: string }): ReturnType<ContextPackPort>;
 }
 
-export type MissionAdmission = { missionId?: string; admitted: true; reserve: number; running: number } | { missionId: string; admitted: false; reason: string; running: number };
+export type MissionAdmission = { missionId?: string; admitted: true; reserve: number; running: number } | { missionId?: string; admitted: false; reason: string; running: number };
 
 /**
  * The jobs module's one deep interface: the runner session protocol, the
@@ -111,7 +111,7 @@ export class JobProtocol {
       isRunnerCurrent: (runnerId) => this.ports.runnerCurrent(runner.organizationId, runnerId),
       ...(this.ports.missionAdmission ? { missionAdmission: (workspaceId: string, runId: string) => this.ports.missionAdmission!(runner.organizationId, workspaceId, runId) } : {}),
       ...(this.ports.contextPack ? { contextPack: (organizationId: string, workspaceId: string, input: Parameters<ContextPackPort>[2]) => this.ports.contextPack!(organizationId, workspaceId, input) } : {}),
-      ...(this.ports.missionReserve ? { missionReserve: (workspaceId: string, input: { missionId: string; runId: string; attemptId: string; microUsd: number }) => this.ports.missionReserve!(runner.organizationId, workspaceId, input) } : {}),
+      ...(this.ports.missionReserve ? { missionReserve: (workspaceId: string, input: { missionId?: string; runId: string; attemptId: string; microUsd: number }) => this.ports.missionReserve!(runner.organizationId, workspaceId, input) } : {}),
     }, runner, requestId);
   }
 

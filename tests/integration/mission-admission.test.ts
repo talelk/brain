@@ -270,6 +270,31 @@ describe("mission admission (T19)", () => {
     w.brain.close();
   });
 
+  it("interactive runs outside missions are recorded in the workspace bucket, total in the workspace and count towards the spend cap (#77)", async () => {
+    const w = setupWorld();
+    const a = await missionWithJobs(w, "o", { memberCap: 3 }, ["a"]);
+    insertJob(w, "job-adhoc", "run-adhoc");
+    insertJob(w, "job-adhoc-2", "run-adhoc-2", 1000);
+    const runner = seedRunner(w, "runner-outside");
+    await run(w, "workspace.spendCap.set", "cap-o", { dailyMicroUsd: 1000 });
+    const first = w.brain.jobProtocol.claim(runner, "req-o-1") as unknown as Offer;
+    expect(first.jobId).toBe("job-adhoc");
+    reportUsage(w, first.attemptId, 1, { inputTokens: 200, outputTokens: 30, microUsd: 1200, accounting: "final-total" });
+    // In flight it is part of the cap through its (zero) reservation only; once settled its dollars count.
+    w.brain.jobProtocol.releaseReservation(first.attemptId);
+    const view = (await w.brain.executeQuery(w.owner, { queryType: "usage.workspace", workspaceId: w.workspaceId } as never)) as unknown as { snapshot: { usage: Record<string, number>; outsideMissions: Record<string, number>; spendCap: Record<string, number> } };
+    expect(view.snapshot.outsideMissions).toMatchObject({ settledTokens: 230, settledMicroUsd: 1200, attempts: 1 });
+    expect(view.snapshot.usage).toMatchObject({ settledTokens: 230, attempts: 1 });
+    expect(view.snapshot.spendCap).toMatchObject({ dailySpentMicroUsd: 1200 });
+    expect((await usageOf(w, "usage.run", "run-adhoc")).usage).toMatchObject({ settledTokens: 230, settledMicroUsd: 1200 });
+    // The cap is reached by interactive spend: neither another ad-hoc run nor a mission attempt starts.
+    expect(w.brain.jobProtocol.claim(runner, "req-o-2")).toBeNull();
+    expect(queueReason(w, "job-adhoc-2")).toBe("waiting: workspace spend cap");
+    expect(queueReason(w, "job-o-a")).toBe("waiting: budget");
+    expect(await mission(w, a)).toMatchObject({ state: "paused", pauseReason: "budget" });
+    w.brain.close();
+  });
+
   it("plan estimates total only declared values and the ceiling equals the enforced budget (#54)", async () => {
     const w = setupWorld();
     const id = (await run(w, "mission.create", "e-create", { title: "e", intent: "Estimate", successCriteria: ["done"], budget: { maxMicroUsd: 900, finalAllowanceMicroUsd: 100, maxTokens: 4000, memberCap: 2 } })).resourceId ?? "";

@@ -64,19 +64,22 @@ export function workingMs(store: Store, db: Db, missionId: string, now: number):
  */
 export function settle(store: Store, db: Db, missionId: string): void {
   const open = db.prepare("SELECT attempt_id FROM mission_spend WHERE mission_id=? AND settled_at_ms IS NULL").all(missionId) as Array<{ attempt_id: string }>;
-  for (const { attempt_id: attemptId } of open) {
-    const released = store.control.prepare("SELECT released_at_ms FROM capacity_reservations WHERE attempt_id=?").get(attemptId) as { released_at_ms: number | null } | undefined;
-    if (!released?.released_at_ms) continue;
-    const events = (store.control.prepare("SELECT event_json FROM attempt_events WHERE attempt_id=? ORDER BY seq").all(attemptId) as Array<{ event_json: string }>).map((row) => JSON.parse(row.event_json) as Parameters<typeof tallyUsage>[0][number]);
-    const usage = tallyUsage(events);
-    db.prepare("UPDATE mission_spend SET settled_micro_usd=?,input_tokens=?,output_tokens=?,cached_input_tokens=?,accounting=?,estimated=?,settled_at_ms=? WHERE attempt_id=? AND settled_at_ms IS NULL")
-      .run(usage.microUsd, usage.inputTokens, usage.outputTokens, usage.cachedInputTokens, usage.accounting, usage.estimated ? 1 : 0, store.now(), attemptId);
-  }
+  for (const { attempt_id: attemptId } of open) settleAttempt(store, db, "mission_spend", attemptId);
 }
 
-/** Settles every mission's released attempts, so workspace totals and the spend cap see current usage. */
+function settleAttempt(store: Store, db: Db, table: "mission_spend" | "workspace_spend", attemptId: string): void {
+  const released = store.control.prepare("SELECT released_at_ms FROM capacity_reservations WHERE attempt_id=?").get(attemptId) as { released_at_ms: number | null } | undefined;
+  if (!released?.released_at_ms) return;
+  const events = (store.control.prepare("SELECT event_json FROM attempt_events WHERE attempt_id=? ORDER BY seq").all(attemptId) as Array<{ event_json: string }>).map((row) => JSON.parse(row.event_json) as Parameters<typeof tallyUsage>[0][number]);
+  const usage = tallyUsage(events);
+  db.prepare(`UPDATE ${table} SET settled_micro_usd=?,input_tokens=?,output_tokens=?,cached_input_tokens=?,accounting=?,estimated=?,settled_at_ms=? WHERE attempt_id=? AND settled_at_ms IS NULL`)
+    .run(usage.microUsd, usage.inputTokens, usage.outputTokens, usage.cachedInputTokens, usage.accounting, usage.estimated ? 1 : 0, store.now(), attemptId);
+}
+
+/** Settles every mission's released attempts and the interactive attempts outside missions, so workspace totals and the spend cap see current usage. */
 export function settleAll(store: Store, db: Db): void {
   for (const { mission_id: missionId } of db.prepare("SELECT DISTINCT mission_id FROM mission_spend WHERE settled_at_ms IS NULL").all() as Array<{ mission_id: string }>) settle(store, db, missionId);
+  for (const { attempt_id: attemptId } of db.prepare("SELECT attempt_id FROM workspace_spend WHERE settled_at_ms IS NULL").all() as Array<{ attempt_id: string }>) settleAttempt(store, db, "workspace_spend", attemptId);
 }
 
 export function usageOf(store: Store, db: Db, row: Pick<BudgetRow, "id">, now: number): BudgetUsage {
@@ -175,11 +178,21 @@ export function reachedLimits(store: Store, db: Db, missionId: string): Array<"t
   return out;
 }
 
-/** Records the reservation of an admitted attempt against its mission. */
-export function reserve(store: Store, db: Db, input: { missionId: string; runId: string; attemptId: string; microUsd: number }): void {
+/** Records the reservation of an admitted attempt against its mission, or against the workspace's "Outside missions" bucket when it has none. */
+export function reserve(store: Store, db: Db, input: { missionId?: string; runId: string; attemptId: string; microUsd: number }): void {
+  if (!input.missionId) {
+    db.prepare("INSERT OR IGNORE INTO workspace_spend(attempt_id,run_id,reserved_micro_usd,created_at_ms) VALUES (?,?,?,?)").run(input.attemptId, input.runId, input.microUsd, store.now());
+    return;
+  }
   const tokens = (db.prepare("SELECT attempt_reserve_tokens FROM missions WHERE id=?").get(input.missionId) as { attempt_reserve_tokens: number } | undefined)?.attempt_reserve_tokens ?? 0;
   db.prepare("INSERT OR IGNORE INTO mission_spend(attempt_id,mission_id,run_id,reserved_micro_usd,reserved_tokens,created_at_ms) VALUES (?,?,?,?,?,?)")
     .run(input.attemptId, input.missionId, input.runId, input.microUsd, tokens, store.now());
+}
+
+/** Admission of interactive work outside any mission: only the workspace spend cap applies; it is then charged to the workspace bucket. */
+export function admitOutsideMission(store: Store, db: Db): { admitted: true; reserve: number; running: number } | { admitted: false; reason: string; running: number } {
+  settleAll(store, db);
+  return capReached(db, store.now(), 0) ? { admitted: false, reason: "workspace spend cap", running: 0 } : { admitted: true, reserve: 0, running: 0 };
 }
 
 /** True when a budget pause can be lifted: spend and clock both have headroom again. */

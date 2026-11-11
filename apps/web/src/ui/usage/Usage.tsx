@@ -110,11 +110,14 @@ export function WorkspaceUsage(props: { onChanged?: () => void }): JSX.Element {
   }
   return <Show when={usage.state().data}>{(view) => <section class="flex min-w-0 flex-col gap-2 rounded-card border border-outline-gray-1 bg-surface-gray-1 p-3" aria-label="Workspace usage" data-testid="workspace-usage">
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-gauge size-3.5" aria-hidden="true" />Usage by missions in this workspace</p>
+      <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-gauge size-3.5" aria-hidden="true" />Usage in this workspace</p>
       <Button size="sm" variant="ghost" iconLeft="lucide-sliders-horizontal" onClick={() => open(view().spendCap)}>Spend cap</Button>
     </div>
     <UsageFigures label="Workspace" usage={view().usage} compact />
-    <p class="text-caption text-ink-gray-6">Interactive runs outside a mission are not included; open the run to see its own usage.</p>
+    <Show when={view().outsideMissions} fallback={null}>{(outside) => <div class="flex min-w-0 flex-col gap-1" data-testid="outside-missions-usage">
+      <UsageFigures label="Outside missions" usage={outside()} compact />
+      <p class="text-caption text-ink-gray-6">Outside missions are task runs and conversations started on their own. They are part of the workspace total and count towards the spend cap.</p>
+    </div>}</Show>
     <Show when={view().spendCap} fallback={null}>{(cap) => <div class="flex min-w-0 flex-col gap-1.5" data-testid="spend-cap">
       <Show when={cap().dailyMicroUsd !== undefined} fallback={<p class="text-caption text-ink-gray-6">No daily spend cap. Last 24 hours: {formatUsd(cap().dailySpentMicroUsd)}.</p>}>
         <Meter label="Daily spend cap (last 24 hours)" settled={cap().dailySpentMicroUsd} reserved={0} limit={cap().dailyMicroUsd ?? 0} format={formatUsd} />
@@ -123,7 +126,7 @@ export function WorkspaceUsage(props: { onChanged?: () => void }): JSX.Element {
     </div>}</Show>
     <Dialog.Root open={editing()} onOpenChange={(next) => { if (!next) setEditing(false); }}>
       <Dialog.Content size="md">
-        <Dialog.Header><Dialog.Title>Workspace spend cap</Dialog.Title><Dialog.Description>When the dollars settled and reserved in the last 24 hours (or 7 days) reach the cap, missions pause until you raise it. Leave a field empty for no cap. Local models cost $0, so use a mission token ceiling to bound them.</Dialog.Description></Dialog.Header>
+        <Dialog.Header><Dialog.Title>Workspace spend cap</Dialog.Title><Dialog.Description>When the dollars settled and reserved in the last 24 hours (or 7 days) reach the cap, new work pauses until you raise it, whether it belongs to a mission or not. Leave a field empty for no cap. Local models cost $0, so use a mission token ceiling to bound them.</Dialog.Description></Dialog.Header>
         <div class="flex flex-col gap-3 py-2">
           <TextInput label="Daily cap (US dollars)" inputMode="decimal" value={daily()} onInput={(event) => setDaily(event.currentTarget.value)} />
           <TextInput label="Weekly cap (US dollars)" inputMode="decimal" value={weekly()} onInput={(event) => setWeekly(event.currentTarget.value)} />

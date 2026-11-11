@@ -47,7 +47,7 @@ export function runnerView(s: Store, runnerId: string): RunnerView | undefined {
 export function claim(s: Store, deps: {
   isEvaluatorEligible: (runnerId: string, jobId: string) => boolean; isRunnerCurrent?: (runnerId: string) => boolean;
   missionAdmission?: (workspaceId: string, runId: string) => import("./job-protocol").MissionAdmission;
-  missionReserve?: (workspaceId: string, input: { missionId: string; runId: string; attemptId: string; microUsd: number }) => void;
+  missionReserve?: (workspaceId: string, input: { missionId?: string; runId: string; attemptId: string; microUsd: number }) => void;
   contextPack?: ContextPackPort;
 }, runner: { runnerId: string; epoch: number; organizationId: string }, requestId: string): JsonValue | null {
   let offer: JsonValue | null = null;
@@ -148,7 +148,7 @@ export function claim(s: Store, deps: {
         .run(attemptId, runner.runnerId, Math.max(1, demand.cpuMillicores), Math.max(1, demand.memoryMb), Math.max(1, demand.diskMb), Math.max(1, demand.slots));
       s.control.prepare("INSERT INTO runner_claim_requests(runner_id, runner_epoch, request_id, attempt_id, request_digest, created_at_ms) VALUES (?,?,?,?,?,?)")
         .run(runner.runnerId, runner.epoch, requestId, attemptId, requestId, s.now());
-      if (decision?.admitted && decision.missionId && deps.missionReserve) deps.missionReserve(String(job["workspace_id"]), { missionId: decision.missionId, runId: String(job["workflow_run_id"]), attemptId, microUsd: decision.reserve });
+      if (decision?.admitted && deps.missionReserve) deps.missionReserve(String(job["workspace_id"]), { ...(decision.missionId ? { missionId: decision.missionId } : {}), runId: String(job["workflow_run_id"]), attemptId, microUsd: decision.reserve });
       s.control.prepare("UPDATE jobs SET queue_reason=NULL WHERE id=?").run(String(job["id"]));
       if (deps.contextPack) ensureContextPack(s, deps.contextPack, runner.organizationId, job);
       offer = offerJson(s, attemptId);

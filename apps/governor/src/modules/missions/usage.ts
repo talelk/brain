@@ -46,29 +46,38 @@ export function tallyUsage(events: readonly UsageEvent[]): AttemptUsage {
 }
 
 
-const SUMMARY_SQL = `SELECT
+/** Every ledger row of the workspace: mission attempts, and interactive attempts outside any mission (mission_id NULL). */
+const ALL_SPEND = `(SELECT attempt_id, mission_id, run_id, reserved_micro_usd, settled_micro_usd, reserved_tokens, input_tokens, output_tokens, cached_input_tokens, accounting, estimated, created_at_ms, settled_at_ms FROM mission_spend
+  UNION ALL SELECT attempt_id, NULL, run_id, reserved_micro_usd, settled_micro_usd, reserved_tokens, input_tokens, output_tokens, cached_input_tokens, accounting, estimated, created_at_ms, settled_at_ms FROM workspace_spend)`;
+const MISSION_SPEND = "mission_spend";
+
+function summarySql(ledger: string): string {
+  return `SELECT
   COALESCE(SUM(settled_micro_usd),0) AS settledMicroUsd,
   COALESCE(SUM(CASE WHEN settled_at_ms IS NULL THEN reserved_micro_usd ELSE 0 END),0) AS reservedMicroUsd,
   COALESCE(SUM(CASE WHEN settled_at_ms IS NOT NULL THEN input_tokens+output_tokens+cached_input_tokens ELSE 0 END),0) AS settledTokens,
   COALESCE(SUM(CASE WHEN settled_at_ms IS NULL THEN reserved_tokens ELSE 0 END),0) AS reservedTokens,
   COALESCE(SUM(input_tokens),0) AS inputTokens, COALESCE(SUM(output_tokens),0) AS outputTokens, COALESCE(SUM(cached_input_tokens),0) AS cachedInputTokens,
   COUNT(*) AS attempts, COUNT(*) FILTER (WHERE settled_at_ms IS NULL) AS openAttempts,
-  COALESCE(MAX(estimated),0) AS estimated FROM mission_spend`;
+  COALESCE(MAX(estimated),0) AS estimated FROM ${ledger}`;
+}
 
-function summarize(db: Db, from: string, ...params: unknown[]): UsageSummary {
-  const row = db.prepare(`${SUMMARY_SQL} ${from}`).get(...params as never[]) as Omit<UsageSummary, "estimated"> & { estimated: number };
+function summarize(db: Db, ledger: string, from: string, ...params: unknown[]): UsageSummary {
+  const row = db.prepare(`${summarySql(ledger)} ${from}`).get(...params as never[]) as Omit<UsageSummary, "estimated"> & { estimated: number };
   return { ...row, estimated: row.estimated === 1 };
 }
 
-export const missionUsage = (db: Db, missionId: string): UsageSummary => summarize(db, "WHERE mission_id=?", missionId);
-export const taskUsage = (db: Db, workItemId: string): UsageSummary => summarize(db, "WHERE run_id IN (SELECT run_id FROM execution_links WHERE work_item_id=?)", workItemId);
-export const workspaceUsage = (db: Db): UsageSummary => summarize(db, "");
+export const missionUsage = (db: Db, missionId: string): UsageSummary => summarize(db, MISSION_SPEND, "WHERE mission_id=?", missionId);
+export const taskUsage = (db: Db, workItemId: string): UsageSummary => summarize(db, ALL_SPEND, "WHERE run_id IN (SELECT run_id FROM execution_links WHERE work_item_id=?)", workItemId);
+export const workspaceUsage = (db: Db): UsageSummary => summarize(db, ALL_SPEND, "");
+/** Usage of interactive runs outside any mission (ad-hoc task runs, conversations): the workspace-level "Outside missions" bucket. */
+export const outsideMissionsUsage = (db: Db): UsageSummary => summarize(db, "workspace_spend", "");
 
 /** Settled spend over the last 24 hours and 7 days plus every open reservation, against the workspace cap (#55). */
 export function spendCapOf(db: Db, now: number): SpendCapView {
   const cap = db.prepare("SELECT daily_micro_usd, weekly_micro_usd FROM workspace_spend_cap WHERE id=1").get() as { daily_micro_usd: number | null; weekly_micro_usd: number | null } | undefined;
-  const open = (db.prepare("SELECT COALESCE(SUM(reserved_micro_usd),0) AS v FROM mission_spend WHERE settled_at_ms IS NULL").get() as { v: number }).v;
-  const since = (ms: number): number => (db.prepare("SELECT COALESCE(SUM(settled_micro_usd),0) AS v FROM mission_spend WHERE settled_at_ms >= ?").get(now - ms) as { v: number }).v;
+  const open = (db.prepare(`SELECT COALESCE(SUM(reserved_micro_usd),0) AS v FROM ${ALL_SPEND} WHERE settled_at_ms IS NULL`).get() as { v: number }).v;
+  const since = (ms: number): number => (db.prepare(`SELECT COALESCE(SUM(settled_micro_usd),0) AS v FROM ${ALL_SPEND} WHERE settled_at_ms >= ?`).get(now - ms) as { v: number }).v;
   return {
     ...(cap?.daily_micro_usd != null ? { dailyMicroUsd: cap.daily_micro_usd } : {}),
     ...(cap?.weekly_micro_usd != null ? { weeklyMicroUsd: cap.weekly_micro_usd } : {}),
@@ -94,7 +103,7 @@ export function runUsage(store: Store, db: Db, workspaceId: string, runId: strin
   const attempts = store.control.prepare(`SELECT ja.id AS attempt_id, ja.state AS state FROM job_attempts ja JOIN jobs j ON j.id=ja.job_id
     WHERE j.workflow_run_id=? AND j.workspace_id=? ORDER BY j.created_at_ms, ja.attempt_no`).all(runId, workspaceId) as Array<{ attempt_id: string; state: string }>;
   const attemptRows = attempts.map(({ attempt_id: attemptId, state }) => {
-    const ledger = db.prepare("SELECT reserved_micro_usd, settled_at_ms, settled_micro_usd, input_tokens, output_tokens, cached_input_tokens, accounting, estimated FROM mission_spend WHERE attempt_id=?").get(attemptId) as
+    const ledger = db.prepare(`SELECT reserved_micro_usd, settled_at_ms, settled_micro_usd, input_tokens, output_tokens, cached_input_tokens, accounting, estimated FROM ${ALL_SPEND} WHERE attempt_id=?`).get(attemptId) as
       { reserved_micro_usd: number; settled_at_ms: number | null; settled_micro_usd: number | null; input_tokens: number; output_tokens: number; cached_input_tokens: number; accounting: "final-total" | "incremental" | null; estimated: number } | undefined;
     if (ledger?.settled_at_ms) {
       return { attemptId, runId, settled: true, inputTokens: ledger.input_tokens, outputTokens: ledger.output_tokens, cachedInputTokens: ledger.cached_input_tokens, microUsd: ledger.settled_micro_usd ?? 0, reservedMicroUsd: 0, ...(ledger.accounting ? { accounting: ledger.accounting } : {}), estimated: ledger.estimated === 1 };
@@ -107,7 +116,7 @@ export function runUsage(store: Store, db: Db, workspaceId: string, runId: strin
   const sum = (pick: (row: (typeof attemptRows)[number]) => number, rows = done): number => rows.reduce((total, row) => total + pick(row), 0);
   const usage: UsageSummary = {
     settledMicroUsd: sum((row) => row.microUsd), reservedMicroUsd: sum((row) => row.reservedMicroUsd, attemptRows.filter((row) => !row.settled)),
-    settledTokens: sum((row) => row.inputTokens + row.outputTokens + row.cachedInputTokens), reservedTokens: (db.prepare("SELECT COALESCE(SUM(reserved_tokens),0) AS v FROM mission_spend WHERE run_id=? AND settled_at_ms IS NULL").get(runId) as { v: number }).v,
+    settledTokens: sum((row) => row.inputTokens + row.outputTokens + row.cachedInputTokens), reservedTokens: (db.prepare(`SELECT COALESCE(SUM(reserved_tokens),0) AS v FROM ${ALL_SPEND} WHERE run_id=? AND settled_at_ms IS NULL`).get(runId) as { v: number }).v,
     inputTokens: sum((row) => row.inputTokens), outputTokens: sum((row) => row.outputTokens), cachedInputTokens: sum((row) => row.cachedInputTokens),
     attempts: attemptRows.length, openAttempts: attemptRows.length - done.length, estimated: done.some((row) => row.estimated),
   };

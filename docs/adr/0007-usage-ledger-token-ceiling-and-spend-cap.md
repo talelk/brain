@@ -26,9 +26,11 @@ visible only inside attempt events. Decisions:
   counted as unknown, never zero. The ceiling shown is the mission budget as admission enforces
   it (dollar budget less the coordinator's final allowance).
 
-Known limit: only attempts admitted for a mission have a ledger row. Interactive runs outside a
-mission show their attempts on the run page but are not part of mission, task or workspace
-totals or the spend cap.
+Interactive runs outside a mission (ad-hoc task runs, conversations) are recorded in the workspace
+bucket `workspace_spend` ("Outside missions"): same columns and settlement as `mission_spend`, no
+mission. They are part of run and workspace totals and of the spend cap, and a reached cap holds new
+interactive attempts too (queue reason "waiting: workspace spend cap"). They have no mission budget,
+so only the cap and the agent's own limits bound them.
 
 The spend cap is a workspace-wide limit set with the `mission:write` scope, like a mission budget, so
 the person who sees a mission pause can raise it in one step. It is audited as a command. Narrowing

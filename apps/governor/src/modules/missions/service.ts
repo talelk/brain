@@ -8,8 +8,8 @@ import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor
 import { activeReleaseRecord } from "../configuration/index";
 import { repeatGate, type RepeatPlan, type RepeatSchedule } from "./repeat";
 import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
-import { admit, admitChallenge, budgetOf, DEFAULT_MISSION_BUDGET, hasHeadroom, limitChangeNote, minutesWord, reserve as reserveSpend, settle, settleAll, usageOf } from "./budget";
-import { capReached, missionUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUsage } from "./usage";
+import { admit, admitChallenge, admitOutsideMission, budgetOf, DEFAULT_MISSION_BUDGET, hasHeadroom, limitChangeNote, minutesWord, reserve as reserveSpend, settle, settleAll, usageOf } from "./budget";
+import { capReached, missionUsage, outsideMissionsUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUsage } from "./usage";
 import { planEstimate, planWallLimit } from "./estimate";
 import { listEvalCases, recordEvalCase } from "./eval-cases";
 import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, recordTaskResult, sendMessage, taskOf, taskResult, verifyOutputs } from "./outputs";
@@ -566,7 +566,7 @@ export class MissionService {
   }
 
   /** Mission-local admission for a run's next attempt; a run linked to no mission is interactive work. */
-  admission(organizationId: string, workspaceId: string, runId: string): { missionId?: string; admitted: true; reserve: number; running: number } | { missionId: string; admitted: false; reason: string; running: number } {
+  admission(organizationId: string, workspaceId: string, runId: string): { missionId?: string; admitted: true; reserve: number; running: number } | { missionId?: string; admitted: false; reason: string; running: number } {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     const work = db.prepare("SELECT mission_id FROM execution_links WHERE run_id=? LIMIT 1").get(runId) as { mission_id: string } | undefined;
     const coordinatorRun = work ? undefined : db.prepare("SELECT mission_id FROM mission_runs WHERE run_id=?").get(runId) as { mission_id: string } | undefined;
@@ -576,7 +576,7 @@ export class MissionService {
       // (the command id `challenge-<id>`), which exists before the challenge learns the run id.
       const challenged = db.prepare(`SELECT w.mission_id FROM workflow_runs r JOIN result_challenges c ON r.execution_key='challenge-' || c.id
         JOIN work_items w ON w.id=c.work_item_id WHERE r.id=?`).get(runId) as { mission_id: string } | undefined;
-      if (!challenged) return { admitted: true, reserve: 0, running: 0 };
+      if (!challenged) return this.store.inTx(db, () => admitOutsideMission(this.store, db));
       const decision = this.store.inTx(db, () => admitChallenge(this.store, db, challenged.mission_id));
       return { missionId: challenged.mission_id, ...decision };
     }
@@ -591,7 +591,7 @@ export class MissionService {
     return row.n === 1;
   }
 
-  recordReservation(organizationId: string, workspaceId: string, input: { missionId: string; runId: string; attemptId: string; microUsd: number }): void {
+  recordReservation(organizationId: string, workspaceId: string, input: { missionId?: string; runId: string; attemptId: string; microUsd: number }): void {
     reserveSpend(this.store, this.store.workspaceDb(workspaceId, organizationId), input);
   }
 
@@ -1116,7 +1116,7 @@ export class MissionService {
       settleAll(this.store, db);
       return { scope: "mission", id: mission.id, usage: missionUsage(db, String(resourceId)) } as unknown as JsonValue;
     }
-    if (queryType === "usage.workspace") { settleAll(this.store, db); return { scope: "workspace", id: workspaceId, usage: workspaceUsage(db), spendCap: spendCapOf(db, this.store.now()) } as unknown as JsonValue; }
+    if (queryType === "usage.workspace") { settleAll(this.store, db); return { scope: "workspace", id: workspaceId, usage: workspaceUsage(db), outsideMissions: outsideMissionsUsage(db), spendCap: spendCapOf(db, this.store.now()) } as unknown as JsonValue; }
     if (queryType === "plans.estimate") return planEstimate(this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))), db) as unknown as JsonValue;
     if (queryType === "plans.get") return this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "workItems.list") {
