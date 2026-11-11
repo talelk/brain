@@ -102,4 +102,14 @@ describe("a mission the Governor closed publishes its write-up on a single-owner
     w.brain.runCapitalization();
     expect(w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM memory_assets WHERE revoked=0").get()).toEqual({ n: 3 });
   });
+  it("sets aside older notes that have no mission and no title instead of counting them for review for ever", async () => {
+    world = setupWorld();
+    const w = world;
+    const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    db.prepare("INSERT INTO knowledge_assets(id,signature,operation_id,state,classification,content,source_count,created_at_ms,updated_at_ms) VALUES ('old-note','sha256:old','mission-knowledge','extracted','internal','{\"raw\":true}',1,1,1)").run();
+    expect(await summary(w)).toMatchObject({ awaitingReview: 1 });
+    w.brain.runCapitalization();
+    expect(await summary(w)).toMatchObject({ awaitingReview: 0 });
+    expect(db.prepare("SELECT rejection_reason AS r FROM knowledge_assets WHERE id='old-note'").get()).toEqual({ r: "Not kept: an older note with no mission or title, nothing readable to review" });
+  });
 });

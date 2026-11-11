@@ -493,6 +493,9 @@ export class CapitalizationService {
    */
   autoPublishSweep(organizationId: string, workspaceId: string): number {
     const db = this.store.workspaceDb(workspaceId, organizationId);
+    // Notes from before write-ups had a mission and a title have nothing readable to review or publish: set them aside
+    // (with the reason) instead of leaving them in the inbox and its count for ever. Nothing is deleted.
+    db.prepare("UPDATE knowledge_assets SET rejection_reason='Not kept: an older note with no mission or title, nothing readable to review',updated_at_ms=? WHERE operation_id='mission-knowledge' AND state='extracted' AND mission_id IS NULL AND rejection_reason IS NULL AND superseded_by IS NULL").run(this.store.now());
     if (!this.autoPublishOn(db)) return 0;
     const waiting = db.prepare("SELECT * FROM knowledge_assets WHERE operation_id IN ('mission-knowledge','saved-document') AND state='extracted' AND rejection_reason IS NULL AND superseded_by IS NULL AND (mission_id IS NOT NULL OR operation_id='saved-document') ORDER BY created_at_ms, id").all() as AssetRow[];
     let published = 0;

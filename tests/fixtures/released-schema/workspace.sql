@@ -82,6 +82,17 @@ CREATE TABLE workspace_spend_cap (
   weekly_micro_usd INTEGER CHECK(weekly_micro_usd IS NULL OR weekly_micro_usd >= 0), updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
 ) STRICT;
 CREATE INDEX mission_spend_open ON mission_spend(mission_id, settled_at_ms);
+CREATE TABLE workspace_spend (
+  attempt_id TEXT PRIMARY KEY, run_id TEXT NOT NULL,
+  reserved_micro_usd INTEGER NOT NULL DEFAULT 0 CHECK(reserved_micro_usd >= 0),
+  settled_micro_usd INTEGER CHECK(settled_micro_usd IS NULL OR settled_micro_usd >= 0),
+  reserved_tokens INTEGER NOT NULL DEFAULT 0 CHECK(reserved_tokens >= 0),
+  input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, cached_input_tokens INTEGER NOT NULL DEFAULT 0,
+  accounting TEXT DEFAULT NULL CHECK(accounting IS NULL OR accounting IN ('final-total','incremental')), estimated INTEGER NOT NULL DEFAULT 0,
+  created_at_ms INTEGER NOT NULL, settled_at_ms INTEGER
+) STRICT;
+CREATE INDEX workspace_spend_run ON workspace_spend(run_id);
+CREATE INDEX workspace_spend_settled ON workspace_spend(settled_at_ms);
 CREATE TABLE mission_brief_versions (
   mission_id TEXT NOT NULL REFERENCES missions(id), version INTEGER NOT NULL CHECK(version > 0),
   intent TEXT NOT NULL, constraints_json TEXT NOT NULL CHECK(json_valid(constraints_json)),
