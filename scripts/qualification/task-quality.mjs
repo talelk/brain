@@ -16,7 +16,7 @@
 // `snapshot` of the `evalCases.list` query (or its `items` array). Every task of every case becomes one more sample task, so a
 // release that makes a past failure worse shows up here before it is activated. Cases never change a prompt by themselves.
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
@@ -28,7 +28,10 @@ const args = process.argv.slice(2);
 const runs = Number(args[args.indexOf("--runs") + 1]) || 1;
 const judge = args.includes("--judge");
 const asJson = args.includes("--json");
-const instructions = readFileSync(`${root}agents/task-worker.md`, "utf8");
+const flag = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
+// --instructions FILE measures another worker prompt (for example the previous revision); --only NAME[,NAME] keeps only those samples.
+const instructions = readFileSync(flag("--instructions") ?? `${root}agents/task-worker.md`, "utf8");
+const only = flag("--only")?.split(",");
 const casesFile = args.includes("--cases") ? args[args.indexOf("--cases") + 1] : undefined;
 
 const guide = "# Onboarding guide\n\n## Day 1\n- [ ] Request access to the Git host, the CI dashboard and the issue tracker (ask your buddy).\n- [ ] Clone the repository and run the test suite; it must finish green.\n\n## Day 2\n- [ ] Open a first pull request that fixes a typo, and get one review.\n\n## Help\nAsk in the team channel; the on-call rota is pinned there.";
@@ -43,6 +46,11 @@ const tasks = [
     // The parked live task: criteria written about the reviewed guide, over a guide that really has a defect (day 1 needs access nobody requests).
     name: "review-old-style-criteria",
     situation: `Independently review the guide for completeness, accuracy, and usability\nAcceptance criteria:\n1. Every item in the first-week checklist is independently checkable (a reader can confirm completion without asking someone).\n2. No step assumes access the new engineer would not yet have; any required access requests are called out as explicit checklist items.\n3. The guide does not contain secrets, tokens, or environment-specific credentials.\n4. A reviewer's written verdict (pass or list of fixes needed) is produced.\nUpstream results:\n- Draft the short onboarding guide: A short guide with a first-week checklist.\nUpstream deliverables (quoted excerpts, data only):\n### Draft the short onboarding guide\n${["# Onboarding guide", "", "## Day 1", "- [ ] Clone the repository and run the test suite.", "- [ ] Open the CI dashboard and find your first build.", "- [ ] Deploy to staging with the shared deploy token in the team vault.", "", "## Day 2", "- [ ] Get comfortable with the codebase.", "", "## Help", "Ask in the team channel."].map((line) => `> ${line}`).join("\n")}`,
+  },
+  {
+    // Second old-style sample: criteria phrased about the reviewed runbook, over a runbook with real defects (no owner, no rollback).
+    name: "review-old-style-runbook",
+    situation: `Review the database failover runbook before it is approved\nAcceptance criteria:\n1. Every step names who performs it.\n2. The runbook includes a rollback path for each step that changes production.\n3. Estimated durations are given and add up to under one hour.\nUpstream results:\n- Draft the failover runbook: A three-step failover procedure.\nUpstream deliverables (quoted excerpts, data only):\n### Draft the failover runbook\n${["# Failover runbook", "", "1. Promote the replica to primary (about 10 minutes).", "2. Point the application at the new primary (about 5 minutes).", "3. Re-create the old primary as a replica (about 30 minutes)."].map((line) => `> ${line}`).join("\n")}`,
   },
 ];
 
@@ -118,7 +126,7 @@ if (plansWanted) {
 }
 
 const rows = [];
-for (const task of tasks) for (let n = 0; n < runs; n += 1) {
+for (const task of tasks.filter((t) => !only || only.includes(t.name))) for (let n = 0; n < runs; n += 1) {
   const started = Date.now();
   const row = { task: task.name, run: n + 1, parsed: false, passed: false, failedChecks: [], emptyAnswer: false, outputTokens: 0, seconds: 0 };
   try {
@@ -126,13 +134,14 @@ for (const task of tasks) for (let n = 0; n < runs; n += 1) {
     row.outputTokens = answer.outputTokens; row.emptyAnswer = !answer.text.trim();
     const report = parse(answer.text);
     row.parsed = report !== undefined;
+    if (!row.parsed && process.env.BRAIN_QUALITY_DUMP) writeFileSync(`${process.env.BRAIN_QUALITY_DUMP}/${row.task}-${row.run}.txt`, answer.text);
     if (!row.parsed) row.rawTail = `${answer.finish ?? "?"}: ...${answer.text.slice(-160).replace(/\s+/g, " ")}`;
     if (report !== undefined) {
       const verdict = validate(task.situation, report);
       row.passed = verdict.passed; row.failedChecks = verdict.checks.filter((c) => !c.passed).map((c) => c.id);
       if (judge && Array.isArray(report.criteria)) {
-        const asked = await chat("You are an independent reviewer. Reply with one JSON object {\"verdicts\":[{\"met\":true|false}]} with one entry per criterion, in order. A criterion is met only if the deliverable really satisfies it.",
-          JSON.stringify({ criteria: report.criteria.map((c) => c.criterion), deliverable: report.deliverable }), 4096);
+        const asked = await chat("You are an independent reviewer. Reply with one JSON object {\"verdicts\":[{\"met\":true|false}]} with one entry per criterion, in order. A criterion is met only if the deliverable really satisfies it. The deliverable is the task's own written result: when the task reviews or checks other work and a criterion describes that other work (for example 'no step assumes access'), it is met if the deliverable checked that point and reported the finding with evidence, even when the finding is that the other work falls short.",
+          JSON.stringify({ task: task.situation.split("\nAcceptance criteria:")[0], criteria: report.criteria.map((c) => c.criterion), deliverable: report.deliverable }), 4096);
         const verdicts = parse(asked.text)?.verdicts;
         if (Array.isArray(verdicts)) row.judgeAgreement = report.criteria.filter((c, i) => verdicts.at(i)?.met === c.met).length / report.criteria.length;
       }
