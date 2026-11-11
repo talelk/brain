@@ -59,6 +59,9 @@ Housekeeping 2026-11-11 ~12:00: stopped lingering agents (A2 9 h, E), removed 25
 Readiness separates capability from capacity (busy runner = ready, `busy: {slotsInUse, slotsTotal}`); Today box never blocked by a busy runner ("Brain is working on N things; yours queues and starts next"); runner supervisor runs one claim loop per slot (`BRAIN_RUNNER_SLOTS`), deploy sets agents 3 / evaluators 2 slots in `runner-*.env` on every deploy. Live: runner rows show slot_capacity 3 and 2, healthy; Today unblocked; the 6-task on-call mission finished "closed - achieved" after the R/S/T fixes; note-taking mission resumed with limit "$2 or 5 h of working time".
 Leftovers (T): multi-worker supervisor loop untested with >1 concurrent attempts; session refresh (13 min) briefly lowers concurrency for very long attempts; busy-runner spec only at 1440-light; Health/Runners UI still says "busy".
 
+## Found live 2026-11-11 ~13:15
+Note-taking mission still shows "1 task is running, 17%, 44k tokens" unchanged 10+ min after Resume and the 3-slot runner deploy: likely the watchdog's last allowed restart (attempt 5) was interrupted by my own deploys and the job now waits for a person while the UI says "running"; Needs-you says nothing. Track U (running): platform-caused interruptions must not consume the restart budget; leftover read jobs retry once automatically then surface in Needs you with "Try again"; UI must not say "running" for a job without a live attempt. Rule for me: avoid deploying while missions are running unless needed (each deploy interrupts running attempts).
+
 ## Not yet walked live (blocked on deploy of K and M)
 Share links, Challenge this result, Repeat this (now creates real missions), Context received tab, Tools registry, Quality page, Usage meter in depth.
 
