@@ -108,7 +108,7 @@ export function createStartController() {
 export type StartController = ReturnType<typeof createStartController>;
 
 /** The sentence box, the play chips, the reuse chips and the "more options" disclosure. */
-export function StartFields(props: { start: StartController; large?: boolean; onSubmit?: () => void; /** Blocks the box (setup is not done); chips stay visible but cannot be used. */ disabled?: boolean; /** Offers the "Try a sample goal" chip. */ sample?: boolean }): JSX.Element {
+export function StartFields(props: { start: StartController; large?: boolean; /** One tight row of chips under the box, for Today where the box leads. */ compact?: boolean; onSubmit?: () => void; /** Blocks the box (setup is not done); chips stay visible but cannot be used. */ disabled?: boolean; /** Offers the "Try a sample goal" chip. */ sample?: boolean }): JSX.Element {
   const navigate = useNavigate();
   const s = props.start;
   const [panel, setPanel] = createSignal<"" | "previous" | "repeat">("");
@@ -142,7 +142,7 @@ export function StartFields(props: { start: StartController; large?: boolean; on
   const chip = (label: string, icon: string, pressed: boolean, onClick: () => void, extra?: { expanded?: boolean }) =>
     <Button variant={pressed ? "subtle" : "outline"} theme={pressed ? "blue" : "gray"} size="sm" iconLeft={icon} aria-pressed={extra?.expanded === undefined ? pressed : undefined} aria-expanded={extra?.expanded} disabled={props.disabled} onClick={onClick}>{label}</Button>;
   return <div class="flex min-w-0 flex-col gap-3">
-    <Textarea label="What do you want done?" value={s.intent()} onInput={(event) => s.setIntent(event.currentTarget.value)} error={s.shownProblem()} rows={props.large ? 3 : 2} disabled={props.disabled}
+    <Textarea label="What do you want done?" value={s.intent()} onInput={(event) => s.setIntent(event.currentTarget.value)} error={s.shownProblem()} rows={props.large && !props.compact ? 3 : 2} disabled={props.disabled}
       required={!s.playId() && !s.source()} placeholder="For example: summarise this week's support tickets and draft replies"
       onKeyDown={(event: KeyboardEvent) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); props.onSubmit?.(); } }} />
     <Show when={chosen()}>{(name) => <p class="flex min-w-0 flex-wrap items-center gap-2 text-interface text-ink-gray-8" data-testid="start-seed">
@@ -150,7 +150,7 @@ export function StartFields(props: { start: StartController; large?: boolean; on
       <span class="min-w-0 break-words">{s.source() ? "Starting from the earlier mission" : "Starting from the play"} <strong>{name()}</strong>. {s.intent().trim() ? "Your sentence replaces its goal." : "Add a sentence to change the goal, or just start."}</span>
       <Button variant="ghost" size="sm" iconLeft="lucide-x" onClick={clear}>Remove</Button>
     </p>}</Show>
-    <fieldset class="m-0 flex min-w-0 flex-col gap-2 border-0 p-0" aria-label="Start from something ready">
+    <fieldset class={`m-0 flex min-w-0 flex-col gap-2 border-0 p-0${props.compact ? " brain-start-compact" : ""}`} aria-label="Start from something ready">
       <Show when={s.playList().length}>
         <div class="flex min-w-0 flex-wrap items-center gap-2"><span class="text-caption text-ink-gray-7">Plays</span>
           <For each={s.playList()}>{(play) => chip(play.title, "lucide-book-open-check", s.playId() === play.playId, () => s.pickPlay(play.playId))}</For></div>
@@ -162,7 +162,7 @@ export function StartFields(props: { start: StartController; large?: boolean; on
       <Show when={props.sample}>
         <div class="flex min-w-0 flex-wrap items-center gap-2"><span class="text-caption text-ink-gray-7">New here</span>
           {chip("Try a sample goal", "lucide-sparkles", false, () => void s.startSample())}
-          <span class="text-caption text-ink-gray-7">A small real mission that proves this install works, start to finish.</span></div>
+          <span class="brain-start-hint text-caption text-ink-gray-7">A small real mission that proves this install works, start to finish.</span></div>
       </Show>
     </fieldset>
     <Show when={panel() === "previous"}>

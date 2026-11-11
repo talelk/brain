@@ -40,11 +40,11 @@ export default function LibraryPage(): JSX.Element {
             <div class="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="library-shelves">
               <For each={shelves()}>{(shelf) => <button type="button" data-testid={`library-shelf-${shelf.id}`} data-emphasis={shelf.emphasis ? "true" : "false"}
                 classList={{ "border-outline-blue-2": Boolean(shelf.emphasis && (summary.state().data ? shelf.count(summary.state().data!) : 0) > 0) }}
-                class="flex min-w-0 flex-col items-start gap-1 rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-4 text-left hover:bg-surface-gray-1 focus-visible:focus-ring"
+                class="brain-shelf flex min-w-0 flex-col items-start gap-1 rounded-card border border-outline-gray-1 bg-surface-elevation-1 p-4 text-left hover:bg-surface-gray-1 focus-visible:focus-ring"
                 aria-label={`${shelf.label}: ${summary.state().data ? shelf.count(summary.state().data!) : "loading"}. ${shelf.description}`} onClick={() => void navigate(shelf.href)}>
                 <span class="flex items-center gap-2 text-interface font-medium text-ink-gray-9"><span class={`${shelf.icon} size-4`} aria-hidden="true" />{shelf.label}</span>
                 <span class="text-heading tabular-nums" data-testid={`library-count-${shelf.id}`}>{summary.state().data ? shelf.count(summary.state().data!) : "…"}</span>
-                <span class="text-caption text-ink-gray-7">{shelf.description}</span>
+                <span class="brain-shelf-note text-caption text-ink-gray-7">{shelf.description}</span>
               </button>}</For>
             </div>
           </ScreenRegion>

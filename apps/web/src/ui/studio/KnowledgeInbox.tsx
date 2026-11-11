@@ -6,6 +6,7 @@ import type { KnowledgeAsset } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { missionHref } from "../mission-links";
 import { DateText } from "../screen-region";
+import { DigestValue } from "../components/DigestValue";
 
 /** Knowledge Brain wrote up from a finished mission; the other assets come from repeated tool use. */
 export const isMissionKnowledge = (asset: KnowledgeAsset): boolean => asset.operationId === "mission-knowledge";
@@ -51,7 +52,7 @@ export function KnowledgeInbox(props: { assets: readonly KnowledgeAsset[]; canRe
             <Show when={asset.reviewedBy}><span>Approved by {asset.reviewedBy === app.identity()?.actor.actorId ? "you" : "another reviewer"}</span></Show>
           </p>
           <Show when={asset.provenance.length}><details class="mt-1 min-w-0"><summary class="cursor-pointer text-caption font-medium text-ink-gray-6">Provenance</summary>
-            <ul class="mt-1 flex min-w-0 flex-col gap-1"><For each={asset.provenance}>{(reference) => <li class="min-w-0"><code class="break-all text-caption text-ink-gray-7">{reference.evidenceDigest}</code></li>}</For></ul></details></Show>
+            <ul class="mt-1 flex min-w-0 flex-col gap-1"><For each={asset.provenance}>{(reference) => <li class="min-w-0"><DigestValue value={reference.evidenceDigest} label="Evidence fingerprint" /></li>}</For></ul></details></Show>
           <Show when={props.canReview && asset.state === "extracted"}>
             <div class="mt-3 flex min-w-0 flex-col gap-2 border-t border-outline-gray-1 pt-3">
               <div class="flex flex-wrap gap-2">

@@ -46,7 +46,7 @@ function ApprovalBody(props: { item: AttentionItem; onReviewOpen: (open: boolean
       <p class="m-0 break-words text-interface text-ink-gray-9">{plainSentence(approval())}</p>
       <p class="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-ink-gray-7">
         <span>Asked by {app.personName(approval().requestedBy)}</span><ExpiryCountdown expiresAt={approval().subject.expiresAt} asOf={view().asOf} />
-        <DigestValue value={approval().subjectDigest} label="Subject digest" />
+        <span class="inline-flex flex-wrap items-center gap-1">Fingerprint <DigestValue value={approval().subjectDigest} label="Action fingerprint" /></span>
       </p>
       <div class="flex flex-wrap items-center gap-2">
         <ApprovalReview active={app.canApprove()} requireTwoFactor={app.identity()?.requireTwoFactor} approvalId={approval().approvalId}

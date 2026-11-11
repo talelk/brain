@@ -568,3 +568,28 @@
 
 /* Pages outside the app shell (shared result, sign-in, wallboard) sit on the same themed canvas as everything else. */
 body { background: var(--surface-canvas); color: var(--ink-gray-9); }
+
+/* Loading placeholders shimmer instead of pulsing: a soft highlight sweeps across the grey block. Reduced motion stops it (global rule). */
+@keyframes brain-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+[data-slot="skeleton"].animate-pulse, [data-slot="skeleton-line"], .brain-skeleton {
+  animation: brain-shimmer 1.6s linear infinite;
+  background-color: var(--surface-gray-2);
+  background-image: linear-gradient(90deg, transparent 0%, var(--surface-gray-3) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+}
+
+/* Today's box leads the page: its chips share one wrapping row, the sample hint drops out, and the setup labels stay as quiet prefixes. */
+.brain-start-compact { flex-direction: row; flex-wrap: wrap; align-items: center; column-gap: 0.5rem; row-gap: 0.5rem; }
+.brain-start-compact > div { display: contents; }
+.brain-start-compact .brain-start-hint { display: none; }
+.brain-start-compact [data-slot="button"] { margin: 0; }
+.brain-results-ready > summary { list-style: none; }
+.brain-results-ready > summary::-webkit-details-marker { display: none; }
+.brain-results-ready[open] > summary { background: transparent; }
+
+/* Library shelves on a phone: name and count share one line and the note takes two lines at most, so six shelves fit on about one screen. */
+@media (max-width: 639px) {
+  .brain-shelf { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 0.75rem; row-gap: 0.125rem; padding: 0.75rem; }
+  .brain-shelf > .brain-shelf-note { grid-column: 1 / -1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+}

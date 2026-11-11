@@ -13,6 +13,12 @@ export function count(n: number, singular: string, plural = `${singular}s`): str
  * One consistent truncated digest form: `sha256:ba102196c289…`. The ellipsis is
  * part of the rendering so a shortened digest can never read as a complete one.
  */
+/** A digest as a short, plain tag for running text ("38cbefce"); the full value always sits behind a copy affordance or a tooltip. */
+export function digestTag(digest: string | undefined): string {
+  if (!digest) return "—";
+  return digest.slice(digest.indexOf(":") + 1).slice(0, 8);
+}
+
 export function shortDigest(digest: string | undefined, hexChars = 12): string {
   if (!digest) return "—";
   const colon = digest.indexOf(":");
@@ -57,6 +63,12 @@ export function formatTokens(tokens?: number): string {
 }
 
 /** `operations-triage` → `Operations triage`, matching the historical label helper. */
+/** "workItem.transitioned" -> "work item transitioned": an event type in words, for counts shown to people. */
+const EVENT_WORDS: Record<string, string> = { "mission.created": "mission started", "mission.seen": "visit recorded", "plan.confirmed": "plan confirmed", "plan.proposed": "plan drafted" };
+export function eventWords(type: string): string {
+  return EVENT_WORDS[type] ?? type.replace(/([a-z])([A-Z])/gu, "$1 $2").replaceAll(".", " ").replaceAll("-", " ").toLowerCase();
+}
+
 export function titleize(value: string): string {
   return value.replaceAll("-", " ").replace(/^./u, (letter) => letter.toUpperCase());
 }

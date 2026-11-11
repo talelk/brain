@@ -7,6 +7,7 @@ import { Section } from "@talelk/newui-organisms";
 import { DateText } from "../screen-region";
 import { MixBar } from "../viz/MixBar";
 import { KnowledgeInbox, isMissionKnowledge } from "./KnowledgeInbox";
+import { DigestValue } from "../components/DigestValue";
 
 export interface CapitalizationSnapshot {
   assets: KnowledgeAsset[];
@@ -53,7 +54,7 @@ export function CapitalizationStudio(props: {
             <div class="flex min-w-0 flex-wrap items-center gap-1.5"><strong class="min-w-0 break-words text-base-medium">{asset.operationId}</strong><Badge size="sm" theme={asset.state === "published" ? "green" : asset.state === "revoked" ? "red" : "amber"} label={asset.state} /><Badge size="sm" variant="outline" theme="blue" label={asset.classification} /></div>
             <p class="brain-prose mt-2 whitespace-pre-wrap break-words text-interface text-ink-gray-7">{asset.content}</p>
             <p class="mt-2 text-caption text-ink-gray-6">{asset.sourceCount} distinct runs · {asset.provenance.length} evidence references · updated <DateText value={asset.updatedAt} /></p>
-            <Show when={asset.provenance.length}><details class="mt-2 min-w-0"><summary class="cursor-pointer text-caption font-medium text-ink-gray-6">Provenance references</summary><ul class="mt-1 flex min-w-0 flex-col gap-1"><For each={asset.provenance}>{(reference) => <li class="min-w-0"><code class="break-all text-caption text-ink-gray-7">{reference.rootRunId}</code><br /><code class="break-all text-caption text-ink-gray-6">{reference.evidenceDigest}</code></li>}</For></ul></details></Show>
+            <Show when={asset.provenance.length}><details class="mt-2 min-w-0"><summary class="cursor-pointer text-caption font-medium text-ink-gray-6">Provenance references</summary><ul class="mt-1 flex min-w-0 flex-col gap-1"><For each={asset.provenance}>{(reference) => <li class="min-w-0"><DigestValue value={reference.evidenceDigest} label="Evidence fingerprint" /></li>}</For></ul></details></Show>
           </li>}</For></ul>
         </Show>
       </section>
@@ -64,8 +65,8 @@ export function CapitalizationStudio(props: {
             <div class="flex min-w-0 flex-wrap items-center gap-1.5"><strong class="min-w-0 break-words text-base-medium">{candidate.operationId}</strong><Badge size="sm" theme={candidate.state === "published" ? "green" : candidate.state === "rejected" ? "red" : "amber"} label={candidate.state} /><Badge size="sm" variant="outline" theme={candidate.testStatus === "passed" ? "green" : "red"} label={`tests ${candidate.testStatus}`} /><Badge size="sm" variant="outline" theme="gray" label={candidate.effectClass} /></div>
             <p class="mt-2 text-caption text-ink-gray-7">{candidate.sourceCount} verified source runs · {candidate.evidenceDigests.length} test fixtures · {candidate.existingAlternatives.length} existing alternatives</p>
             <dl class="mt-2 grid min-w-0 gap-1 text-caption sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-x-2">
-              <dt class="text-ink-gray-6">Release</dt><dd class="min-w-0"><code class="break-all text-ink-gray-7">{candidate.release.id}</code></dd>
-              <dt class="text-ink-gray-6">Digest</dt><dd class="min-w-0"><code class="break-all text-ink-gray-7">{candidate.release.digest}</code></dd>
+              <dt class="text-ink-gray-6">Tool</dt><dd class="min-w-0"><code class="break-all text-ink-gray-7">{candidate.release.id}</code></dd>
+              <dt class="text-ink-gray-6">Fingerprint</dt><dd class="min-w-0"><DigestValue value={candidate.release.digest} label="Release fingerprint" /></dd>
             </dl>
             <Show when={props.canReview && candidate.state === "quarantined"}><div class="mt-3 flex flex-wrap gap-2 border-t border-outline-gray-1 pt-3">
               <Button size="sm" class="max-w-full" variant="solid" theme="blue" onClick={() => void props.onReview(candidate, "approve")}>Approve {candidate.operationId}</Button>

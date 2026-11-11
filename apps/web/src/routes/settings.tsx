@@ -11,12 +11,12 @@ import type { JSX } from "solid-js";
 import { For, Show, createSignal, onMount } from "solid-js";
 import { Badge, Button, KeyValue, TextInput } from "@talelk/newui-atoms";
 import { Alert, Dialog, Pagination, Select, EmptyState, Timeline } from "@talelk/newui-molecules";
-import { useSearchParams } from "@solidjs/router";
+import { A, useSearchParams } from "@solidjs/router";
 import { BrainPage, PageStack, TechnicalDetails } from "../ui/components/PageLayout";
 import type { AuditEntry, HealthView, MemberGrantView, ConfigExplanation, OrganizationSessionView } from "@brain/contracts";
 import { DateText, ScreenRegion } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
-import { formatDateTime } from "../ui/format";
+import { eventWords, formatDateTime } from "../ui/format";
 import { ActionFeedback } from "../ui/components/ActionFeedback";
 import { Freshness, WorkspaceSection } from "../ui/components/Domain";import { StatusBadge, statusTheme } from "../ui/components/StatusBadge";
 import { StatusIcon } from "../ui/viz/StatusIcon";
@@ -88,7 +88,7 @@ export function SettingsScreen(props: {
         <WorkspaceSection title="Recent activity" description="Who did what and when, newest first. Entries cannot be edited or removed.">
           <ScreenRegion state={props.state} skeleton="rows" emptyTitle="Nothing recorded yet" emptyDescription="Sign-ins, approvals, grants and releases appear here as they happen." onRetry={props.onRefresh}>
             <Show when={props.audit.length === 0}><p class="brain-empty-inline">Nothing recorded yet. Sign-ins, approvals, grants and releases appear here as they happen.</p></Show>
-            <Timeline items={auditRows().map((entry) => ({ id: String(entry.cursor), title: <span class="break-words">{entry.action}</span>, description: <span class="break-all">{entry.actorId} · {entry.resourceId}</span>, timestamp: <span class="whitespace-nowrap"><DateText value={entry.occurredAt} /> · cursor {entry.cursor}</span>, icon: "lucide-history" }))} />
+            <Timeline items={auditRows().map((entry) => ({ id: String(entry.cursor), title: <span class="break-words first-letter:uppercase">{eventWords(entry.action)}</span>, description: <span class="break-words" title={entry.resourceId}>By {app.personName(entry.actorId)}</span>, timestamp: <span class="whitespace-nowrap"><DateText value={entry.occurredAt} /></span>, icon: "lucide-history" }))} />
             <Show when={auditPageCount() > 1}><Pagination.Root aria-label="Audit timeline pagination" class="mt-3 flex-wrap items-center justify-between gap-2 border-t border-outline-gray-1 pt-3" count={props.audit.length} pageSize={SETTINGS_PAGE_SIZE} page={currentAuditPage()} onPageChange={setAuditPage}>
               <Pagination.Range />
               <div class="flex items-center gap-1"><Pagination.PrevTrigger /><Pagination.Pages /><Pagination.NextTrigger /></div>
@@ -107,6 +107,7 @@ export function SettingsScreen(props: {
           </Pagination.Root></Show>
         </ScreenRegion>
       </WorkspaceSection></Show>
+      <Show when={tab() === "release" && searchParams.from === "today"}><p class="m-0"><A href={`/w/${props.workspaceId}/today`} class="inline-flex min-h-8 items-center gap-1 text-interface font-medium text-ink-blue-8 hover:underline"><span class="lucide-arrow-left size-4" aria-hidden="true" />Back to Today when you are done</A></p></Show>
       <Show when={tab() === "release"}><WorkspaceSection title="Active and available releases" description="Pick a release, check what is in it, then activate it. Nothing changes until you activate."><Show when={organizationAdmin()} fallback={<p class="text-interface text-ink-gray-7">Only an organization administrator can view or activate releases. Ask one to do it.</p>}><InspectRelease activeConfigDigest={props.activeConfigDigest} onActivate={props.onActivate} /></Show></WorkspaceSection></Show>
       <Show when={tab() === "release" && organizationAdmin() && props.explanation}><TechnicalDetails label="Where the workflow settings come from"><PageStack><Show when={props.explanation}><div class="grid gap-3 lg:grid-cols-2"><KeyValue label="Pointer" value={<span class="break-all">{props.explanation!.pointer}</span>} /><KeyValue label="Active digest" value={<code class="break-all">{props.explanation!.configDigest}</code>} orientation="vertical" /><For each={props.explanation!.sources}>{(source) => <KeyValue label={`Rule (${source.rule})`} value={<span class="break-all">{source.path}:{source.line}</span>} orientation="vertical" />}</For></div></Show></PageStack></TechnicalDetails></Show>
       <Show when={tab() === "security"}><WorkspaceSection title="Notifications" description="Attention hints never replace sign-in and exact review."><PushControls /><NotificationPreferences /></WorkspaceSection></Show>

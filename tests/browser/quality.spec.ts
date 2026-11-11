@@ -37,7 +37,8 @@ test("quality page shows each metric with its definition and window; a ready res
   await page.goto(`${governor.url}/w/ws-quality/missions`);
   await page.getByRole("button", { name: "Needs you: nothing waiting" }).click();
   const drawer = page.getByRole("dialog");
-  await expect(drawer.getByText("Result ready: Write the report is verified and done")).toBeVisible();
+  await expect(drawer.getByText("Write the report", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("Finished ", { exact: false }).first()).toBeVisible();
   await expect(drawer.getByText("Never block anything", { exact: false })).toBeVisible();
   await page.keyboard.press("Escape");
 

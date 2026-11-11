@@ -14,7 +14,7 @@ import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";
 import { MissionWorkItems } from "../../ui/components/MissionWorkItems";
 import { SchedulesLink } from "../../ui/components/SchedulesPanel";
 import { PlanCanvas } from "../../ui/components/PlanCanvas";
-import { formatDateTime, formatUsd } from "../../ui/format";
+import { eventWords, formatDateTime, formatUsd } from "../../ui/format";
 import { FlowStepper, type FlowStep } from "../../ui/viz/FlowStepper";
 import { Meter } from "../../ui/viz/Meter";
 import { StateBar } from "../../ui/viz/StateBar";
@@ -301,6 +301,13 @@ function LiveTab(props: ActProps): JSX.Element {
     await messages.refresh({ force: true });
   });
   const running = (memberId: string) => sessionsOf(memberId).filter((session) => session.state === "running" || session.state === "starting" || session.state === "waiting").length;
+  /** With no session yet, say what the work is waiting for rather than that nobody is working. */
+  const idle = () => {
+    const items = team.state().data?.items ?? [];
+    if (items.some((item) => item.state === "in-progress")) return { title: "Starting: waiting for a runner", description: "A task is under way and its agent has not picked it up yet. Its session appears here the moment a runner starts it." };
+    if (items.some((item) => item.state === "review")) return { title: "Waiting for the independent check", description: "The work is finished and an independent check is verifying it before it counts as done." };
+    return undefined;
+  };
   const chip = (selected: boolean) => `inline-flex min-w-0 cursor-pointer items-center gap-2 rounded-full border py-1 ps-1 pe-3 text-caption focus-visible:focus-ring ${selected ? "border-outline-blue-3 bg-surface-blue-1 text-ink-blue-8" : "border-outline-gray-2 bg-surface-elevation-1 text-ink-gray-8 hover:bg-surface-gray-1"}`;
   return <PageStack>
     <fieldset class="m-0 flex min-w-0 flex-wrap items-center gap-2 border-0 p-0">
@@ -318,7 +325,7 @@ function LiveTab(props: ActProps): JSX.Element {
         <span class="text-ink-gray-6">{running(entry.memberId) > 0 ? `${running(entry.memberId)} working` : `${sessionsOf(entry.memberId).length} sessions`}</span>
       </button>}</For>
     </fieldset>
-    <ConsoleScreen workspaceId={app.workspaceId()} include={inScope} requestedSession={typeof search.session === "string" ? search.session : undefined}
+    <ConsoleScreen workspaceId={app.workspaceId()} include={inScope} idle={idle()} requestedSession={typeof search.session === "string" ? search.session : undefined}
       filters={filters()} onFiltersChange={(patch) => setSearch({ ...writeExecFilters({ ...filters(), ...patch }) })}
       onSessionChange={(sessionId) => setSearch({ session: sessionId }, { replace: true })} />
     <div class="grid min-w-0 gap-4 lg:grid-cols-2">
@@ -328,7 +335,7 @@ function LiveTab(props: ActProps): JSX.Element {
             <Show when={s().notable.length} fallback={<p class="text-interface text-ink-gray-7">Nothing notable since your last visit.</p>}>
               <ul class="flex flex-col gap-1 text-interface"><For each={s().notable}>{(entry) => <li><span class="text-ink-gray-6">{formatDateTime(entry.at)}</span> · {entry.summary}</li>}</For></ul>
             </Show>
-            <Show when={Object.keys(s().otherCounts).length}><p class="mt-2 text-caption text-ink-gray-6">Also: {Object.entries(s().otherCounts).map(([type, count]) => `${count} ${type}`).join(" · ")}</p></Show>
+            <Show when={Object.keys(s().otherCounts).length}><p class="mt-2 text-caption text-ink-gray-6">Also: {Object.entries(s().otherCounts).map(([type, count]) => `${count} ${eventWords(type)}`).join(" · ")}</p></Show>
             <Button size="sm" variant="outline" class="mt-2" disabled={s().toCursor === s().fromCursor} onClick={() => void props.onAct(async () => { await app.run("mission.seen", { missionId: props.mission.missionId, cursor: s().toCursor }); await summary.refresh({ force: true }); })}>Mark as seen</Button>
           </>}</Show>
         </ScreenRegion>

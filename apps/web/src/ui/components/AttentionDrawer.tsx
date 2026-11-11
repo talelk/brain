@@ -39,10 +39,13 @@ export function attentionAction(item: AttentionItem): string {
   }
 }
 
+/** "Result ready: X is verified and done" reads as a sentence about the work, so a result row shows just the work. */
+export const resultName = (title: string): string => title.replace(/^Result ready:\s*/u, "").replace(/\s+is verified and done$/u, "");
+
 /** Ranked attention rows (fixed tiers, longest wait first); the same rows on Missions and in the drawer. */
 export function AttentionRows(props: { items: readonly AttentionItem[]; onOpen: (item: AttentionItem) => void }): JSX.Element {
   return <section class="brain-queue" aria-label="Attention strip"><For each={props.items}>{(item) =>
-    <QueueRow title={item.title} description={item.detail ?? `Waiting since ${formatDateTime(item.waitingSince)}`} icon={KIND_ICON[item.kind]} tone={TIER_TONE[item.tier] ?? "gray"}
+    <QueueRow title={item.kind === "result-ready" ? resultName(item.title) : item.title} description={item.detail ?? (item.kind === "result-ready" ? `Finished ${formatDateTime(item.waitingSince)}` : `Waiting since ${formatDateTime(item.waitingSince)}`)} icon={KIND_ICON[item.kind]} tone={TIER_TONE[item.tier] ?? "gray"}
       eyebrow={item.kind.replace("-", " ")} label={`${item.title}. Open`} trailing={<>
         <Badge variant="outline" theme={TIER_TONE[item.tier] ?? "gray"} label={item.kind === "result-ready" ? "Result" : `Tier ${item.tier}`} />
         <span class="inline-flex items-center gap-1 rounded-control bg-surface-blue-8 px-2.5 py-1 text-interface font-medium text-ink-base" aria-hidden="true">{attentionAction(item)}<span class="lucide-arrow-right size-3.5" /></span>

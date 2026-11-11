@@ -86,6 +86,8 @@ export function ConsoleScreen(props: {
   onSessionChange: (sessionId: string | undefined) => void;
   /** Limits the console to some sessions, e.g. one mission's or one member's. */
   include?: (session: BrainSession) => boolean;
+  /** What to say while no session is in scope: a mission that has work starting says so instead of "Nobody is working". */
+  idle?: { title: string; description: string };
 }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
@@ -138,8 +140,8 @@ export function ConsoleScreen(props: {
         emptyDescription="Sessions appear here the moment a run claims a runner. Dispatch declared work to start one."
         emptyAction={<Button variant="solid" theme="blue" onClick={() => void navigate(`/w/${ws()}/plays`)}>Start work</Button>}
         onRetry={() => void sessions.refresh({ force: true })}>
-        <EmptyState size="sm" icon="lucide-radio" title="Nobody is working right now"
-          description="When an agent starts, you will see who it is, what it is doing and every step it takes, live." />
+        <EmptyState size="sm" icon="lucide-radio" title={props.idle?.title ?? "Nobody is working right now"}
+          description={props.idle?.description ?? "When an agent starts, you will see who it is, what it is doing and every step it takes, live."} />
       </ScreenRegion>}>
       {(sessionId) => <SessionConsole workspaceId={ws()} sessionId={sessionId} rail={rail}
         jobs={jobs.state().data ?? []} filters={props.filters} onFiltersChange={props.onFiltersChange}

@@ -1,4 +1,4 @@
-import { For, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Button } from "@talelk/newui-atoms";
@@ -6,7 +6,7 @@ import { Card } from "@talelk/newui-molecules";
 import { useApp } from "../../ui/app-context";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";
-import { AttentionRows, attentionHref } from "../../ui/components/AttentionDrawer";
+import { attentionHref, resultName } from "../../ui/components/AttentionDrawer";
 import { NeedsYouQueue } from "../../ui/components/NeedsYouQueue";
 import { ATTENTION_CHANGED, blockingCount, createAttentionRead } from "../../ui/attention";
 import { missionHref } from "../../ui/mission-links";
@@ -15,6 +15,11 @@ import { PlainSummary } from "../../ui/viz/PlainSummary";
 import { createStartController, StartFields } from "../../ui/start/StartBox";
 import { blockedBy, TodaySetup } from "../../ui/components/TodaySetup";
 import { createReadiness } from "../../ui/components/OperationalChecklist";
+
+const SEEN_KEY = "brain-results-seen";
+const readSeen = (): string[] => { try { return JSON.parse(localStorage.getItem(SEEN_KEY) ?? "[]") as string[]; } catch { return []; } };
+const writeSeen = (ids: string[]) => { try { localStorage.setItem(SEEN_KEY, JSON.stringify(ids.slice(-200))); } catch { /* per-viewer convenience only */ } };
+const NEEDS_YOU_VISIBLE = 3;
 
 /**
  * Today (#47): where Brain lands. The first element is one box; anything that
@@ -36,35 +41,56 @@ export default function TodayPage(): JSX.Element {
   const readyItems = () => items().filter((item) => item.kind === "result-ready");
   const recent = () => [...(start.missions.state().data ?? [])].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
   const running = () => (start.missions.state().data ?? []).reduce((sum, mission) => sum + mission.usage.runningMembers, 0);
+  const [showAllNeeds, setShowAllNeeds] = createSignal(false);
+  const [seen, setSeen] = createSignal(readSeen());
+  const newestResults = () => readyItems().filter((item) => !seen().includes(item.id)).sort((a, b) => b.waitingSince.localeCompare(a.waitingSince));
+  const markAllSeen = () => { const next = [...new Set([...seen(), ...readyItems().map((item) => item.id)])]; setSeen(next); writeSeen(next); };
+  const visibleNeeds = () => showAllNeeds() ? waitingItems() : waitingItems().slice(0, NEEDS_YOU_VISIBLE);
   const summary = () => {
     const waiting = blockingCount(items());
     return `${waiting} ${waiting === 1 ? "thing needs" : "things need"} you, ${running()} ${running() === 1 ? "agent" : "agents"} working.`;
   };
+  const setup = <TodaySetup readiness={readiness} />;
   return <BrainPage title="Today" description="Say what you want done. Brain drafts a plan and waits for your OK before anything runs.">
     <PageStack>
-      {/* Anything that blocks work leads the page (the box stays one scroll away); an empty queue leaves the box first. */}
-      <Show when={waitingItems().length}>
-        <PlainSummary icon={blockingCount(items()) ? "lucide-bell-ring" : "lucide-circle-check"}>{summary()}</PlainSummary>
-        <WorkspaceSection title="Needs you" description="Decisions that block work, approvals first. Decide each one right here.">
-          <NeedsYouQueue items={waitingItems()} missions={start.missions.state().data ?? []} onChanged={changed} />
-        </WorkspaceSection>
-      </Show>
-      <TodaySetup readiness={readiness} />
-      <Card padding="lg" class="flex min-w-0 flex-col gap-4" aria-label="Start a mission" data-blocked={blocked() ? "true" : "false"}>
-        <StartFields start={start} large sample disabled={blocked()} onSubmit={() => void start.start()} />
+      {/* The box always leads, even while setup is unfinished (it is then disabled and the checklist sits right under it). */}
+      <Card padding="md" class="flex min-w-0 flex-col gap-3" aria-label="Start a mission" data-blocked={blocked() ? "true" : "false"}>
+        <StartFields start={start} compact sample disabled={blocked()} onSubmit={() => void start.start()} />
         <Show when={start.error()}><p role="alert" class="text-interface text-ink-red-7">{start.error()}</p></Show>
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <p class="text-caption text-ink-gray-7">{blocked() ? "Blocked until setup above is done." : "Nothing runs until you confirm the plan."}</p>
+          <p class="m-0 text-caption text-ink-gray-7">{blocked() ? "Blocked until the setup below is done." : "Nothing runs until you confirm the plan."}</p>
           <Button variant="solid" theme="blue" iconLeft="lucide-flag" loading={start.busy()} disabled={start.busy() || !start.canStart() || blocked()} onClick={() => void start.start()}>Start</Button>
         </div>
       </Card>
+      <Show when={waitingItems().length}>
+        <WorkspaceSection title="Needs you" description={`${summary()} Decide each one right here.`}>
+          <NeedsYouQueue items={visibleNeeds()} missions={start.missions.state().data ?? []} onChanged={changed} />
+          <Show when={waitingItems().length > NEEDS_YOU_VISIBLE}>
+            <div class="mt-2"><Button variant="ghost" size="sm" iconRight={showAllNeeds() ? "lucide-chevron-up" : "lucide-chevron-down"} aria-expanded={showAllNeeds()} onClick={() => setShowAllNeeds(!showAllNeeds())}>{showAllNeeds() ? "Show fewer" : `${waitingItems().length - NEEDS_YOU_VISIBLE} more`}</Button></div>
+          </Show>
+        </WorkspaceSection>
+      </Show>
+      {setup}
       <Show when={!waitingItems().length && (items().length || recent().length)}>
         <PlainSummary icon="lucide-circle-check">{summary()}</PlainSummary>
       </Show>
-      <Show when={readyItems().length}>
-        <WorkspaceSection title="Results ready" description="Finished work to look at when you like. Nothing is waiting on it.">
-          <AttentionRows items={readyItems()} onOpen={(item) => void navigate(attentionHref(item))} />
-        </WorkspaceSection>
+      <Show when={newestResults().length}>
+        <details class="brain-results-ready rounded-card border border-outline-gray-2 bg-surface-gray-1" data-testid="results-ready">
+          <summary class="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 p-3 sm:px-4">
+            <span class="lucide-circle-check-big size-5 shrink-0 text-ink-green-8" aria-hidden="true" />
+            <span class="min-w-0 flex-1 text-base-medium text-ink-gray-9">{newestResults().length} {newestResults().length === 1 ? "result" : "results"} ready<span class="ms-2 text-interface font-normal text-ink-gray-7">Finished and verified. Nothing is waiting on you.</span></span>
+          </summary>
+          <ul class="m-0 flex list-none flex-col border-t border-outline-gray-1 p-0">
+            <For each={newestResults().slice(0, 8)}>{(item) => <li><button type="button" class="brain-queue-row w-full" aria-label={`${resultName(item.title)}. See result`} onClick={() => void navigate(attentionHref(item))}>
+              <span class="min-w-0 text-start"><span class="block break-words text-interface text-ink-gray-9">{resultName(item.title)}</span><span class="block text-caption text-ink-gray-6">Finished {formatRelative(item.waitingSince)}</span></span>
+              <span class="lucide-arrow-right size-4 shrink-0 text-ink-gray-6" aria-hidden="true" />
+            </button></li>}</For>
+          </ul>
+          <div class="flex flex-wrap items-center justify-between gap-2 border-t border-outline-gray-1 p-2 sm:px-3">
+            <span class="text-caption text-ink-gray-6">{newestResults().length > 8 ? `Newest 8 of ${newestResults().length}.` : ""}</span>
+            <Button variant="ghost" size="sm" onClick={markAllSeen}>Mark all seen</Button>
+          </div>
+        </details>
       </Show>
       <Show when={recent().length}>
         <WorkspaceSection title="Latest missions" description="The five most recently updated."

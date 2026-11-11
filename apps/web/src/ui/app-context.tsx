@@ -220,6 +220,7 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
     canPublish: () => identity()?.actor.kind === "human" && hasRole("operator"),
     personName: (actorId) => {
       if (!actorId) return "someone";
+      if (actorId === "system" || actorId === "governor") return "Brain";
       if (actorId === identity()?.actor.actorId) return "you";
       const member = (members.state().data ?? []).find((m) => m.principalId === actorId);
       return member?.displayName ?? "a teammate";

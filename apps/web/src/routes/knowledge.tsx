@@ -11,7 +11,7 @@ import { PaneLayout } from "@talelk/newui-templates";
 import type { Classification, MemoryResult, MemoryScope, ToolCatalogEntry, ToolCandidateView } from "@brain/contracts";
 import { ScreenRegion, DateText } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
-import { formatDateTime, shortDigest } from "../ui/format";
+import { digestTag, formatDateTime } from "../ui/format";
 import { BrainPage, PageStack, TechnicalDetails } from "../ui/components/PageLayout";
 import { StatusBadge } from "../ui/components/StatusBadge";
 import { ReasonDialog } from "../ui/components/ReasonDialog";
@@ -242,7 +242,7 @@ export function KnowledgeScreen(props: {
               {(tool) => (
                 <QueueRow
                   title={tool.id}
-                  description={`${tool.effectClass} effect · release ${shortDigest(tool.release.digest)}`}
+                  description={`${tool.effectClass} effect · version ${digestTag(tool.release.digest)}`}
                   icon={tool.effectClass === "read" ? "lucide-scan-search" : "lucide-wrench"}
                   tone={tool.effectClass === "read" ? "blue" : "amber"}
                   label={`Open ${tool.id} in the tool registry`}
@@ -493,7 +493,7 @@ export function ToolsScreen(props: {
                         description={`${tool.effectClass} effect · ${usageSummary(tool)}`}
                         icon={tool.effectClass === "read" ? "lucide-scan-search" : "lucide-wrench"}
                         tone={tool.effectClass === "read" ? "blue" : "amber"}
-                        meta={<span>Release {shortDigest(tool.release.digest)}</span>}
+                        meta={<span title={tool.release.digest}>Version {digestTag(tool.release.digest)}</span>}
                         trailing={<StatusBadge status={tool.status} />}
                         selected={current()?.id === tool.id}
                         onClick={() => setSelectedId(tool.id)}

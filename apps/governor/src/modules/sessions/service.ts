@@ -525,12 +525,12 @@ export function recordAttemptSession(store: Store, input: {
   const id = `ses-${input.jobId}`;
   // A person reads "Investigate the runner config", not a job id: name the session after the work it serves when there is one.
   const served = input.runId
-    ? db.prepare("SELECT wi.title AS title FROM execution_links el JOIN work_items wi ON wi.id=el.work_item_id WHERE el.run_id=? ORDER BY el.created_at_ms DESC LIMIT 1").get(input.runId) as { title: string } | undefined
+    ? db.prepare("SELECT wi.id AS id, wi.title AS title FROM execution_links el JOIN work_items wi ON wi.id=el.work_item_id WHERE el.run_id=? ORDER BY el.created_at_ms DESC LIMIT 1").get(input.runId) as { id: string; title: string } | undefined
     : undefined;
-  db.prepare(`INSERT INTO sessions(id,job_id,attempt_id,mode,agent_id,task,engine_id,adapter_digest,engine_features,state,root_session_id,worktree_id,created_by,created_at_ms,updated_at_ms)
-    VALUES (?,?,?,'native','',?, ?,?,?,'running',?,?,?, ?,?)
-    ON CONFLICT(id) DO UPDATE SET attempt_id=excluded.attempt_id,engine_id=excluded.engine_id,adapter_digest=excluded.adapter_digest,engine_features=excluded.engine_features,state='running',updated_at_ms=excluded.updated_at_ms`)
-    .run(id, input.jobId, input.attemptId, served?.title ?? `job ${input.jobId}`, input.engineId, input.adapterDigest, features, id, `read-only:${input.workspaceId}`, "runner", now, now);
+  db.prepare(`INSERT INTO sessions(id,job_id,attempt_id,work_item_id,mode,agent_id,task,engine_id,adapter_digest,engine_features,state,root_session_id,worktree_id,created_by,created_at_ms,updated_at_ms)
+    VALUES (?,?,?,?,'native','',?, ?,?,?,'running',?,?,?, ?,?)
+    ON CONFLICT(id) DO UPDATE SET attempt_id=excluded.attempt_id,work_item_id=COALESCE(sessions.work_item_id,excluded.work_item_id),engine_id=excluded.engine_id,adapter_digest=excluded.adapter_digest,engine_features=excluded.engine_features,state='running',updated_at_ms=excluded.updated_at_ms`)
+    .run(id, input.jobId, input.attemptId, served?.id ?? null, served?.title ?? `job ${input.jobId}`, input.engineId, input.adapterDigest, features, id, `read-only:${input.workspaceId}`, "runner", now, now);
 }
 
 /**

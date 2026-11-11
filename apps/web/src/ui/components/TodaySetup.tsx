@@ -54,7 +54,7 @@ export function TodaySetup(props: { readiness: ReturnType<typeof createReadiness
     const timer = setInterval(() => void props.readiness.refresh({ force: true }), 3000);
     onCleanup(() => clearInterval(timer));
   });
-  const fix = (row: SetupRow) => { if (row.step === "release") void navigate("/settings?tab=release"); else setOpen(true); };
+  const fix = (row: SetupRow) => { if (row.step === "release") void navigate("/settings?tab=release&from=today"); else setOpen(true); };
   const label = (row: SetupRow) => (row.step === "smoke" ? "Run the check" : row.step === "release" ? "Open releases" : row.step === "model" ? "Connect a model" : "Start the runners");
   return <>
     <Show when={props.readiness.state().data && !props.readiness.state().data!.ready}>

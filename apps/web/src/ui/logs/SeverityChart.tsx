@@ -70,8 +70,8 @@ export function SeverityChart(): JSX.Element {
       </Show>
     </div>
     <Show when={(data()?.buckets.length ?? 0) > 0} fallback={<p class="py-6 text-center text-interface text-ink-gray-6">{read.state().data ? "No log records match these filters yet." : "Loading log activity…"}</p>}>
-      <Suspense fallback={<div class="h-40 animate-pulse rounded-control bg-surface-gray-2" aria-hidden="true" />}>
-        <BarChart data={data()!.buckets as unknown as Record<string, unknown>[]} x="time" y={["Info", "Warning", "Error"]} stacked height={160} yAxis={{ min: 0, echartOptions: { minInterval: 1 } }}
+      <Suspense fallback={<div class="brain-skeleton h-36 rounded-control" aria-hidden="true" />}>
+        <BarChart data={data()!.buckets as unknown as Record<string, unknown>[]} x="time" y={["Info", "Warning", "Error"]} stacked height={140} echartOptions={{ grid: { bottom: 22 } }} yAxis={{ min: 0, echartOptions: { minInterval: 1 } }}
           aria-label="Log records per time slice, stacked by severity: routine, warning and error"
           seriesConfig={{ Info: { label: "Routine" }, Warning: { label: "Warnings" }, Error: { label: "Errors" } }} />
       </Suspense>

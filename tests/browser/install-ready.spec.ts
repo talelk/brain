@@ -27,7 +27,7 @@ test("a fresh install is blocked with a checklist, each fix completes it without
   await expect(page.getByLabel(/^What do you want done/)).toBeDisabled();
   await expect(page.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Try a sample goal", exact: true })).toBeDisabled();
-  await expect(page.getByText("Blocked until setup above is done.")).toBeVisible();
+  await expect(page.getByText("Blocked until the setup below is done.")).toBeVisible();
   await shot(page, "install-blocked");
   await page.setViewportSize({ width: 390, height: 844 });
   await shot(page, "install-blocked");

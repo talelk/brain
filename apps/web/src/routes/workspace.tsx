@@ -1,4 +1,5 @@
 import type { JSX } from "solid-js";
+import { formatDateTime } from "../ui/format";
 import { For, Show, createSignal } from "solid-js";
 import { Badge, Button, KeyValue, Progress } from "@talelk/newui-atoms";
 import { Alert, EmptyState } from "@talelk/newui-molecules";
@@ -306,7 +307,7 @@ export function TicketDetailScreen(props: {
           <DetailHeader
             title={ticket()?.title ?? "Ticket"}
             headingLevel={2}
-            subtitle={`${ticket()?.id ?? "—"} · source ${ticket()?.sourceVersion ?? "—"} · updated ${ticket()?.updatedAt ?? "—"}`}
+            subtitle={`Ticket ${ticket()?.id ?? "—"} · updated ${ticket()?.updatedAt ? formatDateTime(ticket()!.updatedAt) : "—"}`}
             status={{ label: statusLabel("ticket", ticket()?.state ?? "open"), theme: statusHeaderTheme("ticket", ticket()?.state ?? "open") }}
           />
           <div class="brain-run-layout">
@@ -398,7 +399,7 @@ export function IncidentDetailScreen(props: {
           <DetailHeader
             title={incident()?.title ?? "Incident"}
             headingLevel={2}
-            subtitle={`${incident()?.targetKey ?? "—"} · observed ${incident()?.observedAt ?? "—"}`}
+            subtitle={`${incident()?.targetKey ?? "—"} · observed ${incident()?.observedAt ? formatDateTime(incident()!.observedAt) : "—"}`}
             status={{ label: statusLabel("incident", incident()?.state ?? "open"), theme: statusHeaderTheme("incident", incident()?.state ?? "open") }}
           />
           <Show when={!fresh()}>
