@@ -14,7 +14,8 @@ import type { LibrarySummary } from "../../data/library";
 export function AutoPublishSetting(props: { summary: LibrarySummary | undefined; onChanged: () => void }): JSX.Element {
   const app = useApp();
   const [message, setMessage] = createSignal("");
-  const canChange = () => app.canAdminister();
+  // The command needs memory:publish; showing the switch to anyone else would offer a control that fails.
+  const canChange = () => (app.identity()?.actor.scopes ?? []).includes("memory:publish");
   async function change(on: boolean): Promise<void> {
     setMessage("");
     try {
