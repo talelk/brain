@@ -716,6 +716,7 @@
     "workspace.context",
     "jobs.list",
     "job.get",
+    "run.get",
     "job.explain",
     "runners.list",
     "runner.get",

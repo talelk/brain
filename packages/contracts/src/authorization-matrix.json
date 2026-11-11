@@ -336,6 +336,11 @@
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
     },
+    "run.get": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
     "job.explain": {
       "scope": "workspace:read",
       "scopeMode": "workspace",

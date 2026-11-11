@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ActorContext, AttentionItem, BrainSession, CommandReceipt, JobSnapshot, PlanTask } from "@brain/contracts";
+import type { ActorContext, AttentionItem, BrainSession, CommandReceipt, JobSnapshot, PlanTask, Run } from "@brain/contracts";
 import { setupWorld, workView } from "../helpers";
 
 type World = ReturnType<typeof setupWorld>;
@@ -92,6 +92,25 @@ describe("run resolution: Runs 'Needs intervention' and Today's Needs-you agree"
       const jobs = (await query<{ items: JobSnapshot[] }>(w, "jobs.list")).items;
       expect(jobs.find((entry) => entry.jobId === "job-u1")?.needsYou).toBe(false);
       expect((await query<{ items: AttentionItem[] }>(w, "attention.list")).items.some((entry) => entry.kind === "outcome-unknown")).toBe(false);
+    } finally { w.brain.close(); }
+  });
+});
+
+describe("run.get", () => {
+  it("returns the first-class Run DTO with its mission and task links, and refuses an unknown run", async () => {
+    const w = setupWorld();
+    try {
+      const id = await mission(w, "rundto");
+      const item = (await workView(w)).items.find((entry) => entry.missionId === id)!;
+      const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
+      const digest = w.brain.activeRelease(w.org)!.digest;
+      db.prepare("INSERT INTO workflow_runs(id,execution_key,config_digest,workflow_digest,adapter_digest,engine_run_id,state,version,input_digest,created_at_ms) VALUES ('run-dto','exec-run-dto',?,?,?,'engine-run-dto','running',1,?,?)")
+        .run(digest, `sha256:${"e".repeat(64)}`, `sha256:${"d".repeat(64)}`, `sha256:${"f".repeat(64)}`, w.brain.store.now());
+      db.prepare("INSERT INTO run_inputs(run_id,input_json,workflow_json,actor_id) VALUES ('run-dto','{}',?,'owner')").run(JSON.stringify({ metadata: { id: "weekly-digest" } }));
+      w.brain.missions.linkExecution(w.owner, w.workspaceId, item.workItemId, "run-dto");
+      const run = await query<Run>(w, "run.get", "run-dto");
+      expect(run).toMatchObject({ runId: "run-dto", workspaceId: w.workspaceId, state: "running", release: { id: "weekly-digest" }, missionId: id, workItemId: item.workItemId });
+      await expect(query<Run>(w, "run.get", "run-missing")).rejects.toMatchObject({ code: "NOT_FOUND" });
     } finally { w.brain.close(); }
   });
 });

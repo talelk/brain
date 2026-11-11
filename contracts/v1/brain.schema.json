@@ -6498,13 +6498,39 @@
         "taskTrust": {
           "type": "object",
           "properties": {
-            "total": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            "reviewer": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            "human": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            "model": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            "text": { "type": "string", "minLength": 1, "maxLength": 1024 }
+            "total": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "reviewer": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "human": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "model": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
           },
-          "required": ["total", "reviewer", "human", "model", "text"],
+          "required": [
+            "total",
+            "reviewer",
+            "human",
+            "model",
+            "text"
+          ],
           "additionalProperties": false
         }
       },
@@ -7882,12 +7908,28 @@
         "activity": {
           "type": "object",
           "properties": {
-            "toolCalls": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            "sourcesRead": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            "lastTool": { "type": "string", "maxLength": 256 },
-            "lastToolDone": { "type": "boolean" }
+            "toolCalls": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "sourcesRead": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "lastTool": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "lastToolDone": {
+              "type": "boolean"
+            }
           },
-          "required": ["toolCalls", "sourcesRead"],
+          "required": [
+            "toolCalls",
+            "sourcesRead"
+          ],
           "additionalProperties": false
         },
         "version": {
@@ -12454,6 +12496,26 @@
           "properties": {
             "queryType": {
               "type": "string",
+              "const": "run.get"
+            },
+            "workspaceId": {
+              "$ref": "#/$defs/Id"
+            },
+            "resourceId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "queryType",
+            "resourceId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
               "const": "job.explain"
             },
             "workspaceId": {
@@ -13754,6 +13816,45 @@
             },
             "snapshot": {
               "$ref": "#/$defs/JobSnapshot"
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            },
+            "sourceWatermark": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "asOf": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "projectionLagMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "queryType",
+            "snapshot",
+            "cursor",
+            "sourceWatermark",
+            "asOf",
+            "projectionLagMs"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "queryType": {
+              "type": "string",
+              "const": "run.get"
+            },
+            "snapshot": {
+              "$ref": "#/$defs/Run"
             },
             "cursor": {
               "type": "string",
@@ -15568,13 +15669,35 @@
         "context": {
           "type": "object",
           "properties": {
-            "missionId": { "$ref": "#/$defs/Id" },
-            "missionTitle": { "type": "string", "maxLength": 256 },
-            "workItemId": { "$ref": "#/$defs/Id" },
-            "workItemTitle": { "type": "string", "maxLength": 256 },
-            "resolution": { "enum": ["retried-and-succeeded", "retried", "mission-closed", "set-aside"] }
+            "missionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "missionTitle": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "workItemId": {
+              "$ref": "#/$defs/Id"
+            },
+            "workItemTitle": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "resolution": {
+              "enum": [
+                "retried-and-succeeded",
+                "retried",
+                "mission-closed",
+                "set-aside"
+              ]
+            }
           },
-          "required": ["missionId", "missionTitle", "workItemId", "workItemTitle"],
+          "required": [
+            "missionId",
+            "missionTitle",
+            "workItemId",
+            "workItemTitle"
+          ],
           "additionalProperties": false
         },
         "needsYou": {
@@ -18499,6 +18622,7 @@
             "workspace.context",
             "jobs.list",
             "job.get",
+            "run.get",
             "job.explain",
             "runners.list",
             "runner.get",
@@ -22470,10 +22594,10 @@
           },
           "maxItems": 4
         },
-"knowledgeAssetId": {
+        "knowledgeAssetId": {
           "$ref": "#/$defs/Id"
         },
-                "safeToRetry": {
+        "safeToRetry": {
           "type": "boolean"
         },
         "version": {

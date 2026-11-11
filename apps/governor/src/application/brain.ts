@@ -13,7 +13,7 @@ import { completeUpload, completeUploadStream, initUpload, readVerified, readWor
 import { orgWorkspaces, textMatcher } from "./query";
 import { executeOrganizationQuery, isOrganizationQuery, organizationCommandHandlers } from "./organization-admin";
 import { activateRelease, activeReleaseAssets, activeReleaseRecord, activeSourceDocuments, activeWorkflow, configurationCommands, inspectRelease, listReleases, stageRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
-import { MastraWorkflowEngine, workflowCommands, type WorkflowEnginePort } from "../modules/workflows/index";
+import { MastraWorkflowEngine, readRun, workflowCommands, type WorkflowEnginePort } from "../modules/workflows/index";
 import { knowledgeCommands, LOCAL_ONLY_SOURCE_TYPES, MemoryStore, ReuseService, TencentDbClient } from "../modules/knowledge/index";
 import { admitApprovalDecision, governanceCommands, StepUpService } from "../modules/governance/index";
 import { createBrainAuth, bootstrapIdentity, assertHumanIdentity, type BootstrapResult, type BrainAuth } from "../modules/identity/index";
@@ -822,6 +822,14 @@ export class Brain {
       }
       case "job.get":
         return this.envelope(q.queryType, getJob(s, actor, String(q.resourceId)));
+      case "run.get": {
+        // The first-class Run DTO (ADR 0018). resourceId is a workflow run id; the run must belong to the named workspace.
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        requireWorkspaceRead(s, actor, q.workspaceId);
+        const run = readRun(s, actor.organizationId, q.workspaceId, String(q.resourceId));
+        if (!run) throw new BrainDomainError("NOT_FOUND", "run not found");
+        return this.envelope(q.queryType, run as unknown as JsonValue);
+      }
       case "job.explain":
         return this.envelope(q.queryType, explainJob(s, actor, String(q.resourceId)) as unknown as JsonValue);
       case "runners.list":
