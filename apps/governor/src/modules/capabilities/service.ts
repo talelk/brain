@@ -204,13 +204,16 @@ export class CapitalizationService {
   }
 
   /**
-   * An older write-up of the same goal (same words, ignoring case and punctuation) is superseded by this newer one.
-   * A published one leaves search and reuse at once; an unreviewed one leaves the Review inbox. Nothing is deleted.
+   * A write-up supersedes the strictly older write-ups of the same goal (same words, ignoring case and punctuation), never a newer one.
+   * A published older one leaves search and reuse at once; an unreviewed one leaves the Review inbox. Nothing is deleted.
    */
   private supersedeSameGoal(organizationId: string, workspaceId: string, db: ReturnType<Store["workspaceDb"]>, newId: string, intent: string, now: number): void {
     const key = goalKey(intent);
+    const current = db.prepare("SELECT created_at_ms FROM knowledge_assets WHERE id=?").get(newId) as { created_at_ms: number } | undefined;
+    if (!current) return;
     const older = db.prepare(`SELECT a.id, a.state, m.intent FROM knowledge_assets a JOIN missions m ON m.id=a.mission_id
-      WHERE a.operation_id='mission-knowledge' AND a.id<>? AND a.superseded_by IS NULL AND a.state IN ('extracted','reviewed','published') ORDER BY a.created_at_ms LIMIT 500`).all(newId) as Array<{ id: string; state: string; intent: string }>;
+      WHERE a.operation_id='mission-knowledge' AND a.superseded_by IS NULL AND a.state IN ('extracted','reviewed','published')
+        AND (a.created_at_ms < ? OR (a.created_at_ms = ? AND a.id < ?)) ORDER BY a.created_at_ms LIMIT 500`).all(current.created_at_ms, current.created_at_ms, newId) as Array<{ id: string; state: string; intent: string }>;
     for (const row of older) {
       if (goalKey(row.intent) !== key) continue;
       if (row.state === "published") {
@@ -221,6 +224,17 @@ export class CapitalizationService {
         db.prepare("UPDATE knowledge_assets SET superseded_by=?,rejection_reason='Replaced by a newer write-up of the same goal',updated_at_ms=? WHERE id=?").run(newId, now, row.id);
       }
     }
+  }
+
+  /** The newer, still-live write-up of the same goal that replaces this one, if there is one. */
+  private newerSameGoal(db: ReturnType<Store["workspaceDb"]>, asset: AssetRow): string | undefined {
+    const intent = (db.prepare("SELECT intent FROM missions WHERE id=?").get(asset.mission_id) as { intent: string } | undefined)?.intent;
+    if (intent === undefined) return undefined;
+    const key = goalKey(intent);
+    const newer = db.prepare(`SELECT a.id, m.intent FROM knowledge_assets a JOIN missions m ON m.id=a.mission_id
+      WHERE a.operation_id='mission-knowledge' AND a.superseded_by IS NULL AND a.state IN ('extracted','reviewed','published')
+        AND (a.created_at_ms > ? OR (a.created_at_ms = ? AND a.id > ?)) ORDER BY a.created_at_ms DESC LIMIT 500`).all(asset.created_at_ms, asset.created_at_ms, asset.id) as Array<{ id: string; intent: string }>;
+    return newer.find((row) => goalKey(row.intent) === key)?.id;
   }
 
   processPending(): { processed: number; failed: number } {
@@ -466,9 +480,16 @@ export class CapitalizationService {
     if (!this.autoPublishOn(db)) return 0;
     const waiting = db.prepare("SELECT * FROM knowledge_assets WHERE operation_id='mission-knowledge' AND state='extracted' AND rejection_reason IS NULL AND superseded_by IS NULL AND mission_id IS NOT NULL ORDER BY created_at_ms, id").all() as AssetRow[];
     let published = 0;
-    for (const stored of waiting) {
+    for (const listed of waiting) {
       try {
-        let asset = stored;
+        // Earlier rows of this pass may have changed this one (superseded, set aside): read it again before acting.
+        let asset = db.prepare("SELECT * FROM knowledge_assets WHERE id=?").get(listed.id) as AssetRow;
+        if (asset.state !== "extracted" || asset.rejection_reason || asset.superseded_by) continue;
+        const newer = this.newerSameGoal(db, asset);
+        if (newer) {
+          db.prepare("UPDATE knowledge_assets SET superseded_by=?,rejection_reason='Replaced by a newer write-up of the same goal',updated_at_ms=? WHERE id=?").run(newer, this.store.now(), asset.id);
+          continue;
+        }
         if (!asset.content.includes("Claim basis: [verified")) {
           const rebuilt = this.writeupOf(db, asset.mission_id!);
           if (!rebuilt || rebuilt.writeup.skipped) {
@@ -478,7 +499,6 @@ export class CapitalizationService {
           db.prepare("UPDATE knowledge_assets SET content=?,updated_at_ms=? WHERE id=?").run(rebuilt.writeup.content, this.store.now(), asset.id);
           asset = { ...asset, content: rebuilt.writeup.content };
           this.supersedeSameGoal(organizationId, workspaceId, db, asset.id, rebuilt.mission.intent, this.store.now());
-          if ((db.prepare("SELECT superseded_by FROM knowledge_assets WHERE id=?").get(asset.id) as { superseded_by: string | null }).superseded_by) continue;
         }
         const producer = asset.producer_id;
         if (!producer || !this.isActivePerson(organizationId, workspaceId, producer)) continue;

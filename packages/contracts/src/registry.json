@@ -694,7 +694,7 @@
     {
       "type": "library.settings.set",
       "schema": "LibrarySettingsSetCommand",
-      "scope": "memory:admin",
+      "scope": "memory:publish",
       "authority": "workspace",
       "actors": [
         "human"

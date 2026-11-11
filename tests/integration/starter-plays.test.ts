@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { CommandReceipt, PlayView } from "@brain/contracts";
 import { setupWorld, type TestWorld } from "../helpers";
 import { fixtureStarter } from "../support/starter";
+import { collectRelease } from "../../apps/cli/src/release";
 
 let world: TestWorld | undefined;
 afterEach(() => { world?.brain.close(); world = undefined; });
@@ -39,6 +40,15 @@ describe("starter Plays (row 49)", () => {
       expect(detail.plan.tasks.every((task) => task.criteria.length > 0)).toBe(true);
     }
     expect(await summary(w)).toMatchObject({ plays: 6, starterPlays: { total: 6, installed: 6, installable: 0, blocked: [] } });
+  });
+
+  it("the raw starter release, with its real engines, compiles with all six Plays (first launch stages exactly this)", async () => {
+    world = setupWorld();
+    const w = world;
+    const bundle = collectRelease("examples/v1/starter-release");
+    w.brain.activateRelease(w.owner, w.brain.stageRelease(w.owner, bundle.documents, bundle.sourceRevision, bundle.scripts, bundle.instructions, bundle.schemas).digest);
+    expect((await plays(w)).map((play) => play.playId).sort()).toEqual(STARTER);
+    expect(await summary(w)).toMatchObject({ starterPlays: { installed: 6, installable: 0 } });
   });
 
   it("Add starter Plays installs the missing ones on an existing workspace, once, and a mission starts from one", async () => {

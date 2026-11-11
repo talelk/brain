@@ -162,3 +162,42 @@ describe("write-ups carry the result (row 48)", () => {
     expect(w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM memory_assets WHERE revoked=0").get()).toEqual({ n: 1 });
   });
 });
+
+describe("the first sweep after a deploy (rebuilds write-ups of the earlier shape)", () => {
+  const OLD_FOOTER = "Claim basis: statements tagged [verified: ...] come from the mission's verified evidence bundle.";
+  const asOldShape = (w: TestWorld, missionId: string, createdAt: number) => {
+    const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    db.prepare("UPDATE knowledge_assets SET content=?, created_at_ms=? WHERE mission_id=?").run(`# Old\n\n## Goal\nx\n\n## Verified outputs\nNone.\n\n${OLD_FOOTER}`, createdAt, missionId);
+  };
+
+  it("publishes only the newest of two same-goal write-ups, a unique one, and sets a thin one aside", async () => {
+    world = setupWorld();
+    const w = world;
+    const older = await achievedMission(w, "dup-old", { ...CHURN, report: REPORT });
+    const newer = await achievedMission(w, "dup-new", { ...CHURN, report: REPORT });
+    const unique = await achievedMission(w, "uniq", { title: "Pricing review", intent: "Review the pricing plans and recommend which to keep", report: REPORT });
+    const thin = await achievedMission(w, "thin", { title: "Onboarding check", intent: "Check the onboarding checklist for gaps in the first week", report: REPORT });
+    // The thin one loses its stored result, so a rebuild finds almost nothing.
+    const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    db.prepare("DELETE FROM step_outputs WHERE run_id=?").run("run-thin");
+    asOldShape(w, older, 1_000); asOldShape(w, newer, 2_000); asOldShape(w, unique, 3_000); asOldShape(w, thin, 4_000);
+    expect((await assets(w)).every((asset) => asset.state === "extracted")).toBe(true);
+
+    await command(w, w.owner, "library.settings.set", "sweep-on", { autoPublishKnowledge: true });
+    const list = await assets(w);
+    const of = (missionId: string) => list.find((asset) => asset.missionId === missionId)!;
+    expect(of(newer)).toMatchObject({ state: "published", autoPublished: true });
+    expect(of(newer).content).toContain("## Result");
+    expect(of(unique)).toMatchObject({ state: "published", autoPublished: true });
+    expect(of(older)).toMatchObject({ state: "extracted", supersededBy: of(newer).assetId });
+    expect(of(older).rejectionReason).toMatch(/newer write-up/);
+    expect(of(thin)).toMatchObject({ state: "extracted" });
+    expect(of(thin).rejectionReason).toMatch(/Not kept/);
+    expect(w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM memory_assets WHERE revoked=0").get()).toEqual({ n: 2 });
+    expect(w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM memory_assets WHERE source_id=?").get(of(older).assetId)).toEqual({ n: 0 });
+    // A second pass changes nothing.
+    w.brain.runCapitalization();
+    expect((await assets(w)).map((asset) => asset.state).sort()).toEqual(["extracted", "extracted", "published", "published"]);
+  });
+});
+
