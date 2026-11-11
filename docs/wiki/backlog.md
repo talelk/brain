@@ -21,6 +21,11 @@ Dated 2026-11-11, at `talelk/brain@e38aa19`. The full history of every track, re
 | 54 | Notification-throttle behaviour across restart and share-token expiry races not examined (K item 7); a read job interrupted 5 times keeps its reservation until a person resolves it (by design) | adversarial tests |
 | 55 | Saved documents are searchable but not queued for Review; result-ready announcement not extended to the inbox | I3 leftover |
 
+## Found live 2026-11-11 ~09:15 (track K deployed, `bd16582`)
+- Token meter is empty: `mission_spend` has 59 rows, all with 0 input/output tokens, `estimated=0`; closed mission shows "No usage recorded yet". Agents emit usage; it does not reach the ledger. Track N is tracing it (Pi engine -> attempt usage -> settlement) and will add estimated counts when an endpoint reports none.
+- Tool refusals on live (Health "tool read refused") confirmed as `documents.read` calls with an unknown document id / missing context reference (model guessing ids), not a broker bug; K's fix makes refusals explain themselves.
+- Repo token budget check tripped (141k/140k): history moved to `docs/wiki/archive/` (excluded from the budget); keep this file lean.
+
 ## Not yet walked live (blocked on deploy of K and M)
 Share links, Challenge this result, Repeat this (now creates real missions), Context received tab, Tools registry, Quality page, Usage meter in depth.
 
