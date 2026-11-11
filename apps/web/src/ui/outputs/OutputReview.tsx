@@ -11,6 +11,7 @@ import { verificationSummary } from "./OutputHistory";
 import { reviewStateOf } from "./output-files";
 import { moveWorkItem, verifiedBundle } from "./review-actions";
 import { createHandoffNeed, HandoffSheet } from "../components/HandoffStep";
+import type { TrustLine } from "./result-model";
 
 /**
  * The one review action for an output: Accept moves its work item to Done on
@@ -27,6 +28,8 @@ export function OutputReview(props: {
   onChanged: () => void;
   /** Files ticked in a surrounding explorer: its selection bar owns the moves meanwhile, so one primary action shows. */
   bulkSelected?: number;
+  /** When a criterion rests on a model's opinion alone, Accept is the person's sign-off and says so. */
+  trust?: TrustLine;
 }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
@@ -91,6 +94,9 @@ export function OutputReview(props: {
                 Accepting needs an independent check first ({verdict().label.toLowerCase()} so far). You can still ask for changes.
               </p>
             </Show>
+            <Show when={props.trust?.needsSignOff}>
+              <p class="text-caption text-ink-amber-9" data-testid="needs-sign-off">Unverified: only a model's opinion supports some criteria, so this stays in Verifying until a person signs off. Accept is your sign-off.</p>
+            </Show>
             <Show when={handoff.required()}>
               <p class="text-caption text-ink-gray-7">Other tasks wait on this one, so accepting first asks you to hand off to the next tasks.</p>
             </Show>
@@ -99,7 +105,7 @@ export function OutputReview(props: {
               fallback={
                 <div class="flex flex-wrap items-center gap-2">
                   <Button size="sm" variant="solid" theme="blue" iconLeft="lucide-check" disabled={!evidence() || busy()} loading={busy()} onClick={() => { if (handoff.required()) setHandingOff(true); else void move("done"); }}>
-                    Accept
+                    {props.trust?.needsSignOff ? "Sign off and accept" : "Accept"}
                   </Button>
                   <Button size="sm" variant="outline" iconLeft="lucide-message-square-warning" disabled={busy()} onClick={() => setAsking(true)}>
                     Request changes

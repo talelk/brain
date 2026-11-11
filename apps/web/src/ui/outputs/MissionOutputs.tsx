@@ -69,6 +69,7 @@ function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; 
           <span class="block truncate text-base-medium text-ink-gray-9">{title()}</span>
           <Show when={trust()}>{(line) => <span class="block truncate text-caption text-ink-gray-6">{line().text}</span>}</Show>
         </span>
+        <Show when={trust()?.needsSignOff}><Badge size="sm" variant="subtle" theme="amber" label="Unverified" /></Show>
         <Badge size="sm" variant="subtle" theme={props.task.result.status.theme} label={props.task.result.status.label} />
         <span class={`${open() ? "lucide-chevron-up" : "lucide-chevron-down"} size-4 shrink-0 text-ink-gray-6`} aria-hidden="true" />
       </button>
@@ -82,6 +83,7 @@ function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; 
             item={props.task.item}
             link={props.task.result.link ?? resolveWorkItemLink(props.links, loaded())}
             history={loaded()}
+            trust={trust()}
             onChanged={() => {
               void refetch();
               props.onChanged();
@@ -100,7 +102,7 @@ function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; 
  * versioned named outputs follow underneath. Reads the lists the workspace
  * Outputs page reads, narrowed to this mission.
  */
-export function MissionOutputs(props: { mission: Mission }): JSX.Element {
+export function MissionOutputs(props: { mission: Mission; onChanged?: () => void }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
   const [search] = useSearchParams();
@@ -149,6 +151,7 @@ export function MissionOutputs(props: { mission: Mission }): JSX.Element {
   });
   const latestAt = (output: Output) => output.versions.at(-1)?.createdAt ?? output.createdAt;
   const refreshAll = () => {
+    props.onChanged?.();
     void files.refresh({ force: true });
     void items.refresh({ force: true });
   };

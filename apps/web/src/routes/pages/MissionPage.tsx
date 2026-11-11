@@ -213,7 +213,7 @@ export default function MissionPage(): JSX.Element {
             <Match when={tab() === "plan"}><PlanTab mission={m()} onAct={act} busy={busy()} /></Match>
             <Match when={tab() === "brief"}><BriefTab mission={m()} onAct={act} busy={busy()} /></Match>
             <Match when={tab() === "logs"}><LogsTab mission={m()} /></Match>
-            <Match when={tab() === "outputs"}><MissionOutputs mission={m()} /></Match>
+            <Match when={tab() === "outputs"}><MissionOutputs mission={m()} onChanged={() => void act(async () => undefined)} /></Match>
           </Switch>
         </>}</Show>
       </ScreenRegion>

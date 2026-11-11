@@ -1586,6 +1586,13 @@
                 "L2",
                 "L3"
               ]
+            },
+            "basis": {
+              "type": "string",
+              "enum": [
+                "deterministic",
+                "model-opinion"
+              ]
             }
           },
           "required": [
@@ -5466,6 +5473,97 @@
         "checks",
         "acceptedBy",
         "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "TrustRead": {
+      "type": "object",
+      "properties": {
+        "rows": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "properties": {
+              "criterionId": {
+                "$ref": "#/$defs/ConfigId"
+              },
+              "checkId": {
+                "$ref": "#/$defs/ConfigId"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "passed",
+                  "failed",
+                  "missing",
+                  "inconclusive"
+                ]
+              },
+              "basis": {
+                "type": "string",
+                "enum": [
+                  "deterministic",
+                  "human",
+                  "model",
+                  "none"
+                ]
+              },
+              "independence": {
+                "type": "string",
+                "enum": [
+                  "L1",
+                  "L2",
+                  "L3"
+                ]
+              }
+            },
+            "required": [
+              "criterionId",
+              "checkId",
+              "status",
+              "basis",
+              "independence"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "total": {
+          "$ref": "#/$defs/Counter"
+        },
+        "deterministic": {
+          "$ref": "#/$defs/Counter"
+        },
+        "human": {
+          "$ref": "#/$defs/Counter"
+        },
+        "model": {
+          "$ref": "#/$defs/Counter"
+        },
+        "unverified": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/ConfigId"
+          }
+        },
+        "signedOffBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "rows",
+        "total",
+        "deterministic",
+        "human",
+        "model",
+        "unverified",
+        "text"
       ],
       "additionalProperties": false
     },
@@ -13967,6 +14065,9 @@
                 },
                 "verdict": {
                   "$ref": "#/$defs/VerificationVerdict"
+                },
+                "trust": {
+                  "$ref": "#/$defs/TrustRead"
                 }
               },
               "required": [

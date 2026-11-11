@@ -1,4 +1,4 @@
-import type { ArtifactHistory, VerificationVerdict } from "@brain/contracts";
+import type { ArtifactHistory, TrustRead, VerificationVerdict } from "@brain/contracts";
 
 /**
  * A task's structured result, as the general-task workflow stores it: a short
@@ -60,6 +60,10 @@ export interface TrustLine {
   text: string;
   /** True when an independent reviewer approved it. */
   checked: boolean;
+  /** Per-criterion check basis ("How this was checked"), from the Governor's trust read. */
+  rows?: TrustRead["rows"];
+  /** A criterion rests on a model's opinion alone: Unverified until a person signs off (Accept). */
+  needsSignOff?: boolean;
 }
 
 /** The reviewer's own result per acceptance criterion: a criterion is met only when every check on it passed. */
@@ -77,7 +81,14 @@ function criteriaOf(verdict: VerificationVerdict | undefined): { total: number; 
  * self-reported checklist. Without a loaded verdict the history's outcome still
  * decides the wording, minus the count.
  */
-export function trustLineOf(history: ArtifactHistory | undefined, verdict?: VerificationVerdict): TrustLine {
+export function trustLineOf(history: ArtifactHistory | undefined, verdict?: VerificationVerdict, trust?: TrustRead): TrustLine {
+  if (trust && trust.total > 0 && (verdict?.outcome ?? "verified") === "verified") {
+    const unverified = trust.model > 0;
+    return {
+      tone: unverified ? "amber" : "green", checked: !unverified, rows: trust.rows, needsSignOff: unverified,
+      text: unverified ? `Unverified. ${trust.text}` : trust.text,
+    };
+  }
   const outcome = verdict?.outcome ?? history?.history.find((version) => version.verification)?.verification?.outcome;
   const { total, met, failed } = criteriaOf(verdict);
   if (outcome === "verified")

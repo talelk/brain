@@ -4,6 +4,7 @@ import { domainDigest } from "@brain/contracts";
 import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
+import { trustForBundle } from "../evidence/index";
 import { sumIntervalMs, type SlaInterval } from "./sla";
 
 type WorkspaceDb = ReturnType<Store["workspaceDb"]>;
@@ -127,7 +128,8 @@ export function getPack(store: Store, actor: ActorContext, queryType: string, wo
       const row = ws.prepare("SELECT manifest_json FROM evidence_bundles WHERE digest=? OR bundle_id=?").get(resourceId, resourceId) as { manifest_json: string } | undefined;
       if (row) {
         const verdict = ws.prepare("SELECT manifest_json FROM verification_verdicts WHERE bundle_digest=? ORDER BY created_at_ms DESC LIMIT 1").get(resourceId) as { manifest_json: string } | undefined;
-        return { bundle: JSON.parse(row.manifest_json) as JsonValue, ...(verdict ? { verdict: JSON.parse(verdict.manifest_json) as JsonValue } : {}) } as unknown as JsonValue;
+        const trust = verdict ? trustForBundle(store, actor.organizationId, ws, resourceId) : undefined; // the verdict was found by digest, so resourceId is one
+        return { bundle: JSON.parse(row.manifest_json) as JsonValue, ...(verdict ? { verdict: JSON.parse(verdict.manifest_json) as JsonValue } : {}), ...(trust ? { trust } : {}) } as unknown as JsonValue;
       }
     }
     throw new BrainDomainError("NOT_FOUND", "evidence not found");

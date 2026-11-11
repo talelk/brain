@@ -12,7 +12,7 @@ import { missionUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUs
 import { planEstimate } from "./estimate";
 import { listEvalCases, recordEvalCase } from "./eval-cases";
 import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, sendMessage, verifyOutputs } from "./outputs";
-import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissionBundle, recordMissionVerdict, submitHandoff, workflowCovers } from "../evidence/index";
+import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissionBundle, needsSignOff, recordMissionVerdict, submitHandoff, trustForBundle, workflowCovers } from "../evidence/index";
 import type { HandoffNotes } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
@@ -362,7 +362,8 @@ export class MissionService {
     this.store.inTx(db, () => {
       if (next === "ready") this.assertDependenciesDone(db, item.id);
       const evidenceDigest = payload["evidenceDigest"] ? String(payload["evidenceDigest"]) : item.evidence_digest;
-      if (next === "done") { this.assertEvidence(db, item, evidenceDigest); finalizeHandoff(db, item.id, evidenceDigest as string); }
+      const signedOff = next === "done" ? this.assertEvidence(db, item, evidenceDigest, actor) : false;
+      if (next === "done") finalizeHandoff(db, item.id, evidenceDigest as string);
       const nextAction = next === "done" ? "No further action" : next === "review" ? "Review verified results" : next === "blocked" ? reason ?? "Resolve blocker" : next === "ready" ? "Start this task" : next === "in-progress" ? "Complete and submit evidence" : next === "abandoned" ? "Superseded or abandoned" : "Wait for predecessor completion";
       const unpark = item.parked === 1 && next !== "blocked";
       const resetCount = unpark || next === "review" || next === "done";
@@ -370,7 +371,7 @@ export class MissionService {
       if (unpark) this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.unparked", payload: { workItemId: item.id, state: next } });
       // A task sent back from review is a rejected sign-off on that task (issue #64).
       if (item.state === "review" && next === "in-progress") recordEvalCase(this.store, db, { workspaceId, source: `sent-back:${item.id}:${item.version}`, kind: "task-sent-back", missionId: item.mission_id, workItemId: item.id, findings: reason ? [reason] : [] });
-      this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.transitioned", payload: { workItemId: item.id, state: next, ...(evidenceDigest ? { evidenceDigest } : {}) } });
+      this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.transitioned", payload: { workItemId: item.id, state: next, ...(evidenceDigest ? { evidenceDigest } : {}), ...(signedOff ? { signedOffBy: actor.actorId } : {}) } });
       if (next === "done") { verifyOutputs(db, item.id); this.releaseReadyItems(db, item.mission_id); wake(this.store, db, item.mission_id, "work-verified", item.title); }
     });
     return item.id;
@@ -381,7 +382,8 @@ export class MissionService {
     if (pending.length > 0) throw new BrainDomainError("CONFLICT", `work item dependencies are not complete: ${pending.map((entry) => entry.id).join(", ")}`);
   }
 
-  private assertEvidence(db: ReturnType<Store["workspaceDb"]>, item: WorkItemRow, digest: string | null): void {
+  /** Done needs verified evidence; criteria supported only by model opinion also need a person (returns true when this person signs them off). */
+  private assertEvidence(db: ReturnType<Store["workspaceDb"]>, item: WorkItemRow, digest: string | null, by: ActorContext): boolean {
     if (!digest) throw new BrainDomainError("EVIDENCE_MISSING", "Done requires verified evidence");
     const bundle = db.prepare("SELECT state,manifest_json,job_id FROM evidence_bundles WHERE digest=?").get(digest) as { state: string; manifest_json: string; job_id: string } | undefined;
     if (!bundle || bundle.state !== "verified") throw new BrainDomainError("EVIDENCE_MISSING", "Done requires a verified evidence bundle");
@@ -392,6 +394,10 @@ export class MissionService {
     const criteria = JSON.parse(item.criteria_json) as string[];
     const missing = criteria.filter((criterion) => !passed.has(criterion) && !workflowCovers(manifest.checks, criteria));
     if (missing.length > 0) throw new BrainDomainError("EVIDENCE_MISSING", `verified evidence does not cover criteria: ${missing.join(", ")}`);
+    const trust = trustForBundle(this.store, by.organizationId, db, digest);
+    if (!trust || !needsSignOff(trust)) return false;
+    if (by.kind !== "human") throw new BrainDomainError("EVIDENCE_MISSING", `Unverified: ${trust.unverified.join(", ")} rest on a model's opinion alone, so a person must sign off before this is Done`);
+    return true;
   }
 
   /** The bundle's job belongs to a run (or session job) linked to this work item through its execution links. */
@@ -770,7 +776,7 @@ export class MissionService {
       for (const item of items) {
         transitionState(db, "workItem", item.id, "review", { set: { next_action: "The run finished: review the results and submit evidence", updated_at_ms: this.store.now() }, bumpVersion: true });
         this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.transitioned", payload: { workItemId: item.id, state: "review" } });
-        if (autoStart.get(item.mission_id)) this.autoComplete(db, item, runId);
+        if (autoStart.get(item.mission_id)) this.autoComplete(db, item, runId, organizationId);
       }
     });
   }
@@ -789,7 +795,7 @@ export class MissionService {
       WHERE w.state IN ('in-progress','review') ORDER BY l.created_at_ms`).all() as Array<WorkItemRow & { link_run: string }>;
     for (const row of rows) {
       if (row.state === "in-progress") this.recordRunSuccess(organizationId, workspaceId, row.link_run);
-      else this.store.inTx(db, () => this.autoComplete(db, row, row.link_run));
+      else this.store.inTx(db, () => this.autoComplete(db, row, row.link_run, organizationId));
     }
   }
 
@@ -820,13 +826,13 @@ export class MissionService {
    * Done, which releases its dependents. Any shortfall (no verified bundle, an
    * unpassed check) leaves the item in review for a person.
    */
-  private autoComplete(db: ReturnType<Store["workspaceDb"]>, item: WorkItemRow, runId: string): void {
+  private autoComplete(db: ReturnType<Store["workspaceDb"]>, item: WorkItemRow, runId: string, organizationId: string): void {
     const bundles = db.prepare("SELECT digest, job_id FROM evidence_bundles WHERE state='verified' ORDER BY created_at_ms DESC").all() as Array<{ digest: string; job_id: string }>;
     const bundle = bundles.find((entry) => this.producedByLinkedExecution(db, item.id, entry.job_id));
     if (!bundle) return;
     try {
       this.store.inTx(db, () => {
-        this.assertEvidence(db, item, bundle.digest);
+        this.assertEvidence(db, item, bundle.digest, { kind: "workflow", actorId: "governor", organizationId, scopes: [], authMethod: "service-credential", authGeneration: 1 } as ActorContext);
         const outputs = db.prepare("SELECT output_json FROM step_outputs WHERE run_id=? ORDER BY rowid").all(runId) as Array<{ output_json: string }>;
         const summary = outputs.map((row) => { const parsed = JSON.parse(row.output_json) as { summary?: unknown }; return typeof parsed.summary === "string" ? parsed.summary : ""; }).find((text) => text.length > 0) ?? "The run finished and its evidence was independently verified.";
         submitHandoff(this.store, db, { workItemId: item.id, submittedBy: "governor", notes: { summary: summary.slice(0, 2000) } });

@@ -19,3 +19,21 @@ export function fixtureStarter() {
   return bundle;
 }
 
+/**
+ * The fixture starter, with the task validator declared as a model's opinion (the
+ * evaluator `basis`), re-pinned everywhere the workflows name it. Its checks pass,
+ * but a criterion supported only by a model's opinion is Unverified until a person
+ * signs off (#49).
+ */
+export function modelOpinionStarter() {
+  const bundle = fixtureStarter();
+  const doc = bundle.documents.find((candidate) => candidate.path.endsWith("task-validator.yaml"))!;
+  const prior = sha256Digest(new TextEncoder().encode(doc.text));
+  const value = JSON.parse(doc.text);
+  value.spec.basis = "model-opinion";
+  doc.text = JSON.stringify(value, null, 2) + "\n";
+  const next = sha256Digest(new TextEncoder().encode(doc.text));
+  for (const other of bundle.documents) other.text = other.text.replaceAll(prior, next);
+  return { ...bundle, evaluatorDigest: next };
+}
+

@@ -198,7 +198,7 @@ test("a plain-words mission runs on the general task workflow and shows a readab
   await expect(reader.getByRole("region", { name: "Summary" })).toContainText("Fixture result for: Inspect the sign-in flow");
   await expect(reader.getByRole("region", { name: "Criteria" })).toContainText("2 of 2 met");
   await expect(reader.getByRole("region", { name: "Assumptions" })).toContainText("The brief is complete");
-  await expect(reader.getByTestId("trust-line")).toContainText("Checked by an independent reviewer: 4 of 4 criteria met");
+  await expect(reader.getByTestId("trust-line")).toContainText("4 of 4 criteria checked by tests, files or hashes; 0 by human sign-off; 0 by model opinion");
   await expect(reader.getByText('"deliverable"')).toHaveCount(0);
   await expect(reader.getByRole("button", { name: "Download .md" })).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/3-mission-outputs.png`, fullPage: true });
@@ -207,7 +207,7 @@ test("a plain-words mission runs on the general task workflow and shows a readab
   await page.getByText(/^Result: Inspect the sign-in flow/).first().click();
   const preview = page.getByTestId("outputs-preview").getByTestId("result-reader");
   await expect(preview.getByRole("heading", { name: "Findings", level: 4 })).toBeVisible({ timeout: 30_000 });
-  await expect(preview.getByTestId("trust-line")).toContainText("Checked by an independent reviewer");
+  await expect(preview.getByTestId("trust-line")).toContainText("checked by tests, files or hashes");
   if (shots) await page.screenshot({ path: `${shots}/4-result.png`, fullPage: true });
   // "Result ready" in the bell opens the mission's Result directly, not a tab to hunt in.
   await page.goto(`${governor.url}/w/ws-flow/missions`);

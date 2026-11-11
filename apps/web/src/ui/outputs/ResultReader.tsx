@@ -2,6 +2,7 @@ import { For, Show, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { Button } from "@talelk/newui-atoms";
 import { Markdown } from "./Markdown";
+import { titleize } from "../format";
 import { markdownFileName, resultMarkdown } from "./result-model";
 import type { StructuredResult, TrustLine } from "./result-model";
 
@@ -19,6 +20,33 @@ export function TrustNote(props: { trust: TrustLine; class?: string }): JSX.Elem
       <span class={`${TONE[props.trust.tone].icon} mt-0.5 size-4 shrink-0`} aria-hidden="true" />
       <span class="min-w-0">{props.trust.text}</span>
     </p>
+  );
+}
+
+const BASIS: Record<NonNullable<TrustLine["rows"]>[number]["basis"], string> = {
+  deterministic: "Tests, files or hashes",
+  human: "Human sign-off",
+  model: "Model opinion (Unverified)",
+  none: "Not supported",
+};
+
+/** "How this was checked": each criterion with its check basis, independence level L1-L3 and whether it passed. */
+export function HowChecked(props: { rows: NonNullable<TrustLine["rows"]> }): JSX.Element {
+  return (
+    <details class="min-w-0 text-interface" data-testid="how-checked">
+      <summary class="cursor-pointer text-ink-gray-8">How this was checked</summary>
+      <ul class="m-0 mt-2 flex list-none flex-col gap-1.5 p-0">
+        <For each={props.rows}>
+          {(row) => (
+            <li class="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 border-b border-outline-gray-1 pb-1.5" data-basis={row.basis}>
+              <span class="min-w-0 break-words font-medium text-ink-gray-9">{titleize(row.criterionId)}</span>
+              <span class={row.basis === "model" || row.basis === "none" ? "text-ink-amber-9" : "text-ink-gray-7"}>{BASIS[row.basis]}</span>
+              <span class="text-caption text-ink-gray-6">{row.status} · independence {row.independence}</span>
+            </li>
+          )}
+        </For>
+      </ul>
+    </details>
   );
 }
 
@@ -52,6 +80,7 @@ export function ResultReader(props: { result: StructuredResult; title: string; t
     <article class="flex min-w-0 flex-col gap-5" data-testid="result-reader" aria-label={`Result: ${props.title}`}>
       <div class="flex min-w-0 flex-col gap-2">
         <Show when={props.trust}>{(trust) => <TrustNote trust={trust()} />}</Show>
+        <Show when={props.trust?.rows?.length}><HowChecked rows={props.trust!.rows!} /></Show>
         <div class="flex min-w-0 flex-wrap items-center gap-2">
           <Button size="sm" variant="ghost" iconLeft={copied() ? "lucide-check" : "lucide-copy"} onClick={() => void copy()}>
             {copied() ? "Copied" : "Copy as Markdown"}

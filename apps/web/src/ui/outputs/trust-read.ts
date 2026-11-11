@@ -1,6 +1,6 @@
 import { createResource } from "solid-js";
 import type { Accessor } from "solid-js";
-import type { VerificationVerdict } from "@brain/contracts";
+import type { TrustRead, VerificationVerdict } from "@brain/contracts";
 import { evidenceQuery } from "../../data/governor";
 import type { ArtifactHistory } from "../../data/exec-outputs";
 import { trustLineOf } from "./result-model";
@@ -19,9 +19,10 @@ export function createTrust(history: Accessor<ArtifactHistory | undefined>): Acc
       const checked = loaded?.history.find((version) => version.verification);
       return loaded && checked ? { digest: checked.bundleDigest, workspaceId: loaded.workspaceId } : false;
     },
-    async (key): Promise<VerificationVerdict | undefined> => {
+    async (key): Promise<{ verdict?: VerificationVerdict; trust?: TrustRead } | undefined> => {
       try {
-        return (await evidenceQuery(key.digest, key.workspaceId)).snapshot.verdict;
+        const { verdict, trust } = (await evidenceQuery(key.digest, key.workspaceId)).snapshot;
+        return { ...(verdict ? { verdict } : {}), ...(trust ? { trust } : {}) };
       } catch {
         return undefined;
       }
@@ -30,6 +31,6 @@ export function createTrust(history: Accessor<ArtifactHistory | undefined>): Acc
   return () => {
     const loaded = history();
     if (!loaded || verdict.loading) return undefined;
-    return trustLineOf(loaded, verdict());
+    return trustLineOf(loaded, verdict()?.verdict, verdict()?.trust);
   };
 }
