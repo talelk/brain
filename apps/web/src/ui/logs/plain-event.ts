@@ -8,8 +8,32 @@ import type { LogRecord } from "./LogTail";
  * to a humanised type name, never to invented meaning.
  */
 
-const [taskTitles, setTaskTitles] = createSignal<Readonly<Record<string, string>>>({});
-export { setTaskTitles };
+export interface TaskInfo {
+  readonly title: string;
+  readonly state: string;
+  readonly verified: boolean;
+  readonly parked: boolean;
+  readonly failedAttempts: number;
+  readonly blockedReason?: string | undefined;
+}
+
+const [taskInfo, setTaskInfo] = createSignal<Readonly<Record<string, TaskInfo>>>({});
+export { setTaskInfo, taskInfo };
+
+/** One line saying where a task stands, in the words of the mission page. */
+export function taskStatusLine(info: TaskInfo | undefined): string {
+  if (!info) return "no longer listed";
+  if (info.parked) return `parked after ${info.failedAttempts} failed ${info.failedAttempts === 1 ? "attempt" : "attempts"}`;
+  switch (info.state) {
+    case "done": return info.verified ? "finished, verified" : "finished";
+    case "review": return "waiting for review";
+    case "in-progress": return "working";
+    case "blocked": return info.blockedReason ? `blocked: ${info.blockedReason}` : "blocked";
+    case "abandoned": return "dropped";
+    case "ready": return "ready to start";
+    default: return "not started";
+  }
+}
 
 const ACTORS: Record<string, string> = {
   agent: "The agent",
@@ -51,6 +75,7 @@ const ACTIONS: Record<string, string> = {
   "session.stopped": "stopped the session",
   "session.checkpointed": "saved a checkpoint",
   "session.delegated": "handed part of the work to another member",
+  usage: "reported how much it used",
   "tool.proposed": "asked to use a tool",
   "tool.result": "finished using a tool",
   "approval.requested": "asked for approval",
@@ -74,20 +99,20 @@ function payloadOf(record: LogRecord): Record<string, unknown> | undefined {
 /** The task an event belongs to, when its correlation names one that is known. */
 export function taskOfRecord(record: LogRecord): string | undefined {
   const id = record.correlation?.workItemId;
-  return id ? taskTitles()[id] : undefined;
+  return id ? taskInfo()[id]?.title : undefined;
 }
 
 /** One plain sentence for a record; the tool name, text or failure reason is added when the record carries it. */
-export function plainSentence(record: LogRecord, toolName?: string, text?: string): string {
+export function plainSentence(record: LogRecord, toolName?: string, text?: string, withTask = true, partialStart = false): string {
   const actor = ACTORS[record.emitter] ?? "Brain";
   const action = ACTIONS[record.type];
-  const task = taskOfRecord(record);
+  const task = withTask ? taskOfRecord(record) : undefined;
   const forTask = task ? ` for "${task}"` : "";
   const payload = payloadOf(record);
   if (record.type === "text") {
-    const said = (text ?? (typeof payload?.["text"] === "string" ? payload["text"] : "")).replace(/\s+/gu, " ").trim();
-    if (said.startsWith("{") || said.startsWith("[")) return `${actor} shared a structured result${forTask}. Open the row to read it.`;
-    return `${actor} said${forTask}: ${said.length > 160 ? `${said.slice(0, 159)}…` : said || "(nothing readable)"}`;
+    const said = text ?? (typeof payload?.["text"] === "string" ? payload["text"] : "");
+    const spoken = describeSaid(said, partialStart);
+    return spoken.kind === "text" ? `${actor} said${forTask}: ${spoken.text}` : `${actor} ${spoken.text}${forTask}.`;
   }
   if (record.type === "tool.proposed" || record.type === "tool.result") {
     const name = toolName && toolName !== "tool invocation" ? ` ${toolName}` : "";
@@ -97,4 +122,37 @@ export function plainSentence(record: LogRecord, toolName?: string, text?: strin
     ? ` It reported a problem${typeof payload?.["message"] === "string" ? `: ${payload["message"]}` : ""}.`
     : "";
   return `${actor} ${action ?? `recorded: ${humanise(record.type)}`}${forTask}.${reason}`;
+}
+
+/** The first ~200 characters, cut at a word boundary, with markdown noise removed. */
+function lead(text: string, max = 200): string {
+  const flat = text.replace(/\s+/gu, " ").replace(/\*\*|__|`/gu, "").replace(/^#+\s*/u, "").trim();
+  if (flat.length <= max) return flat;
+  const cut = flat.slice(0, max);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:(-]+$/u, "")}…`;
+}
+
+const JSON_KEYS = /"[A-Za-z_][\w-]*"\s*:/u;
+
+/** What a streamed message amounts to: prose to quote, or a structured payload to name. */
+export function describeSaid(raw: string, partialStart = false): { kind: "text" | "structured"; text: string } {
+  let said = raw.trim();
+  if (partialStart && /^[a-z]/u.test(said)) {
+    const space = said.search(/\s/u);
+    said = space > 0 ? `…${said.slice(space)}` : said;
+  }
+  const bare = said.replace(/^…\s*/u, "");
+  const head = bare.slice(0, 400);
+  if (/^[[{]/u.test(bare) || JSON_KEYS.test(head) || (/^["',.\]}]/u.test(bare) && /[{}[\]]/u.test(bare.slice(0, 40)))) {
+    try {
+      const parsed = JSON.parse(bare) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        && Object.keys(parsed).some((key) => /^(draft|document|content|body|deliverable)$/iu.test(key))) {
+        return { kind: "structured", text: "delivered the draft" };
+      }
+    } catch { /* partial or invalid JSON is still structured */ }
+    return { kind: "structured", text: "shared a structured result. Open the row to read it" };
+  }
+  return { kind: "text", text: lead(said) || "(nothing readable)" };
 }

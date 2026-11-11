@@ -85,6 +85,77 @@ async function driveRuns(w: World, until: () => boolean): Promise<void> {
   }
 }
 
+/**
+ * Readable logs over a real finished run: a model's streamed answer arrives as
+ * mid-word chunks (with a structured payload and repeated generic lines mixed
+ * in), and the page must show one message per turn, counted repeats, and every
+ * line under its task's header with a one-line status.
+ */
+async function readableLogs(page: Page, w: World, base: string, missionId: string, shots: string): Promise<void> {
+  const item = w.ws.prepare("SELECT id FROM work_items WHERE mission_id=? AND plan_task_id='inspect'").get(missionId) as { id: string };
+  w.ws.prepare("INSERT INTO sessions(id, job_id, attempt_id, engine_id, adapter_digest, engine_features, state, event_sequence, updated_at_ms, work_item_id) VALUES ('ses-narr',NULL,NULL,'fixture',?, '[\"sessions\"]','running',0,?,?)")
+    .run(`sha256:${"0".repeat(64)}`, Date.now(), item.id);
+  const insert = w.ws.prepare("INSERT INTO events(event_id, aggregate_type, aggregate_id, aggregate_seq, event_type, payload_json, payload_digest, created_at_ms) VALUES (?,?,?,?,?,?,?,?)");
+  const digest = `sha256:${"b".repeat(64)}`;
+  const now = Date.now();
+  const long = "The guide covers two days of onboarding for the new team members, with an example command for each tool and a short check at the end of each section so nobody falls behind. ";
+  const chunks = [
+    "ution:** Day 2 includes an example command", " and the first walkthrough.\n\n", long, long.slice(0, 60),
+  ];
+  let seq = 1;
+  const put = (type: string, body: unknown): void => { insert.run(`evt-narr-${seq}`, "session", "ses-narr", seq, type, JSON.stringify(body), digest, now + seq * 1000); seq += 1; };
+  for (const text of chunks) put("text", { channel: "assistant", provisional: true, text });
+  put("session.checkpointed", { sessionId: "ses-narr" });
+  put("text", { channel: "assistant", provisional: true, text: "{\"draft\":\"Day 1 and Day 2\",\"criterion\":\"No step assumes" });
+  put("text", { channel: "assistant", provisional: true, text: " prior setup\"}" });
+  for (let i = 0; i < 3; i++) put("session.checkpointed", { sessionId: "ses-narr", n: i });
+
+  // A tall viewport mounts the whole (virtualised) list at once.
+  await page.setViewportSize({ width: 1440, height: 2800 });
+  await page.goto(`${base}/w/ws-flow/logs`);
+  const header = page.getByTestId("log-task-header").filter({ hasText: "Inspect the sign-in flow" });
+  await expect(header).toBeVisible({ timeout: 30_000 });
+  await expect(header.getByTestId("log-task-status")).toHaveText(/finished, verified/);
+  // Chunks of one turn read as one message, never starting or ending mid-word.
+  const said = page.getByTestId("log-sentence").filter({ hasText: "Day 2 includes an example command" });
+  await expect(said).toHaveCount(1);
+  expect((await said.textContent())!.length).toBeLessThan(260);
+  await expect(page.getByTestId("log-sentence").filter({ hasText: "Brain delivered the draft" })).toHaveCount(1);
+  await expect(page.getByTestId("log-sentence").filter({ hasText: /criterion|\{"/ })).toHaveCount(0);
+  await expect(page.locator('[data-row-kind="repeat"]').filter({ hasText: /saved a checkpoint.*\d+ times/ })).toHaveCount(1);
+  // Look at it: the task's header at the top of the list, nothing expanded yet.
+  const headerTop = await header.evaluate((el) => { const ul = el.closest("ul") as HTMLElement; return (el.closest("li") as HTMLElement).getBoundingClientRect().top - ul.getBoundingClientRect().top + ul.scrollTop; });
+  const toHeader = () => page.evaluate((top) => { (document.querySelector('[data-testid="log-list"] ul') as HTMLElement).scrollTop = top; }, headerTop);
+  if (shots) {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await toHeader();
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${shots}/5-logs-1440.png` });
+    await page.setViewportSize({ width: 1440, height: 2800 });
+  }
+  // The full text is one click away.
+  await said.click();
+  await expect(page.getByTestId("log-detail")).toContainText("with an example command for each tool");
+  // Severity filter and search keep working on the aggregated rows.
+  await page.getByLabel("Search retained logs (full text)").fill("walkthrough");
+  await expect(page.getByTestId("log-sentence").filter({ hasText: "first walkthrough" })).toHaveCount(1, { timeout: 15_000 });
+  await page.getByLabel("Search retained logs (full text)").fill("");
+  // A header folds its task's entries away and shows them again.
+  await header.click();
+  await expect(header).toHaveAttribute("aria-expanded", "false");
+  await expect(said).toHaveCount(0);
+  await header.click();
+  await expect(said).toHaveCount(1);
+  // Raw stays the raw record view.
+  await page.getByRole("button", { name: "raw", exact: true }).click();
+  await expect(page.getByTestId("log-task-header")).toHaveCount(0);
+  await page.getByRole("button", { name: "readable", exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await toHeader();
+  await page.waitForTimeout(300);
+  if (shots) await page.screenshot({ path: `${shots}/5-logs-390.png` });
+  await page.setViewportSize({ width: 1440, height: 900 });
+}
 
 test("a plain-words mission runs on the general task workflow and shows a readable, verified result", async ({ page, governor }) => {
   test.setTimeout(240_000);
@@ -105,6 +176,7 @@ test("a plain-words mission runs on the general task workflow and shows a readab
   await expect.poll(() => states(w, missionId)["verify"]).toBe("in-progress");
   await driveRuns(w, () => states(w, missionId)["verify"] === "done");
   await expect.poll(() => w.ws.prepare("SELECT state, outcome FROM missions WHERE id=?").get(missionId), { timeout: 30_000 }).toEqual({ state: "closed", outcome: "achieved" });
+  await readableLogs(page, w, governor.url, missionId, shots);
   if (shots) {
     await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/plan`);
     await page.screenshot({ path: `${shots}/2-mission-done.png`, fullPage: true });

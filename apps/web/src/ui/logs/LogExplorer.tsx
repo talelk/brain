@@ -21,7 +21,8 @@ import { LogRow, ROW_HEIGHT, ContextLines, buildLogRows, rowKey } from "./LogRow
 import type { LogRowModel } from "./LogRow";
 import { LogFilters } from "./LogFilters";
 import type { LogViewMode } from "./LogFilters";
-import { plainSentence, setTaskTitles } from "./plain-event";
+import { plainSentence, setTaskInfo, taskInfo } from "./plain-event";
+import { buildReadableRows } from "./readable";
 import { ToolCallGroup } from "./ToolCallGroup";
 import { AttemptCompare } from "./AttemptCompare";
 import { contextAround, failureJump, rowMembers } from "./errorJump";
@@ -108,11 +109,23 @@ function TailSurface(props: SurfaceProps): JSX.Element {
     }
   };
 
-  const rows = createMemo<readonly LogRowModel[]>(() => buildLogRows(
-    searchActive()
+  // Readable folds task sections away behind their headers; a search or a
+  // failure jump always shows what it found, so folding only applies at rest.
+  const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set<string>());
+  const toggleTask = (taskId: string): void => {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(taskId)) next.delete(taskId); else next.add(taskId);
+      return next;
+    });
+  };
+  const rows = createMemo<readonly LogRowModel[]>(() => {
+    const records = searchActive()
       ? [...(search.state().data?.items ?? []), ...older().pages.flatMap((page) => page.items)].map(recordOfView)
-      : tail.records(),
-  ));
+      : tail.records();
+    if (props.mode === "raw") return buildLogRows(records);
+    return buildReadableRows(records, { tasks: taskInfo(), collapsed: searchActive() ? new Set<string>() : collapsed(), windowFull: !searchActive() && records.length >= 200 });
+  });
 
   const [selectedKey, setSelectedKey] = createSignal<string | undefined>();
   const [scrollIndex, setScrollIndex] = createSignal<number | undefined>();
@@ -171,11 +184,13 @@ function TailSurface(props: SurfaceProps): JSX.Element {
   });
 
   const selectRow = (row: LogRowModel): void => {
+    if (row.kind === "task") { toggleTask(row.taskId); return; }
     setContextAnchor(undefined);
     setSelectedKey(rowKey(row) === selectedKey() ? undefined : rowKey(row));
   };
 
   const jumpToFailure = (): void => {
+    setCollapsed(new Set<string>());
     const jump = failureJump(rows());
     if (!jump) return;
     entryHandled = true;
@@ -276,7 +291,7 @@ function TailSurface(props: SurfaceProps): JSX.Element {
             itemKey={(row) => rowKey(row)}
             scrollToIndex={scrollIndex()}
             ariaLabel="Execution log records">
-            {(row) => <LogRow row={row} mode={props.mode} selected={selectedKey() === rowKey(row)} onSelect={selectRow} />}
+            {(row) => <LogRow row={row} mode={props.mode} selected={selectedKey() === rowKey(row)} onSelect={selectRow} onToggleTask={toggleTask} />}
           </VirtualLogList>
         </div>
         <div class="mt-2 flex flex-wrap items-center gap-2">
@@ -334,7 +349,7 @@ function TailSurface(props: SurfaceProps): JSX.Element {
 /** One selected single/repeat record, expanded beside the list in the current mode. */
 function RecordDetail(props: { row: LogRowModel; mode: LogViewMode }): JSX.Element {
   const app = useApp();
-  const record = () => (props.row.kind === "tool" ? props.row.members[0]! : props.row.record);
+  const record = () => (props.row.kind === "tool" ? props.row.members[0]! : (props.row as Exclude<LogRowModel, { kind: "task" | "tool" }>).record);
   const members = () => (props.row.kind === "repeat" ? props.row.members.length : 1);
   // P0 cross-navigation: a plain record's approval/artifact linkage is not in
   // its correlation column — stream.context resolves it (the aggregate
@@ -403,8 +418,11 @@ export function LogExplorer(): JSX.Element {
   createEffect(() => {
     const workspaceId = app.workspaceId();
     if (!workspaceId) return;
-    void query<{ snapshot: { items: { workItemId: string; title: string }[] } }>({ queryType: "workItems.list", workspaceId, limit: 100 })
-      .then((response) => setTaskTitles(Object.fromEntries(response.snapshot.items.map((item) => [item.workItemId, item.title]))))
+    void query<{ snapshot: { items: { workItemId: string; title: string; state: string; evidenceDigest?: string; parked: boolean; failedAttempts: number; blockedReason?: string }[] } }>({ queryType: "workItems.list", workspaceId, limit: 100 })
+      .then((response) => setTaskInfo(Object.fromEntries(response.snapshot.items.map((item) => [item.workItemId, {
+        title: item.title, state: item.state, verified: Boolean(item.evidenceDigest), parked: item.parked,
+        failedAttempts: item.failedAttempts, blockedReason: item.blockedReason,
+      }]))))
       .catch(() => undefined);
   });
   const [compareOpen, setCompareOpen] = createSignal(false);

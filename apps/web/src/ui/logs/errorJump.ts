@@ -23,7 +23,8 @@ const isFailure = (record: LogRecord): boolean => record.severity === "error" ||
 export function rowMembers(row: LogRowModel): readonly LogRecord[] {
   switch (row.kind) {
     case "tool": return row.members;
-    case "repeat": return [...row.members];
+    case "repeat": case "message": return [...row.members];
+    case "task": return [];
     default: return [row.record];
   }
 }

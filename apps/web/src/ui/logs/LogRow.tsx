@@ -23,17 +23,22 @@ export const ROW_HEIGHT = 32;
  * consecutive repetitive lines collapse into one counted row. Grouping never
  * reorders records: a tool group sits where its first record sits.
  */
-export type LogRowModel =
+export type EntryRowModel =
   | { readonly kind: "single"; readonly record: LogRecord }
   | { readonly kind: "repeat"; readonly record: LogRecord; readonly members: readonly LogRecord[] }
   /** A run of streamed assistant text deltas read as one message. */
-  | { readonly kind: "message"; readonly record: LogRecord; readonly members: readonly LogRecord[]; readonly text: string }
+  | { readonly kind: "message"; readonly record: LogRecord; readonly members: readonly LogRecord[]; readonly text: string; readonly partialStart?: boolean }
   | { readonly kind: "tool"; readonly proposalKey: string; readonly members: readonly LogRecord[]; readonly proposed?: LogRecord; readonly result?: LogRecord };
 
-/** Records that belong to one tool invocation join by proposal id. */
-const TOOL_JOIN_TYPES = new Set(["tool.proposed", "tool.result", "attempt.progress"]);
+/** Readable mode only: the collapsible header above one task's entries. */
+export type TaskRowModel = { readonly kind: "task"; readonly taskId: string; readonly title: string; readonly status: string; readonly entries: number; readonly collapsed: boolean; readonly severity: string | null };
 
-function proposalKeyOf(record: LogRecord): string | undefined {
+export type LogRowModel = EntryRowModel | TaskRowModel;
+
+/** Records that belong to one tool invocation join by proposal id. */
+export const TOOL_JOIN_TYPES = new Set(["tool.proposed", "tool.result", "attempt.progress"]);
+
+export function proposalKeyOf(record: LogRecord): string | undefined {
   const payload = record.summary && typeof record.summary === "object" && !Array.isArray(record.summary)
     ? record.summary as Record<string, unknown> : undefined;
   const fromPayload = typeof payload?.["proposalId"] === "string" ? payload["proposalId"] : undefined;
@@ -100,9 +105,9 @@ export function receiptDuration(receipt: ToolReceiptView | undefined): string {
  * sound cache key: a run that grows gets a new model, an unchanged row is
  * reused. The WeakMap follows records out of the bounded window.
  */
-const rowModels = new WeakMap<LogRecord, { members: readonly LogRecord[]; model: LogRowModel }>();
+const rowModels = new WeakMap<LogRecord, { members: readonly LogRecord[]; model: EntryRowModel }>();
 
-function cachedRow(first: LogRecord, members: readonly LogRecord[], build: () => LogRowModel): LogRowModel {
+function cachedRow(first: LogRecord, members: readonly LogRecord[], build: () => EntryRowModel): EntryRowModel {
   const hit = rowModels.get(first);
   if (hit && hit.members.length === members.length && hit.members.every((member, index) => member === members[index])) return hit.model;
   const model = build();
@@ -111,15 +116,15 @@ function cachedRow(first: LogRecord, members: readonly LogRecord[], build: () =>
 }
 
 /** The assistant text of a streamed `text` delta, or undefined for any other record. */
-function assistantDelta(record: LogRecord): string | undefined {
+export function assistantDelta(record: LogRecord): string | undefined {
   if (record.type !== "text") return undefined;
   const payload = record.summary && typeof record.summary === "object" && !Array.isArray(record.summary) ? record.summary as Record<string, unknown> : undefined;
   if (!payload || (typeof payload["channel"] === "string" && payload["channel"] !== "assistant")) return undefined;
   return typeof payload["text"] === "string" ? payload["text"] : undefined;
 }
 
-export function buildLogRows(records: readonly LogRecord[]): readonly LogRowModel[] {
-  const rows: LogRowModel[] = [];
+export function buildLogRows(records: readonly LogRecord[]): readonly EntryRowModel[] {
+  const rows: EntryRowModel[] = [];
   const openTools = new Map<string, { index: number; members: LogRecord[]; proposed?: LogRecord; result?: LogRecord }>();
   let previous: { type: string; emitter: string; severity: string | null; summary: string } | undefined;
 
@@ -184,12 +189,14 @@ export function buildLogRows(records: readonly LogRecord[]): readonly LogRowMode
 }
 
 export function rowKey(row: LogRowModel): string {
+  if (row.kind === "task") return `task-${row.taskId}`;
   const first = row.kind === "tool" ? row.members[0] : row.kind === "repeat" ? row.record : row.record;
   return `${row.kind}-${first!.streamSeq}-${first!.eventId}`;
 }
 
 /** Worst severity across a row's records, for the leading dot. */
 export function rowSeverity(row: LogRowModel): string | null {
+  if (row.kind === "task") return row.severity;
   const order = ["debug", "info", "warning", "error", "critical"];
   let worst: string | null = null;
   for (const record of rowMembers(row)) {
@@ -200,6 +207,7 @@ export function rowSeverity(row: LogRowModel): string | null {
 }
 
 function rowMembers(row: LogRowModel): readonly LogRecord[] {
+  if (row.kind === "task") return [];
   return row.kind === "tool" || row.kind === "repeat" || row.kind === "message" ? row.members : [row.record];
 }
 
@@ -219,13 +227,44 @@ export function LogRow(props: {
   mode: "readable" | "raw";
   selected: boolean;
   onSelect: (row: LogRowModel) => void;
+  onToggleTask?: (taskId: string) => void;
 }): JSX.Element {
-  const record = () => (props.row.kind === "tool" ? props.row.proposed ?? props.row.members[0]! : props.row.record);
+  return <Show when={props.row.kind === "task" ? props.row : undefined} fallback={<RecordRow row={props.row} mode={props.mode} selected={props.selected} onSelect={props.onSelect} />}>
+    {(header) => <TaskHeaderRow header={header()} onToggle={props.onToggleTask} />}
+  </Show>;
+}
+
+
+
+/** Readable mode's collapsible task header: title, one-line status, how many entries it holds. */
+function TaskHeaderRow(props: { header: TaskRowModel; onToggle: ((taskId: string) => void) | undefined }): JSX.Element {
+  return <button type="button" data-row-kind="task" data-testid="log-task-header" data-task-id={props.header.taskId}
+    aria-expanded={!props.header.collapsed}
+    class="flex h-full w-full items-center gap-2 border-b border-outline-gray-2 bg-surface-gray-1 px-3 text-start focus-visible:focus-ring hover:bg-surface-gray-2"
+    onClick={() => props.onToggle?.(props.header.taskId)}>
+    <span class={`size-4 shrink-0 text-ink-gray-7 ${props.header.collapsed ? "lucide-chevron-right" : "lucide-chevron-down"}`} aria-hidden="true" />
+    <span class={`size-2 shrink-0 rounded-full ${severityDotClass(props.header.severity)}`} role="img" aria-label={severityLabel(props.header.severity)} />
+    <span class="min-w-0 truncate text-interface font-medium text-ink-gray-9" title={props.header.title}>{props.header.title}</span>
+    <span class="shrink-0 text-ink-gray-5" aria-hidden="true">·</span>
+    <span class="min-w-0 flex-1 truncate text-interface text-ink-gray-7" data-testid="log-task-status" title={`${props.header.title}: ${props.header.status}`}>{props.header.status}</span>
+    <span class="shrink-0 text-xs text-ink-gray-6">{props.header.entries} {props.header.entries === 1 ? "entry" : "entries"}</span>
+  </button>;
+}
+
+function RecordRow(props: {
+  row: LogRowModel;
+  mode: "readable" | "raw";
+  selected: boolean;
+  onSelect: (row: LogRowModel) => void;
+}): JSX.Element {
+  const record = () => (props.row.kind === "tool" ? props.row.proposed ?? props.row.members[0]! : (props.row as Exclude<LogRowModel, { kind: "task" | "tool" }>).record);
   const tool = () => (props.row.kind === "tool" ? props.row : undefined);
   const repeat = () => (props.row.kind === "repeat" ? props.row : undefined);
   const message = () => (props.row.kind === "message" ? props.row.text.replace(/\s+/gu, " ").trim() : undefined);
   const receipt = () => receiptOf(tool()?.result);
-  const sentence = () => plainSentence(record(), tool() ? toolIdentity(tool()!.proposed ?? tool()!.members[0]) : undefined, message());
+  const partial = () => (props.row.kind === "message" && props.row.partialStart === true);
+  // Under a task header the title is already on the page: lines stay short.
+  const sentence = () => plainSentence(record(), tool() ? toolIdentity(tool()!.proposed ?? tool()!.members[0]) : undefined, message(), false, partial());
   return <button type="button" data-stream-seq={record().streamSeq} data-event-id={record().eventId}
     data-row-kind={props.row.kind} data-mode={props.mode}
     aria-pressed={props.selected}
@@ -239,7 +278,7 @@ export function LogRow(props: {
         {sentence()}
         <Show when={tool() && !tool()!.result}><span class="ms-2 text-ink-amber-8">no result yet</span></Show>
       </span>
-      <Show when={repeat()}><span class="shrink-0 rounded-control bg-surface-gray-2 px-1.5 text-xs text-ink-gray-7" title={`${repeat()!.members.length} consecutive identical records`}>×{repeat()!.members.length}</span></Show>
+      <Show when={repeat()}><span class="shrink-0 rounded-control bg-surface-gray-2 px-1.5 text-xs text-ink-gray-7" title={`${repeat()!.members.length} identical records`}>{repeat()!.members.length} times</span></Show>
       <Show when={tool()}><span class="shrink-0 text-xs text-ink-gray-6" title="Tool invocation duration">{receiptDuration(receipt())}</span></Show>
     </Show>
     <Show when={record().tsApproximate}><span class="shrink-0 text-xs text-ink-gray-6" title="The source event carried no timestamp; this time was set at projection">~</span></Show>

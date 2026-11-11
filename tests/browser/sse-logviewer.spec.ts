@@ -130,8 +130,11 @@ test("Log Explorer: bounded DOM, scroll and selection survive streaming, pause/u
   // 40 fresh records stream in while the reader is scrolled away.
   const inject = (from: number, to: number): void => {
     for (let i = from; i <= to; i++) {
-      insert.run(`evt-live-${i}`, "session", "ses-perf", i, "text",
+      // A tool result follows each line so every live line is its own turn (chunks of one turn read as one message).
+      insert.run(`evt-live-${i}`, "session", "ses-perf", i * 2, "text",
         JSON.stringify({ channel: "assistant", provisional: true, text: `Live line ${i}\n` }), digest, Date.now());
+      insert.run(`evt-live-r-${i}`, "session", "ses-perf", i * 2 + 1, "tool.result",
+        JSON.stringify({ proposalId: `live-${i}`, invocationId: `live-${i}`, receipt: { invocationId: `live-${i}`, result: "succeeded" } }), digest, Date.now());
     }
   };
   inject(10001, 10040);
@@ -157,8 +160,8 @@ test("Log Explorer: bounded DOM, scroll and selection survive streaming, pause/u
   // Pause: arrivals are counted, not shown; resume flushes the unread counter.
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   inject(10041, 10080);
-  await expect(page.getByRole("button", { name: /Resume \(40 new\)/ })).toBeVisible({ timeout: 15_000 });
-  await page.getByRole("button", { name: /Resume \(40 new\)/ }).click();
+  await expect(page.getByRole("button", { name: /Resume \(80 new\)/ })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: /Resume \(80 new\)/ }).click();
   await page.getByRole("button", { name: /Jump to newest/ }).click();
   await expect(page.getByText("Live line 10080", { exact: false })).toBeVisible({ timeout: 15_000 });
   // The flush is proven above (newest record visible, jump control gone); the

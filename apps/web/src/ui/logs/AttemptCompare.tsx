@@ -9,7 +9,7 @@ import { createScopedRead } from "../../data/screens";
 import { ScreenRegion, severityDotClass } from "../screen-region";
 import { useApp } from "../app-context";
 import { buildLogRows, rowSeverity } from "./LogRow";
-import type { LogRowModel } from "./LogRow";
+import type { EntryRowModel } from "./LogRow";
 import { failureJump } from "./errorJump";
 import { recordOfView } from "./LogTail";
 
@@ -27,7 +27,7 @@ const RENDER_ROWS = 60;
 function AttemptColumn(props: { comparison: StreamCompareResult; attemptId: string }): JSX.Element {
   const attempt = () => props.comparison.attempts.find((entry) => entry.attemptId === props.attemptId);
   const records = () => (attempt()?.items ?? []).map(recordOfView);
-  const rows = (): readonly LogRowModel[] => buildLogRows(records());
+  const rows = (): readonly EntryRowModel[] => buildLogRows(records());
   const firstFailure = () => failureJump(rows());
   return <div class="min-w-0 flex-1 rounded-card border border-outline-gray-1 p-2" data-attempt-id={props.attemptId} data-testid="compare-attempt">
     <div class="flex items-center justify-between gap-2">
