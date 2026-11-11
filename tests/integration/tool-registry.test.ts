@@ -6,6 +6,7 @@ import { sha256Digest } from "@brain/contracts";
 import { createApp } from "../../apps/governor/src/http/app";
 import { enrollAndHello } from "../../apps/runner/src/supervisor";
 import { GovernorClient } from "../../apps/runner/src/governor-client";
+import { putBytes } from "../../apps/governor/src/modules/artifacts/index";
 import { setupWorld } from "../helpers";
 import { fixtureStarter } from "../support/starter";
 
@@ -41,6 +42,9 @@ describe("tool registry read (issue #84)", () => {
       // Proof: the pinned script's own bytes and digest, not an empty list.
       const script = bundle.scripts!.find((entry) => entry.toolId === "documents.read")!;
       expect(byId.get("documents.read")!.evidence).toEqual([expect.objectContaining({ digest: sha256Digest(new Uint8Array(Buffer.from(script.bytesBase64, "base64"))), mediaType: "text/x-shellscript" })]);
+      // The evidence row is readable: its artifact id resolves to the pinned script's bytes (it used to answer "artifact not found").
+      expect(Buffer.from(w.brain.readArtifact(w.owner, byId.get("documents.read")!.evidence[0]!.artifactId)).toString("base64")).toBe(script.bytesBase64);
+      expect(() => w.brain.readArtifact(w.owner, "tool-script:no.such.tool")).toThrow(/artifact not found/u);
 
       // Real tool events, posted through the runner protocol: two calls to documents.read (one failed) and one to csv.query.
       const transport: typeof fetch = async (input, init) => app.fetch(new Request(input, init));
@@ -55,7 +59,9 @@ describe("tool registry read (issue #84)", () => {
       let sequence = 0;
       const event = (kind: string, payload: Record<string, unknown>, at: string) => ({ sequence: ++sequence, kind: "engine", payload: { contractVersion: "brain.engine-event/v1", eventId: `e${sequence}`, sessionId: "s", attemptId: offer.attemptId, sequence, occurredAt: at, kind, payload } });
       const proposed = (proposalId: string, id: string, at: string) => event("tool.proposed", { proposalId, tool: tool(id), input: {}, target: { targetId: `tool:${id}`, environmentId: "local", preconditionDigest: tool(id).digest }, inputDigest: sha256Digest(new TextEncoder().encode("{}")) }, at);
-      const result = (proposalId: string, outcome: "succeeded" | "failed", at: string) => event("tool.result", { proposalId, invocationId: proposalId, receipt: { invocationId: proposalId, attemptId: offer.attemptId, jobFence: offer.jobFence, result: outcome, startedAt: at, finishedAt: at, effects: [] } }, at);
+      const errorBytes = new TextEncoder().encode(JSON.stringify({ error: "document not found in this workspace. Use an id exactly as given in your context." }));
+      const errorDigest = putBytes(w.brain.store, errorBytes);
+      const result = (proposalId: string, outcome: "succeeded" | "failed", at: string) => event("tool.result", { proposalId, invocationId: proposalId, receipt: { invocationId: proposalId, attemptId: offer.attemptId, jobFence: offer.jobFence, result: outcome, startedAt: at, finishedAt: at, ...(outcome === "failed" ? { stdout: { artifactId: "att-err", digest: errorDigest, bytes: errorBytes.length, mediaType: "application/json", classification: "internal" } } : {}), effects: [] } }, at);
       await client.events(offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence, events: [
         proposed("p1", "documents.read", "2026-11-11T10:00:00.000Z"), result("p1", "succeeded", "2026-11-11T10:00:01.000Z"),
         proposed("p2", "documents.read", "2026-11-11T10:05:00.000Z"), result("p2", "failed", "2026-11-11T10:05:01.000Z"),
@@ -64,7 +70,7 @@ describe("tool registry read (issue #84)", () => {
 
       const used = new Map((await read()).map((entry) => [entry.id, entry]));
       const runId = offer.workflowRunId!;
-      expect(used.get("documents.read")!.usage).toEqual({ calls: 2, failures: 1, lastCallAt: "2026-11-11T10:05:00.000Z", lastCallRunId: runId, lastFailureAt: "2026-11-11T10:05:01.000Z", lastFailureRunId: runId });
+      expect(used.get("documents.read")!.usage).toEqual({ calls: 2, failures: 1, lastCallAt: "2026-11-11T10:05:00.000Z", lastCallRunId: runId, lastFailureAt: "2026-11-11T10:05:01.000Z", lastFailureRunId: runId, lastFailureMessage: "document not found in this workspace. Use an id exactly as given in your context." });
       expect(used.get("csv.query")!.usage).toEqual({ calls: 1, failures: 0, lastCallAt: "2026-11-11T10:06:00.000Z", lastCallRunId: runId });
       // Counts come from the call table kept by event ingestion: a replayed batch (same sequences) counts nothing twice.
       await client.events(offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence, events: [

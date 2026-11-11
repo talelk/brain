@@ -11,10 +11,11 @@ import { transitionState } from "../../domain/states";
 import { iso } from "../../domain/clock";
 import { looksLikeSecret, type MemoryStore, type ReuseService } from "../knowledge/index";
 import { putBytes } from "../artifacts/index";
+import { readableSources, toolAvailability } from "../resources/index";
 import { buildWriteup, goalKey } from "./writeup";
 import { workingMs } from "../missions/index";
 
-interface ToolUsage { calls: number; failures: number; lastCallAt?: string; lastCallRunId?: string; lastFailureAt?: string; lastFailureRunId?: string }
+interface ToolUsage { calls: number; failures: number; lastCallAt?: string; lastCallRunId?: string; lastFailureAt?: string; lastFailureRunId?: string; lastFailureMessage?: string }
 
 export interface CapitalizationCommand {
   readonly commandId: string;
@@ -597,6 +598,7 @@ export class CapitalizationService {
     if (!active) return [];
     const createdAt = this.activatedAt(organizationId, active.digest);
     const usage = workspaceId ? this.toolUsage(organizationId, workspaceId) : new Map<string, ToolUsage>();
+    const sources = workspaceId ? readableSources(this.store, organizationId, workspaceId) : undefined;
     const candidates = workspaceId
       ? new Map((this.store.workspaceDb(workspaceId, organizationId).prepare("SELECT package_digest,operation_id,state FROM tool_candidates").all() as Array<{ package_digest: string; operation_id: string; state: string }>).map((row) => [`${row.operation_id}@${row.package_digest}`, row.state]))
       : new Map<string, string>();
@@ -614,6 +616,8 @@ export class CapitalizationService {
         createdAt, allowedAgents,
         ...(tool.description ? { description: tool.description } : {}), ...(tool.allowedHosts ? { allowedHosts: tool.allowedHosts } : {}),
         usage: used ?? { calls: 0, failures: 0 },
+        // Whether the workspace holds anything this tool could read; an unavailable tool is left out of agents' tool lists and says why here.
+        availability: sources ? toolAvailability(tool.id, sources) : { available: true },
       };
     });
   }
@@ -626,13 +630,14 @@ export class CapitalizationService {
   private toolUsage(organizationId: string, workspaceId: string): Map<string, ToolUsage> {
     const rows = this.store.control.prepare(`SELECT t.tool_id AS toolId, COUNT(*) AS calls, COALESCE(SUM(t.failed),0) AS failures,
         MAX(NULLIF(t.proposed_at,'')) AS lastCallAt, MAX(CASE WHEN t.failed=1 THEN NULLIF(t.finished_at,'') END) AS lastFailureAt,
+        (SELECT c.failure_message FROM tool_calls c WHERE c.organization_id=t.organization_id AND c.workspace_id=t.workspace_id AND c.tool_id=t.tool_id AND c.failed=1 ORDER BY c.finished_at DESC, c.rowid DESC LIMIT 1) AS lastFailureMessage,
         (SELECT c.run_id FROM tool_calls c WHERE c.organization_id=t.organization_id AND c.workspace_id=t.workspace_id AND c.tool_id=t.tool_id ORDER BY c.proposed_at DESC, c.rowid DESC LIMIT 1) AS lastCallRunId,
         (SELECT c.run_id FROM tool_calls c WHERE c.organization_id=t.organization_id AND c.workspace_id=t.workspace_id AND c.tool_id=t.tool_id AND c.failed=1 ORDER BY c.finished_at DESC, c.rowid DESC LIMIT 1) AS lastFailureRunId
-      FROM tool_calls t WHERE t.organization_id=? AND t.workspace_id=? GROUP BY t.tool_id`).all(organizationId, workspaceId) as Array<{ toolId: string; calls: number; failures: number; lastCallAt: string | null; lastFailureAt: string | null; lastCallRunId: string | null; lastFailureRunId: string | null }>;
+      FROM tool_calls t WHERE t.organization_id=? AND t.workspace_id=? GROUP BY t.tool_id`).all(organizationId, workspaceId) as Array<{ toolId: string; calls: number; failures: number; lastCallAt: string | null; lastFailureAt: string | null; lastFailureMessage: string | null; lastCallRunId: string | null; lastFailureRunId: string | null }>;
     return new Map(rows.map((row): [string, ToolUsage] => [row.toolId, {
       calls: row.calls, failures: row.failures,
       ...(row.lastCallAt ? { lastCallAt: row.lastCallAt } : {}), ...(row.lastCallAt && row.lastCallRunId ? { lastCallRunId: row.lastCallRunId } : {}),
-      ...(row.lastFailureAt ? { lastFailureAt: row.lastFailureAt } : {}), ...(row.lastFailureAt && row.lastFailureRunId ? { lastFailureRunId: row.lastFailureRunId } : {}),
+      ...(row.lastFailureAt ? { lastFailureAt: row.lastFailureAt } : {}), ...(row.lastFailureAt && row.lastFailureMessage ? { lastFailureMessage: row.lastFailureMessage } : {}), ...(row.lastFailureAt && row.lastFailureRunId ? { lastFailureRunId: row.lastFailureRunId } : {}),
     }]));
   }
 

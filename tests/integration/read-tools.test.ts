@@ -41,7 +41,24 @@ describe("web.fetch broker (GET only, host allowlist, bounds)", () => {
   it("fetches an allowlisted page and reports the address it came from", async () => {
     const site = await serve((_req, res) => { res.setHeader("content-type", "text/html; charset=utf-8"); res.end("<h1>Hello</h1>"); });
     const result = await webFetch({ url: `${site.base}/page` }, [site.host], local);
-    expect(result).toEqual({ ok: true, data: expect.objectContaining({ url: `${site.base}/page`, status: 200, contentType: "text/html; charset=utf-8", body: "<h1>Hello</h1>", truncated: false }) });
+    expect(result).toEqual({ ok: true, data: expect.objectContaining({ url: `${site.base}/page`, status: 200, contentType: "text/plain", body: "Hello", truncated: false }) });
+  });
+
+  it("reduces a large HTML article to bounded text the pinned script can take (live: 33 of 66 calls failed with 'tool input too large')", async () => {
+    const article = `<html><head><script>var x=1</script><style>p{}</style></head><body><nav>menu ${"link ".repeat(2000)}</nav><main><h1>Title</h1>${"<p>Sentence &amp; more text.</p>".repeat(30000)}</main></body></html>`;
+    expect(article.length).toBeGreaterThan(500_000);
+    const site = await serve((_req, res) => { res.setHeader("content-type", "text/html"); res.end(article); });
+    const result = await webFetch({ url: `${site.base}/wiki` }, [site.host], local);
+    expect(result.ok).toBe(true);
+    const data = (result as unknown as { data: { body: string; truncated: boolean } }).data;
+    expect(data.body.startsWith("Title")).toBe(true);
+    expect(data.body).not.toContain("menu");
+    expect(data.body).toContain("Sentence & more text.");
+    expect(data.truncated).toBe(true);
+    const input = JSON.stringify({ url: "x", broker: { url: "x", finalUrl: "x", status: 200, contentType: "text/plain", fetchedAt: "now", body: data.body } });
+    expect(Buffer.byteLength(input, "utf8")).toBeLessThan(64 * 1024);
+    const script = spawnSync("bash", ["examples/v1/starter-release/tools/web.fetch/run.sh"], { input, encoding: "utf8" });
+    expect(script.status, script.stderr).toBe(0);
   });
 
   it("refuses hosts outside the allowlist, non-GET, bad schemes, credentials and an empty allowlist", async () => {

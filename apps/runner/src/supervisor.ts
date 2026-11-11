@@ -142,7 +142,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
   const ack = await client.ack(offer.attemptId, ackBody);
   // Execution input travels as a digest-pinned CAS artifact, never inline.
   const artifactBytes = await client.executionArtifact(offer.attemptId, offer.execution.artifact.digest, offer.execution.artifact.bytes);
-  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment; contextPack?: { text?: string } };
+  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment; contextPack?: { text?: string; unavailableTools?: Array<{ id: string; reason?: string }> } };
   // The execution deadline is the lease: a monotonic clock (performance.now)
   // is armed from the ack's server lease expiry and refreshed by every
   // successful renewal, so wall-clock adjustments cannot extend the window.
@@ -241,7 +241,12 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
       const instructions = asset.instructions;
       const configured = cfg.engines ?? [process.env["BRAIN_RUNNER_ENGINE"] ?? "fixture"];
       const engineConfigured = asset.agent.spec.engine.anyOf.find((id) => configured.includes(id));
-      const engine = selectEngine(engineConfigured, asset.toolBindings);
+      // Tools the Governor found to have nothing to read for this task (no documents, no CSV files) are not offered to the model at all:
+      // each call it would waste is a model round trip. The pinned allowlist above still bounds what could ever run.
+      const withheld = new Set((payload.contextPack?.unavailableTools ?? []).map((tool) => tool.id));
+      const offeredBindings = asset.toolBindings.filter((binding) => !withheld.has(binding.release.id));
+      const offeredTools = asset.agent.spec.tools.filter((tool) => !withheld.has(tool.id));
+      const engine = selectEngine(engineConfigured, offeredBindings);
       if (!engine) throw new Error(`none of the required engines (${asset.agent.spec.engine.anyOf.join(", ")}) is configured on this runner`);
       const engineProbe = await engine.probe();
       engineInfo = { id: engineProbe.id, adapterDigest: engineProbe.adapterDigest, features: [...engineProbe.features] };
@@ -272,7 +277,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
         instructions, task, modelId: process.env["BRAIN_LOCAL_MODEL_ID"], timeoutMs: (step.timeoutSeconds ?? 300) * 1000,
         maxTurns: asset.agent.spec.maxTurns, maxTokens: asset.agent.spec.maxTokens,
         outputCheck: outputContractCheck((payload as { outputSchema?: unknown }).outputSchema),
-        maxMicroUsd: asset.agent.spec.maxMicroUsd, allowedTools: asset.agent.spec.tools,
+        maxMicroUsd: asset.agent.spec.maxMicroUsd, allowedTools: offeredTools,
         onSession: (handle) => {
           steer = handle.features.includes("steer")
             ? (messageId, message) => handle.steer(messageId, message)

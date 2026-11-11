@@ -111,7 +111,7 @@ describe("context pack delivery (issue #80)", () => {
       // Prompt-size regression (row 65): everything the model is given for this task (brief plus pack) says the upstream summary exactly once.
       expect(`${situation}\n${pack.text}`.split("Option north hall wins on cost.").length - 1).toBe(1);
       // Nothing outside the declared sections is injected.
-      const declared = ["Mission brief and this task's criteria", "Accepted decisions", "Verified results of the tasks this one builds on", "Handoff notes from those tasks (written by the member)", "Inputs pinned for this task (fetch by reference)", "Messages sent to this task", "Where earlier work on this task stopped", "The previous attempt failed"];
+      const declared = ["Mission brief and this task's criteria", "Accepted decisions", "Verified results of the tasks this one builds on", "Handoff notes from those tasks (written by the member)", "Inputs pinned for this task (fetch by reference)", "Messages sent to this task", "Where earlier work on this task stopped", "The previous attempt failed", "Read tools for this task"];
       const headings = [...pack.text.matchAll(/^## (.+?) \[[^\]]+\]$/gm)].map((match) => match[1]);
       expect(headings.length).toBeGreaterThan(2);
       for (const heading of headings) expect(declared).toContain(heading);

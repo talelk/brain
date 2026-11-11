@@ -132,11 +132,37 @@ export async function webFetch(input: Readonly<Record<string, unknown>>, allowed
       }
       const contentType = String(fetched.headers["content-type"] ?? "").toLowerCase();
       if (contentType && !READABLE_TYPES.some((pattern) => pattern.test(contentType))) return { ok: false, error: `content type ${contentType.split(";")[0]} is not readable text` };
-      return { ok: true, data: { url: original, finalUrl: url.toString(), status: fetched.status, contentType: contentType || "text/plain", fetchedAt: new Date().toISOString(), body: new TextDecoder("utf-8", { fatal: false }).decode(fetched.body), truncated: fetched.truncated } };
+      const readable = readableBody(contentType, new TextDecoder("utf-8", { fatal: false }).decode(fetched.body));
+      return { ok: true, data: { url: original, finalUrl: url.toString(), status: fetched.status, contentType: readable.converted ? "text/plain" : contentType || "text/plain", fetchedAt: new Date().toISOString(), body: readable.text, truncated: fetched.truncated || readable.cut } };
     }
   } catch (error) {
     return { ok: false, error: plainFetchError(error, url.hostname) };
   }
+}
+
+/** The pinned tool script reads its whole input (this body included) from stdin, which `executeToolPayload` caps at 64 KiB: the body handed over stays well under it. */
+export const MAX_BROKER_BODY_BYTES = 48 * 1024;
+const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'", nbsp: " ", "#39": "'" };
+
+/**
+ * A fetched page as bounded readable text. An HTML page (a Wikipedia article is several hundred KiB of markup) is reduced to its main
+ * text here, before it goes to the script, because the script's input is capped: the raw markup used to exceed the cap and every large
+ * page failed with "tool input too large". Other text is only cut to the same bound.
+ */
+export function readableBody(contentType: string, body: string): { text: string; converted: boolean; cut: boolean } {
+  let text = body;
+  const converted = /html/u.test(contentType) || /^\s*<(!doctype html|html)/iu.test(body);
+  if (converted) {
+    const start = [/<main[\s>]/iu, /id="mw-content-text"/iu, /<article[\s>]/iu, /<body[\s>]/iu].map((pattern) => text.search(pattern)).find((index) => index >= 0) ?? 0;
+    text = text.slice(start)
+      .replace(/<(script|style|noscript|nav|header|footer|svg)[^>]*>[\s\S]*?<\/\1>/giu, " ")
+      .replace(/<[^>]+>/gu, " ")
+      .replace(/&(#39|[a-z]+);/giu, (whole, name: string) => ENTITIES[name.toLowerCase()] ?? whole)
+      .replace(/[ \t\r\f\v]+/gu, " ").replace(/\n\s*\n+/gu, "\n\n").trim();
+  }
+  let cut = false;
+  while (Buffer.byteLength(JSON.stringify(text), "utf8") > MAX_BROKER_BODY_BYTES) { text = text.slice(0, Math.floor(text.length * 0.9)); cut = true; }
+  return { text, converted, cut };
 }
 
 /**

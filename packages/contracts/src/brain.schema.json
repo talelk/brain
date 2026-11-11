@@ -17630,6 +17630,26 @@
             },
             "lastFailureRunId": {
               "$ref": "#/$defs/Id"
+            },
+            "lastFailureMessage": {
+              "type": "string",
+              "maxLength": 300
+            }
+          }
+        },
+        "availability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "available"
+          ],
+          "properties": {
+            "available": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 300
             }
           }
         }
@@ -17644,7 +17664,8 @@
         "evidence",
         "createdAt",
         "allowedAgents",
-        "usage"
+        "usage",
+        "availability"
       ],
       "additionalProperties": false
     },

@@ -372,14 +372,20 @@ export interface ToolProposalInput {
   evidence: string[];
 }
 
-/** "never used" or "N calls, last used …": the list row's one honest sentence about a tool. */
+/** The list row's one honest sentence about a tool: availability first (an unavailable tool is not offered), then use as a failure rate. */
 function usageSummary(tool: ToolCatalogEntry): string {
-  if (tool.usage.calls === 0) return "never used";
-  return `${callsText(tool)}${tool.usage.lastCallAt ? `, last used ${formatDateTime(tool.usage.lastCallAt)}` : ""}`;
+  const base = tool.usage.calls === 0 ? "Never used" : `${callsText(tool)}${tool.usage.lastCallAt ? `, last used ${formatDateTime(tool.usage.lastCallAt)}` : ""}`;
+  return tool.availability.available ? base : `${availabilityText(tool)} · ${base}`;
 }
+function availabilityText(tool: ToolCatalogEntry): string {
+  return tool.availability.available ? "Available" : `Not available${tool.availability.reason ? `: ${tool.availability.reason}` : ""}`;
+}
+/** "66 calls, 50 failed (76%)": how often a tool fails, not a bare count. */
 function callsText(tool: ToolCatalogEntry): string {
-  if (tool.usage.calls === 0) return "never used";
-  return `${tool.usage.calls} ${tool.usage.calls === 1 ? "call" : "calls"}${tool.usage.failures ? `, ${tool.usage.failures} failed` : ", none failed"}`;
+  const { calls, failures } = tool.usage;
+  if (calls === 0) return "Never used";
+  const noun = calls === 1 ? "call" : "calls";
+  return failures === 0 ? `${calls} ${noun}, none failed` : `${calls} ${noun}, ${failures} failed (${Math.round((failures / calls) * 100)}%)`;
 }
 
 export function ToolsScreen(props: {
@@ -537,9 +543,11 @@ export function ToolsScreen(props: {
                       <KeyValue label="Publication" value={tool.status} orientation="vertical" />
                       <KeyValue label="Agents allowed to call it" value={<span data-tool-agents>{tool.allowedAgents.length ? tool.allowedAgents.join(", ") : "No agent has this tool in its allowlist"}</span>} orientation="vertical" />
                       <KeyValue label="Active since" value={<DateText value={tool.createdAt} />} orientation="vertical" />
+                      <KeyValue label="Availability" value={<span data-tool-availability>{availabilityText(tool)}</span>} orientation="vertical" />
                       <KeyValue label="Calls" value={<span data-tool-calls>{callsText(tool)}</span>} orientation="vertical" />
-                      <KeyValue label="Last call" value={<Show when={tool.usage.lastCallAt} fallback={<span>never used</span>}><span class="flex flex-wrap items-center gap-2"><DateText value={tool.usage.lastCallAt} /><Show when={tool.usage.lastCallRunId}>{(runId) => <A class="text-ink-blue-7 underline focus-visible:focus-ring" href={`/runs/${runId()}`}>Open the run</A>}</Show></span></Show>} orientation="vertical" />
-                      <KeyValue label="Last failure" value={<Show when={tool.usage.lastFailureAt} fallback={<span>{tool.usage.calls ? "none recorded" : "never used"}</span>}><span class="flex flex-wrap items-center gap-2"><DateText value={tool.usage.lastFailureAt} /><Show when={tool.usage.lastFailureRunId}>{(runId) => <A class="text-ink-blue-7 underline focus-visible:focus-ring" href={`/runs/${runId()}`}>Open the run</A>}</Show></span></Show>} orientation="vertical" />
+                      <KeyValue label="Last call" value={<Show when={tool.usage.lastCallAt} fallback={<span>Never used</span>}><span class="flex flex-wrap items-center gap-2"><DateText value={tool.usage.lastCallAt} /><Show when={tool.usage.lastCallRunId}>{(runId) => <A class="text-ink-blue-7 underline focus-visible:focus-ring" href={`/runs/${runId()}`}>Open the run</A>}</Show></span></Show>} orientation="vertical" />
+                      <KeyValue label="Last failure" value={<Show when={tool.usage.lastFailureAt} fallback={<span>{tool.usage.calls ? "none recorded" : "Never used"}</span>}><span class="flex flex-wrap items-center gap-2"><DateText value={tool.usage.lastFailureAt} /><Show when={tool.usage.lastFailureRunId}>{(runId) => <A class="text-ink-blue-7 underline focus-visible:focus-ring" href={`/runs/${runId()}`}>Open the run</A>}</Show></span></Show>} orientation="vertical" />
+                      <Show when={tool.usage.lastFailureMessage}><KeyValue label="Last error" value={<span data-tool-last-error>{tool.usage.lastFailureMessage}</span>} orientation="vertical" /></Show>
                       <Show when={tool.allowedHosts?.length}><KeyValue label="Hosts it may reach" value={<span data-tool-hosts>{tool.allowedHosts!.join(", ")}</span>} orientation="vertical" /></Show>
                       <KeyValue label="Input schema" value={tool.inputSchemaRef} orientation="vertical" />
                       <KeyValue label="Output schema" value={tool.outputSchemaRef} orientation="vertical" />

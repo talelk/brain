@@ -8,6 +8,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { enqueueSessionControl } from "./controls";
 import { readVerified } from "../artifacts/index";
+import { readableSources, toolAvailability } from "../resources/index";
 import { buildContextPack, type BuiltPack, type PackItem, type PackSection } from "./context-pack";
 
 export interface SessionCommand {
@@ -356,7 +357,7 @@ export class SessionService {
    * the item are delivered by this pack, exactly as a managed session start
    * would deliver them.
    */
-  contextPackForRun(organizationId: string, workspaceId: string, input: { runId: string; jobId: string; agentId: string; budgetTokens: number; taskText?: string }): BuiltPack | undefined {
+  contextPackForRun(organizationId: string, workspaceId: string, input: { runId: string; jobId: string; agentId: string; budgetTokens: number; taskText?: string; tools?: ReadonlyArray<{ id: string; allowedHosts?: readonly string[] }> }): (BuiltPack & { unavailableTools: ReadonlyArray<{ id: string; reason: string }> }) | undefined {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     const link = db.prepare("SELECT work_item_id FROM execution_links WHERE run_id=? ORDER BY created_at_ms DESC LIMIT 1").get(input.runId) as { work_item_id: string } | undefined;
     if (!link) return undefined;
@@ -418,7 +419,20 @@ export class SessionService {
       ] : [] },
       { id: "last-failure", title: "The previous attempt failed", label: "fact", items: failure ? [fact("error", failure)] : [] },
     ];
-    return buildContextPack({ sections, budgetTokens: input.budgetTokens, identity: { runId: input.runId, jobId: input.jobId, workItemId: item.id, agentId: input.agentId } });
+    // Which of the agent's read tools are worth offering for this task, and what they can read. documents.read stays on when the pack itself
+    // holds a shortened text it can open by reference, even in a workspace with no saved documents.
+    const identity = { runId: input.runId, jobId: input.jobId, workItemId: item.id, agentId: input.agentId };
+    const tools = input.tools ?? [];
+    if (tools.length === 0) return { ...buildContextPack({ sections, budgetTokens: input.budgetTokens, identity }), unavailableTools: [] };
+    const sources = readableSources(this.store, organizationId, workspaceId);
+    const withTools = (referencesInContext: boolean): { pack: BuiltPack; unavailableTools: Array<{ id: string; reason: string }> } => {
+      const unavailableTools = tools.flatMap((tool) => { const a = toolAvailability(tool.id, sources, { referencesInContext }); return a.available ? [] : [{ id: tool.id, reason: a.reason ?? "not available" }]; });
+      const section = toolsSection(tools, sources, unavailableTools);
+      return { pack: buildContextPack({ sections: section ? [...sections, section] : sections, budgetTokens: input.budgetTokens, identity }), unavailableTools };
+    };
+    let built = withTools(false);
+    if (built.pack.manifest.truncations.length > 0 && built.unavailableTools.some((tool) => tool.id === "documents.read")) built = withTools(true);
+    return { ...built.pack, unavailableTools: built.unavailableTools };
   }
 
   /** The error text of the work item's most recent failed run before this one, so a retry sees why the last attempt failed. */
@@ -627,4 +641,24 @@ export function continuationFacts(store: Store, input: {
     }
   }
   return { reconnectable, resumable, continueNative, restartable, reconcileRequired };
+}
+
+/**
+ * The pack section that tells the model which read tools exist for this task and what they can read, so it never guesses an id or a host.
+ * Tools with nothing to read are named as unavailable with the reason; the runner also leaves them out of the model's tool list.
+ */
+function toolsSection(tools: ReadonlyArray<{ id: string; allowedHosts?: readonly string[] }>, sources: ReturnType<typeof readableSources>, unavailable: ReadonlyArray<{ id: string; reason: string }>): PackSection | undefined {
+  const has = (id: string): boolean => tools.some((tool) => tool.id === id) && !unavailable.some((tool) => tool.id === id);
+  const items: PackItem[] = [];
+  const fact = (id: string, text: string): void => { items.push({ id, text, prose: false }); };
+  const clip = (text: string, max: number): string => text.replace(/\s+/gu, " ").slice(0, max);
+  if (has("documents.read")) {
+    const listed = sources.documents.map((doc) => `- ${doc.id}: ${clip(doc.title, 80)}`).join("\n");
+    fact("documents", `documents.read opens these saved documents (pass the id exactly as documentId; ${sources.documentCount} in all${sources.documentCount > sources.documents.length ? `, the newest ${sources.documents.length} are listed, find others with knowledge.search` : ""}):\n${listed || "- none: use it only to open an artifact:sha256:... reference from this context"}`);
+  }
+  if (has("csv.query")) fact("csv", `csv.query reads these CSV files (pass the id as artifactId):\n${sources.csvFiles.map((file) => `- ${file.id} (${file.bytes} bytes)`).join("\n")}`);
+  const web = tools.find((tool) => tool.id === "web.fetch");
+  if (web?.allowedHosts?.length && has("web.fetch")) fact("web", `web.fetch can only reach these hosts: ${web.allowedHosts.join(", ")}. Any other address is refused, so do not try other sites.`);
+  if (unavailable.length > 0) fact("unavailable", `Not available for this task, do not call: ${unavailable.map((tool) => `${tool.id} (${tool.reason})`).join("; ")}.`);
+  return items.length === 0 ? undefined : { id: "tools", title: "Read tools for this task", label: "fact", items };
 }

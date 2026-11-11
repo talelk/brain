@@ -179,8 +179,8 @@ export function contextBudget(maxTokens: number, taskText: string): number {
 export type ContextPackPort = (
   organizationId: string,
   workspaceId: string,
-  input: { runId: string; jobId: string; agentId: string; budgetTokens: number; taskText: string },
-) => { text: string; manifest: { estimatedTokens: number; budgetTokens: number }; bodies: ReadonlyMap<string, string> } | undefined;
+  input: { runId: string; jobId: string; agentId: string; budgetTokens: number; taskText: string; tools: ReadonlyArray<{ id: string; allowedHosts?: readonly string[] }> },
+) => { text: string; manifest: { estimatedTokens: number; budgetTokens: number }; bodies: ReadonlyMap<string, string>; unavailableTools: ReadonlyArray<{ id: string; reason: string }> } | undefined;
 
 /**
  * Builds the context pack of an agent step once, at its first offer, and pins
@@ -198,19 +198,26 @@ export function ensureContextPack(s: Store, build: ContextPackPort, organization
   // A job whose execution artifact is already pinned (offered before this code, or by an earlier claim) keeps exactly those bytes.
   if (s.control.prepare("SELECT 1 FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(`exec-${jobId}`, organizationId)) return;
   const workspaceId = String(job["workspace_id"]);
-  const maxTokens = releaseRecord(s, organizationId, String(job["config_digest"]))?.release.agents?.[agentId]?.spec.maxTokens ?? 0;
+  const release = releaseRecord(s, organizationId, String(job["config_digest"]))?.release;
+  const spec = release?.agents?.[agentId]?.spec;
+  const maxTokens = spec?.maxTokens ?? 0;
+  // The tools this agent may call, with the hosts the release pins for web tools: the Governor decides which of them are worth offering for this task.
+  const tools = (spec?.tools ?? []).map((allowed) => {
+    const hosts = release?.manifest.tools?.find((tool) => tool.id === allowed.id && tool.digest === allowed.digest)?.allowedHosts;
+    return { id: allowed.id, ...(hosts ? { allowedHosts: hosts } : {}) };
+  });
   try {
-    pinContextPack(s, build, organizationId, workspaceId, job, jobId, agentId, maxTokens, payload);
+    pinContextPack(s, build, organizationId, workspaceId, job, jobId, agentId, maxTokens, payload, tools);
   } catch {
     // A pack that cannot be built or stored must never stall the runner: the step runs with its own input only and the run page shows no pack.
   }
 }
 
-function pinContextPack(s: Store, build: ContextPackPort, organizationId: string, workspaceId: string, job: Record<string, unknown>, jobId: string, agentId: string, maxTokens: number, payload: { step?: { task?: string }; input?: unknown; contextPack?: unknown }): void {
+function pinContextPack(s: Store, build: ContextPackPort, organizationId: string, workspaceId: string, job: Record<string, unknown>, jobId: string, agentId: string, maxTokens: number, payload: { step?: { task?: string }; input?: unknown; contextPack?: unknown }, tools: ReadonlyArray<{ id: string; allowedHosts?: readonly string[] }>): void {
   // The prompt the runner sends is this pack followed by the step's task (or its input): the pack budget leaves room for it, and the pack skips what the task already says.
   const situation = (payload.input as { situation?: unknown } | null | undefined)?.situation;
   const taskText = payload.step?.task ?? (typeof situation === "string" ? situation : JSON.stringify(payload.input ?? {}));
-  const pack = build(organizationId, workspaceId, { runId: String(job["workflow_run_id"]), jobId, agentId, budgetTokens: contextBudget(maxTokens, taskText), taskText });
+  const pack = build(organizationId, workspaceId, { runId: String(job["workflow_run_id"]), jobId, agentId, budgetTokens: contextBudget(maxTokens, taskText), taskText, tools });
   if (!pack) return;
   const store = (artifactId: string, text: string, mediaType: string) => {
     const bytes = new TextEncoder().encode(text);
@@ -221,7 +228,7 @@ function pinContextPack(s: Store, build: ContextPackPort, organizationId: string
   };
   for (const [reference, body] of pack.bodies) store(`ctxref-${jobId}-${reference.slice("artifact:sha256:".length, "artifact:sha256:".length + 16)}`, body, "text/plain");
   const manifest = store(`ctx-${jobId}`, JSON.stringify(pack.manifest), "application/json");
-  payload.contextPack = { text: pack.text, manifestArtifact: manifest, estimatedTokens: pack.manifest.estimatedTokens, budgetTokens: pack.manifest.budgetTokens };
+  payload.contextPack = { text: pack.text, manifestArtifact: manifest, estimatedTokens: pack.manifest.estimatedTokens, budgetTokens: pack.manifest.budgetTokens, unavailableTools: pack.unavailableTools };
   s.control.prepare("UPDATE job_payloads SET payload_json=? WHERE job_id=?").run(JSON.stringify(payload), jobId);
 }
 
@@ -386,7 +393,7 @@ export function attemptEvents(s: Store, runner: { runnerId: string; epoch: numbe
 
 /** Keeps the tool catalog's call counts current: a proposed call opens a row, its result marks it failed or finished. */
 function recordToolCall(s: Store, attempt: Record<string, unknown>, attemptId: string, ev: Record<string, unknown>): void {
-  const engineEvent = ev["payload"] as { kind?: string; occurredAt?: string; payload?: { proposalId?: unknown; tool?: { id?: unknown }; receipt?: { result?: unknown; finishedAt?: unknown } } } | undefined;
+  const engineEvent = ev["payload"] as { kind?: string; occurredAt?: string; payload?: { proposalId?: unknown; tool?: { id?: unknown }; receipt?: { result?: unknown; finishedAt?: unknown; stdout?: { digest?: unknown } } } } | undefined;
   const body = engineEvent?.payload;
   if (!engineEvent || !body || typeof body.proposalId !== "string") return;
   if (engineEvent.kind === "tool.proposed" && typeof body.tool?.id === "string") {
@@ -394,8 +401,19 @@ function recordToolCall(s: Store, attempt: Record<string, unknown>, attemptId: s
       .run(attemptId, body.proposalId, String(attempt["organization_id"]), String(attempt["workspace_id"]), String(attempt["workflow_run_id"]), body.tool.id, String(engineEvent.occurredAt ?? ""));
   } else if (engineEvent.kind === "tool.result") {
     const finished = typeof body.receipt?.finishedAt === "string" ? body.receipt.finishedAt : String(engineEvent.occurredAt ?? "");
-    s.control.prepare("UPDATE tool_calls SET failed=?, finished_at=? WHERE attempt_id=? AND proposal_id=?").run(body.receipt?.result === "failed" ? 1 : 0, finished, attemptId, body.proposalId);
+    const failed = body.receipt?.result === "failed";
+    s.control.prepare("UPDATE tool_calls SET failed=?, finished_at=?, failure_message=? WHERE attempt_id=? AND proposal_id=?")
+      .run(failed ? 1 : 0, finished, failed ? failureMessage(s, body.receipt?.stdout?.digest) ?? null : null, attemptId, body.proposalId);
   }
+}
+
+/** The plain-words error a failed tool call recorded in its result artifact ({"error": "..."}), for the registry's "last error". */
+function failureMessage(s: Store, digest: unknown): string | undefined {
+  if (typeof digest !== "string") return undefined;
+  try {
+    const parsed = JSON.parse(new TextDecoder().decode(readVerified(s, digest))) as { error?: unknown };
+    return typeof parsed.error === "string" && parsed.error.trim() ? parsed.error.trim().slice(0, 300) : undefined;
+  } catch { return undefined; }
 }
 
 export function releaseReservation(s: Store, attemptId: string): void {

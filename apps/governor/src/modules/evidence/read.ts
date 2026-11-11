@@ -8,6 +8,15 @@ import { readVerified } from "../artifacts/index";
 
 /** Read one artifact's verified bytes; the CAS is content-addressed and re-checked. */
 export function readArtifactBytes(store: Store, actor: ActorContext, artifactId: string): Uint8Array {
+  // The registry's evidence row for a tool is its pinned script, which lives with the active release (not with a workspace's artifacts):
+  // anyone who can see the registry (a member of a workspace of the organization) may read the exact bytes the runners verify and execute.
+  if (artifactId.startsWith("tool-script:")) {
+    const member = store.control.prepare("SELECT 1 AS ok FROM workspace_memberships WHERE organization_id=? AND principal_id=? AND revoked_at_ms IS NULL LIMIT 1").get(actor.organizationId, actor.actorId);
+    const file = member ? store.control.prepare(`SELECT f.digest AS digest, f.bytes AS bytes FROM active_config a JOIN release_files f ON f.release_digest=a.release_digest
+      WHERE a.organization_id=? AND f.tool_id=?`).get(actor.organizationId, artifactId.slice("tool-script:".length)) as { digest: string; bytes: number } | undefined : undefined;
+    if (!file) throw new BrainDomainError("NOT_FOUND", "artifact not found");
+    return readVerified(store, file.digest, file.bytes);
+  }
   const row = store.control.prepare("SELECT workspace_id, digest FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(artifactId, actor.organizationId) as
     | { workspace_id: string; digest: string } | undefined;
   if (!row) throw new BrainDomainError("NOT_FOUND", "artifact not found");

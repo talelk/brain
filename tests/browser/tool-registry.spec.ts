@@ -4,8 +4,9 @@ import { sha256Digest } from "../../packages/contracts/src/index.ts";
 import { fixtureStarter } from "../support/starter";
 import { enrollAndHello } from "../../apps/runner/src/supervisor";
 import { GovernorClient } from "../../apps/runner/src/governor-client";
+import { putBytes } from "../../apps/governor/src/modules/artifacts/index";
 
-/** Issue #84: the Tools tab says what each tool does, who may call it, how often it ran, and "never used" when it did not. */
+/** Issue #84: the Tools tab says what each tool does, who may call it, how often it ran, and "Never used" when it did not, and whether it is available at all. */
 test("Tools tab lists what each tool does, which agents may use it, calls, last failure and the run behind them", async ({ page, governor }) => {
   test.setTimeout(180_000);
   const shots = process.env["BRAIN_SHOTS"] ?? "";
@@ -40,7 +41,9 @@ test("Tools tab lists what each tool does, which agents may use it, calls, last 
   let sequence = 0;
   const event = (kind: string, payload: Record<string, unknown>, at: string) => ({ sequence: ++sequence, kind: "engine", payload: { contractVersion: "brain.engine-event/v1", eventId: `e${sequence}`, sessionId: "s", attemptId: offer.attemptId, sequence, occurredAt: at, kind, payload } });
   const proposed = (proposalId: string, id: string, at: string) => event("tool.proposed", { proposalId, tool: { id, digest: digestOf(id) }, input: {}, target: { targetId: `tool:${id}`, environmentId: "local", preconditionDigest: digestOf(id) }, inputDigest: sha256Digest(new TextEncoder().encode("{}")) }, at);
-  const result = (proposalId: string, outcome: string, at: string) => event("tool.result", { proposalId, invocationId: proposalId, receipt: { invocationId: proposalId, attemptId: offer.attemptId, jobFence: offer.jobFence, result: outcome, startedAt: at, finishedAt: at, effects: [] } }, at);
+  const errorBytes = new TextEncoder().encode(JSON.stringify({ error: "document not found in this workspace. Use an id exactly as given in your context." }));
+  const errorDigest = putBytes(brain.store, errorBytes);
+  const result = (proposalId: string, outcome: string, at: string) => event("tool.result", { proposalId, invocationId: proposalId, receipt: { invocationId: proposalId, attemptId: offer.attemptId, jobFence: offer.jobFence, result: outcome, startedAt: at, finishedAt: at, ...(outcome === "failed" ? { stdout: { artifactId: "att-err", digest: errorDigest, bytes: errorBytes.length, mediaType: "application/json", classification: "internal" } } : {}), effects: [] } }, at);
   await client.events(offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence, events: [
     proposed("p1", "documents.read", "2026-11-11T10:00:00.000Z"), result("p1", "succeeded", "2026-11-11T10:00:01.000Z"),
     proposed("p2", "documents.read", "2026-11-11T10:05:00.000Z"), result("p2", "failed", "2026-11-11T10:05:01.000Z"),
@@ -50,23 +53,33 @@ test("Tools tab lists what each tool does, which agents may use it, calls, last 
   await page.goto(`${governor.url}/w/ws-tools/knowledge?tab=tools`);
   await expect(page.getByRole("heading", { name: "Trusted capability registry" })).toBeVisible();
   const row = (id: string) => page.getByRole("button", { name: new RegExp(`^${id.replace(".", "\\.")}\\.`) });
-  await expect(row("documents.read")).toContainText("2 calls, 1 failed");
+  // This workspace holds no documents and no CSV files: both tools say so instead of looking trusted and ready.
+  await expect(row("documents.read")).toContainText("Not available: no documents yet");
+  await expect(row("documents.read")).toContainText("2 calls, 1 failed (50%)");
+  await expect(row("csv.query")).toContainText("Not available: no CSV files yet");
   await expect(row("csv.query")).toContainText("1 call, none failed");
-  await expect(row("web.fetch")).toContainText("never used");
-  await expect(row("operations.context")).toContainText("never used");
+  await expect(row("web.fetch")).toContainText("Never used");
+  await expect(row("web.fetch")).not.toContainText("Not available");
+  await expect(row("operations.context")).toContainText("Never used");
   if (shots) await page.screenshot({ path: `${shots}/tools-1-list.png`, fullPage: true });
 
   await row("documents.read").click();
   await expect(page.locator("[data-tool-description]")).toContainText("Reads one saved workspace document");
   await expect(page.locator("[data-tool-agents]")).toHaveText("task-worker");
-  await expect(page.locator("[data-tool-calls]")).toHaveText("2 calls, 1 failed");
+  await expect(page.locator("[data-tool-calls]")).toHaveText("2 calls, 1 failed (50%)");
+  await expect(page.locator("[data-tool-availability]")).toHaveText("Not available: no documents yet");
+  await expect(page.locator("[data-tool-last-error]")).toContainText("document not found in this workspace");
   await expect(page.getByText("Last failure", { exact: true })).toBeVisible();
+  // The evidence row shows the pinned script itself instead of "Preview unavailable: artifact not found".
+  await expect(page.getByText("Preview unavailable")).toHaveCount(0);
+  await expect(page.getByText("set -euo pipefail").first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Open the run" }).first()).toHaveAttribute("href", new RegExp(`/runs/${offer.workflowRunId}`));
   await expect(page.getByText("Active since", { exact: true })).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/tools-2-detail.png`, fullPage: true });
 
   await row("web.fetch").click();
-  await expect(page.locator("[data-tool-calls]")).toHaveText("never used");
+  await expect(page.locator("[data-tool-calls]")).toHaveText("Never used");
+  await expect(page.locator("[data-tool-availability]")).toHaveText("Available");
   await expect(page.locator("[data-tool-hosts]")).toContainText("en.wikipedia.org");
   await expect(page.locator("[data-tool-agents]")).toHaveText("task-worker");
   await row("task.validate").click();

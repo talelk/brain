@@ -11,6 +11,7 @@ Historical record, not a description of the present. Every claim is dated and, f
 
 - [plan-latency-2026-11-11.md](plan-latency-2026-11-11.md) — plan drafting failure rate and latency measured live, and the fixes (track Q).
 - [budget-pause-2026-11-11.md](budget-pause-2026-11-11.md) — a free-model mission paused for budget: the time limit counted waiting, now working time only (track R, ADR 0016).
+- [web-fetch-and-tool-availability-2026-11-11.md](web-fetch-and-tool-availability-2026-11-11.md) — why web.fetch and documents.read calls failed live (64 KiB input cap, off-list hosts, empty workspace) and the availability fix (track AA).
 
 ## Research
 - [../research/best-product-gap-2026-11.md](../research/best-product-gap-2026-11.md) — 12 ranked product gaps (track D report, `talelk/brain@b350f76`, 2026-11-11).
