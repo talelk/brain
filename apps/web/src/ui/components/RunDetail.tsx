@@ -11,7 +11,8 @@ import { CorrelationLink } from "../exec/CorrelationLink";
 import { WorkItemLink } from "../exec/WorkItemLink";
 import { EvidenceList } from "./EvidenceList";
 import { PlacementPanel } from "./PlacementPanel";
-import { formatDateTime, queueReasonLabel } from "../format";
+import { formatDateTime, queueReasonLabel, runTitle } from "../format";
+import { DigestValue } from "./DigestValue";
 import { StatusBadge, statusHeaderTheme } from "./StatusBadge";
 import { StatusIcon } from "../viz/StatusIcon";
 import { PlainSummary } from "../viz/PlainSummary";
@@ -137,9 +138,10 @@ export function RunDetail(props: {
     actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button><Show when={unknown()}><Button variant="solid" theme="blue" iconLeft="lucide-list-checks" onClick={() => { setReasonOpen("reconcile"); setReason(""); }}>Reconcile outcome</Button></Show><Show when={!unknown() && !["succeeded", "failed", "cancelled"].includes(state() ?? "")}><Button variant="outline" theme="red" iconLeft="lucide-circle-stop" onClick={() => { setReasonOpen("cancel"); setReason(""); }}>Cancel run</Button></Show></>}>
     <ScreenRegion state={props.state} skeleton="rows" emptyTitle="Run not found" emptyDescription="It may belong to another workspace, or it was removed." emptyAction={<Button variant="outline" onClick={props.onRefresh}>Reload</Button>} onRetry={props.onRefresh}>
       <div class="flex min-w-0 flex-col gap-4">
-        <DetailHeader title={job()?.workflowTitle ?? "Task run"} headingLevel={2}
-          subtitle={job()?.origin ? "Execution linked to an originating work item." : "Authoritative execution, output and independent verification."}
+        <DetailHeader title={job() ? runTitle(job()!) : "Task run"} headingLevel={2}
+          subtitle={job()?.context?.resolution ? { "retried-and-succeeded": "Retried and succeeded: a later attempt finished this task.", retried: "Brain started this task again after this attempt.", "mission-closed": "Its mission is closed.", "set-aside": "The task was set aside." }[job()!.context!.resolution!] : job()?.origin ? "Execution linked to an originating work item." : "Authoritative execution, output and independent verification."}
           status={{ label: state() === "succeeded" ? job()?.runState ? "Completed and verified" : "Step completed" : (state() ?? "unknown").replaceAll("_", " "), theme: statusHeaderTheme("job", state() ?? "") }} />
+        <Show when={job()}><p class="-mt-2 flex flex-wrap items-center gap-x-2 text-caption text-ink-gray-6">Run id <DigestValue value={job()!.jobId} label="run id" short={false} /></p></Show>
         <Show when={unknown()}><Alert theme="amber" variant="outline" title="Effect outcome is unknown" description="The effect may already have applied. Reconcile against the target system before considering another attempt; generic Retry is intentionally unavailable." /></Show>
         <Show when={problem()}>{(note) => <Alert theme={note().theme} variant="outline" title={note().title} description={`${note().reason} Next: ${note().next}`} />}</Show>
         <Show when={job()?.origin}>{(origin) => origin().kind === "work-item"

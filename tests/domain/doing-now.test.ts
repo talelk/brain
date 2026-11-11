@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { etaBand, isReadingTool, nowSentence, summarizeActivity, taskNowLine } from "../../apps/web/src/ui/console/doing-now";
+import { activityLine, etaBand, isReadingTool, nowSentence, summarizeActivity, taskNowLine } from "../../apps/web/src/ui/console/doing-now";
 
 type Entry = Parameters<typeof summarizeActivity>[0][number];
 let seq = 0;
@@ -56,5 +56,18 @@ describe("ETA band (#61)", () => {
     expect(etaBand({ estimatedMinutes: 10, startedAt: start, nowMs: at(13) })).toEqual({ kind: "over", label: "3 min past the estimate of 10 min", fraction: 1 });
     expect(etaBand({ estimatedMinutes: 10, startedAt: start, nowMs: at(60), endedAtMs: at(7), finished: true })).toMatchObject({ kind: "done", label: "Took 7 min; estimated 10 min" });
     expect(etaBand({ estimatedMinutes: 90, nowMs: at(1) })).toEqual({ kind: "unknown", label: "Estimated about 1 h 30 min" });
+  });
+});
+
+describe("doing-now sentence from the Governor's session activity (rail and Plan rows)", () => {
+  const base = { state: "running" as const };
+  it("says how many sources are being read, then what comes next", () => {
+    expect(activityLine({ ...base, activity: { toolCalls: 4, sourcesRead: 3, lastTool: "web.fetch", lastToolDone: false } })).toBe("Reading 3 sources…");
+    expect(activityLine({ ...base, activity: { toolCalls: 4, sourcesRead: 1, lastTool: "web.fetch", lastToolDone: true } })).toBe("Read 1 source; deciding the next step.");
+    expect(activityLine({ ...base, activity: { toolCalls: 5, sourcesRead: 3, lastTool: "bash", lastToolDone: true } })).toBe("Read 3 sources; writing the draft…");
+  });
+  it("falls back to the state-only line before any tool ran, and for a task in review", () => {
+    expect(activityLine(base)).toBe("Working on it now.");
+    expect(activityLine({ ...base, activity: { toolCalls: 2, sourcesRead: 2, lastTool: "web.fetch", lastToolDone: false } }, "review")).toBe("Waiting for the independent check.");
   });
 });

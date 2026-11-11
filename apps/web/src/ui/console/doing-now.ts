@@ -1,3 +1,4 @@
+import type { BrainSession } from "@brain/contracts";
 import type { SessionDetail } from "../../data/exec-console";
 
 /** The part of a transcript entry the sentence needs; the console's feed entries satisfy it. */
@@ -130,4 +131,18 @@ export function etaBand(input: { estimatedMinutes?: number; startedAt?: string; 
   if (input.finished) return { kind: "done", label: `Took ${minutesWords(elapsedMin)}; estimated ${minutesWords(estimate)}`, fraction: Math.min(1, elapsedMin / estimate) };
   if (elapsedMin >= estimate) return { kind: "over", label: `${minutesWords(elapsedMin - estimate)} past the estimate of ${minutesWords(estimate)}`, fraction: 1 };
   return { kind: "within", label: `${minutesWords(elapsedMin)} of about ${minutesWords(estimate)} · about ${minutesWords(estimate - elapsedMin)} left`, fraction: elapsedMin / estimate };
+}
+
+/**
+ * The sentence for a running session from the Governor's tool-call counts (BrainSession.activity), for places that do not load the
+ * transcript (session rail, Plan rows). Falls back to the state-only line while no tool has run yet.
+ */
+export function activityLine(session: Pick<BrainSession, "state" | "activity">, taskState?: TaskState): string | undefined {
+  const activity = session.activity;
+  if (session.state !== "running" || !activity || activity.toolCalls === 0) return taskNowLine(taskState, session.state);
+  if (taskState === "review") return taskNowLine(taskState, session.state);
+  const reading = isReadingTool(activity.lastTool);
+  if (reading && activity.sourcesRead > 0) return activity.lastToolDone ? `Read ${sources(activity.sourcesRead)}; deciding the next step.` : `Reading ${sources(activity.sourcesRead)}…`;
+  if (activity.lastToolDone) return activity.sourcesRead > 0 ? `Read ${sources(activity.sourcesRead)}; writing the draft…` : "Writing the draft…";
+  return "Working on it now.";
 }

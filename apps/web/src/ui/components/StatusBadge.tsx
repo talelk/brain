@@ -18,6 +18,8 @@ const JOB: StatusMap = {
   failed: { theme: "red", label: "Failed" }, cancelled: { theme: "gray", label: "Cancelled" },
   blocked: { theme: "red", label: "Blocked" }, outcome_unknown: { theme: "red", label: "Outcome unknown" },
   restarting: { theme: "amber", label: "Restarting" }, suspended: { theme: "amber", label: "Suspended" }, created: { theme: "gray", label: "Created" },
+  "retried-and-succeeded": { theme: "green", label: "Retried and succeeded" }, retried: { theme: "gray", label: "Retried" },
+  "mission-closed": { theme: "gray", label: "Mission closed" }, "set-aside": { theme: "gray", label: "Set aside" },
   validated: { theme: "gray", label: "Validated" }, ready: { theme: "green", label: "Ready" },
 };
 

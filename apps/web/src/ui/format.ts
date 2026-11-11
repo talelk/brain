@@ -132,3 +132,14 @@ export function queueReasonLabel(reasons: readonly string[]): string {
 export function formatSlaMinutes(ms: number): string {
   return `${Math.round(ms / 60000)} min`;
 }
+
+/** A run's name for people: the task and mission behind it, else the workflow title; never the raw id. */
+export function runTitle(job: { workflowTitle?: string; context?: { workItemTitle: string; missionTitle: string } }): string {
+  return job.context ? `${job.context.workItemTitle} · ${job.context.missionTitle}` : job.workflowTitle ?? "Workflow run";
+}
+
+/** The state a run shows: a later event that settled a failed run ("Retried and succeeded") replaces its old failure. */
+export function runStatusKey(job: { state: string; runState?: string; restarting?: boolean; context?: { resolution?: string } }): string {
+  return job.context?.resolution && ["failed", "blocked", "outcome_unknown", "cancelled"].includes(job.runState ?? job.state) ? job.context.resolution
+    : job.restarting ? "restarting" : job.runState ?? job.state;
+}

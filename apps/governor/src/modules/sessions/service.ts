@@ -96,6 +96,7 @@ export class SessionService {
   private view(workspaceId: string, row: SessionRow): BrainSession {
     const budget = row.job_id ? this.store.control.prepare("SELECT micro_usd,settled_micro_usd FROM budget_reservations WHERE job_id=?").get(row.job_id) as { micro_usd: number; settled_micro_usd: number } | undefined : undefined;
     const checkpoint = this.checkpoint(row);
+    const activity = row.attempt_id ? sessionActivity(this.store, row.attempt_id) : undefined;
     return {
       sessionId: row.id, workspaceId, mode: row.mode,
       ...(row.job_id ? { jobId: row.job_id } : {}), ...(row.attempt_id ? { attemptId: row.attempt_id } : {}),
@@ -106,7 +107,7 @@ export class SessionService {
       state: row.state, usedTokens: 0, usedMicroUsd: Number(budget?.settled_micro_usd ?? 0), reservedMicroUsd: Number(budget?.micro_usd ?? 0),
       lastEventSequence: row.event_sequence, delegationDepth: row.delegation_depth,
       budget: JSON.parse(row.budget_json) as SessionBudget, scope: JSON.parse(row.scope_json) as SessionScope,
-      worktreeId: row.worktree_id, ...(checkpoint ? { checkpoint } : {}),
+      worktreeId: row.worktree_id, ...(checkpoint ? { checkpoint } : {}), ...(activity ? { activity } : {}),
       version: row.version, createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
     };
   }
@@ -661,4 +662,19 @@ function toolsSection(tools: ReadonlyArray<{ id: string; allowedHosts?: readonly
   if (web?.allowedHosts?.length && has("web.fetch")) fact("web", `web.fetch can only reach these hosts: ${web.allowedHosts.join(", ")}. Any other address is refused, so do not try other sites.`);
   if (unavailable.length > 0) fact("unavailable", `Not available for this task, do not call: ${unavailable.map((tool) => `${tool.id} (${tool.reason})`).join("; ")}.`);
   return items.length === 0 ? undefined : { id: "tools", title: "Read tools for this task", label: "fact", items };
+}
+
+/** Tools that gather sources: the "Reading N sources" count of the doing-now sentence (kept in step with the console's reading tools). */
+const READING_TOOLS = ["documents.read", "web.fetch", "knowledge.search", "csv.query"];
+
+/**
+ * What an attempt has done so far, counted from the tool-call ledger the event ingestion keeps: small and deterministic, so the
+ * session rail and the Plan rows can say "Reading 4 sources…" without loading a transcript. Absent until a tool has been proposed.
+ */
+export function sessionActivity(store: Store, attemptId: string): BrainSession["activity"] | undefined {
+  const total = store.control.prepare(`SELECT COUNT(*) AS calls, COALESCE(SUM(tool_id IN (${READING_TOOLS.map(() => "?").join(",")})), 0) AS sources FROM tool_calls WHERE attempt_id=?`)
+    .get(...READING_TOOLS, attemptId) as { calls: number; sources: number };
+  if (total.calls === 0) return undefined;
+  const last = store.control.prepare("SELECT tool_id, finished_at FROM tool_calls WHERE attempt_id=? ORDER BY proposed_at DESC, rowid DESC LIMIT 1").get(attemptId) as { tool_id: string; finished_at: string | null };
+  return { toolCalls: total.calls, sourcesRead: total.sources, lastTool: last.tool_id.slice(0, 256), lastToolDone: Boolean(last.finished_at) };
 }

@@ -9,7 +9,7 @@ import { ScreenRegion, DateText } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
 import { PageStack } from "../ui/components/PageLayout";
 import { StatusBadge } from "../ui/components/StatusBadge";
-import { queueReasonLabel } from "../ui/format";
+import { queueReasonLabel, runStatusKey, runTitle } from "../ui/format";
 import { QueueRow, WorkspaceSection } from "../ui/components/Domain";import { execLiveUrl } from "../ui/exec/exec-filters";
 import { CorrelationLink } from "../ui/exec/CorrelationLink";
 
@@ -47,13 +47,22 @@ function Pager(props: { label: string; count: number; page: number; onPageChange
   </Show>;
 }
 
+/** The Governor decides, with the same rule as Today's Needs-you queue: only unresolved runs ask for a person. */
+const needsYou = (job: JobSnapshot): boolean => job.needsYou === true;
+
 function runTone(job: JobSnapshot): "blue" | "gray" | "red" {
-  if (INTERVENTION.includes(job.state)) return "red";
+  if (needsYou(job)) return "red";
   if (ACTIVE.includes(job.state)) return "blue";
   return "gray";
 }
 
+const SETTLED: Record<string, string> = {
+  "retried-and-succeeded": "The task was finished by a later attempt.", retried: "Brain started this task again.",
+  "mission-closed": "Its mission is closed.", "set-aside": "The task was set aside.",
+};
+
 function nextRunAction(job: JobSnapshot): string {
+  if (job.context?.resolution && !ACTIVE.includes(job.state)) return SETTLED[job.context.resolution] ?? "";
   if (job.restarting) return "Brain is restarting it";
   if (job.state === "outcome_unknown") return "Reconcile outcome";
   if (job.state === "blocked") return "Inspect blocker";
@@ -90,14 +99,14 @@ export function RunsScreen(props: {
   const viewOf = () => (views.some((entry) => entry.value === props.view) ? props.view : "active");
   const visibleJobs = () => viewOf() === "active" ? props.jobs.filter((job) => ACTIVE.includes(job.state))
     : viewOf() === "waiting" ? props.jobs.filter((job) => ["queued", "offered", "blocked"].includes(job.state))
-      : viewOf() === "intervention" ? props.jobs.filter((job) => INTERVENTION.includes(job.state)) : props.jobs;
+      : viewOf() === "intervention" ? props.jobs.filter(needsYou) : props.jobs;
   const rows = paged(visibleJobs, page);
   return <WorkspaceSection title="Runs" description="Every historical and active run, with its console, logs and outputs one click away."
     actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button><Show when={props.canDispatch}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Start work</Button></Show></>}>
     <PageStack>
       <dl class="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-outline-gray-1 py-2 text-caption" aria-label="Runs summary">
         <div class="flex items-center gap-2" title="Queued, offered, running or verifying on this page"><dt class="text-ink-gray-6">Active</dt><dd class="font-medium tabular-nums text-ink-gray-9">{props.jobs.filter((job) => ACTIVE.includes(job.state)).length}</dd></div>
-        <div class="flex items-center gap-2" title="Blocked, failed or outcome unknown on this page"><dt class="text-ink-gray-6">Needs intervention</dt><dd class="font-medium tabular-nums text-ink-gray-9">{props.jobs.filter((job) => INTERVENTION.includes(job.state)).length}</dd></div>
+        <div class="flex items-center gap-2" title="Failed, blocked or outcome-unknown runs that nothing has settled since: the same rule as Needs you on Today"><dt class="text-ink-gray-6">Needs intervention</dt><dd class="font-medium tabular-nums text-ink-gray-9">{props.jobs.filter(needsYou).length}</dd></div>
         <div class="flex items-center gap-2" title={props.liveSummary ? `${props.liveSummary.activeSessions} live sessions in the console` : "One bounded server page at a time"}><dt class="text-ink-gray-6">Authorized runs</dt><dd class="font-medium tabular-nums text-ink-gray-9">{props.totalRuns}</dd></div>
       </dl>
       <FilterBar resultCount={visibleJobs().length}
@@ -131,19 +140,20 @@ export function RunsScreen(props: {
               : <Button variant="outline" onClick={() => props.onFiltersChange(props.filter, props.runState, "history")}>View history</Button>} />}>
           <div class="brain-queue [&_.brain-queue-row]:py-2.5"><For each={rows.visible()}>{(job) => <div class="grid grid-cols-1 items-stretch gap-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-2">
             <QueueRow icon="lucide-activity" tone={runTone(job)}
-              title={job.workflowTitle ?? "Workflow run"} description={`${job.jobId} · ${job.workspaceId}`}
+              title={runTitle(job)} description={job.queueReasons.length ? queueReasonLabel(job.queueReasons) : nextRunAction(job)}
               meta={<>
                 <span>{job.attempts.length} {job.attempts.length === 1 ? "attempt" : "attempts"}</span>
-                <span>Created <DateText value={job.createdAt} /></span>
-                <span class="min-w-0 break-words">{job.queueReasons.length ? queueReasonLabel(job.queueReasons) : nextRunAction(job)}</span>
+                <span>Started <DateText value={job.createdAt} /></span>
+                <span class="min-w-0 break-all font-mono text-[11px] text-ink-gray-5" title="Run id">{job.jobId}</span>
                 <Show when={job.attempts.at(-1)?.runnerId}><span class="min-w-0 break-all">Runner {job.attempts.at(-1)?.runnerId}</span></Show>
               </>}
-              trailing={<StatusBadge kind="job" status={job.restarting ? "restarting" : job.runState ?? job.state} />}
-              label={`Open run inspector: ${job.workflowTitle ?? job.jobId}`}
+              trailing={<StatusBadge kind="job" status={runStatusKey(job)} />}
+              label={`Open run inspector: ${runTitle(job)}`}
               onClick={() => props.onOpenJob(job.jobId)} />
             <div class="flex flex-row items-center justify-end gap-1 px-2 pb-2 sm:flex-col sm:justify-center sm:px-0 sm:pb-0 sm:pe-1">
               <Show when={job.sessionId} keyed>{(sessionId) => <CorrelationLink target={{ kind: "session", sessionId }} label="Console" icon="lucide-square-terminal" />}</Show>
               <CorrelationLink target={{ kind: "logs", workspaceId: props.workspaceId, filters: { job: job.jobId, severity: [], emitter: [] } }} label="View logs" icon="lucide-scroll-text" />
+              <Button size="xs" variant="ghost" iconLeft="lucide-copy" aria-label={`Copy run id ${job.jobId}`} onClick={() => void navigator.clipboard?.writeText(job.jobId)}>Copy id</Button>
             </div>
           </div>}</For></div>
           <div class="mt-2 flex flex-wrap items-center justify-between gap-2">

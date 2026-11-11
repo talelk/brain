@@ -5,7 +5,7 @@ import { requireWorkspaceRead } from "../../application/authz";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { reachedLimits, PARKED_INTERRUPTED_REASON } from "../missions/index";
-import { unknownJobsForWorkspace } from "../jobs/index";
+import { runContext, unknownJobsForWorkspace } from "../jobs/index";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 
@@ -30,7 +30,9 @@ export function attentionItems(store: Store, organizationId: string, workspaceId
     const db = store.workspaceDb(workspaceId, organizationId);
     // A step left "outcome unknown" that Brain will not settle by itself: a person treats it as failed, or tries again when that is harmless.
     for (const job of unknownJobsForWorkspace(store, organizationId, workspaceId)) {
-      const link = db.prepare("SELECT l.mission_id, w.title FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? LIMIT 1").get(job.runId) as { mission_id: string; title: string } | undefined;
+      const context = runContext(db, job.runId);
+      if (context?.resolution) continue; // settled by a later attempt or a closed mission: history, same rule as the Runs view
+      const link = context ? { mission_id: context.missionId, title: context.workItemTitle } : undefined;
       items.push({ id: `unknown:${job.jobId}`, workspaceId, ...(link ? { missionId: link.mission_id } : {}), kind: "outcome-unknown", tier: 2,
         title: link ? `${link.title} may not have finished: check before going on` : "A step may not have finished: check before going on",
         detail: job.reason, resourceId: job.jobId, waitingSince: iso(job.since), safeToRetry: job.idempotent, version: job.version });

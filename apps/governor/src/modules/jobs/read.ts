@@ -6,6 +6,7 @@ import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import type { QuerySnapshot } from "../../application/query";
 import { isReadOnlyReasoningJob, runnerView } from "./attempts";
+import { jobNeedsYou, runContext, type RunContext } from "./run-context";
 
 export interface JobAttemptView {
   attemptId: string;
@@ -32,6 +33,10 @@ export interface JobSnapshotView {
   /** The Governor is restarting an interrupted read-only step by itself: the run is not running right now, and nobody needs to act. */
   restarting?: boolean;
   workflowTitle?: string;
+  /** The task and mission behind this run, and the later event that settled it, if any. */
+  context?: RunContext;
+  /** The one rule shared with Today's Needs-you queue: an unresolved stuck or failed run. */
+  needsYou: boolean;
   origin?: JsonValue;
   runOutputs: JsonValue;
   engineEvents: JsonValue[];
@@ -66,6 +71,8 @@ export function jobSnapshot(store: Store, row: Record<string, unknown>): JobSnap
   const outputs = ws.prepare("SELECT step_id,output_json FROM step_outputs WHERE run_id=?").all(runId) as { step_id: string; output_json: string }[];
   const events = store.control.prepare("SELECT e.event_json FROM attempt_events e JOIN job_attempts a ON a.id=e.attempt_id JOIN jobs j ON j.id=a.job_id WHERE j.organization_id=? AND j.workflow_run_id=? AND json_extract(e.event_json,'$.kind')='engine' ORDER BY j.created_at_ms DESC,e.seq DESC LIMIT 200").all(String(row["organization_id"]), runId) as { event_json: string }[];
   const bundle = ws.prepare("SELECT digest FROM evidence_bundles WHERE json_extract(manifest_json,'$.workflowRunId')=? ORDER BY created_at_ms DESC LIMIT 1").get(runId) as { digest: string } | undefined;
+  const context = runContext(ws, runId);
+  const restarting = isRestarting(store, row);
   const view: JobSnapshotView = {
     jobId: String(row["id"]),
     organizationId: String(row["organization_id"]),
@@ -85,7 +92,9 @@ export function jobSnapshot(store: Store, row: Record<string, unknown>): JobSnap
     configDigest: String(row["config_digest"]),
     createdAt: iso(Number(row["created_at_ms"])),
     ...(runState ? { runState: runState.state } : {}),
-    ...(isRestarting(store, row) ? { restarting: true } : {}),
+    ...(restarting ? { restarting: true } : {}),
+    needsYou: jobNeedsYou(String(row["state"]), restarting, context),
+    ...(context ? { context } : {}),
     ...(workflow ? { workflowTitle: workflow.title ?? workflow.id.replaceAll("-", " ") } : {}),
     ...(origin ? { origin: JSON.parse(origin.origin_json) as JsonValue } : {}),
     runOutputs: Object.fromEntries(outputs.map((entry) => [entry.step_id, JSON.parse(entry.output_json)])) as JsonValue,

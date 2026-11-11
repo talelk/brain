@@ -3,7 +3,8 @@ import type { JSX } from "solid-js";
 import type { BrainSession, JobSnapshot } from "@brain/contracts";
 import { StatusBadge, statusLabel } from "../components/StatusBadge";
 import { createNow } from "./NowLine";
-import { elapsedText, taskNowLine } from "./doing-now";
+import { activityLine, elapsedText } from "./doing-now";
+import { runTitle } from "../format";
 
 /**
  * The console's left pane (plan §3): who is working right now — each session
@@ -51,7 +52,7 @@ export function SessionRail(props: {
     const needle = query().trim().toLowerCase();
     return props.jobs
       .filter((job) => !needle
-        || (job.workflowTitle ?? "").toLowerCase().includes(needle)
+        || runTitle(job).toLowerCase().includes(needle)
         || job.jobId.toLowerCase().includes(needle))
       .slice(0, 20);
   });
@@ -75,7 +76,7 @@ export function SessionRail(props: {
           <span class={`font-medium ${STATE_INK[session.state] ?? "text-ink-gray-6"}`}>{statusLabel(undefined, session.state)}</span>
           <Show when={elapsed()}><span class="tabular-nums text-ink-gray-6">· {live() ? "" : "ran "}{elapsed()}</span></Show>
         </span>
-        <Show when={live() && taskNowLine(undefined, session.state)}>{(text) => <span class="block truncate text-caption text-ink-gray-7" data-testid="rail-doing-now">{text()}</span>}</Show>
+        <Show when={live() && activityLine(session)}>{(text) => <span class="block truncate text-caption text-ink-gray-7" data-testid="rail-doing-now">{text()}</span>}</Show>
       </span>
     </button>;
   };
@@ -119,7 +120,7 @@ export function SessionRail(props: {
               onClick={() => props.onOpenRun(job.jobId)}>
               <span class="grid size-7 shrink-0 place-items-center rounded-full bg-surface-gray-2 text-ink-gray-7" aria-hidden="true"><span class="lucide-workflow size-3.5" /></span>
               <span class="min-w-0 flex-1">
-                <span class="block truncate text-caption font-medium text-ink-gray-9">{job.workflowTitle ?? "Run"}</span>
+                <span class="block truncate text-caption font-medium text-ink-gray-9">{runTitle(job)}</span>
                 <span class="block truncate text-caption text-ink-gray-6">{job.attempts.length} {job.attempts.length === 1 ? "attempt" : "attempts"}</span>
               </span>
               <StatusBadge kind="job" status={job.restarting ? "restarting" : job.runState ?? job.state} />
