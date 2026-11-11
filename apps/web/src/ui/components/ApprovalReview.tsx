@@ -1,4 +1,4 @@
-import { Show, createEffect, createMemo, createSignal, createUniqueId, onCleanup } from "solid-js";
+import { Show, createEffect, createMemo, createSignal, createUniqueId, on, onCleanup } from "solid-js";
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Collapsible, Dialog } from "@talelk/newui-molecules";
 import { StatusIcon } from "../viz/StatusIcon";
@@ -52,6 +52,8 @@ export function ApprovalReview(props: {
   active: boolean;
   class?: string;
   requireTwoFactor?: boolean;
+  /** Tells a surrounding list when the review opens or closes, so the item under review stays put until it is closed. */
+  onOpenChange?: (open: boolean) => void;
   approvalId: string;
   targetLabel: string;
   exactContent: string;
@@ -75,6 +77,7 @@ export function ApprovalReview(props: {
   const [reviewed, setReviewed] = createSignal(snapshot());
   const busy = () => verifying() || state().status === "submitting" || state().status === "checking";
   createEffect(() => { if (!props.active && !busy()) setOpen(false); });
+  createEffect(on(open, (isOpen, wasOpen) => { if (isOpen || wasOpen) props.onOpenChange?.(isOpen); }));
   const sameProposal = () => reviewed().approvalId === props.approvalId && reviewed().subjectDigest === props.subjectDigest && reviewed().expectedVersion === props.version;
   const canSubmit = () => state().status === "review" && props.fresh && sameProposal();
   const canReviewAgain = () => state().status === "stale" || state().status === "denied";

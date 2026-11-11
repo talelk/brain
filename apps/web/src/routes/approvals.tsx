@@ -12,6 +12,7 @@ import { DigestValue } from "../ui/components/DigestValue";
 import { ScreenRegion, DateText, RelativeTime, isFreshFromServer } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
 import { ApprovalReview, ExpiryCountdown } from "../ui/components/ApprovalReview";
+import { dialogSummary, effectParts, exactJson, plainSentence } from "../ui/approval-text";
 import { StatusIcon } from "../ui/viz/StatusIcon";
 import { PlainSummary } from "../ui/viz/PlainSummary";
 import type { ApprovalIntent, ApprovalOutcome } from "../ui/approval-controller";
@@ -20,24 +21,6 @@ import { DisclosureCard } from "../ui/components/primitives";
 import { QueueRow, WorkspaceSection } from "../ui/components/Domain";
 const workspaceLabel = (approval: ApprovalRequest) => approval.subject.workspaceId;
 const INBOX_PAGE_SIZE = 25;
-const effectParts = (approval?: ApprovalRequest) => ({
-  operation: approval?.subject.operation ?? "Requested effect",
-  target: approval?.subject.target.targetId ?? "Declared record",
-  environment: approval?.subject.target.environmentId,
-  tool: approval?.subject.tool?.id ?? "Declared capability",
-  precondition: approval?.subject.target.preconditionDigest,
-});
-/** One plain sentence saying what approving allows. */
-const plainSentence = (approval?: ApprovalRequest) => {
-  const effect = effectParts(approval);
-  // "support.reply.publish" reads as "Publish support reply": last segment is the verb, the rest the thing.
-  const words = effect.operation.split(/[._:\-/]+/u).filter(Boolean);
-  const verb = words.pop() ?? "Run";
-  const what = words.join(" ");
-  return `${verb.charAt(0).toUpperCase()}${verb.slice(1)}${what ? ` ${what}` : ""} on ${effect.target}${effect.environment ? ` in ${effect.environment}` : ""}.`;
-};
-/** The dialog keeps the exact operation id beside the sentence. */
-const dialogSummary = (approval?: ApprovalRequest) => `${plainSentence(approval)} (${effectParts(approval).operation})`;
 const isDecided = (state: string) => ["approved", "rejected", "revoked"].includes(state);
 const MIX = [
   { key: "pending", label: "Pending", theme: "amber" as const, fill: "bg-surface-amber-6" },
@@ -69,7 +52,6 @@ function AskLine(props: { approval: ApprovalRequest; asOf?: string }): JSX.Eleme
     </Show>
   </p>;
 }
-const exactJson = (approval?: ApprovalRequest) => JSON.stringify(approval?.subject ?? null, null, 2);
 
 function Fact(props: { label: string; value: JSX.Element; wide?: boolean; class?: string }): JSX.Element {
   return <div class={`min-w-0 ${props.wide ? "col-span-2" : ""} ${props.class ?? ""}`}>

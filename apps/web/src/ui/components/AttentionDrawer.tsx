@@ -13,7 +13,7 @@ import { formatDateTime } from "../format";
 import { missionHref } from "../mission-links";
 import { QueueRow, WorkspaceSection } from "./Domain";
 export const TIER_TONE: Record<number, "red" | "amber" | "blue" | "green" | "gray"> = { 1: "red", 2: "amber", 3: "blue", 4: "green", 5: "gray", 6: "green" };
-const KIND_ICON: Record<AttentionItem["kind"], string> = {
+export const KIND_ICON: Record<AttentionItem["kind"], string> = {
   approval: "lucide-shield-check", "budget-pause": "lucide-wallet", "needs-attention": "lucide-octagon-alert",
   "plan-proposal": "lucide-list-tree", parked: "lucide-circle-pause", "verdict-ready": "lucide-badge-check", routed: "lucide-message-square-warning",
   "result-ready": "lucide-circle-check-big",

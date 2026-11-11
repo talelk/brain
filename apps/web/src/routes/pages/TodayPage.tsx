@@ -3,14 +3,12 @@ import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Button } from "@talelk/newui-atoms";
 import { Card } from "@talelk/newui-molecules";
-import type { AttentionItem } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
-import { createScopedRead } from "../../data/screens";
-import { query } from "../../data/client";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";
 import { AttentionRows, attentionHref } from "../../ui/components/AttentionDrawer";
-import { blockingCount } from "../../ui/attention";
+import { NeedsYouQueue } from "../../ui/components/NeedsYouQueue";
+import { ATTENTION_CHANGED, blockingCount, createAttentionRead } from "../../ui/attention";
 import { missionHref } from "../../ui/mission-links";
 import { formatRelative } from "../../ui/format";
 import { PlainSummary } from "../../ui/viz/PlainSummary";
@@ -25,15 +23,9 @@ export default function TodayPage(): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
   const start = createStartController();
-  const attention = createScopedRead<AttentionItem[]>({
-    scope: app.scope,
-    load: async (scope, signal) => {
-      const response = await query<{ snapshot: { items: AttentionItem[] }; asOf: string; sourceWatermark: number }>({ queryType: "attention.list", workspaceId: scope.workspaceId }, signal);
-      return { snapshot: [...response.snapshot.items], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
-    },
-    isEmpty: (items) => items.length === 0,
-    refreshMs: 15_000,
-  });
+  const attention = createAttentionRead();
+  /** After an inline decision: every attention read (this one and the bell) and the missions list (their versions) re-read. */
+  const changed = () => { window.dispatchEvent(new Event(ATTENTION_CHANGED)); void start.missions.refresh({ force: true }); };
   const items = () => attention.state().data ?? [];
   const waitingItems = () => items().filter((item) => item.kind !== "result-ready");
   const readyItems = () => items().filter((item) => item.kind === "result-ready");
@@ -45,6 +37,13 @@ export default function TodayPage(): JSX.Element {
   };
   return <BrainPage title="Today" description="Say what you want done. Brain drafts a plan and waits for your OK before anything runs.">
     <PageStack>
+      {/* Anything that blocks work leads the page (the box stays one scroll away); an empty queue leaves the box first. */}
+      <Show when={waitingItems().length}>
+        <PlainSummary icon={blockingCount(items()) ? "lucide-bell-ring" : "lucide-circle-check"}>{summary()}</PlainSummary>
+        <WorkspaceSection title="Needs you" description="Approvals and decisions that block work, in fixed order: approvals first, then stopped missions, plans, parked work and verdicts. Decide each one here.">
+          <NeedsYouQueue items={waitingItems()} missions={start.missions.state().data ?? []} onChanged={changed} />
+        </WorkspaceSection>
+      </Show>
       <Card padding="lg" class="flex min-w-0 flex-col gap-4" aria-label="Start a mission">
         <StartFields start={start} large onSubmit={() => void start.start()} />
         <Show when={start.error()}><p role="alert" class="text-interface text-ink-red-7">{start.error()}</p></Show>
@@ -53,13 +52,8 @@ export default function TodayPage(): JSX.Element {
           <Button variant="solid" theme="blue" iconLeft="lucide-flag" loading={start.busy()} disabled={start.busy() || !start.canStart()} onClick={() => void start.start()}>Start</Button>
         </div>
       </Card>
-      <Show when={items().length || recent().length}>
-        <PlainSummary icon={blockingCount(items()) ? "lucide-bell-ring" : "lucide-circle-check"}>{summary()}</PlainSummary>
-      </Show>
-      <Show when={waitingItems().length}>
-        <WorkspaceSection title="Needs you" description="Approvals and decisions that block work, the longest wait first.">
-          <AttentionRows items={waitingItems()} onOpen={(item) => void navigate(attentionHref(item))} />
-        </WorkspaceSection>
+      <Show when={!waitingItems().length && (items().length || recent().length)}>
+        <PlainSummary icon="lucide-circle-check">{summary()}</PlainSummary>
       </Show>
       <Show when={readyItems().length}>
         <WorkspaceSection title="Results ready" description="Finished work to look at when you like. Nothing is waiting on it.">
