@@ -1,4 +1,4 @@
-import type { ActorContext, CommandReceipt, ConversationView, JsonValue, MissionPlanRequest, MissionPlanView, PlanTask, PlanVersion, TaskContext, TaskDraft, TaskOrigin, TaskPrepareRequest, WorkflowCatalogEntry } from "@brain/contracts";
+import type { ActorContext, CommandReceipt, ConversationView, JsonValue, MissionPlanRequest, OutputInput, MissionPlanView, PlanTask, PlanVersion, TaskContext, TaskDraft, TaskOrigin, TaskPrepareRequest, WorkflowCatalogEntry } from "@brain/contracts";
 import { payloadValidator } from "@brain/contracts/validate";
 import type { Store } from "../../application/store";
 import { authorizeCommand, requireWorkspaceRead } from "../../application/authz";
@@ -9,6 +9,8 @@ interface Host {
   dispatch(actor: ActorContext, command: unknown): Promise<{ receipt: CommandReceipt }>;
   /** The kept reuse items of a mission as the planner's `reused` input (claims with provenance); empty when nothing was kept. */
   reusePrompt?(actor: ActorContext, workspaceId: string, missionId: string): string;
+  /** The earlier mission a mission was started from and what of it seeds the plan: reuse refs, and verified outputs to pin as typed inputs. */
+  startedFrom?(actor: ActorContext, workspaceId: string, missionId: string): { sourceMissionId: string; refs: string[]; inputs: OutputInput[] } | undefined;
 }
 interface DraftRow { id: string; actor_id: string; workflow_id: string; workflow_json: string; config_digest: string; input_json: string; origin_json: string | null; title: string; command_id: string; conversation_id?: string | null; state: "review" | "started"; run_id: string | null; created_at_ms: number }
 interface MessageRow { id: string; role: "user" | "assistant"; text: string; state: "pending" | "done" | "failed"; run_id: string | null; draft_id: string | null }
@@ -160,6 +162,13 @@ export class TaskExperience {
       const attached = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId: attachId, commandType: "mission.reuse.decide", workspaceId: request.workspaceId, idempotencyKey: attachId, payload: { missionId, itemRef: ref, decision: "keep" } })).receipt;
       if (!attached.accepted) throw new BrainDomainError("CONFLICT", "a reused item could not be attached");
     }
+    // A mission started from an earlier one reuses it and its verified outputs without a person ticking each: the Governor attaches them
+    // (claims with provenance for the planner), and the plan below pins the outputs as typed inputs. A ref that is no longer reusable is skipped.
+    for (const ref of this.host.startedFrom?.(actor, request.workspaceId, missionId)?.refs ?? []) {
+      const attachId = `reuse-keep-${missionId}-${ref}`.slice(0, 200);
+      try { await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId: attachId, commandType: "mission.reuse.decide", workspaceId: request.workspaceId, idempotencyKey: attachId, payload: { missionId, itemRef: ref, decision: "keep" } }); }
+      catch (error) { if (!(error instanceof BrainDomainError)) throw error; }
+    }
     const reused = this.host.reusePrompt?.(actor, request.workspaceId, missionId) ?? "";
     const commandId = `plan-run-${request.requestId}`;
     const started = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId, commandType: "workflow.dispatch", workspaceId: request.workspaceId, idempotencyKey: commandId, payload: { workflow: guide.release, input: { title, intent, successCriteria, capabilities, reused } } })).receipt;
@@ -184,7 +193,10 @@ export class TaskExperience {
       try {
         if (!output?.tasks) throw new BrainDomainError("INVALID_CONTRACT", "plan assistant returned no task list");
         const commandId = `plan-proposal-${row.run_id}`;
-        const proposed = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId, commandType: "plan.propose", workspaceId, idempotencyKey: commandId, payload: { missionId, origin: "agent", summary: output.summary ?? "", tasks: output.tasks } })).receipt;
+        // The verified outputs of the mission this one started from are typed inputs of the tasks that have no predecessor.
+        const pinned = this.host.startedFrom?.(actor, workspaceId, missionId)?.inputs ?? [];
+        const tasks = pinned.length === 0 ? output.tasks : output.tasks.map((task) => (task.dependsOn.length === 0 && !task.inputs?.length ? { ...task, inputs: pinned } : task));
+        const proposed = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId, commandType: "plan.propose", workspaceId, idempotencyKey: commandId, payload: { missionId, origin: "agent", summary: output.summary ?? "", tasks } })).receipt;
         if (!proposed.accepted || !proposed.resourceId) throw new BrainDomainError("CONFLICT", "plan proposal was not accepted");
         db.prepare("UPDATE planning_requests SET state='ready',plan_version_id=?,updated_at_ms=? WHERE mission_id=?").run(proposed.resourceId, this.s.now(), missionId);
         return await this.missionPlan(actor, workspaceId, missionId);

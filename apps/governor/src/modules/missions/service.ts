@@ -1,5 +1,5 @@
 import { domainDigest } from "@brain/contracts";
-import type { AcceptedDecision, ActorContext, AutonomyPolicy, AutonomyPreset, ExecutionLink, JsonValue, Mission, MissionBrief, MissionOutcome, PlanAssignment, PlanOperation, PlanTask, PlanVersion, TeamMember, WorkItem, WorkItemState } from "@brain/contracts";
+import type { AcceptedDecision, ActorContext, AutonomyPolicy, AutonomyPreset, ExecutionLink, JsonValue, Mission, MissionBrief, MissionOutcome, OutputInput, PlanAssignment, PlanOperation, PlanTask, PlanVersion, TeamMember, WorkItem, WorkItemState } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import { assertExpectedVersion, assertTransition, transitionState } from "../../domain/states";
@@ -11,7 +11,8 @@ import { admit, budgetOf, clockSet, DEFAULT_MISSION_BUDGET, hasHeadroom, reserve
 import { capReached, missionUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUsage } from "./usage";
 import { planEstimate } from "./estimate";
 import { listEvalCases, recordEvalCase } from "./eval-cases";
-import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, recordTaskResult, sendMessage, taskResult, verifyOutputs } from "./outputs";
+import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, recordTaskResult, sendMessage, taskOf, taskResult, verifyOutputs } from "./outputs";
+import { readVerified } from "../artifacts/index";
 import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissionBundle, needsSignOff, recordMissionVerdict, submitHandoff, trustForBundle, workflowCovers } from "../evidence/index";
 import type { HandoffNotes } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
@@ -36,6 +37,9 @@ type MissionRow = {
 type BriefRow = { mission_id: string; version: number; intent: string; constraints_json: string; change: string; rebased_from: number | null; created_by: string; created_at_ms: number };
 type DecisionRow = { id: string; mission_id: string; statement: string; source_kind: AcceptedDecision["source"]["kind"]; source_ref: string | null; accepted_by: string; introduced_version: number; superseded_by: string | null; created_at_ms: number };
 
+/** At most this many verified outputs of an earlier mission seed a new plan, each shown to a task as at most this many characters. */
+const PINNED_INPUT_LIMIT = 6;
+const PINNED_INPUT_CHARS = 4000;
 /** Work that has started is never changed or abandoned by replanning (issue #39). */
 const STARTED: ReadonlySet<WorkItemState> = new Set(["in-progress", "review", "blocked", "done"]);
 /** The written sections every session receives stay small (issue #34). */
@@ -906,19 +910,59 @@ export class MissionService {
   }
 
   /**
+   * The earlier mission this one was started from (the Today box records it in the brief as "Started from the earlier mission "<title>"
+   * (<id>)") and what of it can seed this plan: the mission itself as a reuse item, and each of its verified outputs, pinned by exact
+   * version as typed inputs. Only an achieved, closed mission of this workspace counts, and the list is bounded.
+   */
+  startedFrom(actor: ActorContext, workspaceId: string, missionId: string): { sourceMissionId: string; refs: string[]; inputs: OutputInput[] } | undefined {
+    const db = this.db(actor, workspaceId);
+    const brief = db.prepare("SELECT constraints_json FROM mission_brief_versions WHERE mission_id=? ORDER BY version DESC LIMIT 1").get(missionId) as { constraints_json: string } | undefined;
+    if (!brief) return undefined;
+    let sourceMissionId: string | undefined;
+    for (const constraint of JSON.parse(brief.constraints_json) as string[]) sourceMissionId ??= /^Started from the earlier mission ".*" \(([\w-]{3,100})\);/su.exec(constraint)?.[1];
+    if (!sourceMissionId || sourceMissionId === missionId) return undefined;
+    const source = db.prepare("SELECT state, outcome FROM missions WHERE id=?").get(sourceMissionId) as { state: string; outcome: string | null } | undefined;
+    if (!source || source.state !== "closed" || source.outcome !== "achieved") return undefined;
+    const versions = db.prepare(`SELECT o.name AS name, (SELECT v.id FROM output_versions v WHERE v.output_id=o.id AND v.verified=1 ORDER BY v.created_at_ms DESC, v.id DESC LIMIT 1) AS versionId
+      FROM mission_outputs o WHERE o.mission_id=? ORDER BY o.created_at_ms, o.rowid`).all(sourceMissionId) as Array<{ name: string; versionId: string | null }>;
+    const pinned = versions.filter((row): row is { name: string; versionId: string } => row.versionId !== null).slice(0, PINNED_INPUT_LIMIT);
+    return {
+      sourceMissionId,
+      refs: [`mission:${sourceMissionId}`, ...pinned.map((row) => `output:${row.versionId}`)],
+      inputs: pinned.map((row) => ({ output: row.name, missionId: sourceMissionId, versionId: row.versionId })),
+    };
+  }
+
+  /** The verified results a work item's task pins as inputs, as quoted upstream material: each bounded, labelled as earlier verified work. */
+  private pinnedResults(db: ReturnType<Store["workspaceDb"]>, workItemId: string): Array<{ title: string; summary: string; deliverable?: string }> {
+    let inputs: readonly OutputInput[];
+    try { inputs = taskOf(db, workItemId).task.inputs ?? []; } catch { return []; }
+    const results: Array<{ title: string; summary: string; deliverable?: string }> = [];
+    for (const input of inputs.slice(0, PINNED_INPUT_LIMIT)) {
+      const version = input.versionId ? db.prepare("SELECT artifact_digest AS digest FROM output_versions WHERE id=? AND verified=1").get(input.versionId) as { digest: string } | undefined : undefined;
+      if (!version) continue;
+      let text: string;
+      try { text = new TextDecoder().decode(readVerified(this.store, version.digest)); } catch { continue; }
+      const from = input.missionId ? (db.prepare("SELECT title FROM missions WHERE id=?").get(input.missionId) as { title: string } | undefined)?.title : undefined;
+      results.push({ title: `Earlier verified result "${input.output}"${from ? ` of "${from}"` : ""}`, summary: "Verified in an earlier mission. A starting input to build on, not proof that any criterion of this task is met.", deliverable: text.slice(0, PINNED_INPUT_CHARS) });
+    }
+    return results;
+  }
+
+  /**
    * What the direct dependencies of a work item concluded: their current handoff summaries and, when the latest succeeded run
    * that carried them out wrote a deliverable, that deliverable (the run's immutable step output). The caller bounds how much
    * of it reaches the brief.
    */
   private upstreamResults(db: ReturnType<Store["workspaceDb"]>, workItemId: string): Array<{ title: string; summary: string; deliverable?: string }> {
-    return dependencyHandoffs(db, workItemId).map((handoff) => {
+    return [...this.pinnedResults(db, workItemId), ...dependencyHandoffs(db, workItemId).map((handoff) => {
       const deliverable = this.deliverableOf(db, handoff.workItemId);
       return {
         title: (db.prepare("SELECT title FROM work_items WHERE id=?").get(handoff.workItemId) as { title: string } | undefined)?.title ?? handoff.workItemId,
         summary: handoff.notes.summary,
         ...(deliverable ? { deliverable } : {}),
       };
-    });
+    })];
   }
 
   /** What an independent re-check of a result reads: the task, its criteria and the deliverable the finished run wrote (issue #50). */

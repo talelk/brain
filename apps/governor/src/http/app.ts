@@ -33,7 +33,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
   const brain = new Brain({ dataDir, allowTestActor, ...(opts?.runtime ? { runtime: opts.runtime } : {}) });
   await brain.auth.ready();
   try { restoreLocalRuntimeHandoff(brain.store); } catch (error) { brain.close(); throw error; }
-  const tasks = new TaskExperience(brain.store, { query: (actor, query) => brain.executeQuery(actor, query), dispatch: async (actor, command) => ({ receipt: (await brain.executeCommand(actor, command, "task-experience")).receipt }), reusePrompt: (actor, workspaceId, missionId) => brain.reuse.promptFor(actor, workspaceId, missionId) });
+  const tasks = new TaskExperience(brain.store, { query: (actor, query) => brain.executeQuery(actor, query), dispatch: async (actor, command) => ({ receipt: (await brain.executeCommand(actor, command, "task-experience")).receipt }), reusePrompt: (actor, workspaceId, missionId) => brain.reuse.promptFor(actor, workspaceId, missionId), startedFrom: (actor, workspaceId, missionId) => brain.missions.startedFrom(actor, workspaceId, missionId) });
   const app = new Hono();
   const bodies = new BodyReader();
   const readJson = async (c: { req: { raw: Request } }, limit = MAX_JSON) => parseJson(await bodies.read(c.req.raw, limit));
