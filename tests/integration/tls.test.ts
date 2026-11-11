@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { tlsMaterialFromEnv } from "../../apps/governor/src/http/tls";
+import { scaled } from "../support/timing";
 
 // T06: optional TLS serving. Partial config refuses; full config serves
 // HTTPS only (plaintext HTTP to the same port does not get an HTTP answer).
@@ -52,7 +53,7 @@ describe("TLS serving (T06)", () => {
     });
     children.push(child);
     let ready: { status: number; body: string } | undefined;
-    const deadline = Date.now() + 60_000;
+    const deadline = Date.now() + scaled(60_000);
     while (Date.now() < deadline && !ready) {
       try { const r = await httpsGet(port, "/health/ready"); if (r.status === 200) ready = r; } catch { /* not up */ }
       if (!ready) await new Promise((r) => setTimeout(r, 400));
@@ -65,5 +66,5 @@ describe("TLS serving (T06)", () => {
       const text = await plain.text().catch(() => "");
       expect(text).not.toContain('"ready":true');
     }
-  }, 180_000);
+  }, scaled(180_000));
 });

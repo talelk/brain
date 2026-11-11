@@ -78,14 +78,14 @@ Leftovers: saved documents are searchable at once as unverified but do not queue
 - Live validation 2026-11-11 ~01:55: plain-words mission (comparison) planned (2 tasks, criteria about own output), confirmed with one click, finished 2/2 verified done in 4 min, closed. Row 21 resolved by A2.
 | # | Item | Track | Status |
 |---|------|-------|--------|
-| 22 | Guard against schema additions without DEFAULT breaking live deploy: add a test/lint that proves repair-live-schema can upgrade the previous released schema to the current one (fixture of last deployed schema) | E2 (env) | open |
+| 22 | Guard against schema additions without DEFAULT breaking live deploy: add a test/lint that proves repair-live-schema can upgrade the previous released schema to the current one (fixture of last deployed schema) | E2 (env) | done (E2): fixture `tests/fixtures/released-schema`, `tests/contracts/live-schema-upgrade.test.ts`, deploy pre-check |
 | 23 | "Confirm this plan" is far below the fold on the Plan tab; make it sticky/primary near the top | UI | open |
-| 24 | Integration tests golden/sse/storage/first-launch time out under parallel agent load; make them robust (timeouts scale, isolated TMPDIR per run) | E2 (env) | open |
-| 25 | Shared `$HOME/.cache/tmp` is cleaned by concurrent sessions (ENOENT in test runs): give each track its own TMPDIR | E2 (env) | open |
+| 24 | Integration tests golden/sse/storage/first-launch time out under parallel agent load; make them robust (timeouts scale, isolated TMPDIR per run) | E2 (env) | done (E2): `BRAIN_TEST_TIMEOUT_FACTOR`, wall-clock assertion removed from storage LRU |
+| 25 | Shared `$HOME/.cache/tmp` is cleaned by concurrent sessions (ENOENT in test runs): give each track its own TMPDIR | E2 (env) | done (E2): `pnpm test:integration/security/chaos` use a unique TMPDIR under `~/.cache/brain-tmp` when unset |
 | 26 | #77 meter: interactive runs outside missions not in ledger | I2b | open |
-| 27 | Sidebar highlights Live on /runners (area mapping); Passkeys paragraph jargon; inviting own address returns "internal operation failed" server-side | C3 | open |
+| 27 | Sidebar highlights Live on /runners (area mapping); Passkeys paragraph jargon; inviting own address returns "internal operation failed" server-side | C3 | server-side own-address invite done (E2: 422 INVALID_ARGUMENT); sidebar and Passkeys copy still open |
 | 28 | Reuse seams: #66 index, #56 schedule picker, #68 planner reuse; #48 inline setup fixes + sample goal | I3 / next | open |
-| 29 | Stale `artifacts/ui-revamp` baselines (sidebar Today entry, live/logs/plays); regenerate once UI settles (polish pass) | E | open |
+| 29 | Stale `artifacts/ui-revamp` baselines (sidebar Today entry, live/logs/plays); regenerate once UI settles (polish pass) | E | specs no longer write into tracked `artifacts/ui-revamp` (now `test-results/ui-revamp`); committed screenshots are stale outputs, not compared baselines; regenerate only after the UI settles |
 
 ## Wave 2 landed and deployed (2026-11-11 ~03:10)
 - Deployed to live: I3 reuse/capitalisation (`1879568`), I4 context/tools/repo budget (`4a5f53f`,`a074813`,`9591f6d`), usage ledger, Today landing, plus schema repair hardening. Live release re-staged three times (`sha256:3deb9d0f…` active).

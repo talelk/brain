@@ -25,6 +25,11 @@
 #        schema first; scripts/repair-live-schema.ts refuses to alter existing tables)
 set -euo pipefail
 
+# Dev machines keep the deploy host, port and sudo password in a private file; load it without echoing anything.
+if [ -z "${BRAIN_DEPLOY_SUDO_PASSWORD:-}" ] && [ -r "$HOME/.config/brain-dev/credentials.env" ]; then
+  set -a; . "$HOME/.config/brain-dev/credentials.env"; set +a
+fi
+
 HOST="${BRAIN_DEPLOY_HOST:-demos.mykeyrus.tn}"
 PORT="${BRAIN_DEPLOY_PORT:-42242}"
 USER_SSH="${BRAIN_DEPLOY_USER:-talel}"
@@ -42,6 +47,31 @@ command -v rsync >/dev/null || { echo "rsync is required" >&2; exit 1; }
 # below would avoid passing a password at all.)
 : "${BRAIN_DEPLOY_SUDO_PASSWORD:?set BRAIN_DEPLOY_SUDO_PASSWORD to the sudo password of the deploy user}"
 SUDO="printf '%s\n' $(printf '%q' "$BRAIN_DEPLOY_SUDO_PASSWORD") | sudo -S -p ''"   # only for system-level actions
+
+# ---- pre-deploy check: prove the live databases can be upgraded BEFORE anything on the server changes ----
+# Copies the live databases (read-only) to a private local directory and runs scripts/repair-live-schema.ts of this
+# checkout against the copy. If it fails the deploy aborts here: the old container keeps serving, nothing was synced.
+# Skipped on a first deploy (no running governor yet) and with BRAIN_DEPLOY_SKIP_PRECHECK=1.
+if [ "${BRAIN_DEPLOY_SKIP_PRECHECK:-0}" != 1 ]; then
+  GOV_ID="$($SSH "cd $REMOTE_DIR 2>/dev/null && docker compose ps -q governor 2>/dev/null" || true)"
+  if [ -n "$GOV_ID" ]; then
+    echo "==> Pre-deploy check: repairing a copy of the live databases with this checkout's schema"
+    PRECHECK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/brain-precheck-XXXXXX")"
+    trap 'rm -rf "$PRECHECK_DIR"' EXIT
+    chmod 700 "$PRECHECK_DIR"
+    if ! $SSH "docker exec $GOV_ID sh -c 'cd /data && tar cf - control.db* workspaces/*.db* 2>/dev/null'" | tar xf - -C "$PRECHECK_DIR"; then
+      echo "!! Could not copy the live databases; aborting before any change (old container untouched)" >&2; exit 1
+    fi
+    if ! BRAIN_DATA_DIR="$PRECHECK_DIR" pnpm exec tsx scripts/repair-live-schema.ts; then
+      echo "!! Schema repair FAILED against a copy of the live databases; aborting before any change (old container still running)." >&2
+      echo "   A new column on an existing table needs DEFAULT (see docs/wiki/ops-live-server.md)." >&2
+      exit 1
+    fi
+    echo "==> Pre-deploy check passed"
+  else
+    echo "==> No running governor found; skipping the pre-deploy schema check"
+  fi
+fi
 
 echo "==> Syncing source to $USER_SSH@$HOST:$REMOTE_DIR/src (data is never synced)"
 $SSH "mkdir -p $REMOTE_DIR/src"
@@ -121,14 +151,23 @@ echo "==> Rolling the container (stop -> repair-if-needed -> initialize-if-empty
 $SSH "cd $REMOTE_DIR && docker compose stop governor \
   && docker compose run --rm --no-deps governor node --import tsx scripts/repair-live-schema.ts \
   && docker compose run --rm --no-deps governor node --import tsx scripts/initialize-local.ts \
-  && docker compose up -d governor"
+  && docker compose up -d governor" || {
+  echo "!! Rolling the governor failed; restarting the previous container so the site keeps serving" >&2
+  $SSH "cd $REMOTE_DIR && docker compose start governor" >&2 || true
+  exit 1
+}
 
 echo "==> Waiting for /health/ready"
 for i in $(seq 1 30); do
   if $SSH "curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:3100/health/ready"; then
     echo "==> Governor is healthy"; break
   fi
-  [ "$i" = 30 ] && { echo "!! Governor not ready after 30 tries; check: $SSH 'cd $REMOTE_DIR && docker compose logs --tail=100 governor'" >&2; exit 1; }
+  if [ "$i" = 30 ]; then
+    echo "!! Governor not ready after 30 tries. First error lines from its log:" >&2
+    $SSH "cd $REMOTE_DIR && docker compose logs --no-color --tail=200 governor 2>&1 | grep -iE -m 15 'error|refus|diverge|fatal|cannot|failed' || docker compose logs --no-color --tail=15 governor 2>&1" >&2 || true
+    echo "   Full log: $SSH 'cd $REMOTE_DIR && docker compose logs --tail=100 governor'" >&2
+    exit 1
+  fi
   sleep 2
 done
 
@@ -248,6 +287,8 @@ else
   $SSH "$SUDO systemctl restart brain-launcher brain-runner-agents brain-runner-evaluators"
 fi
 
+scripts/refresh-released-schema.sh || true   # the schema just deployed becomes the "previously released" fixture
+echo "    Commit tests/fixtures/released-schema so the next deploy is checked against what is live now."
 echo "==> Done. https://$DOMAIN"
 if [ "$FIRST_RUN" = 1 ]; then
   echo "    Sign in with the admin credentials printed above."

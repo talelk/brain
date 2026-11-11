@@ -11,7 +11,7 @@ export default defineConfig({
   },
   test: {
     include: ["tests/**/*.test.ts"],
-    testTimeout: 60000,
+    testTimeout: Math.ceil(60000 * Math.max(1, Number(process.env["BRAIN_TEST_TIMEOUT_FACTOR"] ?? "1") || 1)),
     // Removes this run's disposable brain-test-* data directories once all workers finish.
     globalSetup: ["tests/support/temp-teardown.ts"],
   },

@@ -41,6 +41,10 @@ describe("organization identity administration", () => {
     expect((await send("/v1/query", { queryType: "organization.member.get", resourceId: "foreign-user" }, token)).status).toBe(404);
     expect((await send("/v1/commands", command("organization.member.role-revoke", 1, { principalId: boot.ownerPrincipalId, role: "organization-admin", reason: "Try to remove last administrator" }, "last-admin"), token)).status).toBe(409);
 
+    const own = await send("/v1/commands", command("organization.invitation.create", 1, { email: "Owner@Example.test", reason: "Invite myself" }, "invite-self"), token);
+    expect(own.status).toBe(422);
+    expect(await own.json()).toMatchObject({ code: "INVALID_ARGUMENT", detail: expect.stringContaining("your own email") });
+
     const invite = await send("/v1/commands", command("organization.invitation.create", 1, { email: "member@example.test", reason: "Invite member" }, "invite"), token);
     expect(invite.status).toBe(200);
     const invitationId = (await invite.json() as { resourceId: string }).resourceId;

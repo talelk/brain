@@ -4,8 +4,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../apps/governor/src/http/app";
 import { seedHuman, setupWorld } from "../helpers";
+import { scaled } from "../support/timing";
 
-async function readUntil(reader: ReadableStreamDefaultReader<Uint8Array>, needle: string, timeoutMs = 8000): Promise<string> {
+async function readUntil(reader: ReadableStreamDefaultReader<Uint8Array>, needle: string, timeoutMs = scaled(8000)): Promise<string> {
   const decoder = new TextDecoder();
   let buffer = "";
   const deadline = Date.now() + timeoutMs;
@@ -56,12 +57,12 @@ describe("live SSE replay (T06)", () => {
       brain.store.control.prepare('DELETE FROM "session" WHERE id=?').run(sessionId);
       const closed = await Promise.race([
         (async () => { for (;;) { const c = await reader2.read(); if (c.done) return true; } })(),
-        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 9000)),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), scaled(9000))),
       ]);
       expect(closed).toBe(true);
       ctrl2.abort();
     } finally {
       await app.close();
     }
-  }, 30_000);
+  }, scaled(30_000));
 });

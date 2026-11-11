@@ -1,5 +1,6 @@
 import { seedOrganization } from "../helpers";
 import { attestDomain, bundleForAttempt } from "../support/evidence";
+import { scaled } from "../support/timing";
 import { describe, expect, it } from "vitest";
 import { enrollAndHello, runOnce } from "../../apps/runner/src/supervisor";
 import { createApp } from "../../apps/governor/src/http/app";
@@ -86,5 +87,5 @@ describe("golden workflow end-to-end (T29/T30, G03 smoke)", () => {
       close?.();
       await app.close();
     }
-  }, 60_000);
+  }, scaled(60_000));
 });

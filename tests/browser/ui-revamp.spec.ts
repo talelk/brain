@@ -135,7 +135,7 @@ test("all 38 revamped screens have browser screenshots and page-level containmen
   await page.getByRole("dialog").getByRole("button", { name: "Upload document", exact: true }).click();
   await expect(page.locator("pre")).toContainText("SSO guide");
 
-  const outputDir = join(process.cwd(), "artifacts", "ui-revamp", "screenshots", info.project.name);
+  const outputDir = join(process.cwd(), "test-results", "ui-revamp", "screenshots", info.project.name);
   mkdirSync(outputDir, { recursive: true });
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));

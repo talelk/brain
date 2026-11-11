@@ -237,8 +237,12 @@ export function organizationCommandHandlers(store: Store, auth: BrainAuth): Comm
   });
 
   return {
-    "organization.invitation.create": external(async (_actor, cmd, org, headers) => {
+    "organization.invitation.create": external(async (actor, cmd, org, headers) => {
       if (!cmd.payload.email) throw new BrainDomainError("INVALID_ARGUMENT", "email required");
+      const own = store.control.prepare("SELECT email FROM user WHERE id=?").get(actor.actorId) as { email: string } | undefined;
+      if (own && own.email.toLowerCase() === cmd.payload.email.trim().toLowerCase()) {
+        throw new BrainDomainError("INVALID_ARGUMENT", "you cannot invite your own email address; you are already a member of this organization", { fields: { email: "this is your own address" } });
+      }
       return (await auth.administration.createInvitation(headers, org.auth_organization_id, cmd.payload.email.toLowerCase())).id;
     }),
     "organization.invitation.cancel": external(async (_actor, cmd, org, headers) => {

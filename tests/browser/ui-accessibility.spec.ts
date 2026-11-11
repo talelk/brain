@@ -56,7 +56,7 @@ test("keyboard, 200% zoom, French input, RTL and reduced motion remain contained
     return element.firstElementChild ? getComputedStyle(element.firstElementChild).animationDuration : "";
   });
   expect(Number.parseFloat(duration)).toBeLessThanOrEqual(0.00001);
-  const output = join(process.cwd(), "artifacts", "ui-revamp", "accessibility");
+  const output = join(process.cwd(), "test-results", "ui-revamp", "accessibility");
   mkdirSync(output, { recursive: true });
   await page.screenshot({ path: join(output, `${info.project.name}-zoom-rtl.png`), fullPage: true });
 });

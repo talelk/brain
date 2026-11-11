@@ -3,13 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { it, expect } from "vitest";
+import { scaled } from "../support/timing";
 import { Brain } from "../../apps/governor/src/application/brain";
 
 it("initializes a useful workspace once and preserves customization on restart", async () => {
   const root = mkdtempSync(join(tmpdir(), "brain-first-launch-"));
   const dataDir = join(root, "data");
   const env = { ...process.env, BRAIN_DATA_DIR: dataDir, BRAIN_CLI_STATE_DIR: join(root, "cli"), BRAIN_GOVERNOR_URL: "http://127.0.0.1:3100", BRAIN_BASE_URL: "http://127.0.0.1:3100" };
-  const initialize = () => spawnSync(process.execPath, ["--import", "tsx", "scripts/initialize-local.ts"], { env, encoding: "utf8", timeout: 30000 });
+  const initialize = () => spawnSync(process.execPath, ["--import", "tsx", "scripts/initialize-local.ts"], { env, encoding: "utf8", timeout: scaled(30000) });
   try {
     const first = initialize();
     expect(first.status, first.stderr).toBe(0);
@@ -47,4 +48,4 @@ it("initializes a useful workspace once and preserves customization on restart",
       expect(existsSync(join(dataDir, "first-launch.json"))).toBe(true);
     } finally { restarted.close(); }
   } finally { rmSync(root, { recursive: true, force: true }); }
-}, 60000);
+}, scaled(60000));
