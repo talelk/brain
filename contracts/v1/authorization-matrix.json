@@ -63,7 +63,8 @@
         "identity:read",
         "identity:manage",
         "identity:security",
-        "platform:read"
+        "platform:read",
+        "quality:read"
       ],
       "grantScope": "organization"
     },
@@ -633,6 +634,11 @@
     "missions.forSubject": {
       "scope": "workspace:read",
       "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "quality.summary": {
+      "scope": "quality:read",
+      "scopeMode": "organization",
       "redactPrivilegedDetails": false
     }
   },

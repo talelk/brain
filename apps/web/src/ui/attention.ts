@@ -18,3 +18,8 @@ export function createAttentionRead() {
   });
 }
 export type AttentionRead = ReturnType<typeof createAttentionRead>;
+
+/** The bell counts what needs a person; a ready result (tier 6) is shown but never counted as waiting. */
+export function blockingCount(items: readonly AttentionItem[]): number {
+  return items.filter((item) => item.kind !== "result-ready").length;
+}

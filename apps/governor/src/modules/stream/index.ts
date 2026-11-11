@@ -69,3 +69,4 @@ export { frameOf, type StreamFilters, type StreamRecordView } from "./query";
 export { sweepStream } from "./projector";
 
 export { attentionCommands, attentionItems, attentionQuery } from "./attention";
+export { qualitySummary } from "./quality";

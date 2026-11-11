@@ -704,7 +704,8 @@
     "attention.list",
     "missions.sinceLastVisit",
     "notifications.list",
-    "missions.forSubject"
+    "missions.forSubject",
+    "quality.summary"
   ],
   "events": [
     {

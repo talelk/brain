@@ -40,7 +40,7 @@ import { issuePermit as governanceIssuePermit, validatePermit as governanceValid
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
 import { MissionService, missionCommands } from "../modules/missions/index";
 import { AutoStart, AUTO_START_TRIGGERS } from "./auto-start";
-import { attentionCommands, attentionQuery } from "../modules/stream/index";
+import { attentionCommands, attentionQuery, qualitySummary } from "../modules/stream/index";
 import { notificationsFor, notifyAttention, watchCommands } from "../modules/operations/index";
 import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
@@ -728,6 +728,8 @@ export class Brain {
     const workspaces = (): string[] => (q.workspaceId ? [q.workspaceId] : orgWorkspaces(s, actor));
     const requireRead = (): void => { if (q.workspaceId) requireWorkspaceRead(s, actor, q.workspaceId); };
     switch (q.queryType) {
+      case "quality.summary":
+        return this.envelope(q.queryType, qualitySummary(s, actor) as unknown as JsonValue);
       case "platform.health":
         return this.envelope(q.queryType, platformHealth(s, this.memoryProbe));
       case "workspace.context": {

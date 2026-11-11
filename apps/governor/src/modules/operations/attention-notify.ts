@@ -16,7 +16,7 @@ export type PushSender = (organizationId: string, principalId: string, payload: 
  * its watchers, while they still have workspace access — once per item, at
  * most once per mission every 15 minutes. Every notification lands in the
  * in-app inbox; push goes out only to subscribed browsers. Progress never
- * notifies: only attention items do.
+ * notifies: only attention items do (blocking ones, and result-ready, ADR 0005).
  */
 export function notifyAttention(store: Store, push: PushSender | undefined): number {
   let sent = 0;
@@ -30,11 +30,12 @@ export function notifyAttention(store: Store, push: PushSender | undefined): num
       for (const principalId of new Set([...(owner ? [owner.owner_id] : []), ...watchers])) {
         if (!hasWorkspaceMembership(store, principalId, ws.organization_id, ws.id)) continue;
         if (db.prepare("SELECT 1 FROM attention_notifications WHERE principal_id=? AND item_id=?").get(principalId, item.id)) continue;
-        const recent = db.prepare("SELECT 1 FROM attention_notifications WHERE principal_id=? AND mission_id=? AND sent_at_ms>?").get(principalId, item.missionId, store.now() - MISSION_WINDOW_MS);
+        // Good news never delays a decision: only result-ready items count against result-ready.
+        const recent = db.prepare(`SELECT 1 FROM attention_notifications WHERE principal_id=? AND mission_id=? AND sent_at_ms>?${item.kind === "result-ready" ? "" : " AND item_id NOT LIKE 'result:%'"}`).get(principalId, item.missionId, store.now() - MISSION_WINDOW_MS);
         if (recent) continue;
         const pushed = Boolean(push);
         db.prepare("INSERT INTO attention_notifications(principal_id,item_id,mission_id,title,pushed,sent_at_ms) VALUES (?,?,?,?,?,?)").run(principalId, item.id, item.missionId, item.title, pushed ? 1 : 0, store.now());
-        if (push) void push(ws.organization_id, principalId, { title: item.title, body: item.detail ?? "A mission needs you.", url: `/missions/${item.missionId}/live?w=${item.workspaceId}` }).catch(() => undefined);
+        if (push) void push(ws.organization_id, principalId, { title: item.title, body: item.detail ?? (item.kind === "result-ready" ? "A result is ready." : "A mission needs you."), url: `/missions/${item.missionId}/live?w=${item.workspaceId}` }).catch(() => undefined);
         sent++;
       }
     }

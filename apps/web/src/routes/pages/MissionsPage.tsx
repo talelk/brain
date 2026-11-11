@@ -13,6 +13,7 @@ import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";
 import { formatDateTime, formatUsd } from "../../ui/format";
 import { missionHref } from "../../ui/mission-links";
 import { AttentionRows, attentionHref } from "../../ui/components/AttentionDrawer";
+import { blockingCount } from "../../ui/attention";
 import { EmptyState } from "@talelk/newui-molecules";
 import { Meter } from "../../ui/viz/Meter";
 import { PlainSummary } from "../../ui/viz/PlainSummary";
@@ -65,7 +66,7 @@ export default function MissionsPage(): JSX.Element {
   });
   const running = () => openAll().reduce((sum, mission) => sum + mission.usage.runningMembers, 0);
   const summary = () => {
-    const waiting = attentionCount();
+    const waiting = blockingCount(attention.state().data ?? []);
     const lead = waiting ? `${waiting} ${waiting === 1 ? "thing needs" : "things need"} you.` : "Nothing needs you right now.";
     return `${lead} ${openAll().length} open ${openAll().length === 1 ? "mission" : "missions"}, ${running()} ${running() === 1 ? "agent" : "agents"} working.`;
   };

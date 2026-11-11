@@ -7,21 +7,22 @@ import type { AttentionItem, NotificationEntry } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
-import type { AttentionRead } from "../attention";
+import { blockingCount, type AttentionRead } from "../attention";
 import { ScreenRegion } from "../screen-region";
 import { formatDateTime } from "../format";
 import { missionHref } from "../mission-links";
 import { QueueRow, WorkspaceSection } from "./Domain";
-export const TIER_TONE: Record<number, "red" | "amber" | "blue" | "green" | "gray"> = { 1: "red", 2: "amber", 3: "blue", 4: "green", 5: "gray" };
+export const TIER_TONE: Record<number, "red" | "amber" | "blue" | "green" | "gray"> = { 1: "red", 2: "amber", 3: "blue", 4: "green", 5: "gray", 6: "green" };
 const KIND_ICON: Record<AttentionItem["kind"], string> = {
   approval: "lucide-shield-check", "budget-pause": "lucide-wallet", "needs-attention": "lucide-octagon-alert",
   "plan-proposal": "lucide-list-tree", parked: "lucide-circle-pause", "verdict-ready": "lucide-badge-check", routed: "lucide-message-square-warning",
+  "result-ready": "lucide-circle-check-big",
 };
 
 /** Where an attention item is acted on: the approval review or the mission view that owns it. */
 export function attentionHref(item: AttentionItem): string {
   if (item.kind === "approval") return `/approvals/${item.resourceId}`;
-  const tab = item.kind === "plan-proposal" || item.kind === "parked" || item.kind === "needs-attention" ? "plan" : item.kind === "routed" ? "live" : "brief";
+  const tab = item.kind === "result-ready" ? "outputs" : item.kind === "plan-proposal" || item.kind === "parked" || item.kind === "needs-attention" ? "plan" : item.kind === "routed" ? "live" : "brief";
   const href = missionHref(item.workspaceId, item.missionId ?? item.resourceId, tab);
   return item.kind === "plan-proposal" ? `${href}&proposal=${encodeURIComponent(item.resourceId)}` : href;
 }
@@ -32,6 +33,7 @@ export function attentionAction(item: AttentionItem): string {
     case "approval": return "Approve review";
     case "plan-proposal": return "Review plan";
     case "verdict-ready": return "Review verdict";
+    case "result-ready": return "See result";
     default: return "Open";
   }
 }
@@ -41,7 +43,7 @@ export function AttentionRows(props: { items: readonly AttentionItem[]; onOpen: 
   return <section class="brain-queue" aria-label="Attention strip"><For each={props.items}>{(item) =>
     <QueueRow title={item.title} description={item.detail ?? `Waiting since ${formatDateTime(item.waitingSince)}`} icon={KIND_ICON[item.kind]} tone={TIER_TONE[item.tier] ?? "gray"}
       eyebrow={item.kind.replace("-", " ")} label={`${item.title}. Open`} trailing={<>
-        <Badge variant="outline" theme={TIER_TONE[item.tier] ?? "gray"} label={`Tier ${item.tier}`} />
+        <Badge variant="outline" theme={TIER_TONE[item.tier] ?? "gray"} label={item.kind === "result-ready" ? "Result" : `Tier ${item.tier}`} />
         <span class="inline-flex items-center gap-1 rounded-control bg-surface-blue-8 px-2.5 py-1 text-interface font-medium text-ink-base" aria-hidden="true">{attentionAction(item)}<span class="lucide-arrow-right size-3.5" /></span>
       </>}
       onClick={() => props.onOpen(item)} />}</For></section>;
@@ -66,7 +68,7 @@ export function AttentionDrawer(props: { attention: AttentionRead }): JSX.Elemen
     },
     isEmpty: (items) => items.length === 0,
   });
-  const count = () => attention.state().data?.length ?? 0;
+  const count = () => blockingCount(attention.state().data ?? []);
   const go = (href: string) => { setOpen(false); void navigate(href); };
   const toggle = (next: boolean) => { setOpen(next); if (next) { void attention.refresh({ force: true }); void history.refresh({ force: true }); } };
   return <>
@@ -77,7 +79,7 @@ export function AttentionDrawer(props: { attention: AttentionRead }): JSX.Elemen
       <Dialog.Content size="lg" position="top">
         <Dialog.Header class="mb-3">
           <Dialog.Title>Needs you</Dialog.Title>
-          <Dialog.Description>Across your workspaces: approvals first, then stopped missions, proposals and parked work, verdicts ready to close and routed findings.</Dialog.Description>
+          <Dialog.Description>Across your workspaces: approvals first, then stopped missions, proposals and parked work, verdicts ready to close and routed findings. Finished results come last and never block anything.</Dialog.Description>
         </Dialog.Header>
         <div class="flex max-h-[70dvh] flex-col gap-4 overflow-y-auto">
           <ScreenRegion state={attention.state()} onRetry={() => void attention.refresh({ force: true })} emptyTitle="Nothing needs you" emptyDescription="Missions are moving on their own. Brain notifies you when a person is needed.">

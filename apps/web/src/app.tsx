@@ -1,5 +1,5 @@
 import { lazy, Show, onMount, onCleanup, createSignal } from "solid-js";
-import { createAttentionRead } from "./ui/attention";
+import { blockingCount, createAttentionRead } from "./ui/attention";
 import { AttentionDrawer } from "./ui/components/AttentionDrawer";
 import type { JSX } from "solid-js";
 import { Navigate, Route, Router, useLocation, useNavigate, useParams } from "@solidjs/router";
@@ -29,6 +29,7 @@ const PAGE_LOADERS = {
   MissionPage: () => import('./routes/pages/MissionPage'),
   PlaysPage: () => import('./routes/pages/PlaysPage'),
   SchedulesPage: () => import('./routes/pages/SchedulesPage'),
+  QualityPage: () => import('./routes/pages/QualityPage'),
   BridgePage: () => import('./routes/pages/BridgePage'),
   IntegrationsPage: () => import('./routes/administration/IntegrationsPage'),
   StudioListPage: () => import('./ui/studio/StudioPages').then((module) => ({ default: module.StudioListPage })),
@@ -183,7 +184,7 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
       <span class="flex min-w-0 items-center gap-2"><span class="lucide-building-2 size-4 shrink-0" aria-hidden="true" /><span class="truncate">{app.workspaceOptions().find((option) => option.value === app.workspaceId())?.label ?? "Choose workspace"}</span></span>
     </Dropdown></div>}
     tenantCollapsed={<span class="lucide-building-2 size-5" aria-hidden="true" />}
-    navigation={Navigation(() => attention.state().data?.length ?? 0)}
+    navigation={Navigation(() => blockingCount(attention.state().data ?? []))}
     account={<AccountMenu />} accountCollapsed={<AccountMenu compact />}
     navLabel="Brain navigation">
     <GlobalSearchDialog open={searchOpen()} onOpenChange={setSearchOpen} />
@@ -275,6 +276,7 @@ export function App(): JSX.Element {
       <Route path="/tickets/:id" component={page("TicketDetailPage")} />
       <Route path="/incidents/:id" component={page("IncidentDetailPage")} />
       <Route path="/settings" component={workspacePage("SettingsPage")} />
+      <Route path="/quality" component={workspacePage("QualityPage")} />
       <Route path="/administration/integrations" component={workspacePage("IntegrationsPage")} />
       <Route path="/studio/:kind" component={workspacePage("StudioListPage")} />
       <Route path="/studio/:kind/:draftId" component={workspacePage("StudioEditorPage")} />

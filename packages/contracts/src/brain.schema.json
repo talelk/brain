@@ -7314,6 +7314,7 @@
             "attention.list",
             "missions.sinceLastVisit",
             "notifications.list",
+            "quality.summary",
             "missions.forSubject"
           ]
         },
@@ -7376,6 +7377,7 @@
             "attention.list",
             "missions.sinceLastVisit",
             "notifications.list",
+            "quality.summary",
             "missions.forSubject"
           ]
         },
@@ -21931,13 +21933,14 @@
             "plan-proposal",
             "parked",
             "verdict-ready",
-            "routed"
+            "routed",
+            "result-ready"
           ]
         },
         "tier": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 5
+          "maximum": 6
         },
         "title": {
           "type": "string",
@@ -22391,6 +22394,128 @@
         "plan"
       ],
       "additionalProperties": false
+    },
+    "QualitySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "window",
+        "metrics",
+        "failureReasons"
+      ],
+      "properties": {
+        "window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "from",
+            "to",
+            "days"
+          ],
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "to": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "days": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "label",
+              "definition",
+              "unit"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "enum": [
+                  "verified-unaided",
+                  "stall-rate",
+                  "reopen-rate",
+                  "cost-per-verified-task",
+                  "time-to-first-result"
+                ]
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "definition": {
+                "type": "string",
+                "maxLength": 1024
+              },
+              "unit": {
+                "type": "string",
+                "enum": [
+                  "ratio",
+                  "micro-usd",
+                  "ms"
+                ]
+              },
+              "value": {
+                "type": "number",
+                "minimum": 0
+              },
+              "numerator": {
+                "type": "number",
+                "minimum": 0
+              },
+              "denominator": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "failureReasons": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "definition",
+            "items"
+          ],
+          "properties": {
+            "definition": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "items": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "reason",
+                  "count"
+                ],
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

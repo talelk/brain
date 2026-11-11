@@ -720,6 +720,25 @@
    "title": "Configuration Studio"
   },
   {
+   "route": "/quality",
+   "queries": [
+    "quality.summary"
+   ],
+   "actions": [],
+   "content": [
+    "metric",
+    "definition",
+    "window",
+    "failure"
+   ],
+   "owner": "T34",
+   "navigationGroup": "administration",
+   "area": "administration",
+   "icon": "lucide-gauge",
+   "task": "See whether Brain is getting better",
+   "title": "Quality"
+  },
+  {
    "route": "/administration/integrations",
    "queries": [
     "integrations.list",
@@ -887,6 +906,13 @@
     "label": "Security",
     "route": "/settings?tab=security",
     "icon": "lucide-shield"
+   },
+   {
+    "label": "Quality",
+    "route": "/quality",
+    "adminOnly": true,
+    "organizationOnly": true,
+    "icon": "lucide-gauge"
    },
    {
     "label": "Integrations",

@@ -7,11 +7,15 @@ import { iso } from "../../domain/clock";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 
+/** Result-ready items (ADR 0005) are derived for this long after the mission closed or the task reached Done. */
+export const RESULT_READY_WINDOW_MS = 24 * 60 * 60_000;
+
 /**
  * Attention items (#40): what needs a human, derived from current state and
  * never stored. Fixed tiers — approvals (nearest expiry first), stopped
  * missions, plan proposals and parked work, verdicts ready to close, routed
- * findings — then the longest wait first. No model ranks anything.
+ * findings, then the non-blocking result-ready items (ADR 0005) — then the
+ * longest wait first. No model ranks anything.
  */
 export function attentionItems(store: Store, organizationId: string, workspaceIds: readonly string[]): AttentionItem[] {
   const items: AttentionItem[] = [];
@@ -38,6 +42,14 @@ export function attentionItems(store: Store, organizationId: string, workspaceId
     for (const row of db.prepare(`SELECT msg.id, msg.mission_id, msg.body, msg.created_at_ms FROM mission_messages msg JOIN missions m ON m.id=msg.mission_id
       WHERE msg.sender_id='governor' AND msg.delivery='pending' AND m.state!='closed'`).all() as Array<{ id: string; mission_id: string; body: string; created_at_ms: number }>) {
       items.push({ id: `routed:${row.id}`, workspaceId, missionId: row.mission_id, kind: "routed", tier: 5, title: "Findings routed to the mission", detail: row.body.slice(0, 1024), resourceId: row.id, waitingSince: iso(row.created_at_ms) });
+    }
+    const since = store.now() - RESULT_READY_WINDOW_MS;
+    for (const row of db.prepare("SELECT id, title, updated_at_ms FROM missions WHERE state='closed' AND outcome='achieved' AND updated_at_ms>?").all(since) as Array<{ id: string; title: string; updated_at_ms: number }>) {
+      items.push({ id: `result:${row.id}`, workspaceId, missionId: row.id, kind: "result-ready", tier: 6, title: `Result ready: ${row.title}`, resourceId: row.id, waitingSince: iso(row.updated_at_ms) });
+    }
+    for (const row of db.prepare(`SELECT w.id, w.mission_id, w.title, w.updated_at_ms FROM work_items w JOIN missions m ON m.id=w.mission_id
+      WHERE w.state='done' AND m.state!='closed' AND w.updated_at_ms>?`).all(since) as Array<{ id: string; mission_id: string; title: string; updated_at_ms: number }>) {
+      items.push({ id: `result:${row.id}`, workspaceId, missionId: row.mission_id, kind: "result-ready", tier: 6, title: `Result ready: ${row.title} is verified and done`, resourceId: row.id, waitingSince: iso(row.updated_at_ms) });
     }
   }
   return items.sort((a, b) => a.tier - b.tier
