@@ -31,6 +31,8 @@ export function createTrust(history: Accessor<ArtifactHistory | undefined>): Acc
   return () => {
     const loaded = history();
     if (!loaded || verdict.loading) return undefined;
-    return trustLineOf(loaded, verdict()?.verdict, verdict()?.trust);
+    const line = trustLineOf(loaded, verdict()?.verdict, verdict()?.trust);
+    const jobId = loaded.history.find((version) => version.verification)?.jobId;
+    return jobId && line.rows?.length ? { ...line, evidenceHref: `/runs/${encodeURIComponent(jobId)}?tab=evidence` } : line;
   };
 }

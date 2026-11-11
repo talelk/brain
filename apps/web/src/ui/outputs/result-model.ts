@@ -62,6 +62,8 @@ export interface TrustLine {
   checked: boolean;
   /** Per-criterion check basis ("How this was checked"), from the Governor's trust read. */
   rows?: TrustRead["rows"];
+  /** Where the evidence behind each criterion opens: the run's Evidence tab; a row adds `#check-<checkId>`. */
+  evidenceHref?: string;
   /** A criterion rests on a model's opinion alone: Unverified until a person signs off (Accept). */
   needsSignOff?: boolean;
 }

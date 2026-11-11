@@ -13,7 +13,7 @@ import { EvidenceList } from "./EvidenceList";
 import { PlacementPanel } from "./PlacementPanel";
 import { formatDateTime, queueReasonLabel, runTitle } from "../format";
 import { DigestValue } from "./DigestValue";
-import { StatusBadge, statusHeaderTheme } from "./StatusBadge";
+import { StatusBadge, statusHeaderTheme, statusLabel } from "./StatusBadge";
 import { StatusIcon } from "../viz/StatusIcon";
 import { PlainSummary } from "../viz/PlainSummary";
 import { StructuredOutputView } from "./StructuredOutputView";
@@ -102,6 +102,7 @@ export function RunDetail(props: {
   const [busy, setBusy] = createSignal(false);
   const job = () => props.job;
   const state = () => job()?.restarting ? "restarting" : job()?.runState ?? job()?.state;
+  const settled = () => job()?.context?.resolution;
   const unknown = () => job()?.state === "outcome_unknown" && !job()?.restarting;
   const latestEvent = () => job()?.engineEvents?.at(-1);
   const engineId = () => {
@@ -112,7 +113,7 @@ export function RunDetail(props: {
   /** A failed, blocked or cancelled run says why in plain words and names the one next action. */
   const problem = (): { theme: "red" | "amber"; title: string; reason: string; next: string } | undefined => {
     const current = state() ?? "";
-    if (unknown() || !["failed", "blocked", "cancelled", "expired"].includes(current)) return undefined;
+    if (unknown() || job()?.context?.resolution || !["failed", "blocked", "cancelled", "expired"].includes(current)) return undefined;
     const last = lastAttempt();
     const where = last ? ` on ${last.runnerId}` : "";
     if (current === "cancelled") return { theme: "amber", title: "This run was stopped", reason: "Someone cancelled it before it finished, so there is no result.", next: "start the task again from its mission if you still need it." };
@@ -140,7 +141,7 @@ export function RunDetail(props: {
       <div class="flex min-w-0 flex-col gap-4">
         <DetailHeader title={job() ? runTitle(job()!) : "Task run"} headingLevel={2}
           subtitle={job()?.context?.resolution ? { "retried-and-succeeded": "Retried and succeeded: a later attempt finished this task.", retried: "Brain started this task again after this attempt.", "mission-closed": "Its mission is closed.", "set-aside": "The task was set aside." }[job()!.context!.resolution!] : job()?.origin ? "Execution linked to an originating work item." : "Authoritative execution, output and independent verification."}
-          status={{ label: state() === "succeeded" ? job()?.runState ? "Completed and verified" : "Step completed" : (state() ?? "unknown").replaceAll("_", " "), theme: statusHeaderTheme("job", state() ?? "") }} />
+          status={settled() ? { label: statusLabel("job", settled()!), theme: statusHeaderTheme("job", settled()!) } : { label: state() === "succeeded" ? job()?.runState ? "Completed and verified" : "Step completed" : (state() ?? "unknown").replaceAll("_", " "), theme: statusHeaderTheme("job", state() ?? "") }} />
         <Show when={job()}><p class="-mt-2 flex flex-wrap items-center gap-x-2 text-caption text-ink-gray-6">Run id <DigestValue value={job()!.jobId} label="run id" short={false} /></p></Show>
         <Show when={unknown()}><Alert theme="amber" variant="outline" title="Effect outcome is unknown" description="The effect may already have applied. Reconcile against the target system before considering another attempt; generic Retry is intentionally unavailable." /></Show>
         <Show when={problem()}>{(note) => <Alert theme={note().theme} variant="outline" title={note().title} description={`${note().reason} Next: ${note().next}`} />}</Show>
@@ -148,7 +149,7 @@ export function RunDetail(props: {
           ? <WorkItemLink workspaceId={job()?.workspaceId ?? ""} workItemId={origin().id} class="inline-flex w-fit items-center gap-2 rounded-control text-interface font-medium text-ink-blue-link focus-visible:focus-ring"><span class="lucide-arrow-left size-4" aria-hidden="true" />Back to the mission plan</WorkItemLink>
           : <A class="inline-flex w-fit items-center gap-2 rounded-control text-interface font-medium text-ink-blue-link focus-visible:focus-ring" href={origin().kind === "ticket" ? `/tickets/${origin().id}` : `/incidents/${origin().id}`}><span class="lucide-arrow-left size-4" aria-hidden="true" />Back to the {origin().kind === "ticket" ? "ticket" : "incident"}</A>}</Show>
         <dl class="grid grid-cols-2 border-y border-outline-gray-1 text-caption sm:grid-cols-4" aria-label="Run summary">
-          <div class="min-w-0 py-2 pr-3" title="Authoritative workflow state"><dt class="text-ink-gray-6">State</dt><dd class="mt-1"><StatusBadge kind="job" status={state() ?? "unknown"} /></dd></div>
+          <div class="min-w-0 py-2 pr-3" title="Authoritative workflow state"><dt class="text-ink-gray-6">State</dt><dd class="mt-1"><StatusBadge kind="job" status={settled() ?? state() ?? "unknown"} /></dd></div>
           <div class="min-w-0 py-2 pr-3" title="Recorded execution attempts"><dt class="text-ink-gray-6">Attempts</dt><dd class="mt-1 font-medium tabular-nums text-ink-gray-9">{job()?.attempts.length ?? 0}</dd></div>
           <div class="min-w-0 py-2 pr-3" title={job()?.evidenceDigest ? "Inspect independent verification" : "Author output alone is insufficient"}><dt class="text-ink-gray-6">Evidence</dt><dd class="mt-1 font-medium text-ink-gray-9">{job()?.evidenceDigest ? "Bundle attached" : "Not complete"}</dd></div>
           <div class="min-w-0 py-2 pr-3" title={`Workspace ${job()?.workspaceId ?? "—"}`}><dt class="text-ink-gray-6">Created</dt><dd class="mt-1 break-words font-medium text-ink-gray-9"><DateText value={job()?.createdAt} /></dd></div>
@@ -202,7 +203,7 @@ export function RunDetail(props: {
           </div>
           <DetailAside title="Run context" description="Placement and provenance beside the result." sticky>
             <dl class="grid grid-cols-2 gap-x-4 gap-y-3 text-caption lg:grid-cols-1">
-              <RunFact label="State" value={<StatusBadge kind="job" status={state() ?? "unknown"} />} />
+              <RunFact label="State" value={<StatusBadge kind="job" status={settled() ?? state() ?? "unknown"} />} />
               <RunFact label="Workspace" value={job()?.workspaceId ?? "—"} />
               <RunFact label="Engine" value={engineId()} />
               <RunFact label="Runner" value={lastAttempt()?.runnerId ?? "Not assigned"} />

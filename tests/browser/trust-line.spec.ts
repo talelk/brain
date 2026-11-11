@@ -10,6 +10,7 @@ import { driveRuns, enrollRunners, signUpOwner } from "../support/flow";
  */
 test("a model-only criterion keeps the task in Verifying until a person signs off", async ({ page, governor }) => {
   test.setTimeout(180_000);
+  const initial = page.viewportSize()!;
   const shots = process.env["TODAY_SHOTS"] ?? "";
   const { brain, actor, cookie } = await signUpOwner(page, governor, "trust");
   brain.createWorkspace(actor, { workspaceId: "ws-trust", slug: "trust" });
@@ -62,4 +63,23 @@ test("a model-only criterion keeps the task in Verifying until a person signs of
   await expect(reader.getByTestId("trust-line")).toContainText("0 of 4 criteria checked by tests, files or hashes; 4 by human sign-off; 0 by model opinion", { timeout: 30_000 });
   await expect(reader.getByTestId("how-checked").locator('[data-basis="human"]')).toHaveCount(4);
   if (shots) await page.screenshot({ path: `${shots}/trust-signed-1440.png`, fullPage: true });
+
+  await page.setViewportSize(initial);
+  const tag = test.info().project.name;
+  // Each criterion links to the check that satisfied it, on the run's Evidence tab.
+  const links = reader.getByTestId("how-checked").getByTestId("criterion-evidence");
+  await expect(links).toHaveCount(4);
+  expect(await links.first().getAttribute("href")).toMatch(/^\/runs\/[^?]+\?tab=evidence#check-/);
+  // The mission page says the same in one aggregate line.
+  await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/plan`);
+  await expect(page.getByTestId("mission-trust")).toContainText("0 of 1 task checked by an independent reviewer; 1 by human sign-off; 0 model opinion only");
+  if (shots) await page.screenshot({ path: `${shots}/mission-trust-${tag}.png`, fullPage: true });
+  await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/outputs`);
+  const again = page.getByTestId("mission-result").filter({ hasText: "Compare the venues" });
+  if ((await again.getAttribute("data-open")) !== "true") await again.getByRole("button", { name: /Compare the venues/ }).click();
+  await again.getByText("How this was checked").click();
+  await again.getByTestId("criterion-evidence").first().click();
+  await expect(page).toHaveURL(/\/runs\/[^?]+\?tab=evidence#check-/);
+  await expect(page.locator('[id^="check-"]').first()).toBeVisible({ timeout: 30_000 });
+  if (shots) await page.screenshot({ path: `${shots}/criterion-evidence-${tag}.png`, fullPage: true });
 });

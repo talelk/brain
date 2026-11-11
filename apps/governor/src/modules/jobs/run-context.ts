@@ -19,14 +19,15 @@ export interface RunContext {
  * aside, or whose mission is closed is history; everything else linked to open work is still unresolved. A run with no task
  * behind it (a standalone dispatch) has no context and is judged by its own state alone.
  */
-export function runContext(db: Db, runId: string): RunContext | undefined {
+export function runContext(db: Db, runId: string, jobState?: string): RunContext | undefined {
   const row = db.prepare(`SELECT l.mission_id AS missionId, m.title AS missionTitle, m.state AS missionState, w.id AS workItemId, w.title AS workItemTitle,
       w.state AS workState, l.created_at_ms AS linkedAt
     FROM execution_links l JOIN work_items w ON w.id=l.work_item_id JOIN missions m ON m.id=l.mission_id WHERE l.run_id=? LIMIT 1`).get(runId) as
     { missionId: string; missionTitle: string; missionState: string; workItemId: string; workItemTitle: string; workState: string; linkedAt: number } | undefined;
   if (!row) return undefined;
   const base = { missionId: row.missionId, missionTitle: row.missionTitle, workItemId: row.workItemId, workItemTitle: row.workItemTitle };
-  if (db.prepare("SELECT 1 FROM workflow_runs WHERE id=? AND state='succeeded'").get(runId)) return base;
+  // A run that itself succeeded needs no settling story.
+  if (jobState === "succeeded" || db.prepare("SELECT 1 FROM workflow_runs WHERE id=? AND state='succeeded'").get(runId)) return base;
   if (row.workState === "done") return { ...base, resolution: "retried-and-succeeded" };
   if (row.missionState === "closed") return { ...base, resolution: "mission-closed" };
   if (row.workState === "abandoned") return { ...base, resolution: "set-aside" };

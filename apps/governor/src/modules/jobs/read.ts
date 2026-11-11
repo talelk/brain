@@ -71,7 +71,7 @@ export function jobSnapshot(store: Store, row: Record<string, unknown>): JobSnap
   const outputs = ws.prepare("SELECT step_id,output_json FROM step_outputs WHERE run_id=?").all(runId) as { step_id: string; output_json: string }[];
   const events = store.control.prepare("SELECT e.event_json FROM attempt_events e JOIN job_attempts a ON a.id=e.attempt_id JOIN jobs j ON j.id=a.job_id WHERE j.organization_id=? AND j.workflow_run_id=? AND json_extract(e.event_json,'$.kind')='engine' ORDER BY j.created_at_ms DESC,e.seq DESC LIMIT 200").all(String(row["organization_id"]), runId) as { event_json: string }[];
   const bundle = ws.prepare("SELECT digest FROM evidence_bundles WHERE json_extract(manifest_json,'$.workflowRunId')=? ORDER BY created_at_ms DESC LIMIT 1").get(runId) as { digest: string } | undefined;
-  const context = runContext(ws, runId);
+  const context = runContext(ws, runId, String(row["state"]));
   const restarting = isRestarting(store, row);
   const view: JobSnapshotView = {
     jobId: String(row["id"]),

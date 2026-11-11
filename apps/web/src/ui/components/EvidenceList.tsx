@@ -42,6 +42,9 @@ export function EvidenceList(props: { bundleDigest?: string; workspaceId?: strin
         setBundle(loaded.snapshot.bundle);
         if (loaded.snapshot.verdict) setVerdict(loaded.snapshot.verdict);
         setStatus("ready");
+        // A criterion link (#check-<id>) arrives before this content exists: scroll to it once the checks are on the page.
+        const wanted = typeof window === "undefined" ? "" : decodeURIComponent(window.location.hash.slice(1));
+        if (wanted.startsWith("check-")) setTimeout(() => document.getElementById(wanted)?.scrollIntoView({ block: "center" }), 50);
       })
       .catch((e: unknown) => {
         if (current !== requestGeneration) return;
@@ -79,7 +82,7 @@ export function EvidenceList(props: { bundleDigest?: string; workspaceId?: strin
             />
             <For each={current()!.checks}>
               {(check) => (
-                <div class="flex items-center justify-between gap-2 border-b border-outline-gray-1 py-1">
+                <div id={`check-${check.checkId}`} class="flex scroll-mt-20 items-center justify-between gap-2 border-b border-outline-gray-1 py-1 target:bg-surface-blue-1">
                   <span class="min-w-0 truncate text-interface text-ink-gray-9" title={check.criterionId ?? check.checkId}>{check.criterionId ?? check.checkId}</span>
                   <StatusBadge kind="check" status={check.status} />
                 </div>

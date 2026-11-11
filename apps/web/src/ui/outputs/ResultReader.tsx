@@ -31,7 +31,7 @@ const BASIS: Record<NonNullable<TrustLine["rows"]>[number]["basis"], string> = {
 };
 
 /** "How this was checked": each criterion with its check basis, independence level L1-L3 and whether it passed. */
-export function HowChecked(props: { rows: NonNullable<TrustLine["rows"]> }): JSX.Element {
+export function HowChecked(props: { rows: NonNullable<TrustLine["rows"]>; evidenceHref?: string }): JSX.Element {
   return (
     <details class="min-w-0 text-interface" data-testid="how-checked">
       <summary class="cursor-pointer text-ink-gray-8">How this was checked</summary>
@@ -42,6 +42,7 @@ export function HowChecked(props: { rows: NonNullable<TrustLine["rows"]> }): JSX
               <span class="min-w-0 break-words font-medium text-ink-gray-9">{titleize(row.criterionId)}</span>
               <span class={row.basis === "model" || row.basis === "none" ? "text-ink-amber-9" : "text-ink-gray-7"}>{BASIS[row.basis]}</span>
               <span class="text-caption text-ink-gray-6">{row.status} · independence {row.independence}</span>
+              <Show when={props.evidenceHref}>{(href) => <a class="text-caption text-ink-blue-link underline focus-visible:focus-ring" data-testid="criterion-evidence" href={`${href()}#check-${encodeURIComponent(row.checkId)}`}>See the check</a>}</Show>
             </li>
           )}
         </For>
@@ -80,7 +81,7 @@ export function ResultReader(props: { result: StructuredResult; title: string; t
     <article class="flex min-w-0 flex-col gap-5" data-testid="result-reader" aria-label={`Result: ${props.title}`}>
       <div class="flex min-w-0 flex-col gap-2">
         <Show when={props.trust}>{(trust) => <TrustNote trust={trust()} />}</Show>
-        <Show when={props.trust?.rows?.length}><HowChecked rows={props.trust!.rows!} /></Show>
+        <Show when={props.trust?.rows?.length}><HowChecked rows={props.trust!.rows!} {...(props.trust!.evidenceHref ? { evidenceHref: props.trust!.evidenceHref } : {})} /></Show>
         <div class="flex min-w-0 flex-wrap items-center gap-2">
           <Button size="sm" variant="ghost" iconLeft={copied() ? "lucide-check" : "lucide-copy"} onClick={() => void copy()}>
             {copied() ? "Copied" : "Copy as Markdown"}

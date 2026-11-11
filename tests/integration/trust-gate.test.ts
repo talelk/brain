@@ -48,12 +48,16 @@ const done = async (w: World, actor: ActorContext, workItemId: string, digest: s
 const trustOf = async (w: World, digest: string): Promise<TrustRead | undefined> =>
   ((await w.brain.executeQuery(w.owner, { queryType: "evidence.get", workspaceId: w.workspaceId, resourceId: digest })) as unknown as { snapshot: { trust?: TrustRead } }).snapshot.trust;
 
+const missionTrust = async (w: World): Promise<Mission["taskTrust"]> =>
+  ((await w.brain.executeQuery(w.owner, { queryType: "missions.list", workspaceId: w.workspaceId })) as unknown as { snapshot: { items: Mission[] } }).snapshot.items[0]?.taskTrust;
+
 describe("Done and the trust line (#49)", () => {
   it("a deterministic evaluator's passed checks are checked by tests, files or hashes and need no sign-off", async () => {
     const { w, workItemId, digest } = await reviewed("deterministic");
     expect((await trustOf(w, digest))?.text).toBe("2 of 2 criteria checked by tests, files or hashes; 0 by human sign-off; 0 by model opinion.");
     const receipt = await done(w, { ...w.owner, kind: "agent" }, workItemId, digest, "d-agent");
     expect(receipt.accepted).toBe(true);
+    expect((await missionTrust(w))?.text).toBe("1 of 1 task checked by an independent reviewer; 0 by human sign-off; 0 model opinion only");
   });
 
   it("a criterion supported only by model opinion is Unverified: a non-person cannot make the task Done, a person's sign-off can and is recorded", async () => {
@@ -71,5 +75,6 @@ describe("Done and the trust line (#49)", () => {
     const after = await trustOf(w, digest);
     expect(after).toMatchObject({ deterministic: 0, human: 2, model: 0, unverified: [], signedOffBy: w.owner.actorId });
     expect(after?.text).toBe("0 of 2 criteria checked by tests, files or hashes; 2 by human sign-off; 0 by model opinion.");
+    expect((await missionTrust(w))?.text).toBe("0 of 1 task checked by an independent reviewer; 1 by human sign-off; 0 model opinion only");
   });
 });

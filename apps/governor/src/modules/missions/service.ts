@@ -9,6 +9,7 @@ import { activeReleaseRecord } from "../configuration/index";
 import { repeatGate, type RepeatPlan, type RepeatSchedule } from "./repeat";
 import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
 import { admit, admitChallenge, admitOutsideMission, budgetOf, DEFAULT_MISSION_BUDGET, hasHeadroom, limitChangeNote, minutesWord, reserve as reserveSpend, settle, settleAll, usageOf } from "./budget";
+import { missionTaskTrust } from "./task-trust";
 import { capReached, missionUsage, outsideMissionsUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUsage } from "./usage";
 import { planEstimate, planWallLimit } from "./estimate";
 import { listEvalCases, recordEvalCase } from "./eval-cases";
@@ -117,7 +118,9 @@ export class MissionService {
   private mission(workspaceId: string, row: MissionRow): Mission {
     const db = this.store.workspaceDb(workspaceId, this.organizationOf(workspaceId));
     settle(this.store, db, row.id);
+    const taskTrust = missionTaskTrust(this.store, this.organizationOf(workspaceId), db, row.id);
     return {
+      ...(taskTrust ? { taskTrust } : {}),
       budget: budgetOf(row), usage: usageOf(this.store, db, row, this.store.now()),
       subjects: (db.prepare("SELECT pack, kind, subject_id FROM mission_subjects WHERE mission_id=? ORDER BY kind, subject_id").all(row.id) as Array<{ pack: "support" | "sre"; kind: "ticket" | "incident"; subject_id: string }>).map((entry) => ({ pack: entry.pack, kind: entry.kind, id: entry.subject_id })),
       missionId: row.id, workspaceId, title: row.title, intent: row.intent, ...(row.play_id ? { playId: row.play_id } : {}),

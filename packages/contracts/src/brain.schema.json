@@ -6494,6 +6494,18 @@
         },
         "timeExtendedByBrain": {
           "type": "boolean"
+        },
+        "taskTrust": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "reviewer": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "human": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "model": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "text": { "type": "string", "minLength": 1, "maxLength": 1024 }
+          },
+          "required": ["total", "reviewer", "human", "model", "text"],
+          "additionalProperties": false
         }
       },
       "required": [

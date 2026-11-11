@@ -24,7 +24,6 @@ import { CorrelationLink } from "../ui/exec/CorrelationLink";
 export type RunIndexJob = JobSnapshot & { readonly sessionId?: string };
 
 const ACTIVE = ["queued", "offered", "running", "verifying"];
-const INTERVENTION = ["blocked", "outcome_unknown", "failed"];
 const PAGE_SIZE = 25;
 
 /** Shared client-side pager state: one clamped page accessor per list. */
@@ -67,6 +66,7 @@ function nextRunAction(job: JobSnapshot): string {
   if (job.state === "outcome_unknown") return "Reconcile outcome";
   if (job.state === "blocked") return "Inspect blocker";
   if (job.state === "succeeded") return "View verified result";
+  if (job.state === "failed") return "It did not work; open it to see why and what to do next";
   if (ACTIVE.includes(job.state)) return "Open live run";
   return "Inspect run";
 }
