@@ -49,6 +49,10 @@ Confirmed live: run inspector (plain failure reason + next step), **Context rece
 | 70 | Logs > Runs "Needs intervention 4": four old failed attempts of tasks that later succeeded (missions achieved) stay flagged for ever, while Today says nothing needs you: only unresolved runs (work item not done through a later attempt) belong there | UI/read model |
 | 71 | Runs list rows show raw job ids ("job-mwc4rxdd-2w-66kagflk") and the generic title "Do a task": show the work item/mission title and a plain state | UI |
 
+## Track AC deployed (2026-11-11 ~20:45, `4a2b03b`)
+Vocabulary (ADRs 0018-0020, GLOSSARY): `Run`/`RunId` first-class contract types (`readRun` mapper, no `run.get` query yet), `WorkflowStep` (steps) vs jobs (runtime unit), one `RunState` (state machine `run`); no DB renames; persisted names kept on purpose (`spec.jobs` keys, binding `jobId`, `workflowRunId` in evidence/attempt/job rows). Checked after deploy: Governor readiness ready, smoke verified, 9/9 checks ready; runner reconnected, no errors after the restart window. Browser signed out again after the deploy: a full live mission to prove the renamed runtime end to end still needs the owner to sign in (or the next heartbeat after sign-in).
+Open: Studio shows "Visual steps are stored under the canonical spec.jobs key" (only place a user sees `jobs`); add a `run.get` query if wanted.
+
 ## Not yet walked live
 Share link page (creating a public link needs the owner's explicit OK: the assistant is blocked from granting access; ask the user to create one and confirm it opens read-only without sign-in) (`/shared/:token`), Library Plays shelf after "Add starter Plays", scheduled Repeat occurrence (auto-confirm), Notification preferences (Security).
 
