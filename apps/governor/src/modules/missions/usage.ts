@@ -11,7 +11,12 @@ export type AttemptUsage = {
   accounting: "final-total" | "incremental"; estimated: boolean;
 };
 
-type UsageEvent = { kind?: string; payload?: { usageId?: string; inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; microUsd?: number; accounting?: string; estimated?: boolean } };
+type UsagePayload = { usageId?: string; inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; microUsd?: number; accounting?: string; estimated?: boolean };
+/**
+ * An attempt event as stored: the runner wraps each engine event, so a usage report is
+ * `{ kind: "engine", payload: { kind: "usage", payload: {...} } }`.
+ */
+type UsageEvent = { kind?: string; payload?: { kind?: string; payload?: UsagePayload } };
 const count = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.round(value) : 0);
 
 /**
@@ -24,8 +29,9 @@ export function tallyUsage(events: readonly UsageEvent[]): AttemptUsage {
   let final: AttemptUsage | undefined;
   let anonymous = 0;
   for (const event of events) {
-    const p = event.payload;
-    if (event.kind !== "usage" || !p) continue;
+    const engineEvent = event.kind === "engine" ? event.payload : undefined;
+    const p = engineEvent?.kind === "usage" ? engineEvent.payload : undefined;
+    if (!p) continue;
     const entry = { inputTokens: count(p.inputTokens), outputTokens: count(p.outputTokens), cachedInputTokens: count(p.cachedInputTokens), microUsd: count(p.microUsd), estimated: p.estimated === true };
     if (p.accounting === "final-total") final = { ...entry, accounting: "final-total" };
     else incremental.set(typeof p.usageId === "string" ? p.usageId : `anonymous-${anonymous++}`, { ...entry, accounting: "incremental" });

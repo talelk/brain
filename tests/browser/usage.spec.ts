@@ -70,7 +70,7 @@ test("usage: tokens and dollars at run, task, mission and workspace level; token
   // First attempt runs on a local model: 900 in, 50 out, 30 read from cache, zero dollars.
   const first = brain.jobProtocol.claim(runner, "req-u-1") as unknown as Offer;
   expect(first.jobId).toBe("job-u-a");
-  s.control.prepare("INSERT INTO attempt_events(attempt_id, seq, event_json) VALUES (?,?,?)").run(first.attemptId, 1, JSON.stringify({ kind: "usage", payload: { usageId: "u1", inputTokens: 900, outputTokens: 50, cachedInputTokens: 30, microUsd: 0, accounting: "final-total", estimated: false } }));
+  s.control.prepare("INSERT INTO attempt_events(attempt_id, seq, event_json) VALUES (?,?,?)").run(first.attemptId, 1, JSON.stringify({ kind: "engine", payload: { kind: "usage", payload: { usageId: "u1", inputTokens: 900, outputTokens: 50, cachedInputTokens: 30, microUsd: 0, accounting: "final-total", estimated: false } } }));
   s.control.prepare("UPDATE job_attempts SET state='succeeded' WHERE id=?").run(first.attemptId);
   brain.jobProtocol.releaseReservation(first.attemptId);
 

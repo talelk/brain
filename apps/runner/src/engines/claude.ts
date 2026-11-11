@@ -192,7 +192,7 @@ export class ClaudeEngine implements EngineAdapter {
       });
       this.query = execution;
       for await (const message of execution) {
-        const m = message as unknown as { type: string; message?: { content?: Array<{ type: string; text?: string }> }; result?: string; subtype?: string; is_error?: boolean; total_cost_usd?: number; usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number } };
+        const m = message as unknown as { type: string; message?: { content?: Array<{ type: string; text?: string }> }; result?: string; subtype?: string; is_error?: boolean; total_cost_usd?: number; usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number } };
         if (m.type === "assistant") {
           for (const block of m.message?.content ?? []) {
             if (block.type === "text" && block.text) {
@@ -206,7 +206,7 @@ export class ClaudeEngine implements EngineAdapter {
         if (m.type === "result") {
           input.close();
           if (m.subtype !== "success" || m.is_error) throw new Error(`Claude run did not succeed: ${m.subtype ?? "unknown result"}`);
-          const inputTokens = m.usage?.input_tokens ?? 0, outputTokens = m.usage?.output_tokens ?? 0, cachedInputTokens = m.usage?.cache_read_input_tokens ?? 0;
+          const inputTokens = (m.usage?.input_tokens ?? 0) + (m.usage?.cache_creation_input_tokens ?? 0), outputTokens = m.usage?.output_tokens ?? 0, cachedInputTokens = m.usage?.cache_read_input_tokens ?? 0;
           const microUsd = resolveAnthropicEndpoint(process.env).local ? 0 : Math.ceil((m.total_cost_usd ?? 0)*1000000);
           this.push("usage",{usageId:`claude-usage-${spec.attemptId}`,inputTokens,outputTokens,cachedInputTokens,microUsd,accounting:"final-total",estimated:false});
           if (inputTokens+outputTokens+cachedInputTokens > spec.limits.maxTokens || overCostCap(microUsd, spec.limits.maxMicroUsd)) throw new Error("Claude execution exceeded its pinned token/cost budget");

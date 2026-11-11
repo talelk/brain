@@ -48,11 +48,11 @@ function seedRunner(w: World, runnerId: string, slots = 4) {
 
 /** The runner reports usage and the attempt releases its capacity, as at the end of a real attempt. */
 function finishAttempt(w: World, attemptId: string, microUsd: number, tokens?: { inputTokens: number; outputTokens: number; cachedInputTokens?: number }): void {
-  w.brain.store.control.prepare("INSERT INTO attempt_events(attempt_id, seq, event_json) VALUES (?,?,?)").run(attemptId, 1, JSON.stringify({ kind: "usage", payload: { microUsd, accounting: "final-total", ...tokens } }));
+  w.brain.store.control.prepare("INSERT INTO attempt_events(attempt_id, seq, event_json) VALUES (?,?,?)").run(attemptId, 1, JSON.stringify({ kind: "engine", payload: { kind: "usage", payload: { microUsd, accounting: "final-total", ...tokens } } }));
   w.brain.jobProtocol.releaseReservation(attemptId);
 }
 function reportUsage(w: World, attemptId: string, seq: number, payload: Record<string, unknown>): void {
-  w.brain.store.control.prepare("INSERT INTO attempt_events(attempt_id, seq, event_json) VALUES (?,?,?)").run(attemptId, seq, JSON.stringify({ kind: "usage", payload }));
+  w.brain.store.control.prepare("INSERT INTO attempt_events(attempt_id, seq, event_json) VALUES (?,?,?)").run(attemptId, seq, JSON.stringify({ kind: "engine", payload: { kind: "usage", payload } }));
 }
 const usageOf = async (w: World, queryType: string, resourceId?: string) => ((await w.brain.executeQuery(w.owner, { queryType, workspaceId: w.workspaceId, ...(resourceId ? { resourceId } : {}) } as never)) as unknown as { snapshot: { usage: Record<string, unknown>; attemptRows?: Array<Record<string, unknown>>; spendCap?: Record<string, number> } }).snapshot;
 const queueReason = (w: World, jobId: string) => (w.brain.store.control.prepare("SELECT queue_reason FROM jobs WHERE id=?").get(jobId) as { queue_reason: string | null }).queue_reason;

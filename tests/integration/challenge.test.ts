@@ -184,7 +184,7 @@ describe("a challenge is charged to the mission it reviews (row 39)", () => {
     const row = db(w).prepare("SELECT mission_id, run_id FROM mission_spend WHERE attempt_id=?").get(offer!.attemptId) as { mission_id: string; run_id: string } | undefined;
     expect(row).toEqual({ mission_id: missionId, run_id: started!.runId });
     // The attempt reports its usage and releases its capacity: the mission's usage grows by exactly that.
-    w.brain.store.control.prepare("INSERT INTO attempt_events(attempt_id, seq, event_json) VALUES (?,?,?)").run(offer!.attemptId, 1, JSON.stringify({ kind: "usage", payload: { microUsd: 4200, accounting: "final-total", inputTokens: 300, outputTokens: 50 } }));
+    w.brain.store.control.prepare("INSERT INTO attempt_events(attempt_id, seq, event_json) VALUES (?,?,?)").run(offer!.attemptId, 1, JSON.stringify({ kind: "engine", payload: { kind: "usage", payload: { microUsd: 4200, accounting: "final-total", inputTokens: 300, outputTokens: 50 } } }));
     w.brain.jobProtocol.releaseReservation(offer!.attemptId);
     w.brain.missions.admission(w.org, w.workspaceId, started!.runId!);
     const after = await missionUsage(w, missionId);

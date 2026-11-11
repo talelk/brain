@@ -153,6 +153,7 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
   let terminalConfirmed = false;
   let terminalOutput: { digest: string; bytes: number } | undefined;
   let engineError = false;
+  let tokensReported = false;
   const cleanup = async (operation: () => Promise<unknown>): Promise<boolean> => {
     let cleanupTimer: ReturnType<typeof setTimeout> | undefined;
     try {
@@ -212,6 +213,10 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
       if (next.done) break;
       const event = next.value;
       await bounded(input.emit("engine", event as unknown as JsonValue));
+      if (event.kind === "usage") {
+        const reported = totalsOf(event.payload as unknown as Record<string, unknown>);
+        if (reported.inputTokens + reported.outputTokens + reported.cachedInputTokens > 0) tokensReported = true;
+      }
       if (event.kind === "tool.proposed") {
         if (!input.executeTool || !engine.toolResult) throw new Error("Agent proposed a tool without a governed broker");
         const result = await bounded(input.executeTool(event.payload));
@@ -244,6 +249,11 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
   };
   const result = await execute();
   clearTimeout(timer);
+  // An endpoint that reports no usage must not leave the meter empty: charge a flagged estimate of 4 bytes per token.
+  if (sessionId && !tokensReported) {
+    const estimate = estimatedUsage(input.attemptId, sessionId, instructionsBytes.length + taskBytes.length, new TextEncoder().encode(outputText).length);
+    await Promise.resolve(input.emit("engine", estimate as unknown as JsonValue)).catch(() => undefined);
+  }
   let cleanupConfirmed = !sessionId && !startPending;
   if (sessionId) {
     let terminationConfirmed = terminalConfirmed;
@@ -260,11 +270,21 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
   return { ...result, ok: result.ok && cleanupConfirmed, cleanupConfirmed };
 }
 
-type UsageTotals = { inputTokens: number; outputTokens: number; cachedInputTokens: number; microUsd: number };
+type UsageTotals = { inputTokens: number; outputTokens: number; cachedInputTokens: number; microUsd: number; estimated: boolean };
 const totalsOf = (payload: Record<string, unknown>): UsageTotals => {
   const n = (value: unknown) => (typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0);
-  return { inputTokens: n(payload["inputTokens"]), outputTokens: n(payload["outputTokens"]), cachedInputTokens: n(payload["cachedInputTokens"]), microUsd: n(payload["microUsd"]) };
+  return { inputTokens: n(payload["inputTokens"]), outputTokens: n(payload["outputTokens"]), cachedInputTokens: n(payload["cachedInputTokens"]), microUsd: n(payload["microUsd"]), estimated: payload["estimated"] === true };
 };
+
+/** Tokens at 4 bytes each, rounded up; a model that wrote something is charged at least one output token. */
+const tokensOfBytes = (bytes: number): number => Math.ceil(bytes / 4);
+function estimatedUsage(attemptId: string, sessionId: string, promptBytes: number, outputBytes: number): Record<string, unknown> {
+  return {
+    contractVersion: "brain.engine-event/v1", eventId: `usage-estimate-${attemptId}`, sessionId, attemptId, sequence: 1_000_000,
+    occurredAt: new Date().toISOString(), kind: "usage",
+    payload: { usageId: `usage-estimate-${attemptId}`, inputTokens: tokensOfBytes(promptBytes), outputTokens: tokensOfBytes(outputBytes), cachedInputTokens: 0, microUsd: 0, accounting: "final-total", estimated: true },
+  };
+}
 
 /**
  * Runs the agent step. Strings are repaired when decoding (see `decodeModelJson`); a reply that is still not valid JSON gets one
@@ -292,7 +312,8 @@ export async function runAgentExecution(input: AgentExecutionInput): Promise<Age
         const now = totalsOf(event.payload);
         await input.emit(kind, { ...event, payload: { ...event.payload, usageId: `${String(event.payload["usageId"] ?? "usage")}-corrected`,
           inputTokens: carried.inputTokens + now.inputTokens, outputTokens: carried.outputTokens + now.outputTokens,
-          cachedInputTokens: carried.cachedInputTokens + now.cachedInputTokens, microUsd: carried.microUsd + now.microUsd } });
+          cachedInputTokens: carried.cachedInputTokens + now.cachedInputTokens, microUsd: carried.microUsd + now.microUsd,
+          estimated: carried.estimated || event.payload["estimated"] === true } });
         return;
       }
       await input.emit(kind, payload);
