@@ -10,7 +10,14 @@ import { brokerRead } from "./tools/broker-read";
 import { DurableEventSpool } from "./spool-durable";
 import { GovernorClient, GovernorProtocolError } from "./governor-client";
 import { LauncherClient } from "./launcher-client";
+import { payloadValidator } from "@brain/contracts/validate";
 import { promptWithContext, runAgentExecution, selectEngine } from "./engines/run";
+
+/** The step's output schema, as sent with its job, turned into a check that lists the violations of a reply; a schema that cannot be compiled checks nothing. */
+function outputContractCheck(schema: unknown): ((output: JsonValue) => readonly string[]) | undefined {
+  if (!schema || typeof schema !== "object") return undefined;
+  try { const check = payloadValidator(schema); return (output) => { const result = check(output); return result.ok ? [] : result.errors; }; } catch { return undefined; }
+}
 
 export interface RunnerConfig {
   readonly governorUrl: string;
@@ -254,6 +261,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
         jobId: offer.jobId, configDigest: offer.configDigest, sourceRevision: offer.sourceRevision ?? offer.configDigest,
         instructions, task, modelId: process.env["BRAIN_LOCAL_MODEL_ID"], timeoutMs: (step.timeoutSeconds ?? 300) * 1000,
         maxTurns: asset.agent.spec.maxTurns, maxTokens: asset.agent.spec.maxTokens,
+        outputCheck: outputContractCheck((payload as { outputSchema?: unknown }).outputSchema),
         maxMicroUsd: asset.agent.spec.maxMicroUsd, allowedTools: asset.agent.spec.tools,
         onSession: (handle) => {
           steer = handle.features.includes("steer")

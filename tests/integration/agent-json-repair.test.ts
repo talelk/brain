@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { payloadValidator } from "@brain/contracts/validate";
 import { sha256Digest } from "@brain/contracts";
 import type { EngineAdapter, EngineEvent, EngineSessionSpec } from "@brain/contracts";
 import { decodeModelJson, repairJsonStrings, runAgentExecution } from "../../apps/runner/src/engines/run";
@@ -99,5 +101,54 @@ describe("one corrective try for a reply that is still not JSON", () => {
       await run(engine);
       expect(tasks).toHaveLength(1);
     }
+  });
+});
+
+/** The plan guide's real output schema: a reply that parses but breaks it is corrected once, told exactly which violations to fix. */
+describe("one corrective try for a reply that breaks the output contract", () => {
+  const schema = JSON.parse(readFileSync("examples/v1/starter-release/schemas/plan-guide-output.json", "utf8")) as object;
+  const check = payloadValidator(schema);
+  const outputCheck = (output: unknown) => { const result = check(output); return result.ok ? [] : result.errors; };
+  const withAssignment = (assignment: unknown) => JSON.stringify({ summary: "s", tasks: [{ id: "review", title: "Review", criteria: ["Reviewed"], dependsOn: [], assignment }] });
+  const runChecked = (engine: EngineAdapter, events: Array<{ kind: string; payload: unknown }> = []) => runAgentExecution({
+    engine, attemptId: "att-contract", jobFence: 1, leaseId: "lease-contract", runnerId: "runner-contract", organizationId: "org", workspaceId: "ws", jobId: "job-contract",
+    configDigest: `sha256:${"d".repeat(64)}`, task: "Plan it", timeoutMs: 2000, outputCheck, emit: async (kind, payload) => { events.push({ kind, payload }); }, signal: new AbortController().signal,
+  });
+
+  it("a human assignment without an id (the live failure) is fixed in the same attempt, with the exact violation in the prompt", async () => {
+    const { engine, tasks } = scripted([{ text: withAssignment({ kind: "human", role: "reviewer" }), usage: { inputTokens: 800, outputTokens: 400, microUsd: 0 } }, { text: withAssignment({ kind: "human", id: "owner", role: "reviewer" }), usage: { inputTokens: 1200, outputTokens: 420, microUsd: 0 } }]);
+    const events: Array<{ kind: string; payload: unknown }> = [];
+    const result = await runChecked(engine, events);
+    expect(result.ok).toBe(true);
+    expect((result.output as { tasks: Array<{ assignment: { id: string } }> }).tasks[0]!.assignment.id).toBe("owner");
+    expect(tasks).toHaveLength(2);
+    expect(tasks[1]).toContain("/tasks/0/assignment");
+    expect(tasks[1]).toContain("id");
+    expect(tasks[1]).toContain("does not meet the required output contract");
+    const totals = events.filter((event) => event.kind === "engine" && (event.payload as { kind?: string }).kind === "usage").map((event) => (event.payload as { payload: Record<string, number> }).payload);
+    expect(totals.at(-1)).toMatchObject({ inputTokens: 2000, outputTokens: 820 });
+  });
+
+  it("a conforming reply costs exactly one session", async () => {
+    const { engine, tasks } = scripted([{ text: withAssignment({ kind: "human", id: "owner", role: "reviewer" }) }]);
+    expect((await runChecked(engine)).ok).toBe(true);
+    expect(tasks).toHaveLength(1);
+  });
+
+  it("a correction that is worse is never taken: the first reply stands", async () => {
+    const first = withAssignment({ kind: "human", role: "reviewer" });
+    const worse = JSON.stringify({ summary: "s", tasks: [{ id: "Bad Id", title: "", criteria: [], dependsOn: [] }] });
+    const { engine, tasks } = scripted([{ text: first }, { text: worse }]);
+    const result = await runChecked(engine);
+    expect(tasks).toHaveLength(2);
+    expect(result.output).toEqual(JSON.parse(first));
+  });
+
+  it("broken JSON is still corrected by the parse correction, not the contract one", async () => {
+    const { engine, tasks } = scripted([{ text: '{"summary":"an unescaped "quote" inside","tasks":[]}' }, { text: withAssignment(undefined) }]);
+    const result = await runChecked(engine);
+    expect(result.ok).toBe(true);
+    expect(tasks).toHaveLength(2);
+    expect(tasks[1]).toContain("not valid JSON");
   });
 });

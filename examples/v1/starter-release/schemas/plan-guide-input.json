@@ -28,6 +28,10 @@
     "reused": {
       "type": "string",
       "maxLength": 8000
+    },
+    "related": {
+      "type": "string",
+      "maxLength": 4000
     }
   },
   "required": [
@@ -35,7 +39,8 @@
     "intent",
     "successCriteria",
     "capabilities",
-    "reused"
+    "reused",
+    "related"
   ],
   "additionalProperties": false
 }

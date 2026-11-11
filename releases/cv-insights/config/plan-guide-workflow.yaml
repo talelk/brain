@@ -14,11 +14,12 @@
           "intent": { "source": "input", "pointer": "/intent" },
           "successCriteria": { "source": "input", "pointer": "/successCriteria" },
           "capabilities": { "source": "input", "pointer": "/capabilities" },
-          "reused": { "source": "input", "pointer": "/reused" }
+          "reused": { "source": "input", "pointer": "/reused" },
+          "related": { "source": "input", "pointer": "/related" }
         },
         "outputSchemaRef": "schemas/plan-guide-output.json",
         "timeoutSeconds": 180,
-        "uses": { "type": "agent", "release": { "id": "plan-guide-assistant", "digest": "sha256:8afd5aca0bf783415a24d151c726c636e1876d2735349523935fb46b5c64484d" } },
+        "uses": { "type": "agent", "release": { "id": "plan-guide-assistant", "digest": "sha256:d1a5fd64a3355c7d16c4f55499a4b0b02b9055dd7d6725612d07f64d5e7672b6" } },
         "runsOn": {
           "group": "agents",
           "engine": { "anyOf": ["pi"], "features": ["sessions"] },

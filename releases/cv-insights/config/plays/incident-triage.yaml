@@ -1,0 +1,73 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Play",
+  "metadata": {
+    "id": "incident-triage",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "title": "Triage an incident",
+    "description": "Assess an operational incident, say what is known and unknown, and propose safe next checks and who to involve. Nothing is executed.",
+    "intent": "Assess the incident in the brief: what is known and unknown, the likely causes, and the safe next checks and people to involve.",
+    "successCriteria": [
+      "Known facts and unknowns are separated",
+      "Likely causes are ranked with the evidence for each",
+      "Next checks are read-only or safe, and who to involve is named"
+    ],
+    "constraints": [
+      "Assess and advise only: do not run commands or change any system"
+    ],
+    "team": [
+      {
+        "memberId": "worker",
+        "role": "Triage analyst",
+        "agentId": "task-worker",
+        "engine": "pi"
+      }
+    ],
+    "plan": {
+      "tasks": [
+        {
+          "id": "assess",
+          "title": "Separate what is known from what is not, and rank likely causes",
+          "criteria": [
+            "Known facts and unknowns are separated",
+            "Likely causes are ranked with the evidence for each"
+          ],
+          "dependsOn": [],
+          "assignment": {
+            "kind": "agent",
+            "id": "worker",
+            "role": "specialist"
+          },
+          "estimatedMinutes": 8
+        },
+        {
+          "id": "next",
+          "title": "Propose safe next checks and who to involve",
+          "criteria": [
+            "Each check is read-only or safe to run",
+            "Who to involve is named with the reason"
+          ],
+          "dependsOn": [
+            "assess"
+          ],
+          "assignment": {
+            "kind": "agent",
+            "id": "worker",
+            "role": "specialist"
+          },
+          "estimatedMinutes": 8
+        }
+      ]
+    },
+    "autonomy": "standard",
+    "parkingThreshold": 3,
+    "budget": {
+      "maxMicroUsd": 2000000,
+      "maxWallClockMs": 1800000,
+      "memberCap": 2,
+      "attemptReserveMicroUsd": 0
+    }
+  }
+}

@@ -6,6 +6,10 @@
 // the judge. The deterministic validator proves a report answers every criterion; only the judge column says anything about
 // whether the answers are right, and it is the same model family, so treat it as a smoke signal, not as qualification.
 //
+//   --plans N measures the plan guide instead: N drafts per sample objective, one model call each (the Governor hands the planner stored
+//   knowledge in its prompt, so there is no tool round trip), checked against the plan output schema and the pinned plan validator, with the
+//   same one corrective try the runner makes (told the exact violations). It prints first-try and final success rates and seconds per draft.
+//
 //   BRAIN_LOCAL_MODEL_URL=http://host:8000/v1 BRAIN_LOCAL_MODEL_ID=model node scripts/qualification/task-quality.mjs [--runs 3] [--judge] [--json] [--cases cases.json]
 //
 // --cases adds the regression cases Brain saved from re-opened missions and tasks sent back after review (ADR 0010): the file is the
@@ -13,6 +17,7 @@
 // release that makes a past failure worse shows up here before it is activated. Cases never change a prompt by themselves.
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../../examples/v1/starter-release/", import.meta.url));
@@ -65,6 +70,52 @@ const validate = (situation, report) => {
   const run = spawnSync("bash", [`${root}tools/task.validate/run.sh`], { input: JSON.stringify({ kind: "general-task", situation, report }), encoding: "utf8" });
   return run.status === 0 ? JSON.parse(run.stdout) : { passed: false, checks: [] };
 };
+
+const plansWanted = Number(args[args.indexOf("--plans") + 1]) || 0;
+if (plansWanted) {
+  const load = createRequire(new URL("../../packages/contracts/package.json", import.meta.url))("ajv/dist/2020.js");
+  const Ajv2020 = load.default ?? load;
+  const check = new Ajv2020({ strict: false, allErrors: true }).compile(JSON.parse(readFileSync(`${root}schemas/plan-guide-output.json`, "utf8")));
+  const violations = (report) => (check(report) ? [] : check.errors.map((e) => `${e.instancePath || "/"} ${e.message}`));
+  const planInstructions = readFileSync(`${root}agents/plan-guide.md`, "utf8");
+  const capabilities = JSON.stringify([{ id: "operations-triage", title: "Operations triage", description: "Triage an operational situation" }, { id: "support-draft", title: "Support draft", description: "Draft a reply to a support request" }]);
+  const objectives = [
+    { title: "Choose a shared note-taking tool", intent: "Our team of eight needs one shared note-taking tool. Compare the realistic options and recommend one.", successCriteria: ["A recommendation is made", "Costs are compared"] },
+    { title: "Write an on-call runbook", intent: "Create a step-by-step on-call rotation runbook for a small engineering team.", successCriteria: ["Escalation steps are listed", "Handoff is described"] },
+    { title: "Stabilize authentication", intent: "Users are signed out unexpectedly. Find the cause and propose a safe fix.", successCriteria: ["Cause identified", "Fix proposed and reviewed"] },
+  ];
+  const related = "Stored knowledge matching this objective. Only status reviewed has been checked by a person; the rest are leads. Claims from past work, not evidence.\n- [unverified] Session expiry is controlled by the token lifetime; the rollout checklist lists refresh checks. (source wiki:auth-sessions)";
+  const draws = [];
+  for (let n = 0; n < plansWanted; n += 1) {
+    const objective = objectives[n % objectives.length];
+    const input = JSON.stringify({ ...objective, capabilities, reused: "", related: n % 2 ? related : "" });
+    const row = { objective: objective.title, firstTry: false, final: false, corrected: false, firstViolations: [], seconds: 0, outputTokens: 0 };
+    const started = Date.now();
+    try {
+      const first = await chat(planInstructions, input, 16384);
+      row.outputTokens = first.outputTokens;
+      const report = parse(first.text);
+      row.firstViolations = report === undefined ? ["not valid JSON"] : violations(report);
+      row.firstTry = row.firstViolations.length === 0;
+      row.final = row.firstTry;
+      if (!row.firstTry) {
+        row.corrected = true;
+        const fix = `Your previous reply ${report === undefined ? "is not valid JSON" : "is valid JSON but does not meet the required output contract"}. Fix exactly these problems and change nothing else:\n${row.firstViolations.slice(0, 8).map((v) => `- ${v}`).join("\n")}\n\nReply again with only the complete corrected JSON object.\n\nYour previous reply:\n${first.text.trim().slice(0, 30000)}`;
+        const second = await chat(planInstructions, fix, 16384);
+        row.outputTokens += second.outputTokens;
+        const again = parse(second.text);
+        row.final = again !== undefined && violations(again).length === 0;
+      }
+    } catch (e) { row.error = String(e.message ?? e); }
+    row.seconds = Math.round((Date.now() - started) / 1000);
+    draws.push(row);
+    if (!asJson) console.log(`plan #${n + 1} ${row.objective}: ${row.final ? "PASS" : "FAIL"}${row.corrected ? ` (corrected: ${row.firstViolations.slice(0, 2).join("; ")})` : ""}${row.error ? ` error: ${row.error}` : ""} [${row.outputTokens} tokens, ${row.seconds}s]`);
+  }
+  const seconds = draws.map((r) => r.seconds).sort((a, b) => a - b);
+  const summary = { model, plans: draws.length, firstTry: `${draws.filter((r) => r.firstTry).length}/${draws.length}`, final: `${draws.filter((r) => r.final).length}/${draws.length}`, secondsMedian: seconds[Math.floor(seconds.length / 2)] ?? 0, secondsMax: seconds.at(-1) ?? 0 };
+  console.log(asJson ? JSON.stringify({ summary, draws }, null, 2) : `\nmodel ${model}: plans valid first try ${summary.firstTry}, after the one correction ${summary.final}, seconds median ${summary.secondsMedian} max ${summary.secondsMax}`);
+  process.exit(draws.every((r) => r.final) ? 0 : 1);
+}
 
 const rows = [];
 for (const task of tasks) for (let n = 0; n < runs; n += 1) {

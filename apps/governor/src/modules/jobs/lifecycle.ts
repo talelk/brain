@@ -38,6 +38,15 @@ function agentPlacement(s: Store, input: CreateJobInput): string {
   return JSON.stringify({ ...placement, engine: { anyOf, features: [...new Set([...agent.spec.engine.features, ...(placement.engine?.features ?? [])])] } });
 }
 
+/** An agent step carries its output schema so the runner can tell the model exactly which violations to fix before the Governor rejects the reply. */
+function withOutputSchema(s: Store, input: CreateJobInput): JsonValue {
+  const payload = input.payload as { step?: { uses?: { type: string }; outputSchemaRef?: string } } & Record<string, JsonValue>;
+  const step = payload.step;
+  if (input.kind !== "dispatch" || step?.uses?.type !== "agent" || !step.outputSchemaRef) return input.payload;
+  const schema = releaseRecord(s, input.organizationId, input.configDigest)?.release.schemas?.[step.outputSchemaRef];
+  return schema ? { ...payload, outputSchema: schema as JsonValue } : input.payload;
+}
+
 /** Queues the job for one step; the execution key makes a repeat return the same job. */
 export function createJobForStep(s: Store, input: CreateJobInput): string {
   return s.inTx(s.control, () => {
@@ -50,7 +59,7 @@ export function createJobForStep(s: Store, input: CreateJobInput): string {
     s.control.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, queue_reason, created_at_ms, ready_at_ms, deadline_ms)
       VALUES (?,?,?,?,?,?,'queued',?,?,?,?,'WAITING_FOR_RUNNER',?,?,?)`)
       .run(jobId, input.organizationId, input.workspaceId, input.executionKey, input.runId, input.stepId, input.configDigest, placementJson, input.executionDigest, input.effectClass, s.now(), s.now(), s.now() + 7 * 24 * 3600_000);
-    s.control.prepare("INSERT INTO job_payloads(job_id, kind, payload_json) VALUES (?,?,?)").run(jobId, input.kind, JSON.stringify(input.payload));
+    s.control.prepare("INSERT INTO job_payloads(job_id, kind, payload_json) VALUES (?,?,?)").run(jobId, input.kind, JSON.stringify(withOutputSchema(s, input)));
     s.emit(s.control, { organizationId: input.organizationId, workspaceId: input.workspaceId, aggregateType: "job", aggregateId: jobId, eventType: "job.queued", payload: { jobId, runId: input.runId, stepId: input.stepId }, destinations: [`workspace:${input.workspaceId}`] });
     return jobId;
   });

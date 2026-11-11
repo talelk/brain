@@ -47,6 +47,11 @@ export interface AgentExecutionInput {
   maxTokens?: number;
   maxMicroUsd?: number;
   maxTurns?: number;
+  /**
+   * The violations of the step's output contract found in a decoded reply (empty when it conforms). A reply that parses but breaks the
+   * contract gets the one corrective session too, told exactly which violations to fix, instead of failing the whole step blind.
+   */
+  outputCheck?: ((output: JsonValue) => readonly string[]) | undefined;
   allowedTools?: readonly ReleaseRef[];
   executeTool?: (proposal: { proposalId: string; tool: ReleaseRef; input: JsonValue; target: { targetId: string; environmentId: string; preconditionDigest: string }; inputDigest: string }) => Promise<EngineToolExecutionResult>;
   /**
@@ -128,6 +133,11 @@ function brokenJson(text: string, output: JsonValue): boolean {
 const CORRECTION_CHARS = 30_000;
 function correctiveTask(previous: string): string {
   return `Your previous reply was meant to be one JSON object but it is not valid JSON, so it could not be used. Reply again with only the corrected JSON object: the same content, valid JSON, with every double quote and backslash inside a string escaped, and no text, code fence or comment around it.\n\nYour previous reply:\n${previous.trim().slice(0, CORRECTION_CHARS)}`;
+}
+
+function violationTask(previous: string, violations: readonly string[]): string {
+  const listed = violations.slice(0, 8).map((violation) => `- ${violation.slice(0, 300)}`).join("\n");
+  return `Your previous reply is valid JSON but does not meet the required output contract, so it could not be used. Fix exactly these problems and change nothing else:\n${listed}\n\nReply again with only the complete corrected JSON object, with no text, code fence or comment around it.\n\nYour previous reply:\n${previous.trim().slice(0, CORRECTION_CHARS)}`;
 }
 
 async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecutionResult> {
@@ -301,11 +311,19 @@ export async function runAgentExecution(input: AgentExecutionInput): Promise<Age
       await input.emit(kind, payload);
     },
   });
-  if (!first$.ok || !brokenJson(first$.outputText, first$.output) || input.signal.aborted) return first$;
+  if (!first$.ok || input.signal.aborted) return first$;
+  let violations: readonly string[] = [];
+  let corrective: string | undefined;
+  if (brokenJson(first$.outputText, first$.output)) corrective = correctiveTask(first$.outputText);
+  else if (input.outputCheck && first$.output !== null && typeof first$.output === "object") {
+    violations = input.outputCheck(first$.output);
+    if (violations.length > 0) corrective = violationTask(first$.outputText, violations);
+  }
+  if (!corrective) return first$;
   const carried = first;
   const second = await runAgentSession({
     ...input,
-    task: correctiveTask(first$.outputText),
+    task: corrective,
     emit: async (kind, payload) => {
       const event = payload as { kind?: string; payload?: Record<string, unknown> };
       if (carried && kind === "engine" && event.kind === "usage" && event.payload?.["accounting"] === "final-total") {
@@ -320,5 +338,8 @@ export async function runAgentExecution(input: AgentExecutionInput): Promise<Age
     },
   });
   // A correction that is still not JSON, or whose session failed, changes nothing: the first reply stands and fails validation as before.
-  return second.ok && typeof second.output !== "string" ? second : first$;
+  if (!second.ok || typeof second.output === "string" || second.output === null) return first$;
+  // A correction that breaks the contract in more places than the first reply did is no improvement.
+  if (violations.length > 0 && input.outputCheck && input.outputCheck(second.output).length > violations.length) return first$;
+  return second;
 }

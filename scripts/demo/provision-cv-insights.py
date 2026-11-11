@@ -170,7 +170,8 @@ dispatch("evolve-roadmap", "plan-guide", {
     "intent": "Plan the next improvements to Keyrus CV Insights: candidate dedup (M1), resume intel extraction (M3/M4 orgs/tenures/tech), and geo coverage beyond TN.",
     "successCriteria": ["Prioritized roadmap with owners", "Effort + risk noted per item"],
     "capabilities": "Teamtailor MCP connector, DuckDB star schema, parquet read model, Rill dashboards, daily watermark sync",
-    "reused": ""})
+    "reused": "",
+    "related": ""})
 
 # 7. poll runs
 print("polling runs...")

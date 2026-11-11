@@ -35,7 +35,7 @@ describe("tool registry read (issue #84)", () => {
       expect([...byId.keys()].sort()).toEqual(["csv.query", "documents.read", "knowledge.search", "operations.context", "operations.validate", "task.validate", "web.fetch"]);
       expect(byId.get("documents.read")).toEqual(expect.objectContaining({ allowedAgents: ["task-worker"], status: "trusted", effectClass: "read", usage: { calls: 0, failures: 0 } }));
       expect(byId.get("operations.context")!.allowedAgents).toEqual(["operations-assistant"]);
-      expect(byId.get("knowledge.search")!.allowedAgents).toEqual(["plan-guide-assistant", "task-worker"]);
+      expect(byId.get("knowledge.search")!.allowedAgents).toEqual(["task-worker"]);
       expect(byId.get("task.validate")!.allowedAgents).toEqual([]);
       expect(byId.get("web.fetch")).toEqual(expect.objectContaining({ allowedHosts: expect.arrayContaining(["en.wikipedia.org"]), description: expect.stringContaining("plain GET") }));
       // Proof: the pinned script's own bytes and digest, not an empty list.

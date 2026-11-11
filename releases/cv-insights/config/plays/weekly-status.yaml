@@ -1,0 +1,73 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Play",
+  "metadata": {
+    "id": "weekly-status",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "title": "Weekly status update",
+    "description": "Turn the notes and results of the week into a short status update: done, in progress, risks and what is next.",
+    "intent": "Write this week's status update from the notes and results in the brief: what is done, what is in progress, the risks and what comes next.",
+    "successCriteria": [
+      "The update has done, in progress, risks and next sections",
+      "Each item is one plain sentence a stakeholder can read at a glance",
+      "Anything not confirmed in the notes is marked as unconfirmed"
+    ],
+    "constraints": [
+      "Use only the notes and documents supplied; do not invent progress"
+    ],
+    "team": [
+      {
+        "memberId": "worker",
+        "role": "Writer",
+        "agentId": "task-worker",
+        "engine": "pi"
+      }
+    ],
+    "plan": {
+      "tasks": [
+        {
+          "id": "collect",
+          "title": "Collect the week's items from the notes and documents",
+          "criteria": [
+            "Every item comes from a supplied note or document",
+            "Items are grouped as done, in progress or at risk"
+          ],
+          "dependsOn": [],
+          "assignment": {
+            "kind": "agent",
+            "id": "worker",
+            "role": "specialist"
+          },
+          "estimatedMinutes": 8
+        },
+        {
+          "id": "write",
+          "title": "Write the status update",
+          "criteria": [
+            "The update has done, in progress, risks and next sections",
+            "Unconfirmed items are marked as such"
+          ],
+          "dependsOn": [
+            "collect"
+          ],
+          "assignment": {
+            "kind": "agent",
+            "id": "worker",
+            "role": "specialist"
+          },
+          "estimatedMinutes": 8
+        }
+      ]
+    },
+    "autonomy": "standard",
+    "parkingThreshold": 3,
+    "budget": {
+      "maxMicroUsd": 2000000,
+      "maxWallClockMs": 1800000,
+      "memberCap": 2,
+      "attemptReserveMicroUsd": 0
+    }
+  }
+}

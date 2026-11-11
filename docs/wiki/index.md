@@ -9,6 +9,8 @@ Historical record, not a description of the present. Every claim is dated and, f
 - [dogfood-2026-11-11.md](dogfood-2026-11-11.md) — first-user walkthrough of the live site: what was broken, fixed, and still open.
 - [parked-review-task-2026-11-11.md](parked-review-task-2026-11-11.md) — why a live review task parked after three attempts, and the fixes.
 
+- [plan-latency-2026-11-11.md](plan-latency-2026-11-11.md) — plan drafting failure rate and latency measured live, and the fixes (track Q).
+
 ## Research
 - [../research/best-product-gap-2026-11.md](../research/best-product-gap-2026-11.md) — 12 ranked product gaps (track D report, `talelk/brain@b350f76`, 2026-11-11).
 

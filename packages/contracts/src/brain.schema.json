@@ -7411,6 +7411,14 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 1024
+        },
+        "stage": {
+          "type": "string",
+          "enum": [
+            "reading",
+            "drafting",
+            "checking"
+          ]
         }
       },
       "required": [

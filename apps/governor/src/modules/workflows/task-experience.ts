@@ -9,6 +9,8 @@ interface Host {
   dispatch(actor: ActorContext, command: unknown): Promise<{ receipt: CommandReceipt }>;
   /** The kept reuse items of a mission as the planner's `reused` input (claims with provenance); empty when nothing was kept. */
   reusePrompt?(actor: ActorContext, workspaceId: string, missionId: string): string;
+  /** Ranked stored-knowledge hits for words, inside the workspace the actor may read; the planner gets them in its prompt instead of calling a search tool. */
+  knowledgeHits?(actor: ActorContext, workspaceId: string, query: string, limit: number): Array<{ sourceId: string; content: string; status?: string }>;
   /** The earlier mission a mission was started from and what of it seeds the plan: reuse refs, and verified outputs to pin as typed inputs. */
   startedFrom?(actor: ActorContext, workspaceId: string, missionId: string): { sourceMissionId: string; refs: string[]; inputs: OutputInput[] } | undefined;
 }
@@ -59,6 +61,22 @@ export function workItemSituation(title: string, criteria: readonly string[], up
   let text = render();
   while (text.length > limit && entries.length > 1) { entries.shift(); text = render(); }
   return text.slice(0, limit);
+}
+const RELATED_HITS = 4;
+const RELATED_HIT_CHARS = 600;
+const RELATED_CHARS = 3200;
+/** What the workspace already knows about an objective, as bounded labelled lines: claims with their review status, never evidence. */
+export function relatedKnowledgePrompt(hits: ReadonlyArray<{ sourceId: string; content: string; status?: string }>): string {
+  const lines: string[] = [];
+  let used = 0;
+  for (const hit of hits.slice(0, RELATED_HITS)) {
+    const text = hit.content.replace(/\s+/g, " ").trim().slice(0, RELATED_HIT_CHARS);
+    if (!text) continue;
+    const line = `- [${hit.status ?? "unverified"}] ${text} (source ${hit.sourceId.slice(0, 120)})`;
+    if (used + line.length > RELATED_CHARS) break;
+    used += line.length; lines.push(line);
+  }
+  return lines.length === 0 ? "" : `Stored knowledge matching this objective. Only status reviewed has been checked by a person; the rest are leads. Claims from past work, not evidence.\n${lines.join("\n")}`;
 }
 export class TaskExperience {
   constructor(private readonly s: Store, private readonly host: Host) {}
@@ -170,8 +188,11 @@ export class TaskExperience {
       catch (error) { if (!(error instanceof BrainDomainError)) throw error; }
     }
     const reused = this.host.reusePrompt?.(actor, request.workspaceId, missionId) ?? "";
+    // What the workspace already knows is looked up here, once, and handed over in the prompt: the planner makes no search round trip.
+    let related = "";
+    try { related = relatedKnowledgePrompt(this.host.knowledgeHits?.(actor, request.workspaceId, `${title} ${intent}`.slice(0, 400), RELATED_HITS) ?? []); } catch { related = ""; }
     const commandId = `plan-run-${request.requestId}`;
-    const started = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId, commandType: "workflow.dispatch", workspaceId: request.workspaceId, idempotencyKey: commandId, payload: { workflow: guide.release, input: { title, intent, successCriteria, capabilities, reused } } })).receipt;
+    const started = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId, commandType: "workflow.dispatch", workspaceId: request.workspaceId, idempotencyKey: commandId, payload: { workflow: guide.release, input: { title, intent, successCriteria, capabilities, reused, related } } })).receipt;
     if (!started.accepted || !started.resourceId) throw new BrainDomainError("CONFLICT", "plan assistant could not be started");
     db.prepare("INSERT INTO planning_requests(mission_id,actor_id,run_id,state,created_at_ms,updated_at_ms) VALUES (?,?,?,'running',?,?) ON CONFLICT(mission_id) DO UPDATE SET run_id=excluded.run_id,state='running',plan_version_id=NULL,error=NULL,updated_at_ms=excluded.updated_at_ms")
       .run(missionId, actor.actorId, started.resourceId, this.s.now(), this.s.now());
@@ -215,7 +236,15 @@ export class TaskExperience {
       db.prepare("UPDATE planning_requests SET state='failed',error=?,updated_at_ms=? WHERE mission_id=?").run(error, this.s.now(), missionId);
       return { missionId, runId: row.run_id, state: "failed", error };
     }
-    return { missionId, runId: row.run_id, state: "running" };
+    return { missionId, runId: row.run_id, state: "running", stage: this.planStage(row.run_id) };
+  }
+
+  /** Where a draft in progress is, from its jobs: the drafting step waiting for or reading its brief, writing the draft, or the independent check. */
+  private planStage(runId: string): NonNullable<MissionPlanView["stage"]> {
+    const jobs = this.s.control.prepare("SELECT step_id, state FROM jobs WHERE workflow_run_id=?").all(runId) as Array<{ step_id: string; state: string }>;
+    if (jobs.some((job) => job.step_id === "validate")) return "checking";
+    const propose = jobs.find((job) => job.step_id === "propose");
+    return propose?.state === "running" || propose?.state === "verifying" ? "drafting" : "reading";
   }
 
   conversations(actor: ActorContext, workspaceId: string): { id: string; preview: string; updatedAt: string }[] {

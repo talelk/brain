@@ -1,0 +1,73 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Play",
+  "metadata": {
+    "id": "checklist-runbook",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "title": "Write a checklist or runbook",
+    "description": "Turn a process into a short, ordered checklist or runbook with who does what, how to check each step, and what to do when it fails.",
+    "intent": "Write a clear, ordered checklist or runbook for the process in the brief, so someone who has not done it before can follow it.",
+    "successCriteria": [
+      "The steps are ordered and each one is a single action",
+      "Each step says how to check it worked",
+      "What to do when a step fails is stated"
+    ],
+    "constraints": [
+      "Describe the process; do not run any step"
+    ],
+    "team": [
+      {
+        "memberId": "worker",
+        "role": "Writer",
+        "agentId": "task-worker",
+        "engine": "pi"
+      }
+    ],
+    "plan": {
+      "tasks": [
+        {
+          "id": "draft",
+          "title": "Draft the ordered steps with a check for each",
+          "criteria": [
+            "Steps are ordered and each is one action",
+            "Each step has a way to check it worked"
+          ],
+          "dependsOn": [],
+          "assignment": {
+            "kind": "agent",
+            "id": "worker",
+            "role": "specialist"
+          },
+          "estimatedMinutes": 10
+        },
+        {
+          "id": "harden",
+          "title": "Add failure handling and review the steps for gaps",
+          "criteria": [
+            "Every step that can fail says what to do next",
+            "Missing prerequisites and owners are listed"
+          ],
+          "dependsOn": [
+            "draft"
+          ],
+          "assignment": {
+            "kind": "agent",
+            "id": "worker",
+            "role": "specialist"
+          },
+          "estimatedMinutes": 8
+        }
+      ]
+    },
+    "autonomy": "standard",
+    "parkingThreshold": 3,
+    "budget": {
+      "maxMicroUsd": 2000000,
+      "maxWallClockMs": 1800000,
+      "memberCap": 2,
+      "attemptReserveMicroUsd": 0
+    }
+  }
+}

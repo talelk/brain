@@ -1,0 +1,74 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Play",
+  "metadata": {
+    "id": "compare-options",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "title": "Compare options and recommend one",
+    "description": "List the options, compare them on the criteria that matter, and recommend one with the reasons and the risks. Read-only.",
+    "intent": "Compare the options named in the brief on the criteria that matter and recommend one, with the reasons and the main risks.",
+    "successCriteria": [
+      "Every option in the goal is compared on the same criteria",
+      "One option is recommended and the reasons are stated",
+      "The main risks and the assumptions behind the recommendation are listed"
+    ],
+    "constraints": [
+      "Read-only: do not contact vendors or change any system"
+    ],
+    "team": [
+      {
+        "memberId": "worker",
+        "role": "Analyst",
+        "agentId": "task-worker",
+        "engine": "pi"
+      }
+    ],
+    "plan": {
+      "tasks": [
+        {
+          "id": "options",
+          "title": "List the options and the criteria to compare them on",
+          "criteria": [
+            "Every option named in the goal is listed",
+            "The comparison criteria are stated and justified"
+          ],
+          "dependsOn": [],
+          "assignment": {
+            "kind": "agent",
+            "id": "worker",
+            "role": "specialist"
+          },
+          "estimatedMinutes": 8
+        },
+        {
+          "id": "compare",
+          "title": "Compare the options and recommend one",
+          "criteria": [
+            "Each option is rated on each criterion",
+            "One option is recommended with the reasons",
+            "Risks and assumptions are listed"
+          ],
+          "dependsOn": [
+            "options"
+          ],
+          "assignment": {
+            "kind": "agent",
+            "id": "worker",
+            "role": "specialist"
+          },
+          "estimatedMinutes": 10
+        }
+      ]
+    },
+    "autonomy": "standard",
+    "parkingThreshold": 3,
+    "budget": {
+      "maxMicroUsd": 2000000,
+      "maxWallClockMs": 1800000,
+      "memberCap": 2,
+      "attemptReserveMicroUsd": 0
+    }
+  }
+}

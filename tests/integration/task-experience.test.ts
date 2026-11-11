@@ -13,7 +13,7 @@ async function world() {
  const dir = mkdtempSync(join(tmpdir(), "brain-task-experience-")); const app = await createApp({ dataDir: dir, allowTestActor: true }); const w = setupWorld(app.brain);
  cleanup.push(async () => { await app.close(); rmSync(dir, { recursive: true, force: true }); });
  const bundle = fixtureStarter(); const release = w.brain.stageRelease(w.owner, bundle.documents, bundle.sourceRevision, bundle.scripts, bundle.instructions, bundle.schemas); w.brain.activateRelease(w.owner, release.digest);
- const tasks = new TaskExperience(w.brain.store, { query: (actor, query) => w.brain.executeQuery(actor, query), dispatch: async (actor, command) => ({ receipt: (await w.brain.executeCommand(actor, command, "task-test")).receipt }) });
+ const tasks = new TaskExperience(w.brain.store, { query: (actor, query) => w.brain.executeQuery(actor, query), dispatch: async (actor, command) => ({ receipt: (await w.brain.executeCommand(actor, command, "task-test")).receipt }), knowledgeHits: (actor, workspaceId, query, limit) => w.brain.knowledgeHits(actor, workspaceId, query, limit) });
  return { ...w, app, tasks };
 }
 it("requires explicit start, recovers an accepted command and links the originating work item", async () => {
@@ -83,4 +83,46 @@ it("turns an objective into an independently validated plan and materializes it 
  expect(confirmed.receipt.accepted).toBe(true);
  expect(db.prepare("SELECT COUNT(*) AS n FROM work_items").get()).toEqual({ n: 3 });
  expect((await w.tasks.missionPlan(w.owner, w.workspaceId, started.missionId)).planVersionId).toBe(proposal.planVersionId);
+});
+
+it("drafts a plan in one model session with no tool round trip, stored knowledge in the prompt and honest stages (latency budget)", async () => {
+ const w = await world(); const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
+ w.brain.memory.publish({ organizationId: w.org, workspaceId: w.workspaceId, sourceId: "wiki:auth-sessions", text: "Stabilize authentication: session expiry is controlled by the token lifetime; the rollout checklist lists refresh checks." });
+ w.brain.memory.publish({ organizationId: w.org, workspaceId: w.workspaceId, sourceId: "wiki:billing", text: "Unrelated invoicing runbook." });
+ const started = await w.tasks.startMissionPlan(w.owner, { workspaceId: w.workspaceId, requestId: "plan-budget", title: "Stabilize authentication", intent: "Resolve expired user sessions", successCriteria: ["Users remain signed in"] });
+ expect((await w.tasks.missionPlan(w.owner, w.workspaceId, started.missionId)).stage).toBe("reading");
+ // The brief the planner receives already holds what the workspace knows, bounded and labelled; the plan agent has no tools at all.
+ const job = w.brain.store.control.prepare("SELECT j.id, p.payload_json FROM jobs j JOIN job_payloads p ON p.job_id=j.id WHERE j.workflow_run_id=? AND j.step_id='propose'").get(started.runId) as { id: string; payload_json: string };
+ const payload = JSON.parse(job.payload_json) as { input: { related: string }; outputSchema?: { required?: string[] } };
+ expect(payload.input.related).toContain("session expiry");
+ expect(payload.input.related).not.toContain("invoicing");
+ expect(payload.input.related.length).toBeLessThanOrEqual(4000);
+ expect(payload.outputSchema?.required).toEqual(["summary", "tasks"]);
+ const transport: typeof fetch = async (input, init) => w.app.fetch(new Request(input, init));
+ const events: Array<{ kind?: string | undefined }> = [];
+ for (const group of ["agents", "evaluators"]) {
+  const config = { governorUrl: "http://127.0.0.1:3000", runnerId: `budget-${group}`, stateDir: join(w.dir, group), transport, engines: ["fixture"], capabilities: ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"] };
+  const session = await enrollAndHello(config, w.brain.jobProtocol.issueEnrollment(w.owner, group).token);
+  expect(await runOnce(config, session.sessionToken, session.epoch)).toBe(true);
+  if (group === "agents") expect((await w.tasks.missionPlan(w.owner, w.workspaceId, started.missionId)).stage).toBe("checking");
+ }
+ for (const row of w.brain.store.control.prepare("SELECT event_json FROM attempt_events").all() as Array<{ event_json: string }>) { const e = JSON.parse(row.event_json) as { kind: string; payload?: { kind?: string } }; if (e.kind === "engine") events.push({ kind: e.payload?.kind }); }
+ // The budget, counted rather than timed: one run, two jobs (draft, check), one model session, no tool call.
+ expect(db.prepare("SELECT COUNT(*) AS n FROM workflow_runs").get()).toEqual({ n: 1 });
+ expect(w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM jobs WHERE workflow_run_id=?").get(started.runId)).toEqual({ n: 2 });
+ expect(events.filter((e) => e.kind === "session.started")).toHaveLength(1);
+ expect(events.filter((e) => e.kind === "tool.proposed")).toHaveLength(0);
+ const proposal = await w.tasks.missionPlan(w.owner, w.workspaceId, started.missionId);
+ expect(proposal.state).toBe("ready");
+ expect(proposal.stage).toBeUndefined();
+});
+
+it("the pinned plan guide has no tools and a short turn budget, and a human task is given an id in the prompt", async () => {
+ const bundle = fixtureStarter();
+ const agent = JSON.parse(bundle.documents.find((doc) => doc.path.endsWith("plan-guide-agent.yaml"))!.text) as { spec: { tools: unknown[]; maxTurns: number } };
+ expect(agent.spec.tools).toEqual([]);
+ expect(agent.spec.maxTurns).toBeLessThanOrEqual(2);
+ const instructions = bundle.instructions.find((item) => item.path.endsWith("plan-guide.md"))!.text;
+ expect(instructions).toContain("id is never left out");
+ expect(instructions).not.toContain("knowledge.search");
 });

@@ -783,6 +783,12 @@ export class Brain {
    * and organization routing stay here; every read model is module-owned and
    * reached by a one-line dispatch.
    */
+  /** The unified memory search for words, in the actor's organization and the given workspace only (the caller has checked workspace read access). */
+  knowledgeHits(actor: ActorContext, workspaceId: string, query: string, limit: number): Array<{ sourceId: string; content: string; status?: string }> {
+    const found = this.memory.search({ contractVersion: "brain.memory/v1", queryId: this.store.id("kq"), scope: { organizationId: actor.organizationId, visibility: "workspace", workspaceId }, query, sourceTypes: ["chat", "skill", "wiki", "codegraph"], limit, maxChars: 600 }, { organizationId: actor.organizationId, workspaceId });
+    return found.results.map((hit) => ({ sourceId: hit.sourceId, content: hit.content, ...(hit.status ? { status: hit.status } : {}) }));
+  }
+
   async executeQuery(actor: ActorContext, raw: unknown, headers?: Headers): Promise<JsonValue> {
     const s = this.store;
     const check = validate("QueryRequest", raw);
