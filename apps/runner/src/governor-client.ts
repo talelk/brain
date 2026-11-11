@@ -97,24 +97,45 @@ export class GovernorClient {
     this.token = token;
   }
 
-  private async request(path: string, body?: unknown): Promise<{ status: number; json: unknown }> {
-    const res = await (this.cfg.transport ?? fetch)(`${this.cfg.governorUrl.replace(/\/$/, "")}${path}`, {
-      method: body === undefined ? "GET" : "POST",
-      headers: { "content-type": "application/json", ...(this.token ? { authorization: `Bearer ${this.token}` } : {}) },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      signal: AbortSignal.timeout(30_000),
-    });
-    const text = await res.text();
-    return { status: res.status, json: text ? (JSON.parse(text) as unknown) : null };
+  /**
+   * Follows the supervisor's current session token. A session refresh replaces the token while attempts run; a request that was signed
+   * with the token of a moment ago and is answered 401 is repeated once with the current one, so a refresh never fails a running attempt.
+   */
+  setTokenSource(source: () => string): void {
+    this.tokenSource = source;
+    this.token = source();
+  }
+  private tokenSource: (() => string) | undefined;
+  private async withCurrentToken<T extends { status: number }>(send: (token: string | undefined) => Promise<T>): Promise<T> {
+    const used = this.tokenSource ? this.tokenSource() : this.token;
+    const first = await send(used);
+    if (first.status !== 401 || !this.tokenSource) return first;
+    const current = this.tokenSource();
+    return current !== used ? send(current) : first;
   }
 
-  private async requestBytes(path: string): Promise<{ status: number; bytes: Uint8Array }> {
-    const res = await (this.cfg.transport ?? fetch)(`${this.cfg.governorUrl.replace(/\/$/, "")}${path}`, {
-      method: "GET",
-      headers: { authorization: `Bearer ${this.token}` },
-      signal: AbortSignal.timeout(30_000),
+  private request(path: string, body?: unknown): Promise<{ status: number; json: unknown }> {
+    return this.withCurrentToken(async (token) => {
+      const res = await (this.cfg.transport ?? fetch)(`${this.cfg.governorUrl.replace(/\/$/, "")}${path}`, {
+        method: body === undefined ? "GET" : "POST",
+        headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      const text = await res.text();
+      return { status: res.status, json: text ? (JSON.parse(text) as unknown) : null };
     });
-    return { status: res.status, bytes: new Uint8Array(await res.arrayBuffer()) };
+  }
+
+  private requestBytes(path: string): Promise<{ status: number; bytes: Uint8Array }> {
+    return this.withCurrentToken(async (token) => {
+      const res = await (this.cfg.transport ?? fetch)(`${this.cfg.governorUrl.replace(/\/$/, "")}${path}`, {
+        method: "GET",
+        headers: { authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(30_000),
+      });
+      return { status: res.status, bytes: new Uint8Array(await res.arrayBuffer()) };
+    });
   }
 
   private expect<T>(label: string, res: { status: number; json: unknown }, expected: number): T {

@@ -6,6 +6,12 @@ import { EngineEventStream } from "./event-stream";
 /** Where the task starts when a Governor context pack precedes it in the prompt. */
 const TASK_MARK = "\n\n# Task\n";
 
+/**
+ * Test hook for concurrency and long-attempt tests: when set, every fixture session waits for `hold` (keyed by its attempt) before it
+ * answers, so a test decides how long each attempt runs. Unset in production, where the fixture answers at once.
+ */
+export const fixtureGate: { hold?: (attemptId: string, signal: AbortSignal) => Promise<void> } = {};
+
 export class FixtureEngine implements EngineAdapter {
   readonly id = "fixture";
   private seq = 0;
@@ -90,6 +96,7 @@ export class FixtureEngine implements EngineAdapter {
           }
         }
       }
+      await fixtureGate.hold?.(spec.attemptId, signal);
       const text = spec.task.includes("BRAIN_OK") ? "BRAIN_OK" : JSON.stringify(response, null, indented ? 2 : 0);
       const bytes = new TextEncoder().encode(text);
       const artifact = {

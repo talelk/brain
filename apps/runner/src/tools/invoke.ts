@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { execa } from "execa";
 import type { CheckResult, EvaluationAssignment, JsonValue } from "@brain/contracts";
@@ -111,7 +111,10 @@ export async function executeToolPayload(
         return { ok: false, output: { error: `pinned tool ${toolId} bytes do not match the offer digest; refusing` } as unknown as JsonValue };
       }
       mkdirSync(cacheDir, { recursive: true });
-      writeFileSync(script, fetched.bytes, { mode: 0o755 });
+      // Slots fill this cache concurrently: write beside it and rename, so no attempt ever runs a half-written script.
+      const partial = `${script}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+      writeFileSync(partial, fetched.bytes, { mode: 0o755 });
+      renameSync(partial, script);
     }
     sandboxToolsDir = cacheDir;
   }

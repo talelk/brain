@@ -86,11 +86,14 @@ async function availableEngines(cfg: RunnerConfig) {
   return available;
 }
 
-async function challengeHello(cfg: RunnerConfig, credential: string): Promise<{ sessionToken: string; epoch: number }> {
+/**
+ * One hello. The boot nonce names this process's boot: the Governor keeps the epoch (and so every running attempt's fence) for a hello
+ * with the same nonce and only replaces the session token; a new nonce (a restarted runner) is a new epoch that fences the old attempts.
+ */
+async function challengeHello(cfg: RunnerConfig, credential: string, bootNonce = `boot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`): Promise<{ sessionToken: string; epoch: number; bootNonce: string }> {
   const keys = loadOrCreateKeys(cfg.stateDir);
   const client = new GovernorClient(cfg);
   const { challengeId, nonce } = await client.challenge(cfg.runnerId, credential);
-  const bootNonce = `boot-${Date.now()}`;
   const engines = await availableEngines(cfg);
   const capabilities = [...new Set([...cfg.capabilities.filter((cap) => !/^engine(:|-feature:)/u.test(cap)), ...engines.map((engine) => `engine:${engine.id}`), ...engines.flatMap((engine) => engine.features.map((feature) => `engine-feature:${engine.id}:${feature}`))])];
   const helloBody = {
@@ -105,10 +108,10 @@ async function challengeHello(cfg: RunnerConfig, credential: string): Promise<{ 
   const signed = JSON.stringify({ challengeId, nonce, runnerId: cfg.runnerId, bootNonce, helloDigest });
   const signature = sign(null, Buffer.from(signed, "utf8"), keys.privateKeyPem).toString("base64url");
   const { sessionToken, epoch } = await client.hello({ ...helloBody, proof: { challengeId, signatureBase64url: signature } });
-  return { sessionToken, epoch };
+  return { sessionToken, epoch, bootNonce };
 }
 
-export async function enrollAndHello(cfg: RunnerConfig, enrollToken: string): Promise<{ sessionToken: string; epoch: number; credential: string }> {
+export async function enrollAndHello(cfg: RunnerConfig, enrollToken: string): Promise<{ sessionToken: string; epoch: number; credential: string; bootNonce: string }> {
   const keys = loadOrCreateKeys(cfg.stateDir);
   const credPath = join(cfg.stateDir, "credential.txt");
   let credential = existsSync(credPath) ? readFileSync(credPath, "utf8").trim() : "";
@@ -117,23 +120,25 @@ export async function enrollAndHello(cfg: RunnerConfig, enrollToken: string): Pr
     credential = enrolled.credential;
     writeFileSync(credPath, credential, { mode: 0o600 });
   }
-  const { sessionToken, epoch } = await challengeHello(cfg, credential);
-  return { sessionToken, epoch, credential };
+  const { sessionToken, epoch, bootNonce } = await challengeHello(cfg, credential);
+  return { sessionToken, epoch, credential, bootNonce };
 }
 
 // Runner sessions expire after 15 minutes (Governor-issued); a long-lived
 // supervisor must re-hello with its stored credential to stay authorized.
-// Re-hello also refreshes the 5-minute capability observations.
-export async function refreshSession(cfg: RunnerConfig): Promise<{ sessionToken: string; epoch: number }> {
+// Re-hello also refreshes the 5-minute capability observations. Passing the
+// boot nonce of the first hello keeps the epoch: running attempts continue.
+export async function refreshSession(cfg: RunnerConfig, bootNonce?: string): Promise<{ sessionToken: string; epoch: number }> {
   const credPath = join(cfg.stateDir, "credential.txt");
   const credential = existsSync(credPath) ? readFileSync(credPath, "utf8").trim() : "";
   if (!credential) throw new Error("runner credential missing; cannot refresh session");
-  return challengeHello(cfg, credential);
+  return challengeHello(cfg, credential, bootNonce);
 }
 
-export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpoch = 1, controls: RunnerControls = newRunnerControls()): Promise<boolean> {
+export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => string), runnerEpoch = 1, controls: RunnerControls = newRunnerControls()): Promise<boolean> {
   const client = new GovernorClient(cfg);
-  client.setToken(sessionToken);
+  // A function follows the supervisor's session through a refresh; a plain token is used as given.
+  if (typeof sessionToken === "function") client.setTokenSource(sessionToken); else client.setToken(sessionToken);
   const offer = await client.claim(`claim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   if (!offer) return false;
   controls.activeAttemptIds.add(offer.attemptId);
@@ -408,14 +413,14 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
   const enrollToken = process.env["BRAIN_RUNNER_ENROLL_TOKEN"] ?? "";
   const initial = await enrollAndHello(cfg, enrollToken);
   console.log(`Brain runner ${cfg.runnerId} connected`);
-  // Session TTL is 15 minutes; refresh proactively at 10 and on any 401.
-  // Refresh happens only between runOnce calls so an in-flight attempt's
-  // token is never revoked mid-flight; the heartbeat just flags staleness.
+  // Session TTL is 15 minutes; refresh proactively at 10 and on any 401. The refresh re-hellos with this process's boot nonce, which
+  // keeps the epoch and only replaces the token, and every client follows `session.token`, so running attempts continue and the
+  // other slots keep claiming. The heartbeat just flags staleness.
   const session = { token: initial.sessionToken, epoch: initial.epoch, sinceMs: Date.now(), stale: false };
   const client = new GovernorClient(cfg);
   client.setToken(initial.sessionToken);
   const refresh = async (): Promise<void> => {
-    const next = await refreshSession(cfg);
+    const next = await refreshSession(cfg, initial.bootNonce);
     session.token = next.sessionToken;
     session.epoch = next.epoch;
     session.sinceMs = Date.now();
@@ -460,33 +465,63 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
       else { /* transient; the claim loop surfaces errors */ }
     });
   }, 15_000).unref();
-  // One claim loop per slot. A refresh re-hellos with a new epoch, which revokes the old session token, so
-  // it only happens while no attempt is executing; once the token is old, workers stop claiming until the
-  // running attempts finish, then one worker refreshes and all resume.
   const slots = runnerCapacity().slots;
+  try {
+    await runClaimLoops({
+      slots, session, refresh, configurationChanged,
+      claimOnce: () => runOnce(cfg, () => session.token, session.epoch, controls),
+    });
+  } finally { clearInterval(heartbeatTimer); }
+}
+
+export interface ClaimLoopSession { token: string; sinceMs: number; stale: boolean }
+export interface ClaimLoopOptions {
+  slots: number;
+  session: ClaimLoopSession;
+  /** Replaces the session token (a re-hello). */
+  refresh: () => Promise<void>;
+  /** Claims and runs one attempt; false when there was no work. Resolves when that attempt is finished. */
+  claimOnce: () => Promise<boolean>;
+  configurationChanged?: (() => boolean) | undefined;
+  /** The session is renewed once it is older than this (default 10 minutes; the Governor's session lives 15). */
+  refreshAfterMs?: number;
+  idleMs?: number;
+  errorMs?: number;
+}
+
+/**
+ * One claim loop per slot. Once the session token is old, ONE worker refreshes it (the others wait only for that hello) and every worker
+ * goes on claiming: attempts that are running are never waited for, because a refresh keeps the epoch and every client follows the
+ * current token. A 401 marks the session stale and has the same effect.
+ */
+export async function runClaimLoops(options: ClaimLoopOptions): Promise<void> {
+  const { session } = options;
+  const refreshAfterMs = options.refreshAfterMs ?? 10 * 60_000;
   let stopped = false;
   let refreshing: Promise<void> | undefined;
+  const refreshIfDue = (): void => {
+    if (!refreshing && (session.stale || Date.now() - session.sinceMs > refreshAfterMs)) refreshing = options.refresh().finally(() => { refreshing = undefined; });
+    // A failed refresh is reported by the worker that awaits it, or retried by the next tick.
+    refreshing?.catch(() => undefined);
+  };
+  // Every slot may be busy with a long attempt, so the refresh must not depend on a worker being free: a timer keeps the token young.
+  const ticker = setInterval(refreshIfDue, Math.max(10, Math.min(30_000, refreshAfterMs / 4)));
   const worker = async (): Promise<void> => {
     for (;;) {
       if (stopped) return;
       try {
-        if (configurationChanged?.()) { stopped = true; return; }
-        const aged = Date.now() - session.sinceMs > 10 * 60_000;
-        if (session.stale || aged) {
-          if (controls.activeAttemptIds.size === 0) { refreshing ??= refresh().finally(() => { refreshing = undefined; }); await refreshing; }
-          else if (session.stale || Date.now() - session.sinceMs > 13 * 60_000) { await new Promise((r) => setTimeout(r, 1000)); continue; }
-        }
+        if (options.configurationChanged?.()) { stopped = true; return; }
+        refreshIfDue();
         if (refreshing) { await refreshing; continue; }
-        const worked = await runOnce(cfg, session.token, session.epoch, controls);
-        if (!worked) await new Promise((r) => setTimeout(r, 2000));
+        const worked = await options.claimOnce();
+        if (!worked) await new Promise((r) => setTimeout(r, options.idleMs ?? 2000));
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (/\b401\b/.test(msg) && !session.stale) { session.stale = true; continue; }
         console.error("runner loop error", msg);
-        await new Promise((r) => setTimeout(r, 3000));
+        await new Promise((r) => setTimeout(r, options.errorMs ?? 3000));
       }
     }
   };
-  try { await Promise.all(Array.from({ length: slots }, () => worker()));
-  } finally { clearInterval(heartbeatTimer); }
+  try { await Promise.all(Array.from({ length: options.slots }, () => worker())); } finally { clearInterval(ticker); }
 }

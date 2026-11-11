@@ -111,5 +111,5 @@ export async function startFakeSmtp(options: FakeSmtpOptions = {}): Promise<Fake
     : createServer((socket) => handle(socket, false));
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const port = (server.address() as { port: number }).port;
-  return { port, ca: tls?.cert ?? "", messages, commands, connections: () => connections, close: () => new Promise<void>((resolve) => { server.close(() => resolve()); server.closeAllConnections?.(); }) };
+  return { port, ca: tls?.cert ?? "", messages, commands, connections: () => connections, close: () => new Promise<void>((resolve) => { server.close(() => resolve()); (server as unknown as { closeAllConnections?: () => void }).closeAllConnections?.(); }) };
 }
