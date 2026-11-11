@@ -32,6 +32,8 @@ export function KnowledgeInbox(props: { assets: readonly KnowledgeAsset[]; canRe
     scrolled = true;
     queueMicrotask(() => document.getElementById(`knowledge-proposal-${id}`)?.scrollIntoView({ block: "center" }));
   });
+  /** Set aside by the automatic path for a person (a secret): still waits for a person, so the card says so. */
+  const setAside = (asset: KnowledgeAsset) => Boolean(asset.rejectionReason?.startsWith("Left for a person"));
   const waiting = () => props.assets.filter((asset) => asset.state === "extracted" && !asset.rejectionReason);
   const [approvingAll, setApprovingAll] = createSignal(false);
   const approveAll = async () => { setApprovingAll(true); try { await props.onApproveAll?.(); } finally { setApprovingAll(false); } };
@@ -53,11 +55,11 @@ export function KnowledgeInbox(props: { assets: readonly KnowledgeAsset[]; canRe
         <For each={props.assets}>{(asset) => <li class="min-w-0 py-3 first:pt-0 last:pb-0" id={`knowledge-proposal-${asset.assetId}`} data-testid={`knowledge-proposal-${asset.assetId}`}>
           <div class="flex min-w-0 flex-wrap items-center gap-1.5">
             <strong class="min-w-0 break-words text-base-medium">{asset.title ?? asset.operationId}</strong>
-            <Badge size="sm" theme={asset.supersededBy ? "gray" : asset.state === "published" ? "green" : asset.state === "revoked" ? "red" : "amber"} label={asset.supersededBy ? "Replaced" : asset.state === "extracted" ? (asset.rejectionReason ? "Not published" : "Awaiting review") : asset.state === "published" ? (asset.autoPublished ? "Published automatically" : "Published") : asset.state} />
+            <Badge size="sm" theme={asset.supersededBy ? "gray" : asset.state === "published" ? "green" : asset.state === "revoked" ? "red" : "amber"} label={asset.supersededBy ? "Replaced" : asset.state === "extracted" ? (setAside(asset) ? "Needs a person" : asset.rejectionReason ? "Not published" : "Awaiting review") : asset.state === "published" ? (asset.autoPublished ? "Published automatically" : "Published") : asset.state} />
             <Show when={asset.operationId === "saved-document"}><Badge size="sm" variant="outline" theme="blue" label="Saved document" /></Show>
             <Show when={asset.selfReviewed}><Badge size="sm" variant="outline" theme="amber" label="Self-reviewed" /></Show>
           </div>
-          <Show when={asset.rejectionReason}><p class="mt-1 text-caption text-ink-gray-7">{asset.supersededBy ? "" : "Left out: "}{asset.rejectionReason}</p></Show>
+          <Show when={asset.rejectionReason}><p class="mt-1 text-caption text-ink-gray-7">{asset.supersededBy || setAside(asset) ? "" : "Left out: "}{asset.rejectionReason}</p></Show>
           <details class="mt-2 min-w-0" open={asset.state === "extracted" && !asset.rejectionReason}>
             <summary class="cursor-pointer text-caption font-medium text-ink-gray-7">Read the record</summary>
             <div class="brain-prose mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3 text-interface text-ink-gray-8" data-testid="knowledge-proposal-text">{asset.content}</div>

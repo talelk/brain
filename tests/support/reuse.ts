@@ -25,6 +25,8 @@ export interface AchievedOptions {
   report?: { summary: string; deliverable: string; criteria?: Array<{ criterion: string; met: boolean; evidence: string }>; assumptions?: string[] } | null;
   /** The workspace setting. The helper turns auto-publish off unless asked, so the Review inbox flows stay deterministic. */
   autoPublish?: boolean;
+  /** Close the mission the way a hands-off install does: the Governor itself proposes completion, records the verified verdict and closes it (no person acts). */
+  handsOff?: boolean;
   /** Reuse items (`mission:<id>`) the mission keeps before it is planned. */
   reuse?: string[];
 }
@@ -68,15 +70,15 @@ export async function achievedMission(w: TestWorld, key: string, options: Achiev
     await command(w, w.owner, "mission.verdict.record", `${key}-reject`, { missionId: id, bundleDigest: first.digest, outcome: "rejected", findings: options.rejectedFindings });
     ws.prepare("UPDATE work_items SET state='done', evidence_digest=? WHERE id=?").run(`sha256:${"8".repeat(64)}`, item.workItemId);
   }
+  if (options.handsOff) {
+    for (const [index, output] of (options.outputs ?? []).entries()) insertOutput(w, ws, key, index, output, item.workItemId, id);
+    w.brain.missions.completeFinishedMissions(w.org, w.workspaceId);
+    w.brain.runCapitalization();
+    return id;
+  }
   const bundle = await bundleOf("propose-2");
   await command(w, w.owner, "mission.verdict.record", `${key}-verdict`, { missionId: id, bundleDigest: bundle.digest, outcome: "verified" });
-  for (const [index, output] of (options.outputs ?? []).entries()) {
-    const bytes = new TextEncoder().encode(output.text);
-    const digest = putBytes(w.brain.store, bytes);
-    ws.prepare("INSERT INTO artifacts(id,digest,bytes,media_type,classification,state,created_at_ms) VALUES (?,?,?,?,?,'verified',?)").run(`art-${key}-${index}`, digest, bytes.length, "text/markdown", "internal", w.brain.store.now());
-    ws.prepare("INSERT INTO mission_outputs(id,mission_id,name,created_at_ms) VALUES (?,?,?,?)").run(`out-${key}-${index}`, id, output.name, w.brain.store.now());
-    ws.prepare("INSERT INTO output_versions(id,output_id,work_item_id,artifact_digest,state,verified,created_at_ms) VALUES (?,?,?,?, 'final', 1, ?)").run(`ver-${key}-${index}`, `out-${key}-${index}`, item.workItemId, digest, w.brain.store.now());
-  }
+  for (const [index, output] of (options.outputs ?? []).entries()) insertOutput(w, ws, key, index, output, item.workItemId, id);
   await command(w, w.owner, "mission.close", `${key}-close`, { missionId: id, outcome: "achieved" }, (await getMission(w, id)).version);
   w.brain.runCapitalization();
   return id;
@@ -85,4 +87,12 @@ export async function achievedMission(w: TestWorld, key: string, options: Achiev
 export async function reuseSearch(w: TestWorld, text: string, missionId?: string, actor: ActorContext = w.owner): Promise<ReuseItem[]> {
   const response = (await w.brain.executeQuery(actor, { queryType: "reuse.search", workspaceId: w.workspaceId, search: text, ...(missionId ? { resourceId: missionId } : {}) })) as unknown as { snapshot: { items: ReuseItem[] } };
   return response.snapshot.items;
+}
+
+function insertOutput(w: TestWorld, ws: ReturnType<TestWorld["brain"]["store"]["workspaceDb"]>, key: string, index: number, output: { name: string; text: string }, workItemId: string, missionId: string): void {
+  const bytes = new TextEncoder().encode(output.text);
+  const digest = putBytes(w.brain.store, bytes);
+  ws.prepare("INSERT INTO artifacts(id,digest,bytes,media_type,classification,state,created_at_ms) VALUES (?,?,?,?,?,'verified',?)").run(`art-${key}-${index}`, digest, bytes.length, "text/markdown", "internal", w.brain.store.now());
+  ws.prepare("INSERT INTO mission_outputs(id,mission_id,name,created_at_ms) VALUES (?,?,?,?)").run(`out-${key}-${index}`, missionId, output.name, w.brain.store.now());
+  ws.prepare("INSERT INTO output_versions(id,output_id,work_item_id,artifact_digest,state,verified,created_at_ms) VALUES (?,?,?,?, 'final', 1, ?)").run(`ver-${key}-${index}`, `out-${key}-${index}`, workItemId, digest, w.brain.store.now());
 }

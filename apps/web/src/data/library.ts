@@ -4,8 +4,11 @@ type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 
 /** One truthful count per Library shelf, counted by the Governor (never from a paginated list). */
 export interface LibrarySummary {
-  /** Knowledge Brain wrote up, tool candidates and Play proposals that wait for a person. */
+  /** What truly needs a person: write-ups no one has approved (a second reviewer, a secret), tool candidates and Play proposals. */
   awaitingReview: number;
+  needsPerson: { writeups: number; tools: number; plays: number };
+  /** Write-ups Brain published itself as self-reviewed; they never wait here, and Withdraw undoes each. */
+  publishedAutomatically: number;
   publishedKnowledge: number;
   documents: number;
   plays: number;

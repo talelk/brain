@@ -42,6 +42,8 @@ const REVIEWABLE: readonly string[] = ["mission-knowledge", "saved-document"];
 /** The most of a saved document's text that is proposed (and published) as knowledge. */
 const SAVED_DOCUMENT_CHARS = 20_000;
 const REMOVED_NOTE = "The document was removed";
+/** Prefix of the note on a write-up the automatic path set aside for a person (a secret); the Library counts these as needing a person. */
+const NEEDS_PERSON_NOTE = "Left for a person";
 
 type AssetRow = {
   id: string; signature: string; operation_id: string; state: KnowledgeAsset["state"];
@@ -443,8 +445,13 @@ export class CapitalizationService {
 
   /** Other active people who could review: when none exist, a producer may review their own knowledge (ADR 0007). */
   private otherReviewers(organizationId: string, workspaceId: string, producerId: string): string[] {
+    return this.reviewers(organizationId, workspaceId).filter((id) => id !== producerId);
+  }
+
+  /** Every active person of the workspace who holds the review scope. */
+  private reviewers(organizationId: string, workspaceId: string): string[] {
     const people = this.store.control.prepare(`SELECT p.id FROM principals p JOIN workspace_memberships m ON m.principal_id=p.id AND m.workspace_id=? AND m.revoked_at_ms IS NULL
-      WHERE p.organization_id=? AND p.kind='human' AND p.disabled_at_ms IS NULL AND p.id<>?`).all(workspaceId, organizationId, producerId) as Array<{ id: string }>;
+      WHERE p.organization_id=? AND p.kind='human' AND p.disabled_at_ms IS NULL`).all(workspaceId, organizationId) as Array<{ id: string }>;
     return people.map((row) => row.id).filter((id) => scopesForPrincipal(this.store, id, organizationId, workspaceId).includes("memory:publish"));
   }
 
@@ -509,14 +516,20 @@ export class CapitalizationService {
           asset = { ...asset, content: rebuilt.writeup.content };
           this.supersedeSameGoal(organizationId, workspaceId, db, asset.id, rebuilt.mission.intent, this.store.now());
         }
+        // Whoever closed the mission (a person, or the Governor itself after independent verification) the write-up is the install's own
+        // knowledge: it publishes under the one person who could review it. A mission write-up whose producer is not (or no longer) an
+        // active reviewer (a departed owner) falls back to the sole reviewer; a saved document of Brain or an agent always waits for a
+        // person; with two or more reviewers, or none, everything waits.
+        const everyone = this.reviewers(organizationId, workspaceId);
         const producer = asset.producer_id;
-        if (!producer || !this.isActivePerson(organizationId, workspaceId, producer)) continue;
-        if (this.otherReviewers(organizationId, workspaceId, producer).length > 0) continue;
+        const reviewer = producer && everyone.includes(producer) ? (everyone.length === 1 ? producer : undefined)
+          : (asset.operation_id === "mission-knowledge" && everyone.length === 1 ? everyone[0] : undefined);
+        if (!reviewer) continue;
         if (looksLikeSecret(asset.content) || looksLikeSecret(asset.title)) {
-          db.prepare("UPDATE knowledge_assets SET rejection_reason=?,updated_at_ms=? WHERE id=?").run("Left for a person: the text appears to contain a secret", this.store.now(), asset.id);
+          db.prepare("UPDATE knowledge_assets SET rejection_reason=?,updated_at_ms=? WHERE id=?").run(`${NEEDS_PERSON_NOTE}: the text appears to contain a secret`, this.store.now(), asset.id);
           continue;
         }
-        this.publishAsset(organizationId, workspaceId, asset, producer, true, true);
+        this.publishAsset(organizationId, workspaceId, asset, reviewer, true, true);
         published++;
       } catch { /* stays in the inbox; the next pass tries again */ }
     }
@@ -575,11 +588,6 @@ export class CapitalizationService {
         db.prepare("UPDATE knowledge_assets SET superseded_by=?,rejection_reason=?,updated_at_ms=? WHERE id=?").run(keepId, reason, now, row.id);
       }
     }
-  }
-
-  private isActivePerson(organizationId: string, workspaceId: string, principalId: string): boolean {
-    return Boolean(this.store.control.prepare(`SELECT 1 FROM principals p JOIN workspace_memberships m ON m.principal_id=p.id AND m.workspace_id=? AND m.revoked_at_ms IS NULL
-      WHERE p.id=? AND p.organization_id=? AND p.kind='human' AND p.disabled_at_ms IS NULL`).get(workspaceId, principalId, organizationId)) && scopesForPrincipal(this.store, principalId, organizationId, workspaceId).includes("memory:publish");
   }
 
   /** When the organization's active release was activated: the config.activated event, else the release's own staging time. */
@@ -647,8 +655,15 @@ export class CapitalizationService {
     const db = this.store.workspaceDb(workspaceId, actor.organizationId);
     if (queryType === "library.summary") {
       const count = (sql: string) => (db.prepare(sql).get() as { n: number }).n;
+      const writeups = count(`SELECT COUNT(*) AS n FROM knowledge_assets WHERE state='extracted' AND superseded_by IS NULL AND (rejection_reason IS NULL OR rejection_reason LIKE '${NEEDS_PERSON_NOTE}%')`);
+      const tools = count("SELECT COUNT(*) AS n FROM tool_candidates WHERE state='quarantined'");
+      const plays = count("SELECT COUNT(*) AS n FROM play_proposals WHERE state='proposed'");
       return {
-        awaitingReview: count("SELECT COUNT(*) AS n FROM knowledge_assets WHERE state='extracted' AND rejection_reason IS NULL") + count("SELECT COUNT(*) AS n FROM tool_candidates WHERE state='quarantined'") + count("SELECT COUNT(*) AS n FROM play_proposals WHERE state='proposed'"),
+        // What truly needs a person: write-ups waiting for a reviewer (including ones set aside for a secret), tool and Play proposals.
+        // What Brain published itself is counted apart (publishedAutomatically) and never waits here.
+        awaitingReview: writeups + tools + plays,
+        needsPerson: { writeups, tools, plays },
+        publishedAutomatically: count("SELECT COUNT(*) AS n FROM knowledge_assets WHERE state='published' AND auto_published=1"),
         publishedKnowledge: count("SELECT COUNT(*) AS n FROM knowledge_assets WHERE state='published'"),
         // What Brain learned lately, for the quiet line on Today: mission write-ups published in the last seven days, and how many of those it published itself.
         learnedThisWeek: count(`SELECT COUNT(*) AS n FROM knowledge_assets WHERE operation_id='mission-knowledge' AND state='published' AND reviewed_at_ms>=${this.store.now() - 7 * 86_400_000}`),

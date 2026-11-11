@@ -77,7 +77,7 @@ describe("verified write-ups publish themselves on a single-owner install (row 4
     const churn = (await assets(w)).find((asset) => asset.title === CHURN.title)!;
     expect(churn.state).toBe("extracted");
     expect(churn.rejectionReason).toBeUndefined();
-    expect(await summary(w)).toMatchObject({ awaitingReview: 1 });
+    expect(await summary(w)).toMatchObject({ awaitingReview: 2 }); // the write-up with a secret and the one that needs a second reviewer
   });
 
   it("never touches effects, approvals or capability candidates", async () => {

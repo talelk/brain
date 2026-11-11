@@ -38,3 +38,17 @@ opinion); step-up authentication (the step-up challenge is bound to an approval 
 a subject digest of an effect; reusing it for advisory knowledge would add machinery to
 guard a non-authoritative act). If knowledge ever gains authority over execution, revisit
 this and require step-up.
+
+## Amendment 2026-11-11 (track AB): hands-off missions publish too
+
+Automatic publication does not depend on who closed the mission. A mission the Governor itself closed as achieved (hands-off:
+every task Done on independent verified evidence, then the Governor's mission verdict) publishes its write-up as self-reviewed and
+auto-published on exactly the conditions above: no other active human holds `memory:publish`, the workspace setting is on, the
+write-up has substance, is not a sample or test mission and holds no secret. A write-up whose producer is no longer an active
+reviewer (a departed mission owner) is published under the workspace's sole reviewer; a saved document from Brain or an agent still
+waits for a person. With two or more reviewers, or none, everything stays in the inbox. The sweep re-evaluates every waiting write-up
+on each capitalization pass, so write-ups that were waiting before this change publish on the first pass after deploy (no
+migration). Effects, approvals, capability candidates and tool publication are untouched.
+
+The Library overview now counts only what needs a person as "Awaiting your review" (write-ups needing a second reviewer or set
+aside for a secret, tool candidates, Play proposals) and counts what Brain published itself apart as "Published automatically".

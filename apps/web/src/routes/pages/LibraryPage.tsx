@@ -11,6 +11,15 @@ import { WorkspaceSection } from "../../ui/components/Domain";
 import { LibraryTabs } from "../../ui/components/LibraryTabs";
 import { AddStarterPlays, AutoPublishSetting } from "../../ui/components/LibraryControls";
 
+/** What the first number means: only the items that truly need a person, named by kind. */
+function needsPersonNote(data: LibrarySummary | undefined): string {
+  if (!data) return "";
+  const { writeups, tools, plays } = data.needsPerson;
+  const parts = [writeups > 0 ? `${writeups} write-up${writeups === 1 ? "" : "s"}` : "", tools > 0 ? `${tools} tool proposal${tools === 1 ? "" : "s"}` : "", plays > 0 ? `${plays} Play proposal${plays === 1 ? "" : "s"}` : ""].filter(Boolean);
+  const base = data.autoPublishKnowledge === false ? "Write-ups wait for your OK because automatic publishing is off." : "Tool and Play proposals, and any write-up that needs a second person or holds a secret. Verified write-ups publish themselves.";
+  return parts.length > 0 ? `${parts.join(", ")}. ${base}` : base;
+}
+
 /**
  * `/w/:id/library` (ADR 0014): the first-class place for everything Brain can reuse. One screen counts what is waiting for
  * review and what is already published, then sends you to the shelf: Plays, Knowledge, Documents, Tools and the Review inbox.
@@ -25,7 +34,8 @@ export default function LibraryPage(): JSX.Element {
   });
   const base = () => `/w/${app.workspaceId()}`;
   const shelves = (): Array<{ id: string; label: string; count: (value: LibrarySummary) => number; description: string; icon: string; href: string; emphasis?: boolean }> => [
-    { id: "review", label: "Awaiting your review", count: (value) => value.awaitingReview, description: summary.state().data?.autoPublishKnowledge === false ? "What Brain wrote up from finished missions, and tool or Play proposals. Approve once and it is reused." : "Tool and Play proposals, and any write-up that needs a second person. Verified write-ups publish themselves.", icon: "lucide-list-checks", href: `${base()}/knowledge/review`, emphasis: true },
+    { id: "review", label: "Awaiting your review", count: (value) => value.awaitingReview, description: needsPersonNote(summary.state().data), icon: "lucide-list-checks", href: `${base()}/knowledge/review`, emphasis: true },
+    { id: "auto", label: "Published automatically", count: (value) => value.publishedAutomatically, description: "Verified write-ups Brain published itself, marked self-reviewed. Withdraw any of them at any time.", icon: "lucide-sparkles", href: `${base()}/knowledge/review` },
     { id: "knowledge", label: "Published knowledge", count: (value) => value.publishedKnowledge, description: "Approved write-ups. Search and future plans use them, with their source.", icon: "lucide-brain", href: `${base()}/knowledge` },
     { id: "documents", label: "Documents", count: (value) => value.documents, description: "Files you added or saved from a result. Searchable by agents as soon as they are read.", icon: "lucide-file-text", href: `${base()}/knowledge?tab=documents` },
     { id: "plays", label: "Plays", count: (value) => value.plays, description: "Ready-made teams and plans you can start a mission from.", icon: "lucide-book-open-check", href: `${base()}/plays` },

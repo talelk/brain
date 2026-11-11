@@ -39,8 +39,6 @@ Confirmed: Quality page live with real numbers (97% verified without human help 
 | # | Item | Notes |
 |---|------|-------|
 | 67 | Tools wasted on failing calls: `documents.read` 21/21 failed (workspace has 0 documents), `web.fetch` 50/66 failed (egress/allowlist?), `csv.query` never used; registry detail shows "Preview unavailable: artifact not found" for tool script evidence | track AA running: availability logic, honest registry, fix or hide web.fetch |
-| 68 | Capitalisation is not hands-off for hands-off missions: 10 write-ups "Awaiting review" (+ "Approve all verified (10)") because auto-publish only applies to missions a person signed off; missions closed by the Governor after independent verification (completeFinishedMissions/autoComplete) never publish; on a single-owner install verified achieved missions should auto-publish as self-reviewed | next agent (Library/knowledge) |
-| 69 | Library overview says "Awaiting your review: 18" mixing write-ups with tool/Play proposals; count only what needs a person | UI |
 
 ## Not yet walked live
 Context received tab, Share link page (`/shared/:token`), Library Plays shelf after "Add starter Plays", scheduled Repeat occurrence (auto-confirm), Notification preferences (Security).

@@ -29,7 +29,7 @@ export function AutoPublishSetting(props: { summary: LibrarySummary | undefined;
   return <div class="flex min-w-0 flex-col gap-1" data-testid="auto-publish-setting">
     <Checkbox checked={props.summary?.autoPublishKnowledge ?? true} disabled={!props.summary || !canChange()} onCheckedChange={(checked) => void change(checked === true)}
       label="Publish verified write-ups automatically" />
-    <p class="m-0 ps-6 text-caption text-ink-gray-7">When you are the only reviewer, a mission you signed off writes up what it learned and publishes it as self-reviewed. It is marked, and Withdraw undoes it. Approvals, effects and tools are never published this way.</p>
+    <p class="m-0 ps-6 text-caption text-ink-gray-7">When you are the only reviewer, a verified mission, whether you signed it off or Brain closed it on its own checks, writes up what it learned and publishes it as self-reviewed. It is marked, and Withdraw undoes it. Approvals, effects and tools are never published this way.</p>
     <Show when={message()}><p role="status" class="m-0 ps-6 text-caption text-ink-gray-8">{message()}</p></Show>
   </div>;
 }
