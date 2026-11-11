@@ -318,10 +318,10 @@ CREATE TABLE knowledge_assets (
   state TEXT NOT NULL CHECK(state IN ('extracted','reviewed','published','revoked')),
   classification TEXT NOT NULL CHECK(classification IN ('public','internal','confidential','restricted')),
   content TEXT NOT NULL, source_count INTEGER NOT NULL CHECK(source_count >= 1),
-  title TEXT NOT NULL DEFAULT '', mission_id TEXT, producer_id TEXT,
+  title TEXT NOT NULL DEFAULT '', mission_id TEXT DEFAULT NULL, producer_id TEXT DEFAULT NULL,
   provenance_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(provenance_json)),
-  reviewed_by TEXT, self_reviewed INTEGER NOT NULL DEFAULT 0 CHECK(self_reviewed IN (0,1)),
-  reviewed_at_ms INTEGER, rejection_reason TEXT, content_digest TEXT,
+  reviewed_by TEXT DEFAULT NULL, self_reviewed INTEGER NOT NULL DEFAULT 0 CHECK(self_reviewed IN (0,1)),
+  reviewed_at_ms INTEGER DEFAULT NULL, rejection_reason TEXT DEFAULT NULL, content_digest TEXT DEFAULT NULL,
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
 ) STRICT;
 -- Reuse (#66): what Brain can offer a new mission. Rows are written when the source becomes

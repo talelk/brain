@@ -111,6 +111,22 @@ function indexStatements(sql: string, table: string): string[] {
   return sql.split(";").map((s) => s.trim()).filter((s) => (s.startsWith("CREATE INDEX ") || s.startsWith("CREATE UNIQUE INDEX ")) && s.includes(` ON ${table}(`));
 }
 
+/**
+ * Creates the indexes and full-text tables the schema file declares that the database lacks. A table created by the
+ * repair, or an index/FTS table added to the file later, would otherwise never exist on a live database (the file is
+ * the single owner of the schema, so what it declares must exist).
+ */
+function ensureAuxiliaryObjects(db: Db, sql: string, label: string): void {
+  for (const raw of sql.split(";")) {
+    const statement = raw.split("\n").filter((line) => !line.trim().startsWith("--")).join("\n").trim();
+    const match = /^CREATE (?:UNIQUE )?(?:INDEX|VIRTUAL TABLE) (?:IF NOT EXISTS )?([A-Za-z0-9_]+)/iu.exec(statement);
+    if (!match) continue;
+    if (db.prepare("SELECT 1 FROM sqlite_master WHERE name=?").get(match[1])) continue;
+    db.exec(statement);
+    console.log(`  ${label}: created ${match[1]}`);
+  }
+}
+
 /** Rebuilds diverged REBUILDABLE tables from the file, keeping every row. */
 function rebuildTables(db: Db, sql: string, tables: DeclaredTable[], label: string): void {
   // The pragma is a no-op inside a transaction, so it brackets it.
@@ -169,6 +185,7 @@ function repairNamespace(db: Db, sql: string, label: string): string {
     }
   }
   if (rebuild.length) rebuildTables(db, sql, rebuild.sort((a, b) => REBUILDABLE.indexOf(a.name) - REBUILDABLE.indexOf(b.name)), label);
+  ensureAuxiliaryObjects(db, sql, label);
   return schemaDigest(sql);
 }
 

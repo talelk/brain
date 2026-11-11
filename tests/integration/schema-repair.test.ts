@@ -36,6 +36,28 @@ function indexes(db: Database.Database): string[] {
 }
 
 describe("live schema repair", () => {
+  it("creates the indexes and full-text tables the schema declares when a live database lacks them", () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "brain-repair-aux-"));
+    try {
+      mkdirSync(join(dataDir, "workspaces"));
+      const path = join(dataDir, "workspaces", "ws-a.db");
+      const db = new Database(path);
+      db.exec(loadSchemaSql("workspace.sql"));
+      db.prepare("INSERT INTO workspace_identity(singleton, workspace_id, organization_id, schema_version) VALUES (1,'ws-a','org-a',1)").run();
+      db.exec("DROP INDEX mission_spend_run");
+      db.exec("DROP TABLE reuse_fts");
+      db.close();
+      const out = repair(dataDir);
+      expect(out).toContain("created mission_spend_run");
+      expect(out).toContain("created reuse_fts");
+      const after = new Database(path, { readonly: true });
+      const names = (after.prepare("SELECT name FROM sqlite_master WHERE name IN ('mission_spend_run','reuse_fts')").all() as Array<{ name: string }>).map((row) => row.name).sort();
+      after.close();
+      expect(names).toEqual(["mission_spend_run", "reuse_fts"]);
+      expect(repair(dataDir)).not.toContain("created ");
+    } finally { rmSync(dataDir, { recursive: true, force: true }); }
+  });
+
   it("rebuilds release-keyed tables in place, keeping rows, indexes and foreign keys", () => {
     const dataDir = mkdtempSync(join(tmpdir(), "brain-repair-"));
     try {
