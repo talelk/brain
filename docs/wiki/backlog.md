@@ -11,7 +11,6 @@ Dated 2026-11-11 ~15:45, at `talelk/brain@bd16582`+ (deployed: waves 1-3, tracks
 ## Open product work (GitHub issues, `talelk/brain`)
 | Issue | Item | Notes |
 |-------|------|-------|
-| #69, #65, #46 | Parent/umbrella issues: #77 is done (interactive runs are metered); close these after review | |
 | #3, #4, #5 | Domain vocabulary: Run aggregate type, WorkflowJob naming, WorkflowState vs WorkflowRunState | needs-triage, docs/ADR + contract rename |
 
 ## Open UI / quality rows
@@ -52,7 +51,7 @@ Confirmed live: run inspector (plain failure reason + next step), **Context rece
 | 71 | Runs list rows show raw job ids ("job-mwc4rxdd-2w-66kagflk") and the generic title "Do a task": show the work item/mission title and a plain state | UI |
 
 ## Not yet walked live
-Share link page (`/shared/:token`), Library Plays shelf after "Add starter Plays", scheduled Repeat occurrence (auto-confirm), Notification preferences (Security).
+Share link page (creating a public link needs the owner's explicit OK: the assistant is blocked from granting access; ask the user to create one and confirm it opens read-only without sign-in) (`/shared/:token`), Library Plays shelf after "Add starter Plays", scheduled Repeat occurrence (auto-confirm), Notification preferences (Security).
 
 ## Standing rules (see goal-and-user.md)
 Validate every change in a real browser as a first-time user; do not stop until nothing is left; reuse and capitalisation are first-class.
