@@ -486,3 +486,10 @@ CREATE TABLE command_effects (
  command_id TEXT PRIMARY KEY, result_json TEXT NOT NULL CHECK(json_valid(result_json)),
  created_at_ms INTEGER NOT NULL
 ) STRICT;
+-- Regression cases (ADR 0010): a rejected sign-off or a task sent back after review becomes one immutable case, written in the transition's own transaction.
+CREATE TABLE eval_cases (
+ id TEXT PRIMARY KEY, source TEXT NOT NULL UNIQUE,
+ kind TEXT NOT NULL CHECK(kind IN ('rejected-verdict','task-sent-back')),
+ mission_id TEXT NOT NULL, work_item_id TEXT, case_json TEXT NOT NULL CHECK(json_valid(case_json)), created_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX eval_cases_recent ON eval_cases(created_at_ms);

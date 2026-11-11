@@ -741,7 +741,8 @@
     "reuse.search",
     "reuse.forMission",
     "contextPacks.forRun",
-    "contextPacks.reference"
+    "contextPacks.reference",
+    "evalCases.list"
   ],
   "events": [
     {

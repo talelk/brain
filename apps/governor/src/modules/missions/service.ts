@@ -10,6 +10,7 @@ import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinato
 import { admit, budgetOf, clockSet, DEFAULT_MISSION_BUDGET, hasHeadroom, reserve as reserveSpend, settle, settleAll, usageOf } from "./budget";
 import { missionUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUsage } from "./usage";
 import { planEstimate } from "./estimate";
+import { listEvalCases, recordEvalCase } from "./eval-cases";
 import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, sendMessage, verifyOutputs } from "./outputs";
 import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissionBundle, recordMissionVerdict, submitHandoff, workflowCovers } from "../evidence/index";
 import type { HandoffNotes } from "@brain/contracts";
@@ -367,6 +368,8 @@ export class MissionService {
       const resetCount = unpark || next === "review" || next === "done";
       transitionState(db, "workItem", item.id, next, { set: { blocked_reason: next === "blocked" ? reason : null, evidence_digest: evidenceDigest ?? null, next_action: nextAction, updated_at_ms: this.store.now(), ...(resetCount ? { failed_attempts: 0 } : {}), ...(unpark ? { parked: 0, parked_diagnostic: null } : {}) }, bumpVersion: true, and: { version: item.version } });
       if (unpark) this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.unparked", payload: { workItemId: item.id, state: next } });
+      // A task sent back from review is a rejected sign-off on that task (issue #64).
+      if (item.state === "review" && next === "in-progress") recordEvalCase(this.store, db, { workspaceId, source: `sent-back:${item.id}:${item.version}`, kind: "task-sent-back", missionId: item.mission_id, workItemId: item.id, findings: reason ? [reason] : [] });
       this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.transitioned", payload: { workItemId: item.id, state: next, ...(evidenceDigest ? { evidenceDigest } : {}) } });
       if (next === "done") { verifyOutputs(db, item.id); this.releaseReadyItems(db, item.mission_id); wake(this.store, db, item.mission_id, "work-verified", item.title); }
     });
@@ -563,7 +566,11 @@ export class MissionService {
     const db = this.db(actor, workspaceId);
     const outcome = String(payload["outcome"]) as "verified" | "rejected";
     const findings = (payload["findings"] as string[] | undefined) ?? [];
-    this.store.inTx(db, () => recordMissionVerdict(this.store, db, { missionId: mission.id, digest: String(payload["bundleDigest"]), outcome, findings, by: actor.actorId }));
+    this.store.inTx(db, () => {
+      recordMissionVerdict(this.store, db, { missionId: mission.id, digest: String(payload["bundleDigest"]), outcome, findings, by: actor.actorId });
+      // A rejected sign-off is a re-open: it becomes a regression case without anyone filing it (issue #64).
+      if (outcome === "rejected") recordEvalCase(this.store, db, { workspaceId, source: `verdict:${String(payload["bundleDigest"])}`, kind: "rejected-verdict", missionId: mission.id, findings });
+    });
     if (outcome === "rejected") this.backToWork(actor, workspaceId, mission.id, findings);
     return mission.id;
   }
@@ -916,6 +923,7 @@ export class MissionService {
       const rows = db.prepare("SELECT * FROM missions ORDER BY updated_at_ms DESC,id LIMIT ?").all(limit) as MissionRow[];
       return { items: rows.map((row) => this.mission(workspaceId, row)) } as unknown as JsonValue;
     }
+    if (queryType === "evalCases.list") return listEvalCases(db, limit) as unknown as JsonValue;
     if (queryType === "missionOutputs.get") return outputDetail(db, String(resourceId)) as unknown as JsonValue;
     if (queryType === "missionOutputs.list") return { items: listOutputs(db, this.missionRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;
     if (queryType === "missionMessages.list") return { items: listMessages(db, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;

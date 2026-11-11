@@ -7370,7 +7370,8 @@
             "reuse.search",
             "reuse.forMission",
             "contextPacks.forRun",
-            "contextPacks.reference"
+            "contextPacks.reference",
+            "evalCases.list"
           ]
         },
         "workspaceId": {
@@ -7442,7 +7443,8 @@
             "reuse.search",
             "reuse.forMission",
             "contextPacks.forRun",
-            "contextPacks.reference"
+            "contextPacks.reference",
+            "evalCases.list"
           ]
         },
         "snapshot": {

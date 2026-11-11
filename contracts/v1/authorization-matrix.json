@@ -685,6 +685,11 @@
       "scope": "workspace:read",
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
+    },
+    "evalCases.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
     }
   },
   "commandRecoveryRule": {

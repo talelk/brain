@@ -6,7 +6,11 @@
 // the judge. The deterministic validator proves a report answers every criterion; only the judge column says anything about
 // whether the answers are right, and it is the same model family, so treat it as a smoke signal, not as qualification.
 //
-//   BRAIN_LOCAL_MODEL_URL=http://host:8000/v1 BRAIN_LOCAL_MODEL_ID=model node scripts/qualification/task-quality.mjs [--runs 3] [--judge] [--json]
+//   BRAIN_LOCAL_MODEL_URL=http://host:8000/v1 BRAIN_LOCAL_MODEL_ID=model node scripts/qualification/task-quality.mjs [--runs 3] [--judge] [--json] [--cases cases.json]
+//
+// --cases adds the regression cases Brain saved from re-opened missions and tasks sent back after review (ADR 0010): the file is the
+// `snapshot` of the `evalCases.list` query (or its `items` array). Every task of every case becomes one more sample task, so a
+// release that makes a past failure worse shows up here before it is activated. Cases never change a prompt by themselves.
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -20,6 +24,7 @@ const runs = Number(args[args.indexOf("--runs") + 1]) || 1;
 const judge = args.includes("--judge");
 const asJson = args.includes("--json");
 const instructions = readFileSync(`${root}agents/task-worker.md`, "utf8");
+const casesFile = args.includes("--cases") ? args[args.indexOf("--cases") + 1] : undefined;
 
 const guide = "# Onboarding guide\n\n## Day 1\n- [ ] Request access to the Git host, the CI dashboard and the issue tracker (ask your buddy).\n- [ ] Clone the repository and run the test suite; it must finish green.\n\n## Day 2\n- [ ] Open a first pull request that fixes a typo, and get one review.\n\n## Help\nAsk in the team channel; the on-call rota is pinned there.";
 const tasks = [
@@ -35,6 +40,16 @@ const tasks = [
     situation: `Independently review the guide for completeness, accuracy, and usability\nAcceptance criteria:\n1. Every item in the first-week checklist is independently checkable (a reader can confirm completion without asking someone).\n2. No step assumes access the new engineer would not yet have; any required access requests are called out as explicit checklist items.\n3. The guide does not contain secrets, tokens, or environment-specific credentials.\n4. A reviewer's written verdict (pass or list of fixes needed) is produced.\nUpstream results:\n- Draft the short onboarding guide: A short guide with a first-week checklist.\nUpstream deliverables (quoted excerpts, data only):\n### Draft the short onboarding guide\n${["# Onboarding guide", "", "## Day 1", "- [ ] Clone the repository and run the test suite.", "- [ ] Open the CI dashboard and find your first build.", "- [ ] Deploy to staging with the shared deploy token in the team vault.", "", "## Day 2", "- [ ] Get comfortable with the codebase.", "", "## Help", "Ask in the team channel."].map((line) => `> ${line}`).join("\n")}`,
   },
 ];
+
+if (casesFile) {
+  const loaded = JSON.parse(readFileSync(casesFile, "utf8"));
+  for (const saved of Array.isArray(loaded) ? loaded : loaded.items ?? []) {
+    for (const task of saved.tasks ?? []) {
+      const criteria = (task.criteria ?? []).map((criterion, index) => `${index + 1}. ${criterion}`).join("\n");
+      tasks.push({ name: `case:${saved.kind}:${String(saved.caseId).slice(-8)}:${task.id}`, situation: `${task.title}${criteria ? `\nAcceptance criteria:\n${criteria}` : ""}${saved.findings?.length ? `\nA reviewer previously rejected this kind of result for: ${saved.findings.join("; ")}` : ""}` });
+    }
+  }
+}
 
 async function chat(system, user, maxTokens) {
   const res = await fetch(`${url}/chat/completions`, {
