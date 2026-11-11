@@ -706,6 +706,8 @@
     "executionLinks.list",
     "automations.list",
     "automations.occurrences",
+    "automations.preview",
+    "automations.diff",
     "delegations.list",
     "documents.list",
     "documents.get",

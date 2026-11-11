@@ -50,7 +50,7 @@ test("schedules: personal-host offline wait, recovery and fail are explicit (T58
   await waiting.getByRole("button", { name: "Run now", exact: true }).click();
   await waiting.getByRole("button", { name: "History", exact: true }).click();
   await expect(waiting).toContainText(/pending/i);
-  await expect(waiting).toContainText("offline policy wait");
+  await expect(waiting).toContainText("the run starts when it is back");
   expect((brain.store.control.prepare("SELECT COUNT(*) AS count FROM jobs").get() as { count: number }).count).toBe(0);
 
   brain.store.control.prepare("UPDATE runners SET last_heartbeat_ms=? WHERE id='personal-browser'").run(brain.store.now());
@@ -66,7 +66,7 @@ test("schedules: personal-host offline wait, recovery and fail are explicit (T58
   await failing.getByRole("button", { name: "Run now", exact: true }).click();
   await failing.getByRole("button", { name: "History", exact: true }).click();
   await expect(failing).toContainText(/failed/i);
-  await expect(failing).toContainText("offline policy fail");
+  await expect(failing).toContainText("set to fail rather than wait");
   expect((brain.store.control.prepare("SELECT COUNT(*) AS count FROM jobs").get() as { count: number }).count).toBe(1);
   expect(errors).toEqual([]);
 });

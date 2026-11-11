@@ -1,11 +1,13 @@
+import { Show, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { useSearchParams } from "@solidjs/router";
-import type { PlayView, WorkflowCatalogEntry, WorkItem } from "@brain/contracts";
+import type { Mission, PlayView, WorkflowCatalogEntry, WorkItem } from "@brain/contracts";
 import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { SchedulesPanel, type ScheduleTarget } from "../../ui/components/SchedulesPanel";
+import { RepeatSheet } from "../../ui/components/RepeatSheet";
 
 type Envelope<T> = { snapshot: { items: T[] }; asOf: string; sourceWatermark: number };
 
@@ -32,9 +34,23 @@ export default function SchedulesPage(): JSX.Element {
       return { snapshot: [...playTargets, ...taskTargets, ...itemTargets], asOf: plays.asOf, sourceWatermark: plays.sourceWatermark };
     },
   });
+  // `?repeat=<missionId>` opens the preset picker for a finished mission (#56).
+  const repeatId = () => text("repeat");
+  const [repeatClosed, setRepeatClosed] = createSignal(false);
+  const [created, setCreated] = createSignal(0);
+  const repeating = createScopedRead<Mission | undefined>({
+    scope: app.scope,
+    load: async (scope, signal) => {
+      const id = repeatId();
+      if (!id) return { snapshot: undefined, asOf: new Date().toISOString(), sourceWatermark: 0 };
+      const response = await query<{ snapshot: Mission; asOf: string; sourceWatermark: number }>({ queryType: "missions.get", workspaceId: scope.workspaceId, resourceId: id }, signal);
+      return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+    },
+  });
   return <BrainPage title="Schedules" description="Every recurring, one-off and manual start in this workspace: what it starts, when it fires next, which host runs it and what happened.">
     <PageStack>
-      <SchedulesPanel targets={targets.state().data ?? []} focus={text("target")} create={text("create")} />
+      <Show when={repeating.state().data}>{(mission) => <RepeatSheet mission={mission()} open={!repeatClosed()} onClose={() => setRepeatClosed(true)} onCreated={() => setCreated((count) => count + 1)} />}</Show>
+      <SchedulesPanel refreshKey={created()} targets={targets.state().data ?? []} focus={text("target")} create={text("create")} />
     </PageStack>
   </BrainPage>;
 }

@@ -1,4 +1,4 @@
-import { createSignal, For, onMount, Show } from "solid-js";
+import { createEffect, createSignal, For, on, onMount, Show } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import type { JSX } from "solid-js";
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
@@ -12,11 +12,25 @@ import { DateText, ScreenRegion } from "../screen-region";
 import { StatusBadge } from "./StatusBadge";
 import { formatDateTime } from "../format";
 import { ReasonDialog } from "./ReasonDialog";
+import { OccurrenceChange } from "../outputs/OccurrenceChange";
 
 function triggerSummary(automation: Automation): string {
   if (automation.trigger.kind === "cron") return `${automation.trigger.cron} · ${automation.trigger.timezone}`;
   if (automation.trigger.kind === "once") return `Once at ${formatDateTime(automation.trigger.scheduledAt)}`;
   return "Manual (Run now)";
+}
+
+/** The scheduler's recorded detail, in words a person can act on (#56). Unknown details are kept, never dropped. */
+export function plainReason(detail: string): string {
+  if (/previous occurrence is still running/i.test(detail)) return "Skipped: the previous run was still going.";
+  if (/still open/i.test(detail)) return "Skipped: the mission the previous run started is still open, so no second one was started.";
+  if (/missed under the skip/i.test(detail)) return "Skipped: Brain was not running at that time, and this schedule does not catch up.";
+  if (/personal host .* (offline|unavailable); offline policy fail/i.test(detail)) return "Failed: the personal computer this schedule is pinned to was offline, and the schedule is set to fail rather than wait.";
+  if (/personal host .* (offline|unavailable)/i.test(detail)) return "Waiting: the personal computer this schedule is pinned to is offline; the run starts when it is back.";
+  if (/is not in the active release/i.test(detail)) return "Could not start: the play this schedule repeats is no longer in the active release.";
+  if (/work item is /i.test(detail)) return `Skipped: ${detail.replace(/^work item is /i, "the task was already ")}.`;
+  if (/missions are not available/i.test(detail)) return "Could not start: missions are not available in this workspace.";
+  return `Could not start: ${detail}`;
 }
 
 const SCHEDULES_PAGE_SIZE = 25;
@@ -32,7 +46,7 @@ const KIND_LABEL: Record<ScheduleTarget["kind"], string> = { play: "Play", workf
  * link here (`focus` narrows the list to one target, `create` opens the editor
  * for one).
  */
-export function SchedulesPanel(props: { targets: readonly ScheduleTarget[]; focus?: string; create?: string; title?: string }): JSX.Element {
+export function SchedulesPanel(props: { targets: readonly ScheduleTarget[]; focus?: string; create?: string; title?: string; /** Bumped by a caller that just created a schedule elsewhere. */ refreshKey?: number }): JSX.Element {
   const app = useApp();
   const [stateFilter, setStateFilter] = createSignal("");
   const [kindFilter, setKindFilter] = createSignal("");
@@ -93,6 +107,7 @@ export function SchedulesPanel(props: { targets: readonly ScheduleTarget[]; focu
     refreshMs: 15_000,
   });
 
+  createEffect(on(() => props.refreshKey ?? 0, () => void automations.refresh({ force: true }), { defer: true }));
   function resetEditor() {
     setEditing(undefined); setEditorMode("create"); setTitle(""); setTargetId(firstTarget());
     setTriggerKind("cron"); setCron(""); setTimezone("UTC"); setScheduledAt(""); setOverlap("skip"); setMisfire("skip");
@@ -163,7 +178,7 @@ export function SchedulesPanel(props: { targets: readonly ScheduleTarget[]; focu
                 <dl class="mt-2 grid gap-3 text-interface sm:grid-cols-2"><div><dt class="text-caption text-ink-gray-6">Trigger / timezone</dt><dd class="mt-1">{triggerSummary(automation)}</dd></div><div><dt class="text-caption text-ink-gray-6">Execution</dt><dd class="mt-1">{automation.execution.mode === "personal-host" ? <>Personal host <a class="text-ink-blue-3 underline" href={`/runners/${automation.execution.runnerId}`}>{automation.execution.runnerId}</a> · offline {automation.execution.offlinePolicy}</> : "Managed runners"}</dd></div><div><dt class="text-caption text-ink-gray-6">Policies</dt><dd class="mt-1">Overlap {automation.overlap} · missed fires {automation.misfire}</dd></div><div><dt class="text-caption text-ink-gray-6">Next actual fire</dt><dd class="mt-1"><Show when={automation.nextOccurrences?.[0]} fallback="Not currently scheduled"><DateText value={automation.nextOccurrences?.[0]} /></Show></dd></div></dl>
                 <Show when={(automation.nextOccurrences?.length ?? 0) > 1}><details class="mt-2 text-caption text-ink-gray-6"><summary class="cursor-pointer">Preview next {automation.nextOccurrences?.length} occurrences</summary><ul class="mt-2 flex flex-col gap-1"><For each={automation.nextOccurrences}>{(occurrence) => <li><DateText value={occurrence} /></li>}</For></ul></details></Show>
                 <div class="mt-2 flex flex-wrap gap-2"><Button variant="outline" iconLeft="lucide-pencil" disabled={busy() || automation.state === "retired"} onClick={() => loadEditor(automation, "edit")}>Edit</Button><Button variant="outline" iconLeft="lucide-copy" disabled={busy()} onClick={() => loadEditor(automation, "duplicate")}>Duplicate</Button><Button variant="outline" iconLeft="lucide-pause" disabled={busy() || automation.state !== "active"} onClick={() => void control(automation, "pause")}>Pause</Button><Button variant="outline" iconLeft="lucide-play" disabled={busy() || automation.state !== "paused"} onClick={() => void control(automation, "resume")}>Resume</Button><Button variant="outline" theme="blue" iconLeft="lucide-zap" disabled={busy() || automation.state === "retired"} onClick={() => void control(automation, "runNow")}>Run now</Button><Button variant="ghost" iconLeft="lucide-history" onClick={() => { setSelectedId(automation.automationId === selectedId() ? "" : automation.automationId); setOccurrencePage(1); void history.refresh({ force: true }); }}>{automation.automationId === selectedId() ? "Hide history" : "History"}</Button><Button variant="ghost" theme="red" iconLeft="lucide-archive" disabled={busy() || automation.state === "retired"} onClick={() => setRetiring(automation)}>Retire</Button></div>
-                <Show when={automation.automationId === selectedId()}><div class="mt-2 border-t border-outline-gray-1 pt-3"><ScreenRegion state={history.state()} onRetry={() => void history.refresh()} emptyTitle="No occurrences yet" emptyDescription="Planned instants appear here with their run links."><ul class="flex flex-col gap-2 text-caption text-ink-gray-7"><For each={visibleOccurrences()}>{(occurrence) => <li class="break-words"><DateText value={occurrence.plannedAt} /> · <StatusBadge kind="occurrence" status={occurrence.state} />{occurrence.dispatchRef && <> · {occurrence.dispatchRef}</>}{occurrence.detail && <> · {occurrence.detail}</>}</li>}</For></ul><Show when={occurrences().length > OCCURRENCES_PAGE_SIZE}><div class="mt-2 flex justify-center border-t border-outline-gray-1 pt-3"><Pagination.Root count={occurrences().length} pageSize={OCCURRENCES_PAGE_SIZE} page={safeOccurrencePage()} onPageChange={setOccurrencePage} aria-label="Occurrence history pagination"><Pagination.PrevTrigger /><Pagination.Pages /><Pagination.NextTrigger /><Pagination.Range class="ms-2" /></Pagination.Root></div></Show></ScreenRegion></div></Show>
+                <Show when={automation.automationId === selectedId()}><div class="mt-2 border-t border-outline-gray-1 pt-3"><ScreenRegion state={history.state()} onRetry={() => void history.refresh()} emptyTitle="No occurrences yet" emptyDescription="Planned instants appear here with their run links."><ul class="flex flex-col gap-2 text-caption text-ink-gray-7"><For each={visibleOccurrences()}>{(occurrence) => <li class="flex flex-col gap-1 break-words"><span><DateText value={occurrence.plannedAt} /> · <StatusBadge kind="occurrence" status={occurrence.state} />{occurrence.dispatchRef && automation.target.kind === "play" && <> · <a class="text-ink-blue-link underline" href={`/missions/${encodeURIComponent(occurrence.dispatchRef)}/outputs?w=${encodeURIComponent(app.workspaceId())}`}>Open the mission</a></>}{occurrence.dispatchRef && automation.target.kind !== "play" && <> · {occurrence.dispatchRef}</>}</span>{occurrence.detail && <span class="text-ink-gray-7" data-testid="occurrence-reason">{plainReason(occurrence.detail)}</span>}<Show when={occurrence.state === "dispatched"}><OccurrenceChange refId={occurrence.occurrenceId} /></Show></li>}</For></ul><Show when={occurrences().length > OCCURRENCES_PAGE_SIZE}><div class="mt-2 flex justify-center border-t border-outline-gray-1 pt-3"><Pagination.Root count={occurrences().length} pageSize={OCCURRENCES_PAGE_SIZE} page={safeOccurrencePage()} onPageChange={setOccurrencePage} aria-label="Occurrence history pagination"><Pagination.PrevTrigger /><Pagination.Pages /><Pagination.NextTrigger /><Pagination.Range class="ms-2" /></Pagination.Root></div></Show></ScreenRegion></div></Show>
               </article>}</For>
             </div>
             <Show when={schedules().length > SCHEDULES_PAGE_SIZE}><div class="mt-4 flex justify-center border-t border-outline-gray-1 pt-3"><Pagination.Root count={schedules().length} pageSize={SCHEDULES_PAGE_SIZE} page={safeSchedulePage()} onPageChange={setSchedulePage} aria-label="Schedule library pagination"><Pagination.PrevTrigger /><Pagination.Pages /><Pagination.NextTrigger /><Pagination.Range class="ms-2" /></Pagination.Root></div></Show>

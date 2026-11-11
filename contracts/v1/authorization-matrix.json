@@ -476,6 +476,16 @@
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
     },
+    "automations.preview": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "automations.diff": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
     "delegations.list": {
       "scope": "workspace:read",
       "scopeMode": "workspace",

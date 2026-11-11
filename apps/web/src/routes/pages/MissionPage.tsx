@@ -171,6 +171,7 @@ export default function MissionPage(): JSX.Element {
     breadcrumbs={[{ label: "Missions", href: `/w/${app.workspaceId()}/missions` }, { label: current()?.title ?? missionId() }]}
     actions={<Show when={current()}>{(m) => <div class="flex flex-wrap gap-2">
       <Button variant={m().watching ? "solid" : "outline"} iconLeft={m().watching ? "lucide-eye-off" : "lucide-eye"} aria-pressed={m().watching ? "true" : "false"} disabled={busy()} onClick={() => void act(() => app.run("mission.watch", { missionId: m().missionId, watch: !m().watching }))}>{m().watching ? "Unwatch" : "Watch"}</Button>
+      <Show when={m().state === "closed"}><Button variant="outline" theme="blue" iconLeft="lucide-repeat" onClick={() => void navigate(`/w/${app.workspaceId()}/schedules?repeat=${encodeURIComponent(m().missionId)}`)}>Repeat this</Button></Show>
       <Show when={m().state === "paused"}><Button variant="solid" theme="blue" iconLeft="lucide-play" disabled={busy()} onClick={() => void act(() => app.run("mission.resume", { missionId: m().missionId }, { expectedVersion: m().version }))}>Resume</Button></Show>
       <Show when={m().state === "active" && missionGuide(m(), items.state().data ?? [], app.canDispatch()).allDone}><Button variant="solid" theme="blue" iconLeft="lucide-badge-check" disabled={busy()} onClick={() => void act(() => app.run("mission.proposeCompletion", { missionId: m().missionId }, { expectedVersion: m().version }))}>Finish mission</Button></Show>
       <Show when={m().state !== "closed"}><Dropdown aria-label="More mission actions" options={[

@@ -54,9 +54,7 @@ export function sourceConstraint(candidate: ReuseCandidate): string {
   return `Started from the earlier mission "${candidate.title}" (${candidate.id}); its verified outputs are the starting inputs. ${candidate.verified ? `Last verified ${candidate.lastVerifiedAt ?? "earlier"}.` : "It was not verified."}`;
 }
 
-/** HOOK for #56: the preset schedule picker. Until it exists, Repeat opens the Schedules editor for the play, else the mission's plan. */
+/** Repeat opens the preset picker (#56) for the finished mission on the Schedules page. */
 export function repeatHref(workspaceId: string, candidate: ReuseCandidate): string {
-  return candidate.playId
-    ? `/w/${encodeURIComponent(workspaceId)}/schedules?create=${encodeURIComponent(candidate.playId)}`
-    : `/missions/${encodeURIComponent(candidate.id)}/plan?w=${encodeURIComponent(workspaceId)}`;
+  return `/w/${encodeURIComponent(workspaceId)}/schedules?repeat=${encodeURIComponent(candidate.id)}`;
 }

@@ -7,6 +7,8 @@ import { assertExpectedVersion, transitionState } from "../../domain/states";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { nextCronFire, parseCron } from "../workflows/index";
+import { occurrenceDiff } from "./occurrence-diff";
+import { presetPreview } from "./schedule-presets";
 
 /**
  * T52 unified automation: one durable scheduler for WorkItems and compiled
@@ -385,7 +387,7 @@ export class AutomationService {
       .run(state, dispatchRef, detail, this.store.now(), occurrence.id);
   }
 
-  query(actor: ActorContext, queryType: string, workspaceId: string, resourceId?: string, limit = 100): JsonValue {
+  query(actor: ActorContext, queryType: string, workspaceId: string, resourceId?: string, limit = 100, search?: string): JsonValue {
     const db = this.db(actor, workspaceId);
     if (queryType === "automations.list") {
       const rows = db.prepare("SELECT * FROM automations ORDER BY updated_at_ms DESC,id LIMIT ?").all(limit) as AutomationRow[];
@@ -396,6 +398,11 @@ export class AutomationService {
         ? db.prepare("SELECT * FROM automation_occurrences WHERE automation_id=? ORDER BY planned_at_ms DESC,id LIMIT ?").all(resourceId, limit) as OccurrenceRow[]
         : db.prepare("SELECT * FROM automation_occurrences ORDER BY planned_at_ms DESC,id LIMIT ?").all(limit) as OccurrenceRow[];
       return { items: rows.map((row) => AutomationService.occurrence(workspaceId, row)) } as unknown as JsonValue;
+    }
+    if (queryType === "automations.preview") return presetPreview(this.store.now(), resourceId, search);
+    if (queryType === "automations.diff") {
+      if (!resourceId) throw new BrainDomainError("INVALID_ARGUMENT", "resourceId (an occurrence, mission or run id) required");
+      return occurrenceDiff(this.store, db, resourceId);
     }
     throw new BrainDomainError("UNSUPPORTED_CAPABILITY", `unsupported automation query ${queryType}`);
   }

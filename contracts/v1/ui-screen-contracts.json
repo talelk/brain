@@ -106,6 +106,8 @@
     "sessions.list",
     "automations.list",
     "automations.occurrences",
+    "automations.preview",
+    "automations.diff",
     "jobs.list",
     "session.get",
     "live.status",
@@ -208,6 +210,9 @@
    "queries": [
     "automations.list",
     "automations.occurrences",
+    "automations.preview",
+    "automations.diff",
+    "missions.get",
     "plays.list",
     "workflows.list"
    ],

@@ -21,6 +21,7 @@ import { resolveWorkItemLink } from "./OutputHistory";
 import { TrustNote } from "./ResultReader";
 import { trustLineOf } from "./result-model";
 import { createTrust } from "./trust-read";
+import { OccurrenceChange } from "./OccurrenceChange";
 import { loadMissionFiles } from "./mission-results";
 import type { MissionFiles } from "./mission-results";
 import { groupByTask, resolveFiles, reviewStateOf } from "./output-files";
@@ -163,6 +164,7 @@ export function MissionOutputs(props: { mission: Mission }): JSX.Element {
       }
     >
       <div class="mb-3 flex min-w-0 flex-col gap-3">
+        <OccurrenceChange refId={props.mission.missionId} />
         <ReusedLine missionId={props.mission.missionId} workspaceId={props.mission.workspaceId} />
         <KnowledgeProposalNote missionId={props.mission.missionId} workspaceId={props.mission.workspaceId} achieved={props.mission.outcome === "achieved"} />
       </div>
