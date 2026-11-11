@@ -44,8 +44,15 @@ Confirmed: Quality page live with real numbers (97% verified without human help 
 Live: Library shows "Awaiting your review: 4" (tool proposals only) and "Published automatically: 5". The 10 "waiting write-ups" were old mission notes with no mission and no title (AB could not reproduce my guessed cause: Governor-closed missions already auto-publish); the sweep now sets such notes aside with a reason. AA: web.fetch failures were 33 "tool input too large" + 17 host not on allowlist (egress is fine); runner reduces HTML to <48 KiB, unavailable tools are dropped from the tool list with reasons, registry shows failure rates. Check next mission: Tools registry failure counts should stop growing.
 Open: 4 quarantined tool proposals in Library need a person (decide: review UI wording); `git push` failed once with "Could not resolve host: github.com" (network hiccup, retry works).
 
+## Live walkthrough 2026-11-11 ~18:10
+Confirmed live: run inspector (plain failure reason + next step), **Context received** tab ("About 452 tokens of an 8192-token budget for task-worker, step respond": sections with fact/claim labels, "Nothing was shortened", digest + copy).
+| # | Item | Notes |
+|---|------|-------|
+| 70 | Logs > Runs "Needs intervention 4": four old failed attempts of tasks that later succeeded (missions achieved) stay flagged for ever, while Today says nothing needs you: only unresolved runs (work item not done through a later attempt) belong there | UI/read model |
+| 71 | Runs list rows show raw job ids ("job-mwc4rxdd-2w-66kagflk") and the generic title "Do a task": show the work item/mission title and a plain state | UI |
+
 ## Not yet walked live
-Context received tab, Share link page (`/shared/:token`), Library Plays shelf after "Add starter Plays", scheduled Repeat occurrence (auto-confirm), Notification preferences (Security).
+Share link page (`/shared/:token`), Library Plays shelf after "Add starter Plays", scheduled Repeat occurrence (auto-confirm), Notification preferences (Security).
 
 ## Standing rules (see goal-and-user.md)
 Validate every change in a real browser as a first-time user; do not stop until nothing is left; reuse and capitalisation are first-class.
