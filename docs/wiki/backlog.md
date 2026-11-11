@@ -3,7 +3,7 @@
 | # | Item | Track | Status (2026-11-11) |
 |---|------|-------|---------------------|
 | 1 | General-purpose research/write workflow + evaluator, readable deliverable; planner stops creating clarify-with-human tasks | A | built: `general-task` workflow + `task-validator`, planner no longer makes clarify tasks; needs release restage + activation on live |
-| 2 | Outputs: one result per task up front; Logs readable default | B | not started |
+| 2 | Outputs: one result per task up front; Logs readable default | B | shipped `f470178`, deployed live 2026-11-11 ~00:40; browser check in progress |
 | 3 | Administration screens audit + fixes | C | first pass done 2026-11-11 (`022b2c0`); follow-ups rows 8-12 |
 | 4 | Competitive/spec research -> `docs/research/` and ranked product gaps | D | done 2026-11-11 (`b350f76`); caveat: Codex page 403, gap 6 'no email/Slack' from limited grep |
 | 5 | Plain-language failure reasons for failed runs/tasks | B/C | not started |
@@ -36,7 +36,7 @@ Track H (spec + tickets): existing-research-to-defaults, tools audit, memory aud
 ## Track A follow-ups and user addenda (2026-11-11)
 | # | Item | Track | Status |
 |---|------|-------|--------|
-| 13 | Stage + activate the new release (general-task, task-worker, task-validator, task.validate, plan-guide change) on the live server; confirm `general-task` in catalog; restart runners; validate with a plain-words mission in Chrome. Steps in track A report (see `docs/howto/compile-activate-release.md`); first find how the live release was built (starter vs `releases/cv-insights`) | chief | open, needs deploy password |
+| 13 (DONE 2026-11-11: staged and activated release `sha256:c6b977ed54bc58e0ded9e9e27d2937fd762e9a3bda767130ccad4fef7883f93e` via CLI inside container `brain-governor-1`, sign-in with `Origin: https://brain.mykeyrus.tn`, runners restarted) Stage + activate the new release (general-task, task-worker, task-validator, task.validate, plan-guide change) on the live server; confirm `general-task` in catalog; restart runners; validate with a plain-words mission in Chrome. Steps in track A report (see `docs/howto/compile-activate-release.md`); first find how the live release was built (starter vs `releases/cv-insights`) | chief | open, needs deploy password |
 | 14 | Outputs "Result" preview is raw JSON with escaped Markdown; render the deliverable as Markdown (track B row 2) | B | open |
 | 15 | Evaluator is deterministic (proves criteria answered, not correct); measure real-model quality; consider a model-judged independent check | A2 | open |
 | 16 | Downstream tasks only see upstream handoff summaries, not the full deliverable; provide selective full-deliverable context within a budget (ties to track H context management) | A2/H | open |
@@ -46,3 +46,10 @@ Track H (spec + tickets): existing-research-to-defaults, tools audit, memory aud
 Spec `docs/specs/reuse-memory-tools-and-context.md` = issue #65; sub-issues #66-#85, native blocked-by edges. Owner direction: reuse and capitalization are first-class. Order: #66 reuse index, #67 readable knowledge assets, #68 planner receives reuse, #69 start-from-previous and Repeat entries on the Today box (blocked by #47), #70 'what Brain reused' line, #71 Library review inbox, #72 single-owner review decision, #73 Library navigation (needs-triage), #74 suggest a Play (needs-triage), then search, usage ledger, meter, token ceiling, spend-cap decision, context pack, compaction, knowledge.search tool, default tools, registry, repo context budget script.
 Small fix made: local memory search ranks by matched terms then recency (`memory.ts`).
 Not fixed on purpose: `maxMicroUsd: 0` fails paid-endpoint runs (decision ticket).
+
+## Live state and wave 2 (2026-11-11 ~01:00)
+- Live runs `main` at `ee0638e`+ and release `sha256:c6b977ed…` (general-task). Browser check: planner no longer creates clarify tasks; task 1 and 2 of a plain-words mission finished by themselves; task 3 (review, general-task) parked after 3 failed attempts, overlapping a deploy restart -> track A2 diagnosing (rows 15-16 included).
+- Track G done (`961a6f9`, `ab7e263`, ADR 0005): result-ready attention item + Quality page (#52, #63). Track H done: spec #65 + issues #66-#85 (`c0c257f`). Track C2 (admin follow-ups) still running.
+- Wave 2 started: A2 (live failure + evaluator robustness), I1 (#47 Today), I2 (#76-#79, #54, #55 usage/cost), I3 (#66-#75 reuse/capitalisation), I4 (#80-#85 context/tools/repo budget). UI polish E and #48/#49/#51/#53/#56-#62 wait for these to land.
+- Environment fixes: eslint ignores `.claude/worktrees/**` (`ee0638e`) so verify:fast works with parallel worktrees; credentials stored in `~/.config/brain-dev/credentials.env` (never copy values).
+- Known flaky under load: `tests/integration/storage.test.ts` LRU and `first-launch.test.ts` time out when run in parallel with other suites; pass alone.
