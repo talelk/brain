@@ -36,6 +36,9 @@ Confirmed good: six starter Plays as chips on Today; "Brain learned 2 things thi
 ## Track P confirmed live (2026-11-11 ~11:20, deployed `a91ff24`)
 Play + sentence now titles the mission "Write a checklist or runbook: <topic>"; plan drafts as soon as the page opens (no panel, no manual button); "Used from past work: N items (change)" line replaces the blocking panel; relevance cutoff excludes Plays and unrelated items. Verified by clicking through the live site. Hygiene: 24 stale agent worktrees (all merged into main) removed; no Brain processes running; `ListAgents` shows no running subagents.
 
+## 2026-11-11 ~11:35 live check
+Confirmed: Play+sentence mission drafted its plan with zero clicks ("6 steps - nothing runs until you confirm" + Confirm), confirm -> task running; "Used from past work" line replaces blocking panel. Plan showed "revision 2" and took ~2 min for the second mission in a row: first attempt likely fails and the auto-retry rescues it. Track Q (running) measures failure rate/latency from live data and fixes causes (tool turns, validator feedback in retry, prompt-side reuse context).
+
 ## Not yet walked live (blocked on deploy of K and M)
 Share links, Challenge this result, Repeat this (now creates real missions), Context received tab, Tools registry, Quality page, Usage meter in depth.
 
