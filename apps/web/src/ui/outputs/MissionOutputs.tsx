@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createResource, createSignal } from "solid-js";
+import { For, Show, createMemo, createResource, createSignal, onMount } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { Badge, Button } from "@talelk/newui-atoms";
@@ -19,6 +19,7 @@ import { OutputReview } from "./OutputReview";
 import { resolveWorkItemLink } from "./OutputHistory";
 import { TrustNote } from "./ResultReader";
 import { trustLineOf } from "./result-model";
+import { createTrust } from "./trust-read";
 import { loadMissionFiles } from "./mission-results";
 import type { MissionFiles } from "./mission-results";
 import { groupByTask, resolveFiles, reviewStateOf } from "./output-files";
@@ -36,16 +37,24 @@ function outputStatus(output: Output): { label: string; theme: FileBadgeTheme } 
 }
 
 /** One task's Result: title, status and trust up front; opened, the written result and the accept / request-changes bar. */
-function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; initiallyOpen: boolean; onChanged: () => void }): JSX.Element {
+function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; initiallyOpen: boolean; scrollTo: boolean; onChanged: () => void }): JSX.Element {
   const [open, setOpen] = createSignal(props.initiallyOpen);
+  let root: HTMLElement | undefined;
+  onMount(() => {
+    if (props.scrollTo) root?.scrollIntoView({ block: "start" });
+  });
   const [history, { refetch }] = createResource(
     () => props.task.result.artifact.artifactId,
     async (artifactId) => (await artifactsHistoryQuery({ artifactId })).snapshot as ArtifactHistory,
   );
   const loaded = () => (history.error ? undefined : history());
+  const trust = createTrust(loaded);
   const title = () => props.task.title ?? props.task.result.name;
   return (
     <section
+      ref={(element) => {
+        root = element;
+      }}
       class="flex min-w-0 flex-col rounded-card border border-outline-gray-2 bg-surface-white"
       aria-label={`Result: ${title()}`}
       data-testid="mission-result"
@@ -56,7 +65,7 @@ function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; 
         <span class="lucide-file-text size-5 shrink-0 text-ink-gray-6" aria-hidden="true" />
         <span class="min-w-0 flex-1">
           <span class="block truncate text-base-medium text-ink-gray-9">{title()}</span>
-          <Show when={loaded()}>{(h) => <span class="block truncate text-caption text-ink-gray-6">{trustLineOf(h()).text}</span>}</Show>
+          <Show when={trust()}>{(line) => <span class="block truncate text-caption text-ink-gray-6">{line().text}</span>}</Show>
         </span>
         <Badge size="sm" variant="subtle" theme={props.task.result.status.theme} label={props.task.result.status.label} />
         <span class={`${open() ? "lucide-chevron-up" : "lucide-chevron-down"} size-4 shrink-0 text-ink-gray-6`} aria-hidden="true" />
@@ -160,7 +169,7 @@ export function MissionOutputs(props: { mission: Mission }): JSX.Element {
         emptyDescription="Each task's result appears here as soon as it finishes."
       >
         <div class="flex min-w-0 flex-col gap-3" data-testid="mission-results">
-          <For each={tasks()}>{(task, index) => <ResultCard task={task} links={files.state().data?.grouping.links ?? []} initiallyOpen={opensFirst(task, index())} onChanged={refreshAll} />}</For>
+          <For each={tasks()}>{(task, index) => <ResultCard task={task} links={files.state().data?.grouping.links ?? []} initiallyOpen={opensFirst(task, index())} scrollTo={wanted() !== undefined && task.item?.workItemId === wanted()} onChanged={refreshAll} />}</For>
         </div>
       </ScreenRegion>
       <Show when={groups().length > 0}>

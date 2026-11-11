@@ -7,7 +7,8 @@ import { MEDIA_EMBED_LIMIT, TEXT_PREVIEW_LIMIT, artifactObjectUrl, decodeArtifac
 import type { ArtifactHistory, ArtifactRef } from "../../data/exec-outputs";
 import { Markdown } from "./Markdown";
 import { ResultReader } from "./ResultReader";
-import { parseStructuredResult, trustLineOf } from "./result-model";
+import { parseStructuredResult } from "./result-model";
+import { createTrust } from "./trust-read";
 import type { StructuredResult } from "./result-model";
 import { fileNameOf, previewKindLabel, previewKindOf } from "./output-files";
 import type { ArtifactPreviewKind } from "./output-files";
@@ -71,6 +72,7 @@ export function ArtifactView(props: { artifact?: ArtifactRef; title?: string; co
     () => props.artifact,
     (artifact) => loadPreview(artifact),
   );
+  const trust = createTrust(() => props.history ?? undefined);
   // Blob URLs are revoked as soon as they are replaced or the view unmounts.
   let lastUrl: string | undefined;
   createEffect(() => {
@@ -106,6 +108,7 @@ export function ArtifactView(props: { artifact?: ArtifactRef; title?: string; co
     <Show when={props.artifact} fallback={<p class="text-base text-ink-gray-7">No artifact is attached.</p>}>
       {(artifact) => (
         <div class="flex min-w-0 flex-col gap-3">
+          <Show when={!preview()?.result}>
           <div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
             <div class="min-w-0">
               <h3 class="break-words text-base-medium text-ink-gray-9">{heading()}</h3>
@@ -129,6 +132,7 @@ export function ArtifactView(props: { artifact?: ArtifactRef; title?: string; co
               </a>
             </div>
           </div>
+          </Show>
           <Show
             when={!preview.loading}
             fallback={
@@ -143,7 +147,7 @@ export function ArtifactView(props: { artifact?: ArtifactRef; title?: string; co
                   <Alert theme="amber" variant="outline" title="Preview unavailable" description={loaded.error} />
                 ) : (
                   <Show when={loaded.result} fallback={<PreviewBody artifact={artifact()} preview={loaded} maxHeight={maxHeight()} />}>
-                    {(result) => <ResultReader result={result()} title={props.resultTitle ?? heading()} trust={props.history ? trustLineOf(props.history, result()) : undefined} />}
+                    {(result) => <ResultReader result={result()} title={props.resultTitle ?? heading()} trust={trust()} />}
                   </Show>
                 )}
             </Show>

@@ -56,7 +56,7 @@ export class FixtureEngine implements EngineAdapter {
           const title = lines[0] ?? "Task";
           response = {
             summary: `Fixture result for: ${title}`,
-            deliverable: `# ${title}\n\n## Findings\n\nThe fixture worker reasoned about this task and wrote a short report so that the whole path from the brief to a verified deliverable can be exercised end to end without a model.\n\n## Assumptions\n\nNo facts beyond the brief were available, so the fixture assumes the brief is complete and says so here.`,
+            deliverable: `# ${title}\n\n## Findings\n\nThe fixture worker reasoned about this task and wrote a short report so that the whole path from the brief to a verified deliverable can be exercised end to end without a model.\n\n| Option | Cost | Effort |\n| :--- | ---: | :---: |\n| Keep as is | **Low** | Small |\n| Rework | Medium | Large |\n\n- First point, with \`inline code\`\n- Second point\n  - A nested detail\n\n## Assumptions\n\nNo facts beyond the brief were available, so the fixture assumes the brief is complete and says so here.`,
             criteria: criteria.map((criterion) => ({ criterion, met: true, evidence: "The Findings section of the deliverable addresses this criterion." })),
             assumptions: ["The brief is complete"],
           };

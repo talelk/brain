@@ -1,4 +1,4 @@
-import type { ArtifactHistory } from "../../data/exec-outputs";
+import type { ArtifactHistory, VerificationVerdict } from "@brain/contracts";
 
 /**
  * A task's structured result, as the general-task workflow stores it: a short
@@ -62,20 +62,32 @@ export interface TrustLine {
   checked: boolean;
 }
 
+/** The reviewer's own result per acceptance criterion: a criterion is met only when every check on it passed. */
+function criteriaOf(verdict: VerificationVerdict | undefined): { total: number; met: number; failed: string[] } {
+  const byCriterion = new Map<string, boolean>();
+  for (const check of verdict?.checks ?? []) byCriterion.set(check.criterionId, (byCriterion.get(check.criterionId) ?? true) && check.status === "passed");
+  const failed = [...byCriterion].filter(([, ok]) => !ok).map(([id]) => id);
+  return { total: byCriterion.size, met: byCriterion.size - failed.length, failed };
+}
+
 /**
  * The plain trust line under a Result (issue #49): whether an independent
- * reviewer checked the work and how many acceptance criteria it met. The
- * verdict comes from the artifact's history; the criteria counts come from the
- * result's own checklist.
+ * reviewer checked the work and how many acceptance criteria it met. Both come
+ * from the reviewer's own verdict (`evidence.get`), never from the worker's
+ * self-reported checklist. Without a loaded verdict the history's outcome still
+ * decides the wording, minus the count.
  */
-export function trustLineOf(history: ArtifactHistory | undefined, result?: StructuredResult): TrustLine {
-  const outcome = history?.history.find((version) => version.verification)?.verification?.outcome;
-  const total = result?.criteria.length ?? 0;
-  const met = result?.criteria.filter((row) => row.met).length ?? 0;
+export function trustLineOf(history: ArtifactHistory | undefined, verdict?: VerificationVerdict): TrustLine {
+  const outcome = verdict?.outcome ?? history?.history.find((version) => version.verification)?.verification?.outcome;
+  const { total, met, failed } = criteriaOf(verdict);
   if (outcome === "verified")
     return { tone: "green", checked: true, text: total > 0 ? `Checked by an independent reviewer: ${met} of ${total} criteria met` : "Checked by an independent reviewer: it passed" };
   if (outcome === "rejected")
-    return { tone: "red", checked: false, text: "An independent reviewer found problems with this result. Ask for changes or read why on the task." };
+    return {
+      tone: "red",
+      checked: false,
+      text: `An independent reviewer found problems${total > 0 ? `: ${met} of ${total} criteria met${failed.length ? `, not met: ${failed.join(", ")}` : ""}` : ""}. Ask for changes, or open the task to see why.`,
+    };
   if (outcome === "incomplete")
     return { tone: "amber", checked: false, text: "The independent check could not finish, so this result is not confirmed yet." };
   return { tone: "gray", checked: false, text: "Not independently checked yet. A separate reviewer checks the work against its criteria once the task finishes." };

@@ -71,7 +71,7 @@ export function ResultReader(props: { result: StructuredResult; title: string; t
       <Show when={props.result.criteria.length > 0}>
         <section class="flex min-w-0 flex-col gap-2 border-t border-outline-gray-2 pt-4" aria-label="Criteria">
           <h4 class="m-0 text-base-medium text-ink-gray-9">
-            Checklist <span class="font-normal text-ink-gray-6">{met()} of {props.result.criteria.length} met</span>
+            Author's own checklist <span class="font-normal text-ink-gray-6">{met()} of {props.result.criteria.length} met</span>
           </h4>
           <ul class="m-0 flex list-none flex-col gap-2 p-0">
             <For each={props.result.criteria}>

@@ -35,7 +35,7 @@ export function notifyAttention(store: Store, push: PushSender | undefined): num
         if (recent) continue;
         const pushed = Boolean(push);
         db.prepare("INSERT INTO attention_notifications(principal_id,item_id,mission_id,title,pushed,sent_at_ms) VALUES (?,?,?,?,?,?)").run(principalId, item.id, item.missionId, item.title, pushed ? 1 : 0, store.now());
-        if (push) void push(ws.organization_id, principalId, { title: item.title, body: item.detail ?? (item.kind === "result-ready" ? "A result is ready." : "A mission needs you."), url: `/missions/${item.missionId}/live?w=${item.workspaceId}` }).catch(() => undefined);
+        if (push) void push(ws.organization_id, principalId, { title: item.title, body: item.detail ?? (item.kind === "result-ready" ? "A result is ready." : "A mission needs you."), url: item.kind === "result-ready" ? `/missions/${item.missionId}/outputs?w=${item.workspaceId}${item.resourceId === item.missionId ? "" : `&result=${item.resourceId}`}` : `/missions/${item.missionId}/live?w=${item.workspaceId}` }).catch(() => undefined);
         sent++;
       }
     }
