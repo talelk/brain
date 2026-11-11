@@ -61,14 +61,15 @@ const SCREENS: Array<[string, (d: Demo) => string]> = [
 async function main(): Promise<void> {
   mkdirSync(outDir, { recursive: true });
   const dir = mkdtempSync(join(tmpdir(), "brain-capture-"));
-  let app: Awaited<ReturnType<typeof createApp>> | undefined;
-  const server = createAdaptorServer({ fetch: (request) => app ? app.fetch(request) : new Response("starting", { status: 503 }) });
+  const holder: { app?: Awaited<ReturnType<typeof createApp>> } = {};
+  const server = createAdaptorServer({ fetch: (request) => holder.app ? holder.app.fetch(request) : new Response("starting", { status: 503 }) });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("no listener");
   const url = `http://localhost:${address.port}`;
   process.env["BRAIN_BASE_URL"] = url;
-  app = await createApp({ dataDir: dir, runtime: { requireTwoFactor: false, memoryUiUrl: null } });
+  const app = await createApp({ dataDir: dir, runtime: { requireTwoFactor: false, memoryUiUrl: null } });
+  holder.app = app;
   const browser = await chromium.launch();
   try {
     const credential = readFileSync(join(dir, "setup.token"), "utf8").trim();
