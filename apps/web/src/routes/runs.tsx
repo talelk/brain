@@ -110,7 +110,7 @@ export function RunsScreen(props: {
         <div class="flex items-center gap-2" title={props.liveSummary ? `${props.liveSummary.activeSessions} live sessions in the console` : "One bounded server page at a time"}><dt class="text-ink-gray-6">Authorized runs</dt><dd class="font-medium tabular-nums text-ink-gray-9">{props.totalRuns}</dd></div>
       </dl>
       <FilterBar resultCount={visibleJobs().length}
-        query={{ value: props.filter, placeholder: "Search task, workflow, or run…", onInput: (value) => props.onFiltersChange(value, props.runState, props.view) }}
+        query={{ value: props.filter, placeholder: "Search task, mission, workflow, state or run id…", onInput: (value) => props.onFiltersChange(value, props.runState, props.view) }}
         selects={[{ label: "Exact state", value: props.runState || undefined, options: [
           { value: "queued", label: "Queued" }, { value: "offered", label: "Offered" }, { value: "running", label: "Running" }, { value: "verifying", label: "Verifying" },
           { value: "blocked", label: "Blocked" }, { value: "outcome_unknown", label: "Outcome unknown" }, { value: "partial", label: "Partial" },

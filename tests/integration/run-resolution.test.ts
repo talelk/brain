@@ -96,6 +96,33 @@ describe("run resolution: Runs 'Needs intervention' and Today's Needs-you agree"
   });
 });
 
+describe("Runs search", () => {
+  it("matches task titles, mission titles, workflow names, states and ids, every word at once", async () => {
+    const w = setupWorld();
+    try {
+      const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
+      const quarterly = await mission(w, "quarterly-report");
+      const item = (await workView(w)).items.find((entry) => entry.missionId === quarterly)!;
+      w.brain.missions.linkExecution(w.owner, w.workspaceId, item.workItemId, "run-q1");
+      seedJob(w, "job-q1", "run-q1", "failed");
+      seedJob(w, "job-other", "run-other", "queued");
+      const workflow = JSON.stringify({ metadata: { id: "weekly-digest" }, spec: { presentation: { title: "Weekly digest" } } });
+      db.prepare("INSERT INTO run_inputs(run_id,input_json,workflow_json,actor_id) VALUES ('run-other','{}',?,'owner')").run(workflow);
+      const search = async (text: string) => {
+        const page = (await w.brain.executeQuery(w.owner, { queryType: "jobs.list", workspaceId: w.workspaceId, search: text } as never)) as unknown as { snapshot: { items: JobSnapshot[]; totalEstimate: number } };
+        return page.snapshot.items.map((entry) => entry.jobId).sort();
+      };
+      expect(await search("QUARTERLY")).toEqual(["job-q1"]);
+      expect(await search("task a")).toEqual(["job-q1"]);
+      expect(await search("weekly digest")).toEqual(["job-other"]);
+      expect(await search("queued")).toEqual(["job-other"]);
+      expect(await search("failed quarterly")).toEqual(["job-q1"]);
+      expect(await search("job-q1")).toEqual(["job-q1"]);
+      expect(await search("nothing like this")).toEqual([]);
+    } finally { w.brain.close(); }
+  });
+});
+
 describe("session activity for the doing-now sentence", () => {
   it("counts reading tool calls of the session's attempt and names the last tool", async () => {
     const w = setupWorld();

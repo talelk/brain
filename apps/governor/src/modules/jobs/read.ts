@@ -142,7 +142,6 @@ export function listJobs(
   const clauses = [`organization_id=?`, `workspace_id IN (${marks})`];
   const parameters: Array<string | number> = [actor.organizationId, ...workspaceIds];
   if (filters.states?.length) { clauses.push(`state IN (${filters.states.map(() => "?").join(",")})`); parameters.push(...filters.states); }
-  if (filters.search) { clauses.push("(LOWER(id) LIKE ? OR LOWER(workflow_run_id) LIKE ?)"); const search = `%${filters.search.toLowerCase()}%`; parameters.push(search, search); }
   if (filters.cursor) {
     try {
       const position = JSON.parse(Buffer.from(filters.cursor, "base64url").toString("utf8")) as { createdAt: number; id: string };
@@ -150,6 +149,7 @@ export function listJobs(
     } catch { throw new BrainDomainError("INVALID_ARGUMENT", "invalid jobs cursor"); }
   }
   const where = clauses.join(" AND ");
+  if (filters.search?.trim()) return searchJobPage(store, where, parameters, limit, filters.search.trim().toLowerCase());
   const rows = store.control.prepare(`SELECT * FROM jobs WHERE ${where} ORDER BY created_at_ms DESC, id DESC LIMIT ?`).all(...parameters, limit + 1) as Array<Record<string, unknown>>;
   const page = rows.slice(0, limit);
   const last = page.at(-1);
@@ -159,6 +159,30 @@ export function listJobs(
     snapshot: { items: page.map((row) => jobSnapshot(store, row)), totalEstimate: total.count } as unknown as JsonValue,
     cursor,
   };
+}
+
+/** How many of the newest jobs a text search looks through; titles live in the workspace databases, so the match is made in code. */
+const RUN_SEARCH_SCAN = 2000;
+
+/** The words a person can search a run by: ids, state, workflow name, task title and mission title. */
+function jobSearchText(store: Store, row: Record<string, unknown>): string {
+  const ws = store.workspaceDb(String(row["workspace_id"]), String(row["organization_id"]));
+  const runId = String(row["workflow_run_id"]);
+  const workflow = ws.prepare("SELECT json_extract(workflow_json,'$.spec.presentation.title') AS title,json_extract(workflow_json,'$.metadata.id') AS id FROM run_inputs WHERE run_id=?").get(runId) as { title: string | null; id: string } | undefined;
+  const context = runContext(ws, runId, String(row["state"]));
+  return [row["id"], runId, row["state"], String(row["state"]).replaceAll("_", " "), workflow?.title, workflow?.id, workflow?.id.replaceAll("-", " "), context?.workItemTitle, context?.missionTitle]
+    .filter((part): part is string => typeof part === "string").join("\n").toLowerCase();
+}
+
+/** Runs search: every word typed must appear in the run's ids, state, workflow name, task title or mission title. */
+function searchJobPage(store: Store, where: string, parameters: Array<string | number>, limit: number, search: string): QuerySnapshot {
+  const words = search.split(/\s+/).filter(Boolean);
+  const candidates = store.control.prepare(`SELECT * FROM jobs WHERE ${where} ORDER BY created_at_ms DESC, id DESC LIMIT ?`).all(...parameters, RUN_SEARCH_SCAN) as Array<Record<string, unknown>>;
+  const matched = candidates.filter((row) => { const text = jobSearchText(store, row); return words.every((word) => text.includes(word)); });
+  const page = matched.slice(0, limit);
+  const last = page.at(-1);
+  const cursor = matched.length > limit && last ? Buffer.from(JSON.stringify({ createdAt: Number(last["created_at_ms"]), id: String(last["id"]) })).toString("base64url") : "";
+  return { snapshot: { items: page.map((row) => jobSnapshot(store, row)), totalEstimate: matched.length } as unknown as JsonValue, cursor };
 }
 
 /** job.get: one job (or the newest job of a run) with its full snapshot. */
