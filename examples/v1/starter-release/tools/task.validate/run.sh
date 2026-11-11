@@ -45,7 +45,7 @@ if structure:
    if hit is not None: picked[i] = hit; free_rows.remove(hit)
   keys = {key(c) for c in criteria}
   def close(a, b):
-   x, y = set(key(a).split()), set(key(b).split())
+   x, y = {w for w in key(a).split() if len(w) > 2}, {w for w in key(b).split() if len(w) > 2}
    return bool(x and y) and len(x & y) / min(len(x), len(y)) >= 0.3
   reworded = True
   for i in range(len(criteria)):

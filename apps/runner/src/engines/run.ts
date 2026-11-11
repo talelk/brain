@@ -60,7 +60,14 @@ function decodedOutput(text: string): JsonValue {
   const trimmed = text.trim();
   const fenced = trimmed.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/iu)?.[1];
   try { return JSON.parse(fenced ?? trimmed) as JsonValue; }
-  catch { return trimmed; }
+  catch {
+    // A model sometimes wraps its one JSON object in a sentence; the object between the first "{" and the last "}" is still its answer.
+    const open = trimmed.indexOf("{"); const close = trimmed.lastIndexOf("}");
+    if (open >= 0 && close > open) {
+      try { const inner = JSON.parse(trimmed.slice(open, close + 1)) as JsonValue; if (inner !== null && typeof inner === "object" && !Array.isArray(inner)) return inner; } catch { /* not one object: keep the text */ }
+    }
+    return trimmed;
+  }
 }
 
 export async function runAgentExecution(input: AgentExecutionInput): Promise<AgentExecutionResult> {

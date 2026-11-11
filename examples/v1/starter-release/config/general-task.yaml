@@ -24,7 +24,7 @@
           "type": "agent",
           "release": {
             "id": "task-worker",
-            "digest": "sha256:6dd30b8213be438661b53b0fbb69ca5ca3248179f04e062a9322849ec178e096"
+            "digest": "sha256:7378201d052a324bed55e3da58736a2e17adaf2ce0e9772404f1f014ebc9577b"
           }
         },
         "runsOn": {

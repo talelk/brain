@@ -80,7 +80,9 @@ export class AutoStart {
         const note = (text: string) => missions.noteStartBlocker(organizationId, workspaceId, item.workItemId, text);
         // The task's own workflow first; when it is missing or cannot take the task's situation, the general task workflow
         // (then the mission's own most used one) runs it, so nobody has to pick one.
-        const input = { situation: workItemSituation(item.title, item.criteria, item.upstream) } as JsonValue;
+        // The long brief (with upstream deliverables) goes to a workflow whose input schema allows it; every other workflow gets the compact one.
+        const briefs: JsonValue[] = [{ situation: workItemSituation(item.title, item.criteria, item.upstream, true) }, { situation: workItemSituation(item.title, item.criteria, item.upstream) }];
+        let input: JsonValue = briefs[0]!;
         // A task without a workflow of its own goes to the general-purpose task workflow, which produces a written deliverable for any
         // plain-words task; the mission's most used workflow and then the catalog's first workflow that accepts the situation follow.
         const catalogIds = catalog.map((candidate) => candidate.release.id).sort();
@@ -93,9 +95,10 @@ export class AutoStart {
           if (!found) { problem ||= `workflow ${workflowId} is not in the active release`; continue; }
           // Without a declared input schema nothing can vouch for the input, so a person supplies it.
           if (!found.inputSchema) { problem ||= "the workflow declares no input schema"; continue; }
-          const valid = payloadValidator(found.inputSchema as object)(input);
-          if (!valid.ok) { problem ||= valid.errors.join("; "); continue; }
-          entry = found; break;
+          const validate = payloadValidator(found.inputSchema as object);
+          const accepted = briefs.find((brief) => validate(brief).ok);
+          if (!accepted) { const compact = validate(briefs[1]!); problem ||= compact.ok ? "" : compact.errors.join("; "); continue; }
+          entry = found; input = accepted; break;
         }
         if (!entry) { note(`Needs input before it can start: ${problem}`); continue; }
         if (!mission.headroom) { note("Waiting for budget: raise the mission budget to continue"); continue; }

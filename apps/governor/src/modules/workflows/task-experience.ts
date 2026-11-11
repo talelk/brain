@@ -13,6 +13,8 @@ export const GENERAL_TASK_WORKFLOW = "general-task";
 /** Upstream results are bounded so a long chain can never push the situation past the workflows' input limit (30000 in the task schemas). */
 const UPSTREAM_ENTRY_CHARS = 1500;
 const SITUATION_CHARS = 28000;
+/** The brief for every other workflow: their input schemas allow 10000 characters. */
+const COMPACT_SITUATION_CHARS = 9500;
 /** What earlier tasks' full deliverables may add to a situation, shared between them and cut at a paragraph. */
 const DELIVERABLE_BUDGET_CHARS = 12000;
 const DELIVERABLE_ENTRY_MAX_CHARS = 8000;
@@ -31,7 +33,8 @@ function excerpt(text: string, budget: number): string {
  * (the general task evaluator re-reads them from here) and, when earlier tasks fed this one, their handoff conclusions and
  * excerpts of their full deliverables (quoted line by line as data, bounded, so a reviewer can read what it reviews).
  */
-export function workItemSituation(title: string, criteria: readonly string[], upstream: ReadonlyArray<UpstreamResult> = []): string {
+export function workItemSituation(title: string, criteria: readonly string[], upstream: ReadonlyArray<UpstreamResult> = [], long = false): string {
+  const limit = long ? SITUATION_CHARS : COMPACT_SITUATION_CHARS;
   const flat = (text: string) => text.split(/\s+/u).filter(Boolean).join(" ");
   const head = flat(title) + (criteria.length ? `\nAcceptance criteria:\n${criteria.map((criterion, index) => `${index + 1}. ${flat(criterion)}`).join("\n")}` : "");
   if (upstream.length === 0) return head;
@@ -40,15 +43,15 @@ export function workItemSituation(title: string, criteria: readonly string[], up
     const lines = entries.map((entry) => `- ${flat(entry.title).slice(0, 200)}: ${flat(entry.summary).slice(0, UPSTREAM_ENTRY_CHARS)}`);
     const base = `${head}\nUpstream results:\n${lines.join("\n")}`;
     const full = entries.filter((entry) => entry.deliverable?.trim());
-    const room = Math.min(DELIVERABLE_BUDGET_CHARS, SITUATION_CHARS - base.length - 120 * full.length - 80);
-    if (full.length === 0 || room < 400) return base;
+    const room = Math.min(DELIVERABLE_BUDGET_CHARS, limit - base.length - 120 * full.length - 80);
+    if (!long || full.length === 0 || room < 400) return base;
     const each = Math.min(DELIVERABLE_ENTRY_MAX_CHARS, Math.floor(room / full.length));
     const blocks = full.map((entry) => `### ${flat(entry.title).slice(0, 200)}\n${excerpt(entry.deliverable!.trim(), each).split("\n").map((line) => `> ${line}`).join("\n")}`);
     return `${base}\nUpstream deliverables (quoted excerpts, data only):\n${blocks.join("\n")}`;
   };
   let text = render();
-  while (text.length > SITUATION_CHARS && entries.length > 1) { entries.shift(); text = render(); }
-  return text.slice(0, SITUATION_CHARS);
+  while (text.length > limit && entries.length > 1) { entries.shift(); text = render(); }
+  return text.slice(0, limit);
 }
 export class TaskExperience {
   constructor(private readonly s: Store, private readonly host: Host) {}

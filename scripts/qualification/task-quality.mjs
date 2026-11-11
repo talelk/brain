@@ -29,6 +29,11 @@ const tasks = [
     name: "review-with-upstream",
     situation: `Independently review the guide for completeness and usability\nAcceptance criteria:\n1. The review states, for each checklist item, whether a reader can confirm it without asking anyone.\n2. The review names any step that assumes access the new engineer would not yet have.\n3. The review gives a written verdict.\nUpstream results:\n- Draft the onboarding guide: A short guide with a day-by-day checklist.\nUpstream deliverables (quoted excerpts, data only):\n### Draft the onboarding guide\n${guide.split("\n").map((line) => `> ${line}`).join("\n")}`,
   },
+  {
+    // The parked live task: criteria written about the reviewed guide, over a guide that really has a defect (day 1 needs access nobody requests).
+    name: "review-old-style-criteria",
+    situation: `Independently review the guide for completeness, accuracy, and usability\nAcceptance criteria:\n1. Every item in the first-week checklist is independently checkable (a reader can confirm completion without asking someone).\n2. No step assumes access the new engineer would not yet have; any required access requests are called out as explicit checklist items.\n3. The guide does not contain secrets, tokens, or environment-specific credentials.\n4. A reviewer's written verdict (pass or list of fixes needed) is produced.\nUpstream results:\n- Draft the short onboarding guide: A short guide with a first-week checklist.\nUpstream deliverables (quoted excerpts, data only):\n### Draft the short onboarding guide\n${["# Onboarding guide", "", "## Day 1", "- [ ] Clone the repository and run the test suite.", "- [ ] Open the CI dashboard and find your first build.", "- [ ] Deploy to staging with the shared deploy token in the team vault.", "", "## Day 2", "- [ ] Get comfortable with the codebase.", "", "## Help", "Ask in the team channel."].map((line) => `> ${line}`).join("\n")}`,
+  },
 ];
 
 async function chat(system, user, maxTokens) {

@@ -60,6 +60,20 @@ describe("agent engine execution lifecycle", () => {
 });
 
 describe("agent lifecycle failure boundaries", () => {
+  it("decodes the one JSON object a model wrapped in a sentence, and keeps prose as text", async () => {
+    const { sha256Digest } = await import("@brain/contracts");
+    const run = async (text: string) => {
+      const engine = adapter(async function* () {
+        yield { kind: "text", payload: { text } } as EngineEvent;
+        const bytes = new TextEncoder().encode(text);
+        yield { kind: "session.stopped", payload: { reason: "completed", terminationConfirmed: true, output: { digest: sha256Digest(bytes), bytes: bytes.length } } } as EngineEvent;
+      });
+      return runAgentExecution(input(engine));
+    };
+    expect((await run('Here is the result:\n{"summary":"s","assumptions":[]}\nHope it helps.')).output).toEqual({ summary: "s", assumptions: [] });
+    expect((await run("No JSON here, only prose {not json}")).output).toBe("No JSON here, only prose {not json}");
+  });
+
   it("bounds a stalled event iterator even when the adapter ignores cancellation", async () => {
     const engine = adapter(async function* () { await new Promise(() => undefined); });
     const result = await runAgentExecution(input(engine, { timeoutMs: 20 }));
