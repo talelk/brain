@@ -93,6 +93,7 @@ export class Challenges {
         if (result.state !== "done" && result.state !== "review") throw new BrainDomainError("CONFLICT", "only a finished task's result can be challenged");
         if (!result.deliverable) throw new BrainDomainError("EVIDENCE_MISSING", "this task has no written result to challenge");
         if (result.spendCapReached) throw new BrainDomainError("BUDGET_EXHAUSTED", "the workspace spend cap is reached; raise it before asking a reviewer to read this result");
+        if (result.missionBudgetReached) throw new BrainDomainError("BUDGET_EXHAUSTED", "the mission's budget is spent; raise it before asking a reviewer to read this result");
         if (db.prepare("SELECT 1 FROM result_challenges WHERE work_item_id=? AND state IN ('requested','running')").get(workItemId)) throw new BrainDomainError("CONFLICT", "a challenge of this result is already in progress");
         const id = store.id("challenge");
         db.prepare("INSERT INTO result_challenges(id,work_item_id,requested_by,state,created_at_ms) VALUES (?,?,?, 'requested', ?)").run(id, workItemId, actor.actorId, store.now());
@@ -149,6 +150,7 @@ export class Challenges {
       const result = missions.resultOf(reviewer, workspaceId, row.work_item_id);
       if (!result.deliverable) { this.fail(db, row.id, "the result has no written text to review"); return; }
       if (result.spendCapReached) { this.fail(db, row.id, "the workspace spend cap is reached"); return; }
+      if (result.missionBudgetReached) { this.fail(db, row.id, "the mission's budget is spent"); return; }
       situation = workItemSituation(`Challenge the result of the task "${result.title}"`, CHALLENGE_CRITERIA, [{ title: result.title, summary: `The result under review, written by another run for the task "${result.title}".`, deliverable: result.deliverable }], true);
     } catch (error) { this.fail(db, row.id, error instanceof Error ? error.message : "the result could not be read"); return; }
     const entry = this.ports.catalog(organizationId).find((candidate) => candidate.release.id === GENERAL_TASK_WORKFLOW);
@@ -184,6 +186,26 @@ export class Challenges {
         this.ports.store.emit(db, { aggregateType: "challenge", aggregateId: row.id, eventType: "challenge.completed", payload: { challengeId: row.id, workItemId: row.work_item_id, claims: claims.length } });
       });
     } else if (run.state === "failed" || run.state === "cancelled") this.fail(db, row.id, `the reviewer run ${run.state}`);
-    else if (this.ports.store.now() - row.created_at_ms > CHALLENGE_TIMEOUT_MS) this.fail(db, row.id, "the reviewer did not answer in time");
+    else if (this.waitingForBudget(row.run_id)) {
+      // The budget ran out after the request: say so now, and stop the run so it cannot start (and spend) once the budget is raised.
+      this.fail(db, row.id, "the mission's budget or the workspace spend cap ran out before the reviewer could start");
+      void this.cancel(db, row.run_id);
+    } else if (this.ports.store.now() - row.created_at_ms > CHALLENGE_TIMEOUT_MS) this.fail(db, row.id, "the reviewer did not answer in time");
+  }
+
+  private waitingForBudget(runId: string): boolean {
+    return Boolean(this.ports.store.control.prepare("SELECT 1 FROM jobs WHERE workflow_run_id=? AND queue_reason='waiting: budget' AND state IN ('queued','blocked')").get(runId));
+  }
+
+  private async cancel(db: ReturnType<Store["workspaceDb"]>, runId: string): Promise<void> {
+    const row = db.prepare("SELECT c.requested_by, c.id FROM result_challenges c WHERE c.run_id=?").get(runId) as { requested_by: string; id: string } | undefined;
+    if (!row) return;
+    const organizationId = (this.ports.store.control.prepare("SELECT organization_id FROM jobs WHERE workflow_run_id=? LIMIT 1").get(runId) as { organization_id: string } | undefined)?.organization_id;
+    const workspaceId = (this.ports.store.control.prepare("SELECT workspace_id FROM jobs WHERE workflow_run_id=? LIMIT 1").get(runId) as { workspace_id: string } | undefined)?.workspace_id;
+    if (!organizationId || !workspaceId) return;
+    const actor: ActorContext = { kind: "workflow", actorId: row.requested_by, organizationId, workspaceId, scopes: ["workflow:cancel"], authMethod: "service-credential", authGeneration: 1 };
+    const commandId = `challenge-cancel-${row.id}`;
+    try { await this.ports.dispatch(actor, { contractVersion: "brain.command/v1", commandId, idempotencyKey: commandId, commandType: "workflow.cancel", workspaceId, payload: { runId } }); }
+    catch { /* the run is already failed for the person; the budget gate still holds an uncancelled run */ }
   }
 }

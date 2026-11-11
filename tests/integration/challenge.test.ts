@@ -156,3 +156,66 @@ describe("Challenge this result (#50, ADR 0012)", () => {
     expect(await challenges(w, open.workItemId)).toEqual([]);
   }, 60_000);
 });
+
+function seedAgentRunner(w: World, runnerId: string) {
+  const s = w.brain.store;
+  s.control.prepare(`INSERT INTO runners(id, organization_id, group_id, identity_key_digest, admin_state, health, config_digest, session_epoch, last_heartbeat_ms, cpu_capacity, memory_capacity, disk_capacity, slot_capacity)
+    VALUES (?, ?, 'agents', 'k', 'enabled', 'healthy', ?, 1, ?, 16000, 32768, 40960, 4)`).run(runnerId, w.org, DIGEST_A, s.now());
+  for (const cap of ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture", "engine-feature:fixture:sessions"]) {
+    s.control.prepare("INSERT INTO runner_capabilities(runner_id, capability, verified, source, observed_at_ms, expires_at_ms) VALUES (?, ?, 1, 'test', ?, ?)").run(runnerId, cap, s.now(), s.now() + 3600000);
+  }
+  return { runnerId, epoch: 1, organizationId: w.org };
+}
+const missionUsage = async (w: World, missionId: string) => ((await w.brain.executeQuery(w.owner, { queryType: "usage.mission", workspaceId: w.workspaceId, resourceId: missionId } as never)) as unknown as { snapshot: { usage: Record<string, number> } }).snapshot.usage;
+
+describe("a challenge is charged to the mission it reviews (row 39)", () => {
+  it("writes the reviewer's attempts to the mission ledger and counts them against the mission's budget", async () => {
+    const w = world();
+    const { missionId, workItem } = await finishedTask(w);
+    const before = await missionUsage(w, missionId);
+    await run(w, "result.challenge", "ledger-1", { workItemId: workItem.workItemId });
+    await w.brain.challenges.sweep();
+    const [started] = await challenges(w, workItem.workItemId);
+    // Found by its execution key even before the challenge row learns the run id, and charged to the mission it reviews.
+    expect(w.brain.missions.admission(w.org, w.workspaceId, started!.runId!)).toMatchObject({ missionId, admitted: true });
+    const runner = seedAgentRunner(w, "runner-challenge");
+    const offer = w.brain.jobProtocol.claim(runner, "req-challenge-1") as unknown as { jobId: string; attemptId: string } | null;
+    expect(offer, "the reviewer's job is offered to a runner").not.toBeNull();
+    const row = db(w).prepare("SELECT mission_id, run_id FROM mission_spend WHERE attempt_id=?").get(offer!.attemptId) as { mission_id: string; run_id: string } | undefined;
+    expect(row).toEqual({ mission_id: missionId, run_id: started!.runId });
+    // The attempt reports its usage and releases its capacity: the mission's usage grows by exactly that.
+    w.brain.store.control.prepare("INSERT INTO attempt_events(attempt_id, seq, event_json) VALUES (?,?,?)").run(offer!.attemptId, 1, JSON.stringify({ kind: "usage", payload: { microUsd: 4200, accounting: "final-total", inputTokens: 300, outputTokens: 50 } }));
+    w.brain.jobProtocol.releaseReservation(offer!.attemptId);
+    w.brain.missions.admission(w.org, w.workspaceId, started!.runId!);
+    const after = await missionUsage(w, missionId);
+    expect(Number(after["settledMicroUsd"]) - Number(before["settledMicroUsd"])).toBe(4200);
+    expect(Number(after["settledTokens"]) - Number(before["settledTokens"])).toBe(350);
+  }, 60_000);
+
+  it("refuses a challenge once the mission's budget is spent, says so plainly, and stops a run that was waiting for budget", async () => {
+    const w = world();
+    const { missionId, workItem } = await finishedTask(w);
+    // The mission has spent everything it was allowed.
+    db(w).prepare("UPDATE missions SET budget_micro_usd=1000, final_allowance_micro_usd=0 WHERE id=?").run(missionId);
+    db(w).prepare("INSERT INTO mission_spend(attempt_id, mission_id, run_id, reserved_micro_usd, settled_micro_usd, created_at_ms, settled_at_ms) VALUES ('att-spent', ?, 'run-spent', 0, 1000, ?, ?)").run(missionId, w.brain.store.now(), w.brain.store.now());
+    await expect(run(w, "result.challenge", "broke-1", { workItemId: workItem.workItemId })).rejects.toThrow(/mission's budget is spent/u);
+    expect(await challenges(w, workItem.workItemId)).toEqual([]);
+
+    // A budget that runs out after the request: the run waits, the person is told, and the run is cancelled so it cannot spend later.
+    db(w).prepare("UPDATE missions SET budget_micro_usd=10000000 WHERE id=?").run(missionId);
+    await run(w, "result.challenge", "broke-2", { workItemId: workItem.workItemId });
+    await w.brain.challenges.sweep();
+    const [running] = await challenges(w, workItem.workItemId);
+    expect(running!.state).toBe("running");
+    db(w).prepare("UPDATE missions SET budget_micro_usd=1000 WHERE id=?").run(missionId);
+    const runner = seedAgentRunner(w, "runner-broke");
+    expect(w.brain.jobProtocol.claim(runner, "req-broke-1")).toBeNull();
+    expect(w.brain.store.control.prepare("SELECT queue_reason FROM jobs WHERE workflow_run_id=? AND step_id='respond'").get(running!.runId)).toEqual({ queue_reason: "waiting: budget" });
+    await w.brain.challenges.sweep();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const [failed] = await challenges(w, workItem.workItemId);
+    expect(failed).toMatchObject({ state: "failed" });
+    expect(failed!.reason).toMatch(/budget/u);
+    expect((db(w).prepare("SELECT state FROM workflow_runs WHERE id=?").get(running!.runId) as { state: string }).state).toBe("cancelled");
+  }, 60_000);
+});

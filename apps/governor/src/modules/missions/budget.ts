@@ -135,3 +135,20 @@ export function hasHeadroom(store: Store, db: Db, missionId: string): boolean {
  * it would pause long-lived work for no cost reason). Raise it in the plan.
  */
 export const DEFAULT_MISSION_BUDGET: MissionBudget = { maxMicroUsd: 5_000_000, memberCap: 3, attemptReserveMicroUsd: 0 };
+
+/**
+ * Admission of a reviewer run asked for by "Challenge this result" (ADR 0012). Its spend is charged to the mission it reviews, so the
+ * mission's usage and budget see it, but it is not a work session: it does not need an active mission (challenges usually follow a
+ * closed one), takes no member slot decision and never pauses the mission. The money, token and workspace-cap limits apply.
+ */
+export function admitChallenge(store: Store, db: Db, missionId: string): { admitted: true; reserve: number; running: number } | { admitted: false; reason: WaitingReason; running: number } {
+  settleAll(store, db);
+  const row = db.prepare("SELECT * FROM missions WHERE id=?").get(missionId) as BudgetRow | undefined;
+  if (!row) return { admitted: true, reserve: 0, running: 0 };
+  const now = store.now();
+  const usage = usageOf(db, row, now);
+  const reserve = row.attempt_reserve_micro_usd;
+  const ceiling = row.budget_micro_usd === null ? null : row.budget_micro_usd - row.final_allowance_micro_usd;
+  const out = (ceiling !== null && usage.settledMicroUsd + usage.reservedMicroUsd + reserve >= ceiling) || tokensExhausted(row, usage) || capReached(db, now, reserve);
+  return out ? { admitted: false, reason: "budget", running: usage.runningMembers } : { admitted: true, reserve, running: usage.runningMembers };
+}

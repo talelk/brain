@@ -7,7 +7,7 @@ import { assertPlanTasks } from "../../domain/work-plan";
 import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations, withinCeiling, type AgentCapabilities } from "../../domain/mission-policy";
 import { activeReleaseRecord } from "../configuration/index";
 import { pump, wake, coordinatorInput, type CoordinatorPort } from "./coordinator";
-import { admit, budgetOf, clockSet, DEFAULT_MISSION_BUDGET, hasHeadroom, reserve as reserveSpend, settle, settleAll, usageOf } from "./budget";
+import { admit, admitChallenge, budgetOf, clockSet, DEFAULT_MISSION_BUDGET, hasHeadroom, reserve as reserveSpend, settle, settleAll, usageOf } from "./budget";
 import { capReached, missionUsage, runUsage, setSpendCap, spendCapOf, taskUsage, workspaceUsage } from "./usage";
 import { planEstimate } from "./estimate";
 import { listEvalCases, recordEvalCase } from "./eval-cases";
@@ -523,7 +523,15 @@ export class MissionService {
     const work = db.prepare("SELECT mission_id FROM execution_links WHERE run_id=? LIMIT 1").get(runId) as { mission_id: string } | undefined;
     const coordinatorRun = work ? undefined : db.prepare("SELECT mission_id FROM mission_runs WHERE run_id=?").get(runId) as { mission_id: string } | undefined;
     const link = work ?? coordinatorRun;
-    if (!link) return { admitted: true, reserve: 0, running: 0 };
+    if (!link) {
+      // A challenge's reviewer run is bound to no work item but is charged to the mission it reviews. It is found by its execution key
+      // (the command id `challenge-<id>`), which exists before the challenge learns the run id.
+      const challenged = db.prepare(`SELECT w.mission_id FROM workflow_runs r JOIN result_challenges c ON r.execution_key='challenge-' || c.id
+        JOIN work_items w ON w.id=c.work_item_id WHERE r.id=?`).get(runId) as { mission_id: string } | undefined;
+      if (!challenged) return { admitted: true, reserve: 0, running: 0 };
+      const decision = this.store.inTx(db, () => admitChallenge(this.store, db, challenged.mission_id));
+      return { missionId: challenged.mission_id, ...decision };
+    }
     const decision = this.store.inTx(db, () => admit(this.store, db, link.mission_id, Boolean(coordinatorRun), (missionId) => wake(this.store, db, missionId, "mission-paused", "budget exhausted; write the final checkpoint")));
     return { missionId: link.mission_id, ...decision };
   }
@@ -966,12 +974,14 @@ export class MissionService {
   }
 
   /** What an independent re-check of a result reads: the task, its criteria and the deliverable the finished run wrote (issue #50). */
-  resultOf(actor: ActorContext, workspaceId: string, workItemId: string): { missionId: string; title: string; state: WorkItemState; criteria: string[]; deliverable?: string; spendCapReached: boolean } {
+  resultOf(actor: ActorContext, workspaceId: string, workItemId: string): { missionId: string; title: string; state: WorkItemState; criteria: string[]; deliverable?: string; spendCapReached: boolean; missionBudgetReached: boolean } {
     const item = this.workItemRow(actor, workspaceId, workItemId);
     const db = this.db(actor, workspaceId);
     const deliverable = this.deliverableOf(db, item.id);
-    // A challenge is a model run that no mission budget covers, so it honours the workspace spend cap like every other run.
-    return { missionId: item.mission_id, title: item.title, state: item.state, criteria: JSON.parse(item.criteria_json) as string[], spendCapReached: capReached(db, this.store.now(), 0), ...(deliverable ? { deliverable } : {}) };
+    // A challenge is a model run charged to the mission it reviews (its budget and usage) and bound by the workspace spend cap.
+    const spendCapReached = capReached(db, this.store.now(), 0);
+    const missionBudgetReached = !spendCapReached && !this.store.inTx(db, () => admitChallenge(this.store, db, item.mission_id)).admitted;
+    return { missionId: item.mission_id, title: item.title, state: item.state, criteria: JSON.parse(item.criteria_json) as string[], spendCapReached, missionBudgetReached, ...(deliverable ? { deliverable } : {}) };
   }
 
   private deliverableOf(db: ReturnType<Store["workspaceDb"]>, workItemId: string): string | undefined {
