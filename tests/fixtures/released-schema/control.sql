@@ -474,6 +474,14 @@ CREATE TABLE notification_preferences (
   organization_id TEXT NOT NULL REFERENCES organizations(id), principal_id TEXT NOT NULL,
   push INTEGER NOT NULL DEFAULT 1 CHECK(push IN (0,1)), webhook INTEGER NOT NULL DEFAULT 0 CHECK(webhook IN (0,1)),
   digest INTEGER NOT NULL DEFAULT 0 CHECK(digest IN (0,1)), digest_last_ms INTEGER NOT NULL DEFAULT 0, updated_at_ms INTEGER NOT NULL,
+  email INTEGER NOT NULL DEFAULT 0 CHECK(email IN (0,1)),
   PRIMARY KEY(organization_id, principal_id)
 ) STRICT;
+-- One row per email attempt (ADR 0011 amendment): sent or failed with a plain reason, never the address or the message.
+CREATE TABLE email_deliveries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, organization_id TEXT NOT NULL, principal_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('sent','failed')), reason TEXT NOT NULL DEFAULT '', at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX email_deliveries_person ON email_deliveries(organization_id, principal_id, at_ms);
 
