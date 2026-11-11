@@ -72,3 +72,17 @@ Built: `/w/:id/today` (first nav entry, landing target), one "What do you want d
 ## Track I3 (reuse and capitalisation, 2026-11-11)
 Built: #66 reuse index (`reuse.search`, FTS5 BM25 plus recency, live source re-check, use counts only on attach), #75 one searchable memory (control.db FTS5 plus workspace documents, `sourceTypes` honoured, 'Local store' label), #67 readable knowledge asset per achieved mission, #68 'Brain found N similar past items' on the Plan tab before the first draft, #70 'Reused:' line on Outputs, #71 Review inbox (`knowledge.review`, approve = publish), #72 decided in ADR 0007 (producer is not approver; the sole reviewer may approve their own knowledge, marked self-reviewed). Hook for the Today box: `docs/howto/start-from-previous.md`.
 Leftovers: saved documents are searchable at once as unverified but do not queue in the inbox; context-pack attaches for tasks belong to the context track (I4); a 'knowledge waiting' attention kind (ADR 0005) is not added, the mission Outputs tab links to the inbox instead; Library navigation (#73) and Suggest a Play (#74) not started.
+
+## Wave 2 results and new findings (2026-11-11 ~02:00)
+- Done and on main: A2 (`4b8f0ad`,`d820a6e`: review semantics, 16k Pi cap, crash-restart ADR 0006 exception, upstream deliverable excerpts, plain failure reasons, quality script), C2 (`d19f0e1`), L (`e3d1692`), I2 (`593cb84`..`532f41e`: usage ledger, ceilings, estimates; ADR 0006/0007; #77 left open for interactive runs), I6 (`06d6ee1`: Markdown result reader, mission Outputs cards, trust line), I1 (`d7966f1`,`e3f7856`: Today landing, default budget $5/3 members, reuse chips), plus `1097d03` stage-demo-release script. Live deployed at `schema fix` commit after an outage (see ops-live-server.md).
+- Live validation 2026-11-11 ~01:55: plain-words mission (comparison) planned (2 tasks, criteria about own output), confirmed with one click, finished 2/2 verified done in 4 min, closed. Row 21 resolved by A2.
+| # | Item | Track | Status |
+|---|------|-------|--------|
+| 22 | Guard against schema additions without DEFAULT breaking live deploy: add a test/lint that proves repair-live-schema can upgrade the previous released schema to the current one (fixture of last deployed schema) | E2 (env) | open |
+| 23 | "Confirm this plan" is far below the fold on the Plan tab; make it sticky/primary near the top | UI | open |
+| 24 | Integration tests golden/sse/storage/first-launch time out under parallel agent load; make them robust (timeouts scale, isolated TMPDIR per run) | E2 (env) | open |
+| 25 | Shared `$HOME/.cache/tmp` is cleaned by concurrent sessions (ENOENT in test runs): give each track its own TMPDIR | E2 (env) | open |
+| 26 | #77 meter: interactive runs outside missions not in ledger | I2b | open |
+| 27 | Sidebar highlights Live on /runners (area mapping); Passkeys paragraph jargon; inviting own address returns "internal operation failed" server-side | C3 | open |
+| 28 | Reuse seams: #66 index, #56 schedule picker, #68 planner reuse; #48 inline setup fixes + sample goal | I3 / next | open |
+| 29 | Stale `artifacts/ui-revamp` baselines (sidebar Today entry, live/logs/plays); regenerate once UI settles (polish pass) | E | open |
