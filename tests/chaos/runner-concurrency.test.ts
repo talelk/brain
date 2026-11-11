@@ -77,6 +77,9 @@ describe("a runner with 3 slots running 3 attempts at the same time (row 64)", (
     expect([...controls.activeAttemptIds].sort()).toEqual(attempts.map((a) => a.id).sort());
     expect(runner()).toMatchObject({ slots: 3, cpu: 1500, memory: 768 });
     expect((s().control.prepare("SELECT COUNT(*) AS n FROM capacity_reservations WHERE released_at_ms IS NULL").get() as { n: number }).n).toBe(3);
+    // Health says how busy the fleet is, in the words the Runners page uses.
+    const health = (await world.brain.executeQuery(world.owner, { queryType: "platform.health" } as never)) as unknown as { snapshot: { services: Array<{ id: string; detail: string }> } };
+    expect(health.snapshot.services.find((service) => service.id === "runners")?.detail).toBe("3 of 3 slots in use on 1 online runner");
     // The fourth job waits: no slot is free, and asking again hands nothing out and reserves nothing more.
     expect(await runOnce(cfg, () => session.token, session.epoch, controls)).toBe(false);
     expect(runner().slots).toBe(3);

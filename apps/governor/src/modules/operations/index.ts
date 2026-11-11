@@ -6,5 +6,5 @@ export { operationalReadiness } from "./readiness";
 export { localRuntimeStatus, connectLocalModel, restoreLocalRuntimeHandoff, localRunnerSettingsCurrent } from "./local-runtime";
 export { liveStatus, platformHealth, workspaceContext } from "./read";
 export { channelsFor, notifyAttention, notificationsFor, sendDigests, watchCommands, type Sender } from "./attention-notify";
-export { composeMessage, smtpTarget, sendMail, validAddress, type SmtpTarget } from "./smtp";
+export { composeMessage, smtpTarget, sendMail, validAddress } from "./smtp";
 export { absoluteLink, emailContent, safeMailLink, sendEmail, preferencesView, sendWebhook, setPreferences as setNotificationPreferences, webhookBody, webhookTarget } from "./channels";

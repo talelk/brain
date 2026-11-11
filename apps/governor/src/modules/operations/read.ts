@@ -16,6 +16,9 @@ export function platformHealth(store: Store, probe: MemoryProbe): JsonValue {
     { id: "governor", status: "healthy", checkedAt: store.nowIso(), detail: "control.db reachable" },
     { id: "memory-local", status: probe.status, checkedAt: probe.checkedAt || store.nowIso(), detail: probe.detail },
   ];
+  // Runners that are online and able to take work: how many of their slots are taken right now.
+  const fleet = store.control.prepare("SELECT COUNT(*) AS runners, COALESCE(SUM(slots_reserved),0) AS used, COALESCE(SUM(slot_capacity),0) AS total FROM runners WHERE admin_state='enabled' AND last_heartbeat_ms>?").get(store.now() - 45_000) as { runners: number; used: number; total: number };
+  if (fleet.runners > 0) services.push({ id: "runners", status: "healthy", checkedAt: store.nowIso(), detail: `${fleet.used} of ${fleet.total} slots in use on ${fleet.runners} online ${fleet.runners === 1 ? "runner" : "runners"}` });
   const status = services.some((svc) => svc.status === "unavailable") ? "degraded" : "healthy";
   return { status, services, pendingOutbox: pending.c, oldestOutboxAgeMs: 0, schemaVersion: "1" } as unknown as JsonValue;
 }
