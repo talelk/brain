@@ -5,7 +5,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { activeReleaseRecord } from "../configuration/index";
 import { readVerified } from "../artifacts/index";
-import { ftsOr, ftsTerms } from "./memory";
+import { ftsOr, ftsTerms, looksLikeSecret } from "./memory";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 type Kind = ReuseItem["kind"];
@@ -132,7 +132,8 @@ export class ReuseService {
   private preview(digest: string, fallback: string): string {
     try {
       const text = new TextDecoder("utf-8", { fatal: true }).decode(readVerified(this.store, digest));
-      return clip(text, BODY_CHARS);
+      // Text that would be refused as a secret on publication is never offered for reuse either.
+      return looksLikeSecret(text) ? fallback : clip(text, BODY_CHARS);
     } catch { return fallback; }
   }
 

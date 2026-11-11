@@ -216,10 +216,12 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     </section>;
   };
   const hasPlan = () => Boolean(shownPlan());
+  /** Suggestions are attached only from the panel the person actually sees; a later "another strategy" never attaches unseen items. */
+  const suggestionsShown = () => !hasPlan() && !proposal.state().data && !props.proposalId && pendingSuggestions().length > 0;
   return <WorkspaceSection title="Plan" description="The steps Brain will track as work once you confirm them."
-    actions={<Show when={app.canDispatch() && props.mission.state !== "closed" && !props.proposalId}><Button variant={hasPlan() ? "ghost" : "solid"} theme="blue" iconLeft="lucide-sparkles" loading={busy()} disabled={busy()} onClick={() => void generate(pendingSuggestions().map((item) => item.itemRef))}>{hasPlan() ? "Generate another strategy" : "Prepare plan proposal"}</Button></Show>}>
+    actions={<Show when={app.canDispatch() && props.mission.state !== "closed" && !props.proposalId}><Button variant={hasPlan() ? "ghost" : "solid"} theme="blue" iconLeft="lucide-sparkles" loading={busy()} disabled={busy()} onClick={() => void generate(suggestionsShown() ? pendingSuggestions().map((item) => item.itemRef) : [])}>{hasPlan() ? "Generate another strategy" : "Prepare plan proposal"}</Button></Show>}>
     <Show when={error()}><Alert theme="red" variant="outline" title="Planning action failed" description={error()} /></Show>
-    <Show when={!hasPlan() && !proposal.state().data && !props.proposalId && pendingSuggestions().length > 0}>
+    <Show when={suggestionsShown()}>
       <ReuseSuggestions items={pendingSuggestions()} busy={busy()} onDraft={(kept, dropped) => void generate(kept, dropped)} />
     </Show>
     <Show when={proposal.state().data?.state === "running"}><Alert theme="blue" variant="outline" title="Preparing a validated proposal" description="The mission is durable. No tasks have been created and no execution has started." /></Show>

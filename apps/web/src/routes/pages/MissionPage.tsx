@@ -25,6 +25,7 @@ import { readExecFilters, writeExecFilters } from "../../ui/exec/exec-filters";
 import { MissionOutputs } from "../../ui/outputs/MissionOutputs";
 import { MissionUsage } from "../../ui/usage/Usage";
 import { PlanEstimate } from "../../ui/usage/PlanEstimate";
+import { ReusedInBrief } from "../../ui/components/Reuse";
 
 const TABS: readonly { id: MissionTab; label: string }[] = [
   { id: "live", label: "Live" }, { id: "team", label: "Team" }, { id: "plan", label: "Plan" },
@@ -445,6 +446,7 @@ function BriefTab(props: ActProps): JSX.Element {
           <TextInput label="New decision" required value={decision()} onInput={(event) => setDecision(event.currentTarget.value)} />
         </FormSheet>
       </WorkspaceSection>
+      <ReusedInBrief missionId={props.mission.missionId} workspaceId={props.mission.workspaceId} />
       <WorkspaceSection title="Progress" description="Derived from work items; nobody writes it.">
         <p class="text-interface">{b().progress.total} work items · {Object.entries(b().progress.byState).map(([state, count]) => `${count} ${state}`).join(" · ") || "none yet"}</p>
       </WorkspaceSection>

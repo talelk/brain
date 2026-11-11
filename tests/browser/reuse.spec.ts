@@ -111,5 +111,10 @@ test("reuse loop: approve once, find it in search, get it offered before plannin
   await line.getByRole("button", { name: /^Stop reusing Quarterly churn report/ }).first().click();
   await expect(page.getByTestId("reused-line").getByText("will not be offered to this mission again")).toBeVisible();
   expect(db.prepare("SELECT COUNT(*) AS n FROM reuse_attachments WHERE mission_id=? AND decision='dropped'").get(missionId)).toEqual({ n: 2 });
+  // 6. The brief records what was kept or dropped and by whom.
+  await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/brief?w=ws-reuse`);
+  await expect(page.getByTestId("brief-reused")).toContainText("dropped by you");
+  await expect(page.getByTestId("brief-reused")).toContainText("Quarterly churn report");
+  await shot(page, "6-brief");
   expect(errors).toEqual([]);
 });

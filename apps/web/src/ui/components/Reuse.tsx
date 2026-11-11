@@ -6,6 +6,7 @@ import type { KnowledgeAsset, ReuseItem } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
+import { WorkspaceSection } from "./Domain";
 import { reusedByMission, reuseItemHref } from "../../data/reuse";
 import { formatRelative } from "../format";
 
@@ -119,4 +120,22 @@ export function KnowledgeProposalNote(props: { missionId: string; workspaceId: s
     <p class="min-w-0 flex-1">{record().state === "published" ? "What Brain learned from this mission is published: it is searchable and offered to future plans." : record().rejectionReason ? "You left this mission's write-up out of search." : "Brain wrote up what it learned from this mission. Approve it once so search and future plans can use it."}</p>
     <Button size="sm" variant={record().state === "extracted" && !record().rejectionReason ? "solid" : "outline"} theme={record().state === "extracted" && !record().rejectionReason ? "blue" : "gray"} onClick={() => void navigate(target())}>{record().state === "extracted" && !record().rejectionReason ? "Review it" : "Open the Review inbox"}</Button>
   </div>}</Show>;
+}
+
+/** The brief's record of reuse (#68): what was kept or dropped for this mission, and by whom. */
+export function ReusedInBrief(props: { missionId: string; workspaceId: string }): JSX.Element {
+  const app = useApp();
+  const reused = createScopedRead<ReuseItem[]>({
+    scope: app.scope, refreshMs: 15_000,
+    resource: () => props.missionId,
+    load: async (_scope, signal) => reusedByMission(props.workspaceId, props.missionId, signal),
+  });
+  const who = (id: string | undefined) => (id === app.identity()?.actor.actorId ? "you" : "another person");
+  return <Show when={(reused.state().data ?? []).length > 0}><WorkspaceSection title="Reused from earlier work" description="Past verified work the planner was shown as hints, never as proof. Who kept or dropped each item is recorded.">
+    <ul class="flex flex-col gap-2" data-testid="brief-reused">
+      <For each={reused.state().data}>{(item) => <li class={item.decision === "dropped" ? "text-ink-gray-5" : ""}>
+        <ItemLink item={item} /> <span class="text-caption text-ink-gray-6">· {KIND_LABEL[item.kind]} · {item.decision === "dropped" ? "dropped" : "kept"} by {who(item.decidedBy)} · {freshness(item)}</span>
+      </li>}</For>
+    </ul>
+  </WorkspaceSection></Show>;
 }

@@ -182,6 +182,14 @@ describe("Library review inbox and one searchable memory (#71, #75)", () => {
     expect((await assets(w))[0]!.state).toBe("revoked");
   });
 
+  it("never offers output text that looks like a secret for reuse", async () => {
+    world = setupWorld();
+    const w = world;
+    await achievedMission(w, "leak", { title: "Credentials audit", intent: "Audit credentials for the quarter", criteria: ["audited"], outputs: [{ name: "audit.md", text: "api_key = AKIAABCDEFGHIJKLMNOP" }] });
+    const hits = await reuseSearch(w, "audit credentials quarter");
+    expect(JSON.stringify(hits)).not.toContain("AKIA");
+  });
+
   it("refuses to publish knowledge that contains a secret", async () => {
     world = setupWorld();
     const w = world;
