@@ -33,6 +33,9 @@ Confirmed good: six starter Plays as chips on Today; "Brain learned 2 things thi
 - Plan drafting for the Play mission took over 90 s (plan-guide now has knowledge.search): watch planning latency and the one-retry path; if it fails, check `planning_requests`.
 - Pre-deploy check hardened twice (VACUUM INTO snapshot, gzip, one retry); first deploy with it passed. `scripts/snapshot-live-dbs.mjs` runs inside the container.
 
+## Track P confirmed live (2026-11-11 ~11:20, deployed `a91ff24`)
+Play + sentence now titles the mission "Write a checklist or runbook: <topic>"; plan drafts as soon as the page opens (no panel, no manual button); "Used from past work: N items (change)" line replaces the blocking panel; relevance cutoff excludes Plays and unrelated items. Verified by clicking through the live site. Hygiene: 24 stale agent worktrees (all merged into main) removed; no Brain processes running; `ListAgents` shows no running subagents.
+
 ## Not yet walked live (blocked on deploy of K and M)
 Share links, Challenge this result, Repeat this (now creates real missions), Context received tab, Tools registry, Quality page, Usage meter in depth.
 
