@@ -11,7 +11,6 @@ Dated 2026-11-11 ~15:45, at `talelk/brain@bd16582`+ (deployed: waves 1-3, tracks
 ## Open product work (GitHub issues, `talelk/brain`)
 | Issue | Item | Notes |
 |-------|------|-------|
-| #3, #4, #5 | Domain vocabulary: Run aggregate type, WorkflowJob naming, WorkflowState vs WorkflowRunState | needs-triage, docs/ADR + contract rename |
 
 ## Open UI / quality rows
 | # | Item | Notes |

@@ -151,14 +151,16 @@ _Avoid_: execution (standalone — it names an area, not a thing), trace
 ### Execution
 
 **Run**:
-One execution of a released workflow, identified by its run id.
-_Avoid_: workflow run (as a distinct noun — it is a synonym), job (when meaning a run)
+One execution of a released workflow, identified by its run id. It carries the release
+it executes, its run state, creation time, a reference to its outputs, and the mission
+and work item it serves when there are any.
+_Avoid_: workflow run (a synonym), job (when meaning a run)
 
 **Run state**:
 A run's position in its lifecycle: created, validated, ready, running, suspended,
 blocked, succeeded, partial, failed, cancelled. Suspended is reversible; the others
 are terminal or transitional as declared.
-_Avoid_: workflow state, workflow run state (two names for this one concept)
+_Avoid_: workflow state, workflow run state
 
 **Step**:
 A node declared in a workflow definition — dispatch, gate, evaluation, steer, merge or
@@ -168,7 +170,7 @@ _Avoid_: job (when meaning a declared node), node, stage
 **Job**:
 The runtime execution unit for one step of one run. A job is offered to a runner and
 executed by attempts.
-_Avoid_: task, run (when meaning a job), workflow job (which names a step)
+_Avoid_: task, run (when meaning a job), workflow job
 
 **Attempt**:
 One try at a job by one runner. A retry always creates a new attempt; a terminal
