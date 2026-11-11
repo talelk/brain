@@ -486,3 +486,25 @@ CREATE TABLE command_effects (
  command_id TEXT PRIMARY KEY, result_json TEXT NOT NULL CHECK(json_valid(result_json)),
  created_at_ms INTEGER NOT NULL
 ) STRICT;
+-- Regression cases (ADR 0010): a rejected sign-off or a task sent back after review becomes one immutable case, written in the transition's own transaction.
+CREATE TABLE eval_cases (
+ id TEXT PRIMARY KEY, source TEXT NOT NULL UNIQUE,
+ kind TEXT NOT NULL CHECK(kind IN ('rejected-verdict','task-sent-back')),
+ mission_id TEXT NOT NULL, work_item_id TEXT, case_json TEXT NOT NULL CHECK(json_valid(case_json)), created_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX eval_cases_recent ON eval_cases(created_at_ms);
+-- Challenge this result (ADR 0012): a reviewer run bound to no work item; its findings are stored as claims and never touch a verdict.
+CREATE TABLE result_challenges (
+ id TEXT PRIMARY KEY, work_item_id TEXT NOT NULL REFERENCES work_items(id), run_id TEXT, requested_by TEXT NOT NULL,
+ state TEXT NOT NULL CHECK(state IN ('requested','running','done','failed')), summary TEXT,
+ claims_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(claims_json)), reason TEXT, created_at_ms INTEGER NOT NULL, completed_at_ms INTEGER
+) STRICT;
+CREATE UNIQUE INDEX result_challenges_open ON result_challenges(work_item_id) WHERE state IN ('requested','running');
+CREATE INDEX result_challenges_item ON result_challenges(work_item_id, created_at_ms);
+-- Play proposals (ADR 0015): a reviewable description of an achieved mission's confirmed plan, team and criteria. Approval opens a configuration draft.
+CREATE TABLE play_proposals (
+ id TEXT PRIMARY KEY, mission_id TEXT NOT NULL UNIQUE REFERENCES missions(id), state TEXT NOT NULL CHECK(state IN ('proposed','approved','rejected')),
+ play_id TEXT NOT NULL, spec_json TEXT NOT NULL CHECK(json_valid(spec_json)), proposed_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
+ reviewed_by TEXT, reviewed_at_ms INTEGER, reason TEXT, draft_id TEXT, self_reviewed INTEGER NOT NULL DEFAULT 0 CHECK(self_reviewed IN (0,1))
+) STRICT;
+
