@@ -19,3 +19,6 @@ As of `talelk/brain@e4017e5` (2026-11-11):
 ## Optional notification webhook (2026-11-11, ADR 0011)
 Set `BRAIN_NOTIFY_WEBHOOK_URL` (https, or http on localhost) and optionally `BRAIN_NOTIFY_WEBHOOK_SECRET` in the Governor's environment to offer people the webhook channel. The body is a link only (`{type, kind, text, link, count?}`), signed with `x-brain-signature: sha256=<hmac>` when a secret is set. Unset means a safe no-op and the preference shows as unavailable. Share links use `BRAIN_BASE_URL` for their address.
 
+
+## Stuck-run watchdog (2026-11-11, track S)
+Live run `run-mwbxl678-1n-zo5903gh` sat 80 minutes: author job `verifying`, no evidence bundle. The runner pinned the same tool-result artifact three times (artifact ids derive from content, so identical results share an id); the Governor rejected the bundle with 422 "duplicate artifact identity", which no one retried or swept. Fixes: runner dedupes artifact refs, the Governor accepts identical repeats, and `JobProtocol.sweepStuckJobs` (5 s pass in `app.ts`, `modules/jobs/watchdog.ts`) restarts read-only agent/evaluator jobs with no sign of life for `BRAIN_STUCK_JOB_MINUTES` (default 15), fails them with a plain reason once restarts are used up, and leaves effectful steps `outcome_unknown`. No schema change; runner code must be redeployed.

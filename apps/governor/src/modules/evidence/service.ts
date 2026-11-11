@@ -54,7 +54,8 @@ export class EvidenceService {
     const total=bundle.artifacts.reduce((bytes,ref)=>bytes+ref.bytes,0);
     if (!Number.isSafeInteger(total) || total>100*1024*1024) throw new BrainDomainError("PAYLOAD_TOO_LARGE", "bundle artifact verification exceeds the 100 MiB admission limit");
     const refs = new Map(bundle.artifacts.map((a) => [a.artifactId, a]));
-    if (refs.size !== bundle.artifacts.length) throw new BrainDomainError("INVALID_CONTRACT", "duplicate artifact identity");
+    // The same bytes pinned twice (a tool returning an identical result) are one artifact; two different artifacts under one id are not.
+    if (bundle.artifacts.some((a) => !same(a, refs.get(a.artifactId)))) throw new BrainDomainError("INVALID_CONTRACT", "duplicate artifact identity");
     for (const check of bundle.checks) for (const ref of check.artifacts) {
       if (!refs.has(ref.artifactId) || !same(ref, refs.get(ref.artifactId))) throw new BrainDomainError("EVIDENCE_MISSING", "check artifact is not in the immutable bundle");
     }

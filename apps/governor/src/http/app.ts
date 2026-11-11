@@ -861,6 +861,8 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       process.on("SIGINT", stop);
       setInterval(() => {
     try { brain.jobProtocol.expireLeases(); brain.projectOutbox(); } catch { /* timers never authorize */ }
+    // Stuck-run watchdog: a job nothing will move again is restarted or failed with a plain reason, never left running.
+    try { brain.jobProtocol.sweepStuckJobs(); } catch { /* the watchdog must not break expiry */ }
     // Execution stream: backstop projection plus the throttled retention sweep.
     try { brain.stream.projectAll(); brain.stream.sweep(); } catch { /* a projection failure must not break expiry */ }
     // Cron dispatch runs on its own cadence; a pass is idempotent and cheap.

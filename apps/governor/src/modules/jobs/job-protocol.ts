@@ -4,6 +4,7 @@ import { authRunner, enrollRunner, heartbeat, issueEnrollment, operateRunner, ru
 import { ackAttempt, attemptEvents, claim, completeAttempt, expireLeases, readExecutionArtifact, releaseAttempt, releaseReservation, renewAttempt, type ContextPackPort } from "./attempts";
 import { brokerToolRead, type ToolReadPorts, type ToolReadRequest } from "./tool-reads";
 import { BrainDomainError } from "../../domain/errors";
+import { sweepStuckJobs } from "./watchdog";
 import { runScheduledDispatch } from "./scheduler";
 import { AutomationService } from "./automation";
 import { cancelJobsForRun, concludeAttempt, createJobForStep, resolveReconciliation, workspaceJobLoad, type CreateJobInput, type ReconciliationOutcome } from "./lifecycle";
@@ -148,6 +149,13 @@ export class JobProtocol {
 
   expireLeases(): number {
     return expireLeases(this.store);
+  }
+
+  /** Restarts or fails jobs that no event will ever move again (see watchdog.ts); idempotent. */
+  sweepStuckJobs(stuckMs?: number): number {
+    return sweepStuckJobs(this.store, {
+      completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.ports.completeStep(organizationId, workspaceId, runId, stepId, output, ok),
+    }, stuckMs);
   }
 
   releaseReservation(attemptId: string): void {

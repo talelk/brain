@@ -476,20 +476,29 @@ const MAX_INTERRUPTION_RESTARTS = 5;
  * for a fresh attempt. This is not a failure of the work, so no run failure is reported and no failed attempt counts.
  * Returns true when the job was restarted.
  */
-function restartInterruptedReadJob(s: Store, jobId: string, attemptId: string): boolean {
-  const job = s.control.prepare("SELECT effect_class, attempt_counter, state FROM jobs WHERE id=?").get(jobId) as { effect_class: string; attempt_counter: number; state: string } | undefined;
-  if (!job || job.effect_class !== "read" || job.state !== "outcome_unknown" || job.attempt_counter >= MAX_INTERRUPTION_RESTARTS) return false;
-  const effects = s.control.prepare("SELECT (SELECT COUNT(*) FROM effect_permits WHERE attempt_id=?) + (SELECT COUNT(*) FROM resource_leases WHERE attempt_id=?) AS n").get(attemptId, attemptId) as { n: number };
-  if (effects.n > 0) return false;
-  // Only reasoning (agent) and evaluator steps restart themselves: they hold no effect of their own and a second run is harmless.
-  const payload = s.control.prepare("SELECT kind, payload_json FROM job_payloads WHERE job_id=?").get(jobId) as { kind: string; payload_json: string } | undefined;
-  const usesType = payload ? (JSON.parse(payload.payload_json) as { step?: { uses?: { type?: string } } }).step?.uses?.type : undefined;
-  if (!payload || (payload.kind !== "eval" && usesType !== "agent")) return false;
+export function restartInterruptedReadJob(s: Store, jobId: string, attemptId: string): boolean {
+  const job = s.control.prepare("SELECT attempt_counter, state FROM jobs WHERE id=?").get(jobId) as { attempt_counter: number; state: string } | undefined;
+  if (!job || job.state !== "outcome_unknown" || job.attempt_counter >= MAX_INTERRUPTION_RESTARTS) return false;
+  if (!isReadOnlyReasoningJob(s, jobId, attemptId)) return false;
   transitionState(s.control, "attempt", attemptId, "failed");
   transitionState(s.control, "job", jobId, "queued", { set: { queue_reason: "RESTARTED_AFTER_INTERRUPTION" }, bumpVersion: true });
   releaseReservation(s, attemptId);
   return true;
 }
+
+/** An agent or evaluator job with effect class read that never held an effect permit or resource lease: a second run is harmless. */
+export function isReadOnlyReasoningJob(s: Store, jobId: string, attemptId: string): boolean {
+  const job = s.control.prepare("SELECT effect_class FROM jobs WHERE id=?").get(jobId) as { effect_class: string } | undefined;
+  if (!job || job.effect_class !== "read") return false;
+  const effects = s.control.prepare("SELECT (SELECT COUNT(*) FROM effect_permits WHERE attempt_id=?) + (SELECT COUNT(*) FROM resource_leases WHERE attempt_id=?) AS n").get(attemptId, attemptId) as { n: number };
+  if (effects.n > 0) return false;
+  // Only reasoning (agent) and evaluator steps restart themselves: they hold no effect of their own and a second run is harmless.
+  const payload = s.control.prepare("SELECT kind, payload_json FROM job_payloads WHERE job_id=?").get(jobId) as { kind: string; payload_json: string } | undefined;
+  const usesType = payload ? (JSON.parse(payload.payload_json) as { step?: { uses?: { type?: string } } }).step?.uses?.type : undefined;
+  return !!payload && (payload.kind === "eval" || usesType === "agent");
+}
+
+export { MAX_INTERRUPTION_RESTARTS };
 
 export function expireLeases(s: Store): number {
   let count = 0;

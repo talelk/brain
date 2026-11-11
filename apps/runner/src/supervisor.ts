@@ -300,7 +300,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
           const bytes = new TextEncoder().encode(JSON.stringify(executed.output));
           const uploaded = await client.uploadArtifact(offer.attemptId, bytes, "application/json");
           const artifact = { ...uploaded, mediaType: "application/json", classification: "internal" as const };
-          toolArtifacts.push(artifact);
+          if (!toolArtifacts.some((known) => known.artifactId === artifact.artifactId)) toolArtifacts.push(artifact);
           await emit("effect", { phase: "governed-tool-result", proposalId: proposal.proposalId, invocationId, artifact });
           return { proposalId: proposal.proposalId, invocationId,
             receipt: { invocationId, attemptId: offer.attemptId, jobFence: offer.jobFence, result: executed.ok ? "succeeded" : "failed", startedAt, finishedAt: new Date().toISOString(), stdout: artifact, effects: [] },
@@ -354,7 +354,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string, runnerEpo
         workflowDigest: (offer as { workflowDigest?: string }).workflowDigest ?? offer.configDigest,
         primitiveVersions: (offer as { primitiveVersions?: Record<string, string> }).primitiveVersions ?? {},
         toolReleases: [...offer.authorEvidence.toolReleases, ...nestedToolReleases.filter((nested) => !offer.authorEvidence?.toolReleases.some((tool) => tool.id === nested.id && tool.digest === nested.digest))],
-        artifacts: [{ ...artifact, mediaType: "application/json", classification: "internal" }, ...toolArtifacts],
+        artifacts: [{ ...artifact, mediaType: "application/json", classification: "internal" }, ...toolArtifacts.filter((known) => known.artifactId !== artifact.artifactId)],
         checks: offer.authorEvidence.claimedChecks,
         approvalIds: [],
         effects: [],
