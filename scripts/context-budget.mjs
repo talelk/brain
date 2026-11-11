@@ -75,6 +75,8 @@ export function collect(root, budget) {
     const files = statSync(abs).isDirectory() ? walk(abs) : [abs];
     for (const f of files) {
       const rel = relative(root, f);
+      // Archived history is never loaded by default: it is read on demand by a person who asks for it.
+      if ((budget.onDemand.exclude ?? []).some((prefix) => rel === prefix || rel.startsWith(`${prefix}/`))) continue;
       if (!always.has(rel)) onDemand.set(rel, { path: rel, bytes: statSync(f).size });
     }
   }

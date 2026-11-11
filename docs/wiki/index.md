@@ -20,3 +20,6 @@ Historical record, not a description of the present. Every claim is dated and, f
 
 ## Backlog
 - [backlog.md](backlog.md) — ranked open work, owner track, status.
+
+## Archive
+- [archive/backlog-2026-11-11.md](archive/backlog-2026-11-11.md): full dated backlog history and track reports (excluded from the context budget).

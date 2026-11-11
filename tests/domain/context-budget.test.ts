@@ -30,6 +30,16 @@ function fixture() {
 }
 
 describe("context budget", () => {
+  it("leaves excluded archive paths out of the on-demand group", () => {
+    const { root, budget, put } = fixture();
+    put("docs/wiki/archive/old.md", "z".repeat(40_000));
+    const withArchive = { ...budget, onDemand: { ...budget.onDemand, paths: [...budget.onDemand.paths, "docs/wiki"] } };
+    const counted = evaluate(root, withArchive).groups[1].entries.map((e: { path: string }) => e.path);
+    expect(counted).toContain("docs/wiki/archive/old.md");
+    const excluded = evaluate(root, { ...withArchive, onDemand: { ...withArchive.onDemand, exclude: ["docs/wiki/archive"] } }).groups[1].entries.map((e: { path: string }) => e.path);
+    expect(excluded).not.toContain("docs/wiki/archive/old.md");
+  });
+
   it("separates always-loaded from on-demand and counts only skill descriptions", () => {
     const { root, budget } = fixture();
     const r = evaluate(root, budget);

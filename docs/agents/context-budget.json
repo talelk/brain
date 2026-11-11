@@ -2,12 +2,30 @@
   "bytesPerToken": 4,
   "always": {
     "ceilingTokens": 7800,
-    "files": ["AGENTS.md"],
-    "skillDirs": [".claude/skills", ".agents/skills", "skills"]
+    "files": [
+      "AGENTS.md"
+    ],
+    "skillDirs": [
+      ".claude/skills",
+      ".agents/skills",
+      "skills"
+    ]
   },
   "onDemand": {
     "ceilingTokens": 140000,
-    "paths": ["GLOSSARY.md", "docs/functional-spec.md", "docs/implementation", "docs/adr", "docs/specs", "docs/howto", "docs/agents", "docs/wiki"]
+    "paths": [
+      "GLOSSARY.md",
+      "docs/functional-spec.md",
+      "docs/implementation",
+      "docs/adr",
+      "docs/specs",
+      "docs/howto",
+      "docs/agents",
+      "docs/wiki"
+    ],
+    "exclude": [
+      "docs/wiki/archive"
+    ]
   },
   "fileCeilingTokens": {
     "AGENTS.md": 900,
