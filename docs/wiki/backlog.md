@@ -93,3 +93,12 @@ Leftovers: saved documents are searchable at once as unverified but do not queue
 - Browser session on the demo was signed out after the deploys (sign-in form at `/`); the assistant does not type passwords into hosted sign-in forms: the user signs in, then browser validation resumes.
 - I4 leftovers: handoff summaries appear twice in a prompt; pack budget sits on top of a brief of ~7000 tokens; `tools.list` scans 20000 events unindexed; compaction and new tools untested with a real model; `releases/cv-insights` and `scripts/demo/provision-cv-insights.py` carry old plan-guide digests; web.fetch needs outbound access from the runner host.
 - I3 leftovers: saved documents searchable but not queued for review; #73/#74 not started; #69 (switch Today from fromMissions to reuseSearch) open.
+
+## Track G2 done (2026-11-11, `talelk/brain@a9b9f98`, `69387a5`)
+Shipped #56 Repeat this (3 presets, server-computed cron + next 5 runs), #57 occurrence diff, #61 live "doing now" line + ETA band, #62 Pause/Steer/Stop (steer written into the brief first, then sent when the engine allows). New queries `automations.preview`, `automations.diff`; no new columns. Not yet deployed.
+| # | Item | Track | Status |
+|---|------|-------|--------|
+| 30 | A repeated *described* mission runs as a bare workflow run: its result appears only as a diff in schedule history, not as a Result card on a mission page; give each occurrence a mission/Result | next | open |
+| 31 | `automations.diff` falls back to whole-deliverable compare when the planner names outputs differently between runs; stabilise output naming | next | open |
+| 32 | "Reading N sources" doing-now sentence not shown on session rail / Plan rows (needs transcript); extend | next | open |
+| 33 | G2 could not confirm `first-launch.test.ts` alone (flaky under load): E2's timing factor should cover; re-verify on main | chief | open |
