@@ -62,7 +62,8 @@ if [ "${BRAIN_DEPLOY_SKIP_PRECHECK:-0}" != 1 ]; then
     # A consistent snapshot (VACUUM INTO inside the container), then a copy of the static snapshot: copying files
     # that are being written is what made a raw tar of the live databases fail at random.
     if ! $SSH "docker exec -i $GOV_ID node --input-type=module -" < scripts/snapshot-live-dbs.mjs >/dev/null \
-      || ! $SSH "docker exec $GOV_ID tar cf - -C /tmp/precheck-snap ." | tar xf - -C "$PRECHECK_DIR" \
+      || { ! $SSH "docker exec $GOV_ID tar czf - -C /tmp/precheck-snap ." | tar xzf - -C "$PRECHECK_DIR" \
+           && echo "   (copy interrupted; retrying once)" >&2 && ! $SSH "docker exec $GOV_ID tar czf - -C /tmp/precheck-snap ." | tar xzf - -C "$PRECHECK_DIR"; } \
       || [ ! -s "$PRECHECK_DIR/control.db" ]; then
       echo "!! Could not snapshot the live databases; aborting before any change (old container untouched)" >&2; exit 1
     fi
