@@ -5,6 +5,7 @@ Dated 2026-11-11 ~15:45, at `talelk/brain@bd16582`+ (deployed: waves 1-3, tracks
 ## Process rules learned
 - Run at most 2 agents at once and cap vitest workers (`maxWorkers: 4`): uncapped parallel test runs OOM-killed the machine and restarted the session twice on 2026-11-11. After a restart check the agents' worktrees: their commits survive; merge them yourself.
 - Stop each agent and remove its worktree + `~/.cache/tmp-<name>` as soon as its report is taken. Avoid deploying while missions run (each deploy interrupts running attempts).
+- If Playwright says "Executable doesn't exist", the browser cache vanished (session restart): `npx playwright install chromium` (about 120 MB), then rerun. Run the browser specs for every UI/read-model change before deploying: agents often skip them.
 - Deploy = `scripts/deploy-demo.sh` (pre-check on a VACUUM INTO snapshot pulled with rsync) then `scripts/stage-demo-release.sh` when `examples/v1` changed; new columns on existing tables need DEFAULT.
 
 ## Open product work (GitHub issues, `talelk/brain`)
@@ -28,6 +29,10 @@ Dated 2026-11-11 ~15:45, at `talelk/brain@bd16582`+ (deployed: waves 1-3, tracks
 | 64 | Multi-slot runner loop untested with >1 concurrent attempts; session refresh (13 min) briefly lowers concurrency for very long attempts; Health/Runners show "busy" without slots | T leftover |
 | 65 | Compaction and the new tools (documents.read, web.fetch, csv.query, knowledge.search) untested with a real model; web.fetch needs outbound access from the runner host (failures now tell the model not to retry) | I4 leftover |
 | 66 | Email transport for notifications is not built (in-app + push + signed webhook only) | G3 decision (ADR 0010-0015) |
+
+## Deployed 2026-11-11 ~16:40 (tracks Y, Z; `297a40e`)
+Live confirmed: install card on Today; workspace usage panel with "Outside missions". Z found and fixed a real security bug (a share link kept working after its creator was disabled or downgraded below `mission:write`). Z added: outcome-unknown tool steps in Needs you ("Treat as failed" / "Try again" for read steps only), "Restarting" state, saved documents in the Review inbox, `workspace_spend` bucket.
+Not seen live yet: Needs-you outcome-unknown row, Saved document in Review inbox, phone layout on a real phone, install prompt on a real phone.
 
 ## Not yet walked live
 Context received tab, Tools registry, Quality page, Share link page (`/shared/:token`), Library Plays shelf after "Add starter Plays", scheduled Repeat occurrence (auto-confirm), Notification preferences (Security).
