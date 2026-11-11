@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from "solid-js";
+import { For, Show, createEffect, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Badge, Button } from "@talelk/newui-atoms";
@@ -29,35 +29,47 @@ function ItemLink(props: { item: Pick<ReuseItem, "itemRef" | "kind" | "provenanc
 }
 
 /**
- * "Brain found N similar past items" (#68): shown on the plan tab before the first plan
- * is drafted. Everything is kept by default; the person drops what does not apply, and only
- * the kept items reach the planner (as claims with provenance, never as evidence).
+ * "Used from past work: N items (change)": the calm line under the plan header. Brain already
+ * attached what cleared the relevance cutoff (at most three) when it drafted, so nothing waits on
+ * the person. Opening it lists each item with a tick; only after something is changed does
+ * "Redraft with my changes" appear. Items are hints with provenance, never evidence.
  */
-export function ReuseSuggestions(props: { items: readonly ReuseItem[]; busy: boolean; onDraft: (kept: string[], dropped: string[]) => void }): JSX.Element {
-  const [dropped, setDropped] = createSignal<ReadonlySet<string>>(new Set());
-  const toggle = (ref: string, keep: boolean) => setDropped((current) => { const next = new Set(current); if (keep) next.delete(ref); else next.add(ref); return next; });
-  const kept = () => props.items.filter((item) => !dropped().has(item.itemRef)).map((item) => item.itemRef);
-  return <section class="flex min-w-0 flex-col gap-3 rounded-card border border-outline-blue-2 bg-surface-blue-1 p-3" aria-label="Similar past work" data-testid="reuse-suggestions">
-    <div class="flex min-w-0 flex-col gap-1">
-      <h3 class="text-base-medium text-ink-gray-9">Brain found {props.items.length} similar past {props.items.length === 1 ? "item" : "items"}</h3>
-      <p class="text-interface text-ink-gray-7">The planner will see the ones you keep, as hints from earlier verified work. They never count as proof for this mission. Untick anything that does not apply.</p>
-    </div>
-    <ul class="flex min-w-0 flex-col divide-y divide-outline-gray-1">
-      <For each={props.items}>{(item) => <li class="flex min-w-0 items-start gap-3 py-2 first:pt-0 last:pb-0" data-testid="reuse-suggestion">
-        <input type="checkbox" class="mt-1 size-4 shrink-0" checked={!dropped().has(item.itemRef)} onChange={(event) => toggle(item.itemRef, event.currentTarget.checked)} aria-label={`Use ${item.title}`} />
-        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-          <p class="flex min-w-0 flex-wrap items-center gap-1.5 text-interface"><ItemLink item={item} /><Badge size="sm" variant="outline" theme="gray" label={KIND_LABEL[item.kind]} /><Show when={item.selfReviewed}><Badge size="sm" variant="outline" theme="amber" label="Self-reviewed" /></Show></p>
-          <Show when={item.summary}><p class="min-w-0 break-words text-caption text-ink-gray-7">{item.summary}</p></Show>
-          <p class="text-caption text-ink-gray-6">{freshness(item)}<Show when={item.provenance.source}> · {item.provenance.source}</Show></p>
-        </div>
-      </li>}</For>
-    </ul>
-    <div class="flex flex-wrap items-center gap-2">
-      <Button variant="solid" theme="blue" iconLeft="lucide-sparkles" loading={props.busy} disabled={props.busy} onClick={() => props.onDraft(kept(), props.items.map((item) => item.itemRef).filter((ref) => dropped().has(ref)))}>
-        {kept().length === 0 ? "Draft the plan without them" : `Draft the plan with ${kept().length === 1 ? "this" : `these ${kept().length}`}`}
-      </Button>
-    </div>
-  </section>;
+export function PastWorkUsed(props: { missionId: string; workspaceId: string; /** Picks that are being sent with the first draft, shown until the attach records exist. */ pending: readonly ReuseItem[]; busy: boolean; canEdit: boolean; refreshKey: number; onRedraft: (kept: string[], dropped: string[]) => void }): JSX.Element {
+  const app = useApp();
+  const attached = createScopedRead<ReuseItem[]>({
+    scope: app.scope, refreshMs: 15_000,
+    resource: () => `${props.missionId}:${props.refreshKey}`,
+    load: async (_scope, signal) => reusedByMission(props.workspaceId, props.missionId, signal),
+  });
+  const items = (): readonly ReuseItem[] => ((attached.state().data ?? []).length > 0 ? attached.state().data! : props.pending.map((item) => ({ ...item, decision: "kept" as const })));
+  const serverOff = () => items().filter((item) => item.decision === "dropped").map((item) => item.itemRef);
+  const [off, setOff] = createSignal<ReadonlySet<string>>(new Set());
+  createEffect(() => setOff(new Set(serverOff())));
+  const toggle = (ref: string, on: boolean) => setOff((current) => { const next = new Set(current); if (on) next.delete(ref); else next.add(ref); return next; });
+  const changed = () => { const was = new Set(serverOff()); return off().size !== was.size || [...off()].some((ref) => !was.has(ref)); };
+  const kept = () => items().filter((item) => !off().has(item.itemRef));
+  return <Show when={items().length > 0}>
+    <details class="group min-w-0 rounded-control border border-outline-gray-1 bg-surface-gray-1 px-3 py-2 text-interface text-ink-gray-8" data-testid="past-work-used">
+      <summary class="flex min-w-0 cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-0.5 focus-visible:focus-ring">
+        <span class="lucide-recycle size-4 shrink-0 text-ink-gray-6" aria-hidden="true" />
+        <span class="min-w-0 font-medium" data-testid="past-work-count">Used from past work: {kept().length} {kept().length === 1 ? "item" : "items"}</span>
+        <span class="text-ink-blue-link underline-offset-2 group-hover:underline">(change)</span>
+      </summary>
+      <div class="mt-2 flex min-w-0 flex-col gap-2">
+        <p class="text-caption text-ink-gray-7">The planner saw these as hints from earlier verified work. They never count as proof for this mission. Untick anything that does not apply.</p>
+        <ul class="flex min-w-0 flex-col divide-y divide-outline-gray-1">
+          <For each={items()}>{(item) => <li class="flex min-w-0 items-start gap-3 py-2 first:pt-0 last:pb-0" data-testid="reuse-suggestion">
+            <input type="checkbox" class="mt-1 size-4 shrink-0" checked={!off().has(item.itemRef)} disabled={!props.canEdit || props.busy} onChange={(event) => toggle(item.itemRef, event.currentTarget.checked)} aria-label={`Use ${item.title}`} />
+            <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+              <p class="flex min-w-0 flex-wrap items-center gap-1.5"><ItemLink item={item} /><Badge size="sm" variant="outline" theme="gray" label={KIND_LABEL[item.kind]} /><Show when={item.selfReviewed}><Badge size="sm" variant="outline" theme="amber" label="Self-reviewed" /></Show></p>
+              <p class="text-caption text-ink-gray-6">{freshness(item)}</p>
+            </div>
+          </li>}</For>
+        </ul>
+        <Show when={changed() && props.canEdit}><div><Button size="sm" variant="solid" theme="blue" iconLeft="lucide-sparkles" loading={props.busy} disabled={props.busy} onClick={() => props.onRedraft(kept().map((item) => item.itemRef), [...off()])}>Redraft with my changes</Button></div></Show>
+      </div>
+    </details>
+  </Show>;
 }
 
 /**

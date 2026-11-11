@@ -72,6 +72,7 @@ Make reuse the central loop, and meter and manage context:
 ## User Stories
 
 1. As a new user, I want Brain to suggest similar past missions before I describe my goal in full, so that I do not redo solved work.
+   Amended (track P): there is no suggestion step. The plan drafts by itself as the page opens, handed the relevant past work: items sharing at least half of the goal's distinctive terms (and at least two), BM25-ranked, Plays excluded (they are templates, not past work), verified knowledge and outputs first, at most three. A calm collapsed line "Used from past work: N items (change)" shows them; unticking one makes "Redraft with my changes" appear. Mission titles lead with the picked Play or earlier mission, then the tidied sentence.
 2. As a planner agent, I want relevant past plans, published knowledge and handoff facts with provenance in my context, so that I propose plans that have worked.
 3. As an owner, I want "Start from a previous mission" on the main box, so that a new mission begins with the old brief, criteria and outputs as inputs.
 4. As an owner, I want "Repeat this" beside it, so that recurring work is one click (with #56).

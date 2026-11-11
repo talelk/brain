@@ -14,6 +14,7 @@ import { librarySummary, type LibrarySummary } from "../../data/library";
 import { AddStarterPlays } from "../components/LibraryControls";
 import { fromMissions, fromReuseItems, repeatHref, sourceConstraint } from "./reuse";
 import type { ReuseCandidate } from "./reuse";
+import { deriveMissionTitle } from "./title";
 
 type Envelope<T> = { snapshot: { items: T[] }; asOf: string; sourceWatermark: number };
 /** What "Try a sample goal" starts: plain, read-only and small enough to finish in a minute or two. */
@@ -71,13 +72,8 @@ export function createStartController() {
   /** Finished missions a schedule can repeat. */
   const candidates = createMemo(() => fromMissions(missions.state().data ?? [], playList()));
   const firstLine = () => intent().trim().split("\n")[0] ?? "";
-  /** The title a person did not type: the play's or source's own, or the first words of the sentence. */
-  const derivedTitle = () => {
-    if (!firstLine() && play()) return play()!.title;
-    if (!firstLine() && source()) return source()!.title;
-    const sentence = firstLine().replace(/[.!?]+$/u, "");
-    return sentence.length <= 60 ? sentence : `${sentence.slice(0, 60).replace(/\s+\S*$/u, "")}…`;
-  };
+  /** The title a person did not type: the picked Play's or earlier mission's title leads, then the sentence tidied. */
+  const derivedTitle = () => deriveMissionTitle(firstLine(), play()?.title ?? source()?.title);
   const needsSentence = () => !playId() && !source();
   const problem = () => (needsSentence() && !intent().trim() ? "Say in a sentence what you want done." : undefined);
   const shownProblem = () => (attempted() ? problem() : undefined);

@@ -95,6 +95,13 @@ test("a first-time user lands on Today, types one sentence, presses Start and re
   await expect(page).toHaveURL(/\/missions\/[^/]+\/(brief|plan)/);
   const fromPlay = w.db.prepare("SELECT play_id, budget_micro_usd FROM missions WHERE play_id IS NOT NULL").get() as { play_id: string; budget_micro_usd: number };
   expect(fromPlay).toEqual({ play_id: "auth-stabilize", budget_micro_usd: 500_000 });
+  // A Play plus a sentence that starts mid-thought: the Play's title leads and the sentence is tidied, never used raw as the title.
+  await page.goto(`${governor.url}/w/ws-today/today`);
+  await page.getByRole("button", { name: "Stabilize authentication", exact: true }).click();
+  await box.fill("for hardening the login flow of the admin console");
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await expect(page).toHaveURL(/\/missions\/[^/]+\/(brief|plan)/);
+  expect((w.db.prepare("SELECT title FROM missions WHERE intent LIKE '%login flow%'").get() as { title: string }).title).toBe("Stabilize authentication: the login flow of the admin console");
 
   // The Today page now leads with the box and lists the latest missions.
   await page.goto(`${governor.url}/w/ws-today/today`);
@@ -156,6 +163,10 @@ test("reuse entries: empty state, start from a previous mission via the reuse in
   expect(seeded.intent).toBe("Write the weekly digest of support tickets");
   expect(seeded.criteria).toContain("digest written");
   expect(seeded.constraints).toContain(described); // the brief names its source
+  // Starting from a previous mission also reaches a drafted plan by itself.
+  // This fixture release has no plan assistant, so the automatic attempt shows its refusal: proof it ran without a click.
+  await expect(page.getByText("Planning action failed")).toBeVisible();
+  await expect(page.getByText(/Brain found \d+ similar/)).toHaveCount(0);
 
   // Repeat this opens the schedule editor for the chosen mission's play.
   await page.goto(`${governor.url}/w/ws-today/today`);

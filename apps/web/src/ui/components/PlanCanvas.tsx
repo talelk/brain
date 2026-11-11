@@ -6,8 +6,8 @@ import type { Mission, MissionPlanView, PlanTask, PlanVersion, ReuseItem } from 
 import { useApp } from "../app-context";
 import { governor, query } from "../../data/client";
 import { createScopedRead } from "../../data/screens";
-import { reuseSearch } from "../../data/reuse";
-import { ReuseSuggestions } from "./Reuse";
+import { pickForPlan, reuseSearch } from "../../data/reuse";
+import { PastWorkUsed } from "./Reuse";
 import { ScreenRegion } from "../screen-region";
 import { TechnicalDetails } from "./PageLayout";
 import { StatusBadge } from "./StatusBadge";
@@ -69,14 +69,17 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
   });
-  /** Similar past work, searched once before the first plan is drafted (#68). Zero hits leaves the flow unchanged. */
+  /** Similar past work, searched once before the first plan is drafted (#68). Relevant picks go with the draft by themselves; zero hits leaves the flow unchanged. */
   const [reuseHandled, setReuseHandled] = createSignal(false);
+  const [reuseKey, setReuseKey] = createSignal(0);
+  /** The picks a draft in flight carries, so the "Used from past work" line shows while Brain is still drafting. */
+  const [sent, setSent] = createSignal<ReuseItem[]>([]);
   const suggestions = createScopedRead<ReuseItem[]>({
     scope: app.scope,
     resource: () => props.mission.missionId,
-    load: async (scope, signal) => reuseSearch(scope.workspaceId, `${props.mission.title}. ${props.mission.intent}`, props.mission.missionId, signal),
+    load: async (scope, signal) => reuseSearch(scope.workspaceId, props.mission.intent, props.mission.missionId, signal, 12),
   });
-  const pendingSuggestions = (): ReuseItem[] => (reuseHandled() ? [] : suggestions.state().data ?? []);
+  const autoPicks = (): ReuseItem[] => (reuseHandled() ? [] : pickForPlan(suggestions.state().data ?? []));
   const shownPlan = (): PlanVersion | undefined => linked.state().data?.proposal ?? proposal.state().data?.plan ?? active.state().data ?? undefined;
   createEffect(() => {
     const plan = shownPlan();
@@ -85,11 +88,13 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
   async function generate(kept: readonly string[] = [], dropped: readonly string[] = []) {
     if (busy()) return;
     setBusy(true); setError("");
+    setSent((suggestions.state().data ?? []).filter((item) => kept.includes(item.itemRef)));
     try {
       // A dropped suggestion is remembered, so it is never offered to this mission again.
       for (const itemRef of dropped) await app.run("mission.reuse.decide", { missionId: props.mission.missionId, itemRef, decision: "drop" });
       setReuseHandled(true);
       await governor<MissionPlanView>("/v1/plans", { workspaceId: app.workspaceId(), requestId: `web-plan-${crypto.randomUUID()}`, missionId: props.mission.missionId, ...(kept.length ? { reuse: kept } : {}) });
+      setReuseKey((key) => key + 1);
       setDirty(false);
       await proposal.refresh({ force: true });
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Plan generation failed"); }
@@ -103,11 +108,10 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     if (drafted || !settled || view.data || props.proposalId || !app.canDispatch()) return;
     if (props.mission.state !== "active" || props.mission.activePlanVersionId || linked.state().status === "loading" || active.state().status === "loading") return;
     if (linked.state().data?.proposal) return;
-    // Ask the person about similar past work before the first draft; with none found the draft starts by itself.
+    // The search is quick; the draft waits for it so relevant past work goes with the first draft, and never waits for a person.
     if (suggestions.state().status === "loading") return;
-    if (pendingSuggestions().length > 0) return;
     drafted = true;
-    void generate();
+    void generate(autoPicks().map((item) => item.itemRef));
   });
   function updateTask(index: number, field: "title" | "criteria" | "dependsOn", value: string) {
     setDirty(true);
@@ -219,14 +223,13 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     </section>;
   };
   const hasPlan = () => Boolean(shownPlan());
-  /** Suggestions are attached only from the panel the person actually sees; a later "another strategy" never attaches unseen items. */
-  const suggestionsShown = () => !hasPlan() && !proposal.state().data && !props.proposalId && pendingSuggestions().length > 0;
+  /** The first draft starts by itself; the manual button only returns when that attempt failed (or a plan exists, for another strategy). */
+  const retryable = () => Boolean(error()) || proposal.state().data?.state === "failed";
   return <WorkspaceSection title="Plan" description="The steps Brain will track as work once you confirm them."
-    actions={<Show when={app.canDispatch() && props.mission.state !== "closed" && !props.proposalId}><Button variant={hasPlan() ? "ghost" : "solid"} theme="blue" iconLeft="lucide-sparkles" loading={busy()} disabled={busy()} onClick={() => void generate(suggestionsShown() ? pendingSuggestions().map((item) => item.itemRef) : [])}>{hasPlan() ? "Generate another strategy" : "Prepare plan proposal"}</Button></Show>}>
+    actions={<Show when={app.canDispatch() && props.mission.state !== "closed" && !props.proposalId && (hasPlan() || retryable())}><Button variant={hasPlan() ? "ghost" : "solid"} theme="blue" iconLeft="lucide-sparkles" loading={busy()} disabled={busy()} onClick={() => void generate(hasPlan() ? [] : autoPicks().map((item) => item.itemRef))}>{hasPlan() ? "Generate another strategy" : "Try drafting again"}</Button></Show>}>
     <Show when={error()}><Alert theme="red" variant="outline" title="Planning action failed" description={error()} /></Show>
-    <Show when={suggestionsShown()}>
-      <ReuseSuggestions items={pendingSuggestions()} busy={busy()} onDraft={(kept, dropped) => void generate(kept, dropped)} />
-    </Show>
+    <PastWorkUsed missionId={props.mission.missionId} workspaceId={props.mission.workspaceId} pending={busy() ? sent() : []} busy={busy()} canEdit={app.canDispatch() && props.mission.state !== "closed"} refreshKey={reuseKey()}
+      onRedraft={(kept, dropped) => void generate(kept, dropped)} />
     <Show when={proposal.state().data?.state === "running"}><Alert theme="blue" variant="outline" title="Preparing a validated proposal" description="The mission is durable. No tasks have been created and no execution has started." /></Show>
     <Show when={proposal.state().data?.state === "failed"}><Alert theme="amber" variant="outline" title="No validated proposal yet" description={proposal.state().data?.error} /></Show>
     <Show when={linked.state().data?.proposal ?? (proposal.state().data?.plan ? undefined : active.state().data ?? undefined)} keyed fallback={

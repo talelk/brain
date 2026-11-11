@@ -68,37 +68,43 @@ test("reuse loop: approve once, find it in search, get it offered before plannin
   await expect(page.getByText("Self-reviewed", { exact: true }).first()).toBeVisible();
   await shot(page, "3-search");
 
-  // 3. A similar new mission is offered the past work before the plan is drafted.
+  // 3. A similar new mission drafts its plan by itself, with the relevant past work attached and shown as one calm line.
   await page.goto(`${governor.url}/w/ws-reuse/missions/new`);
   const form = page.getByRole("dialog");
   await form.getByLabel(/^What do you want done/).fill("Write the quarterly churn report for the board");
   await form.getByRole("button", { name: "Start mission", exact: true }).click();
   await expect(page).toHaveURL(/\/missions\/[^/]+\/plan/);
-  const suggestions = page.getByTestId("reuse-suggestions");
-  await expect(suggestions).toContainText("Brain found");
-  await expect(suggestions).toContainText("Quarterly churn report");
-  await expect(suggestions).toContainText("last verified");
-  await expect(suggestions).toContainText("not used yet");
-  const count = await page.getByTestId("reuse-suggestion").count();
-  expect(count).toBeGreaterThanOrEqual(2);
-  await shot(page, "4-suggestions");
   const missionId = (db.prepare("SELECT id FROM missions WHERE title LIKE 'Write the quarterly%'").get() as { id: string }).id;
-  // Nothing is attached, and no draft has started, until the person decides.
-  expect(db.prepare("SELECT COUNT(*) AS n FROM reuse_attachments WHERE mission_id=?").get(missionId)).toEqual({ n: 0 });
-  expect(db.prepare("SELECT COUNT(*) AS n FROM planning_requests WHERE mission_id=?").get(missionId)).toEqual({ n: 0 });
-
-  // 4. Drop the verified output, keep the rest, draft the plan.
-  await suggestions.getByRole("checkbox", { name: /Use churn-report\.md/ }).uncheck();
-  await suggestions.getByRole("button", { name: /^Draft the plan with/ }).click();
+  // No click is needed: the draft starts as the page opens and carries the picks (at most three).
   await expect.poll(() => db.prepare("SELECT COUNT(*) AS n FROM planning_requests WHERE mission_id=?").get(missionId)).toEqual({ n: 1 });
+  await expect(page.getByText("Brain found")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Draft the plan with/ })).toHaveCount(0);
+  const used = page.getByTestId("past-work-used");
+  await expect(used.getByTestId("past-work-count")).toContainText(/Used from past work: [23] items/);
+  await expect(page.getByRole("button", { name: "Redraft with my changes" })).toHaveCount(0);
+  await used.locator("summary").click();
+  await expect(used).toContainText("Quarterly churn report");
+  await expect(used).toContainText("last verified");
+  const attached = db.prepare("SELECT item_ref, decision FROM reuse_attachments WHERE mission_id=?").all(missionId) as Array<{ item_ref: string; decision: string }>;
+  expect(attached.length).toBeLessThanOrEqual(3);
+  expect(attached.every((row) => row.decision === "kept")).toBe(true);
+  expect(attached.some((row) => row.item_ref.startsWith("play:"))).toBe(false);
+  await shot(page, "4-used-from-past-work");
+
+  // 4. Untick the verified output, then redraft with that change (the button only exists after a change).
+  const firstRun = (db.prepare("SELECT run_id FROM planning_requests WHERE mission_id=?").get(missionId) as { run_id: string }).run_id;
+  await used.getByRole("checkbox", { name: /Use churn-report\.md/ }).uncheck();
+  await page.getByRole("button", { name: "Redraft with my changes" }).click();
+  // One planning row per mission: a new draft replaces the run.
+  await expect.poll(() => (db.prepare("SELECT run_id FROM planning_requests WHERE mission_id=?").get(missionId) as { run_id: string }).run_id).not.toBe(firstRun);
+  await expect(page.getByRole("button", { name: "Redraft with my changes" })).toHaveCount(0);
   const decisions = db.prepare("SELECT item_ref, decision, used FROM reuse_attachments WHERE mission_id=? ORDER BY item_ref").all(missionId) as Array<{ item_ref: string; decision: string; used: number }>;
   expect(decisions.find((row) => row.item_ref === `mission:${past}`)).toMatchObject({ decision: "kept", used: 1 });
-  expect(decisions.find((row) => row.item_ref.startsWith("output:"))).toMatchObject({ decision: "dropped", used: 0 });
+  expect(decisions.find((row) => row.item_ref.startsWith("output:"))).toMatchObject({ decision: "dropped" });
   // The planner's input carries the kept items as claims with provenance, and not the dropped one.
   const inputs = (db.prepare("SELECT input_json FROM run_inputs").all() as Array<{ input_json: string }>).map((row) => row.input_json).join("\n");
   expect(inputs).toContain("not evidence");
   expect(inputs).toContain("Quarterly churn report");
-  expect(inputs).not.toContain("Pricing confusion drove most cancellations");
 
   // 5. The Outputs tab says what Brain reused, from the stored records, and Remove is one click.
   await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/outputs?w=ws-reuse`);

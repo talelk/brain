@@ -208,7 +208,9 @@ export class ReuseService {
     this.syncPlays(actor.organizationId, db);
     const terms = ftsTerms(text);
     if (terms.length === 0) return [];
-    const need = Math.min(2, terms.length);
+    // Relevance cutoff: an item must share at least half of the goal's distinctive terms (and never fewer than two,
+    // unless the goal has only one). A couple of generic words such as "team" or "options" no longer make a match.
+    const need = Math.max(Math.min(2, terms.length), Math.ceil(terms.length / 2));
     const dropped = new Set(options.missionId ? (db.prepare("SELECT item_ref FROM reuse_attachments WHERE mission_id=? AND decision='dropped'").all(options.missionId) as Array<{ item_ref: string }>).map((row) => row.item_ref) : []);
     const rows = db.prepare(`SELECT i.*, bm25(reuse_fts, 0.0, 3.0, 1.0) AS rank FROM reuse_fts f JOIN reuse_items i ON i.item_ref=f.item_ref
       WHERE reuse_fts MATCH ? ORDER BY rank, i.verified_at_ms DESC, i.item_ref LIMIT 60`).all(ftsOr(terms)) as unknown as IndexRow[];
