@@ -37,6 +37,7 @@ export class FixtureEngine implements EngineAdapter {
     this.push( "session.started", { engine: await this.probe() });
     void Promise.resolve().then(async () => {
       let response: unknown = { text: "fixture complete" };
+      let indented = false;
       try {
         const input = JSON.parse(spec.task.includes(TASK_MARK) ? spec.task.slice(spec.task.indexOf(TASK_MARK) + TASK_MARK.length) : spec.task) as Record<string, unknown>;
         if (typeof input["message"] === "string" && typeof input["tasks"] === "string") {
@@ -60,6 +61,8 @@ export class FixtureEngine implements EngineAdapter {
           const lines = input["situation"].split("\n");
           const criteria = lines.slice(lines.indexOf("Acceptance criteria:") + 1).map((line) => /^\d+\. (.+)$/u.exec(line)?.[1]).filter((line): line is string => line !== undefined && lines.includes("Acceptance criteria:"));
           const title = lines[0] ?? "Task";
+          // A model writes its JSON indented, so the raw text artifact and the normalised output artifact have different digests, as they do live.
+          indented = true;
           response = {
             summary: `Fixture result for: ${title}`,
             deliverable: `# ${title}\n\n## Findings\n\nThe fixture worker reasoned about this task and wrote a short report so that the whole path from the brief to a verified deliverable can be exercised end to end without a model.\n\n| Option | Cost | Effort |\n| :--- | ---: | :---: |\n| Keep as is | **Low** | Small |\n| Rework | Medium | Large |\n\n- First point, with \`inline code\`\n- Second point\n  - A nested detail\n\n## Assumptions\n\nNo facts beyond the brief were available, so the fixture assumes the brief is complete and says so here.`,
@@ -87,7 +90,7 @@ export class FixtureEngine implements EngineAdapter {
           }
         }
       }
-      const text = spec.task.includes("BRAIN_OK") ? "BRAIN_OK" : JSON.stringify(response);
+      const text = spec.task.includes("BRAIN_OK") ? "BRAIN_OK" : JSON.stringify(response, null, indented ? 2 : 0);
       const bytes = new TextEncoder().encode(text);
       const artifact = {
         artifactId: `fixture-output-${spec.attemptId}`, digest: sha256Digest(bytes), bytes: bytes.length,

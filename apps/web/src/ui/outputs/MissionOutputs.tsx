@@ -3,7 +3,7 @@ import type { JSX } from "solid-js";
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { Badge, Button } from "@talelk/newui-atoms";
 import { FileCard } from "@talelk/newui-molecules";
-import type { ExecutionLink, Mission, Output, WorkItem } from "@brain/contracts";
+import type { ExecutionLink, Mission, Output } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
@@ -20,6 +20,7 @@ import { OutputReview } from "./OutputReview";
 import { resolveWorkItemLink } from "./OutputHistory";
 import { TrustNote } from "./ResultReader";
 import { ChallengeResult } from "./ChallengeResult";
+import { ShareResult } from "./ShareResult";
 import { ProposePlay } from "./ProposePlay";
 import { trustLineOf } from "./result-model";
 import { createTrust } from "./trust-read";
@@ -40,9 +41,42 @@ function outputStatus(output: Output): { label: string; theme: FileBadgeTheme } 
   return latest.state === "final" ? { label: "Final", theme: "blue" } : { label: "Draft", theme: "gray" };
 }
 
+/** One named output as a card: its version count, latest status and a way into the output page. */
+function DocumentCard(props: { output: Output }): JSX.Element {
+  const navigate = useNavigate();
+  const status = () => outputStatus(props.output);
+  const count = () => props.output.versions.length;
+  const latestAt = () => props.output.versions.at(-1)?.createdAt ?? props.output.createdAt;
+  return (
+    <FileCard
+      as="button"
+      size="md"
+      name={props.output.name}
+      icon="lucide-file-text"
+      aria-label={`Open output ${props.output.name}`}
+      meta={`${count()} ${count() === 1 ? "version" : "versions"} · updated ${formatRelative(latestAt())}${props.output.continues ? " · continues earlier work" : ""}`}
+      badge={<Badge size="sm" theme={status().theme} label={status().label} />}
+      onClick={() => void navigate(`/outputs/${encodeURIComponent(props.output.outputId)}`)}
+    />
+  );
+}
+
 /** One task's Result: title, status and trust up front; opened, the written result and the accept / request-changes bar. */
-function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; initiallyOpen: boolean; scrollTo: boolean; onChanged: () => void }): JSX.Element {
+function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; documents: readonly Output[]; initiallyOpen: boolean; scrollTo: boolean; onToggle: (open: boolean) => void; onChanged: () => void }): JSX.Element {
   const [open, setOpen] = createSignal(props.initiallyOpen);
+  const toggle = () => {
+    setOpen(!open());
+    props.onToggle(open());
+  };
+  /** The newest verified final version this task wrote: what a read-only link can show. */
+  const shareable = () => {
+    const workItemId = props.task.item?.workItemId;
+    for (const output of props.documents) {
+      const version = output.versions.findLast((entry) => entry.workItemId === workItemId && entry.verified && entry.state === "final");
+      if (version) return version;
+    }
+    return undefined;
+  };
   let root: HTMLElement | undefined;
   onMount(() => {
     if (props.scrollTo) root?.scrollIntoView({ block: "start" });
@@ -65,7 +99,7 @@ function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; 
       data-open={open() ? "true" : "false"}
       id={`result-${props.task.item?.workItemId ?? props.task.result.artifact.artifactId}`}
     >
-      <button type="button" class="flex min-w-0 items-center gap-3 rounded-card px-4 py-3 text-start focus-visible:focus-ring" aria-expanded={open()} onClick={() => setOpen(!open())}>
+      <button type="button" class="flex min-w-0 items-center gap-3 rounded-card px-4 py-3 text-start focus-visible:focus-ring" aria-expanded={open()} onClick={toggle}>
         <span class="lucide-file-text size-5 shrink-0 text-ink-gray-6" aria-hidden="true" />
         <span class="min-w-0 flex-1">
           <span class="block truncate text-base-medium text-ink-gray-9">{title()}</span>
@@ -91,9 +125,23 @@ function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; 
               props.onChanged();
             }}
           />
-          <ChallengeResult workItemId={props.task.item?.workItemId} finished={props.task.item?.state === "done" || props.task.item?.state === "review"} />
+          <Show when={shareable()}>{(version) => <ShareResult versionId={version().versionId} verified />}</Show>
+          <Show when={props.documents.length > 0}>
+            <section class="flex min-w-0 flex-col gap-2" aria-label="Version history" data-testid="version-history">
+              <h4 class="text-interface font-medium text-ink-gray-9">Version history</h4>
+              <div class="grid min-w-0 grid-cols-[repeat(auto-fill,minmax(min(100%,22rem),1fr))] gap-2">
+                <For each={props.documents}>{(output) => <DocumentCard output={output} />}</For>
+              </div>
+            </section>
+          </Show>
         </div>
       </Show>
+      <ChallengeResult
+        workItemId={props.task.item?.workItemId}
+        finished={props.task.item?.state === "done" || props.task.item?.state === "review"}
+        quiet={!open()}
+        class={open() ? "mx-4 mb-4 sm:mx-6" : "mx-4 mb-3"}
+      />
     </section>
   );
 }
@@ -108,7 +156,7 @@ function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; 
 export function MissionOutputs(props: { mission: Mission; onChanged?: () => void }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
-  const [search] = useSearchParams();
+  const [search, setSearch] = useSearchParams();
   const files = createScopedRead<MissionFiles>({
     scope: app.scope,
     load: async (scope, signal) => loadMissionFiles(scope.workspaceId, props.mission, signal),
@@ -122,8 +170,18 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
       .filter((task): task is ResultTask => task.result !== undefined)
       .sort((left, right) => Number(reviewStateOf(right.item) === "review") - Number(reviewStateOf(left.item) === "review"));
   });
+  const taskKey = (task: ResultTask) => task.item?.workItemId ?? task.result.artifact.artifactId;
+  /** Cards are keyed by task id, so a refresh that rebuilds the task objects re-orders or updates cards but never remounts them. */
+  const taskIds = createMemo(() => tasks().map(taskKey), [], { equals: (before, after) => before.length === after.length && before.every((id, index) => id === after[index]) });
+  const taskById = createMemo(() => new Map(tasks().map((task) => [taskKey(task), task] as const)));
   const wanted = () => (typeof search["result"] === "string" ? search["result"] : undefined);
-  const opensFirst = (task: ResultTask, index: number) => (wanted() ? task.item?.workItemId === wanted() : index === 0 && tasks().length <= 3);
+  /** A card opens first when the link names it, or (with no link) when it leads a short list. Read once, as a card appears. */
+  const opensFirst = (id: string) => (wanted() ? id === wanted() : taskIds()[0] === id && taskIds().length <= 3);
+  /** The open card is kept in the address (?result=<task id>) so a reload or a shared link lands on it; opening or closing never scrolls. */
+  const remember = (id: string, open: boolean) => {
+    if (open) setSearch({ result: id }, { replace: true, scroll: false });
+    else if (wanted() === id) setSearch({ result: undefined }, { replace: true, scroll: false });
+  };
   const outputs = createScopedRead<Output[]>({
     scope: app.scope,
     load: async (scope, signal) => {
@@ -133,30 +191,22 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
     isEmpty: (items) => items.length === 0,
     refreshMs: 15_000,
   });
-  const items = createScopedRead<WorkItem[]>({
-    scope: app.scope,
-    load: async (scope, signal) => {
-      const response = await query<Envelope<{ items: WorkItem[] }>>({ queryType: "workItems.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
-      return { snapshot: response.snapshot.items.filter((item) => item.missionId === props.mission.missionId), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
-    },
+  /** The named outputs a task wrote any version of: they appear as that task's "Version history". */
+  const documentsOf = (id: string): Output[] => (outputs.state().data ?? []).filter((output) => output.versions.some((version) => version.workItemId === id));
+  /** Outputs no Result card accounts for (no task wrote them yet). */
+  const strays = createMemo(() => {
+    const shown = new Set(tasks().flatMap((task) => (task.item ? [task.item.workItemId] : [])));
+    return (outputs.state().data ?? []).filter((output) => !output.versions.some((version) => shown.has(version.workItemId)));
   });
-  /** Documents grouped by the plan task whose work produced their latest version; tasks in review first. */
-  const groups = createMemo(() => {
-    const byTask = new Map<string, { title: string; review: boolean; outputs: Output[] }>();
-    for (const output of outputs.state().data ?? []) {
-      const producer = items.state().data?.find((item) => item.workItemId === output.versions.at(-1)?.workItemId);
-      const title = producer?.title ?? "Not yet produced";
-      const group = byTask.get(title) ?? { title, review: producer?.state === "review", outputs: [] };
-      group.outputs.push(output);
-      byTask.set(title, group);
-    }
-    return [...byTask.values()].sort((left, right) => Number(right.review) - Number(left.review));
-  });
-  const latestAt = (output: Output) => output.versions.at(-1)?.createdAt ?? output.createdAt;
+  /** A refresh keeps the cards on screen: only a first load shows the skeleton. */
+  const regionState = () => {
+    const state = files.state();
+    return state.status === "loading" && state.data ? { ...state, status: "ready" as const } : state;
+  };
   const refreshAll = () => {
     props.onChanged?.();
     void files.refresh({ force: true });
-    void items.refresh({ force: true });
+    void outputs.refresh({ force: true });
   };
 
   return (
@@ -176,53 +226,34 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
         <ProposePlay missionId={props.mission.missionId} achieved={props.mission.state === "closed" && props.mission.outcome === "achieved"} />
       </div>
       <ScreenRegion
-        state={files.state()}
+        state={regionState()}
         skeleton="cards"
         onRetry={refreshAll}
         emptyTitle="No results yet"
         emptyDescription="Each task's result appears here as soon as it finishes."
       >
         <div class="flex min-w-0 flex-col gap-3" data-testid="mission-results">
-          <For each={tasks()}>{(task, index) => <ResultCard task={task} links={files.state().data?.grouping.links ?? []} initiallyOpen={opensFirst(task, index())} scrollTo={wanted() !== undefined && task.item?.workItemId === wanted()} onChanged={refreshAll} />}</For>
-        </div>
-      </ScreenRegion>
-      <Show when={groups().length > 0}>
-        <div class="mt-6 flex min-w-0 flex-col gap-5">
-          <h3 class="text-base-medium text-ink-gray-9">Documents with versions</h3>
-          <For each={groups()}>
-            {(group) => (
-              <section class="flex min-w-0 flex-col gap-2" aria-label={`Outputs of ${group.title}`}>
-                <header class="flex min-w-0 items-center gap-2">
-                  <span class="lucide-folder size-4 shrink-0 text-ink-gray-6" aria-hidden="true" />
-                  <h4 class="min-w-0 truncate text-interface font-medium text-ink-gray-9">{group.title}</h4>
-                  <Show when={group.review}>
-                    <Badge size="sm" theme="amber" label="Needs review" />
-                  </Show>
-                  <span class="text-caption tabular-nums text-ink-gray-6">{group.outputs.length}</span>
-                </header>
-                <div class="grid min-w-0 grid-cols-[repeat(auto-fill,minmax(min(100%,16rem),1fr))] gap-2">
-                  <For each={group.outputs}>
-                    {(output) => {
-                      const status = outputStatus(output);
-                      const count = output.versions.length;
-                      return (
-                        <FileCard
-                          as="button"
-                          size="md"
-                          name={output.name}
-                          icon="lucide-file-text"
-                          aria-label={`Open output ${output.name}`}
-                          meta={`${count} ${count === 1 ? "version" : "versions"} · updated ${formatRelative(latestAt(output))}${output.continues ? " · continues earlier work" : ""}`}
-                          badge={<Badge size="sm" theme={status.theme} label={status.label} />}
-                          onClick={() => void navigate(`/outputs/${encodeURIComponent(output.outputId)}`)}
-                        />
-                      );
-                    }}
-                  </For>
-                </div>
-              </section>
+          <For each={taskIds()}>
+            {(id) => (
+              <ResultCard
+                task={taskById().get(id)!}
+                links={files.state().data?.grouping.links ?? []}
+                documents={documentsOf(id)}
+                initiallyOpen={opensFirst(id)}
+                scrollTo={wanted() === id}
+                onToggle={(open) => remember(id, open)}
+                onChanged={refreshAll}
+              />
             )}
           </For>
+        </div>
+      </ScreenRegion>
+      <Show when={strays().length > 0}>
+        <div class="mt-6 flex min-w-0 flex-col gap-2" data-testid="other-documents">
+          <h3 class="text-base-medium text-ink-gray-9">Other documents</h3>
+          <div class="grid min-w-0 grid-cols-[repeat(auto-fill,minmax(min(100%,16rem),1fr))] gap-2">
+            <For each={strays()}>{(output) => <DocumentCard output={output} />}</For>
+          </div>
           <TechnicalDetails label="About document versions">
             <p>Versions are immutable. A task input pins one exact verified final version when its attempt is admitted.</p>
           </TechnicalDetails>

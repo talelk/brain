@@ -114,9 +114,13 @@ export function artifactHistory(store: Store, actor: ActorContext, ref: { artifa
   }
   // Verification lookup (stated): evidence bundles pinning the digest in
   // manifest_json, with the bundle state and the latest verdict outcome.
+  // A bundle also covers what its own attempt uploaded: an agent's written reply is stored as text while its bundle pins the
+  // normalised output, so the two digests differ although one attempt produced both and one verdict judged that attempt.
+  const producerAttempt = producerAssoc?.owner_kind === "attempt" ? producerAssoc.owner_id : null;
   const bundles = ws.prepare(`SELECT digest, bundle_id, job_id, attempt_id, state, created_at_ms FROM evidence_bundles
     WHERE EXISTS (SELECT 1 FROM json_each(evidence_bundles.manifest_json,'$.artifacts') item WHERE json_extract(item.value,'$.digest')=?)
-    ORDER BY created_at_ms DESC LIMIT 50`).all(digest) as Array<Record<string, unknown>>;
+    OR attempt_id=?
+    ORDER BY created_at_ms DESC LIMIT 50`).all(digest, producerAttempt) as Array<Record<string, unknown>>;
   const history = bundles.map((bundle) => {
     const verdict = ws.prepare("SELECT outcome, created_at_ms FROM verification_verdicts WHERE bundle_digest=? ORDER BY created_at_ms DESC LIMIT 1").get(String(bundle["digest"])) as { outcome: string; created_at_ms: number } | undefined;
     return {

@@ -46,7 +46,7 @@ export function ShareResult(props: { versionId: string | undefined; verified: bo
   }
   return <Show when={canShare()}>
     <div class="flex min-w-0 flex-col gap-2">
-      <Button variant="outline" iconLeft="lucide-share-2" aria-expanded={open()} onClick={() => setOpen(!open())}>Share a read-only link</Button>
+      <Button class="self-start" variant="outline" iconLeft="lucide-share-2" aria-expanded={open()} onClick={() => setOpen(!open())}>Share a read-only link</Button>
       <Show when={open()}>
         <section class="flex min-w-0 flex-col gap-3 rounded-card border border-outline-gray-2 bg-surface-white p-3" aria-label="Share this result" data-testid="share-panel">
           <p class="text-interface text-ink-gray-7">Anyone with the link can read this version of the result, and nothing else, until it expires or you withdraw it. They do not need an account and cannot change anything.</p>

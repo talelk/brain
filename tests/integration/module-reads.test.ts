@@ -175,6 +175,23 @@ describe("evidence module read surface", () => {
     expect(history.producer).toEqual({ jobId: "job-1" });
     w.brain.close();
   });
+
+  it("finds the verdict of the attempt that wrote an artifact even when the bundle pins a different digest (auto-completed task, indented model reply)", () => {
+    const w = setupWorld();
+    const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    const reply = Buffer.from('{\n  "summary": "s",\n  "deliverable": "d"\n}', "utf8");
+    const normalised = Buffer.from('{"summary":"s","deliverable":"d"}', "utf8");
+    const replyDigest = sha256Digest(reply);
+    ws.prepare("INSERT INTO artifacts(id,digest,bytes,media_type,classification,state,created_at_ms) VALUES ('att-reply',?,?,'text/plain','internal','verified',?)").run(replyDigest, reply.length, w.brain.store.now());
+    w.brain.store.control.prepare("INSERT INTO artifact_associations(artifact_id,organization_id,workspace_id,digest,owner_kind,owner_id,classification,verified_at_ms) VALUES ('att-reply',?,?,?,'attempt','att-1','internal',?)")
+      .run(w.org, w.workspaceId, replyDigest, w.brain.store.now());
+    const manifest = { artifacts: [{ artifactId: "att-output", digest: sha256Digest(normalised), bytes: normalised.length, mediaType: "application/json", classification: "internal" }] };
+    ws.prepare("INSERT INTO evidence_bundles(digest,bundle_id,job_id,attempt_id,state,manifest_json,created_at_ms) VALUES ('sha256:b1','bundle-att-1','job-1','att-1','verified',?,?)").run(JSON.stringify(manifest), w.brain.store.now());
+    ws.prepare("INSERT INTO verification_verdicts(id,bundle_digest,evaluator_attempt_id,evaluator_digest,outcome,manifest_json,created_at_ms) VALUES ('v1','sha256:b1','eval-1','sha256:e','verified','{}',?)").run(w.brain.store.now());
+    const history = artifactHistory(w.brain.store, w.owner, { artifactId: "att-reply" }) as { history: Array<{ bundleDigest: string; verification?: { outcome: string } }> };
+    expect(history.history.map((entry) => [entry.bundleDigest, entry.verification?.outcome])).toEqual([["sha256:b1", "verified"]]);
+    w.brain.close();
+  });
 });
 
 describe("configuration module read surface", () => {

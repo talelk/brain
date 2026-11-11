@@ -358,8 +358,8 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   // (i) The mission's Outputs tab groups named outputs by plan task and opens
   // the named output; Watch is a toggle with the viewer's state.
   await page.goto(`${governor.url}/missions/obj-console/outputs`);
-  const producing = page.getByRole("region", { name: "Outputs of Produce the deployment dossier" });
-  await producing.getByRole("button", { name: "Open output dossier", exact: true }).click();
+  // A named output sits under the Result card of the task that wrote it ("Version history"), or under "Other documents" when no card exists.
+  await page.getByRole("button", { name: "Open output dossier", exact: true }).click();
   await expect(page).toHaveURL(/\/outputs\/output-dossier$/);
   await expect(page.getByRole("heading", { name: "dossier", exact: true, level: 1 })).toBeVisible({ timeout: 30_000 });
   await page.goto(`${governor.url}/missions/obj-console/live`);

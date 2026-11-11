@@ -201,6 +201,22 @@ test("a plain-words mission runs on the general task workflow and shows a readab
   await expect(reader.getByTestId("trust-line")).toContainText("4 of 4 criteria checked by tests, files or hashes; 0 by human sign-off; 0 by model opinion");
   await expect(reader.getByText('"deliverable"')).toHaveCount(0);
   await expect(reader.getByRole("button", { name: "Download .md" })).toBeVisible();
+  // Every finished task reads its real verdict on the card header too, not "not checked yet" (the agent's indented reply and its normalised output differ by digest).
+  for (const card of await cards.all()) await expect(card).toContainText("criteria checked by tests, files or hashes");
+  await expect(page.getByText("Not independently checked yet")).toHaveCount(0);
+  // Named-output versions live under their Result card; there is no second list of the same tasks.
+  await expect(page.getByText("Documents with versions")).toHaveCount(0);
+  await expect(first.getByTestId("version-history")).toContainText("1 version");
+  // The read-only link is offered next to the challenge on a verified result.
+  await expect(first.getByRole("button", { name: "Share a read-only link" })).toBeVisible();
+  // A refresh that changes the data keeps the opened card open and the page where it was.
+  const scrolled = await page.evaluate(() => { window.scrollTo(0, 120); return window.scrollY; });
+  w.ws.prepare("UPDATE work_items SET next_action='Nothing further', version=version+1 WHERE mission_id=?").run(missionId);
+  await page.waitForTimeout(17_000);
+  await expect(first).toHaveAttribute("data-open", "true");
+  await expect(first.getByTestId("result-reader")).toBeVisible();
+  expect(Math.abs((await page.evaluate(() => window.scrollY)) - scrolled)).toBeLessThan(40);
+  await expect(page).toHaveURL(/outputs\?result=/);
   if (shots) await page.screenshot({ path: `${shots}/3-mission-outputs.png`, fullPage: true });
   // The workspace Outputs page opens the same Result as a document too.
   await page.goto(`${governor.url}/w/ws-flow/outputs`);

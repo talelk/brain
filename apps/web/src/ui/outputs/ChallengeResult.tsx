@@ -11,7 +11,7 @@ import { formatRelative } from "../format";
  * result. What it finds are claims written by one model, shown under the result with that label; they never change the task's
  * state, evidence or verdict, and they do not count as a check. A person decides what to do with them.
  */
-export function ChallengeResult(props: { workItemId: string | undefined; finished: boolean }): JSX.Element {
+export function ChallengeResult(props: { workItemId: string | undefined; finished: boolean; /** Show only when a challenge exists (a collapsed card). */ quiet?: boolean; class?: string }): JSX.Element {
   const app = useApp();
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
@@ -39,8 +39,8 @@ export function ChallengeResult(props: { workItemId: string | undefined; finishe
     finally { setBusy(false); }
   }
   const past = () => (challenges.state().data ?? []).filter((entry) => entry.state === "done" || entry.state === "failed");
-  return <Show when={eligible() || (challenges.state().data ?? []).length > 0}>
-    <section class="flex min-w-0 flex-col gap-2 rounded-card border border-outline-gray-2 bg-surface-gray-1 p-3" aria-label="Challenge this result" data-testid="challenge">
+  return <Show when={(!props.quiet && eligible()) || (challenges.state().data ?? []).length > 0}>
+    <section class={`flex min-w-0 flex-col gap-2 rounded-card border border-outline-gray-2 bg-surface-gray-1 p-3 ${props.class ?? ""}`} aria-label="Challenge this result" data-testid="challenge">
       <div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <div class="min-w-0">
           <h4 class="text-interface font-medium text-ink-gray-9">Challenge this result</h4>
