@@ -59,11 +59,14 @@ if [ "${BRAIN_DEPLOY_SKIP_PRECHECK:-0}" != 1 ]; then
     PRECHECK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/brain-precheck-XXXXXX")"
     trap 'rm -rf "$PRECHECK_DIR"' EXIT
     chmod 700 "$PRECHECK_DIR"
-    # tar exits 1 ("file changed as we read it") when a live database is written during the copy; that is fine for a
-    # schema check. Only a real failure (exit >= 2) or an incomplete copy aborts.
-    if ! $SSH "docker exec $GOV_ID sh -c 'cd /data && tar cf - control.db* workspaces/*.db* 2>/dev/null; s=\$?; [ \$s -le 1 ]'" | tar xf - -C "$PRECHECK_DIR" || [ ! -s "$PRECHECK_DIR/control.db" ]; then
-      echo "!! Could not copy the live databases; aborting before any change (old container untouched)" >&2; exit 1
+    # A consistent snapshot (VACUUM INTO inside the container), then a copy of the static snapshot: copying files
+    # that are being written is what made a raw tar of the live databases fail at random.
+    if ! $SSH "docker exec -i $GOV_ID node --input-type=module -" < scripts/snapshot-live-dbs.mjs >/dev/null \
+      || ! $SSH "docker exec $GOV_ID tar cf - -C /tmp/precheck-snap ." | tar xf - -C "$PRECHECK_DIR" \
+      || [ ! -s "$PRECHECK_DIR/control.db" ]; then
+      echo "!! Could not snapshot the live databases; aborting before any change (old container untouched)" >&2; exit 1
     fi
+    $SSH "docker exec $GOV_ID rm -rf /tmp/precheck-snap" >/dev/null 2>&1 || true
     if ! BRAIN_DATA_DIR="$PRECHECK_DIR" pnpm exec tsx scripts/repair-live-schema.ts; then
       echo "!! Schema repair FAILED against a copy of the live databases; aborting before any change (old container still running)." >&2
       echo "   A new column on an existing table needs DEFAULT (see docs/wiki/ops-live-server.md)." >&2
