@@ -59,7 +59,9 @@ if [ "${BRAIN_DEPLOY_SKIP_PRECHECK:-0}" != 1 ]; then
     PRECHECK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/brain-precheck-XXXXXX")"
     trap 'rm -rf "$PRECHECK_DIR"' EXIT
     chmod 700 "$PRECHECK_DIR"
-    if ! $SSH "docker exec $GOV_ID sh -c 'cd /data && tar cf - control.db* workspaces/*.db* 2>/dev/null'" | tar xf - -C "$PRECHECK_DIR"; then
+    # tar exits 1 ("file changed as we read it") when a live database is written during the copy; that is fine for a
+    # schema check. Only a real failure (exit >= 2) or an incomplete copy aborts.
+    if ! $SSH "docker exec $GOV_ID sh -c 'cd /data && tar cf - control.db* workspaces/*.db* 2>/dev/null; s=\$?; [ \$s -le 1 ]'" | tar xf - -C "$PRECHECK_DIR" || [ ! -s "$PRECHECK_DIR/control.db" ]; then
       echo "!! Could not copy the live databases; aborting before any change (old container untouched)" >&2; exit 1
     fi
     if ! BRAIN_DATA_DIR="$PRECHECK_DIR" pnpm exec tsx scripts/repair-live-schema.ts; then
