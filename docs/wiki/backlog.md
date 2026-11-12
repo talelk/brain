@@ -31,6 +31,8 @@ Browser: the Chrome extension lost site access to brain.mykeyrus.tn (tab group c
 
 Tools: all four read tools exercised by real live missions 2026-11-12 (knowledge.search, web.fetch on an allowed host, documents.read + csv.query on two sample files uploaded to the demo workspace; each mission closed achieved). Row 65 closed.
 
+Browser 2026-11-12 (fresh Chrome tab; the old tab's renderer was frozen, a new tab works and is signed in): Setup page (all three steps done), Library overview (counts, hands-off switch), Outputs with the csv.query result read in the preview (23.25 points per sprint, correct, 4 of 4 criteria checked by tests/files/hashes). No new UX problems found on those pages.
+
 Dependabot: 3 moderate transitive advisories pinned in `pnpm-workspace.yaml` overrides 2026-11-12 (`72168f6`); `pnpm audit --prod` clean. One dev-only advisory remains (minimatch under `eslint-plugin-import-x`, which needs minimatch 10's `makeRe`; 11 breaks lint): wait for an import-x release.
 
 ## Not yet seen live
