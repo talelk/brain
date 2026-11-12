@@ -10,6 +10,9 @@ overrides:
   "esbuild@<0.25.0": 0.25.0
   "postcss-selector-parser@<6.1.5": 6.1.5
   "@earendil-works/pi-coding-agent>minimatch": 11.0.1
+  "@typescript-eslint/typescript-estree>minimatch": 11.0.1
+  "eslint>minimatch": 11.0.1
+  "@eslint/config-array>minimatch": 11.0.1
 strictPeerDependencies: true
 engineStrict: true
 saveExact: true
