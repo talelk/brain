@@ -37,6 +37,8 @@ Browser 2026-11-12 after deploy `e353c1c`: Live, Logs, Health walked; a new plai
 
 Tools registry (Library > Tools) walked 2026-11-12: 7 trusted read tools; csv.query 2 calls none failed; documents.read 23 calls / 21 failed but the last failure was 11 Nov 14:07 (before the availability fix) and the 12 Nov calls succeeded; web.fetch 70 / 52 failed, last use 01:08 fine. The registry shows lifetime failure rates, so old failures keep reading as red until enough new calls dilute them (idea: also show the last 7 days).
 
+Review inbox 2026-11-12: the ten unreadable old notes Brain had set aside ("Not kept: an older note with no mission or title") were still listed with an Approve button; they are now hidden (deployed, checked live). What genuinely waits for the owner there: 5 proposals (agent-instruction/tool candidates such as plan-guide-assistant, task-worker, operations-assistant, each with Approve/Reject); all other listed write-ups are already published by Brain and only offer Withdraw.
+
 Dependabot: 3 moderate transitive advisories pinned in `pnpm-workspace.yaml` overrides 2026-11-12 (`72168f6`); `pnpm audit --prod` clean. One dev-only advisory remains (minimatch under `eslint-plugin-import-x`, which needs minimatch 10's `makeRe`; 11 breaks lint): wait for an import-x release.
 
 ## Not yet seen live
