@@ -28,7 +28,7 @@
           "type": "agent",
           "release": {
             "id": "support-analyst",
-            "digest": "sha256:7f9909b668353a9baa1406f40974fb186ce2b7821e4a0e73de1ed50ed35f0abe"
+            "digest": "sha256:9c9d7e838137d8ac7d229f4504464e72305ff8a2a063a45f95c866716e7a690a"
           }
         },
         "runsOn": {

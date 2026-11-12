@@ -32,7 +32,7 @@
           "type": "agent",
           "release": {
             "id": "task-guide-assistant",
-            "digest": "sha256:dc1971de8e96da67ff6f1b7c3ee0e1d9c2a65f81e09f140fe28675b6d5597433"
+            "digest": "sha256:6a6e8e6b713bf4c10199375c5150802d71ba4df02a22001156062e7da95f9637"
           }
         },
         "runsOn": {
