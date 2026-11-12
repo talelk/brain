@@ -114,23 +114,37 @@ export function ConsoleScreen(props: {
   // Selection: URL first, then the persisted fallback, then the most relevant
   // live session. Every change is written back through onSessionChange.
   const selected = createMemo(() => props.requestedSession ?? lastSelectedSession(ws()) ?? "");
+  // A person who picked a session (or arrived on one, from a Follow link) stays on it. Otherwise the console follows the work: when the
+  // session on screen has ended and another one is running, it moves to the running one, so Live never sits on an old session.
+  const [pinned, setPinned] = createSignal(Boolean(props.requestedSession));
+  // Any session the address names that this console did not pick itself (a Follow link, a pasted link, a click anywhere) is the person's choice.
+  let autoChosen = "";
+  createEffect(() => { const requested = props.requestedSession; if (requested && requested !== autoChosen) setPinned(true); });
+  const isLive = (session: BrainSession) => session.state === "running" || session.state === "starting" || session.state === "waiting";
   createEffect(() => {
     const items = visible();
     if (!items?.length) return;
     const current = selected();
-    if (current && items.some((item) => item.sessionId === current)) {
-      rememberSelectedSession(ws(), current);
+    const here = current ? items.find((item) => item.sessionId === current) : undefined;
+    const runningNow = items.find((item) => item.state === "running") ?? items.find((item) => item.state === "starting" || item.state === "waiting");
+    if (here && !pinned() && !isLive(here) && runningNow) {
+      rememberSelectedSession(ws(), runningNow.sessionId);
+      autoChosen = runningNow.sessionId;
+      props.onSessionChange(runningNow.sessionId);
       return;
     }
-    const preferred = items.find((item) => item.state === "running")
-      ?? items.find((item) => item.state === "starting" || item.state === "waiting")
-      ?? items[0]!;
+    if (here) {
+      rememberSelectedSession(ws(), here.sessionId);
+      return;
+    }
+    const preferred = runningNow ?? items[0]!;
     rememberSelectedSession(ws(), preferred.sessionId);
+    autoChosen = preferred.sessionId;
     props.onSessionChange(preferred.sessionId);
   });
 
   const rail = <SessionRail workspaceId={ws()} sessions={visible()} jobs={jobs.state().data ?? []}
-    selected={selected() || undefined} onSelect={(sessionId) => props.onSessionChange(sessionId)}
+    selected={selected() || undefined} onSelect={(sessionId) => { setPinned(true); props.onSessionChange(sessionId); }}
     onOpenRun={(jobId) => void navigate(`/runs/${jobId}`)}
     onOpenRunsIndex={() => void navigate(`/w/${ws()}/logs`)} />;
 

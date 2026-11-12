@@ -44,6 +44,13 @@ const PINNED_INPUT_LIMIT = 6;
 const PINNED_INPUT_CHARS = 4000;
 /** Work that has started is never changed or abandoned by replanning (issue #39). */
 const STARTED: ReadonlySet<WorkItemState> = new Set(["in-progress", "review", "blocked", "done"]);
+/** What each shipped check of the task validator means in words; an unknown check keeps its own id. */
+const CHECK_WORDS: Readonly<Record<string, string>> = {
+  structure: "the report does not have the required structure",
+  safety: "the report claims actions it must not take",
+  deliverable: "there is no real deliverable (it copies the brief, asks a question, or is too short)",
+  "criteria-met": "not every acceptance criterion is answered, with evidence",
+};
 /** Parked work is stopped, not running: a person may re-plan it (edit, reassign, run it with another recipe), which replaces the parked item. */
 const isStarted = (row: { state: WorkItemState; parked?: number }): boolean => STARTED.has(row.state) && !(row.state === "blocked" && row.parked === 1);
 /** The written sections every session receives stay small (issue #34). */
@@ -154,6 +161,7 @@ export class MissionService {
       ...(row.assignment_json ? { assignment: JSON.parse(row.assignment_json) as PlanAssignment } : {}),
       ...(row.workflow_id ? { workflowId: row.workflow_id } : {}), nextAction: row.next_action,
       ...(row.blocked_reason ? { blockedReason: row.blocked_reason } : {}),
+      ...(row.parked === 1 && row.parked_diagnostic ? { parkedDiagnostic: row.parked_diagnostic } : {}),
       ...(row.scheduled_at_ms ? { scheduledAt: iso(row.scheduled_at_ms) } : {}),
       ...(row.evidence_digest ? { evidenceDigest: row.evidence_digest } : {}),
       failedAttempts: row.failed_attempts, parked: row.parked === 1,
@@ -905,8 +913,8 @@ export class MissionService {
         WHERE json_extract(b.manifest_json,'$.workflowRunId')=? AND v.outcome!='verified' ORDER BY v.created_at_ms DESC LIMIT 1`).get(runId) as { manifest_json: string } | undefined;
       if (!verdict) return undefined;
       const checks = (JSON.parse(verdict.manifest_json) as { checks?: Array<{ checkId?: string; criterionId?: string; status?: string }> }).checks ?? [];
-      const failedChecks = checks.filter((check) => check.status !== "passed").map((check) => check.checkId ?? check.criterionId ?? "a check");
-      return failedChecks.length > 0 ? `the independent check did not pass (${failedChecks.join(", ")})` : "the independent check did not verify the result";
+      const failedChecks = checks.filter((check) => check.status !== "passed").map((check) => CHECK_WORDS[check.checkId ?? check.criterionId ?? ""] ?? check.checkId ?? check.criterionId ?? "a check");
+      return failedChecks.length > 0 ? `the independent check did not pass: ${failedChecks.join("; ")}` : "the independent check did not verify the result";
     } catch { return undefined; }
   }
 

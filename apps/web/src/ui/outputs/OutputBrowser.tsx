@@ -111,10 +111,14 @@ export function OutputBrowser(props: {
   const visible = createMemo(() =>
     files().filter((file) => inFolder(file, folder()) && matchesSearch(file, props.search) && (!props.kind || file.kind === props.kind)),
   );
+  // Pages hold tasks, not files: a task's run records ride along under its result ("Technical files"), so one busy task never fills a page with noise.
+  const taskKeyOf = (file: OutputFile) => file.item?.workItemId ?? `file:${file.artifact.artifactId}`;
   const paged = () => {
-    const pageCount = Math.max(1, Math.ceil(visible().length / LIST_PAGE_SIZE));
+    const keys = [...new Set(visible().map(taskKeyOf))];
+    const pageCount = Math.max(1, Math.ceil(keys.length / LIST_PAGE_SIZE));
     const current = Math.min(Math.max(1, page()), pageCount);
-    return { current, files: visible().slice((current - 1) * LIST_PAGE_SIZE, current * LIST_PAGE_SIZE) };
+    const onPage = new Set(keys.slice((current - 1) * LIST_PAGE_SIZE, current * LIST_PAGE_SIZE));
+    return { current, count: keys.length, files: visible().filter((file) => onPage.has(taskKeyOf(file))) };
   };
   const groups = createMemo(() => groupByMission(paged().files));
   const previewed = () => files().find((file) => file.artifact.artifactId === props.selectedId);
@@ -364,7 +368,8 @@ export function OutputBrowser(props: {
               )}
             </For>
           </div>
-          <Pager count={visible().length} page={paged().current} onPage={setPage} label="Output list pagination" />
+          <Show when={files().length >= 100}><p class="px-1 pt-2 text-caption text-ink-gray-6" data-testid="output-cap-note">Showing the 100 most recent files. Pick a mission or task folder to narrow the list.</p></Show>
+          <Pager count={paged().count} page={paged().current} onPage={setPage} label="Output list pagination" />
         </Show>
       </ScreenRegion>
     </section>

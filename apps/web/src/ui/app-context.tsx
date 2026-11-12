@@ -1,5 +1,5 @@
 import type { Accessor, JSX } from "solid-js";
-import { createContext, createMemo, createSignal, onMount, useContext } from "solid-js";
+import { createContext, createEffect, createMemo, createSignal, onMount, useContext } from "solid-js";
 import { createScopedRead } from "../data/screens";
 import type { ScreenState } from "../data/screens";
 import { governor, GovernorError } from "../data/client";
@@ -10,6 +10,24 @@ import type { IdentityView, MemberGrantView, SetupStatus } from "@brain/contract
 import type { ApprovalIntent, ApprovalOutcome } from "./approval-controller";
 import { liveStatusQuery } from "../data/exec-console";
 import type { LiveStatus } from "../data/exec-console";
+
+const LAST_WORKSPACE_KEY = "brain.lastWorkspace";
+
+/**
+ * The workspace to open when none is chosen yet: the one the address names (?w= or /w/:id), else the last one used in this browser, else the first.
+ * Pages without a workspace in their address (Administration, Runners, Approvals) used to fall back to the first workspace on every reload.
+ */
+export function preferredWorkspace(options: ReadonlyArray<{ workspaceId: string }>): string {
+  const known = new Set(options.map((option) => option.workspaceId));
+  try {
+    const named = new URLSearchParams(window.location.search).get("w") ?? /^\/w\/([^/]+)/u.exec(window.location.pathname)?.[1];
+    if (named && known.has(decodeURIComponent(named))) return decodeURIComponent(named);
+    const last = window.localStorage.getItem(LAST_WORKSPACE_KEY);
+    if (last && known.has(last)) return last;
+  } catch { /* storage or the address can be unavailable: fall through to the first workspace */ }
+  return options[0]?.workspaceId ?? "";
+}
+
 
 /**
  * The one session/authority context (document 21).
@@ -74,6 +92,8 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
   const [identity, setIdentity] = createSignal<IdentityView | null>(null);
   const [globalError, setGlobalError] = createSignal("");
   const [workspaceId, setWorkspaceId] = createSignal("");
+  // Remember the workspace per browser, so a reload or a new tab on a page with no workspace in its address stays where the person was.
+  createEffect(() => { const id = workspaceId(); if (id) { try { window.localStorage.setItem(LAST_WORKSPACE_KEY, id); } catch { /* private mode: nothing to remember */ } } });
   // The authorization generation: bumped on every scope/identity change so no
   // cached read can survive a revocation (document 21 cache identity). It starts
   // at 1 — `createScopedRead` treats 0 as "no scope resolved yet".
@@ -122,7 +142,7 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
     if (current !== generation()) return;
     setIdentity(next);
     const readable = next.workspaces.some((w) => w.workspaceId === workspaceId());
-    if (!readable) setWorkspaceId(next.workspaces[0]?.workspaceId ?? "");
+    if (!readable) setWorkspaceId(preferredWorkspace(next.workspaces));
     setSetupRequired(false);
   }
 

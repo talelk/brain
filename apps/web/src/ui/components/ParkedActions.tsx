@@ -65,6 +65,13 @@ export function ParkedActions(props: { item: WorkItem; onChanged: () => Promise<
   const lines = () => criteria().split("\n").map((line) => line.trim()).filter(Boolean);
   return <section aria-label="Parked work item" class="flex flex-col gap-3 rounded-control border border-outline-amber-3 p-3">
     <Alert theme="amber" variant="outline" title={isStoppedForRetry(props.item) ? "Stopped: waiting for you to try again" : "Parked after repeated failures"} description={isStoppedForRetry(props.item) ? "The agent was interrupted too often to carry on by itself. Independent work and the mission carry on." : props.item.blockedReason ?? "This work waits for a person. Independent work and the mission carry on."} />
+    <Show when={props.item.parkedDiagnostic && !isStoppedForRetry(props.item)}>
+      <div class="flex flex-col gap-1 rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3 text-interface" data-parked-reason>
+        <span class="text-caption font-medium text-ink-gray-7">Why it stopped</span>
+        <span class="break-words text-ink-gray-9">{props.item.parkedDiagnostic}</span>
+        <span class="text-caption text-ink-gray-6">Retry runs it again exactly as it is. If the cause is that the agent lacks a tool it needs, run the task with another recipe below.</span>
+      </div>
+    </Show>
     <Show when={error()}><Alert theme="red" variant="outline" title="The change was refused" description={error()} /></Show>
     <div class="flex flex-wrap gap-2">
       <Button variant="solid" theme="blue" iconLeft="lucide-rotate-ccw" disabled={busy()} onClick={() => void move("ready")}>{isStoppedForRetry(props.item) ? "Try again" : "Retry"}</Button>

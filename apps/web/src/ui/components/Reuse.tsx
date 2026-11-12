@@ -95,14 +95,16 @@ export function ReusedLine(props: { missionId: string; workspaceId: string; canE
   return <Show when={reused.state().status === "ready" || reused.state().status === "empty-authorized"}>
     <div class="flex min-w-0 flex-col gap-1 text-caption text-ink-gray-7" data-testid="reused-line">
       <Show when={kept().length > 0} fallback={<p data-testid="reused-none"><span class="lucide-recycle me-1 inline-block size-3.5 align-text-bottom" aria-hidden="true" />Nothing reused</p>}>
-        <p class="font-medium text-ink-gray-8"><span class="lucide-recycle me-1 inline-block size-3.5 align-text-bottom" aria-hidden="true" />What Brain reused</p>
-        <ul class="flex min-w-0 flex-col gap-0.5">
+        {/* A long list of reused items is background, not the result: it opens closed above two items, and always says how many there are. */}
+        <details open={kept().length <= 2} class="min-w-0"><summary class="cursor-pointer font-medium text-ink-gray-8"><span class="lucide-recycle me-1 inline-block size-3.5 align-text-bottom" aria-hidden="true" />What Brain reused ({kept().length})</summary>
+        <ul class="mt-1 flex min-w-0 flex-col gap-0.5">
           <For each={kept()}>{(item) => <li class="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5" data-testid="reused-item">
             <span>Reused:</span><ItemLink item={item} /><Badge size="sm" variant="outline" theme="gray" label={KIND_LABEL[item.kind]} /><span>last verified {formatRelative(item.lastVerifiedAt)} · {usedText(item.usedCount)}</span>
             <Show when={item.selfReviewed}><Badge size="sm" variant="outline" theme="amber" label="Self-reviewed" /></Show>
             <Show when={props.canEdit ?? app.canDispatch()}><Button size="xs" variant="ghost" aria-label={`Stop reusing ${item.title}`} onClick={() => void drop(item)}>Remove</Button></Show>
           </li>}</For>
         </ul>
+        </details>
       </Show>
       <Show when={message()}><p role="status">{message()}</p></Show>
     </div>

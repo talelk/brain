@@ -373,8 +373,11 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   other.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-other','Other workspace mission','Elsewhere','[]',?,?,?)").run(actor.actorId, now, now);
   other.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('pv-other','obj-other',1,?,'proposed','agent',?,'[]',?)").run(`sha256:${"9".repeat(64)}`, actor.actorId, now);
   await page.goto(`${governor.url}/w/ws-console/missions`);
+  // The bell lists this workspace's items only (attention is scoped to the workspace in view); another workspace's proposal is opened by its link.
   await page.getByRole("button", { name: /^Needs you:/ }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Plan proposal for Other workspace mission. Open", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("button", { name: "Plan proposal for Other workspace mission. Open", exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.goto(`${governor.url}/missions/obj-other/plan?w=ws-other&proposal=pv-other`);
   await expect(page).toHaveURL(/\/missions\/obj-other\/plan\?w=ws-other&proposal=pv-other$/);
   await expect(page.getByRole("heading", { name: "Other workspace mission", exact: true, level: 1 })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Proposal: revision 1", { exact: false })).toBeVisible();

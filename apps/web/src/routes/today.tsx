@@ -29,7 +29,7 @@ export function BridgeScreen(props: {
     <PageStack>
       <StatGrid compact stats={[
         { label: "Workspaces", value: String(props.workspaces.length), hint: "You have access to", icon: "lucide-building-2" },
-        { label: "Waiting on someone", value: String(total()), hint: "Pending approvals and blocked runs", icon: "lucide-inbox" },
+        { label: "Waiting on someone", value: String(total()), hint: "Approvals, blocked runs and parked tasks", icon: "lucide-inbox" },
       ]} />
       <WorkspaceSection title="Your workspaces" description="Workspaces that need an approval or have a blocked run come first.">
         <ScreenRegion state={props.state} skeleton="cards" emptyTitle={canCreate() ? "Create your first workspace" : "No workspaces assigned"}
@@ -40,7 +40,7 @@ export function BridgeScreen(props: {
               const attention = ws.pendingApprovals + ws.blockedJobs;
               return <Card padding="lg" class="bg-surface-gray-1 flex min-w-0 flex-col gap-3">
                 <div class="flex items-start justify-between gap-3">
-                  <div class="flex min-w-0 items-center gap-3"><IconTile icon="lucide-building-2" tone={attention ? "amber" : "gray"} size="md" /><div class="min-w-0"><h3 class="break-words text-section text-ink-gray-9">{ws.displayName}</h3><p class="mt-1 text-caption text-ink-gray-6">{attention ? `${attention} items need attention` : "No approval or blocked-run exceptions"}</p></div></div>
+                  <div class="flex min-w-0 items-center gap-3"><IconTile icon="lucide-building-2" tone={attention ? "amber" : "gray"} size="md" /><div class="min-w-0"><h3 class="break-words text-section text-ink-gray-9">{ws.displayName}</h3><p class="mt-1 text-caption text-ink-gray-6">{attention ? `${attention} items need attention` : "Nothing is waiting on a person"}</p></div></div>
                   <StatusBadge kind="health" status={ws.health} />
                 </div>
                 <dl class="grid grid-cols-2 gap-3 border-y border-outline-gray-1 py-3 text-interface sm:grid-cols-4">

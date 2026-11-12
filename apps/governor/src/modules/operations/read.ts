@@ -47,7 +47,12 @@ export function workspaceSummary(store: Store, organizationId: string, workspace
     SUM(CASE WHEN state='blocked' THEN 1 ELSE 0 END) AS blocked
     FROM jobs WHERE organization_id=? AND workspace_id=?`).get(organizationId, workspaceId) as { active: number | null; blocked: number | null };
   const pending = store.control.prepare("SELECT COUNT(*) AS c FROM approval_requests WHERE organization_id=? AND workspace_id=? AND state='pending'").get(organizationId, workspaceId) as { c: number };
-  const blocked = counts.blocked ?? 0;
+  // Work a person has to decide on counts as blocked too: a parked task stops its mission as surely as a blocked job does.
+  let parkedWork = 0;
+  try {
+    parkedWork = (store.workspaceDb(workspaceId, organizationId).prepare("SELECT COUNT(*) AS n FROM work_items w JOIN missions m ON m.id=w.mission_id WHERE w.state='blocked' AND m.state='active'").get() as { n: number }).n;
+  } catch { /* a workspace that cannot be read keeps its job counts */ }
+  const blocked = (counts.blocked ?? 0) + parkedWork;
   return {
     workspaceId, displayName: String(wsRow?.slug ?? workspaceId), status: String(wsRow?.status ?? "active"),
     description: String(wsRow?.["description"] ?? ""), ...(wsRow?.["owner_id"] ? { ownerId: String(wsRow["owner_id"]) } : {}), tags: JSON.parse(String(wsRow?.["tags_json"] ?? "[]")) as string[], version: Number(wsRow?.["version"] ?? 1),

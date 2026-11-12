@@ -83,6 +83,15 @@ function criteriaOf(verdict: VerificationVerdict | undefined): { total: number; 
  * self-reported checklist. Without a loaded verdict the history's outcome still
  * decides the wording, minus the count.
  */
+/** What each shipped check of the task validator means, in words a person can act on; an unknown check shows its own id. */
+const CHECK_WORDS: Readonly<Record<string, string>> = {
+  structure: "the report does not have the required structure",
+  safety: "the report claims actions it must not take",
+  deliverable: "there is no real deliverable (it copies the brief, asks a question, or is too short)",
+  "criteria-met": "not every acceptance criterion is answered, with evidence",
+};
+const checkWords = (id: string): string => CHECK_WORDS[id] ?? id;
+
 export function trustLineOf(history: ArtifactHistory | undefined, verdict?: VerificationVerdict, trust?: TrustRead): TrustLine {
   if (trust && trust.total > 0 && (verdict?.outcome ?? "verified") === "verified") {
     const unverified = trust.model > 0;
@@ -94,12 +103,12 @@ export function trustLineOf(history: ArtifactHistory | undefined, verdict?: Veri
   const outcome = verdict?.outcome ?? history?.history.find((version) => version.verification)?.verification?.outcome;
   const { total, met, failed } = criteriaOf(verdict);
   if (outcome === "verified")
-    return { tone: "green", checked: true, text: total > 0 ? `Checked by an independent reviewer: ${met} of ${total} criteria met` : "Checked by an independent reviewer: it passed" };
+    return { tone: "green", checked: true, text: total > 0 ? `Checked by an independent reviewer: ${met} of ${total} checks passed` : "Checked by an independent reviewer: it passed" };
   if (outcome === "rejected")
     return {
       tone: "red",
       checked: false,
-      text: `An independent reviewer found problems${total > 0 ? `: ${met} of ${total} criteria met${failed.length ? `, not met: ${failed.join(", ")}` : ""}` : ""}. Ask for changes, or open the task to see why.`,
+      text: `An independent reviewer found problems${total > 0 ? `: ${met} of ${total} checks passed${failed.length ? `. Problem: ${failed.map(checkWords).join("; ")}` : ""}` : ""}. Ask for changes, or open the task to see why.`,
     };
   if (outcome === "incomplete")
     return { tone: "amber", checked: false, text: "The independent check could not finish, so this result is not confirmed yet." };

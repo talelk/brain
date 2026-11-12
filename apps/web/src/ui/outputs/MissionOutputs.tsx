@@ -179,7 +179,13 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
   const taskById = createMemo(() => new Map(tasks().map((task) => [taskKey(task), task] as const)));
   const wanted = () => (typeof search["result"] === "string" ? search["result"] : undefined);
   /** A card opens first when the link names it, or (with no link) when it leads a short list. Read once, as a card appears. */
-  const opensFirst = (id: string) => (wanted() ? id === wanted() : taskIds()[0] === id && taskIds().length <= 3);
+  // Only the cards present when the list first appears may open by themselves: a result that arrives while someone is reading arrives closed,
+  // so it never takes over the page (it used to open above, and push the card being read down).
+  let firstShown: Set<string> | undefined;
+  const opensFirst = (id: string) => {
+    firstShown ??= new Set(taskIds());
+    return wanted() ? id === wanted() : firstShown.has(id) && taskIds()[0] === id && taskIds().length <= 3;
+  };
   /** The open card is kept in the address (?result=<task id>) so a reload or a shared link lands on it; opening or closing never scrolls. */
   const remember = (id: string, open: boolean) => {
     if (open) setSearch({ result: id }, { replace: true, scroll: false });

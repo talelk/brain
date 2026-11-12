@@ -88,7 +88,7 @@ export function AttentionDrawer(props: { attention: AttentionRead }): JSX.Elemen
       <Dialog.Content size="lg" position="top">
         <Dialog.Header class="mb-3">
           <Dialog.Title>Needs you</Dialog.Title>
-          <Dialog.Description>Across your workspaces: approvals first, then stopped missions, proposals and parked work, verdicts ready to close and routed findings. Finished results come last and never block anything.</Dialog.Description>
+          <Dialog.Description>In this workspace: approvals first, then stopped missions, proposals and parked work, verdicts ready to close and routed findings. Finished results come last and never block anything.</Dialog.Description>
         </Dialog.Header>
         <div class="flex max-h-[70dvh] flex-col gap-4 overflow-y-auto">
           <ScreenRegion state={attention.state()} onRetry={() => void attention.refresh({ force: true })} emptyTitle="Nothing needs you" emptyDescription="Missions are moving on their own. Brain notifies you when a person is needed.">

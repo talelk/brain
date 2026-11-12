@@ -6833,6 +6833,11 @@
           "minLength": 1,
           "maxLength": 1024
         },
+        "parkedDiagnostic": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
         "scheduledAt": {
           "$ref": "#/$defs/Timestamp"
         },

@@ -218,7 +218,7 @@ export function InterruptionChooser(props: {
     <div class="border-b border-outline-gray-1 bg-surface-amber-1 px-3 py-2">
       <div class="flex flex-wrap items-center gap-2">
         <span class="lucide-heart-crack size-4 text-ink-amber-8" aria-hidden="true" />
-        <strong class="text-caption font-medium text-ink-gray-9">{props.session.state === "failed" ? "This session failed." : "This session was interrupted."} {suggested().operation === "none" ? suggested().label : `Suggested next step: ${suggested().label}`}</strong>
+        <strong class="text-caption font-medium text-ink-gray-9">{props.session.state === "failed" ? "This session failed." : "This session has ended."} {suggested().operation === "none" ? suggested().label : `To run it again: ${suggested().label}`}</strong>
         <Show when={actionable()}>
           <Button size="sm" variant="solid" theme="blue" disabled={busy()} loading={busy() && suggested().operation !== "restart"}
             onClick={() => {
@@ -229,6 +229,7 @@ export function InterruptionChooser(props: {
         </Show>
       </div>
       <p class="mt-1 text-caption text-ink-gray-6">{suggested().description}</p>
+      <Show when={suggested().operation === "restart"}><p class="mt-1 text-caption text-ink-gray-6">This runs the task again exactly as it is. If a reviewer rejected the result, change the task or the recipe it runs with in the plan first (Decide on the task).</p></Show>
       <Show when={!actionable() && suggested().operation !== "none"}>
         <p class="mt-1 text-caption text-ink-gray-6">This operation needs an operator authorization{props.session.workItemId ? "" : " and a work item binding (the resume payload requires it)"}.</p>
       </Show>
