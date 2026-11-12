@@ -984,74 +984,85 @@
     "label": "Workspaces",
     "route": "/administration/workspaces",
     "adminOnly": true,
-    "icon": "lucide-building-2"
+    "icon": "lucide-building-2",
+    "scope": "instance"
    },
    {
     "label": "Setup",
     "route": "/settings?tab=setup",
     "adminOnly": true,
     "organizationOnly": true,
-    "icon": "lucide-sliders-horizontal"
+    "icon": "lucide-sliders-horizontal",
+    "scope": "instance"
    },
    {
     "label": "Security",
     "route": "/settings?tab=security",
-    "icon": "lucide-shield"
+    "icon": "lucide-shield",
+    "scope": "account"
    },
    {
     "label": "Quality",
     "route": "/quality",
     "adminOnly": true,
     "organizationOnly": true,
-    "icon": "lucide-gauge"
+    "icon": "lucide-gauge",
+    "scope": "instance"
    },
    {
     "label": "Integrations",
     "route": "/administration/integrations",
     "adminOnly": true,
     "organizationOnly": true,
-    "icon": "lucide-plug"
+    "icon": "lucide-plug",
+    "scope": "instance"
    },
    {
     "label": "Releases",
     "route": "/settings?tab=release",
     "adminOnly": true,
     "organizationOnly": true,
-    "icon": "lucide-rocket"
+    "icon": "lucide-rocket",
+    "scope": "instance"
    },
    {
     "label": "People",
     "route": "/settings?tab=people",
     "adminOnly": true,
     "identityOnly": true,
-    "icon": "lucide-users"
+    "icon": "lucide-users",
+    "scope": "instance"
    },
    {
     "label": "Invitations",
     "route": "/settings?tab=invitations",
     "adminOnly": true,
     "identityOnly": true,
-    "icon": "lucide-mail-plus"
+    "icon": "lucide-mail-plus",
+    "scope": "instance"
    },
    {
     "label": "Access",
     "route": "/settings?tab=members",
     "adminOnly": true,
-    "icon": "lucide-key-round"
+    "icon": "lucide-key-round",
+    "scope": "workspace"
    },
    {
     "label": "Authentication",
     "route": "/settings?tab=policy",
     "adminOnly": true,
     "identityOnly": true,
-    "icon": "lucide-fingerprint"
+    "icon": "lucide-fingerprint",
+    "scope": "instance"
    },
    {
     "label": "Health",
     "route": "/settings?tab=health",
     "adminOnly": true,
     "organizationOnly": true,
-    "icon": "lucide-heart-pulse"
+    "icon": "lucide-heart-pulse",
+    "scope": "instance"
    }
   ],
   "schedules": [

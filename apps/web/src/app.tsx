@@ -122,11 +122,18 @@ function Navigation(attentionCount: () => number): AppSidebarGroup[] {
     && (!entry.organizationOnly || scopes().includes("config:activate"))
     && (!entry.identityOnly || scopes().includes("identity:read"))
     && !shown.has(href(entry.route)),
-  ).map((entry) => ({ label: entry.label, icon: entry.icon, active: active(entry.route), onClick: go(entry.route) }));
+  ).map((entry) => ({ scope: entry.scope, item: { label: entry.label, icon: entry.icon, active: active(entry.route), onClick: go(entry.route) } }));
+  // Administration mixes three scopes; each gets its own heading so a person can tell what changes only this workspace, what changes the whole instance, and what is theirs alone.
+  const scoped = (scope: "workspace" | "instance" | "account", label: string) => {
+    const items = contextual.filter((entry) => entry.scope === scope).map((entry) => entry.item);
+    return items.length ? [{ label, items }] : [];
+  };
   return [
     { label: "Brain", items: primary },
     { label: "More", items: secondary },
-    ...(contextual.length ? [{ label: area() === "administration" ? "Administration" : "In this area", items: contextual }] : []),
+    ...(area() === "administration"
+      ? [...scoped("workspace", "This workspace"), ...scoped("instance", "Whole instance"), ...scoped("account", "My account")]
+      : contextual.length ? [{ label: "In this area", items: contextual.map((entry) => entry.item) }] : []),
   ];
 }
 

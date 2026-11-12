@@ -12,6 +12,14 @@ test("administration pages open with a plain verdict, honest status and who-can-
   await page.getByRole("button", { name: "Create workspace", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
 
+  // The administration sidebar separates what is only this workspace, what is the whole instance, and what is the person's own account.
+  await page.goto(`${governor.url}/settings?tab=members`);
+  const nav = page.getByRole("navigation");
+  for (const heading of ["This workspace", "Whole instance", "My account"]) await expect(nav.getByText(heading, { exact: true })).toBeVisible();
+  await expect(page.getByText("This workspace only.")).toBeVisible();
+  await page.goto(`${governor.url}/settings?tab=health`);
+  await expect(page.getByText("Whole instance. Is Brain working?")).toBeVisible();
+
   await page.goto(`${governor.url}/administration/workspaces`);
   await expect(page.getByRole("heading", { name: "Workspaces", exact: true, level: 1 })).toBeVisible();
 

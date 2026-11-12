@@ -26,14 +26,14 @@ import { StatGrid } from "@talelk/newui-organisms";
 const SETTINGS_PAGE_SIZE = 25;
 
 const PAGE: Record<string, { title: string; description: string }> = {
-  setup: { title: "Setup", description: "Connect a model, start the runners, then run one safe test task." },
-  security: { title: "Security", description: "Protect your own account: two-factor sign-in, passkeys, your signed-in devices and notifications." },
-  people: { title: "People", description: "Everyone in your organization and what each person may administer. Invite someone, change their organization roles, or suspend them." },
-  invitations: { title: "Invitations", description: "People you invited and whether they have joined yet. Invitations are sent by email and expire." },
-  policy: { title: "Authentication", description: "How people sign in to this organization. This page is read-only; the policy is set in the server configuration." },
-  health: { title: "Health", description: "Is Brain working? One verdict first, then each service and the latest recorded activity." },
-  members: { title: "Workspace access", description: "Who can do what in this workspace. Grant or revoke a role; every change needs a reason and is recorded." },
-  release: { title: "Releases", description: "A release is the set of workflows and agents Brain runs. Activating a release makes it the one new work uses; running work keeps the release it started on." },
+  setup: { title: "Setup", description: "Whole instance. Connect a model, start the runners, then run one safe test task." },
+  security: { title: "Security", description: "Only your own account. Protect your own account: two-factor sign-in, passkeys, your signed-in devices and notifications." },
+  people: { title: "People", description: "Whole instance. Everyone in your organization and what each person may administer. Invite someone, change their organization roles, or suspend them." },
+  invitations: { title: "Invitations", description: "Whole instance. People you invited and whether they have joined yet. Invitations are sent by email and expire." },
+  policy: { title: "Authentication", description: "Whole instance. How people sign in to this organization. This page is read-only; the policy is set in the server configuration." },
+  health: { title: "Health", description: "Whole instance. Is Brain working? One verdict first, then each service and the latest recorded activity." },
+  members: { title: "Workspace access", description: "This workspace only. Who can do what in this workspace. Grant or revoke a role; every change needs a reason and is recorded." },
+  release: { title: "Releases", description: "Whole instance. A release is the set of workflows and agents Brain runs. Activating a release makes it the one new work uses; running work keeps the release it started on." },
 };
 
 export function SettingsScreen(props: {
