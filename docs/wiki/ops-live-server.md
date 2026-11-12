@@ -27,3 +27,4 @@ Workspace `ws-sre-demos`, made by `scripts/provision-sre-demos.sh` (idempotent; 
 - Not done: privileged commands (restart/reload, each needing an effect permit) and a writable per-run output directory (results already appear in Outputs). Tools are org-wide (only `sre-operator` lists them; `sre-task` is hidden); a dedicated runner group is the next hardening step.
 
 - 2026-11-12: Tools tab now has Recent calls and why they failed (`tools.calls`, deployed); failed script calls keep their own reason (`tool exit N: reason`). Editing a tool from the UI is blocked: no git write binding on the live server (see backlog).
+- 2026-11-12: SRE report task parked after 3 failed attempts pinned to the old release (32k token limit; they used 44-59k); retried on the 100k release and finished first try. A parked task keeps its old pin until retried.
