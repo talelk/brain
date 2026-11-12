@@ -450,6 +450,11 @@ CREATE TABLE tool_calls (
   PRIMARY KEY(attempt_id, proposal_id)
 ) STRICT;
 CREATE INDEX tool_calls_tool ON tool_calls(organization_id, workspace_id, tool_id);
+-- Parked work gets one automatic retry per activated release: a release changes what agents may do and use, so earlier failures say little about the next attempt. This table is what bounds it.
+CREATE TABLE parked_auto_retries (
+  work_item_id TEXT NOT NULL, release_digest TEXT NOT NULL, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, retried_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(work_item_id, release_digest)
+) STRICT;
 -- Test runs of one tool: a one-step workflow (tool-test:<id>) a person started to try a tool with their own input. Tagged apart from real calls, which tool_calls counts.
 CREATE TABLE tool_test_runs (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, tool_id TEXT NOT NULL,
