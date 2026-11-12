@@ -39,6 +39,8 @@ Tools registry (Library > Tools) walked 2026-11-12: 7 trusted read tools; csv.qu
 
 Review inbox 2026-11-12: the ten unreadable old notes Brain had set aside ("Not kept: an older note with no mission or title") were still listed with an Approve button; they are now hidden (deployed, checked live). What genuinely waits for the owner there: 5 proposals (agent-instruction/tool candidates such as plan-guide-assistant, task-worker, operations-assistant, each with Approve/Reject); all other listed write-ups are already published by Brain and only offer Withdraw.
 
+Tools registry now reads over the last 7 days with lifetime as secondary text (deployed 2026-11-12, `verify:fast`, 531 integration tests and the registry browser spec pass). The old failures of documents.read and web.fetch were only a day old, so they still fall inside the 7-day window and read red until they age out (about 2026-11-18); nothing is wrong with the tools now.
+
 Dependabot: 3 moderate transitive advisories pinned in `pnpm-workspace.yaml` overrides 2026-11-12 (`72168f6`); `pnpm audit --prod` clean. One dev-only advisory remains (minimatch under `eslint-plugin-import-x`, which needs minimatch 10's `makeRe`; 11 breaks lint): wait for an import-x release.
 
 ## Not yet seen live
