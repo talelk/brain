@@ -35,6 +35,8 @@ Browser 2026-11-12 (fresh Chrome tab; the old tab's renderer was frozen, a new t
 
 Browser 2026-11-12 after deploy `e353c1c`: Live, Logs, Health walked; a new plain-words mission started from Today in the browser drafted its plan in ~30 s, one click confirmed it, ran hands-off, closed with 2 of 2 tasks independently checked, 23k tokens, results accepted, reuse shown (3 items), "Propose as Play" offered. Live rail no longer shows "unknown" as an engine name. Left: the Live side panel still prints "Engine unknown 1" for sessions whose engine was not reported at accept time (cosmetic).
 
+Tools registry (Library > Tools) walked 2026-11-12: 7 trusted read tools; csv.query 2 calls none failed; documents.read 23 calls / 21 failed but the last failure was 11 Nov 14:07 (before the availability fix) and the 12 Nov calls succeeded; web.fetch 70 / 52 failed, last use 01:08 fine. The registry shows lifetime failure rates, so old failures keep reading as red until enough new calls dilute them (idea: also show the last 7 days).
+
 Dependabot: 3 moderate transitive advisories pinned in `pnpm-workspace.yaml` overrides 2026-11-12 (`72168f6`); `pnpm audit --prod` clean. One dev-only advisory remains (minimatch under `eslint-plugin-import-x`, which needs minimatch 10's `makeRe`; 11 breaks lint): wait for an import-x release.
 
 ## Not yet seen live
