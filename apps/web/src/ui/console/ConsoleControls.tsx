@@ -294,7 +294,7 @@ export function ConsoleInspection(props: {
       </div>
       <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-caption">
         <dt class="text-ink-gray-6">State</dt><dd class="min-w-0"><StatusBadge status={props.session?.state ?? "unknown"} /></dd>
-        <dt class="text-ink-gray-6">Engine</dt><dd class="min-w-0 break-words text-ink-gray-9">{props.session?.engine.id ?? "—"} {props.session?.engine.version ?? ""}</dd>
+        <dt class="text-ink-gray-6">Engine</dt><dd class="min-w-0 break-words text-ink-gray-9">{props.session?.engine.id && props.session.engine.id !== "unknown" ? `${props.session.engine.id} ${props.session.engine.version ?? ""}`.trim() : "Not reported"}</dd>
         <dt class="text-ink-gray-6">Turn limit</dt><dd class="min-w-0 text-ink-gray-9">{props.session?.budget.maxTurns ?? "—"} turns</dd>
         <Show when={props.session?.workItemId}><dt class="text-ink-gray-6">Work item</dt><dd class="min-w-0 break-all"><WorkItemLink workspaceId={props.workspaceId} workItemId={props.session!.workItemId!} class="text-ink-blue-link hover:underline focus-visible:focus-ring">{props.session!.workItemId}</WorkItemLink></dd></Show>
         <Show when={props.session?.jobId}><dt class="text-ink-gray-6">Run</dt><dd class="min-w-0"><CorrelationLink target={{ kind: "job", jobId: props.session!.jobId! }} label={props.session!.jobId!} icon="lucide-workflow" class="max-w-full" /></dd></Show>
