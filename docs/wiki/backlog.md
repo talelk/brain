@@ -21,7 +21,7 @@ Dated 2026-11-11 ~23:15, at `talelk/brain@9393922` (deployed: everything through
 ## Open engine / quality rows
 | # | Item | Notes |
 |---|------|-------|
-| 15 | Evaluator quality after track AG (qwen3.8-flash-next-a5b, 3 runs per sample): answers parsed 15/15, validator 15/15; one of six old-style review runs still sets a criterion met:false; plans valid first try 6/6 at a median 32 s (was 4/6 at 100 s). New prompts are in the repo, NOT yet staged live | run `scripts/stage-demo-release.sh` after the next deploy (agent instructions are bundle bytes, no digest re-pin needed); re-measure with `node scripts/qualification/task-quality.mjs --runs 3 --judge` and `--plans 6`; consider a faster planning model only if plan time regresses |
+| 15 | Evaluator quality re-measured 2026-11-12 on the deployed prompts (qwen3.8-flash-next-a5b, 3 runs per sample): parsed 14/15, validator 14/15; both old-style review samples passed 3/3 (the earlier weak spot did not recur). The one failure was a review-with-upstream answer with malformed JSON (unparsed), a random model flake, not criteria semantics | watch the live retry behaviour on unparsed answers; consider a stricter JSON instruction only if flakes recur |
 | 66 | Email: STARTTLS/smtps only tested against a fake server; whole `startSupervisor` loop not run end to end (only `runClaimLoops`) | test against a real relay before relying on it |
 | 67 | RTL: mixed English/Arabic bidi quirks need real Arabic strings; result-reader compare view not seen in RTL | needs translations |
 
