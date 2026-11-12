@@ -34,6 +34,8 @@ export function KnowledgeInbox(props: { assets: readonly KnowledgeAsset[]; canRe
   });
   /** Set aside by the automatic path for a person (a secret): still waits for a person, so the card says so. */
   const setAside = (asset: KnowledgeAsset) => Boolean(asset.rejectionReason?.startsWith("Left for a person"));
+  /** Old notes Brain set aside because nothing in them is readable are not shown: there is nothing to decide about them. */
+  const shown = () => props.assets.filter((asset) => !asset.rejectionReason?.startsWith("Not kept:"));
   const waiting = () => props.assets.filter((asset) => asset.state === "extracted" && !asset.rejectionReason);
   const [approvingAll, setApprovingAll] = createSignal(false);
   const approveAll = async () => { setApprovingAll(true); try { await props.onApproveAll?.(); } finally { setApprovingAll(false); } };
@@ -50,9 +52,9 @@ export function KnowledgeInbox(props: { assets: readonly KnowledgeAsset[]; canRe
     </div>
     <p class="mb-2 text-interface text-ink-gray-7">When a mission finishes and its result is verified, Brain writes up what happened: the result, how each criterion was checked, and what it reused. With automatic publishing on it publishes itself, marked and undoable; otherwise approve it here and it becomes searchable and is offered to future plans. It is a record of past work, never proof for new work.</p>
     {props.setting}
-    <Show when={props.assets.length > 0} fallback={<p class="border-y border-outline-gray-1 py-4 text-interface text-ink-gray-6">Nothing to review yet. A mission closed as achieved writes up its knowledge here.</p>}>
+    <Show when={shown().length > 0} fallback={<p class="border-y border-outline-gray-1 py-4 text-interface text-ink-gray-6">Nothing to review yet. A mission closed as achieved writes up its knowledge here.</p>}>
       <ul class="min-w-0 divide-y divide-outline-gray-1 border-y border-outline-gray-1">
-        <For each={props.assets}>{(asset) => <li class="min-w-0 py-3 first:pt-0 last:pb-0" id={`knowledge-proposal-${asset.assetId}`} data-testid={`knowledge-proposal-${asset.assetId}`}>
+        <For each={shown()}>{(asset) => <li class="min-w-0 py-3 first:pt-0 last:pb-0" id={`knowledge-proposal-${asset.assetId}`} data-testid={`knowledge-proposal-${asset.assetId}`}>
           <div class="flex min-w-0 flex-wrap items-center gap-1.5">
             <strong class="min-w-0 break-words text-base-medium">{asset.title ?? asset.operationId}</strong>
             <Badge size="sm" theme={asset.supersededBy ? "gray" : asset.state === "published" ? "green" : asset.state === "revoked" ? "red" : "amber"} label={asset.supersededBy ? "Replaced" : asset.state === "extracted" ? (setAside(asset) ? "Needs a person" : asset.rejectionReason ? "Not published" : "Awaiting review") : asset.state === "published" ? (asset.autoPublished ? "Published automatically" : "Published") : asset.state} />
