@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync, unlinkSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { execa } from "execa";
+import { loadHostCommands, resolveHostCommand, type HostCommandEffect } from "./host-commands";
 
 interface Sandbox { id: string; containerId: string; profile: string; requestHash: string }
 const sandboxes = new Map<string, Sandbox>();
@@ -77,6 +78,8 @@ export async function startLauncher(): Promise<void> {
     const eq = pair.indexOf("=");
     if (eq > 0) dataMounts.set(pair.slice(0, eq).trim(), resolve(pair.slice(eq + 1).trim()));
   }
+  // Operator-owned allowlist of named host commands (ADR 0021): "name" -> fixed argv, never a caller-supplied command line.
+  const hostCommands = loadHostCommands(process.env["BRAIN_LAUNCHER_HOST_COMMANDS"]);
   mkdirSync(dirname(socket), { recursive: true });
   if (existsSync(socket)) unlinkSync(socket);
   const server = createServer(async (req, res) => {
@@ -85,11 +88,25 @@ export async function startLauncher(): Promise<void> {
       if (req.method === "GET" && url === "/v1/health") {
         let docker = false;
         try { const r = await execa("docker", ["version", "--format", "{{.Server.Version}}"], { timeout: 5000 }); docker = r.exitCode === 0; } catch { docker = false; }
-        json(res, 200, { docker, profiles: [...PROFILES], images: [...IMAGES], pinnedImages: [...imagePins.keys()], dataMounts: [...dataMounts.keys()] });
+        json(res, 200, { docker, profiles: [...PROFILES], images: [...IMAGES], pinnedImages: [...imagePins.keys()], dataMounts: [...dataMounts.keys()], hostCommands: [...hostCommands.entries()].map(([name, c]) => ({ name, effect: c.effect })) });
         return;
       }
       const auth = req.headers.authorization ?? "";
       if (!expectedToken || auth !== `Bearer ${expectedToken}`) { json(res, 401, { error: "launcher token required" }); return; }
+      if (req.method === "POST" && url === "/v1/host-commands/run") {
+        const b = await body(req);
+        for (const k of Object.keys(b)) if (!["command", "args", "allow"].includes(k)) { json(res, 422, { error: `field ${k} forbidden` }); return; }
+        const allow: HostCommandEffect = b["allow"] === "privileged" ? "privileged" : "read";
+        const resolved = resolveHostCommand(hostCommands, String(b["command"] ?? ""), b["args"], allow);
+        if (!resolved.ok) { json(res, resolved.status, { error: resolved.error }); return; }
+        const [bin, ...rest] = resolved.argv as string[];
+        const result = await execa(bin!, rest, {
+          timeout: resolved.command.timeoutMs, maxBuffer: 256 * 1024, extendEnv: false, shell: false, reject: false,
+          env: { PATH: "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", HOME: "/tmp", LANG: "C.UTF-8" },
+        });
+        json(res, 200, { exitCode: result.exitCode ?? -1, stdout: String(result.stdout).slice(0, 64 * 1024), stderr: String(result.stderr).slice(0, 4096), timedOut: result.timedOut === true });
+        return;
+      }
       if (req.method === "POST" && url === "/v1/sandboxes") {
         const b = await body(req);
         const profile = String(b["profile"] ?? "");

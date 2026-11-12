@@ -82,6 +82,13 @@ export class LauncherClient {
     return { exitCode: Number(r.json["exitCode"]), stdout: String(r.json["stdout"] ?? ""), stderr: String(r.json["stderr"] ?? ""), timedOut: r.json["timedOut"] === true };
   }
 
+  /** Runs one operator-declared host command by name (ADR 0021); the launcher alone decides the argv. */
+  async hostCommand(command: string, args: Record<string, string>, allow: "read" | "privileged"): Promise<{ exitCode: number; stdout: string; stderr: string; timedOut: boolean }> {
+    const r = await this.call("POST", "/v1/host-commands/run", { command, args, allow }, 90_000);
+    if (r.status !== 200) throw new Error(String(r.json["error"] ?? `host command refused (${r.status})`));
+    return { exitCode: Number(r.json["exitCode"]), stdout: String(r.json["stdout"] ?? ""), stderr: String(r.json["stderr"] ?? ""), timedOut: r.json["timedOut"] === true };
+  }
+
   async stop(sandboxId: string): Promise<{ terminationConfirmed: boolean }> {
     const r = await this.call("POST", `/v1/sandboxes/${encodeURIComponent(sandboxId)}/stop`, { graceMs: 3000 });
     if (r.status !== 200) throw new Error(`sandbox stop failed ${r.status}`);

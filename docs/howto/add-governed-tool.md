@@ -85,6 +85,15 @@ A Tool document may carry `description` (shown in the registry) and `allowedHost
 brokered tool, add its id to `GOVERNOR_BROKERED` / `RUNNER_BROKERED` (`apps/runner/src/tools/brokers.ts`) and, for the
 Governor kind, a branch in `apps/governor/src/modules/jobs/tool-reads.ts`.
 
+## 4b. Tools that reach the host (ADR 0021)
+
+| Tool | What it can do | Where the limit lives |
+|---|---|---|
+| `host.read` | list, read (text) and find files under the host's `/srv` | the launcher mount is read-only and operator-declared (`BRAIN_LAUNCHER_DATA_MOUNTS=srv=/srv`); the runner gives it to this tool only (`BRAIN_TOOL_DATA_MOUNTS=host.read=srv`); the pinned script denies secrets, databases, archives and backups, resolves symlinks, redacts secret-looking values |
+| `host.exec` | run one named read-only diagnostic (`docker.ps`, `docker.logs`, `host.df`, `systemd.status`, `http.head-public`, ...) | the operator's `host-commands.json` on the launcher fixes the argv and each argument's pattern; the tool's input schema lists the allowed names; no shell |
+
+Add a command by adding an entry to `scripts/demo/host-commands.json`, adding its name to `schemas/host-exec-input.json`, restaging the release and redeploying (the deploy copies the file and restarts the launcher). Restart/reload commands must be declared `privileged` and exposed through a privileged tool, which needs an effect permit per call.
+
 ## 5. Verify
 
 ```bash

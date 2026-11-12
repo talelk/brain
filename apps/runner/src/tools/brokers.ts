@@ -15,6 +15,8 @@ export type BrokerResult = { readonly ok: true; readonly data: JsonValue } | { r
 /** Tools the Governor answers (scope rechecked there); web.fetch is fetched here under the Tool document's host allowlist. */
 export const GOVERNOR_BROKERED = new Set(["documents.read", "csv.query", "knowledge.search"]);
 export const RUNNER_BROKERED = new Set(["web.fetch"]);
+/** Read-only host commands run by the trusted launcher from the operator's named allowlist (ADR 0021). */
+export const LAUNCHER_BROKERED = new Set(["host.exec"]);
 
 const READABLE_TYPES = [/^text\//u, /^application\/(json|xml|xhtml\+xml|rss\+xml|atom\+xml|csv|yaml|x-yaml|javascript)(;|$)/u, /\+json(;|$)/u, /\+xml(;|$)/u];
 

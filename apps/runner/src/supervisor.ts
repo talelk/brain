@@ -29,10 +29,23 @@ export interface RunnerConfig {
   readonly transport?: typeof fetch;
   /**
    * Operator-declared read-only data mounts offered to sandboxed tools, by
-   * name. This is host configuration, not workflow configuration: a workflow
-   * spec cannot add a mount it was not given.
+   * tool id then mount name (BRAIN_TOOL_DATA_MOUNTS="host.read=srv+logs,..").
+   * This is host configuration, not workflow configuration: a release cannot
+   * add a mount it was not given, and a tool sees only its own mounts.
    */
-  readonly dataMounts?: readonly string[];
+  readonly dataMounts?: ReadonlyMap<string, readonly string[]>;
+}
+
+/** "host.read=srv+logs,csv.query=cv-data" -> tool id -> mount names. Malformed entries are ignored, never widened. */
+export function parseToolDataMounts(raw: string): ReadonlyMap<string, readonly string[]> {
+  const byTool = new Map<string, string[]>();
+  for (const pair of raw.split(",").map((s) => s.trim()).filter(Boolean)) {
+    const eq = pair.indexOf("=");
+    if (eq <= 0) continue;
+    const names = pair.slice(eq + 1).split("+").map((s) => s.trim()).filter((s) => /^[a-z][a-z0-9-]*$/u.test(s));
+    if (names.length > 0) byTool.set(pair.slice(0, eq).trim(), names);
+  }
+  return byTool;
 }
 
 /**
@@ -308,7 +321,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
           const startedAt = new Date().toISOString();
           // Read tools that need data the sandboxed script cannot reach get it from a broker first; a refusal is a failed call with a
           // receipt, never a script run on missing data.
-          const brokered = await brokerRead(binding, proposal.input as Record<string, unknown>, offer.attemptId, client);
+          const brokered = await brokerRead(binding, proposal.input as Record<string, unknown>, offer.attemptId, client, launcher);
           const executed = brokered && !brokered.ok ? { ok: false as const, output: { error: brokered.error } as JsonValue } : await executeToolPayload({
             offer: { payload: { input: brokered ? { ...(proposal.input as Record<string, unknown>), broker: brokered.data } : proposal.input as Record<string, unknown>, invocationId,
               step: { uses: { type: "tool", release: proposal.tool }, effectClass: binding.effectClass, target: binding.target } },
@@ -408,7 +421,7 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
     stateDir: process.env["BRAIN_RUNNER_STATE_DIR"] ?? join(process.cwd(), ".runner-state"),
     capabilities: (process.env["BRAIN_RUNNER_CAPABILITIES"] ?? "os:linux,arch:amd64,tool:fixture.echo,tool:fixture.verify,isolation:ephemeral-container").split(","),
     engines: (process.env["BRAIN_RUNNER_ENGINE"] ?? "fixture").split(",").map((id) => id.trim()).filter(Boolean),
-    dataMounts: (process.env["BRAIN_TOOL_DATA_MOUNTS"] ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+    dataMounts: parseToolDataMounts(process.env["BRAIN_TOOL_DATA_MOUNTS"] ?? ""),
   };
   const enrollToken = process.env["BRAIN_RUNNER_ENROLL_TOKEN"] ?? "";
   const initial = await enrollAndHello(cfg, enrollToken);

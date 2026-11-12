@@ -1,6 +1,8 @@
 # SRE runbook for the demos server
 
-Rule zero: Brain agents here only read and reason. They never hold SSH access. Every command below is run by a person (or approved by one); an agent proposes it with the evidence.
+Rule zero: Brain agents here look at the real server (read-only files under `/srv` and the named diagnostics listed in "Access, safety and change rules") and reason. They never hold SSH access and cannot change anything. Every fixing command below is run by a person; the agent proposes it with the evidence, the risk and the undo.
+
+To make an agent do the looking, start a mission task with the workflow `sre-task` ("Investigate the demos server"); it uses the `sre-operator` agent.
 
 ## A demo site is down
 1. Public check: `curl -sI https://<name>.mykeyrus.tn | head -1`.

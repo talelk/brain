@@ -11,6 +11,7 @@ import base64, json, os, sys, urllib.error, urllib.request, uuid
 BASE = "http://127.0.0.1:3100"
 WS = "ws-sre-demos"
 MISSION_TITLE = "Keep the demos server healthy"
+LIVE_TITLE = "Check the demos server live"
 TOKEN = ""
 
 DOCS = {  # title -> file
@@ -33,6 +34,19 @@ TASKS = [
     {"id": "weekly-report", "title": "Write the weekly server health report",
      "criteria": ["Report states what is red, what is trending badly, and the three most useful fixes", "Every fix has a command and a risk"],
      "dependsOn": ["inventory-check", "alerting-gaps", "runbook-review"], "requiredTools": ["documents.read"]},
+]
+
+
+LIVE_TASKS = [
+    {"id": "containers-vs-inventory", "title": "Compare running containers with the inventory using the live server",
+     "criteria": ["Every container that is not healthy is listed with its status and the tool call that showed it", "Containers or sites missing from the inventory, or in it but not running, are listed"],
+     "dependsOn": [], "workflowId": "sre-task"},
+    {"id": "resources-and-sites", "title": "Check disk, memory and the public demo sites on the live server",
+     "criteria": ["Disk and memory use are stated with the tool call that showed them", "Each public demo site is reported up or down with its HTTP status"],
+     "dependsOn": [], "workflowId": "sre-task"},
+    {"id": "live-report", "title": "Write the live health report with fixes",
+     "criteria": ["The report names what is red and the three most useful fixes", "Each fix is a command with its risk and how to undo it"],
+     "dependsOn": ["containers-vs-inventory", "resources-and-sites"], "workflowId": "sre-task"},
 ]
 
 
@@ -104,23 +118,29 @@ for title, name in DOCS.items():
                                 "bytesBase64": base64.b64encode(files[name].encode()).decode()})
     print("document uploaded:", title, r.get("resourceId"))
 
-found = [m for m in query("missions.list", limit=50).get("items", []) if m.get("title") == MISSION_TITLE]
-if found:
-    mission = found[0]
-    print("mission reused:", mission["missionId"])
-else:
-    mid = cmd("mission.create", {
-        "title": MISSION_TITLE,
-        "intent": "Keep the demos server and every demo on it available. Review the documented inventory, monitoring and runbook for gaps, and produce a weekly health report with the most useful fixes. Agents read and reason only: they never hold SSH access, and anything destructive needs the owner's yes.",
-        "successCriteria": ["Inventory and monitoring documents have no known gaps", "The runbook marks every risky step", "A weekly health report names what is red and the three best fixes"]})["resourceId"]
-    mission = query("missions.get", resourceId=mid)
-    print("mission created:", mid)
-
-if mission.get("activePlanVersionId"):
-    print("plan already confirmed")
-else:
-    planId = cmd("plan.propose", {"missionId": mission["missionId"], "origin": "manual",
-        "summary": "Review the demos server documentation for gaps, then write the weekly health report.", "tasks": TASKS})["resourceId"]
+MISSIONS = [
+    {"title": MISSION_TITLE,
+     "intent": "Keep the demos server and every demo on it available. Review the documented inventory, monitoring and runbook for gaps, and produce a weekly health report with the most useful fixes. Agents read and reason only: they never hold SSH access, and anything destructive needs the owner's yes.",
+     "criteria": ["Inventory and monitoring documents have no known gaps", "The runbook marks every risky step", "A weekly health report names what is red and the three best fixes"],
+     "summary": "Review the demos server documentation for gaps, then write the weekly health report.", "tasks": TASKS},
+    {"title": LIVE_TITLE,
+     "intent": "Look at the real demos server with the read-only host tools (files under /srv and named diagnostics) and report what is wrong or drifting, with the tool call that shows each fact. The agent changes nothing: fixes are written as commands for a person to run.",
+     "criteria": ["Every finding names the tool call that showed it", "Unhealthy containers, low disk or memory and failing sites are listed with a likely cause", "Each fix is a command with its risk and how to undo it"],
+     "summary": "Check containers, resources and sites on the live demos server.", "tasks": LIVE_TASKS},
+]
+existing = {m.get("title"): m for m in query("missions.list", limit=50).get("items", [])}
+for spec in MISSIONS:
+    mission = existing.get(spec["title"])
+    if mission:
+        print("mission reused:", mission["missionId"])
+    else:
+        mid = cmd("mission.create", {"title": spec["title"], "intent": spec["intent"], "successCriteria": spec["criteria"]})["resourceId"]
+        mission = query("missions.get", resourceId=mid)
+        print("mission created:", mid)
+    if mission.get("activePlanVersionId"):
+        print("plan already confirmed")
+        continue
+    planId = cmd("plan.propose", {"missionId": mission["missionId"], "origin": "manual", "summary": spec["summary"], "tasks": spec["tasks"]})["resourceId"]
     version = query("missions.get", resourceId=mission["missionId"])["version"]
     cmd("plan.confirm", {"planVersionId": planId}, expectedVersion=version)
     print("plan confirmed:", planId)

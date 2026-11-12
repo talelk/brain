@@ -1,0 +1,43 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Agent",
+  "metadata": {
+    "id": "sre-operator",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "instructionsPath": "agents/sre-operator.md",
+    "tools": [
+      {
+        "id": "host.read",
+        "digest": "sha256:47fb42ae68b56004c697017e8c1384070ed20b92f2b4c17af15062f40a324751"
+      },
+      {
+        "id": "host.exec",
+        "digest": "sha256:4d8bff72791ab9285110ad8c8581f76107f86dc03582d668bff85e137d167a7c"
+      },
+      {
+        "id": "documents.read",
+        "digest": "sha256:3b3246a626f529b88067426f40cd55d4f2d694664d1e04a17ae7a558a54de1f6"
+      },
+      {
+        "id": "knowledge.search",
+        "digest": "sha256:3994d2c88f1d2c2bc3c07637a7d95224b19a2c1fa4b1d89b8ef30867b2023bfb"
+      }
+    ],
+    "engine": {
+      "anyOf": [
+        "pi",
+        "claude"
+      ],
+      "features": [
+        "sessions"
+      ]
+    },
+    "maxTurns": 14,
+    "maxChildren": 0,
+    "maxDepth": 0,
+    "maxTokens": 32768,
+    "maxMicroUsd": 0
+  }
+}

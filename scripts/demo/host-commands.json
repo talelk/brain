@@ -1,0 +1,17 @@
+{
+  "commands": {
+    "docker.ps":   { "effect": "read", "argv": ["docker", "ps", "-a", "--format", "{{.Names}}\t{{.Status}}\t{{.Ports}}"] },
+    "docker.logs": { "effect": "read", "argv": ["docker", "logs", "--tail", "{lines}", "{container}"],
+                     "args": { "lines": "^[0-9]{1,3}$", "container": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$" } },
+    "docker.stats": { "effect": "read", "argv": ["docker", "stats", "--no-stream", "--format", "{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"], "timeoutMs": 30000 },
+    "docker.df":   { "effect": "read", "argv": ["docker", "system", "df"], "timeoutMs": 30000 },
+    "host.df":     { "effect": "read", "argv": ["df", "-h", "/", "/srv"] },
+    "host.memory": { "effect": "read", "argv": ["free", "-h"] },
+    "host.uptime": { "effect": "read", "argv": ["uptime"] },
+    "host.du":     { "effect": "read", "argv": ["du", "-xh", "--max-depth=1", "/srv/demos"], "timeoutMs": 45000 },
+    "systemd.is-active": { "effect": "read", "argv": ["systemctl", "is-active", "{unit}"], "args": { "unit": "^[a-z0-9][a-z0-9@._-]{0,62}\\.service$" } },
+    "systemd.status": { "effect": "read", "argv": ["systemctl", "status", "{unit}", "--no-pager", "-n", "15"], "args": { "unit": "^[a-z0-9][a-z0-9@._-]{0,62}\\.service$" } },
+    "http.head-local":  { "effect": "read", "argv": ["curl", "-sSI", "--max-time", "8", "http://127.0.0.1:{port}/"], "args": { "port": "^[1-9][0-9]{1,4}$" } },
+    "http.head-public": { "effect": "read", "argv": ["curl", "-sSI", "--max-time", "8", "https://{host}/"], "args": { "host": "^[a-z0-9][a-z0-9-]{0,40}\\.mykeyrus\\.tn$" } }
+  }
+}

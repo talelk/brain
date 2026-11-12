@@ -207,6 +207,13 @@ AGENT_SLOTS="${BRAIN_DEPLOY_AGENT_SLOTS:-3}"; EVALUATOR_SLOTS="${BRAIN_DEPLOY_EV
 RUNNER_CPU_MILLICORES="${BRAIN_DEPLOY_RUNNER_CPU_MILLICORES:-4000}"; RUNNER_MEMORY_MB="${BRAIN_DEPLOY_RUNNER_MEMORY_MB:-8192}"
 # set_runner_env FILE KEY VALUE: idempotent upsert of one KEY=VALUE line in a runner env file on the host.
 set_runner_env() { $SSH "f=$REMOTE_DIR/$1; [ -f \$f ] || exit 0; if grep -q '^$2=' \$f; then sed -i 's|^$2=.*|$2=$3|' \$f; else echo '$2=$3' >> \$f; fi"; }
+# ---- host access for the SRE tools (ADR 0021): read-only /srv for host.read, named read-only commands for host.exec ----
+# The mount and the command allowlist are operator configuration: the launcher offers /srv only read-only and only to the tool the
+# runner names (host.read); host.exec runs only the commands in host-commands.json, with fixed argv. Idempotent on every deploy.
+echo "==> Host access for the SRE tools (read-only /srv, named diagnostic commands)"
+rsync -az -e "ssh -p $PORT -o ConnectTimeout=15" scripts/demo/host-commands.json "$USER_SSH@$HOST:$REMOTE_DIR/host-commands.json"
+$SSH "printf '[Service]\nEnvironment=BRAIN_LAUNCHER_DATA_MOUNTS=srv=/srv\nEnvironment=BRAIN_LAUNCHER_HOST_COMMANDS=$REMOTE_DIR/host-commands.json\n' > /tmp/brain-host-access.conf && $SUDO mkdir -p /etc/systemd/system/brain-launcher.service.d && $SUDO cp /tmp/brain-host-access.conf /etc/systemd/system/brain-launcher.service.d/host-access.conf && $SUDO systemctl daemon-reload"
+set_runner_env runner-agents.env BRAIN_TOOL_DATA_MOUNTS host.read=srv
 if ! $SSH "systemctl list-unit-files --type=service" 2>/dev/null | grep -q "brain-runner-agents.service"; then
   echo "==> First deploy: installing launcher + runner units and enrolling runners"
   # create the evaluator memory binding (user/team/agent + claude user key)

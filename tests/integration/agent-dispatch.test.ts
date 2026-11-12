@@ -58,8 +58,8 @@ describe("complete starter release compilation", () => {
   }
   it("pins starter tasks, system helpers, instructions and the independent validator", () => {
     const release = compile(collectRelease("examples/v1/starter-release"));
-    expect(Object.keys(release.agents)).toHaveLength(6);
-    expect(Object.keys(release.workflows)).toHaveLength(7);
+    expect(Object.keys(release.agents)).toHaveLength(7);
+    expect(Object.keys(release.workflows)).toHaveLength(8);
     expect(Object.keys(release.schemas).length).toBeGreaterThanOrEqual(6);
     expect(Object.values(release.workflows).filter((workflow) => !workflow.spec.presentation?.system)).toHaveLength(3);
     for (const workflow of Object.values(release.workflows)) {
