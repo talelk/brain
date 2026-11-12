@@ -89,10 +89,16 @@ st, res = api("POST", "/v1/setup/workspace", {"workspaceId": WS, "slug": "sre-de
     "tags": ["sre", "demos-server", "operations"]})
 print("workspace:", "created" if st == 201 else f"present ({st})")
 
-have = {d.get("title") for d in query("documents.list", limit=100).get("items", [])}
+have = {d.get("title"): d for d in query("documents.list", limit=100).get("items", [])}
 for title, name in DOCS.items():
     if title in have:
-        print("document kept:", title)
+        # Re-running keeps documents as they are; BRAIN_PROVISION_REVISE=1 saves the file's current text as a new revision.
+        if os.environ.get("BRAIN_PROVISION_REVISE") == "1":
+            cmd("document.revise", {"documentId": have[title]["documentId"], "title": title, "fileName": name, "mediaType": "text/markdown",
+                                    "bytesBase64": base64.b64encode(files[name].encode()).decode()}, expectedVersion=have[title]["version"])
+            print("document revised:", title)
+        else:
+            print("document kept:", title)
         continue
     r = cmd("document.upload", {"title": title, "fileName": name, "mediaType": "text/markdown",
                                 "bytesBase64": base64.b64encode(files[name].encode()).decode()})

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Create/refresh the "sre-demos" workspace on the live demo (documents, mission, plan).
+# BRAIN_PROVISION_REVISE=1 saves the current text of scripts/demo/sre-demos/*.md as a new revision of each document.
 # Credentials: ~/.config/brain-dev/credentials.env (host/port); the demo admin sign-in is read from
 # scripts/demo/provision-cv-insights.py and sent over stdin only.
 set -euo pipefail
@@ -16,6 +17,7 @@ files = {p.name: p.read_text() for p in pathlib.Path("scripts/demo/sre-demos").g
 script = open("scripts/demo/provision-sre-demos.py").read()
 # the remote program: set the sign-in, then run the provisioner with the documents as its stdin
 print("import os, subprocess, sys")
+print("os.environ['BRAIN_PROVISION_REVISE']=%r" % __import__("os").environ.get("BRAIN_PROVISION_REVISE", ""))
 print("os.environ['BRAIN_ADMIN_EMAIL']=%r; os.environ['BRAIN_ADMIN_PASSWORD']=%r" % (m.group(1), m.group(2)))
 print("subprocess.run(['python3','-c',%r], input=%r, text=True, check=True)" % (script, json.dumps(files)))
 PY

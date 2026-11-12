@@ -115,3 +115,12 @@ describe("attention is scoped to the requested workspace", () => {
     expect((await ask()).some((item) => item.missionId === pausedMission)).toBe(true);
   });
 });
+
+describe("workspace creation", () => {
+  it("answers a repeated id or slug with a conflict, not a server error", () => {
+    const w = setupWorld();
+    w.brain.createWorkspace(w.owner, { workspaceId: "ws-dup", slug: "dup" });
+    expect(() => w.brain.createWorkspace(w.owner, { workspaceId: "ws-dup", slug: "dup-2" })).toThrow(/already exists/);
+    expect(() => w.brain.createWorkspace(w.owner, { workspaceId: "ws-dup-2", slug: "dup" })).toThrow(/already exists/);
+  });
+});

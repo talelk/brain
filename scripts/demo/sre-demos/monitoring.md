@@ -1,6 +1,6 @@
 # Monitoring and signals
 
-- **Gatus** (`/srv/demos/gatus/config/config.yaml`): HTTPS checks on docus, docus-zain, ai (Open WebUI), n8n-auto, demos-hub, vue360, teknova, synthetic, kiosrh, sf1prod, nouvelair-m and autorobot. A red Gatus entry is the first signal for "site is down".
+- **Gatus** (`/srv/demos/gatus/config/config.yaml`): HTTPS checks on docus, docus-zain, ai (Open WebUI), n8n-auto, demos-hub, vue360, teknova, synthetic, kiosrh, sf1prod, nouvelair-m and autorobot. A red Gatus entry is the first signal for "site is down". Known noise: `sf1prod`, `nouvelair-m` and `autorobot` are retired on this host (nginx config disabled 2026-10-27), so their checks stay red until removed. Sites NOT covered by Gatus: brain, cvinsights, ps-insights, health360, newqlik, memory, captree, presence, mgcatalog, victoria.
 - **VictoriaMetrics** (127.0.0.1:8428, public path `victoria.mykeyrus.tn`): host metrics from node-exporter, container metrics from cAdvisor, scraped by vmagent.
 - **VictoriaLogs** (127.0.0.1:9428): container logs shipped by vector.
 - **Grafana** (127.0.0.1:3060, `ai.mykeyrus.tn` path): dashboards over both.

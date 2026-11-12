@@ -241,6 +241,7 @@ export class Brain {
     }
     const ownerId = input.ownerId ?? actor.actorId;
     if (!s.control.prepare("SELECT 1 FROM principals WHERE id=? AND organization_id=? AND kind='human' AND disabled_at_ms IS NULL").get(ownerId, actor.organizationId)) throw new BrainDomainError("NOT_FOUND", "workspace owner must be an active organization member");
+    if (s.control.prepare("SELECT 1 FROM workspaces WHERE id=? OR (organization_id=? AND slug=?)").get(input.workspaceId, actor.organizationId, input.slug)) throw new BrainDomainError("CONFLICT", "a workspace with this id or slug already exists");
     s.inTx(s.control, () => {
       s.control.prepare("INSERT INTO workspaces(id, organization_id, slug, status, description, owner_id, tags_json) VALUES (?,?,?, 'active',?,?,?)")
         .run(input.workspaceId, actor.organizationId, input.slug, input.description ?? "", ownerId, JSON.stringify(input.tags ?? []));
