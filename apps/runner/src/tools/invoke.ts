@@ -41,6 +41,16 @@ function toolsRoot(cfg: RunnerConfig): string {
   return candidates[0] ?? "examples/v1/golden-release/tools";
 }
 
+/** "tool exit 2: <reason>": a pinned script reports why it refused as {"error": "..."} on stdout before exiting non-zero; keep that reason. */
+export function failedToolMessage(exitCode: number | undefined, stdout: string, secretValues: readonly string[]): string {
+  const base = `tool exit ${exitCode}`;
+  try {
+    const parsed = JSON.parse(stdout) as { error?: unknown };
+    if (typeof parsed.error === "string" && parsed.error.trim()) return `${base}: ${scrubSecrets(parsed.error.trim(), secretValues).slice(0, 240)}`;
+  } catch { /* not JSON: the exit code alone */ }
+  return base;
+}
+
 export interface ToolExecution {
   offer: { payload: { input?: Record<string, unknown>; step?: Record<string, unknown>; invocationId?: string }; execution: { kind: string }; workspaceId?: string };
   cfg: RunnerConfig;
@@ -139,7 +149,7 @@ export async function executeToolPayload(
       try {
         const inContainer = sandboxToolsDir ? join("/tools", "run.sh") : join("/tools", rel);
         const result = await launcher.exec(sandboxId, inContainer, stdin, 60_000);
-        if (result.exitCode !== 0) return { ok: false, output: { error: `tool exit ${result.exitCode}`, stderr: scrubSecrets(result.stderr, secrets.resolved.values).slice(0, 2000) } as unknown as JsonValue };
+        if (result.exitCode !== 0) return { ok: false, output: { error: failedToolMessage(result.exitCode, result.stdout, secrets.resolved.values), stderr: scrubSecrets(result.stderr, secrets.resolved.values).slice(0, 2000) } as unknown as JsonValue };
         const stdout = scrubSecrets(result.stdout, secrets.resolved.values);
         if (Buffer.byteLength(stdout, "utf8") > 1024 * 1024) return { ok: false, output: { error: "tool output too large" } as unknown as JsonValue };
         return { ok: true, output: JSON.parse(stdout) as JsonValue };
@@ -160,7 +170,7 @@ export async function executeToolPayload(
       shell: false, reject: false,
       ...(signal ? { cancelSignal: signal } : {}),
     });
-    if (result.exitCode !== 0) return { ok: false, output: { error: `tool exit ${result.exitCode}`, stderr: scrubSecrets(String(result.stderr), secrets.resolved.values).slice(0, 2000) } as unknown as JsonValue };
+    if (result.exitCode !== 0) return { ok: false, output: { error: failedToolMessage(result.exitCode, String(result.stdout), secrets.resolved.values), stderr: scrubSecrets(String(result.stderr), secrets.resolved.values).slice(0, 2000) } as unknown as JsonValue };
     const stdout = scrubSecrets(String(result.stdout), secrets.resolved.values);
     if (Buffer.byteLength(stdout, "utf8") > 1024 * 1024) return { ok: false, output: { error: "tool output too large" } as unknown as JsonValue };
     const parsed = JSON.parse(stdout) as JsonValue;

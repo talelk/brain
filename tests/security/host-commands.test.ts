@@ -7,6 +7,7 @@ import { parseHostCommands, resolveHostCommand } from "../../apps/launcher/src/h
 import { startLauncher } from "../../apps/launcher/src/server";
 import { brokerRead } from "../../apps/runner/src/tools/broker-read";
 import { parseToolDataMounts } from "../../apps/runner/src/supervisor";
+import { failedToolMessage } from "../../apps/runner/src/tools/invoke";
 
 const shipped = parseHostCommands(readFileSync("scripts/demo/host-commands.json", "utf8"));
 
@@ -109,5 +110,13 @@ describe("launcher host-command endpoint", () => {
     expect((await unixJson(socket, "/v1/host-commands/run", { command: "nope.x", allow: "read" }, token())).status).toBe(404);
     expect((await unixJson(socket, "/v1/host-commands/run", { command: "demo.echo", args: { word: "a b" }, allow: "read" }, token())).status).toBe(422);
     expect((await unixJson(socket, "/v1/host-commands/run", { command: "demo.echo", args: { word: "x" }, argv: ["rm"] }, token())).status).toBe(422);
+  });
+});
+
+describe("a failed tool call keeps the script's own reason", () => {
+  it("adds the error the pinned script printed before exiting non-zero, and falls back to the exit code", () => {
+    expect(failedToolMessage(2, JSON.stringify({ error: "that path is outside the readable area" }), [])).toBe("tool exit 2: that path is outside the readable area");
+    expect(failedToolMessage(2, "not json", [])).toBe("tool exit 2");
+    expect(failedToolMessage(1, JSON.stringify({ error: "token abc123 leaked" }), ["abc123"])).not.toContain("abc123");
   });
 });
