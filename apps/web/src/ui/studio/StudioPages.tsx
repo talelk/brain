@@ -59,14 +59,15 @@ export function StudioListPage(): JSX.Element {
   }
 
   return <BrainPage title={`${kind()} studio`} description="Create immutable configuration revisions, validate them and publish exact Git commits without editing the active release."
-    actions={<Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => { setError(""); setCreateOpen(true); }}>New draft</Button>}>
+    actions={kind() === "Tool" ? undefined : <Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => { setError(""); setCreateOpen(true); }}>New draft</Button>}>
     <PageStack>
       <div class="flex min-w-0 flex-wrap items-center gap-3">
         <span class="text-caption font-medium text-ink-gray-7">Customize</span>
         <TabButtons label="Customize" value={kind()} wrap onValueChange={(value) => void navigate(`/studio/${encodeURIComponent(value)}`)}
-          options={[{ value: "Agent", label: "Agents" }, { value: "Workflow", label: "Workflows" }, { value: "Play", label: "Plays" }]} />
+          options={[{ value: "Agent", label: "Agents" }, { value: "Workflow", label: "Workflows" }, { value: "Play", label: "Plays" }, { value: "Tool", label: "Tools" }]} />
       </div>
       <Show when={kind() === "Agent"}><AgentCatalog /></Show>
+      <Show when={kind() === "Tool"}><p class="text-interface text-ink-gray-7" data-tool-drafts-hint>Tool drafts start from an existing tool: open it in Library, Knowledge, Tools and press Edit this tool.</p></Show>
       <FormSheet open={createOpen()} onClose={() => setCreateOpen(false)} title="New draft" centered description={kind() === "Workflow" ? "Start with visual steps or restricted YAML. Publication never edits the active release directly." : kind() === "Agent" ? "Start with the agent contract and versioned instructions, then validate the complete release before publication." : "Author a reviewed definition with restricted YAML, validation, diff and explicit publication."}
         submit="Create draft" icon="lucide-plus" busy={busy()} onSubmit={create} error={error()} errorTitle="Draft creation failed">
         <TextInput label="Definition title" required value={title()} onInput={(event) => setTitle(event.currentTarget.value)} error={attempted() && !title().trim() ? "Give the draft a title." : undefined} placeholder="Operations workflow" />
@@ -92,6 +93,8 @@ export function StudioEditorPage(): JSX.Element {
   const draftId = () => params.draftId ?? "";
   const [content, setContent] = createSignal("");
   const [instructions, setInstructions] = createSignal("");
+  // A tool draft edits its attached files too: the pinned script and the two schemas, each by path.
+  const [fileTexts, setFileTexts] = createSignal<Record<string, string>>({});
   const [steps, setSteps] = createSignal<StepRow[]>([]);
   const [mode, setMode] = createSignal<"visual" | "yaml">("visual");
   const [dirty, setDirty] = createSignal(false);
@@ -123,6 +126,7 @@ export function StudioEditorPage(): JSX.Element {
     if (!document) return;
     setContent(document.text);
     setInstructions(revision.assets.find((asset) => asset.path.endsWith(".md"))?.text ?? "");
+    setFileTexts(Object.fromEntries(revision.assets.map((asset) => [asset.path, asset.text])));
     setMode(detail.state().data?.draft.kind === "Workflow" ? "visual" : "yaml");
     setBindingId(detail.state().data?.draft.bindingId ?? "");
     try {
@@ -153,7 +157,7 @@ export function StudioEditorPage(): JSX.Element {
       const revision = current()!;
       const updated = await app.run("configDraft.update", {
         draftId: draft.draftId, source: mode(), documents: [{ path: revision.documents[0]!.path, text: content() }, ...revision.documents.slice(1)],
-        assets: revision.assets.map((asset) => asset.path.endsWith(".md") ? { ...asset, text: instructions() } : asset),
+        assets: revision.assets.map((asset) => detail.state().data?.draft.kind === "Tool" ? { ...asset, text: fileTexts()[asset.path] ?? asset.text } : asset.path.endsWith(".md") ? { ...asset, text: instructions() } : asset),
       }, { expectedVersion: draft.version });
       if (!updated.accepted) throw new Error(updated.detail);
       setDirty(false);
@@ -216,6 +220,12 @@ export function StudioEditorPage(): JSX.Element {
               </div>}</For></div>
               <Show when={!steps().length}><p class="py-3 text-caption text-ink-gray-6">No steps defined. Add a step or use Advanced YAML.</p></Show>
               <Button size="sm" class="mt-2" variant="outline" iconLeft="lucide-plus" onClick={() => { setSteps((rows) => [...rows, { id: `step-${rows.length + 1}`, kind: "dispatch", needs: "", value: {} }]); setDirty(true); }}>Add step</Button>
+            </Show>
+            <Show when={detail.state().data?.draft.kind === "Tool"}>
+              <div class="mt-3 flex flex-col gap-3 border-t border-outline-gray-1 pt-3" data-tool-files>
+                <For each={current()?.assets ?? []}>{(asset) => <Textarea label={asset.path.startsWith("schemas/") ? `Schema: ${asset.path}` : `Script: ${asset.path}`} value={fileTexts()[asset.path] ?? asset.text} onInput={(event) => { const text = event.currentTarget.value; setFileTexts((all) => ({ ...all, [asset.path]: text })); setDirty(true); }} class="min-h-48 min-w-0 max-w-full font-mono" />}</For>
+                <p class="text-caption text-ink-gray-6">The definition above, this script and these schemas are saved together. Agents and workflows that use the tool are re-pinned automatically when you validate or publish; running work keeps the version it started with.</p>
+              </div>
             </Show>
             <Show when={detail.state().data?.draft.kind === "Agent"}><div class="mt-3 border-t border-outline-gray-1 pt-3"><Textarea label="Versioned instructions (Markdown)" value={instructions()} onInput={(event) => { setInstructions(event.currentTarget.value); setDirty(true); }} class="min-h-64 min-w-0 max-w-full" /><p class="mt-2 text-caption text-ink-gray-6">Attempts keep their pinned instructions and tools. This candidate has no effect until its exact release is activated.</p></div></Show>
             <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-outline-gray-1 pt-3"><Button size="sm" variant="solid" theme="blue" loading={busy()} disabled={busy() || !dirty()} onClick={() => void save()}>Save immutable revision</Button><Show when={dirty()}><Badge size="sm" theme="amber" label="unsaved" /></Show></div>

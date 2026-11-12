@@ -8742,7 +8742,8 @@
                 "Workflow",
                 "RunnerGroup",
                 "Policy",
-                "Play"
+                "Play",
+                "Tool"
               ]
             },
             "id": {

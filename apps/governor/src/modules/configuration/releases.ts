@@ -85,8 +85,9 @@ export function activeReleaseAssets(store: Store, organizationId: string): Array
   const active = activeReleaseRecord(store, organizationId);
   if (!active) return [];
   const schemas = Object.entries(active.release.schemas ?? {}).map(([path, schema]) => ({ path, text: `${JSON.stringify(schema, null, 2)}\n` }));
-  const files = store.control.prepare("SELECT entrypoint,digest FROM release_files WHERE release_digest=?").all(active.digest) as Array<{ entrypoint: string; digest: string }>;
-  return [...schemas, ...files.map((file) => ({ path: file.entrypoint, text: Buffer.from(readVerified(store, file.digest)).toString("utf8") }))];
+  const files = store.control.prepare("SELECT tool_id,entrypoint,digest FROM release_files WHERE release_digest=?").all(active.digest) as Array<{ tool_id: string; entrypoint: string; digest: string }>;
+  // A tool script is addressed by its tool (tools/<id>/<entrypoint>): several tools share the file name run.sh, so the bare name cannot say which script is meant.
+  return [...schemas, ...files.map((file) => ({ path: file.tool_id.startsWith("agent:") ? file.entrypoint : `tools/${file.tool_id}/${file.entrypoint}`, text: Buffer.from(readVerified(store, file.digest)).toString("utf8") }))];
 }
 
 /** The organization's 50 most recent releases, marking the active one. */

@@ -20,6 +20,7 @@ import { LIST_PAGE_SIZE as PAGE_SIZE, Pager } from "../ui/components/primitives"
 import { StatGrid } from "@talelk/newui-organisms";
 import { MixBar } from "../ui/viz/MixBar";
 import { ToolCallsPanel } from "../ui/tools/ToolCallsPanel";
+import { authorCandidate } from "./catalog";
 export interface MemoryPublicationInput {
   candidateId: string;
   sourceWorkspaceId: string;
@@ -409,6 +410,17 @@ export function ToolsScreen(props: {
   onPublish: (release: { id: string; digest: string }, evidence: string[]) => Promise<void>;
 }): JSX.Element {
   const desktop = mediaQuery("(min-width: 1024px)");
+  const app = useApp();
+  const navigate = useNavigate();
+  const [editError, setEditError] = createSignal("");
+  const [editing, setEditing] = createSignal(false);
+  /** Opens the Studio on an editable candidate of this tool: its definition, script and schemas. Nothing changes until a candidate is published and activated. */
+  const editTool = async (id: string): Promise<void> => {
+    setEditing(true); setEditError("");
+    try { await authorCandidate(app, navigate, "Tool", id, `Edit ${id}`, "edit"); }
+    catch (cause) { setEditError(cause instanceof Error ? cause.message : "The tool could not be opened for editing"); }
+    finally { setEditing(false); }
+  };
   const [selectedId, setSelectedId] = createSignal("");
   const [proposeOpen, setProposeOpen] = createSignal(false);
   const [publishOpen, setPublishOpen] = createSignal(false);
@@ -587,6 +599,13 @@ export function ToolsScreen(props: {
                         </div>
                       </Show>
                     </WorkspaceSection>
+                    <Show when={props.canPublish}>
+                      <div class="flex flex-wrap items-center gap-3" data-tool-edit>
+                        <Button variant="outline" iconLeft="lucide-pencil" disabled={editing()} onClick={() => void editTool(tool.id)}>Edit this tool</Button>
+                        <span class="text-caption text-ink-gray-6">Opens an editable copy of its definition, script and schemas. Nothing changes until you publish it and activate the release.</span>
+                      </div>
+                      <Show when={editError()}><Alert theme="red" variant="outline" title="Could not open the tool for editing" description={editError()} /></Show>
+                    </Show>
                     <WorkspaceSection title="Recent calls and why they failed" description="The latest calls of this tool in this workspace, each failure explained, with a link to its run.">
                       <ToolCallsPanel toolId={tool.id} />
                     </WorkspaceSection>

@@ -67,7 +67,7 @@ export function TaskCatalog(props: { search: string; diagnostics?: boolean }) {
 }
 
 /** Proposes an editable candidate (or a copy) of an active definition and opens it in the Studio. */
-export async function authorCandidate(app: ReturnType<typeof useApp>, navigate: ReturnType<typeof useNavigate>, kind: "Agent" | "Workflow", id: string, title: string, mode: "edit" | "duplicate"): Promise<void> {
+export async function authorCandidate(app: ReturnType<typeof useApp>, navigate: ReturnType<typeof useNavigate>, kind: "Agent" | "Workflow" | "Tool", id: string, title: string, mode: "edit" | "duplicate"): Promise<void> {
   const receipt = await app.run("configDraft.create", { title: mode === "duplicate" ? `Copy of ${title}` : title, kind, sourceDefinition: { kind, id, mode } });
   if (!receipt.accepted || !receipt.resourceId) throw new Error(receipt.detail);
   void navigate(`/studio/${kind}/${encodeURIComponent(receipt.resourceId)}`);

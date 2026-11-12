@@ -10,6 +10,7 @@ import { compileRelease, parseRestrictedYaml, type AgentInstruction, type Source
 import { normalizeDocuments, workflowDocument } from "./serialize";
 import { diffDocuments } from "./diff";
 import { impactDocuments } from "./impact";
+import { repinDependents } from "./repin";
 
 export interface ConfigurationDraftCommand {
   readonly commandType: string;
@@ -116,7 +117,7 @@ export function releaseAssets(documents: readonly SourceDoc[], assets: readonly 
     }
     if (value["kind"] === "Tool" && typeof spec?.["entrypoint"] === "string") {
       const entrypoint = spec["entrypoint"];
-      const script = assets.find((asset) => asset.path === entrypoint || asset.path.endsWith(`/${entrypoint}`));
+      const script = assets.find((asset) => asset.path === `tools/${id}/${entrypoint}`) ?? assets.find((asset) => asset.path === entrypoint);
       if (script) scripts.push({ toolId: id, entrypoint, bytesBase64: Buffer.from(script.text, "utf8").toString("base64") });
     }
   }
@@ -216,6 +217,13 @@ export class ConfigurationDraftService {
       const value = parseRestrictedYaml(sourceDocument.text, sourceDocument.path);
       const instructionPath = String((value["spec"] as Record<string, unknown> | undefined)?.["instructionsPath"] ?? "");
       assets = this.deps.activeAssets(actor.organizationId).filter((asset) => asset.path === instructionPath);
+      if (kind === "Tool") {
+        // A tool is its definition plus the script it is pinned to and the two schemas it is called with: editing it means editing all three.
+        if (source.mode !== "edit") throw new BrainDomainError("INVALID_ARGUMENT", "a tool can be edited; duplicating a tool is not supported");
+        const toolSpec = value["spec"] as Record<string, unknown> | undefined;
+        const wanted = new Set([`tools/${source.id}/${String(toolSpec?.["entrypoint"] ?? "")}`, String(toolSpec?.["inputSchemaRef"] ?? ""), String(toolSpec?.["outputSchemaRef"] ?? "")]);
+        assets = this.deps.activeAssets(actor.organizationId).filter((asset) => wanted.has(asset.path));
+      }
       if (source.mode === "duplicate") {
         const id = slug(title, `new-${kind.toLowerCase()}`);
         value["metadata"] = { ...(value["metadata"] as Record<string, unknown>), id };
@@ -267,8 +275,10 @@ export class ConfigurationDraftService {
     const revision = this.revision(draft);
     const diagnostics: Array<ValidationRun["diagnostics"][number]> = [];
     try {
-      const documents = ConfigurationDraftService.documents(revision);
+      const edited = ConfigurationDraftService.documents(revision);
       const assets = ConfigurationDraftService.assets(revision);
+      // Dependents that pin an edited definition by digest follow it (tool -> agent -> workflow), so the draft compiles against its own pins.
+      const documents = [...edited, ...repinDependents(this.deps.activeDocuments(actor.organizationId), edited)];
       const paths = new Set([...documents, ...assets].map((document) => document.path));
       const baseDocuments = this.deps.activeDocuments(actor.organizationId).filter((document) => !paths.has(document.path));
       const baseAssets = this.deps.activeAssets(actor.organizationId).filter((document) => !paths.has(document.path));
@@ -323,8 +333,9 @@ export class ConfigurationDraftService {
         authMethod: "session", authGeneration: 1,
       };
       try {
-        const documents = ConfigurationDraftService.documents(revision);
+        const edited = ConfigurationDraftService.documents(revision);
         const assets = ConfigurationDraftService.assets(revision);
+        const documents = [...edited, ...repinDependents(this.deps.activeDocuments(actor.organizationId), edited)];
         const result = await this.deps.publishConfiguration(actor, request.binding_id, [...documents, ...assets], `Publish ${draft.title} revision ${revision.revision}`);
         const paths = new Set([...documents, ...assets].map((document) => document.path));
         const committedDocuments = result.documents.filter((document) => documents.some((candidate) => candidate.path === document.path));
@@ -363,11 +374,12 @@ export class ConfigurationDraftService {
     const current = revisions[0];
     if (!current) throw new BrainDomainError("NOT_FOUND", "configuration draft revision not found");
     const currentRevision = this.revision(draft);
-    const documents = ConfigurationDraftService.documents(currentRevision);
+    const edited = ConfigurationDraftService.documents(currentRevision);
     const assets = ConfigurationDraftService.assets(currentRevision);
+    const activeDocuments = this.deps.activeDocuments(actor.organizationId);
+    const documents = [...edited, ...repinDependents(activeDocuments, edited)];
     const activePaths = new Set(documents.map((document) => document.path));
-    const base = this.deps.activeDocuments(actor.organizationId).filter((document) => !activePaths.has(document.path));
-    const comparisonBase = base.filter((document) => activePaths.has(document.path));
+    const comparisonBase = activeDocuments.filter((document) => activePaths.has(document.path));
     if (queryType === "configDrafts.impact") return impactDocuments(comparisonBase, documents) as unknown as JsonValue;
     if (queryType === "configDrafts.get") {
       const validations = (this.store.control.prepare("SELECT * FROM validation_runs WHERE draft_id=? ORDER BY created_at_ms DESC,id LIMIT 100").all(draft.id) as ValidationRow[]).map(ConfigurationDraftService.validation);

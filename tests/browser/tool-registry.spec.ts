@@ -101,5 +101,18 @@ test("Tools tab lists what each tool does, which agents may use it, calls, last 
   await expect(page.locator("[data-tool-calls]")).toHaveText("Never used");
   await row("task.validate").click();
   await expect(page.locator("[data-tool-agents]")).toContainText("No agent has this tool in its allowlist");
+
+  // Edit: the tool opens in the Studio with its script and schemas, an edit saves, and the candidate validates; the active release is untouched.
+  await row("web.fetch").click();
+  await page.getByRole("button", { name: "Edit this tool" }).click();
+  await expect(page).toHaveURL(/\/studio\/Tool\//);
+  const script = page.getByLabel("Script: tools/web.fetch/run.sh");
+  await expect(script).toBeVisible();
+  await expect(page.getByLabel("Schema: schemas/web-fetch-input.json")).toBeVisible();
+  await script.fill(`${await script.inputValue()}\n# edited in the browser\n`);
+  await page.getByRole("button", { name: "Save immutable revision" }).click();
+  await expect(page.getByText("unsaved", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Validate", exact: true }).click();
+  await expect(page.getByText("passed", { exact: true }).first()).toBeVisible();
   expect(errors).toEqual([]);
 });

@@ -28,3 +28,4 @@ Workspace `ws-sre-demos`, made by `scripts/provision-sre-demos.sh` (idempotent; 
 
 - 2026-11-12: Tools tab now has Recent calls and why they failed (`tools.calls`, deployed); failed script calls keep their own reason (`tool exit N: reason`). Editing a tool from the UI is blocked: no git write binding on the live server (see backlog).
 - 2026-11-12: SRE report task parked after 3 failed attempts pinned to the old release (32k token limit; they used 44-59k); retried on the 100k release and finished first try. A parked task keeps its old pin until retried.
+- 2026-11-12: Tools tab has Edit this tool: a Studio draft with the definition, script and schemas; dependents (agent, workflow) are re-pinned at validate/publish (`repin.ts`); active tool scripts are addressed `tools/<id>/<entrypoint>` (bare `run.sh` collided across tools). Publishing needs a Git write binding (decision: keep Git).
