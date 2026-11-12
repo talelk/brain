@@ -1,6 +1,6 @@
 import type { JsonValue } from "@brain/contracts";
 import { domainDigest, sha256Digest } from "@brain/contracts";
-import { releaseRecord, releaseToolPins } from "../configuration/index";
+import { releaseRecord, releaseToolAllowedHosts, releaseToolPins } from "../configuration/index";
 import { authorEvidenceFor, toolReleasesForPayload } from "../evidence/index";
 import { putBytes, readVerified, registerArtifact } from "../artifacts/index";
 import { endAttemptSession, recordAttemptProgress, recordAttemptSession } from "../sessions/index";
@@ -286,7 +286,7 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
     configDigest: String(row["config_digest"]), workflowDigest,
     placement: JSON.parse(String(row["placement_json"])),
     execution: { kind, artifact: { artifactId: artifact.artifactId, digest: artifact.digest, bytes: artifact.bytes, mediaType: "application/json", classification: "internal" } },
-    toolPins,
+    toolPins, toolAllowedHosts: releaseToolAllowedHosts(s, String(row["config_digest"])),
     sourceRevision: authorEvidence.sourceRevision,
     primitiveVersions: authorEvidence.primitiveVersions,
     authorEvidence: { toolReleases: toolReleasesForPayload(JSON.parse(artifactText) as JsonValue), claimedChecks: authorEvidence.claimedChecks },

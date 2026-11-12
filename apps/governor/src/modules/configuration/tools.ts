@@ -84,3 +84,13 @@ export function releaseToolPins(s: Store, releaseDigest: string): Record<string,
     return pins;
   } catch { return {}; }
 }
+
+/** The hosts each tool of a release may reach, from its pinned definition: the one authority for a runner-side fetch, never a step's own claim. */
+export function releaseToolAllowedHosts(s: Store, releaseDigest: string): Record<string, string[]> {
+  const row = s.control.prepare("SELECT manifest_json FROM config_releases WHERE digest=?").get(releaseDigest) as { manifest_json: string } | undefined;
+  if (!row) return {};
+  try {
+    const parsed = JSON.parse(row.manifest_json) as { manifest?: { tools?: Array<{ id?: string; allowedHosts?: string[] }> } };
+    return Object.fromEntries((parsed.manifest?.tools ?? []).filter((tool) => tool.id && Array.isArray(tool.allowedHosts)).map((tool) => [tool.id as string, tool.allowedHosts as string[]]));
+  } catch { return {}; }
+}

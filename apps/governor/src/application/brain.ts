@@ -50,7 +50,7 @@ import { createStreamService, frameOf, type StreamFilters, type StreamService } 
 import { DocumentService, documentCommands } from "../modules/resources/index";
 import { IntegrationService, integrationCommands } from "../modules/integrations/index";
 import { ConfigurationDraftService } from "../modules/configuration/index";
-import { CapitalizationService, capitalizationCommands } from "../modules/capabilities/index";
+import { CapitalizationService, ToolTests, capitalizationCommands } from "../modules/capabilities/index";
 
 export class Brain {
   readonly runtime: RuntimeConfig;
@@ -62,6 +62,7 @@ export class Brain {
   readonly documents: DocumentService;
   readonly integrations: IntegrationService;
   readonly drafts: ConfigurationDraftService;
+  readonly toolTests: ToolTests;
   readonly jobProtocol: JobProtocol;
   readonly capitalization: CapitalizationService;
   readonly memory: MemoryStore;
@@ -104,6 +105,7 @@ export class Brain {
         stageRelease: (actor, documents, assets, sourceRevision) => this.stageRelease(actor, documents, sourceRevision, assets.scripts, assets.instructions, assets.schemas),
       });
       this.workflows = new MastraWorkflowEngine(this.store, this, join(this.store.dataDir, "mastra"));
+      this.toolTests = new ToolTests(this.store, { startRun: (input) => this.workflows.startRun(input) });
       this.jobProtocol = new JobProtocol(this.store, {
         completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.workflows.completeStep(organizationId, workspaceId, runId, stepId, output, ok),
         evaluatorEligible: (runnerId, jobId) => this.evidence.evaluatorEligible(runnerId, jobId),

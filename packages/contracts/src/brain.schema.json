@@ -2702,6 +2702,18 @@
             "$ref": "#/$defs/Digest"
           }
         },
+        "toolAllowedHosts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "maxItems": 100
+          }
+        },
         "grantRef": {
           "$ref": "#/$defs/Id"
         },

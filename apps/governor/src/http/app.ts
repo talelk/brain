@@ -307,6 +307,26 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     } catch (e) { return fail(c as never, e); }
   });
 
+  // Try a read tool with an input a person typed (a one-step workflow tagged tool-test:<id>), and read the recent test runs.
+  app.post("/v1/config/tools/:toolId/test", async (c) => {
+    try {
+      const body = (await readJson(c)) as { workspaceId?: string; input?: unknown; releaseDigest?: string };
+      const workspaceId = String(body.workspaceId ?? "");
+      const { actor } = await actorFor(c, workspaceId);
+      const scoped: ActorContext = { ...actor, scopes: scopesForPrincipal(brain.store, actor.actorId, actor.organizationId, workspaceId) };
+      return c.json(brain.toolTests.run(scoped, workspaceId, c.req.param("toolId"), (body.input ?? {}) as never, body.releaseDigest) as never, 202);
+    } catch (e) { return fail(c as never, e); }
+  });
+
+  app.get("/v1/config/tools/:toolId/tests", async (c) => {
+    try {
+      const workspaceId = c.req.query("workspaceId") ?? "";
+      const { actor } = await actorFor(c, workspaceId);
+      const scoped: ActorContext = { ...actor, scopes: scopesForPrincipal(brain.store, actor.actorId, actor.organizationId, workspaceId) };
+      return c.json({ items: brain.toolTests.list(scoped, workspaceId, c.req.param("toolId"), 20) } as never);
+    } catch (e) { return fail(c as never, e); }
+  });
+
   app.post("/v1/setup/config", async (c) => {
     try {
       const body = (await readJson(c,8*1024*1024)) as {

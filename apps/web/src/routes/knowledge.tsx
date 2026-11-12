@@ -20,6 +20,7 @@ import { LIST_PAGE_SIZE as PAGE_SIZE, Pager } from "../ui/components/primitives"
 import { StatGrid } from "@talelk/newui-organisms";
 import { MixBar } from "../ui/viz/MixBar";
 import { ToolCallsPanel } from "../ui/tools/ToolCallsPanel";
+import { ToolTryPanel } from "../ui/tools/ToolTryPanel";
 import { authorCandidate } from "./catalog";
 export interface MemoryPublicationInput {
   candidateId: string;
@@ -605,6 +606,11 @@ export function ToolsScreen(props: {
                         <span class="text-caption text-ink-gray-6">Opens an editable copy of its definition, script and schemas. Nothing changes until you publish it and activate the release.</span>
                       </div>
                       <Show when={editError()}><Alert theme="red" variant="outline" title="Could not open the tool for editing" description={editError()} /></Show>
+                    </Show>
+                    <Show when={props.canPublish}>
+                      <WorkspaceSection title="Try this tool" description="Run it with an input you type and see what it returns, or why it failed.">
+                        <ToolTryPanel toolId={tool.id} effectClass={tool.effectClass} />
+                      </WorkspaceSection>
                     </Show>
                     <WorkspaceSection title="Recent calls and why they failed" description="The latest calls of this tool in this workspace, each failure explained, with a link to its run.">
                       <ToolCallsPanel toolId={tool.id} />

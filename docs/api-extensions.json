@@ -69,6 +69,16 @@
     },
     {
       "method": "POST",
+      "path": "/v1/config/tools/{toolId}/test",
+      "purpose": "try a read tool with a typed input as a one-step workflow tagged tool-test:<id> (organization administrator); the run is recorded apart from real tool calls"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/config/tools/{toolId}/tests",
+      "purpose": "the recent test runs of one tool in a workspace, each with its output or a plain-words diagnosis of its failure"
+    },
+    {
+      "method": "POST",
       "path": "/v1/shares",
       "purpose": "create a read-only, expiring, revocable share link for one verified final result version (ADR 0013); the token is returned once"
     },

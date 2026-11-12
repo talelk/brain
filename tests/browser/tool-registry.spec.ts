@@ -5,6 +5,7 @@ import { fixtureStarter } from "../support/starter";
 import { enrollAndHello } from "../../apps/runner/src/supervisor";
 import { GovernorClient } from "../../apps/runner/src/governor-client";
 import { putBytes } from "../../apps/governor/src/modules/artifacts/index";
+import { driveRuns, enrollRunners } from "../support/flow";
 
 /** Issue #84: the Tools tab says what each tool does, who may call it, how often it ran, and "Never used" when it did not, and whether it is available at all. */
 test("Tools tab lists what each tool does, which agents may use it, calls, last failure and the run behind them", async ({ page, governor }) => {
@@ -101,6 +102,21 @@ test("Tools tab lists what each tool does, which agents may use it, calls, last 
   await expect(page.locator("[data-tool-calls]")).toHaveText("Never used");
   await row("task.validate").click();
   await expect(page.locator("[data-tool-agents]")).toContainText("No agent has this tool in its allowlist");
+
+  // Try: a read tool runs with a typed input on a real runner and shows its output; a write tool cannot be tried.
+  await row("operations.context").click();
+  await page.getByLabel("Input (JSON)").fill("not json");
+  await page.getByRole("button", { name: "Run test" }).click();
+  await expect(page.getByText("The input is not valid JSON.")).toBeVisible();
+  await page.getByLabel("Input (JSON)").fill("{}");
+  await page.getByRole("button", { name: "Run test" }).click();
+  await expect(page.locator("[data-tool-test-state]").first()).toBeVisible();
+  const testers = await enrollRunners(governor, scoped, "tooltest", ["agents"]);
+  await driveRuns(testers, () => (brain.store.control.prepare("SELECT COUNT(*) AS n FROM jobs WHERE workflow_run_id IN (SELECT run_id FROM tool_test_runs) AND state='succeeded'").get() as { n: number }).n === 1);
+  await expect(page.locator("[data-tool-test-state='succeeded']").first()).toContainText("Test run");
+  await expect(page.locator("[data-tool-test-output]").first()).toContainText("observations");
+  // The test is tagged apart from real calls: the tool's usage did not move.
+  await expect(page.locator("[data-tool-calls]")).toHaveText("Never used");
 
   // Edit: the tool opens in the Studio with its script and schemas, an edit saves, and the candidate validates; the active release is untouched.
   await row("web.fetch").click();

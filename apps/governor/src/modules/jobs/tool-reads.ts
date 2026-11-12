@@ -47,12 +47,15 @@ export function brokerToolRead(s: Store, ports: ToolReadPorts, runner: { runnerI
   if (!(GOVERNOR_READ_TOOLS as readonly string[]).includes(request.tool.id)) return refuse(`${request.tool.id} is not a Governor-brokered read tool`);
   // The attempt's own agent, from the release the job is pinned to, must list this exact tool digest.
   const payload = s.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(String(row["job_id"])) as { payload_json: string } | undefined;
-  const parsed = payload ? JSON.parse(payload.payload_json) as { step?: { uses?: { type?: string; release?: { id: string } } } } : undefined;
+  const parsed = payload ? JSON.parse(payload.payload_json) as { step?: { uses?: { type?: string; release?: { id: string; digest?: string } } } } : undefined;
   const agentId = parsed?.step?.uses?.type === "agent" ? parsed.step.uses.release?.id : undefined;
   const configDigest = (s.control.prepare("SELECT config_digest FROM jobs WHERE id=?").get(String(row["job_id"])) as { config_digest: string }).config_digest;
   const release = releaseRecord(s, organizationId, configDigest)?.release;
   const agent = agentId ? release?.agents?.[agentId] : undefined;
-  if (!agent || !agent.spec.tools.some((allowed) => allowed.id === request.tool.id && allowed.digest === request.tool.digest)) return refuse(`this attempt's agent does not allow ${request.tool.id} at that digest`);
+  // A tool test has no agent: the person who started it asked for exactly this tool at this digest, so that one job may read through its broker.
+  const testOfThisTool = parsed?.step?.uses?.type === "tool" && parsed.step.uses.release?.id === request.tool.id && parsed.step.uses.release.digest === request.tool.digest
+    && Boolean(s.control.prepare("SELECT 1 FROM tool_test_runs WHERE organization_id=? AND run_id=?").get(organizationId, String(row["workflow_run_id"])));
+  if (!testOfThisTool && (!agent || !agent.spec.tools.some((allowed) => allowed.id === request.tool.id && allowed.digest === request.tool.digest))) return refuse(`this attempt's agent does not allow ${request.tool.id} at that digest`);
   const declared = release?.manifest.tools?.find((tool) => tool.id === request.tool.id && tool.digest === request.tool.digest);
   if (!declared || declared.effectClass !== "read") return refuse(`${request.tool.id} is not a read-effect tool of the pinned release`);
 

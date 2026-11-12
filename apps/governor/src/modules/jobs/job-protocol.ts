@@ -139,9 +139,20 @@ export class JobProtocol {
   }
 
   complete(runner: RunnerIdentity, attemptId: string, body: Record<string, unknown>): JsonValue {
-    return completeAttempt(this.store, {
+    const result = completeAttempt(this.store, {
       completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.ports.completeStep(organizationId, workspaceId, runId, stepId, output, ok),
     }, runner, attemptId, body);
+    // A tool test has no evaluator to verify it: its succeeded job is concluded here and its step completed with the tool's own output.
+    if ((result as { jobState?: string }).jobState === "verifying") {
+      const test = this.store.control.prepare(`SELECT j.id AS jobId, j.organization_id AS organizationId, j.workspace_id AS workspaceId, j.workflow_run_id AS runId, j.step_id AS stepId, o.output_json AS output
+        FROM job_attempts a JOIN jobs j ON j.id=a.job_id JOIN tool_test_runs t ON t.run_id=j.workflow_run_id AND t.organization_id=j.organization_id
+        LEFT JOIN job_outputs o ON o.job_id=j.id WHERE a.id=?`).get(attemptId) as { jobId: string; organizationId: string; workspaceId: string; runId: string; stepId: string; output: string | null } | undefined;
+      if (test) {
+        concludeAttempt(this.store, { jobId: test.jobId, attemptId, state: "succeeded" });
+        this.ports.completeStep(test.organizationId, test.workspaceId, test.runId, test.stepId, test.output ? JSON.parse(test.output) as JsonValue : null, true);
+      }
+    }
+    return result;
   }
 
   release(runner: { runnerId: string; epoch: number }, attemptId: string, body: Record<string, unknown>): JsonValue {

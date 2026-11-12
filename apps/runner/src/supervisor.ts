@@ -351,8 +351,18 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     } else {
     const launcher = LauncherClient.configured() ? LauncherClient.fromEnv() : undefined;
     const toolPins = (offer as { toolPins?: Record<string, string> }).toolPins;
-    result = await executeToolPayload({
-      offer: { payload, execution: offer.execution, workspaceId: offer.workspaceId },
+    // A direct tool step of a read tool whose data a broker supplies (a page, a document, a host command) gets it first, exactly as an agent's call does.
+    const directTool = (payload.step as { uses?: { type?: string; release?: { id: string; digest: string } }; effectClass?: string } | undefined);
+    let toolPayload = payload;
+    let brokerRefusal: string | undefined;
+    if (directTool?.uses?.type === "tool" && directTool.uses.release && (directTool.effectClass ?? "read") === "read") {
+      const binding = { release: directTool.uses.release, effectClass: "read", allowedHosts: (offer as { toolAllowedHosts?: Record<string, string[]> }).toolAllowedHosts?.[directTool.uses.release.id] } as unknown as Parameters<typeof brokerRead>[0];
+      const brokered = await brokerRead(binding, (payload.input ?? {}) as Record<string, unknown>, offer.attemptId, client, launcher);
+      if (brokered && !brokered.ok) brokerRefusal = brokered.error;
+      else if (brokered) toolPayload = { ...payload, input: { ...(payload.input as Record<string, unknown>), broker: brokered.data } } as typeof payload;
+    }
+    result = brokerRefusal !== undefined ? { ok: false, output: { error: brokerRefusal } as JsonValue } : await executeToolPayload({
+      offer: { payload: toolPayload, execution: offer.execution, workspaceId: offer.workspaceId },
       cfg, signal: controller.signal, launcher, permit, toolPins,
       validatePermit: (token, invocationId) => client.validatePermit(token, invocationId),
       fetchPinnedTool: (toolId, digest) => client.toolScript(offer.configDigest, toolId, digest),
@@ -372,7 +382,8 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     await client.complete(offer.attemptId, {
       result: outcomeUnknown ? "unknown-outcome" : result.ok ? "succeeded" : "failed", output, jobFence: offer.jobFence, cleanupConfirmed: result.cleanupConfirmed ?? true,
     });
-    if (result.ok && !assignment && offer.authorEvidence && offer.workflowRunId && artifact) {
+    // A workflow with no evaluator (a tool test) claims no checks: there is nothing for a bundle to carry, and an empty one is refused.
+    if (result.ok && !assignment && offer.authorEvidence && offer.authorEvidence.claimedChecks.length > 0 && offer.workflowRunId && artifact) {
       const bundle = {
         contractVersion: "brain.evidence/v1",
         bundleId: `bundle-${offer.attemptId}`,

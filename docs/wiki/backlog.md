@@ -14,7 +14,7 @@ Dated 2026-11-11 ~23:15, at `talelk/brain@9393922` (deployed: everything through
 |------|-----|
 | Re-allow the Claude extension on brain.mykeyrus.tn (chrome://extensions) and sign in once in the Chrome tab | to run a real mission end to end through the renamed runtime (ADRs 0018-0020) and walk session-gated pages |
 | Connect a Git repo (Administration > This workspace > Integrations: connection with a token, then a configuration write binding) | Edit this tool (deployed 2026-11-12) validates anywhere but can only publish through that binding; the live server has none |
-| Test a tool from the UI (run with my input) | needs the runner/launcher sandbox path; do after the edit decision |
+| Tool self-test: run a tool's own `test.sh` in the sandbox (stage it, add a runner mode) and show the result | Try this tool (run with my input) is deployed; the self-test needs `test.sh` staged, which nothing does yet |
 | Create one share link and open it signed out | creating a public link grants access: the assistant is blocked from doing it; verify `/shared/:token` is read-only |
 | Decide the quarantined tool proposals in Library (demo workspace: 5; sre-demos: 1 tool + 1 Play proposal "Keep the demos server healthy", filed 2026-11-12) | they need a person by design; approving the Play opens a Studio draft |
 | Rotate the server sudo password | it was typed into chat several times |
