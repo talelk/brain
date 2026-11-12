@@ -22,13 +22,15 @@ Dated 2026-11-11 ~23:15, at `talelk/brain@9393922` (deployed: everything through
 | # | Item | Notes |
 |---|------|-------|
 | 15 | Evaluator quality after track AG (qwen3.8-flash-next-a5b, 3 runs per sample): answers parsed 15/15, validator 15/15; one of six old-style review runs still sets a criterion met:false; plans valid first try 6/6 at a median 32 s (was 4/6 at 100 s). New prompts are in the repo, NOT yet staged live | run `scripts/stage-demo-release.sh` after the next deploy (agent instructions are bundle bytes, no digest re-pin needed); re-measure with `node scripts/qualification/task-quality.mjs --runs 3 --judge` and `--plans 6`; consider a faster planning model only if plan time regresses |
-| 65 | Compaction and the new tools (documents.read, web.fetch, csv.query, knowledge.search) not yet exercised by real missions after the availability/size fixes | check Tools registry failure counts after the next missions |
+| 65 | Tools exercised live 2026-11-12 (API-driven): knowledge.search and web.fetch (en.wikipedia.org) ran in a real mission that closed achieved in 238 s; a task that demands an off-list host (example.com) is parked after 3 attempts by design (the pack names the allowed hosts). documents.read and csv.query still unexercised (the workspace has no documents/CSV) | upload one document and one CSV, run a mission using them |
 | 66 | Email: STARTTLS/smtps only tested against a fake server; whole `startSupervisor` loop not run end to end (only `runClaimLoops`) | test against a real relay before relying on it |
 | 67 | RTL: mixed English/Arabic bidi quirks need real Arabic strings; result-reader compare view not seen in RTL | needs translations |
 
 ## Deployed 2026-11-12 ~00:30 (track AG, `e8ee242`, release restaged)
 Prompts: task-worker criteria semantics (`met` is about the deliverable; reviews still set `met:true` for "the review states..." criteria; criteria verbatim, one row each) and a shorter plan-guide. Measured on `qwen3.8-flash-next-a5b` (3 runs per sample): answers parsed 15/15 and validator 15/15 after (one later re-check had a `criteria-met` failure on an old-style sample); judge agreement on old-style samples 100% in 5 of 6 runs once the judge got the same semantics (so read that number with care); plan drafts over 6: first-try valid 4/6 -> 6/6, median 100 s -> 32 s, max 253 s -> 87 s. Flaky tests: root cause of the `golden` failure under load was a pooled socket closed by Node's 5 s idle timeout (`keepAliveTimeout=120s` + `closeAllConnections()`); all explicit test timeouts now go through `scaled()` (load-aware, `BRAIN_TEST_TIMEOUT_FACTOR` overrides); 14x CPU load: before 1 of 2 runs failed, after 2 of 2 passed (531/531). Row 33 closed.
 Browser: the Chrome extension lost site access to brain.mykeyrus.tn (tab group changed; "Chrome blocked the extension from accessing this page"): the owner needs to re-allow it in chrome://extensions and sign in.
+
+Dependabot: 3 moderate transitive advisories pinned in `pnpm-workspace.yaml` overrides 2026-11-12 (`72168f6`); audit clean.
 
 ## Not yet seen live
 Needs-you "outcome unknown" row, Saved document in the Review inbox, scheduled Repeat occurrence (auto-confirm), notification preferences (email section), phone layout and install prompt on a real phone.
