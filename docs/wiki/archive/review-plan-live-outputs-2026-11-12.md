@@ -56,3 +56,26 @@ Not covered: creating a mission, confirming a plan, accepting a result and a run
 ## Root cause behind the blocked SRE mission
 
 Plan tasks default to the general task worker, which has no `host.exec`; the SRE recipe is marked `system`, so the planner never picks it. The mission's task therefore failed three times with an honest "I cannot reach container telemetry" report. Two product gaps made it impossible to fix from the UI: the "started work" guard counted parked tasks (now fixed), and no control changed a task's recipe (now added: Run this task with). Still open: pick a capable recipe automatically (see the capability-gap row in the backlog).
+
+
+# Second pass on the live instance (read-only)
+
+Today, Logs, Library, Schedules, Approvals, Runners, Health, Releases, Quality, Workspaces, Integrations, a result page and the real mission's Live tab, on the live `sre-demos` workspace.
+
+## Fix first
+
+32. **A reload, bookmark or new tab on `/settings`, `/runners`, `/approvals` or `/administration/*` silently switches to the first workspace ("My workspace").** The `sre-demos` approvals and the attention badges disappear, and "Today" then opens the other workspace. `?w=` is ignored on `/quality`. Clicking through inside the app keeps the workspace. Remember the last workspace per browser and honor `?w=`.
+33. **The Workspaces card says `sre-demos` has "No approval or blocked-run exceptions", "Waiting on someone: 0" and Healthy**, while a task is parked and the mission "needs attention". Count parked and stopped work.
+34. **Logs says "A tool made a change." (4 times) for a read-only SRE run.** Alarming and wrong for read tools; say "A tool ran (read-only)".
+35. **"See result" opens the Library Review inbox, scrolled into a long list of "Replaced" write-ups**, not the result. Open the result, or focus the write-up.
+36. **Today offers Retry inline for a parked task whose cause is a missing tool.** Retry reruns the same recipe and fails three more times. Offer "Run with another recipe" beside it, with the reason in plain words.
+
+## Enhancements
+
+37. Instance-wide pages (Quality, Setup, Releases, Health, Workspaces) show a workspace switcher that does nothing for them. Health, labelled "Whole instance", lists one workspace's recent activity.
+38. Health checks only three services. Add the launcher (host commands) and the model endpoint. "Everything is working" is shown while work is parked.
+39. Logs: "Records 10 · head 56269" next to a chart of 200 records; the stream badge stays on "Connecting"; raw agent text is dumped into a log row and cut mid-sentence.
+40. Today: "Install Brain on your phone" shows on desktop. "Latest missions" repeats the title as the subtitle for some missions and prints the full intent paragraph for others.
+41. Releases: raw digests in the text ("Activated from sha256:…", "Built from 8c1c…"); 12 releases pile up (every deploy and staging adds one); every option in the dropdown reads "8 workflows · 7 agents".
+42. Schedules is empty although a weekly health mission exists: offer to schedule it.
+43. On the real mission's Live tab the side panel says "Verdict: rejected", yet the main call to action still suggests restarting the task.
