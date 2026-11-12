@@ -450,6 +450,14 @@ CREATE TABLE tool_calls (
   PRIMARY KEY(attempt_id, proposal_id)
 ) STRICT;
 CREATE INDEX tool_calls_tool ON tool_calls(organization_id, workspace_id, tool_id);
+-- Test runs of one tool: a one-step workflow (tool-test:<id>) a person started to try a tool with their own input. Tagged apart from real calls, which tool_calls counts.
+CREATE TABLE tool_test_runs (
+  id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, tool_id TEXT NOT NULL,
+  release_digest TEXT NOT NULL, run_id TEXT NOT NULL, input_json TEXT NOT NULL DEFAULT '{}',
+  requested_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX tool_test_runs_tool ON tool_test_runs(organization_id, workspace_id, tool_id, created_at_ms);
+CREATE INDEX tool_test_runs_run ON tool_test_runs(run_id);
 -- Local scoped memory assets behind the MemoryStore gateway port.
 CREATE TABLE memory_assets (
  id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT,
