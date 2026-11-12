@@ -33,6 +33,8 @@ Tools: all four read tools exercised by real live missions 2026-11-12 (knowledge
 
 Browser 2026-11-12 (fresh Chrome tab; the old tab's renderer was frozen, a new tab works and is signed in): Setup page (all three steps done), Library overview (counts, hands-off switch), Outputs with the csv.query result read in the preview (23.25 points per sprint, correct, 4 of 4 criteria checked by tests/files/hashes). No new UX problems found on those pages.
 
+Browser 2026-11-12 after deploy `e353c1c`: Live, Logs, Health walked; a new plain-words mission started from Today in the browser drafted its plan in ~30 s, one click confirmed it, ran hands-off, closed with 2 of 2 tasks independently checked, 23k tokens, results accepted, reuse shown (3 items), "Propose as Play" offered. Live rail no longer shows "unknown" as an engine name. Left: the Live side panel still prints "Engine unknown 1" for sessions whose engine was not reported at accept time (cosmetic).
+
 Dependabot: 3 moderate transitive advisories pinned in `pnpm-workspace.yaml` overrides 2026-11-12 (`72168f6`); `pnpm audit --prod` clean. One dev-only advisory remains (minimatch under `eslint-plugin-import-x`, which needs minimatch 10's `makeRe`; 11 breaks lint): wait for an import-x release.
 
 ## Not yet seen live
