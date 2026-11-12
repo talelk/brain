@@ -71,7 +71,7 @@ export function SessionRail(props: {
       </span>
       <span class="min-w-0 flex-1">
         <span class="block truncate text-caption font-medium text-ink-gray-9">{session.task || `${session.agentId ?? "Agent"} session`}</span>
-        <span class="block truncate text-caption text-ink-gray-6">{[session.agentId, session.engine.id].filter(Boolean).join(" · ")}</span>
+        <span class="block truncate text-caption text-ink-gray-6">{[session.agentId, session.engine.id].filter((part) => part && part !== "unknown").join(" · ")}</span>
         <span class="mt-0.5 flex items-center gap-1.5 text-caption">
           <span class={`font-medium ${STATE_INK[session.state] ?? "text-ink-gray-6"}`}>{statusLabel(undefined, session.state)}</span>
           <Show when={elapsed()}><span class="tabular-nums text-ink-gray-6">· {live() ? "" : "ran "}{elapsed()}</span></Show>

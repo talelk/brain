@@ -83,7 +83,7 @@ export function ConsoleToolbar(props: {
             <StatusBadge status={session()?.state ?? "unknown"} />
           </div>
           <p class="truncate text-caption text-ink-gray-6" title="The engine decides which controls exist">
-            {[session()?.agentId, session()?.engine.id ?? "engine unavailable"].filter(Boolean).join(" · ")}<Show when={features().length > 0}> ({features().join(", ")})</Show>
+            {[session()?.agentId, session()?.engine.id ?? "engine unavailable"].filter((part) => part && part !== "unknown").join(" · ")}<Show when={features().length > 0}> ({features().join(", ")})</Show>
           </p>
         </div>
       </div>
