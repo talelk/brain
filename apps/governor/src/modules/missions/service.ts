@@ -44,6 +44,8 @@ const PINNED_INPUT_LIMIT = 6;
 const PINNED_INPUT_CHARS = 4000;
 /** Work that has started is never changed or abandoned by replanning (issue #39). */
 const STARTED: ReadonlySet<WorkItemState> = new Set(["in-progress", "review", "blocked", "done"]);
+/** Parked work is stopped, not running: a person may re-plan it (edit, reassign, run it with another recipe), which replaces the parked item. */
+const isStarted = (row: { state: WorkItemState; parked?: number }): boolean => STARTED.has(row.state) && !(row.state === "blocked" && row.parked === 1);
 /** The written sections every session receives stay small (issue #34). */
 const BRIEF_CHAR_CAP = 8000;
 type PlanRow = {
@@ -266,8 +268,8 @@ export class MissionService {
     const active = this.planRow(actor, workspaceId, mission.active_plan_version_id);
     const confirmed = JSON.parse(active.tasks_json) as PlanTask[];
     // Retained work keeps its original plan version, so started work is read per mission.
-    const started = new Set((db.prepare("SELECT plan_task_id AS id, state FROM work_items WHERE mission_id=? AND state!='abandoned'").all(mission.id) as Array<{ id: string; state: WorkItemState }>)
-      .filter((row) => STARTED.has(row.state)).map((row) => row.id));
+    const started = new Set((db.prepare("SELECT plan_task_id AS id, state, parked FROM work_items WHERE mission_id=? AND state!='abandoned'").all(mission.id) as Array<{ id: string; state: WorkItemState; parked: number }>)
+      .filter(isStarted).map((row) => row.id));
     const diff = diffPlan(confirmed, tasks, started);
     const policy = JSON.parse(mission.policy_json) as AutonomyPolicy;
     const beyond = [...new Set([...beyondPolicy(diff, policy), ...teamOperations(JSON.parse(active.team_json) as TeamMember[], team).filter((operation) => !policy.operations.includes(operation))])].sort();
@@ -333,7 +335,7 @@ export class MissionService {
           state === "ready" ? "Start this task" : "Wait for predecessor completion", carried, now, now);
       }
       for (const item of previous) {
-        if (retained.has(item.id) || STARTED.has(item.state)) continue;
+        if (retained.has(item.id) || isStarted(item)) continue;
         transitionState(db, "workItem", item.id, "abandoned", { set: { next_action: `Superseded by plan revision ${plan.revision}`, updated_at_ms: now }, bumpVersion: true });
       }
       for (const task of tasks) {
@@ -852,6 +854,33 @@ export class MissionService {
         }
       }
     });
+  }
+
+  /**
+   * A release was activated: parked work in active missions gets one automatic retry on it. Earlier failures ran on other agents, limits
+   * and tools, so they say little about the next attempt; a retry that fails again parks the item as before. Never more than once for
+   * the same release (parked_auto_retries), and only for work whose mission is still active. Returns how many items were retried.
+   */
+  retryParkedForRelease(organizationId: string, releaseDigest: string): number {
+    let retried = 0;
+    const workspaces = this.store.control.prepare("SELECT id FROM workspaces WHERE organization_id=? AND status='active'").all(organizationId) as Array<{ id: string }>;
+    for (const workspace of workspaces) {
+      try {
+        const db = this.store.workspaceDb(workspace.id, organizationId);
+        const parked = db.prepare("SELECT w.id FROM work_items w JOIN missions m ON m.id=w.mission_id WHERE w.state='blocked' AND w.parked=1 AND m.state='active'").all() as Array<{ id: string }>;
+        for (const row of parked) {
+          if (this.store.control.prepare("SELECT 1 FROM parked_auto_retries WHERE work_item_id=? AND release_digest=?").get(row.id, releaseDigest)) continue;
+          this.store.inTx(db, () => {
+            this.assertDependenciesDone(db, row.id);
+            transitionState(db, "workItem", row.id, "ready", { set: { parked: 0, failed_attempts: 0, blocked_reason: null, next_action: "Retrying automatically: a new release was activated", updated_at_ms: this.store.now() }, bumpVersion: true });
+            this.store.emit(db, { aggregateType: "workItem", aggregateId: row.id, eventType: "workItem.unparked", payload: { workItemId: row.id, state: "ready", automatic: true, releaseDigest } });
+          });
+          this.store.control.prepare("INSERT OR IGNORE INTO parked_auto_retries(work_item_id,release_digest,organization_id,workspace_id,retried_at_ms) VALUES (?,?,?,?,?)").run(row.id, releaseDigest, organizationId, workspace.id, this.store.now());
+          retried++;
+        }
+      } catch { /* one workspace that cannot be read never blocks an activation or the other workspaces */ }
+    }
+    return retried;
   }
 
   /** The plain sentence of a run whose agent was interrupted too many times, when that is why it failed. */

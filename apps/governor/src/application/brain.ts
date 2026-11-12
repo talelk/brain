@@ -285,6 +285,12 @@ export class Brain {
 
   activateRelease(actor: ActorContext, digest: string, expectedActiveDigest?: string | null): void {
     activateRelease(this.store, actor, digest, expectedActiveDigest);
+    // Work parked on an earlier release gets one automatic retry on this one; the ready work then starts as usual.
+    if (this.missions.retryParkedForRelease(actor.organizationId, digest) > 0) {
+      for (const workspace of this.store.control.prepare("SELECT id FROM workspaces WHERE organization_id=? AND status='active'").all(actor.organizationId) as Array<{ id: string }>) {
+        void this.autoStart.sweep(actor.organizationId, workspace.id).catch(() => undefined);
+      }
+    }
   }
 
   activeRelease(organizationId: string): { digest: string; manifest: string } | undefined {

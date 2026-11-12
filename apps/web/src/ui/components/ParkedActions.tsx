@@ -3,7 +3,7 @@ import type { JSX } from "solid-js";
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Select } from "@talelk/newui-molecules";
 import { FormSheet } from "./BrainForm";
-import type { Mission, PlanTask, PlanVersion, WorkItem } from "@brain/contracts";
+import type { Mission, PlanTask, PlanVersion, WorkItem, WorkflowCatalogEntry } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
@@ -25,6 +25,15 @@ export function ParkedActions(props: { item: WorkItem; onChanged: () => Promise<
   const [title, setTitle] = createSignal(props.item.title);
   const [criteria, setCriteria] = createSignal(props.item.criteria.join("\n"));
   const [dropping, setDropping] = createSignal(false);
+  const [recipe, setRecipe] = createSignal(props.item.workflowId ?? "general-task");
+  // The task recipes of the active release, specialist ones included (the planner never picks those by itself): a task that keeps failing because its agent cannot reach what it needs can be run with a recipe whose agent can. The guides and smoke tests are not task recipes.
+  const recipes = createScopedRead<WorkflowCatalogEntry[]>({
+    scope: app.scope,
+    load: async (scope, signal) => {
+      const view = await query<Envelope<{ items: WorkflowCatalogEntry[] }>>({ queryType: "workflows.list", workspaceId: scope.workspaceId }, signal);
+      return { snapshot: view.snapshot.items.filter((item) => !/smoke|guide/u.test(item.release.id)), asOf: view.asOf, sourceWatermark: view.sourceWatermark };
+    },
+  });
   const context = createScopedRead<{ mission: Mission; plan: PlanVersion }>({
     scope: app.scope,
     load: async (scope, signal) => {
@@ -64,6 +73,14 @@ export function ParkedActions(props: { item: WorkItem; onChanged: () => Promise<
         <Button variant="ghost" onClick={() => setDropping(false)}>Keep it</Button>
       </>}><Button variant="outline" iconLeft="lucide-trash-2" disabled={busy()} onClick={() => setDropping(true)}>Drop</Button></Show>
     </div>
+    <Show when={(recipes.state().data ?? []).length > 1}>
+      <div class="flex flex-wrap items-end gap-2" data-parked-recipe>
+        <div class="min-w-48 flex-1"><Select label="Run this task with" value={recipe()} onValueChange={(value) => setRecipe(value ?? "general-task")}
+          options={(recipes.state().data ?? []).map((entry) => ({ value: entry.release.id, label: entry.definition.spec.presentation?.title ?? entry.release.id }))} /></div>
+        <Button variant="outline" iconLeft="lucide-workflow" disabled={busy() || recipe() === (props.item.workflowId ?? "general-task")}
+          onClick={() => void revise((task) => ({ ...task, workflowId: recipe() }), `Run ${props.item.title} with ${recipe()} after it parked`)}>Run with this</Button>
+      </div>
+    </Show>
     <Show when={context.state().data?.plan.team?.length}>
       <div class="flex flex-wrap items-end gap-2">
         <div class="min-w-48 flex-1"><Select label="Reassign to" value={member() || null} onValueChange={(value) => setMember(value ?? "")}
