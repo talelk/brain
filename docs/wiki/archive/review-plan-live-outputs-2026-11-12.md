@@ -79,3 +79,28 @@ Today, Logs, Library, Schedules, Approvals, Runners, Health, Releases, Quality, 
 41. Releases: raw digests in the text ("Activated from sha256:…", "Built from 8c1c…"); 12 releases pile up (every deploy and staging adds one); every option in the dropdown reads "8 workflows · 7 agents".
 42. Schedules is empty although a weekly health mission exists: offer to schedule it.
 43. On the real mission's Live tab the side panel says "Verdict: rejected", yet the main call to action still suggests restarting the task.
+
+
+# Third pass: the Plan and Live tabs during execution
+
+Walked on a local copy with real runners (fixture engine, so a task takes about a second and emits no streamed text): proposal, confirm, execution of three dependent tasks, completion, closing. Real long-running agents, streaming, Stop, Message the mission, approvals during a run and a mid-run failure were not exercised.
+
+## Fix first
+
+44. **The header disagrees with itself right after Confirm.** The banner still says "Prepare and confirm a plan: no plan is confirmed yet" while the progress bar already reads 67% complete. The header sections refresh at different times.
+45. **A queued task is called "In Progress" and "1 task is running".** No runner has taken it yet; the Live tab says so honestly ("Starting: waiting for a runner"). Say "Waiting for a runner" on the task card and in the header.
+46. **Live does not follow the running session.** While "Review the checklist" was "Working now", the page stayed on the finished "Gather what a new teammate needs" session. Follow the running session by default, with a pin to stay on one.
+47. **Finished sessions are labelled "stopped"**, the same word used for interrupted ones. Use "Finished" for a normal end and keep "Stopped" for interruptions.
+
+## Enhancements
+
+48. Each task shows two sessions with the same title (the author and the independent check). Label them.
+49. The session panel says "Tokens 0 of 100,000" and "0 steps taken" while the header reports 3.5k tokens.
+50. A session's outputs are listed by media type ("application/json 2,052 B"). Name them (task result, run record).
+51. After "All work is done: Review the outputs, then finish the mission" the mission closed by itself within about five seconds, so the review step was skipped. Confirm that is intended for auto-start missions.
+52. A closed mission's Plan tab still says "Follow and move them in Mission work below" and keeps "What this plan may take: unknown".
+53. Results say "Accepted" though nobody accepted them (verified automatically), and two counts sit side by side ("4 of 4 criteria checked" vs "Author's own checklist 1 of 1"). Say who accepted, and explain the two counts.
+
+## What worked well
+
+The proposal state ("3 steps · nothing runs until you confirm", with Confirm, Edit and Reject), honest empty states ("Nobody is working right now", "waiting for a runner"), the Board view, the rendered Markdown result, Share a read-only link and Challenge this result.
