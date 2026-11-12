@@ -104,3 +104,26 @@ Walked on a local copy with real runners (fixture engine, so a task takes about 
 ## What worked well
 
 The proposal state ("3 steps · nothing runs until you confirm", with Confirm, Edit and Reject), honest empty states ("Nobody is working right now", "waiting for a runner"), the Board view, the rendered Markdown result, Share a read-only link and Challenge this result.
+
+
+# Fourth pass: the Plan and Outputs tabs mid-execution
+
+Same local copy, runners slowed to one job every 11 seconds so each task's work and independent check are visible. Frames taken before the run, then every 10 seconds while it ran.
+
+## Fix first
+
+54. **The Outputs tab moves the card you are reading.** Each new result is expanded automatically and the one being read collapses and drops down the list. Keep the card the person opened and add new results collapsed, with a "New result" marker.
+55. **A result is badged "Final" while the banner under it says "Not independently checked yet".** Show "Draft result · not checked yet" until the check passes.
+56. **The header banner is stale on the Outputs tab too**: five seconds after Confirm it still says "Prepare and confirm a plan, no plan is confirmed yet [Review the plan]" while progress shows work in progress (same cause as item 44).
+
+## Enhancements
+
+57. On the Plan tab the first usage line and the "What this plan may take" card appear mid-run and push Mission work down the page. Reserve their space so nothing jumps.
+58. The Board hint reads "Drag a card where the move needs nothing else; Start, Review, Hand off and Done stay on the card." Say what can be dragged and what happens.
+59. Both tabs refresh about every ten seconds. Show "updated just now" and a Refresh, or push updates.
+
+## What worked well
+
+- The Board moved each card correctly through Ready, In progress and Done as work finished ("Evidence verified" on done cards, "1 of 1 dependency done" on waiting ones).
+- Counts (progress, critical path) stayed consistent with the cards.
+- The honest empty state "No results yet: each task's result appears here as soon as it finishes", and "Follow" on running cards.
