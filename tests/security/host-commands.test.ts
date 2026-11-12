@@ -15,6 +15,8 @@ describe("operator host-command allowlist (ADR 0021)", () => {
     expect(resolveHostCommand(shipped, "docker.logs", { lines: "50", container: "brain-governor-1" }, "read")).toMatchObject({ ok: true, argv: ["docker", "logs", "--tail", "50", "brain-governor-1"] });
     expect(resolveHostCommand(shipped, "http.head-public", { host: "brain.mykeyrus.tn" }, "read")).toMatchObject({ ok: true, argv: ["curl", "-sSI", "--max-time", "8", "https://brain.mykeyrus.tn/"] });
     expect(resolveHostCommand(shipped, "host.df", {}, "read")).toMatchObject({ ok: true });
+    expect(resolveHostCommand(shipped, "http.check-demos", {}, "read")).toMatchObject({ ok: true });
+    expect(resolveHostCommand(shipped, "http.check-demos", { host: "evil.example.com" }, "read")).toMatchObject({ ok: false, status: 422 });
   });
   it.each([
     ["an undeclared command", "rm", {}, 404],

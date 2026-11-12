@@ -2,7 +2,7 @@
 
 ## What the SRE agent can do (set up 2026-11-12, ADR 0021)
 - **`host.read`**: list folders, read text files and find files under the demos host's `/srv`, read-only. Secrets (`.env*`, keys, `.git`), databases, archives and any `backups` folder are refused on purpose; password and token values in files are redacted. Paths are relative to `/srv`, for example `demos/gatus/config/config.yaml`.
-- **`host.exec`**: run one named read-only diagnostic: `docker.ps`, `docker.logs {lines, container}`, `docker.stats`, `docker.df`, `host.df`, `host.memory`, `host.uptime`, `host.du`, `systemd.is-active {unit}`, `systemd.status {unit}`, `http.head-local {port}`, `http.head-public {host}`. The operator fixed the real command lines; the agent supplies only the name and validated arguments.
+- **`host.exec`**: run one named read-only diagnostic: `docker.ps`, `docker.logs {lines, container}`, `docker.stats`, `docker.df`, `host.df`, `host.memory`, `host.uptime`, `host.du`, `systemd.is-active {unit}`, `systemd.status {unit}`, `http.head-local {port}`, `http.head-public {host}`, `http.check-demos` (every demo site in one call). The operator fixed the real command lines; the agent supplies only the name and validated arguments.
 - **`documents.read`, `knowledge.search`**: this workspace's documents and stored knowledge.
 - Everything an agent reads can appear in model prompts, including the independent evaluator's. Keep secrets out of `/srv` files that are not on the deny list.
 

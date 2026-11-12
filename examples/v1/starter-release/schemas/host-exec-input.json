@@ -16,7 +16,8 @@
         "systemd.is-active",
         "systemd.status",
         "http.head-local",
-        "http.head-public"
+        "http.head-public",
+        "http.check-demos"
       ]
     },
     "args": {
