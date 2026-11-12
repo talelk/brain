@@ -17830,7 +17830,8 @@
           "additionalProperties": false,
           "required": [
             "calls",
-            "failures"
+            "failures",
+            "recent"
           ],
           "properties": {
             "calls": {
@@ -17840,6 +17841,24 @@
             "failures": {
               "type": "integer",
               "minimum": 0
+            },
+            "recent": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "calls",
+                "failures"
+              ],
+              "properties": {
+                "calls": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "failures": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
             },
             "lastCallAt": {
               "$ref": "#/$defs/Timestamp"

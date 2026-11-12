@@ -38,6 +38,9 @@ test("Tools tab lists what each tool does, which agents may use it, calls, last 
   const offer = (await client.claim("tools-claim"))!;
   await client.ack(offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
   const digestOf = (id: string) => sha256Digest(new TextEncoder().encode(bundle.documents.find((doc) => doc.path.endsWith(`${id}.yaml`))!.text));
+  const testNow = Math.floor(Date.now() / 1000) * 1000;
+  const recentAt = (seconds: number) => new Date(testNow - 3_600_000 + seconds * 1000).toISOString();
+  const oldAt = (seconds: number) => new Date(testNow - 30 * 86_400_000 + seconds * 1000).toISOString();
   let sequence = 0;
   const event = (kind: string, payload: Record<string, unknown>, at: string) => ({ sequence: ++sequence, kind: "engine", payload: { contractVersion: "brain.engine-event/v1", eventId: `e${sequence}`, sessionId: "s", attemptId: offer.attemptId, sequence, occurredAt: at, kind, payload } });
   const proposed = (proposalId: string, id: string, at: string) => event("tool.proposed", { proposalId, tool: { id, digest: digestOf(id) }, input: {}, target: { targetId: `tool:${id}`, environmentId: "local", preconditionDigest: digestOf(id) }, inputDigest: sha256Digest(new TextEncoder().encode("{}")) }, at);
@@ -45,9 +48,12 @@ test("Tools tab lists what each tool does, which agents may use it, calls, last 
   const errorDigest = putBytes(brain.store, errorBytes);
   const result = (proposalId: string, outcome: string, at: string) => event("tool.result", { proposalId, invocationId: proposalId, receipt: { invocationId: proposalId, attemptId: offer.attemptId, jobFence: offer.jobFence, result: outcome, startedAt: at, finishedAt: at, ...(outcome === "failed" ? { stdout: { artifactId: "att-err", digest: errorDigest, bytes: errorBytes.length, mediaType: "application/json", classification: "internal" } } : {}), effects: [] } }, at);
   await client.events(offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence, events: [
-    proposed("p1", "documents.read", "2026-11-11T10:00:00.000Z"), result("p1", "succeeded", "2026-11-11T10:00:01.000Z"),
-    proposed("p2", "documents.read", "2026-11-11T10:05:00.000Z"), result("p2", "failed", "2026-11-11T10:05:01.000Z"),
-    proposed("p3", "csv.query", "2026-11-11T10:06:00.000Z"), result("p3", "succeeded", "2026-11-11T10:06:01.000Z"),
+    proposed("p1", "documents.read", recentAt(0)), result("p1", "succeeded", recentAt(1)),
+    proposed("p2", "documents.read", recentAt(300)), result("p2", "failed", recentAt(301)),
+    proposed("p3", "csv.query", recentAt(360)), result("p3", "succeeded", recentAt(361)),
+    // Before the 7-day window: documents.read failed once before a fix; web.fetch has only this old call.
+    proposed("p4", "documents.read", oldAt(0)), result("p4", "failed", oldAt(1)),
+    proposed("p5", "web.fetch", oldAt(60)), result("p5", "succeeded", oldAt(61)),
   ] });
 
   await page.goto(`${governor.url}/w/ws-tools/knowledge?tab=tools`);
@@ -58,7 +64,7 @@ test("Tools tab lists what each tool does, which agents may use it, calls, last 
   await expect(row("documents.read")).toContainText("2 calls, 1 failed (50%)");
   await expect(row("csv.query")).toContainText("Not available: no CSV files yet");
   await expect(row("csv.query")).toContainText("1 call, none failed");
-  await expect(row("web.fetch")).toContainText("Never used");
+  await expect(row("web.fetch")).toContainText("no calls in the last 7 days");
   await expect(row("web.fetch")).not.toContainText("Not available");
   await expect(row("operations.context")).toContainText("Never used");
   if (shots) await page.screenshot({ path: `${shots}/tools-1-list.png`, fullPage: true });
@@ -67,6 +73,7 @@ test("Tools tab lists what each tool does, which agents may use it, calls, last 
   await expect(page.locator("[data-tool-description]")).toContainText("Reads one saved workspace document");
   await expect(page.locator("[data-tool-agents]")).toHaveText("task-worker");
   await expect(page.locator("[data-tool-calls]")).toHaveText("2 calls, 1 failed (50%)");
+  await expect(page.locator("[data-tool-lifetime]")).toHaveText("lifetime: 3 calls, 2 failed");
   await expect(page.locator("[data-tool-availability]")).toHaveText("Not available: no documents yet");
   await expect(page.locator("[data-tool-last-error]")).toContainText("document not found in this workspace");
   await expect(page.getByText("Last failure", { exact: true })).toBeVisible();
@@ -78,10 +85,13 @@ test("Tools tab lists what each tool does, which agents may use it, calls, last 
   if (shots) await page.screenshot({ path: `${shots}/tools-2-detail.png`, fullPage: true });
 
   await row("web.fetch").click();
-  await expect(page.locator("[data-tool-calls]")).toHaveText("Never used");
+  await expect(page.locator("[data-tool-calls]")).toHaveText("no calls in the last 7 days");
+  await expect(page.locator("[data-tool-lifetime]")).toHaveText("lifetime: 1 call, none failed");
   await expect(page.locator("[data-tool-availability]")).toHaveText("Available");
   await expect(page.locator("[data-tool-hosts]")).toContainText("en.wikipedia.org");
   await expect(page.locator("[data-tool-agents]")).toHaveText("task-worker");
+  await row("operations.context").click();
+  await expect(page.locator("[data-tool-calls]")).toHaveText("Never used");
   await row("task.validate").click();
   await expect(page.locator("[data-tool-agents]")).toContainText("No agent has this tool in its allowlist");
   expect(errors).toEqual([]);

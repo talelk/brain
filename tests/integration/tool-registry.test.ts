@@ -34,7 +34,7 @@ describe("tool registry read (issue #84)", () => {
 
       const byId = new Map(first.map((tool) => [tool.id, tool]));
       expect([...byId.keys()].sort()).toEqual(["csv.query", "documents.read", "knowledge.search", "operations.context", "operations.validate", "task.validate", "web.fetch"]);
-      expect(byId.get("documents.read")).toEqual(expect.objectContaining({ allowedAgents: ["task-worker"], status: "trusted", effectClass: "read", usage: { calls: 0, failures: 0 } }));
+      expect(byId.get("documents.read")).toEqual(expect.objectContaining({ allowedAgents: ["task-worker"], status: "trusted", effectClass: "read", usage: { calls: 0, failures: 0, recent: { calls: 0, failures: 0 } } }));
       expect(byId.get("operations.context")!.allowedAgents).toEqual(["operations-assistant"]);
       expect(byId.get("knowledge.search")!.allowedAgents).toEqual(["task-worker"]);
       expect(byId.get("task.validate")!.allowedAgents).toEqual([]);
@@ -56,6 +56,10 @@ describe("tool registry read (issue #84)", () => {
       const offer = (await client.claim("claim-registry"))!;
       await client.ack(offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence });
       const tool = (id: string) => ({ id, digest: byId.get(id)!.release.digest });
+      // Timestamps are relative to now: the registry's headline rate covers the last 7 days, so fixed dates would rot.
+      const testNow = Math.floor(Date.now() / 1000) * 1000;
+      const recentAt = (seconds: number) => new Date(testNow - 3_600_000 + seconds * 1000).toISOString();
+      const oldAt = (seconds: number) => new Date(testNow - 30 * 86_400_000 + seconds * 1000).toISOString();
       let sequence = 0;
       const event = (kind: string, payload: Record<string, unknown>, at: string) => ({ sequence: ++sequence, kind: "engine", payload: { contractVersion: "brain.engine-event/v1", eventId: `e${sequence}`, sessionId: "s", attemptId: offer.attemptId, sequence, occurredAt: at, kind, payload } });
       const proposed = (proposalId: string, id: string, at: string) => event("tool.proposed", { proposalId, tool: tool(id), input: {}, target: { targetId: `tool:${id}`, environmentId: "local", preconditionDigest: tool(id).digest }, inputDigest: sha256Digest(new TextEncoder().encode("{}")) }, at);
@@ -63,23 +67,28 @@ describe("tool registry read (issue #84)", () => {
       const errorDigest = putBytes(w.brain.store, errorBytes);
       const result = (proposalId: string, outcome: "succeeded" | "failed", at: string) => event("tool.result", { proposalId, invocationId: proposalId, receipt: { invocationId: proposalId, attemptId: offer.attemptId, jobFence: offer.jobFence, result: outcome, startedAt: at, finishedAt: at, ...(outcome === "failed" ? { stdout: { artifactId: "att-err", digest: errorDigest, bytes: errorBytes.length, mediaType: "application/json", classification: "internal" } } : {}), effects: [] } }, at);
       await client.events(offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence, events: [
-        proposed("p1", "documents.read", "2026-11-11T10:00:00.000Z"), result("p1", "succeeded", "2026-11-11T10:00:01.000Z"),
-        proposed("p2", "documents.read", "2026-11-11T10:05:00.000Z"), result("p2", "failed", "2026-11-11T10:05:01.000Z"),
-        proposed("p3", "csv.query", "2026-11-11T10:06:00.000Z"), result("p3", "succeeded", "2026-11-11T10:06:01.000Z"),
+        proposed("p1", "documents.read", recentAt(0)), result("p1", "succeeded", recentAt(1)),
+        proposed("p2", "documents.read", recentAt(300)), result("p2", "failed", recentAt(301)),
+        proposed("p3", "csv.query", recentAt(360)), result("p3", "succeeded", recentAt(361)),
+        // Older than the 7-day window: two failures of documents.read before it was fixed, and the only call web.fetch ever had.
+        proposed("p4", "documents.read", oldAt(0)), result("p4", "failed", oldAt(1)),
+        proposed("p5", "documents.read", oldAt(60)), result("p5", "failed", oldAt(61)),
+        proposed("p6", "web.fetch", oldAt(120)), result("p6", "succeeded", oldAt(121)),
       ] });
 
       const used = new Map((await read()).map((entry) => [entry.id, entry]));
       const runId = offer.workflowRunId!;
-      expect(used.get("documents.read")!.usage).toEqual({ calls: 2, failures: 1, lastCallAt: "2026-11-11T10:05:00.000Z", lastCallRunId: runId, lastFailureAt: "2026-11-11T10:05:01.000Z", lastFailureRunId: runId, lastFailureMessage: "document not found in this workspace. Use an id exactly as given in your context." });
-      expect(used.get("csv.query")!.usage).toEqual({ calls: 1, failures: 0, lastCallAt: "2026-11-11T10:06:00.000Z", lastCallRunId: runId });
+      expect(used.get("documents.read")!.usage).toEqual({ calls: 4, failures: 3, recent: { calls: 2, failures: 1 }, lastCallAt: recentAt(300), lastCallRunId: runId, lastFailureAt: recentAt(301), lastFailureRunId: runId, lastFailureMessage: "document not found in this workspace. Use an id exactly as given in your context." });
+      expect(used.get("csv.query")!.usage).toEqual({ calls: 1, failures: 0, recent: { calls: 1, failures: 0 }, lastCallAt: recentAt(360), lastCallRunId: runId });
       // Counts come from the call table kept by event ingestion: a replayed batch (same sequences) counts nothing twice.
       await client.events(offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence, events: [
-        proposed("p1", "documents.read", "2026-11-11T10:00:00.000Z"), result("p1", "succeeded", "2026-11-11T10:00:01.000Z"),
+        proposed("p1", "documents.read", recentAt(0)), result("p1", "succeeded", recentAt(1)),
       ].map((entry, index) => ({ ...entry, sequence: index + 1 })) });
-      expect(new Map((await read()).map((entry) => [entry.id, entry])).get("documents.read")!.usage).toMatchObject({ calls: 2, failures: 1 });
-      expect(w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM tool_calls").get()).toEqual({ n: 3 });
-      // A tool nobody called still reads never used, and createdAt did not move.
-      expect(used.get("web.fetch")!.usage).toEqual({ calls: 0, failures: 0 });
+      expect(new Map((await read()).map((entry) => [entry.id, entry])).get("documents.read")!.usage).toMatchObject({ calls: 4, failures: 3, recent: { calls: 2, failures: 1 } });
+      expect(w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM tool_calls").get()).toEqual({ n: 6 });
+      // web.fetch was only called outside the window: lifetime counts stay, the recent rate is empty. A tool nobody called reads zero everywhere.
+      expect(used.get("web.fetch")!.usage).toMatchObject({ calls: 1, failures: 0, recent: { calls: 0, failures: 0 } });
+      expect(used.get("operations.context")!.usage).toEqual({ calls: 0, failures: 0, recent: { calls: 0, failures: 0 } });
       expect(used.get("documents.read")!.createdAt).toBe(first[0]!.createdAt);
     } finally { await app.close(); rmSync(root, { recursive: true, force: true }); }
   });

@@ -15,7 +15,8 @@ import { readableSources, toolAvailability } from "../resources/index";
 import { buildWriteup, goalKey } from "./writeup";
 import { workingMs } from "../missions/index";
 
-interface ToolUsage { calls: number; failures: number; lastCallAt?: string; lastCallRunId?: string; lastFailureAt?: string; lastFailureRunId?: string; lastFailureMessage?: string }
+const TOOL_RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+interface ToolUsage { calls: number; failures: number; recent: { calls: number; failures: number }; lastCallAt?: string; lastCallRunId?: string; lastFailureAt?: string; lastFailureRunId?: string; lastFailureMessage?: string }
 
 export interface CapitalizationCommand {
   readonly commandId: string;
@@ -626,7 +627,7 @@ export class CapitalizationService {
         evidence: tool.entrypointDigest && script ? [{ artifactId: `tool-script:${tool.id}`, digest: tool.entrypointDigest, bytes: script.bytes, mediaType: "text/x-shellscript", classification: "internal" as const }] : [],
         createdAt, allowedAgents,
         ...(tool.description ? { description: tool.description } : {}), ...(tool.allowedHosts ? { allowedHosts: tool.allowedHosts } : {}),
-        usage: used ?? { calls: 0, failures: 0 },
+        usage: used ?? { calls: 0, failures: 0, recent: { calls: 0, failures: 0 } },
         // Whether the workspace holds anything this tool could read; an unavailable tool is left out of agents' tool lists and says why here.
         availability: sources ? toolAvailability(tool.id, sources) : { available: true },
       };
@@ -639,14 +640,17 @@ export class CapitalizationService {
    * before the table existed are not counted: usage starts at zero (no backfill).
    */
   private toolUsage(organizationId: string, workspaceId: string): Map<string, ToolUsage> {
+    // The headline failure rate covers the last 7 days: a tool fixed last week must not keep reading as broken for its early failures.
+    const since = iso(Date.now() - TOOL_RECENT_WINDOW_MS);
     const rows = this.store.control.prepare(`SELECT t.tool_id AS toolId, COUNT(*) AS calls, COALESCE(SUM(t.failed),0) AS failures,
+        COALESCE(SUM(CASE WHEN t.proposed_at >= ? THEN 1 ELSE 0 END),0) AS recentCalls, COALESCE(SUM(CASE WHEN t.proposed_at >= ? THEN t.failed ELSE 0 END),0) AS recentFailures,
         MAX(NULLIF(t.proposed_at,'')) AS lastCallAt, MAX(CASE WHEN t.failed=1 THEN NULLIF(t.finished_at,'') END) AS lastFailureAt,
         (SELECT c.failure_message FROM tool_calls c WHERE c.organization_id=t.organization_id AND c.workspace_id=t.workspace_id AND c.tool_id=t.tool_id AND c.failed=1 ORDER BY c.finished_at DESC, c.rowid DESC LIMIT 1) AS lastFailureMessage,
         (SELECT c.run_id FROM tool_calls c WHERE c.organization_id=t.organization_id AND c.workspace_id=t.workspace_id AND c.tool_id=t.tool_id ORDER BY c.proposed_at DESC, c.rowid DESC LIMIT 1) AS lastCallRunId,
         (SELECT c.run_id FROM tool_calls c WHERE c.organization_id=t.organization_id AND c.workspace_id=t.workspace_id AND c.tool_id=t.tool_id AND c.failed=1 ORDER BY c.finished_at DESC, c.rowid DESC LIMIT 1) AS lastFailureRunId
-      FROM tool_calls t WHERE t.organization_id=? AND t.workspace_id=? GROUP BY t.tool_id`).all(organizationId, workspaceId) as Array<{ toolId: string; calls: number; failures: number; lastCallAt: string | null; lastFailureAt: string | null; lastFailureMessage: string | null; lastCallRunId: string | null; lastFailureRunId: string | null }>;
+      FROM tool_calls t WHERE t.organization_id=? AND t.workspace_id=? GROUP BY t.tool_id`).all(since, since, organizationId, workspaceId) as Array<{ toolId: string; calls: number; failures: number; recentCalls: number; recentFailures: number; lastCallAt: string | null; lastFailureAt: string | null; lastFailureMessage: string | null; lastCallRunId: string | null; lastFailureRunId: string | null }>;
     return new Map(rows.map((row): [string, ToolUsage] => [row.toolId, {
-      calls: row.calls, failures: row.failures,
+      calls: row.calls, failures: row.failures, recent: { calls: row.recentCalls, failures: row.recentFailures },
       ...(row.lastCallAt ? { lastCallAt: row.lastCallAt } : {}), ...(row.lastCallAt && row.lastCallRunId ? { lastCallRunId: row.lastCallRunId } : {}),
       ...(row.lastFailureAt ? { lastFailureAt: row.lastFailureAt } : {}), ...(row.lastFailureAt && row.lastFailureMessage ? { lastFailureMessage: row.lastFailureMessage } : {}), ...(row.lastFailureAt && row.lastFailureRunId ? { lastFailureRunId: row.lastFailureRunId } : {}),
     }]));

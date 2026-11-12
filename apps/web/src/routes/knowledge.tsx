@@ -380,12 +380,22 @@ function usageSummary(tool: ToolCatalogEntry): string {
 function availabilityText(tool: ToolCatalogEntry): string {
   return tool.availability.available ? "Available" : `Not available${tool.availability.reason ? `: ${tool.availability.reason}` : ""}`;
 }
-/** "66 calls, 50 failed (76%)": how often a tool fails, not a bare count. */
-function callsText(tool: ToolCatalogEntry): string {
-  const { calls, failures } = tool.usage;
-  if (calls === 0) return "Never used";
+function countsText(calls: number, failures: number): string {
   const noun = calls === 1 ? "call" : "calls";
   return failures === 0 ? `${calls} ${noun}, none failed` : `${calls} ${noun}, ${failures} failed (${Math.round((failures / calls) * 100)}%)`;
+}
+/** "66 calls, 50 failed (76%)" over the last 7 days, so a tool fixed last week does not keep reading as broken; "Never used" when it never ran. */
+function callsText(tool: ToolCatalogEntry): string {
+  const { calls, recent } = tool.usage;
+  if (calls === 0) return "Never used";
+  if (recent.calls === 0) return "no calls in the last 7 days";
+  return countsText(recent.calls, recent.failures);
+}
+/** The all-time counts, kept as secondary text: "lifetime: 23 calls, 21 failed". */
+function lifetimeText(tool: ToolCatalogEntry): string | undefined {
+  const { calls, failures } = tool.usage;
+  if (calls === 0) return undefined;
+  return `lifetime: ${calls} ${calls === 1 ? "call" : "calls"}, ${failures === 0 ? "none failed" : `${failures} failed`}`;
 }
 
 export function ToolsScreen(props: {
@@ -544,7 +554,7 @@ export function ToolsScreen(props: {
                       <KeyValue label="Agents allowed to call it" value={<span data-tool-agents>{tool.allowedAgents.length ? tool.allowedAgents.join(", ") : "No agent has this tool in its allowlist"}</span>} orientation="vertical" />
                       <KeyValue label="Active since" value={<DateText value={tool.createdAt} />} orientation="vertical" />
                       <KeyValue label="Availability" value={<span data-tool-availability>{availabilityText(tool)}</span>} orientation="vertical" />
-                      <KeyValue label="Calls" value={<span data-tool-calls>{callsText(tool)}</span>} orientation="vertical" />
+                      <KeyValue label="Calls, last 7 days" value={<span><span data-tool-calls>{callsText(tool)}</span><Show when={lifetimeText(tool)}>{(text) => <span class="block text-ink-gray-6" data-tool-lifetime>{text()}</span>}</Show></span>} orientation="vertical" />
                       <KeyValue label="Last call" value={<Show when={tool.usage.lastCallAt} fallback={<span>Never used</span>}><span class="flex flex-wrap items-center gap-2"><DateText value={tool.usage.lastCallAt} /><Show when={tool.usage.lastCallRunId}>{(runId) => <A class="text-ink-blue-7 underline focus-visible:focus-ring" href={`/runs/${runId()}`}>Open the run</A>}</Show></span></Show>} orientation="vertical" />
                       <KeyValue label="Last failure" value={<Show when={tool.usage.lastFailureAt} fallback={<span>{tool.usage.calls ? "none recorded" : "Never used"}</span>}><span class="flex flex-wrap items-center gap-2"><DateText value={tool.usage.lastFailureAt} /><Show when={tool.usage.lastFailureRunId}>{(runId) => <A class="text-ink-blue-7 underline focus-visible:focus-ring" href={`/runs/${runId()}`}>Open the run</A>}</Show></span></Show>} orientation="vertical" />
                       <Show when={tool.usage.lastFailureMessage}><KeyValue label="Last error" value={<span data-tool-last-error>{tool.usage.lastFailureMessage}</span>} orientation="vertical" /></Show>
