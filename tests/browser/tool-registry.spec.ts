@@ -71,12 +71,19 @@ test("Tools tab lists what each tool does, which agents may use it, calls, last 
 
   await row("documents.read").click();
   await expect(page.locator("[data-tool-description]")).toContainText("Reads one saved workspace document");
-  await expect(page.locator("[data-tool-agents]")).toHaveText("task-worker");
+  await expect(page.locator("[data-tool-agents]")).toHaveText("sre-operator, task-worker");
   await expect(page.locator("[data-tool-calls]")).toHaveText("2 calls, 1 failed (50%)");
   await expect(page.locator("[data-tool-lifetime]")).toHaveText("lifetime: 3 calls, 2 failed");
   await expect(page.locator("[data-tool-availability]")).toHaveText("Not available: no documents yet");
   await expect(page.locator("[data-tool-last-error]")).toContainText("document not found in this workspace");
   await expect(page.getByText("Last failure", { exact: true })).toBeVisible();
+  // Diagnose: the failed call is explained in plain words with a next step, and each call links to its run.
+  const history = page.locator("[data-tool-history]");
+  await expect(history.locator("[data-tool-cause='not-found']")).toContainText("2 calls");
+  await expect(history.locator("[data-tool-cause='not-found']")).toContainText("Next:");
+  await expect(history.locator("[data-tool-call-outcome='failed']")).toHaveCount(2);
+  await expect(history.locator("[data-tool-call-outcome='succeeded']")).toHaveCount(1);
+  await expect(history.getByRole("link", { name: "Open the run" }).first()).toBeVisible();
   // The evidence row shows the pinned script itself instead of "Preview unavailable: artifact not found".
   await expect(page.getByText("Preview unavailable")).toHaveCount(0);
   await expect(page.getByText("set -euo pipefail").first()).toBeVisible();

@@ -166,6 +166,7 @@
     "documents.list",
     "plays.list",
     "tools.list",
+    "tools.calls",
     "playProposals.list"
    ],
    "actions": [

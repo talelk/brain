@@ -13,6 +13,7 @@ import { looksLikeSecret, type MemoryStore, type ReuseService } from "../knowled
 import { putBytes } from "../artifacts/index";
 import { readableSources, toolAvailability } from "../resources/index";
 import { buildWriteup, goalKey } from "./writeup";
+import { diagnoseToolFailure } from "./tool-diagnosis";
 import { workingMs } from "../missions/index";
 
 const TOOL_RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -657,7 +658,35 @@ export class CapitalizationService {
   }
 
 
-  query(actor: ActorContext, queryType: string, workspaceId: string, limit: number): JsonValue {
+  /**
+   * The recent calls of one tool in this workspace with a plain-words diagnosis of each failure, and the failures grouped by cause. A call
+   * that never recorded a result (its attempt ended, or it was refused before the tool ran) says so instead of reading as a success.
+   */
+  private toolCalls(organizationId: string, workspaceId: string, toolId: string, limit: number): { toolId: string; items: unknown[]; causes: unknown[] } {
+    if (!/^[A-Za-z][A-Za-z0-9._-]{0,127}$/u.test(toolId)) throw new BrainDomainError("INVALID_ARGUMENT", "resourceId must be a tool id");
+    const rows = this.store.control.prepare(`SELECT c.attempt_id AS attemptId, c.proposal_id AS proposalId, c.run_id AS runId, c.proposed_at AS proposedAt, c.finished_at AS finishedAt,
+        c.failed AS failed, c.failure_message AS message, a.state AS attemptState
+      FROM tool_calls c LEFT JOIN job_attempts a ON a.id=c.attempt_id
+      WHERE c.organization_id=? AND c.workspace_id=? AND c.tool_id=? ORDER BY c.proposed_at DESC, c.rowid DESC LIMIT ?`)
+      .all(organizationId, workspaceId, toolId, limit) as Array<{ attemptId: string; proposalId: string; runId: string; proposedAt: string; finishedAt: string | null; failed: number; message: string | null; attemptState: string | null }>;
+    const live = new Set(["offered", "running", "uploading", "cancelling", "verifying"]);
+    const causes = new Map<string, { cause: string; headline: string; nextStep: string; count: number }>();
+    const items = rows.map((row) => {
+      const outcome = row.failed === 1 ? "failed" : row.finishedAt ? "succeeded" : row.attemptState && live.has(row.attemptState) ? "running" : "no-result";
+      const diagnosis = outcome === "failed" || outcome === "no-result" ? diagnoseToolFailure(row.message) : undefined;
+      if (diagnosis) {
+        const known = causes.get(diagnosis.cause);
+        if (known) known.count++; else causes.set(diagnosis.cause, { ...diagnosis, count: 1 });
+      }
+      return {
+        proposalId: row.proposalId, attemptId: row.attemptId, runId: row.runId, proposedAt: row.proposedAt, ...(row.finishedAt ? { finishedAt: row.finishedAt } : {}),
+        outcome, ...(row.message ? { message: row.message } : {}), ...(diagnosis ? { diagnosis } : {}),
+      };
+    });
+    return { toolId, items, causes: [...causes.values()].sort((left, right) => right.count - left.count) };
+  }
+
+  query(actor: ActorContext, queryType: string, workspaceId: string, limit: number, resourceId?: string): JsonValue {
     requireWorkspaceRead(this.store, actor, workspaceId);
     const db = this.store.workspaceDb(workspaceId, actor.organizationId);
     if (queryType === "library.summary") {
@@ -680,6 +709,7 @@ export class CapitalizationService {
         tools: this.activeTools(actor.organizationId, workspaceId).length,
       } as unknown as JsonValue;
     }
+    if (queryType === "tools.calls") return this.toolCalls(actor.organizationId, workspaceId, String(resourceId ?? ""), Math.min(limit, 100)) as unknown as JsonValue;
     if (queryType === "tools.list") return { items: this.activeTools(actor.organizationId, workspaceId).slice(0, limit) } as unknown as JsonValue;
     if (queryType === "knowledgeAssets.list") {
       const rows = db.prepare("SELECT * FROM knowledge_assets ORDER BY updated_at_ms DESC,id LIMIT ?").all(limit) as AssetRow[];

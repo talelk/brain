@@ -802,7 +802,8 @@
     "evalCases.list",
     "library.summary",
     "challenges.list",
-    "playProposals.list"
+    "playProposals.list",
+    "tools.calls"
   ],
   "events": [
     {

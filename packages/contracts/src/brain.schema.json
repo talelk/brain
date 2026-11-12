@@ -7529,7 +7529,8 @@
             "evalCases.list",
             "library.summary",
             "challenges.list",
-            "playProposals.list"
+            "playProposals.list",
+            "tools.calls"
           ]
         },
         "workspaceId": {
@@ -7607,7 +7608,8 @@
             "evalCases.list",
             "library.summary",
             "challenges.list",
-            "playProposals.list"
+            "playProposals.list",
+            "tools.calls"
           ]
         },
         "snapshot": {

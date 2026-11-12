@@ -934,9 +934,9 @@ export class Brain {
         return this.envelope(q.queryType, attentionQuery(s, actor, q.queryType, orgWorkspaces(s, actor), q.workspaceId, q.resourceId));
       case "bridge":
         return this.envelope(q.queryType, bridge(s, actor, orgWorkspaces(s, actor)));
-      case "tools.list": {
+      case "tools.list": case "tools.calls": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
-        return this.envelope(q.queryType, this.capitalization.query(actor, q.queryType, q.workspaceId, limit));
+        return this.envelope(q.queryType, this.capitalization.query(actor, q.queryType, q.workspaceId, limit, q.resourceId));
       }
       case "playProposals.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");

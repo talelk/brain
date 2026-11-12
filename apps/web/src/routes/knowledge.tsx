@@ -19,6 +19,7 @@ import { ArtifactView } from "../ui/outputs/ArtifactView";
 import { LIST_PAGE_SIZE as PAGE_SIZE, Pager } from "../ui/components/primitives";import { QueueRow, WorkspaceSection } from "../ui/components/Domain";
 import { StatGrid } from "@talelk/newui-organisms";
 import { MixBar } from "../ui/viz/MixBar";
+import { ToolCallsPanel } from "../ui/tools/ToolCallsPanel";
 export interface MemoryPublicationInput {
   candidateId: string;
   sourceWorkspaceId: string;
@@ -585,6 +586,9 @@ export function ToolsScreen(props: {
                           <For each={tool.evidence}>{(artifact) => <ArtifactView artifact={artifact} compact />}</For>
                         </div>
                       </Show>
+                    </WorkspaceSection>
+                    <WorkspaceSection title="Recent calls and why they failed" description="The latest calls of this tool in this workspace, each failure explained, with a link to its run.">
+                      <ToolCallsPanel toolId={tool.id} />
                     </WorkspaceSection>
                     <TechnicalDetails label="Manifest and release">
                       <pre class="max-h-96 overflow-auto whitespace-pre-wrap break-words text-caption">{JSON.stringify(tool, null, 2)}</pre>
