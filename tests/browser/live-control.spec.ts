@@ -83,7 +83,7 @@ test("live: doing-now sentence, ETA band, Pause, Steer recorded in the brief, St
   // 2. Steer is offered although this agent cannot be redirected: the instruction is saved in the brief.
   await page.getByRole("button", { name: /^Steer/ }).click();
   await page.getByLabel("Steering message").fill("Focus on European competitors only");
-  await expect(page.getByText("This agent cannot be redirected while it works, so it applies from its next task.")).toBeVisible();
+  await expect(page.getByText("This agent's engine does not take messages while it works, so it applies from its next task.")).toBeVisible();
   await shot(page, "2-steer");
   await page.getByRole("button", { name: "Send steering" }).click();
   await expect(page.getByRole("status").filter({ hasText: /^Saved to the mission brief/ })).toContainText("applies from its next task");

@@ -40,6 +40,17 @@ type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 
 type Guide = { step: FlowStep; tab: MissionTab; title: string; detail: string; icon: string; allDone: boolean; action?: { label: string; tab: MissionTab } | { label: string; start: WorkItem } };
 
+/** The same event repeated reads once with a count, at its latest time: two identical "Plan version confirmed" lines say nothing the first does not. */
+function groupNotable(entries: ReadonlyArray<{ at: string; summary: string }>): Array<{ at: string; summary: string; count: number }> {
+  const groups = new Map<string, { at: string; summary: string; count: number }>();
+  for (const entry of entries) {
+    const known = groups.get(entry.summary);
+    if (known) { known.count += 1; if (entry.at > known.at) known.at = entry.at; }
+    else groups.set(entry.summary, { at: entry.at, summary: entry.summary, count: 1 });
+  }
+  return [...groups.values()];
+}
+
 const tally = (items: readonly WorkItem[]): Record<string, number> => {
   const counts: Record<string, number> = {};
   for (const item of items) counts[item.state] = (counts[item.state] ?? 0) + 1;
@@ -340,7 +351,7 @@ function LiveTab(props: ActProps): JSX.Element {
         <ScreenRegion state={summary.state()} onRetry={() => void summary.refresh({ force: true })} emptyTitle="Nothing yet" emptyDescription="Events appear as the mission moves.">
           <Show when={summary.state().data}>{(s) => <>
             <Show when={s().notable.length} fallback={<p class="text-interface text-ink-gray-7">Nothing notable since your last visit.</p>}>
-              <ul class="flex flex-col gap-1 text-interface"><For each={s().notable}>{(entry) => <li><span class="text-ink-gray-6">{formatDateTime(entry.at)}</span> · {entry.summary}</li>}</For></ul>
+              <ul class="flex flex-col gap-1 text-interface"><For each={groupNotable(s().notable)}>{(entry) => <li><span class="text-ink-gray-6">{formatDateTime(entry.at)}</span> · {entry.summary}{entry.count > 1 ? ` (${entry.count} times)` : ""}</li>}</For></ul>
             </Show>
             <Show when={Object.keys(s().otherCounts).length}><p class="mt-2 text-caption text-ink-gray-6">Also: {Object.entries(s().otherCounts).map(([type, count]) => `${count} ${eventWords(type)}`).join(" · ")}</p></Show>
             <Button size="sm" variant="outline" class="mt-2" disabled={s().toCursor === s().fromCursor} onClick={() => void props.onAct(async () => { await app.run("mission.seen", { missionId: props.mission.missionId, cursor: s().toCursor }); await summary.refresh({ force: true }); })}>Mark as seen</Button>

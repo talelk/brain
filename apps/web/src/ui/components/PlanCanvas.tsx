@@ -182,7 +182,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     const estimate = () => editedTasks().reduce((sum, task) => sum + (task.estimatedMinutes ?? 0), 0);
     return <section aria-label={plan.state === "confirmed" ? "Confirmed plan" : "Plan proposal"} class="flex flex-col gap-4">
       <PlainSummary icon={plan.state === "confirmed" ? "lucide-circle-check" : "lucide-list-checks"}>
-        {plan.state === "confirmed" ? "This plan is confirmed and its tasks are tracked. Follow and move them in Mission work below." : "Read the steps below. Nothing runs and no work is tracked until you confirm."}
+        {plan.state === "confirmed" ? (props.mission.state !== "closed" ? "This plan is confirmed and its tasks are tracked. Follow and move them in Mission work below." : "This plan was confirmed and carried out. Its tasks are listed in Mission work below.") : "Read the steps below. Nothing runs and no work is tracked until you confirm."}
       </PlainSummary>
       <div class="flex flex-col gap-1">
         <div class="flex flex-wrap items-center gap-2"><p class="text-base-medium">{label(plan)}</p><StatusBadge kind="plan" status={plan.state} /><Show when={dirty()}><Badge theme="amber" label="Unsaved edits" /></Show></div>

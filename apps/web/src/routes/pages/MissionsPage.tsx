@@ -94,7 +94,16 @@ export default function MissionsPage(): JSX.Element {
         </Show>
         <WorkspaceSection title="Needs you" description="Approvals first, then stopped missions, proposals and parked work, verdicts ready to close and routed findings — the longest wait first.">
           <ScreenRegion state={attention.state()} onRetry={() => void attention.refresh({ force: true })} emptyTitle="Nothing needs you" emptyDescription="Missions are moving on their own. Brain notifies you when a person is needed.">
-            <AttentionRows items={attentionItems()} onOpen={(item) => void navigate(attentionHref(item))} />
+            {/* What needs a person comes first; finished results are good news, not work, so they wait in a closed list below it. */}
+            <Show when={attentionItems().some((item) => item.kind !== "result-ready")} fallback={<p class="text-interface text-ink-gray-7">Nothing needs you right now.</p>}>
+              <AttentionRows items={attentionItems().filter((item) => item.kind !== "result-ready")} onOpen={(item) => void navigate(attentionHref(item))} />
+            </Show>
+            <Show when={attentionItems().some((item) => item.kind === "result-ready")}>
+              <details class="mt-3 rounded-card border border-outline-gray-2 bg-surface-gray-1" data-testid="missions-results-ready">
+                <summary class="cursor-pointer px-3 py-2 text-base-medium text-ink-gray-9">{attentionItems().filter((item) => item.kind === "result-ready").length} finished results ready to read</summary>
+                <AttentionRows items={attentionItems().filter((item) => item.kind === "result-ready")} onOpen={(item) => void navigate(attentionHref(item))} />
+              </details>
+            </Show>
           </ScreenRegion>
         </WorkspaceSection>
         <WorkspaceSection title="All missions" description="Long-running and interactive missions of this workspace."

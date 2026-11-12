@@ -37,7 +37,9 @@ export function PlanEstimate(props: { planVersionId: string; compact?: boolean }
     const stops = () => plan().ceilingMicroUsd !== undefined || plan().ceilingTokens !== undefined || plan().ceilingWallClockMs !== undefined;
     const warning = <Show when={plan().timeLimitBelowEstimate}><p role="alert" class="m-0 text-interface text-ink-amber-9" data-testid="estimate-time-warning">
       The time limit ({minutesText(Math.round((plan().ceilingWallClockMs ?? 0) / 60_000))} of working time) is shorter than this plan's own estimate (about {minutesText(plan().totalEstimatedMinutes ?? 0)}), so the mission will pause before it can finish. Raise the limit first, or confirm and add time when it pauses.</p></Show>;
-    if (props.compact) return <div class="flex min-w-0 flex-col gap-1" data-testid="plan-estimate">
+    // With no estimate at all (neither time nor cost), a card of "unknown" lines says nothing: show only the limit that stops the plan.
+    const noEstimates = () => plan().totalEstimatedMinutes === undefined && plan().totalMicroUsd === undefined;
+    if (props.compact || noEstimates()) return <div class="flex min-w-0 flex-col gap-1" data-testid="plan-estimate">
       <p class="m-0 text-caption text-ink-gray-7" data-testid="estimate-ceiling"><Show when={stops()} fallback="No spending, token or time limit is set.">This plan stops at {limits().join(" or ")}{limits().length > 1 ? ", whichever comes first" : ""}.</Show>{plan().totalEstimatedMinutes !== undefined ? ` Estimated: about ${minutesText(plan().totalEstimatedMinutes ?? 0)}.` : ""}</p>
       {warning}
     </div>;

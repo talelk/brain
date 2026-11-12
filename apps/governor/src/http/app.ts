@@ -441,6 +441,8 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
               close(); // revoked/expired session or store failure: end the stream
             }
           };
+          // A first byte at once: the browser's EventSource reports "open" when the response starts, and an idle stream used to start it only after five quiet seconds.
+          controller.enqueue(encoder.encode(": connected\n\n"));
           void tick();
           timer = setInterval(() => { void tick(); }, 200);
           c.req.raw.signal?.addEventListener("abort", close, { once: true });

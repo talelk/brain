@@ -51,7 +51,7 @@ export async function steerSession(ports: SteerPorts, text: string, now: Date = 
     }
   }
   if (!recorded) return { recorded: false, delivered: false, message: `Not recorded and not sent: ${detail}` };
-  if (!ports.deliver) return { recorded: true, delivered: false, message: "Saved to the mission brief. This agent cannot be redirected while it works, so it applies from its next task." };
+  if (!ports.deliver) return { recorded: true, delivered: false, message: "Saved to the mission brief. This agent's engine does not take messages while it works, so it applies from its next task." };
   try {
     const sent = await ports.deliver(text);
     if (sent.accepted) return { recorded: true, delivered: true, message: "Saved to the mission brief and sent to the agent; it applies at its next turn." };

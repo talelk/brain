@@ -127,3 +127,14 @@ Same local copy, runners slowed to one job every 11 seconds so each task's work 
 - The Board moved each card correctly through Ready, In progress and Done as work finished ("Evidence verified" on done cards, "1 of 1 dependency done" on waiting ones).
 - Counts (progress, critical path) stayed consistent with the cards.
 - The honest empty state "No results yet: each task's result appears here as soon as it finishes", and "Follow" on running cards.
+
+
+# Status after the fix pass
+
+Tested with `verify:fast`, the integration (558), security (106) and chaos (45) suites, and the full browser suite (82 passed) plus the specs for the later edits. New tests: `tests/integration/ux-fixes.test.ts`, `tests/browser/workspace-memory.spec.ts`; updated: `exec-console`, `live-control`, `sse-logviewer`.
+
+**Fixed:** 1 (checks named in words; "checks passed", not "criteria"), 2 (the reason is shown on the parked task; the attempts list is not), 3 and 55 ("Needs changes" / "Not checked yet" instead of "Final"), 4 and 47 ("Ended", and the banner no longer says "interrupted"), 5 and 25 (outputs are paged by task, technical files stay under their result, and a note says when only the 100 most recent files are shown; the true count is still capped by the server), 9 (no "unknown" estimate card), 12 (repeated events grouped), 16 (finished results sit in a closed list on Missions), 19 (reason in plain words), 21 and 48 (sessions of one task are numbered, with time since they ended), 22 and 50 (task title, "Open this run", file labels instead of ids and media types), 23, 26 (the reuse list opens closed above two items), 32 (the workspace survives a reload), 33 (parked work counts as blocked), 34 (log wording), 35 (See result opens the mission's outputs), 36 (Today's parked row), 39 (the log stream now connects at once; "newest #" label), 40 (install offer only on phones; no duplicated mission subtitles), 41, 44 and 56 (the plan banner follows the work), 45, 46 (Live follows the running session unless you pick one), 49, 52, 54 (late results arrive closed), 58.
+
+**Also found and fixed on the way:** the bell's "Needs you" dialog said "Across your workspaces" although attention is scoped to the current workspace, and `exec-console.spec` expected the old behaviour.
+
+**Not fixed (still open):** 6 (the header counts still differ between Today and Missions in places), 7, 10, 11, 13, 14, 17, 18 (Missions list), 20, 24, 27 to 31 (including the raw nginx 502 page, which is server configuration), 37, 38 (launcher health), 42, 43, 51, 53, 57, 59.

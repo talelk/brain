@@ -72,7 +72,7 @@ test("Log Explorer: bounded DOM, scroll and selection survive streaming, pause/u
   // Projection-on-read: the whole seeded transcript surfaced. The global head
   // counts every projected record — the seeded 10000 plus the organization
   // bootstrap record the unified stream carries alongside session events.
-  await expect(page.getByText(/head 10\d{3}/)).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(/newest #10\d{3}/)).toBeVisible({ timeout: 60_000 });
 
   // Bounded client memory: the virtualiser mounts a viewport-sized window,
   // not the 10000-record transcript.

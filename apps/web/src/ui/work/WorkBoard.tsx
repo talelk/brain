@@ -83,7 +83,7 @@ export function WorkBoard(props: {
 
   return <div ref={root} class="brain-work-board flex min-w-0 flex-col gap-2" data-testid="work-board">
     <p class="flex items-center gap-1.5 text-caption text-ink-gray-6">
-      <span class="lucide-hand size-3.5" aria-hidden="true" />Drag a card where the move needs nothing else; Start, Review, Hand off and Done stay on the card.
+      <span class="lucide-hand size-3.5" aria-hidden="true" />Drag a card to Ready, In progress or Blocked to move it. Review and Done need evidence, so use the button on the card.
     </p>
     <Show when={notice()}>{(entry) => <p role="status" class={`rounded-control px-2.5 py-1.5 text-caption ${entry().tone === "warn" ? "bg-surface-amber-1 text-ink-amber-8" : "bg-surface-gray-1 text-ink-gray-7"}`}>{entry().text}</p>}</Show>
     <KanbanBoard<Card> label="Work items" columns={columns()} itemLabel={(card) => card.item.title}

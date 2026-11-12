@@ -124,7 +124,7 @@ export function ConsoleToolbar(props: {
           onInput={(event) => setReason(event.currentTarget.value)} />
         <div class="mt-2 flex items-center gap-2">
           <Button size="sm" variant="solid" theme="blue" disabled={!reason().trim() || busy()} loading={busy()} onClick={() => void submit("steer")}>Send steering</Button>
-          <span class="text-caption text-ink-gray-6">{props.recordsSteer ? (engineSteers() ? "Saved to the mission brief as a constraint, then applied at the agent's next turn. Not a rewrite of past turns." : "Saved to the mission brief as a constraint. This agent cannot be redirected while it works, so it applies from its next task.") : "Applies at the engine's next turn boundary, not a rewrite of past turns."}</span>
+          <span class="text-caption text-ink-gray-6">{props.recordsSteer ? (engineSteers() ? "Saved to the mission brief as a constraint, then applied at the agent's next turn. Not a rewrite of past turns." : "Saved to the mission brief as a constraint. This agent's engine does not take messages while it works, so it applies from its next task.") : "Applies at the engine's next turn boundary, not a rewrite of past turns."}</span>
         </div>
       </div>
     </Show>
@@ -245,6 +245,16 @@ export function InterruptionChooser(props: {
   </Show>;
 }
 
+/** What a file is, in words, instead of its media type: a person reads "Written result", not "text/markdown". */
+function artifactLabel(mediaType: string): string {
+  if (mediaType === "text/markdown") return "Written result";
+  if (mediaType.startsWith("text/")) return "Text file";
+  if (mediaType.includes("json")) return "Structured data (JSON)";
+  if (mediaType.startsWith("image/")) return "Image";
+  if (mediaType === "application/pdf") return "PDF document";
+  return mediaType;
+}
+
 /** Evidence exists only once the work has ended; while it runs, "no evidence" is expected, not a problem. */
 const checkable = (job: JobSnapshot | undefined, session: SessionDetail | undefined): boolean =>
   !!job?.evidenceDigest || session?.state === "stopped" || session?.state === "failed"
@@ -284,7 +294,7 @@ export function ConsoleInspection(props: {
       <div class="flex flex-col gap-1.5 rounded-card border border-outline-gray-1 p-2.5">
         <div class="flex items-center justify-between gap-2 text-caption">
           <span class="text-ink-gray-6">Tokens</span>
-          <span class="tabular-nums text-ink-gray-9">{(props.session?.usedTokens ?? 0).toLocaleString("en-GB")} of {(props.session?.budget.maxTokens ?? 0).toLocaleString("en-GB")}</span>
+          <span class="tabular-nums text-ink-gray-9">{(props.session?.usedTokens ?? 0) === 0 && (props.session?.state === "stopped" || props.session?.state === "failed") ? "Not reported" : `${(props.session?.usedTokens ?? 0).toLocaleString("en-GB")} of ${(props.session?.budget.maxTokens ?? 0).toLocaleString("en-GB")}`}</span>
         </div>
         <span role="progressbar" aria-label="Tokens used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={tokenShare()} class="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-gray-3">
           <span class={`h-full ${tokenShare() >= 90 ? "bg-surface-amber-6" : "bg-surface-blue-9"}`} style={{ width: `${tokenShare()}%` }} />
@@ -297,8 +307,8 @@ export function ConsoleInspection(props: {
         <dt class="text-ink-gray-6">State</dt><dd class="min-w-0"><StatusBadge status={props.session?.state ?? "unknown"} /></dd>
         <dt class="text-ink-gray-6">Engine</dt><dd class="min-w-0 break-words text-ink-gray-9">{props.session?.engine.id && props.session.engine.id !== "unknown" ? `${props.session.engine.id} ${props.session.engine.version ?? ""}`.trim() : "Not reported"}</dd>
         <dt class="text-ink-gray-6">Turn limit</dt><dd class="min-w-0 text-ink-gray-9">{props.session?.budget.maxTurns ?? "—"} turns</dd>
-        <Show when={props.session?.workItemId}><dt class="text-ink-gray-6">Work item</dt><dd class="min-w-0 break-all"><WorkItemLink workspaceId={props.workspaceId} workItemId={props.session!.workItemId!} class="text-ink-blue-link hover:underline focus-visible:focus-ring">{props.session!.workItemId}</WorkItemLink></dd></Show>
-        <Show when={props.session?.jobId}><dt class="text-ink-gray-6">Run</dt><dd class="min-w-0"><CorrelationLink target={{ kind: "job", jobId: props.session!.jobId! }} label={props.session!.jobId!} icon="lucide-workflow" class="max-w-full" /></dd></Show>
+        <Show when={props.session?.workItemId}><dt class="text-ink-gray-6">Work item</dt><dd class="min-w-0 break-all"><WorkItemLink workspaceId={props.workspaceId} workItemId={props.session!.workItemId!} class="text-ink-blue-link hover:underline focus-visible:focus-ring">{props.session!.task || "Open the task"}</WorkItemLink></dd></Show>
+        <Show when={props.session?.jobId}><dt class="text-ink-gray-6">Run</dt><dd class="min-w-0"><CorrelationLink target={{ kind: "job", jobId: props.session!.jobId! }} label="Open this run" icon="lucide-workflow" class="max-w-full" /></dd></Show>
         <dt class="text-ink-gray-6">Updated</dt><dd class="min-w-0 text-ink-gray-9"><RelativeTime value={props.session?.updatedAt} /></dd>
       </dl>
     </section>
@@ -318,7 +328,7 @@ export function ConsoleInspection(props: {
               class={`flex w-full cursor-pointer items-center gap-2 rounded-control border px-2 py-1.5 text-start text-caption focus-visible:focus-ring ${previewId() === artifact.artifactId ? "border-outline-blue-2 bg-surface-blue-1" : "border-outline-gray-1 hover:bg-surface-gray-1"}`}
               onClick={() => setPreviewId((current) => (current === artifact.artifactId ? undefined : artifact.artifactId))}>
               <span class={`${fileIcon(artifact.mediaType)} size-3.5 shrink-0 text-ink-gray-6`} aria-hidden="true" />
-              <span class="min-w-0 flex-1 truncate text-ink-gray-8" title={artifact.digest}>{artifact.mediaType}</span>
+              <span class="min-w-0 flex-1 truncate text-ink-gray-8" title={`${artifact.mediaType} · ${artifact.digest}`}>{artifactLabel(artifact.mediaType)}</span>
               <span class="shrink-0 tabular-nums text-ink-gray-6">{artifact.bytes.toLocaleString("en-GB")} B</span>
             </button>
           )}</For>

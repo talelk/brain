@@ -65,7 +65,7 @@ const ACTIONS: Record<string, string> = {
   "workItem.comment": "left a note on the task",
   "job.queued": "queued the work for a runner",
   "attempt.progress": "reported progress",
-  "attempt.effect": "made a change",
+  "attempt.effect": "recorded a result",
   "attempt.started": "started an attempt",
   "attempt.succeeded": "finished an attempt successfully",
   "attempt.failed": "had an attempt fail",

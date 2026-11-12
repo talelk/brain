@@ -252,7 +252,7 @@ function TailSurface(props: SurfaceProps): JSX.Element {
       <div class="flex items-center gap-2" title={searchActive() ? `${shownMatches()} of ~${search.state().data?.totalEstimate ?? shownMatches()} estimated matches; older matches page deeper into retained logs` : `Bounded stream window; head ${tail.head()}`}>
         <dt class="text-ink-gray-6">{searchActive() ? "Search matches" : "Records"}</dt>
         <dd class="font-medium tabular-nums text-ink-gray-9">{searchActive() ? search.state().data?.totalEstimate ?? rows().length : rows().length}</dd>
-        <dd class="text-ink-gray-6">head {tail.head()}</dd>
+        <dd class="text-ink-gray-6">newest #{tail.head()}</dd>
       </div>
       <div class="flex items-center gap-2" title="Cursor stream_seq; reconnects from the last seen record">
         <dt class="text-ink-gray-6">Stream</dt>

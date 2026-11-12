@@ -122,7 +122,7 @@ function ParkedBody(props: { item: AttentionItem; onChanged: () => void }): JSX.
           <Button size="sm" variant="solid" theme="red" iconLeft="lucide-trash-2" disabled={row.busy()} onClick={() => void move("abandoned")}>Confirm drop</Button>
           <Button size="sm" variant="ghost" onClick={() => setDropping(false)}>Keep it</Button>
         </>}><Button size="sm" variant="outline" iconLeft="lucide-trash-2" disabled={row.busy()} onClick={() => setDropping(true)}>Drop</Button></Show>
-        <Button size="sm" variant="ghost" iconRight="lucide-arrow-right" onClick={() => void navigate(attentionHref(props.item))}>Open the work</Button>
+        <Button size="sm" variant="ghost" iconRight="lucide-arrow-right" onClick={() => void navigate(attentionHref(props.item))}>See why, or run it another way</Button>
       </div>
     </Show>
     <Show when={row.error()}><p role="alert" class="text-caption text-ink-red-7">{row.error()}</p></Show>

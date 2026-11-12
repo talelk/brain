@@ -40,7 +40,9 @@ export function InstallPrompt(): JSX.Element {
     try { await event.prompt(); await event.userChoice; } catch { /* the browser declined: nothing to do */ }
     dismiss();
   };
-  return <Show when={deferred() && !dismissed()}>
+  // The browser raises this event on desktop Chrome too; the offer is about the phone home screen, so only a narrow or touch viewport sees it.
+  const phoneLike = () => window.matchMedia?.("(max-width: 820px), (pointer: coarse)").matches ?? false;
+  return <Show when={deferred() && !dismissed() && phoneLike()}>
     <section class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-outline-gray-2 bg-surface-gray-1 px-3 py-3" aria-label="Install Brain" data-testid="install-prompt">
       <span class="lucide-smartphone size-5 shrink-0 text-ink-gray-7" aria-hidden="true" />
       <p class="m-0 min-w-0 flex-1 basis-56 text-interface text-ink-gray-8">Install Brain on your phone. It opens like an app and shows how many things need you.</p>

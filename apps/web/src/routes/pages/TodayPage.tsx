@@ -104,7 +104,7 @@ export default function TodayPage(): JSX.Element {
         <WorkspaceSection title="Latest missions" description="The five most recently updated."
           actions={<Button variant="ghost" iconRight="lucide-arrow-right" onClick={() => void navigate(`/w/${app.workspaceId()}/missions`)}>All missions</Button>}>
           <div class="brain-queue"><For each={recent()}>{(mission) =>
-            <QueueRow title={mission.title} description={mission.intent} icon="lucide-flag" tone={mission.state === "active" ? "blue" : mission.state === "paused" ? "amber" : "gray"}
+            <QueueRow title={mission.title} description={mission.intent.trim().toLowerCase() === mission.title.trim().toLowerCase() ? "" : mission.intent.length > 140 ? `${mission.intent.slice(0, 137).trimEnd()}…` : mission.intent} icon="lucide-flag" tone={mission.state === "active" ? "blue" : mission.state === "paused" ? "amber" : "gray"}
               label={`Open mission ${mission.title}`} meta={<span>{mission.state}{mission.outcome ? ` · ${mission.outcome}` : ""} · updated {formatRelative(mission.updatedAt)}</span>}
               onClick={() => void navigate(missionHref(app.workspaceId(), mission.missionId, "live"))} />}</For></div>
         </WorkspaceSection>
