@@ -14,7 +14,7 @@ Dated 2026-11-11 ~23:15, at `talelk/brain@9393922` (deployed: everything through
 |------|-----|
 | Re-allow the Claude extension on brain.mykeyrus.tn (chrome://extensions) and sign in once in the Chrome tab | to run a real mission end to end through the renamed runtime (ADRs 0018-0020) and walk session-gated pages |
 | Create one share link and open it signed out | creating a public link grants access: the assistant is blocked from doing it; verify `/shared/:token` is read-only |
-| Decide the 4 quarantined tool proposals in Library | they need a person by design |
+| Decide the quarantined tool proposals in Library (demo workspace: 5; sre-demos: 1 tool + 1 Play proposal "Keep the demos server healthy", filed 2026-11-12) | they need a person by design; approving the Play opens a Studio draft |
 | Rotate the server sudo password | it was typed into chat several times |
 | Optionally set `BRAIN_NOTIFY_SMTP_URL` / `BRAIN_NOTIFY_FROM` on the server | enables email notifications (off by default) |
 
