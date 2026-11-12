@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ActorContext, CommandReceipt, PlanTask, WorkItem } from "@brain/contracts";
 import { goldenDocs, setupWorld, workView } from "../helpers";
+import { TaskExperience } from "../../apps/governor/src/modules/workflows/index";
 
 type World = ReturnType<typeof setupWorld>;
 
@@ -31,6 +32,15 @@ describe("parked work in the read models", () => {
     expect(parked).toMatchObject({ state: "blocked", parked: true });
     // The reason a person needs is on the item itself, not only in the attention list.
     expect(parked.parkedDiagnostic).toContain("Step respond failed");
+    // The runs a mission started by itself are the item's attempts: a task that failed three times does not read "no tasks started".
+    const tasks = new TaskExperience(w.brain.store, {
+      query: (actor, query) => w.brain.executeQuery(actor, query),
+      dispatch: async (actor, command) => ({ receipt: (await w.brain.executeCommand(actor, command, "ux-test")).receipt }),
+      reusePrompt: (actor, workspaceId, missionId) => w.brain.reuse.promptFor(actor, workspaceId, missionId),
+      startedFrom: (actor, workspaceId, missionId) => w.brain.missions.startedFrom(actor, workspaceId, missionId),
+    });
+    const context = await tasks.context(w.owner, w.workspaceId, { kind: "work-item", id: parked.workItemId });
+    expect(context.runs.map((entry) => entry.title).sort()).toEqual(["Task a · attempt 1", "Task a · attempt 2", "Task a · attempt 3"]);
     // A workspace with a parked task is not "healthy with nothing waiting".
     expect(await summary()).toMatchObject({ blockedJobs: 1, health: "degraded" });
     w.brain.close();

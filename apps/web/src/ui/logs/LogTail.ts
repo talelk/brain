@@ -176,12 +176,14 @@ export function createLogTail(input: {
 
   interface Connection { dispose: () => void; connected: Accessor<boolean> }
   let active: Connection | undefined;
+  // The badge reads the connection through a signal: a plain variable assigned after the badge was first drawn never re-ran it, so it stayed on "Connecting" for good.
+  const [liveConnection, setLiveConnection] = createSignal<Connection | undefined>(undefined);
   onCleanup(() => active?.dispose());
   // The live SSE append, recreated per seed so its starting cursor is always
   // the seed's newest record — never a replay of the entire matching history.
   createEffect(() => {
     const ready = status() === "ready" && connection() > 0 && !input.searchActive();
-    if (!ready) { active?.dispose(); active = undefined; return; }
+    if (!ready) { active?.dispose(); active = undefined; setLiveConnection(undefined); return; }
     // The cursor is read untracked: later appends must not re-run this effect
     // and tear down a healthy connection.
     const cursor = untrack(() => records().at(-1)?.streamSeq ?? 0);
@@ -234,11 +236,12 @@ export function createLogTail(input: {
       });
       return { dispose, connected: stream.connected };
     });
+    setLiveConnection(active);
   });
 
   return {
     records, status, error,
-    connected: () => active?.connected() ?? false,
+    connected: () => liveConnection()?.connected() ?? false,
     head, paused,
     unread: () => pending().length,
     droppedPending,

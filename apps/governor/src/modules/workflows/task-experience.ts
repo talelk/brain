@@ -120,6 +120,14 @@ export class TaskExperience {
     }
     const drafts = db.prepare("SELECT title,run_id FROM task_drafts WHERE json_extract(origin_json,'$.kind')=? AND json_extract(origin_json,'$.id')=? AND run_id IS NOT NULL ORDER BY created_at_ms DESC LIMIT 100").all(origin.kind, origin.id) as { title: string; run_id: string }[];
     const runs = drafts.map((draft) => ({ title: draft.title, runId: draft.run_id, state: (db.prepare("SELECT state FROM workflow_runs WHERE id=?").get(draft.run_id) as { state: string } | undefined)?.state ?? "unknown" }));
+    // Runs a mission started by itself are linked to the work item, not drafted by hand: they are the item's attempts, and a task that failed three times must show them.
+    if (origin.kind === "work-item") {
+      const known = new Set(runs.map((run) => run.runId));
+      const linked = (db.prepare("SELECT DISTINCT run_id FROM execution_links WHERE work_item_id=? ORDER BY created_at_ms DESC LIMIT 100").all(origin.id) as Array<{ run_id: string }>).filter((link) => !known.has(link.run_id));
+      linked.forEach((link, index) => {
+        runs.push({ title: `${row.title} · attempt ${linked.length - index}`, runId: link.run_id, state: (db.prepare("SELECT state FROM workflow_runs WHERE id=?").get(link.run_id) as { state: string } | undefined)?.state ?? "unknown" });
+      });
+    }
     return { origin, title: row.title, workflowId, input, runs };
   }
   async prepare(actor: ActorContext, request: TaskPrepareRequest): Promise<TaskDraft> {

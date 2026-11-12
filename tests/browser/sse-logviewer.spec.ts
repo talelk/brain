@@ -73,6 +73,8 @@ test("Log Explorer: bounded DOM, scroll and selection survive streaming, pause/u
   // counts every projected record — the seeded 10000 plus the organization
   // bootstrap record the unified stream carries alongside session events.
   await expect(page.getByText(/newest #10\d{3}/)).toBeVisible({ timeout: 60_000 });
+  // The stream badge follows the connection: it reads Live once the stream is open (it used to stay on "Connecting" for good).
+  await expect(page.getByLabel("Log explorer status")).toContainText("Live", { timeout: 30_000 });
 
   // Bounded client memory: the virtualiser mounts a viewport-sized window,
   // not the 10000-record transcript.

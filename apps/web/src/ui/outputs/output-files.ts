@@ -102,7 +102,7 @@ export function fileStatusOf(artifact: OutputItem, item: WorkItem | undefined): 
   if (artifact.state === "uploading") return { label: "In progress", theme: "amber" };
   const review = reviewStateOf(item);
   if (review === "review") return { label: "Needs review", theme: "amber" };
-  if (review === "done") return { label: "Accepted", theme: "green" };
+  if (review === "done") return { label: "Done · verified", theme: "green" };
   // A result the independent check has not passed is not final: say what is true of it right now.
   if (item?.state === "blocked") return { label: "Needs changes", theme: "red" };
   if (item && (item.state === "in-progress" || item.state === "ready" || item.state === "backlog")) return { label: "Not checked yet", theme: "gray" };

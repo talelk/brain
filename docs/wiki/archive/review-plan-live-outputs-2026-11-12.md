@@ -138,3 +138,6 @@ Tested with `verify:fast`, the integration (558), security (106) and chaos (45) 
 **Also found and fixed on the way:** the bell's "Needs you" dialog said "Across your workspaces" although attention is scoped to the current workspace, and `exec-console.spec` expected the old behaviour.
 
 **Not fixed (still open):** 6 (the header counts still differ between Today and Missions in places), 7, 10, 11, 13, 14, 17, 18 (Missions list), 20, 24, 27 to 31 (including the raw nginx 502 page, which is server configuration), 37, 38 (launcher health), 42, 43, 51, 53, 57, 59.
+
+**Added after deploying (checked on live):** the log stream badge stayed on "Connecting" because the client read the connection through a plain variable, so it never re-rendered; it is now a signal (and the server also flushes a first byte at once). "Tasks for this item" now lists the runs a mission started by itself as attempts (item 2). "Accepted" became "Done · verified" (item 53, first half).
+Checked on live after the first deploy: a direct load of Health or Approvals stays in `sre-demos`; Logs says "A tool recorded a result" and "newest #…"; Missions shows finished results in a closed list.
