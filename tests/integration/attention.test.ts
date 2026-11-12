@@ -102,3 +102,16 @@ describe("attention and since-last-visit (T59)", () => {
     w.brain.close();
   });
 });
+
+describe("attention is scoped to the requested workspace", () => {
+  it("answers a workspace request for that workspace only and an unscoped request for the organization", async () => {
+    const w = setupWorld();
+    const pausedMission = await mission(w, "scoped-paused", [task("y")]);
+    w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("UPDATE missions SET state='paused', pause_reason='budget' WHERE id=?").run(pausedMission);
+    w.brain.createWorkspace(w.owner, { workspaceId: "ws-other-scope", slug: "other-scope" });
+    const ask = async (workspaceId?: string) => ((await w.brain.executeQuery(w.owner, { queryType: "attention.list", ...(workspaceId ? { workspaceId } : {}) } as never)) as unknown as { snapshot: { items: AttentionItem[] } }).snapshot.items;
+    expect((await ask(w.workspaceId)).some((item) => item.missionId === pausedMission)).toBe(true);
+    expect(await ask("ws-other-scope")).toEqual([]);
+    expect((await ask()).some((item) => item.missionId === pausedMission)).toBe(true);
+  });
+});

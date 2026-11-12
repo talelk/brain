@@ -159,7 +159,11 @@ export function attentionCommands(store: Store): CommandHandlers {
 }
 
 export function attentionQuery(store: Store, actor: ActorContext, queryType: string, workspaceIds: readonly string[], workspaceId: string | undefined, resourceId: string | undefined): JsonValue {
-  if (queryType === "attention.list") return { items: attentionItems(store, actor.organizationId, workspaceIds) } as unknown as JsonValue;
+  if (queryType === "attention.list") {
+    // A request for one workspace answers for that workspace only; without one it is the organization-wide list.
+    if (workspaceId) requireWorkspaceRead(store, actor, workspaceId);
+    return { items: attentionItems(store, actor.organizationId, workspaceId ? [workspaceId] : workspaceIds) } as unknown as JsonValue;
+  }
   if (!workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
   requireWorkspaceRead(store, actor, workspaceId);
   return sinceLastVisit(store.workspaceDb(workspaceId, actor.organizationId), actor.actorId, String(resourceId)) as unknown as JsonValue;
