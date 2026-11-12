@@ -1015,7 +1015,7 @@
     "adminOnly": true,
     "organizationOnly": true,
     "icon": "lucide-plug",
-    "scope": "instance"
+    "scope": "workspace"
    },
    {
     "label": "Releases",
