@@ -19,6 +19,8 @@ import type { ApprovalIntent, ApprovalOutcome } from "../ui/approval-controller"
 import { ReasonDialog } from "../ui/components/ReasonDialog";
 import { DisclosureCard } from "../ui/components/primitives";
 import { QueueRow, WorkspaceSection } from "../ui/components/Domain";
+import { DecisionCard } from "../ui/components/DecisionCard";
+import { t } from "../i18n";
 import { useApp } from "../ui/app-context";
 const workspaceLabel = (approval: ApprovalRequest) => approval.subject.workspaceId;
 const INBOX_PAGE_SIZE = 25;
@@ -168,6 +170,46 @@ export function ApprovalsScreen(props: {
   </BrainPage>;
 }
 
+/** What the requester told Brain this effect is, in their own words; the arguments are the exact input the tool will get. */
+const effectSummary = (approval?: ApprovalRequest): string | undefined => {
+  const said = approval?.subject.effectBounds?.["summary"];
+  return typeof said === "string" && said.trim() ? said : undefined;
+};
+const effectArguments = (approval?: ApprovalRequest): [string, string][] => {
+  const given = approval?.subject.effectBounds?.["arguments"];
+  if (given === null || typeof given !== "object" || Array.isArray(given)) return [];
+  return Object.entries(given).map(([key, value]): [string, string] => [key, typeof value === "string" ? value : JSON.stringify(value)]);
+};
+
+/**
+ * The one card a phone needs for an effect: what will happen in plain words, the exact target, what it is given, who asked and when it
+ * lapses, and two buttons. Approve and Deny both open the exact review (note, identity step-up, recoverable decision); nothing runs
+ * before that decision is recorded.
+ */
+function EffectDecisionCard(props: { approval: ApprovalRequest; asOf?: string; review: JSX.Element }): JSX.Element {
+  const app = useApp();
+  const effect = () => effectParts(props.approval);
+  const given = () => effectArguments(props.approval);
+  return <DecisionCard kind="approval" tier={props.approval.state === "pending" ? 1 : 5} title={effectSummary(props.approval) ?? plainSentence(props.approval)}
+    why={t("approval.card.asked", { name: app.personName(props.approval.requestedBy) })}
+    recommended={props.review}>
+    <div class="flex min-w-0 flex-col gap-3" data-approval-card={props.approval.state}>
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-interface text-ink-gray-7">
+        <StatusBadge kind="approval" status={props.approval.state} />
+        <Show when={props.approval.state === "pending"} fallback={<span>{t("approval.card.state", { state: props.approval.state })}</span>}><ExpiryCountdown expiresAt={props.approval.subject.expiresAt} asOf={props.asOf} /></Show>
+      </div>
+      <dl class="m-0 grid min-w-0 gap-3">
+        <div class="min-w-0"><dt class="text-caption text-ink-gray-6">{t("approval.card.what")}</dt><dd class="m-0 mt-0.5 break-words [overflow-wrap:anywhere] text-interface font-medium text-ink-gray-9" data-approval-what>{plainSentence(props.approval)}</dd></div>
+        <div class="min-w-0"><dt class="text-caption text-ink-gray-6">{t("approval.card.target")}</dt><dd class="m-0 mt-0.5 break-words [overflow-wrap:anywhere] text-interface font-medium text-ink-gray-9" data-approval-target>{effect().environment ? t("approval.card.targetIn", { target: effect().target, environment: effect().environment ?? "" }) : effect().target}</dd></div>
+        <div class="min-w-0"><dt class="text-caption text-ink-gray-6">{t("approval.card.workspace")}</dt><dd class="m-0 mt-0.5 break-words text-interface text-ink-gray-9">{workspaceLabel(props.approval)}</dd></div>
+        <Show when={given().length > 0}><div class="min-w-0"><dt class="text-caption text-ink-gray-6">{t("approval.card.arguments")}</dt>
+          <dd class="m-0 mt-0.5"><ul class="m-0 flex list-none flex-col gap-1 p-0" data-approval-arguments><For each={given()}>{([key, value]) => <li class="min-w-0 break-words [overflow-wrap:anywhere] text-interface text-ink-gray-9"><span class="text-ink-gray-6">{key}:</span> {value}</li>}</For></ul></dd></div></Show>
+      </dl>
+      <p class="m-0 text-caption text-ink-gray-6">{t("approval.card.once")}</p>
+    </div>
+  </DecisionCard>;
+}
+
 export function ApprovalDetailScreen(props: {
   approval?: ApprovalRequest;
   state: ScreenState<ApprovalRequest>;
@@ -195,20 +237,14 @@ export function ApprovalDetailScreen(props: {
       emptyDescription="It was decided, revoked, or belongs to a workspace you cannot read. Cached details were cleared."
       emptyAction={<Button variant="outline" onClick={props.onBack}>Back to approvals</Button>} onRetry={props.onRefresh}>
       <PageStack>
-        <header class="min-w-0">
-          <div class="flex flex-wrap items-center gap-2"><StatusBadge kind="approval" status={approval()?.state ?? "unknown"} /></div>
-          <h2 class="mt-2 break-words [overflow-wrap:anywhere] text-section text-ink-gray-9">{plainSentence(approval())}</h2>
-          <Show when={approval()}>{(a) => <div class="mt-1"><AskLine approval={a()} asOf={props.asOf} /></div>}</Show>
-        </header>
+        <Show when={approval()}>{(current) => <EffectDecisionCard approval={current()} asOf={props.asOf}
+          review={<ApprovalReview triggers="decision" requireTwoFactor={props.requireTwoFactor} active={props.active} approvalId={current().approvalId} targetLabel={`${effect().operation} on ${effect().target}`}
+            summary={dialogSummary(current())} requestedBy={app.personName(current().requestedBy)} expiresAt={current().subject.expiresAt} asOf={props.asOf}
+            exactContent={exactJson(current())} subjectDigest={current().subjectDigest} version={current().version} fresh={fresh()}
+            createIdempotencyKey={() => `web-${crypto.randomUUID()}`} verifyIdentity={props.verifyIdentity} submitDecision={props.submitDecision} checkDecision={props.checkDecision} />} />}</Show>
         <Show when={!fresh() && approval()?.state === "pending"}><Alert theme="red" variant="outline" title="This proposal cannot be approved" description="It expired, changed, or could not be freshly revalidated. Review the current proposal or ask for a new one." /></Show>
         <Show when={approval()?.state === "expired"}><Alert theme="amber" variant="outline" title="This proposal expired" description="No new decision can be recorded. Ask the requester for a new exact proposal with a fresh expiry." /></Show>
-        <div class="flex min-w-0 flex-wrap items-center gap-3">
-          <ApprovalReview requireTwoFactor={props.requireTwoFactor} active={props.active} approvalId={approval()?.approvalId ?? ""} targetLabel={`${effect().operation} on ${effect().target}`}
-            summary={dialogSummary(approval())} requestedBy={approval() ? app.personName(approval()!.requestedBy) : undefined} expiresAt={approval()?.subject.expiresAt} asOf={props.asOf}
-            exactContent={exactJson(approval())} subjectDigest={approval()?.subjectDigest ?? ""} version={approval()?.version ?? 0} fresh={fresh()}
-            createIdempotencyKey={() => `web-${crypto.randomUUID()}`} verifyIdentity={props.verifyIdentity} submitDecision={props.submitDecision} checkDecision={props.checkDecision} />
-          <p class="min-w-0 text-caption text-ink-gray-6">Approve, reject or request changes in the review. If the response is lost, check the original decision; never dispatch a new effect to recover it.</p>
-        </div>
+        <p class="m-0 min-w-0 text-caption text-ink-gray-6">Approve, reject or request changes in the review. If the response is lost, check the original decision; never dispatch a new effect to recover it.</p>
         <div class="brain-run-layout">
           <div class="brain-detail-stack">
             <WorkspaceSection title="What will happen" description="Authority applies to this operation and no other target.">

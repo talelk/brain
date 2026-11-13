@@ -66,6 +66,11 @@ export function t(key: MessageKey, params?: Readonly<Record<string, string | num
   return fill(CATALOGS[locale()][key] ?? en[key], params);
 }
 
+/** A message looked up by a key built at run time (a status word, a service id); the fallback shows when the catalogue has no such key. */
+export function tOr(key: string, fallback: string): string {
+  return (CATALOGS[locale()] as Readonly<Record<string, string>>)[key] ?? (en as Readonly<Record<string, string>>)[key] ?? fallback;
+}
+
 /** A counted message: picks `<base>_<category>` by the language's own plural rules; `{n}` is the count. */
 export function tn(base: PluralBase, count: number, params?: Readonly<Record<string, string | number>>): string {
   const current = locale();

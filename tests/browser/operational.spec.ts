@@ -83,7 +83,7 @@ test("optional-factor operator inspects a release, activates it, dispatches both
     await page.getByRole("button",{name:"Exact details",exact:true}).click();
     await expect(page.getByText("One-use evidence bound to this session and the exact subject digest.",{exact:true})).toBeVisible();
     await capture(`approval-${decision}`);
-    await page.getByRole("button",{name:"Review action",exact:true}).click();
+    await page.getByRole("button",{name:decision==="approve"?"Approve":"Deny",exact:true}).click();
     await page.getByLabel(/^Decision note/).fill(`Operator chose ${decision}`);
     await expect(page.getByLabel(/^Authenticator code/)).toHaveCount(0);
     await page.getByRole("button",{name:decision==="approve"?"Approve exact action":decision==="reject"?"Reject":"Request changes",exact:true}).click();

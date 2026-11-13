@@ -8,6 +8,8 @@ import { authClient } from "../../data/auth-client";
 import { useApp } from "../app-context";
 import { ThemeToggle } from "./ThemeToggle";
 import { ActionFeedback } from "./ActionFeedback";
+import { authProvidersRead, type AuthProviders } from "../../data/engine";
+import { t } from "../../i18n";
 
 export function Authentication(props: { setupRequired: boolean; onAuthenticated: () => Promise<void>; invitationId?: string }) {
   const [email, setEmail] = createSignal("");
@@ -22,6 +24,11 @@ export function Authentication(props: { setupRequired: boolean; onAuthenticated:
   const [code, setCode] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
+  // Whether the company directory is switched on (public answer): then sign-in offers one more button.
+  const [sso, setSso] = createSignal<AuthProviders["sso"]>(null);
+  onMount(() => { void authProvidersRead().then((providers) => setSso(providers.sso)).catch(() => undefined); });
+  /** One click into the directory; the page comes back to where the person was heading (an approval link, for one). */
+  const directorySignIn = () => { const next = `${window.location.pathname}${window.location.search}`; window.location.assign(`${sso()!.startPath}?next=${encodeURIComponent(next)}`); };
 
   async function submit(event: SubmitEvent) {
     event.preventDefault(); if (busy()) return;
@@ -92,6 +99,7 @@ export function Authentication(props: { setupRequired: boolean; onAuthenticated:
           </Show>
           <Button type="submit" variant="solid" theme="blue" loading={busy()} disabled={busy()}>{props.setupRequired ? "Create organization" : needsCode() ? recovery() ? "Recover account" : "Verify and continue" : signUp() ? "Create account and send verification" : "Sign in"}</Button>
           <Show when={!props.setupRequired && !needsCode() && !signUp()}><Button type="button" variant="outline" iconLeft="lucide-key-round" onClick={() => void passkeySignIn()} disabled={busy()}>Sign in with a passkey</Button></Show>
+          <Show when={sso() && !props.setupRequired && !needsCode() && !signUp()}><Button type="button" variant="outline" iconLeft="lucide-building-2" onClick={directorySignIn} disabled={busy()} data-sso-signin>{t("auth.sso.button")}</Button></Show>
           <Show when={props.invitationId && !needsCode()}><Button type="button" variant="ghost" onClick={() => { setSignUp(!signUp()); setError(""); }} disabled={busy()}>{signUp() ? "Use an existing account" : "New to Brain? Create the invited account"}</Button></Show>
         </form>
       </Show>

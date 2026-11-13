@@ -92,7 +92,7 @@ const NAV_ITEM_KEYS: Readonly<Record<string, MessageKey>> = {
   "Today": "nav.item.today", "Missions": "nav.item.missions", "Approvals": "nav.item.approvals", "Schedules": "nav.item.schedules", "All results": "nav.item.all-results",
   "Library": "nav.item.library", "Plays": "nav.item.plays", "Knowledge": "nav.item.knowledge", "Review inbox": "nav.item.review-inbox", "Support": "nav.item.support",
   "Incidents": "nav.item.incidents", "Studio": "nav.item.studio", "Logs": "nav.item.logs", "Runners": "nav.item.runners", "Workspaces": "nav.item.workspaces",
-  "Setup": "nav.item.setup", "Security": "nav.item.security", "Quality": "nav.item.quality", "Integrations": "nav.item.integrations", "Releases": "nav.item.releases",
+  "Setup": "nav.item.setup", "How work runs": "nav.item.work", "Security": "nav.item.security", "Quality": "nav.item.quality", "Integrations": "nav.item.integrations", "Releases": "nav.item.releases",
   "People": "nav.item.people", "Invitations": "nav.item.invitations", "Access": "nav.item.access", "Authentication": "nav.item.authentication", "Health": "nav.item.health",
 };
 const navLabel = (label: string): string => { const key = NAV_ITEM_KEYS[label]; return key ? t(key) : label; };

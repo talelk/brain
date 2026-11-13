@@ -6,6 +6,7 @@ import { useApp } from "../ui/app-context";
 import { AuthenticatorEnrollment } from "../ui/components/Authentication";
 import { PasskeyControls } from "../ui/components/PasskeyControls";
 import { NotificationPreferences } from "../ui/components/NotificationPreferences";
+import { WorkSettings } from "../ui/components/EngineAdmin";
 import { OrganizationAuthPolicy, OrganizationInvitations, OrganizationMemberSelect, OrganizationPeople } from "../ui/components/OrganizationAdmin";
 import type { JSX } from "solid-js";
 import { For, Show, createSignal, onMount } from "solid-js";
@@ -17,6 +18,8 @@ import type { AuditEntry, HealthView, MemberGrantView, ConfigExplanation, Organi
 import { DateText, ScreenRegion } from "../ui/screen-region";
 import type { ScreenState } from "../data/screens";
 import { formatDateTime, formatRelative } from "../ui/format";
+import { sendTestEmail } from "../data/engine";
+import { t, tn, tOr, type MessageKey } from "../i18n";
 import { auditSentence } from "../ui/audit-text";
 import { ActionFeedback } from "../ui/components/ActionFeedback";
 import { Freshness, WorkspaceSection } from "../ui/components/Domain";import { StatusBadge, statusTheme } from "../ui/components/StatusBadge";
@@ -25,15 +28,16 @@ import { StatGrid } from "@talelk/newui-organisms";
 
 const SETTINGS_PAGE_SIZE = 25;
 
-const PAGE: Record<string, { title: string; description: string }> = {
-  setup: { title: "Setup", description: "Whole instance. Connect a model, start the runners, then run one safe test task." },
-  security: { title: "Security", description: "Only your own account. Protect your own account: two-factor sign-in, passkeys, your signed-in devices and notifications." },
-  people: { title: "People", description: "Whole instance. Everyone in your organization and what each person may administer. Invite someone, change their organization roles, or suspend them." },
-  invitations: { title: "Invitations", description: "Whole instance. People you invited and whether they have joined yet. Invitations are sent by email and expire." },
-  policy: { title: "Authentication", description: "Whole instance. How people sign in to this organization. This page is read-only; the policy is set in the server configuration." },
-  health: { title: "Health", description: "Whole instance. Is Brain working? One verdict first, then each service and the latest recorded activity." },
-  members: { title: "Workspace access", description: "This workspace only. Who can do what in this workspace. Grant or revoke a role; every change needs a reason and is recorded." },
-  release: { title: "Releases", description: "Whole instance. A release is the set of workflows and agents Brain runs. Activating a release makes it the one new work uses; running work keeps the release it started on." },
+const PAGE_KEYS: Readonly<Record<string, { title: MessageKey; description: MessageKey }>> = {
+  setup: { title: "admin.page.setup.title", description: "admin.page.setup.description" },
+  security: { title: "admin.page.security.title", description: "admin.page.security.description" },
+  people: { title: "admin.page.people.title", description: "admin.page.people.description" },
+  invitations: { title: "admin.page.invitations.title", description: "admin.page.invitations.description" },
+  policy: { title: "admin.page.policy.title", description: "policy.page.description" },
+  work: { title: "work.page.title", description: "work.page.description" },
+  health: { title: "admin.page.health.title", description: "admin.page.health.description" },
+  members: { title: "admin.page.members.title", description: "admin.page.members.description" },
+  release: { title: "admin.page.release.title", description: "admin.page.release.description" },
 };
 
 export function SettingsScreen(props: {
@@ -64,7 +68,7 @@ export function SettingsScreen(props: {
   const [memberPage, setMemberPage] = createSignal(1);
   const [auditPage, setAuditPage] = createSignal(1);
   const principalName = (member: MemberGrantView) => member.displayName ?? (member.principalId === props.viewerId ? props.viewerName : undefined) ?? "Person without a name on file";
-  const page = () => PAGE[tab()] ?? PAGE["security"]!;
+  const page = () => { const keys = PAGE_KEYS[tab()] ?? PAGE_KEYS["security"]!; return { title: t(keys.title), description: t(keys.description) }; };
   const memberPageCount = () => Math.max(1, Math.ceil(props.members.length / SETTINGS_PAGE_SIZE));
   const currentMemberPage = () => Math.min(memberPage(), memberPageCount());
   const memberRows = () => props.members.slice((currentMemberPage() - 1) * SETTINGS_PAGE_SIZE, currentMemberPage() * SETTINGS_PAGE_SIZE);
@@ -78,19 +82,20 @@ export function SettingsScreen(props: {
       <Show when={tab() === "people" && identityAdmin()}><OrganizationPeople /></Show>
       <Show when={tab() === "invitations" && identityAdmin()}><OrganizationInvitations /></Show>
       <Show when={tab() === "policy" && identityAdmin()}><OrganizationAuthPolicy /></Show>
+      <Show when={tab() === "work" && organizationAdmin()}><WorkSettings /></Show>
       <Show when={tab() === "health"}><PageStack>
                 <HealthVerdict health={props.health} />
-        <WorkspaceSection title="Services" description="What each part of Brain reported on its last check. A grey or unknown state is never shown as healthy.">
-          <ScreenRegion state={props.state} skeleton="rows" emptyTitle="Health unavailable" emptyDescription="Brain could not read its own status. Retry; if it keeps failing, the server may be down." onRetry={props.onRefresh}>
-            <div class="grid gap-3 md:grid-cols-2"><For each={props.health?.services ?? []}>{(service) => <article class="min-w-0 border-y border-outline-gray-1 py-3"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="flex min-w-0 items-center gap-2 break-words text-base-medium"><StatusIcon state={service.status} theme={statusTheme("health", service.status)} class="size-4" />{serviceName(service.id)}</h3><StatusBadge kind="health" status={service.status} /></div><p class="mt-1.5 break-words text-interface text-ink-gray-7">{service.detail}</p><p class="mt-1.5 text-caption text-ink-gray-6">Checked <DateText value={service.checkedAt} /></p></article>}</For></div>
+        <WorkspaceSection title={t("health.services.title")} description={t("health.services.description")}>
+          <ScreenRegion state={props.state} skeleton="rows" emptyTitle={t("health.unavailable.title")} emptyDescription={t("health.unavailable.description")} onRetry={props.onRefresh}>
+            <div class="grid gap-3 md:grid-cols-2"><For each={props.health?.services ?? []}>{(service) => <article class="min-w-0 border-y border-outline-gray-1 py-3"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="flex min-w-0 items-center gap-2 break-words text-base-medium"><StatusIcon state={service.status} theme={statusTheme("health", service.status)} class="size-4" />{serviceName(service.id)}</h3><StatusBadge kind="health" status={service.status} /></div><p class="mt-1.5 break-words text-interface text-ink-gray-7">{service.detail}</p><p class="mt-1.5 text-caption text-ink-gray-6">{t("health.checked", { when: "" })}<DateText value={service.checkedAt} /></p><Show when={service.id === "email" && service.status !== "disabled"}><EmailTest /></Show></article>}</For></div>
             
           </ScreenRegion>
         </WorkspaceSection>
-        <WorkspaceSection title="Recent activity in this workspace" description="Who did what and when in the workspace you are in, newest first. Switch workspace to read another one. Entries cannot be edited or removed.">
-          <ScreenRegion state={props.state} skeleton="rows" emptyTitle="Nothing recorded yet" emptyDescription="Sign-ins, approvals, grants and releases appear here as they happen." onRetry={props.onRefresh}>
-            <Show when={props.audit.length === 0}><p class="brain-empty-inline">Nothing recorded yet. Sign-ins, approvals, grants and releases appear here as they happen.</p></Show>
-            <Timeline items={auditRows().map((entry) => ({ id: String(entry.cursor), title: <span class="block whitespace-normal break-words">{auditSentence(entry)}</span>, description: <span class="break-words" title={entry.resourceId}>By {app.personName(entry.actorId)}</span>, timestamp: <span class="whitespace-nowrap"><DateText value={entry.occurredAt} /></span>, icon: "lucide-history" }))} />
-            <Show when={auditPageCount() > 1}><Pagination.Root aria-label="Audit timeline pagination" class="mt-3 flex-wrap items-center justify-between gap-2 border-t border-outline-gray-1 pt-3" count={props.audit.length} pageSize={SETTINGS_PAGE_SIZE} page={currentAuditPage()} onPageChange={setAuditPage}>
+        <WorkspaceSection title={t("health.activity.title")} description={t("health.activity.description")}>
+          <ScreenRegion state={props.state} skeleton="rows" emptyTitle={t("health.activity.empty.title")} emptyDescription={t("health.activity.empty.description")} onRetry={props.onRefresh}>
+            <Show when={props.audit.length === 0}><p class="brain-empty-inline">{t("health.activity.empty.title")}. {t("health.activity.empty.description")}</p></Show>
+            <Timeline items={auditRows().map((entry) => ({ id: String(entry.cursor), title: <span class="block whitespace-normal break-words">{auditSentence(entry)}</span>, description: <span class="break-words" title={entry.resourceId}>{t("health.activity.by", { name: app.personName(entry.actorId) })}</span>, timestamp: <span class="whitespace-nowrap"><DateText value={entry.occurredAt} /></span>, icon: "lucide-history" }))} />
+            <Show when={auditPageCount() > 1}><Pagination.Root aria-label={t("health.activity.pagination")} class="mt-3 flex-wrap items-center justify-between gap-2 border-t border-outline-gray-1 pt-3" count={props.audit.length} pageSize={SETTINGS_PAGE_SIZE} page={currentAuditPage()} onPageChange={setAuditPage}>
               <Pagination.Range />
               <div class="flex items-center gap-1"><Pagination.PrevTrigger /><Pagination.Pages /><Pagination.NextTrigger /></div>
             </Pagination.Root></Show>
@@ -117,17 +122,34 @@ export function SettingsScreen(props: {
   </BrainPage>;
 }
 
-const SERVICE_NAMES: Record<string, string> = { governor: "Brain server", "memory-local": "Memory (built-in store)", memory: "Memory service", runner: "Runners", runners: "Runners" };
-const serviceName = (id: string) => SERVICE_NAMES[id.toLowerCase()] ?? id.replace(/[-_]/gu, " ");
+const serviceName = (id: string): string => tOr(`health.service.${id.toLowerCase()}`, id.replace(/[-_]/gu, " "));
+
+/** A test email to the signed-in person: Brain's email service is judged by how the last delivery went. */
+function EmailTest(): JSX.Element {
+  const [busy, setBusy] = createSignal(false);
+  const [result, setResult] = createSignal<{ ok: boolean; text: string }>();
+  async function send(): Promise<void> {
+    if (busy()) return;
+    setBusy(true); setResult(undefined);
+    try {
+      const sent = await sendTestEmail();
+      setResult(sent.sent ? { ok: true, text: t("health.email.sent") } : { ok: false, text: t("health.email.failed", { reason: sent.reason }) });
+    } catch (cause) { setResult({ ok: false, text: t("health.email.failed", { reason: cause instanceof Error ? cause.message : "" }) }); } finally { setBusy(false); }
+  }
+  return <div class="mt-2 flex flex-col items-start gap-1.5" data-email-test>
+    <Button size="sm" variant="outline" iconLeft="lucide-mail" loading={busy()} disabled={busy()} onClick={() => void send()}>{t("health.email.test")}</Button>
+    <Show when={result()}>{(outcome) => <p role={outcome().ok ? "status" : "alert"} class={`m-0 text-caption ${outcome().ok ? "text-ink-green-8" : "text-ink-red-8"}`}>{outcome().text}</p>}</Show>
+  </div>;
+}
 
 /** One overall verdict before any detail: healthy, needs a look, or unknown. Disabled optional services do not count against it. */
 function HealthVerdict(props: { health?: HealthView }): JSX.Element {
   const verdict = () => {
     const health = props.health;
-    if (!health) return { theme: "gray" as const, title: "Health is unknown", text: "Brain could not read its status, so nothing here can be called healthy. Press Refresh." };
+    if (!health) return { theme: "gray" as const, title: t("health.verdict.unknown.title"), text: t("health.verdict.unknown.text") };
     const bad = health.services.filter((service) => service.status !== "healthy" && service.status !== "disabled");
-    if (health.status === "healthy" && bad.length === 0) return { theme: "green" as const, title: "Everything is working", text: `${health.services.length} services checked, none need attention.` };
-    return { theme: "amber" as const, title: "Something needs attention", text: `${bad.length ? `${bad.map((service) => serviceName(service.id)).join(", ")} ${bad.length === 1 ? "is" : "are"} not healthy. ` : ""}${health.pendingOutbox > 0 ? `${health.pendingOutbox} outgoing messages are waiting to be delivered (the oldest for ${Math.round(health.oldestOutboxAgeMs / 1000)} s). ` : ""}Details are below.` };
+    if (health.status === "healthy" && bad.length === 0) return { theme: "green" as const, title: t("health.verdict.ok.title"), text: t("health.verdict.ok.text", { n: health.services.length }) };
+    return { theme: "amber" as const, title: t("health.verdict.attention.title"), text: `${bad.length ? `${tn("health.verdict.notHealthy", bad.length, { names: bad.map((service) => serviceName(service.id)).join(", ") })} ` : ""}${health.pendingOutbox > 0 ? `${t("health.verdict.outbox", { n: health.pendingOutbox, seconds: Math.round(health.oldestOutboxAgeMs / 1000) })} ` : ""}${t("health.verdict.details")}` };
   };
   return <Alert theme={verdict().theme} variant="outline" title={verdict().title} description={verdict().text} />;
 }

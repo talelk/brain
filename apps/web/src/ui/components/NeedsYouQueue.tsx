@@ -10,6 +10,8 @@ import { dialogSummary, effectParts, exactJson, plainSentence } from "../approva
 import { attentionAction, attentionHref } from "./AttentionDrawer";
 import { ApprovalReview, ExpiryCountdown } from "./ApprovalReview";
 import { DecisionCard } from "./DecisionCard";
+import { SpendCapRaise, TaskFailure } from "./TaskFailure";
+import { createScopedRead } from "../../data/screens";
 import { DigestValue } from "./DigestValue";
 import { isFreshFromServer } from "../screen-region";
 import { formatDateTime } from "../format";
@@ -115,6 +117,15 @@ function PlanBody(props: { item: AttentionItem; mission?: Mission; onChanged: ()
 function ParkedBody(props: { item: AttentionItem; onChanged: () => void }): JSX.Element {
   const app = useApp();
   const row = createRowAction(props.onChanged);
+  // The task itself says why it stopped (failure class, the one fix, its spend); read with everything else on the live store.
+  const task = createScopedRead<WorkItem>({
+    scope: app.scope, live: true,
+    load: async (scope, signal) => {
+      const response = await query<Envelope<WorkItem>>({ queryType: "workItems.get", workspaceId: props.item.workspaceId || scope.workspaceId, resourceId: props.item.resourceId }, signal);
+      return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+    },
+  });
+  const overBudget = () => task.state().data?.remedy === "park-budget";
   const [dropping, setDropping] = createSignal(false);
   /** The work item's current version is read at the moment of the click, so a stale row never overwrites newer work. */
   const move = (state: "ready" | "abandoned") => row.act(async () => {
@@ -123,12 +134,14 @@ function ParkedBody(props: { item: AttentionItem; onChanged: () => void }): JSX.
     if (!receipt.accepted) throw new Error(receipt.detail);
   });
   return <DecisionCard kind={props.item.kind} tier={props.item.tier} title={props.item.title} why={whyOf(props.item)} error={row.error()}
-    recommended={<Show when={app.canDispatch()}><Button size="sm" variant="solid" theme="blue" iconLeft="lucide-rotate-ccw" disabled={row.busy()} onClick={() => void move("ready")}>{t("decision.retry")}</Button></Show>}
+    recommended={<Show when={app.canDispatch()}><Show when={overBudget() && task.state().data} fallback={<Button size="sm" variant="solid" theme="blue" iconLeft="lucide-rotate-ccw" disabled={row.busy()} onClick={() => void move("ready")}>{t("decision.retry")}</Button>}>
+      {(item) => <SpendCapRaise compact item={item()} onRaised={props.onChanged} />}</Show></Show>}
     alternatives={<><Show when={app.canDispatch()}><Show when={!dropping()} fallback={<>
       <Button size="sm" variant="solid" theme="red" iconLeft="lucide-trash-2" disabled={row.busy()} onClick={() => void move("abandoned")}>{t("decision.drop.confirm")}</Button>
       <Button size="sm" variant="ghost" onClick={() => setDropping(false)}>{t("decision.drop.keep")}</Button>
     </>}><Button size="sm" variant="outline" iconLeft="lucide-trash-2" disabled={row.busy()} onClick={() => setDropping(true)}>{t("decision.drop")}</Button></Show></Show>
       <DetailsLink item={props.item} label={t("decision.parked.details")} /></>}>
+    <Show when={task.state().data?.failureClass ? task.state().data : undefined}>{(item) => <TaskFailure item={item()} />}</Show>
     <Show when={!app.canDispatch()}><NoScope who="operator" /></Show>
   </DecisionCard>;
 }

@@ -14,6 +14,8 @@ import { PageStack, TechnicalDetails } from "./PageLayout";
 import { ScreenRegion } from "../screen-region";
 import { count } from "../format";
 import { DateText } from "../screen-region";
+import { SingleSignOn } from "./SingleSignOn";
+import { t } from "../../i18n";
 
 const roleOptions = [
   { value: "organization-admin", label: "Organization administrator" },
@@ -229,13 +231,14 @@ export function OrganizationAuthPolicy(): JSX.Element {
   const app = useApp();
   const read = createScopedRead<OrganizationDirectorySnapshot>({ scope: app.scope, load: (_scope, signal) => organizationAuthPolicyQuery(signal), isEmpty: (data) => !data.policy });
   const policy = () => read.state().data?.policy;
-  return <PageStack><Alert theme="blue" variant="outline" title="Read-only" description="These values come from the server configuration and cannot be changed here. Ask whoever runs the server to change them." />
-    <ScreenRegion state={read.state()} skeleton="rows" emptyTitle="Policy unavailable" emptyDescription="Brain did not return authentication policy." onRetry={() => void read.refresh({ force: true })}>
+  return <PageStack><SingleSignOn />
+    <Alert theme="blue" variant="outline" title={t("policy.readOnly.title")} description={t("policy.readOnly.description")} />
+    <ScreenRegion state={read.state()} skeleton="rows" emptyTitle={t("policy.unavailable.title")} emptyDescription={t("policy.unavailable.description")} onRetry={() => void read.refresh({ force: true })}>
       <Show when={policy()}>{(value) => <PageStack>
-        <WorkspaceSection title="How people sign in" description="Which ways of signing in are switched on for this organization."><div class="grid gap-3 sm:grid-cols-2"><KeyValue label="Password sign-in" value={value().passwordEnabled ? "On · only people you invited" : "Off"} /><KeyValue label="Passkeys" value={value().passkeyEnabled ? "On · for signing in" : "Off"} /><KeyValue label="Company single sign-on" value={value().oidcEnabled ? "On · existing members only" : "Not configured"} /><KeyValue label="Authenticator app (two-factor)" value={value().requireTwoFactor ? "Required" : "Optional · approving an action still asks for confirmation"} /></div></WorkspaceSection>
-        <WorkspaceSection title="Sessions" description="How long a sign-in lasts before people must sign in again."><div class="grid gap-3 sm:grid-cols-2"><KeyValue label="Stay signed in for" value={`${value().sessionExpiresInSeconds / 3600} hours`} /><KeyValue label="Sensitive changes need a sign-in within" value={`${Math.round(value().sessionFreshAgeSeconds / 60)} minutes`} /></div></WorkspaceSection>
-        <WorkspaceSection title="Approving actions" description="Signing in and approving an action are separate checks."><p class="brain-prose text-interface text-ink-gray-7">Every approval is confirmed again for that exact action, however the person signed in. {value().requireTwoFactor ? "This organization also requires an authenticator code." : "An authenticator code is optional."}</p></WorkspaceSection>
-        <TechnicalDetails label="Raw policy (rate limits, source)"><pre class="max-w-full overflow-auto whitespace-pre-wrap break-all text-caption">{JSON.stringify(value(), null, 2)}</pre></TechnicalDetails>
+        <WorkspaceSection title={t("policy.how.title")} description={t("policy.how.description")}><div class="grid gap-3 sm:grid-cols-2"><KeyValue label={t("policy.password")} value={value().passwordEnabled ? t("policy.password.on") : t("policy.off")} /><KeyValue label={t("policy.passkeys")} value={value().passkeyEnabled ? t("policy.passkeys.on") : t("policy.off")} /><KeyValue label={t("policy.sso")} value={value().oidcEnabled ? t("policy.sso.on") : t("policy.sso.off")} /><KeyValue label={t("policy.twoFactor")} value={value().requireTwoFactor ? t("policy.twoFactor.required") : t("policy.twoFactor.optional")} /></div></WorkspaceSection>
+        <WorkspaceSection title={t("policy.sessions.title")} description={t("policy.sessions.description")}><div class="grid gap-3 sm:grid-cols-2"><KeyValue label={t("policy.sessions.stay")} value={t("policy.sessions.hours", { n: value().sessionExpiresInSeconds / 3600 })} /><KeyValue label={t("policy.sessions.fresh")} value={t("policy.sessions.minutes", { n: Math.round(value().sessionFreshAgeSeconds / 60) })} /></div></WorkspaceSection>
+        <WorkspaceSection title={t("policy.approving.title")} description={t("policy.approving.description")}><p class="brain-prose text-interface text-ink-gray-7">{t("policy.approving.text")} {value().requireTwoFactor ? t("policy.approving.twoFactor") : t("policy.approving.optional")}</p></WorkspaceSection>
+        <TechnicalDetails label={t("policy.raw")}><pre class="max-w-full overflow-auto whitespace-pre-wrap break-all text-caption">{JSON.stringify(value(), null, 2)}</pre></TechnicalDetails>
       </PageStack>}</Show>
     </ScreenRegion>
   </PageStack>;

@@ -28,7 +28,7 @@ test("approval conflict keeps the reviewed note and requires a fresh exact revie
   const subject = { organizationId: actor.organizationId, workspaceId: "ws-edge", operation: "fixture.publish", tool: { id: "fixture.echo", digest: DIGEST }, inputDigest: DIGEST, target: { targetId: "edge-target", environmentId: "production", preconditionDigest: DIGEST }, artifactDigest: DIGEST, policyDigest: DIGEST, configDigest: DIGEST, effectBounds: { publication: "Exact reviewed response" }, expiresAt: new Date(now + 3600_000).toISOString(), nonce: "edge-conflict" };
   const approvalId = brain.createApprovalForGate({ organizationId: actor.organizationId, workspaceId: "ws-edge", runId: "edge-run", stepId: "publish", subject, expiresAtMs: now + 3600_000, requestedBy: "edge-requester" });
   await page.goto(`${governor.url}/approvals/${approvalId}`);
-  await page.getByRole("button", { name: "Review action", exact: true }).click();
+  await page.getByRole("button", { name: "Approve", exact: true }).click();
   await page.getByLabel(/^Decision note/).fill("Preserve this note across the conflict");
   brain.store.control.prepare("UPDATE approval_requests SET version=2 WHERE id=?").run(approvalId);
   await page.getByRole("button", { name: "Approve exact action", exact: true }).click();

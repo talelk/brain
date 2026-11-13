@@ -52,6 +52,6 @@ test("quality page shows each metric with its definition and window; a ready res
   await expect(page.locator('[data-metric="stall-rate"]')).toContainText("0%");
   await expect(page.locator('[data-metric="reopen-rate"]')).toContainText("No data yet");
   await expect(page.locator('[data-metric]')).toHaveCount(5);
-  await expect(page.getByText("No tasks were parked in this window.")).toBeVisible();
+  await expect(page.getByText("No tasks were stopped in this window.")).toBeVisible();
   expect(errors).toEqual([]);
 });

@@ -2,6 +2,7 @@ import { Show, createEffect, createMemo, createSignal, createUniqueId, on, onCle
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Collapsible, Dialog } from "@talelk/newui-molecules";
 import { liveNow, useClock } from "../../data/live";
+import { t } from "../../i18n";
 import { StatusIcon } from "../viz/StatusIcon";
 import {
   beginDecision, beginRecovery, returnToReview, settleDecision,
@@ -55,6 +56,8 @@ export function ApprovalReview(props: {
   requireTwoFactor?: boolean;
   /** Tells a surrounding list when the review opens or closes, so the item under review stays put until it is closed. */
   onOpenChange?: (open: boolean) => void;
+  /** "decision" shows Approve and Deny as two plain buttons (the phone card); both open the same exact review, Deny with the reason field first. */
+  triggers?: "decision";
   approvalId: string;
   targetLabel: string;
   exactContent: string;
@@ -67,6 +70,7 @@ export function ApprovalReview(props: {
   checkDecision: (intent: ApprovalIntent) => Promise<ApprovalOutcome>;
 }) {
   const [open, setOpen] = createSignal(false);
+  const [leading, setLeading] = createSignal<"approve" | "deny">("approve");
   const [note, setNote] = createSignal("");
   const [state, setState] = createSignal<ApprovalState>({ status: "review" });
   const [code, setCode] = createSignal("");
@@ -84,8 +88,9 @@ export function ApprovalReview(props: {
   const canSubmit = () => state().status === "review" && props.fresh && sameProposal();
   const canReviewAgain = () => state().status === "stale" || state().status === "denied";
   const noteId = createUniqueId();
-  function openReview() {
+  function openReview(as: "approve" | "deny" = "approve") {
     if (state().status === "review") setReviewed(snapshot());
+    setLeading(as);
     setOpen(true);
   }
   function reviewCurrent() {
@@ -126,7 +131,10 @@ export function ApprovalReview(props: {
     denied: "Decision denied. Review authorization and the current proposal.",
   })[state().status];
   return <>
-    <Button class={props.class} variant="solid" theme="blue" iconLeft="lucide-shield-check" disabled={!props.active || !props.fresh} onClick={openReview}>Review action</Button>
+    <Show when={props.triggers === "decision"} fallback={<Button class={props.class} variant="solid" theme="blue" iconLeft="lucide-shield-check" disabled={!props.active || !props.fresh} onClick={() => openReview()}>Review action</Button>}>
+      <Button class={props.class} variant="solid" theme="blue" iconLeft="lucide-check" disabled={!props.active || !props.fresh} onClick={() => openReview("approve")} data-approval-trigger="approve">{t("approval.approve")}</Button>
+      <Button class={props.class} variant="outline" theme="red" iconLeft="lucide-x" disabled={!props.active || !props.fresh} onClick={() => openReview("deny")} data-approval-trigger="deny">{t("approval.deny")}</Button>
+    </Show>
     <Dialog.Root open={open()} onOpenChange={setOpen} dismissible={!busy()}>
       <Dialog.Content size="2xl" class="flex max-h-[calc(100dvh-2rem)] flex-col max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none">
         <Dialog.Header class="min-w-0"><Dialog.Title>Authorize action</Dialog.Title><Dialog.Description class="break-words [overflow-wrap:anywhere]">{reviewed().summary ?? reviewed().targetLabel}</Dialog.Description></Dialog.Header>
@@ -140,7 +148,7 @@ export function ApprovalReview(props: {
               <pre class="brain-readable max-h-48 max-w-full min-w-0 overflow-auto whitespace-pre-wrap break-all rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3 text-caption">{reviewed().exactContent}</pre>
             </div></Collapsible.Content>
           </Collapsible.Root>
-          <Textarea id={noteId} label="Decision note" value={note()} description="Required to reject or request changes; optional for approval." disabled={state().status !== "review"} onInput={(event) => setNote(event.currentTarget.value)} rows={3} />
+          <Textarea id={noteId} label="Decision note" value={note()} description={leading() === "deny" ? t("approval.deny.hint") : "Required to reject or request changes; optional for approval."} autofocus={leading() === "deny"} disabled={state().status !== "review"} onInput={(event) => setNote(event.currentTarget.value)} rows={3} />
           <Show when={props.requireTwoFactor}><div class="rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3"><p class="mb-2 text-caption font-medium text-ink-gray-7">Identity confirmation</p><TextInput label="Authenticator code" description="Six digits, verified for this exact subject." autocomplete="one-time-code" inputmode="numeric" maxlength={6} pattern="[0-9]{6}" value={code()} onInput={(event) => setCode(event.currentTarget.value)} disabled={busy() || state().status !== "review"} /></div></Show>
           <Show when={identityError()}><Alert theme="red" variant="outline" title="Identity verification failed" description={identityError()} /></Show>
           <p role="status" aria-live="polite" class="min-h-5 break-words text-interface text-ink-gray-7">{message()}</p>

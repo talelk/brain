@@ -167,12 +167,14 @@
     "plays.list",
     "tools.list",
     "tools.calls",
-    "playProposals.list"
+    "playProposals.list",
+    "practices.list"
    ],
    "actions": [
     "library.settings.set",
     "knowledge.approveVerified",
-    "plays.addStarter"
+    "plays.addStarter",
+    "play.proposeFromMissions"
    ],
    "content": [
     "counts",
@@ -710,12 +712,24 @@
     "organization.members.list",
     "organization.member.get",
     "organization.invitations.list",
-    "organization.auth-policy.get"
+    "organization.auth-policy.get",
+    "engineSettings.get",
+    "effects.get",
+    "runnerGroups.list",
+    "lessons.list",
+    "identity.oidc.get"
    ],
    "actions": [
     "member.grant",
     "member.revoke",
     "config.activate",
+    "workspace.wayOfWorking.set",
+    "workspace.hostedModel.set",
+    "workspace.effects.set",
+    "platform.drain.set",
+    "runnerGroup.set",
+    "identity.oidc.set",
+    "knowledge.withdrawUnobserved",
     "organization.invitation.create",
     "organization.invitation.cancel",
     "organization.invitation.retry",
@@ -731,6 +745,8 @@
     "invitations",
     "access",
     "authenticationPolicy",
+    "singleSignOn",
+    "workSettings",
     "audit",
     "health"
    ],
@@ -827,14 +843,16 @@
   {
    "route": "/quality",
    "queries": [
-    "quality.summary"
+    "quality.summary",
+    "quality.breakdown"
    ],
    "actions": [],
    "content": [
     "metric",
     "definition",
     "window",
-    "failure"
+    "failure",
+    "breakdown"
    ],
    "owner": "T34",
    "navigationGroup": "administration",
@@ -847,7 +865,8 @@
    "route": "/administration/integrations",
    "queries": [
     "integrations.list",
-    "integrations.repositories"
+    "integrations.repositories",
+    "integrations.guide"
    ],
    "actions": [
     "integration.connect",
@@ -1000,6 +1019,14 @@
     "organizationOnly": true,
     "icon": "lucide-sliders-horizontal",
     "scope": "instance"
+   },
+   {
+    "label": "How work runs",
+    "route": "/settings?tab=work",
+    "adminOnly": true,
+    "organizationOnly": true,
+    "icon": "lucide-workflow",
+    "scope": "workspace"
    },
    {
     "label": "Security",

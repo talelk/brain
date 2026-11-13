@@ -9,6 +9,7 @@ import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { isStoppedForRetry } from "../work/work-model";
 import { t } from "../../i18n";
+import { SpendCapRaise, TaskFailure } from "./TaskFailure";
 
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 
@@ -66,6 +67,7 @@ export function ParkedActions(props: { item: WorkItem; onChanged: () => Promise<
   const lines = () => criteria().split("\n").map((line) => line.trim()).filter(Boolean);
   return <section aria-label="Parked work item" class="flex flex-col gap-3 rounded-control border border-outline-amber-3 p-3">
     <Alert theme="amber" variant="outline" title={isStoppedForRetry(props.item) ? "Stopped: waiting for you to try again" : "Parked after repeated failures"} description={isStoppedForRetry(props.item) ? "The agent was interrupted too often to carry on by itself. Independent work and the mission carry on." : props.item.blockedReason ?? "This work waits for a person. Independent work and the mission carry on."} />
+    <TaskFailure item={props.item} />
     <Show when={props.item.parkedDiagnostic && !isStoppedForRetry(props.item)}>
       <div class="flex flex-col gap-1 rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3 text-interface" data-parked-reason>
         <span class="text-caption font-medium text-ink-gray-7">Why it stopped</span>
@@ -75,7 +77,9 @@ export function ParkedActions(props: { item: WorkItem; onChanged: () => Promise<
     </Show>
     <Show when={error()}><Alert theme="red" variant="outline" title="The change was refused" description={error()} /></Show>
     <div class="flex flex-wrap gap-2">
-      <Button variant="solid" theme="blue" iconLeft="lucide-rotate-ccw" disabled={busy()} onClick={() => void move("ready")}>{t("decision.retry")}</Button>
+      <Show when={props.item.remedy !== "park-budget"} fallback={<SpendCapRaise item={props.item} onRaised={props.onChanged} class="basis-full" />}>
+        <Button variant="solid" theme="blue" iconLeft="lucide-rotate-ccw" disabled={busy()} onClick={() => void move("ready")}>{t("decision.retry")}</Button>
+      </Show>
       <Show when={!dropping()} fallback={<>
         <Button theme="red" iconLeft="lucide-trash-2" disabled={busy()} onClick={() => void move("abandoned")}>Confirm drop</Button>
         <Button variant="ghost" onClick={() => setDropping(false)}>Keep it</Button>

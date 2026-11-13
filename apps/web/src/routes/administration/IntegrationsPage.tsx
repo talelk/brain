@@ -12,6 +12,7 @@ import { StatusBadge } from "../../ui/components/StatusBadge";
 import { FormSheet } from "../../ui/components/BrainForm";
 import { IconTile } from "../../ui/components/primitives";import { WorkspaceSection } from "../../ui/components/Domain";
 import { StatGrid } from "@talelk/newui-organisms";
+import { GitGuideChecklist } from "../../ui/components/GitGuide";
 interface IntegrationView {
   connections: GitConnection[];
   bindings: RepositoryBinding[];
@@ -111,6 +112,7 @@ export default function IntegrationsPage(): JSX.Element {
         { label: "Bindings", value: String(integrations.state().data?.bindings.length ?? 0), hint: "Repositories linked to a workspace", icon: "lucide-link" },
         { label: "Proposed changes", value: String(integrations.state().data?.proposals.length ?? 0), hint: "Nothing is pushed until reviewed", icon: "lucide-git-pull-request" },
       ]} /></Show>
+      <GitGuideChecklist connections={integrations.state().data?.connections ?? []} />
       <div class="brain-detail-stack">
         <Show when={!firstUse()}><WorkspaceSection title="Configured connections" description="Configured, authenticated and workflow-usable are different states. Verification uses the real server response.">
           <ScreenRegion state={integrations.state()} onRetry={() => void integrations.refresh()} emptyTitle="No Git connections" emptyDescription="Use Connect remote to add one. Credentials stay hidden after creation.">
