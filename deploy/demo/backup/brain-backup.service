@@ -1,0 +1,5 @@
+[Unit]
+Description=Brain nightly encrypted backup
+[Service]
+Type=oneshot
+ExecStart=/srv/demos/brain/src/deploy/demo/backup/backup-live.sh

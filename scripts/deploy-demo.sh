@@ -48,6 +48,18 @@ command -v rsync >/dev/null || { echo "rsync is required" >&2; exit 1; }
 : "${BRAIN_DEPLOY_SUDO_PASSWORD:?set BRAIN_DEPLOY_SUDO_PASSWORD to the sudo password of the deploy user}"
 SUDO="printf '%s\n' $(printf '%q' "$BRAIN_DEPLOY_SUDO_PASSWORD") | sudo -S -p ''"   # only for system-level actions
 
+# ---- refuse while missions run: a deploy interrupts running attempts (BRAIN_DEPLOY_FORCE=1 overrides) ----
+if [ "${BRAIN_DEPLOY_FORCE:-0}" != 1 ]; then
+  RUN_GOV_ID="$($SSH "cd $REMOTE_DIR 2>/dev/null && docker compose ps -q governor 2>/dev/null" || true)"
+  if [ -n "$RUN_GOV_ID" ]; then
+    RUNNING="$($SSH "docker exec -i $RUN_GOV_ID node --input-type=module -" < scripts/live-running-count.mjs 2>/dev/null | tail -1 || true)"
+    if [ -n "$RUNNING" ] && [ "$RUNNING" != 0 ]; then
+      echo "!! $RUNNING attempt(s) are running on the server; a deploy would interrupt them. Wait, or set BRAIN_DEPLOY_FORCE=1." >&2
+      exit 1
+    fi
+  fi
+fi
+
 # ---- pre-deploy check: prove the live databases can be upgraded BEFORE anything on the server changes ----
 # Copies the live databases (read-only) to a private local directory and runs scripts/repair-live-schema.ts of this
 # checkout against the copy. If it fails the deploy aborts here: the old container keeps serving, nothing was synced.
@@ -327,6 +339,14 @@ fi
 
 scripts/refresh-released-schema.sh || true   # the schema just deployed becomes the "previously released" fixture
 echo "    Commit tests/fixtures/released-schema so the next deploy is checked against what is live now."
+# ---- nightly encrypted backup + monthly restore rehearsal (needs $REMOTE_DIR/backup.env with BRAIN_BACKUP_HOST) ----
+if $SSH "test -r $REMOTE_DIR/backup.env"; then
+  echo "==> Installing the backup timers"
+  $SSH "$SUDO cp $REMOTE_DIR/src/deploy/demo/backup/brain-backup.service $REMOTE_DIR/src/deploy/demo/backup/brain-backup.timer $REMOTE_DIR/src/deploy/demo/backup/brain-restore-test.service $REMOTE_DIR/src/deploy/demo/backup/brain-restore-test.timer /etc/systemd/system/ && $SUDO systemctl daemon-reload && $SUDO systemctl enable --now brain-backup.timer brain-restore-test.timer >/dev/null 2>&1"
+else
+  echo "==> No $REMOTE_DIR/backup.env on the server: nightly backups are NOT scheduled (see docs/howto/backup-and-restore.md)"
+fi
+
 echo "==> Done. https://$DOMAIN"
 if [ "$FIRST_RUN" = 1 ]; then
   echo "    Sign in with the admin credentials printed above."
