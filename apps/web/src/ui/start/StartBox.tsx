@@ -1,4 +1,5 @@
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show } from "solid-js";
+import { t } from "../../i18n";
 import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
@@ -67,7 +68,7 @@ export function createStartController() {
   /** The title a person did not type: the picked Play's or earlier mission's title leads, then the sentence tidied. */
   const derivedTitle = () => deriveMissionTitle(firstLine(), play()?.title ?? source()?.title);
   const needsSentence = () => !playId() && !source();
-  const problem = () => (needsSentence() && !intent().trim() ? "Say in a sentence what you want done." : undefined);
+  const problem = () => (needsSentence() && !intent().trim() ? t("start.problem") : undefined);
   const shownProblem = () => (attempted() ? problem() : undefined);
   const pickPlay = (id: string) => { setPlayId(playId() === id ? "" : id); if (playId()) setSource(undefined); };
   const pickSource = (candidate: ReuseCandidate | undefined) => { setSource(candidate); if (candidate) setPlayId(""); };
@@ -142,32 +143,32 @@ export function StartFields(props: { start: StartController; large?: boolean; /*
     <Button variant={pressed ? "subtle" : "outline"} theme={pressed ? "blue" : "gray"} size="sm" iconLeft={icon} aria-pressed={extra?.expanded === undefined ? pressed : undefined} aria-expanded={extra?.expanded} disabled={props.disabled} onClick={onClick}>{label}</Button>;
   return <div class="flex min-w-0 flex-col gap-3">
     <div class={props.dockAction ? "brain-start-dock" : "contents"}>
-      <Textarea label="What do you want done?" value={s.intent()} onInput={(event) => s.setIntent(event.currentTarget.value)} error={s.shownProblem()} rows={props.large && !props.compact ? 3 : 2} disabled={props.disabled}
-      required={!s.playId() && !s.source()} placeholder="For example: summarise this week's support tickets and draft replies"
+      <Textarea label={t("start.label")} value={s.intent()} onInput={(event) => s.setIntent(event.currentTarget.value)} error={s.shownProblem()} rows={props.large && !props.compact ? 3 : 2} disabled={props.disabled}
+      required={!s.playId() && !s.source()} placeholder={t("start.placeholder")}
       onKeyDown={(event: KeyboardEvent) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); props.onSubmit?.(); } }} />
       {props.dockAction}
     </div>
     <Show when={chosen()}>{(name) => <p class="flex min-w-0 flex-wrap items-center gap-2 text-interface text-ink-gray-8" data-testid="start-seed">
       <span class="lucide-corner-down-right size-4 shrink-0" aria-hidden="true" />
-      <span class="min-w-0 break-words">{s.source() ? "Starting from the earlier mission" : "Starting from the play"} <strong>{name()}</strong>. {s.intent().trim() ? "Your sentence replaces its goal." : "Add a sentence to change the goal, or just start."}</span>
-      <Button variant="ghost" size="sm" iconLeft="lucide-x" onClick={clear}>Remove</Button>
+      <span class="min-w-0 break-words">{s.source() ? t("start.seed.mission") : t("start.seed.play")} <strong>{name()}</strong>. {s.intent().trim() ? t("start.seed.replaces") : t("start.seed.add")}</span>
+      <Button variant="ghost" size="sm" iconLeft="lucide-x" onClick={clear}>{t("start.seed.remove")}</Button>
     </p>}</Show>
-    <fieldset class={`m-0 flex min-w-0 flex-col gap-2 border-0 p-0${props.compact ? " brain-start-compact" : ""}`} aria-label="Start from something ready">
+    <fieldset class={`m-0 flex min-w-0 flex-col gap-2 border-0 p-0${props.compact ? " brain-start-compact" : ""}`} aria-label={t("start.ready.label")}>
       <Show when={s.playList().length || (s.library.state().data?.starterPlays.installable ?? 0) > 0}>
-        <div class="flex min-w-0 flex-wrap items-center gap-2" data-testid="play-chips"><span class="text-caption text-ink-gray-7">Plays</span>
+        <div class="flex min-w-0 flex-wrap items-center gap-2" data-testid="play-chips"><span class="text-caption text-ink-gray-7">{t("start.plays")}</span>
           {/* On a phone the first three Plays show and the rest sit behind one chip, so six Plays do not push the box off the screen. */}
           <For each={s.playList()}>{(play, index) => <span class={index() >= PHONE_PLAYS && s.playId() !== play.playId ? "hidden sm:contents" : "contents"}>{chip(play.title, "lucide-book-open-check", s.playId() === play.playId, () => s.pickPlay(play.playId))}</span>}</For>
-          <Show when={s.playList().length > PHONE_PLAYS}><span class="contents sm:hidden">{chip(`${s.playList().length - PHONE_PLAYS} more Plays`, "lucide-ellipsis", false, () => void navigate(`/w/${s.workspaceId()}/plays`))}</span></Show>
+          <Show when={s.playList().length > PHONE_PLAYS}><span class="contents sm:hidden">{chip(t("start.morePlays", { n: s.playList().length - PHONE_PLAYS }), "lucide-ellipsis", false, () => void navigate(`/w/${s.workspaceId()}/plays`))}</span></Show>
           <Show when={!s.playList().length}><AddStarterPlays summary={s.library.state().data} onAdded={s.reloadLibrary} variant="chip" /></Show></div>
       </Show>
-      <div class="flex min-w-0 flex-wrap items-center gap-2"><span class="text-caption text-ink-gray-7">Reuse</span>
-        {chip("Start from a previous mission", "lucide-history", panel() === "previous", () => toggle("previous"), { expanded: panel() === "previous" })}
-        {chip("Repeat this", "lucide-repeat", panel() === "repeat", () => toggle("repeat"), { expanded: panel() === "repeat" })}
+      <div class="flex min-w-0 flex-wrap items-center gap-2"><span class="text-caption text-ink-gray-7">{t("start.reuse")}</span>
+        {chip(t("start.previous"), "lucide-history", panel() === "previous", () => toggle("previous"), { expanded: panel() === "previous" })}
+        {chip(t("start.repeat"), "lucide-repeat", panel() === "repeat", () => toggle("repeat"), { expanded: panel() === "repeat" })}
       </div>
       <Show when={props.sample}>
-        <div class="flex min-w-0 flex-wrap items-center gap-2"><span class="text-caption text-ink-gray-7">New here</span>
-          {chip("Try a sample goal", "lucide-sparkles", false, () => void s.startSample())}
-          <span class="brain-start-hint text-caption text-ink-gray-7">A small real mission that proves this install works, start to finish.</span></div>
+        <div class="flex min-w-0 flex-wrap items-center gap-2"><span class="text-caption text-ink-gray-7">{t("start.newHere")}</span>
+          {chip(t("start.sample"), "lucide-sparkles", false, () => void s.startSample())}
+          <span class="brain-start-hint text-caption text-ink-gray-7">{t("start.sample.hint")}</span></div>
       </Show>
     </fieldset>
     <Show when={panel() === "previous"}>
@@ -196,11 +197,11 @@ export function StartFields(props: { start: StartController; large?: boolean; /*
         </Show>
       </section>
     </Show>
-    <details class="text-interface"><summary class="cursor-pointer text-ink-gray-8">More options</summary>
+    <details class="text-interface"><summary class="cursor-pointer text-ink-gray-8">{t("start.more")}</summary>
       <div class="mt-3 flex min-w-0 flex-col gap-3">
-        <TextInput label="Title (optional)" value={s.title()} onInput={(event) => s.setTitle(event.currentTarget.value)} placeholder={s.derivedTitle() || "Named for you from your sentence"} />
-        <Select label="Starting tasks" description="Automatic starts each ready task once the plan is confirmed. Otherwise you start every task yourself." value={s.startMode()}
-          options={[{ value: "auto", label: "Start tasks automatically" }, { value: "ask", label: "Ask me before each task" }]} onValueChange={(value) => s.setStartMode(value ?? "auto")} />
+        <TextInput label={t("start.title")} value={s.title()} onInput={(event) => s.setTitle(event.currentTarget.value)} placeholder={s.derivedTitle() || t("start.title.placeholder")} />
+        <Select label={t("start.tasks.label")} description={t("start.tasks.description")} value={s.startMode()}
+          options={[{ value: "auto", label: t("start.tasks.auto") }, { value: "ask", label: t("start.tasks.ask") }]} onValueChange={(value) => s.setStartMode(value ?? "auto")} />
       </div>
     </details>
   </div>;

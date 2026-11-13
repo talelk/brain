@@ -176,7 +176,7 @@ export function MissionUsage(props: { mission: Mission; onAct: (fn: () => Promis
       if (resume && set.accepted) await app.run("mission.resume", { missionId: props.mission.missionId });
     });
   }
-  return <div class="flex min-w-0 flex-col gap-1" data-testid="mission-usage">
+  return <div class="flex min-h-[4.5rem] min-w-0 flex-col gap-1" data-testid="mission-usage">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <p class="text-base-medium">Usage</p>
       <Show when={props.mission.state !== "closed"}><Button size="sm" variant="ghost" iconLeft="lucide-sliders-horizontal" disabled={props.busy} onClick={open}>{budgetPaused() ? "Raise limits" : "Change limits"}</Button></Show>

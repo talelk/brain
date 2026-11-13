@@ -72,7 +72,7 @@ function missionGuide(m: Mission, items: readonly WorkItem[], canStart: boolean)
   const ready = items.find((item) => item.state === "ready");
   if (ready && canStart) return { step: "confirm", tab: "plan", icon: "lucide-play", title: `${plural(n("ready"), "task is", "tasks are")} ready to start`, detail: "The plan is confirmed. Start a ready task to put an agent on it.", allDone, action: { label: `Start ${ready.title}`, start: ready } };
   if (ready) return { step: "confirm", tab: "plan", icon: "lucide-play", title: `${plural(n("ready"), "task is", "tasks are")} ready to start`, detail: "Someone with dispatch rights has to start them.", allDone };
-  if (allDone) return { step: "review", tab: "outputs", icon: "lucide-package", title: "All work is done", detail: "Review the outputs, then finish the mission.", allDone, action: { label: "Review outputs", tab: "outputs" } };
+  if (allDone) return { step: "review", tab: "outputs", icon: "lucide-package", title: "All work is done", detail: m.autoStart ? "Every task is verified by an independent check, so Brain closes this mission by itself. Read the results." : "Review the outputs, then finish the mission.", allDone, action: { label: "Review outputs", tab: "outputs" } };
   const stoppedItems = items.filter((item) => isStoppedForRetry(item));
   if (stoppedItems.length > 0 && n("review") === 0) return { step: "review", tab: "plan", icon: "lucide-circle-pause", title: "Stopped: waiting for you to try again", detail: `${plural(stoppedItems.length, "task was", "tasks were")} interrupted too often to carry on by itself. Press Try again on ${stoppedItems.length === 1 ? "it" : "each"}.`, allDone, action: { label: "Open the work", tab: "plan" } };
   if (n("review") > 0 || n("blocked") > 0) return { step: "review", tab: "plan", icon: "lucide-badge-check", title: n("review") > 0 ? "Work is waiting for your review" : "Some work is blocked", detail: `${n("review")} in review · ${n("blocked")} blocked. Done needs verified evidence.`, allDone, action: { label: "Open the work", tab: "plan" } };
@@ -411,7 +411,8 @@ function PlanTab(props: ActProps): JSX.Element {
   const proposalId = () => typeof search.proposal === "string" ? search.proposal : "";
   const estimated = () => proposalId() || props.mission.activePlanVersionId || "";
   return <PageStack>
-    <Show when={estimated()} keyed>{(id) => <PlanEstimate planVersionId={id} />}</Show>
+    {/* The estimate arrives after the page: its slot is reserved so nothing below it jumps when it appears. */}
+    <div class="min-h-14" data-testid="plan-estimate-slot"><Show when={estimated()} keyed>{(id) => <PlanEstimate planVersionId={id} />}</Show></div>
     <PlanCanvas mission={props.mission} proposalId={proposalId() || undefined} onChanged={() => props.onAct(async () => undefined)} />
     <MissionWorkItems mission={props.mission} />
     <MissionSchedules missionId={props.mission.missionId} />

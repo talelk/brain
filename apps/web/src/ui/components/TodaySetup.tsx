@@ -15,7 +15,7 @@ type Step = "model" | "release" | "runners" | "smoke";
 
 interface SetupRow { step: Step; title: string; status: Check["status"]; detail: string; next: string }
 
-const TITLES: Record<Step, string> = { model: "Connect a model", release: "Activate the starter release", runners: "Start the runners", smoke: "Verify the install" };
+const TITLES: Record<Step, string> = { model: "Connect a model", release: "Install the starter kit", runners: "Start the runners", smoke: "Check that it all works" };
 
 /** The readiness read, folded into the four things a person fixes. Text comes from the Governor's checks, not from here. */
 export function setupRows(checks: readonly Check[]): SetupRow[] {
@@ -23,7 +23,7 @@ export function setupRows(checks: readonly Check[]): SetupRow[] {
   const model = checks.find((check) => check.action === "model");
   if (model) rows.push({ step: "model", title: TITLES.model, status: model.status, detail: model.detail, next: model.nextAction });
   const release = checks.find((check) => check.id === "release") ?? checks.find((check) => check.action === "release");
-  if (release) rows.push({ step: "release", title: TITLES.release, status: release.status, detail: release.status === "ready" ? "A configuration release is active." : release.detail, next: release.nextAction });
+  if (release) rows.push({ step: "release", title: TITLES.release, status: release.status, detail: release.status === "ready" ? "The starter kit is installed." : release.detail, next: release.nextAction });
   const runnerChecks = checks.filter((check) => check.id.startsWith("workflow:"));
   const missingRunner = runnerChecks.find((check) => check.status === "missing");
   if (runnerChecks.length > 0) rows.push({ step: "runners", title: TITLES.runners, status: missingRunner ? "missing" : "ready", detail: missingRunner ? missingRunner.detail : "Runners are online for every workflow.", next: missingRunner?.nextAction ?? "" });
@@ -56,7 +56,7 @@ export function TodaySetup(props: { readiness: ReturnType<typeof createReadiness
     onCleanup(release);
   });
   const fix = (row: SetupRow) => { if (row.step === "release") void navigate("/settings?tab=release&from=today"); else setOpen(true); };
-  const label = (row: SetupRow) => (row.step === "smoke" ? "Run the check" : row.step === "release" ? "Open releases" : row.step === "model" ? "Connect a model" : "Start the runners");
+  const label = (row: SetupRow) => (row.step === "smoke" ? "Run the check" : row.step === "release" ? "Install the starter kit" : row.step === "model" ? "Connect a model" : "Start the runners");
   return <>
     <Show when={props.readiness.state().data && !props.readiness.state().data!.ready}>
     <section class="flex min-w-0 flex-col gap-3 rounded-card border border-outline-amber-3 bg-surface-amber-1 p-4 sm:p-5" aria-label="Finish setting up Brain" data-testid="today-setup">

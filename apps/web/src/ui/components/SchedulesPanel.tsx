@@ -14,6 +14,7 @@ import { formatDateTime } from "../format";
 import { missionHref } from "../mission-links";
 import { ReasonDialog } from "./ReasonDialog";
 import { OccurrenceChange } from "../outputs/OccurrenceChange";
+import { t } from "../../i18n";
 
 function triggerSummary(automation: Automation): string {
   if (automation.trigger.kind === "cron") return `${automation.trigger.cron} · ${automation.trigger.timezone}`;
@@ -49,6 +50,7 @@ const KIND_LABEL: Record<ScheduleTarget["kind"], string> = { play: "Play", workf
  */
 export function SchedulesPanel(props: { targets: readonly ScheduleTarget[]; focus?: string; create?: string; title?: string; /** Bumped by a caller that just created a schedule elsewhere. */ refreshKey?: number }): JSX.Element {
   const app = useApp();
+  const navigate = useNavigate();
   const [stateFilter, setStateFilter] = createSignal("");
   const [kindFilter, setKindFilter] = createSignal("");
   const targetLabel = (kind: string, id: string) => props.targets.find((target) => target.kind === kind && target.id === id)?.label ?? id;
@@ -81,6 +83,9 @@ export function SchedulesPanel(props: { targets: readonly ScheduleTarget[]; focu
     (!props.focus || automation.target.id === props.focus) && (!stateFilter() || automation.state === stateFilter()) && (!kindFilter() || automation.target.kind === kindFilter()));
   const schedulePageCount = () => Math.max(1, Math.ceil(schedules().length / SCHEDULES_PAGE_SIZE));
   const safeSchedulePage = () => Math.min(Math.max(1, schedulePage()), schedulePageCount());
+  /** Finished missions that could repeat: offered when nothing is scheduled yet, so a weekly check does not have to be rebuilt by hand. */
+  const finished = app.useMissions();
+  const repeatable = () => (finished.state().data ?? []).filter((mission) => mission.state === "closed" && mission.outcome === "achieved").slice(0, 3);
   const visibleSchedules = () => schedules().slice((safeSchedulePage() - 1) * SCHEDULES_PAGE_SIZE, safeSchedulePage() * SCHEDULES_PAGE_SIZE);
   const occurrences = () => history.state().data?.items ?? [];
   const occurrencePageCount = () => Math.max(1, Math.ceil(occurrences().length / OCCURRENCES_PAGE_SIZE));
@@ -170,6 +175,13 @@ export function SchedulesPanel(props: { targets: readonly ScheduleTarget[]; focu
       <div class="brain-page-stack">
         <WorkspaceSection title={props.title ?? "Schedules and triggers"} description="When each schedule starts work, in which timezone, and when it fires next." actions={<Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={beginCreate}>New schedule</Button>}>
           <div class="mb-3 flex flex-wrap gap-3"><Select label="State" value={stateFilter()} options={[{ value: "", label: "Any state" }, { value: "active", label: "Active" }, { value: "paused", label: "Paused" }, { value: "retired", label: "Retired" }]} onValueChange={(value) => setStateFilter(value ?? "")} /><Select label="Starts" value={kindFilter()} options={[{ value: "", label: "Anything" }, { value: "play", label: "Plays" }, { value: "workflow", label: "Tasks" }, { value: "workItem", label: "Work items" }]} onValueChange={(value) => setKindFilter(value ?? "")} /></div>
+          <Show when={(automations.state().data?.items ?? []).length === 0 && repeatable().length > 0}>
+            <div class="mb-3 flex min-w-0 flex-col gap-2 rounded-card border border-outline-gray-2 bg-surface-gray-1 p-3" data-testid="schedule-suggestions">
+              <p class="m-0 text-base-medium text-ink-gray-9">{t("schedules.suggest.title")}</p>
+              <p class="m-0 text-interface text-ink-gray-7">{t("schedules.suggest.description")}</p>
+              <div class="flex flex-wrap gap-2"><For each={repeatable()}>{(mission) => <Button variant="outline" iconLeft="lucide-repeat" onClick={() => void navigate(`/w/${app.workspaceId()}/schedules?repeat=${encodeURIComponent(mission.missionId)}`)}>{t("schedules.suggest.repeat", { title: mission.title })}</Button>}</For></div>
+            </div>
+          </Show>
           <ScreenRegion state={automations.state()} onRetry={() => void automations.refresh()} emptyTitle="Nothing is scheduled yet" emptyDescription="Start a Play or task on a timer, or once later. Choose New schedule, pick what it starts and when, and Brain runs it for you.">
             <div class="flex flex-col gap-3">
               <For each={visibleSchedules()}>{(automation) => <article class="border-y border-outline-gray-1 py-3">

@@ -471,13 +471,12 @@ _Avoid_: principal (an actor is a principal mid-command), caller
 
 ### Surfaces
 
-Unqualified area names denote where you look, never what something is: **Today**,
-**Missions**, **Live**, **Logs**, **Outputs**, **Library** and **Schedules**. Inside a
-mission the **Team**, **Plan** and **Brief** views are places, not the mission team, a plan
-version or the brief. The **Library** holds what Brain can reuse (documents, knowledge,
-Plays, tools, the Review inbox; ADR 0014); **Plays** and **Knowledge** are its shelves.
-**Administration** is a secondary place in the sidebar's More group. Screens use five
-words: **Mission**, **Plan**, **Task**, **Result** and **Check**; run, session, attempt and
+Four places, named by where you look, never by what something is: **Today**, **Missions**,
+**Library** and **Administration** (ADR 0024). **Live**, **Outputs** and **Schedules** are views of
+missions; **Logs** and **Runners** sit under Administration. Inside a mission the **Team**,
+**Plan** and **Brief** views are places, not the mission team, a plan version or the brief. The
+**Library** holds what Brain can reuse (documents, knowledge, Plays, tools, the Review inbox;
+ADR 0014). Screens use five words: **Mission**, **Plan**, **Task**, **Result** and **Check**; run, session, attempt and
 release appear under Details.
 
 **Build-process vocabulary is not domain vocabulary.** Task cards (`T01`–`T50`), gates

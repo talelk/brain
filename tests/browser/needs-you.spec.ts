@@ -119,7 +119,7 @@ test("approve, reject a plan, confirm a plan, retry parked work and sign off a v
     .run(actor.organizationId, actor.actorId, actor.actorId, Date.now());
   await page.reload();
   await expandQueue();
-  await expect(queue.getByTestId("needs-you-item")).toHaveCount(6, { timeout: 30_000 });
+  await expect(queue.getByTestId("needs-you-item")).toHaveCount(5, { timeout: 30_000 });
 
   // Approve inline: exact digest in the row, step-up in the dialog, the row leaves the queue without a reload.
   await expect(approvalRow.getByText(/sha256:/).first()).toBeVisible();
@@ -132,7 +132,7 @@ test("approve, reject a plan, confirm a plan, retry parked work and sign off a v
   await page.getByRole("dialog").getByRole("button", { name: "Back", exact: true }).click();
   await expect.poll(() => (brain.store.control.prepare("SELECT state FROM approval_requests WHERE id='apr-queue-1'").get() as { state: string }).state).toBe("approved");
   await expect(queue.locator('[data-kind="approval"]')).toHaveCount(0, { timeout: 15_000 });
-  await expect(queue.getByTestId("needs-you-item")).toHaveCount(5);
+  await expect(queue.getByTestId("needs-you-item")).toHaveCount(4);
 
   // Confirm a plan inline.
   const confirmRow = queue.getByTestId("needs-you-item").filter({ hasText: "Plan proposal for Venue shortlist" });

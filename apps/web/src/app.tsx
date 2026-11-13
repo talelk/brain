@@ -185,6 +185,13 @@ function AccountMenu(props: { compact?: boolean }): JSX.Element {
   </div>;
 }
 
+/** Pages about the whole instance (Setup, Releases, Health, People, Quality, Workspaces, Runners) do not depend on the workspace, so the switcher says so instead of offering a choice that changes nothing. */
+const INSTANCE_TABS = new Set(["setup", "release", "health", "people", "invitations", "policy"]);
+function instanceWide(pathname: string, search: string): boolean {
+  if (pathname === "/quality" || pathname === "/administration/workspaces" || pathname === "/runners" || pathname.startsWith("/runners/")) return true;
+  return pathname === "/settings" && INSTANCE_TABS.has(new URLSearchParams(search).get("tab") ?? "setup");
+}
+
 function ShellLayout(props: RouteSectionProps): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
@@ -211,10 +218,10 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
     actions={header()?.actions}
     mobileTitle={header()?.title ?? "Brain"}
     headerActions={<><Show when={app.workspaceId()}><AttentionDrawer attention={attention} /></Show><LiveFreshness /><Button variant="ghost" iconLeft="lucide-search" aria-label={t("shell.search.aria")} onClick={() => setSearchOpen(true)}><span class="max-sm:hidden">{t("shell.search")}</span></Button><ThemeToggle /></>}
-    tenant={<div data-keep-drawer><Dropdown aria-label={t("shell.workspace.choose")} class="w-full justify-start" options={app.workspaceOptions().map((option) => ({ ...option, icon: "lucide-building-2" }))}
+    tenant={<Show when={!instanceWide(location.pathname, location.search)} fallback={<p class="m-0 flex items-center gap-2 px-2 py-1.5 text-interface text-ink-gray-7" data-testid="instance-wide"><span class="lucide-globe size-4 shrink-0" aria-hidden="true" />{t("shell.instanceWide")}</p>}><div data-keep-drawer><Dropdown aria-label={t("shell.workspace.choose")} class="w-full justify-start" options={app.workspaceOptions().map((option) => ({ ...option, icon: "lucide-building-2" }))}
       onSelect={(value) => { if (value) { app.selectWorkspace(value); void navigate(`/w/${value}/missions`); } }}>
       <span class="flex min-w-0 items-center gap-2"><span class="lucide-building-2 size-4 shrink-0" aria-hidden="true" /><span class="truncate">{app.workspaceOptions().find((option) => option.value === app.workspaceId())?.label ?? t("shell.workspace.choose")}</span></span>
-    </Dropdown></div>}
+    </Dropdown></div></Show>}
     tenantCollapsed={<span class="lucide-building-2 size-5" aria-hidden="true" />}
     navigation={Navigation(() => blockingCount(attention.state().data ?? []))}
     account={<AccountMenu />} accountCollapsed={<AccountMenu compact />}
