@@ -1,15 +1,17 @@
 import type { EngineToolBinding } from "@brain/contracts";
 import { GovernorProtocolError, type GovernorClient } from "../governor-client";
 import type { LauncherClient } from "../launcher-client";
-import { GOVERNOR_BROKERED, LAUNCHER_BROKERED, plainFetchError, RUNNER_BROKERED, webFetch, type BrokerResult } from "./brokers";
+import { GOVERNOR_BROKERED, LAUNCHER_BROKERED, OUTPUT_BROKERED, plainFetchError, RUNNER_BROKERED, webFetch, type BrokerResult } from "./brokers";
+import type { RunOutputDir } from "./run-output";
 
 /**
  * Resolves the data a brokered read tool needs: the Governor answers documents, CSV artifacts and knowledge (rechecking scope and the
  * agent's allowlist, auditing refusals); web pages are fetched here under the pinned host allowlist. Tools with no broker return
  * undefined and run as before.
  */
-export async function brokerRead(binding: EngineToolBinding, input: Readonly<Record<string, unknown>>, attemptId: string, client: Pick<GovernorClient, "toolRead">, launcher?: Pick<LauncherClient, "hostCommand">): Promise<BrokerResult | undefined> {
+export async function brokerRead(binding: EngineToolBinding, input: Readonly<Record<string, unknown>>, attemptId: string, client: Pick<GovernorClient, "toolRead">, launcher?: Pick<LauncherClient, "hostCommand">, outputs?: Pick<RunOutputDir, "write">): Promise<BrokerResult | undefined> {
   const id = binding.release.id;
+  if (OUTPUT_BROKERED.has(id)) return outputs ? outputs.write(input) : { ok: false, error: "this attempt has no output folder" };
   if (LAUNCHER_BROKERED.has(id)) return hostExec(input, launcher);
   if (RUNNER_BROKERED.has(id)) {
     // A refused or failed fetch is a failed tool call with a plain reason the model and the person can read, never a crashed attempt.

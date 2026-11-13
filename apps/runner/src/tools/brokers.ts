@@ -17,6 +17,8 @@ export const GOVERNOR_BROKERED = new Set(["documents.read", "csv.query", "knowle
 export const RUNNER_BROKERED = new Set(["web.fetch"]);
 /** Read-only host commands run by the trusted launcher from the operator's named allowlist (ADR 0021). */
 export const LAUNCHER_BROKERED = new Set(["host.exec"]);
+/** Tools that write into the attempt's own output folder on this runner (run-output.ts); the folder is collected as artifacts when the attempt ends well. */
+export const OUTPUT_BROKERED = new Set(["files.write"]);
 
 const READABLE_TYPES = [/^text\//u, /^application\/(json|xml|xhtml\+xml|rss\+xml|atom\+xml|csv|yaml|x-yaml|javascript)(;|$)/u, /\+json(;|$)/u, /\+xml(;|$)/u];
 

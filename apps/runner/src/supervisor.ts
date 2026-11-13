@@ -7,6 +7,8 @@ import type { ArtifactRef, EvaluationAssignment, JsonValue, ReleaseRef, Verifica
 import Ajv2020 from "ajv/dist/2020.js";
 import { executeToolPayload, normalizeEvaluation } from "./tools/invoke";
 import { brokerRead } from "./tools/broker-read";
+import { OUTPUT_BROKERED } from "./tools/brokers";
+import { RunOutputDir } from "./tools/run-output";
 import { effectGate, runEffect, type EffectCall, type EffectRun } from "./tools/effects";
 import { DurableEventSpool } from "./spool-durable";
 import { GovernorClient, GovernorProtocolError } from "./governor-client";
@@ -153,6 +155,11 @@ export async function refreshSession(cfg: RunnerConfig, bootNonce?: string): Pro
   return challengeHello(cfg, credential, bootNonce);
 }
 
+/** The hosted model the Governor routed this attempt to (a check or a second attempt, ADR 0023), for every engine that can take one. */
+export function hostedRouteOf(route: { tier?: string; role?: string; baseUrl?: string; model?: string } | undefined): { baseUrl: string; model: string } | undefined {
+  return route?.tier === "hosted" && (route.role === "second-attempt" || route.role === "evaluator") && route.baseUrl && route.model ? { baseUrl: route.baseUrl, model: route.model } : undefined;
+}
+
 export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => string), runnerEpoch = 1, controls: RunnerControls = newRunnerControls()): Promise<boolean> {
   const client = new GovernorClient(cfg);
   // A function follows the supervisor's session through a refresh; a plain token is used as given.
@@ -255,6 +262,8 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     }
     let result: { ok: boolean; output: JsonValue; cleanupConfirmed?: boolean };
     const toolArtifacts: ArtifactRef[] = [];
+    // Files an agent writes with files.write live in this attempt's own folder until the attempt ends well (run-output.ts); removed in every case.
+    const outputs = new RunOutputDir(cfg.stateDir, offer.attemptId);
     const nestedToolReleases: ReleaseRef[] = [];
     // What approved effect calls did, for the evidence bundle: each effect with its reconciled receipt, and the approvals it consumed.
     const nestedEffects: Array<{ invocationId: string; targetId: string; operation: string; outcome: "applied" | "absent" | "unknown"; receiptArtifact: ArtifactRef }> = [];
@@ -273,7 +282,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       const offeredBindings = asset.toolBindings.filter((binding) => !withheld.has(binding.release.id));
       const offeredTools = asset.agent.spec.tools.filter((tool) => !withheld.has(tool.id));
       // A second attempt the Governor routed to the workspace's hosted model (ADR 0023); every other attempt stays on this runner's own model.
-      const route = payload.modelRoute?.tier === "hosted" && payload.modelRoute.role === "second-attempt" && payload.modelRoute.baseUrl && payload.modelRoute.model ? { baseUrl: payload.modelRoute.baseUrl, model: payload.modelRoute.model } : undefined;
+      const route = hostedRouteOf(payload.modelRoute);
       const engine = selectEngine(engineConfigured, offeredBindings, route);
       if (!engine) throw new Error(`none of the required engines (${asset.agent.spec.engine.anyOf.join(", ")}) is configured on this runner`);
       const engineProbe = await engine.probe();
@@ -338,10 +347,12 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
           // Read tools that need data the sandboxed script cannot reach get it from a broker first; a refusal is a failed call with a
           // receipt, never a script run on missing data. An approved effect call is done by its broker (launcher or Governor) the same way.
           let effectRun: EffectRun | undefined;
-          let brokered = gated || effect ? undefined : await brokerRead(binding, proposal.input as Record<string, unknown>, offer.attemptId, client, launcher);
+          let brokered = gated || effect ? undefined : await brokerRead(binding, proposal.input as Record<string, unknown>, offer.attemptId, client, launcher, outputs);
+          // The pinned script only reports what the broker did; the file's text stays in the output folder, out of the script's capped input.
+          const scriptInput = (base: Record<string, unknown>): Record<string, unknown> => { if (!OUTPUT_BROKERED.has(binding.release.id)) return base; const { content: _content, ...rest } = base; return rest; };
           if (effect) { effectRun = await runEffect(client, launcher, offer.attemptId, effect.call, effect.gate); brokered = effectRun.result; }
           let executed = gated ?? (brokered && !brokered.ok ? { ok: false as const, output: { error: brokered.error } as JsonValue } : await executeToolPayload({
-            offer: { payload: { input: brokered ? { ...(proposal.input as Record<string, unknown>), broker: brokered.data } : proposal.input as Record<string, unknown>, invocationId,
+            offer: { payload: { input: brokered ? { ...scriptInput(proposal.input as Record<string, unknown>), broker: brokered.data } : proposal.input as Record<string, unknown>, invocationId,
               // Shaping the answer of an approved change takes no authority (the change is done): it runs as a read step in the read
               // sandbox with no permit, so a slow change cannot outlive the permit's short validity and the report is always redacted.
               step: { uses: { type: "tool", release: proposal.tool }, effectClass: effect ? "read" : binding.effectClass, target: binding.target } },
@@ -380,6 +391,15 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
         const outputBytes = new TextEncoder().encode(agentResult.outputText);
         const uploaded = await client.uploadArtifact(offer.attemptId, outputBytes, "text/plain");
         await emit("effect", { phase: "output-pinned", artifact: uploaded });
+        // The files the agent wrote become artifacts of this attempt (and so of its evidence bundle); a failed attempt's files are dropped.
+        const collected: Array<{ name: string; artifact: ArtifactRef }> = [];
+        for (const file of outputs.collect()) {
+          const stored = await client.uploadArtifact(offer.attemptId, file.bytes, file.mediaType);
+          const artifact = { ...stored, mediaType: file.mediaType, classification: "internal" as const };
+          if (!toolArtifacts.some((known) => known.artifactId === artifact.artifactId)) toolArtifacts.push(artifact);
+          collected.push({ name: file.name, artifact });
+        }
+        if (collected.length > 0) await emit("effect", { phase: "run-output-collected", files: collected });
       }
       result = agentResult;
       clearInterval(steerDrain);
@@ -457,6 +477,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     clearInterval(renew);
     clearInterval(watchdog);
     controls.activeAttemptIds.delete(offer.attemptId);
+    try { new RunOutputDir(cfg.stateDir, offer.attemptId).dispose(); } catch { /* an unusable attempt id never created a folder */ }
   }
 }
 
