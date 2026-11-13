@@ -599,6 +599,23 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     } catch (e) { return fail(c as never, e); }
   });
 
+  app.post("/v1/notification-preferences/email-test", async (c) => {
+    try {
+      const { actor } = await actorFor(c);
+      return c.json(await brain.sendTestEmail(actor));
+    } catch (e) { return fail(c as never, e); }
+  });
+
+  // --- inbound chat webhook (ADR 0024): signed, can list and deny, never approves ---
+  app.post("/hooks/chat", async (c) => {
+    try {
+      const raw = await c.req.text();
+      if (raw.length > 16 * 1024) throw new BrainDomainError("INVALID_ARGUMENT", "request too large");
+      const answer = brain.inboundChat(c.req.raw.headers, raw);
+      return c.json(answer.body as never, answer.status as never);
+    } catch (e) { return fail(c as never, e); }
+  });
+
   // --- read-only share links for one result (ADR 0013) ---
   // Creating, listing and revoking need a signed-in person with mission:write. Viewing needs only the unguessable token: the public
   // route reads no cookie or Authorization header, and every answer is uncacheable, unindexed and referrer-free.

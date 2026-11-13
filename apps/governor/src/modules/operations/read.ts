@@ -2,6 +2,7 @@ import type { ActorContext, JsonValue } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import type { Store } from "../../application/store";
 import { readProbes } from "./probes";
+import { smtpTarget } from "./smtp";
 import { activeRelease, assertCurrentManifestShape, releaseRecord, uiFoundationFromRelease } from "../configuration/index";
 
 export interface MemoryProbe {
@@ -118,6 +119,10 @@ function engineServices(store: Store): Array<{ id: string; status: string; check
     const probe = probes.find((entry) => entry.id === id);
     if (probe) out.push({ id, status: probe.status, checkedAt: probe.checkedAt, detail: probe.detail });
   }
+  // Email is optional and off by default; when it is on, Health says how the last delivery went (a test email from Settings checks it on demand).
+  const email = probes.find((entry) => entry.id === "email");
+  if (!smtpTarget()) out.push({ id: "email", status: "disabled", checkedAt: store.nowIso(), detail: "Email is off. Set BRAIN_NOTIFY_SMTP_URL and BRAIN_NOTIFY_FROM on the server to turn it on, then send a test email from Settings." });
+  else out.push({ id: "email", status: email?.status ?? "healthy", checkedAt: email?.checkedAt ?? store.nowIso(), detail: email?.detail ?? "Email is configured; no email has been sent yet. Send a test email from Settings." });
   const hosted = probes.filter((entry) => entry.id.startsWith("hosted:"));
   if (hosted.length > 0) {
     const down = hosted.filter((entry) => entry.status === "unavailable");

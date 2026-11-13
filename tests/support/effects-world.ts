@@ -61,7 +61,7 @@ export async function effectsWorld(options: { containers?: string[]; runnerGroup
 
   const situation = (calls: Array<{ id: string; input: Record<string, unknown> }>): string =>
     ["Look at the demos containers and restart the unhealthy one", "Acceptance criteria:", "1. Says what was checked", ...calls.map((call) => `FIXTURE_CALL_TOOL ${JSON.stringify(call)}`)].join("\n");
-  const WATCH_AND_RESTART = [{ id: "host.exec", input: { command: "docker.ps" } }, { id: "host.restart", input: { container: "demo-app" } }];
+  const WATCH_AND_RESTART: Array<{ id: string; input: Record<string, unknown> }> = [{ id: "host.exec", input: { command: "docker.ps" } }, { id: "host.restart", input: { container: "demo-app" } }];
   const dispatch = (key: string, calls = WATCH_AND_RESTART) => command("workflow.dispatch", key, { workflow: { id: "sre-task", digest: release.digest }, input: { situation: situation(calls) } });
   const store = w.brain.store;
   const pendingApproval = async (): Promise<{ id: string; subject_json: string; subject_digest: string; version: number }> => {

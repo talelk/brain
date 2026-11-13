@@ -111,6 +111,16 @@ describe("launcher host-command endpoint", () => {
     expect((await unixJson(socket, "/v1/host-commands/run", { command: "demo.echo", args: { word: "a b" }, allow: "read" }, token())).status).toBe(422);
     expect((await unixJson(socket, "/v1/host-commands/run", { command: "demo.echo", args: { word: "x" }, argv: ["rm"] }, token())).status).toBe(422);
   });
+  it("runs a privileged command once per invocation id (ADR 0024), and only with one", async () => {
+    const noId = await unixJson(socket, "/v1/host-commands/run", { command: "demo.restart", allow: "privileged" }, token());
+    expect(noId.status).toBe(422);
+    const first = await unixJson(socket, "/v1/host-commands/run", { command: "demo.restart", allow: "privileged", invocationId: "inv-apr_once-0001" }, token());
+    expect(first.status).toBe(200);
+    expect(first.json).toMatchObject({ exitCode: 0, stdout: "restarted" });
+    const again = await unixJson(socket, "/v1/host-commands/run", { command: "demo.restart", allow: "privileged", invocationId: "inv-apr_once-0001" }, token());
+    expect(again.status).toBe(409);
+    expect(readFileSync(`${socket}.effects`, "utf8").split("\n").filter(Boolean)).toEqual(["inv-apr_once-0001"]);
+  });
 });
 
 describe("a failed tool call keeps the script's own reason", () => {

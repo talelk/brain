@@ -48,6 +48,7 @@ import { Challenges } from "./challenges";
 import { PlayProposals } from "./play-proposals";
 import { StarterPlays } from "./starter-plays";
 import { attentionCommands, attentionQuery, qualitySummary } from "../modules/stream/index";
+import { handleInbound, smtpTarget } from "../modules/operations/index";
 import { alertBadProbes, checkDisk, checkHostedModels, checkModelEndpoint, absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
 import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
@@ -424,6 +425,20 @@ export class Brain {
   notificationPreferences(actor: ActorContext): ReturnType<typeof preferencesView> {
     if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "notification preferences belong to a person");
     return preferencesView(this.store, actor.organizationId, actor.actorId);
+  }
+
+  /** Sends one test email to the signed-in person, so an owner can see the relay works; the outcome also feeds Health. */
+  async sendTestEmail(actor: ActorContext): Promise<{ sent: boolean; reason: string }> {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "a test email goes to a person");
+    if (!smtpTarget()) throw new BrainDomainError("CONFLICT", "Email is not configured on this server (BRAIN_NOTIFY_SMTP_URL and BRAIN_NOTIFY_FROM)");
+    const sent = await sendEmail(this.store, actor.organizationId, actor.actorId, { kind: "test", url: "/settings?tab=security" });
+    const last = this.store.control.prepare("SELECT reason FROM email_deliveries WHERE organization_id=? AND principal_id=? ORDER BY id DESC LIMIT 1").get(actor.organizationId, actor.actorId) as { reason: string } | undefined;
+    return { sent, reason: sent ? "" : last?.reason ?? "not sent" };
+  }
+
+  /** The inbound chat webhook: signature, replay and the three things it may do are checked in `handleInbound`. */
+  inboundChat(headers: Headers, rawBody: string): { status: number; body: Record<string, unknown> } {
+    return handleInbound(this.store, headers, rawBody);
   }
 
   setNotificationPreferences(actor: ActorContext, input: { push?: unknown; webhook?: unknown; digest?: unknown; email?: unknown }): ReturnType<typeof preferencesView> {

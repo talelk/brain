@@ -543,3 +543,7 @@ CREATE TABLE effect_calls (
   PRIMARY KEY(attempt_id, proposal_id)
 ) STRICT;
 CREATE UNIQUE INDEX effect_calls_approval ON effect_calls(approval_id);
+-- Inbound chat webhook requests already handled (ADR 0024): a retried signed request is acknowledged, never repeated.
+CREATE TABLE inbound_hook_events (
+  remote_event_id TEXT PRIMARY KEY, received_at_ms INTEGER NOT NULL
+) STRICT;

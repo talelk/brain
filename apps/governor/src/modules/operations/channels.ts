@@ -3,6 +3,8 @@ import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { sendMail, smtpTarget, validAddress, type SmtpTarget } from "./smtp";
+import { chatBody, chatFormat, type ChatFormat } from "./connectors";
+import { recordProbe } from "./probes";
 
 /**
  * Notification channels and per-person preferences (issue #53, ADR 0011). In-app is the record and is always on. Web push keeps
@@ -24,7 +26,7 @@ export function preferencesOf(store: Store, organizationId: string, principalId:
   return row ? { push: row.push === 1, webhook: row.webhook === 1, digest: row.digest === 1, email: row.email === 1, digestLastMs: row.digest_last_ms } : { push: true, webhook: false, digest: false, email: false, digestLastMs: 0 };
 }
 
-export interface WebhookTarget { readonly url: string; readonly secret?: string }
+export interface WebhookTarget { readonly url: string; readonly secret?: string; readonly format?: ChatFormat }
 
 /** The server's webhook, when one is configured and safe to call (https, or http only to this machine). */
 export function webhookTarget(env: NodeJS.ProcessEnv = process.env): WebhookTarget | undefined {
@@ -35,7 +37,8 @@ export function webhookTarget(env: NodeJS.ProcessEnv = process.env): WebhookTarg
   const local = url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "[::1]";
   if (url.protocol !== "https:" && !(url.protocol === "http:" && local)) return undefined;
   const secret = env["BRAIN_NOTIFY_WEBHOOK_SECRET"];
-  return { url: url.toString(), ...(secret ? { secret } : {}) };
+  // BRAIN_NOTIFY_WEBHOOK_FORMAT=slack|teams makes the body one those products accept (an incoming webhook / a Workflows webhook).
+  return { url: url.toString(), ...(secret ? { secret } : {}), format: chatFormat(env) };
 }
 
 export interface EmailDelivery { readonly kind: string; readonly status: "sent" | "failed"; readonly reason: string; readonly at: string }
@@ -83,7 +86,7 @@ export function webhookBody(input: { kind: string; link: string; count?: number 
 
 /** Posts the body once, signed when a secret is set. Best effort: a failing endpoint never breaks the in-app record. */
 export async function sendWebhook(target: WebhookTarget, body: WebhookBody, fetchImpl: typeof fetch = fetch): Promise<boolean> {
-  const bytes = JSON.stringify(body);
+  const bytes = JSON.stringify(target.format && target.format !== "generic" ? chatBody(target.format, body.text, body.link) : body);
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (target.secret) headers["x-brain-signature"] = `sha256=${createHmac("sha256", target.secret).update(bytes).digest("hex")}`;
   try {
@@ -111,6 +114,7 @@ export function safeMailLink(path: string, baseUrl = process.env["BRAIN_BASE_URL
 
 /** The whole mail: a generic sentence and a link. Nothing a person typed, no title, no token, no secret (same rule as the webhook). */
 export function emailContent(input: { kind: string; link: string; count?: number }): { subject: string; text: string } {
+  if (input.kind === "test") return { subject: "Brain: test email", text: `This is a test email from Brain. If you can read it, email notifications reach you.\n\nYou asked for it under Settings > Security > Where Brain reaches you.\n` };
   const subject = input.kind === "digest" ? "Brain: results are ready" : input.kind === "result-ready" ? "Brain: a result is ready" : input.kind === "approval" ? "Brain: an approval is waiting for you" : "Brain: something needs you";
   const lead = input.kind === "digest" ? `${input.count ?? 0} ${input.count === 1 ? "result is" : "results are"} ready.` : input.kind === "result-ready" ? "A result is ready." : input.kind === "approval" ? "An approval is waiting for you." : "Something needs you.";
   return { subject, text: `${lead}\n\nOpen it in Brain: ${input.link}\n\nYou will be asked to sign in first${input.kind === "approval" ? " and to confirm the approval again" : ""}. You receive this because you switched email on under Settings > Security > Where Brain reaches you.\n` };
@@ -148,10 +152,13 @@ export async function sendEmail(store: Store, organizationId: string, principalI
   try {
     await send(target, { to: row.email, ...content });
     record(store, organizationId, principalId, message.kind, "sent", "");
+    recordProbe(store, "email", "healthy", "The mail relay accepted the last email.");
     return true;
   } catch (error) {
     // The reason is the server's short answer or a local fault, cut so a verbose relay cannot fill the table; it never carries credentials.
-    record(store, organizationId, principalId, message.kind, "failed", (error instanceof Error ? error.message : "send failed").replace(/\s+/gu, " "));
+    const reason = (error instanceof Error ? error.message : "send failed").replace(/\s+/gu, " ");
+    record(store, organizationId, principalId, message.kind, "failed", reason);
+    recordProbe(store, "email", "degraded", `The mail relay refused the last email: ${reason.slice(0, 200)}. Check BRAIN_NOTIFY_SMTP_URL and BRAIN_NOTIFY_FROM.`);
     return false;
   }
 }
