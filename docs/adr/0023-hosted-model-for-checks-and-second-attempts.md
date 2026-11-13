@@ -13,4 +13,4 @@ Today every role (planning, work, checking) uses one self-hosted model server re
 ## Limits
 - Host output redaction is pattern based (ADR 0021): a workspace that reads production hosts, such as `sre-demos`, stays self-hosted. The first workspace to enable it is the demo workspace, which holds only documents and sample files.
 - When the hosted model is down, checks and second attempts wait, and Health must say so. Spend caps must cover its cost first.
-- Built as: the route names a place, never a key (`BRAIN_HOSTED_MODEL_API_KEY` on the runner); a workspace with host tools cannot switch it on. Backlog 83 lists what is left.
+- Built as: the route names a place, never a key (`BRAIN_HOSTED_MODEL_API_KEY` on the runner); a workspace with host tools cannot switch it on. The Claude engine takes the route per attempt through a private environment, never process.env.

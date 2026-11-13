@@ -1,0 +1,13 @@
+# Backlog rows closed or settled 2026-11-13 (leftover engine lane)
+
+Rows 83, 87, 88 (part), 92, 96 were done: hosted route per attempt for the Claude engine; held act jobs (ADR 0028); `files.write` per-run output folder and the Teams HMAC signature; directory-only authenticator enrolment (ADR 0026); steady benchmark causes (docs/howto/load-and-capacity.md). Rows 75, 77, 80, 81 were decisions, kept here as history.
+
+| 75 | Navigation to Today, Missions, Library, Administration; Live, Logs, Outputs become mission views; Today "Working now" strip, Missions Running filter, Logs under Administration | decided 2026-11-13; plan phase 2 |
+| 80 | Order: phase 0 alone first; then phases 1 and 2 as two lanes (engine, web), 2 agents max; phase 3 waits for the phase 1 gate | decided 2026-11-13 |
+| 81 | UX: 7 of the 21 open findings (refresh clocks) go with the phase 2 live store; fix the other 14 before the five testers start | decided 2026-11-13 |
+| 83 | Hosted model: Governor side done (route in job payload, hold while down, Health, switch); the Pi second attempt honours it, the Claude evaluator engine does not (process-global env) | needs a per-attempt endpoint for the Claude engine |
+| 87 | Approvals wait inside the running attempt (slot and lease held, outside the deadline, expiry 1 to 1440 minutes, default 30). Better: the proposal ends the task and a held act job runs after the decision (ADR 0024) | design change; needed for overnight schedules |
+| 88 | Not built: tool that writes files to a per-run output directory (needs a runner-side directory and an artifact path of its own); Teams native outgoing-webhook signature (the inbound hook takes Brain's signature and Slack's `v0`); real-vendor tests of Slack, Teams, GitHub, GitLab and a ticketing system (all tested against fakes) | needs accounts |
+| 92 | Directory-only people cannot approve effects (the authenticator is enrolled against a password they lack); no group-driven de-provisioning (ADR 0026) | design: authenticator enrolment for a directory login |
+| 96 | Steady benchmark over budget on 2026-11-13 (two runs, shared machine): event-loop p99 about 165 ms (budget 50) and the 10x-history list p95 181 to 573 ms (budget 150); the full 3 x 10 minute gate was not run | look for a scan or periodic work (stream projection, WAL checkpoint); see `docs/howto/load-and-capacity.md` |
+| 77 | Phase 0: CI `verify:change` on push; manual deploy job via ephemeral tailnet node and deploy-only key, refuses while missions run; nightly encrypted backup to a second host (14 nightly, 8 weekly), monthly timed restore | decided 2026-11-13; owner makes the tailnet key, picks the host |
