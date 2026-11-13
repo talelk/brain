@@ -16,7 +16,12 @@ export function operationalReadiness(s: Store, actor: ActorContext, workspaceId:
   const release = { agents: row?.release.agents ?? {} as Record<string, Agent>, workflows: row?.release.workflows ?? {} as Record<string, Workflow> };
   const runners = (s.control.prepare("SELECT id FROM runners WHERE organization_id=?").all(actor.organizationId) as { id: string }[]).map(({ id }) => runnerView(s,id)).filter((view) => view !== undefined).filter((view) => localRunnerSettingsCurrent(s, actor.organizationId, view.id));
   const idle: Resources = { cpuMillicores: 0, memoryMb: 0, diskMb: 0, slots: 0 };
+  // A workflow whose agent holds host tools belongs to a workspace set aside for host work (ADR 0024): elsewhere it is not part of readiness,
+  // or a fresh install could never be ready without a privileged runner it has no use for.
+  const hostBound = (s.control.prepare("SELECT workspaces_json FROM runner_groups WHERE organization_id=? AND host_tools=1").all(actor.organizationId) as Array<{ workspaces_json: string }>).some((group) => (JSON.parse(group.workspaces_json) as string[]).includes(workspaceId));
+  const holdsHostTools = (workflow: Workflow) => Object.values(workflow.spec.jobs).some((step) => step.kind === "dispatch" && step.uses.type === "agent" && (release.agents[step.uses.release.id]?.spec.tools ?? []).some((tool) => tool.id.startsWith("host.")));
   for (const [id, workflow] of Object.entries(release.workflows)) {
+    if (!hostBound && holdsHostTools(workflow)) continue;
     const missing: string[] = [];
     let busy: { slotsInUse: number; slotsTotal: number } | undefined;
     for (const step of Object.values(workflow.spec.jobs)) {

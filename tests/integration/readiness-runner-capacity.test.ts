@@ -84,4 +84,19 @@ describe("runner capacity configuration", () => {
     expect(runnerCapacity({ BRAIN_RUNNER_SLOTS: "0" }).slots).toBe(1);
     expect(runnerCapacity({ BRAIN_RUNNER_SLOTS: "x" }).slots).toBe(1);
   });
+
+  it("a workspace that is not set aside for host work is ready without a host runner", () => {
+    const w = world({ slots: 3 });
+    const readiness = operationalReadiness(w.brain.store, w.owner, w.workspaceId);
+    expect(readiness.checks.filter((check) => check.id.startsWith("workflow:") && check.status === "missing")).toEqual([]);
+    expect(readiness.checks.some((check) => check.id === "workflow:sre-task")).toBe(false);
+  });
+
+  it("a workspace set aside for host work needs a runner in the host group", () => {
+    const w = world({ slots: 3 });
+    w.brain.store.control.prepare("INSERT INTO runner_groups(group_id,organization_id,host_tools,workspaces_json,updated_by,updated_at_ms) VALUES ('sre-host',?,1,?,'test',?)").run(w.org, JSON.stringify([w.workspaceId]), w.brain.store.now());
+    const check = operationalReadiness(w.brain.store, w.owner, w.workspaceId).checks.find((entry) => entry.id === "workflow:sre-task");
+    expect(check?.status).toBe("missing");
+    expect(check?.detail).toContain("sre-host");
+  });
 });

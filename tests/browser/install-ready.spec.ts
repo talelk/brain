@@ -47,7 +47,7 @@ test("a fresh install is blocked with a checklist, each fix completes it without
   await expect(page.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
 
   // Runners come online: the box opens, and the one thing left is to run the check.
-  const sessions = await enrollRunners(governor, actor, "fresh", ["agents", "evaluators", "sre-host"]);
+  const sessions = await enrollRunners(governor, actor, "fresh", ["agents", "evaluators"]);
   await expect(row("runners")).toHaveAttribute("data-status", "ready", { timeout: 30_000 });
   await expect(page.getByLabel(/^What do you want done/)).toBeEnabled();
   await expect(row("smoke")).toHaveAttribute("data-status", "unverified");

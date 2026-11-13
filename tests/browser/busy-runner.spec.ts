@@ -19,7 +19,7 @@ test("a busy runner does not block Today: the box stays open, a calm note says t
   brain.createWorkspace(actor, { workspaceId: "ws-busy", slug: "busy" });
   const starter = fixtureStarter();
   brain.activateRelease(actor, brain.stageRelease(actor, starter.documents, starter.sourceRevision, starter.scripts, starter.instructions, starter.schemas).digest);
-  await enrollRunners(governor, actor, "busy", ["agents", "evaluators", "sre-host"]);
+  await enrollRunners(governor, actor, "busy", ["agents", "evaluators"]);
 
   await page.goto(`${governor.url}/w/ws-busy/today`);
   const sentence = page.getByLabel(/^What do you want done/);
