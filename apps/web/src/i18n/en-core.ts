@@ -384,5 +384,6 @@ export const enCore = {
   "today.check.fail.cancelled": "The check was stopped before it finished.",
   "today.check.fail.answer": "The model answered, but not with the expected reply.",
   "today.check.fail.generic": "It stopped without a result.",
+  "today.setup.done": "(done)",
   // @@END
 } as const satisfies Record<string, string>;

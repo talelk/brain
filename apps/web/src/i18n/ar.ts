@@ -1644,5 +1644,13 @@ export const ar: Catalog = {
   "today.check.fail.generic": "توقف دون نتيجة.",
   "task.review.plain": "لا يحدث شيء قبل أن تضغط على بدء المهمة. بعدها يمكنك متابعة تقدمها وقراءة النتيجة.",
   "task.roles.description": "من يعمل عليها.",
+  "today.setup.done": "(تم)",
+  "task.roles.title": "أدوار الفريق",
+  "task.stat.workspaceHint": "المساحة التي تنتمي إليها هذه المهمة",
+  "task.stat.resultHint": "يُفحص قبل قبوله",
+  "task.single.description": "مهمة واحدة: أدخل ما تحتاجه وراجعها ثم ابدأها.",
+  "task.inputs.title": "تعبئة المدخلات",
+  "task.inputs.description": "أدخل ما تحتاجه هذه المهمة.",
+  "task.review.description": "هذا بالضبط ما سيبدأ.",
   // @@END
 };

@@ -21,7 +21,7 @@ async function runTheCheck(page: Page, row: (step: string) => Locator, finish: (
   await finish();
   const done = page.getByTestId("today-setup-done");
   await expect(done).toContainText("Brain works: start your first mission", { timeout: 30_000 });
-  await expect(done).toContainText(/The check passed in \d+( min \d+)? s\./);
+  await expect(done).toContainText(/The check passed in (\d+ s|\d+ min \d+ s)\./);
   await expect(setup).toHaveCount(0);
   expect(page.url()).toBe(todayUrl);
   await expect(page.locator("body")).not.toContainText(/Raw JSON|durable acceptance|independent verification remain/);
@@ -157,7 +157,7 @@ test("on a phone the check is also one click on Today, in place, and the page do
   const roles = page.locator("section").filter({ has: page.getByRole("heading", { name: "Team roles", exact: true }) });
   await expect(roles).toBeVisible({ timeout: 30_000 });
   await expect(roles.getByRole("button")).toHaveCount(1);
-  expect((await roles.getByRole("button").innerText()).match(/Diagnostic/giu)).toHaveLength(1);
-  await expect(page.locator("body")).not.toContainText(/Raw JSON|durable acceptance|independent verification remain/);
+  expect(((await roles.getByRole("button").textContent()) ?? "").match(/Diagnostic/giu)).toHaveLength(1);
+  await expect(page.locator("body")).not.toContainText(/Raw JSON|durable acceptance|independent verification remain|placement scope|active (output|workflow) schema|recovers the same run|dispatch it/);
   expect(errors).toEqual([]);
 });

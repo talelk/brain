@@ -1604,5 +1604,13 @@ export const fr: Catalog = {
   "today.check.fail.generic": "Elle s'est arrêtée sans résultat.",
   "task.review.plain": "Rien ne se passe avant que vous appuyiez sur Démarrer la tâche. Vous pourrez ensuite suivre sa progression et lire le résultat.",
   "task.roles.description": "Qui y travaille.",
+  "today.setup.done": "(terminé)",
+  "task.roles.title": "Rôles de l'équipe",
+  "task.stat.workspaceHint": "À quel espace de travail appartient cette tâche",
+  "task.stat.resultHint": "Vérifié avant d'être accepté",
+  "task.single.description": "Une seule tâche : renseignez ce qu'il lui faut, vérifiez-la, puis démarrez-la.",
+  "task.inputs.title": "Renseigner les entrées",
+  "task.inputs.description": "Renseignez ce dont cette tâche a besoin.",
+  "task.review.description": "Voici exactement ce qui va démarrer.",
   // @@END
 };

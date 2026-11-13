@@ -1218,5 +1218,12 @@ export const enExtra = {
   "work.withdraw.needsLead": "Only a workspace lead can withdraw write-ups.",
   "task.review.plain": "Nothing happens until you press Start task. Then you can follow its progress and read the result.",
   "task.roles.description": "Who works on it.",
+  "task.roles.title": "Team roles",
+  "task.stat.workspaceHint": "Where this task belongs",
+  "task.stat.resultHint": "Checked before it is accepted",
+  "task.single.description": "A single task: fill in what it needs, check it, then start it.",
+  "task.inputs.title": "Configure inputs",
+  "task.inputs.description": "Fill in what this task needs.",
+  "task.review.description": "This is exactly what will start.",
   // @@END
 } as const satisfies Record<string, string>;

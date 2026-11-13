@@ -62,7 +62,7 @@ function TeamRoles(props: { members: readonly { memberId: string; role: string; 
     const name = titleize(member.agentId);
     return [name.toLowerCase() === member.role.trim().toLowerCase() ? "" : name, member.engine ? `on ${member.engine}` : ""].filter(Boolean).join(" ");
   };
-  return <WorkspaceSection title="Team roles" description={t("task.roles.description")}>
+  return <WorkspaceSection title={t("task.roles.title")} description={t("task.roles.description")}>
     <Show when={props.members.length} fallback={<p class="text-interface text-ink-gray-7">No agent runs as part of this.</p>}>
       <div class="brain-queue"><For each={props.members}>{(member) => <QueueRow title={member.role} description={under(member)} icon="lucide-bot"
         selected={open() === member.memberId} label={`Show agent ${member.agentId} for ${member.role}`} onClick={() => setOpen(open() === member.memberId ? "" : member.memberId)} />}</For></div>
@@ -145,7 +145,7 @@ function TaskDetail(props: { title: string; workflow: WorkflowCatalogEntry; agen
     setError("");
     try { await authorCandidate(app, navigate, "Workflow", props.workflow.release.id, props.title, mode); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not create the task candidate"); }
   };
-  return <BrainPage title={props.title} description="A single task: review its typed inputs, safety and readiness, then dispatch it."
+  return <BrainPage title={props.title} description={t("task.single.description")}
     actions={<Show when={app.identity()?.actor.scopes.includes("config:activate")}><div class="flex flex-wrap gap-2">
       <Button variant="outline" iconLeft="lucide-copy" onClick={() => void author("duplicate")}>Clone as candidate</Button>
       <Button variant="outline" iconLeft="lucide-square-pen" onClick={() => void author("edit")}>Edit as candidate</Button>

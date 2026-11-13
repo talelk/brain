@@ -110,7 +110,6 @@ export function TodaySetup(props: { readiness: ReturnType<typeof createReadiness
       setRun({ phase: "failed", message: t("today.check.failedStart", { reason: error instanceof Error ? error.message : "" }).trim() });
     }
   }
-  const inFlight = () => run().phase === "starting" || run().phase === "running";
   const elapsed = () => { const current = run(); return current.phase === "starting" || current.phase === "running" ? takenText(Math.max(0, liveNow()() - current.startedAt)) : ""; };
   const waiting = () => { const snapshot = job.state().data; const key = snapshot ? waitingKey(snapshot) : undefined; return key ? t(key) : ""; };
   const fix = (row: SetupRow) => { if (row.step === "release") void navigate("/settings?tab=release&from=today"); else if (row.step === "smoke") void runCheck(row.workflowId); else setOpen(true); };
@@ -148,7 +147,7 @@ export function TodaySetup(props: { readiness: ReturnType<typeof createReadiness
             <IconTile icon="lucide-loader" tone="gray" />
           </Show>
           <div class="min-w-0 flex-1" aria-live={row.step === "smoke" ? "polite" : undefined}>
-            <h3 class="m-0 text-base-medium text-ink-gray-9">{row.title}<Show when={row.status === "ready"}><span class="sr-only"> (done)</span></Show></h3>
+            <h3 class="m-0 text-base-medium text-ink-gray-9">{row.title}<Show when={row.status === "ready"}><span class="sr-only"> {t("today.setup.done")}</span></Show></h3>
             <p class="m-0 mt-0.5 break-words text-interface text-ink-gray-7" data-testid={row.step === "smoke" ? "check-detail" : undefined}>{shown().detail}</p>
             <Show when={shown().next}><p class="m-0 mt-0.5 break-words text-interface text-ink-gray-7" data-testid="check-next">{shown().next}</p></Show>
             <Show when={row.step === "smoke" && run().phase === "failed" && (run() as { runId?: string }).runId}><Button class="mt-1" size="sm" variant="ghost" iconRight="lucide-arrow-right" onClick={() => void navigate(`/runs/${(run() as { runId: string }).runId}`)}>{t("today.check.details")}</Button></Show>

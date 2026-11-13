@@ -7,7 +7,7 @@ import { governor } from "./client";
  * It uses the same two Governor calls the play page's Review and Start buttons use (prepare a draft, start it);
  * nothing here decides whether the install works, the run's own state does.
  */
-export const CHECK_INPUT: JsonValue = { message: "BRAIN_OK" };
+const CHECK_INPUT: JsonValue = { message: "BRAIN_OK" };
 export const CHECK_WORKFLOW = "agent-smoke";
 
 /** Prepare the exact draft and start it; the returned run id is what the Today row then follows through the live store. */
@@ -18,7 +18,7 @@ export async function startInstallCheck(workspaceId: string, workflowId: string 
   return started.runId;
 }
 
-export type CheckOutcome = "running" | "passed" | "failed";
+type CheckOutcome = "running" | "passed" | "failed";
 
 /** Where a started check stands, from the run's own state (a job state is used only before the run state is known). */
 export function checkOutcome(job: Pick<JobSnapshot, "state" | "runState">): CheckOutcome {
