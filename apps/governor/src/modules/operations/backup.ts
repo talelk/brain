@@ -61,11 +61,11 @@ function disjoint(a: string, b: string): void {
   if (within(a, b) || within(b, a)) throw new BrainDomainError("CONFLICT", "source and destination must not overlap");
 }
 
-function collect(root: string, prefix = "", out: string[] = []): string[] {
+function collect(root: string, prefix = "", out: string[] = [], skip?: (path: string) => boolean): string[] {
   for (const entry of readdirSync(join(root, prefix), { withFileTypes: true })) {
     const path = prefix ? `${prefix}/${entry.name}` : entry.name;
-    if (reserved.has(path)) continue;
-    if (entry.isDirectory()) collect(root, path, out);
+    if (reserved.has(path) || skip?.(path)) continue;
+    if (entry.isDirectory()) collect(root, path, out, skip);
     else {
       assertRegularFile(join(root, path));
       // SQLite backup reads committed WAL pages; sidecars are never copied.
@@ -142,13 +142,15 @@ function copyVerified(root: string, path: string, expected?: { digest: string; b
 
 // Maintenance-only: one stopped Governor, WAL-aware database snapshots and an
 // atomic directory publication. Other writers must also be stopped by operator.
-export async function createBackup(dataDir: string, outDir: string): Promise<LocalBackupManifest> {
+// `live` (the continuous replica, ADR 0027) snapshots a data directory that a running Governor owns: it does not take the directory
+// lock, every database goes through SQLite's online backup, and `skip` leaves out paths shipped another way (the content-addressed store).
+export async function createBackup(dataDir: string, outDir: string, opts: { live?: boolean; skip?: (path: string) => boolean } = {}): Promise<LocalBackupManifest> {
   const source = directory(dataDir);
   disjoint(source, resolve(outDir));
-  const release = acquireDirectory(source);
+  const release = opts.live ? () => undefined : acquireDirectory(source);
   let stage: string | undefined;
   try {
-    const paths = collect(source);
+    const paths = collect(source, "", [], opts.skip);
     if (!paths.includes("control.db")) invalid("backup requires control.db");
     const output = destination(outDir);
     stage = output.stage;
@@ -198,6 +200,7 @@ export async function createBackup(dataDir: string, outDir: string): Promise<Loc
     }
     const missing: string[] = [];
     if (authority.memoryMode === "tencentdb") missing.push("tencentdb-memory", "tencentdb-wiki", "tencentdb-codegraph");
+    if (opts.skip) missing.push("content-addressed-store");
     const manifest: LocalBackupManifest = manifestSchema.parse({
       format: "brain.local-backup/v1", backupId: randomUUID(), createdAt: new Date().toISOString(), files,
       completeness: missing.length === 0 ? "complete" : "partial", missing,

@@ -19,12 +19,20 @@ services:
       BRAIN_TENCENTDB_URL: ${BRAIN_TENCENTDB_URL:-}
       BRAIN_TENCENTDB_API_KEY: ${BRAIN_TENCENTDB_API_KEY:-}
       BRAIN_MEMORY_UI_URL: ${BRAIN_MEMORY_UI_URL:-}
+      # Continuous replica to a second host (ADR 0027): off unless deploy-demo.sh finds replica.env and writes these into .env.
+      BRAIN_REPLICA_DIR: ${BRAIN_REPLICA_DIR:-}
+      BRAIN_REPLICA_SHIPPED_FILE: ${BRAIN_REPLICA_SHIPPED_FILE:-}
+      # Metrics for Prometheus (/metrics): a token file the owner puts in the data volume; without one the endpoint does not exist.
+      BRAIN_METRICS_TOKEN_FILE: ${BRAIN_METRICS_TOKEN_FILE:-}
+      BRAIN_BACKUP_STAMP_FILE: /host-run/last-backup-ok
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:${BRAIN_HOST_PORT:-3100}:3100"
     volumes:
       - brain-data:/data
+      - ${BRAIN_REPLICA_HOST_DIR:-./replica}:/replica
+      - ./run:/host-run:ro
     networks:
       - default
       - tdai-memory-stack

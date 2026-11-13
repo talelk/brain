@@ -1,0 +1,9 @@
+[Unit]
+Description=Keyrus Brain replica shipping (copies the database replica to the second host)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=talel
+WorkingDirectory=/srv/demos/brain
+ExecStart=/srv/demos/brain/src/deploy/demo/replica/ship-replica.sh

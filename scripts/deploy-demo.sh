@@ -149,6 +149,18 @@ else
   echo "==> Keeping existing .env (credentials unchanged)"
 fi
 
+# ---- continuous database replica (ADR 0027): a no-op unless $REMOTE_DIR/replica.env exists on the server ----
+# With it, the Governor writes snapshots into $REMOTE_DIR/replica (mounted at /replica) and Health reports replica lag from the shipped
+# marker; the timer installed at the end copies that directory to BRAIN_REPLICA_HOST. Without it nothing is added to .env or installed.
+REPLICA_ON=0
+if $SSH "test -r $REMOTE_DIR/replica.env"; then
+  REPLICA_ON=1
+  echo "==> Replica configured: wiring the Governor to write its replica"
+  $SSH "mkdir -p $REMOTE_DIR/replica && for kv in BRAIN_REPLICA_DIR=/replica BRAIN_REPLICA_HOST_DIR=$REMOTE_DIR/replica BRAIN_REPLICA_SHIPPED_FILE=/replica/shipped.json; do k=\${kv%%=*}; grep -q \"^\$k=\" $REMOTE_DIR/.env || echo \"\$kv\" >> $REMOTE_DIR/.env; done"
+else
+  echo "==> No $REMOTE_DIR/replica.env on the server: no database replica (see docs/howto/replica-and-second-runner.md)"
+fi
+
 # ---- TencentDB memory stack (idempotent; binds 127.0.0.1 only) ----
 echo "==> Ensuring TencentDB memory stack"
 $SSH "mkdir -p $REMOTE_DIR/tencentdb $REMOTE_DIR/run"
@@ -395,6 +407,12 @@ if $SSH "test -r $REMOTE_DIR/backup.env"; then
   $SSH "$SUDO cp $REMOTE_DIR/src/deploy/demo/backup/brain-backup.service $REMOTE_DIR/src/deploy/demo/backup/brain-backup.timer $REMOTE_DIR/src/deploy/demo/backup/brain-restore-test.service $REMOTE_DIR/src/deploy/demo/backup/brain-restore-test.timer /etc/systemd/system/ && $SUDO systemctl daemon-reload && $SUDO systemctl enable --now brain-backup.timer brain-restore-test.timer >/dev/null 2>&1"
 else
   echo "==> No $REMOTE_DIR/backup.env on the server: nightly backups are NOT scheduled (see docs/howto/backup-and-restore.md)"
+fi
+
+# ---- replica shipping timer (only when replica.env exists, see above) ----
+if [ "$REPLICA_ON" = 1 ]; then
+  echo "==> Installing the replica shipping timer"
+  $SSH "chmod +x $REMOTE_DIR/src/deploy/demo/replica/*.sh && $SUDO cp $REMOTE_DIR/src/deploy/demo/replica/brain-replica-ship.service $REMOTE_DIR/src/deploy/demo/replica/brain-replica-ship.timer /etc/systemd/system/ && $SUDO systemctl daemon-reload && $SUDO systemctl enable --now brain-replica-ship.timer >/dev/null 2>&1"
 fi
 
 echo "==> Done. https://$DOMAIN"

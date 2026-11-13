@@ -1,6 +1,7 @@
 import { statfsSync } from "node:fs";
 import type { Store } from "../../application/store";
 import { modelEndpoint } from "./local-runtime";
+import { replicaLag, type ReplicaConfig } from "./replica";
 
 /**
  * Periodic checks Health reports and alerts on: the model endpoint, the hosted model of each workspace that switched it on, and free
@@ -43,6 +44,12 @@ export function checkDisk(s: Store, read: (path: string) => { bavail: number | b
     const result = diskStatus(free, total);
     recordProbe(s, "disk", result.status, result.detail);
   } catch { recordProbe(s, "disk", "degraded", "Free disk could not be read."); }
+}
+
+/** How far behind the second host's copy of the databases is (ADR 0027), recorded as the `replica` probe; `disabled` when no replica is configured. */
+export function checkReplica(s: Store, config: ReplicaConfig | undefined): void {
+  const lag = replicaLag(config, s.now());
+  recordProbe(s, "replica", lag.status, lag.detail);
 }
 
 async function reach(url: string, apiKey: string | undefined, fetchImpl: typeof fetch): Promise<{ ok: boolean; detail: string }> {
@@ -88,7 +95,7 @@ export function alertBadProbes(s: Store): Array<{ organizationId: string; worksp
     const workspaces = (probe.id.startsWith("hosted:")
       ? s.control.prepare("SELECT id, organization_id, owner_id FROM workspaces WHERE id=? AND status='active' AND owner_id IS NOT NULL").all(probe.id.slice(7))
       : s.control.prepare("SELECT id, organization_id, owner_id FROM workspaces WHERE status='active' AND owner_id IS NOT NULL").all()) as Array<{ id: string; organization_id: string; owner_id: string }>;
-    const title = probe.id === "disk" ? "Disk is filling up" : probe.id === "model" ? "The model endpoint is down" : "The hosted model is down";
+    const title = probe.id === "disk" ? "Disk is filling up" : probe.id === "model" ? "The model endpoint is down" : probe.id === "replica" ? "The database replica is behind" : "The hosted model is down";
     for (const workspace of workspaces) {
       const db = s.workspaceDb(workspace.id, workspace.organization_id);
       db.prepare("INSERT INTO attention_notifications(principal_id,item_id,mission_id,title,pushed,sent_at_ms) VALUES (?,?,NULL,?,0,?) ON CONFLICT(principal_id,item_id) DO UPDATE SET title=excluded.title,sent_at_ms=excluded.sent_at_ms,pushed=0")

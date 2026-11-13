@@ -1,6 +1,6 @@
 import { pathToFileURL } from "node:url";
 import { migrateDirectory } from "./infrastructure/persistence/migrations";
-import { createBackup, restoreBackup, verifyBackup } from "./modules/operations/index";
+import { createBackup, restoreBackup, restoreFromReplica, verifyBackup } from "./modules/operations/index";
 
 // Trusted host maintenance belongs to the Governor executable. The remote Brain
 // CLI never opens control/workspace databases or accepts arbitrary server paths.
@@ -11,6 +11,12 @@ export async function runMaintenance(args: string[]): Promise<number> {
     if (!source || extra.length || (destination !== undefined && destination !== "--check")) { process.stderr.write("usage: maintenance migrate <stopped-data-dir> [--check]\n"); return 2; }
     try { process.stdout.write(`${JSON.stringify(migrateDirectory(source, undefined, { dryRun: destination === "--check" }), null, 2)}\n`); return 0; }
     catch (e) { process.stderr.write(`${e instanceof Error ? e.message : "migration failed"}\n`); return 1; }
+  }
+  if (operation === "restore-replica") {
+    // Fail over to the second host (ADR 0027): the newest complete replica snapshot becomes a suspended data directory.
+    if (!source || !destination || extra.length) { process.stderr.write("usage: maintenance restore-replica <replica-dir> <empty-data-dir>\n"); return 2; }
+    try { process.stdout.write(`${JSON.stringify({ ...restoreFromReplica(source, destination), restored: true, suspended: true })}\n`); return 0; }
+    catch (e) { process.stderr.write(`${e instanceof Error ? e.message : "restore from replica failed"}\n`); return 1; }
   }
   if (!source || extra.length || !["backup", "verify", "restore"].includes(operation ?? "") || (operation === "verify" ? !!destination : !destination)) {
     process.stderr.write("usage: maintenance backup <stopped-data-dir> <empty-backup-dir> | verify <backup-dir> | restore <backup-dir> <empty-data-dir>\n");

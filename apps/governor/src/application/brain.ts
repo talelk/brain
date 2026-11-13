@@ -49,7 +49,7 @@ import { PlayProposals } from "./play-proposals";
 import { StarterPlays } from "./starter-plays";
 import { attentionCommands, attentionQuery, qualitySummary } from "../modules/stream/index";
 import { connectorsFromEnv, handleInbound, smtpTarget, type Connectors } from "../modules/operations/index";
-import { alertBadProbes, checkDisk, checkHostedModels, checkModelEndpoint, absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
+import { alertBadProbes, checkDisk, checkHostedModels, checkModelEndpoint, checkReplica, replicaConfig, replicateOnce, recordProbe, absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
 import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
@@ -206,11 +206,41 @@ export class Brain {
     this.memoryProbeTimer = setInterval(() => this.probeMemoryService(), 10_000);
     this.memoryProbeTimer.unref();
     checkDisk(this.store);
+    checkReplica(this.store, this.replica);
+    if (this.replica) {
+      const config = this.replica;
+      void this.replicate();
+      this.replicaTimer = setInterval(() => { if (!this.replicating) void this.replicate(); }, config.intervalSeconds * 1000);
+      this.replicaTimer.unref();
+    }
     this.engineProbeTimer = setInterval(() => void this.runEngineProbes().catch(() => undefined), 30_000);
     this.engineProbeTimer.unref();
   }
 
   private engineProbeTimer: ReturnType<typeof setInterval>;
+  private replicaTimer: ReturnType<typeof setInterval> | undefined;
+  private replicating: Promise<void> | undefined;
+  private closed = false;
+  /** The continuous replica (ADR 0027): set only when BRAIN_REPLICA_DIR is; a bad setting fails startup rather than silently not replicating. */
+  private readonly replica = replicaConfig();
+
+  /** One replication cycle, after any cycle already running (a snapshot is never concurrent with another). A failure is shown in Health instead of thrown. */
+  replicate(): Promise<void> {
+    const config = this.replica;
+    if (!config) return Promise.resolve();
+    const previous = this.replicating;
+    const run: Promise<void> = (async () => {
+      await previous;
+      try {
+        await replicateOnce(this.store.dataDir, config, () => this.store.now());
+        if (!this.closed) checkReplica(this.store, config);
+      } catch (e) {
+        if (!this.closed) recordProbe(this.store, "replica", "unavailable", `The latest replica snapshot failed: ${e instanceof Error ? e.message.slice(0, 200) : "unknown error"}`);
+      } finally { if (this.replicating === run) this.replicating = undefined; }
+    })();
+    this.replicating = run;
+    return run;
+  }
 
   /**
    * The checks below the application (free disk, the model endpoint, each enabled hosted model): their latest results are what Health
@@ -218,6 +248,7 @@ export class Brain {
    */
   async runEngineProbes(fetchImpl: typeof fetch = fetch): Promise<void> {
     checkDisk(this.store);
+    checkReplica(this.store, this.replica);
     await checkModelEndpoint(this.store, fetchImpl);
     await checkHostedModels(this.store, fetchImpl);
     for (const alert of alertBadProbes(this.store)) {
@@ -229,6 +260,8 @@ export class Brain {
   close(): void {
     clearInterval(this.memoryProbeTimer);
     clearInterval(this.engineProbeTimer);
+    if (this.replicaTimer) clearInterval(this.replicaTimer);
+    this.closed = true;
     this.store.close();
   }
 

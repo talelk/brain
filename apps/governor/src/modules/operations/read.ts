@@ -115,7 +115,7 @@ export function liveStatus(store: Store, actor: ActorContext, workspaceId: strin
 function engineServices(store: Store): Array<{ id: string; status: string; checkedAt: string; detail: string }> {
   const out: Array<{ id: string; status: string; checkedAt: string; detail: string }> = [];
   const probes = readProbes(store);
-  for (const id of ["model", "disk"]) {
+  for (const id of ["model", "disk", "replica"]) {
     const probe = probes.find((entry) => entry.id === id);
     if (probe) out.push({ id, status: probe.status, checkedAt: probe.checkedAt, detail: probe.detail });
   }

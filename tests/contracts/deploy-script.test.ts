@@ -35,6 +35,22 @@ describe("deploy-demo.sh safety order", () => {
     expect(script).toMatch(/set_runner_env\(\) \{[^\n]*grep -q[^\n]*sed -i[^\n]*>>/u);
   });
 
+  it("wires the database replica only when the server has replica.env, and ships it with a valid timer", () => {
+    const compose = readFileSync(join(process.cwd(), "deploy/demo/docker-compose.yml"), "utf8");
+    // Off by default: the Governor gets an empty BRAIN_REPLICA_DIR unless the deploy wrote it.
+    expect(compose).toContain("BRAIN_REPLICA_DIR: ${BRAIN_REPLICA_DIR:-}");
+    const wiring = script.slice(script.indexOf("# ---- continuous database replica"), script.indexOf("# ---- TencentDB memory stack"));
+    expect(wiring).toContain('test -r $REMOTE_DIR/replica.env');
+    expect(wiring.indexOf("test -r $REMOTE_DIR/replica.env")).toBeLessThan(wiring.indexOf("BRAIN_REPLICA_DIR=/replica"));
+    expect(wiring).toContain("No $REMOTE_DIR/replica.env on the server: no database replica");
+    // The timer is installed only when the guard said so, after the Governor was rolled.
+    const timer = script.slice(script.indexOf("# ---- replica shipping timer"));
+    expect(timer).toContain('if [ "$REPLICA_ON" = 1 ]');
+    expect(script.indexOf("# ---- replica shipping timer")).toBeGreaterThan(script.indexOf("docker compose up -d governor"));
+    for (const file of ["ship-replica.sh", "restore-from-replica.sh"]) execFileSync("bash", ["-n", `deploy/demo/replica/${file}`]);
+    expect(readFileSync(join(process.cwd(), "deploy/demo/replica/brain-replica-ship.timer"), "utf8")).toContain("OnUnitActiveSec=1min");
+  });
+
   it("never prints credential values", () => {
     expect(script).not.toMatch(/echo[^\n]*BRAIN_DEPLOY_SUDO_PASSWORD/u);
   });
