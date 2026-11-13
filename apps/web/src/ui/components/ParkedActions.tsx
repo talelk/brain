@@ -9,6 +9,7 @@ import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { isStoppedForRetry } from "../work/work-model";
 import { t } from "../../i18n";
+import { SpendCapRaise, TaskFailure } from "./TaskFailure";
 
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 
@@ -64,45 +65,48 @@ export function ParkedActions(props: { item: WorkItem; onChanged: () => Promise<
     await context.refresh({ force: true });
   });
   const lines = () => criteria().split("\n").map((line) => line.trim()).filter(Boolean);
-  return <section aria-label="Parked work item" class="flex flex-col gap-3 rounded-control border border-outline-amber-3 p-3">
-    <Alert theme="amber" variant="outline" title={isStoppedForRetry(props.item) ? "Stopped: waiting for you to try again" : "Parked after repeated failures"} description={isStoppedForRetry(props.item) ? "The agent was interrupted too often to carry on by itself. Independent work and the mission carry on." : props.item.blockedReason ?? "This work waits for a person. Independent work and the mission carry on."} />
+  return <section aria-label={t("plan.parked-work-item.9446")} class="flex flex-col gap-3 rounded-control border border-outline-amber-3 p-3">
+    <Alert theme="amber" variant="outline" title={isStoppedForRetry(props.item) ? t("plan.stopped-waiting-for-you-to-try-a.47a0") : t("plan.parked-after-repeated-failures.9e19")} description={isStoppedForRetry(props.item) ? "The agent was interrupted too often to carry on by itself. Independent work and the mission carry on." : props.item.blockedReason ?? "This work waits for a person. Independent work and the mission carry on."} />
+    <TaskFailure item={props.item} />
     <Show when={props.item.parkedDiagnostic && !isStoppedForRetry(props.item)}>
       <div class="flex flex-col gap-1 rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3 text-interface" data-parked-reason>
-        <span class="text-caption font-medium text-ink-gray-7">Why it stopped</span>
+        <span class="text-caption font-medium text-ink-gray-7">{t("plan.why-it-stopped.27d8")}</span>
         <span class="break-words text-ink-gray-9">{props.item.parkedDiagnostic}</span>
-        <span class="text-caption text-ink-gray-6">Retry runs it again exactly as it is. If the cause is that the agent lacks a tool it needs, run the task with another way of working below.</span>
+        <span class="text-caption text-ink-gray-6">{t("plan.retry-runs-it-again-exactly-as-i.6573")}</span>
       </div>
     </Show>
-    <Show when={error()}><Alert theme="red" variant="outline" title="The change was refused" description={error()} /></Show>
+    <Show when={error()}><Alert theme="red" variant="outline" title={t("plan.the-change-was-refused.383e")} description={error()} /></Show>
     <div class="flex flex-wrap gap-2">
-      <Button variant="solid" theme="blue" iconLeft="lucide-rotate-ccw" disabled={busy()} onClick={() => void move("ready")}>{t("decision.retry")}</Button>
+      <Show when={props.item.remedy !== "park-budget"} fallback={<SpendCapRaise item={props.item} onRaised={props.onChanged} class="basis-full" />}>
+        <Button variant="solid" theme="blue" iconLeft="lucide-rotate-ccw" disabled={busy()} onClick={() => void move("ready")}>{t("decision.retry")}</Button>
+      </Show>
       <Show when={!dropping()} fallback={<>
-        <Button theme="red" iconLeft="lucide-trash-2" disabled={busy()} onClick={() => void move("abandoned")}>Confirm drop</Button>
-        <Button variant="ghost" onClick={() => setDropping(false)}>Keep it</Button>
-      </>}><Button variant="outline" iconLeft="lucide-trash-2" disabled={busy()} onClick={() => setDropping(true)}>Drop</Button></Show>
+        <Button theme="red" iconLeft="lucide-trash-2" disabled={busy()} onClick={() => void move("abandoned")}>{t("plan.confirm-drop.a764")}</Button>
+        <Button variant="ghost" onClick={() => setDropping(false)}>{t("plan.keep-it.d9f3")}</Button>
+      </>}><Button variant="outline" iconLeft="lucide-trash-2" disabled={busy()} onClick={() => setDropping(true)}>{t("plan.drop.0a08")}</Button></Show>
     </div>
     <Show when={(recipes.state().data ?? []).length > 1}>
       <div class="flex flex-wrap items-end gap-2" data-parked-recipe>
-        <div class="min-w-48 flex-1"><Select label="Run this task with" value={recipe()} onValueChange={(value) => setRecipe(value ?? "general-task")}
+        <div class="min-w-48 flex-1"><Select label={t("plan.run-this-task-with.27c5")} value={recipe()} onValueChange={(value) => setRecipe(value ?? "general-task")}
           options={(recipes.state().data ?? []).map((entry) => ({ value: entry.release.id, label: entry.definition.spec.presentation?.title ?? entry.release.id }))} /></div>
         <Button variant="outline" iconLeft="lucide-workflow" disabled={busy() || recipe() === (props.item.workflowId ?? "general-task")}
-          onClick={() => void revise((task) => ({ ...task, workflowId: recipe() }), `Run ${props.item.title} with ${recipe()} after it parked`)}>Run with this</Button>
+          onClick={() => void revise((task) => ({ ...task, workflowId: recipe() }), `Run ${props.item.title} with ${recipe()} after it parked`)}>{t("plan.run-with-this.adc2")}</Button>
       </div>
     </Show>
     <Show when={context.state().data?.plan.team?.length}>
       <div class="flex flex-wrap items-end gap-2">
-        <div class="min-w-48 flex-1"><Select label="Reassign to" value={member() || null} onValueChange={(value) => setMember(value ?? "")}
+        <div class="min-w-48 flex-1"><Select label={t("plan.reassign-to.7d09")} value={member() || null} onValueChange={(value) => setMember(value ?? "")}
           options={(context.state().data?.plan.team ?? []).map((entry) => ({ value: entry.memberId, label: `${entry.role} (${entry.memberId})` }))} /></div>
         <Button variant="outline" iconLeft="lucide-user-round-cog" disabled={busy() || !member() || (props.item.assignment?.kind === "agent" && props.item.assignment.id === member())}
-          onClick={() => void revise((task) => ({ ...task, assignment: { kind: "agent", id: member(), role: task.assignment?.role ?? "specialist" } }), `Reassign ${props.item.title} to ${member()} after it parked`)}>Reassign</Button>
+          onClick={() => void revise((task) => ({ ...task, assignment: { kind: "agent", id: member(), role: task.assignment?.role ?? "specialist" } }), `Reassign ${props.item.title} to ${member()} after it parked`)}>{t("plan.reassign.5584")}</Button>
       </div>
     </Show>
-    <div><Button variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => setEditing(true)}>Edit the task</Button></div>
-    <FormSheet open={editing()} onClose={() => setEditing(false)} title="Edit the task" description="Saving creates a new plan version; the parked task is re-planned, never edited in place."
-      submit="Save as a new plan version" icon="lucide-save" busy={busy()} disabled={!title().trim() || !lines().length} error={error()} errorTitle="The change was refused"
+    <div><Button variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => setEditing(true)}>{t("plan.edit-the-task.aa0e")}</Button></div>
+    <FormSheet open={editing()} onClose={() => setEditing(false)} title={t("plan.edit-the-task.aa0e")} description={t("plan.saving-creates-a-new-plan-versio.563e")}
+      submit={t("plan.save-as-a-new-plan-version.3945")} icon="lucide-save" busy={busy()} disabled={!title().trim() || !lines().length} error={error()} errorTitle={t("plan.the-change-was-refused.383e")}
       onSubmit={async () => { if (!busy() && title().trim() && lines().length) { await revise((task) => ({ ...task, title: title().trim(), criteria: lines() }), `Edit ${props.item.title} after it parked`); if (!error()) setEditing(false); } }}>
-        <TextInput label="Task title" required value={title()} onInput={(event) => setTitle(event.currentTarget.value)} />
-        <Textarea label="Task acceptance criteria" value={criteria()} onInput={(event) => setCriteria(event.currentTarget.value)} description="One criterion per line." />
+        <TextInput label={t("plan.task-title.624d")} required value={title()} onInput={(event) => setTitle(event.currentTarget.value)} />
+        <Textarea label={t("plan.task-acceptance-criteria.7927")} value={criteria()} onInput={(event) => setCriteria(event.currentTarget.value)} description={t("plan.one-criterion-per-line.2917")} />
     </FormSheet>
   </section>;
 }

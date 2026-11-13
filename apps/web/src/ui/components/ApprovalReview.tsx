@@ -2,6 +2,7 @@ import { Show, createEffect, createMemo, createSignal, createUniqueId, on, onCle
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Collapsible, Dialog } from "@talelk/newui-molecules";
 import { liveNow, useClock } from "../../data/live";
+import { t } from "../../i18n";
 import { StatusIcon } from "../viz/StatusIcon";
 import {
   beginDecision, beginRecovery, returnToReview, settleDecision,
@@ -55,6 +56,8 @@ export function ApprovalReview(props: {
   requireTwoFactor?: boolean;
   /** Tells a surrounding list when the review opens or closes, so the item under review stays put until it is closed. */
   onOpenChange?: (open: boolean) => void;
+  /** "decision" shows Approve and Deny as two plain buttons (the phone card); both open the same exact review, Deny with the reason field first. */
+  triggers?: "decision";
   approvalId: string;
   targetLabel: string;
   exactContent: string;
@@ -67,6 +70,7 @@ export function ApprovalReview(props: {
   checkDecision: (intent: ApprovalIntent) => Promise<ApprovalOutcome>;
 }) {
   const [open, setOpen] = createSignal(false);
+  const [leading, setLeading] = createSignal<"approve" | "deny">("approve");
   const [note, setNote] = createSignal("");
   const [state, setState] = createSignal<ApprovalState>({ status: "review" });
   const [code, setCode] = createSignal("");
@@ -84,8 +88,9 @@ export function ApprovalReview(props: {
   const canSubmit = () => state().status === "review" && props.fresh && sameProposal();
   const canReviewAgain = () => state().status === "stale" || state().status === "denied";
   const noteId = createUniqueId();
-  function openReview() {
+  function openReview(as: "approve" | "deny" = "approve") {
     if (state().status === "review") setReviewed(snapshot());
+    setLeading(as);
     setOpen(true);
   }
   function reviewCurrent() {
@@ -126,32 +131,35 @@ export function ApprovalReview(props: {
     denied: "Decision denied. Review authorization and the current proposal.",
   })[state().status];
   return <>
-    <Button class={props.class} variant="solid" theme="blue" iconLeft="lucide-shield-check" disabled={!props.active || !props.fresh} onClick={openReview}>Review action</Button>
+    <Show when={props.triggers === "decision"} fallback={<Button class={props.class} variant="solid" theme="blue" iconLeft="lucide-shield-check" disabled={!props.active || !props.fresh} onClick={() => openReview()}>{t("mp.review-action.0b6a")}</Button>}>
+      <Button class={props.class} variant="solid" theme="blue" iconLeft="lucide-check" disabled={!props.active || !props.fresh} onClick={() => openReview("approve")} data-approval-trigger="approve">{t("approval.approve")}</Button>
+      <Button class={props.class} variant="outline" theme="red" iconLeft="lucide-x" disabled={!props.active || !props.fresh} onClick={() => openReview("deny")} data-approval-trigger="deny">{t("approval.deny")}</Button>
+    </Show>
     <Dialog.Root open={open()} onOpenChange={setOpen} dismissible={!busy()}>
       <Dialog.Content size="2xl" class="flex max-h-[calc(100dvh-2rem)] flex-col max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none">
-        <Dialog.Header class="min-w-0"><Dialog.Title>Authorize action</Dialog.Title><Dialog.Description class="break-words [overflow-wrap:anywhere]">{reviewed().summary ?? reviewed().targetLabel}</Dialog.Description></Dialog.Header>
+        <Dialog.Header class="min-w-0"><Dialog.Title>{t("mp.authorize-action.6b84")}</Dialog.Title><Dialog.Description class="break-words [overflow-wrap:anywhere]">{reviewed().summary ?? reviewed().targetLabel}</Dialog.Description></Dialog.Header>
         <div class="my-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pe-1">
           <Show when={props.requestedBy || props.expiresAt}><p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-interface text-ink-gray-7"><Show when={props.requestedBy}><span>Asked by {props.requestedBy}</span></Show><ExpiryCountdown expiresAt={props.expiresAt} asOf={props.asOf} /></p></Show>
           <p class="text-interface text-ink-gray-7">Your decision binds this exact proposal, version {reviewed().expectedVersion}. Open the exact details to inspect it.</p>
           <Collapsible.Root class="min-w-0 rounded-control border border-outline-gray-1 p-card-pad-compact">
-            <Collapsible.Trigger>Exact details</Collapsible.Trigger>
+            <Collapsible.Trigger>{t("mp.exact-details.c992")}</Collapsible.Trigger>
             <Collapsible.Content><div class="min-w-0 pt-2">
-              <div class="mb-1.5 flex items-center justify-between gap-3"><p class="text-caption font-medium text-ink-gray-7">Exact proposal</p><span class="shrink-0 text-caption text-ink-gray-6">Version {reviewed().expectedVersion}</span></div>
+              <div class="mb-1.5 flex items-center justify-between gap-3"><p class="text-caption font-medium text-ink-gray-7">{t("mp.exact-proposal.b6ae")}</p><span class="shrink-0 text-caption text-ink-gray-6">Version {reviewed().expectedVersion}</span></div>
               <pre class="brain-readable max-h-48 max-w-full min-w-0 overflow-auto whitespace-pre-wrap break-all rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3 text-caption">{reviewed().exactContent}</pre>
             </div></Collapsible.Content>
           </Collapsible.Root>
-          <Textarea id={noteId} label="Decision note" value={note()} description="Required to reject or request changes; optional for approval." disabled={state().status !== "review"} onInput={(event) => setNote(event.currentTarget.value)} rows={3} />
-          <Show when={props.requireTwoFactor}><div class="rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3"><p class="mb-2 text-caption font-medium text-ink-gray-7">Identity confirmation</p><TextInput label="Authenticator code" description="Six digits, verified for this exact subject." autocomplete="one-time-code" inputmode="numeric" maxlength={6} pattern="[0-9]{6}" value={code()} onInput={(event) => setCode(event.currentTarget.value)} disabled={busy() || state().status !== "review"} /></div></Show>
-          <Show when={identityError()}><Alert theme="red" variant="outline" title="Identity verification failed" description={identityError()} /></Show>
+          <Textarea id={noteId} label={t("mp.decision-note.7526")} value={note()} description={leading() === "deny" ? t("approval.deny.hint") : t("approval.note.hint")} autofocus={leading() === "deny"} disabled={state().status !== "review"} onInput={(event) => setNote(event.currentTarget.value)} rows={3} />
+          <Show when={props.requireTwoFactor}><div class="rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3"><p class="mb-2 text-caption font-medium text-ink-gray-7">{t("mp.identity-confirmation.0a28")}</p><TextInput label={t("mp.authenticator-code.2908")} description={t("mp.six-digits-verified-for-this-exa.3d07")} autocomplete="one-time-code" inputmode="numeric" maxlength={6} pattern="[0-9]{6}" value={code()} onInput={(event) => setCode(event.currentTarget.value)} disabled={busy() || state().status !== "review"} /></div></Show>
+          <Show when={identityError()}><Alert theme="red" variant="outline" title={t("mp.identity-verification-failed.8ac9")} description={identityError()} /></Show>
           <p role="status" aria-live="polite" class="min-h-5 break-words text-interface text-ink-gray-7">{message()}</p>
         </div>
         <Dialog.Footer class="grid grid-cols-2 gap-2 border-t border-outline-gray-1 pt-3 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
-          <Button size="sm" class="col-span-2 sm:me-auto" variant="outline" onClick={() => setOpen(false)} disabled={busy()}>Back</Button>
-          <Show when={canReviewAgain() || (state().status === "review" && !sameProposal())}><Button size="sm" class="col-span-2" variant="outline" onClick={reviewCurrent} disabled={busy()}>Review current proposal</Button></Show>
-          <Show when={state().status === "unknown" || state().status === "checking"}><Button size="sm" class="col-span-2" variant="outline" onClick={check} loading={state().status === "checking"} disabled={state().status !== "unknown"}>Check decision</Button></Show>
-          <Button size="sm" variant="outline" onClick={() => void submit("request-changes")} disabled={!canSubmit() || busy() || !note().trim()}>Request changes</Button>
-          <Button size="sm" variant="outline" onClick={() => void submit("reject")} disabled={!canSubmit() || busy() || !note().trim()} theme="red">Reject</Button>
-          <Button size="sm" class="col-span-2" variant="solid" theme="blue" onClick={() => void submit()} loading={busy()} disabled={!canSubmit() || busy() || (!!props.requireTwoFactor && !/^\d{6}$/u.test(code()))}>{props.requireTwoFactor ? "Verify identity and approve" : "Approve exact action"}</Button>
+          <Button size="sm" class="col-span-2 sm:me-auto" variant="outline" onClick={() => setOpen(false)} disabled={busy()}>{t("mp.back.b52b")}</Button>
+          <Show when={canReviewAgain() || (state().status === "review" && !sameProposal())}><Button size="sm" class="col-span-2" variant="outline" onClick={reviewCurrent} disabled={busy()}>{t("mp.review-current-proposal.c9da")}</Button></Show>
+          <Show when={state().status === "unknown" || state().status === "checking"}><Button size="sm" class="col-span-2" variant="outline" onClick={check} loading={state().status === "checking"} disabled={state().status !== "unknown"}>{t("mp.check-decision.beb2")}</Button></Show>
+          <Button size="sm" variant="outline" onClick={() => void submit("request-changes")} disabled={!canSubmit() || busy() || !note().trim()}>{t("mp.request-changes.bbd0")}</Button>
+          <Button size="sm" variant="outline" onClick={() => void submit("reject")} disabled={!canSubmit() || busy() || !note().trim()} theme="red">{t("mp.reject.2b03")}</Button>
+          <Button size="sm" class="col-span-2" variant="solid" theme="blue" onClick={() => void submit()} loading={busy()} disabled={!canSubmit() || busy() || (!!props.requireTwoFactor && !/^\d{6}$/u.test(code()))}>{props.requireTwoFactor ? t("mp.verify-identity-and-approve.0fcd") : t("mp.approve-exact-action.7692")}</Button>
         </Dialog.Footer>
       </Dialog.Content>
     </Dialog.Root>

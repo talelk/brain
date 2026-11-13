@@ -12,6 +12,7 @@ import { ActionFeedback } from "../../ui/components/ActionFeedback";
 import { LibraryTabs, type LibraryTab } from "../../ui/components/LibraryTabs";
 import ResourcesPage from "./ResourcesPage";
 import ToolsPage from "./ToolsPage";
+import { t } from "../../i18n";
 
 /**
  * `/w/:id/knowledge` (#43): the secondary Knowledge place — scoped knowledge
@@ -55,7 +56,7 @@ export default function KnowledgePage(): JSX.Element {
     <Show when={journey() === "find"}>
       <div class="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3" data-testid="knowledge-capture">
         <p class="min-w-0 flex-1 text-interface text-ink-gray-7">Knowledge arrives three ways: documents you add (searchable at once), knowledge Brain writes up from finished missions (approve it in the Review inbox), and outputs you save as knowledge.</p>
-        <Button variant="solid" theme="blue" iconLeft="lucide-file-plus" onClick={() => void navigate(`/w/${app.workspaceId()}/knowledge?tab=documents&add=1`)}>Add a document</Button>
+        <Button variant="solid" theme="blue" iconLeft="lucide-file-plus" onClick={() => void navigate(`/w/${app.workspaceId()}/knowledge?tab=documents&add=1`)}>{t("tools.add-a-document.1cf9")}</Button>
       </div>
     </Show>
     <Show when={journey() === "documents"}><ResourcesPage /></Show>

@@ -10,6 +10,7 @@ import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { WorkspaceSection } from "../../ui/components/Domain";
 import { t } from "../../i18n";
 import { LibraryTabs } from "../../ui/components/LibraryTabs";
+import { Practices } from "../../ui/components/Practices";
 import { AddStarterPlays, AutoPublishSetting } from "../../ui/components/LibraryControls";
 
 /** What the first number means: only the items that truly need a person, named by kind. */
@@ -71,6 +72,7 @@ export default function LibraryPage(): JSX.Element {
             </Show>
           </div>
         </WorkspaceSection>
+        <Practices />
         <p class="text-interface text-ink-gray-7">{t("library.reuse.note")}</p>
       </PageStack>
     </BrainPage>

@@ -41,12 +41,12 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/incidents/:id` | plays | Review workspace work and pack details | observations, remediation, evidence |
 | `/w/:id/knowledge` | knowledge | Find scoped knowledge, documents and trusted tools | source, scope, freshness, review, capitalization, provenance, candidateTests, releaseGate, documents, tools |
 | `/w/:id/knowledge/review` | knowledge | Approve what Brain learned from finished missions, and review tool candidates | runs, assets, candidates, decision |
-| `/settings` | administration | Manage explicitly authorized administration | members, people, invitations, access, authenticationPolicy, audit, health |
+| `/settings` | administration | Manage explicitly authorized administration | members, people, invitations, access, authenticationPolicy, singleSignOn, workSettings, audit, health |
 | `/accept-invitation/:id` | administration | Verify an invited account and accept organization membership | invitedSignUp, emailVerification, explicitAcceptance |
 | `/tv/:play` | tv | Read scoped redacted monitoring | aggregateStatus, freshness |
 | `/studio/:kind` | knowledge | Create and validate a capability without editing YAML | definitions, drafts, validation, dependencies |
 | `/studio/:kind/:draftId` | knowledge | Edit, test, review and publish an immutable definition | editor, diagnostics, diff, tests, publication |
-| `/quality` | administration | See whether Brain is getting better | metric, definition, window, failure |
+| `/quality` | administration | See whether Brain is getting better | metric, definition, window, failure, breakdown |
 | `/administration/integrations` | administration | Connect Git providers and bind repositories to workspaces | providers, organizations, repositories, permissions, webhooks, status |
 | `/shared/:token` | outputs | Read one shared result without signing in: read-only, expiring, revocable (ADR 0013) | result |
 <!-- END GENERATED ROUTES -->

@@ -2,10 +2,10 @@ import { test, expect } from "./fixtures";
 import { seedBrowserDemo } from "../support/browserDemo";
 
 /**
- * Phase 2 Library: what Brain learned, in plain words, each entry saying where it was learned. "Helped N times" and the expiry
- * date come from the engine and render only when the Governor reports them (hidden by default).
+ * Phase 2 Library: what Brain learned, in plain words, each entry saying where it was learned, how often it helped and when it is
+ * forgotten (both reported by the Governor).
  */
-test("what Brain learned is browsable in plain words, with where it was learned; helped and expiry show only when reported", async ({ page, governor }) => {
+test("what Brain learned is browsable in plain words, with where it was learned; helped count and expiry are shown", async ({ page, governor }) => {
   test.setTimeout(120_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -31,13 +31,15 @@ test("what Brain learned is browsable in plain words, with where it was learned;
   await first.getByRole("link", { name: "Stabilize authentication" }).click();
   await expect(page).toHaveURL(new RegExp(`/missions/${demo.seed.missionIds.active}/outputs`));
 
-  // Default: no helped count, no expiry (nobody counted them).
+  // The Governor counts how often an entry helped (nobody used these yet) and says when it is forgotten.
   await page.goto(`${governor.url}/w/${demo.workspaceId}/knowledge`);
   await expect(entries).toHaveCount(2, { timeout: 30_000 });
-  await expect(page.getByTestId("learned-helped")).toHaveCount(0);
-  await expect(page.getByTestId("learned-expires")).toHaveCount(0);
+  await expect(page.getByTestId("learned-helped")).toHaveCount(2);
+  await expect(page.getByTestId("learned-helped").first()).toHaveText("Helped 0 times");
+  await expect(page.getByTestId("learned-expires")).toHaveCount(2);
+  await expect(page.getByTestId("learned-expires").first()).toContainText("Expires in");
 
-  // When the engine reports them, they render.
+  // A figure the Governor reports renders as given.
   await page.route("**/v1/query", async (route) => {
     const body = route.request().postDataJSON() as { queryType?: string };
     if (body.queryType !== "knowledgeAssets.list") { await route.continue(); return; }
@@ -50,6 +52,6 @@ test("what Brain learned is browsable in plain words, with where it was learned;
   await expect(entries).toHaveCount(2, { timeout: 30_000 });
   await expect(entries.filter({ hasText: "How to debug a sign-in loop" }).getByTestId("learned-helped")).toHaveText("Helped 3 times");
   await expect(entries.filter({ hasText: "How to debug a sign-in loop" }).getByTestId("learned-expires")).toContainText("Expires in");
-  await expect(entries.filter({ hasText: "Webhook retirement" }).getByTestId("learned-helped")).toHaveCount(0);
+  await expect(entries.filter({ hasText: "Webhook retirement" }).getByTestId("learned-helped")).toHaveText("Helped 0 times");
   expect(errors).toEqual([]);
 });

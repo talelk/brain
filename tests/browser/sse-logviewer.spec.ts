@@ -102,15 +102,13 @@ test("Log Explorer: bounded DOM, scroll and selection survive streaming, pause/u
   }, 64 * ROW);
   await expect.poll(() => page.locator('[data-testid="log-list"] ul').evaluate((el) => el.scrollTop)).toBe(64 * ROW);
 
-  // Text selection inside a row, and the row pinned at the viewport top.
-  const selection = await page.evaluate(() => {
+  // Text selection inside a row, and the row pinned at the viewport top. The list repaints after the jump, so the row is looked for until it is there.
+  const pickSelection = () => page.evaluate(() => {
     const el = document.querySelector('[data-testid="log-list"] ul') as HTMLElement;
     const er = el.getBoundingClientRect();
     const rows = [...el.querySelectorAll("li")] as HTMLElement[];
-    const target = rows.find((li) => {
-      const r = li.getBoundingClientRect();
-      return r.top > er.top && r.bottom < er.bottom;
-    });
+    // The first row that starts inside the list. On a phone the list is short and rows wrap, so a row that also ends inside it may not exist.
+    const target = rows.find((li) => { const r = li.getBoundingClientRect(); return r.top >= er.top - 1 && r.top < er.bottom && (li.textContent ?? "").trim().length > 0; });
     if (!target) return "";
     const range = document.createRange();
     range.selectNodeContents(target);
@@ -119,6 +117,8 @@ test("Log Explorer: bounded DOM, scroll and selection survive streaming, pause/u
     sel?.addRange(range);
     return sel?.toString() ?? "";
   });
+  await expect.poll(pickSelection, { message: "a row to select", timeout: 20_000 }).not.toBe("");
+  const selection = await page.evaluate(() => window.getSelection()?.toString() ?? "");
   expect(selection.length).toBeGreaterThan(0);
   const visibleBefore = await page.evaluate(() => {
     const el = document.querySelector('[data-testid="log-list"] ul') as HTMLElement;

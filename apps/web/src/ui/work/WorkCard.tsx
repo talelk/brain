@@ -40,8 +40,8 @@ export function WorkCard(props: {
   const action = () => nextActionOf(props.item, props.handoffRequired, props.canDispatch);
   const done = () => props.item.state === "done";
   const evidence = (): { icon: string; text: string; tone: string } | undefined => {
-    if (props.item.evidenceDigest) return { icon: "lucide-shield-check", text: "Evidence verified", tone: "text-ink-green-8" };
-    if (props.item.state === "review") return { icon: "lucide-shield-question", text: "Evidence to check", tone: "text-ink-amber-8" };
+    if (props.item.evidenceDigest) return { icon: "lucide-shield-check", text: t("plan.evidence-verified.be99"), tone: "text-ink-green-8" };
+    if (props.item.state === "review") return { icon: "lucide-shield-question", text: t("plan.evidence-to-check.5b0e"), tone: "text-ink-amber-8" };
     return undefined;
   };
   return <article class={`relative flex min-w-0 flex-col gap-2 ps-2 ${done() ? "opacity-80" : ""}`} aria-label={props.item.title} data-work-item={props.item.workItemId}>
@@ -54,16 +54,16 @@ export function WorkCard(props: {
     <Show when={props.showState || props.critical}>
       <p class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption">
         <Show when={props.showState}><span class={`font-medium ${STATE_INK[theme()] ?? STATE_INK.gray}`}>{props.item.state === "backlog" && deps() ? "Waiting" : statusLabel("workItem", props.item.state)}</span></Show>
-        <Show when={props.critical}><span class="inline-flex items-center gap-1 rounded-full bg-surface-blue-2 px-1.5 text-ink-blue-8"><span class="lucide-route size-3" aria-hidden="true" />Critical path</span></Show>
+        <Show when={props.critical}><span class="inline-flex items-center gap-1 rounded-full bg-surface-blue-2 px-1.5 text-ink-blue-8"><span class="lucide-route size-3" aria-hidden="true" />{t("plan.critical-path.c77e")}</span></Show>
       </p>
     </Show>
-    <ul class="flex flex-wrap gap-x-3 gap-y-1 text-caption text-ink-gray-6" aria-label="Facts">
-      <Show when={props.owner}><li class="inline-flex min-w-0 items-center gap-1" title="Who works on it"><span class="lucide-bot size-3.5 shrink-0" aria-hidden="true" /><span class="truncate">{props.owner}</span></li></Show>
-      <Show when={deps() > 0}><li class="inline-flex items-center gap-1" title="Tasks that must be verified done first">
+    <ul class="flex flex-wrap gap-x-3 gap-y-1 text-caption text-ink-gray-6" aria-label={t("plan.facts.aeff")}>
+      <Show when={props.owner}><li class="inline-flex min-w-0 items-center gap-1" title={t("plan.who-works-on-it.cb91")}><span class="lucide-bot size-3.5 shrink-0" aria-hidden="true" /><span class="truncate">{props.owner}</span></li></Show>
+      <Show when={deps() > 0}><li class="inline-flex items-center gap-1" title={t("plan.tasks-that-must-be-verified-done.74ce")}>
         <span class={`${depsDone() === deps() ? "lucide-link" : "lucide-lock"} size-3.5`} aria-hidden="true" />{depsDone()} of {deps()} {deps() === 1 ? "dependency" : "dependencies"} done</li></Show>
-      <Show when={props.estimateMinutes}>{(minutes) => <li class="inline-flex items-center gap-1" title="Estimated effort"><span class="lucide-clock size-3.5" aria-hidden="true" />{minutesText(minutes())}</li>}</Show>
+      <Show when={props.estimateMinutes}>{(minutes) => <li class="inline-flex items-center gap-1" title={t("plan.estimated-effort.aea2")}><span class="lucide-clock size-3.5" aria-hidden="true" />{minutesText(minutes())}</li>}</Show>
       <Show when={evidence()}>{(entry) => <li class={`inline-flex items-center gap-1 ${entry().tone}`}><span class={`${entry().icon} size-3.5`} aria-hidden="true" />{entry().text}</li>}</Show>
-      <Show when={props.handoffRequired && props.item.state === "review"}><li class="inline-flex items-center gap-1 text-ink-amber-8"><span class="lucide-send size-3.5" aria-hidden="true" />Hand-off due</li></Show>
+      <Show when={props.handoffRequired && props.item.state === "review"}><li class="inline-flex items-center gap-1 text-ink-amber-8"><span class="lucide-send size-3.5" aria-hidden="true" />{t("plan.hand-off-due.1b75")}</li></Show>
     </ul>
     <TaskNowLine item={props.item} {...(props.estimateMinutes !== undefined ? { estimateMinutes: props.estimateMinutes } : {})} />
     <Show when={waitReason(props.item)}>{(reason) => <p class="flex flex-wrap items-start gap-x-2 gap-y-0.5 text-caption text-ink-amber-8"><span class="lucide-hourglass mt-0.5 size-3 shrink-0" aria-hidden="true" /><span class="min-w-0 flex-1">{reason()}</span>

@@ -2,6 +2,7 @@ import { Badge } from "@talelk/newui-atoms";
 import type { BadgeTheme } from "@talelk/newui-atoms";
 import type { JSX } from "solid-js";
 import { StatusIcon } from "../viz/StatusIcon";
+import { tOr } from "../../i18n";
 
 /**
  * The one state → label/tone map. Every screen renders states through
@@ -82,7 +83,7 @@ const SEVERITY: StatusMap = {
 
 const HEALTH: StatusMap = {
   healthy: { theme: "green", label: "Healthy" }, degraded: { theme: "amber", label: "Degraded" },
-  unavailable: { theme: "red", label: "Unavailable" },
+  unavailable: { theme: "red", label: "Unavailable" }, disabled: { theme: "gray", label: "Off" },
 };
 
 const DECISION: StatusMap = {
@@ -138,15 +139,24 @@ const MAPS: Record<string, StatusMap> = {
 
 export type StatusKind = keyof typeof MAPS;
 
+/** The status word in the interface language (`status.<slug>` in the catalogue); an unknown word keeps its English text. */
+const words = (label: string): string => tOr(`status.${label.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-|-$/gu, "")}`, label);
+
 function lookup(kind: string | undefined, value: string): { theme: BadgeTheme; label: string } {
+  const found = lookupEnglish(kind, value);
+  // Only the words this file names are translated; a raw value the maps do not know keeps its own spelling.
+  return { theme: found.theme, label: found.known ? words(found.label) : found.label };
+}
+
+function lookupEnglish(kind: string | undefined, value: string): { theme: BadgeTheme; label: string; known: boolean } {
   const raw = value.toLowerCase();
   const specific = kind ? MAPS[kind]?.[raw] : undefined;
-  if (specific) return specific;
+  if (specific) return { ...specific, known: true };
   if (!kind) {
-    for (const map of Object.values(MAPS)) if (map[raw]) return map[raw];
-    if (GENERIC[raw]) return GENERIC[raw];
+    for (const map of Object.values(MAPS)) if (map[raw]) return { ...map[raw], known: true };
+    if (GENERIC[raw]) return { ...GENERIC[raw], known: true };
   }
-  return { theme: "gray", label: value.replaceAll("_", " ").replaceAll("-", " ") };
+  return { theme: "gray", label: value.replaceAll("_", " ").replaceAll("-", " "), known: false };
 }
 
 /** The tone for a state value — for surfaces that take a theme string (Badge, Alert). */

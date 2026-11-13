@@ -20,6 +20,7 @@ import { DisclosureCard } from "./primitives";
 import { WorkRoadmap, type RoadmapNode } from "../work/WorkRoadmap";
 import { minutesText } from "../work/work-model";
 import { InlineMarkdown } from "../outputs/Markdown";
+import { t } from "../../i18n";
 
 /**
  * The mission's one plan area (T58, #25). Brain prepares a strategy on request
@@ -29,7 +30,7 @@ import { InlineMarkdown } from "../outputs/Markdown";
  * asks for a reason in a dialog. Nothing executes before confirmation.
  */
 /** What the plan draft is doing right now, from `MissionPlanView.stage`. */
-const STAGE_LINES = { reading: "Reading what the workspace knows...", drafting: "Drafting the steps...", checking: "Checking the plan..." } as const;
+const stageLine = (stage: "reading" | "drafting" | "checking"): string => t(stage === "reading" ? "plan.stage.reading" : stage === "drafting" ? "plan.stage.drafting" : "plan.stage.checking");
 
 export function PlanCanvas(props: { mission: Mission; proposalId?: string; onChanged: () => Promise<void> | void }): JSX.Element {
   const app = useApp();
@@ -168,24 +169,24 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
   const roadmap = (): RoadmapNode[] => editedTasks().map((task) => ({ id: task.id, title: task.title, deps: task.dependsOn, weight: task.estimatedMinutes ?? 1, done: false }));
   const stepCard = (task: PlanTask, critical: boolean): JSX.Element => <div class="flex min-w-0 flex-col gap-2">
     <p class="flex items-start gap-2"><span class="lucide-circle-dashed mt-0.5 size-4 shrink-0 text-ink-gray-6" aria-hidden="true" /><span class="min-w-0 break-words text-interface font-medium text-ink-gray-9"><InlineMarkdown text={task.title} /></span></p>
-    <Show when={critical}><span class="inline-flex w-fit items-center gap-1 rounded-full bg-surface-blue-2 px-1.5 text-caption text-ink-blue-8"><span class="lucide-route size-3" aria-hidden="true" />Critical path</span></Show>
-    <Show when={task.criteria.length}><ul class="flex flex-col gap-0.5 text-caption text-ink-gray-7" aria-label="Done when"><For each={task.criteria}>{(criterion) => <li class="flex items-start gap-1"><span class="lucide-check mt-0.5 size-3 shrink-0 text-ink-gray-6" aria-hidden="true" /><InlineMarkdown text={criterion} /></li>}</For></ul></Show>
+    <Show when={critical}><span class="inline-flex w-fit items-center gap-1 rounded-full bg-surface-blue-2 px-1.5 text-caption text-ink-blue-8"><span class="lucide-route size-3" aria-hidden="true" />{t("plan.critical-path.c77e")}</span></Show>
+    <Show when={task.criteria.length}><ul class="flex flex-col gap-0.5 text-caption text-ink-gray-7" aria-label={t("plan.done-when.c84f")}><For each={task.criteria}>{(criterion) => <li class="flex items-start gap-1"><span class="lucide-check mt-0.5 size-3 shrink-0 text-ink-gray-6" aria-hidden="true" /><InlineMarkdown text={criterion} /></li>}</For></ul></Show>
     <p class="flex flex-wrap gap-x-3 gap-y-1 text-caption text-ink-gray-6">
       <Show when={member(task)}>{(name) => <span class="inline-flex items-center gap-1"><span class="lucide-bot size-3.5" aria-hidden="true" />{name()}</span>}</Show>
       <Show when={task.estimatedMinutes}>{(minutes) => <span class="inline-flex items-center gap-1"><span class="lucide-clock size-3.5" aria-hidden="true" />{minutesText(minutes())}</span>}</Show>
-      <Show when={task.optional}><span>Optional</span></Show>
+      <Show when={task.optional}><span>{t("plan.optional.0c6c")}</span></Show>
     </p>
   </div>;
   const planBody = (plan: PlanVersion): JSX.Element => {
     const canConfirm = () => plan.state === "proposed" || dirty();
     const confirmedQuiet = () => plan.state === "confirmed" && !dirty();
     const estimate = () => editedTasks().reduce((sum, task) => sum + (task.estimatedMinutes ?? 0), 0);
-    return <section aria-label={plan.state === "confirmed" ? "Confirmed plan" : "Plan proposal"} class="flex flex-col gap-4">
+    return <section aria-label={plan.state === "confirmed" ? t("plan.confirmed-plan.1210") : t("plan.plan-proposal.8f88")} class="flex flex-col gap-4">
       <PlainSummary icon={plan.state === "confirmed" ? "lucide-circle-check" : "lucide-list-checks"}>
-        {plan.state === "confirmed" ? (props.mission.state !== "closed" ? "This plan is confirmed and its tasks are tracked. Follow and move them in Mission work below." : "This plan was confirmed and carried out. Its tasks are listed in Mission work below.") : "Read the steps below. Nothing runs and no work is tracked until you confirm."}
+        {plan.state === "confirmed" ? (props.mission.state !== "closed" ? t("plan.this-plan-is-confirmed-and-its-t.e4cd") : t("plan.this-plan-was-confirmed-and-carr.acf5")) : "Read the steps below. Nothing runs and no work is tracked until you confirm."}
       </PlainSummary>
       <div class="flex flex-col gap-1">
-        <div class="flex flex-wrap items-center gap-2"><p class="text-base-medium">{label(plan)}</p><StatusBadge kind="plan" status={plan.state} /><Show when={dirty()}><Badge theme="amber" label="Unsaved edits" /></Show></div>
+        <div class="flex flex-wrap items-center gap-2"><p class="text-base-medium">{label(plan)}</p><StatusBadge kind="plan" status={plan.state} /><Show when={dirty()}><Badge theme="amber" label={t("plan.unsaved-edits.0881")} /></Show></div>
         <Show when={plan.summary}><p class="brain-prose text-interface text-ink-gray-7"><InlineMarkdown text={plan.summary ?? ""} /></p></Show>
         <p class="flex flex-wrap gap-x-4 gap-y-1 text-caption text-ink-gray-6">
           <span class="inline-flex items-center gap-1"><span class="lucide-list-checks size-3.5" aria-hidden="true" />{editedTasks().length} {editedTasks().length === 1 ? "step" : "steps"}</span>
@@ -196,48 +197,48 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
       </div>
       <Show when={!confirmedQuiet()} fallback={<DisclosureCard label={`See the confirmed plan's ${editedTasks().length} steps`}>
         <div class="flex flex-col gap-3">
-          <WorkRoadmap nodes={roadmap()} label="Confirmed plan steps by round" renderNode={(node, critical) => <Show when={editedTasks().find((task) => task.id === node.id)}>{(task) => stepCard(task(), critical)}</Show>} />
-          <div class="flex flex-wrap items-center gap-2"><Button size="sm" variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => setEditOpen(true)}>Edit steps</Button>
-            <span class="text-caption text-ink-gray-6">Edits become a new revision for you to confirm.</span></div>
-          <TechnicalDetails label="Details"><p class="break-all">{plan.planVersionId} · digest {plan.digest} · origin {plan.origin}</p></TechnicalDetails>
+          <WorkRoadmap nodes={roadmap()} label={t("plan.confirmed-plan-steps-by-round.74f9")} renderNode={(node, critical) => <Show when={editedTasks().find((task) => task.id === node.id)}>{(task) => stepCard(task(), critical)}</Show>} />
+          <div class="flex flex-wrap items-center gap-2"><Button size="sm" variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => setEditOpen(true)}>{t("plan.edit-steps.06ec")}</Button>
+            <span class="text-caption text-ink-gray-6">{t("plan.edits-become-a-new-revision-for.d692")}</span></div>
+          <TechnicalDetails label={t("plan.details.dc3d")}><p class="break-all">{plan.planVersionId} · digest {plan.digest} · origin {plan.origin}</p></TechnicalDetails>
         </div>
       </DisclosureCard>}>
-        <WorkRoadmap nodes={roadmap()} label="Plan steps by round"
+        <WorkRoadmap nodes={roadmap()} label={t("plan.plan-steps-by-round.7712")}
           renderNode={(node, critical) => <Show when={editedTasks().find((task) => task.id === node.id)}>{(task) => stepCard(task(), critical)}</Show>} />
       </Show>
-      <FormSheet size="xl" open={editOpen()} onClose={() => setEditOpen(false)} title="Edit the plan steps" description="Edits become a new plan revision when you confirm. Nothing is tracked or executed before that." submit="Keep edits" icon="lucide-check" onSubmit={() => { setEditOpen(false); }}>
+      <FormSheet size="xl" open={editOpen()} onClose={() => setEditOpen(false)} title={t("plan.edit-the-plan-steps.a8fd")} description={t("plan.edits-become-a-new-plan-revision.18a4")} submit={t("plan.keep-edits.2584")} icon="lucide-check" onSubmit={() => { setEditOpen(false); }}>
         <For each={editedTasks()}>{(task, index) => <section class="flex flex-col gap-3 border-b border-outline-gray-1 pb-4" aria-label={`Step ${index() + 1}`}>
           <div class="flex flex-col gap-3"><TextInput label={`Step ${index() + 1} expected outcome`} value={task.title} onInput={(event) => updateTask(index(), "title", event.currentTarget.value)} />
-            <TextInput label="Depends on" value={task.dependsOn.join(", ")} description="Comma-separated task IDs; no dependency graph is inferred when empty" onInput={(event) => updateTask(index(), "dependsOn", event.currentTarget.value)} /></div>
-          <Textarea label="Acceptance criteria" value={task.criteria.join("\n")} onInput={(event) => updateTask(index(), "criteria", event.currentTarget.value)} />
+            <TextInput label={t("plan.depends-on.8bfa")} value={task.dependsOn.join(", ")} description={t("plan.comma-separated-task-ids-no-depe.46ab")} onInput={(event) => updateTask(index(), "dependsOn", event.currentTarget.value)} /></div>
+          <Textarea label={t("plan.acceptance-criteria.133c")} value={task.criteria.join("\n")} onInput={(event) => updateTask(index(), "criteria", event.currentTarget.value)} />
         </section>}</For>
       </FormSheet>
-      <Show when={!confirmedQuiet()}><section class="brain-plan-actions" aria-label="Plan decision">
+      <Show when={!confirmedQuiet()}><section class="brain-plan-actions" aria-label={t("plan.plan-decision.6411")}>
         <p class="brain-plan-actions-hint"><span class="lucide-shield-check size-4 shrink-0" aria-hidden="true" /><span>{editedTasks().length} {editedTasks().length === 1 ? "step" : "steps"} · nothing runs until you confirm</span></p>
         <div class="brain-plan-actions-buttons">
-          <Show when={canConfirm()}><Button class="brain-plan-primary" variant="solid" theme="blue" iconLeft="lucide-check-check" loading={busy()} disabled={busy() || !editedTasks().length} onClick={() => void confirm()}>Confirm this plan</Button></Show>
-          <Button variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => setEditOpen(true)}>Edit steps</Button>
-          <Show when={dirty()}><Button variant="ghost" iconLeft="lucide-undo-2" onClick={() => { setDirty(false); setEditedTasks(plan.tasks.map((task) => ({ ...task, criteria: [...task.criteria], dependsOn: [...task.dependsOn] }))); }}>Reset edits</Button></Show>
-          <Show when={plan.state === "proposed"}><Button variant="ghost" theme="red" iconLeft="lucide-x" disabled={busy()} onClick={() => { setRejectReason(""); setRejectOpen(true); }}>Reject this proposal</Button></Show>
+          <Show when={canConfirm()}><Button class="brain-plan-primary" variant="solid" theme="blue" iconLeft="lucide-check-check" loading={busy()} disabled={busy() || !editedTasks().length} onClick={() => void confirm()}>{t("plan.confirm-this-plan.f61c")}</Button></Show>
+          <Button variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => setEditOpen(true)}>{t("plan.edit-steps.06ec")}</Button>
+          <Show when={dirty()}><Button variant="ghost" iconLeft="lucide-undo-2" onClick={() => { setDirty(false); setEditedTasks(plan.tasks.map((task) => ({ ...task, criteria: [...task.criteria], dependsOn: [...task.dependsOn] }))); }}>{t("plan.reset-edits.56d9")}</Button></Show>
+          <Show when={plan.state === "proposed"}><Button variant="ghost" theme="red" iconLeft="lucide-x" disabled={busy()} onClick={() => { setRejectReason(""); setRejectOpen(true); }}>{t("plan.reject-this-proposal.09f4")}</Button></Show>
         </div>
       </section></Show>
-      <ReasonDialog open={rejectOpen()} onClose={() => setRejectOpen(false)} title="Reject this proposal" description="The proposal is kept in history. The mission continues on its last confirmed plan." reason={rejectReason()} onReason={setRejectReason}
-        reasonLabel="Rejection reason" confirmLabel="Reject proposal" tone="red" busy={busy()} onConfirm={() => void reject(plan.planVersionId)} />
-      <Show when={!confirmedQuiet()}><TechnicalDetails label="Details"><p class="break-all">{plan.planVersionId} · digest {plan.digest} · origin {plan.origin}</p></TechnicalDetails></Show>
+      <ReasonDialog open={rejectOpen()} onClose={() => setRejectOpen(false)} title={t("plan.reject-this-proposal.09f4")} description={t("plan.the-proposal-is-kept-in-history.a680")} reason={rejectReason()} onReason={setRejectReason}
+        reasonLabel="Rejection reason" confirmLabel={t("plan.reject-proposal.9492")} tone="red" busy={busy()} onConfirm={() => void reject(plan.planVersionId)} />
+      <Show when={!confirmedQuiet()}><TechnicalDetails label={t("plan.details.dc3d")}><p class="break-all">{plan.planVersionId} · digest {plan.digest} · origin {plan.origin}</p></TechnicalDetails></Show>
     </section>;
   };
   const hasPlan = () => Boolean(shownPlan());
   /** The first draft starts by itself; the manual button only returns when that attempt failed (or a plan exists, for another strategy). */
   const retryable = () => Boolean(error()) || proposal.state().data?.state === "failed";
-  return <WorkspaceSection title="Plan" description="The steps Brain will track as work once you confirm them."
-    actions={<Show when={app.canDispatch() && props.mission.state !== "closed" && !props.proposalId && (hasPlan() || retryable())}><Button variant={hasPlan() ? "ghost" : "solid"} theme="blue" iconLeft="lucide-sparkles" loading={busy()} disabled={busy()} onClick={() => void generate(hasPlan() ? [] : autoPicks().map((item) => item.itemRef))}>{hasPlan() ? "Draft another plan" : "Try drafting again"}</Button></Show>}>
-    <Show when={error()}><Alert theme="red" variant="outline" title="Planning action failed" description={error()} /></Show>
+  return <WorkspaceSection title={t("plan.plan.ae2f")} description={t("plan.the-steps-brain-will-track-as-wo.9a8f")}
+    actions={<Show when={app.canDispatch() && props.mission.state !== "closed" && !props.proposalId && (hasPlan() || retryable())}><Button variant={hasPlan() ? "ghost" : "solid"} theme="blue" iconLeft="lucide-sparkles" loading={busy()} disabled={busy()} onClick={() => void generate(hasPlan() ? [] : autoPicks().map((item) => item.itemRef))}>{hasPlan() ? t("plan.draft-another-plan.f88d") : t("plan.try-drafting-again.c69b")}</Button></Show>}>
+    <Show when={error()}><Alert theme="red" variant="outline" title={t("plan.planning-action-failed.a063")} description={error()} /></Show>
     <PastWorkUsed missionId={props.mission.missionId} workspaceId={props.mission.workspaceId} pending={busy() ? sent() : []} busy={busy()} canEdit={app.canDispatch() && props.mission.state !== "closed"} refreshKey={reuseKey()}
       onRedraft={(kept, dropped) => void generate(kept, dropped)} />
-    <Show when={proposal.state().data?.state === "running"}><Alert theme="blue" variant="outline" title="Preparing a validated proposal" description={`${STAGE_LINES[proposal.state().data?.stage ?? "reading"]} The mission is saved; no task has been created and nothing has started.`} /></Show>
-    <Show when={proposal.state().data?.state === "failed"}><Alert theme="amber" variant="outline" title="No validated proposal yet" description={proposal.state().data?.error} /></Show>
+    <Show when={proposal.state().data?.state === "running"}><Alert theme="blue" variant="outline" title={t("plan.preparing-a-validated-proposal.5bc9")} description={`${stageLine(proposal.state().data?.stage ?? "reading")} ${t("plan.stage.saved")}`} /></Show>
+    <Show when={proposal.state().data?.state === "failed"}><Alert theme="amber" variant="outline" title={t("plan.no-validated-proposal-yet.b7ae")} description={proposal.state().data?.error} /></Show>
     <Show when={linked.state().data?.proposal ?? (proposal.state().data?.plan ? undefined : active.state().data ?? undefined)} keyed fallback={
-      <ScreenRegion state={proposal.state()} onRetry={() => void proposal.refresh()} emptyTitle="No plan yet" emptyDescription="Ask Brain to draft a plan. Nothing becomes tracked work or executes before you confirm it.">
+      <ScreenRegion state={proposal.state()} onRetry={() => void proposal.refresh()} emptyTitle={t("plan.no-plan-yet.5f3d")} emptyDescription={t("plan.ask-brain-to-draft-a-plan-nothin.d322")}>
         <Show when={proposal.state().data?.plan} keyed>{(plan) => planBody(plan)}</Show>
       </ScreenRegion>}>
       {(plan) => planBody(plan)}

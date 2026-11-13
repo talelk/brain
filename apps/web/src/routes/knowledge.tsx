@@ -22,6 +22,7 @@ import { MixBar } from "../ui/viz/MixBar";
 import { ToolCallsPanel } from "../ui/tools/ToolCallsPanel";
 import { ToolTryPanel } from "../ui/tools/ToolTryPanel";
 import { authorCandidate } from "./catalog";
+import { t } from "../i18n";
 export interface MemoryPublicationInput {
   candidateId: string;
   sourceWorkspaceId: string;
@@ -108,13 +109,13 @@ export function KnowledgeScreen(props: {
 
   return (
     <BrainPage
-      title="Knowledge"
-      description="Find scoped knowledge with provenance and trust visible; review and publication remain separate governed journeys."
+      title={t("tools.knowledge.dec1")}
+      description={t("tools.find-scoped-knowledge-with-prove.7941")}
     >
       <PageStack>
         <WorkspaceSection
-          title="Find knowledge"
-          description="Search only the current workspace and review states authorized to your account. Results cannot change agent policy or execute tools."
+          title={t("tools.find-knowledge.c1b8")}
+          description={t("tools.search-only-the-current-workspac.75b9")}
         >
           <form
             class="grid min-w-0 items-end gap-2 md:grid-cols-[minmax(0,1fr)_12rem_auto]"
@@ -124,20 +125,20 @@ export function KnowledgeScreen(props: {
             }}
           >
             <TextInput
-              label="Search scoped knowledge"
+              label={t("tools.search-scoped-knowledge.477b")}
               value={text()}
-              placeholder="Find a fact, decision, or operational detail…"
+              placeholder={t("tools.find-a-fact-decision-or-operatio.91cb")}
               onInput={(event) => setText(event.currentTarget.value)}
             />
             <Select
-              label="Result scope"
+              label={t("tools.result-scope.ebd3")}
               value={scopeFilter()}
               options={[
-                { value: "all", label: "All returned scopes" },
-                { value: "workspace", label: "Workspace" },
-                { value: "private", label: "Private" },
-                { value: "team", label: "Team" },
-                { value: "global-approved", label: "Approved organization-wide" },
+                { value: "all", label: t("tools.all-returned-scopes.9bf7") },
+                { value: "workspace", label: t("tools.workspace.4ca0") },
+                { value: "private", label: t("tools.private.237d") },
+                { value: "team", label: t("tools.team.2188") },
+                { value: "global-approved", label: t("tools.approved-organization-wide.eef4") },
               ]}
               onValueChange={(value) => setScopeFilter(value ?? "all")}
             />
@@ -152,14 +153,14 @@ export function KnowledgeScreen(props: {
             <Alert
               theme="amber"
               variant="outline"
-              title="Knowledge service is degraded"
-              description="Results come from the local scoped store. Publish and revoke actions are unavailable until the knowledge service is healthy."
+              title={t("tools.knowledge-service-is-degraded.91c2")}
+              description={t("tools.results-come-from-the-local-scop.5823")}
             />
           </Show>
           <ScreenRegion
             state={props.state}
             skeleton="rows"
-            emptyTitle={props.searched ? "No knowledge matches" : "Search your scoped knowledge"}
+            emptyTitle={props.searched ? t("tools.no-knowledge-matches.6ea5") : t("tools.search-your-scoped-knowledge.3e76")}
             emptyDescription={
               props.searched
                 ? "Try a different query or scope, or publish a reviewed candidate so it becomes searchable."
@@ -177,7 +178,7 @@ export function KnowledgeScreen(props: {
             <Show
               when={results().length}
               fallback={
-                <EmptyState size="sm" icon="lucide-filter" title="No results in this scope" description="Choose another returned scope or run a broader search." />
+                <EmptyState size="sm" icon="lucide-filter" title={t("tools.no-results-in-this-scope.c3bc")} description={t("tools.choose-another-returned-scope-or.9f95")} />
               }
             >
               <div class="min-w-0 divide-y divide-outline-gray-1 border-y border-outline-gray-1">
@@ -188,19 +189,19 @@ export function KnowledgeScreen(props: {
                         <Show when={result.title}><strong class="min-w-0 break-words text-base-medium text-ink-gray-9">{result.title}</strong></Show>
                         <StatusBadge kind="knowledge" status={result.status} />
                         <Show when={result.sourceType}><Badge size="sm" variant="outline" theme="gray" label={result.sourceType === "document" ? "Saved document" : result.sourceType === "knowledge" ? "Approved knowledge" : result.sourceType!} /></Show>
-                        <Show when={result.selfReviewed}><Badge size="sm" variant="outline" theme="amber" label="Self-reviewed" /></Show>
+                        <Show when={result.selfReviewed}><Badge size="sm" variant="outline" theme="amber" label={t("tools.self-reviewed.85cc")} /></Show>
                         <Badge size="sm" variant="outline" theme="blue" label={result.classification} />
                         <Badge size="sm" variant="outline" theme="gray" label={scopeLabel(result.scope)} />
                       </div>
                       <p class="brain-prose mt-2 whitespace-pre-wrap break-words text-interface text-ink-gray-8">{result.content}</p>
                       <div class="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-caption text-ink-gray-6">
-                        <span class="min-w-0 break-all">Source <code class="text-ink-gray-7">{result.sourceId}</code> · v{result.sourceVersion}</span>
-                        <span>Updated <DateText value={result.updatedAt} /></span>
+                        <span class="min-w-0 break-all">{t("tools.source.6da1")} <code class="text-ink-gray-7">{result.sourceId}</code> · v{result.sourceVersion}</span>
+                        <span>{t("tools.updated.f2f8")} <DateText value={result.updatedAt} /></span>
                         <span>{result.provenance.length} provenance references</span>
                       </div>
                       <Show when={result.provenance.length}>
                         <details class="mt-2 min-w-0">
-                          <summary class="cursor-pointer text-caption font-medium text-ink-gray-6">Provenance references</summary>
+                          <summary class="cursor-pointer text-caption font-medium text-ink-gray-6">{t("tools.provenance-references.8e9f")}</summary>
                           <ul class="mt-1 flex min-w-0 flex-col gap-1"><For each={result.provenance}>{(reference) => <li><code class="break-all text-caption text-ink-gray-7">{reference}</code></li>}</For></ul>
                         </details>
                       </Show>
@@ -229,8 +230,8 @@ export function KnowledgeScreen(props: {
           </ScreenRegion>
         </WorkspaceSection>
         <WorkspaceSection
-          title="Trusted capabilities"
-          description="Knowledge instructions and executable tools are different authorities. Inspect tool trust, effect class and evidence in the registry."
+          title={t("tools.trusted-capabilities.9ce7")}
+          description={t("tools.knowledge-instructions-and-execu.0ec0")}
           actions={
             <A
               href={`/w/${props.workspaceId}/knowledge?tab=tools`}
@@ -264,7 +265,7 @@ export function KnowledgeScreen(props: {
         >
           <Dialog.Content>
             <Dialog.Header>
-              <Dialog.Title>Review knowledge publication</Dialog.Title>
+              <Dialog.Title>{t("tools.review-knowledge-publication.0603")}</Dialog.Title>
               <Dialog.Description>
                 Bind a real content artifact, independent reviewer, evidence, and a release-declared redaction profile. This is not tool publication.
               </Dialog.Description>
@@ -275,11 +276,11 @@ export function KnowledgeScreen(props: {
                   <Alert
                     theme="blue"
                     variant="outline"
-                    title="Reviewed publication"
-                    description={<span class="break-words">Candidate <code class="break-all">{result.sourceId}</code> · target scope {scopeLabel(result.scope)}</span>}
+                    title={t("tools.reviewed-publication.8e06")}
+                    description={<span class="break-words">{t("tools.candidate.d769")} <code class="break-all">{result.sourceId}</code> · target scope {scopeLabel(result.scope)}</span>}
                   />
                   <ArtifactSelector
-                    label="Content artifact"
+                    label={t("tools.content-artifact.f22b")}
                     maxBytes={262144}
                     onSelect={(artifact) => {
                       setContentArtifactId(artifact.artifactId);
@@ -288,7 +289,7 @@ export function KnowledgeScreen(props: {
                     }}
                   />
                   <Select
-                    label="Reviewer"
+                    label={t("tools.reviewer.a74f")}
                     value={reviewerId()}
                     options={(members.state().data ?? [])
                       .filter((member) => !member.revoked && member.principalId !== app.identity()?.actor.actorId)
@@ -296,7 +297,7 @@ export function KnowledgeScreen(props: {
                     onValueChange={(id) => setReviewerId(id ?? "")}
                   />
                   <Select
-                    label="Redaction policy"
+                    label={t("tools.redaction-policy.3a98")}
                     value={profileId()}
                     options={(profiles.state().data ?? []).map((profile) => ({ value: profile.id, label: profile.id }))}
                     onValueChange={(id) => {
@@ -350,13 +351,13 @@ export function KnowledgeScreen(props: {
             setRevokeFor(undefined);
             setRevokeReason("");
           }}
-          title="Revoke knowledge"
-          description="Revocation is an explicit scoped command and requires a named reason."
+          title={t("tools.revoke-knowledge.8e71")}
+          description={t("tools.revocation-is-an-explicit-scoped.eae9")}
           reason={revokeReason()}
           onReason={setRevokeReason}
           reasonLabel="Revocation reason"
           multiline={false}
-          confirmLabel="Revoke knowledge"
+          confirmLabel={t("tools.revoke-knowledge.8e71")}
           tone="red"
           onConfirm={(value) => {
             const sourceId = revokeFor();
@@ -444,8 +445,8 @@ export function ToolsScreen(props: {
   const pagedTools = () => props.tools.slice((toolPageSafe() - 1) * PAGE_SIZE, toolPageSafe() * PAGE_SIZE);
   return (
     <BrainPage
-      title="Trusted capability registry"
-      description="Inspect what each tool can do, its effect class, typed contracts and proof before proposal or publication."
+      title={t("tools.trusted-capability-registry.5ef4")}
+      description={t("tools.inspect-what-each-tool-can-do-it.f5d9")}
       actions={<Show when={props.canPublish}>
             <Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setProposeOpen(true)}>
               Propose tool
@@ -456,43 +457,43 @@ export function ToolsScreen(props: {
         <StatGrid compact
           stats={[
             {
-              label: "Trusted",
+              label: t("tools.trusted.99f7"),
               value: String(props.tools.filter((tool) => tool.status === "trusted").length),
-              hint: "Currently trusted definitions",
+              hint: t("tools.currently-trusted-definitions.f838"),
               icon: "lucide-shield-check",
             },
             {
-              label: "Review candidates",
+              label: t("tools.review-candidates.438b"),
               value: String(props.tools.filter((tool) => tool.status === "candidate" || tool.status === "reviewing").length),
-              hint: "Not automatically live authority",
+              hint: t("tools.not-automatically-live-authority.2da4"),
               icon: "lucide-scan-search",
             },
             {
-              label: "Write / privileged",
+              label: t("tools.write-privileged.fbb3"),
               value: String(props.tools.filter((tool) => tool.effectClass !== "read").length),
-              hint: "Effect permit required at execution",
+              hint: t("tools.effect-permit-required-at-execut.3c33"),
               icon: "lucide-shield-alert",
             },
           ]}
         />
         <div class="grid min-w-0 gap-4 sm:grid-cols-2">
-          <MixBar label="Trust status" empty="No tools declared yet." segments={[
-            { label: "Trusted", count: props.tools.filter((tool) => tool.status === "trusted").length, tone: "green" },
-            { label: "Candidate", count: props.tools.filter((tool) => tool.status === "candidate").length, tone: "gray" },
-            { label: "Reviewing", count: props.tools.filter((tool) => tool.status === "reviewing").length, tone: "amber" },
-            { label: "Revoked", count: props.tools.filter((tool) => tool.status === "revoked").length, tone: "red" },
+          <MixBar label={t("tools.trust-status.55e4")} empty="No tools declared yet." segments={[
+            { label: t("tools.trusted.99f7"), count: props.tools.filter((tool) => tool.status === "trusted").length, tone: "green" },
+            { label: t("tools.candidate.d769"), count: props.tools.filter((tool) => tool.status === "candidate").length, tone: "gray" },
+            { label: t("tools.reviewing.166e"), count: props.tools.filter((tool) => tool.status === "reviewing").length, tone: "amber" },
+            { label: t("tools.revoked.85f1"), count: props.tools.filter((tool) => tool.status === "revoked").length, tone: "red" },
           ]} />
-          <MixBar label="Effect class" empty="No tools declared yet." segments={[
-            { label: "Read", count: props.tools.filter((tool) => tool.effectClass === "read").length, tone: "blue" },
-            { label: "Write", count: props.tools.filter((tool) => tool.effectClass === "write").length, tone: "amber" },
-            { label: "Privileged", count: props.tools.filter((tool) => tool.effectClass === "privileged").length, tone: "red" },
+          <MixBar label={t("tools.effect-class.afbf")} empty="No tools declared yet." segments={[
+            { label: t("tools.read.852b"), count: props.tools.filter((tool) => tool.effectClass === "read").length, tone: "blue" },
+            { label: t("tools.write.4a48"), count: props.tools.filter((tool) => tool.effectClass === "write").length, tone: "amber" },
+            { label: t("tools.privileged.d6ed"), count: props.tools.filter((tool) => tool.effectClass === "privileged").length, tone: "red" },
           ]} />
         </div>
         <ScreenRegion
           state={props.state}
           skeleton="rows"
-          emptyTitle="No tools declared"
-          emptyDescription="Tools appear here once a release declares them or a proposal is accepted."
+          emptyTitle={t("tools.no-tools-declared.2018")}
+          emptyDescription={t("tools.tools-appear-here-once-a-release.ab98")}
           emptyAction={
             props.canPublish ? (
               <Button onClick={() => setProposeOpen(true)}>
@@ -509,7 +510,7 @@ export function ToolsScreen(props: {
             maxStartSize={58}
             active={current() ? "end" : "start"}
             start={
-              <WorkspaceSection title="Capability registry" description="Select a tool to inspect its contracts and evidence.">
+              <WorkspaceSection title={t("tools.capability-registry.9ce3")} description={t("tools.select-a-tool-to-inspect-its-con.5149")}>
                 <div class="brain-queue">
                   <For each={pagedTools()}>
                     {(tool) => (
@@ -526,7 +527,7 @@ export function ToolsScreen(props: {
                     )}
                   </For>
                 </div>
-                <Pager count={props.tools.length} page={toolPageSafe()} onPage={setToolPage} label="Capability registry pages" />
+                <Pager count={props.tools.length} page={toolPageSafe()} onPage={setToolPage} label={t("tools.capability-registry-pages.d9d5")} />
               </WorkspaceSection>
             }
             end={
@@ -536,8 +537,8 @@ export function ToolsScreen(props: {
                 fallback={
                   <EmptyState size="sm"
                     icon="lucide-wrench"
-                    title="Select a tool"
-                    description="Its effect, typed schemas, target-independent risk and test evidence will appear here."
+                    title={t("tools.select-a-tool.45e0")}
+                    description={t("tools.its-effect-typed-schemas-target.58d3")}
                   />
                 }
               >
@@ -555,33 +556,33 @@ export function ToolsScreen(props: {
                     </div>
                     <dl class="grid gap-4 border-y border-outline-gray-1 py-4 sm:grid-cols-2">
                       <KeyValue
-                        label="Effect class"
+                        label={t("tools.effect-class.afbf")}
                         value={<Badge variant="outline" theme={tool.effectClass === "read" ? "blue" : "amber"} label={tool.effectClass} />}
                         orientation="vertical"
                       />
-                      <KeyValue label="Publication" value={tool.status} orientation="vertical" />
-                      <KeyValue label="Agents allowed to call it" value={<span data-tool-agents>{tool.allowedAgents.length ? tool.allowedAgents.join(", ") : "No agent has this tool in its allowlist"}</span>} orientation="vertical" />
-                      <KeyValue label="Active since" value={<DateText value={tool.createdAt} />} orientation="vertical" />
-                      <KeyValue label="Availability" value={<span data-tool-availability>{availabilityText(tool)}</span>} orientation="vertical" />
-                      <KeyValue label="Calls, last 7 days" value={<span><span data-tool-calls>{callsText(tool)}</span><Show when={lifetimeText(tool)}>{(text) => <span class="block text-ink-gray-6" data-tool-lifetime>{text()}</span>}</Show></span>} orientation="vertical" />
-                      <KeyValue label="Last call" value={<Show when={tool.usage.lastCallAt} fallback={<span>Never used</span>}><span class="flex flex-wrap items-center gap-2"><DateText value={tool.usage.lastCallAt} /><Show when={tool.usage.lastCallRunId}>{(runId) => <A class="text-ink-blue-7 underline focus-visible:focus-ring" href={`/runs/${runId()}`}>Open the run</A>}</Show></span></Show>} orientation="vertical" />
-                      <KeyValue label="Last failure" value={<Show when={tool.usage.lastFailureAt} fallback={<span>{tool.usage.calls ? "none recorded" : "Never used"}</span>}><span class="flex flex-wrap items-center gap-2"><DateText value={tool.usage.lastFailureAt} /><Show when={tool.usage.lastFailureRunId}>{(runId) => <A class="text-ink-blue-7 underline focus-visible:focus-ring" href={`/runs/${runId()}`}>Open the run</A>}</Show></span></Show>} orientation="vertical" />
-                      <Show when={tool.usage.lastFailureMessage}><KeyValue label="Last error" value={<span data-tool-last-error>{tool.usage.lastFailureMessage}</span>} orientation="vertical" /></Show>
-                      <Show when={tool.allowedHosts?.length}><KeyValue label="Hosts it may reach" value={<span data-tool-hosts>{tool.allowedHosts!.join(", ")}</span>} orientation="vertical" /></Show>
-                      <KeyValue label="Input schema" value={tool.inputSchemaRef} orientation="vertical" />
-                      <KeyValue label="Output schema" value={tool.outputSchemaRef} orientation="vertical" />
+                      <KeyValue label={t("tools.publication.e004")} value={tool.status} orientation="vertical" />
+                      <KeyValue label={t("tools.agents-allowed-to-call-it.5f9b")} value={<span data-tool-agents>{tool.allowedAgents.length ? tool.allowedAgents.join(", ") : "No agent has this tool in its allowlist"}</span>} orientation="vertical" />
+                      <KeyValue label={t("tools.active-since.7d5b")} value={<DateText value={tool.createdAt} />} orientation="vertical" />
+                      <KeyValue label={t("tools.availability.681b")} value={<span data-tool-availability>{availabilityText(tool)}</span>} orientation="vertical" />
+                      <KeyValue label={t("tools.calls-last-7-days.9fed")} value={<span><span data-tool-calls>{callsText(tool)}</span><Show when={lifetimeText(tool)}>{(text) => <span class="block text-ink-gray-6" data-tool-lifetime>{text()}</span>}</Show></span>} orientation="vertical" />
+                      <KeyValue label={t("tools.last-call.8254")} value={<Show when={tool.usage.lastCallAt} fallback={<span>{t("tools.never-used.984e")}</span>}><span class="flex flex-wrap items-center gap-2"><DateText value={tool.usage.lastCallAt} /><Show when={tool.usage.lastCallRunId}>{(runId) => <A class="text-ink-blue-7 underline focus-visible:focus-ring" href={`/runs/${runId()}`}>{t("tools.open-the-run.400d")}</A>}</Show></span></Show>} orientation="vertical" />
+                      <KeyValue label={t("tools.last-failure.d11a")} value={<Show when={tool.usage.lastFailureAt} fallback={<span>{tool.usage.calls ? "none recorded" : t("tools.never-used.984e")}</span>}><span class="flex flex-wrap items-center gap-2"><DateText value={tool.usage.lastFailureAt} /><Show when={tool.usage.lastFailureRunId}>{(runId) => <A class="text-ink-blue-7 underline focus-visible:focus-ring" href={`/runs/${runId()}`}>{t("tools.open-the-run.400d")}</A>}</Show></span></Show>} orientation="vertical" />
+                      <Show when={tool.usage.lastFailureMessage}><KeyValue label={t("tools.last-error.5e4d")} value={<span data-tool-last-error>{tool.usage.lastFailureMessage}</span>} orientation="vertical" /></Show>
+                      <Show when={tool.allowedHosts?.length}><KeyValue label={t("tools.hosts-it-may-reach.8b07")} value={<span data-tool-hosts>{tool.allowedHosts!.join(", ")}</span>} orientation="vertical" /></Show>
+                      <KeyValue label={t("tools.input-schema.7cb0")} value={tool.inputSchemaRef} orientation="vertical" />
+                      <KeyValue label={t("tools.output-schema.c572")} value={tool.outputSchemaRef} orientation="vertical" />
                     </dl>
                     <Alert
                       theme={tool.effectClass === "read" ? "blue" : "amber"}
                       variant="outline"
-                      title={tool.effectClass === "read" ? "Read capability" : "Governed effect capability"}
+                      title={tool.effectClass === "read" ? t("tools.read-capability.7c87") : t("tools.governed-effect-capability.913f")}
                       description={
                         tool.effectClass === "read"
                           ? "The declared effect class is read-only. Actual runner permission still depends on current placement and policy."
                           : "Execution requires the exact permit and current authorization. A trusted definition is not blanket permission to run anywhere."
                       }
                     />
-                    <WorkspaceSection title="Test and evidence" description="Actual artifacts attached to this registry entry.">
+                    <WorkspaceSection title={t("tools.test-and-evidence.4bff")} description={t("tools.actual-artifacts-attached-to-thi.0262")}>
                       <Show
                         when={tool.evidence.length}
                         fallback={
@@ -597,20 +598,20 @@ export function ToolsScreen(props: {
                     </WorkspaceSection>
                     <Show when={props.canPublish}>
                       <div class="flex flex-wrap items-center gap-3" data-tool-edit>
-                        <Button variant="outline" iconLeft="lucide-pencil" disabled={editing()} onClick={() => void editTool(tool.id)}>Edit this tool</Button>
-                        <span class="text-caption text-ink-gray-6">Opens an editable copy of its definition, script and schemas. Nothing changes until you publish it and activate the release.</span>
+                        <Button variant="outline" iconLeft="lucide-pencil" disabled={editing()} onClick={() => void editTool(tool.id)}>{t("tools.edit-this-tool.f166")}</Button>
+                        <span class="text-caption text-ink-gray-6">{t("tools.opens-an-editable-copy-of-its-de.42fe")}</span>
                       </div>
-                      <Show when={editError()}><Alert theme="red" variant="outline" title="Could not open the tool for editing" description={editError()} /></Show>
+                      <Show when={editError()}><Alert theme="red" variant="outline" title={t("tools.could-not-open-the-tool-for-edit.b84f")} description={editError()} /></Show>
                     </Show>
                     <Show when={props.canPublish}>
-                      <WorkspaceSection title="Try this tool" description="Run it with an input you type and see what it returns, or why it failed.">
+                      <WorkspaceSection title={t("tools.try-this-tool.30a8")} description={t("tools.run-it-with-an-input-you-type-an.db29")}>
                         <ToolTryPanel toolId={tool.id} effectClass={tool.effectClass} />
                       </WorkspaceSection>
                     </Show>
-                    <WorkspaceSection title="Recent calls and why they failed" description="The latest calls of this tool in this workspace, each failure explained, with a link to its run.">
+                    <WorkspaceSection title={t("tools.recent-calls-and-why-they-failed.1767")} description={t("tools.the-latest-calls-of-this-tool-in.078c")}>
                       <ToolCallsPanel toolId={tool.id} />
                     </WorkspaceSection>
-                    <TechnicalDetails label="Manifest and release">
+                    <TechnicalDetails label={t("tools.manifest-and-release.7333")}>
                       <pre class="max-h-96 overflow-auto whitespace-pre-wrap break-words text-caption">{JSON.stringify(tool, null, 2)}</pre>
                     </TechnicalDetails>
                   </PageStack>
@@ -621,8 +622,8 @@ export function ToolsScreen(props: {
         </ScreenRegion>
         <Show when={props.canPublish}>
           <WorkspaceSection
-            title="Governed publication"
-            description="Proposal and publication are separate. Rule of Three creates a review candidate, not a trusted live tool automatically."
+            title={t("tools.governed-publication.cf50")}
+            description={t("tools.proposal-and-publication-are-sep.0279")}
             actions={
               <Button variant="outline" iconLeft="lucide-upload" onClick={() => setPublishOpen(true)}>
                 Publish reviewed release
@@ -633,12 +634,12 @@ export function ToolsScreen(props: {
         <Dialog.Root open={proposeOpen()} onOpenChange={setProposeOpen}>
           <Dialog.Content>
             <Dialog.Header>
-              <Dialog.Title>Propose a tool package</Dialog.Title>
+              <Dialog.Title>{t("tools.propose-a-tool-package.7477")}</Dialog.Title>
               <Dialog.Description>A proposal is a pinned package artifact plus evidence; review happens before any publish.</Dialog.Description>
             </Dialog.Header>
             <div class="my-4 flex max-h-[55dvh] flex-col gap-4 overflow-y-auto pe-1">
               <ArtifactSelector
-                label="Tool package"
+                label={t("tools.tool-package.1fb9")}
                 onSelect={(artifact) => {
                   setPackageArtifactId(artifact.artifactId);
                   setPackageDigest(artifact.digest);
@@ -678,20 +679,20 @@ export function ToolsScreen(props: {
         <Dialog.Root open={publishOpen()} onOpenChange={setPublishOpen}>
           <Dialog.Content>
             <Dialog.Header>
-              <Dialog.Title>Publish reviewed tool release</Dialog.Title>
-              <Dialog.Description>Choose the exact candidate and bind the independent evidence required by the Rule of Three.</Dialog.Description>
+              <Dialog.Title>{t("tools.publish-reviewed-tool-release.912f")}</Dialog.Title>
+              <Dialog.Description>{t("tools.choose-the-exact-candidate-and-b.a6ca")}</Dialog.Description>
             </Dialog.Header>
             <div class="my-4 flex max-h-[55dvh] flex-col gap-4 overflow-y-auto pe-1">
               <Show when={!props.candidates.length}>
                 <Alert
                   theme="amber"
                   variant="outline"
-                  title="No review candidates yet"
-                  description="Proposals that pass the Rule of Three become review candidates; there is nothing to publish yet."
+                  title={t("tools.no-review-candidates-yet.cd0a")}
+                  description={t("tools.proposals-that-pass-the-rule-of.de80")}
                 />
               </Show>
               <Select
-                label="Reviewed tool candidate"
+                label={t("tools.reviewed-tool-candidate.b222")}
                 value={releaseId()}
                 options={props.candidates.map((candidate) => ({ value: candidate.release.id, label: `${candidate.release.id} · ${candidate.state}` }))}
                 onValueChange={(id) => {

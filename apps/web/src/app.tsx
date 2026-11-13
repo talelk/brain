@@ -15,7 +15,7 @@ import { Authentication, AuthenticatorEnrollment, InitialPasswordChange, Invitat
 import { ThemeToggle } from "./ui/components/ThemeToggle";
 import { GlobalSearchDialog } from "./ui/components/GlobalSearch";
 import { BrandMark, IconTile } from "./ui/components/primitives";import { BrainForm, FormActions } from "./ui/components/BrainForm";
-import { t, setLocale, LOCALES, localeDirection, locale, type Locale, type MessageKey } from "./i18n";
+import { t, setLocale, LOCALES, localeDirection, locale, loadEnglishRest, type Locale, type MessageKey } from "./i18n";
 import { LiveFreshness } from "./ui/components/LiveFreshness";
 import { PageHeaderProvider, usePageHeader } from "./ui/page-context";
 import { LandingRedirect } from "./ui/LandingRedirect";
@@ -56,7 +56,9 @@ const PAGE_LOADERS = {
   SharedResultPage: () => import('./routes/pages/SharedResultPage'),
 };
 type PageKey = keyof typeof PAGE_LOADERS;
-const page = (key: PageKey) => lazy(PAGE_LOADERS[key]);
+/** Today is the first screen: its messages are in the main bundle. Every other screen loads the rest of the English messages beside its own code. */
+const FIRST_SCREEN: ReadonlySet<PageKey> = new Set<PageKey>(["TodayPage"]);
+const page = (key: PageKey) => lazy(FIRST_SCREEN.has(key) ? PAGE_LOADERS[key] : async () => { const [module] = await Promise.all([PAGE_LOADERS[key](), loadEnglishRest()]); return module; });
 
 function WorkspaceSync(props: { children: JSX.Element }): JSX.Element {
   const app = useApp();
@@ -92,7 +94,7 @@ const NAV_ITEM_KEYS: Readonly<Record<string, MessageKey>> = {
   "Today": "nav.item.today", "Missions": "nav.item.missions", "Approvals": "nav.item.approvals", "Schedules": "nav.item.schedules", "All results": "nav.item.all-results",
   "Library": "nav.item.library", "Plays": "nav.item.plays", "Knowledge": "nav.item.knowledge", "Review inbox": "nav.item.review-inbox", "Support": "nav.item.support",
   "Incidents": "nav.item.incidents", "Studio": "nav.item.studio", "Logs": "nav.item.logs", "Runners": "nav.item.runners", "Workspaces": "nav.item.workspaces",
-  "Setup": "nav.item.setup", "Security": "nav.item.security", "Quality": "nav.item.quality", "Integrations": "nav.item.integrations", "Releases": "nav.item.releases",
+  "Setup": "nav.item.setup", "How work runs": "nav.item.work", "Security": "nav.item.security", "Quality": "nav.item.quality", "Integrations": "nav.item.integrations", "Releases": "nav.item.releases",
   "People": "nav.item.people", "Invitations": "nav.item.invitations", "Access": "nav.item.access", "Authentication": "nav.item.authentication", "Health": "nav.item.health",
 };
 const navLabel = (label: string): string => { const key = NAV_ITEM_KEYS[label]; return key ? t(key) : label; };

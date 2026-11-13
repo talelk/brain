@@ -6,6 +6,7 @@ import { KanbanBoard, type KanbanColumn, type KanbanMove } from "@talelk/newui-o
 import type { WorkItem } from "@brain/contracts";
 import { BOARD_COLUMNS, boardColumnOf, dragTargets, type BoardColumnId, type NextAction } from "./work-model";
 import { WorkCard } from "./WorkCard";
+import { t } from "../../i18n";
 
 interface Card { id: string; item: WorkItem }
 
@@ -86,9 +87,9 @@ export function WorkBoard(props: {
       <span class="lucide-hand size-3.5" aria-hidden="true" />Drag a card to Ready, In progress or Blocked to move it. Review and Done need evidence, so use the button on the card.
     </p>
     <Show when={notice()}>{(entry) => <p role="status" class={`rounded-control px-2.5 py-1.5 text-caption ${entry().tone === "warn" ? "bg-surface-amber-1 text-ink-amber-8" : "bg-surface-gray-1 text-ink-gray-7"}`}>{entry().text}</p>}</Show>
-    <KanbanBoard<Card> label="Work items" columns={columns()} itemLabel={(card) => card.item.title}
+    <KanbanBoard<Card> label={t("plan.work-items.0448")} columns={columns()} itemLabel={(card) => card.item.title}
       onMove={(event: KanbanMove<Card>) => { if (event.from.column !== event.to.column) void move(event.item.item, event.to.column as BoardColumnId); }}
-      emptyColumn={(column) => column.id === "done" ? "Verified work lands here." : column.id === "blocked" ? "Nothing is blocked." : "Nothing here."}
+      emptyColumn={(column) => column.id === "done" ? "Verified work lands here." : column.id === "blocked" ? t("plan.nothing-is-blocked.d99b") : t("plan.nothing-here.7f42")}
       renderActions={(card) => <Show when={targets(card.item).length > 0}>
         <Menu.Root onSelect={(value) => void move(card.item, value as BoardColumnId)}>
           <Menu.Trigger data-kanban-action="" aria-label={`Move ${card.item.title}`}
@@ -96,7 +97,7 @@ export function WorkBoard(props: {
             <Icon icon="lucide-ellipsis" class="size-4" />
           </Menu.Trigger>
           <Menu.Content>
-            <Menu.Label>Move to</Menu.Label>
+            <Menu.Label>{t("plan.move-to.349f")}</Menu.Label>
             <For each={targets(card.item)}>{(target) => <Menu.Item value={target}>{BOARD_COLUMNS.find((column) => column.id === target)?.name}</Menu.Item>}</For>
           </Menu.Content>
         </Menu.Root>
