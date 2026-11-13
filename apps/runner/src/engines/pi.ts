@@ -4,6 +4,7 @@ import { sha256Digest } from "@brain/contracts";
 import type { ArtifactRef, Checkpoint, EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
 import { engineFailureDetail } from "./failure-detail";
+import { holdsCompleteObject } from "./json-reply";
 import { overAllowanceReason, wrapUpReason } from "./limits";
 import { GovernedToolCalls } from "./tool-calls";
 
@@ -28,6 +29,7 @@ export class PiEngine implements EngineAdapter {
   private failure: string | undefined;
   private tokensAtLastCheck = 0;
   private wrappedUp = false;
+  private keepAnswer = false;
   private toolCalls: GovernedToolCalls | undefined;
   constructor(private readonly toolBindings: readonly EngineToolBinding[] = [], private readonly route?: HostedRoute) {}
 
@@ -128,7 +130,7 @@ export class PiEngine implements EngineAdapter {
       if (event.type === "message_end" && event.message?.role === "assistant") {
         const message = event.message;
         // The first cause stands: an attempt stopped for its allowance ends with an "aborted" message that must not hide that reason.
-        if (message.stopReason === "error" || message.stopReason === "aborted") this.failure ??= message.errorMessage ?? `Pi stopped: ${message.stopReason}`;
+        if (!this.keepAnswer && (message.stopReason === "error" || message.stopReason === "aborted")) this.failure ??= message.errorMessage ?? `Pi stopped: ${message.stopReason}`;
         if (!this.output && message.content) {
           const text = message.content.filter((part) => part.type === "text").map((part) => part.text ?? "").join("");
           if (text) { this.output = text; this.push("text", { text, channel: "assistant", provisional: true }); }
@@ -159,7 +161,9 @@ export class PiEngine implements EngineAdapter {
     const use = this.use();
     const over = overAllowanceReason(use, spec.limits);
     if (over) {
-      this.failure = over;
+      // An answer that is already a complete JSON object is the deliverable: stopping the session loses nothing, so it is kept; any other
+      // text cannot be told from a half-written one, so the attempt fails with the numbers as its reason.
+      if (holdsCompleteObject(this.output)) this.keepAnswer = true; else this.failure = over;
       void this.session?.abort().catch(() => undefined);
       return "This attempt's allowance is used up. Do not call more tools.";
     }
@@ -209,6 +213,7 @@ export class PiEngine implements EngineAdapter {
     this.failure = undefined;
     this.tokensAtLastCheck = 0;
     this.wrappedUp = false;
+    this.keepAnswer = false;
     this.stream = new EngineEventStream();
     mkdirSync(this.sessionsDir(), { recursive: true });
     const { SessionManager } = (await import("@earendil-works/pi-coding-agent")) as typeof import("@earendil-works/pi-coding-agent");
@@ -223,7 +228,7 @@ export class PiEngine implements EngineAdapter {
   async prompt(text: string): Promise<void> {
     if (!this.session) throw new Error("no Pi session");
     if (!this.spec) throw new Error("no pinned Pi session specification");
-    this.stream = new EngineEventStream(); this.output = ""; this.failure = undefined;
+    this.stream = new EngineEventStream(); this.output = ""; this.failure = undefined; this.keepAnswer = false;
     await this.complete({ ...this.spec, task: text });
   }
 

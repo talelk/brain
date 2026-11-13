@@ -8,7 +8,7 @@ const CAUSES: ReadonlyArray<readonly [RegExp, string]> = [
   [/used its allowance|allowance is used|token budget|tool-call budget|turn budget/iu, "budget"],
   [/schema|does not meet the required output|output contract|validation failed|not valid json|invalid json/iu, "schema mismatch"],
   [/tool [\w.-]+ (?:failed|is not allowed|refused|error)|tool (?:call|input|execution)\b|governed broker/iu, "tool error"],
-  [/abort|cancel|deadline exceeded|timed? ?out/iu, "aborted"],
+  [/abort|cancel|deadline exceeded|timed? ?out/iu, "stopped"],
   [/ECONN\w*|ENOTFOUND|fetch failed|socket|network|unreachable|overloaded|\b(?:429|502|503|504)\b/iu, "model endpoint"],
 ];
 
