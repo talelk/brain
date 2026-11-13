@@ -6,9 +6,15 @@ import { EngineEventStream } from "./event-stream";
 import { overCostCap } from "./limits";
 import { GovernedToolCalls } from "./tool-calls";
 
+/**
+ * Where a hosted-model attempt calls (ADR 0023): the Governor names the place; the API key comes from this runner's own environment
+ * and is never part of any job. Only an attempt the Governor routed (a second attempt after a model slip) carries one.
+ */
+export interface HostedRoute { readonly baseUrl: string; readonly model: string }
+
 export class PiEngine implements EngineAdapter {
   readonly id = "pi";
-  get defaultModelId(): string { return this.modelId(); }
+  get defaultModelId(): string { return this.route?.model ?? this.modelId(); }
   private session: { dispose: () => void; abort: () => Promise<void>; getSessionStats: () => { assistantMessages: number; tokens: {input:number;output:number;cacheRead:number;total:number};cost:number }; prompt: (text: string) => Promise<void>; steer: (text: string) => Promise<unknown>; readonly isStreaming: boolean } | null = null;
   private seq = 0;
   private sessionId = "";
@@ -18,7 +24,7 @@ export class PiEngine implements EngineAdapter {
   private output = "";
   private failure: string | undefined;
   private toolCalls: GovernedToolCalls | undefined;
-  constructor(private readonly toolBindings: readonly EngineToolBinding[] = []) {}
+  constructor(private readonly toolBindings: readonly EngineToolBinding[] = [], private readonly route?: HostedRoute) {}
 
   private agentDir(): string {
     return process.env["BRAIN_PI_AGENT_DIR"] ?? join(process.cwd(), ".pi-agent");
@@ -59,10 +65,15 @@ export class PiEngine implements EngineAdapter {
     const agentDir = this.agentDir();
     mkdirSync(agentDir, { recursive: true });
     mkdirSync(this.sessionsDir(), { recursive: true });
-    writeFileSync(join(agentDir, "models.json"), JSON.stringify({
+    // A routed attempt reads its own models file, named explicitly, so it can never change which model another attempt of this process uses.
+    const hostedKey = this.route ? process.env["BRAIN_HOSTED_MODEL_API_KEY"] : undefined;
+    if (this.route && !hostedKey) throw Object.assign(new Error("The hosted model needs its API key on this runner (BRAIN_HOSTED_MODEL_API_KEY); the attempt was not sent anywhere"), { code: "UNSUPPORTED_CAPABILITY" });
+    const providerId = this.route ? "hosted-model" : "local-qwen";
+    const modelsFile = join(agentDir, this.route ? `models-hosted-${spec.jobId}.json` : "models.json");
+    writeFileSync(modelsFile, JSON.stringify({
       providers: {
-        "local-qwen": {
-          name: "Local Qwen (vLLM)", baseUrl: this.modelUrl(), api: "openai-completions", apiKey: process.env["BRAIN_LOCAL_MODEL_API_KEY"] || "local-no-key",
+        [providerId]: {
+          name: this.route ? "Hosted model" : "Local Qwen (vLLM)", baseUrl: this.route?.baseUrl ?? this.modelUrl(), api: "openai-completions", apiKey: hostedKey ?? (process.env["BRAIN_LOCAL_MODEL_API_KEY"] || "local-no-key"),
           models: [{
             id: spec.modelId || this.modelId(), name: spec.modelId || this.modelId(), reasoning: true, input: ["text"],
             cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 262144, maxTokens: Math.min(spec.limits.maxTokens, 16384, Math.max(8192, spec.limits.maxTokens - 4096)),
@@ -72,8 +83,8 @@ export class PiEngine implements EngineAdapter {
     }, null, 2), { mode: 0o600 });
     process.env["PI_CODING_AGENT_DIR"] = agentDir;
     const { createAgentSession, ModelRuntime } = (await import("@earendil-works/pi-coding-agent")) as typeof import("@earendil-works/pi-coding-agent");
-    const runtime = await ModelRuntime.create();
-    const model = runtime.getModel("local-qwen" as never, (spec.modelId || this.modelId()) as never);
+    const runtime = await ModelRuntime.create(this.route ? { modelsPath: modelsFile } : undefined);
+    const model = runtime.getModel(providerId as never, (spec.modelId || this.defaultModelId) as never);
     if (!model) throw Object.assign(new Error("Pi local model not found in models.json"), { code: "UNSUPPORTED_CAPABILITY" });
     if (spec.allowedTools.some((allowed) => !this.toolBindings.some((binding) => binding.release.id === allowed.id && binding.release.digest === allowed.digest))) throw new Error("Pi Agent tool definitions are incomplete; refusing execution");
     const calls = new GovernedToolCalls(this.toolBindings, spec, (kind, payload) => this.push(kind, payload));

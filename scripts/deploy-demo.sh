@@ -48,6 +48,13 @@ command -v rsync >/dev/null || { echo "rsync is required" >&2; exit 1; }
 : "${BRAIN_DEPLOY_SUDO_PASSWORD:?set BRAIN_DEPLOY_SUDO_PASSWORD to the sudo password of the deploy user}"
 SUDO="printf '%s\n' $(printf '%q' "$BRAIN_DEPLOY_SUDO_PASSWORD") | sudo -S -p ''"   # only for system-level actions
 
+# ---- standing test gate (backlog row 78): a drop of more than 10 points of first-pass success blocks the deploy ----
+# Exit 0 passed, 3 skipped (no model reachable from here), anything else blocks. BRAIN_DEPLOY_SKIP_STANDING_TESTS=1 skips.
+if [ "${BRAIN_DEPLOY_SKIP_STANDING_TESTS:-0}" != 1 ]; then
+  set +e; pnpm exec tsx scripts/standing-tests/gate.ts; GATE_RC=$?; set -e
+  case "$GATE_RC" in 0|3) ;; *) echo "!! The standing test set blocked this deploy (exit $GATE_RC); nothing was changed." >&2; exit 1 ;; esac
+fi
+
 # ---- pre-deploy check: prove the live databases can be upgraded BEFORE anything on the server changes ----
 # Copies the live databases (read-only) to a private local directory and runs scripts/repair-live-schema.ts of this
 # checkout against the copy. If it fails the deploy aborts here: the old container keeps serving, nothing was synced.
@@ -153,6 +160,26 @@ fi
 echo "==> Building the governor image (cached layers make repeat deploys fast)"
 $SSH "cd $REMOTE_DIR && docker compose build governor"
 
+# ---- drain: running attempts finish instead of being interrupted (ADR 0023 deploy rule; scripts/drain-live.mjs) ----
+# While draining the Governor offers no new attempt and starts nothing automatically; this waits for the running ones. If they do not
+# finish in time the deploy stops here with nothing changed (BRAIN_DEPLOY_FORCE_DRAIN=1 rolls anyway; BRAIN_DEPLOY_SKIP_DRAIN=1 skips).
+# Drain stays on across the container swap and is ended after the new Governor is ready (below).
+DRAIN_GOV="$($SSH "cd $REMOTE_DIR && docker compose ps -q governor" 2>/dev/null || true)"
+DRAINED=0
+if [ -n "$DRAIN_GOV" ] && [ "${BRAIN_DEPLOY_SKIP_DRAIN:-0}" != 1 ]; then
+  DRAIN_SECONDS="${BRAIN_DEPLOY_DRAIN_SECONDS:-900}"
+  echo "==> Draining: no new attempts start; waiting up to ${DRAIN_SECONDS}s for running ones to finish"
+  if $SSH "docker exec -i $DRAIN_GOV node - wait $DRAIN_SECONDS" < scripts/drain-live.mjs; then
+    DRAINED=1
+  elif [ "${BRAIN_DEPLOY_FORCE_DRAIN:-0}" = 1 ]; then
+    echo "   (attempts still running; rolling anyway because BRAIN_DEPLOY_FORCE_DRAIN=1)" >&2; DRAINED=1
+  else
+    $SSH "docker exec -i $DRAIN_GOV node - off" < scripts/drain-live.mjs >/dev/null 2>&1 || true
+    echo "!! Attempts are still running after ${DRAIN_SECONDS}s; aborting before any change (drain ended, work resumed)." >&2
+    exit 1
+  fi
+fi
+
 echo "==> Rolling the container (stop -> repair-if-needed -> initialize-if-empty -> up)"
 # initialize-local.ts needs exclusive ownership of the data directory and is
 # idempotent: with existing organizations it preserves everything and exits.
@@ -172,7 +199,12 @@ $SSH "cd $REMOTE_DIR && docker compose stop governor \
 echo "==> Waiting for /health/ready"
 for i in $(seq 1 30); do
   if $SSH "curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:3100/health/ready"; then
-    echo "==> Governor is healthy"; break
+    echo "==> Governor is healthy"
+    if [ "$DRAINED" = 1 ]; then
+      NEW_GOV="$($SSH "cd $REMOTE_DIR && docker compose ps -q governor")"
+      $SSH "docker exec -i $NEW_GOV node - off" < scripts/drain-live.mjs && echo "==> Drain ended: new attempts start again"
+    fi
+    break
   fi
   if [ "$i" = 30 ]; then
     echo "!! Governor not ready after 30 tries. First error lines from its log:" >&2
@@ -190,6 +222,12 @@ if ! $SSH "node -e 'process.exit(Number(process.versions.node.split(\".\")[0])>=
 fi
 # refresh host node_modules when the lockfile is newer than what is installed
 $SSH "cd $REMOTE_DIR/src && if [ ! -d node_modules ] || [ pnpm-lock.yaml -nt node_modules/.modules-state ] 2>/dev/null; then pnpm install --frozen-lockfile >/tmp/brain-host-install.log 2>&1 && pnpm approve-builds better-sqlite3 esbuild >>/tmp/brain-host-install.log 2>&1 && pnpm rebuild better-sqlite3 >>/tmp/brain-host-install.log 2>&1; fi"
+
+# ---- healing below the application (idempotent): host watchdog every minute, standing tests nightly ----
+# The watchdog restarts a launcher, runner or model proxy that stopped answering; it may restart exactly those units and nothing else.
+echo "==> Installing the host watchdog and the nightly standing tests"
+$SSH "printf 'talel ALL=(root) NOPASSWD: /usr/bin/systemctl restart brain-launcher.service, /usr/bin/systemctl restart brain-runner-agents.service, /usr/bin/systemctl restart brain-runner-evaluators.service\n' > /tmp/brain-watchdog-sudoers && $SUDO visudo -cf /tmp/brain-watchdog-sudoers >/dev/null && $SUDO install -m 0440 -o root -g root /tmp/brain-watchdog-sudoers /etc/sudoers.d/brain-watchdog"
+$SSH "$SUDO cp $REMOTE_DIR/src/deploy/demo/brain-watchdog.service $REMOTE_DIR/src/deploy/demo/brain-watchdog.timer $REMOTE_DIR/src/deploy/demo/brain-standing-tests.service $REMOTE_DIR/src/deploy/demo/brain-standing-tests.timer /etc/systemd/system/ && $SUDO systemctl daemon-reload && $SUDO systemctl enable --now brain-watchdog.timer brain-standing-tests.timer"
 
 # ---- memory wiring for the governor container (idempotent) ----
 if ! $SSH "grep -q BRAIN_TENCENTDB_URL $REMOTE_DIR/.env"; then

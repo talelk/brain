@@ -3,8 +3,8 @@
 Dated 2026-11-11 ~23:15, at `talelk/brain@9393922` (deployed: everything through track AF). History of every track, report and finding: [archive/](archive/) (excluded from the agent context budget; latest [archive/backlog-2026-11-11-night.md](archive/backlog-2026-11-11-night.md)). Keep THIS file short: when an item is done, delete its row and note it in the archive.
 
 ## Process rules learned
-- Run at most 2 agents at once and cap vitest workers (`maxWorkers: 4`): uncapped parallel test runs OOM-killed the machine and restarted the session twice. After a restart check each agent's worktree: its commits survive; merge them yourself.
-- Stop each agent, remove its worktree and `~/.cache/tmp-<name>`, and kill only its own wait-loops (by exact pid, never `pkill -f` patterns that can match your own shell) as soon as its report is taken. Avoid deploying while missions run (a deploy interrupts running attempts).
+- Run at most 2 agents at once and cap vitest workers (`maxWorkers: 4`): uncapped parallel runs OOM-killed the machine twice. After a restart check each worktree; its commits survive.
+- Stop each agent, remove its worktree and `~/.cache/tmp-<name>`, and kill only its own wait-loops (by exact pid) once its report is taken. Deploys now drain running attempts first (`scripts/drain-live.mjs`).
 - Playwright "Executable doesn't exist" means the browser cache vanished: `npx playwright install chromium`; `pnpm build` before browser specs and run them for every UI or read-model change before deploying.
 - Deploy = `scripts/deploy-demo.sh` (pre-check on a VACUUM INTO snapshot) then `scripts/stage-demo-release.sh` when `examples/v1` changed; new columns on existing tables need DEFAULT; retry a failed `git push`.
 - The demo browser session signs out after deploys; the assistant never types passwords into the hosted sign-in form: the owner signs in.
@@ -26,24 +26,20 @@ Dated 2026-11-11 ~23:15, at `talelk/brain@9393922` (deployed: everything through
 | # | Item | Notes |
 |---|------|-------|
 | 69 | Review and plan 2026-11-13 (functional, technical, UX, outputs, self-healing, capitalisation): five phases, gates and measures | Claude Doc https://claude.ai/artifact/LqLEk8pTtkZJskJYSxL4mw (owner's account); findings below are the new ones |
-| 70 | Capitalization published failure: the sre-demos entry "Check all docker compose & running docker & propose limits plan" is Approved knowledge though it observed nothing | 2026-11-13 live; ADR 0022; withdraw that entry |
-| 71 | Self-healing retries the same recipe, model and tools: Docker task, 6 attempts, 250k tokens; no failure classes, remedies or per-task spend cap (decided: 200k tokens per task, then park as `budget`); Quality "98.2%" leaves parked tasks out | 2026-11-13; ADR 0022; stall rate 10% (6 of 60) |
 | 72 | Outputs on live: 91 of 100 files are one failing task's attempt records; "Needs review 0" beside a "Needs changes" result; raw run ids on cards; no mission-level answer | 2026-11-13; fold attempts, true counts |
 | 73 | Delivery and operations: no CI, laptop deploy, no scheduled backup or restore rehearsal, Health ignores the model endpoint, launcher and disk, hard-coded admin password in `scripts/demo/provision-cv-insights.py`, 68 independent web refresh timers | 2026-11-13; plan phases 0 and 2 |
 | 74 | The "no migrations" policy (AGENTS.md, implementation-policy.json) ends the day a team other than the owner keeps real data on an instance; then an ADR and a schema migration path | decided 2026-11-13 |
 | 75 | Navigation to Today, Missions, Library, Administration; Live, Logs, Outputs become mission views; Today "Working now" strip, Missions Running filter, Logs under Administration | decided 2026-11-13; plan phase 2 |
 | 80 | Order: phase 0 alone first; then phases 1 and 2 as two lanes (engine, web), 2 agents max; phase 3 waits for the phase 1 gate | decided 2026-11-13 |
 | 81 | UX: 7 of the 21 open findings (refresh clocks) go with the phase 2 live store; fix the other 14 before the five testers start | decided 2026-11-13 |
-| 76 | Build ADR 0022 and 0023: required-tools check at Done (tools come from the workspace default way of working, planner may override), capitalization refuses unobserved results, failure classes with one remedy each, per-workspace hosted model (demo workspace first) | accepted 2026-11-13 |
+| 82 | Phase 1 live steps after deploy: set the sre-demos way of working (`workspace.wayOfWorking.set`: sre-task, host.read + host.exec); run `knowledge.withdrawUnobserved` there (withdraws the docker-limits entry); `pnpm standing-tests -- --record-baseline` on a host that reaches the model | engine lane 2026-11-13; the gate passes with no baseline until the last step |
+| 83 | Hosted model: Governor side done (route in job payload, hold while down, Health, switch); the Pi second attempt honours it, the Claude evaluator engine does not (process-global env) | needs a per-attempt endpoint for the Claude engine |
+| 84 | Web lane to show: WorkItem `failureClass` `remedy` `requiredTools` `tokenCap` `tokensUsed`; KnowledgeAsset `expiresAt` `helpedCount`; Quality `failureReasons.items[].code`; queries `engineSettings.get` `lessons.list`; Health services `model` `disk` `launcher` `hosted-model`; commands `workItem.spendCap.raise` `workspace.wayOfWorking.set` `workspace.hostedModel.set` `platform.drain.set` `knowledge.withdrawUnobserved` | engine lane 2026-11-13 |
 | 77 | Phase 0: CI `verify:change` on push; manual deploy job via ephemeral tailnet node and deploy-only key, refuses while missions run; nightly encrypted backup to a second host (14 nightly, 8 weekly), monthly timed restore | decided 2026-11-13; owner makes the tailnet key, picks the host |
-| 78 | Standing test set: ~40 fixture tasks plus 5 replayed server tasks, nightly and on prompt, model or release change; a drop over 10 points blocks deploys | decided 2026-11-13 |
 | 79 | First effect tools: restart one named container (privileged, permit per call, owner approves from a phone), then open a pull request; own ADR when built | decided 2026-11-13; plan phase 3 |
-| 15 | Evaluator quality 2026-11-12 (qwen3.8-flash-next-a5b, 3 runs per sample): parsed 14/15, validator 14/15; the one failure was malformed JSON, a model flake | watch retries on unparsed answers; detail in archive |
-| 66 | Email: STARTTLS/smtps tested only against a fake server; `startSupervisor` loop not run end to end | test against a real relay before relying on it |
-| 67 | RTL checked live 2026-11-12: layout mirrors correctly; English strings put trailing punctuation on the left (do not patch with bidi CSS). Compare view in RTL unseen | needs Arabic translations (no message catalog yet); detail in archive/backlog-2026-11-12.md |
 | 68 | SRE host access (ADR 0021) ships read-only: `host.read` and `host.exec`. Missing: privileged commands (restart/reload, effect permit per call), a writable per-run output directory, a dedicated runner group so host tools exist only for the SRE workspace | when the owner wants host changes |
 
-History and not-yet-seen-live list: [archive/backlog-2026-11-12.md](archive/backlog-2026-11-12.md).
+History and not-yet-seen-live list: [archive/backlog-2026-11-12.md](archive/backlog-2026-11-12.md); watch rows (15, 66, 67): [archive/backlog-2026-11-13-watch-rows.md](archive/backlog-2026-11-13-watch-rows.md).
 
 ## Standing rules (see goal-and-user.md)
 Validate every change in a real browser as a first-time user; do not stop until nothing is left; reuse and capitalisation are first-class.

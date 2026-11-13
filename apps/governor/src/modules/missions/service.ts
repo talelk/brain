@@ -21,7 +21,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { OUTAGE_MAX_WAITS, OUTAGE_WAIT_MS, REMEDY, classifyFailure, lessonText, type FailureClass } from "../../domain/failure";
 import { GENERAL_TASK_WORKFLOW } from "../workflows/index";
-import { missionObserved, observedCalls, taskTokenCap, taskTokens, wayOfWorking, workflowAgentTools, workflowsCovering } from "./outcomes";
+import { observedCalls, taskTokenCap, taskTokens, wayOfWorking, workflowAgentTools, workflowsCovering } from "./outcomes";
 
 export interface MissionCommand {
   readonly commandType: string;

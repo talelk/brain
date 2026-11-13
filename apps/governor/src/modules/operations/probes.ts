@@ -74,11 +74,6 @@ export async function checkHostedModels(s: Store, fetchImpl: typeof fetch = fetc
   }
 }
 
-/** Whether the workspace's hosted model is switched on but currently down (so its checks and second attempts must wait). */
-export function hostedDown(s: Store, workspaceId: string): boolean {
-  return s.control.prepare("SELECT 1 FROM service_probes WHERE id=? AND status='unavailable'").get(`hosted:${workspaceId}`) !== undefined;
-}
-
 /**
  * Alerts the owner of each active workspace once when a check turns degraded or unavailable (an in-app notification, pushed on the
  * owner's channels). Returns how many notifications were written. A check that recovered re-arms.

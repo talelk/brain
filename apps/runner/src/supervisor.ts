@@ -160,7 +160,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
   const ack = await client.ack(offer.attemptId, ackBody);
   // Execution input travels as a digest-pinned CAS artifact, never inline.
   const artifactBytes = await client.executionArtifact(offer.attemptId, offer.execution.artifact.digest, offer.execution.artifact.bytes);
-  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment; contextPack?: { text?: string; unavailableTools?: Array<{ id: string; reason?: string }> } };
+  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment; modelRoute?: { tier?: string; role?: string; baseUrl?: string; model?: string }; contextPack?: { text?: string; unavailableTools?: Array<{ id: string; reason?: string }> } };
   // The execution deadline is the lease: a monotonic clock (performance.now)
   // is armed from the ack's server lease expiry and refreshed by every
   // successful renewal, so wall-clock adjustments cannot extend the window.
@@ -264,7 +264,9 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       const withheld = new Set((payload.contextPack?.unavailableTools ?? []).map((tool) => tool.id));
       const offeredBindings = asset.toolBindings.filter((binding) => !withheld.has(binding.release.id));
       const offeredTools = asset.agent.spec.tools.filter((tool) => !withheld.has(tool.id));
-      const engine = selectEngine(engineConfigured, offeredBindings);
+      // A second attempt the Governor routed to the workspace's hosted model (ADR 0023); every other attempt stays on this runner's own model.
+      const route = payload.modelRoute?.tier === "hosted" && payload.modelRoute.role === "second-attempt" && payload.modelRoute.baseUrl && payload.modelRoute.model ? { baseUrl: payload.modelRoute.baseUrl, model: payload.modelRoute.model } : undefined;
+      const engine = selectEngine(engineConfigured, offeredBindings, route);
       if (!engine) throw new Error(`none of the required engines (${asset.agent.spec.engine.anyOf.join(", ")}) is configured on this runner`);
       const engineProbe = await engine.probe();
       engineInfo = { id: engineProbe.id, adapterDigest: engineProbe.adapterDigest, features: [...engineProbe.features] };
@@ -292,7 +294,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
         engine, attemptId: offer.attemptId, jobFence: offer.jobFence, leaseId: offer.leaseId,
         runnerId: cfg.runnerId, runnerEpoch, organizationId: offer.organizationId ?? "", workspaceId: offer.workspaceId,
         jobId: offer.jobId, configDigest: offer.configDigest, sourceRevision: offer.sourceRevision ?? offer.configDigest,
-        instructions, task, modelId: process.env["BRAIN_LOCAL_MODEL_ID"], timeoutMs: (step.timeoutSeconds ?? 300) * 1000,
+        instructions, task, modelId: route?.model ?? process.env["BRAIN_LOCAL_MODEL_ID"], timeoutMs: (step.timeoutSeconds ?? 300) * 1000,
         maxTurns: asset.agent.spec.maxTurns, maxTokens: asset.agent.spec.maxTokens,
         outputCheck: outputContractCheck((payload as { outputSchema?: unknown }).outputSchema),
         maxMicroUsd: asset.agent.spec.maxMicroUsd, allowedTools: offeredTools,
@@ -425,6 +427,23 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
   }
 }
 
+/**
+ * What the runner tells the Governor about the layer below it: whether its sandbox launcher (and Docker behind it) answers. A runner with
+ * no launcher configured has nothing to check. One miss is degraded, two in a row unhealthy: an unhealthy runner takes no new work, so
+ * jobs wait instead of failing against a dead sandbox, and Health says the launcher is down so someone (or the host watchdog) restarts it.
+ */
+export function launcherHealthCheck(env: NodeJS.ProcessEnv = process.env, probe: () => Promise<{ docker: boolean }> = () => LauncherClient.fromEnv().health()): () => Promise<"healthy" | "degraded" | "unhealthy"> {
+  let misses = 0;
+  return async () => {
+    if (!env["BRAIN_LAUNCHER_SOCKET"]) return "healthy";
+    try {
+      const result = await probe();
+      misses = result.docker ? 0 : misses + 1;
+    } catch { misses += 1; }
+    return misses === 0 ? "healthy" : misses === 1 ? "degraded" : "unhealthy";
+  };
+}
+
 export async function startSupervisor(configurationChanged?: () => boolean): Promise<void> {
   const cfg: RunnerConfig = {
     governorUrl: process.env["BRAIN_GOVERNOR_URL"] ?? "http://127.0.0.1:3000",
@@ -454,14 +473,15 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
   };
   let seq = 0;
   const controls = newRunnerControls();
+  const launcherCheck = launcherHealthCheck();
   const heartbeatTimer = setInterval(() => {
     seq += 1;
-    void availableEngines(cfg).then((engines) => client.heartbeat({
+    void Promise.all([availableEngines(cfg), launcherCheck()]).then(([engines, health]) => client.heartbeat({
       // Full RunnerHeartbeat body: command delivery sits on the declared shape.
       runnerId: cfg.runnerId,
       runnerEpoch: session.epoch,
       sequence: seq,
-      health: "healthy",
+      health,
       observedFree: {
         cpuMillicores: cpus().length * 1000,
         memoryMb: Math.floor(freemem() / 1_048_576),

@@ -13,3 +13,4 @@ On the live `sre-demos` workspace a mission whose tasks all reported "I could no
 ## Consequences
 - A task that declares no required tools keeps today's check, which is how the Docker task slipped through. So tools are declared by the workspace's default way of working (the owner sets it; `sre-demos` gets `sre-task`), which the planner may override per task; a plan whose task needs a tool its way of working lacks is refused at plan time.
 - The Done rate falls at first: that is the honest number appearing.
+- Built as: the workspace default is a workflow plus an explicit list of tools its tasks must observe (an agent's whole list would let one knowledge search satisfy a host task); a task's own list overrides it. A run finishing without a successful call of one is a failed attempt, classified with one remedy per class. Write-ups need a successful tool call behind them; `knowledge.withdrawUnobserved` withdraws older ones.

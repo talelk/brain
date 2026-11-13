@@ -1,15 +1,15 @@
 import type { EngineAdapter, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue, ReleaseRef } from "@brain/contracts";
 import { sha256Digest } from "@brain/contracts";
 import { FixtureEngine } from "./fixture";
-import { PiEngine } from "./pi";
+import { PiEngine, type HostedRoute } from "./pi";
 import { ClaudeEngine } from "./claude";
 import { AcpEngine } from "./acp";
 import { OpenCodeEngine } from "./opencode";
 
-export function selectEngine(configured: string | undefined, toolBindings: readonly EngineToolBinding[] = []): EngineAdapter | undefined {
+export function selectEngine(configured: string | undefined, toolBindings: readonly EngineToolBinding[] = [], route?: HostedRoute): EngineAdapter | undefined {
   switch (configured) {
     case "fixture": return new FixtureEngine(toolBindings);
-    case "pi": return new PiEngine(toolBindings);
+    case "pi": return new PiEngine(toolBindings, route);
     case "claude": return new ClaudeEngine(toolBindings);
     case "acp": return new AcpEngine();
     case "opencode": return new OpenCodeEngine();
