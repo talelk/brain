@@ -38,3 +38,47 @@ export function overAllowanceReason(use: AttemptUse, limits: AttemptLimits): str
   if (limits.maxTurns > 0 && use.turns > limits.maxTurns) parts.push(`${use.turns} of ${limits.maxTurns} turns`);
   return parts.length > 0 ? `the attempt used its allowance (${parts.join(", ")}) and was still calling tools, so no complete answer was written` : undefined;
 }
+
+/** Tool calls an attempt may make when its task lists no acceptance criteria; the agent's own turn limit is the upper bound. */
+export const DEFAULT_TOOL_CALLS = 8;
+const FEWEST_TOOL_CALLS = 3;
+const MOST_TOOL_CALLS = 12;
+/** Repeated identical reads an attempt may make before its tools are taken away: each one costs a whole turn and tells the model nothing new. */
+export const REPEAT_BUDGET = 2;
+
+/** How many acceptance criteria the task lists (numbered lines after the last "Acceptance criteria:"), counting 1, 2, 3... in order; a task shown as JSON has its line breaks as `\n`. */
+export function criteriaIn(task: string): number {
+  const at = task.lastIndexOf("Acceptance criteria:");
+  if (at < 0) return 0;
+  let count = 0;
+  const lines = task.slice(at + "Acceptance criteria:".length).split(/\\n|\n/u);
+  for (const line of lines) {
+    const numbered = /^\s*(\d{1,2})\.\s/u.exec(line);
+    if (!numbered) { if (count > 0 && line.trim() === "") break; continue; }
+    if (Number(numbered[1]) !== count + 1) break;
+    count += 1;
+  }
+  return count;
+}
+
+/**
+ * The most tool calls one attempt may make, from its task. Every call is a model turn that re-sends the whole prompt (about 6k tokens before
+ * any work), so looking is paid for per call: one call for each criterion and one to check (3 to 12), 8 when the task lists no criteria, and
+ * never more than the agent's own turn limit.
+ */
+export function toolCallCeiling(task: string, maxTurns: number): number {
+  const criteria = criteriaIn(task);
+  const wanted = criteria === 0 ? DEFAULT_TOOL_CALLS : Math.min(MOST_TOOL_CALLS, Math.max(FEWEST_TOOL_CALLS, 1 + criteria));
+  return maxTurns > 0 ? Math.min(maxTurns, wanted) : wanted;
+}
+
+/** The notice that ends an attempt's tool use: it names why, says how many tokens are left and what to write for what was not checked. */
+export function finalTurnNotice(why: string, tokensLeft: number): string {
+  const left = Math.max(0, Math.round(tokensLeft));
+  return `${why} No tools are available any more. You have about ${left.toLocaleString("en-US")} tokens left in this attempt. Write your complete final answer now, in the required format, from what you already have. For anything you could not check or that the tools did not show, set "met" to false and say so plainly instead of searching further.`;
+}
+
+/** What the model is told before its first turn about the limits of this attempt. */
+export function attemptLimitsNotice(calls: number, maxTokens: number): string {
+  return `[Limits of this attempt, set by Brain: at most ${calls} tool calls and about ${maxTokens.toLocaleString("en-US")} tokens, counting every turn. A call that answered is enough: do not repeat it. If a criterion asks for something the tools do not return (a field a command does not print), say so in the answer with "met": false instead of searching for it. The tools are removed when the calls or the tokens run low; then write the answer.]`;
+}

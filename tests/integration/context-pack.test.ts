@@ -154,6 +154,10 @@ describe("the overall prompt budget (I4 residual)", () => {
     const long = "x".repeat(28000);
     expect(contextBudget(32768, long)).toBe(Math.min(8192, 16384 - 7000 - 1500));
     expect(contextBudget(16384, long)).toBe(256);
+    // An agent that has tools re-sends its pack on every turn, so its pack stays at 4000 tokens whatever the ceiling.
+    expect(contextBudget(100_000, "short brief", true)).toBe(4000);
+    expect(contextBudget(100_000, "short brief")).toBe(25_000);
+    expect(contextBudget(8192, "short brief", true)).toBe(2048);
     // pack + brief + instructions never exceed half of the ceiling unless the floor applies.
     for (const [max, text] of [[8192, "a".repeat(2000)], [32768, "b".repeat(20000)], [16384, "c".repeat(4000)]] as const) {
       const pack = contextBudget(max, text);

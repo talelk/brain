@@ -5,7 +5,7 @@ import type { ArtifactRef, Checkpoint, EngineAdapter, EngineEvent, EngineSession
 import { EngineEventStream } from "./event-stream";
 import { engineFailureDetail } from "./failure-detail";
 import { holdsCompleteObject } from "./json-reply";
-import { overAllowanceReason, wrapUpReason } from "./limits";
+import { attemptLimitsNotice, finalTurnNotice, overAllowanceReason, REPEAT_BUDGET, toolCallCeiling, wrapUpReason } from "./limits";
 import { GovernedToolCalls } from "./tool-calls";
 
 /**
@@ -14,7 +14,9 @@ import { GovernedToolCalls } from "./tool-calls";
  */
 export interface HostedRoute { readonly baseUrl: string; readonly model: string }
 
-type PiSession = { dispose: () => void; abort: () => Promise<void>; getSessionStats: () => { assistantMessages: number; tokens: { input: number; output: number; cacheRead: number; total: number }; cost: number }; prompt: (text: string) => Promise<void>; steer: (text: string) => Promise<unknown>; readonly isStreaming: boolean };
+type PiSession = { dispose: () => void; abort: () => Promise<void>; getSessionStats: () => { assistantMessages: number; tokens: { input: number; output: number; cacheRead: number; total: number }; cost: number }; prompt: (text: string) => Promise<void>; steer: (text: string) => Promise<unknown>; setActiveToolsByName: (names: string[]) => void; readonly isStreaming: boolean };
+
+type SessionEvent = { type: string; message?: { role?: string; stopReason?: string; errorMessage?: string; content?: Array<{ type: string; text?: string }> } };
 
 export class PiEngine implements EngineAdapter {
   readonly id = "pi";
@@ -28,7 +30,7 @@ export class PiEngine implements EngineAdapter {
   private output = "";
   private failure: string | undefined;
   private tokensAtLastCheck = 0;
-  private wrappedUp = false;
+  private toolsEnded = false;
   private keepAnswer = false;
   private toolCalls: GovernedToolCalls | undefined;
   constructor(private readonly toolBindings: readonly EngineToolBinding[] = [], private readonly route?: HostedRoute) {}
@@ -96,8 +98,10 @@ export class PiEngine implements EngineAdapter {
     if (spec.allowedTools.some((allowed) => !this.toolBindings.some((binding) => binding.release.id === allowed.id && binding.release.digest === allowed.digest))) throw new Error("Pi Agent tool definitions are incomplete; refusing execution");
     // The allowance is judged at every tool call (a turn boundary), not once at the end: a model left to run can use several times its allowance first.
     const calls = new GovernedToolCalls(this.toolBindings, spec, (kind, payload) => this.push(kind, payload), {
-      maxCalls: spec.limits.maxTurns,
+      maxCalls: this.callCeiling(spec), maxRepeats: REPEAT_BUDGET,
       refuse: () => this.allowanceStop(spec),
+      note: (used) => `tool calls used: ${used} of ${this.callCeiling(spec)}; tokens used: ${this.tokensUsed().toLocaleString("en-US")} of ${spec.limits.maxTokens.toLocaleString("en-US")}. If this answered what the task asks, write the final answer now.`,
+      exhausted: (why) => this.endTools(spec, why),
     });
     this.toolCalls = calls;
     const customTools = this.toolBindings.map((binding) => ({
@@ -121,25 +125,23 @@ export class PiEngine implements EngineAdapter {
     const mgr = manager as { getSessionId?: () => string; getSessionFile?: () => string | undefined };
     this.sessionId = mgr.getSessionId?.() ?? `pi-${Date.now().toString(36)}`;
     this.sessionFile = mgr.getSessionFile?.();
-    (session as unknown as { subscribe: (fn: (event: { type: string; message?: { role?: string; stopReason?: string; errorMessage?: string; content?: Array<{ type: string; text?: string }> }; assistantMessageEvent?: { type: string; delta?: string } }) => void) => void }).subscribe((event) => {
-      if (event.type === "message_update" && event.assistantMessageEvent?.type === "text_delta") {
-        const text = event.assistantMessageEvent.delta ?? "";
-        this.output += text;
-        this.push("text", { text, channel: "assistant", provisional: true });
-      }
-      if (event.type === "message_end" && event.message?.role === "assistant") {
-        const message = event.message;
-        // The first cause stands: an attempt stopped for its allowance ends with an "aborted" message that must not hide that reason.
-        if (!this.keepAnswer && (message.stopReason === "error" || message.stopReason === "aborted")) this.failure ??= message.errorMessage ?? `Pi stopped: ${message.stopReason}`;
-        if (!this.output && message.content) {
-          const text = message.content.filter((part) => part.type === "text").map((part) => part.text ?? "").join("");
-          if (text) { this.output = text; this.push("text", { text, channel: "assistant", provisional: true }); }
-        }
-        // A reasoning model can spend its whole output allowance thinking and never write the answer; say so instead of "no output".
-        if (message.stopReason === "length" && !this.output.trim()) this.failure = "the model used its whole output limit before writing an answer";
-      }
-    });
+    (session as unknown as { subscribe: (fn: (event: SessionEvent) => void) => void }).subscribe((event) => this.observe(event));
     return { sessionId: this.sessionId };
+  }
+
+  /** What the model said and how each of its messages ended, as the vendor session reports it. */
+  private observe(event: SessionEvent): void {
+    if (event.type !== "message_end" || event.message?.role !== "assistant") return;
+    const message = event.message;
+    // The first cause stands: an attempt stopped for its allowance ends with an "aborted" message that must not hide that reason.
+    if (!this.keepAnswer && (message.stopReason === "error" || message.stopReason === "aborted")) this.failure ??= message.errorMessage ?? `Pi stopped: ${message.stopReason}`;
+    // The answer is the last message the model wrote: what it said while it was still calling tools is narration, never part of the JSON deliverable.
+    const text = (message.content ?? []).filter((part) => part.type === "text").map((part) => part.text ?? "").join("");
+    const narration = (message.content ?? []).some((part) => part.type === "toolCall");
+    this.output = text;
+    if (text) this.push("text", { text, channel: narration ? "diagnostic" : "assistant", provisional: true });
+    // A reasoning model can spend its whole output allowance thinking and never write the answer; say so instead of "no output".
+    if (message.stopReason === "length" && !this.output.trim()) this.failure = "the model used its whole output limit before writing an answer";
   }
 
   /** What this attempt has used so far, from the vendor session's own totals. */
@@ -168,18 +170,33 @@ export class PiEngine implements EngineAdapter {
       return "This attempt's allowance is used up. Do not call more tools.";
     }
     const wrapUp = wrapUpReason(use, spec.limits);
-    // A tool answer is easy to talk past; a message from the user is not. It reaches the model at the next turn boundary, once.
-    if (wrapUp && !this.wrappedUp) {
-      this.wrappedUp = true;
-      void this.session?.steer(wrapUp).catch(() => undefined);
-    }
+    // A tool answer is easy to talk past, and a refused call still costs a whole turn at the full prompt size: the tools are taken away so the
+    // next turn can only be the answer.
+    if (wrapUp) this.endTools(spec, wrapUp);
     return wrapUp;
+  }
+
+  /** The tool calls this attempt may make: from its task, never more than the agent's turn limit. */
+  private callCeiling(spec: EngineSessionSpec): number { return toolCallCeiling(spec.task, spec.limits.maxTurns); }
+
+  private tokensUsed(): number { return this.session?.getSessionStats().tokens.total ?? 0; }
+
+  /**
+   * Takes the tools away and tells the model, once, exactly how many tokens are left: the vendor session applies the change at its next turn,
+   * and the message reaches the model at that turn boundary. The model has nothing left to call, so its next turn is the final answer.
+   */
+  private endTools(spec: EngineSessionSpec, why: string): void {
+    if (this.toolsEnded) return;
+    this.toolsEnded = true;
+    try { this.session?.setActiveToolsByName([]); } catch { /* the refusal of any further call still holds */ }
+    void this.session?.steer(finalTurnNotice(why, spec.limits.maxTokens - this.tokensUsed())).catch(() => undefined);
   }
 
   private async complete(spec: EngineSessionSpec): Promise<void> {
     try {
       if (!this.session) throw new Error("Pi session is unavailable");
-      const prompt = `${spec.instructions.trim()}\n\nTask:\n${spec.task}`.trim();
+      // The instructions are this session's system prompt already; sending them again as the first message would re-send them on every turn.
+      const prompt = this.toolBindings.length > 0 && spec.allowedTools.length > 0 ? `${spec.task}\n\n${attemptLimitsNotice(this.callCeiling(spec), spec.limits.maxTokens)}` : spec.task;
       await this.session.prompt(prompt);
       // What was used is reported whether or not the attempt succeeded: a stopped attempt spent its tokens too.
       const usage = this.session.getSessionStats();
@@ -212,7 +229,7 @@ export class PiEngine implements EngineAdapter {
     this.output = "";
     this.failure = undefined;
     this.tokensAtLastCheck = 0;
-    this.wrappedUp = false;
+    this.toolsEnded = false;
     this.keepAnswer = false;
     this.stream = new EngineEventStream();
     mkdirSync(this.sessionsDir(), { recursive: true });

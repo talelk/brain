@@ -43,7 +43,9 @@ const bindings: EngineToolBinding[] = TOOLS.map(([id, schema, effectClass], inde
 
 const fixture = (name: string, fallback: string): string => (fixtures && existsSync(join(fixtures, name)) ? readFileSync(join(fixtures, name), "utf8") : fallback);
 const EXEC: Record<string, string> = {
-  "docker.ps": fixture("docker-ps.txt", "brain-governor-1\tUp 4 hours (healthy)\nweb-1\tUp 2 days\n"),
+  // The captured output has no image column (the host command printed name, status, ports): the worst case, a criterion the tool cannot meet.
+  // `--images` adds one, as the host command now does.
+  "docker.ps": fixture("docker-ps.txt", "brain-governor-1\tUp 4 hours (healthy)\nweb-1\tUp 2 days\n").split("\n").map((row) => (process.argv.includes("--images") && row ? row.replace(/^([^\t]+)\t/u, "$1\tkeyrus/$1:latest\t") : row)).join("\n"),
   "docker.stats": fixture("docker-stats.txt", "brain-governor-1\t19.29%\t298.3MiB / 3GiB\nweb-1\t0.03%\t224.9MiB / 8GiB\n"),
   "docker.df": "TYPE\tTOTAL\tACTIVE\tSIZE\tRECLAIMABLE\nImages\t52\t34\t41.2GB\t12.8GB (31%)\nContainers\t41\t34\t1.1GB\t0B\nLocal Volumes\t60\t30\t18.4GB\t6.1GB (33%)",
   "host.df": "Filesystem      Size  Used Avail Use% Mounted on\n/dev/nvme0n1p2  1.8T  1.1T  600G  65% /srv",
@@ -91,12 +93,13 @@ const sections: PackSection[] = [
   ] },
   { id: "handoff-notes", title: "Handoff notes from those tasks (written by the member)", label: "claim", items: notes.map((note) => ({ id: note.name, prose: true, label: `Handoff note from ${note.name}`, text: `- ${note.name}: ${note.text}` })) },
 ];
-const budget = contextBudget(100_000, taskText);
+const budget = contextBudget(100_000, taskText, true);
 const pack = withContext ? buildContextPack({ sections, budgetTokens: budget, identity: { runId: "run", jobId: "job", workItemId: "wi", agentId: "sre-operator" } }) : undefined;
 const prompt = promptWithContext(taskText, pack);
 
 const t0 = Date.now();
 let turn = 0;
+let totalTokens = 0;
 const engine = new PiEngine(bindings);
 console.log(`task=${which} instructions=${instructions.length} chars, pack=${pack ? pack.text.length : 0} chars (budget ${budget} tokens), prompt=${prompt.length} chars`);
 const result = await runAgentExecution({
@@ -123,10 +126,14 @@ const result = await runAgentExecution({
   },
   emit: async (_kind, payload) => {
     const event = payload as { kind?: string; payload?: { inputTokens?: number; outputTokens?: number; cachedInputTokens?: number } };
-    if (event.kind === "usage") console.log(`usage input=${event.payload?.inputTokens} output=${event.payload?.outputTokens} cached=${event.payload?.cachedInputTokens}`);
+    if (event.kind === "usage") {
+      totalTokens = (event.payload?.inputTokens ?? 0) + (event.payload?.outputTokens ?? 0) + (event.payload?.cachedInputTokens ?? 0);
+      console.log(`usage input=${event.payload?.inputTokens} output=${event.payload?.outputTokens} cached=${event.payload?.cachedInputTokens}`);
+    }
   },
 });
-const out = result.output as { error?: string; summary?: string; criteria?: unknown[] };
-console.log(`\nok=${result.ok} seconds=${Math.round((Date.now() - t0) / 1000)} turns=${turn}`);
-console.log(out.error ? `ERROR ${out.error}` : `keys: ${Object.keys(out).join(",")}\nsummary: ${String(out.summary).slice(0, 300)}\ncriteria answered: ${out.criteria?.length ?? 0} of ${task.criteria.length}`);
-process.exit(0);
+const out = result.output as { error?: string; summary?: string; deliverable?: string; criteria?: unknown[]; assumptions?: unknown[] };
+const complete = result.ok && typeof out.summary === "string" && typeof out.deliverable === "string" && Array.isArray(out.criteria) && out.criteria.length === task.criteria.length && Array.isArray(out.assumptions);
+console.log(`\nok=${result.ok} complete=${complete} seconds=${Math.round((Date.now() - t0) / 1000)} turns=${turn} tokens=${totalTokens} (limit ${which === "report" ? 60_000 : 30_000})`);
+console.log(out.error ? `ERROR ${out.error}` : `summary: ${String(out.summary).slice(0, 300)}\ncriteria answered: ${out.criteria?.length ?? 0} of ${task.criteria.length}`);
+process.exit(complete && totalTokens < (which === "report" ? 60_000 : 30_000) ? 0 : 1);

@@ -208,13 +208,18 @@ export const CONTEXT_BUDGET_SHARE = 0.25;
 /** The whole prompt (context pack, the task's own brief and the agent's instructions) may use this share of the agent's token ceiling; the rest is for the reply. */
 export const PROMPT_BUDGET_SHARE = 0.5;
 const INSTRUCTION_RESERVE_TOKENS = 1500;
+/**
+ * A tool-using agent works by looking, not by reading its pack: the pack is re-sent with every turn of the attempt (a 25k pack over eight turns
+ * is 200k tokens), so it stays small and what is cut is one read away by reference (documents.read with the artifact id).
+ */
+export const TOOL_CONTEXT_BUDGET_TOKENS = 4000;
 
 /**
  * The pack's token budget: its own share of the ceiling, but never more than what the overall prompt budget leaves after the task's brief
  * (a long brief with upstream deliverables can be ~7000 tokens) and the instructions. A floor keeps the facts of the brief in.
  */
-export function contextBudget(maxTokens: number, taskText: string): number {
-  const own = Math.floor(maxTokens * CONTEXT_BUDGET_SHARE);
+export function contextBudget(maxTokens: number, taskText: string, usesTools = false): number {
+  const own = Math.min(Math.floor(maxTokens * CONTEXT_BUDGET_SHARE), usesTools ? TOOL_CONTEXT_BUDGET_TOKENS : Infinity);
   const left = Math.floor(maxTokens * PROMPT_BUDGET_SHARE) - Math.ceil(taskText.length / 4) - INSTRUCTION_RESERVE_TOKENS;
   return Math.max(256, Math.min(own, left));
 }
@@ -260,7 +265,7 @@ function pinContextPack(s: Store, build: ContextPackPort, organizationId: string
   // The prompt the runner sends is this pack followed by the step's task (or its input): the pack budget leaves room for it, and the pack skips what the task already says.
   const situation = (payload.input as { situation?: unknown } | null | undefined)?.situation;
   const taskText = payload.step?.task ?? (typeof situation === "string" ? situation : JSON.stringify(payload.input ?? {}));
-  const pack = build(organizationId, workspaceId, { runId: String(job["workflow_run_id"]), jobId, agentId, budgetTokens: contextBudget(maxTokens, taskText), taskText, tools });
+  const pack = build(organizationId, workspaceId, { runId: String(job["workflow_run_id"]), jobId, agentId, budgetTokens: contextBudget(maxTokens, taskText, tools.length > 0), taskText, tools });
   if (!pack) return;
   const store = (artifactId: string, text: string, mediaType: string) => {
     const bytes = new TextEncoder().encode(text);

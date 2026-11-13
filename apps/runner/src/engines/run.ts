@@ -190,7 +190,8 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
         await bounded(engine.toolResult(sessionId, result));
       }
       if (event.kind === "error") { engineError = true; engineDetail ||= event.payload.error.detail.replace(/\s+/gu, " ").trim(); }
-      if (event.kind === "text") outputText += event.payload.text;
+      // Only what the model says as its answer counts: narration while it still calls tools, and engine notes, are on the diagnostic channel.
+      if (event.kind === "text" && event.payload.channel === "assistant") outputText += event.payload.text;
       if (event.kind === "session.stopped") {
         terminalReason = event.payload.reason;
         terminalConfirmed = event.payload.terminationConfirmed;

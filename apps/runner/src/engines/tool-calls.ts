@@ -21,6 +21,12 @@ export interface ToolCallPolicy {
   readonly maxCalls?: number;
   /** A reason to refuse every further call right now (the attempt's allowance is nearly used); the model is told to write its answer. */
   readonly refuse?: () => string | undefined;
+  /** Identical read calls the model may repeat (each is told it already has the answer) before the session's tools are taken away. */
+  readonly maxRepeats?: number;
+  /** One line added to the answer of every executed call: how much of the attempt is used. */
+  readonly note?: (callsUsed: number) => string | undefined;
+  /** The session has used its calls or its repeat budget: the engine takes the tools away so the next turn can only be the answer. */
+  readonly exhausted?: (why: string) => void;
 }
 
 export class GovernedToolCalls {
@@ -28,7 +34,9 @@ export class GovernedToolCalls {
   private readonly pending = new Map<string, (result: EngineToolExecutionResult) => void>();
   /** Read calls already answered in this session, by tool and input digest: asking again is told so instead of paying for the same answer twice. */
   private readonly answered = new Set<string>();
-  private calls = 0;
+  /** Every call the model asked for, refused or not: a refused or repeated call costs a whole model turn too, so the ceiling counts these. */
+  private asked = 0;
+  private repeats = 0;
   constructor(bindings: readonly EngineToolBinding[], private readonly spec: EngineSessionSpec, private readonly push: (kind: EngineEvent["kind"], payload: EngineEvent["payload"]) => void, private readonly policy: ToolCallPolicy = {}) {
     for (const binding of bindings) this.bindings.set(nativeToolName(binding.release.id), binding);
   }
@@ -46,23 +54,30 @@ export class GovernedToolCalls {
     const binding = this.binding(name);
     const stop = this.policy.refuse?.();
     if (stop) return JSON.stringify({ refused: true, error: stop });
-    if (this.policy.maxCalls !== undefined && this.calls >= this.policy.maxCalls) {
+    const limit = this.policy.maxCalls;
+    this.asked += 1;
+    if (limit !== undefined && this.asked > limit) {
       return JSON.stringify({ refused: true, error: "The tool-call budget is used up. Stop calling tools now and write the answer from what you already have, saying what you could not check." });
     }
     if (this.pending.has(proposalId)) throw new Error("duplicate tool proposal identifier");
     const inputDigest = sha256Digest(new TextEncoder().encode(JSON.stringify(input)));
     const asked = `${name}:${inputDigest}`;
     if (binding.effectClass === "read" && this.answered.has(asked)) {
-      return JSON.stringify({ refused: true, error: "You already made this exact call and its answer is earlier in this conversation. Use that answer instead of asking again." });
+      this.repeats += 1;
+      const spent = this.policy.maxRepeats !== undefined && this.repeats >= this.policy.maxRepeats;
+      if (spent) this.policy.exhausted?.("You keep repeating a call you already have the answer to.");
+      else if (limit !== undefined && this.asked >= limit) this.policy.exhausted?.("That was your last tool call.");
+      return JSON.stringify({ refused: true, error: "You already have this: the same call was answered earlier in this conversation and nothing has changed. Do not call it again; write your answer now from that result." });
     }
-    this.calls += 1;
     const result = new Promise<EngineToolExecutionResult>((resolve) => this.pending.set(proposalId, resolve));
     this.push("tool.proposed", { proposalId, tool: binding.release, input, target: binding.target, inputDigest });
     try {
       const completed = await result;
       this.push("tool.result", { proposalId, invocationId: completed.invocationId, receipt: completed.receipt });
       if (completed.receipt.result === "succeeded") this.answered.add(asked);
-      return boundedToolText(completed.output);
+      if (limit !== undefined && this.asked >= limit) this.policy.exhausted?.("That was your last tool call.");
+      const note = this.policy.note?.(this.asked);
+      return `${boundedToolText(completed.output)}${note ? `\n[${note}]` : ""}`;
     } finally { this.pending.delete(proposalId); }
   }
   complete(result: EngineToolExecutionResult): void {

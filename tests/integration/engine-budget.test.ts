@@ -4,7 +4,7 @@ import { engineFailureDetail } from "../../apps/runner/src/engines/failure-detai
 import { classifyFailure } from "../../apps/governor/src/domain/failure";
 import { holdsCompleteObject } from "../../apps/runner/src/engines/json-reply";
 import { PiEngine } from "../../apps/runner/src/engines/pi";
-import { overAllowanceReason, wrapUpReason } from "../../apps/runner/src/engines/limits";
+import { attemptLimitsNotice, criteriaIn, finalTurnNotice, overAllowanceReason, REPEAT_BUDGET, toolCallCeiling, wrapUpReason } from "../../apps/runner/src/engines/limits";
 import { runAgentExecution } from "../../apps/runner/src/engines/run";
 import { boundedToolText, GovernedToolCalls, TOOL_RESULT_CHARS } from "../../apps/runner/src/engines/tool-calls";
 
@@ -62,7 +62,7 @@ describe("a model that asks again", () => {
     expect(await calls.execute("brain_host_exec", "c1", { command: "docker.ps" })).toContain("containers");
     const again = JSON.parse(await calls.execute("brain_host_exec", "c2", { command: "docker.ps" })) as { refused: boolean; error: string };
     expect(again).toMatchObject({ refused: true });
-    expect(again.error).toMatch(/already made this exact call/u);
+    expect(again.error).toMatch(/You already have this.*Do not call it again; write your answer now/u);
     expect(proposed).toEqual(["c1"]);
     // A different argument is a different call.
     expect(await calls.execute("brain_host_exec", "c3", { command: "docker.stats" })).toContain("containers");
@@ -191,10 +191,10 @@ describe("the Pi engine judges its allowance at each tool call", () => {
   type Internals = { session: unknown; output: string; failure?: string; keepAnswer: boolean; allowanceStop: (spec: EngineSessionSpec) => string | undefined };
   function pi(totals: { tokens: number }, output = "") {
     const engine = new PiEngine([]) as unknown as Internals;
-    const log = { steered: [] as string[], aborted: 0 };
+    const log = { steered: [] as string[], aborted: 0, toolSets: [] as string[][] };
     engine.session = {
       getSessionStats: () => ({ assistantMessages: 3, tokens: { input: totals.tokens, output: 0, cacheRead: 0, total: totals.tokens }, cost: 0 }),
-      steer: async (text: string) => { log.steered.push(text); }, abort: async () => { log.aborted++; }, dispose: () => undefined,
+      steer: async (text: string) => { log.steered.push(text); }, setActiveToolsByName: (names: string[]) => { log.toolSets.push(names); }, abort: async () => { log.aborted++; }, dispose: () => undefined,
     };
     engine.output = output;
     return { engine, log };
@@ -207,7 +207,7 @@ describe("the Pi engine judges its allowance at each tool call", () => {
     expect(engine.allowanceStop(pinned)).toBeUndefined();
     totals.tokens = 65_000;
     expect(engine.allowanceStop(pinned)).toBeUndefined();
-    expect(log).toEqual({ steered: [], aborted: 0 });
+    expect(log).toEqual({ steered: [], aborted: 0, toolSets: [] });
   });
 
   it("at 80% refuses the call and steers the model to answer, once", () => {
