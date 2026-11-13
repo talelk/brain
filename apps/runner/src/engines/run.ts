@@ -1,6 +1,5 @@
 import type { EngineAdapter, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue, ReleaseRef } from "@brain/contracts";
 import { sha256Digest } from "@brain/contracts";
-import { engineFailureDetail } from "./failure-detail";
 import { decodeModelJson } from "./json-reply";
 export { decodeModelJson, repairJsonStrings } from "./json-reply";
 import { FixtureEngine } from "./fixture";

@@ -91,10 +91,10 @@ describe("a model that asks again", () => {
   });
 
   it("is refused while the engine says the attempt's allowance is nearly used", async () => {
-    let reason: string | undefined;
-    const { calls, proposed } = governed([binding("host.read")], { refuse: () => reason }, () => ({ ok: true }));
+    const state: { reason?: string } = {};
+    const { calls, proposed } = governed([binding("host.read")], { refuse: () => state.reason }, () => ({ ok: true }));
     await calls.execute("brain_host_read", "a", { path: "1" });
-    reason = "allowance nearly used";
+    state.reason = "allowance nearly used";
     expect(JSON.parse(await calls.execute("brain_host_read", "b", { path: "2" }))).toEqual({ refused: true, error: "allowance nearly used" });
     expect(proposed).toEqual(["a"]);
   });

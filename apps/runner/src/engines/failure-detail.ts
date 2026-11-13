@@ -4,7 +4,7 @@
  * output contract, a tool failed, or the attempt was stopped.
  */
 const CAUSES: ReadonlyArray<readonly [RegExp, string]> = [
-  [/context (?:length|window)|maximum context|too many (?:input )?tokens|prompt is too long|context_length_exceeded|exceed(?:s|ed)? the (?:model'?s )?(?:context|limit)/iu, "context overflow"],
+  [/context (?:length|window)|maximum context|too many (?:input )?tokens|prompt is too long|context_length_exceeded|exceeds? the context/iu, "context overflow"],
   [/used its allowance|allowance is used|token budget|tool-call budget|turn budget/iu, "budget"],
   [/schema|does not meet the required output|output contract|validation failed|not valid json|invalid json/iu, "schema mismatch"],
   [/tool [\w.-]+ (?:failed|is not allowed|refused|error)|tool (?:call|input|execution)\b|governed broker/iu, "tool error"],
