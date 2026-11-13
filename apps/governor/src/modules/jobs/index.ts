@@ -21,3 +21,4 @@ export { unknownJobsForWorkspace } from "./unknown";
 export { runContext } from "./run-context";
 export { drainStatus, isDraining, setDraining } from "./drain";
 export { hostedConfig, modelRouteFor } from "./model-route";
+export { effectResultFor } from "./effect-hold";

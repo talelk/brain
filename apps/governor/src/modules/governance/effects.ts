@@ -6,7 +6,7 @@ import { transitionState } from "../../domain/states";
 import type { Store } from "../../application/store";
 import type { BrainAuth } from "../identity/index";
 import { releaseRecord } from "../configuration/index";
-import { assertAttemptLive, loadAttempt } from "../jobs/index";
+import { assertAttemptLive, effectResultFor, loadAttempt } from "../jobs/index";
 import { issuePermit, validatePermit } from "./permits";
 
 /**
@@ -107,25 +107,47 @@ function runnerGroupAllowsHostTools(s: Store, organizationId: string, groupId: s
 interface AttemptContext {
   readonly row: Record<string, unknown>; readonly organizationId: string; readonly workspaceId: string;
   readonly configDigest: string; readonly target: { targetId: string; environmentId: string; preconditionDigest: string };
+  /** The agent whose allowlist backs the call: the step's own agent, or (for an act job) the agent that proposed it. */
+  readonly agent: { id: string; digest: string };
+  readonly effectClass: string;
+  /** True for the attempt of a held act job (ADR 0028): the only attempt that may take a permit and run the call. */
+  readonly isAct: boolean;
 }
 
-/** The attempt, live and the runner's own, with the pinned tool: an agent step whose agent lists exactly this tool at this digest, declared non-read. */
+/** An act job's payload: the call an approved proposal will make, with the job and attempt that proposed it. */
+interface ActPayload { readonly proposalId: string; readonly approvalId: string; readonly parentJobId: string; readonly parentAttemptId: string; readonly agent: { id: string; digest: string } }
+
+/**
+ * The attempt, live and the runner's own, with the pinned tool: an agent step whose agent lists exactly this tool at this digest, declared
+ * non-read, or the held act job of such a proposal (checked against the agent that proposed it).
+ */
 function attemptContext(s: Store, runner: Runner, attemptId: string, tool: { id: string; digest: string }): AttemptContext {
   const row = loadAttempt(s, attemptId);
   if (String(row["organization_id"]) !== runner.organizationId) throw new BrainDomainError("NOT_FOUND", "attempt not found");
   assertAttemptLive(s, runner, row);
   const organizationId = String(row["organization_id"]);
   const workspaceId = String(row["workspace_id"]);
-  const payload = s.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(String(row["job_id"])) as { payload_json: string } | undefined;
-  const step = payload ? (JSON.parse(payload.payload_json) as { step?: { uses?: { type?: string; release?: { id: string } } } }).step : undefined;
+  const payload = s.control.prepare("SELECT kind, payload_json FROM job_payloads WHERE job_id=?").get(String(row["job_id"])) as { kind: string; payload_json: string } | undefined;
+  const parsed = payload ? JSON.parse(payload.payload_json) as { step?: { uses?: { type?: string; release?: { id: string; digest: string } } }; act?: ActPayload } : undefined;
+  const isAct = payload?.kind === "act";
+  const agentRef = isAct ? parsed?.act?.agent : parsed?.step?.uses?.type === "agent" ? parsed.step.uses.release : undefined;
   const configDigest = (s.control.prepare("SELECT config_digest FROM jobs WHERE id=?").get(String(row["job_id"])) as { config_digest: string }).config_digest;
   const release = releaseRecord(s, organizationId, configDigest)?.release;
-  const agent = step?.uses?.type === "agent" && step.uses.release ? release?.agents?.[step.uses.release.id] : undefined;
-  if (!agent || !agent.spec.tools.some((allowed) => allowed.id === tool.id && allowed.digest === tool.digest)) throw new BrainDomainError("FORBIDDEN", `this attempt's agent does not allow ${tool.id} at that digest`);
+  const agent = agentRef ? release?.agents?.[agentRef.id] : undefined;
+  if (!agentRef || !agent || !agent.spec.tools.some((allowed) => allowed.id === tool.id && allowed.digest === tool.digest)) throw new BrainDomainError("FORBIDDEN", `this attempt's agent does not allow ${tool.id} at that digest`);
   const declared = release?.manifest.tools?.find((candidate) => candidate.id === tool.id && candidate.digest === tool.digest);
   if (!declared || declared.effectClass === "read") throw new BrainDomainError("FORBIDDEN", `${tool.id} is not an effect tool of the pinned release`);
   if (!isEffectTool(tool.id)) throw new BrainDomainError("FORBIDDEN", `${tool.id} has no effect policy on this server, so it cannot run`);
-  return { row, organizationId, workspaceId, configDigest, target: { targetId: `tool:${declared.id}`, environmentId: declared.allowedEnvironments?.[0] ?? "local", preconditionDigest: declared.digest } };
+  return { row, organizationId, workspaceId, configDigest, agent: agentRef, effectClass: declared.effectClass, isAct, target: { targetId: `tool:${declared.id}`, environmentId: declared.allowedEnvironments?.[0] ?? "local", preconditionDigest: declared.digest } };
+}
+
+const HOLD_REASON = "AWAITING_APPROVAL";
+/** How many changes one task may propose in all (a model that keeps asking is stopped; a person can start the task again). */
+const MAX_CALLS_PER_JOB = 10;
+
+interface CallRow {
+  attempt_id: string; proposal_id: string; organization_id: string; workspace_id: string; approval_id: string; tool_id: string; input_digest: string;
+  resource_key: string; created_at_ms: number; parent_job_id: string; act_job_id: string; outcome: string | null; settled_at_ms: number | null;
 }
 
 function expireIfDue(s: Store, approvalId: string): string {
@@ -162,8 +184,16 @@ export function requestEffect(s: Store, ports: EffectPorts, runner: Runner, atte
     throw new BrainDomainError(code, reason);
   };
   const policy = POLICIES[tool.id]!;
-  const existing = s.control.prepare("SELECT approval_id FROM effect_calls WHERE attempt_id=? AND proposal_id=?").get(attemptId, proposalId) as { approval_id: string } | undefined;
-  if (existing) return effectStatus(s, runner, attemptId, proposalId);
+  // A held change is made by its own act job, never by the attempt that proposed it: an act attempt cannot propose another change.
+  if (context.isAct) return refuse("FORBIDDEN", "an approved change cannot propose further changes");
+  const parentJobId = String(context.row["job_id"]);
+  const existing = s.control.prepare("SELECT * FROM effect_calls WHERE attempt_id=? AND proposal_id=?").get(attemptId, proposalId) as CallRow | undefined;
+  if (existing) return describeCall(s, existing);
+  // Asking again for the same change (same tool, same arguments) never makes a second approval: the answer is the first one's state, so a
+  // model that keeps proposing, or a resumed attempt that repeats itself, is told what became of the change and cannot loop.
+  const repeated = s.control.prepare("SELECT * FROM effect_calls WHERE parent_job_id=? AND tool_id=? AND input_digest=? ORDER BY created_at_ms LIMIT 1").get(parentJobId, tool.id, effectInputDigest(input)) as CallRow | undefined;
+  if (repeated) return { ...(describeCall(s, repeated) as Record<string, JsonValue>), duplicate: true } as unknown as JsonValue;
+  if ((s.control.prepare("SELECT COUNT(*) AS n FROM effect_calls WHERE parent_job_id=?").get(parentJobId) as { n: number }).n >= MAX_CALLS_PER_JOB) return refuse("FORBIDDEN", `this task already proposed ${MAX_CALLS_PER_JOB} changes; no more are taken`);
   try {
     if (policy.host) {
       const group = (s.control.prepare("SELECT group_id FROM runners WHERE id=?").get(runner.runnerId) as { group_id: string }).group_id;
@@ -180,47 +210,64 @@ export function requestEffect(s: Store, ports: EffectPorts, runner: Runner, atte
   const allow = effectAllowList(s, context.workspaceId);
   const expiresAtMs = s.now() + allow.approvalMinutes * 60_000;
   const resource = policy.resource(input) ?? "";
+  const approvalId = s.id("apr");
+  const actJobId = s.id("job");
   const subject: ActionSubject = {
     organizationId: context.organizationId, workspaceId: context.workspaceId, operation: `effect.${tool.id}`.slice(0, 64),
     tool, inputDigest: effectInputDigest(input), target: context.target,
     artifactDigest: tool.digest, policyDigest: domainDigest("brain:effect-policy:v1", { containers: allow.containers, services: allow.services } as unknown as JsonValue),
     configDigest: context.configDigest,
-    effectBounds: { summary, arguments: input as unknown as JsonValue, attemptId, proposalId, once: true },
+    // The approval names the held act job that will make this call (ADR 0028), the proposing attempt for the record, and the proposal.
+    effectBounds: { summary, arguments: input as unknown as JsonValue, attemptId, actJobId, proposalId, once: true },
     expiresAt: iso(expiresAtMs), nonce: proposalId.slice(0, 120),
   };
-  let approvalId = "";
   s.inTx(s.control, () => {
-    approvalId = s.id("apr");
     // The requester is the platform, never the person who started the mission: the owner may decide their own mission's call from a phone.
     s.control.prepare(`INSERT INTO approval_requests(id, organization_id, workspace_id, requested_by, subject_digest, subject_json, state, expires_at_ms, created_at_ms)
       VALUES (?,?,?,?,?,?,'pending',?,?)`).run(approvalId, context.organizationId, context.workspaceId, "system:effect-call", approvalDigest(subject), JSON.stringify(subject), expiresAtMs, s.now());
-    s.control.prepare("INSERT INTO effect_calls(attempt_id, proposal_id, organization_id, workspace_id, approval_id, tool_id, input_digest, resource_key, created_at_ms) VALUES (?,?,?,?,?,?,?,?,?)")
-      .run(attemptId, proposalId, context.organizationId, context.workspaceId, approvalId, tool.id, subject.inputDigest, resource, s.now());
+    // The held act job: blocked (no runner can claim it) until the approval is decided, with the parent's placement, so it runs in the group
+    // that may touch the host. It carries the call itself; the permit it will take is bound to this job and no other.
+    const parent = s.control.prepare("SELECT placement_json FROM jobs WHERE id=?").get(parentJobId) as { placement_json: string };
+    const act: ActPayload = { proposalId, approvalId, parentJobId, parentAttemptId: attemptId, agent: context.agent };
+    const actPayload = { kind: "act", input: input as unknown as JsonValue, act, step: { uses: { type: "tool", release: tool }, effectClass: "read", target: context.target } };
+    s.control.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, queue_reason, created_at_ms, ready_at_ms, deadline_ms)
+      VALUES (?,?,?,?,?,?,'blocked',?,?,?,?,?,?,?,?)`)
+      .run(actJobId, context.organizationId, context.workspaceId, `act:${approvalId}`, `act-${approvalId}`, "act", context.configDigest, parent.placement_json, domainDigest("brain:act-job:v1", actPayload as unknown as JsonValue), context.effectClass, HOLD_REASON, s.now(), s.now(), expiresAtMs + 24 * 3600_000);
+    s.control.prepare("INSERT INTO job_payloads(job_id, kind, payload_json) VALUES (?,?,?)").run(actJobId, "act", JSON.stringify(actPayload));
+    s.control.prepare("INSERT INTO effect_calls(attempt_id, proposal_id, organization_id, workspace_id, approval_id, tool_id, input_digest, resource_key, created_at_ms, parent_job_id, act_job_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
+      .run(attemptId, proposalId, context.organizationId, context.workspaceId, approvalId, tool.id, subject.inputDigest, resource, s.now(), parentJobId, actJobId);
     s.emit(s.control, { organizationId: context.organizationId, workspaceId: context.workspaceId, aggregateType: "approval", aggregateId: approvalId, eventType: "approval.requested", payload: { approvalId, subjectDigest: approvalDigest(subject), effect: tool.id } });
   });
   ports.notifyApprovers({ organizationId: context.organizationId, workspaceId: context.workspaceId, approvalId, summary });
-  return { approvalId, state: "pending", expiresAt: subject.expiresAt, summary } as unknown as JsonValue;
+  return { approvalId, state: "pending", expiresAt: subject.expiresAt, summary, held: true } as unknown as JsonValue;
 }
 
 function approvalDigest(subject: ActionSubject): string { return approvalSubjectDigest(subject as unknown as JsonValue); }
 
-/** Where a proposed call stands: pending, approved, rejected, expired or revoked. */
-export function effectStatus(s: Store, runner: Runner, attemptId: string, proposalId: string): JsonValue {
-  const row = loadAttempt(s, attemptId);
-  if (String(row["organization_id"]) !== runner.organizationId) throw new BrainDomainError("NOT_FOUND", "attempt not found");
-  assertAttemptLive(s, runner, row);
-  const call = s.control.prepare("SELECT approval_id FROM effect_calls WHERE attempt_id=? AND proposal_id=?").get(attemptId, proposalId) as { approval_id: string } | undefined;
-  if (!call) throw new BrainDomainError("NOT_FOUND", "no such effect call");
-  const state = expireIfDue(s, call.approval_id);
+/** Where a proposed call stands: what the approval says, and what became of the change once it was settled. */
+function describeCall(s: Store, call: CallRow): JsonValue {
+  const state = call.settled_at_ms === null ? expireIfDue(s, call.approval_id) : (s.control.prepare("SELECT state FROM approval_requests WHERE id=?").get(call.approval_id) as { state: string }).state;
   const approval = s.control.prepare("SELECT expires_at_ms, subject_json FROM approval_requests WHERE id=?").get(call.approval_id) as { expires_at_ms: number; subject_json: string };
   const summary = (JSON.parse(approval.subject_json) as ActionSubject).effectBounds["summary"];
-  return { approvalId: call.approval_id, state, expiresAt: iso(approval.expires_at_ms), summary: typeof summary === "string" ? summary : "" } as unknown as JsonValue;
+  const result = call.outcome === "applied" ? effectResultFor(s, call.approval_id) : undefined;
+  return { approvalId: call.approval_id, state, ...(call.outcome ? { outcome: call.outcome } : {}), ...(result ? { result } : {}), expiresAt: iso(approval.expires_at_ms), summary: typeof summary === "string" ? summary : "", held: call.settled_at_ms === null } as unknown as JsonValue;
 }
 
-/** What binds a permit to its call: the approval's own subject must name this tool, these arguments, this attempt and this proposal. */
+/** The call an act attempt makes: found by the act job it belongs to (the only attempt that may take a permit), else by the proposing attempt. */
+function callOf(s: Store, context: AttemptContext, attemptId: string, proposalId: string): CallRow | undefined {
+  return context.isAct
+    ? s.control.prepare("SELECT * FROM effect_calls WHERE act_job_id=? AND proposal_id=?").get(String(context.row["job_id"]), proposalId) as CallRow | undefined
+    : s.control.prepare("SELECT * FROM effect_calls WHERE attempt_id=? AND proposal_id=?").get(attemptId, proposalId) as CallRow | undefined;
+}
+
+/**
+ * What binds a permit to its call: the approval's own subject must name this tool, these arguments, this held act job and this proposal.
+ * Only the act job's own attempt is bound; the attempt that proposed the call can never take its permit.
+ */
 function boundApproval(s: Store, context: AttemptContext, attemptId: string, proposalId: string, tool: { id: string; digest: string }, input: Input): { approvalId: string; subjectDigest: string; resource: string } {
-  const call = s.control.prepare("SELECT approval_id, tool_id, input_digest, resource_key FROM effect_calls WHERE attempt_id=? AND proposal_id=?").get(attemptId, proposalId) as { approval_id: string; tool_id: string; input_digest: string; resource_key: string } | undefined;
+  const call = callOf(s, context, attemptId, proposalId);
   if (!call) throw new BrainDomainError("APPROVAL_REQUIRED", "this call was never proposed for approval");
+  if (!context.isAct || call.act_job_id !== String(context.row["job_id"])) throw new BrainDomainError("FORBIDDEN", "only the held job of an approved proposal may make the change");
   const approval = s.control.prepare("SELECT subject_json, subject_digest FROM approval_requests WHERE id=? AND organization_id=?").get(call.approval_id, context.organizationId) as { subject_json: string; subject_digest: string } | undefined;
   if (!approval) throw new BrainDomainError("NOT_FOUND", "approval not found");
   const subject = JSON.parse(approval.subject_json) as ActionSubject;
@@ -228,7 +275,7 @@ function boundApproval(s: Store, context: AttemptContext, attemptId: string, pro
   if (approvalDigest(subject) !== approval.subject_digest) throw new BrainDomainError("CONFLICT", "approval subject was altered");
   if (subject.tool.id !== tool.id || subject.tool.digest !== tool.digest || call.tool_id !== tool.id) throw new BrainDomainError("CONFLICT", "the approval names a different tool");
   if (subject.inputDigest !== effectInputDigest(input) || call.input_digest !== subject.inputDigest) throw new BrainDomainError("CONFLICT", "the arguments differ from the ones the owner approved; nothing was run");
-  if (subject.workspaceId !== context.workspaceId || subject.organizationId !== context.organizationId || bounds["attemptId"] !== attemptId || bounds["proposalId"] !== proposalId || subject.configDigest !== context.configDigest) throw new BrainDomainError("CONFLICT", "the approval belongs to a different call");
+  if (subject.workspaceId !== context.workspaceId || subject.organizationId !== context.organizationId || bounds["actJobId"] !== String(context.row["job_id"]) || bounds["proposalId"] !== proposalId || subject.configDigest !== context.configDigest) throw new BrainDomainError("CONFLICT", "the approval belongs to a different call");
   return { approvalId: call.approval_id, subjectDigest: approval.subject_digest, resource: call.resource_key };
 }
 
@@ -283,11 +330,14 @@ export function finishEffect(s: Store, runner: Runner, attemptId: string, body: 
   const outcome = body.outcome as EffectOutcome;
   const receiptDigest = String(body.receiptDigest ?? "");
   if (!["applied", "absent", "unknown"].includes(outcome) || !/^sha256:[0-9a-f]{64}$/u.test(receiptDigest)) throw new BrainDomainError("INVALID_ARGUMENT", "outcome and receiptDigest are required");
-  const call = s.control.prepare("SELECT approval_id, tool_id, workspace_id, organization_id FROM effect_calls WHERE attempt_id=? AND proposal_id=?").get(attemptId, proposalId) as { approval_id: string; tool_id: string; workspace_id: string; organization_id: string } | undefined;
+  // Only the held act job's own attempt finishes a call.
+  const call = s.control.prepare("SELECT approval_id, tool_id, workspace_id, organization_id FROM effect_calls WHERE act_job_id=? AND proposal_id=?").get(String(row["job_id"]), proposalId) as { approval_id: string; tool_id: string; workspace_id: string; organization_id: string } | undefined;
   if (!call) throw new BrainDomainError("NOT_FOUND", "no such effect call");
   const invocationId = `inv-${call.approval_id}`;
   const updated = s.control.prepare("UPDATE effect_permits SET state=?, receipt_digest=? WHERE invocation_id=? AND attempt_id=? AND state='started'").run(outcome, receiptDigest, invocationId, attemptId);
   if (updated.changes !== 1) throw new BrainDomainError("CONFLICT", "the call is not running");
+  // A reconciled receipt (applied or certainly absent) ends the guard on the target; an unknown outcome keeps it until a person reconciles.
+  if (outcome !== "unknown") s.control.prepare("UPDATE resource_leases SET unresolved_effect=0, expires_at_ms=? WHERE invocation_id=?").run(s.now(), invocationId);
   const ws = s.workspaceDb(call.workspace_id, call.organization_id);
   ws.prepare("INSERT OR IGNORE INTO domain_operation_receipts(invocation_id, connector_id, target_key, operation, outcome, receipt_digest, observed_at_ms) VALUES (?,?,?,?,?,?,?)")
     .run(invocationId, "effect-tools", `tool:${call.tool_id}`, `effect.${call.tool_id}`.slice(0, 64), outcome, receiptDigest, s.now());

@@ -55,7 +55,7 @@ export async function effectsWorld(options: { containers?: string[]; runnerGroup
   await command("runnerGroup.set", "group", { groupId: group, hostTools: true, workspaceIds: [w.workspaceId] });
   await command("workspace.effects.set", "effects", { containers: options.containers ?? ["demo-app"], services: [] });
   const transport: typeof fetch = async (input, init) => app.fetch(new Request(input, init));
-  const cfg: RunnerConfig = { governorUrl: "http://127.0.0.1:3000", runnerId: "runner-sre", stateDir: join(root, "runner"), capabilities: ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"], engines: ["fixture"], transport, launcher, effectPollMs: 25 };
+  const cfg: RunnerConfig = { governorUrl: "http://127.0.0.1:3000", runnerId: "runner-sre", stateDir: join(root, "runner"), capabilities: ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"], engines: ["fixture"], transport, launcher };
   const session = await enrollAndHello(cfg, w.brain.jobProtocol.issueEnrollment(w.owner, group).token);
   const runner = { runnerId: cfg.runnerId, epoch: session.epoch, organizationId: w.org };
 
@@ -85,6 +85,13 @@ export async function effectsWorld(options: { containers?: string[]; runnerGroup
   return {
     root, app, w, release, command, cfg, session, runner, dispatch, decide, pendingApproval, store, socket, group,
     run: () => runOnce(cfg, session.sessionToken, session.epoch),
+    /** Runs claimable jobs one after another until the runner finds none: a proposal's held act job after its decision, then the resumed task. */
+    drain: async (limit = 10): Promise<number> => { let ran = 0; while (ran < limit && await runOnce(cfg, session.sessionToken, session.epoch)) ran++; return ran; },
+    /** Attempts a runner holds right now (a slot and a lease): none while a proposal waits for a person. */
+    liveAttempts: () => store.control.prepare("SELECT id FROM job_attempts WHERE state IN ('offered','running','uploading','cancelling')").all() as Array<{ id: string }>,
+    slotsReserved: () => (store.control.prepare("SELECT slots_reserved AS n FROM runners WHERE id=?").get(cfg.runnerId) as { n: number }).n,
+    jobs: () => store.control.prepare("SELECT id, state, queue_reason, step_id, effect_class FROM jobs ORDER BY rowid").all() as Array<{ id: string; state: string; queue_reason: string | null; step_id: string; effect_class: string }>,
+    calls: () => store.control.prepare("SELECT proposal_id, approval_id, tool_id, parent_job_id, act_job_id, outcome, settled_at_ms FROM effect_calls ORDER BY rowid").all() as Array<{ proposal_id: string; approval_id: string; tool_id: string; parent_job_id: string; act_job_id: string; outcome: string | null; settled_at_ms: number | null }>,
     restarts: (): string[] => readFileSync(counter, "utf8").split("\n").filter(Boolean),
     launcherToken: () => readFileSync(`${socket}.token`, "utf8").trim(),
     digestOf: (subjectJson: string) => approvalSubjectDigest(JSON.parse(subjectJson) as JsonValue),

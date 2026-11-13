@@ -1,3 +1,4 @@
+import { readVerified } from "../../apps/governor/src/modules/artifacts/index";
 import { rmSync } from "node:fs";
 import http from "isomorphic-git/http/node";
 import { listServerRefs } from "isomorphic-git";
@@ -31,12 +32,12 @@ describe("open a pull request (second effect tool, ADR 0024)", () => {
     expect(guide.steps.map((step) => [step.id, step.state])).toEqual([["connect", "done"], ["verify", "done"], ["write", "done"], ["bind", "done"], ["provider", "todo"]]);
 
     await world.dispatch("pr-1", [{ id: "git.open-pr", input: { title: "Raise the demo-app memory limit", body: "The container was killed for memory twice today.", branch: "brain/raise-demo-app-memory", files: [{ path: "docs/demo-app/limits.md", content: "memory: 768m\n" }] } }]);
-    const running = world.run();
+    expect(await world.run()).toBe(true);
     const approval = await world.pendingApproval();
     expect(JSON.parse(approval.subject_json).effectBounds.summary).toContain("Raise the demo-app memory limit");
     expect(opened).toEqual([]);
     await world.decide(approval, "approve");
-    expect(await running).toBe(true);
+    await world.drain();
 
     expect(opened).toEqual([expect.objectContaining({ head: "brain/raise-demo-app-memory", base: "main", title: "Raise the demo-app memory limit", token })]);
     const refs = await listServerRefs({ http, url: remote.remote, protocolVersion: 1 });
@@ -47,7 +48,8 @@ describe("open a pull request (second effect tool, ADR 0024)", () => {
       world.store.control.prepare("SELECT payload_json FROM events").all(), world.store.control.prepare("SELECT output_json FROM job_outputs").all(),
     ]);
     expect(dump).not.toContain(token);
-    expect(dump).toContain("https://git.example.test/demo/pull/7");
+    // The result is in the receipt of the held change (content-addressed), where the resumed task reads it.
+    expect(new TextDecoder().decode(readVerified(world.store, world.permits().at(-1)!.receipt_digest!))).toContain("https://git.example.test/demo/pull/7");
   }, scaled(180_000));
 
   it("is refused before anyone is asked when the workspace has no repository it may write to", async () => {

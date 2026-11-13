@@ -53,9 +53,7 @@ export interface AgentExecutionInput {
    */
   outputCheck?: ((output: JsonValue) => readonly string[]) | undefined;
   allowedTools?: readonly ReleaseRef[];
-  executeTool?: (proposal: { proposalId: string; tool: ReleaseRef; input: JsonValue; target: { targetId: string; environmentId: string; preconditionDigest: string }; inputDigest: string },
-    /** Runs a wait (a person deciding an approval) outside the execution deadline: that time is not the agent's working time. */
-    hold: <T>(work: Promise<T>) => Promise<T>) => Promise<EngineToolExecutionResult>;
+  executeTool?: (proposal: { proposalId: string; tool: ReleaseRef; input: JsonValue; target: { targetId: string; environmentId: string; preconditionDigest: string }; inputDigest: string }) => Promise<EngineToolExecutionResult>;
   /**
    * Called once the engine session exists: live controls (steer) bind to this
    * handle. Steering is feature-gated on the adapter's probe features.
@@ -145,16 +143,8 @@ function violationTask(previous: string, violations: readonly string[]): string 
 async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecutionResult> {
   const { engine } = input;
   const deadline = new AbortController();
-  let remainingMs = input.timeoutMs;
-  let armedAt = Date.now();
-  const arm = (): ReturnType<typeof setTimeout> => setTimeout(() => deadline.abort(new Error("agent execution deadline exceeded")), Math.max(1, remainingMs));
-  let timer = arm();
-  // While a person decides an approval the agent is not working: the deadline stops and carries on with the time that was left.
-  const hold = async <T>(work: Promise<T>): Promise<T> => {
-    clearTimeout(timer);
-    remainingMs -= Date.now() - armedAt;
-    try { return await work; } finally { armedAt = Date.now(); timer = arm(); }
-  };
+  // A change an agent proposes is held by the Governor and made after the decision (ADR 0028): nothing here waits for a person.
+  const timer = setTimeout(() => deadline.abort(new Error("agent execution deadline exceeded")), Math.max(1, input.timeoutMs));
   const signal = AbortSignal.any([input.signal, deadline.signal]);
   const bounded = <T>(operation: Promise<T>): Promise<T> => {
     if (signal.aborted) return Promise.reject(signal.reason);
@@ -240,7 +230,7 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
       }
       if (event.kind === "tool.proposed") {
         if (!input.executeTool || !engine.toolResult) throw new Error("Agent proposed a tool without a governed broker");
-        const result = await bounded(input.executeTool(event.payload, hold));
+        const result = await bounded(input.executeTool(event.payload));
         await bounded(engine.toolResult(sessionId, result));
       }
       if (event.kind === "error") engineError = true;

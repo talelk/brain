@@ -20,28 +20,25 @@ describe("scheduled watch: propose, then act once approved", () => {
     expect(automationId).toBeTruthy();
 
     await w.command("automation.control", "run-1", { automationId, action: "runNow" });
-    const first = w.run();
+    expect(await w.run()).toBe(true);
     const approval1 = await w.pendingApproval();
     expect(w.restarts()).toEqual([]);
+    // The schedule's occurrence ended with its proposal: nobody waits at night, and the owner answers whenever they look.
+    expect(w.liveAttempts()).toEqual([]);
     await w.decide(approval1, "approve");
-    expect(await first).toBe(true);
+    await w.drain();
     expect(w.restarts()).toEqual(["restarted demo-app"]);
 
     // The next occurrence proposes again: it needs a new approval and the first one buys it nothing.
     await w.command("automation.control", "run-2", { automationId, action: "runNow" });
-    const second = w.run();
-    let approval2 = approval1;
-    const deadline = Date.now() + 30_000;
-    while (approval2.id === approval1.id) {
-      if (Date.now() > deadline) throw new Error("the second occurrence asked for no approval");
-      approval2 = await w.pendingApproval();
-      await new Promise((resolve) => setTimeout(resolve, 25));
-    }
+    expect(await w.run()).toBe(true);
+    const approval2 = await w.pendingApproval();
     expect(approval2.id).not.toBe(approval1.id);
     expect(w.restarts()).toHaveLength(1);
     await w.decide(approval2, "reject");
-    expect(await second).toBe(true);
+    await w.drain();
     expect(w.restarts()).toHaveLength(1);
     expect(w.permits().map((permit) => permit.state)).toEqual(["applied"]);
+    expect(w.calls().map((call) => call.outcome)).toEqual(["applied", "declined"]);
   }, scaled(180_000));
 });

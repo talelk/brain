@@ -40,7 +40,7 @@ import { bridge } from "../modules/missions/index";
 import { searchSessions } from "../modules/sessions/index";
 import { jobCommands, JobProtocol, type CreateJobInput } from "../modules/jobs/index";
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
-import { beginGovernorRun, effectStatus, finishEffect, issueEffectPermit, requestEffect, startEffect, type EffectPorts } from "../modules/governance/index";
+import { beginGovernorRun, finishEffect, issueEffectPermit, requestEffect, startEffect, type EffectPorts } from "../modules/governance/index";
 import { runGovernorEffect } from "./effect-broker";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
 import { MissionService, ShareService, missionCommands } from "../modules/missions/index";
@@ -475,7 +475,9 @@ export class Brain {
 
   /** The inbound chat webhook: signature, replay and the three things it may do are checked in `handleInbound`. */
   inboundChat(headers: Headers, rawBody: string): { status: number; body: Record<string, unknown> } {
-    return handleInbound(this.store, headers, rawBody);
+    const answer = handleInbound(this.store, headers, rawBody);
+    this.jobProtocol.settleEffects(); // a denial made from chat cancels the held change at once
+    return answer;
   }
 
   setNotificationPreferences(actor: ActorContext, input: { push?: unknown; webhook?: unknown; digest?: unknown; email?: unknown }): ReturnType<typeof preferencesView> {
@@ -526,6 +528,8 @@ export class Brain {
       if (outcome.receipt.accepted && cmd.workspaceId && AUTO_START_TRIGGERS.has(String(cmd.commandType))) {
         try { await this.autoStart.sweep(actor.organizationId, cmd.workspaceId); } catch { /* the maintenance pass retries */ }
       }
+      // A revoked approval, or a cancelled task, withdraws the change that was held for it.
+      if (outcome.receipt.accepted && (String(cmd.commandType).startsWith("approval.") || cmd.commandType === "workflow.cancel")) this.jobProtocol.settleEffects();
       // A requested challenge starts its reviewer run now; the maintenance pass collects the answer.
       if (outcome.receipt.accepted && cmd.workspaceId && cmd.commandType === "result.challenge") void this.challenges.sweep(actor.organizationId, cmd.workspaceId).catch(() => undefined);
       return outcome;
@@ -540,6 +544,8 @@ export class Brain {
     // Waking the gate is idempotent (only a still-waiting step resumes), so a
     // replayed decision re-wakes a gate a crash may have left asleep.
     if (actor.workspaceId) this.workflows.wakeGate(actor.organizationId, actor.workspaceId, approvalId, saved.state === "approved");
+    // A decided effect proposal releases or cancels its held act job right away (idempotent; the maintenance pass is the backstop).
+    this.jobProtocol.settleEffects();
     return { decisionId: saved.decisionId, state: saved.state };
   }
 
@@ -582,10 +588,6 @@ export class Brain {
 
   requestEffect(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, body: Record<string, unknown>): JsonValue {
     return requestEffect(this.store, this.effectPorts(), runner, attemptId, body);
-  }
-
-  effectStatus(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, proposalId: string): JsonValue {
-    return effectStatus(this.store, runner, attemptId, proposalId);
   }
 
   issueEffectPermit(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, body: Record<string, unknown>): JsonValue {

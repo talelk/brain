@@ -4,10 +4,11 @@ import type { LauncherClient } from "../launcher-client";
 import type { BrokerResult } from "./brokers";
 
 /**
- * Effect tools on the runner (ADR 0024). A call that changes something outside Brain stops here until a person decided it. The runner
- * proposes the call, waits (without spending the attempt's time limit), takes the one permit an approval allows, starts the call, does
- * the work through a broker (the trusted launcher for the host, the Governor for ticket, message and pull request) and reports how it
- * ended. A refusal, an expiry or a permit that was already used is a normal failed call with a plain reason; nothing was changed.
+ * Effect tools on the runner (ADR 0024, ADR 0028). A call that changes something outside Brain is only proposed by the attempt that wants
+ * it: the attempt ends and the Governor holds the call as its own job. After a person approved it, that held job's attempt (here) takes
+ * the one permit the approval allows, starts the call, does the work through a broker (the trusted launcher for the host, the Governor
+ * for ticket, message and pull request) and reports how it ended. A refusal, an expiry or a permit already used is a plain failed call;
+ * nothing was changed.
  */
 
 /** Effect tools whose work is a named privileged command on the host; the launcher owns the argv. */
@@ -18,7 +19,7 @@ export const LAUNCHER_EFFECTS: Readonly<Record<string, { command: string; argume
 /** Effect tools the Governor performs because the credentials live there. */
 export const GOVERNOR_EFFECTS: ReadonlySet<string> = new Set(["ticket.create", "message.send", "git.open-pr"]);
 
-export type EffectClient = Pick<GovernorClient, "effectRequest" | "effectStatus" | "effectPermit" | "effectStart" | "effectRun" | "effectFinish" | "validatePermit">;
+export type EffectClient = Pick<GovernorClient, "effectRequest" | "effectPermit" | "effectStart" | "effectRun" | "effectFinish" | "validatePermit">;
 
 export interface EffectCall {
   readonly proposalId: string;
@@ -26,26 +27,7 @@ export interface EffectCall {
   readonly input: Record<string, unknown>;
 }
 
-export interface EffectWait {
-  /** How often the decision is looked up. */
-  readonly pollMs: number;
-  /** Runs a wait outside the attempt's time limit. */
-  readonly hold: <T>(work: Promise<T>) => Promise<T>;
-  readonly signal: AbortSignal;
-  /** Tells the person watching the mission what the call is waiting for. */
-  readonly progress: (detail: string) => Promise<void>;
-}
-
-export type Gate = { readonly ok: true; readonly token: string; readonly invocationId: string; readonly approvalId: string } | { readonly ok: false; readonly error: string };
-
-const sleep = (ms: number, signal: AbortSignal): Promise<void> => new Promise((resolve, reject) => {
-  if (signal.aborted) { reject(signal.reason ?? new Error("aborted")); return; }
-  const timer = setTimeout(() => { signal.removeEventListener("abort", abort); resolve(); }, ms);
-  const abort = () => { clearTimeout(timer); reject(signal.reason ?? new Error("aborted")); };
-  signal.addEventListener("abort", abort, { once: true });
-});
-
-function reasonOf(error: unknown): string {
+export function reasonOf(error: unknown): string {
   if (error instanceof GovernorProtocolError) {
     const body = error.body as { detail?: string; title?: string } | null;
     return body?.detail ?? body?.title ?? `the Governor refused (${error.status})`;
@@ -53,40 +35,25 @@ function reasonOf(error: unknown): string {
   return error instanceof Error ? error.message : "the call could not be sent";
 }
 
+/** What the proposing attempt learns from the proposal. A held change is not a result: the answer says so, and what to do next. */
+export type Proposal = { readonly ok: true; readonly held: boolean; readonly output: Record<string, unknown> } | { readonly ok: false; readonly error: string };
+
 /**
- * Stops the call at the gate: proposes it, waits for the decision and, once approved, takes the permit and starts the call. Returns
- * either what the broker needs to go on, or the plain reason the call did not run.
+ * Proposes a change and moves on (ADR 0028). The attempt does not wait for the decision: the Governor records the approval, holds the
+ * change as its own job and runs it after the decision. A change this task already proposed (same tool, same arguments) is answered with
+ * what became of it, so a resumed attempt never asks twice. A refusal (a container off the allow-list, a runner group that may not touch
+ * the host) is a normal failed call with a plain reason.
  */
-export async function effectGate(client: EffectClient, attemptId: string, call: EffectCall, wait: EffectWait): Promise<Gate> {
-  const body = { proposalId: call.proposalId, tool: call.tool, input: call.input };
-  let approvalId: string;
+export async function proposeEffect(client: Pick<EffectClient, "effectRequest">, attemptId: string, call: EffectCall): Promise<Proposal> {
   try {
-    const proposed = await client.effectRequest(attemptId, body);
-    approvalId = proposed.approvalId;
-    let state = proposed.state;
-    if (state === "pending") {
-      await wait.progress(`waiting for a person to decide: ${proposed.summary}`);
-      let lastNote = Date.now();
-      const decided = await wait.hold((async () => {
-        for (;;) {
-          await sleep(wait.pollMs, wait.signal);
-          const status = await client.effectStatus(attemptId, call.proposalId);
-          if (status.state !== "pending") return status.state;
-          if (Date.now() - lastNote > 30_000) { lastNote = Date.now(); await wait.progress(`still waiting for a person to decide: ${proposed.summary}`); }
-        }
-      })());
-      state = decided;
+    const proposed = await client.effectRequest(attemptId, { proposalId: call.proposalId, tool: call.tool, input: call.input });
+    if (proposed.outcome || (proposed.duplicate && !proposed.held)) {
+      const how: Record<string, string> = { applied: "was approved and made", absent: "was approved but did not happen; nothing was changed", declined: "was declined; nothing was changed", expired: "expired unanswered; nothing was changed", revoked: "was withdrawn; nothing was changed", cancelled: "was cancelled; nothing was changed" };
+      return { ok: true, held: false, output: { status: "already-decided", outcome: proposed.outcome ?? proposed.state, summary: proposed.summary, ...(proposed.result ? { result: proposed.result } : {}), note: `This change ${how[proposed.outcome ?? ""] ?? `is ${proposed.state}`}. Do not propose it again; say in your report what became of it.` } };
     }
-    if (state !== "approved") {
-      const why = state === "rejected" ? "The owner declined this change." : state === "expired" ? "Nobody answered before the approval expired." : `The approval is ${state}.`;
-      return { ok: false, error: `${why} Nothing was changed. Do not retry the same change; report that it was not approved.` };
-    }
-    const permit = await client.effectPermit(attemptId, body);
-    await client.effectStart(attemptId, { ...body, token: permit.token });
-    return { ok: true, token: permit.token, invocationId: permit.invocationId, approvalId };
+    return { ok: true, held: true, output: { status: "awaiting-approval", approvalId: proposed.approvalId, summary: proposed.summary, expiresAt: proposed.expiresAt, note: "Recorded. A person decides this change and, if they approve it, Brain makes it after you finish: you cannot see its result now. Do not call this tool again for the same change. Finish your report now and say plainly that the change is proposed and waits for approval." } };
   } catch (error) {
-    if (wait.signal.aborted) throw error;
-    return { ok: false, error: `The change was not made: ${reasonOf(error)}` };
+    return { ok: false, error: `The change was not proposed: ${reasonOf(error)}` };
   }
 }
 

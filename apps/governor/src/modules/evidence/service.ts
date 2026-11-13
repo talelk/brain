@@ -50,6 +50,12 @@ export class EvidenceService {
     this.s.assertWorkspaceActive(row.workspace_id, row.organization_id);
   }
 
+  /** The author attempt and the attempts of the held act jobs of the changes its job proposed: the permits of all of them are this job's effects. */
+  private effectAttemptIds(jobId: string, authorAttemptId: string): string[] {
+    const held = this.s.control.prepare("SELECT a.id FROM effect_calls c JOIN job_attempts a ON a.job_id=c.act_job_id WHERE c.parent_job_id=?").all(jobId) as Array<{ id: string }>;
+    return [authorAttemptId, ...held.map((row) => row.id)];
+  }
+
   private verifyArtifacts(bundle: EvidenceBundle): void {
     const total=bundle.artifacts.reduce((bytes,ref)=>bytes+ref.bytes,0);
     if (!Number.isSafeInteger(total) || total>100*1024*1024) throw new BrainDomainError("PAYLOAD_TOO_LARGE", "bundle artifact verification exceeds the 100 MiB admission limit");
@@ -99,13 +105,15 @@ export class EvidenceService {
       ? [step.uses.release, ...(release.release.agents?.[step.uses.release.id]?.spec.tools ?? [])]
       : step.uses ? [step.uses.release] : [];
     if (step.uses && !bundle.toolReleases.every((actual) => admitted.some((tool) => same(actual, tool)))) throw new BrainDomainError("FORBIDDEN", "bundle tool release does not match the admitted execution");
+    // The attempts whose permits back this job's effects: its own, and the held act jobs of the changes it proposed (ADR 0028).
+    const effectAttempts = this.effectAttemptIds(author.job_id, author.id);
     for (const effect of bundle.effects) {
-      const permit=this.s.control.prepare("SELECT 1 FROM effect_permits WHERE attempt_id=? AND invocation_id=?").get(author.id,effect.invocationId);
+      const permit=this.s.control.prepare(`SELECT 1 FROM effect_permits WHERE invocation_id=? AND attempt_id IN (${effectAttempts.map(() => "?").join(",")})`).get(effect.invocationId,...effectAttempts);
       const receipt=ws.prepare("SELECT 1 FROM domain_operation_receipts WHERE invocation_id=? AND target_key=? AND operation=? AND outcome=? AND receipt_digest=?").get(effect.invocationId,effect.targetId,effect.operation,effect.outcome,effect.receiptArtifact.digest);
       // An agent step carries its approved effect calls inside a job of class read (ADR 0024); the permit and the receipt are what back the effect.
       if (!permit || !receipt || !bundle.artifacts.some((a)=>same(a,effect.receiptArtifact))) throw new BrainDomainError("EVIDENCE_MISSING", "external effect is not backed by an authorized reconciled receipt");
     }
-    for (const approvalId of bundle.approvalIds) if (!this.s.control.prepare("SELECT 1 FROM approval_consumptions WHERE approval_id=? AND attempt_id=?").get(approvalId, bundle.attemptId)) throw new BrainDomainError("FORBIDDEN", "bundle approval is not bound to the author attempt");
+    for (const approvalId of bundle.approvalIds) if (!this.s.control.prepare(`SELECT 1 FROM approval_consumptions WHERE approval_id=? AND attempt_id IN (${effectAttempts.map(() => "?").join(",")})`).get(approvalId, ...effectAttempts)) throw new BrainDomainError("FORBIDDEN", "bundle approval is not bound to the author attempt or its held changes");
     this.verifyArtifacts(bundle);
     const digest = domainDigest("brain:evidence-bundle:v1", bundle as unknown as JsonValue);
     this.s.inTx(ws, () => {
@@ -182,7 +190,8 @@ export class EvidenceService {
     if ((verdict.outcome === "verified" && statuses.some((v) => v !== "passed")) || (verdict.outcome === "rejected" && !statuses.includes("failed")) || (verdict.outcome === "incomplete" && !statuses.some((v) => v === "missing" || v === "inconclusive"))) throw new BrainDomainError("EVIDENCE_MISSING", "verdict outcome contradicts its checks");
     if (verdict.outcome === "verified") {
       const guards=this.s.control.prepare("SELECT 1 FROM resource_leases WHERE attempt_id=? AND unresolved_effect=1 LIMIT 1").get(author.id);
-      const permits=this.s.control.prepare("SELECT invocation_id,state FROM effect_permits WHERE attempt_id=?").all(author.id) as Array<{invocation_id:string;state:string}>;
+      const attempts = this.effectAttemptIds(author.job_id, author.id);
+      const permits=this.s.control.prepare(`SELECT invocation_id,state FROM effect_permits WHERE attempt_id IN (${attempts.map(() => "?").join(",")})`).all(...attempts) as Array<{invocation_id:string;state:string}>;
       if (guards || (author.effect_class !== "read" && permits.length === 0) || permits.some((p)=>!["applied","absent"].includes(p.state) || !bundle.effects.some((e)=>e.invocationId===p.invocation_id && e.outcome===p.state))) throw new BrainDomainError("EVIDENCE_MISSING", "external effects require independent reconciliation before success");
     }
     this.verifyArtifacts(bundle);

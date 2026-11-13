@@ -5,6 +5,7 @@ import { ackAttempt, attemptEvents, claim, completeAttempt, expireLeases, readEx
 import { brokerToolRead, type ToolReadPorts, type ToolReadRequest } from "./tool-reads";
 import { BrainDomainError } from "../../domain/errors";
 import { sweepStuckJobs } from "./watchdog";
+import { settleEffects } from "./effect-hold";
 import { resolveUnknownJob, type UnknownResolution } from "./unknown";
 import { runScheduledDispatch } from "./scheduler";
 import { AutomationService } from "./automation";
@@ -142,6 +143,8 @@ export class JobProtocol {
     const result = completeAttempt(this.store, {
       completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.ports.completeStep(organizationId, workspaceId, runId, stepId, output, ok),
     }, runner, attemptId, body);
+    // A job that ended by proposing changes, or a held change that just finished, may have settled what a parked job waits for.
+    if (["blocked", "succeeded", "failed", "outcome_unknown"].includes(String((result as { jobState?: string }).jobState))) this.settleEffects();
     // A tool test has no evaluator to verify it: its succeeded job is concluded here and its step completed with the tool's own output.
     if ((result as { jobState?: string }).jobState === "verifying") {
       const test = this.store.control.prepare(`SELECT j.id AS jobId, j.organization_id AS organizationId, j.workspace_id AS workspaceId, j.workflow_run_id AS runId, j.step_id AS stepId, o.output_json AS output
@@ -161,6 +164,13 @@ export class JobProtocol {
 
   expireLeases(): number {
     return expireLeases(this.store);
+  }
+
+  /** Settles decided effect proposals, releases or cancels their held act jobs and resumes jobs whose changes are all settled (ADR 0028); idempotent. */
+  settleEffects(): number {
+    return settleEffects(this.store, {
+      completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.ports.completeStep(organizationId, workspaceId, runId, stepId, output, ok),
+    });
   }
 
   /** Restarts or fails jobs that no event will ever move again (see watchdog.ts); idempotent. */

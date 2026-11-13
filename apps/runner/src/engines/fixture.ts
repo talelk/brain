@@ -115,7 +115,9 @@ export class FixtureEngine implements EngineAdapter {
 
   private requestedTools(task: string): Array<{ id: string; input: Record<string, unknown> }> {
     try {
-      const body = JSON.parse(task.includes(TASK_MARK) ? task.slice(task.indexOf(TASK_MARK) + TASK_MARK.length) : task) as { situation?: unknown };
+      // A resumed task carries a plain-words note of what became of its earlier proposals after the JSON brief (ADR 0028): the brief is what is parsed.
+      const brief = task.split("\n\n# Changes you proposed earlier")[0]!;
+      const body = JSON.parse(brief.includes(TASK_MARK) ? brief.slice(brief.indexOf(TASK_MARK) + TASK_MARK.length) : brief) as { situation?: unknown };
       if (typeof body.situation !== "string") return [];
       return [...body.situation.matchAll(/FIXTURE_CALL_TOOL (\{.*\})/gu)].map((match) => JSON.parse(match[1]!) as { id: string; input: Record<string, unknown> });
     } catch { return []; }

@@ -9,7 +9,8 @@ import { executeToolPayload, normalizeEvaluation } from "./tools/invoke";
 import { brokerRead } from "./tools/broker-read";
 import { OUTPUT_BROKERED } from "./tools/brokers";
 import { RunOutputDir } from "./tools/run-output";
-import { effectGate, runEffect, type EffectCall, type EffectRun } from "./tools/effects";
+import { proposeEffect, type Proposal } from "./tools/effects";
+import { performHeldEffect, type ActPayload } from "./tools/act";
 import { DurableEventSpool } from "./spool-durable";
 import { GovernorClient, GovernorProtocolError } from "./governor-client";
 import { LauncherClient } from "./launcher-client";
@@ -39,8 +40,6 @@ export interface RunnerConfig {
   readonly dataMounts?: ReadonlyMap<string, readonly string[]>;
   /** Tests and embedders supply the trusted launcher directly; otherwise it is built from BRAIN_LAUNCHER_SOCKET. */
   readonly launcher?: LauncherClient;
-  /** How often an effect call looks up whether a person decided it (milliseconds; 2000 when absent). */
-  readonly effectPollMs?: number;
 }
 
 /** "host.read=srv+logs,csv.query=cv-data" -> tool id -> mount names. Malformed entries are ignored, never widened. */
@@ -153,6 +152,16 @@ export async function refreshSession(cfg: RunnerConfig, bootNonce?: string): Pro
   const credential = existsSync(credPath) ? readFileSync(credPath, "utf8").trim() : "";
   if (!credential) throw new Error("runner credential missing; cannot refresh session");
   return challengeHello(cfg, credential, bootNonce);
+}
+
+/**
+ * What a resumed attempt is told about the changes it proposed earlier (ADR 0028): each one's outcome, in plain words, and that it must not
+ * ask again. Empty for an attempt that proposed nothing before.
+ */
+export function settledEffectsNote(settled: ReadonlyArray<{ summary: string; outcome: string; result?: string }>): string {
+  if (settled.length === 0) return "";
+  const how: Record<string, string> = { applied: "was approved and made", absent: "was approved but did not happen; nothing was changed", declined: "was declined by a person; nothing was changed", expired: "expired unanswered; nothing was changed", revoked: "was withdrawn; nothing was changed", cancelled: "was cancelled; nothing was changed" };
+  return `\n\n# Changes you proposed earlier in this task\nYou already investigated and proposed these. Do not propose them again. Write your final report now, saying plainly what became of each.\n${settled.map((entry, index) => `${index + 1}. ${entry.summary}: this change ${how[entry.outcome] ?? entry.outcome}.${entry.result ? ` It reported: ${entry.result}` : ""}`).join("\n")}`;
 }
 
 /** The hosted model the Governor routed this attempt to (a check or a second attempt, ADR 0023), for every engine that can take one. */
@@ -268,6 +277,18 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     // What approved effect calls did, for the evidence bundle: each effect with its reconciled receipt, and the approvals it consumed.
     const nestedEffects: Array<{ invocationId: string; targetId: string; operation: string; outcome: "applied" | "absent" | "unknown"; receiptArtifact: ArtifactRef }> = [];
     const nestedApprovalIds: string[] = [];
+    // Changes this attempt proposed and left held. When there are any, the attempt ends after its report and writes no evidence: the
+    // attempt resumed once they are settled carries the receipts (ADR 0028).
+    let heldProposals = 0;
+    // A resumed attempt is told what became of each change proposed before; the ones that were made are evidence of this run.
+    const settledEffects = ((payload as { effectOutcomes?: Array<{ proposalId: string; toolId: string; summary: string; approvalId: string; outcome: string; result?: string; invocationId?: string; targetId?: string; operation?: string; receiptArtifact?: ArtifactRef }> }).effectOutcomes) ?? [];
+    for (const settled of settledEffects) {
+      if (settled.receiptArtifact && settled.invocationId && settled.targetId && settled.operation && (settled.outcome === "applied" || settled.outcome === "absent")) {
+        if (!toolArtifacts.some((known) => known.artifactId === settled.receiptArtifact!.artifactId)) toolArtifacts.push(settled.receiptArtifact);
+        nestedEffects.push({ invocationId: settled.invocationId, targetId: settled.targetId, operation: settled.operation, outcome: settled.outcome, receiptArtifact: settled.receiptArtifact });
+        nestedApprovalIds.push(settled.approvalId);
+      }
+    }
     if (offer.execution.kind === "agent") {
       const step = (payload.step ?? {}) as { task?: string; timeoutSeconds?: number; uses?: { release?: { id: string; digest: string } } };
       const ref = step.uses?.release;
@@ -287,7 +308,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       if (!engine) throw new Error(`none of the required engines (${asset.agent.spec.engine.anyOf.join(", ")}) is configured on this runner`);
       const engineProbe = await engine.probe();
       engineInfo = { id: engineProbe.id, adapterDigest: engineProbe.adapterDigest, features: [...engineProbe.features] };
-      const task = promptWithContext(step.task ?? JSON.stringify(payload.input ?? {}), payload.contextPack);
+      const task = promptWithContext(step.task ?? JSON.stringify(payload.input ?? {}), payload.contextPack) + settledEffectsNote(settledEffects);
       const launcher = cfg.launcher ?? (LauncherClient.configured() ? LauncherClient.fromEnv() : undefined);
       const toolPins = (offer as { toolPins?: Record<string, string> }).toolPins;
       const ajv = new Ajv2020({ allErrors: true, strict: true });
@@ -320,7 +341,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
             ? (messageId, message) => handle.steer(messageId, message)
             : undefined;
         },
-        executeTool: async (proposal, hold) => {
+        executeTool: async (proposal) => {
           if (++invocationCount > asset.agent.spec.maxTurns) throw new Error("Agent tool-call budget exhausted");
           const binding = asset.toolBindings.find((candidate) => candidate.release.id === proposal.tool.id && candidate.release.digest === proposal.tool.digest);
           if (!binding || !asset.agent.spec.tools.some((allowed) => allowed.id === proposal.tool.id && allowed.digest === proposal.tool.digest)) throw new Error("Agent proposed an unauthorized tool or digest");
@@ -329,57 +350,33 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
           if (sha256Digest(new TextEncoder().encode(JSON.stringify(proposal.input))) !== proposal.inputDigest) throw new Error("Agent tool input digest mismatch");
           const valid = ajv.compile(binding.inputSchema);
           if (!valid(proposal.input)) throw new Error(`Agent tool input rejected: ${ajv.errorsText(valid.errors)}`);
-          let invocationId = proposal.proposalId;
-          let nestedPermit: { token: string; permitId: string } | undefined;
-          // An effect call stops here until a person decided it (ADR 0024): the approval names this exact call and yields one permit.
-          let effect: { call: EffectCall; gate: { token: string; invocationId: string; approvalId: string } } | undefined;
-          let gated: { ok: false; output: JsonValue } | undefined;
+          const invocationId = proposal.proposalId;
+          // A change is only proposed here (ADR 0028): the Governor records the approval and holds the change as its own job, which a runner
+          // runs after a person decided it. This attempt does not wait; it is told the change is held and finishes its report.
+          let proposed: Proposal | undefined;
           if (binding.effectClass !== "read") {
-            const call: EffectCall = { proposalId: proposal.proposalId, tool: proposal.tool, input: proposal.input as Record<string, unknown> };
-            const gate = await effectGate(client, offer.attemptId, call, {
-              pollMs: cfg.effectPollMs ?? 2000, hold: hold ?? ((work) => work), signal: controller.signal,
-              progress: (detail) => emit("progress", { phase: "waiting-for-approval", detail }),
-            });
-            if (gate.ok) { effect = { call, gate }; invocationId = gate.invocationId; nestedPermit = { token: gate.token, permitId: gate.invocationId }; }
-            else gated = { ok: false, output: { error: gate.error } as JsonValue };
+            proposed = await proposeEffect(client, offer.attemptId, { proposalId: proposal.proposalId, tool: proposal.tool, input: proposal.input as Record<string, unknown> });
+            if (proposed.ok && proposed.held) { heldProposals++; await emit("progress", { phase: "change-proposed", detail: String(proposed.output["summary"] ?? "") }); }
           }
           const startedAt = new Date().toISOString();
           // Read tools that need data the sandboxed script cannot reach get it from a broker first; a refusal is a failed call with a
-          // receipt, never a script run on missing data. An approved effect call is done by its broker (launcher or Governor) the same way.
-          let effectRun: EffectRun | undefined;
-          let brokered = gated || effect ? undefined : await brokerRead(binding, proposal.input as Record<string, unknown>, offer.attemptId, client, launcher, outputs);
-          // The pinned script only reports what the broker did; the file's text stays in the output folder, out of the script's capped input.
+          // receipt, never a script run on missing data.
           const scriptInput = (base: Record<string, unknown>): Record<string, unknown> => { if (!OUTPUT_BROKERED.has(binding.release.id)) return base; const { content: _content, ...rest } = base; return rest; };
-          if (effect) { effectRun = await runEffect(client, launcher, offer.attemptId, effect.call, effect.gate); brokered = effectRun.result; }
-          let executed = gated ?? (brokered && !brokered.ok ? { ok: false as const, output: { error: brokered.error } as JsonValue } : await executeToolPayload({
-            offer: { payload: { input: brokered ? { ...scriptInput(proposal.input as Record<string, unknown>), broker: brokered.data } : proposal.input as Record<string, unknown>, invocationId,
-              // Shaping the answer of an approved change takes no authority (the change is done): it runs as a read step in the read
-              // sandbox with no permit, so a slow change cannot outlive the permit's short validity and the report is always redacted.
-              step: { uses: { type: "tool", release: proposal.tool }, effectClass: effect ? "read" : binding.effectClass, target: binding.target } },
-              execution: { kind: "tool" }, workspaceId: offer.workspaceId },
-            cfg, signal: controller.signal, launcher, permit: effect ? undefined : nestedPermit, toolPins,
-            validatePermit: (token, id) => client.validatePermit(token, id),
-            fetchPinnedTool: (toolId, digest) => client.toolScript(offer.configDigest, toolId, digest),
-          }));
-          if (effectRun) {
-            // The call is only a success when the change was applied; a report that could not be shaped still says what ran.
-            // Never the raw output: it was not redacted. Only the status the launcher reported.
-            if (effectRun.result.ok && !executed.ok) {
-              const raw = effectRun.result.data as { command?: unknown; exitCode?: unknown };
-              executed = { ok: true, output: { command: raw.command ?? null, exitCode: raw.exitCode ?? null, note: "the change ran; its output could not be shaped, so it is not shown" } as unknown as JsonValue };
-            }
-            if (effectRun.outcome !== "applied" && executed.ok) executed = { ok: false, output: { error: "the change did not complete", result: executed.output } as unknown as JsonValue };
-          }
+          const brokered = proposed ? undefined : await brokerRead(binding, proposal.input as Record<string, unknown>, offer.attemptId, client, launcher, outputs);
+          const executed: { ok: boolean; output: JsonValue } = proposed
+            ? proposed.ok ? { ok: true, output: proposed.output as unknown as JsonValue } : { ok: false, output: { error: proposed.error } as JsonValue }
+            : brokered && !brokered.ok ? { ok: false as const, output: { error: brokered.error } as JsonValue } : await executeToolPayload({
+              offer: { payload: { input: brokered ? { ...scriptInput(proposal.input as Record<string, unknown>), broker: brokered.data } : proposal.input as Record<string, unknown>, invocationId,
+                step: { uses: { type: "tool", release: proposal.tool }, effectClass: binding.effectClass, target: binding.target } },
+                execution: { kind: "tool" }, workspaceId: offer.workspaceId },
+              cfg, signal: controller.signal, launcher, permit: undefined, toolPins,
+              validatePermit: (token, id) => client.validatePermit(token, id),
+              fetchPinnedTool: (toolId, digest) => client.toolScript(offer.configDigest, toolId, digest),
+            });
           const bytes = new TextEncoder().encode(JSON.stringify(executed.output));
           const uploaded = await client.uploadArtifact(offer.attemptId, bytes, "application/json");
           const artifact = { ...uploaded, mediaType: "application/json", classification: "internal" as const };
           if (!toolArtifacts.some((known) => known.artifactId === artifact.artifactId)) toolArtifacts.push(artifact);
-          if (effect && effectRun) {
-            // The permit's final state and the receipt the evidence bundle will carry (ADR 0024).
-            await client.effectFinish(offer.attemptId, { proposalId: proposal.proposalId, outcome: effectRun.outcome, receiptDigest: artifact.digest });
-            nestedEffects.push({ invocationId, targetId: binding.target.targetId, operation: `effect.${proposal.tool.id}`.slice(0, 64), outcome: effectRun.outcome, receiptArtifact: artifact });
-            nestedApprovalIds.push(effect.gate.approvalId);
-          }
           await emit("effect", { phase: "governed-tool-result", proposalId: proposal.proposalId, invocationId, artifact });
           return { proposalId: proposal.proposalId, invocationId,
             receipt: { invocationId, attemptId: offer.attemptId, jobFence: offer.jobFence, result: executed.ok ? "succeeded" : "failed", startedAt, finishedAt: new Date().toISOString(), stdout: artifact, effects: [] },
@@ -416,6 +413,11 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       if (brokered && !brokered.ok) brokerRefusal = brokered.error;
       else if (brokered) toolPayload = { ...payload, input: { ...(payload.input as Record<string, unknown>), broker: brokered.data } } as typeof payload;
     }
+    if ((payload as { kind?: string }).kind === "act") {
+      // The held change of an approved proposal (ADR 0028): this attempt exists only to make it, once, and report how it ended.
+      const made = await performHeldEffect({ client, cfg, launcher, signal: controller.signal, attemptId: offer.attemptId, workspaceId: offer.workspaceId, configDigest: offer.configDigest, toolPins }, payload as unknown as ActPayload);
+      result = { ok: made.ok, output: made.output };
+    } else
     result = brokerRefusal !== undefined ? { ok: false, output: { error: brokerRefusal } as JsonValue } : await executeToolPayload({
       offer: { payload: toolPayload, execution: offer.execution, workspaceId: offer.workspaceId },
       cfg, signal: controller.signal, launcher, permit, toolPins,
@@ -434,11 +436,14 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       artifact = uploaded;
       await emit("effect", { phase: "output-pinned", artifact });
     }
+    // An attempt that proposed changes ends here and says so: the Governor parks its job until they are settled (ADR 0028).
+    const held = heldProposals > 0 && result.ok && !outcomeUnknown;
     await client.complete(offer.attemptId, {
       result: outcomeUnknown ? "unknown-outcome" : result.ok ? "succeeded" : "failed", output, jobFence: offer.jobFence, cleanupConfirmed: result.cleanupConfirmed ?? true,
+      ...(held ? { held: true } : {}),
     });
     // A workflow with no evaluator (a tool test) claims no checks: there is nothing for a bundle to carry, and an empty one is refused.
-    if (result.ok && !assignment && offer.authorEvidence && offer.authorEvidence.claimedChecks.length > 0 && offer.workflowRunId && artifact) {
+    if (result.ok && !held && (payload as { kind?: string }).kind !== "act" && !assignment && offer.authorEvidence && offer.authorEvidence.claimedChecks.length > 0 && offer.workflowRunId && artifact) {
       const bundle = {
         contractVersion: "brain.evidence/v1",
         bundleId: `bundle-${offer.attemptId}`,

@@ -65,10 +65,10 @@ export function createJobForStep(s: Store, input: CreateJobInput): string {
   });
 }
 
-/** Cancels a run's jobs that no runner holds yet (queued or offered). */
+/** Cancels a run's jobs that no runner holds yet (queued, offered, or parked while a person decides a change it proposed). */
 export function cancelJobsForRun(s: Store, runId: string): void {
   s.inTx(s.control, () => {
-    for (const job of s.control.prepare("SELECT id FROM jobs WHERE workflow_run_id=? AND state IN ('queued','offered')").all(runId) as Array<{ id: string }>) {
+    for (const job of s.control.prepare("SELECT id FROM jobs WHERE workflow_run_id=? AND state IN ('queued','offered','blocked')").all(runId) as Array<{ id: string }>) {
       transitionState(s.control, "job", job.id, "cancelled", { bumpVersion: true });
     }
   });

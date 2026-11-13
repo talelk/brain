@@ -11,6 +11,7 @@ import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
 import { isDraining } from "./drain";
 import { heldForHostedModel, modelRouteFor } from "./model-route";
+import { effectOutcomesFor, executionArtifactId, HOLD_REASON } from "./effect-hold";
 
 /**
  * Job/attempt lifecycle: fair claim, offers as pinned execution artifacts,
@@ -275,8 +276,7 @@ function pinContextPack(s: Store, build: ContextPackPort, organizationId: string
 
 // Materializes a job's execution payload as a scoped CAS artifact so the
 // JobOffer references durable bytes instead of inlining the payload (T02).
-export function ensureExecutionArtifact(s: Store, jobId: string, organizationId: string, workspaceId: string, payloadText: string): { artifactId: string; digest: string; bytes: number } {
-  const artifactId = `exec-${jobId}`;
+export function ensureExecutionArtifact(s: Store, jobId: string, organizationId: string, workspaceId: string, payloadText: string, artifactId: string = `exec-${jobId}`): { artifactId: string; digest: string; bytes: number } {
   const bytes = new TextEncoder().encode(payloadText);
   const digest = sha256Digest(bytes);
   const existing = s.control.prepare("SELECT digest FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(artifactId, organizationId) as { digest: string } | undefined;
@@ -293,7 +293,7 @@ export function readExecutionArtifact(s: Store, runner: { runnerId: string; epoc
   const row = loadAttempt(s, attemptId);
   if (String(row["organization_id"]) !== runner.organizationId) throw new BrainDomainError("NOT_FOUND", "attempt not found");
   assertAttemptLive(s, runner, row);
-  const artifactId = `exec-${String(row["job_id"])}`;
+  const artifactId = executionArtifactId(s, String(row["job_id"]));
   const assoc = s.control.prepare("SELECT digest FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(artifactId, runner.organizationId) as { digest: string } | undefined;
   if (!assoc) throw new BrainDomainError("EVIDENCE_MISSING", "execution artifact not materialized");
   return readVerified(s, assoc.digest);
@@ -314,7 +314,10 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
       s.control.prepare("UPDATE job_payloads SET payload_json=? WHERE job_id=?").run(artifactText, String(row["job_id"]));
     }
   }
-  const artifact = ensureExecutionArtifact(s, String(row["job_id"]), String(row["organization_id"]), String(row["workspace_id"]), artifactText);
+  // A job resumed after the changes it proposed were settled (ADR 0028) is offered with what became of each one, as a new pinned artifact.
+  const outcomes = effectOutcomesFor(s, String(row["job_id"]));
+  if (outcomes.length > 0) artifactText = JSON.stringify({ ...(JSON.parse(artifactText) as Record<string, JsonValue>), effectOutcomes: outcomes as unknown as JsonValue });
+  const artifact = ensureExecutionArtifact(s, String(row["job_id"]), String(row["organization_id"]), String(row["workspace_id"]), artifactText, executionArtifactId(s, String(row["job_id"])));
   let workflowDigest = String(row["config_digest"]);
   try {
     const ws = s.workspaceDb(String(row["workspace_id"]), String(row["organization_id"]));
@@ -479,10 +482,11 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
   if (!["succeeded","failed","unknown-outcome"].includes(result) || !Number.isSafeInteger(body["jobFence"]) || typeof body["cleanupConfirmed"] !== "boolean") throw new BrainDomainError("INVALID_CONTRACT", "completion requires a valid result, fence and cleanup status");
   const output = (body["output"] ?? null) as JsonValue;
   let jobState = "";
-  let runId = ""; let stepId = ""; let workspaceId = ""; let jobId = "";
+  let runId = ""; let stepId = ""; let workspaceId = ""; let jobId = ""; let isAct = false;
   s.inTx(s.control, () => {
     const row = loadAttempt(s, attemptId);
     runId = String(row["workflow_run_id"]); stepId = String(row["step_id"]); workspaceId = String(row["workspace_id"]); jobId = String(row["job_id"]);
+    isAct = (s.control.prepare("SELECT kind FROM job_payloads WHERE job_id=?").get(jobId) as { kind: string } | undefined)?.kind === "act";
     const receiptDigest = domainDigest("brain:receipt:v1", body as unknown as JsonValue);
     assertAttemptLive(s, runner, row, undefined, Number(body["jobFence"]));
     if (row["organization_id"] !== runner.organizationId) throw new BrainDomainError("FORBIDDEN", "attempt tenant mismatch");
@@ -502,7 +506,22 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
       transitionState(s.control, "attempt", attemptId, "verifying", { set: { receipt_digest: receiptDigest, cleanup_confirmed: cleanup } });
       transitionState(s.control, "job", String(row["job_id"]), "verifying", { bumpVersion: true });
       jobState = "verifying";
-      s.control.prepare("INSERT OR REPLACE INTO job_outputs(job_id, output_json) VALUES (?,?)").run(String(row["job_id"]), JSON.stringify(output));
+      const held = body["held"] === true && !isAct && (s.control.prepare("SELECT COUNT(*) AS n FROM effect_calls WHERE attempt_id=?").get(attemptId) as { n: number }).n > 0;
+      if (isAct) {
+        // A held change has nothing to verify: its permit and receipt are the evidence, carried by the bundle of the job that proposed it.
+        transitionState(s.control, "attempt", attemptId, "succeeded");
+        transitionState(s.control, "job", String(row["job_id"]), "succeeded", { bumpVersion: true });
+        jobState = "succeeded";
+      } else if (held) {
+        // The attempt proposed changes and ends here (ADR 0028): it holds no slot and no lease while people decide. Its job waits, blocked,
+        // until every proposed change is settled, then runs a fresh attempt that is told what happened. No evidence yet: the bundle is
+        // written by that last attempt, so it can carry the receipts.
+        transitionState(s.control, "attempt", attemptId, "succeeded");
+        transitionState(s.control, "job", String(row["job_id"]), "blocked", { set: { queue_reason: HOLD_REASON }, bumpVersion: true });
+        jobState = "blocked";
+      } else {
+        s.control.prepare("INSERT OR REPLACE INTO job_outputs(job_id, output_json) VALUES (?,?)").run(String(row["job_id"]), JSON.stringify(output));
+      }
     } else {
       transitionState(s.control, "attempt", attemptId, "failed", { set: { receipt_digest: receiptDigest, cleanup_confirmed: cleanup } });
       transitionState(s.control, "job", String(row["job_id"]), "failed", { bumpVersion: true });
@@ -515,7 +534,8 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
     }
   });
   s.emit(s.control, { organizationId: runner.organizationId, workspaceId, aggregateType: "job", aggregateId: jobId, eventType: "job.updated", payload: { attemptId, jobState }, destinations: [`workspace:${workspaceId}`] });
-  if (jobState === "failed") deps.completeStep(runner.organizationId, workspaceId, runId, stepId, output, false);
+  // A held act job belongs to no workflow step: its outcome reaches the task through the job that proposed it.
+  if (jobState === "failed" && !isAct) deps.completeStep(runner.organizationId, workspaceId, runId, stepId, output, false);
   return { attemptId, jobState, acceptedForVerification: jobState === "verifying" } as unknown as JsonValue;
 }
 

@@ -243,13 +243,13 @@ export class GovernorClient {
 
   // --- effect tools (ADR 0024) -------------------------------------------
 
-  /** Proposes an effect call; the Governor records the approval of exactly this call and says where it stands. */
-  async effectRequest(attemptId: string, body: { proposalId: string; tool: { id: string; digest: string }; input: unknown }): Promise<{ approvalId: string; state: string; expiresAt: string; summary: string }> {
+  /**
+   * Proposes an effect call; the Governor records the approval of exactly this call, holds the change as its own job and says where it
+   * stands. `held` is true while the change waits for a decision; `duplicate` marks a repeat of a change this task already proposed, with
+   * the first one's state (and its outcome once settled).
+   */
+  async effectRequest(attemptId: string, body: { proposalId: string; tool: { id: string; digest: string }; input: unknown }): Promise<{ approvalId: string; state: string; expiresAt: string; summary: string; held?: boolean; duplicate?: boolean; outcome?: string; result?: string }> {
     return this.expect("effect request", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/effects`, body), 200);
-  }
-
-  async effectStatus(attemptId: string, proposalId: string): Promise<{ approvalId: string; state: string; expiresAt: string; summary: string }> {
-    return this.expect("effect status", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/effects/${encodeURIComponent(proposalId)}`), 200);
   }
 
   async effectPermit(attemptId: string, body: { proposalId: string; tool: { id: string; digest: string }; input: unknown }): Promise<{ token: string; permitId: string; invocationId: string }> {

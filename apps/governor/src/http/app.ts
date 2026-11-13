@@ -829,12 +829,6 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       return c.json(brain.requestEffect(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
     } catch (e) { return fail(c as never, e); }
   });
-  app.get("/runner/v1/attempts/:id/effects/:proposalId", (c) => {
-    try {
-      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
-      return c.json(brain.effectStatus(runner, c.req.param("id"), c.req.param("proposalId")) as never);
-    } catch (e) { return fail(c as never, e); }
-  });
   app.post("/runner/v1/attempts/:id/effects/permit", async (c) => {
     try {
       const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
@@ -978,7 +972,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       process.on("SIGTERM", stop);
       process.on("SIGINT", stop);
       setInterval(() => {
-    try { brain.jobProtocol.expireLeases(); brain.projectOutbox(); } catch { /* timers never authorize */ }
+    try { brain.jobProtocol.expireLeases(); brain.jobProtocol.settleEffects(); brain.projectOutbox(); } catch { /* timers never authorize */ }
     // Stuck-run watchdog: a job nothing will move again is restarted or failed with a plain reason, never left running.
     try { brain.jobProtocol.sweepStuckJobs(); } catch { /* the watchdog must not break expiry */ }
     // Execution stream: backstop projection plus the throttled retention sweep.

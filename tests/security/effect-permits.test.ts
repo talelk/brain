@@ -1,3 +1,4 @@
+import { readVerified } from "../../apps/governor/src/modules/artifacts/index";
 import { createServer } from "node:http";
 import { rmSync } from "node:fs";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
@@ -33,32 +34,49 @@ async function liveAttempt(w: EffectsWorld, key: string): Promise<{ attemptId: s
 
 const call = (container: string, id = "host.restart", input: Record<string, unknown> = { container }) => ({ proposalId: `proposal-${container}-${id}`, tool: { id, digest: toolDigest(id) }, input });
 
+/**
+ * Takes the held act job of an approved proposal as its runner attempt (what the supervisor does), after the proposing attempt has ended:
+ * the attempt a permit may be asked of. `end` closes it the way a runner would, freeing the slot.
+ */
+async function claimHeldChange(w: EffectsWorld, key: string): Promise<{ attemptId: string; end: () => void }> {
+  const offer = w.w.brain.jobProtocol.claim(w.runner, `claim-${key}`) as unknown as { attemptId: string; leaseId: string; jobFence: number };
+  expect(offer).toBeTruthy();
+  w.w.brain.jobProtocol.ack(w.runner, offer.attemptId, { leaseId: offer.leaseId, jobFence: offer.jobFence, engine: { id: "tool-broker", adapterDigest: `sha256:${"0".repeat(64)}`, features: [] } });
+  return { attemptId: offer.attemptId, end: () => { w.w.brain.jobProtocol.complete(w.runner, offer.attemptId, { result: "failed", output: {}, jobFence: offer.jobFence, cleanupConfirmed: true }); } };
+}
+
 describe("a permit belongs to one call", () => {
-  it("cannot be replayed, restarted at the launcher, or used with other arguments", async () => {
+  it("is taken only by the held job of an approved proposal, and cannot be replayed, restarted at the launcher, or used with other arguments", async () => {
     world = await effectsWorld({ containers: ["demo-app", "other-app"] });
     const w = world;
     const attempt = await liveAttempt(w, "sec-1");
-    const proposed = w.w.brain.requestEffect(w.runner, attempt.attemptId, call("demo-app")) as unknown as { approvalId: string; state: string };
-    expect(proposed.state).toBe("pending");
-    // Asking again for the same proposal gives the same approval, not a second one.
+    const proposed = w.w.brain.requestEffect(w.runner, attempt.attemptId, call("demo-app")) as unknown as { approvalId: string; state: string; held: boolean };
+    expect(proposed).toMatchObject({ state: "pending", held: true });
+    // Asking again for the same proposal gives the same approval, not a second one; the same change under another proposal id is the same change.
     expect((w.w.brain.requestEffect(w.runner, attempt.attemptId, call("demo-app")) as unknown as { approvalId: string }).approvalId).toBe(proposed.approvalId);
-    // No permit while the owner has not decided.
-    expect(() => w.w.brain.issueEffectPermit(w.runner, attempt.attemptId, call("demo-app"))).toThrow(/pending/);
+    expect(w.w.brain.requestEffect(w.runner, attempt.attemptId, { ...call("demo-app"), proposalId: "another-id" })).toMatchObject({ approvalId: proposed.approvalId, duplicate: true });
+    expect(w.calls()).toHaveLength(1);
+    // The attempt that proposed the change can never take its permit, decided or not.
+    expect(() => w.w.brain.issueEffectPermit(w.runner, attempt.attemptId, call("demo-app"))).toThrow(/only the held job/);
     const approval = w.store.control.prepare("SELECT id, subject_digest, version FROM approval_requests WHERE id=?").get(proposed.approvalId) as { id: string; subject_digest: string; version: number };
     await w.decide(approval, "approve");
-    // The approval names these arguments: another container gets no permit and consumes nothing.
-    expect(() => w.w.brain.issueEffectPermit(w.runner, attempt.attemptId, { ...call("demo-app"), input: { container: "other-app" } })).toThrow(/arguments differ/);
-    expect(() => w.w.brain.issueEffectPermit(w.runner, attempt.attemptId, { ...call("demo-app"), tool: { id: "host.reload", digest: toolDigest("host.reload") } })).toThrow();
+    expect(() => w.w.brain.issueEffectPermit(w.runner, attempt.attemptId, call("demo-app"))).toThrow(/only the held job/);
+    await attempt.finish();
+    const held = await claimHeldChange(w, "sec-1");
+    // Nothing is issued for the wrong proposal, tool or arguments: the approval names these arguments and consumes nothing for others.
+    expect(() => w.w.brain.issueEffectPermit(w.runner, held.attemptId, { ...call("demo-app"), proposalId: "never-proposed" })).toThrow(/never proposed/);
+    expect(() => w.w.brain.issueEffectPermit(w.runner, held.attemptId, { ...call("demo-app"), input: { container: "other-app" } })).toThrow(/arguments differ/);
+    expect(() => w.w.brain.issueEffectPermit(w.runner, held.attemptId, { ...call("demo-app"), tool: { id: "host.reload", digest: toolDigest("host.reload") } })).toThrow();
     expect(w.permits()).toEqual([]);
-    const permit = w.w.brain.issueEffectPermit(w.runner, attempt.attemptId, call("demo-app")) as unknown as { token: string; invocationId: string };
+    const permit = w.w.brain.issueEffectPermit(w.runner, held.attemptId, call("demo-app")) as unknown as { token: string; invocationId: string };
     // Starting with other arguments is refused too, and leaves the permit unused.
-    expect(() => w.w.brain.startEffect(w.runner, attempt.attemptId, { ...call("demo-app"), input: { container: "other-app" }, token: permit.token })).toThrow(/arguments differ/);
-    expect(() => w.w.brain.startEffect(w.runner, attempt.attemptId, { ...call("demo-app"), token: "forged" })).toThrow();
+    expect(() => w.w.brain.startEffect(w.runner, held.attemptId, { ...call("demo-app"), input: { container: "other-app" }, token: permit.token })).toThrow(/arguments differ/);
+    expect(() => w.w.brain.startEffect(w.runner, held.attemptId, { ...call("demo-app"), token: "forged" })).toThrow();
     expect(w.permits()[0]!.state).toBe("issued");
-    w.w.brain.startEffect(w.runner, attempt.attemptId, { ...call("demo-app"), token: permit.token });
+    w.w.brain.startEffect(w.runner, held.attemptId, { ...call("demo-app"), token: permit.token });
     // The permit is spent: starting again, asking for it again, or presenting it for another call all fail.
-    expect(() => w.w.brain.startEffect(w.runner, attempt.attemptId, { ...call("demo-app"), token: permit.token })).toThrow(/already used/);
-    expect(() => w.w.brain.issueEffectPermit(w.runner, attempt.attemptId, call("demo-app"))).toThrow(/already used/);
+    expect(() => w.w.brain.startEffect(w.runner, held.attemptId, { ...call("demo-app"), token: permit.token })).toThrow(/already used/);
+    expect(() => w.w.brain.issueEffectPermit(w.runner, held.attemptId, call("demo-app"))).toThrow(/already used/);
     expect(w.w.brain.validatePermit(permit.token, "inv-someone-else")).toBe(false);
     // The launcher itself runs a privileged invocation once, even if the runner (or an attacker with the socket token) asks again.
     const { LauncherClient } = await import("../../apps/runner/src/launcher-client");
@@ -67,7 +85,21 @@ describe("a permit belongs to one call", () => {
     await expect(launcher.hostCommand("docker.restart", { container: "demo-app" }, "privileged", permit.invocationId)).rejects.toThrow(/already ran/);
     await expect(launcher.hostCommand("docker.restart", { container: "demo-app" }, "privileged")).rejects.toThrow(/invocationId/);
     expect(w.restarts()).toEqual(["restarted demo-app"]);
-    await attempt.finish();
+    // A held job that dies after the call started is an unknown outcome: it is never made again.
+    held.end();
+    expect(w.calls()[0]!.outcome).toBe("unknown");
+    expect(w.permits()[0]!.state).toBe("started");
+  }, scaled(120_000));
+
+  it("is not available to the attempt of a different job, whatever approval exists", async () => {
+    const w = world!;
+    const first = await liveAttempt(w, "sec-3");
+    w.w.brain.requestEffect(w.runner, first.attemptId, call("demo-app", "host.restart", { container: "other-app" }));
+    await first.finish();
+    // Another task's attempt cannot use a proposal it never made, even naming the same proposal.
+    const second = await liveAttempt(w, "sec-4");
+    expect(() => w.w.brain.issueEffectPermit(w.runner, second.attemptId, call("demo-app", "host.restart", { container: "other-app" }))).toThrow(/never proposed/);
+    await second.finish();
   }, scaled(120_000));
 
   it("is refused for a container the owner did not allow, before anyone is asked", async () => {
@@ -82,19 +114,6 @@ describe("a permit belongs to one call", () => {
     expect(() => w.w.brain.requestEffect(w.runner, attempt.attemptId, { proposalId: "p-read", tool: { id: "host.exec", digest: toolDigest("host.exec") }, input: { command: "docker.ps" } })).toThrow(/not an effect tool/);
     expect((w.store.control.prepare("SELECT COUNT(*) AS n FROM approval_requests").get() as { n: number }).n).toBe(approvalsBefore);
     await attempt.finish();
-  }, scaled(120_000));
-
-  it("works for another attempt of the same job only through its own approval", async () => {
-    const w = world!;
-    const first = await liveAttempt(w, "sec-3");
-    const proposed = w.w.brain.requestEffect(w.runner, first.attemptId, call("demo-app")) as unknown as { approvalId: string };
-    const approval = w.store.control.prepare("SELECT id, subject_digest, version FROM approval_requests WHERE id=?").get(proposed.approvalId) as { id: string; subject_digest: string; version: number };
-    await w.decide(approval, "approve");
-    await first.finish();
-    // A later attempt cannot use the earlier attempt's approval, even naming the same proposal.
-    const second = await liveAttempt(w, "sec-4");
-    expect(() => w.w.brain.issueEffectPermit(w.runner, second.attemptId, call("demo-app"))).toThrow(/never proposed/);
-    await second.finish();
   }, scaled(120_000));
 });
 
@@ -146,10 +165,10 @@ describe("credentials stay in the Governor", () => {
     try {
       w.w.brain.connectorsOverride = { tickets: new WebhookTicketAdapter({ url: `http://127.0.0.1:${port}/tickets`, token: secret }) };
       await w.dispatch("sec-6", [{ id: "ticket.create", input: { title: "demo-app keeps restarting", description: "Found unhealthy", priority: "high" } }]);
-      const running = w.run();
+      expect(await w.run()).toBe(true);
       const approval = await w.pendingApproval();
       await w.decide(approval, "approve");
-      expect(await running).toBe(true);
+      await w.drain();
       // The adapter used the credential...
       expect(seen).toEqual([`Bearer ${secret}`]);
       // ...and nothing the model, the owner or the evidence can read contains it.
@@ -159,7 +178,7 @@ describe("credentials stay in the Governor", () => {
         w.store.workspaceDb(w.w.workspaceId, w.w.org).prepare("SELECT manifest_json FROM evidence_bundles").all(),
       ]);
       expect(dump).not.toContain(secret);
-      expect(dump).toContain("OPS-42");
+      expect(new TextDecoder().decode(readVerified(w.store, w.permits().at(-1)!.receipt_digest!))).toContain("OPS-42");
       expect(w.permits().at(-1)!.state).toBe("applied");
     } finally { server.close(); w.w.brain.connectorsOverride = undefined; }
   }, scaled(120_000));

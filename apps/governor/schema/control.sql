@@ -541,13 +541,19 @@ CREATE TABLE runner_groups (
   PRIMARY KEY(organization_id, group_id)
 ) STRICT;
 -- One row per effect call an agent proposed: the exact call its approval names, so a permit is bound to it and to nothing else.
+-- ADR 0028: a proposal ends the proposing attempt. The call is held as an act job (blocked until the approval is decided) and the proposing
+-- job waits, blocked, until every call it proposed is settled. outcome: applied, absent, unknown, declined, expired, revoked, cancelled.
 CREATE TABLE effect_calls (
   attempt_id TEXT NOT NULL REFERENCES job_attempts(id), proposal_id TEXT NOT NULL,
   organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, approval_id TEXT NOT NULL REFERENCES approval_requests(id),
   tool_id TEXT NOT NULL, input_digest TEXT NOT NULL, resource_key TEXT NOT NULL DEFAULT '', created_at_ms INTEGER NOT NULL,
+  parent_job_id TEXT NOT NULL DEFAULT '', act_job_id TEXT NOT NULL DEFAULT '', outcome TEXT DEFAULT NULL, settled_at_ms INTEGER DEFAULT NULL,
   PRIMARY KEY(attempt_id, proposal_id)
 ) STRICT;
 CREATE UNIQUE INDEX effect_calls_approval ON effect_calls(approval_id);
+CREATE INDEX effect_calls_parent ON effect_calls(parent_job_id, tool_id, input_digest);
+CREATE INDEX effect_calls_act ON effect_calls(act_job_id);
+CREATE INDEX effect_calls_open ON effect_calls(created_at_ms) WHERE settled_at_ms IS NULL;
 -- Inbound chat webhook requests already handled (ADR 0024): a retried signed request is acknowledged, never repeated.
 CREATE TABLE inbound_hook_events (
   remote_event_id TEXT PRIMARY KEY, received_at_ms INTEGER NOT NULL
