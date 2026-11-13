@@ -188,13 +188,16 @@ function Withdraw(): JSX.Element {
   const app = useApp();
   const [confirming, setConfirming] = createSignal(false);
   const saver = createSaver(async () => setConfirming(false));
+  // Withdrawing knowledge is a workspace lead's command (it needs memory:publish), which an organization administrator may not hold.
+  const mayWithdraw = () => app.myRoles().includes("workspace-lead");
   return <WorkspaceSection title={t("work.withdraw.title")} description={t("work.withdraw.description")}>
     <div class="flex min-w-0 flex-wrap items-center gap-2" data-work-withdraw>
-      <Show when={confirming()} fallback={<Button size="sm" variant="outline" disabled={!app.canAdminister()} onClick={() => setConfirming(true)}>{t("work.withdraw.start")}</Button>}>
+      <Show when={confirming()} fallback={<Button size="sm" variant="outline" disabled={!mayWithdraw()} onClick={() => setConfirming(true)}>{t("work.withdraw.start")}</Button>}>
         <Button size="sm" variant="solid" theme="red" loading={saver.busy()} disabled={saver.busy()} onClick={() => void saver.save(() => app.run("knowledge.withdrawUnobserved", {}), t("work.withdraw.done"))}>{t("work.withdraw.confirm")}</Button>
         <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>{t("decision.cancel")}</Button>
       </Show>
     </div>
+    <Show when={!mayWithdraw()}><p class="m-0 text-caption text-ink-gray-6">{t("work.withdraw.needsLead")}</p></Show>
     <Outcome result={saver.result()} />
   </WorkspaceSection>;
 }

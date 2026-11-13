@@ -30,7 +30,7 @@ import { t } from "../../i18n";
  * asks for a reason in a dialog. Nothing executes before confirmation.
  */
 /** What the plan draft is doing right now, from `MissionPlanView.stage`. */
-const STAGE_LINES = { reading: "Reading what the workspace knows...", drafting: "Drafting the steps...", checking: "Checking the plan..." } as const;
+const stageLine = (stage: "reading" | "drafting" | "checking"): string => t(stage === "reading" ? "plan.stage.reading" : stage === "drafting" ? "plan.stage.drafting" : "plan.stage.checking");
 
 export function PlanCanvas(props: { mission: Mission; proposalId?: string; onChanged: () => Promise<void> | void }): JSX.Element {
   const app = useApp();
@@ -235,7 +235,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     <Show when={error()}><Alert theme="red" variant="outline" title={t("plan.planning-action-failed.a063")} description={error()} /></Show>
     <PastWorkUsed missionId={props.mission.missionId} workspaceId={props.mission.workspaceId} pending={busy() ? sent() : []} busy={busy()} canEdit={app.canDispatch() && props.mission.state !== "closed"} refreshKey={reuseKey()}
       onRedraft={(kept, dropped) => void generate(kept, dropped)} />
-    <Show when={proposal.state().data?.state === "running"}><Alert theme="blue" variant="outline" title={t("plan.preparing-a-validated-proposal.5bc9")} description={`${STAGE_LINES[proposal.state().data?.stage ?? "reading"]} The mission is saved; no task has been created and nothing has started.`} /></Show>
+    <Show when={proposal.state().data?.state === "running"}><Alert theme="blue" variant="outline" title={t("plan.preparing-a-validated-proposal.5bc9")} description={`${stageLine(proposal.state().data?.stage ?? "reading")} ${t("plan.stage.saved")}`} /></Show>
     <Show when={proposal.state().data?.state === "failed"}><Alert theme="amber" variant="outline" title={t("plan.no-validated-proposal-yet.b7ae")} description={proposal.state().data?.error} /></Show>
     <Show when={linked.state().data?.proposal ?? (proposal.state().data?.plan ? undefined : active.state().data ?? undefined)} keyed fallback={
       <ScreenRegion state={proposal.state()} onRetry={() => void proposal.refresh()} emptyTitle={t("plan.no-plan-yet.5f3d")} emptyDescription={t("plan.ask-brain-to-draft-a-plan-nothin.d322")}>

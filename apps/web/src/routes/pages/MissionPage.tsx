@@ -66,19 +66,19 @@ function missionGuide(m: Mission, items: readonly WorkItem[], canStart: boolean)
   const live = items.filter((item) => item.state !== "abandoned");
   const allDone = live.length > 0 && live.every((item) => item.state === "done");
   const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
-  if (m.state === "closed") return { step: "close", tab: "outputs", icon: "lucide-flag", title: "This mission is closed", detail: "The outcome is recorded. Outputs stay available.", allDone };
+  if (m.state === "closed") return { step: "close", tab: "outputs", icon: "lucide-flag", title: t("mp.this-mission-is-closed.03df"), detail: t("mp.the-outcome-is-recorded-outputs.f66e"), allDone };
   // The mission and its work items are separate reads that refresh at different moments: work that exists means a plan was confirmed, whatever the mission read still says.
-  if (!m.activePlanVersionId && live.length === 0) return { step: "plan", tab: "plan", icon: "lucide-list-tree", title: "Prepare and confirm a plan", detail: "No plan is confirmed yet. Brain drafts one for you to read; nothing runs until you confirm it.", allDone, action: { label: "Review the plan", tab: "plan" } };
-  if (m.state === "verifying") return { step: "close", tab: "outputs", icon: "lucide-badge-check", title: "Completion is being checked", detail: "An independent check decides whether the mission can close.", allDone };
-  if (n("in-progress") > 0) return { step: "start", tab: "live", icon: "lucide-radio", title: `${plural(n("in-progress"), "task is", "tasks are")} in progress`, detail: "An agent is working on it, or about to pick it up. Follow its messages and tool activity in Live.", allDone, action: { label: "Follow in Live", tab: "live" } };
+  if (!m.activePlanVersionId && live.length === 0) return { step: "plan", tab: "plan", icon: "lucide-list-tree", title: t("mp.prepare-and-confirm-a-plan.e751"), detail: t("mp.no-plan-is-confirmed-yet-brain-d.62a1"), allDone, action: { label: t("mp.review-the-plan.e180"), tab: "plan" } };
+  if (m.state === "verifying") return { step: "close", tab: "outputs", icon: "lucide-badge-check", title: t("mp.completion-is-being-checked.8e3d"), detail: t("mp.an-independent-check-decides-whe.04d7"), allDone };
+  if (n("in-progress") > 0) return { step: "start", tab: "live", icon: "lucide-radio", title: `${plural(n("in-progress"), "task is", "tasks are")} in progress`, detail: t("mp.an-agent-is-working-on-it-or-abo.53e5"), allDone, action: { label: t("mp.follow-in-live.c4a1"), tab: "live" } };
   const ready = items.find((item) => item.state === "ready");
-  if (ready && canStart) return { step: "confirm", tab: "plan", icon: "lucide-play", title: `${plural(n("ready"), "task is", "tasks are")} ready to start`, detail: "The plan is confirmed. Start a ready task to put an agent on it.", allDone, action: { label: `Start ${ready.title}`, start: ready } };
-  if (ready) return { step: "confirm", tab: "plan", icon: "lucide-play", title: `${plural(n("ready"), "task is", "tasks are")} ready to start`, detail: "Someone with dispatch rights has to start them.", allDone };
-  if (allDone) return { step: "review", tab: "outputs", icon: "lucide-package", title: "All work is done", detail: m.autoStart ? "Every task is verified by an independent check, so Brain closes this mission by itself. Read the results." : "Review the outputs, then finish the mission.", allDone, action: { label: "Review outputs", tab: "outputs" } };
+  if (ready && canStart) return { step: "confirm", tab: "plan", icon: "lucide-play", title: `${plural(n("ready"), "task is", "tasks are")} ready to start`, detail: t("mp.the-plan-is-confirmed-start-a-re.8482"), allDone, action: { label: `Start ${ready.title}`, start: ready } };
+  if (ready) return { step: "confirm", tab: "plan", icon: "lucide-play", title: `${plural(n("ready"), "task is", "tasks are")} ready to start`, detail: t("mp.someone-with-dispatch-rights-has.6dda"), allDone };
+  if (allDone) return { step: "review", tab: "outputs", icon: "lucide-package", title: t("mp.all-work-is-done.2698"), detail: m.autoStart ? t("mp.every-task-is-verified-by-an-ind.ef62") : t("mp.review-the-outputs-then-finish-t.0fcd"), allDone, action: { label: t("mp.review-outputs.0d8d"), tab: "outputs" } };
   const stoppedItems = items.filter((item) => isStoppedForRetry(item));
-  if (stoppedItems.length > 0 && n("review") === 0) return { step: "review", tab: "plan", icon: "lucide-circle-pause", title: "Stopped: waiting for you to try again", detail: `${plural(stoppedItems.length, "task was", "tasks were")} interrupted too often to carry on by itself. Press Try again on ${stoppedItems.length === 1 ? "it" : "each"}.`, allDone, action: { label: "Open the work", tab: "plan" } };
-  if (n("review") > 0 || n("blocked") > 0) return { step: "review", tab: "plan", icon: "lucide-badge-check", title: n("review") > 0 ? "Work is waiting for your review" : "Some work is blocked", detail: `${n("review")} in review · ${n("blocked")} blocked. Done needs verified evidence.`, allDone, action: { label: "Open the work", tab: "plan" } };
-  return { step: "start", tab: "live", icon: "lucide-hourglass", title: "Waiting for work to unlock", detail: "Remaining tasks wait for earlier ones to be verified done.", allDone };
+  if (stoppedItems.length > 0 && n("review") === 0) return { step: "review", tab: "plan", icon: "lucide-circle-pause", title: t("mp.stopped-waiting-for-you-to-try-a.47a0"), detail: `${plural(stoppedItems.length, "task was", "tasks were")} interrupted too often to carry on by itself. Press Try again on ${stoppedItems.length === 1 ? "it" : "each"}.`, allDone, action: { label: t("mp.open-the-work.ae17"), tab: "plan" } };
+  if (n("review") > 0 || n("blocked") > 0) return { step: "review", tab: "plan", icon: "lucide-badge-check", title: n("review") > 0 ? t("mp.work-is-waiting-for-your-review.0c74") : t("mp.some-work-is-blocked.1e92"), detail: `${n("review")} in review · ${n("blocked")} blocked. Done needs verified evidence.`, allDone, action: { label: t("mp.open-the-work.ae17"), tab: "plan" } };
+  return { step: "start", tab: "live", icon: "lucide-hourglass", title: t("mp.waiting-for-work-to-unlock.f2fd"), detail: t("mp.remaining-tasks-wait-for-earlier.8d28"), allDone };
 }
 
 /** The mission at a glance: the flow stepper with one primary action for the current step, task states, completion and the budget against its cap. */
@@ -120,11 +120,11 @@ function MissionSnapshot(props: { mission: Mission; items: WorkItem[]; tab: Miss
       <div class="min-w-0 flex-1"><p class="text-base-medium text-ink-gray-9">{guide().title}</p><p class="text-interface text-ink-gray-7">{guide().detail}</p></div>
       <Show when={actionHere()}>{(action) => <Button variant="solid" theme="blue" iconLeft={"start" in action() ? "lucide-play" : undefined} iconRight={"start" in action() ? undefined : "lucide-arrow-right"} onClick={() => go(action())}>{action().label}</Button>}</Show>
     </div>
-    <Show when={waits().length}><ul class="flex flex-col gap-1 text-interface text-ink-gray-7" aria-label="Why work is waiting"><For each={waits()}>{(line) => <li class="flex items-start gap-1.5"><span class="lucide-hourglass mt-0.5 size-3.5 shrink-0 text-ink-amber-8" aria-hidden="true" />{line}</li>}</For></ul></Show>
+    <Show when={waits().length}><ul class="flex flex-col gap-1 text-interface text-ink-gray-7" aria-label={t("mp.why-work-is-waiting.1ac0")}><For each={waits()}>{(line) => <li class="flex items-start gap-1.5"><span class="lucide-hourglass mt-0.5 size-3.5 shrink-0 text-ink-amber-8" aria-hidden="true" />{line}</li>}</For></ul></Show>
     <div class="grid gap-4 md:grid-cols-2">
       <div class="flex min-w-0 flex-col gap-1"><p class="text-base-medium">{props.items.length ? `${percent()}% complete` : "No tasks yet"}</p><StateBar counts={counts()} />
         <Show when={props.mission.taskTrust}>{(trust) => <p class="flex items-start gap-1.5 text-caption text-ink-gray-7" data-testid="mission-trust" data-model={trust().model}><span class={`${trust().model > 0 ? "lucide-circle-alert text-ink-amber-8" : "lucide-shield-check text-ink-green-8"} mt-0.5 size-3.5 shrink-0`} aria-hidden="true" />{trust().text}</p>}</Show></div>
-      <Show when={props.tab !== "plan" ? props.mission.budget.maxMicroUsd : undefined}>{(limit) => <div class="flex min-w-0 flex-col gap-1"><p class="text-base-medium">Budget</p><Meter label="Mission budget" settled={props.mission.usage.settledMicroUsd} reserved={props.mission.usage.reservedMicroUsd} limit={limit()} format={formatUsd} /></div>}</Show>
+      <Show when={props.tab !== "plan" ? props.mission.budget.maxMicroUsd : undefined}>{(limit) => <div class="flex min-w-0 flex-col gap-1"><p class="text-base-medium">{t("mp.budget.7aeb")}</p><Meter label={t("mp.mission-budget.8424")} settled={props.mission.usage.settledMicroUsd} reserved={props.mission.usage.reservedMicroUsd} limit={limit()} format={formatUsd} /></div>}</Show>
     </div>
     <MissionUsage mission={props.mission} onAct={props.onAct} busy={props.busy} />
   </div>;
@@ -186,36 +186,36 @@ export default function MissionPage(): JSX.Element {
     void navigate(missionHref(app.workspaceId(), m.missionId, missionGuide(m, list, app.canDispatch()).tab), { replace: true });
   });
   return <BrainPage title={current()?.title ?? "Mission"} description={current()?.intent}
-    breadcrumbs={[{ label: "Missions", href: `/w/${app.workspaceId()}/missions` }, { label: current()?.title ?? missionId() }]}
+    breadcrumbs={[{ label: t("mp.missions.323e"), href: `/w/${app.workspaceId()}/missions` }, { label: current()?.title ?? missionId() }]}
     actions={<Show when={current()}>{(m) => <div class="flex flex-wrap gap-2">
-      <Button variant={m().watching ? "solid" : "outline"} iconLeft={m().watching ? "lucide-eye-off" : "lucide-eye"} aria-pressed={m().watching ? "true" : "false"} disabled={busy()} onClick={() => void act(() => app.run("mission.watch", { missionId: m().missionId, watch: !m().watching }))}>{m().watching ? "Unwatch" : "Watch"}</Button>
-      <Show when={m().state === "closed"}><Button variant="outline" theme="blue" iconLeft="lucide-repeat" onClick={() => void navigate(`/w/${app.workspaceId()}/schedules?repeat=${encodeURIComponent(m().missionId)}`)}>Repeat this</Button></Show>
-      <Show when={m().state === "paused"}><Button variant="solid" theme="blue" iconLeft="lucide-play" disabled={busy()} onClick={() => void act(() => app.run("mission.resume", { missionId: m().missionId }, { expectedVersion: m().version }))}>Resume</Button></Show>
-      <Show when={m().state === "active" && missionGuide(m(), items.state().data ?? [], app.canDispatch()).allDone}><Button variant="solid" theme="blue" iconLeft="lucide-badge-check" disabled={busy()} onClick={() => void act(() => app.run("mission.proposeCompletion", { missionId: m().missionId }, { expectedVersion: m().version }))}>Finish mission</Button></Show>
-      <Show when={m().state !== "closed"}><Dropdown aria-label="More mission actions" options={[
-          ...(m().state === "active" ? [{ value: "pause", label: "Pause the mission", icon: "lucide-pause" }] : []),
-          ...(m().state === "active" && !missionGuide(m(), items.state().data ?? [], app.canDispatch()).allDone ? [{ value: "finish", label: "Finish mission (propose completion)", icon: "lucide-badge-check" }] : []),
-          { value: "autoStart", label: m().autoStart ? "Starting tasks: automatic (switch to ask me first)" : "Starting tasks: Ask me before each task (switch to automatic)", icon: m().autoStart ? "lucide-zap" : "lucide-hand" },
-          { value: "end", label: "End mission without completion", icon: "lucide-square" }]}
+      <Button variant={m().watching ? "solid" : "outline"} iconLeft={m().watching ? "lucide-eye-off" : "lucide-eye"} aria-pressed={m().watching ? "true" : "false"} disabled={busy()} onClick={() => void act(() => app.run("mission.watch", { missionId: m().missionId, watch: !m().watching }))}>{m().watching ? t("mp.unwatch.5105") : t("mp.watch.d91e")}</Button>
+      <Show when={m().state === "closed"}><Button variant="outline" theme="blue" iconLeft="lucide-repeat" onClick={() => void navigate(`/w/${app.workspaceId()}/schedules?repeat=${encodeURIComponent(m().missionId)}`)}>{t("mp.repeat-this.011e")}</Button></Show>
+      <Show when={m().state === "paused"}><Button variant="solid" theme="blue" iconLeft="lucide-play" disabled={busy()} onClick={() => void act(() => app.run("mission.resume", { missionId: m().missionId }, { expectedVersion: m().version }))}>{t("mp.resume.b3bd")}</Button></Show>
+      <Show when={m().state === "active" && missionGuide(m(), items.state().data ?? [], app.canDispatch()).allDone}><Button variant="solid" theme="blue" iconLeft="lucide-badge-check" disabled={busy()} onClick={() => void act(() => app.run("mission.proposeCompletion", { missionId: m().missionId }, { expectedVersion: m().version }))}>{t("mp.finish-mission.6e55")}</Button></Show>
+      <Show when={m().state !== "closed"}><Dropdown aria-label={t("mp.more-mission-actions.98b8")} options={[
+          ...(m().state === "active" ? [{ value: "pause", label: t("mp.pause-the-mission.86e9"), icon: "lucide-pause" }] : []),
+          ...(m().state === "active" && !missionGuide(m(), items.state().data ?? [], app.canDispatch()).allDone ? [{ value: "finish", label: t("mp.finish-mission-propose-completio.1e4c"), icon: "lucide-badge-check" }] : []),
+          { value: "autoStart", label: m().autoStart ? t("mp.starting-tasks-automatic-switch.eab0") : t("mp.starting-tasks-ask-me-before-eac.6322"), icon: m().autoStart ? "lucide-zap" : "lucide-hand" },
+          { value: "end", label: t("mp.end-mission-without-completion.1351"), icon: "lucide-square" }]}
         onSelect={(value) => {
           if (value === "end") setEnding(true);
           if (value === "pause") void act(() => app.run("mission.pause", { missionId: m().missionId }, { expectedVersion: m().version }));
           if (value === "finish") void act(() => app.run("mission.proposeCompletion", { missionId: m().missionId }, { expectedVersion: m().version }));
           if (value === "autoStart") void act(() => app.run("mission.policy.set", { missionId: m().missionId, autoStart: !m().autoStart }, { expectedVersion: m().version }));
-        }}><span class="flex items-center gap-1.5"><span class="lucide-ellipsis size-4" aria-hidden="true" />More</span></Dropdown></Show>
+        }}><span class="flex items-center gap-1.5"><span class="lucide-ellipsis size-4" aria-hidden="true" />{t("mp.more.4bab")}</span></Dropdown></Show>
     </div>}</Show>}>
     <PageStack>
-      <Show when={error()}><Alert theme="red" variant="outline" title="The mission refused this change" description={error()} /></Show>
-      <ScreenRegion state={mission.state()} onRetry={() => void mission.refresh({ force: true })} emptyTitle="Mission not found" emptyDescription="It may belong to another workspace.">
+      <Show when={error()}><Alert theme="red" variant="outline" title={t("mp.the-mission-refused-this-change.e1f1")} description={error()} /></Show>
+      <ScreenRegion state={mission.state()} onRetry={() => void mission.refresh({ force: true })} emptyTitle={t("mp.mission-not-found.843a")} emptyDescription={t("mp.it-may-belong-to-another-workspa.da49")}>
         <Show when={current()}>{(m) => <>
-          <Show when={!m().autoStart && m().state !== "closed"}><Alert theme="blue" variant="outline" title="Tasks start when you start them" description="This mission asks before each task. Use More to let it start ready tasks automatically." /></Show>
+          <Show when={!m().autoStart && m().state !== "closed"}><Alert theme="blue" variant="outline" title={t("mp.tasks-start-when-you-start-them.0485")} description={t("mp.this-mission-asks-before-each-ta.7c4e")} /></Show>
           <MissionSnapshot mission={m()} items={items.state().data ?? []} tab={tab()} onAct={act} busy={busy()} />
           <Dialog.Root open={ending()} onOpenChange={(open) => { if (!open) setEnding(false); }}>
             <Dialog.Content size="md">
-              <Dialog.Header><Dialog.Title>End this mission</Dialog.Title><Dialog.Description>Ending closes the mission now without proposing completion. Use Finish mission when the work is done and verified.</Dialog.Description></Dialog.Header>
+              <Dialog.Header><Dialog.Title>{t("mp.end-this-mission.e359")}</Dialog.Title><Dialog.Description>{t("mp.ending-closes-the-mission-now-wi.c214")}</Dialog.Description></Dialog.Header>
               <Dialog.Footer class="flex-wrap justify-end gap-2">
-                <Button size="sm" variant="outline" onClick={() => setEnding(false)}>Cancel</Button>
-                <Button size="sm" variant="solid" theme="red" loading={busy()} onClick={() => void act(async () => { await app.run("mission.close", { missionId: m().missionId, outcome: "ended" }, { expectedVersion: m().version }); setEnding(false); })}>End mission</Button>
+                <Button size="sm" variant="outline" onClick={() => setEnding(false)}>{t("mp.cancel.77df")}</Button>
+                <Button size="sm" variant="solid" theme="red" loading={busy()} onClick={() => void act(async () => { await app.run("mission.close", { missionId: m().missionId, outcome: "ended" }, { expectedVersion: m().version }); setEnding(false); })}>{t("mp.end-mission.c54f")}</Button>
               </Dialog.Footer>
             </Dialog.Content>
           </Dialog.Root>
@@ -223,7 +223,7 @@ export default function MissionPage(): JSX.Element {
             <TabButtons label={t("mission.tab.label")} value={tab()} wrap onValueChange={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}
               options={TABS.filter((entry) => MAIN_TABS.includes(entry.id) || entry.id === tab()).map((entry) => ({ value: entry.id, label: tabLabel(entry.id) }))} />
             <Dropdown aria-label={t("mission.tab.more")} options={TABS.filter((entry) => !MAIN_TABS.includes(entry.id) && entry.id !== tab()).map((entry) => ({ value: entry.id, label: tabLabel(entry.id) }))}
-              onSelect={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}><span class="flex items-center gap-1.5"><span class="lucide-ellipsis size-4" aria-hidden="true" />More views</span></Dropdown>
+              onSelect={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}><span class="flex items-center gap-1.5"><span class="lucide-ellipsis size-4" aria-hidden="true" />{t("mp.more-views.5e8b")}</span></Dropdown>
           </div>
           <Switch>
             <Match when={tab() === "live"}><LiveTab mission={m()} onAct={act} busy={busy()} /></Match>
@@ -320,16 +320,16 @@ function LiveTab(props: ActProps): JSX.Element {
   /** With no session yet, say what the work is waiting for rather than that nobody is working. */
   const idle = () => {
     const items = team.state().data?.items ?? [];
-    if (items.some((item) => item.state === "in-progress")) return { title: "Starting: waiting for a runner", description: "A task is under way and its agent has not picked it up yet. Its session appears here the moment a runner starts it." };
-    if (items.some((item) => item.state === "review")) return { title: "Waiting for the independent check", description: "The work is finished and an independent check is verifying it before it counts as done." };
+    if (items.some((item) => item.state === "in-progress")) return { title: t("mp.starting-waiting-for-a-runner.0dea"), description: t("mp.a-task-is-under-way-and-its-agen.26e2") };
+    if (items.some((item) => item.state === "review")) return { title: t("mp.waiting-for-the-independent-chec.30c3"), description: t("mp.the-work-is-finished-and-an-inde.dd1d") };
     return undefined;
   };
   const chip = (selected: boolean) => `inline-flex min-w-0 cursor-pointer items-center gap-2 rounded-full border py-1 ps-1 pe-3 text-caption focus-visible:focus-ring ${selected ? "border-outline-blue-3 bg-surface-blue-1 text-ink-blue-8" : "border-outline-gray-2 bg-surface-elevation-1 text-ink-gray-8 hover:bg-surface-gray-1"}`;
   return <PageStack>
     <fieldset class="m-0 flex min-w-0 flex-wrap items-center gap-2 border-0 p-0">
-      <legend class="sr-only">Whose sessions to follow</legend>
-      <span class="me-1 text-caption font-medium text-ink-gray-6" aria-hidden="true">Follow</span>
-      <button type="button" class={chip(!member())} aria-pressed={!member()} aria-label="Follow the whole team" onClick={() => setSearch({ member: undefined, session: undefined })}>
+      <legend class="sr-only">{t("mp.whose-sessions-to-follow.39fe")}</legend>
+      <span class="me-1 text-caption font-medium text-ink-gray-6" aria-hidden="true">{t("mp.follow.6658")}</span>
+      <button type="button" class={chip(!member())} aria-pressed={!member()} aria-label={t("mp.follow-the-whole-team.922b")} onClick={() => setSearch({ member: undefined, session: undefined })}>
         <span class="grid size-6 place-items-center rounded-full bg-surface-gray-2 text-ink-gray-7" aria-hidden="true"><span class="lucide-users size-3.5" /></span>
         Whole team <span class="text-ink-gray-6">{team.state().data?.sessions.length ?? 0} sessions</span>
       </button>
@@ -345,35 +345,35 @@ function LiveTab(props: ActProps): JSX.Element {
       filters={filters()} onFiltersChange={(patch) => setSearch({ ...writeExecFilters({ ...filters(), ...patch }) })}
       onSessionChange={(sessionId) => setSearch({ session: sessionId }, { replace: true })} />
     <div class="grid min-w-0 gap-4 lg:grid-cols-2">
-      <WorkspaceSection title="While you were away" description="Notable events since you last looked; everything else is counted.">
-        <ScreenRegion state={summary.state()} onRetry={() => void summary.refresh({ force: true })} emptyTitle="Nothing yet" emptyDescription="Events appear as the mission moves.">
+      <WorkspaceSection title={t("mp.while-you-were-away.ae75")} description={t("mp.notable-events-since-you-last-lo.fff2")}>
+        <ScreenRegion state={summary.state()} onRetry={() => void summary.refresh({ force: true })} emptyTitle={t("mp.nothing-yet.76eb")} emptyDescription={t("mp.events-appear-as-the-mission-mov.7942")}>
           <Show when={summary.state().data}>{(s) => <>
-            <Show when={s().notable.length} fallback={<p class="text-interface text-ink-gray-7">Nothing notable since your last visit.</p>}>
+            <Show when={s().notable.length} fallback={<p class="text-interface text-ink-gray-7">{t("mp.nothing-notable-since-your-last.e283")}</p>}>
               <ul class="flex flex-col gap-1 text-interface"><For each={groupNotable(s().notable)}>{(entry) => <li><span class="text-ink-gray-6">{formatDateTime(entry.at)}</span> · {entry.summary}{entry.count > 1 ? ` (${entry.count} times)` : ""}</li>}</For></ul>
             </Show>
             <Show when={Object.keys(s().otherCounts).length}><p class="mt-2 text-caption text-ink-gray-6">Also: {Object.entries(s().otherCounts).map(([type, count]) => `${count} ${eventWords(type)}`).join(" · ")}</p></Show>
-            <Button size="sm" variant="outline" class="mt-2" disabled={s().toCursor === s().fromCursor} onClick={() => void props.onAct(async () => { await app.run("mission.seen", { missionId: props.mission.missionId, cursor: s().toCursor }); await summary.refresh({ force: true }); })}>Mark as seen</Button>
+            <Button size="sm" variant="outline" class="mt-2" disabled={s().toCursor === s().fromCursor} onClick={() => void props.onAct(async () => { await app.run("mission.seen", { missionId: props.mission.missionId, cursor: s().toCursor }); await summary.refresh({ force: true }); })}>{t("mp.mark-as-seen.c074")}</Button>
           </>}</Show>
         </ScreenRegion>
       </WorkspaceSection>
-      <WorkspaceSection title="Messages" description="Reaches the coordinator or one member's running session when its engine can be steered. A message never approves anything." actions={<Button variant="outline" theme="blue" iconLeft="lucide-send" disabled={props.mission.state === "closed"} onClick={() => setComposeOpen(true)}>Message the mission</Button>}>
-        <FormSheet open={composeOpen()} onClose={() => setComposeOpen(false)} title="Message the mission" centered description="A message never approves anything." submit="Send" icon="lucide-send" busy={props.busy} disabled={!body().trim() || props.mission.state === "closed"} onSubmit={() => { if (body().trim() && !props.busy) send(); }}>
-        <Select label="Recipient" value={recipient()} onValueChange={(value) => setRecipient(value ?? "mission")}
-          options={[{ value: "mission", label: "The mission (coordinator)" }, ...(team.state().data?.members ?? []).map((entry) => ({ value: entry.memberId, label: `${entry.role} (${entry.memberId})` }))]} />
-        <Textarea label="Message" required value={body()} onInput={(event) => setBody(event.currentTarget.value)} placeholder="Prioritise the login flow" />
-        <Checkbox label="Interrupt running sessions at their next safe point" checked={interrupt()} onCheckedChange={(checked) => setInterrupt(checked === true)} />
-        <Checkbox label="Also add to the brief as a constraint" checked={addToBrief()} onCheckedChange={(checked) => setAddToBrief(checked === true)} />
+      <WorkspaceSection title={t("mp.messages.f170")} description={t("mp.reaches-the-coordinator-or-one-m.675c")} actions={<Button variant="outline" theme="blue" iconLeft="lucide-send" disabled={props.mission.state === "closed"} onClick={() => setComposeOpen(true)}>{t("mp.message-the-mission.4ffc")}</Button>}>
+        <FormSheet open={composeOpen()} onClose={() => setComposeOpen(false)} title={t("mp.message-the-mission.4ffc")} centered description={t("mp.a-message-never-approves-anythin.4e43")} submit={t("mp.send.9bc2")} icon="lucide-send" busy={props.busy} disabled={!body().trim() || props.mission.state === "closed"} onSubmit={() => { if (body().trim() && !props.busy) send(); }}>
+        <Select label={t("mp.recipient.9034")} value={recipient()} onValueChange={(value) => setRecipient(value ?? "mission")}
+          options={[{ value: "mission", label: t("mp.the-mission-coordinator.5ace") }, ...(team.state().data?.members ?? []).map((entry) => ({ value: entry.memberId, label: `${entry.role} (${entry.memberId})` }))]} />
+        <Textarea label={t("mp.message.68f4")} required value={body()} onInput={(event) => setBody(event.currentTarget.value)} placeholder={t("mp.prioritise-the-login-flow.3f3d")} />
+        <Checkbox label={t("mp.interrupt-running-sessions-at-th.c995")} checked={interrupt()} onCheckedChange={(checked) => setInterrupt(checked === true)} />
+        <Checkbox label={t("mp.also-add-to-the-brief-as-a-const.4a42")} checked={addToBrief()} onCheckedChange={(checked) => setAddToBrief(checked === true)} />
         </FormSheet>
-        <ScreenRegion state={messages.state()} onRetry={() => void messages.refresh({ force: true })} emptyTitle="No messages" emptyDescription="Messages you send appear here with their delivery state.">
+        <ScreenRegion state={messages.state()} onRetry={() => void messages.refresh({ force: true })} emptyTitle={t("mp.no-messages.6f77")} emptyDescription={t("mp.messages-you-send-appear-here-wi.c1d0")}>
           <ul class="mt-3 flex flex-col gap-2"><For each={(messages.state().data ?? []).slice(0, 5)}>{(message) => <li class="rounded-control border border-outline-gray-1 p-2">
             <p class="break-words text-interface">{message.body}</p><p class="text-caption text-ink-gray-6">{message.recipient.kind === "member" ? `to ${message.recipient.memberId} · ` : ""}{message.senderId} · {message.delivery} · {formatDateTime(message.createdAt)}</p></li>}</For></ul>
         </ScreenRegion>
       </WorkspaceSection>
     </div>
-    <Show when={(team.state().data?.sessions.length ?? 0) >= 2 || compared().length}><WorkspaceSection title="Compare two sessions" description="Follow two members' sessions side by side; each keeps its own filters and live tail."
-      actions={<Show when={compared().length}><Button variant="outline" iconLeft="lucide-x" onClick={() => setSearch({ compare: undefined })}>Close comparison</Button></Show>}>
+    <Show when={(team.state().data?.sessions.length ?? 0) >= 2 || compared().length}><WorkspaceSection title={t("mp.compare-two-sessions.6e12")} description={t("mp.follow-two-members-sessions-side.a728")}
+      actions={<Show when={compared().length}><Button variant="outline" iconLeft="lucide-x" onClick={() => setSearch({ compare: undefined })}>{t("mp.close-comparison.45b1")}</Button></Show>}>
       <div class="brain-field-grid">
-        <For each={[0, 1] as const}>{(index) => <Select label={index === 0 ? "Left session" : "Right session"} value={compared()[index] ?? ""} onValueChange={(value) => setCompared(index, value ?? "")}
+        <For each={[0, 1] as const}>{(index) => <Select label={index === 0 ? t("mp.left-session.4a72") : t("mp.right-session.0404")} value={compared()[index] ?? ""} onValueChange={(value) => setCompared(index, value ?? "")}
           options={(team.state().data?.sessions ?? []).map((session) => ({ value: session.sessionId, label: sessionLabel(session.sessionId) }))} />}</For>
       </div>
       <Show when={compared().length === 2 && compared()[0] !== compared()[1]}>
@@ -396,9 +396,9 @@ function TeamTab(props: { mission: Mission }): JSX.Element {
     },
     isEmpty: (value) => !value?.team?.length,
   });
-  return <WorkspaceSection title="Mission team" description={`Up to ${props.mission.budget.memberCap} members run at once; ${props.mission.usage.runningMembers} running now.`}>
-    <ScreenRegion state={plan.state()} onRetry={() => void plan.refresh({ force: true })} emptyTitle="No team yet" emptyDescription="A plan version with a team is proposed by a play or a coordinator and confirmed by a person.">
-      <table class="w-full text-start text-interface"><thead><tr><th>Member</th><th>Role</th><th>Agent</th><th>Engine</th><th>Tasks</th></tr></thead>
+  return <WorkspaceSection title={t("mp.mission-team.414d")} description={`Up to ${props.mission.budget.memberCap} members run at once; ${props.mission.usage.runningMembers} running now.`}>
+    <ScreenRegion state={plan.state()} onRetry={() => void plan.refresh({ force: true })} emptyTitle={t("mp.no-team-yet.6fb4")} emptyDescription={t("mp.a-plan-version-with-a-team-is-pr.fcae")}>
+      <table class="w-full text-start text-interface"><thead><tr><th>{t("mp.member.6853")}</th><th>{t("mp.role.c3f1")}</th><th>{t("mp.agent.5ce2")}</th><th>{t("mp.engine.c1f6")}</th><th>{t("mp.tasks.090e")}</th></tr></thead>
         <tbody><For each={plan.state().data?.team ?? []}>{(member) => <tr>
           <td>{member.memberId}</td><td>{member.role}</td><td>{member.agentId}</td><td>{member.engine}</td>
           <td>{(plan.state().data?.tasks ?? []).filter((task) => task.assignment?.kind === "agent" && task.assignment.id === member.memberId).map((task) => task.title).join(", ") || "—"}</td>
@@ -453,28 +453,28 @@ function BriefTab(props: ActProps): JSX.Element {
     await app.run("decision.accept", { missionId: props.mission.missionId, baseVersion: b.version, statement: decision().trim(), source: { kind: "human" } });
     setDecision(""); setDecideOpen(false); await brief.refresh({ force: true });
   });
-  return <ScreenRegion state={brief.state()} onRetry={() => void brief.refresh({ force: true })} emptyTitle="No brief" emptyDescription="Every mission starts with a brief.">
+  return <ScreenRegion state={brief.state()} onRetry={() => void brief.refresh({ force: true })} emptyTitle={t("mp.no-brief.d1b5")} emptyDescription={t("mp.every-mission-starts-with-a-brie.3283")}>
     <Show when={brief.state().data}>{(b) => <PageStack>
-      <WorkspaceSection title={`Brief, version ${b().version}`} description={`${b().writtenChars} of 8000 written characters · updated ${formatDateTime(b().updatedAt)}`} actions={<Button variant="outline" iconLeft="lucide-pencil" onClick={() => { setIntent(undefined); setConstraints(undefined); setEditOpen(true); }}>Edit brief</Button>}>
-        <div class="brain-brief"><h3 class="text-base-medium">Intent</h3><p class="brain-readable whitespace-pre-line text-interface">{b().intent}</p>
-          <h3 class="mt-3 text-base-medium">Constraints</h3><Show when={b().constraints.length} fallback={<p class="text-interface text-ink-gray-6">None recorded.</p>}><ul class="ms-4 list-disc text-interface"><For each={b().constraints}>{(line) => <li>{line}</li>}</For></ul></Show></div>
-        <FormSheet open={editOpen()} onClose={() => setEditOpen(false)} title="Edit the brief" description="Saving creates a new brief version; earlier versions stay in the history." submit="Save brief" icon="lucide-save" busy={props.busy} disabled={intent() === undefined && constraints() === undefined} onSubmit={() => { if (!props.busy && (intent() !== undefined || constraints() !== undefined)) return saveBrief(b()); }}>
-        <Textarea label="Intent" value={intent() ?? b().intent} onInput={(event) => setIntent(event.currentTarget.value)} />
-        <Textarea label="Constraints (one per line)" value={constraints() ?? b().constraints.join("\n")} onInput={(event) => setConstraints(event.currentTarget.value)} />
+      <WorkspaceSection title={`Brief, version ${b().version}`} description={`${b().writtenChars} of 8000 written characters · updated ${formatDateTime(b().updatedAt)}`} actions={<Button variant="outline" iconLeft="lucide-pencil" onClick={() => { setIntent(undefined); setConstraints(undefined); setEditOpen(true); }}>{t("mp.edit-brief.7ef2")}</Button>}>
+        <div class="brain-brief"><h3 class="text-base-medium">{t("mp.intent.9c6e")}</h3><p class="brain-readable whitespace-pre-line text-interface">{b().intent}</p>
+          <h3 class="mt-3 text-base-medium">{t("mp.constraints.52e6")}</h3><Show when={b().constraints.length} fallback={<p class="text-interface text-ink-gray-6">{t("mp.none-recorded.6176")}</p>}><ul class="ms-4 list-disc text-interface"><For each={b().constraints}>{(line) => <li>{line}</li>}</For></ul></Show></div>
+        <FormSheet open={editOpen()} onClose={() => setEditOpen(false)} title={t("mp.edit-the-brief.0204")} description={t("mp.saving-creates-a-new-brief-versi.74b8")} submit={t("mp.save-brief.e788")} icon="lucide-save" busy={props.busy} disabled={intent() === undefined && constraints() === undefined} onSubmit={() => { if (!props.busy && (intent() !== undefined || constraints() !== undefined)) return saveBrief(b()); }}>
+        <Textarea label={t("mp.intent.9c6e")} value={intent() ?? b().intent} onInput={(event) => setIntent(event.currentTarget.value)} />
+        <Textarea label={t("mp.constraints-one-per-line.f7a1")} value={constraints() ?? b().constraints.join("\n")} onInput={(event) => setConstraints(event.currentTarget.value)} />
         </FormSheet>
       </WorkspaceSection>
-      <WorkspaceSection title="Accepted decisions" description="Immutable entries; a later decision supersedes, never edits." actions={<Button variant="outline" iconLeft="lucide-plus" onClick={() => setDecideOpen(true)}>Accept a decision</Button>}>
+      <WorkspaceSection title={t("mp.accepted-decisions.aba3")} description={t("mp.immutable-entries-a-later-decisi.414a")} actions={<Button variant="outline" iconLeft="lucide-plus" onClick={() => setDecideOpen(true)}>{t("mp.accept-a-decision.1bd6")}</Button>}>
         <ul class="flex flex-col gap-2"><For each={b().decisions}>{(entry) => <li class={entry.supersededBy ? "text-ink-gray-5 line-through" : ""}>
           {entry.statement} <span class="text-caption text-ink-gray-6">· {entry.source.kind} · accepted by {entry.acceptedBy} in v{entry.introducedInVersion}</span></li>}</For></ul>
-        <FormSheet open={decideOpen()} onClose={() => setDecideOpen(false)} title="Accept a decision" centered description="Decisions are immutable; a later one supersedes it." submit="Accept decision" busy={props.busy} disabled={!decision().trim()} onSubmit={() => { if (decision().trim() && !props.busy) return acceptDecision(b()); }}>
-          <TextInput label="New decision" required value={decision()} onInput={(event) => setDecision(event.currentTarget.value)} />
+        <FormSheet open={decideOpen()} onClose={() => setDecideOpen(false)} title={t("mp.accept-a-decision.1bd6")} centered description={t("mp.decisions-are-immutable-a-later.2f26")} submit={t("mp.accept-decision.26a3")} busy={props.busy} disabled={!decision().trim()} onSubmit={() => { if (decision().trim() && !props.busy) return acceptDecision(b()); }}>
+          <TextInput label={t("mp.new-decision.5e24")} required value={decision()} onInput={(event) => setDecision(event.currentTarget.value)} />
         </FormSheet>
       </WorkspaceSection>
       <ReusedInBrief missionId={props.mission.missionId} workspaceId={props.mission.workspaceId} />
-      <WorkspaceSection title="Progress" description="Derived from work items; nobody writes it.">
+      <WorkspaceSection title={t("mp.progress.1b90")} description={t("mp.derived-from-work-items-nobody-w.2666")}>
         <p class="text-interface">{b().progress.total} work items · {Object.entries(b().progress.byState).map(([state, count]) => `${count} ${state}`).join(" · ") || "none yet"}</p>
       </WorkspaceSection>
-      <WorkspaceSection title="Version history" description="Every brief version, newest first, with what changed from the one before it.">
+      <WorkspaceSection title={t("mp.version-history.91f8")} description={t("mp.every-brief-version-newest-first.ff12")}>
         <ol class="flex flex-col gap-2"><For each={b().history ?? []}>{(entry, index) => {
           const previous = () => (b().history ?? [])[index() + 1];
           const added = () => entry.constraints.filter((item) => !previous()?.constraints.includes(item));
@@ -482,7 +482,7 @@ function BriefTab(props: ActProps): JSX.Element {
           return <li class="rounded-control border border-outline-gray-1 p-3" aria-label={`Brief version ${entry.version}`}>
             <div class="flex flex-wrap items-center gap-2"><Badge variant="outline" theme="blue" label={`Version ${entry.version}`} /><Badge variant="outline" theme="gray" label={entry.change} />
               <span class="text-caption text-ink-gray-6">{entry.createdBy} · {formatDateTime(entry.createdAt)}</span></div>
-            <Show when={previous() && previous()!.intent !== entry.intent}><p class="mt-2 text-interface"><span class="text-ink-gray-6">Intent changed:</span> {entry.intent}</p></Show>
+            <Show when={previous() && previous()!.intent !== entry.intent}><p class="mt-2 text-interface"><span class="text-ink-gray-6">{t("mp.intent-changed.617d")}</span> {entry.intent}</p></Show>
             <Show when={!previous()}><p class="mt-2 text-interface">{entry.intent}</p></Show>
             <For each={added()}>{(item) => <p class="mt-1 text-interface text-ink-green-8">+ {item}</p>}</For>
             <For each={removed()}>{(item) => <p class="mt-1 text-interface text-ink-red-8 line-through">− {item}</p>}</For>
@@ -504,11 +504,11 @@ function LogsTab(props: { mission: Mission; items: WorkItem[] }): JSX.Element {
     },
     isEmpty: (items) => items.length === 0,
   });
-  return <WorkspaceSection title="Mission runs" description="Every run linked to this mission's work.">
-    <ScreenRegion state={links.state()} onRetry={() => void links.refresh({ force: true })} emptyTitle="No runs yet" emptyDescription="Runs appear once work is dispatched.">
+  return <WorkspaceSection title={t("mp.mission-runs.1ac4")} description={t("mp.every-run-linked-to-this-mission.1cae")}>
+    <ScreenRegion state={links.state()} onRetry={() => void links.refresh({ force: true })} emptyTitle={t("mp.no-runs-yet.578f")} emptyDescription={t("mp.runs-appear-once-work-is-dispatc.b993")}>
       <div class="brain-queue"><For each={links.state().data ?? []}>{(link, index) => {
         const task = () => props.items.find((item) => item.workItemId === link.workItemId)?.title;
-        return <QueueRow title={task() ?? `Run ${(links.state().data ?? []).length - index()}`} description={task() ? "Open this task's run in the log explorer" : "Task details are no longer listed"} icon="lucide-scroll-text"
+        return <QueueRow title={task() ?? `Run ${(links.state().data ?? []).length - index()}`} description={task() ? t("mp.open-this-task-s-run-in-the-log.7a39") : t("mp.task-details-are-no-longer-liste.d07d")} icon="lucide-scroll-text"
         meta={<span>{formatDateTime(link.createdAt)}</span>} label={`Open logs for ${task() ?? "this run"}`} onClick={() => void navigate(`/w/${app.workspaceId()}/logs?run=${encodeURIComponent(link.runId)}`)} />;
       }}</For></div>
     </ScreenRegion>

@@ -66,7 +66,11 @@ test.describe("Arabic on a phone", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), "no sideways scroll on the tools tab").toBe(true);
     await expect(page.getByText("Trusted capability registry")).toHaveCount(0);
 
+    // While a plan is drafted the page names the stage in Arabic.
+    await page.route("**/v1/plans/*?workspaceId=*", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ missionId: demo.seed.missionIds.active, runId: "run-x", state: "running", stage: "drafting" }) }));
     await page.goto(`${governor.url}/missions/${demo.seed.missionIds.active}/plan`);
+    await expect(page.getByText("صياغة الخطوات...", { exact: false })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("Drafting the steps")).toHaveCount(0);
     await expect(page.getByText("عمل المهمة").first()).toBeVisible({ timeout: 30_000 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), "no sideways scroll on the plan stage").toBe(true);
     await expect(page.getByText("Mission work", { exact: true })).toHaveCount(0);
@@ -94,6 +98,15 @@ test.describe("Arabic on a phone", () => {
     await expect(card).toContainText("الهدف بالضبط");
     await expect(page.getByRole("button", { name: "موافقة", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "رفض", exact: true })).toBeVisible();
+    // The exact review that opens from the card speaks Arabic too.
+    await page.getByRole("button", { name: "موافقة", exact: true }).click();
+    const review = page.getByRole("dialog");
+    await expect(review).toContainText("تفويض الإجراء");
+    await expect(review.getByRole("button", { name: "الموافقة على الإجراء بدقة", exact: true })).toBeVisible();
+    await expect(review.getByRole("button", { name: "طلب تعديلات", exact: true })).toBeVisible();
+    await expect(review.getByText("Approve exact action")).toHaveCount(0);
+    await expect(review.getByText("Request changes")).toHaveCount(0);
+    await review.getByRole("button", { name: "رجوع", exact: true }).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
     // The card's text starts at the right edge.
     const what = (await card.locator("[data-approval-what]").boundingBox())!;

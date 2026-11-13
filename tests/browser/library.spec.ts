@@ -98,6 +98,10 @@ test("Library: one place in the navigation with exact counts, and Save as knowle
   await offer.getByRole("button", { name: "Open the review inbox", exact: true }).click();
   const proposals = page.getByTestId("play-proposals");
   await expect(proposals).toContainText("Quarterly churn report");
+  // A proposal built by the team's practice says which practice and how many verified missions it came from.
+  brain.store.workspaceDb("ws-lib", actor.organizationId).prepare("UPDATE play_proposals SET practice='data', source_missions_json='[\"m1\",\"m2\",\"m3\"]'").run();
+  await page.reload();
+  await expect(page.getByTestId("play-proposal-source")).toHaveText("Practice: data · Built from 3 verified missions of this team");
   await proposals.getByText("What the Play would contain").click();
   await expect(proposals).toContainText("The report names the biggest causes");
   await expect(proposals).toContainText("No notes, messages or documents are copied");
