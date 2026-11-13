@@ -28,9 +28,9 @@ export interface SsoWorld {
   close(): Promise<void>;
 }
 
-export async function ssoWorld(): Promise<SsoWorld> {
+export async function ssoWorld(options: { requireTwoFactor?: boolean } = {}): Promise<SsoWorld> {
   const dir = mkdtempSync(join(tmpdir(), "brain-sso-"));
-  const app = await createApp({ dataDir: join(dir, "data"), allowTestActor: true });
+  const app = await createApp({ dataDir: join(dir, "data"), allowTestActor: true, ...(options.requireTwoFactor ? { runtime: { requireTwoFactor: true, memoryUiUrl: null } } : {}) });
   const w = setupWorld(app.brain);
   const idp = await startFakeOidc({ clientId: SSO_CLIENT_ID, clientSecret: SSO_CLIENT_SECRET });
   // A secret file must live in the Governor's own secrets folder.

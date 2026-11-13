@@ -117,7 +117,9 @@ export function authOptions(db: Db, opts: { secret: string; baseURL: string }): 
             .run(`invitation:${data.id}`, "organization-invitation", data.email, url, data.organization.id, Date.now(), Date.now());
         },
       }),
-      twoFactor({ issuer: "Keyrus Brain" }),
+      // allowPasswordless: a person with no password (a directory-only account) may enroll without one. The Governor's auth handler
+      // (auth.ts, directory-authenticator.ts) confines that to a fresh directory sign-in; a person with a password is still asked for it.
+      twoFactor({ issuer: "Keyrus Brain", allowPasswordless: true }),
     ],
   } satisfies BetterAuthOptions;
 }

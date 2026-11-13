@@ -6,6 +6,7 @@ import { domainDigest } from "@brain/contracts";
 import type { Db } from "../../infrastructure/persistence/open";
 import { BrainDomainError } from "../../domain/errors";
 import { authOptions } from "./options";
+import { AUTHENTICATOR_PATHS, authPath, directoryAuthenticatorRefusal } from "./directory-authenticator";
 import { OIDC_PROVIDER_ID, readOidcSettings, resolveSecretRef, type OidcSettings } from "./oidc";
 import { createIdentityAdministration, type IdentityAdministration, type VendorAuth } from "./administration";
 
@@ -128,6 +129,13 @@ export function createBrainAuth(db: Db, opts: { secret: string; baseURL: string;
     requireTwoFactor: opts.requireTwoFactor ?? false,
     administration,
     async handler(request) {
+      const vendorPath = authPath(request.url);
+      if (request.method === "POST" && vendorPath && AUTHENTICATOR_PATHS.has(vendorPath)) {
+        // Resolved here, not in a vendor hook: readSession understands both the cookie and a bearer token.
+        const session = await readSession(request.headers).catch(() => null);
+        const refusal = session ? directoryAuthenticatorRefusal(db, session, vendorPath, Date.now()) : undefined;
+        if (refusal) return Response.json({ code: "FORBIDDEN", message: refusal }, { status: 403 });
+      }
       const response = await auth.handler(request);
       const path = new URL(request.url).pathname;
       if (request.method === "POST" && path === "/api/auth/two-factor/verify-backup-code" && response.ok) {
