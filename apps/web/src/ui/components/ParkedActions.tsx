@@ -8,6 +8,7 @@ import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { isStoppedForRetry } from "../work/work-model";
+import { t } from "../../i18n";
 
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
 
@@ -69,12 +70,12 @@ export function ParkedActions(props: { item: WorkItem; onChanged: () => Promise<
       <div class="flex flex-col gap-1 rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3 text-interface" data-parked-reason>
         <span class="text-caption font-medium text-ink-gray-7">Why it stopped</span>
         <span class="break-words text-ink-gray-9">{props.item.parkedDiagnostic}</span>
-        <span class="text-caption text-ink-gray-6">Retry runs it again exactly as it is. If the cause is that the agent lacks a tool it needs, run the task with another recipe below.</span>
+        <span class="text-caption text-ink-gray-6">Retry runs it again exactly as it is. If the cause is that the agent lacks a tool it needs, run the task with another way of working below.</span>
       </div>
     </Show>
     <Show when={error()}><Alert theme="red" variant="outline" title="The change was refused" description={error()} /></Show>
     <div class="flex flex-wrap gap-2">
-      <Button variant="solid" theme="blue" iconLeft="lucide-rotate-ccw" disabled={busy()} onClick={() => void move("ready")}>{isStoppedForRetry(props.item) ? "Try again" : "Retry"}</Button>
+      <Button variant="solid" theme="blue" iconLeft="lucide-rotate-ccw" disabled={busy()} onClick={() => void move("ready")}>{t("decision.retry")}</Button>
       <Show when={!dropping()} fallback={<>
         <Button theme="red" iconLeft="lucide-trash-2" disabled={busy()} onClick={() => void move("abandoned")}>Confirm drop</Button>
         <Button variant="ghost" onClick={() => setDropping(false)}>Keep it</Button>

@@ -136,7 +136,7 @@ export function RunDetail(props: {
   }
   return <BrainPage title="Run inspector" description="What the run is doing, what proves it, and where the live console, logs and outputs continue."
     breadcrumbs={[{ label: "Runs" }, { label: "Run inspector" }]}
-    actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button><Show when={unknown()}><Button variant="solid" theme="blue" iconLeft="lucide-list-checks" onClick={() => { setReasonOpen("reconcile"); setReason(""); }}>Reconcile outcome</Button></Show><Show when={!unknown() && !["succeeded", "failed", "cancelled"].includes(state() ?? "")}><Button variant="outline" theme="red" iconLeft="lucide-circle-stop" onClick={() => { setReasonOpen("cancel"); setReason(""); }}>Cancel run</Button></Show></>}>
+    actions={<><Show when={unknown()}><Button variant="solid" theme="blue" iconLeft="lucide-list-checks" onClick={() => { setReasonOpen("reconcile"); setReason(""); }}>Reconcile outcome</Button></Show><Show when={!unknown() && !["succeeded", "failed", "cancelled"].includes(state() ?? "")}><Button variant="outline" theme="red" iconLeft="lucide-circle-stop" onClick={() => { setReasonOpen("cancel"); setReason(""); }}>Cancel run</Button></Show></>}>
     <ScreenRegion state={props.state} skeleton="rows" emptyTitle="Run not found" emptyDescription="It may belong to another workspace, or it was removed." emptyAction={<Button variant="outline" onClick={props.onRefresh}>Reload</Button>} onRetry={props.onRefresh}>
       <div class="flex min-w-0 flex-col gap-4">
         <DetailHeader title={job() ? runTitle(job()!) : "Task run"} headingLevel={2}

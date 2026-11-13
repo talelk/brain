@@ -25,7 +25,7 @@ export function BridgeScreen(props: {
   const total = () => props.workspaces.reduce((sum, ws) => sum + ws.pendingApprovals + ws.blockedJobs, 0);
   const ordered = () => [...props.workspaces].sort((a, b) => (b.pendingApprovals + b.blockedJobs) - (a.pendingApprovals + a.blockedJobs) || a.displayName.localeCompare(b.displayName));
   return <BrainPage title="Workspaces" description="Every workspace you can see, with anything waiting on a person first. Open one to work in it, or manage it to rename, pause or archive it."
-    actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button><Show when={canCreate() && props.workspaces.length > 0}><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setCreateOpen(true)}>Create workspace</Button></Show></>}>
+    actions={<Show when={canCreate() && props.workspaces.length > 0}><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setCreateOpen(true)}>Create workspace</Button></Show>}>
     <PageStack>
       <StatGrid compact stats={[
         { label: "Workspaces", value: String(props.workspaces.length), hint: "You have access to", icon: "lucide-building-2" },

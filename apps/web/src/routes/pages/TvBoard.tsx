@@ -1,4 +1,4 @@
-import { For, Show, createSignal, onCleanup } from "solid-js";
+import { For, Show, onCleanup } from "solid-js";
 import type { JSX } from "solid-js";
 import { Badge } from "@talelk/newui-atoms";
 import type { IncidentSummary, SLASummary, TicketSummary } from "@brain/contracts";
@@ -12,6 +12,7 @@ import { ThemeToggle } from "../../ui/components/ThemeToggle";
 import { StatusBadge } from "../../ui/components/StatusBadge";
 import { StatusIcon } from "../../ui/viz/StatusIcon";
 import { formatDateTime, formatRelative, formatSlaMinutes } from "../../ui/format";
+import { liveNow, useClock } from "../../data/live";
 import { monthPeriod } from "./helpers";
 
 type Tone = "red" | "amber" | "blue" | "green" | "gray";
@@ -22,11 +23,10 @@ const TONE_ICON: Record<Tone, string> = { red: "lucide-octagon-alert", amber: "l
 interface Slice { label: string; value: number; tone: Tone }
 
 /** Re-reads the clock so "x min ago" keeps moving between 20 s data refreshes. */
-function useTick(ms = 15_000): () => number {
-  const [now, setNow] = createSignal(Date.now());
-  const id = setInterval(() => setNow(Date.now()), ms);
-  onCleanup(() => clearInterval(id));
-  return now;
+function useTick(): () => number {
+  const release = useClock();
+  onCleanup(release);
+  return liveNow();
 }
 
 function connectionLabel(state: ScreenState<unknown>): { label: string; theme: "green" | "amber" | "red" | "gray" } {
@@ -209,16 +209,14 @@ export function TvBoard(props: { area: "support" | "sre" }): JSX.Element {
       ]);
       return { asOf: tickets.asOf, sourceWatermark: tickets.sourceWatermark, partialFailures: sla ? [] : ["SLA summary is unavailable"], snapshot: { tickets: [...tickets.snapshot.items], sla: sla?.snapshot } };
     },
-    isEmpty: (data) => data.tickets.length === 0, refreshMs: 20_000,
-  });
+    isEmpty: (data) => data.tickets.length === 0, });
   const incidents = createScopedRead<IncidentSummary[]>({
     scope: app.scope,
     load: async (scope, signal) => {
       const loaded = await incidentsQuery(scope.workspaceId, signal);
       return { ...loaded, snapshot: [...loaded.snapshot.items] };
     },
-    isEmpty: (items) => items.length === 0, refreshMs: 20_000,
-  });
+    isEmpty: (items) => items.length === 0, });
   const tickets = () => [...(support.state().data?.tickets ?? [])].sort((a, b) => {
     const rank = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
     return rank[a.priority] - rank[b.priority] || Date.parse(b.updatedAt) - Date.parse(a.updatedAt);

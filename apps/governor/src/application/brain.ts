@@ -1158,8 +1158,9 @@ export class Brain {
       case "artifacts.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         requireWorkspaceRead(s, actor, q.workspaceId);
-        const f = raw as { jobId?: string; runId?: string; workItemId?: string; state?: string; classification?: string };
-        return this.envelope(q.queryType, listArtifacts(s, actor, q.workspaceId, f));
+        const f = raw as { jobId?: string; runId?: string; workItemId?: string; state?: string; classification?: string; kind?: string; cursor?: string; limit?: number };
+        const page = listArtifacts(s, actor, q.workspaceId, f);
+        return this.envelope(q.queryType, page.snapshot, page.cursor);
       }
       case "artifacts.history": {
         const h = raw as { artifactId?: string; digest?: string; resourceId?: string };

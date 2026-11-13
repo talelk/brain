@@ -59,7 +59,6 @@ export function SeverityChart(): JSX.Element {
       const items = page.snapshot.items;
       return { snapshot: { buckets: bucketSeverity(items.map((item) => ({ at: item.at, severity: item.severity }))), total: items.length }, asOf: page.asOf, sourceWatermark: page.sourceWatermark };
     },
-    refreshMs: 15_000,
   });
   const data = () => read.state().data;
   const sum = (tone: Tone) => (data()?.buckets ?? []).reduce((total, bucket) => total + bucket[tone], 0);

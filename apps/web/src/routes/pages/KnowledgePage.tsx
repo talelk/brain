@@ -7,6 +7,7 @@ import { useApp } from "../../ui/app-context";
 import { createScopedRead } from "../../data/screens";
 import { memorySearchQuery, toolsQuery } from "../../data/governor";
 import { KnowledgeScreen, type MemoryPublicationInput } from "../knowledge";
+import { LearnedKnowledge } from "../../ui/components/LearnedKnowledge";
 import { ActionFeedback } from "../../ui/components/ActionFeedback";
 import { LibraryTabs, type LibraryTab } from "../../ui/components/LibraryTabs";
 import ResourcesPage from "./ResourcesPage";
@@ -59,6 +60,7 @@ export default function KnowledgePage(): JSX.Element {
     </Show>
     <Show when={journey() === "documents"}><ResourcesPage /></Show>
     <Show when={journey() === "tools"}><ToolsPage /></Show>
+    <Show when={journey() === "find"}><LearnedKnowledge /></Show>
     <Show when={journey() === "find"}>
       <KnowledgeScreen workspaceId={app.workspaceId()} tools={knowledge.state().data?.tools ?? []}
         state={knowledge.state()} searched={searchText().trim().length > 0} onRefresh={() => void knowledge.refresh({ force: true })}

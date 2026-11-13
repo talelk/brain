@@ -28,6 +28,8 @@ test("a busy runner does not block Today: the box stays open, a calm note says t
 
   // Every slot of the agent runner is taken by running work.
   brain.store.control.prepare("UPDATE runners SET slots_reserved=slot_capacity, cpu_reserved=cpu_capacity-500, memory_reserved=memory_capacity-1024 WHERE id='busy-agents'").run();
+  // A raw database change emits no event, so read the page again (a real job claim emits one and the live store re-reads by itself).
+  await page.reload();
   const note = page.getByTestId("today-busy-note");
   await expect(note).toBeVisible({ timeout: 30_000 });
   await expect(note).toContainText("yours queues and starts next");

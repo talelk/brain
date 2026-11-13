@@ -1,7 +1,7 @@
 # 14. Library is a primary place that holds documents, knowledge, Plays and tools
 
 Date: 2026-11-11
-Status: Accepted (issue #73)
+Status: Accepted (issue #73); the list of primary areas is superseded by ADR 0024
 
 Knowledge sat in "More", Plays was a primary area of its own, and the Review inbox lived under Knowledge, so the things Brain can reuse were spread over three places and nobody saw one total. The capitalization loop (finish a mission, approve the write-up, get it offered next time) needs one visible home.
 

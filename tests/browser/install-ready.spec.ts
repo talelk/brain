@@ -12,6 +12,7 @@ const shot = async (page: Page, name: string) => { if (process.env["TODAY_SHOTS"
 
 test("a fresh install is blocked with a checklist, each fix completes it without a reload, and the sample goal reaches a verified result", async ({ page, governor }) => {
   test.setTimeout(240_000);
+  const startedAt = Date.now();
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -34,7 +35,7 @@ test("a fresh install is blocked with a checklist, each fix completes it without
   await page.setViewportSize({ width: 1440, height: 900 });
 
   // The release fix opens the existing release screen.
-  await row("release").getByRole("button", { name: "Open releases", exact: true }).click();
+  await row("release").getByRole("button", { name: "Install the starter kit", exact: true }).click();
   await expect(page).toHaveURL(/\/settings\?tab=release/);
   await page.goBack();
 
@@ -82,5 +83,7 @@ test("a fresh install is blocked with a checklist, each fix completes it without
   if ((await card.getAttribute("data-open")) !== "true") await card.getByRole("button", { name: /Write the sample note/ }).click();
   await expect(card.getByTestId("result-reader").getByTestId("trust-line")).toContainText("checked by tests, files or hashes", { timeout: 30_000 });
   await shot(page, "install-sample-verified");
+  // Empty install to the first verified result in under five minutes (Phase 2 gate): the whole path above, from the blocked box to the readable result.
+  expect(Date.now() - startedAt).toBeLessThan(5 * 60_000);
   expect(errors).toEqual([]);
 });

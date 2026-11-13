@@ -29,7 +29,7 @@ export function WorkRoadmap(props: {
   /** Within a stage: the critical task first, open work before done work, then the plan's own order. */
   const ordered = (ids: readonly string[]) => [...ids].sort((a, b) =>
     Number(critical().has(b)) - Number(critical().has(a)) || Number(!!nodeById().get(a)?.done) - Number(!!nodeById().get(b)?.done));
-  const stageName = (index: number) => (index === 0 ? "Stage 1 · no prerequisites" : `Stage ${index + 1} · after stage ${index}`);
+  const stageName = (index: number) => (index === 0 ? "Round 1 · can start now" : `Round ${index + 1} · after round ${index}`);
   const [edges, setEdges] = createSignal<Edge[]>([]);
   const [size, setSize] = createSignal({ width: 0, height: 0 });
   let canvas: HTMLOListElement | undefined;

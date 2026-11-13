@@ -42,7 +42,6 @@ export function StudioListPage(): JSX.Element {
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     isEmpty: (view) => view.items.length === 0,
-    refreshMs: 3000,
   });
 
   const [attempted, setAttempted] = createSignal(false);
@@ -108,12 +107,10 @@ export function StudioEditorPage(): JSX.Element {
       const response = await query<{ snapshot: DraftDetails; asOf: string; sourceWatermark: number }>({ queryType: "configDrafts.get", workspaceId: scope.workspaceId, resourceId: draftId() }, signal);
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
-    refreshMs: 2000,
   });
   const releases = createScopedRead<{ items: ReleaseSummary[] }>({
     scope: app.scope,
     load: async (_scope, signal) => ({ snapshot: await governor<{ items: ReleaseSummary[] }>("/v1/config/releases", undefined, signal), asOf: new Date().toISOString(), sourceWatermark: 0 }),
-    refreshMs: 5000,
   });
   const current = createMemo(() => detail.state().data?.revisions[0]);
   const activeDigest = () => releases.state().data?.items.find((release) => release.active)?.digest ?? null;

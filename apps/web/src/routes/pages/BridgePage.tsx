@@ -16,7 +16,6 @@ export default function BridgePage(): JSX.Element {
       return { ...loaded, snapshot: [...loaded.snapshot.items] };
     },
     isEmpty: (workspaces) => workspaces.length === 0,
-    refreshMs: 30_000,
   });
   return <BridgeScreen workspaces={bridge.state().data ?? []} state={bridge.state()}
     onRefresh={() => void bridge.refresh({ force: true })}

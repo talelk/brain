@@ -15,15 +15,22 @@ test("a reload on an Administration page stays in the workspace the person was i
   brain.createWorkspace(actor, { workspaceId: "ws-alpha", slug: "alpha" });
   brain.createWorkspace(actor, { workspaceId: "ws-beta", slug: "beta" });
 
+  // On a phone the sidebar (and the workspace switcher in it) is a drawer behind a toggle.
+  const toggle = page.getByRole("button", { name: "Open application navigation", exact: true });
+  const openNav = async () => { if ((await toggle.isVisible()) && (await page.locator('dialog[data-slot="app-shell-drawer"][open]').count()) === 0) await toggle.click(); };
   const tenant = page.getByRole("button", { name: /^(alpha|beta)$/ }).first();
   await page.goto(`${governor.url}/w/ws-beta/today`);
+  await openNav();
   await expect(tenant).toContainText("beta");
   // A page with no workspace in its address, opened afresh (a reload, a bookmark, a new tab), keeps the last workspace.
-  await page.goto(`${governor.url}/settings?tab=health`);
+  await page.goto(`${governor.url}/settings?tab=members`);
+  await openNav();
   await expect(tenant).toContainText("beta");
   await page.reload();
+  await openNav();
   await expect(tenant).toContainText("beta");
   // An address that names a workspace still wins.
   await page.goto(`${governor.url}/w/ws-alpha/today`);
+  await openNav();
   await expect(tenant).toContainText("alpha");
 });

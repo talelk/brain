@@ -72,7 +72,6 @@ export default function RunnersPage(): JSX.Element {
       return { ...loaded, snapshot: [...loaded.snapshot.items] };
     },
     isEmpty: (items) => items.length === 0,
-    refreshMs: 10_000,
   });
   const automations = createScopedRead<Automation[]>({
     scope: app.scope,
@@ -80,7 +79,6 @@ export default function RunnersPage(): JSX.Element {
       const response = await query<{ snapshot: { items: Automation[] }; asOf: string; sourceWatermark: number }>({ queryType: "automations.list", workspaceId: scope.workspaceId }, signal);
       return { snapshot: [...response.snapshot.items], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
-    refreshMs: 30_000,
   });
   const pinnedCount = (runnerId: string) => (automations.state().data ?? []).filter((automation) => automation.state !== "retired" && automation.execution.mode === "personal-host" && automation.execution.runnerId === runnerId).length;
   const all = () => runners.state().data ?? [];
@@ -99,7 +97,7 @@ export default function RunnersPage(): JSX.Element {
   const currentPage = () => Math.min(Math.max(1, page()), pageCount());
   const pageRows = () => visible().slice((currentPage() - 1) * PAGE_SIZE, currentPage() * PAGE_SIZE);
   return <BrainPage title="Runners" description="The machines that execute work. Each row says whether a runner can take new work right now, and why not if it cannot."
-    actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={() => void runners.refresh({ force: true })}>Refresh</Button><Show when={app.identity()?.actor.scopes.includes("config:activate")}><Button variant="outline" iconLeft="lucide-file-cog" onClick={() => void navigate("/studio/RunnerGroup")}>Runner group drafts</Button></Show><Show when={app.identity()?.actor.scopes.includes("runner:admin")}><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setEnrollOpen(true)}>Enroll runner</Button></Show></>}>
+    actions={<><Show when={app.identity()?.actor.scopes.includes("config:activate")}><Button variant="outline" iconLeft="lucide-file-cog" onClick={() => void navigate("/studio/RunnerGroup")}>Runner group drafts</Button></Show><Show when={app.identity()?.actor.scopes.includes("runner:admin")}><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setEnrollOpen(true)}>Enroll runner</Button></Show></>}>
     <PageStack>
       <Show when={firstUse()}><div class="flex flex-col items-center gap-3 rounded-card border border-outline-gray-1 bg-surface-elevation-1 px-4 py-10 text-center">
         <IconTile icon="lucide-server" tone="gray" />

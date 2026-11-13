@@ -82,15 +82,16 @@ test("approve, reject a plan, confirm a plan, retry parked work and sign off a v
   const queue = page.getByTestId("needs-you");
   // Today shows the first three, with the rest one click away ("N more").
   await expect(queue.getByTestId("needs-you-item")).toHaveCount(3, { timeout: 30_000 });
-  const expandQueue = async () => { await expect(queue.getByTestId("needs-you-item").first()).toBeVisible({ timeout: 30_000 }); const more = page.getByRole("button", { name: "3 more", exact: true }); if (await more.count()) await more.click(); };
+  const expandQueue = async () => { await expect(queue.getByTestId("needs-you-item").first()).toBeVisible({ timeout: 30_000 }); const more = page.getByRole("button", { name: "2 more", exact: true }); if (await more.count()) await more.click(); };
   await expandQueue();
-  await expect(queue.getByTestId("needs-you-item")).toHaveCount(6, { timeout: 30_000 });
+  // One problem is shown once: the mission whose only work is parked folds into the parked task's own card.
+  await expect(queue.getByTestId("needs-you-item")).toHaveCount(5, { timeout: 30_000 });
   // The order is the existing attention tiers: approval, then plans and parked work, then the verdict.
   const kinds = await queue.getByTestId("needs-you-item").evaluateAll((rows) => rows.map((row) => row.getAttribute("data-kind")));
   expect(kinds[0]).toBe("approval");
-  expect(kinds[1]).toBe("needs-attention"); // the mission whose only work is parked
-  expect(kinds.slice(2, 5).sort()).toEqual(["parked", "plan-proposal", "plan-proposal"]);
-  expect(kinds[5]).toBe("verdict-ready");
+  expect(kinds.slice(1, 4).sort()).toEqual(["parked", "plan-proposal", "plan-proposal"]);
+  expect(kinds[4]).toBe("verdict-ready");
+  await expect(queue.getByTestId("needs-you-item").filter({ hasText: "needs attention: all remaining work is parked" })).toHaveCount(0);
   await shot(page, "needs-you-queue");
   await page.setViewportSize({ width: 390, height: 844 });
   await shot(page, "needs-you-queue");
@@ -103,7 +104,7 @@ test("approve, reject a plan, confirm a plan, retry parked work and sign off a v
   await page.reload();
   await expandQueue();
   const approvalRow = queue.locator('[data-kind="approval"]');
-  await expect(queue.getByTestId("needs-you-item")).toHaveCount(6, { timeout: 30_000 });
+  await expect(queue.getByTestId("needs-you-item")).toHaveCount(5, { timeout: 30_000 });
   await expect(approvalRow).toContainText("Publish fixture on t-queue in prod");
   await expect(approvalRow.getByText(/sha256:/).first()).toBeVisible();
   await expect(approvalRow.getByRole("button", { name: "Review action", exact: true })).toBeDisabled();
@@ -118,7 +119,7 @@ test("approve, reject a plan, confirm a plan, retry parked work and sign off a v
     .run(actor.organizationId, actor.actorId, actor.actorId, Date.now());
   await page.reload();
   await expandQueue();
-  await expect(queue.getByTestId("needs-you-item")).toHaveCount(6, { timeout: 30_000 });
+  await expect(queue.getByTestId("needs-you-item")).toHaveCount(5, { timeout: 30_000 });
 
   // Approve inline: exact digest in the row, step-up in the dialog, the row leaves the queue without a reload.
   await expect(approvalRow.getByText(/sha256:/).first()).toBeVisible();
@@ -131,7 +132,7 @@ test("approve, reject a plan, confirm a plan, retry parked work and sign off a v
   await page.getByRole("dialog").getByRole("button", { name: "Back", exact: true }).click();
   await expect.poll(() => (brain.store.control.prepare("SELECT state FROM approval_requests WHERE id='apr-queue-1'").get() as { state: string }).state).toBe("approved");
   await expect(queue.locator('[data-kind="approval"]')).toHaveCount(0, { timeout: 15_000 });
-  await expect(queue.getByTestId("needs-you-item")).toHaveCount(5);
+  await expect(queue.getByTestId("needs-you-item")).toHaveCount(4);
 
   // Confirm a plan inline.
   const confirmRow = queue.getByTestId("needs-you-item").filter({ hasText: "Plan proposal for Venue shortlist" });

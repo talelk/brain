@@ -39,7 +39,6 @@ export function ToolTryPanel(props: { toolId: string; effectClass: string }): JS
       const response = await governor<{ items: ToolTestView[] }>(`/v1/config/tools/${encodeURIComponent(toolId ?? props.toolId)}/tests?workspaceId=${encodeURIComponent(scope.workspaceId)}`, undefined, signal);
       return { snapshot: response.items, asOf: new Date().toISOString(), sourceWatermark: 0 };
     },
-    refreshMs: 3000,
   });
   async function run(): Promise<void> {
     setError("");

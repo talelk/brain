@@ -21,10 +21,15 @@ export interface ArtifactListParams {
   workItemId?: string;
   state?: ArtifactState;
   classification?: ArtifactClassification;
+  /** `result` leaves run records out (they are not results and never count as one); `record` lists only them. */
+  kind?: "result" | "record";
+  /** The `cursor` of the previous page. */
+  cursor?: string;
+  limit?: number;
 }
 
 export const artifactsListQuery = (params: ArtifactListParams, signal?: AbortSignal) =>
-  fetchView({ queryType: "artifacts.list", workspaceId: params.workspaceId, jobId: params.jobId, runId: params.runId, workItemId: params.workItemId, state: params.state, classification: params.classification }, signal);
+  fetchView({ queryType: "artifacts.list", workspaceId: params.workspaceId, jobId: params.jobId, runId: params.runId, workItemId: params.workItemId, state: params.state, classification: params.classification, kind: params.kind, cursor: params.cursor, limit: params.limit }, signal);
 
 export const artifactsHistoryQuery = (ref: { artifactId: string } | { digest: string }, signal?: AbortSignal) =>
   fetchView({ queryType: "artifacts.history", ...ref }, signal);

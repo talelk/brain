@@ -446,16 +446,11 @@ export function ToolsScreen(props: {
     <BrainPage
       title="Trusted capability registry"
       description="Inspect what each tool can do, its effect class, typed contracts and proof before proposal or publication."
-      actions={
-        <>
-          <Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button>
-          <Show when={props.canPublish}>
+      actions={<Show when={props.canPublish}>
             <Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => setProposeOpen(true)}>
               Propose tool
             </Button>
-          </Show>
-        </>
-      }
+          </Show>}
     >
       <PageStack>
         <StatGrid compact

@@ -1,4 +1,5 @@
-import { Show, createSignal, onCleanup, onMount } from "solid-js";
+import { Show, onCleanup, onMount } from "solid-js";
+import { liveNow, useClock } from "../../data/live";
 import { A } from "@solidjs/router";
 import { createAttentionRead } from "../attention";
 import type { JSX } from "solid-js";
@@ -7,14 +8,10 @@ import { elapsedText, etaBand, nowSentence, type EtaBand, type FeedActivity, typ
 import { Button } from "@talelk/newui-atoms";
 import { formatTokens } from "../format";
 
-/** A clock that ticks once a second while the component lives. */
+/** The shared one-second clock (owned by the live bus) while the component lives. */
 export function createNow(): () => number {
-  const [now, setNow] = createSignal(Date.now());
-  onMount(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    onCleanup(() => clearInterval(timer));
-  });
-  return now;
+  onMount(() => { const release = useClock(); onCleanup(release); });
+  return liveNow();
 }
 
 const ORB: Record<string, string> = {

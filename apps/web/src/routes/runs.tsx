@@ -102,7 +102,7 @@ export function RunsScreen(props: {
       : viewOf() === "intervention" ? props.jobs.filter(needsYou) : props.jobs;
   const rows = paged(visibleJobs, page);
   return <WorkspaceSection title="Runs" description="Every historical and active run, with its console, logs and outputs one click away."
-    actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button><Show when={props.canDispatch}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Start work</Button></Show></>}>
+    actions={<Show when={props.canDispatch}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={props.onDispatch}>Start work</Button></Show>}>
     <PageStack>
       <dl class="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-outline-gray-1 py-2 text-caption" aria-label="Runs summary">
         <div class="flex items-center gap-2" title="Queued, offered, running or verifying on this page"><dt class="text-ink-gray-6">Active</dt><dd class="font-medium tabular-nums text-ink-gray-9">{props.jobs.filter((job) => ACTIVE.includes(job.state)).length}</dd></div>

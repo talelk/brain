@@ -12,7 +12,7 @@ import type { Page } from "@playwright/test";
 // all through the real store. Seeds write to the SOURCE logs (workspace
 // sessions/events, control attempt_events); the read path projects them
 // on read, and the spec asserts exactly that (no maintenance tick first).
-/** Opens every collapsed "Technical files" toggle the way a person does: by clicking it, so the app's own open state follows. */
+/** Opens every collapsed "Attempts / Data files" toggle the way a person does: by clicking it, so the app's own open state follows. */
 async function openTechnicalFiles(page: Page): Promise<void> {
   const toggles = page.getByTestId("output-technical");
   for (let index = 0; index < await toggles.count(); index++) {
@@ -216,7 +216,7 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   // (d0) The Output Browser is a file explorer: ticking two files raises the
   // one selection bar, whose Compare hands off to the same diff route.
   await page.goto(`${governor.url}/w/ws-console/outputs?folder=all&view=list`);
-  // Each task leads with one Result; its other files sit under a collapsed "Technical files" toggle.
+  // Each task leads with one Result; its other files sit under a collapsed "Attempts / Data files" toggle.
   await expect(page.getByTestId("output-task").first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("output-technical").first()).not.toHaveAttribute("open", "");
   await openTechnicalFiles(page);
@@ -229,7 +229,7 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   // Bulk Save as knowledge uploads each ticked file as a document and reports the outcome once.
   await selection.getByRole("button", { name: "Save as knowledge", exact: true }).click();
   await expect(page.getByText(/Saved to knowledge 2 items\./)).toBeVisible({ timeout: 30_000 });
-  // The bulk action cleared the ticks, so the Technical files toggle folded again; open it to tick them once more.
+  // The bulk action cleared the ticks, so the files toggle folded again; open it to tick them once more.
   await openTechnicalFiles(page);
   await page.getByRole("checkbox", { name: "Select art-out-v1.md" }).check();
   await page.getByRole("checkbox", { name: "Select art-out-v2.md" }).check();

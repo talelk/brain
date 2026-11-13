@@ -39,7 +39,6 @@ export function createTaskFacts(workItemId: Accessor<string | undefined>): Acces
       } catch { /* the mission controls simply stay hidden */ }
       return { snapshot: { ...(mission ? { mission } : {}), ...(estimatedMinutes !== undefined ? { estimatedMinutes } : {}), taskState: item.snapshot.state, missionId: item.snapshot.missionId }, asOf: item.asOf, sourceWatermark: item.sourceWatermark };
     },
-    refreshMs: 10_000,
   });
   return Object.assign(() => read.state().data ?? {}, { refresh: () => read.refresh({ force: true }) });
 }

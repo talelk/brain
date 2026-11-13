@@ -1,3 +1,4 @@
+import { intlLocale, locale } from "../i18n";
 /**
  * Display helpers shared by every screen so the same server value renders the
  * same way everywhere (counts, digests, dates, money, labels) — no per-page
@@ -28,12 +29,12 @@ export function shortDigest(digest: string | undefined, hexChars = 12): string {
 }
 
 /**
- * Locale policy (one for the whole UI): the interface is English, so every date and time is formatted with the explicit
- * `en-GB` locale (day before month, 24-hour clock, never the browser's own language) in the viewer's own timezone, or in an
- * explicit IANA zone when a schedule names one. Do not call `toLocaleString(undefined, ...)` or `Intl.DateTimeFormat(undefined)`
- * elsewhere: use these helpers.
+ * Locale policy (one for the whole UI): every date and time is formatted with the interface language's own locale (`en-GB`,
+ * `fr-FR`, `ar-TN`: day before month, 24-hour clock, Latin digits; never the browser's own language) in the viewer's own
+ * timezone, or in an explicit IANA zone when a schedule names one. Do not call `toLocaleString(undefined, ...)` or
+ * `Intl.DateTimeFormat(undefined)` elsewhere: use these helpers.
  */
-export const UI_LOCALE = "en-GB";
+const uiLocale = (): string => intlLocale();
 
 /** Times read on a 24-hour clock everywhere (no AM/PM). */
 export const CLOCK_24 = { hourCycle: "h23" } as const;
@@ -48,7 +49,7 @@ export function formatInstant(value: string | number | Date | undefined, options
   if (value === undefined || value === "") return "—";
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return String(value);
-  try { return new Intl.DateTimeFormat(UI_LOCALE, { ...CLOCK_24, ...options, timeZone }).format(date); } catch { return String(value); }
+  try { return new Intl.DateTimeFormat(uiLocale(), { ...CLOCK_24, ...options, timeZone }).format(date); } catch { return String(value); }
 }
 
 /** "12 Nov 2026, 14:05" in the viewer's timezone: the one form DateText renders, for string-only contexts too. */
@@ -73,6 +74,11 @@ export function formatRelative(value?: string | number | Date): string {
   const minutes = Math.round(ms / 60_000);
   const future = minutes > 0;
   const magnitude = Math.abs(minutes);
+  if (locale() !== "en") {
+    // Other languages use their own words ("il y a 5 min", "قبل 5 دقائق").
+    const [amount, unit]: [number, Intl.RelativeTimeFormatUnit] = magnitude < 1 ? [0, "minute"] : magnitude < 60 ? [magnitude, "minute"] : magnitude < 1440 ? [Math.round(magnitude / 60), "hour"] : [Math.round(magnitude / 1440), "day"];
+    return new Intl.RelativeTimeFormat(uiLocale(), { numeric: "auto", style: "short" }).format(future ? amount : -amount, unit);
+  }
   const span = magnitude < 1 ? "just now"
     : magnitude < 60 ? `${magnitude} min`
     : magnitude < 1440 ? `${Math.round(magnitude / 60)} h`

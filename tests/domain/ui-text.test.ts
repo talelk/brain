@@ -1,14 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { auditSentence } from "../../apps/web/src/ui/audit-text";
 import { formatDateTime, formatOccurrence, friendlyOutputName } from "../../apps/web/src/ui/format";
+import { setLocale } from "../../apps/web/src/i18n";
 import { parseInline } from "../../apps/web/src/ui/outputs/markdown-parse";
 
 describe("UI text policy", () => {
-  it("formats dates in English, 24-hour, in the zone asked for, whatever the browser language", () => {
+  it("formats dates in the interface language, 24-hour, in the zone asked for, whatever the browser language", () => {
+    setLocale("en");
     expect(formatDateTime("2026-11-12T07:05:00Z", "Africa/Tunis")).toBe("12 Nov 2026, 08:05");
     expect(formatOccurrence("2026-11-12T07:00:00Z", "Europe/Paris")).toBe("Thu 12 Nov, 08:00");
     expect(formatDateTime("not a date")).toBe("not a date");
     expect(formatDateTime(undefined)).toBe("—");
+    // Another interface language formats the same instant in its own order and words.
+    setLocale("fr");
+    expect(formatDateTime("2026-11-12T07:05:00Z", "Africa/Tunis")).toMatch(/^12 nov\.? 2026/u);
+    setLocale("en");
   });
 
   it("names outputs by their task title, or spells the plan id out in words", () => {

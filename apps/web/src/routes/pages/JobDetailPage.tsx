@@ -15,7 +15,6 @@ export default function JobDetailPage(): JSX.Element {
   const job = createScopedRead<RunJobSnapshot>({
     scope: app.scope,
     load: (scope, signal) => jobQuery(scope.workspaceId, jobId(), signal),
-    refreshMs: 10_000,
   });
   const explanation = createScopedRead<PlacementExplanation>({
     scope: app.scope,

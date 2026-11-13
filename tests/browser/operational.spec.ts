@@ -87,7 +87,7 @@ test("optional-factor operator inspects a release, activates it, dispatches both
     await page.getByLabel(/^Decision note/).fill(`Operator chose ${decision}`);
     await expect(page.getByLabel(/^Authenticator code/)).toHaveCount(0);
     await page.getByRole("button",{name:decision==="approve"?"Approve exact action":decision==="reject"?"Reject":"Request changes",exact:true}).click();
-    await expect(page.getByText(/Decision recorded/)).toBeVisible();
+    await expect(page.getByText(/Decision recorded/).first()).toBeVisible();
     expect(brain.store.control.prepare("SELECT decision FROM approval_decisions WHERE approval_id=?").get(approvalId)).toEqual({decision});
   }
   const boardSeed = Date.now();

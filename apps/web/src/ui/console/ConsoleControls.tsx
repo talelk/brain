@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createSignal, on } from "solid-js";
+import { t } from "../../i18n";
 import type { Accessor, JSX } from "solid-js";
 import { Button, Textarea } from "@talelk/newui-atoms";
 import type { ArtifactRef, JobSnapshot } from "@brain/contracts";
@@ -103,12 +104,11 @@ export function ConsoleToolbar(props: {
           </Button>
         </Show>
         <Show when={canAttach()}>
-          <Button size="sm" variant="outline" iconLeft="lucide-paperclip" aria-label="Attach context" onClick={() => { setDialog("attach"); setReason(""); }}>Attach</Button>
+          <Button size="sm" variant="outline" iconLeft="lucide-paperclip" aria-label="Attach context" title="Add a note for the agent to read; it is recorded on the task" onClick={() => { setDialog("attach"); setReason(""); }}>Add a note</Button>
         </Show>
         <Show when={canStop()}>
           <Button size="sm" variant="outline" theme="red" iconLeft="lucide-square" onClick={() => { setDialog("stop"); setReason(""); }}>Stop</Button>
         </Show>
-        <Button size="sm" variant="ghost" iconLeft="lucide-refresh-cw" aria-label="Refresh session" onClick={props.onRefresh} />
         <a class="inline-flex items-center gap-1 rounded-control px-1.5 py-1 text-caption text-ink-blue-link hover:bg-surface-blue-1 focus-visible:focus-ring" aria-label="View logs for this session"
           title="Open the full log of this session"
           href={execLogsUrl(props.workspaceId, { session: props.sessionId, severity: [], emitter: [] })}><span class="lucide-scroll-text size-3.5" aria-hidden="true" />View logs</a>
@@ -191,9 +191,15 @@ export function InterruptionChooser(props: {
   onResume: () => Promise<void>;
   onReconcile: (reason: string) => Promise<void>;
   onRestart: () => void;
+  /** The task this session worked on, when known: a blocked task was stopped by the reviewer or by repeated failures, so running it again as it is repeats the problem. */
+  taskState?: string | undefined;
+  /** Opens the task in its mission, where a person retries, changes or re-routes it. */
+  onDecide?: (() => void) | undefined;
 }): JSX.Element {
   const [busy, setBusy] = createSignal(false);
   const [dialog, setDialog] = createSignal<"none" | "reconcile">("none");
+  /** A rejected or parked task: the useful next step is deciding what to change, not restarting it unchanged. */
+  const decide = () => suggested().operation === "restart" && props.taskState === "blocked" && props.onDecide !== undefined;
   const [reason, setReason] = createSignal("");
   const [feedback, setFeedback] = createSignal("");
   const suggested = () => interruptionOperation(props.session.continuation);
@@ -218,8 +224,9 @@ export function InterruptionChooser(props: {
     <div class="border-b border-outline-gray-1 bg-surface-amber-1 px-3 py-2">
       <div class="flex flex-wrap items-center gap-2">
         <span class="lucide-heart-crack size-4 text-ink-amber-8" aria-hidden="true" />
-        <strong class="text-caption font-medium text-ink-gray-9">{props.session.state === "failed" ? "This session failed." : "This session has ended."} {suggested().operation === "none" ? suggested().label : `To run it again: ${suggested().label}`}</strong>
-        <Show when={actionable()}>
+        <strong class="text-caption font-medium text-ink-gray-9">{props.session.state === "failed" ? "This session failed." : "This session has ended."} {decide() ? "The task is stopped: decide what to change before it runs again." : suggested().operation === "none" ? suggested().label : `To run it again: ${suggested().label}`}</strong>
+        <Show when={decide()}><Button size="sm" variant="solid" theme="blue" iconLeft="lucide-list-checks" onClick={() => props.onDecide?.()}>{t("decision.decide")}</Button></Show>
+        <Show when={actionable() && !decide()}>
           <Button size="sm" variant="solid" theme="blue" disabled={busy()} loading={busy() && suggested().operation !== "restart"}
             onClick={() => {
               if (suggested().operation === "restart") { props.onRestart(); return; }
@@ -228,8 +235,8 @@ export function InterruptionChooser(props: {
             }}>{suggested().label}</Button>
         </Show>
       </div>
-      <p class="mt-1 text-caption text-ink-gray-6">{suggested().description}</p>
-      <Show when={suggested().operation === "restart"}><p class="mt-1 text-caption text-ink-gray-6">This runs the task again exactly as it is. If a reviewer rejected the result, change the task or the recipe it runs with in the plan first (Decide on the task).</p></Show>
+      <Show when={!decide()}><p class="mt-1 text-caption text-ink-gray-6">{suggested().description}</p></Show>
+      <Show when={suggested().operation === "restart" && !decide()}><p class="mt-1 text-caption text-ink-gray-6">This runs the task again exactly as it is. If a reviewer rejected the result, change the task or the way of working it runs with in the plan first (Decide on the task).</p></Show>
       <Show when={!actionable() && suggested().operation !== "none"}>
         <p class="mt-1 text-caption text-ink-gray-6">This operation needs an operator authorization{props.session.workItemId ? "" : " and a work item binding (the resume payload requires it)"}.</p>
       </Show>
@@ -279,7 +286,6 @@ export function ConsoleInspection(props: {
       const loaded = await artifactsListQuery({ workspaceId: props.workspaceId, ...filter }, signal);
       return { ...loaded, snapshot: { items: [...loaded.snapshot.items] } };
     },
-    refreshMs: 15_000,
   });
   const previewed = () => artifacts.state().data?.items.find((item) => item.artifactId === previewId());
   const tokenShare = () => {

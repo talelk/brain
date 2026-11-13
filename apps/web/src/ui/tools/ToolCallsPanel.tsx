@@ -43,7 +43,6 @@ export function ToolCallsPanel(props: { toolId: string }): JSX.Element {
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     isEmpty: (data) => data.items.length === 0,
-    refreshMs: 30_000,
   });
   const data = createMemo(() => read.state().data);
   return (

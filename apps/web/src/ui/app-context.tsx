@@ -2,11 +2,13 @@ import type { Accessor, JSX } from "solid-js";
 import { createContext, createEffect, createMemo, createSignal, onMount, useContext } from "solid-js";
 import { createScopedRead } from "../data/screens";
 import type { ScreenState } from "../data/screens";
-import { governor, GovernorError } from "../data/client";
+import { governor, GovernorError, onGovernorMutation, query } from "../data/client";
+import { foldAttention } from "./attention";
+import { configureLive, invalidateLive } from "../data/live";
 import { identity as fetchIdentity, membersQuery } from "../data/governor";
 import type { CommandKind, PayloadFor } from "../data/commands";
 import { send } from "../data/commands";
-import type { IdentityView, MemberGrantView, SetupStatus } from "@brain/contracts";
+import type { AttentionItem, IdentityView, MemberGrantView, Mission, SetupStatus } from "@brain/contracts";
 import type { ApprovalIntent, ApprovalOutcome } from "./approval-controller";
 import { liveStatusQuery } from "../data/exec-console";
 import type { LiveStatus } from "../data/exec-console";
@@ -76,6 +78,12 @@ export interface AppContextValue {
    * the landing rule never multiplies fetches.
    */
   useLiveStatus: () => { state: Accessor<ScreenState<LiveStatus>>; refresh: (options?: { force?: boolean }) => Promise<void> };
+  /**
+   * The shared attention and missions reads. The header bell, the sidebar count, Today, Missions and the
+   * Working-now strip all read these two, so a count and the list under it come from the same snapshot.
+   */
+  useAttention: () => { state: Accessor<ScreenState<AttentionItem[]>>; refresh: (options?: { force?: boolean }) => Promise<void> };
+  useMissions: () => { state: Accessor<ScreenState<Mission[]>>; refresh: (options?: { force?: boolean }) => Promise<void> };
 }
 
 const AppContext = createContext<AppContextValue>();
@@ -114,7 +122,6 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
       const loaded = await membersQuery(scopeValue.workspaceId, signal);
       return { ...loaded, snapshot: [...loaded.snapshot.items] };
     },
-    refreshMs: 30_000,
   });
 
   const myMemberships = createMemo(() => members.state().data ?? []);
@@ -127,12 +134,35 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
   };
   const hasRole = (role: string) => myRoles().includes(role) || myRoles().includes("workspace-lead");
 
+  // One live bus for the whole app: it follows the signed-in workspace, and every command the person sends makes it re-read at once.
+  createEffect(() => configureLive({ workspaceId: workspaceId(), enabled: identity() !== null }));
+  onGovernorMutation(() => invalidateLive({ immediate: true }));
+
   // The one live.status read: the default route, the Runs index and any shell
   // presence indicator share it instead of polling separately.
   const liveStatus = createScopedRead<LiveStatus>({
     scope,
     load: (scopeValue, signal) => liveStatusQuery(scopeValue.workspaceId, signal),
-    refreshMs: 15_000,
+  });
+
+  type Envelope<T> = { snapshot: { items: T[] }; asOf: string; sourceWatermark: number };
+  const attention = createScopedRead<AttentionItem[]>({
+    scope,
+    load: async (scopeValue, signal) => {
+      if (!scopeValue.workspaceId) return { snapshot: [], asOf: new Date().toISOString(), sourceWatermark: 0 };
+      const response = await query<Envelope<AttentionItem>>({ queryType: "attention.list", workspaceId: scopeValue.workspaceId }, signal);
+      return { snapshot: foldAttention(response.snapshot.items), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+    },
+    isEmpty: (items) => items.length === 0,
+  });
+  const missions = createScopedRead<Mission[]>({
+    scope,
+    load: async (scopeValue, signal) => {
+      if (!scopeValue.workspaceId) return { snapshot: [], asOf: new Date().toISOString(), sourceWatermark: 0 };
+      const response = await query<Envelope<Mission>>({ queryType: "missions.list", workspaceId: scopeValue.workspaceId }, signal);
+      return { snapshot: [...response.snapshot.items], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
+    },
+    isEmpty: (items) => items.length === 0,
   });
 
   async function reloadIdentity() {
@@ -249,6 +279,8 @@ export function AppProvider(props: { children: JSX.Element }): JSX.Element {
     verifyIdentity, submitDecision, checkDecision,
     useMembers: () => ({ state: members.state, refresh: members.refresh }),
     useLiveStatus: () => ({ state: liveStatus.state, refresh: liveStatus.refresh }),
+    useAttention: () => ({ state: attention.state, refresh: attention.refresh }),
+    useMissions: () => ({ state: missions.state, refresh: missions.refresh }),
   };
 
   onMount(() => { void start(); });
