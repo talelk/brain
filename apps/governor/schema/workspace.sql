@@ -542,11 +542,11 @@ CREATE TABLE result_challenges (
 CREATE UNIQUE INDEX result_challenges_open ON result_challenges(work_item_id) WHERE state IN ('requested','running');
 CREATE INDEX result_challenges_item ON result_challenges(work_item_id, created_at_ms);
 -- Play proposals (ADR 0015): a reviewable description of an achieved mission's confirmed plan, team and criteria. Approval opens a configuration draft.
+-- play_proposals.practice and source_missions_json (Phase 4): the practice tag and every source mission of a proposal built from a team's verified missions; NULL otherwise.
 CREATE TABLE play_proposals (
  id TEXT PRIMARY KEY, mission_id TEXT NOT NULL UNIQUE REFERENCES missions(id), state TEXT NOT NULL CHECK(state IN ('proposed','approved','rejected')),
  play_id TEXT NOT NULL, spec_json TEXT NOT NULL CHECK(json_valid(spec_json)), proposed_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
  reviewed_by TEXT, reviewed_at_ms INTEGER, reason TEXT, draft_id TEXT, self_reviewed INTEGER NOT NULL DEFAULT 0 CHECK(self_reviewed IN (0,1)),
- -- Built from a team's own verified missions (Phase 4): the practice tag and every source mission; NULL for a single-mission proposal.
  practice TEXT DEFAULT NULL, source_missions_json TEXT DEFAULT NULL
 ) STRICT;
 
