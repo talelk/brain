@@ -3,7 +3,7 @@
 // Env: BRAIN_BENCH_TRIAL_MS (default 600000), BRAIN_BENCH_TRIALS (default 3), BRAIN_BENCH_OUT
 // (default artifacts/runtime/G08). `pnpm bench:steady:quick` runs 3 x 1 min into .cache/ as a smoke check
 // against the same budgets; only the full default run is gate evidence.
-import { mkdtempSync, mkdirSync, writeFileSync, statSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, statSync, rmSync } from "node:fs";
 import { tmpdir, cpus, platform, release } from "node:os";
 import { join } from "node:path";
 import { performance, monitorEventLoopDelay } from "node:perf_hooks";
@@ -144,6 +144,7 @@ for (let i = 0; i < 100; i++) {
 }
 const fault = { approvalWakeFanout100Ms: Math.round(performance.now() - faultStart), errors: faultErrors };
 brain.close();
+rmSync(dir, { recursive: true, force: true });
 
 // 10x history repeat, same working set, short trial.
 const dir10 = mkdtempSync(join(tmpdir(), "brain-bench-steady10-"));
@@ -151,6 +152,7 @@ const brain10 = new Brain({ dataDir: dir10, allowTestActor: true });
 const ctx10 = seed(brain10, dir10, HISTORY * 10);
 const trial10 = await trial(brain10, ctx10, Math.min(TRIAL_MS, 30_000), "x10");
 brain10.close();
+rmSync(dir10, { recursive: true, force: true });
 console.log("[steady] 10x history trial done", JSON.stringify({ q95: trial10.query.p95, q99: trial10.query.p99 }));
 
 // Growth: the same load in the same process must cost the same trial over trial. Per-operation work that grows with history (a scan of every
