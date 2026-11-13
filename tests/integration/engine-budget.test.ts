@@ -202,7 +202,10 @@ describe("the Pi engine judges its allowance at each tool call", () => {
   const pinned = { limits: { timeoutMs: 1000, maxTokens: 100_000, maxMicroUsd: 0, maxTurns: 30 } } as unknown as EngineSessionSpec;
 
   it("lets a normal attempt (65k of 100k) call tools and touches nothing", () => {
-    const { engine, log } = pi({ tokens: 65_000 });
+    const totals = { tokens: 30_000 };
+    const { engine, log } = pi(totals);
+    expect(engine.allowanceStop(pinned)).toBeUndefined();
+    totals.tokens = 65_000;
     expect(engine.allowanceStop(pinned)).toBeUndefined();
     expect(log).toEqual({ steered: [], aborted: 0 });
   });
