@@ -1,0 +1,88 @@
+# Prometheus alert rules for Keyrus Brain (Phase 4). Load with `rule_files:` in prometheus.yml (see prometheus.yml here).
+# Every metric below is exposed by the Governor's /metrics endpoint; tests/integration/metrics.test.ts fails if a rule names a metric the
+# endpoint does not emit. Thresholds follow the plan's targets: stall rate under 2 percent, restore and backup rehearsed, replica lag under
+# 15 minutes. Routing and paging are Alertmanager's job (backlog), not these rules'.
+groups:
+  - name: brain-work
+    rules:
+      - alert: BrainParkedWork
+        expr: sum(brain_parked_tasks) > 0
+        for: 30m
+        labels: { severity: warning }
+        annotations:
+          summary: "Parked work is waiting for a person"
+          description: "{{ $value }} task(s) parked after repeated failure and nobody resolved them for 30 minutes. Open Today in Brain."
+      - alert: BrainStallRateHigh
+        expr: max(brain_stall_rate) > 0.02
+        for: 1h
+        labels: { severity: warning }
+        annotations:
+          summary: "Stall rate is above the 2 percent target"
+          description: "A workspace parked more than 2 percent of its recent tasks. See Quality, by workspace and practice."
+      - alert: BrainQueueStuck
+        expr: brain_queue_oldest_age_seconds > 1800 and brain_queue_depth > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "A job has waited more than 30 minutes for a runner"
+          description: "Check runner health and capacity in Health, and whether a runner group is offline."
+  - name: brain-platform
+    rules:
+      - alert: BrainDown
+        expr: up{job="brain"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "The Governor does not answer its metrics scrape"
+          description: "Check the container and /health/ready on the server."
+      - alert: BrainNoRunners
+        expr: brain_runners_online == 0
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "No runner is online"
+          description: "Missions cannot run. Check the launcher and runner units on every runner host."
+      - alert: BrainModelDown
+        expr: brain_probe_severity{probe="model"} == 2
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "The model endpoint is down"
+          description: "Planning, work and checks cannot run until it answers."
+      - alert: BrainHostedModelDown
+        expr: max(brain_probe_severity{probe=~"hosted:.+"}) == 2
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "A hosted model is down"
+          description: "Checks and second attempts for that workspace wait."
+      - alert: BrainDiskLow
+        expr: brain_disk_free_bytes / brain_disk_total_bytes < 0.10
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "The data volume has less than 10 percent free"
+          description: "Backups and new work fail when it fills. Free space now."
+  - name: brain-data-safety
+    rules:
+      - alert: BrainReplicaLag
+        expr: brain_replica_lag_seconds > 900
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "The database replica is more than 15 minutes behind"
+          description: "A failover now would lose that much work. Check the replica shipping timer on the host."
+      - alert: BrainReplicaMissing
+        expr: brain_replica_configured == 1 and absent(brain_replica_lag_seconds)
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "A replica is configured but no snapshot has been written"
+          description: "Check the Governor log and the replica directory."
+      - alert: BrainBackupStale
+        expr: brain_backup_age_seconds > 129600
+        for: 15m
+        labels: { severity: critical }
+        annotations:
+          summary: "The last successful nightly backup is more than 36 hours old"
+          description: "Run the backup by hand and read its log on the server."

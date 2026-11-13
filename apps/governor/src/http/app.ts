@@ -1,7 +1,7 @@
 import { assertHumanIdentity } from "../modules/identity/index";
 import { OIDC_PROVIDER_ID, readOidcSettings } from "../modules/identity/oidc";
 import { TaskExperience } from "../modules/workflows/index";
-import { localRuntimeStatus, connectLocalModel, restoreLocalRuntimeHandoff, operationalReadiness } from "../modules/operations/index";
+import { localRuntimeStatus, connectLocalModel, restoreLocalRuntimeHandoff, operationalReadiness, metricsAuthorized, metricsToken, renderMetrics } from "../modules/operations/index";
 import type { RuntimeConfig } from "../runtime-config";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { gzipSync } from "node:zlib";
@@ -147,6 +147,15 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       }
     }
     return brain.auth.handler(new Request(c.req.raw,{body:Buffer.from(bytes)}));
+  });
+
+  // Prometheus metrics (Phase 4). The endpoint exists only when BRAIN_METRICS_TOKEN_FILE names a file holding a token of at least 16
+  // characters; every scrape must present it as a bearer token. No cookie is read, nothing is cached, no mission id is ever a label.
+  app.get("/metrics", (c) => {
+    const token = metricsToken();
+    if (!token) return c.json(brainError("NOT_FOUND", "not found", correlation(c)), 404);
+    if (!metricsAuthorized(c.req.header("authorization"), token)) return c.json(brainError("UNAUTHENTICATED", "metrics token required", correlation(c)), 401, { "www-authenticate": "Bearer" });
+    return c.body(renderMetrics(brain.store), 200, { "content-type": "text/plain; version=0.0.4; charset=utf-8", "cache-control": "no-store" });
   });
 
   app.get("/health/live", (c) => c.json({ live: true }));

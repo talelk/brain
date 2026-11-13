@@ -47,7 +47,7 @@ import { AutoStart, AUTO_START_TRIGGERS } from "./auto-start";
 import { Challenges } from "./challenges";
 import { PlayProposals } from "./play-proposals";
 import { StarterPlays } from "./starter-plays";
-import { attentionCommands, attentionQuery, qualitySummary } from "../modules/stream/index";
+import { attentionCommands, attentionQuery, qualityBreakdown, qualitySummary } from "../modules/stream/index";
 import { connectorsFromEnv, handleInbound, smtpTarget, type Connectors } from "../modules/operations/index";
 import { alertBadProbes, checkDisk, checkHostedModels, checkModelEndpoint, checkReplica, replicaConfig, replicateOnce, recordProbe, absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
 import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
@@ -229,7 +229,8 @@ export class Brain {
     const config = this.replica;
     if (!config) return Promise.resolve();
     const previous = this.replicating;
-    const run: Promise<void> = (async () => {
+    let run!: Promise<void>;
+    run = (async () => {
       await previous;
       try {
         await replicateOnce(this.store.dataDir, config, () => this.store.now());
@@ -942,6 +943,8 @@ export class Brain {
     switch (q.queryType) {
       case "quality.summary":
         return this.envelope(q.queryType, qualitySummary(s, actor) as unknown as JsonValue);
+      case "quality.breakdown":
+        return this.envelope(q.queryType, qualityBreakdown(s, actor) as unknown as JsonValue);
       case "engineSettings.get": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, engineSettings(s, actor, q.workspaceId));

@@ -2,6 +2,7 @@ import { createHmac, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { JsonValue } from "@brain/contracts";
+import { withTrace } from "../domain/trace";
 import { domainDigest } from "@brain/contracts";
 import type { Db } from "../infrastructure/persistence/open";
 import { initializeFresh, loadSchemaSql, openDb } from "../infrastructure/persistence/open";
@@ -127,8 +128,9 @@ export class Store {
     const eventId = this.id("evt");
     const changed = this.workspaceOfDb.get(db);
     if (changed) this.changedWorkspaces.add(changed);
-    const payloadJson = JSON.stringify(input.payload);
-    const payloadDigest = domainDigest("brain:event:v1", input.payload);
+    const payload = withTrace(input.aggregateType, input.aggregateId, input.payload);
+    const payloadJson = JSON.stringify(payload);
+    const payloadDigest = domainDigest("brain:event:v1", payload);
     const seqRow = db.prepare(
       input.organizationId
         ? "SELECT COALESCE(MAX(aggregate_seq),0) AS m FROM events WHERE organization_id=? AND aggregate_type=? AND aggregate_id=?"

@@ -6,6 +6,7 @@ export { operationalReadiness } from "./readiness";
 export { localRuntimeStatus, connectLocalModel, restoreLocalRuntimeHandoff, localRunnerSettingsCurrent } from "./local-runtime";
 export { liveStatus, platformHealth, workspaceContext } from "./read";
 export { alertBadProbes, checkDisk, checkHostedModels, checkModelEndpoint, checkReplica, readProbes, recordProbe } from "./probes";
+export { metricsAuthorized, metricsToken, renderMetrics } from "./metrics";
 export { replicaConfig, replicaLag, replicateOnce, restoreFromReplica, type ReplicaConfig } from "./replica";
 export { channelsFor, notifyAttention, notificationsFor, sendDigests, watchCommands, type Sender } from "./attention-notify";
 export { composeMessage, smtpTarget, sendMail, validAddress } from "./smtp";
