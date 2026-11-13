@@ -19,6 +19,7 @@ import { eventWords, formatDateTime, formatUsd } from "../../ui/format";
 import { FlowStepper, type FlowStep } from "../../ui/viz/FlowStepper";
 import { Meter } from "../../ui/viz/Meter";
 import { StateBar } from "../../ui/viz/StateBar";
+import { t, type MessageKey } from "../../i18n";
 import { missionHref, type MissionTab } from "../../ui/mission-links";
 import { ConsoleScreen } from "../../ui/console/ConsoleLayout";
 import { SessionTranscript } from "../../ui/console/SessionTranscript";
@@ -28,10 +29,11 @@ import { MissionUsage } from "../../ui/usage/Usage";
 import { PlanEstimate } from "../../ui/usage/PlanEstimate";
 import { ReusedInBrief } from "../../ui/components/Reuse";
 
-const TABS: readonly { id: MissionTab; label: string }[] = [
-  { id: "live", label: "Live" }, { id: "team", label: "Team" }, { id: "plan", label: "Plan" },
-  { id: "brief", label: "Brief" }, { id: "logs", label: "Logs" }, { id: "outputs", label: "Outputs" },
-];
+const TAB_KEYS: Readonly<Record<MissionTab, MessageKey>> = {
+  live: "mission.tab.live", team: "mission.tab.team", plan: "mission.tab.plan", brief: "mission.tab.brief", logs: "mission.tab.logs", outputs: "mission.tab.outputs",
+};
+const TABS: readonly { id: MissionTab }[] = (["live", "team", "plan", "brief", "logs", "outputs"] as const).map((id) => ({ id }));
+const tabLabel = (id: MissionTab): string => t(TAB_KEYS[id]);
 
 /** The views a person needs day to day; the rest sit under "More views". */
 const MAIN_TABS: readonly MissionTab[] = ["live", "plan", "outputs"];
@@ -218,9 +220,9 @@ export default function MissionPage(): JSX.Element {
             </Dialog.Content>
           </Dialog.Root>
           <div class="flex flex-wrap items-center gap-2">
-            <TabButtons label="Mission views" value={tab()} wrap onValueChange={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}
-              options={TABS.filter((entry) => MAIN_TABS.includes(entry.id) || entry.id === tab()).map((entry) => ({ value: entry.id, label: entry.label }))} />
-            <Dropdown aria-label="More views" options={TABS.filter((entry) => !MAIN_TABS.includes(entry.id) && entry.id !== tab()).map((entry) => ({ value: entry.id, label: entry.label }))}
+            <TabButtons label={t("mission.tab.label")} value={tab()} wrap onValueChange={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}
+              options={TABS.filter((entry) => MAIN_TABS.includes(entry.id) || entry.id === tab()).map((entry) => ({ value: entry.id, label: tabLabel(entry.id) }))} />
+            <Dropdown aria-label={t("mission.tab.more")} options={TABS.filter((entry) => !MAIN_TABS.includes(entry.id) && entry.id !== tab()).map((entry) => ({ value: entry.id, label: tabLabel(entry.id) }))}
               onSelect={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}><span class="flex items-center gap-1.5"><span class="lucide-ellipsis size-4" aria-hidden="true" />More views</span></Dropdown>
           </div>
           <Switch>

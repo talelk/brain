@@ -70,7 +70,7 @@ export function ParkedActions(props: { item: WorkItem; onChanged: () => Promise<
       <div class="flex flex-col gap-1 rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3 text-interface" data-parked-reason>
         <span class="text-caption font-medium text-ink-gray-7">Why it stopped</span>
         <span class="break-words text-ink-gray-9">{props.item.parkedDiagnostic}</span>
-        <span class="text-caption text-ink-gray-6">Retry runs it again exactly as it is. If the cause is that the agent lacks a tool it needs, run the task with another recipe below.</span>
+        <span class="text-caption text-ink-gray-6">Retry runs it again exactly as it is. If the cause is that the agent lacks a tool it needs, run the task with another way of working below.</span>
       </div>
     </Show>
     <Show when={error()}><Alert theme="red" variant="outline" title="The change was refused" description={error()} /></Show>

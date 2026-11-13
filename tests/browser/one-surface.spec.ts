@@ -1,5 +1,12 @@
 import { test, expect } from "./fixtures";
+import type { Page } from "@playwright/test";
 import { seedBrowserDemo } from "../support/browserDemo";
+
+/** On a phone the sidebar is a drawer behind a toggle. */
+async function openNav(page: Page): Promise<void> {
+  const toggle = page.getByRole("button", { name: "Open application navigation", exact: true });
+  if ((await toggle.isVisible()) && (await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+}
 
 /**
  * Phase 2, one simple surface: Today's Working-now strip and the Missions Running filter read one live store, so
@@ -62,11 +69,15 @@ test("one Refresh and one freshness label; pages carry no refresh buttons of the
 test("instance-wide pages say so instead of offering a workspace switcher that changes nothing", async ({ page, governor }) => {
   const demo = await seedBrowserDemo(page, governor);
   await page.goto(`${governor.url}/w/${demo.workspaceId}/today`);
+  await expect(page.getByTestId("live-freshness")).toBeVisible({ timeout: 30_000 });
+  await openNav(page);
   await expect(page.getByRole("navigation", { name: "Brain navigation" }).getByRole("button", { name: "Operations", exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("instance-wide")).toHaveCount(0);
   for (const target of ["/settings?tab=setup", "/settings?tab=health", "/quality"]) {
     await page.goto(`${governor.url}${target}`);
-    await expect(page.getByTestId("instance-wide").first()).toHaveText("Whole instance", { timeout: 30_000 });
+    await expect(page.getByTestId("live-freshness")).toBeVisible({ timeout: 30_000 });
+    await openNav(page);
+    await expect(page.getByTestId("instance-wide").filter({ visible: true })).toHaveText("Whole instance", { timeout: 30_000 });
     await expect(page.getByRole("navigation", { name: "Brain navigation" }).getByRole("button", { name: "Operations", exact: true })).toHaveCount(0);
   }
   await page.goto(`${governor.url}/settings?tab=health`);

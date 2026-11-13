@@ -116,7 +116,7 @@ test("axe: key seeded screens have no serious or critical violations", async ({ 
     ["missions", "/w/operations/missions", "Missions"],
     ["mission-plan", `/missions/${demo.seed.missionIds.active}/plan`, "Stabilize authentication"],
     ["live", "/w/operations/live", "Sessions & runs"],
-    ["outputs", "/w/operations/outputs", "Outputs"],
+    ["outputs", "/w/operations/outputs", "All results"],
     ["approvals", "/approvals", "Approvals"],
     ["plays", "/w/operations/plays?mode=catalog", "Plays"],
     ["settings-setup", "/settings?tab=setup", "Setup"],

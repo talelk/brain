@@ -19,6 +19,8 @@ const MIN_GAP_MS = 1200;
 const COALESCE_MS = 300;
 /** Re-read pulse while the stream is down. */
 const FALLBACK_MS = 10_000;
+/** The Governor closes a live stream after 55 s; one open longer than this ended on schedule, not by failure. */
+const PLANNED_CLOSE_MS = 45_000;
 /** A quiet safety re-read while the stream is up, for things that change without an event (a runner's heartbeat, a countdown reaching zero). */
 const HEARTBEAT_MS = 20_000;
 /** Re-read pulse while a screen declared progress that emits no events. */
@@ -96,7 +98,9 @@ function open(): void {
   const url = `/v1/events?live=1&wake=1&after=head&workspace=${encodeURIComponent(workspace)}`;
   const stream = new EventSource(url, { withCredentials: true });
   source = stream;
+  let openedAt = 0;
   stream.onopen = () => {
+    openedAt = Date.now();
     setConnected(true); stopFallback();
     // What changed while the stream was down is unknown: one re-read of everything.
     if (wasDown) { wasDown = false; invalidateLive(); }
@@ -104,6 +108,8 @@ function open(): void {
   stream.addEventListener("changed", () => invalidateLive());
   stream.addEventListener("reset", () => { setConnected(false); wasDown = true; stream.close(); reconnect = setTimeout(open, 500); });
   stream.onerror = () => {
+    // The Governor ends every live stream after about a minute on purpose. A stream that had been healthy simply opens again, without saying "reconnecting".
+    if (openedAt > 0 && Date.now() - openedAt > PLANNED_CLOSE_MS) { stream.close(); open(); invalidateLive(); return; }
     setConnected(false); wasDown = true; stream.close(); startFallback();
     reconnect = setTimeout(open, 2000);
   };

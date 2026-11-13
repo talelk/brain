@@ -20,7 +20,7 @@ const SCREENS: Array<{ id: string; route: (demo: Awaited<ReturnType<typeof seedB
   { id: "plays", route: () => "/w/operations/plays?mode=catalog", heading: "Plays" },
   { id: "live", route: () => "/w/operations/live", heading: "Sessions & runs", testid: "console-rail" },
   { id: "logs", route: () => "/w/operations/logs", heading: "Logs" },
-  { id: "outputs", route: () => "/w/operations/outputs", heading: "Outputs" },
+  { id: "outputs", route: () => "/w/operations/outputs", heading: "All results" },
   { id: "approvals", route: () => "/approvals", heading: "Approvals" },
   { id: "approval-review", route: (d) => `/approvals/${d.seed.approvalId}`, heading: "Approval review" },
   { id: "runners", route: () => "/runners", heading: "Runners" },

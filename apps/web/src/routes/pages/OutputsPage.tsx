@@ -7,6 +7,7 @@ import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { artifactsHistoryQuery, artifactsListQuery } from "../../data/exec-outputs";
 import type { ArtifactHistory, ArtifactState } from "../../data/exec-outputs";
+import { t } from "../../i18n";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { OutputBrowser } from "../../ui/outputs/OutputBrowser";
 import type { OutputGrouping, OutputItem, OutputScope, OutputView } from "../../ui/outputs/OutputBrowser";
@@ -126,7 +127,7 @@ export default function OutputsPage(): JSX.Element {
 
   return (
     <BrainPage
-      title="Outputs"
+      title={t("nav.item.all-results")}
       description="Every file your missions produced. Review it, accept it or ask for changes."
     >
       <PageStack>

@@ -236,7 +236,7 @@ export function InterruptionChooser(props: {
         </Show>
       </div>
       <Show when={!decide()}><p class="mt-1 text-caption text-ink-gray-6">{suggested().description}</p></Show>
-      <Show when={suggested().operation === "restart" && !decide()}><p class="mt-1 text-caption text-ink-gray-6">This runs the task again exactly as it is. If a reviewer rejected the result, change the task or the recipe it runs with in the plan first (Decide on the task).</p></Show>
+      <Show when={suggested().operation === "restart" && !decide()}><p class="mt-1 text-caption text-ink-gray-6">This runs the task again exactly as it is. If a reviewer rejected the result, change the task or the way of working it runs with in the plan first (Decide on the task).</p></Show>
       <Show when={!actionable() && suggested().operation !== "none"}>
         <p class="mt-1 text-caption text-ink-gray-6">This operation needs an operator authorization{props.session.workItemId ? "" : " and a work item binding (the resume payload requires it)"}.</p>
       </Show>
