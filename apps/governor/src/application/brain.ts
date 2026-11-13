@@ -9,6 +9,7 @@ import { Store, type BrainOptions } from "./store";
 import { hasWorkspaceMembership, resolveActor, requireWorkspaceRead, scopesForPrincipal, type ResolvedActor } from "./authz";
 import { CommandFunnel } from "./command-funnel";
 import { workspaceAdminCommands } from "./workspace-admin";
+import { engineSettings, engineSettingsCommands } from "./engine-settings";
 import { completeUpload, completeUploadStream, initUpload, readVerified, readWorkspaceArtifactText, sweepStorage } from "../modules/artifacts/index";
 import { orgWorkspaces, textMatcher } from "./query";
 import { executeOrganizationQuery, isOrganizationQuery, organizationCommandHandlers } from "./organization-admin";
@@ -44,7 +45,7 @@ import { Challenges } from "./challenges";
 import { PlayProposals } from "./play-proposals";
 import { StarterPlays } from "./starter-plays";
 import { attentionCommands, attentionQuery, qualitySummary } from "../modules/stream/index";
-import { absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
+import { alertBadProbes, checkDisk, checkHostedModels, checkModelEndpoint, absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
 import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
@@ -182,6 +183,7 @@ export class Brain {
           markKnowledgeRevoked: (org, ws, sourceId) => this.capitalization.markKnowledgeRevoked(org, ws, sourceId),
         }),
         workspaceAdminCommands(this.store, this.auth, this.jobProtocol),
+        engineSettingsCommands(this.store),
         organizationCommandHandlers(this.store, this.auth),
       ], { afterCommit: () => this.stream.project() });
       this.autoStart = new AutoStart({
@@ -197,10 +199,30 @@ export class Brain {
     this.probeMemoryService();
     this.memoryProbeTimer = setInterval(() => this.probeMemoryService(), 10_000);
     this.memoryProbeTimer.unref();
+    checkDisk(this.store);
+    this.engineProbeTimer = setInterval(() => void this.runEngineProbes().catch(() => undefined), 30_000);
+    this.engineProbeTimer.unref();
+  }
+
+  private engineProbeTimer: ReturnType<typeof setInterval>;
+
+  /**
+   * The checks below the application (free disk, the model endpoint, each enabled hosted model): their latest results are what Health
+   * shows, and a check that turns bad alerts the workspace owner once (in-app, pushed on their channels).
+   */
+  async runEngineProbes(fetchImpl: typeof fetch = fetch): Promise<void> {
+    checkDisk(this.store);
+    await checkModelEndpoint(this.store, fetchImpl);
+    await checkHostedModels(this.store, fetchImpl);
+    for (const alert of alertBadProbes(this.store)) {
+      const channels = channelsFor(this.store, alert.organizationId, alert.ownerId);
+      if (channels.push || channels.webhook || channels.email) void this.deliver(alert.organizationId, alert.ownerId, { title: alert.title, body: alert.detail, url: `/w/${alert.workspaceId}/health`, kind: "platform" }, channels).catch(() => undefined);
+    }
   }
 
   close(): void {
     clearInterval(this.memoryProbeTimer);
+    clearInterval(this.engineProbeTimer);
     this.store.close();
   }
 
@@ -816,6 +838,10 @@ export class Brain {
     switch (q.queryType) {
       case "quality.summary":
         return this.envelope(q.queryType, qualitySummary(s, actor) as unknown as JsonValue);
+      case "engineSettings.get": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        return this.envelope(q.queryType, engineSettings(s, actor, q.workspaceId));
+      }
       case "platform.health":
         return this.envelope(q.queryType, platformHealth(s, this.memoryProbe));
       case "workspace.context": {
@@ -884,7 +910,7 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.jobProtocol.automations.query(actor, q.queryType, q.workspaceId, q.resourceId, limit, (raw as { search?: string }).search));
       }
-      case "missions.list": case "missions.get": case "missions.forSubject": case "missions.brief": case "handoffs.forWorkItem": case "missionBundles.latest": case "missionOutputs.list": case "missionOutputs.get": case "missionMessages.list": case "plans.get": case "workItems.list": case "workItems.get": case "executionLinks.list": case "usage.run": case "usage.task": case "usage.mission": case "usage.workspace": case "plans.estimate": case "evalCases.list": {
+      case "missions.list": case "missions.get": case "missions.forSubject": case "missions.brief": case "handoffs.forWorkItem": case "missionBundles.latest": case "missionOutputs.list": case "missionOutputs.get": case "missionMessages.list": case "plans.get": case "workItems.list": case "workItems.get": case "executionLinks.list": case "usage.run": case "usage.task": case "usage.mission": case "usage.workspace": case "plans.estimate": case "evalCases.list": case "lessons.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.missions.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
       }

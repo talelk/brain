@@ -1,6 +1,7 @@
 import type { ActorContext, JsonValue } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import type { Store } from "../../application/store";
+import { readProbes } from "./probes";
 import { activeRelease, assertCurrentManifestShape, releaseRecord, uiFoundationFromRelease } from "../configuration/index";
 
 export interface MemoryProbe {
@@ -19,7 +20,8 @@ export function platformHealth(store: Store, probe: MemoryProbe): JsonValue {
   // Runners that are online and able to take work: how many of their slots are taken right now.
   const fleet = store.control.prepare("SELECT COUNT(*) AS runners, COALESCE(SUM(slots_reserved),0) AS used, COALESCE(SUM(slot_capacity),0) AS total FROM runners WHERE admin_state='enabled' AND last_heartbeat_ms>?").get(store.now() - 45_000) as { runners: number; used: number; total: number };
   if (fleet.runners > 0) services.push({ id: "runners", status: "healthy", checkedAt: store.nowIso(), detail: `${fleet.used} of ${fleet.total} slots in use on ${fleet.runners} online ${fleet.runners === 1 ? "runner" : "runners"}` });
-  const status = services.some((svc) => svc.status === "unavailable") ? "degraded" : "healthy";
+  services.push(...engineServices(store));
+  const status = services.some((svc) => svc.status === "unavailable" || svc.status === "degraded") ? "degraded" : "healthy";
   return { status, services, pendingOutbox: pending.c, oldestOutboxAgeMs: 0, schemaVersion: "1" } as unknown as JsonValue;
 }
 
@@ -103,4 +105,31 @@ export function liveStatus(store: Store, actor: ActorContext, workspaceId: strin
     defaultRoute: (activeSessions > 0 || activeRuns > 0) && !(pendingApprovals > 0 || unknownJobs > 0) ? "live" : "today",
     observedAt: store.nowIso(),
   } as unknown as JsonValue;
+}
+
+/**
+ * What Health says about the layers below the application: the model endpoint, the launcher (as the runners report it), free disk and,
+ * only while a workspace uses one, the hosted model (ADR 0023). A hosted model that is down says checks and second attempts wait.
+ */
+function engineServices(store: Store): Array<{ id: string; status: string; checkedAt: string; detail: string }> {
+  const out: Array<{ id: string; status: string; checkedAt: string; detail: string }> = [];
+  const probes = readProbes(store);
+  for (const id of ["model", "disk"]) {
+    const probe = probes.find((entry) => entry.id === id);
+    if (probe) out.push({ id, status: probe.status, checkedAt: probe.checkedAt, detail: probe.detail });
+  }
+  const hosted = probes.filter((entry) => entry.id.startsWith("hosted:"));
+  if (hosted.length > 0) {
+    const down = hosted.filter((entry) => entry.status === "unavailable");
+    out.push({ id: "hosted-model", status: down.length > 0 ? "unavailable" : "healthy", checkedAt: hosted[0]!.checkedAt,
+      detail: down.length > 0 ? `${down.length} of ${hosted.length} hosted models are down: checks and second attempts for those workspaces wait until they are back.` : "Every hosted model answers." });
+  }
+  // The launcher is judged from the runners that use one: a runner that cannot reach it reports itself degraded or unhealthy.
+  const online = store.control.prepare("SELECT health FROM runners WHERE admin_state='enabled' AND deregistered_at_ms IS NULL AND last_heartbeat_ms>?").all(store.now() - 45_000) as Array<{ health: string }>;
+  if (online.length > 0) {
+    const healthy = online.filter((runner) => runner.health === "healthy").length;
+    out.push({ id: "launcher", status: healthy === online.length ? "healthy" : healthy === 0 ? "unavailable" : "degraded", checkedAt: store.nowIso(),
+      detail: healthy === online.length ? "Every runner reaches its sandbox launcher." : `${online.length - healthy} of ${online.length} runners report a problem (sandbox launcher or Docker); sandboxed tools may fail until it is restarted.` });
+  }
+  return out;
 }

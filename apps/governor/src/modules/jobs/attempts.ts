@@ -9,6 +9,8 @@ import { transitionState } from "../../domain/states";
 import { evaluateRunner, type RunnerView } from "../../domain/placement";
 import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
+import { isDraining } from "./drain";
+import { heldForHostedModel, modelRouteFor } from "./model-route";
 
 /**
  * Job/attempt lifecycle: fair claim, offers as pinned execution artifacts,
@@ -58,6 +60,8 @@ export function claim(s: Store, deps: {
       return;
     }
     if (deps.isRunnerCurrent && !deps.isRunnerCurrent(runner.runnerId)) return;
+    // Drain mode (deploys that do not interrupt work): running attempts finish, nothing new is offered until resume.
+    if (isDraining(s)) return;
     const view = runnerView(s, runner.runnerId);
     if (!view) throw new BrainDomainError("UNAUTHENTICATED", "runner missing");
     // Fair paging (E047/E048/E049): scan beyond the first 100-row page with a
@@ -82,7 +86,10 @@ export function claim(s: Store, deps: {
       for (const job of rows) {
         const placement = JSON.parse(String(job["placement_json"])) as import("@brain/contracts").Placement;
         const demand = placement.resources ?? { cpuMillicores: 500, memoryMb: 512, diskMb: 512, slots: 1 };
-        if (evaluateRunner(placement, demand, view, s.now()).eligible && deps.isEvaluatorEligible(runner.runnerId, String(job["id"]))) eligible.push(job);
+        if (!evaluateRunner(placement, demand, view, s.now()).eligible || !deps.isEvaluatorEligible(runner.runnerId, String(job["id"]))) continue;
+        // A check or second attempt that would run on a hosted model that is down waits for it (ADR 0023); nothing else is held.
+        if (heldForHostedModel(s, runner.organizationId, String(job["workspace_id"]), String(job["workflow_run_id"]), () => (s.control.prepare("SELECT kind FROM job_payloads WHERE job_id=?").get(String(job["id"])) as { kind: string } | undefined)?.kind ?? "")) continue;
+        eligible.push(job);
       }
       const last = rows[rows.length - 1]!;
       afterPriority = Number(last["priority"] ?? 0);
@@ -264,7 +271,15 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
     FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE a.id=?`).get(attemptId) as Record<string, unknown> | undefined;
   if (!row) throw new BrainDomainError("NOT_FOUND", "attempt not found");
   const payloadRow = s.control.prepare("SELECT kind, payload_json FROM job_payloads WHERE job_id=?").get(String(row["job_id"])) as { kind: string; payload_json: string } | undefined;
-  const artifactText = payloadRow?.payload_json ?? "{}";
+  let artifactText = payloadRow?.payload_json ?? "{}";
+  // The hosted-model route is decided once, when the job is first offered, and stored with the payload so every later offer pins the same bytes.
+  if (!s.control.prepare("SELECT 1 FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(`exec-${String(row["job_id"])}`, String(row["organization_id"]))) {
+    const route = modelRouteFor(s, String(row["organization_id"]), String(row["workspace_id"]), String(row["workflow_run_id"]), payloadRow?.kind ?? "");
+    if (route) {
+      artifactText = JSON.stringify({ ...(JSON.parse(artifactText) as Record<string, JsonValue>), modelRoute: route as unknown as JsonValue });
+      s.control.prepare("UPDATE job_payloads SET payload_json=? WHERE job_id=?").run(artifactText, String(row["job_id"]));
+    }
+  }
   const artifact = ensureExecutionArtifact(s, String(row["job_id"]), String(row["organization_id"]), String(row["workspace_id"]), artifactText);
   let workflowDigest = String(row["config_digest"]);
   try {

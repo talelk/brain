@@ -19,3 +19,5 @@ export {
 export { jobCommands } from "./commands";
 export { unknownJobsForWorkspace } from "./unknown";
 export { runContext } from "./run-context";
+export { drainStatus, isDraining, setDraining, type DrainStatus } from "./drain";
+export { hostedConfig, modelRouteFor, type HostedConfig, type ModelRoute } from "./model-route";

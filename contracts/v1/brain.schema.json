@@ -6859,6 +6859,44 @@
         },
         "parked": {
           "type": "boolean"
+        },
+        "requiredTools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConfigId"
+          },
+          "maxItems": 50,
+          "uniqueItems": true
+        },
+        "failureClass": {
+          "type": "string",
+          "enum": [
+            "missing-tool",
+            "unmeetable-criterion",
+            "model-slip",
+            "tool-outage",
+            "budget",
+            "unclassified"
+          ]
+        },
+        "remedy": {
+          "type": "string",
+          "enum": [
+            "switch-way-of-working",
+            "stronger-model",
+            "ask-one-question",
+            "wait-and-retry",
+            "park-budget",
+            "retry"
+          ]
+        },
+        "tokenCap": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tokensUsed": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [
@@ -7547,7 +7585,9 @@
             "library.summary",
             "challenges.list",
             "playProposals.list",
-            "tools.calls"
+            "tools.calls",
+            "engineSettings.get",
+            "lessons.list"
           ]
         },
         "workspaceId": {
@@ -7626,7 +7666,9 @@
             "library.summary",
             "challenges.list",
             "playProposals.list",
-            "tools.calls"
+            "tools.calls",
+            "engineSettings.get",
+            "lessons.list"
           ]
         },
         "snapshot": {
@@ -11204,6 +11246,21 @@
         },
         {
           "$ref": "#/$defs/PlaysAddStarterCommand"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceWayOfWorkingSetCommand"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceHostedModelSetCommand"
+        },
+        {
+          "$ref": "#/$defs/PlatformDrainSetCommand"
+        },
+        {
+          "$ref": "#/$defs/WorkItemSpendCapRaiseCommand"
+        },
+        {
+          "$ref": "#/$defs/KnowledgeWithdrawUnobservedCommand"
         }
       ]
     },
@@ -19573,6 +19630,13 @@
         },
         "supersededBy": {
           "$ref": "#/$defs/Id"
+        },
+        "expiresAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "helpedCount": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [
@@ -23194,6 +23258,17 @@
                   "count": {
                     "type": "integer",
                     "minimum": 1
+                  },
+                  "code": {
+                    "type": "string",
+                    "enum": [
+                      "missing-tool",
+                      "unmeetable-criterion",
+                      "model-slip",
+                      "tool-outage",
+                      "budget",
+                      "unclassified"
+                    ]
                   }
                 }
               }
@@ -24193,6 +24268,244 @@
         "commandType": {
           "type": "string",
           "const": "plays.addStarter"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "WorkspaceWayOfWorkingSetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "workspace.wayOfWorking.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "workflowId": {
+              "$ref": "#/$defs/ConfigId"
+            },
+            "requiredTools": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ConfigId"
+              },
+              "maxItems": 50,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "workflowId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "WorkspaceHostedModelSetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "workspace.hostedModel.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "vendor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "baseUrl": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 512
+            }
+          },
+          "required": [
+            "enabled"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "PlatformDrainSetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "platform.drain.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "draining": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "draining"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "WorkItemSpendCapRaiseCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "workItem.spendCap.raise"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "workItemId": {
+              "$ref": "#/$defs/Id"
+            },
+            "maxTokens": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "workItemId",
+            "maxTokens"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "KnowledgeWithdrawUnobservedCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "knowledge.withdrawUnobserved"
         },
         "workspaceId": {
           "$ref": "#/$defs/Id"

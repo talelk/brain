@@ -708,6 +708,51 @@
       "actors": [
         "human"
       ]
+    },
+    {
+      "type": "workspace.wayOfWorking.set",
+      "schema": "WorkspaceWayOfWorkingSetCommand",
+      "scope": "config:activate",
+      "authority": "control",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "workspace.hostedModel.set",
+      "schema": "WorkspaceHostedModelSetCommand",
+      "scope": "config:activate",
+      "authority": "control",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "platform.drain.set",
+      "schema": "PlatformDrainSetCommand",
+      "scope": "config:activate",
+      "authority": "control",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "workItem.spendCap.raise",
+      "schema": "WorkItemSpendCapRaiseCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "knowledge.withdrawUnobserved",
+      "schema": "KnowledgeWithdrawUnobservedCommand",
+      "scope": "memory:publish",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
     }
   ],
   "queries": [
@@ -803,7 +848,9 @@
     "library.summary",
     "challenges.list",
     "playProposals.list",
-    "tools.calls"
+    "tools.calls",
+    "engineSettings.get",
+    "lessons.list"
   ],
   "events": [
     {

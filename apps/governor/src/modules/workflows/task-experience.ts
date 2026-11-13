@@ -12,6 +12,8 @@ interface Host {
   /** Ranked stored-knowledge hits for words, inside the workspace the actor may read; the planner gets them in its prompt instead of calling a search tool. */
   knowledgeHits?(actor: ActorContext, workspaceId: string, query: string, limit: number): Array<{ sourceId: string; content: string; status?: string }>;
   /** The earlier mission a mission was started from and what of it seeds the plan: reuse refs, and verified outputs to pin as typed inputs. */
+  /** Lessons from earlier healed or parked failures (unexpired), as bounded plain lines for the planner. */
+  lessons?(actor: ActorContext, workspaceId: string): string;
   startedFrom?(actor: ActorContext, workspaceId: string, missionId: string): { sourceMissionId: string; refs: string[]; inputs: OutputInput[] } | undefined;
 }
 interface DraftRow { id: string; actor_id: string; workflow_id: string; workflow_json: string; config_digest: string; input_json: string; origin_json: string | null; title: string; command_id: string; conversation_id?: string | null; state: "review" | "started"; run_id: string | null; created_at_ms: number }
@@ -199,6 +201,8 @@ export class TaskExperience {
     // What the workspace already knows is looked up here, once, and handed over in the prompt: the planner makes no search round trip.
     let related = "";
     try { related = relatedKnowledgePrompt(this.host.knowledgeHits?.(actor, request.workspaceId, `${title} ${intent}`.slice(0, 400), RELATED_HITS) ?? []); } catch { related = ""; }
+    // What went wrong before is part of what the planner knows (ADR 0022): lessons from healed and parked tasks, never evidence.
+    try { const lessons = this.host.lessons?.(actor, request.workspaceId) ?? ""; if (lessons) related = [related, lessons].filter(Boolean).join("\n\n").slice(0, 3990); } catch { /* the plan goes ahead without lessons */ }
     const commandId = `plan-run-${request.requestId}`;
     const started = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId, commandType: "workflow.dispatch", workspaceId: request.workspaceId, idempotencyKey: commandId, payload: { workflow: guide.release, input: { title, intent, successCriteria, capabilities, reused, related } } })).receipt;
     if (!started.accepted || !started.resourceId) throw new BrainDomainError("CONFLICT", "plan assistant could not be started");

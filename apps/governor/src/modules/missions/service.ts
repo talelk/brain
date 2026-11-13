@@ -19,6 +19,9 @@ import { assembleMissionBundle, dependencyHandoffs, finalizeHandoff, latestMissi
 import type { HandoffNotes } from "@brain/contracts";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
+import { OUTAGE_MAX_WAITS, OUTAGE_WAIT_MS, REMEDY, classifyFailure, lessonText, type FailureClass } from "../../domain/failure";
+import { GENERAL_TASK_WORKFLOW } from "../workflows/index";
+import { missionObserved, observedCalls, taskTokenCap, taskTokens, wayOfWorking, workflowAgentTools, workflowsCovering } from "./outcomes";
 
 export interface MissionCommand {
   readonly commandType: string;
@@ -53,6 +56,10 @@ const CHECK_WORDS: Readonly<Record<string, string>> = {
 };
 /** Parked work is stopped, not running: a person may re-plan it (edit, reassign, run it with another recipe), which replaces the parked item. */
 const isStarted = (row: { state: WorkItemState; parked?: number }): boolean => STARTED.has(row.state) && !(row.state === "blocked" && row.parked === 1);
+/** Lessons stay with the planner this long. */
+const LESSON_TTL_MS = 90 * 86_400_000;
+/** Tools a task must observe: its own declaration, else the workspace's way of working. */
+const effectiveTools = (task: PlanTask, defaults: { requiredTools: readonly string[] } | undefined): string[] => [...new Set(task.requiredTools ?? defaults?.requiredTools ?? [])].sort();
 /** The written sections every session receives stay small (issue #34). */
 const BRIEF_CHAR_CAP = 8000;
 type PlanRow = {
@@ -65,6 +72,7 @@ type WorkItemRow = {
   state: WorkItemState; criteria_json: string; assignment_json: string | null; workflow_id: string | null;
   next_action: string; blocked_reason: string | null; scheduled_at_ms: number | null; evidence_digest: string | null;
   failed_attempts: number; parked: number; parked_diagnostic: string | null;
+  required_tools_json: string; failure_class: FailureClass | null; token_cap: number | null; retry_after_ms: number | null;
   version: number; created_at_ms: number; updated_at_ms: number;
 };
 
@@ -165,6 +173,9 @@ export class MissionService {
       ...(row.scheduled_at_ms ? { scheduledAt: iso(row.scheduled_at_ms) } : {}),
       ...(row.evidence_digest ? { evidenceDigest: row.evidence_digest } : {}),
       failedAttempts: row.failed_attempts, parked: row.parked === 1,
+      ...(JSON.parse(row.required_tools_json) as string[]).length > 0 ? { requiredTools: JSON.parse(row.required_tools_json) as string[] } : {},
+      ...(row.failure_class ? { failureClass: row.failure_class, remedy: REMEDY[row.failure_class] } : {}),
+      tokenCap: taskTokenCap(row), tokensUsed: taskTokens(this.store.workspaceDb(workspaceId, actor.organizationId), row.id),
       version: row.version, createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
     };
   }
@@ -182,6 +193,7 @@ export class MissionService {
       case "mission.message.send": return this.message(actor, workspaceId, command.payload);
       case "mission.budget.set": return this.setBudget(actor, workspaceId, command.payload, command.expectedVersion);
       case "workspace.spendCap.set": return this.setSpendCap(actor, workspaceId, command.payload);
+      case "workItem.spendCap.raise": return this.raiseTaskCap(actor, workspaceId, command.payload);
       case "handoff.submit": return this.handoff(actor, workspaceId, command.payload);
       case "mission.verdict.record": return this.verdict(actor, workspaceId, command.payload);
       case "plan.propose": return this.proposePlan(actor, workspaceId, command.payload);
@@ -245,6 +257,7 @@ export class MissionService {
     const team = (payload["team"] as TeamMember[] | undefined) ?? [];
     assertPlanTasks(tasks);
     assertTeamEligible(team, tasks, this.agentCapabilities(actor.organizationId));
+    this.assertWayOfWorking(actor.organizationId, workspaceId, tasks);
     const gate = this.gate(actor, workspaceId, mission, tasks, team);
     const db = this.db(actor, workspaceId);
     const id = this.store.id("plan");
@@ -314,8 +327,10 @@ export class MissionService {
     if (plan.state !== "proposed") throw new BrainDomainError("CONFLICT", "only a proposed plan version can be confirmed");
     const tasks = JSON.parse(plan.tasks_json) as PlanTask[];
     assertPlanTasks(tasks);
+    this.assertWayOfWorking(actor.organizationId, workspaceId, tasks);
     this.gate(actor, workspaceId, mission, tasks, JSON.parse(plan.team_json) as TeamMember[]);
     const db = this.db(actor, workspaceId);
+    const defaults = wayOfWorking(this.store, workspaceId);
     this.store.inTx(db, () => {
       const priorActive = mission.active_plan_version_id;
       if (priorActive) transitionState(db, "planVersion", priorActive, "superseded");
@@ -327,7 +342,7 @@ export class MissionService {
       const now = this.store.now();
       for (const task of tasks) {
         const prior = latestByTask.get(task.id);
-        if (prior && prior.plan_version_id === priorActive && this.sameTask(db, prior, task)) {
+        if (prior && prior.plan_version_id === priorActive && this.sameTask(db, prior, task, effectiveTools(task, defaults))) {
           selected.set(task.id, prior.id);
           retained.add(prior.id);
           continue;
@@ -337,10 +352,10 @@ export class MissionService {
         const state: WorkItemState = task.dependsOn.length === 0 ? "ready" : "backlog";
         // Failed attempts follow the plan task across members: reassignment never resets the parking count.
         const carried = prior && prior.state !== "done" ? prior.failed_attempts : 0;
-        db.prepare(`INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,assignment_json,workflow_id,next_action,failed_attempts,created_at_ms,updated_at_ms)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(id, mission.id, plan.id, task.id, task.title, state, JSON.stringify(task.criteria),
+        db.prepare(`INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,assignment_json,workflow_id,next_action,failed_attempts,required_tools_json,token_cap,created_at_ms,updated_at_ms)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(id, mission.id, plan.id, task.id, task.title, state, JSON.stringify(task.criteria),
           task.assignment ? JSON.stringify(task.assignment) : null, task.workflowId ?? null,
-          state === "ready" ? "Start this task" : "Wait for predecessor completion", carried, now, now);
+          state === "ready" ? "Start this task" : "Wait for predecessor completion", carried, JSON.stringify(effectiveTools(task, defaults)), prior?.token_cap ?? null, now, now);
       }
       for (const item of previous) {
         if (retained.has(item.id) || isStarted(item)) continue;
@@ -370,8 +385,49 @@ export class MissionService {
     return plan.id;
   }
 
-  private sameTask(db: ReturnType<Store["workspaceDb"]>, prior: WorkItemRow, task: PlanTask): boolean {
+  /**
+   * ADR 0022: a task that needs tools must be planned on a way of working whose agent has them. The way of working is the task's
+   * own workflow, else the workspace's default, else the general task workflow; a plan that names a tool its way of working lacks is refused.
+   */
+  private assertWayOfWorking(organizationId: string, workspaceId: string, tasks: readonly PlanTask[]): void {
+    const defaults = wayOfWorking(this.store, workspaceId);
+    for (const task of tasks) {
+      if (task.assignment?.kind === "agent") continue; // a team member's agent is checked by team eligibility
+      const tools = effectiveTools(task, defaults);
+      if (tools.length === 0) continue;
+      const workflowId = task.workflowId ?? defaults?.workflowId ?? GENERAL_TASK_WORKFLOW;
+      const have = workflowAgentTools(this.store, organizationId, workflowId);
+      if (have === undefined) continue; // an unknown workflow is reported when the task starts
+      const missing = tools.filter((tool) => !have.includes(tool));
+      if (missing.length > 0) {
+        const alternatives = workflowsCovering(this.store, organizationId, tools);
+        throw new BrainDomainError("INVALID_ARGUMENT", `task ${task.id} needs ${missing.join(", ")} but its way of working ${workflowId} lacks ${missing.length === 1 ? "it" : "them"}${alternatives.length ? `; use ${alternatives.slice(0, 3).join(" or ")}` : ""}`);
+      }
+    }
+  }
+
+  /** An owner raises the token cap of one task; a task parked for budget is released to try again. */
+  private raiseTaskCap(actor: ActorContext, workspaceId: string, payload: Readonly<Record<string, unknown>>): string {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only a person raises a task's spend cap");
+    const item = this.workItemRow(actor, workspaceId, String(payload["workItemId"]));
+    const maxTokens = Number(payload["maxTokens"]);
+    if (!Number.isSafeInteger(maxTokens) || maxTokens <= 0) throw new BrainDomainError("INVALID_ARGUMENT", "maxTokens must be a positive integer");
+    if (maxTokens <= taskTokenCap(item)) throw new BrainDomainError("INVALID_ARGUMENT", `the cap is ${taskTokenCap(item)} tokens; raise it above that`);
+    const db = this.db(actor, workspaceId);
+    this.store.inTx(db, () => {
+      db.prepare("UPDATE work_items SET token_cap=?,version=version+1,updated_at_ms=? WHERE id=?").run(maxTokens, this.store.now(), item.id);
+      this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.spendCapRaised", payload: { workItemId: item.id, maxTokens } });
+      if (item.parked === 1 && item.failure_class === "budget") {
+        transitionState(db, "workItem", item.id, "ready", { set: { parked: 0, failed_attempts: 0, parked_diagnostic: null, blocked_reason: null, failure_class: null, next_action: "Retrying: the token cap was raised", updated_at_ms: this.store.now() }, bumpVersion: true });
+        this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.unparked", payload: { workItemId: item.id, state: "ready" } });
+      }
+    });
+    return item.id;
+  }
+
+  private sameTask(db: ReturnType<Store["workspaceDb"]>, prior: WorkItemRow, task: PlanTask, tools: readonly string[]): boolean {
     if (prior.title !== task.title || prior.workflow_id !== (task.workflowId ?? null)) return false;
+    if (prior.required_tools_json !== JSON.stringify(tools)) return false;
     if (JSON.stringify(JSON.parse(prior.criteria_json)) !== JSON.stringify(task.criteria)) return false;
     if (JSON.stringify(prior.assignment_json ? JSON.parse(prior.assignment_json) : null) !== JSON.stringify(task.assignment ?? null)) return false;
     const dependencies = db.prepare("SELECT w.plan_task_id AS id FROM work_item_dependencies d JOIN work_items w ON w.id=d.depends_on_work_item_id WHERE d.work_item_id=? ORDER BY w.plan_task_id").all(prior.id) as Array<{ id: string }>;
@@ -395,12 +451,12 @@ export class MissionService {
       const nextAction = next === "done" ? "No further action" : next === "review" ? "Review verified results" : next === "blocked" ? reason ?? "Resolve blocker" : next === "ready" ? "Start this task" : next === "in-progress" ? "Complete and submit evidence" : next === "abandoned" ? "Superseded or abandoned" : "Wait for predecessor completion";
       const unpark = item.parked === 1 && next !== "blocked";
       const resetCount = unpark || next === "review" || next === "done";
-      transitionState(db, "workItem", item.id, next, { set: { blocked_reason: next === "blocked" ? reason : null, evidence_digest: evidenceDigest ?? null, next_action: nextAction, updated_at_ms: this.store.now(), ...(resetCount ? { failed_attempts: 0 } : {}), ...(unpark ? { parked: 0, parked_diagnostic: null } : {}) }, bumpVersion: true, and: { version: item.version } });
+      transitionState(db, "workItem", item.id, next, { set: { blocked_reason: next === "blocked" ? reason : null, evidence_digest: evidenceDigest ?? null, next_action: nextAction, updated_at_ms: this.store.now(), ...(resetCount ? { failed_attempts: 0 } : {}), ...(unpark ? { parked: 0, parked_diagnostic: null, failure_class: null, retry_after_ms: null } : {}), ...(next === "done" ? { failure_class: null, retry_after_ms: null } : {}) }, bumpVersion: true, and: { version: item.version } });
       if (unpark) this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.unparked", payload: { workItemId: item.id, state: next } });
       // A task sent back from review is a rejected sign-off on that task (issue #64).
       if (item.state === "review" && next === "in-progress") recordEvalCase(this.store, db, { workspaceId, source: `sent-back:${item.id}:${item.version}`, kind: "task-sent-back", missionId: item.mission_id, workItemId: item.id, findings: reason ? [reason] : [] });
       this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.transitioned", payload: { workItemId: item.id, state: next, ...(evidenceDigest ? { evidenceDigest } : {}), ...(signedOff ? { signedOffBy: actor.actorId } : {}) } });
-      if (next === "done") { verifyOutputs(db, item.id); this.releaseReadyItems(db, item.mission_id); wake(this.store, db, item.mission_id, "work-verified", item.title); }
+      if (next === "done") { this.recordHealed(db, item); verifyOutputs(db, item.id); this.releaseReadyItems(db, item.mission_id); wake(this.store, db, item.mission_id, "work-verified", item.title); }
     });
     return item.id;
   }
@@ -413,6 +469,10 @@ export class MissionService {
   /** Done needs verified evidence; criteria supported only by model opinion also need a person (returns true when this person signs them off). */
   private assertEvidence(db: ReturnType<Store["workspaceDb"]>, item: WorkItemRow, digest: string | null, by: ActorContext): boolean {
     if (!digest) throw new BrainDomainError("EVIDENCE_MISSING", "Done requires verified evidence");
+    const needed = JSON.parse(item.required_tools_json) as string[];
+    if (needed.length > 0 && observedCalls(this.store, db, item.id, needed).succeeded === 0) {
+      throw new BrainDomainError("EVIDENCE_MISSING", `Done requires a successful recorded call of ${needed.join(" or ")}; none was recorded, so nothing was observed`);
+    }
     const bundle = db.prepare("SELECT state,manifest_json,job_id FROM evidence_bundles WHERE digest=?").get(digest) as { state: string; manifest_json: string; job_id: string } | undefined;
     if (!bundle || bundle.state !== "verified") throw new BrainDomainError("EVIDENCE_MISSING", "Done requires a verified evidence bundle");
     if (!this.producedByLinkedExecution(db, item.id, bundle.job_id)) throw new BrainDomainError("EVIDENCE_MISSING", "this evidence bundle was not produced by a run of this work item; bind the evidence of its own run");
@@ -842,26 +902,107 @@ export class MissionService {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     this.store.inTx(db, () => {
       const items = db.prepare("SELECT w.* FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? AND w.state IN ('ready','in-progress','review')").all(runId) as WorkItemRow[];
-      const reason = this.failureReason(db, runId);
-      const interrupted = this.interruptedReason(db, runId);
-      for (const item of items) {
-        const threshold = (db.prepare("SELECT parking_threshold AS n FROM missions WHERE id=?").get(item.mission_id) as { n: number }).n;
-        const failed = item.failed_attempts + 1;
-        const detail = (reason ? `${diagnostic}: ${reason}` : diagnostic).slice(0, 1024);
-        const now = this.store.now();
-        if (interrupted) {
-          // The agent was interrupted over and over: stop at once, do not count it as a failure of the work, and ask for one click.
-          transitionState(db, "workItem", item.id, "blocked", { set: { parked: 1, parked_diagnostic: interrupted, blocked_reason: PARKED_INTERRUPTED_REASON, next_action: "A person tries again, reassigns, edits or drops this work", updated_at_ms: now }, bumpVersion: true });
-          this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.parked", payload: { workItemId: item.id, missionId: item.mission_id, state: "blocked" } });
-        } else if (failed >= threshold) {
-          transitionState(db, "workItem", item.id, "blocked", { set: { failed_attempts: failed, parked: 1, parked_diagnostic: detail, blocked_reason: `Parked after ${failed} failed attempts`, next_action: "A human retries, reassigns, edits or drops this work", updated_at_ms: now }, bumpVersion: true });
-          this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.parked", payload: { workItemId: item.id, missionId: item.mission_id, state: "blocked" } });
-        } else {
-          if (item.state !== "ready") transitionState(db, "workItem", item.id, item.state === "review" ? "in-progress" : "ready", { set: { failed_attempts: failed, next_action: `Retry after failed attempt ${failed} of ${threshold}`, updated_at_ms: now }, bumpVersion: true });
-          else db.prepare("UPDATE work_items SET failed_attempts=?,version=version+1,updated_at_ms=? WHERE id=?").run(failed, now, item.id);
-        }
-      }
+      for (const item of items) this.failAttempt(db, organizationId, item, runId, diagnostic);
     });
+  }
+
+  /**
+   * One failed attempt of a task, handled once per run. The failure gets a class (a code decided from the call record, the step's
+   * error and the failed checks, never by a model) and the class its single remedy (ADR 0022): another way of working, a stronger
+   * model on the next attempt, one question for a person, a wait for an outage, or a stop at the spend cap. A task that keeps failing
+   * parks at the mission's threshold; every parked or healed failure leaves a lesson for the planner.
+   */
+  private failAttempt(db: ReturnType<Store["workspaceDb"]>, organizationId: string, item: WorkItemRow, runId: string, diagnostic: string): void {
+    if (db.prepare("SELECT 1 FROM task_failures WHERE run_id=? AND work_item_id=?").get(runId, item.id)) return;
+    const threshold = (db.prepare("SELECT parking_threshold AS n FROM missions WHERE id=?").get(item.mission_id) as { n: number }).n;
+    const reason = this.failureReason(db, runId);
+    const interrupted = this.interruptedReason(db, runId);
+    const detail = (reason ? `${diagnostic}: ${reason}` : diagnostic).slice(0, 1024);
+    const now = this.store.now();
+    const retry = (failedAttempts: number, nextAction: string, extra: Record<string, unknown> = {}): void => {
+      if (item.state === "review") transitionState(db, "workItem", item.id, "in-progress", { bumpVersion: true });
+      if (item.state !== "ready") transitionState(db, "workItem", item.id, "ready", { set: { failed_attempts: failedAttempts, next_action: nextAction, updated_at_ms: now, ...extra }, bumpVersion: true });
+      else {
+        const columns = Object.keys(extra);
+        db.prepare(`UPDATE work_items SET failed_attempts=?,next_action=?,${columns.map((column) => `${column}=?`).join(",")}${columns.length ? "," : ""}version=version+1,updated_at_ms=? WHERE id=?`).run(failedAttempts, nextAction, ...columns.map((column) => extra[column] as never), now, item.id);
+      }
+    };
+    const park = (failedAttempts: number, blockedReason: string, nextAction: string, failureClass: FailureClass | null): void => {
+      transitionState(db, "workItem", item.id, "blocked", { set: { failed_attempts: failedAttempts, parked: 1, parked_diagnostic: detail, blocked_reason: blockedReason, next_action: nextAction, ...(failureClass ? { failure_class: failureClass } : {}), updated_at_ms: now }, bumpVersion: true });
+      this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.parked", payload: { workItemId: item.id, missionId: item.mission_id, state: "blocked", ...(failureClass ? { failureClass } : {}) } });
+      if (failureClass) this.recordLesson(db, item, failureClass, "parked");
+    };
+    if (interrupted) {
+      // The agent was interrupted over and over: stop at once, do not count it as a failure of the work, and ask for one click.
+      transitionState(db, "workItem", item.id, "blocked", { set: { parked: 1, parked_diagnostic: interrupted, blocked_reason: PARKED_INTERRUPTED_REASON, next_action: "A person tries again, reassigns, edits or drops this work", updated_at_ms: now }, bumpVersion: true });
+      this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.parked", payload: { workItemId: item.id, missionId: item.mission_id, state: "blocked" } });
+      return;
+    }
+    const tools = JSON.parse(item.required_tools_json) as string[];
+    const used = taskTokens(db, item.id);
+    const cap = taskTokenCap(item);
+    const runWorkflow = (db.prepare("SELECT json_extract(workflow_json,'$.metadata.id') AS id FROM run_inputs WHERE run_id=?").get(runId) as { id: string | null } | undefined)?.id;
+    const earlier = db.prepare("SELECT diagnostic FROM task_failures WHERE work_item_id=?").all(item.id) as Array<{ diagnostic: string }>;
+    const failedChecks = this.failedCheckIds(db, runId);
+    const failureClass = classifyFailure({
+      requiredTools: tools, agentTools: runWorkflow ? workflowAgentTools(this.store, organizationId, runWorkflow) : undefined, calls: observedCalls(this.store, db, item.id, tools),
+      failedChecks, earlierSameChecks: failedChecks.length === 0 ? 0 : earlier.filter((row) => failedChecks.some((check) => row.diagnostic.includes(CHECK_WORDS[check] ?? check))).length,
+      tokensUsed: used, tokenCap: cap, errorText: detail,
+    });
+    const remedy = REMEDY[failureClass];
+    db.prepare("INSERT INTO task_failures(run_id,work_item_id,mission_id,failure_class,remedy,diagnostic,created_at_ms) VALUES (?,?,?,?,?,?,?)").run(runId, item.id, item.mission_id, failureClass, remedy, detail, now);
+    this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.failureClassified", payload: { workItemId: item.id, runId, failureClass, remedy } });
+    const failed = item.failed_attempts + 1;
+    const counted = (): void => {
+      if (failed >= threshold) park(failed, `Parked after ${failed} failed attempts`, "A human retries, reassigns, edits or drops this work", failureClass);
+      else retry(failed, `Retry after failed attempt ${failed} of ${threshold}`, { failure_class: failureClass });
+    };
+    switch (remedy) {
+      case "park-budget":
+        park(failed, `Parked: the task used its token allowance (${used} of ${cap} tokens)`, "Raise this task's token cap, split it or drop it", failureClass);
+        break;
+      case "ask-one-question":
+        park(failed, "Parked: a criterion cannot be met as written", "Split the task or answer one question, then try again", failureClass);
+        break;
+      case "switch-way-of-working": {
+        const alternatives = workflowsCovering(this.store, organizationId, tools).filter((id) => id !== runWorkflow);
+        if (alternatives.length === 0) park(failed, `Parked: no way of working has ${tools.join(" or ")}`, "Switch this task to a way of working whose agent has the tool", failureClass);
+        else retry(failed, `Retrying with ${alternatives[0]}: its agent has ${tools.join(" or ")}`, { failure_class: failureClass });
+        break;
+      }
+      case "wait-and-retry": {
+        const waits = earlier.length === 0 ? 0 : (db.prepare("SELECT COUNT(*) AS n FROM task_failures WHERE work_item_id=? AND failure_class='tool-outage' AND run_id!=?").get(item.id, runId) as { n: number }).n;
+        // Waiting out an outage is not a failure of the work, until the outage outlasts the waits.
+        if (waits < OUTAGE_MAX_WAITS) retry(item.failed_attempts, "Waiting for a tool that is down; retrying shortly", { failure_class: failureClass, retry_after_ms: now + OUTAGE_WAIT_MS });
+        else counted();
+        break;
+      }
+      default:
+        counted();
+    }
+  }
+
+  /** Ids of the checks an independent verdict of the run did not pass. */
+  private failedCheckIds(db: ReturnType<Store["workspaceDb"]>, runId: string): string[] {
+    try {
+      const verdict = db.prepare(`SELECT v.manifest_json FROM verification_verdicts v JOIN evidence_bundles b ON b.digest=v.bundle_digest
+        WHERE json_extract(b.manifest_json,'$.workflowRunId')=? AND v.outcome!='verified' ORDER BY v.created_at_ms DESC LIMIT 1`).get(runId) as { manifest_json: string } | undefined;
+      if (!verdict) return [];
+      return ((JSON.parse(verdict.manifest_json) as { checks?: Array<{ checkId?: string; criterionId?: string; status?: string }> }).checks ?? []).filter((check) => check.status !== "passed").map((check) => check.checkId ?? check.criterionId ?? "check");
+    } catch { return []; }
+  }
+
+  /** One lesson per task and outcome, given to the planner until it expires. Lessons are not knowledge: they claim no observed result. */
+  private recordLesson(db: ReturnType<Store["workspaceDb"]>, item: WorkItemRow, failureClass: FailureClass, outcome: "healed" | "parked"): void {
+    const now = this.store.now();
+    db.prepare("INSERT OR IGNORE INTO lessons(id,work_item_id,mission_id,failure_class,outcome,task_title,lesson,created_at_ms,expires_at_ms) VALUES (?,?,?,?,?,?,?,?,?)")
+      .run(this.store.id("lesson"), item.id, item.mission_id, failureClass, outcome, item.title, lessonText(failureClass, item.title, outcome), now, now + LESSON_TTL_MS);
+  }
+
+  /** A task that reaches Done after failing leaves a "healed" lesson with the class of its latest failure. */
+  private recordHealed(db: ReturnType<Store["workspaceDb"]>, item: WorkItemRow): void {
+    const last = db.prepare("SELECT failure_class FROM task_failures WHERE work_item_id=? ORDER BY created_at_ms DESC, rowid DESC LIMIT 1").get(item.id) as { failure_class: FailureClass } | undefined;
+    if (last) this.recordLesson(db, item, last.failure_class, "healed");
   }
 
   /**
@@ -875,12 +1016,12 @@ export class MissionService {
     for (const workspace of workspaces) {
       try {
         const db = this.store.workspaceDb(workspace.id, organizationId);
-        const parked = db.prepare("SELECT w.id FROM work_items w JOIN missions m ON m.id=w.mission_id WHERE w.state='blocked' AND w.parked=1 AND m.state='active'").all() as Array<{ id: string }>;
+        const parked = db.prepare("SELECT w.id FROM work_items w JOIN missions m ON m.id=w.mission_id WHERE w.state='blocked' AND w.parked=1 AND m.state='active' AND (w.failure_class IS NULL OR w.failure_class NOT IN ('budget','unmeetable-criterion'))").all() as Array<{ id: string }>;
         for (const row of parked) {
           if (this.store.control.prepare("SELECT 1 FROM parked_auto_retries WHERE work_item_id=? AND release_digest=?").get(row.id, releaseDigest)) continue;
           this.store.inTx(db, () => {
             this.assertDependenciesDone(db, row.id);
-            transitionState(db, "workItem", row.id, "ready", { set: { parked: 0, failed_attempts: 0, blocked_reason: null, next_action: "Retrying automatically: a new release was activated", updated_at_ms: this.store.now() }, bumpVersion: true });
+            transitionState(db, "workItem", row.id, "ready", { set: { parked: 0, failed_attempts: 0, failure_class: null, blocked_reason: null, next_action: "Retrying automatically: a new release was activated", updated_at_ms: this.store.now() }, bumpVersion: true });
             this.store.emit(db, { aggregateType: "workItem", aggregateId: row.id, eventType: "workItem.unparked", payload: { workItemId: row.id, state: "ready", automatic: true, releaseDigest } });
           });
           this.store.control.prepare("INSERT OR IGNORE INTO parked_auto_retries(work_item_id,release_digest,organization_id,workspace_id,retried_at_ms) VALUES (?,?,?,?,?)").run(row.id, releaseDigest, organizationId, workspace.id, this.store.now());
@@ -929,6 +1070,12 @@ export class MissionService {
       const items = db.prepare("SELECT w.* FROM execution_links l JOIN work_items w ON w.id=l.work_item_id WHERE l.run_id=? AND w.state='in-progress'").all(runId) as WorkItemRow[];
       const autoStart = new Map((db.prepare("SELECT id FROM missions WHERE auto_start=1 AND coordinator_member_id IS NULL AND state='active'").all() as Array<{ id: string }>).map((row) => [row.id, true]));
       for (const item of items) {
+        // ADR 0022: a run that finished without one successful call of the tools its task needs observed nothing; that is a failed attempt, not a result.
+        const needed = JSON.parse(item.required_tools_json) as string[];
+        if (needed.length > 0 && observedCalls(this.store, db, item.id, needed).succeeded === 0) {
+          this.failAttempt(db, organizationId, item, runId, `The run finished, but no successful call of ${needed.join(" or ")} was recorded, so nothing was observed`);
+          continue;
+        }
         try { recordTaskResult(this.store, db, item.id); } catch (cause) { if (!(cause instanceof BrainDomainError)) throw cause; /* a result that cannot be versioned never blocks the task */ }
         transitionState(db, "workItem", item.id, "review", { set: { next_action: "The run finished: review the results and submit evidence", updated_at_ms: this.store.now() }, bumpVersion: true });
         this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.transitioned", payload: { workItemId: item.id, state: "review" } });
@@ -993,8 +1140,9 @@ export class MissionService {
         const summary = outputs.map((row) => { const parsed = JSON.parse(row.output_json) as { summary?: unknown }; return typeof parsed.summary === "string" ? parsed.summary : ""; }).find((text) => text.length > 0) ?? "The run finished and its evidence was independently verified.";
         submitHandoff(this.store, db, { workItemId: item.id, submittedBy: "governor", notes: { summary: summary.slice(0, 2000) } });
         finalizeHandoff(db, item.id, bundle.digest);
-        transitionState(db, "workItem", item.id, "done", { set: { evidence_digest: bundle.digest, blocked_reason: null, next_action: "No further action", failed_attempts: 0, updated_at_ms: this.store.now() }, bumpVersion: true });
+        transitionState(db, "workItem", item.id, "done", { set: { evidence_digest: bundle.digest, blocked_reason: null, next_action: "No further action", failed_attempts: 0, failure_class: null, retry_after_ms: null, updated_at_ms: this.store.now() }, bumpVersion: true });
         this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.transitioned", payload: { workItemId: item.id, state: "done", evidenceDigest: bundle.digest } });
+        this.recordHealed(db, item);
         verifyOutputs(db, item.id);
         this.releaseReadyItems(db, item.mission_id);
         wake(this.store, db, item.mission_id, "work-verified", item.title);
@@ -1011,18 +1159,31 @@ export class MissionService {
    * member cap minus in-progress work), whether its budget still has headroom,
    * and its ready, unparked items oldest first.
    */
-  autoStartPlan(organizationId: string, workspaceId: string): Array<{ defaultWorkflowId: string | null; missionId: string; ownerId: string; slots: number; memberCap: number; headroom: boolean; items: Array<{ workItemId: string; title: string; criteria: string[]; upstream: Array<{ title: string; summary: string; deliverable?: string }>; workflowId: string | null; failedAttempts: number; runs: number; nextAction: string }> }> {
+  autoStartPlan(organizationId: string, workspaceId: string): Array<{ defaultWorkflowId: string | null; wayOfWorkingId: string | null; missionId: string; ownerId: string; slots: number; memberCap: number; headroom: boolean; items: Array<{ workItemId: string; title: string; criteria: string[]; upstream: Array<{ title: string; summary: string; deliverable?: string }>; workflowId: string | null; failedAttempts: number; runs: number; nextAction: string; requiredTools: string[]; failureClass: FailureClass | null; secondAttempt: boolean }> }> {
     const db = this.store.workspaceDb(workspaceId, organizationId);
     const missions = db.prepare("SELECT id, owner_id, member_cap FROM missions WHERE state='active' AND auto_start=1 AND coordinator_member_id IS NULL").all() as Array<{ id: string; owner_id: string; member_cap: number }>;
     const plan = [];
     for (const mission of missions) {
-      const items = db.prepare("SELECT * FROM work_items WHERE mission_id=? AND state='ready' AND parked=0 ORDER BY created_at_ms, id").all(mission.id) as WorkItemRow[];
+      const now = this.store.now();
+      // The spend cap holds at dispatch too: a task that has used its tokens across attempts stops here, parked as budget, never retried automatically.
+      for (const candidate of db.prepare("SELECT * FROM work_items WHERE mission_id=? AND state='ready' AND parked=0").all(mission.id) as WorkItemRow[]) {
+        const used = taskTokens(db, candidate.id);
+        if (used >= taskTokenCap(candidate) && (db.prepare("SELECT 1 FROM execution_links WHERE work_item_id=? LIMIT 1").get(candidate.id))) {
+          this.store.inTx(db, () => {
+            transitionState(db, "workItem", candidate.id, "blocked", { set: { parked: 1, parked_diagnostic: `The task used ${used} of ${taskTokenCap(candidate)} tokens across its attempts`, blocked_reason: `Parked: the task used its token allowance (${used} of ${taskTokenCap(candidate)} tokens)`, next_action: "Raise this task's token cap, split it or drop it", failure_class: "budget", updated_at_ms: now }, bumpVersion: true });
+            this.store.emit(db, { aggregateType: "workItem", aggregateId: candidate.id, eventType: "workItem.parked", payload: { workItemId: candidate.id, missionId: candidate.mission_id, state: "blocked", failureClass: "budget" } });
+            this.recordLesson(db, candidate, "budget", "parked");
+          });
+        }
+      }
+      const items = (db.prepare("SELECT * FROM work_items WHERE mission_id=? AND state='ready' AND parked=0 AND (retry_after_ms IS NULL OR retry_after_ms<=?) ORDER BY created_at_ms, id").all(mission.id, now) as WorkItemRow[]);
       if (items.length === 0) continue;
       const running = (db.prepare("SELECT COUNT(*) AS n FROM work_items WHERE mission_id=? AND state='in-progress'").get(mission.id) as { n: number }).n;
       plan.push({
+        wayOfWorkingId: wayOfWorking(this.store, workspaceId)?.workflowId ?? null,
         defaultWorkflowId: (db.prepare("SELECT workflow_id AS id FROM work_items WHERE mission_id=? AND workflow_id IS NOT NULL ORDER BY (SELECT COUNT(*) FROM work_items x WHERE x.mission_id=work_items.mission_id AND x.workflow_id=work_items.workflow_id) DESC, created_at_ms LIMIT 1").get(mission.id) as { id: string } | undefined)?.id ?? null,
         missionId: mission.id, ownerId: mission.owner_id, memberCap: mission.member_cap, slots: Math.max(0, mission.member_cap - running), headroom: hasHeadroom(this.store, db, mission.id),
-        items: items.map((item) => ({ workItemId: item.id, title: item.title, criteria: JSON.parse(item.criteria_json) as string[], upstream: this.upstreamResults(db, item.id), workflowId: item.workflow_id, failedAttempts: item.failed_attempts, runs: (db.prepare("SELECT COUNT(*) AS n FROM execution_links WHERE work_item_id=?").get(item.id) as { n: number }).n, nextAction: item.next_action })),
+        items: items.map((item) => ({ workItemId: item.id, title: item.title, criteria: JSON.parse(item.criteria_json) as string[], upstream: this.upstreamResults(db, item.id), workflowId: item.workflow_id, failedAttempts: item.failed_attempts, runs: (db.prepare("SELECT COUNT(*) AS n FROM execution_links WHERE work_item_id=?").get(item.id) as { n: number }).n, nextAction: item.next_action, requiredTools: JSON.parse(item.required_tools_json) as string[], failureClass: item.failure_class, secondAttempt: item.failed_attempts > 0 && item.failure_class === "model-slip" })),
       });
     }
     return plan;
@@ -1163,6 +1324,7 @@ export class MissionService {
       const rows = db.prepare("SELECT * FROM work_items WHERE state!='abandoned' ORDER BY updated_at_ms DESC,id LIMIT ?").all(limit) as WorkItemRow[];
       return { items: rows.map((row) => this.workItem(actor, workspaceId, row)) } as unknown as JsonValue;
     }
+    if (queryType === "lessons.list") return { items: this.lessons(db, limit) } as unknown as JsonValue;
     if (queryType === "workItems.get") return this.workItem(actor, workspaceId, this.workItemRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "executionLinks.list") {
       const rows = db.prepare("SELECT * FROM execution_links ORDER BY created_at_ms DESC,run_id LIMIT ?").all(limit) as Array<{ mission_id: string; work_item_id: string; run_id: string; job_id: string | null; attempt_id: string | null; session_id: string | null; created_at_ms: number }>;
@@ -1174,6 +1336,18 @@ export class MissionService {
       return { items } as unknown as JsonValue;
     }
     throw new BrainDomainError("UNSUPPORTED_CAPABILITY", `unsupported work query ${queryType}`);
+  }
+
+  /** Lessons from healed or parked failures that have not expired, newest first: what the planner is told. */
+  lessons(db: ReturnType<Store["workspaceDb"]>, limit: number): Array<{ lessonId: string; failureClass: FailureClass; outcome: "healed" | "parked"; taskTitle: string; lesson: string; createdAt: string; expiresAt: string }> {
+    return (db.prepare("SELECT id, failure_class, outcome, task_title, lesson, created_at_ms, expires_at_ms FROM lessons WHERE expires_at_ms>? ORDER BY created_at_ms DESC, id LIMIT ?").all(this.store.now(), limit) as Array<{ id: string; failure_class: FailureClass; outcome: "healed" | "parked"; task_title: string; lesson: string; created_at_ms: number; expires_at_ms: number }>)
+      .map((row) => ({ lessonId: row.id, failureClass: row.failure_class, outcome: row.outcome, taskTitle: row.task_title, lesson: row.lesson, createdAt: iso(row.created_at_ms), expiresAt: iso(row.expires_at_ms) }));
+  }
+
+  /** The planner's "Lessons from earlier work" lines for a workspace, bounded; empty when there are none. */
+  lessonsPrompt(actor: ActorContext, workspaceId: string): string {
+    const items = this.lessons(this.db(actor, workspaceId), 4);
+    return items.length === 0 ? "" : `Lessons from earlier work in this workspace (what went wrong and what to do differently):\n${items.map((item) => `- ${item.lesson}`).join("\n")}`.slice(0, 700);
   }
 
 }

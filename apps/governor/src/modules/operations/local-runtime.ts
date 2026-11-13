@@ -135,3 +135,14 @@ export function localRunnerSettingsCurrent(s: Store, organizationId: string, run
   const capability = runnerView(s, runnerId)?.capabilities.get(`local-config:${saved.revision}`);
   return capability?.verified === true && capability.expiresAtMs > s.now();
 }
+
+/** The model endpoint the Governor can check: the guided connection if one was saved, else the environment's. */
+export function modelEndpoint(s: Store): { url: string; apiKey?: string } | undefined {
+  try {
+    const saved = readSaved(s);
+    if (saved) return { url: saved.modelUrl, ...(saved.apiKey ? { apiKey: saved.apiKey } : {}) };
+  } catch { /* an unreadable saved connection falls back to the environment */ }
+  const url = process.env["BRAIN_LOCAL_MODEL_URL"];
+  const apiKey = process.env["BRAIN_LOCAL_MODEL_API_KEY"];
+  return url ? { url: url.replace(/\/$/u, ""), ...(apiKey ? { apiKey } : {}) } : undefined;
+}

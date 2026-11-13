@@ -455,6 +455,25 @@ CREATE TABLE parked_auto_retries (
   work_item_id TEXT NOT NULL, release_digest TEXT NOT NULL, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, retried_at_ms INTEGER NOT NULL,
   PRIMARY KEY(work_item_id, release_digest)
 ) STRICT;
+-- The workspace's default way of working (ADR 0022): a workflow and the tools its tasks must observe; the planner may override per task.
+CREATE TABLE workspace_way_of_working (
+  workspace_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workflow_id TEXT NOT NULL,
+  required_tools_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(required_tools_json)), updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+-- Hosted model per workspace (ADR 0023): off by default; evaluator and second attempt only. The API key is never stored here (host environment of the runner).
+CREATE TABLE workspace_hosted_model (
+  workspace_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)),
+  vendor TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', base_url TEXT NOT NULL DEFAULT '', updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+-- Latest result of each periodic check (model endpoint, hosted model per workspace, disk): Health reads these rows; a check that goes bad is also alerted once.
+CREATE TABLE service_probes (
+  id TEXT PRIMARY KEY, status TEXT NOT NULL CHECK(status IN ('healthy','degraded','unavailable','disabled')), detail TEXT NOT NULL DEFAULT '',
+  checked_at_ms INTEGER NOT NULL, alerted_status TEXT NOT NULL DEFAULT 'healthy'
+) STRICT;
+-- Platform dispatch state: draining stops new attempts from being offered (deploys that do not interrupt work); running attempts finish.
+CREATE TABLE platform_state (
+  singleton INTEGER PRIMARY KEY CHECK(singleton = 1), draining INTEGER NOT NULL DEFAULT 0 CHECK(draining IN (0,1)), changed_by TEXT NOT NULL DEFAULT '', changed_at_ms INTEGER NOT NULL DEFAULT 0
+) STRICT;
 -- Test runs of one tool: a one-step workflow (tool-test:<id>) a person started to try a tool with their own input. Tagged apart from real calls, which tool_calls counts.
 CREATE TABLE tool_test_runs (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, tool_id TEXT NOT NULL,

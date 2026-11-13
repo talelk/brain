@@ -2,6 +2,8 @@ import type { ActorContext, CommandReceipt, JsonValue, WorkflowCatalogEntry } fr
 import { payloadValidator } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
 import type { MissionService } from "../modules/missions/index";
+import { workflowAgentTools } from "../modules/missions/index";
+import { isDraining } from "../modules/jobs/index";
 import { GENERAL_TASK_WORKFLOW, workItemSituation } from "../modules/workflows/index";
 import type { Store } from "./store";
 
@@ -70,6 +72,8 @@ export class AutoStart {
 
   private async startReady(organizationId: string, workspaceId: string): Promise<void> {
     const { missions } = this.ports;
+    // Drain mode: running attempts finish, nothing new starts until the deploy has resumed the platform.
+    if (isDraining(this.ports.store)) return;
     const plan = missions.autoStartPlan(organizationId, workspaceId);
     if (plan.length === 0) return;
     const catalog = this.ports.catalog(organizationId);
@@ -86,8 +90,11 @@ export class AutoStart {
         // A task without a workflow of its own goes to the general-purpose task workflow, which produces a written deliverable for any
         // plain-words task; the mission's most used workflow and then the catalog's first workflow that accepts the situation follow.
         const catalogIds = catalog.map((candidate) => candidate.release.id).sort();
-        const candidates = [...new Set([item.workflowId, GENERAL_TASK_WORKFLOW, mission.defaultWorkflowId, ...catalogIds].filter((id): id is string => id !== null))];
-        if (candidates.length === 0) { note("Needs input before it can start: no workflow is available in this workspace"); continue; }
+        // The workspace's way of working comes right after the task's own workflow: it is what declared the task's tools (ADR 0022).
+        // A task that must observe tools only runs on a workflow whose agent has them (the remedy for a missing tool is exactly this switch).
+        const covers = (id: string): boolean => item.requiredTools.length === 0 || item.requiredTools.every((tool) => (workflowAgentTools(this.ports.store, organizationId, id) ?? []).includes(tool));
+        const candidates = [...new Set([item.workflowId, mission.wayOfWorkingId, GENERAL_TASK_WORKFLOW, mission.defaultWorkflowId, ...catalogIds].filter((id): id is string => id !== null))].filter(covers);
+        if (candidates.length === 0) { note(item.requiredTools.length > 0 ? `Needs input before it can start: no way of working has ${item.requiredTools.join(" or ")}` : "Needs input before it can start: no workflow is available in this workspace"); continue; }
         let entry: WorkflowCatalogEntry | undefined;
         let problem = "";
         for (const workflowId of candidates) {
