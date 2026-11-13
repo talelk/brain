@@ -178,6 +178,18 @@ attempt never returns to running. An attempt owns the lease, fence and permits t
 coordinate it.
 _Avoid_: try, execution, session (an attempt is not the conversation)
 
+**Failure class**:
+The one code stored for a failed attempt: missing tool, unmeetable criterion, model slip,
+tool outage, budget or unclassified. Each class has one remedy. It is a code, never a
+sentence; the plain-words text people read is the failure reason.
+_Avoid_: error type, error category
+
+**Way of working**:
+The kind of worker and independent check a task runs with, chosen from the active
+release. A person picks another one by name when the first cannot do the task; the
+engine calls it a workflow.
+_Avoid_: recipe, workflow (on screens), template
+
 **Session**:
 A governed agent conversation served by one team member and bound to a mission, a job
 and an attempt. Steering and stopping act on a session. A session may end while its
@@ -301,6 +313,12 @@ The immutable bundle assembled during a run and submitted to an independent eval
 A run reaches succeeded only when evidence is verified.
 _Avoid_: proof, output, result
 
+**Observed evidence**:
+A successful recorded call of a tool the task declared it needs. The Governor decides this
+from the call record; no model does. A criterion met only by the worker's own statement is
+not backed by it, and a task that declares required tools is not Done without it (ADR 0022).
+_Avoid_: proof, verification (unqualified)
+
 **Output**:
 A named thing a mission delivers, declared by a plan task and attributed to a team
 member. It is identified by its mission and name, and each production is an output
@@ -358,7 +376,7 @@ _Avoid_: autonomy, objectivity
 **Knowledge asset**:
 A reusable, readable record extracted from verified past work (a closed achieved
 mission), with provenance to the mission's evidence bundles and a lifecycle of
-extracted, published or revoked. It is a claim when reused: it never counts as evidence
+extracted, published or revoked. It is written up only from a mission whose criteria rest on observed evidence, never on the worker's statement alone. It is a claim when reused: it never counts as evidence
 for a criterion. On a single-owner install a verified mission's asset publishes itself
 (self-reviewed and automatic, ADR 0007); a newer asset of the same goal supersedes the older.
 _Avoid_: memory (unqualified), insight, learning
@@ -464,7 +482,9 @@ mission the **Team**, **Plan** and **Brief** views are places too, not the missi
 a plan version or the mission brief themselves. The **Library** holds what Brain can
 reuse (documents, knowledge, Plays, tools and the Review inbox; ADR 0014); **Plays** and
 **Knowledge** are shelves of it, not areas. **Administration** is a secondary place
-reached from the sidebar's More group.
+reached from the sidebar's More group. Screens use five words: **Mission**, **Plan**,
+**Task**, **Result** and **Check** (a success criterion read as a person would). Run,
+session, attempt, workflow and release appear only under Details.
 
 **Build-process vocabulary is not domain vocabulary.** Task cards (`T01`–`T50`), gates
 (`G01`–`G08`), the implementation ledger and checkpoint, and pack verifiers describe how
