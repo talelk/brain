@@ -45,3 +45,11 @@ export function failureCode(reason: string | null | undefined): FailureCode {
   if (/timed? ?out|timeout|deadline/iu.test(text)) return "timeout";
   return "other";
 }
+
+/** A failed step's output as the Governor stores and shows it: its error and stderr text with credentials hidden, everything else as it was. */
+export function redactFailureOutput<T>(output: T): T {
+  if (!output || typeof output !== "object" || Array.isArray(output)) return output;
+  const copy: Record<string, unknown> = { ...(output as Record<string, unknown>) };
+  for (const key of ["error", "stderr"]) if (typeof copy[key] === "string") copy[key] = redactSecrets(copy[key]);
+  return copy as T;
+}

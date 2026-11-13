@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FAILURE_REASON_LIMIT, failureCode, failureReasonOf, redactSecrets } from "../../apps/governor/src/domain/failure-reason";
+import { FAILURE_REASON_LIMIT, failureCode, failureReasonOf, redactFailureOutput, redactSecrets } from "../../apps/governor/src/domain/failure-reason";
 
 describe("failure reason", () => {
   it("hides credentials of every shape but keeps the words around them", () => {
@@ -18,6 +18,13 @@ describe("failure reason", () => {
     const long = failureReasonOf({ error: "x".repeat(2000) })!;
     expect(long).toHaveLength(FAILURE_REASON_LIMIT);
     expect(long.endsWith("…")).toBe(true);
+  });
+
+  it("hides credentials in a failed step's stored output, leaving its other fields alone", () => {
+    const out = redactFailureOutput({ error: "bad ANTHROPIC_API_KEY=sk-ant-0123456789abcdefghijkl", stderr: "password: hunter2", code: 3 });
+    expect(out).toEqual({ error: "bad ANTHROPIC_API_KEY=[hidden]", stderr: "password: [hidden]", code: 3 });
+    expect(redactFailureOutput(null)).toBeNull();
+    expect(redactFailureOutput([1, 2])).toEqual([1, 2]);
   });
 
   it("names the kind of failure from its words", () => {

@@ -6,7 +6,7 @@ import { putBytes, readVerified, registerArtifact } from "../artifacts/index";
 import { endAttemptSession, recordAttemptProgress, recordAttemptSession } from "../sessions/index";
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
-import { failureCode, failureReasonOf } from "../../domain/failure-reason";
+import { failureCode, failureReasonOf, redactFailureOutput } from "../../domain/failure-reason";
 import { evaluateRunner, type RunnerView } from "../../domain/placement";
 import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
@@ -537,7 +537,7 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
   });
   s.emit(s.control, { organizationId: runner.organizationId, workspaceId, aggregateType: "job", aggregateId: jobId, eventType: "job.updated", payload: { attemptId, jobState }, destinations: [`workspace:${workspaceId}`] });
   // A held act job belongs to no workflow step: its outcome reaches the task through the job that proposed it.
-  if (jobState === "failed" && !isAct) deps.completeStep(runner.organizationId, workspaceId, runId, stepId, output, false);
+  if (jobState === "failed" && !isAct) deps.completeStep(runner.organizationId, workspaceId, runId, stepId, redactFailureOutput(output), false);
   return { attemptId, jobState, acceptedForVerification: jobState === "verifying" } as unknown as JsonValue;
 }
 
