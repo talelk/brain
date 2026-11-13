@@ -7,7 +7,7 @@
         "ps",
         "-a",
         "--format",
-        "{{.Names}}\t{{.Status}}\t{{.Ports}}"
+        "{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
       ]
     },
     "docker.logs": {
