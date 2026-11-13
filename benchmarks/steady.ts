@@ -111,7 +111,15 @@ async function trial(brain: Brain, ctx: ReturnType<typeof seed>, durationMs: num
     cpuMs: { user: Math.round(cpu.user / 1000), system: Math.round(cpu.system / 1000) },
     rssMb: { p50: Math.round(pct(rssSamples, 0.5)), max: Math.round(Math.max(0, ...rssSamples)) },
     walBytes,
+    // After a forced collection when node runs with --expose-gc: what a leak looks like (heap or native) rather than only the resident set.
+    memory: memoryNow(),
   };
+}
+
+function memoryNow() {
+  (globalThis as { gc?: () => void }).gc?.();
+  const m = process.memoryUsage();
+  return { heapUsedMb: Math.round(m.heapUsed / 1048576), externalMb: Math.round(m.external / 1048576), arrayBuffersMb: Math.round(m.arrayBuffers / 1048576), rssMb: Math.round(m.rss / 1048576) };
 }
 
 const dir = mkdtempSync(join(tmpdir(), "brain-bench-steady-"));
@@ -124,7 +132,7 @@ const trials = [];
 for (let i = 0; i < TRIALS; i++) {
   const t = await trial(brain, ctx, TRIAL_MS, `t${i + 1}`);
   trials.push(t);
-  console.log(`[steady] trial ${i + 1} done`, JSON.stringify({ q95: t.query.p95, c95: t.command.p95, eld99: t.eventLoopDelayMs.p99, rssMax: t.rssMb.max, errors: t.errors }));
+  console.log(`[steady] trial ${i + 1} done`, JSON.stringify({ q95: t.query.p95, c95: t.command.p95, eld99: t.eventLoopDelayMs.p99, rssMax: t.rssMb.max, mem: t.memory, errors: t.errors }));
 }
 // Fault-load: 100 simultaneous approval wakes + above-capacity command burst.
 const faultStart = performance.now();
@@ -145,6 +153,16 @@ const trial10 = await trial(brain10, ctx10, Math.min(TRIAL_MS, 30_000), "x10");
 brain10.close();
 console.log("[steady] 10x history trial done", JSON.stringify({ q95: trial10.query.p95, q99: trial10.query.p99 }));
 
+// Growth: the same load in the same process must cost the same trial over trial. Per-operation work that grows with history (a scan of every
+// mission a workspace ever had, a cache that is never trimmed) passes each absolute budget for a while and then does not. The first trial is
+// the baseline; the allowance covers noise on a shared machine (a factor plus a floor, so a fast first trial is not held to a tiny margin).
+const first = trials[0];
+const growth = first ? trials.slice(1).map((t, i) => ({
+  trial: i + 2,
+  eventLoopP99: { first: first.eventLoopDelayMs.p99, now: t.eventLoopDelayMs.p99, limit: +(first.eventLoopDelayMs.p99 * 1.5 + 10).toFixed(1) },
+  commandP95: { first: first.command.p95, now: t.command.p95, limit: +(first.command.p95 * 1.5 + 10).toFixed(1) },
+  rssMaxMb: { first: first.rssMb.max, now: t.rssMb.max, limit: Math.round(first.rssMb.max * 1.25 + 64) },
+})) : [];
 const med = (k: (t: (typeof trials)[number]) => number) => +pct(trials.map(k), 0.5).toFixed(3);
 const result = {
   profile: "doc-10 G08 steady-state protocol (in-process Governor core; loopback HTTP excluded, noted)",
@@ -159,7 +177,7 @@ const result = {
     throughputPerSec: med((t) => t.throughputPerSec),
   },
   budgets: { queryP95Ms: 150, queryP99Ms: 400, commandP95Ms: 200, commandP99Ms: 500, eventLoopP99Ms: 50, rssMb: 1024 },
-  trials, trial10x: trial10, faultLoad: fault, at: new Date().toISOString(),
+  growth: { allowance: "event-loop p99 and command p95 within 1.5x + 10 ms of trial 1; max RSS within 1.25x + 64 MB", trials: growth }, trials, trial10x: trial10, faultLoad: fault, at: new Date().toISOString(),
 };
 const outDir = process.env["BRAIN_BENCH_OUT"] ?? "artifacts/runtime/G08";
 mkdirSync(outDir, { recursive: true });
@@ -174,6 +192,8 @@ if (m.commandP99 > b.commandP99Ms) miss.push("commandP99");
 if (m.eventLoopP99 > b.eventLoopP99Ms) miss.push("eventLoopP99");
 if (m.rssMaxMb > b.rssMb) miss.push("rss");
 if (trials.some((t) => t.errors > 0)) miss.push("trialErrors");
+const grew = growth.filter((g) => g.eventLoopP99.now > g.eventLoopP99.limit || g.commandP95.now > g.commandP95.limit || g.rssMaxMb.now > g.rssMaxMb.limit);
+if (grew.length) { miss.push("growthAcrossTrials"); console.error("[steady] GROWTH across trials (later trial vs trial 1)", JSON.stringify(grew)); }
 if (trial10.query.p95 > b.queryP95Ms) miss.push("x10QueryP95");
 if (miss.length) { console.error("[steady] BUDGET MISS", miss); process.exit(1); }
 console.log("[steady] ALL BUDGETS PASS");
