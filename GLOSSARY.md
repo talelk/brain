@@ -81,10 +81,9 @@ _Avoid_: ADR, note, assumption (an assumption in a handoff is not yet accepted)
 
 **Autonomy policy**:
 The bounds within which a mission's coordinator may change unstarted work, assign tasks
-and request team members without human confirmation. It is an explicit list of permitted
-plan operations; the presets supervised, standard and autonomous name common lists. It
-never covers effects, intent, constraints, budget, started work or declaring a mission
-achieved.
+and request team members without confirmation: an explicit list of permitted plan
+operations (presets: supervised, standard, autonomous). It never covers effects, intent,
+constraints, budget, started work or declaring a mission achieved.
 _Avoid_: autopilot, auto-approve (it never authorizes effects), autonomy level
 
 **Mission budget**:
@@ -180,15 +179,13 @@ _Avoid_: try, execution, session (an attempt is not the conversation)
 
 **Failure class**:
 The one code stored for a failed attempt: missing tool, unmeetable criterion, model slip,
-tool outage, budget or unclassified. Each class has one remedy. It is a code, never a
-sentence; the plain-words text people read is the failure reason.
-_Avoid_: error type, error category
+tool outage, budget or unclassified. Each class has one remedy.
+_Avoid_: error type
 
 **Way of working**:
 The kind of worker and independent check a task runs with, chosen from the active
-release. A person picks another one by name when the first cannot do the task; the
-engine calls it a workflow.
-_Avoid_: recipe, workflow (on screens), template
+release; the engine calls it a workflow.
+_Avoid_: recipe, template
 
 **Session**:
 A governed agent conversation served by one team member and bound to a mission, a job
@@ -314,10 +311,9 @@ A run reaches succeeded only when evidence is verified.
 _Avoid_: proof, output, result
 
 **Observed evidence**:
-A successful recorded call of a tool the task declared it needs. The Governor decides this
-from the call record; no model does. A criterion met only by the worker's own statement is
-not backed by it, and a task that declares required tools is not Done without it (ADR 0022).
-_Avoid_: proof, verification (unqualified)
+A successful recorded call of a tool the task declared it needs, decided by the Governor
+from the call record, never by a model (ADR 0022). The worker's own statement is not it.
+_Avoid_: proof
 
 **Output**:
 A named thing a mission delivers, declared by a plan task and attributed to a team
@@ -342,8 +338,8 @@ _Avoid_: summary, transcript, note
 The ordered, budgeted text the Governor puts in front of an agent step that serves a task:
 brief and constraints, accepted decisions, dependency handoff facts and notes, pinned inputs,
 messages, checkpoint and the last failure. Only these declared sections enter. Over budget it
-compacts deterministically (facts kept, prose cut at sentence ends or replaced by a reference to
-the full text), never by a model summary. Its manifest is stored with the run; sizes are estimates.
+compacts deterministically (facts kept, prose cut or replaced by a reference to the full
+text), never by a model summary.
 _Avoid_: context dump, prompt stuffing
 
 **Evidence bundle**:
@@ -376,16 +372,16 @@ _Avoid_: autonomy, objectivity
 **Knowledge asset**:
 A reusable, readable record extracted from verified past work (a closed achieved
 mission), with provenance to the mission's evidence bundles and a lifecycle of
-extracted, published or revoked. It is written up only from a mission whose criteria rest on observed evidence, never on the worker's statement alone. It is a claim when reused: it never counts as evidence
+extracted, published or revoked. It needs observed evidence to be written up, and is a claim when reused: never evidence
 for a criterion. On a single-owner install a verified mission's asset publishes itself
-(self-reviewed and automatic, ADR 0007); a newer asset of the same goal supersedes the older.
+(self-reviewed, ADR 0007); a newer asset of the same goal supersedes the older.
 _Avoid_: memory (unqualified), insight, learning
 
 **Memory publication**:
 The governed promotion of vetted knowledge into a broader scope, requiring an approver
 who is not the producer of the knowledge. A single owner with no other reviewer may
 approve their own knowledge; it is then marked self-reviewed (ADR 0007). Approving
-publishes in the same action. It is the only mechanism for either act.
+publishes in the same action; it is the only mechanism.
 _Avoid_: memory entry, promotion (there is no separate promotion step)
 
 **Capability candidate**:
@@ -407,11 +403,10 @@ A read-only, expiring, revocable bearer link to one verified result version (ADR
 **Capitalization run**:
 An autonomous pass that extracts knowledge assets and capability candidates from
 verified history. It runs when a mission closes, or on demand, and never extracts from
-member notes, messages or transcripts. A mission's write-up may quote the worker's own
-Result summary, a bounded deliverable excerpt, per-criterion evidence and assumptions
-from its verified result, each labelled as the worker's statement (not independent proof);
-there is still no model call. A mission with too little result (see the write-up threshold
-in the reuse spec) is not written up.
+member notes, messages or transcripts. A write-up may quote the worker's Result summary,
+a bounded deliverable excerpt, per-criterion evidence and assumptions, each labelled the
+worker's statement (not independent proof); there is no model call. A mission with too
+little result (reuse spec threshold) is not written up.
 _Avoid_: learning run, consolidation
 
 **Memory scope**:
@@ -478,17 +473,14 @@ _Avoid_: principal (an actor is a principal mid-command), caller
 
 Unqualified area names denote where you look, never what something is: **Today**,
 **Missions**, **Live**, **Logs**, **Outputs**, **Library** and **Schedules**. Inside a
-mission the **Team**, **Plan** and **Brief** views are places too, not the mission team,
-a plan version or the mission brief themselves. The **Library** holds what Brain can
-reuse (documents, knowledge, Plays, tools and the Review inbox; ADR 0014); **Plays** and
-**Knowledge** are shelves of it, not areas. **Administration** is a secondary place
-reached from the sidebar's More group. Screens use five words: **Mission**, **Plan**,
-**Task**, **Result** and **Check** (a success criterion read as a person would). Run,
-session, attempt, workflow and release appear only under Details.
+mission the **Team**, **Plan** and **Brief** views are places, not the mission team, a plan
+version or the brief. The **Library** holds what Brain can reuse (documents, knowledge,
+Plays, tools, the Review inbox; ADR 0014); **Plays** and **Knowledge** are its shelves.
+**Administration** is a secondary place in the sidebar's More group. Screens use five
+words: **Mission**, **Plan**, **Task**, **Result** and **Check**; run, session, attempt and
+release appear under Details.
 
 **Build-process vocabulary is not domain vocabulary.** Task cards (`T01`–`T50`), gates
-(`G01`–`G08`), the implementation ledger and checkpoint, and pack verifiers describe how
-Brain is built, not what Brain is. (A domain **checkpoint** is the attempt state above;
-the implementation checkpoint is unrelated.) They deliberately have no place here, and a term
-that exists in both registers — notably `VerificationRun`, which is a build gate record
-— is not evidence that the two are the same concept.
+(`G01`–`G08`), the implementation ledger and checkpoint and pack verifiers describe how
+Brain is built, not what Brain is, and have no place here. (A domain **checkpoint** is the
+attempt state above; `VerificationRun` is a build gate record, not a domain concept.)

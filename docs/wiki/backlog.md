@@ -33,17 +33,14 @@ Dated 2026-11-11 ~23:15, at `talelk/brain@9393922` (deployed: everything through
 | 74 | Policy trigger: the "no migrations" policy (AGENTS.md, implementation-policy.json) ends the day the first team other than the owner keeps real data on an instance; then write an ADR and a schema migration path (renames, type changes) | decided 2026-11-13; until then the policy holds |
 | 75 | Navigation down to Today, Missions, Library, Administration; Live, Logs and Outputs become views of a mission; Today gets a "Working now" strip, Missions a Running filter, Logs becomes a workspace diagnostics page under Administration | decided 2026-11-13 (plan phase 2); screens use Mission, Plan, Task, Result, Check (glossary) |
 | 76 | Build the decisions of ADR 0022 and 0023: required-tools check at Done, capitalization refuses unobserved results, failure classes with one remedy each, per-workspace hosted model for evaluator and second attempt | accepted 2026-11-13; open: how tasks come to declare required tools, and which workspace enables the hosted model first |
-| 15 | Evaluator quality re-measured 2026-11-12 on the deployed prompts (qwen3.8-flash-next-a5b, 3 runs per sample): parsed 14/15, validator 14/15; both old-style review samples passed 3/3 (the earlier weak spot did not recur). The one failure was a review-with-upstream answer with malformed JSON (unparsed), a random model flake, not criteria semantics | watch the live retry behaviour on unparsed answers; consider a stricter JSON instruction only if flakes recur |
+| 15 | Evaluator quality 2026-11-12 (qwen3.8-flash-next-a5b, 3 runs per sample): parsed 14/15, validator 14/15; the one failure was malformed JSON, a model flake | watch retry behaviour on unparsed answers; detail in archive/backlog-2026-11-12.md |
 | 66 | Email: STARTTLS/smtps only tested against a fake server; whole `startSupervisor` loop not run end to end (only `runClaimLoops`) | test against a real relay before relying on it |
-| 67 | RTL checked live 2026-11-12: layout mirrors correctly (sidebar right, arrows flipped, buttons at the start edge) and mixed Arabic/English text reads correctly. Remaining quirk: English UI strings in RTL put trailing punctuation on the left; do not patch with bidi CSS, it goes away with Arabic translations. Compare view in RTL still unseen | needs Arabic translations of the UI copy (no message catalog exists yet) |
+| 67 | RTL checked live 2026-11-12: layout mirrors correctly; English strings put trailing punctuation on the left (do not patch with bidi CSS). Compare view in RTL unseen | needs Arabic translations (no message catalog yet); detail in archive/backlog-2026-11-12.md |
 | 68 | SRE host access (ADR 0021) ships read-only: `host.read` and `host.exec`. Missing: privileged commands (restart/reload, effect permit per call), a writable per-run output directory, a dedicated runner group so host tools exist only for the SRE workspace | when the owner wants host changes |
 
 History of 2026-11-12 (deploys, live checks, tools registry, review inbox, Dependabot): [archive/backlog-2026-11-12.md](archive/backlog-2026-11-12.md).
 
-## Not yet seen live
-Needs-you "outcome unknown" row, Saved document in the Review inbox, scheduled Repeat occurrence (auto-confirm), notification preferences (email section), phone layout and install prompt on a real phone.
-
-Seen live 2026-11-12 (API-driven, no browser): fresh plain-words mission on the deployed build (renamed runtime + tightened prompts): plan drafted in 25 s (2 tasks), confirmed, both tasks done, mission closed/achieved at 146 s with no manual step. Still needs a browser look when the owner re-allows the extension.
+Not yet seen live (2026-11-12): needs-you "outcome unknown" row, saved document in the Review inbox, scheduled Repeat auto-confirm, email notification preferences, phone layout and install prompt. Detail: [archive/backlog-2026-11-12.md](archive/backlog-2026-11-12.md).
 
 ## Standing rules (see goal-and-user.md)
 Validate every change in a real browser as a first-time user; do not stop until nothing is left; reuse and capitalisation are first-class.
