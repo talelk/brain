@@ -1,5 +1,6 @@
 import type { ActionSubject, ArtifactRef, JsonValue } from "@brain/contracts";
 import type { Store } from "../../application/store";
+import { domainDigest } from "@brain/contracts";
 import { transitionState } from "../../domain/states";
 import { readVerified } from "../artifacts/index";
 
@@ -139,4 +140,16 @@ export function settleEffects(s: Store, deps: { completeStep: (organizationId: s
     if (failed) deps.completeStep(failed.organization_id, failed.workspace_id, failed.workflow_run_id, failed.step_id, { error: "A change this task asked for may or may not have been made: its outcome is not known. Brain did not retry it and cannot check the result. Look at the target by hand, then start the task again.", code: "EFFECT_OUTCOME_UNKNOWN" } as unknown as JsonValue, false);
   }
   return moved;
+}
+
+/**
+ * Creates the held act job of a proposal (ADR 0028): blocked, so no runner can claim it, with the proposing job's placement (a host change
+ * stays in the host group) and the call itself as its payload. Runs inside the caller's transaction.
+ */
+export function createActJob(s: Store, input: { id: string; organizationId: string; workspaceId: string; approvalId: string; parentJobId: string; configDigest: string; effectClass: string; approvalExpiresAtMs: number; payload: { [key: string]: JsonValue } }): void {
+  const parent = s.control.prepare("SELECT placement_json FROM jobs WHERE id=?").get(input.parentJobId) as { placement_json: string };
+  s.control.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, queue_reason, created_at_ms, ready_at_ms, deadline_ms)
+    VALUES (?,?,?,?,?,?,'blocked',?,?,?,?,?,?,?,?)`)
+    .run(input.id, input.organizationId, input.workspaceId, `act:${input.approvalId}`, `act-${input.approvalId}`, "act", input.configDigest, parent.placement_json, domainDigest("brain:act-job:v1", input.payload), input.effectClass, HOLD_REASON, s.now(), s.now(), input.approvalExpiresAtMs + 24 * 3600_000);
+  s.control.prepare("INSERT INTO job_payloads(job_id, kind, payload_json) VALUES (?,?,?)").run(input.id, "act", JSON.stringify(input.payload));
 }

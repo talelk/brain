@@ -6,7 +6,7 @@ import { transitionState } from "../../domain/states";
 import type { Store } from "../../application/store";
 import type { BrainAuth } from "../identity/index";
 import { releaseRecord } from "../configuration/index";
-import { assertAttemptLive, effectResultFor, loadAttempt } from "../jobs/index";
+import { assertAttemptLive, createActJob, effectResultFor, loadAttempt } from "../jobs/index";
 import { issuePermit, validatePermit } from "./permits";
 
 /**
@@ -141,7 +141,6 @@ function attemptContext(s: Store, runner: Runner, attemptId: string, tool: { id:
   return { row, organizationId, workspaceId, configDigest, agent: agentRef, effectClass: declared.effectClass, isAct, target: { targetId: `tool:${declared.id}`, environmentId: declared.allowedEnvironments?.[0] ?? "local", preconditionDigest: declared.digest } };
 }
 
-const HOLD_REASON = "AWAITING_APPROVAL";
 /** How many changes one task may propose in all (a model that keeps asking is stopped; a person can start the task again). */
 const MAX_CALLS_PER_JOB = 10;
 
@@ -227,13 +226,9 @@ export function requestEffect(s: Store, ports: EffectPorts, runner: Runner, atte
       VALUES (?,?,?,?,?,?,'pending',?,?)`).run(approvalId, context.organizationId, context.workspaceId, "system:effect-call", approvalDigest(subject), JSON.stringify(subject), expiresAtMs, s.now());
     // The held act job: blocked (no runner can claim it) until the approval is decided, with the parent's placement, so it runs in the group
     // that may touch the host. It carries the call itself; the permit it will take is bound to this job and no other.
-    const parent = s.control.prepare("SELECT placement_json FROM jobs WHERE id=?").get(parentJobId) as { placement_json: string };
     const act: ActPayload = { proposalId, approvalId, parentJobId, parentAttemptId: attemptId, agent: context.agent };
-    const actPayload = { kind: "act", input: input as unknown as JsonValue, act, step: { uses: { type: "tool", release: tool }, effectClass: "read", target: context.target } };
-    s.control.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, queue_reason, created_at_ms, ready_at_ms, deadline_ms)
-      VALUES (?,?,?,?,?,?,'blocked',?,?,?,?,?,?,?,?)`)
-      .run(actJobId, context.organizationId, context.workspaceId, `act:${approvalId}`, `act-${approvalId}`, "act", context.configDigest, parent.placement_json, domainDigest("brain:act-job:v1", actPayload as unknown as JsonValue), context.effectClass, HOLD_REASON, s.now(), s.now(), expiresAtMs + 24 * 3600_000);
-    s.control.prepare("INSERT INTO job_payloads(job_id, kind, payload_json) VALUES (?,?,?)").run(actJobId, "act", JSON.stringify(actPayload));
+    createActJob(s, { id: actJobId, organizationId: context.organizationId, workspaceId: context.workspaceId, approvalId, parentJobId, configDigest: context.configDigest, effectClass: context.effectClass, approvalExpiresAtMs: expiresAtMs,
+      payload: { kind: "act", input: input as unknown as JsonValue, act: act as unknown as JsonValue, step: { uses: { type: "tool", release: tool }, effectClass: "read", target: context.target } as unknown as JsonValue } });
     s.control.prepare("INSERT INTO effect_calls(attempt_id, proposal_id, organization_id, workspace_id, approval_id, tool_id, input_digest, resource_key, created_at_ms, parent_job_id, act_job_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
       .run(attemptId, proposalId, context.organizationId, context.workspaceId, approvalId, tool.id, subject.inputDigest, resource, s.now(), parentJobId, actJobId);
     s.emit(s.control, { organizationId: context.organizationId, workspaceId: context.workspaceId, aggregateType: "approval", aggregateId: approvalId, eventType: "approval.requested", payload: { approvalId, subjectDigest: approvalDigest(subject), effect: tool.id } });
