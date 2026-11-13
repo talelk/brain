@@ -1,0 +1,6 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - heading "Keyrus Brain" [level=1] [ref=e4]
+    - status [ref=e5]: Connecting to Brain…
+  - generic:
+    - region "Notifications, bottom-end (alt+T)"

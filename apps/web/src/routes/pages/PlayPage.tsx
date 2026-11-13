@@ -14,6 +14,7 @@ import type { TaskHandoff } from "../../ui/components/TaskReview";
 import { SchedulesLink } from "../../ui/components/SchedulesPanel";
 import { formatDateTime, formatUsd, titleize } from "../../ui/format";
 import { missionHref } from "../../ui/mission-links";
+import { t } from "../../i18n";
 import { AgentDetail, authorCandidate } from "../catalog";
 import { StatGrid } from "@talelk/newui-organisms";
 import { EmptyState } from "@talelk/newui-molecules";
@@ -56,9 +57,14 @@ export default function PlayPage(): JSX.Element {
 function TeamRoles(props: { members: readonly { memberId: string; role: string; agentId: string; engine?: string }[]; agents: readonly AgentCatalogEntry[] }): JSX.Element {
   const [open, setOpen] = createSignal("");
   const agent = (id: string) => props.agents.find((entry) => entry.release.id === id);
-  return <WorkspaceSection title="Team roles" description="Who works on it: each member is an agent definition on one engine.">
+  /** The agent under a role, said once: a role that is just the agent's name adds nothing, so only the engine remains. */
+  const under = (member: { role: string; agentId: string; engine?: string }) => {
+    const name = titleize(member.agentId);
+    return [name.toLowerCase() === member.role.trim().toLowerCase() ? "" : name, member.engine ? `on ${member.engine}` : ""].filter(Boolean).join(" ");
+  };
+  return <WorkspaceSection title={t("task.roles.title")} description={t("task.roles.description")}>
     <Show when={props.members.length} fallback={<p class="text-interface text-ink-gray-7">No agent runs as part of this.</p>}>
-      <div class="brain-queue"><For each={props.members}>{(member) => <QueueRow title={member.role} description={`${titleize(member.agentId)}${member.engine ? ` on ${member.engine}` : ""}`} eyebrow={member.memberId} icon="lucide-bot"
+      <div class="brain-queue"><For each={props.members}>{(member) => <QueueRow title={member.role} description={under(member)} icon="lucide-bot"
         selected={open() === member.memberId} label={`Show agent ${member.agentId} for ${member.role}`} onClick={() => setOpen(open() === member.memberId ? "" : member.memberId)} />}</For></div>
       <Show when={props.members.find((member) => member.memberId === open())}>{(member) => <Show when={agent(member().agentId)} keyed fallback={<p class="mt-3 text-interface text-ink-gray-7">Agent {member().agentId} is not in the active release.</p>}>
         {(entry) => <div class="mt-4"><AgentDetail agent={entry} headingLevel={3} /></div>}
@@ -139,7 +145,7 @@ function TaskDetail(props: { title: string; workflow: WorkflowCatalogEntry; agen
     setError("");
     try { await authorCandidate(app, navigate, "Workflow", props.workflow.release.id, props.title, mode); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not create the task candidate"); }
   };
-  return <BrainPage title={props.title} description="A single task: review its typed inputs, safety and readiness, then dispatch it."
+  return <BrainPage title={props.title} description={t("task.single.description")}
     actions={<Show when={app.identity()?.actor.scopes.includes("config:activate")}><div class="flex flex-wrap gap-2">
       <Button variant="outline" iconLeft="lucide-copy" onClick={() => void author("duplicate")}>Clone as candidate</Button>
       <Button variant="outline" iconLeft="lucide-square-pen" onClick={() => void author("edit")}>Edit as candidate</Button>

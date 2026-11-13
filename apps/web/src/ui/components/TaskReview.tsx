@@ -10,7 +10,9 @@ import { SchemaForm } from "./SchemaForm";
 import type { InputSchema } from "./SchemaForm";
 import { StructuredOutputView } from "./StructuredOutputView";
 import { ActionFeedback } from "./ActionFeedback";
-import { WorkspaceSection } from "./Domain";import { PageStack, TechnicalDetails } from "./PageLayout";
+import { WorkspaceSection } from "./Domain";
+import { t } from "../../i18n";
+import { PageStack, TechnicalDetails } from "./PageLayout";
 import { StatGrid } from "@talelk/newui-organisms";
 
 /**
@@ -65,19 +67,19 @@ export function TaskReview(props: { workflow: WorkflowCatalogEntry; initialInput
       <div class="flex flex-wrap gap-2"><Badge variant="outline" theme={external() ? "amber" : "blue"} label={external() ? "Governed external effects" : "Read / draft outcome"} /><Show when={props.origin}><Badge variant="outline" theme="blue" label={`Linked ${props.origin?.kind}: ${props.origin?.id}`} /></Show></div>
     </WorkspaceSection>
     <StatGrid compact stats={[
-      { label: "Workspace", value: workspaceName(), hint: "Authorization and placement scope", icon: "lucide-building-2" },
-      { label: "Expected result", value: "Structured output", hint: "Checked against the active output schema", icon: "lucide-package-check" },
+      { label: "Workspace", value: workspaceName(), hint: t("task.stat.workspaceHint"), icon: "lucide-building-2" },
+      { label: "Expected result", value: "Structured output", hint: t("task.stat.resultHint"), icon: "lucide-package-check" },
       { label: "Cost", value: "Not estimated", hint: "Declared budgets and workspace limits still apply", icon: "lucide-wallet-cards" },
     ]} />
     <Alert theme={external() ? "amber" : "blue"} variant="outline" title={external() ? "Execution can propose external changes" : "Analysis, not automatic publication"}
       description={external() ? "Declared approvals and independent checks remain required before any external effect. Starting this task grants no blanket authority." : "This task can produce an analysis or draft. It does not publish a response, execute remediation, or approve its own result."} />
     <Show when={blockers().length}><Alert theme="amber" variant="outline" title="This task may wait before it can run" description={<ul class="ms-4 list-disc"><For each={blockers()}>{(check) => <li>{check.detail} · {check.nextAction}</li>}</For></ul>} /></Show>
-    <Show when={draft()} keyed fallback={<WorkspaceSection title="Configure inputs" description="Fields and validation come from the active workflow schema. No unavailable launch fields are inferred.">
+    <Show when={draft()} keyed fallback={<WorkspaceSection title={t("task.inputs.title")} description={t("task.inputs.description")}>
       <Show when={presentation()?.examples?.length}><div class="mb-4 flex flex-wrap gap-2"><For each={presentation()?.examples}>{(example, index) => <Button variant="outline" onClick={() => { setSeed(example); setRevision((value) => value + 1); }}>Use example {index() + 1}</Button>}</For></div></Show>
       <SchemaForm schema={(props.workflow.inputSchema ?? {}) as InputSchema} schemaKey={`${props.workflow.release.digest}:${revision()}`} initialInput={seed()} submitLabel="Review task" busy={busy()} disabled={!app.canDispatch()} error={error()} onSubmit={prepare} />
-    </WorkspaceSection>}>{(review) => <WorkspaceSection title="Review before starting" description="This is the exact reviewed draft. Starting it once recovers the same run if the response is lost.">
-      <div class="border-y border-outline-gray-1 py-3"><StructuredOutputView value={review.input} /></div>
-      <Alert theme="blue" variant="outline" title="Queued does not mean complete" description="After durable acceptance you will open the actual run. Queue, placement, author output and independent verification remain separate states." />
+    </WorkspaceSection>}>{(review) => <WorkspaceSection title="Review before starting" description={t("task.review.description")}>
+      <div class="border-y border-outline-gray-1 py-3"><StructuredOutputView value={review.input} plain /></div>
+      <p class="m-0 text-interface text-ink-gray-7">{t("task.review.plain")}</p>
       <ActionFeedback tone="error" message={error()} />
       <div class="flex flex-wrap gap-2"><Button disabled={!app.canDispatch() || busy()} loading={busy()} iconLeft="lucide-play" onClick={() => void start()}>Start task</Button><Button variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => { setSeed(review.input); setDraft(undefined); setRevision((value) => value + 1); setError(""); }}>Edit inputs</Button></div>
     </WorkspaceSection>}</Show>

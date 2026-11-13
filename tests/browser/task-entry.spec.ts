@@ -47,6 +47,10 @@ test("guided task entry: persisted modes, shared review, timeout recovery, conso
   for (const session of sessions) expect(await runOnce(session.cfg, session.sessionToken, session.epoch)).toBe(true);
   await page.getByRole("button", { name: "Review proposed task", exact: true }).focus(); await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Review before starting", exact: true })).toBeVisible();
+  // Plain words: a readable list of the inputs (no raw JSON switch), one sentence instead of the engine states.
+  await expect(page.getByRole("button", { name: "Raw JSON", exact: true })).toHaveCount(0);
+  await expect(page.getByText("Nothing happens until you press Start task. Then you can follow its progress and read the result.", { exact: true })).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(/durable acceptance|author output|independent verification remain|placement scope|active output schema|recovers the same run|dispatch it/);
   expect((db.prepare("SELECT COUNT(*) AS n FROM workflow_runs").get() as { n: number }).n).toBe(1);
   let timedOut = false;
   await page.route("**/v1/tasks/drafts/*/start", async (route) => { if (!timedOut) { timedOut = true; await route.fetch(); await route.abort("timedout"); } else await route.continue(); });

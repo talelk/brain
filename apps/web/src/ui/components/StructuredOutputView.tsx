@@ -14,10 +14,11 @@ function Value(props: { value: unknown; depth?: number }): JSX.Element {
   </Show>;
 }
 
-export function StructuredOutputView(props: { value: unknown }): JSX.Element {
+/** The readable list of a structured value. `plain` leaves out the raw-JSON switch, for screens a first-time user reads. */
+export function StructuredOutputView(props: { value: unknown; plain?: boolean }): JSX.Element {
   const [raw, setRaw] = createSignal(false);
   return <div class="brain-detail-stack">
-    <div><Button variant="ghost" size="sm" onClick={() => setRaw(!raw())}>{raw() ? "Readable view" : "Raw JSON"}</Button></div>
-    <Show when={raw()} fallback={<Value value={props.value} />}><pre class="brain-readable overflow-auto whitespace-pre-wrap break-words rounded-card bg-surface-gray-1 p-4 text-caption">{JSON.stringify(props.value, null, 2)}</pre></Show>
+    <Show when={!props.plain}><div><Button variant="ghost" size="sm" onClick={() => setRaw(!raw())}>{raw() ? "Readable view" : "Raw JSON"}</Button></div></Show>
+    <Show when={raw() && !props.plain} fallback={<Value value={props.value} />}><pre class="brain-readable overflow-auto whitespace-pre-wrap break-words rounded-card bg-surface-gray-1 p-4 text-caption">{JSON.stringify(props.value, null, 2)}</pre></Show>
   </div>;
 }
