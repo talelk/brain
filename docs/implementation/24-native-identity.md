@@ -6,7 +6,7 @@ The full objective remains **finalize all the implementation**. This document re
 
 | File/module | Responsibility |
 |---|---|
-| `modules/identity/options.ts` | Exact Better Auth 1.7.14 plugin/options contract: organization, bearer, TOTP, admin and passkeys; invite-only sign-up and existing-user-only OIDC provisioning |
+| `modules/identity/options.ts` | Exact Better Auth 1.7.14 plugin/options contract: organization, bearer, TOTP, admin and passkeys; invite-only sign-up and company-directory OIDC (ADR 0026) |
 | `modules/identity/auth.ts` | Public vendor API adapter, current session/membership checks, protected factor fingerprints, recovery and accepted-invitation projection |
 | `modules/identity/administration.ts` | Narrow typed vendor user/session/invitation operations and vendor-role synchronization |
 | `modules/identity/bootstrap.ts` | One-use local setup authority, durable pending setup, native account/organization and explicit owner roles |
@@ -35,7 +35,7 @@ The `OrganizationAdminCommand` family covers invitation create/cancel/retry, org
 
 Better Auth's global admin role is only an internal vendor capability. Browser access to `/api/auth/admin/*` and privileged organization mutation routes is denied. Global impersonation, hard deletion, administrator-set passwords and cross-tenant listing are not exposed. Brain principal IDs and Better Auth user IDs are mapped through `auth_subject_id`, so shared users retain tenant isolation. Suspending a member disables only the current Brain organization and revokes only sessions associated with it.
 
-Password sign-up requires an active invitation; unknown OIDC users cannot implicitly provision. Invitations use the durable `auth_email_outbox`, with pending/failed/cancelled/delivered states and retry intents, not an assertion that SMTP succeeded. Acceptance requires a verified email and an explicit action. The invitation page checks the credential session directly until acceptance projects the Brain principal. Pending vendor intents support safe same-command retry without awaiting a network call inside a SQLite transaction.
+Password sign-up requires an active invitation; a directory (OIDC) identity is provisioned only as the Administration setting allows (ADR 0026). Invitations use the durable `auth_email_outbox`, with pending/failed/cancelled/delivered states and retry intents, not an assertion that SMTP succeeded. Acceptance requires a verified email and an explicit action. The invitation page checks the credential session directly until acceptance projects the Brain principal. Pending vendor intents support safe same-command retry without awaiting a network call inside a SQLite transaction.
 
 Passkeys use the pinned `@better-auth/passkey` 1.7.14 plugin and official Solid client. Loopback uses the valid `localhost` relying-party domain. Users can register, rename, delete and sign in with passkeys; passkeys do not replace TOTP-bound effect-approval evidence. Self-session APIs use session IDs and never return session tokens to browser JavaScript. Rate limits use the generated SQLite `rateLimit` table and explicitly configured trusted proxies only. Redacted `auth_security_events` retain path/user/organization/timestamp only.
 

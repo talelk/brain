@@ -83,7 +83,8 @@ const viewOf = (row: Row, missionTitle: string): PlayProposalView => ({
   ...(row.practice ? { practice: row.practice } : {}), ...(row.source_missions_json ? { sourceMissionIds: JSON.parse(row.source_missions_json) as string[] } : {}),
 });
 
-const words = (text: string): Set<string> => new Set(text.toLowerCase().split(/[^a-z0-9]+/u).filter((word) => word.length > 2));
+const FILLER = new Set(["the", "for", "and", "with", "from", "this", "that", "into", "our", "all"]);
+const words = (text: string): Set<string> => new Set(text.toLowerCase().split(/[^a-z0-9]+/u).filter((word) => word.length > 2 && !FILLER.has(word)));
 /** How alike two missions' plans are: the overlap of the words in their task titles. */
 function planSimilarity(a: PlanTask[], b: PlanTask[]): number {
   const left = words(a.map((task) => task.title).join(" ")); const right = words(b.map((task) => task.title).join(" "));
@@ -133,15 +134,18 @@ export class PlayProposals {
           // The reference is the mission whose plan is most like the others: the shape this team actually repeats. A tie goes to the newest.
           const scored = candidates.map((candidate) => ({ candidate, score: candidates.reduce((sum, other) => sum + (other.mission.id === candidate.mission.id ? 0 : planSimilarity(candidate.tasks, other.tasks)), 0) }))
             .sort((x, y) => y.score - x.score || y.candidate.mission.updated_at_ms - x.candidate.mission.updated_at_ms || x.candidate.mission.id.localeCompare(y.candidate.mission.id));
-          const reference = scored[0]!.candidate.mission;
-          const spec: PlaySpec = { ...this.specOf(db, reference), practice,
-            description: cut(`${known.title} Play built from ${candidates.length} verified missions of this team: ${candidates.map((entry) => cut(entry.mission.title, 80)).join("; ")}.`, 4000) };
-          const sources = candidates.map((entry) => entry.mission.id).sort();
-          const playId = playIdFor(`${practice} ${reference.title}`, reference.id, this.ports.existingPlayIds(actor.organizationId));
+          const reference = scored[0]!.candidate;
+          // Only missions whose plan shares something with the reference are sources: a one-off task is not part of the pattern.
+          const related = candidates.filter((entry) => entry.mission.id === reference.mission.id || planSimilarity(reference.tasks, entry.tasks) > 0);
+          if (related.length < config.minMissions) throw new BrainDomainError("CONFLICT", `no plan shape repeats yet: only ${related.length} of the ${candidates.length} verified missions resemble each other, and a practice Play needs ${config.minMissions}`);
+          const spec: PlaySpec = { ...this.specOf(db, reference.mission), practice,
+            description: cut(`${known.title} Play built from ${related.length} verified missions of this team: ${related.map((entry) => cut(entry.mission.title, 80)).join("; ")}.`, 4000) };
+          const sources = related.map((entry) => entry.mission.id).sort();
+          const playId = playIdFor(`${practice} ${reference.mission.title}`, reference.mission.id, this.ports.existingPlayIds(actor.organizationId));
           const id = store.id("playprop");
           db.prepare("INSERT INTO play_proposals(id,mission_id,state,play_id,spec_json,proposed_by,created_at_ms,practice,source_missions_json) VALUES (?,?,'proposed',?,?,?,?,?,?)")
-            .run(id, reference.id, playId, JSON.stringify(spec), actor.actorId, store.now(), practice, JSON.stringify(sources));
-          store.emit(db, { workspaceId, aggregateType: "playProposal", aggregateId: id, eventType: "playProposal.proposed", payload: { proposalId: id, missionId: reference.id, playId, practice, sourceMissions: sources.length } });
+            .run(id, reference.mission.id, playId, JSON.stringify(spec), actor.actorId, store.now(), practice, JSON.stringify(sources));
+          store.emit(db, { workspaceId, aggregateType: "playProposal", aggregateId: id, eventType: "playProposal.proposed", payload: { proposalId: id, missionId: reference.mission.id, playId, practice, sourceMissions: sources.length } });
           return { resourceId: id };
         },
       }),

@@ -94,6 +94,9 @@ Task-oriented guides live under [`./`](./): running the local stack, compiling a
 | `BRAIN_LAUNCHER_SOCKET`, `BRAIN_LAUNCHER_TOKEN_FILE` | Trusted launcher socket and private bearer-token file; the token file defaults to `<socket>.token` |
 | `BRAIN_LAUNCHER_IMAGE_DIGESTS` | Optional reviewed digest pins for the preinstalled sandbox images |
 | `BRAIN_ADMIN_EMAIL`, `BRAIN_ADMIN_PASSWORD` | Initial local administrator credentials; defaults `admin@brain.local` / `admin-password`, with no forced change. Set a private override before exposing Governor |
+| `BRAIN_REPLICA_DIR` and `_INTERVAL_SECONDS` `_WARN_SECONDS` `_CRITICAL_SECONDS` `_SHIPPED_FILE` `_KEEP` | Continuous database replica (ADR 0027); off when `BRAIN_REPLICA_DIR` is unset |
+| `BRAIN_METRICS_TOKEN_FILE`, `BRAIN_BACKUP_STAMP_FILE` | Bearer-token file that creates `/metrics`; file holding the last backup's epoch seconds |
+| `BRAIN_PRACTICES_FILE` | Practice tags other than the shipped `examples/v1/starter-release/practices.json` |
 | `BRAIN_ADMIN_PASSWORD_FILE`, `BRAIN_ADMIN_TOTP` | Optional unattended runner-enrollment login; password file must be owned and private; otherwise use `brain login` first |
 
 With required 2FA, enroll in the UI and use `brain login` to complete native TOTP sign-in before enrolling runners. Settings → Security offers voluntary enrollment/disable in optional mode. Recovery sign-in requires replacing the previous authenticator before approval evidence can be issued. External administration links open separately with `noopener noreferrer`; Brain forwards no credentials.

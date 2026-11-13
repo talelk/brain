@@ -11,6 +11,7 @@ import { CommandFunnel } from "./command-funnel";
 import { workspaceAdminCommands } from "./workspace-admin";
 import { effectSettings, engineSettings, engineSettingsCommands, runnerGroups } from "./engine-settings";
 import { oidcSettingsQuery, ssoCommands } from "./sso-admin";
+import { secretDirectories } from "../modules/identity/index";
 import { completeUpload, completeUploadStream, initUpload, readVerified, readWorkspaceArtifactText, sweepStorage } from "../modules/artifacts/index";
 import { orgWorkspaces, textMatcher } from "./query";
 import { executeOrganizationQuery, isOrganizationQuery, organizationCommandHandlers } from "./organization-admin";
@@ -87,7 +88,7 @@ export class Brain {
     this.store = new Store(opts);
     try {
       const authSecret = process.env["BRAIN_AUTH_SECRET"] ?? Buffer.from(this.store.pepper).toString("hex");
-      this.auth = createBrainAuth(this.store.control, { initialPasswordFile: join(this.store.dataDir, "initial-admin-password"), secret: authSecret, baseURL: process.env["BRAIN_BASE_URL"] ?? "http://localhost:3000", requireTwoFactor: this.runtime.requireTwoFactor });
+      this.auth = createBrainAuth(this.store.control, { secretDirs: secretDirectories(this.store.dataDir), initialPasswordFile: join(this.store.dataDir, "initial-admin-password"), secret: authSecret, baseURL: process.env["BRAIN_BASE_URL"] ?? "http://localhost:3000", requireTwoFactor: this.runtime.requireTwoFactor });
       this.auth.ensureTables();
       this.stepUp = new StepUpService(this.store, this.auth);
       this.memory = new MemoryStore(this.store);

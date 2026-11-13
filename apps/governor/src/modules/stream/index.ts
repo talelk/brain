@@ -70,4 +70,4 @@ export { sweepStream } from "./projector";
 
 export { attentionCommands, attentionItems, attentionQuery } from "./attention";
 export { qualitySummary } from "./quality";
-export { qualityBreakdown, qualityBreakdownFor } from "./quality-breakdown";
+export { qualityBreakdown } from "./quality-breakdown";

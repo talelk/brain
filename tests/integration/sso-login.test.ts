@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { seedHuman } from "../helpers";
+import { seedHuman, seedOrganization } from "../helpers";
 import { SSO_CLIENT_SECRET, SSO_ORIGIN, ssoWorld, type SsoWorld } from "../support/sso-world";
 
 // Single sign-on with a company directory (ADR 0026), end to end against a local fake OpenID Connect provider: discovery, authorization
@@ -25,6 +25,9 @@ describe("single sign-on with the company directory (OIDC, PKCE)", () => {
     expect((await s.configure({ secretRef: "file:/no/such/secret" })).status).toBe(422);
     expect((await s.configure({ secretRef: "plain-secret-value" })).status).toBe(422);
     expect((await s.configure({ issuer: "http://idp.example.com" })).status).toBe(422);
+    // A setting cannot reach the Governor's own keys or environment: the secret goes to the directory's token endpoint.
+    expect((await s.configure({ secretRef: `file:${s.app.brain.store.dataDir}/authority.keys` })).status).toBe(422);
+    expect((await s.configure({ secretRef: "env:BRAIN_AUTH_SECRET" })).status).toBe(422);
     const saved = await s.configure({ groupRoles: [{ group: "brain-approvers", role: "approver" }] });
     expect(saved.status).toBe(200);
     const view = await (await s.query(s.ownerHeaders, { queryType: "identity.oidc.get" })).json() as { snapshot: Record<string, unknown> };
@@ -131,5 +134,39 @@ describe("single sign-on with the company directory (OIDC, PKCE)", () => {
     expect(down.status).not.toBe(302);
     world = undefined;
     await s.close();
+  });
+
+  it("never signs a person in to an organization that does not own the setting: another organization's member cannot be reached through this directory", async () => {
+    world = await ssoWorld();
+    const s = world;
+    // The administrator of org-test controls the directory (and its allow-list); org-b has a verified member whose email the directory can claim.
+    seedOrganization(s.app.brain, { organizationId: "org-b", ownerId: "owner-b" });
+    s.app.brain.store.control.prepare('UPDATE "user" SET emailVerified=1 WHERE id=?').run("owner-b");
+    await s.configure();
+    const attack = await s.signIn({ sub: "dir-evil", email: "owner-b@fixture.test", name: "Not Owner B" });
+    expect(attack.ok).toBe(false);
+    expect(attack.location).toContain("error=");
+    expect(s.app.brain.store.control.prepare("SELECT COUNT(*) AS n FROM account WHERE providerId='brain-oidc'").get()).toEqual({ n: 0 });
+    expect(attack.cookie).not.toContain("session_token");
+    // The same refusal for a person who exists on this Governor but is not a member of the organization that owns the setting.
+    s.app.brain.store.control.prepare("INSERT INTO \"user\"(id,name,email,emailVerified,createdAt,updatedAt) VALUES ('stray-1','Stray','stray@keyrus.test',1,?,?)").run(Date.now(), Date.now());
+    expect((await s.signIn({ sub: "dir-stray", email: "stray@keyrus.test", name: "Stray" })).ok).toBe(false);
+    expect(s.app.brain.store.control.prepare("SELECT COUNT(*) AS n FROM account WHERE providerId='brain-oidc'").get()).toEqual({ n: 0 });
+  });
+
+  it("keeps a login that is in progress working across unrelated commands, with the directory's discovery fetched once", async () => {
+    world = await ssoWorld();
+    const s = world;
+    await s.configure();
+    const result = await s.signIn(alice, async () => {
+      // Unrelated commits while the person is at the directory must not drop and re-discover the provider.
+      for (const key of ["a", "b", "c"]) expect((await s.command(s.ownerHeaders, "mission.create", { title: `Unrelated ${key}`, intent: "Noise", successCriteria: ["x"] }, `noise-${key}`)).status).toBe(200);
+    });
+    expect(result.ok, result.location).toBe(true);
+    expect(s.idp.discovery.requests).toBe(1);
+    // Saving a changed setting does re-register it.
+    expect((await s.configure({ clientId: "brain-test-client" , groupClaim: "roles" })).status).toBe(200);
+    expect((await s.signIn(alice)).ok).toBe(true);
+    expect(s.idp.discovery.requests).toBe(2);
   });
 });

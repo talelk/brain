@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { join, sep } from "node:path";
 import type { Db } from "../../infrastructure/persistence/open";
 import { BrainDomainError } from "../../domain/errors";
 
@@ -67,20 +68,32 @@ export function checkIssuer(issuer: string): string {
   return issuer.replace(/\/+$/u, "");
 }
 
+/** Where a `file:` secret may live: the Governor's own secrets folder and the container secrets mount. Nothing else on the host is readable through a setting. */
+export function secretDirectories(dataDir: string, env: NodeJS.ProcessEnv = process.env): string[] {
+  return [join(dataDir, "secrets"), env["BRAIN_SECRETS_DIR"] ?? "/run/secrets"];
+}
+
 /**
- * Reads the client secret a reference points at. `file:` must be an owner-only regular file, `env:` a variable of the Governor process;
- * either must hold at least 8 characters. The value is returned to the caller that registers the provider and goes nowhere else.
+ * Reads the client secret a reference points at. `file:` must be an owner-only regular file inside one of `dirs`; `env:` must name a
+ * variable that starts with `BRAIN_OIDC_`; either must hold at least 8 characters. The value goes to the caller that registers the
+ * provider and nowhere else. The restrictions matter: the secret is sent to the issuer's token endpoint, so a setting must not be able
+ * to point at the Governor's own keys or environment.
  */
-export function resolveSecretRef(ref: string, env: NodeJS.ProcessEnv = process.env): string {
+export function resolveSecretRef(ref: string, opts: { dirs: readonly string[]; env?: NodeJS.ProcessEnv }): string {
+  const env = opts.env ?? process.env;
   let value: string;
   if (ref.startsWith("file:")) {
     const path = ref.slice(5);
     if (!path.startsWith("/") || !existsSync(path)) throw new BrainDomainError("INVALID_ARGUMENT", "The secret file does not exist on the server");
-    const st = statSync(path);
+    const real = realpathSync(path);
+    if (!opts.dirs.some((dir) => existsSync(dir) && real.startsWith(realpathSync(dir) + sep))) throw new BrainDomainError("INVALID_ARGUMENT", "The secret file must be inside the Governor's secrets folder (<data>/secrets or the container secrets mount)");
+    const st = statSync(real);
     if (!st.isFile() || (st.mode & 0o077) !== 0) throw new BrainDomainError("INVALID_ARGUMENT", "The secret file must be a regular file with no group or other permissions");
-    value = readFileSync(path, "utf8").trim();
+    value = readFileSync(real, "utf8").trim();
   } else if (ref.startsWith("env:")) {
-    value = (env[ref.slice(4)] ?? "").trim();
+    const name = ref.slice(4);
+    if (!/^BRAIN_OIDC_[A-Z0-9_]+$/u.test(name)) throw new BrainDomainError("INVALID_ARGUMENT", "A secret variable must be named BRAIN_OIDC_<NAME>");
+    value = (env[name] ?? "").trim();
   } else throw new BrainDomainError("INVALID_ARGUMENT", "The secret reference must start with file:/ or env:");
   if (value.length < 8) throw new BrainDomainError("INVALID_ARGUMENT", "The secret behind the reference is missing or too short");
   return value;
@@ -140,11 +153,11 @@ export function provisionUser(db: Db, settings: OidcSettings, user: { id: string
 }
 
 /** What Administration shows: everything except the secret, which is only ever named by its reference. */
-export function oidcView(settings: OidcSettings | undefined, baseUrl: string, env: NodeJS.ProcessEnv = process.env): Record<string, unknown> {
+export function oidcView(settings: OidcSettings | undefined, baseUrl: string, dirs: readonly string[], env: NodeJS.ProcessEnv = process.env): Record<string, unknown> {
   const redirectUri = `${baseUrl.replace(/\/+$/u, "")}/api/auth/callback/${OIDC_PROVIDER_ID}`;
   if (!settings) return { configured: false, enabled: false, redirectUri };
   let secretReadable = true;
-  try { resolveSecretRef(settings.secretRef, env); } catch { secretReadable = false; }
+  try { resolveSecretRef(settings.secretRef, { dirs, env }); } catch { secretReadable = false; }
   return {
     configured: true, enabled: settings.enabled, issuer: settings.issuer, clientId: settings.clientId, secretRef: settings.secretRef, secretReadable, redirectUri,
     autoProvision: settings.autoProvision, ...(settings.defaultRole ? { defaultRole: settings.defaultRole } : {}), groupClaim: settings.groupClaim, groupRoles: settings.groupRoles,

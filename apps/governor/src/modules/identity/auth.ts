@@ -39,7 +39,7 @@ export interface BrainAuth {
 interface TableDef { modelName: string; fields: Record<string, { fieldName?: string }> }
 const quote = (id: string) => `"${id.replaceAll('"', '""')}"`;
 
-export function createBrainAuth(db: Db, opts: { secret: string; baseURL: string; requireTwoFactor?: boolean; initialPasswordFile?: string }): BrainAuth {
+export function createBrainAuth(db: Db, opts: { secret: string; baseURL: string; requireTwoFactor?: boolean; initialPasswordFile?: string; secretDirs?: readonly string[] }): BrainAuth {
   const sql = readFileSync(new URL("../../../schema/auth.sql", import.meta.url), "utf8");
   const securitySql = readFileSync(new URL("../../../schema/auth-security.sql", import.meta.url), "utf8");
   const schemaDigest = `sha256:${createHash("sha256").update(sql).update(securitySql).digest("hex")}`;
@@ -58,6 +58,7 @@ export function createBrainAuth(db: Db, opts: { secret: string; baseURL: string;
   }
 
   const auth = betterAuth(authOptions(db, opts)) as VendorAuth;
+  let appliedOidc: string | undefined;
   type VendorContext = { socialProviders: Array<{ id: string }>; genericOAuthPendingDiscovery?: Map<string, { config: unknown }> };
 
   /** The provider the plugin registers: discovery is done lazily, on the first sign-in request, and retried while the directory is down. */
@@ -151,14 +152,18 @@ export function createBrainAuth(db: Db, opts: { secret: string; baseURL: string;
     async ready() { await auth.$context; await this.applyOidc(); },
     async applyOidc() {
       const ctx = await auth.$context as unknown as VendorContext;
+      const settings = readOidcSettings(db);
+      let secret: string | undefined;
+      if (settings?.enabled) { try { secret = resolveSecretRef(settings.secretRef, { dirs: opts.secretDirs ?? [] }); } catch { secret = undefined; } } // unreadable: not registered, the setting shows it
+      // Called after every command: only a changed setting or secret re-registers the provider, so an unrelated commit never drops a
+      // provider that is mid-login (a re-registration would redo discovery).
+      const fingerprint = settings && secret ? createHash("sha256").update(`${settings.updatedAtMs}:${settings.issuer}:${settings.clientId}:${secret}`).digest("hex") : "off";
+      if (fingerprint === appliedOidc) return;
       const known = ctx.socialProviders.findIndex((provider) => provider.id === OIDC_PROVIDER_ID);
       if (known >= 0) ctx.socialProviders.splice(known, 1);
       ctx.genericOAuthPendingDiscovery?.delete(OIDC_PROVIDER_ID);
-      const settings = readOidcSettings(db);
-      if (!settings?.enabled || !ctx.genericOAuthPendingDiscovery) return;
-      let secret: string;
-      try { secret = resolveSecretRef(settings.secretRef); } catch { return; } // not registered: the setting shows the secret as unreadable
-      ctx.genericOAuthPendingDiscovery.set(OIDC_PROVIDER_ID, { config: oidcProviderConfig(settings, secret) });
+      if (settings && secret && ctx.genericOAuthPendingDiscovery) ctx.genericOAuthPendingDiscovery.set(OIDC_PROVIDER_ID, { config: oidcProviderConfig(settings, secret) });
+      appliedOidc = fingerprint;
     },
     ensureTables: () => Object.values(tables).map((t) => t.modelName).sort(),
     readSession,

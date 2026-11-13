@@ -18,7 +18,7 @@ _Avoid_: objective, goal, target, epic, project
 **Mission state**:
 A mission's stored position: active, paused, verifying or closed. Working, waiting and
 needing attention are conditions derived from its work, never stored states.
-_Avoid_: mission status (for derived conditions), draft (missions have no draft state)
+_Avoid_: mission status, draft
 
 **Mission outcome**:
 How a closed mission ended, set by a human: achieved (only after a verified verdict),
@@ -58,7 +58,7 @@ _Avoid_: mission mode, mission type
 **Mission team**:
 The team members assigned to one mission. It is part of each plan version, so plan and
 team are confirmed together. The evaluator is never a member.
-_Avoid_: team (unqualified — it collides with workspace and memory scope), squad, crew
+_Avoid_: team (unqualified), squad, crew
 
 **Team member**:
 A mission-scoped role (such as backend engineer or reviewer) bound to an agent
@@ -95,7 +95,7 @@ _Avoid_: quota, limit (unqualified)
 **Play**:
 A reusable mission template — a mission team, a plan shape and an input schema — that
 can be started by hand, on a schedule or by a trigger.
-_Avoid_: playbook, recipe, template (unqualified), pack (when meaning the user-facing thing)
+_Avoid_: playbook, recipe, template, pack
 
 **Coordinator**:
 The team member whose role is planning and coordinating the rest of the mission team.
@@ -390,8 +390,13 @@ until reviewed and gated by tests.
 _Avoid_: tool proposal, suggestion
 
 **Play proposal**:
-A reviewable description of an achieved mission's confirmed plan, team and criteria.
-Approving it opens a Studio draft; it is never a Play until released (ADR 0015).
+A reviewable description of an achieved mission's confirmed plan, team and criteria, or
+of a team's verified missions. Approving it opens a Studio draft; it is never a Play
+until released (ADR 0015).
+
+**Practice**:
+The kind of work a team does (data, operations, support). It tags Plays and groups
+Quality; it grants nothing.
 
 **Challenge**:
 An independent reviewer run over a finished result whose findings are stored as claims,
@@ -467,7 +472,7 @@ session it acted through)
 
 **Actor**:
 The principal performing a command, together with the session and scope it acts through.
-_Avoid_: principal (an actor is a principal mid-command), caller
+_Avoid_: caller
 
 ### Surfaces
 

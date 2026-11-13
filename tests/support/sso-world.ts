@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createApp } from "../../apps/governor/src/http/app";
@@ -22,7 +22,7 @@ export interface SsoWorld {
   /** Saves the single sign-on setting as the owner. */
   configure(payload?: Record<string, unknown>): Promise<Response>;
   /** Walks the whole browser flow for a directory user and returns the session cookie (or the error the callback redirected to). */
-  signIn(user: FakeUser): Promise<{ ok: boolean; location: string; cookie: string }>;
+  signIn(user: FakeUser, between?: () => Promise<void>): Promise<{ ok: boolean; location: string; cookie: string }>;
   /** Headers of a signed-in person: the real session cookie, same-origin. */
   as(cookie: string): Record<string, string>;
   close(): Promise<void>;
@@ -33,7 +33,9 @@ export async function ssoWorld(): Promise<SsoWorld> {
   const app = await createApp({ dataDir: join(dir, "data"), allowTestActor: true });
   const w = setupWorld(app.brain);
   const idp = await startFakeOidc({ clientId: SSO_CLIENT_ID, clientSecret: SSO_CLIENT_SECRET });
-  const secretFile = join(dir, "oidc-secret");
+  // A secret file must live in the Governor's own secrets folder.
+  mkdirSync(join(dir, "data", "secrets"), { recursive: true, mode: 0o700 });
+  const secretFile = join(dir, "data", "secrets", "oidc-secret");
   writeFileSync(secretFile, `${SSO_CLIENT_SECRET}\n`, { mode: 0o600 });
   chmodSync(secretFile, 0o600);
   const ownerHeaders = { "x-brain-test-actor": `owner-1:${w.org}` };
@@ -45,7 +47,7 @@ export async function ssoWorld(): Promise<SsoWorld> {
     query: (headers, body) => send("/v1/query", headers, body),
     configure: (payload = {}) => world.command(ownerHeaders, "identity.oidc.set", { enabled: true, issuer: idp.issuer, clientId: SSO_CLIENT_ID, secretRef: `file:${secretFile}`, autoProvision: true, defaultRole: "operator", workspaceIds: [w.workspaceId], ...payload }),
     as: (cookie) => ({ cookie, origin: SSO_ORIGIN }),
-    async signIn(user) {
+    async signIn(user, between) {
       idp.loginAs(user);
       const jar = new Map<string, string>();
       const keep = (response: Response) => { for (const line of response.headers.getSetCookie()) { const [pair = ""] = line.split(";"); const at = pair.indexOf("="); if (at > 0) jar.set(pair.slice(0, at), pair.slice(at + 1)); } };
@@ -53,6 +55,7 @@ export async function ssoWorld(): Promise<SsoWorld> {
       const start = await app.fetch(new Request(`${SSO_ORIGIN}/v1/auth/sso/start?next=/today`));
       if (start.status !== 302) return { ok: false, location: `start:${start.status}`, cookie: "" };
       keep(start);
+      await between?.();
       const authorize = await fetch(start.headers.get("location")!, { redirect: "manual" });
       const callbackUrl = authorize.headers.get("location");
       if (authorize.status !== 302 || !callbackUrl) return { ok: false, location: `authorize:${authorize.status}`, cookie: "" };

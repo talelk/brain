@@ -73,7 +73,7 @@ groups:
           summary: "The database replica is more than 15 minutes behind"
           description: "A failover now would lose that much work. Check the replica shipping timer on the host."
       - alert: BrainReplicaMissing
-        expr: brain_replica_configured == 1 and absent(brain_replica_lag_seconds)
+        expr: brain_replica_configured == 1 and on() absent(brain_replica_lag_seconds)
         for: 15m
         labels: { severity: warning }
         annotations:

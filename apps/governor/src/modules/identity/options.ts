@@ -41,7 +41,14 @@ export function authOptions(db: Db, opts: { secret: string; baseURL: string }): 
         if (!settings?.enabled) return refuse("sso_disabled");
         if (profile["email_verified"] !== true || !email) return refuse("email_not_verified");
         if (!domainAllowed(settings, email)) return refuse("domain_not_allowed");
-        if (source.action !== "create-user") return;
+        if (source.action !== "create-user") {
+          // A returning or linking identity must already belong to the organization that owns the setting. Without this, an administrator
+          // of one organization could point the provider at a directory they control and sign in as a member of another organization.
+          const organization = db.prepare("SELECT auth_organization_id AS id FROM organizations WHERE id=?").get(settings.organizationId) as { id: string } | undefined;
+          const userId = typeof user["id"] === "string" ? user["id"] : "";
+          const member = organization && userId ? db.prepare("SELECT 1 AS ok FROM member WHERE userId=? AND organizationId=?").get(userId, organization.id) : undefined;
+          return member ? undefined : refuse("not_a_member");
+        }
         const decision = decideProvision(db, settings, profile);
         if (!decision.allowed) return refuse(decision.reason);
         for (const [key, entry] of decisions) if (Date.now() - entry.at > 30_000) decisions.delete(key);

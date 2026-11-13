@@ -1,5 +1,5 @@
 import { assertHumanIdentity } from "../modules/identity/index";
-import { OIDC_PROVIDER_ID, readOidcSettings } from "../modules/identity/oidc";
+import { OIDC_PROVIDER_ID, readOidcSettings } from "../modules/identity/index";
 import { TaskExperience } from "../modules/workflows/index";
 import { localRuntimeStatus, connectLocalModel, restoreLocalRuntimeHandoff, operationalReadiness, metricsAuthorized, metricsToken, renderMetrics } from "../modules/operations/index";
 import type { RuntimeConfig } from "../runtime-config";

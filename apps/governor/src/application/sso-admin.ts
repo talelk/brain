@@ -1,6 +1,6 @@
 import type { ActorContext, JsonValue } from "@brain/contracts";
 import { BrainDomainError } from "../domain/errors";
-import { checkIssuer, OIDC_ROLES, oidcView, readOidcSettings, resolveSecretRef, saveOidcSettings, type OidcRole, type OidcSettings } from "../modules/identity/oidc";
+import { checkIssuer, OIDC_ROLES, oidcView, readOidcSettings, resolveSecretRef, saveOidcSettings, secretDirectories, type OidcRole, type OidcSettings } from "../modules/identity/index";
 import type { CommandHandlers } from "./command-funnel";
 import type { Store } from "./store";
 
@@ -23,7 +23,7 @@ export function ssoCommands(store: Store): CommandHandlers {
         const issuer = checkIssuer(String(p["issuer"]));
         const secretRef = String(p["secretRef"]);
         // An enabled provider must be usable now: its secret has to resolve. A disabled one may be saved half-prepared.
-        if (enabled) resolveSecretRef(secretRef);
+        if (enabled) resolveSecretRef(secretRef, { dirs: secretDirectories(s.dataDir) });
         const workspaceIds = [...new Set((p["workspaceIds"] as string[] | undefined) ?? [])].sort();
         for (const id of workspaceIds) if (!s.control.prepare("SELECT 1 FROM workspaces WHERE id=? AND organization_id=?").get(id, actor.organizationId)) throw new BrainDomainError("NOT_FOUND", `workspace ${id} not found`);
         const groupRoles = ((p["groupRoles"] as Array<{ group: string; role: OidcRole }> | undefined) ?? []).map((entry) => ({ group: entry.group, role: entry.role }));
@@ -49,5 +49,5 @@ export function ssoCommands(store: Store): CommandHandlers {
 export function oidcSettingsQuery(store: Store, actor: ActorContext, baseUrl: string): JsonValue {
   if (actor.kind !== "human" || !actor.scopes.includes("identity:read")) throw new BrainDomainError("FORBIDDEN", "identity administration read scope required");
   const settings = readOidcSettings(store.control);
-  return oidcView(settings && settings.organizationId === actor.organizationId ? settings : undefined, baseUrl) as unknown as JsonValue;
+  return oidcView(settings && settings.organizationId === actor.organizationId ? settings : undefined, baseUrl, secretDirectories(store.dataDir)) as unknown as JsonValue;
 }

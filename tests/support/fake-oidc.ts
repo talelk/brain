@@ -12,6 +12,8 @@ export interface FakeOidc {
   readonly issuer: string;
   /** Who the next authorize request signs in. */
   loginAs(user: FakeUser): void;
+  /** How many times Brain fetched the discovery document. */
+  readonly discovery: { requests: number };
   readonly authorizeRequests: Array<Record<string, string>>;
   readonly tokenRequests: Array<{ params: Record<string, string>; basicAuth: string | null; pkceOk: boolean }>;
   close(): Promise<void>;
@@ -26,6 +28,7 @@ export async function startFakeOidc(config: { clientId: string; clientSecret: st
   const tokens = new Map<string, FakeUser>();
   const authorizeRequests: Array<Record<string, string>> = [];
   const tokenRequests: FakeOidc["tokenRequests"] = [];
+  const discovery = { requests: 0 };
   let current: FakeUser | undefined;
   let issuer = "";
 
@@ -42,6 +45,7 @@ export async function startFakeOidc(config: { clientId: string; clientSecret: st
     const url = new URL(req.url ?? "/", issuer);
     const json = (status: number, value: unknown) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(value)); };
     if (url.pathname === "/.well-known/openid-configuration") {
+      discovery.requests++;
       return json(200, { issuer, authorization_endpoint: `${issuer}/authorize`, token_endpoint: `${issuer}/token`, jwks_uri: `${issuer}/jwks`, userinfo_endpoint: `${issuer}/userinfo`,
         response_types_supported: ["code"], subject_types_supported: ["public"], id_token_signing_alg_values_supported: ["RS256"], code_challenge_methods_supported: ["S256"] });
     }
@@ -82,7 +86,7 @@ export async function startFakeOidc(config: { clientId: string; clientSecret: st
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   issuer = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   return {
-    issuer, authorizeRequests, tokenRequests,
+    issuer, authorizeRequests, tokenRequests, discovery,
     loginAs(user) { current = user; },
     close: () => new Promise<void>((resolve) => { server.closeAllConnections(); server.close(() => resolve()); }),
   };

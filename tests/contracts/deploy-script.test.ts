@@ -39,7 +39,7 @@ describe("deploy-demo.sh safety order", () => {
   it("wires the database replica only when the server has replica.env, and ships it with a valid timer", () => {
     const compose = readFileSync(join(process.cwd(), "deploy/demo/docker-compose.yml"), "utf8");
     // Off by default: the Governor gets an empty BRAIN_REPLICA_DIR unless the deploy wrote it.
-    expect(compose).toContain("BRAIN_REPLICA_DIR: ${BRAIN_REPLICA_DIR:-}");
+    expect(compose).toContain(`BRAIN_REPLICA_DIR: \${BRAIN_REPLICA_DIR:-}`);
     const wiring = script.slice(script.indexOf("# ---- continuous database replica"), script.indexOf("# ---- TencentDB memory stack"));
     expect(wiring).toContain('test -r $REMOTE_DIR/replica.env');
     expect(wiring.indexOf("test -r $REMOTE_DIR/replica.env")).toBeLessThan(wiring.indexOf("BRAIN_REPLICA_DIR=/replica"));

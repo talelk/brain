@@ -14,6 +14,7 @@ for generated credentials, persistent state and current setup limits.
 - [Advanced configuration](configuration-reference.md): full environment and authoring reference.
 - [Run the local stack](run-local-stack.md): advanced model/runner configuration and troubleshooting.
 - [Backup and restore](backup-restore.md): verified host maintenance and recovery.
+- [Single sign-on, metrics and alerts](sso-and-monitoring.md); [replica and second runner host](replica-and-second-runner.md); [load and capacity](load-and-capacity.md).
 - [Deploy the reference topology](deploy-compose.md): Governor, runner and launcher boundaries.
 - [Run the operational proof](verify-operational.md): reproduce live execution evidence.
 

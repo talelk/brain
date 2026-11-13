@@ -7,7 +7,7 @@ import type { ActorContext, JsonValue, OrganizationAdminCommand, OrganizationAdm
 import { BrainDomainError } from "../domain/errors";
 import { assertExpectedVersion } from "../domain/states";
 import type { IdentityAdministration } from "../modules/identity/index";
-import { readOidcSettings } from "../modules/identity/oidc";
+import { readOidcSettings } from "../modules/identity/index";
 
 interface OrganizationCommand extends OrganizationAdminCommand { readonly payload: OrganizationAdminCommand["payload"] & Record<string, unknown> }
 interface OrganizationQuery { readonly queryType: string; readonly resourceId?: string; readonly search?: string; readonly limit?: number; readonly cursor?: string }

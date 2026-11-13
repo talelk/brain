@@ -1,0 +1,20 @@
+# Single sign-on, metrics and alerts
+
+Decisions: ADR 0026 (single sign-on). Password and authenticator sign-in always stay.
+
+## Sign in with the company directory (OpenID Connect)
+1. In the directory, register a web client with the **redirect address Brain shows** (`<BRAIN_BASE_URL>/api/auth/callback/brain-oidc`, from the query `identity.oidc.get`), scopes `openid email profile`, authorization code with PKCE, and add the `groups` claim to the ID token if you map groups.
+2. Put the client secret in an owner-only file (`chmod 600`) in the Governor's secrets folder (`<data>/secrets/`, which on the demo is inside the Docker volume, or the container's `/run/secrets`), or in a Governor environment variable named `BRAIN_OIDC_<NAME>`. Other paths and variable names are refused.
+3. As an organization administrator run the command `identity.oidc.set` with: `issuer` (https), `clientId`, `secretRef` (`file:/abs/path` or `env:BRAIN_OIDC_<NAME>`; the secret itself is never typed into Brain), `enabled`, and how new people join: `autoProvision`, `defaultRole` and/or `groupRoles` (`{ group, role }` with role `viewer`, `operator`, `workspace-lead` or `approver`), `groupClaim` (default `groups`), `workspaceIds` (none means every active workspace), `allowedDomains`. It takes effect at once. After rotating the secret file, save the setting again.
+4. The sign-in page offers the directory when `GET /v1/auth/providers` says `sso` is on; the button goes to `/v1/auth/sso/start`. A person with no matching group (and no default role), an unverified email or a domain outside the list is refused and no account is created. Roles are set at first sign-in; change them later in Administration. SSO never grants organization roles.
+5. Approving an effect still needs an authenticator, which is enrolled against a password: people who sign in only through the directory cannot approve effects yet (backlog).
+
+## Metrics and alerts
+1. Put a random token of 16 or more characters in an owner-only file in the data volume and set `BRAIN_METRICS_TOKEN_FILE` to its path. Without it `/metrics` does not exist (404). Scrape with `Authorization: Bearer <token>`.
+2. Use `deploy/monitoring/prometheus.yml` and `deploy/monitoring/brain-alerts.yml`. The series: missions and tasks by state, `brain_parked_tasks`, `brain_stall_rate`, attempts, tokens and spend, attempt duration histogram, queue depth and age, runners and slots, probe severity (`model`, `disk`, `replica`, hosted models), `brain_replica_lag_seconds`, disk, `brain_backup_age_seconds`. Workspace and practice are the only labels that vary; a mission id never is.
+3. Every mission has one trace id (32 hex characters) in the payload of each of its events, shown in Logs; search for it in Logs and in the event payloads.
+4. The Quality page's breakdown (`quality.breakdown`) gives the same figures per workspace and per practice with a 30-day daily trend; parked work stays in the denominator.
+5. Routing alerts to people (Alertmanager, a pager or a chat channel) is not set up here.
+
+## Plays per practice
+Practices (data, operations, support) are listed in `examples/v1/starter-release/practices.json` (or the file `BRAIN_PRACTICES_FILE` names). `play.proposeFromMissions` with a practice proposes a Play from the team's own verified missions (at least 2, not yet used): the plan most like the others becomes the draft, tagged with the practice, with every source mission recorded. No model is asked. It is a proposal: a person with `config:activate` approves it into a Studio draft, as for any proposal. `practices.list` shows the practices, the tagged Plays and how many verified missions are ready.

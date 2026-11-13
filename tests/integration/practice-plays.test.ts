@@ -42,20 +42,23 @@ describe("Plays per practice, built from the team's own achieved missions", () =
     expect(receipt.accepted).toBe(true);
     const [proposal] = await proposals(w);
     expect(proposal).toMatchObject({ state: "proposed", practice: "operations" });
-    // The reference is one of the two similar status missions, never the odd one out; all three are recorded as sources.
+    // The reference is one of the two similar status missions; only those two are sources, the one-off key rotation is not part of the pattern.
     expect([a, b]).toContain(proposal!.missionId);
-    expect([...proposal!.sourceMissionIds!].sort()).toEqual([a, b, odd].sort());
+    expect([...proposal!.sourceMissionIds!].sort()).toEqual([a, b].sort());
     expect(proposal!.spec).toMatchObject({ practice: "operations" });
-    expect(proposal!.spec.description).toContain("Operations Play built from 3 verified missions of this team");
+    expect(proposal!.spec.description).toContain("Operations Play built from 2 verified missions of this team");
+    expect(proposal!.spec.description).not.toContain("signing keys");
     const text = JSON.stringify(proposal);
     for (const leak of ["HOSTILE-NOTE", "sk-live", "DECISION-TEXT", "OUTPUT-BODY"]) expect(text).not.toContain(leak);
     // A proposal is not a Play: nothing is published, staged or activated, and it waits for a person.
     expect(releases(w)).toEqual(idsBefore);
     const after = await practices(w);
     expect(after.practices.find((entry) => entry.id === "operations")!.proposals).toEqual([{ proposalId: proposal!.proposalId, state: "proposed", playId: proposal!.playId }]);
-    // The missions it was built on are used up: the next proposal needs new verified work.
-    expect(after.eligibleMissions).toBe(0);
+    // The missions it was built on are used up; the one-off mission stays available but cannot make a pattern alone.
+    expect(after.eligibleMissions).toBe(1);
+    expect(after.practices.every((entry) => !entry.canPropose)).toBe(true);
     await expect(propose(w, "practice-2", "operations")).rejects.toThrow(/needs at least 2/u);
+    expect(odd).not.toBe("");
   });
 
   it("approval opens an ordinary Play draft that carries the tag and validates; only someone who may author configuration can approve", async () => {
