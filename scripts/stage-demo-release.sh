@@ -9,8 +9,8 @@ cd "$(dirname "$0")/.."
 set -a; . "${BRAIN_DEV_CREDENTIALS:-$HOME/.config/brain-dev/credentials.env}"; set +a
 HOST="${BRAIN_DEPLOY_HOST:-ns390729}"; PORT="${BRAIN_DEPLOY_PORT:-42242}"
 ORIGIN="${BRAIN_PUBLIC_ORIGIN:-https://brain.mykeyrus.tn}"
-eval "$(ssh-agent -s)" >/dev/null; trap 'ssh-agent -k >/dev/null' EXIT
-ssh-add "${BRAIN_SSH_KEY:-$HOME/dev/keys/id_rsa}" 2>/dev/null
+# Use the identity already loaded in the running ssh-agent; start a private agent with the key only when none is loaded.
+if ! ssh-add -l >/dev/null 2>&1; then eval "$(ssh-agent -s)" >/dev/null; trap 'ssh-agent -k >/dev/null' EXIT; ssh-add "${BRAIN_SSH_KEY:-$HOME/dev/keys/id_rsa}" 2>/dev/null; fi
 {
   # The administrator sign-in is the one the Governor container already holds (BRAIN_ADMIN_EMAIL / BRAIN_ADMIN_PASSWORD): it is read there, inside the container, and never leaves the server.
   printf 'export BE="$BRAIN_ADMIN_EMAIL" BP="$BRAIN_ADMIN_PASSWORD"\n'
