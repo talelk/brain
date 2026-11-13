@@ -114,6 +114,22 @@ describe("host tools exist only for the workspace the owner set a runner group a
   }, scaled(120_000));
 });
 
+describe("Try this tool does not bypass the host group", () => {
+  it("runs a host tool only on the workspace's host group and refuses where there is none", async () => {
+    const w = world!;
+    await w.command("runnerGroup.set", "group-try", { groupId: w.group, hostTools: true, workspaceIds: [w.w.workspaceId] });
+    const { testId } = w.w.brain.toolTests.run(w.w.owner, w.w.workspaceId, "host.exec", { command: "docker.ps" });
+    const placement = JSON.parse((w.store.control.prepare("SELECT placement_json FROM jobs ORDER BY rowid DESC LIMIT 1").get() as { placement_json: string }).placement_json) as { group: string };
+    expect(placement.group).toBe(w.group);
+    expect(await w.run()).toBe(true);
+    const view = w.w.brain.toolTests.list(w.w.owner, w.w.workspaceId, "host.exec", 5).find((entry) => entry.testId === testId)!;
+    expect(view.state).toBe("succeeded");
+    expect(JSON.stringify(view.output)).toContain("demo-app");
+    try { w.w.brain.createWorkspace(w.w.owner, { workspaceId: "ws-other", slug: "other" }); } catch { /* created by an earlier case */ }
+    expect(() => w.w.brain.toolTests.run(w.w.owner, "ws-other", "host.exec", { command: "docker.ps" })).toThrow(/runner group the owner set aside/);
+  }, scaled(120_000));
+});
+
 describe("credentials stay in the Governor", () => {
   it("never reaches events, approvals, receipts or the model's answer when a ticket is created", async () => {
     const w = world!;

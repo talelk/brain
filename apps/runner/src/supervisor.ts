@@ -342,16 +342,22 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
           if (effect) { effectRun = await runEffect(client, launcher, offer.attemptId, effect.call, effect.gate); brokered = effectRun.result; }
           let executed = gated ?? (brokered && !brokered.ok ? { ok: false as const, output: { error: brokered.error } as JsonValue } : await executeToolPayload({
             offer: { payload: { input: brokered ? { ...(proposal.input as Record<string, unknown>), broker: brokered.data } : proposal.input as Record<string, unknown>, invocationId,
-              step: { uses: { type: "tool", release: proposal.tool }, effectClass: binding.effectClass, target: binding.target } },
+              // Shaping the answer of an approved change takes no authority (the change is done): it runs as a read step in the read
+              // sandbox with no permit, so a slow change cannot outlive the permit's short validity and the report is always redacted.
+              step: { uses: { type: "tool", release: proposal.tool }, effectClass: effect ? "read" : binding.effectClass, target: binding.target } },
               execution: { kind: "tool" }, workspaceId: offer.workspaceId },
-            cfg, signal: controller.signal, launcher, permit: nestedPermit, toolPins,
+            cfg, signal: controller.signal, launcher, permit: effect ? undefined : nestedPermit, toolPins,
             validatePermit: (token, id) => client.validatePermit(token, id),
             fetchPinnedTool: (toolId, digest) => client.toolScript(offer.configDigest, toolId, digest),
           }));
           if (effectRun) {
             // The call is only a success when the change was applied; a report that could not be shaped still says what ran.
-            if (effectRun.result.ok && !executed.ok) executed = { ok: true, output: { result: effectRun.result.data, note: "the change ran; its report could not be shaped" } as unknown as JsonValue };
-            if (effectRun.outcome !== "applied" && executed.ok) executed = { ok: false, output: { error: "the change did not complete", result: effectRun.result.ok ? effectRun.result.data : null } as unknown as JsonValue };
+            // Never the raw output: it was not redacted. Only the status the launcher reported.
+            if (effectRun.result.ok && !executed.ok) {
+              const raw = effectRun.result.data as { command?: unknown; exitCode?: unknown };
+              executed = { ok: true, output: { command: raw.command ?? null, exitCode: raw.exitCode ?? null, note: "the change ran; its output could not be shaped, so it is not shown" } as unknown as JsonValue };
+            }
+            if (effectRun.outcome !== "applied" && executed.ok) executed = { ok: false, output: { error: "the change did not complete", result: executed.output } as unknown as JsonValue };
           }
           const bytes = new TextEncoder().encode(JSON.stringify(executed.output));
           const uploaded = await client.uploadArtifact(offer.attemptId, bytes, "application/json");

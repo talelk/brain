@@ -108,6 +108,14 @@ print("workspace:", "created" if st == 201 else f"present ({st})")
 cmd("workspace.wayOfWorking.set", {"workflowId": "sre-task", "requiredTools": ["host.exec", "host.read"]})
 print("way of working: sre-task, observed tools host.exec or host.read")
 
+# ADR 0024: host tools (host.*) run only on the runner group set aside for this workspace, and a change (restart, reload) needs the owner's
+# approval of each call. What an agent may ask to restart is the owner's choice: the allow-list is only set from BRAIN_SRE_RESTARTABLE
+# (comma-separated container names) and stays empty, so every restart is refused, until the owner names some. Idempotent.
+cmd("runnerGroup.set", {"groupId": "sre-host", "hostTools": True, "workspaceIds": [WS]})
+restartable = [name.strip() for name in os.environ.get("BRAIN_SRE_RESTARTABLE", "").split(",") if name.strip()]
+cmd("workspace.effects.set", {"containers": restartable} if restartable else {})
+print("runner group sre-host: host tools for this workspace only; restartable containers:", restartable or "none (set BRAIN_SRE_RESTARTABLE)")
+
 have = {d.get("title"): d for d in query("documents.list", limit=100).get("items", [])}
 for title, name in DOCS.items():
     if title in have:

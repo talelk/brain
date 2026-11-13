@@ -62,6 +62,8 @@ function jobUsesHostTools(s: Store, organizationId: string, job: Record<string, 
   const payload = s.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(String(job["id"])) as { payload_json: string } | undefined;
   if (!payload) return false;
   const uses = (JSON.parse(payload.payload_json) as { step?: { uses?: { type?: string; release?: { id: string } } } }).step?.uses;
+  // A direct tool step (Try this tool) that names a host tool needs the host group just as an agent holding one does.
+  if (uses?.type === "tool") return uses.release?.id.startsWith("host.") === true;
   if (uses?.type !== "agent" || !uses.release) return false;
   const key = `${String(job["config_digest"])}\n${uses.release.id}`;
   const known = cache.get(key);

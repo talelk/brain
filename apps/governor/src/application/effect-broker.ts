@@ -1,7 +1,7 @@
 import type { JsonValue } from "@brain/contracts";
 import { BrainDomainError } from "../domain/errors";
 import type { IntegrationService } from "../modules/integrations/index";
-import type { Connectors } from "../modules/operations/connectors";
+import type { Connectors } from "../modules/operations/index";
 
 type Input = Readonly<Record<string, unknown>>;
 const text = (value: unknown, max: number): string => (typeof value === "string" ? value.slice(0, max) : "");

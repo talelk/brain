@@ -33,7 +33,7 @@ describe("tool registry read (issue #84)", () => {
       expect(new Date(first[0]!.createdAt).getTime()).toBe(activated.created_at_ms);
 
       const byId = new Map(first.map((tool) => [tool.id, tool]));
-      expect([...byId.keys()].sort()).toEqual(["csv.query", "documents.read", "host.exec", "host.read", "knowledge.search", "operations.context", "operations.validate", "task.validate", "web.fetch"]);
+      expect([...byId.keys()].sort()).toEqual(["csv.query", "documents.read", "git.open-pr", "host.exec", "host.read", "host.reload", "host.restart", "knowledge.search", "message.send", "operations.context", "operations.validate", "task.validate", "ticket.create", "web.fetch"]);
       expect(byId.get("documents.read")).toEqual(expect.objectContaining({ allowedAgents: ["sre-operator", "task-worker"], status: "trusted", effectClass: "read", usage: { calls: 0, failures: 0, recent: { calls: 0, failures: 0 } } }));
       expect(byId.get("operations.context")!.allowedAgents).toEqual(["operations-assistant"]);
       expect(byId.get("knowledge.search")!.allowedAgents).toEqual(["sre-operator", "task-worker"]);

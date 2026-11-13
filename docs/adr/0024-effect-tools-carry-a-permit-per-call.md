@@ -12,6 +12,8 @@ An agent may now change things outside Brain (restart a container, reload a serv
 5. **Work is done by a broker.** Host changes are named privileged commands of the operator's file on the trusted launcher (`docker.restart`, `service.reload`); the launcher also keeps a single-use ledger of invocation ids, so even a replayed request cannot run twice. Ticket, message and pull request run in the Governor behind ports (`TicketPort`, `MessagePort`, `PullRequestApi`): credentials never reach the sandbox, a model, an event or an artifact.
 6. **A dedicated runner group** (`runnerGroup.set`): a group with a row takes only its listed workspaces; an agent whose tools include `host.*` is offered only to a group marked for host tools; the Governor refuses a host effect from any other group. The starter release declares the group `sre-host`.
 
+7. **Scheduled watches propose and act through the same gate.** A scheduled workflow (`automation.upsert`) or a Repeat mission runs the watch; its agent step is class `read`, so auto-confirm (ADR 0017) is unchanged, and each change it proposes stops at its own approval. An earlier approval buys a later occurrence nothing.
+
 ## Why not hold the attempt's approval outside the runner
 While an approval waits, the call holds a runner slot and the attempt's lease and counts as working time (ADR 0016). We accept it for now: the wait is outside the engine deadline, the host group is dedicated, and the approval expires (default 30 minutes, 1 to 1440). A held "act" job that runs after the decision, so nothing waits on a runner, is a backlog row.
 

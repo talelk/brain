@@ -7,7 +7,7 @@
 - Everything an agent reads can appear in model prompts, including the independent evaluator's. Keep secrets out of `/srv` files that are not on the deny list.
 
 ## What it cannot do
-- It cannot change anything on the server: no restart, reload, delete, write, package or firewall change. When a fix is needed it writes the exact command, its risk and how to undo it, and a person runs it.
+- It changes nothing by itself. The only changes it can ask for are `host.restart` (one container) and `host.reload` (one service), each only for a name on this workspace's allow-list, and every single call waits for the owner's approval (the owner decides from a phone on the approval page; the approval is for that exact call and works once). Nothing else on the server can be changed: no delete, write, package or firewall change. For anything else it writes the exact command, its risk and how to undo it, and a person runs it.
 - It cannot reach any other machine. Commands on other hosts over SSH are out of scope.
 - No agent receives SSH keys, sudo passwords, `.env` files or tokens. If a task seems to need one, stop and ask a person.
 

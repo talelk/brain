@@ -9,5 +9,5 @@ export { alertBadProbes, checkDisk, checkHostedModels, checkModelEndpoint, readP
 export { channelsFor, notifyAttention, notificationsFor, sendDigests, watchCommands, type Sender } from "./attention-notify";
 export { composeMessage, smtpTarget, sendMail, validAddress } from "./smtp";
 export { absoluteLink, emailContent, safeMailLink, sendEmail, preferencesView, sendWebhook, setPreferences as setNotificationPreferences, webhookBody, webhookTarget } from "./channels";
-export { handleInbound, verifyInboundSignature, INBOUND_WINDOW_MS } from "./inbound";
-export { connectorsFromEnv, chatBody, chatFormat, WebhookMessageAdapter, WebhookTicketAdapter, type Connectors, type MessagePort, type TicketPort } from "./connectors";
+export { handleInbound } from "./inbound";
+export { connectorsFromEnv, type Connectors } from "./connectors";

@@ -60,6 +60,14 @@ export class ToolTests {
   private start(actor: ActorContext, workspaceId: string, tool: { id: string; digest: string; inputSchemaRef: string; outputSchemaRef: string }, configDigest: string, input: Record<string, never> | JsonValue, kind: "try" | "selftest"): { testId: string; runId: string } {
     const bindings: Record<string, { source: "input"; pointer: string }> = {};
     for (const key of Object.keys(input as Record<string, unknown>)) bindings[key] = { source: "input", pointer: `/${key.replaceAll("~", "~0").replaceAll("/", "~1")}` };
+    // A host tool (host.*) is tried only on the runner group the owner set aside for this workspace; with none, say so instead of queuing forever.
+    let group = "agents";
+    if (kind === "try" && tool.id.startsWith("host.")) {
+      const hostGroup = (this.store.control.prepare("SELECT group_id, workspaces_json FROM runner_groups WHERE organization_id=? AND host_tools=1 ORDER BY group_id").all(actor.organizationId) as Array<{ group_id: string; workspaces_json: string }>)
+        .find((row) => (JSON.parse(row.workspaces_json) as string[]).includes(workspaceId));
+      if (!hostGroup) throw new BrainDomainError("INVALID_ARGUMENT", `${tool.id} reads the host, so it runs only on the runner group the owner set aside for this workspace; none is set (runnerGroup.set)`);
+      group = hostGroup.group_id;
+    }
     // A self-test names the staged test script (selftest.<tool>); the runner fetches both pinned scripts and runs the test one.
     const uses = { type: "tool", release: { id: kind === "selftest" ? `selftest.${tool.id}` : tool.id, digest: tool.digest } };
     const workflow = {
@@ -71,7 +79,7 @@ export class ToolTests {
           test: {
             kind: "dispatch", needs: [], input: bindings, outputSchemaRef: kind === "selftest" ? "tool-test/selftest-output" : tool.outputSchemaRef, timeoutSeconds: 60,
             uses,
-            runsOn: { group: "agents", all: ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"], resources: { cpuMillicores: 500, memoryMb: 256, diskMb: 256, slots: 1 }, isolation: "ephemeral-container" },
+            runsOn: { group, all: ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"], resources: { cpuMillicores: 500, memoryMb: 256, diskMb: 256, slots: 1 }, isolation: "ephemeral-container" },
             effectClass: "read",
           },
         },

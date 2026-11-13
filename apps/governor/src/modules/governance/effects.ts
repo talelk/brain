@@ -86,7 +86,7 @@ const POLICIES: Readonly<Record<string, Policy>> = {
   },
 };
 
-export function isEffectTool(toolId: string): boolean { return toolId in POLICIES; }
+function isEffectTool(toolId: string): boolean { return toolId in POLICIES; }
 
 /** The digest of the arguments of a call; the runner computes the same value with the same function. */
 export function effectInputDigest(input: Input): string {
@@ -99,7 +99,7 @@ export function effectAllowList(s: Store, workspaceId: string): EffectAllowList 
 }
 
 /** The runner groups the owner set aside, and whether this one may run host tools for this workspace. */
-export function runnerGroupAllowsHostTools(s: Store, organizationId: string, groupId: string, workspaceId: string): boolean {
+function runnerGroupAllowsHostTools(s: Store, organizationId: string, groupId: string, workspaceId: string): boolean {
   const row = s.control.prepare("SELECT host_tools, workspaces_json FROM runner_groups WHERE organization_id=? AND group_id=?").get(organizationId, groupId) as { host_tools: number; workspaces_json: string } | undefined;
   return !!row && row.host_tools === 1 && (JSON.parse(row.workspaces_json) as string[]).includes(workspaceId);
 }
@@ -293,10 +293,4 @@ export function finishEffect(s: Store, runner: Runner, attemptId: string, body: 
     .run(invocationId, "effect-tools", `tool:${call.tool_id}`, `effect.${call.tool_id}`.slice(0, 64), outcome, receiptDigest, s.now());
   s.emit(s.control, { organizationId: call.organization_id, workspaceId: call.workspace_id, aggregateType: "approval", aggregateId: call.approval_id, eventType: "effect.finished", payload: { approvalId: call.approval_id, toolId: call.tool_id, outcome, attemptId } });
   return { invocationId, outcome } as unknown as JsonValue;
-}
-
-/** Read for the runner's evidence bundle: the call's invocation id, target and operation. */
-export function effectReceiptFor(s: Store, attemptId: string, proposalId: string): { invocationId: string; targetId: string; operation: string; approvalId: string } | undefined {
-  const call = s.control.prepare("SELECT approval_id, tool_id FROM effect_calls WHERE attempt_id=? AND proposal_id=?").get(attemptId, proposalId) as { approval_id: string; tool_id: string } | undefined;
-  return call ? { invocationId: `inv-${call.approval_id}`, targetId: `tool:${call.tool_id}`, operation: `effect.${call.tool_id}`.slice(0, 64), approvalId: call.approval_id } : undefined;
 }

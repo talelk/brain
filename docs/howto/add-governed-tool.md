@@ -94,6 +94,16 @@ Governor kind, a branch in `apps/governor/src/modules/jobs/tool-reads.ts`.
 
 Add a command in `scripts/demo/host-commands.json` and `schemas/host-exec-input.json`, restage the release and redeploy. Restart/reload commands must be `privileged` and go through a privileged tool (an effect permit per call).
 
+## 4c. Effect tools (ADR 0024)
+
+A tool with effect class `write` or `privileged` changes something outside Brain, so each call stops for a person. It also needs an
+operator policy in `apps/governor/src/modules/governance/effects.ts` (its plain-words summary, the check of its arguments, what it
+touches) and a broker: a named privileged command on the launcher (`LAUNCHER_EFFECTS` in `apps/runner/src/tools/effects.ts`,
+`host-commands.json` on the launcher host) or a Governor-side port (`application/effect-broker.ts`: tickets, messages, pull requests).
+The pinned `run.sh` only shapes the broker's answer from `broker`, as for read tools. Stage a `test.sh` too: the product runs it as the tool's
+self-test (`POST /v1/config/tools/:id/selftest`). The owner sets what a call may touch (`workspace.effects.set`) and which runner group
+carries host tools (`runnerGroup.set`).
+
 ## 5. Verify
 
 ```bash

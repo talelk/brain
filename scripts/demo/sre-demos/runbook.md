@@ -1,6 +1,6 @@
 # SRE runbook for the demos server
 
-Rule zero: Brain agents here look at the real server (read-only files under `/srv` and the named diagnostics listed in "Access, safety and change rules") and reason. They never hold SSH access and cannot change anything. Every fixing command below is run by a person; the agent proposes it with the evidence, the risk and the undo.
+Rule zero: Brain agents here look at the real server (read-only files under `/srv` and the named diagnostics listed in "Access, safety and change rules") and reason. They never hold SSH access. They change nothing without the owner's approval of that exact call (restart one allow-listed container, reload one allow-listed service); every other fixing command below is run by a person, and the agent proposes it with the evidence, the risk and the undo.
 
 To make an agent do the looking, start a mission task with the workflow `sre-task` ("Investigate the demos server"); it uses the `sre-operator` agent.
 

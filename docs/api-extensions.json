@@ -106,6 +106,51 @@
       "method": "POST",
       "path": "/v1/notification-preferences",
       "purpose": "set the signed-in person's push, webhook and digest preferences"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/config/tools/{toolId}/selftest",
+      "purpose": "run the tool's own staged test script in the sandbox (ADR 0024); allowed for effect tools, it changes nothing"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/notification-preferences/email-test",
+      "purpose": "send one test email to the signed-in person; the outcome feeds the Health email line"
+    },
+    {
+      "method": "POST",
+      "path": "/hooks/chat",
+      "purpose": "inbound chat webhook, signed (Brain or Slack signature, 5 minute window): approvals, status, deny, and the link to approve; never approves (ADR 0024)"
+    },
+    {
+      "method": "POST",
+      "path": "/runner/v1/attempts/{id}/effects",
+      "purpose": "runner proposes an effect call; the Governor records the approval of that exact call (ADR 0024)"
+    },
+    {
+      "method": "GET",
+      "path": "/runner/v1/attempts/{id}/effects/{proposalId}",
+      "purpose": "where a proposed effect call stands: pending, approved, rejected, expired"
+    },
+    {
+      "method": "POST",
+      "path": "/runner/v1/attempts/{id}/effects/permit",
+      "purpose": "the one permit of an approved call"
+    },
+    {
+      "method": "POST",
+      "path": "/runner/v1/attempts/{id}/effects/start",
+      "purpose": "consume the permit just before the call runs; once only"
+    },
+    {
+      "method": "POST",
+      "path": "/runner/v1/attempts/{id}/effects/run",
+      "purpose": "the Governor performs an approved call that needs its credentials (ticket, message, pull request)"
+    },
+    {
+      "method": "POST",
+      "path": "/runner/v1/attempts/{id}/effects/finish",
+      "purpose": "report how the call ended (applied, absent, unknown) with its receipt digest"
     }
   ]
 }
