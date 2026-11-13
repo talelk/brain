@@ -3,6 +3,7 @@ import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Button, Checkbox } from "@talelk/newui-atoms";
 import { useApp } from "../app-context";
+import { t, tn } from "../../i18n";
 import type { LibrarySummary } from "../../data/library";
 
 /**
@@ -77,10 +78,10 @@ export function KnowledgeLine(props: { summary: LibrarySummary | undefined; onCh
   return <Show when={props.summary && (learned() > 0 || (waiting() > 0 && !props.summary.autoPublishKnowledge))}>
     <p class="m-0 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-interface text-ink-gray-7" data-testid="knowledge-line">
       <span class="lucide-brain size-4 shrink-0" aria-hidden="true" />
-      <Show when={learned() > 0}><span>Brain learned {learned()} {learned() === 1 ? "thing" : "things"} this week{props.summary!.learnedAutomatically > 0 ? ` (${props.summary!.learnedAutomatically} on its own)` : ""}.</span></Show>
-      <Show when={waiting() > 0 && !props.summary!.autoPublishKnowledge}><span>{waiting()} write-{waiting() === 1 ? "up waits" : "ups wait"} for your OK.</span>
-        <Show when={canApprove()}><Button variant="ghost" size="sm" loading={busy()} onClick={() => void approve()}>Approve all verified</Button></Show></Show>
-      <Button variant="ghost" size="sm" iconRight="lucide-arrow-right" onClick={() => void navigate(library())}>See what</Button>
+      <Show when={learned() > 0}><span>{tn("knowledge.learned", learned())}{props.summary!.learnedAutomatically > 0 ? ` (${t("knowledge.learnedOwn", { n: props.summary!.learnedAutomatically })})` : ""}{t("knowledge.end")}</span></Show>
+      <Show when={waiting() > 0 && !props.summary!.autoPublishKnowledge}><span>{tn("knowledge.waits", waiting())}</span>
+        <Show when={canApprove()}><Button variant="ghost" size="sm" loading={busy()} onClick={() => void approve()}>{t("knowledge.approveAll")}</Button></Show></Show>
+      <Button variant="ghost" size="sm" iconRight="lucide-arrow-right" onClick={() => void navigate(library())}>{t("knowledge.seeWhat")}</Button>
     </p>
   </Show>;
 }

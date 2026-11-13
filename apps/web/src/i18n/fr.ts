@@ -1631,5 +1631,13 @@ export const fr: Catalog = {
   "plan.estimate.ceilingNone": "Limite de la mission : aucune, donc le seul arrêt automatique est le plafond de jetons de chaque tâche.",
   "mission.usage.taskCap": "Chaque tâche s'arrête à {cap} jetons, tentatives cumulées ; vous pouvez le relever pour une seule tâche. Cette mission a utilisé {used} jetons jusqu'ici.",
   "mission.usage.noCeiling": "Aucun plafond de jetons n'est fixé pour toute la mission.",
+  "knowledge.learned_one": "Brain a appris {n} chose cette semaine",
+  "knowledge.learned_other": "Brain a appris {n} choses cette semaine",
+  "knowledge.learnedOwn": "{n} de lui-même",
+  "knowledge.waits_one": "{n} synthèse attend votre accord.",
+  "knowledge.waits_other": "{n} synthèses attendent votre accord.",
+  "knowledge.approveAll": "Tout approuver (vérifié)",
+  "knowledge.seeWhat": "Voir lesquelles",
+  "knowledge.end": ".",
   // @@END
 };

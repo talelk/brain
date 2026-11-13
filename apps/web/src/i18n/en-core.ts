@@ -388,5 +388,13 @@ export const enCore = {
   "plan.estimate.taskCap": "Each task stops at {cap} tokens across all attempts; you can raise it for one task.",
   "plan.estimate.costNoDollar": "Cost: unknown in dollars. No task sets a dollar cap; each task's token cap still applies.",
   "plan.estimate.ceilingNone": "Mission limit: none set, so the only automatic stop is each task's own token cap.",
+  "knowledge.learned_one": "Brain learned {n} thing this week",
+  "knowledge.learned_other": "Brain learned {n} things this week",
+  "knowledge.learnedOwn": "{n} on its own",
+  "knowledge.waits_one": "{n} write-up waits for your OK.",
+  "knowledge.waits_other": "{n} write-ups wait for your OK.",
+  "knowledge.approveAll": "Approve all verified",
+  "knowledge.seeWhat": "See what",
+  "knowledge.end": ".",
   // @@END
 } as const satisfies Record<string, string>;
