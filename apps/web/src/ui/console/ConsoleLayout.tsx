@@ -99,7 +99,6 @@ export function ConsoleScreen(props: {
       const loaded = await sessionsQuery({ workspaceId: scope.workspaceId }, signal);
       return { ...loaded, snapshot: [...loaded.snapshot.items] };
     },
-    refreshMs: 5_000,
   });
   const jobs = createScopedRead<JobSnapshot[]>({
     scope: app.scope,
@@ -107,7 +106,6 @@ export function ConsoleScreen(props: {
       const loaded = await jobsQuery({ workspaceId: scope.workspaceId, limit: 25 }, signal);
       return { ...loaded, snapshot: [...loaded.snapshot.items] };
     },
-    refreshMs: 10_000,
   });
 
   const visible = () => (sessions.state().data ?? []).filter((session) => props.include?.(session) ?? true);
@@ -180,7 +178,6 @@ function SessionConsole(props: {
     scope: app.scope,
     resource: () => props.sessionId,
     load: (scope, signal, resource) => sessionDetailQuery(scope.workspaceId, resource!, signal),
-    refreshMs: 5_000,
   });
   const detail = createMemo(() => session.state().data);
   const boundJob = createMemo(() => props.jobs.find((job) => job.jobId === detail()?.jobId));

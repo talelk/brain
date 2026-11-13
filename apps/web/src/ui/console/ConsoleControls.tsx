@@ -108,7 +108,6 @@ export function ConsoleToolbar(props: {
         <Show when={canStop()}>
           <Button size="sm" variant="outline" theme="red" iconLeft="lucide-square" onClick={() => { setDialog("stop"); setReason(""); }}>Stop</Button>
         </Show>
-        <Button size="sm" variant="ghost" iconLeft="lucide-refresh-cw" aria-label="Refresh session" onClick={props.onRefresh} />
         <a class="inline-flex items-center gap-1 rounded-control px-1.5 py-1 text-caption text-ink-blue-link hover:bg-surface-blue-1 focus-visible:focus-ring" aria-label="View logs for this session"
           title="Open the full log of this session"
           href={execLogsUrl(props.workspaceId, { session: props.sessionId, severity: [], emitter: [] })}><span class="lucide-scroll-text size-3.5" aria-hidden="true" />View logs</a>
@@ -279,7 +278,6 @@ export function ConsoleInspection(props: {
       const loaded = await artifactsListQuery({ workspaceId: props.workspaceId, ...filter }, signal);
       return { ...loaded, snapshot: { items: [...loaded.snapshot.items] } };
     },
-    refreshMs: 15_000,
   });
   const previewed = () => artifacts.state().data?.items.find((item) => item.artifactId === previewId());
   const tokenShare = () => {

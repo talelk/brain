@@ -12077,13 +12077,6 @@
           "minimum": 0,
           "maximum": 9007199254740991
         },
-        "defaultRoute": {
-          "type": "string",
-          "enum": [
-            "live",
-            "today"
-          ]
-        },
         "observedAt": {
           "$ref": "#/$defs/Timestamp"
         }
@@ -12095,7 +12088,6 @@
         "needsAttention",
         "pendingApprovals",
         "unknownJobs",
-        "defaultRoute",
         "observedAt"
       ],
       "additionalProperties": false

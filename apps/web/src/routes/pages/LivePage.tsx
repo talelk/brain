@@ -37,7 +37,6 @@ export default function LivePage(): JSX.Element {
       ]);
       return { snapshot: { missions: missions.snapshot.items.filter((mission) => mission.state !== "closed"), items: [...items.snapshot.items] }, asOf: missions.asOf, sourceWatermark: missions.sourceWatermark };
     },
-    refreshMs: 15_000,
   });
   const include = (session: BrainSession) => !missionId() || (scope.state().data?.items ?? []).some((item) => item.missionId === missionId() && item.workItemId === session.workItemId);
   return <BrainPage title="Live" description="Watch what your agents are doing right now, steer them, and open the full logs when you need detail."

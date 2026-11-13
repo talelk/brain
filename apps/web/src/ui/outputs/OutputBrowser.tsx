@@ -210,9 +210,6 @@ export function OutputBrowser(props: {
           <ToggleGroup.Item value="grid" icon="lucide-layout-grid" aria-label="Grid" />
           <ToggleGroup.Item value="list" icon="lucide-list" aria-label="List" />
         </ToggleGroup.Root>
-        <Button size="sm" variant="ghost" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>
-          Refresh
-        </Button>
       </span>
       <ScopeChips scope={props.scope} onScopeChange={props.onScopeChange} />
     </Card>

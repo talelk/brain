@@ -162,7 +162,6 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
     scope: app.scope,
     load: async (scope, signal) => loadMissionFiles(scope.workspaceId, props.mission, signal),
     isEmpty: (loaded) => loaded.artifacts.length === 0,
-    refreshMs: 15_000,
   });
   const tasks = createMemo((): ResultTask[] => {
     const loaded = files.state().data;
@@ -198,7 +197,6 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
       return { snapshot: [...response.snapshot.items], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     isEmpty: (items) => items.length === 0,
-    refreshMs: 15_000,
   });
   /** The named outputs a task wrote any version of: they appear as that task's "Version history". */
   const documentsOf = (id: string): Output[] => (outputs.state().data ?? []).filter((output) => output.versions.some((version) => version.workItemId === id));

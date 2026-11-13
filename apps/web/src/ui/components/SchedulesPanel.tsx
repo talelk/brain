@@ -94,7 +94,6 @@ export function SchedulesPanel(props: { targets: readonly ScheduleTarget[]; focu
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     isEmpty: (view) => view.items.length === 0,
-    refreshMs: 15_000,
   });
   const history = createScopedRead<{ items: AutomationOccurrence[] }>({
     scope: app.scope,
@@ -105,7 +104,6 @@ export function SchedulesPanel(props: { targets: readonly ScheduleTarget[]; focu
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     isEmpty: (view) => view.items.length === 0,
-    refreshMs: 15_000,
   });
 
   createEffect(on(() => props.refreshKey ?? 0, () => void automations.refresh({ force: true }), { defer: true }));
@@ -170,7 +168,7 @@ export function SchedulesPanel(props: { targets: readonly ScheduleTarget[]; focu
   return <section aria-label="Schedules" class="flex flex-col gap-4">
       <Show when={error()}><Alert theme="red" variant="outline" title="Automation action failed" description={error()} /></Show>
       <div class="brain-page-stack">
-        <WorkspaceSection title={props.title ?? "Schedules and triggers"} description="When each schedule starts work, in which timezone, and when it fires next." actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={() => void automations.refresh({ force: true })}>Refresh</Button><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={beginCreate}>New schedule</Button></>}>
+        <WorkspaceSection title={props.title ?? "Schedules and triggers"} description="When each schedule starts work, in which timezone, and when it fires next." actions={<Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={beginCreate}>New schedule</Button>}>
           <div class="mb-3 flex flex-wrap gap-3"><Select label="State" value={stateFilter()} options={[{ value: "", label: "Any state" }, { value: "active", label: "Active" }, { value: "paused", label: "Paused" }, { value: "retired", label: "Retired" }]} onValueChange={(value) => setStateFilter(value ?? "")} /><Select label="Starts" value={kindFilter()} options={[{ value: "", label: "Anything" }, { value: "play", label: "Plays" }, { value: "workflow", label: "Tasks" }, { value: "workItem", label: "Work items" }]} onValueChange={(value) => setKindFilter(value ?? "")} /></div>
           <ScreenRegion state={automations.state()} onRetry={() => void automations.refresh()} emptyTitle="Nothing is scheduled yet" emptyDescription="Start a Play or task on a timer, or once later. Choose New schedule, pick what it starts and when, and Brain runs it for you.">
             <div class="flex flex-col gap-3">
@@ -209,7 +207,6 @@ export function SchedulesLink(props: { targetIds: readonly string[]; label: stri
       const response = await query<{ snapshot: { items: Automation[] }; asOf: string; sourceWatermark: number }>({ queryType: "automations.list", workspaceId: scope.workspaceId }, signal);
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
-    refreshMs: 30_000,
   });
   const mine = () => (automations.state().data?.items ?? []).filter((automation) => props.targetIds.includes(automation.target.id) && automation.state !== "retired");
   const base = () => `/w/${app.workspaceId()}/schedules`;

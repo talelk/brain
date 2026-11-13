@@ -3,7 +3,7 @@ import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Select } from "@talelk/newui-molecules";
-import type { Mission, PlayView } from "@brain/contracts";
+import type { PlayView } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
@@ -48,17 +48,9 @@ export function createStartController() {
   const library = createScopedRead<LibrarySummary>({
     scope: app.scope,
     load: async (scope, signal) => librarySummary(scope.workspaceId, signal),
-    refreshMs: 20_000,
   });
   const reloadLibrary = () => { void plays.refresh({ force: true }); void library.refresh({ force: true }); };
-  const missions = createScopedRead<Mission[]>({
-    scope: app.scope,
-    load: async (scope, signal) => {
-      const response = await query<Envelope<Mission>>({ queryType: "missions.list", workspaceId: scope.workspaceId }, signal);
-      return { snapshot: [...response.snapshot.items], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
-    },
-    isEmpty: (items) => items.length === 0,
-  });
+  const missions = app.useMissions();
   const [intent, setIntent] = createSignal("");
   const [playId, setPlayId] = createSignal("");
   const [source, setSource] = createSignal<ReuseCandidate>();

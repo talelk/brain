@@ -2,6 +2,7 @@ import { createEffect, createSignal, onCleanup, untrack } from "solid-js";
 import type { Accessor } from "solid-js";
 import { GovernorError } from "./client";
 import { shareStructure } from "./share";
+import { subscribeLive } from "./live";
 import type { Loaded } from "./governor";
 
 /**
@@ -52,8 +53,8 @@ export function createScopedRead<T>(input: {
   load: (scope: { organizationId: string; workspaceId: string; generation: number }, signal: AbortSignal, resource?: string) => Promise<Loaded<T>>;
   /** Empty is meaningful here, not an error; screens render their own explanation. */
   isEmpty?: (data: T) => boolean;
-  /** Poll while the region should stay fresh; 0 disables live refresh. */
-  refreshMs?: number;
+  /** Re-load with the rest of the screen whenever the live bus says something changed; false for data that never changes under a reader. */
+  live?: boolean;
 }): {
   state: Accessor<ScreenState<T>>;
   refresh: (options?: { force?: boolean }) => Promise<void>;
@@ -129,10 +130,8 @@ export function createScopedRead<T>(input: {
     }
   }
 
-  let timer: ReturnType<typeof setInterval> | undefined;
-  if (input.refreshMs) {
-    timer = setInterval(() => { if (typeof navigator === "undefined" || navigator.onLine !== false) void load(); }, input.refreshMs);
-  }
+  // No read owns a timer: every mounted read re-loads together on the live bus's one signal (data/live.ts).
+  const unsubscribe = input.live === false ? undefined : subscribeLive(() => { if (typeof navigator === "undefined" || navigator.onLine !== false) void load(); });
   const onOffline = () => { isOffline = true; };
   const onOnline = () => { if (isOffline) { isOffline = false; void load(); } };
   if (typeof window !== "undefined") {
@@ -141,7 +140,7 @@ export function createScopedRead<T>(input: {
     onCleanup(() => {
       window.removeEventListener("offline", onOffline);
       window.removeEventListener("online", onOnline);
-      if (timer) clearInterval(timer);
+      unsubscribe?.();
       controller?.abort();
     });
   }

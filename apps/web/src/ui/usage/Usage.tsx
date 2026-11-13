@@ -25,7 +25,6 @@ export function useUsage(queryType: "usage.run" | "usage.task" | "usage.mission"
       const response = await query<Envelope<UsageView>>({ queryType, workspaceId: scope.workspaceId, ...(id ? { resourceId: id } : {}) } as never, signal);
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
-    refreshMs: 10_000,
   });
 }
 

@@ -61,7 +61,6 @@ export default function ResourcesPage(): JSX.Element {
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     isEmpty: (view) => view.items.length === 0,
-    refreshMs: 15_000,
   });
   const detail = createScopedRead<DocumentView | null>({
     scope: app.scope,
@@ -144,7 +143,7 @@ export default function ResourcesPage(): JSX.Element {
   }
 
   return <BrainPage title="Resources" description="Keep workspace-private source material searchable, previewable and connected to the work that uses it."
-    actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={() => void refresh(selectedId() || undefined)}>Refresh</Button><Button variant="solid" theme="blue" iconLeft="lucide-upload" onClick={() => open("upload")}>Add document</Button></>}>
+    actions={<Button variant="solid" theme="blue" iconLeft="lucide-upload" onClick={() => open("upload")}>Add document</Button>}>
     <PageStack>
       <FormSheet open={sheet() === "upload"} onClose={() => setSheet("")} title="Add source material" centered description="Use operational guides, incident notes and reference documents. Upload never publishes shared memory or crosses workspace scope."
         submit="Upload document" icon="lucide-upload" busy={busy()} onSubmit={upload} error={error()} errorTitle="Document upload failed">

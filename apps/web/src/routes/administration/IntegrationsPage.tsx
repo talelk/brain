@@ -40,7 +40,6 @@ export default function IntegrationsPage(): JSX.Element {
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     isEmpty: (view) => view.connections.length === 0,
-    refreshMs: 3000,
   });
   const repositories = createScopedRead<{ items: IntegrationRepository[]; status: GitConnection["status"]; detail?: string }>({
     scope: app.scope,
@@ -50,7 +49,6 @@ export default function IntegrationsPage(): JSX.Element {
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     isEmpty: (view) => view.items.length === 0,
-    refreshMs: 3000,
   });
 
   /** Nothing connected yet: one explanation and one next step instead of four zeroes and two empty boxes. */
@@ -97,7 +95,7 @@ export default function IntegrationsPage(): JSX.Element {
   }
 
   return <BrainPage title="Integrations" description="Connect Brain to your Git repositories, then bind a repository to a workspace so its workflows can use it. Credentials are stored encrypted and never shown again."
-    actions={<><Button variant="outline" iconLeft="lucide-refresh-cw" onClick={() => void refresh()}>Refresh</Button><Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => { setError(""); setConnectOpen(true); }}>Connect remote</Button></>}>
+    actions={<Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={() => { setError(""); setConnectOpen(true); }}>Connect remote</Button>}>
     <PageStack>
       <Show when={error()}><Alert theme="red" variant="outline" title="Integration action failed" description={error()} /></Show>
       <Show when={firstUse()}><div class="flex flex-col items-center gap-3 rounded-card border border-outline-gray-1 bg-surface-elevation-1 px-4 py-10 text-center">

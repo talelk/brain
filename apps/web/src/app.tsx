@@ -15,6 +15,8 @@ import { Authentication, AuthenticatorEnrollment, InitialPasswordChange, Invitat
 import { ThemeToggle } from "./ui/components/ThemeToggle";
 import { GlobalSearchDialog } from "./ui/components/GlobalSearch";
 import { BrandMark, IconTile } from "./ui/components/primitives";import { BrainForm, FormActions } from "./ui/components/BrainForm";
+import { t, setLocale, LOCALES, localeDirection, locale, type Locale, type MessageKey } from "./i18n";
+import { LiveFreshness } from "./ui/components/LiveFreshness";
 import { PageHeaderProvider, usePageHeader } from "./ui/page-context";
 import { LandingRedirect } from "./ui/LandingRedirect";
 import { PRIMARY_NAVIGATION, AREA_NAVIGATION, ICONS, ROUTES } from "./routes/index.gen";
@@ -60,7 +62,7 @@ function WorkspaceSync(props: { children: JSX.Element }): JSX.Element {
   const app = useApp();
   const params = useParams();
   onMount(() => { if (params.id && params.id !== app.workspaceId()) app.selectWorkspace(params.id); });
-  return <Show when={!params.id || params.id === app.workspaceId()} fallback={<p role="status" class="p-4 text-ink-gray-7">Switching workspace…</p>}>
+  return <Show when={!params.id || params.id === app.workspaceId()} fallback={<p role="status" class="p-4 text-ink-gray-7">{t("shell.workspace.switching")}</p>}>
     {props.children}
   </Show>;
 }
@@ -85,6 +87,18 @@ function areaForPath(pathname: string): string {
 
 const FALLBACK_ICON = "lucide-circle";
 
+/** The sidebar entries come from the screen contract in English; this maps each to its catalogue key. */
+const NAV_ITEM_KEYS: Readonly<Record<string, MessageKey>> = {
+  "Today": "nav.item.today", "Missions": "nav.item.missions", "Approvals": "nav.item.approvals", "Schedules": "nav.item.schedules", "All results": "nav.item.all-results",
+  "Library": "nav.item.library", "Plays": "nav.item.plays", "Knowledge": "nav.item.knowledge", "Review inbox": "nav.item.review-inbox", "Support": "nav.item.support",
+  "Incidents": "nav.item.incidents", "Studio": "nav.item.studio", "Logs": "nav.item.logs", "Runners": "nav.item.runners", "Workspaces": "nav.item.workspaces",
+  "Setup": "nav.item.setup", "Security": "nav.item.security", "Quality": "nav.item.quality", "Integrations": "nav.item.integrations", "Releases": "nav.item.releases",
+  "People": "nav.item.people", "Invitations": "nav.item.invitations", "Access": "nav.item.access", "Authentication": "nav.item.authentication", "Health": "nav.item.health",
+};
+const navLabel = (label: string): string => { const key = NAV_ITEM_KEYS[label]; return key ? t(key) : label; };
+const PLACE_KEYS: Readonly<Record<string, MessageKey>> = { today: "nav.today", missions: "nav.missions", library: "nav.library", administration: "nav.administration" };
+
+/** Four places: Today, Missions, Library, Administration. Everything else is a view inside one of them (the contract's `area`). */
 function Navigation(attentionCount: () => number): AppSidebarGroup[] {
   const app = useApp();
   const navigate = useNavigate();
@@ -106,34 +120,34 @@ function Navigation(attentionCount: () => number): AppSidebarGroup[] {
     return current === tab;
   };
   const go = (route: string) => () => void navigate(href(route));
-  const primary = PRIMARY_NAVIGATION.map((entry) => ({
-    label: entry.label, icon: ICONS[entry.route] ?? FALLBACK_ICON, active: areaForPath(href(entry.route)) === area(),
-    ...(entry.route === "/w/:id/missions" ? { get count() { return attentionCount() || undefined; } } : {}),
-    onClick: go(entry.route),
-  }));
-  // Administration is a place, not a menu item to hunt for: it sits under More for everyone (people without admin rights get their own security page).
-  const secondary = [
-    { label: app.canAdminister() ? "Administration" : "Account", icon: "lucide-settings", active: area() === "administration", onClick: go(settingsRoute(app)) },
-  ];
+  // Administration is a place like the others; people without admin rights get their own security page under the name Account.
+  const primary = PRIMARY_NAVIGATION.map((entry) => {
+    const administration = entry.id === "administration";
+    return {
+      label: administration && !app.canAdminister() ? t("nav.account") : t(PLACE_KEYS[entry.id] ?? "nav.today"),
+      icon: ICONS[entry.route] ?? FALLBACK_ICON, active: area() === entry.id,
+      ...(entry.id === "missions" ? { get count() { return attentionCount() || undefined; } } : {}),
+      onClick: administration ? () => void navigate(settingsRoute(app)) : go(entry.route),
+    };
+  });
   const scopes = () => app.identity()?.actor.scopes ?? [];
-  const shown = new Set(PRIMARY_NAVIGATION.map((entry) => entry.route).map(href));
+  const shown = new Set(PRIMARY_NAVIGATION.filter((entry) => entry.id !== "administration").map((entry) => entry.route).map(href));
   const contextual = (AREA_NAVIGATION[area()] ?? []).filter((entry) =>
     (!entry.adminOnly || app.canAdminister() || Boolean(entry.identityOnly && scopes().includes("identity:read")))
     && (!entry.organizationOnly || scopes().includes("config:activate"))
     && (!entry.identityOnly || scopes().includes("identity:read"))
     && !shown.has(href(entry.route)),
-  ).map((entry) => ({ scope: entry.scope, item: { label: entry.label, icon: entry.icon, active: active(entry.route), onClick: go(entry.route) } }));
+  ).map((entry) => ({ scope: entry.scope, item: { label: navLabel(entry.label), icon: entry.icon, active: active(entry.route), onClick: go(entry.route) } }));
   // Administration mixes three scopes; each gets its own heading so a person can tell what changes only this workspace, what changes the whole instance, and what is theirs alone.
   const scoped = (scope: "workspace" | "instance" | "account", label: string) => {
     const items = contextual.filter((entry) => entry.scope === scope).map((entry) => entry.item);
     return items.length ? [{ label, items }] : [];
   };
   return [
-    { label: "Brain", items: primary },
-    { label: "More", items: secondary },
+    { label: t("nav.group.places"), items: primary },
     ...(area() === "administration"
-      ? [...scoped("workspace", "This workspace"), ...scoped("instance", "Whole instance"), ...scoped("account", "My account")]
-      : contextual.length ? [{ label: "In this area", items: contextual.map((entry) => entry.item) }] : []),
+      ? [...scoped("workspace", t("nav.group.workspace")), ...scoped("instance", t("nav.group.instance")), ...scoped("account", t("nav.group.account"))]
+      : contextual.length ? [{ label: t("nav.group.area"), items: contextual.map((entry) => entry.item) }] : []),
   ];
 }
 
@@ -141,18 +155,27 @@ function settingsRoute(app: ReturnType<typeof useApp>): string {
   return app.identity()?.actor.scopes.includes("config:activate") ? "/settings?tab=setup" : app.canAdminister() ? "/settings?tab=members" : "/settings?tab=security";
 }
 
+/** The interface language is a per-browser choice; it also sets the reading direction, and the page reloads so every layout picks it up. */
+function chooseLanguage(next: Locale): void {
+  setLocale(next);
+  try { localStorage.setItem("brain.dir", localeDirection(next)); } catch { /* per-browser convenience only */ }
+  location.reload();
+}
+
 function AccountMenu(props: { compact?: boolean }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
-  const name = () => app.identity()?.displayName ?? "Account";
+  const name = () => app.identity()?.displayName ?? t("shell.account.fallbackName");
   return <div data-testid="account-menu" data-keep-drawer class="flex min-w-0">
     <Dropdown class={props.compact ? "size-10 justify-center" : "w-full justify-start"} options={[
-      { label: app.canAdminister() ? "Administration" : "Security & account", value: "settings", icon: "lucide-user-round-cog" },
-      { label: `Signed in as ${name()}`, value: "identity", disabled: true },
-      { label: "Sign out", value: "signout", danger: true, icon: "lucide-log-out" },
+      { label: app.canAdminister() ? t("shell.account.administration") : t("shell.account.security"), value: "settings", icon: "lucide-user-round-cog" },
+      ...LOCALES.map((entry) => ({ label: `${t("shell.account.language")}: ${entry.label}`, value: `lang:${entry.id}`, icon: "lucide-languages", disabled: entry.id === locale() })),
+      { label: t("shell.account.signedInAs", { name: name() }), value: "identity", disabled: true },
+      { label: t("shell.account.signOut"), value: "signout", danger: true, icon: "lucide-log-out" },
     ]} onSelect={(value) => {
       if (value === "settings") void navigate(settingsRoute(app));
       if (value === "signout") void app.signOut();
+      if (value?.startsWith("lang:")) chooseLanguage(value.slice(5) as Locale);
     }}>
       <span class="flex min-w-0 items-center gap-2">
         <Avatar size="xs" theme="blue" label={name()} />
@@ -187,15 +210,15 @@ function ShellLayout(props: RouteSectionProps): JSX.Element {
     breadcrumbs={header()?.breadcrumbs}
     actions={header()?.actions}
     mobileTitle={header()?.title ?? "Brain"}
-    headerActions={<><Show when={app.workspaceId()}><AttentionDrawer attention={attention} /></Show><Button variant="ghost" iconLeft="lucide-search" aria-label="Search Brain (Control K)" onClick={() => setSearchOpen(true)}><span class="max-sm:hidden">Search</span></Button><ThemeToggle /></>}
-    tenant={<div data-keep-drawer><Dropdown aria-label="Choose workspace" class="w-full justify-start" options={app.workspaceOptions().map((option) => ({ ...option, icon: "lucide-building-2" }))}
+    headerActions={<><Show when={app.workspaceId()}><AttentionDrawer attention={attention} /></Show><LiveFreshness /><Button variant="ghost" iconLeft="lucide-search" aria-label={t("shell.search.aria")} onClick={() => setSearchOpen(true)}><span class="max-sm:hidden">{t("shell.search")}</span></Button><ThemeToggle /></>}
+    tenant={<div data-keep-drawer><Dropdown aria-label={t("shell.workspace.choose")} class="w-full justify-start" options={app.workspaceOptions().map((option) => ({ ...option, icon: "lucide-building-2" }))}
       onSelect={(value) => { if (value) { app.selectWorkspace(value); void navigate(`/w/${value}/missions`); } }}>
-      <span class="flex min-w-0 items-center gap-2"><span class="lucide-building-2 size-4 shrink-0" aria-hidden="true" /><span class="truncate">{app.workspaceOptions().find((option) => option.value === app.workspaceId())?.label ?? "Choose workspace"}</span></span>
+      <span class="flex min-w-0 items-center gap-2"><span class="lucide-building-2 size-4 shrink-0" aria-hidden="true" /><span class="truncate">{app.workspaceOptions().find((option) => option.value === app.workspaceId())?.label ?? t("shell.workspace.choose")}</span></span>
     </Dropdown></div>}
     tenantCollapsed={<span class="lucide-building-2 size-5" aria-hidden="true" />}
     navigation={Navigation(() => blockingCount(attention.state().data ?? []))}
     account={<AccountMenu />} accountCollapsed={<AccountMenu compact />}
-    navLabel="Brain navigation">
+    navLabel={t("nav.aria")}>
     <GlobalSearchDialog open={searchOpen()} onOpenChange={setSearchOpen} />
     <Show when={app.globalError()}><Alert theme="red" variant="outline" title="Brain needs attention" description={app.globalError()} /></Show>
     <Show when={!app.identity()?.recoveryRequired && !(app.identity()?.requireTwoFactor && !app.identity()?.totpEnrolled)}

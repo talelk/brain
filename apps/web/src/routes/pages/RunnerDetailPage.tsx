@@ -17,7 +17,6 @@ export default function RunnerDetailPage(): JSX.Element {
   const runner = createScopedRead<RunnerSnapshot>({
     scope: app.scope,
     load: (_scope, signal) => runnerQuery(runnerId(), signal),
-    refreshMs: 15_000,
   });
   const [message, setMessage] = createSignal("");
   const [enrollOpen, setEnrollOpen] = createSignal(false);

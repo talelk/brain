@@ -51,12 +51,10 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
       }
     },
     isEmpty: (view) => view === null,
-    refreshMs: 2000,
   });
   /** A proposal opened by link (?proposal=) takes the place of the drafted strategy, with the confirmed plan beside it for the diff. */
   const linked = createScopedRead<{ proposal?: PlanVersion; confirmed?: PlanVersion }>({
-    scope: app.scope, refreshMs: 5000,
-    load: async (scope, signal) => {
+    scope: app.scope, load: async (scope, signal) => {
       const get = async (id: string) => (await query<{ snapshot: PlanVersion }>({ queryType: "plans.get", workspaceId: scope.workspaceId, resourceId: id }, signal)).snapshot;
       const proposed = props.proposalId ? await get(props.proposalId) : undefined;
       const confirmed = proposed && props.mission.activePlanVersionId ? await get(props.mission.activePlanVersionId) : undefined;
@@ -65,8 +63,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
   });
   /** The mission's confirmed plan, shown when no planning request holds a newer proposal (e.g. a plan confirmed from a play). */
   const active = createScopedRead<PlanVersion | null>({
-    scope: app.scope, refreshMs: 5000,
-    resource: () => props.mission.activePlanVersionId ?? "",
+    scope: app.scope, resource: () => props.mission.activePlanVersionId ?? "",
     load: async (scope, signal, planVersionId) => {
       if (!planVersionId) return { snapshot: null, asOf: new Date().toISOString(), sourceWatermark: 0 };
       const response = await query<{ snapshot: PlanVersion; asOf: string; sourceWatermark: number }>({ queryType: "plans.get", workspaceId: scope.workspaceId, resourceId: planVersionId }, signal);

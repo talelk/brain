@@ -16,7 +16,6 @@ export default function SrePage(): JSX.Element {
       return { ...loaded, snapshot: [...loaded.snapshot.items] };
     },
     isEmpty: (items) => items.length === 0,
-    refreshMs: 15_000,
   });
   return <SreScreen incidents={incidents.state().data ?? []} state={incidents.state()}
     onRefresh={() => void incidents.refresh({ force: true })}

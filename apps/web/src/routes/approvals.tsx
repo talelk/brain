@@ -117,7 +117,7 @@ export function ApprovalsScreen(props: {
   const paged = () => visible().slice((currentPage() - 1) * INBOX_PAGE_SIZE, currentPage() * INBOX_PAGE_SIZE);
   const current = () => visible().find((approval) => approval.approvalId === selected());
   return <BrainPage title="Approvals" description="Review one exact proposed effect at a time, with its target, evidence limits and expiry beside the decision."
-    actions={<Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button>}>
+   >
     <PageStack>
       <FilterBar query={{ value: query(), placeholder: "Search action, target, requester, or approval…", onInput: (value) => { setQuery(value); setSelected(undefined); setPage(1); } }} resultCount={visible().length}
         tabs={{ label: "Approval state", value: view(), options: [{ value: "pending", label: "Pending" }, { value: "decided", label: "Decided" }, { value: "expired", label: "Expired" }, { value: "all", label: "All" }], onValueChange: (value) => { setView(value); setSelected(undefined); setPage(1); } }}

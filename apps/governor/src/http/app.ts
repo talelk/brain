@@ -369,8 +369,13 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     try {
       const identity = await actorFor(c);
       const url = new URL(c.req.url);
-      const after = Number(c.req.header("last-event-id") ?? url.searchParams.get("after") ?? 0);
+      // `after=head` starts at the newest record: a client that only wants to hear about new changes never replays history.
+      const afterParam = c.req.header("last-event-id") ?? url.searchParams.get("after") ?? 0;
+      if (afterParam === "head") brain.stream.project();
+      const after = afterParam === "head" ? brain.stream.head() : Number(afterParam);
       const startCursor = Number.isFinite(after) && after > 0 ? Math.floor(after) : 0;
+      // `wake=1`: one small `changed` frame per batch instead of every record; the web's live store re-reads its screens on it.
+      const wake = url.searchParams.get("wake") === "1";
       // Server-authoritative filters: scoped in SQL before any page limit, so
       // severity/emitter selection can never widen authorization.
       const csv = (name: string): string[] | undefined => {
@@ -430,7 +435,8 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
                   close();
                   return;
                 }
-                for (const e of head) controller.enqueue(encoder.encode(frame(e as { streamSeq: number })));
+                if (wake) controller.enqueue(encoder.encode(`id: ${newest}\nevent: changed\ndata: ${JSON.stringify({ streamSeq: newest, count: head.length })}\n\n`));
+                else for (const e of head) controller.enqueue(encoder.encode(frame(e as { streamSeq: number })));
                 cursor = newest;
                 lastHeartbeat = Date.now();
               } else if (Date.now() - lastHeartbeat > 5000) {

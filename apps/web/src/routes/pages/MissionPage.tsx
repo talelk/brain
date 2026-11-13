@@ -154,7 +154,6 @@ export default function MissionPage(): JSX.Element {
       return { snapshot: pick(response.snapshot), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     ...(empty ? { isEmpty: empty } : {}),
-    refreshMs: 15_000,
   });
   const mission = read<Mission>("missions.get", (raw) => raw as Mission);
   const items = createScopedRead<WorkItem[]>({
@@ -163,7 +162,6 @@ export default function MissionPage(): JSX.Element {
       const response = await query<Envelope<{ items: WorkItem[] }>>({ queryType: "workItems.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
       return { snapshot: response.snapshot.items.filter((item) => item.missionId === missionId()), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
-    refreshMs: 2000,
   });
   const [error, setError] = createSignal("");
   const [busy, setBusy] = createSignal(false);
@@ -248,7 +246,6 @@ function useMissionRead<T>(missionId: string, queryType: string, pick: (raw: unk
       return { snapshot: pick(response.snapshot), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     ...(empty ? { isEmpty: empty } : {}),
-    refreshMs: 15_000,
   });
 }
 
@@ -280,7 +277,6 @@ function LiveTab(props: ActProps): JSX.Element {
       const ids = new Set(mine.map((item) => item.workItemId));
       return { snapshot: { members: [...(plan?.snapshot.team ?? [])], items: mine, sessions: sessions.snapshot.items.filter((session) => session.workItemId && ids.has(session.workItemId)) }, asOf: sessions.asOf, sourceWatermark: sessions.sourceWatermark };
     },
-    refreshMs: 10_000,
   });
   const member = () => (typeof search.member === "string" ? search.member : "");
   const memberOf = (session: BrainSession) => {
@@ -391,8 +387,7 @@ function LiveTab(props: ActProps): JSX.Element {
 function TeamTab(props: { mission: Mission }): JSX.Element {
   const app = useApp();
   const plan = createScopedRead<PlanVersion | null>({
-    scope: app.scope, refreshMs: 5000,
-    load: async (scope, signal) => {
+    scope: app.scope, load: async (scope, signal) => {
       if (!props.mission.activePlanVersionId) return { snapshot: null, asOf: new Date().toISOString(), sourceWatermark: 0 };
       const response = await query<Envelope<PlanVersion>>({ queryType: "plans.get", workspaceId: scope.workspaceId, resourceId: props.mission.activePlanVersionId }, signal);
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
@@ -500,8 +495,7 @@ function LogsTab(props: { mission: Mission; items: WorkItem[] }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
   const links = createScopedRead<ExecutionLink[]>({
-    scope: app.scope, refreshMs: 5000,
-    load: async (scope, signal) => {
+    scope: app.scope, load: async (scope, signal) => {
       const response = await query<Envelope<{ items: ExecutionLink[] }>>({ queryType: "executionLinks.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
       return { snapshot: response.snapshot.items.filter((link) => link.missionId === props.mission.missionId), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },

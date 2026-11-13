@@ -268,7 +268,8 @@
    "navigationGroup": "schedules",
    "icon": "lucide-calendar-clock",
    "task": "Manage every schedule in one place: what it starts, when it fires next, which host runs it",
-   "title": "Schedules"
+   "title": "Schedules",
+   "area": "missions"
   },
   {
    "route": "/administration/workspaces",
@@ -318,7 +319,8 @@
    "navigationGroup": "live",
    "icon": "lucide-radio",
    "task": "Run, steer and inspect live agent sessions without losing session state",
-   "title": "Live"
+   "title": "Live",
+   "area": "missions"
   },
   {
    "route": "/w/:id/logs",
@@ -342,7 +344,8 @@
    "navigationGroup": "logs",
    "icon": "lucide-scroll-text",
    "task": "Search execution and platform logs and jump between correlated contexts",
-   "title": "Logs"
+   "title": "Logs",
+   "area": "administration"
   },
   {
    "route": "/w/:id/outputs",
@@ -367,7 +370,8 @@
    "navigationGroup": "outputs",
    "icon": "lucide-package",
    "task": "Browse authorized generated artifacts with previews, diffs and history",
-   "title": "Outputs"
+   "title": "Outputs",
+   "area": "missions"
   },
   {
    "route": "/outputs/:id",
@@ -388,7 +392,8 @@
    "navigationGroup": "outputs",
    "icon": "lucide-file-search",
    "task": "Inspect a named output, its versions and lineage",
-   "title": "Output"
+   "title": "Output",
+   "area": "missions"
   },
   {
    "route": "/outputs/:id/compare",
@@ -405,7 +410,8 @@
    "navigationGroup": "outputs",
    "icon": "lucide-git-compare",
    "task": "Compare two versions of an output with their provenance",
-   "title": "Compare output versions"
+   "title": "Compare output versions",
+   "area": "missions"
   },
   {
    "route": "/approvals",
@@ -472,7 +478,8 @@
    "navigationGroup": "live",
    "icon": "lucide-search-check",
    "task": "Inspect one run's state, attempts, evidence and links without duplicating the console, logs or outputs",
-   "title": "Run inspector"
+   "title": "Run inspector",
+   "area": "missions"
   },
   {
    "route": "/runners",
@@ -493,7 +500,8 @@
    "navigationGroup": "live",
    "icon": "lucide-server",
    "task": "Inspect a run, its attempts, events and evidence",
-   "title": "Runners"
+   "title": "Runners",
+   "area": "administration"
   },
   {
    "route": "/runners/:id",
@@ -512,7 +520,8 @@
    "navigationGroup": "live",
    "icon": "lucide-hard-drive",
    "task": "Inspect a run, its attempts, events and evidence",
-   "title": "Runner detail"
+   "title": "Runner detail",
+   "area": "administration"
   },
   {
    "route": "/sessions/:id",
@@ -533,7 +542,8 @@
    "navigationGroup": "live",
    "icon": "lucide-square-terminal",
    "task": "Open one session in the Live console: active and historical are state, not layout",
-   "title": "Live console"
+   "title": "Live console",
+   "area": "missions"
   },
   {
    "route": "/w/:id/plays/support",
@@ -856,7 +866,8 @@
    "navigationGroup": "administration",
    "icon": "lucide-plug",
    "task": "Connect Git providers and bind repositories to workspaces",
-   "title": "Integrations"
+   "title": "Integrations",
+   "area": "administration"
   },
   {
    "route": "/shared/:token",
@@ -892,29 +903,14 @@
    "entryRoute": "/w/:id/missions"
   },
   {
-   "id": "live",
-   "label": "Live",
-   "entryRoute": "/w/:id/live"
-  },
-  {
-   "id": "logs",
-   "label": "Logs",
-   "entryRoute": "/w/:id/logs"
-  },
-  {
-   "id": "outputs",
-   "label": "Outputs",
-   "entryRoute": "/w/:id/outputs"
-  },
-  {
    "id": "library",
    "label": "Library",
    "entryRoute": "/w/:id/library"
   },
   {
-   "id": "schedules",
-   "label": "Schedules",
-   "entryRoute": "/w/:id/schedules"
+   "id": "administration",
+   "label": "Administration",
+   "entryRoute": "/settings"
   }
  ],
  "secondaryNavigation": {
@@ -964,22 +960,32 @@
     "label": "Approvals",
     "route": "/approvals",
     "icon": "lucide-shield-check"
+   },
+   {
+    "label": "Schedules",
+    "route": "/w/:id/schedules",
+    "icon": "lucide-calendar-clock"
+   },
+   {
+    "label": "All results",
+    "route": "/w/:id/outputs",
+    "icon": "lucide-package"
    }
   ],
-  "live": [
+  "administration": [
    {
-    "label": "Live",
-    "route": "/w/:id/live",
-    "icon": "lucide-radio"
+    "label": "Logs",
+    "route": "/w/:id/logs",
+    "icon": "lucide-scroll-text",
+    "scope": "workspace"
    },
    {
     "label": "Runners",
     "route": "/runners",
     "adminOnly": true,
-    "icon": "lucide-server"
-   }
-  ],
-  "administration": [
+    "icon": "lucide-server",
+    "scope": "instance"
+   },
    {
     "label": "Workspaces",
     "route": "/administration/workspaces",
@@ -1063,13 +1069,6 @@
     "organizationOnly": true,
     "icon": "lucide-heart-pulse",
     "scope": "instance"
-   }
-  ],
-  "schedules": [
-   {
-    "label": "Schedules",
-    "route": "/w/:id/schedules",
-    "icon": "lucide-calendar-clock"
    }
   ],
   "library": [

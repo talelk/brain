@@ -69,7 +69,6 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
       return { snapshot: response.snapshot.items.filter((item) => item.missionId === missionId()), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     isEmpty: (list) => list.length === 0,
-    refreshMs: 5_000,
   });
   // Sessions let each active task row say what it is doing now (#61).
   const sessions = createScopedRead<BrainSession[]>({
@@ -78,7 +77,6 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
       const response = await query<Envelope<{ items: BrainSession[] }>>({ queryType: "sessions.list", workspaceId: scope.workspaceId }, signal);
       return { snapshot: [...response.snapshot.items], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
-    refreshMs: 10_000,
   });
   // The confirmed plan names each task's estimate and the team that owns it.
   const plan = createScopedRead<PlanVersion | null>({

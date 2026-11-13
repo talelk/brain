@@ -71,7 +71,7 @@ export function SettingsScreen(props: {
   const auditPageCount = () => Math.max(1, Math.ceil(props.audit.length / SETTINGS_PAGE_SIZE));
   const currentAuditPage = () => Math.min(auditPage(), auditPageCount());
   const auditRows = () => props.audit.slice((currentAuditPage() - 1) * SETTINGS_PAGE_SIZE, currentAuditPage() * SETTINGS_PAGE_SIZE);
-  return <BrainPage title={page().title} description={page().description} actions={<Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button>}>
+  return <BrainPage title={page().title} description={page().description}>
     <PageStack>
       <Show when={tab() === "setup" && organizationAdmin()}><LocalModelSetup /></Show>
       <Show when={tab() === "security"}><SecurityPage /></Show>

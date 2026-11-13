@@ -20,7 +20,6 @@ export default function IncidentDetailPage(): JSX.Element {
   const incident = createScopedRead<IncidentDetail>({
     scope: app.scope,
     load: (_scope, signal) => incidentQuery(workspaceId(), incidentId(), signal),
-    refreshMs: 30_000,
   });
   const sentence = () => {
     const i = incident.state().data; if (!i) return "";

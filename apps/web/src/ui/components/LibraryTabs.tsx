@@ -19,7 +19,6 @@ export function LibraryTabs(props: { value: LibraryTab; trailing?: JSX.Element }
   const summary = createScopedRead({
     scope: app.scope,
     load: async (scope, signal) => librarySummary(scope.workspaceId, signal),
-    refreshMs: 15_000,
   });
   const count = (pick: (value: LibrarySummary) => number) => {
     const data = summary.state().data;

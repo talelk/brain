@@ -7,6 +7,7 @@ import { Section } from "@talelk/newui-organisms";
 import { Alert } from "@talelk/newui-molecules";
 import type { LocalRuntimeStatus } from "@brain/contracts";
 import { governor } from "../../data/client";
+import { subscribeLive, wantFastPulse } from "../../data/live";
 import { OperationalChecklist, createReadiness } from "./OperationalChecklist";
 import { TechnicalDetails } from "./PageLayout";
 import { FormSheet } from "./BrainForm";
@@ -32,7 +33,8 @@ export function LocalModelSetup() {
       if (initial) { setUrl(next.modelUrl ?? ""); setModel(next.modelId ?? ""); }
     } catch (e) { if (!disposed) setError(e instanceof Error ? e.message : "Model setup is unavailable."); }
   }
-  onMount(() => { void load(true); const timer = setInterval(() => void load(), 3000); onCleanup(() => { disposed = true; clearInterval(timer); }); });
+  // Runners apply a connection without emitting events, so while this panel is open the live bus pulses faster (one timer, owned by the bus).
+  onMount(() => { void load(true); const release = wantFastPulse(); const unsubscribe = subscribeLive(() => void load()); onCleanup(() => { disposed = true; release(); unsubscribe(); }); });
   async function connect() {
     if (busy() || !url().trim() || !model().trim()) return;
     setBusy(true); setError(""); setMessage("");

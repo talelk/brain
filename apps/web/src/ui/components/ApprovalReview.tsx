@@ -1,6 +1,7 @@
 import { Show, createEffect, createMemo, createSignal, createUniqueId, on, onCleanup } from "solid-js";
 import { Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert, Collapsible, Dialog } from "@talelk/newui-molecules";
+import { liveNow, useClock } from "../../data/live";
 import { StatusIcon } from "../viz/StatusIcon";
 import {
   beginDecision, beginRecovery, returnToReview, settleDecision,
@@ -10,11 +11,11 @@ import {
 /** Seconds left until `expiresAt`, measured on the server clock (`asOf`) plus the time since the page loaded; display only, never authority. */
 export function createExpiryClock(expiresAt: () => string | undefined, asOf: () => string | undefined) {
   const loadedAt = Date.now();
-  const [tick, setTick] = createSignal(0);
-  const timer = setInterval(() => setTick((n) => n + 1), 15_000);
-  onCleanup(() => clearInterval(timer));
+  const release = useClock();
+  onCleanup(release);
+  const clock = liveNow();
   return createMemo(() => {
-    tick();
+    clock();
     const expiry = Date.parse(expiresAt() ?? "");
     if (!Number.isFinite(expiry)) return undefined;
     const server = Date.parse(asOf() ?? "");

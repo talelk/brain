@@ -63,16 +63,26 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(reviewButton).toBeFocused();
 
-  // Execution-console IA: the primary Live entry lands on /w/:id/live, and the
-  // execution area carries Logs (with the run index) and Outputs beside it.
+  // Four places: Today, Missions, Library, Administration. Live, Logs and Outputs are views, not places.
   if (await navToggle.isVisible()) await navToggle.click();
-  await page.getByRole("button", { name: "Live", exact: true }).click();
-  await expect(page).toHaveURL(/\/w\/ws-nav\/live/);
+  const nav = page.getByRole("navigation", { name: "Brain navigation" });
+  for (const place of ["Today", "Missions", "Library", "Administration"]) await expect(nav.getByRole("button", { name: place, exact: true })).toBeVisible();
+  for (const view of ["Live", "Logs", "Outputs"]) await expect(nav.getByRole("button", { name: view, exact: true })).toHaveCount(0);
+
+  // Live is a view of what is running: the console still opens, and says so honestly when nothing runs.
+  await page.goto(`${governor.url}/w/ws-nav/live`);
   await expect(page.getByText("Nobody is working right now", { exact: true })).toBeVisible();
+  // Results live under Missions; Logs live under Administration.
   if (await navToggle.isVisible()) await navToggle.click();
-  await expect(page.getByRole("button", { name: "Logs", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Outputs", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Logs", exact: true }).click();
+  await nav.getByRole("button", { name: "Missions", exact: true }).click();
+  await expect(page).toHaveURL(/\/w\/ws-nav\/missions/);
+  if (await navToggle.isVisible()) await navToggle.click();
+  await expect(nav.getByRole("button", { name: "All results", exact: true })).toBeVisible();
+  await expect(nav.getByRole("button", { name: "Schedules", exact: true })).toBeVisible();
+  if (await navToggle.isVisible()) await navToggle.click();
+  await nav.getByRole("button", { name: "Administration", exact: true }).click();
+  if (await navToggle.isVisible()) await navToggle.click();
+  await nav.getByRole("button", { name: "Logs", exact: true }).click();
   await expect(page).toHaveURL(/\/w\/ws-nav\/logs/);
   await page.getByRole("radio", { name: "Runs", exact: true }).click();
   await expect(page.getByText("No runs in this view", { exact: true })).toBeVisible();

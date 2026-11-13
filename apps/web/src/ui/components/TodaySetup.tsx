@@ -6,6 +6,7 @@ import { Dialog } from "@talelk/newui-molecules";
 import type { OperationalReadiness } from "@brain/contracts";
 import { useApp } from "../app-context";
 import { IconTile } from "./primitives";
+import { wantFastPulse } from "../../data/live";
 const LocalModelSetup = lazy(() => import("./LocalModelSetup").then((module) => ({ default: module.LocalModelSetup })));
 import type { createReadiness } from "./OperationalChecklist";
 
@@ -51,8 +52,8 @@ export function TodaySetup(props: { readiness: ReturnType<typeof createReadiness
   // While the sheet is open the checklist behind it re-reads quickly, so it is already right when the sheet closes.
   createEffect(() => {
     if (!open()) return;
-    const timer = setInterval(() => void props.readiness.refresh({ force: true }), 3000);
-    onCleanup(() => clearInterval(timer));
+    const release = wantFastPulse();
+    onCleanup(release);
   });
   const fix = (row: SetupRow) => { if (row.step === "release") void navigate("/settings?tab=release&from=today"); else setOpen(true); };
   const label = (row: SetupRow) => (row.step === "smoke" ? "Run the check" : row.step === "release" ? "Open releases" : row.step === "model" ? "Connect a model" : "Start the runners");

@@ -116,7 +116,6 @@ export default function OutputsPage(): JSX.Element {
         sourceWatermark: links.sourceWatermark,
       };
     },
-    refreshMs: 30_000,
   });
 
   const updateParams = (patch: Record<string, string | undefined>) => {

@@ -30,7 +30,6 @@ export default function LibraryPage(): JSX.Element {
   const summary = createScopedRead<LibrarySummary>({
     scope: app.scope,
     load: async (scope, signal) => librarySummary(scope.workspaceId, signal),
-    refreshMs: 10_000,
   });
   const base = () => `/w/${app.workspaceId()}`;
   const shelves = (): Array<{ id: string; label: string; count: (value: LibrarySummary) => number; description: string; icon: string; href: string; emphasis?: boolean }> => [

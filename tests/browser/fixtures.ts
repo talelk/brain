@@ -5,7 +5,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createApp } from "../../apps/governor/src/http/app";
 
-export const test = base.extend<{ requireTwoFactor: boolean; integrationUrls: boolean; localRuntime: boolean; governor: { url: string; credential: string; app: Awaited<ReturnType<typeof createApp>> } }>({
+export const test = base.extend<{ appLocale: string; requireTwoFactor: boolean; integrationUrls: boolean; localRuntime: boolean; governor: { url: string; credential: string; app: Awaited<ReturnType<typeof createApp>> } }>({
+  /** The interface language the page opens in (the app also follows the browser language; specs pin English unless they test a translation). */
+  appLocale: ["en", { option: true }],
+  page: async ({ page, appLocale }, use) => {
+    await page.addInitScript((locale) => { try { window.localStorage.setItem("brain.locale", locale); } catch { /* storage blocked */ } }, appLocale);
+    await use(page);
+  },
   requireTwoFactor: [false, { option: true }],
   integrationUrls: [false, { option: true }],
   localRuntime: [false, { option: true }],
