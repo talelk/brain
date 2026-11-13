@@ -110,7 +110,7 @@ export function RepeatSheet(props: { mission: Mission; open: boolean; onClose: (
     </div>
     <p class="text-caption text-ink-gray-6">
       Each run is a new mission with its own Results, so you can see what changed.{" "}
-      <Show when={props.mission.playId} fallback={<>{t("sched.if-the-previous-run-is-still-goi.d1fb")}</>}>{t("sched.if-the-previous-mission-is-still.5a00")}</Show> A run that fails appears in Needs you.
+      <Show when={props.mission.playId} fallback={t("sched.if-the-previous-run-is-still-goi.d1fb")}>{t("sched.if-the-previous-mission-is-still.5a00")}</Show> A run that fails appears in Needs you.
     </p>
     <Show when={cannotTarget()}><p class="text-interface text-ink-amber-8" role="alert">{t("sched.this-workspace-has-no-task-brain.fa2a")}</p></Show>
   </FormSheet>;
