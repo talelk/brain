@@ -62,6 +62,26 @@ describe("a failed attempt carries its reason", () => {
     }
   });
 
+  it("an engine failure keeps its real cause (budget, schema, tool, context, abort), redacted and within 500 characters", async () => {
+    const w = setupWorld();
+    try {
+      const secret = "sk-ant-0123456789abcdefghijkl";
+      const budget = "agent ended with error: budget: the attempt used its allowance (277102 of 100000 tokens) and was still calling tools, so no complete answer was written";
+      const offer = await failedAttempt(w, "why-3", `${budget} (api_key=${secret})`);
+      const stored = w.brain.store.control.prepare("SELECT failure_reason AS r FROM job_attempts WHERE id=?").get(offer.attemptId) as { r: string };
+      expect(stored.r).toContain(budget);
+      expect(stored.r).not.toContain(secret);
+      expect(stored.r).not.toBe("agent ended with error");
+
+      const long = await failedAttempt(w, "why-4", `agent ended with error: context overflow: ${"400 maximum context length ".repeat(80)}`);
+      const cut = w.brain.store.control.prepare("SELECT failure_reason AS r FROM job_attempts WHERE id=?").get(long.attemptId) as { r: string };
+      expect(cut.r.startsWith("agent ended with error: context overflow: ")).toBe(true);
+      expect(cut.r.length).toBeLessThanOrEqual(500);
+    } finally {
+      w.brain.close();
+    }
+  });
+
   it("an attempt that failed without an error says nothing it does not know", async () => {
     const w = setupWorld();
     try {
