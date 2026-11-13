@@ -18,7 +18,7 @@ const SECRET_SEGMENTS: readonly RegExp[] = [
   /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/giu,
   /\b(https?:\/\/)[^\s/@:]+:[^\s/@]+@/giu,
 ];
-const SECRET_ASSIGNMENT = /\b((?:[A-Za-z][A-Za-z0-9]*[_-])*(?:api[_-]?key|client[_-]?secret|shared[_-]?secret|access[_-]?token|refresh[_-]?token|auth[_-]?token|session[_-]?token|token|password|passwd|pwd|secret|credential|private[_-]?key|key))(\s*["']?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;&"']+)/giu;
+const SECRET_ASSIGNMENT = /\b([A-Za-z0-9_-]{0,40}(?:api[_-]?key|client[_-]?secret|shared[_-]?secret|access[_-]?token|refresh[_-]?token|auth[_-]?token|session[_-]?token|token|password|passwd|pwd|secret|credential|private[_-]?key|key))(\s*["']?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;&"']+)/giu;
 
 /** The text with every credential-shaped segment replaced. */
 export function redactSecrets(text: string): string {
