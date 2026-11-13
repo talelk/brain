@@ -118,8 +118,10 @@ export function plainSentence(record: LogRecord, toolName?: string, text?: strin
     const name = toolName && toolName !== "tool invocation" ? ` ${toolName}` : "";
     return `${actor === "A tool" ? "The agent" : actor} ${record.type === "tool.proposed" ? "asked to use the tool" : "finished using the tool"}${name}${forTask}.`;
   }
+  // An attempt that failed carries why (`reason`, redacted and short by the Governor); other errors carry a `message`.
+  const why = typeof payload?.["message"] === "string" ? payload["message"] : typeof payload?.["reason"] === "string" ? payload["reason"] : undefined;
   const reason = record.severity === "error" || record.severity === "critical"
-    ? ` It reported a problem${typeof payload?.["message"] === "string" ? `: ${payload["message"]}` : ""}.`
+    ? ` It reported a problem${why ? `: ${why.replace(/[.\s]+$/u, "")}` : ""}.`
     : "";
   return `${actor} ${action ?? `recorded: ${humanise(record.type)}`}${forTask}.${reason}`;
 }

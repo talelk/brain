@@ -58,10 +58,10 @@ export class LauncherClient {
     return new LauncherClient(socketPath);
   }
 
-  async health(): Promise<{ docker: boolean }> {
+  async health(): Promise<{ docker: boolean; missingImages: string[] }> {
     const r = await this.call("GET", "/v1/health", undefined, 10_000);
     if (r.status !== 200) throw new Error(`launcher health failed ${r.status}`);
-    return { docker: r.json["docker"] === true };
+    return { docker: r.json["docker"] === true, missingImages: Array.isArray(r.json["missingImages"]) ? r.json["missingImages"].map(String) : [] };
   }
 
   async createSandbox(input: { profile: "agent" | "privileged-tool" | "evaluator"; requestId: string; toolsDir?: string; network?: "none" | "internal"; cpuMillicores?: number; memoryMb?: number; dataMounts?: readonly string[] }): Promise<{ sandboxId: string }> {

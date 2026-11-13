@@ -91,7 +91,14 @@ export async function startLauncher(): Promise<void> {
       if (req.method === "GET" && url === "/v1/health") {
         let docker = false;
         try { const r = await execa("docker", ["version", "--format", "{{.Server.Version}}"], { timeout: 5000 }); docker = r.exitCode === 0; } catch { docker = false; }
-        json(res, 200, { docker, profiles: [...PROFILES], images: [...IMAGES], pinnedImages: [...imagePins.keys()], dataMounts: [...dataMounts.keys()], hostCommands: [...hostCommands.entries()].map(([name, c]) => ({ name, effect: c.effect })) });
+        // Docker answering is not enough: a step fails on the first container if the image it runs in was never built on this machine.
+        const missingImages: string[] = [];
+        if (docker) {
+          for (const image of IMAGES) {
+            try { if ((await execa("docker", ["image", "inspect", image, "--format", "{{.Id}}"], { timeout: 5000, reject: false })).exitCode !== 0) missingImages.push(image); } catch { missingImages.push(image); }
+          }
+        }
+        json(res, 200, { docker, missingImages, profiles: [...PROFILES], images: [...IMAGES], pinnedImages: [...imagePins.keys()], dataMounts: [...dataMounts.keys()], hostCommands: [...hostCommands.entries()].map(([name, c]) => ({ name, effect: c.effect })) });
         return;
       }
       const auth = req.headers.authorization ?? "";

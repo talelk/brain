@@ -142,6 +142,15 @@ describe("runner reports its launcher (health below the application)", () => {
     const noDocker = launcherHealthCheck({ BRAIN_LAUNCHER_SOCKET: "/run/launcher.sock" }, async () => ({ docker: false }));
     expect(await noDocker()).toBe("degraded");
   });
+
+  it("a launcher whose Docker answers but whose container image was never built is not usable: degraded, then unhealthy, healthy once built", async () => {
+    let missing: string[] = ["brain-sandbox-evaluator"];
+    const check = launcherHealthCheck({ BRAIN_LAUNCHER_SOCKET: "/run/launcher.sock" }, async () => ({ docker: true, missingImages: missing }));
+    expect(await check()).toBe("degraded");
+    expect(await check()).toBe("unhealthy");
+    missing = [];
+    expect(await check()).toBe("healthy");
+  });
 });
 
 describe("drain for deploys (scripts/drain-live.mjs)", () => {

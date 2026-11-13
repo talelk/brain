@@ -74,4 +74,5 @@ Use `docker logs tdai-memory-core`, `docker logs tdai-memory-hub`, or
 | Memory or engine preflight fails | Check the exact model ID and endpoint; inspect the official containers and the scoped Claude credential/binding |
 | Runners never claim work | `brain doctor --workspace <id>`; check group, capabilities, engine, heartbeat on Runs → Runners |
 | Launcher socket missing | Sandbox/evaluator execution fails closed; read `launcher.log`, verify `BRAIN_LAUNCHER_SOCKET` |
+| A check or tool step fails with `Unable to find image 'brain-sandbox-evaluator:latest'` (the run page names it: "the container image ... is not installed") | The sandbox images were never built on this host. Run `bash scripts/build-sandbox-images.sh`. Until then the launcher reports the missing image, the runner reports itself unhealthy (Health shows "Launcher") and takes no sandboxed work. |
 | Schema mismatch on existing data dir | Preserve it; start a fresh disposable directory or review the existing deployment |

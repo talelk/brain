@@ -487,17 +487,18 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
 }
 
 /**
- * What the runner tells the Governor about the layer below it: whether its sandbox launcher (and Docker behind it) answers. A runner with
+ * What the runner tells the Governor about the layer below it: whether its sandbox launcher (and Docker behind it) answers and every sandbox image is built. A runner with
  * no launcher configured has nothing to check. One miss is degraded, two in a row unhealthy: an unhealthy runner takes no new work, so
  * jobs wait instead of failing against a dead sandbox, and Health says the launcher is down so someone (or the host watchdog) restarts it.
  */
-export function launcherHealthCheck(env: NodeJS.ProcessEnv = process.env, probe: () => Promise<{ docker: boolean }> = () => LauncherClient.fromEnv().health()): () => Promise<"healthy" | "degraded" | "unhealthy"> {
+export function launcherHealthCheck(env: NodeJS.ProcessEnv = process.env, probe: () => Promise<{ docker: boolean; missingImages?: readonly string[] }> = () => LauncherClient.fromEnv().health()): () => Promise<"healthy" | "degraded" | "unhealthy"> {
   let misses = 0;
   return async () => {
     if (!env["BRAIN_LAUNCHER_SOCKET"]) return "healthy";
     try {
       const result = await probe();
-      misses = result.docker ? 0 : misses + 1;
+      // Docker answering is not enough: with a sandbox image never built here every sandboxed step fails on its first container, so the engine is unusable.
+      misses = result.docker && (result.missingImages ?? []).length === 0 ? 0 : misses + 1;
     } catch { misses += 1; }
     return misses === 0 ? "healthy" : misses === 1 ? "degraded" : "unhealthy";
   };

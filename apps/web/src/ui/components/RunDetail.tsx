@@ -22,6 +22,11 @@ import { ReasonDialog } from "./ReasonDialog";
 import { DetailAside, WorkspaceSection } from "./Domain";
 import { RunUsage } from "../usage/Usage";
 import { ContextReceived } from "./ContextReceived";
+import { t, type MessageKey } from "../../i18n";
+
+/** The plain sentence and the one next step for a failure code the Governor recorded (the interface words each code). */
+const failureWhat = (code: string): string => t(`run.fail.${code}` as MessageKey);
+const failureNext = (code: string): string => t(`run.fail.${code}.next` as MessageKey);
 /**
  * The run inspector (T60): state, attempts, evidence and placement for one
  * run, linked out to the execution surfaces. It deliberately does not
@@ -69,8 +74,9 @@ function ageText(createdAt: string): string {
 }
 
 /** One sentence for the run's overall condition. */
-function runSentence(state: string, attempt: { state: string; number: number } | undefined, attempts: number, reasons: readonly string[]): string {
+function runSentence(state: string, attempt: { state: string; number: number; failureCode?: string } | undefined, attempts: number, reasons: readonly string[]): string {
   if (state === "succeeded") return "This run finished and its result was independently checked.";
+  if (state === "failed" && attempt?.failureCode) return t("run.fail.status", { what: failureWhat(attempt.failureCode) });
   if (state === "failed") return attempts > 1 ? `This run failed after ${attempts} attempts.` : "This run failed. Open the logs to see why.";
   if (state === "cancelled") return "This run was cancelled before it finished.";
   if (state === "outcome_unknown") return "Brain lost contact before the run reported back. Check the target system, then reconcile.";
@@ -118,11 +124,16 @@ export function RunDetail(props: {
     const where = last ? ` on ${last.runnerId}` : "";
     if (current === "cancelled") return { theme: "amber", title: "This run was stopped", reason: "Someone cancelled it before it finished, so there is no result.", next: "start the task again from its mission if you still need it." };
     if (current === "blocked") return { theme: "amber", title: "This run cannot continue", reason: job()?.queueReasons.length ? queueReasonLabel(job()!.queueReasons) : "It is waiting for something outside the run.", next: "open the Placement tab to see what is missing, then fix it." };
+    const code = last?.state === "failed" ? last.failureCode : undefined;
     const why = last?.state === "expired" ? `The runner${where} stopped answering and the attempt timed out.`
       : last?.state === "declined" ? `The runner${where} declined the work.`
+      : code ? failureWhat(code)
       : last ? `The attempt${where} stopped with an error before it produced a verified result.` : "It failed before any attempt could start.";
-    return { theme: "red", title: "This run did not work", reason: `${why}${(job()?.attempts.length ?? 0) > 1 ? ` It was tried ${job()!.attempts.length} times.` : ""}`, next: "open View logs below to read what happened, then start the task again from its mission." };
+    const tried = (job()?.attempts.length ?? 0) > 1 ? ` ${t("run.fail.tried", { n: job()!.attempts.length })}` : "";
+    return { theme: "red", title: "This run did not work", reason: `${why}${tried}`, next: code ? failureNext(code) : "open View logs below to read what happened, then start the task again from its mission." };
   };
+  /** The attempt's own words for why it failed (redacted and short), when it reported any. */
+  const failureDetail = (): string | undefined => lastAttempt()?.state === "failed" ? lastAttempt()?.failureReason : undefined;
   const eventTitle = (kind: string) => kind.replaceAll(".", " · ").replaceAll("-", " ");
   async function confirm() {
     const kind = reasonOpen();
@@ -144,7 +155,8 @@ export function RunDetail(props: {
           status={settled() ? { label: statusLabel("job", settled()!), theme: statusHeaderTheme("job", settled()!) } : { label: state() === "succeeded" ? job()?.runState ? "Completed and verified" : "Step completed" : (state() ?? "unknown").replaceAll("_", " "), theme: statusHeaderTheme("job", state() ?? "") }} />
         <Show when={job()}><p class="-mt-2 flex flex-wrap items-center gap-x-2 text-caption text-ink-gray-6">Run id <DigestValue value={job()!.jobId} label="run id" short={false} /></p></Show>
         <Show when={unknown()}><Alert theme="amber" variant="outline" title="Effect outcome is unknown" description="The effect may already have applied. Reconcile against the target system before considering another attempt; generic Retry is intentionally unavailable." /></Show>
-        <Show when={problem()}>{(note) => <Alert theme={note().theme} variant="outline" title={note().title} description={`${note().reason} Next: ${note().next}`} />}</Show>
+        <Show when={problem()}>{(note) => <Alert theme={note().theme} variant="outline" title={note().title} description={t("run.fail.next", { what: note().reason, next: note().next })} />}</Show>
+        <Show when={problem() && failureDetail()}>{(detail) => <p class="-mt-2 m-0 min-w-0 break-words rounded-control border border-outline-gray-1 bg-surface-gray-1 p-3 text-caption text-ink-gray-8" data-run-failure-reason><span class="font-medium">{t("run.fail.reason")}:</span> <span class="font-mono">{detail()}</span></p>}</Show>
         <Show when={job()?.origin}>{(origin) => origin().kind === "work-item"
           ? <WorkItemLink workspaceId={job()?.workspaceId ?? ""} workItemId={origin().id} class="inline-flex w-fit items-center gap-2 rounded-control text-interface font-medium text-ink-blue-link focus-visible:focus-ring"><span class="lucide-arrow-left size-4" aria-hidden="true" />Back to the mission plan</WorkItemLink>
           : <A class="inline-flex w-fit items-center gap-2 rounded-control text-interface font-medium text-ink-blue-link focus-visible:focus-ring" href={origin().kind === "ticket" ? `/tickets/${origin().id}` : `/incidents/${origin().id}`}><span class="lucide-arrow-left size-4" aria-hidden="true" />Back to the {origin().kind === "ticket" ? "ticket" : "incident"}</A>}</Show>
@@ -187,7 +199,7 @@ export function RunDetail(props: {
                 return {
                   id: attempt.attemptId,
                   title: <span class="flex flex-wrap items-center gap-2"><span>Attempt {attempt.number}: {info.label}</span><span title={attempt.state}><StatusIcon state={attempt.state} theme={info.theme} class="size-3.5" /></span></span>,
-                  description: <span>{attemptSentence(attempt.state, attempt.runnerId)}{attempt.leaseExpiresAt ? ` ${info.live ? "Its claim on the runner lasts until" : "Its claim ended"} ${formatDateTime(attempt.leaseExpiresAt)}.` : ""}{info.live && job()?.createdAt ? ` Run age ${ageText(job()!.createdAt)}.` : ""}</span>,
+                  description: <span>{attemptSentence(attempt.state, attempt.runnerId)}{attempt.state === "failed" && attempt.failureReason ? ` ${attempt.failureReason}` : ""}{attempt.leaseExpiresAt ? ` ${info.live ? "Its claim on the runner lasts until" : "Its claim ended"} ${formatDateTime(attempt.leaseExpiresAt)}.` : ""}{info.live && job()?.createdAt ? ` Run age ${ageText(job()!.createdAt)}.` : ""}</span>,
                   icon: info.icon,
                   tone: info.tone,
                   timestamp: <Show when={job()?.workspaceId} fallback={<DateText value={attempt.leaseExpiresAt} />}>

@@ -36,7 +36,7 @@ export function operationalReadiness(s: Store, actor: ActorContext, workspaceId:
       if (!busy || inUse >= busy.slotsInUse) busy = { slotsInUse: inUse, slotsTotal: total };
     }
     const detail = missing.length ? `No online capable runner: ${[...new Set(missing)].join(", ")}` : busy ? `busy: ${busy.slotsInUse} of ${busy.slotsTotal} slots in use; new work queues and starts next` : "Agent/model requirements and runner placement are available";
-    checks.push({ id: `workflow:${id}`, workflowId: id, action: missing.length ? "runners" : "task", status: missing.length ? "missing" : "ready", detail, nextAction: missing.length ? "Start the required runner group and check engine/model connectivity" : `Dispatch ${id}`, ...(!missing.length && busy ? { busy } : {}) });
+    checks.push({ id: `workflow:${id}`, workflowId: id, action: missing.length ? "runners" : "task", status: missing.length ? "missing" : "ready", detail, nextAction: missing.length ? "Start the required runner group and check engine/model connectivity and that the sandbox images are built (scripts/build-sandbox-images.sh)" : `Dispatch ${id}`, ...(!missing.length && busy ? { busy } : {}) });
   }
   if (!Object.keys(release.workflows).length) checks.push({ id: "workflows", action: "release", status: "missing", detail: "No workflows are available", nextAction: "Activate the starter release" });
   const ws = s.workspaceDb(workspaceId,actor.organizationId);

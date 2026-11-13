@@ -132,7 +132,7 @@ function engineServices(store: Store): Array<{ id: string; status: string; check
   if (online.length > 0) {
     const healthy = online.filter((runner) => runner.health === "healthy").length;
     out.push({ id: "launcher", status: healthy === online.length ? "healthy" : healthy === 0 ? "unavailable" : "degraded", checkedAt: store.nowIso(),
-      detail: healthy === online.length ? "Every runner reaches its sandbox launcher." : `${online.length - healthy} of ${online.length} runners report a problem (sandbox launcher or Docker); sandboxed tools may fail until it is restarted.` });
+      detail: healthy === online.length ? "Every runner reaches its sandbox launcher." : `${online.length - healthy} of ${online.length} runners report a problem (sandbox launcher or Docker); sandboxed steps cannot run until Docker and the launcher are up and the container images are built (scripts/build-sandbox-images.sh).` });
   }
   return out;
 }
