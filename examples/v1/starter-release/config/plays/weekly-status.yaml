@@ -7,6 +7,7 @@
   },
   "spec": {
     "title": "Weekly status update",
+    "practice": "operations",
     "description": "Turn the notes and results of the week into a short status update: done, in progress, risks and what is next.",
     "intent": "Write this week's status update from the notes and results in the brief: what is done, what is in progress, the risks and what comes next.",
     "successCriteria": [

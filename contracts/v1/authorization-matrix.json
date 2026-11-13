@@ -800,6 +800,21 @@
       "scope": "platform:read",
       "scopeMode": "organization",
       "redactPrivilegedDetails": false
+    },
+    "identity.oidc.get": {
+      "scope": "identity:read",
+      "scopeMode": "organization",
+      "redactPrivilegedDetails": false
+    },
+    "quality.breakdown": {
+      "scope": "quality:read",
+      "scopeMode": "organization",
+      "redactPrivilegedDetails": false
+    },
+    "practices.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
     }
   },
   "commandRecoveryRule": {

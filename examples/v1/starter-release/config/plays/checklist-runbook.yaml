@@ -7,6 +7,7 @@
   },
   "spec": {
     "title": "Write a checklist or runbook",
+    "practice": "operations",
     "description": "Turn a process into a short, ordered checklist or runbook with who does what, how to check each step, and what to do when it fails.",
     "intent": "Write a clear, ordered checklist or runbook for the process in the brief, so someone who has not done it before can follow it.",
     "successCriteria": [

@@ -548,3 +548,17 @@ CREATE UNIQUE INDEX effect_calls_approval ON effect_calls(approval_id);
 CREATE TABLE inbound_hook_events (
   remote_event_id TEXT PRIMARY KEY, received_at_ms INTEGER NOT NULL
 ) STRICT;
+-- Single sign-on (ADR 0026): one OpenID Connect provider per Governor. The secret is only a reference, never a value.
+CREATE TABLE identity_provider (
+  singleton INTEGER PRIMARY KEY CHECK(singleton=1), organization_id TEXT NOT NULL REFERENCES organizations(id),
+  enabled INTEGER NOT NULL CHECK(enabled IN (0,1)), issuer TEXT NOT NULL, client_id TEXT NOT NULL, secret_ref TEXT NOT NULL,
+  auto_provision INTEGER NOT NULL CHECK(auto_provision IN (0,1)),
+  default_role TEXT CHECK(default_role IN ('viewer','operator','workspace-lead','approver')),
+  group_claim TEXT NOT NULL, group_roles_json TEXT NOT NULL CHECK(json_valid(group_roles_json)),
+  workspace_ids_json TEXT NOT NULL CHECK(json_valid(workspace_ids_json)), allowed_domains_json TEXT NOT NULL CHECK(json_valid(allowed_domains_json)),
+  updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE TABLE identity_provisionings (
+  user_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id), email TEXT NOT NULL,
+  roles_json TEXT NOT NULL CHECK(json_valid(roles_json)), workspace_ids_json TEXT NOT NULL CHECK(json_valid(workspace_ids_json)), provisioned_at_ms INTEGER NOT NULL
+) STRICT;

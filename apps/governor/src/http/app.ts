@@ -1,4 +1,5 @@
 import { assertHumanIdentity } from "../modules/identity/index";
+import { OIDC_PROVIDER_ID, readOidcSettings } from "../modules/identity/oidc";
 import { TaskExperience } from "../modules/workflows/index";
 import { localRuntimeStatus, connectLocalModel, restoreLocalRuntimeHandoff, operationalReadiness } from "../modules/operations/index";
 import type { RuntimeConfig } from "../runtime-config";
@@ -152,6 +153,27 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
   app.get("/health/ready", async (c) => {
     const h = brain.health();
     return c.json(h, h.ready ? 200 : 503);
+  });
+
+  // Sign-in options for the login page (public; says only whether the company directory is on). Password and authenticator sign-in always exist.
+  app.get("/v1/auth/providers", (c) => {
+    const sso = readOidcSettings(brain.store.control);
+    return c.json({ password: true, sso: sso?.enabled ? { providerId: OIDC_PROVIDER_ID, label: "Company directory", startPath: "/v1/auth/sso/start" } : null });
+  });
+  // One click into the company directory: starts the authorization-code flow (PKCE, state, nonce) and redirects the browser to the directory.
+  app.get("/v1/auth/sso/start", async (c) => {
+    try {
+      if (!readOidcSettings(brain.store.control)?.enabled) throw new BrainDomainError("NOT_FOUND", "single sign-on is not set up");
+      const next = c.req.query("next") ?? "/";
+      const callbackURL = next.startsWith("/") && !next.startsWith("//") && !next.includes("\\") ? next : "/";
+      const origin = new URL(process.env["BRAIN_BASE_URL"] ?? "http://localhost:3000").origin;
+      const inner = await brain.auth.handler(new Request(`${origin}/api/auth/sign-in/social`, { method: "POST", headers: { "content-type": "application/json", origin }, body: JSON.stringify({ provider: OIDC_PROVIDER_ID, callbackURL }) }));
+      const body = await inner.json().catch(() => ({})) as { url?: string };
+      if (!inner.ok || !body.url) throw new BrainDomainError("DEPENDENCY_UNAVAILABLE", "the company directory did not answer; try again or sign in with your password");
+      const response = new Response(null, { status: 302, headers: { location: body.url, "cache-control": "no-store" } });
+      for (const cookie of inner.headers.getSetCookie()) response.headers.append("set-cookie", cookie);
+      return response;
+    } catch (e) { return fail(c as never, e); }
   });
 
   app.get("/v1/setup/status", (c) => {

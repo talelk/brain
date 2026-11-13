@@ -7,6 +7,7 @@
   },
   "spec": {
     "title": "Compare options and recommend one",
+    "practice": "data",
     "description": "List the options, compare them on the criteria that matter, and recommend one with the reasons and the risks. Read-only.",
     "intent": "Compare the options named in the brief on the criteria that matter and recommend one, with the reasons and the main risks.",
     "successCriteria": [

@@ -6,6 +6,7 @@ import { domainDigest } from "@brain/contracts";
 import type { Db } from "../../infrastructure/persistence/open";
 import { BrainDomainError } from "../../domain/errors";
 import { authOptions } from "./options";
+import { OIDC_PROVIDER_ID, readOidcSettings, resolveSecretRef, type OidcSettings } from "./oidc";
 import { createIdentityAdministration, type IdentityAdministration, type VendorAuth } from "./administration";
 
 export interface VerifiedSession {
@@ -23,6 +24,8 @@ export interface BrainAuth {
   readonly administration: IdentityAdministration;
   handler(request: Request): Promise<Response>;
   ready(): Promise<void>;
+  /** Registers (or removes) the company directory provider from the stored Administration setting. Safe to call after every change. */
+  applyOidc(): Promise<void>;
   readSession(headers: Headers): Promise<VerifiedSession | null>;
   hasMembership(userId: string, organizationId: string): boolean;
   isSessionCurrent(userId: string, sessionId: string, nowMs: number, factorDigest?: string | null): boolean;
@@ -55,6 +58,30 @@ export function createBrainAuth(db: Db, opts: { secret: string; baseURL: string;
   }
 
   const auth = betterAuth(authOptions(db, opts)) as VendorAuth;
+  type VendorContext = { socialProviders: Array<{ id: string }>; genericOAuthPendingDiscovery?: Map<string, { config: unknown }> };
+
+  /** The provider the plugin registers: discovery is done lazily, on the first sign-in request, and retried while the directory is down. */
+  function oidcProviderConfig(settings: OidcSettings, secret: string): Record<string, unknown> {
+    const discoveryUrl = `${settings.issuer}/.well-known/openid-configuration`;
+    let userinfoUrl: string | null | undefined;
+    return {
+      providerId: OIDC_PROVIDER_ID, clientId: settings.clientId, clientSecret: secret, discoveryUrl, scopes: ["openid", "email", "profile"],
+      pkce: true, disableSignUp: false, requireEmailVerification: true,
+      // The ID token is already verified (signature, issuer, audience, nonce) when this runs. Claims come from it; the userinfo endpoint fills in only a missing email.
+      getUserInfo: async (tokens: { idToken?: string; accessToken?: string }) => {
+        let claims: Record<string, unknown> = {};
+        if (tokens.idToken) { try { claims = JSON.parse(Buffer.from(tokens.idToken.split(".")[1] ?? "", "base64url").toString("utf8")) as Record<string, unknown>; } catch { claims = {}; } }
+        if (typeof claims["email"] !== "string" && tokens.accessToken) {
+          try {
+            if (userinfoUrl === undefined) userinfoUrl = ((await (await fetch(discoveryUrl, { signal: AbortSignal.timeout(5000) })).json()) as { userinfo_endpoint?: string }).userinfo_endpoint ?? null;
+            if (userinfoUrl) claims = { ...(await (await fetch(userinfoUrl, { headers: { authorization: `Bearer ${tokens.accessToken}` }, signal: AbortSignal.timeout(5000) })).json() as Record<string, unknown>), ...claims };
+          } catch { /* no email: the sign-in is refused below */ }
+        }
+        if (typeof claims["sub"] !== "string" || typeof claims["email"] !== "string") return null;
+        return { ...claims, id: claims["sub"], email: claims["email"], emailVerified: claims["email_verified"] === true, name: typeof claims["name"] === "string" ? claims["name"] : claims["email"], image: typeof claims["picture"] === "string" ? claims["picture"] : undefined };
+      },
+    };
+  }
   const administration = createIdentityAdministration(db, auth);
   const tables = getAuthTables(auth.options) as unknown as Record<string, TableDef>;
   const table = (name: string) => {
@@ -121,7 +148,18 @@ export function createBrainAuth(db: Db, opts: { secret: string; baseURL: string;
       }
       return response;
     },
-    async ready() { await auth.$context; },
+    async ready() { await auth.$context; await this.applyOidc(); },
+    async applyOidc() {
+      const ctx = await auth.$context as unknown as VendorContext;
+      const known = ctx.socialProviders.findIndex((provider) => provider.id === OIDC_PROVIDER_ID);
+      if (known >= 0) ctx.socialProviders.splice(known, 1);
+      ctx.genericOAuthPendingDiscovery?.delete(OIDC_PROVIDER_ID);
+      const settings = readOidcSettings(db);
+      if (!settings?.enabled || !ctx.genericOAuthPendingDiscovery) return;
+      let secret: string;
+      try { secret = resolveSecretRef(settings.secretRef); } catch { return; } // not registered: the setting shows the secret as unreadable
+      ctx.genericOAuthPendingDiscovery.set(OIDC_PROVIDER_ID, { config: oidcProviderConfig(settings, secret) });
+    },
     ensureTables: () => Object.values(tables).map((t) => t.modelName).sort(),
     readSession,
     hasMembership(userId, organizationId) {

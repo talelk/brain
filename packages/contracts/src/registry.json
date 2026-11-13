@@ -771,6 +771,24 @@
       "actors": [
         "human"
       ]
+    },
+    {
+      "type": "identity.oidc.set",
+      "schema": "IdentityOidcSetCommand",
+      "scope": "identity:security",
+      "authority": "control",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "play.proposeFromMissions",
+      "schema": "PlayProposeFromMissionsCommand",
+      "scope": "mission:write",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
     }
   ],
   "queries": [
@@ -871,7 +889,10 @@
     "lessons.list",
     "effects.get",
     "runnerGroups.list",
-    "integrations.guide"
+    "integrations.guide",
+    "identity.oidc.get",
+    "quality.breakdown",
+    "practices.list"
   ],
   "events": [
     {

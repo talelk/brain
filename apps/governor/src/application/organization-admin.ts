@@ -7,6 +7,7 @@ import type { ActorContext, JsonValue, OrganizationAdminCommand, OrganizationAdm
 import { BrainDomainError } from "../domain/errors";
 import { assertExpectedVersion } from "../domain/states";
 import type { IdentityAdministration } from "../modules/identity/index";
+import { readOidcSettings } from "../modules/identity/oidc";
 
 interface OrganizationCommand extends OrganizationAdminCommand { readonly payload: OrganizationAdminCommand["payload"] & Record<string, unknown> }
 interface OrganizationQuery { readonly queryType: string; readonly resourceId?: string; readonly search?: string; readonly limit?: number; readonly cursor?: string }
@@ -126,7 +127,7 @@ export async function executeOrganizationQuery(store: Store, auth: BrainAuth, ac
   const limit = Math.min(Math.max(q.limit ?? 50, 1), 100);
   const offset = q.cursor && /^\d+$/u.test(q.cursor) ? Number(q.cursor) : 0;
   if (q.queryType === "organization.auth-policy.get") {
-    const policy: OrganizationAuthPolicyView = { oidcEnabled: !!process.env["BRAIN_OIDC_ISSUER"], passwordEnabled: true, passkeyEnabled: true, requireTwoFactor: auth.requireTwoFactor, sessionExpiresInSeconds: 43_200, sessionFreshAgeSeconds: 300, rateLimitStorage: "database", configurationSource: "governor-runtime" };
+    const policy: OrganizationAuthPolicyView = { oidcEnabled: readOidcSettings(store.control)?.enabled === true, passwordEnabled: true, passkeyEnabled: true, requireTwoFactor: auth.requireTwoFactor, sessionExpiresInSeconds: 43_200, sessionFreshAgeSeconds: 300, rateLimitStorage: "database", configurationSource: "administration" };
     return envelope(store, q.queryType, { members: [], invitations: [], sessions: [], policy });
   }
   if (q.queryType === "organization.invitations.list") {

@@ -10,6 +10,7 @@ import { hasWorkspaceMembership, resolveActor, requireWorkspaceRead, scopesForPr
 import { CommandFunnel } from "./command-funnel";
 import { workspaceAdminCommands } from "./workspace-admin";
 import { effectSettings, engineSettings, engineSettingsCommands, runnerGroups } from "./engine-settings";
+import { oidcSettingsQuery, ssoCommands } from "./sso-admin";
 import { completeUpload, completeUploadStream, initUpload, readVerified, readWorkspaceArtifactText, sweepStorage } from "../modules/artifacts/index";
 import { orgWorkspaces, textMatcher } from "./query";
 import { executeOrganizationQuery, isOrganizationQuery, organizationCommandHandlers } from "./organization-admin";
@@ -157,6 +158,7 @@ export class Brain {
         store: this.store,
         createDraft: (actor, workspaceId, input) => this.drafts.apply(actor, { commandType: "configDraft.create", workspaceId, payload: input }),
         existingPlayIds: (organizationId) => Object.keys(activeReleaseRecord(this.store, organizationId)?.release.plays ?? {}),
+        releasePlays: (organizationId) => Object.entries(activeReleaseRecord(this.store, organizationId)?.release.plays ?? {}).map(([id, play]) => ({ id, ...(play.spec.practice ? { practice: play.spec.practice } : {}) })),
       });
       this.starterPlays = new StarterPlays(this.store);
       this.commands = new CommandFunnel(this.store, [
@@ -187,8 +189,9 @@ export class Brain {
         }),
         workspaceAdminCommands(this.store, this.auth, this.jobProtocol),
         engineSettingsCommands(this.store),
+        ssoCommands(this.store),
         organizationCommandHandlers(this.store, this.auth),
-      ], { afterCommit: () => this.stream.project() });
+      ], { afterCommit: () => { this.stream.project(); void this.auth.applyOidc().catch(() => undefined); } });
       this.autoStart = new AutoStart({
         store: this.store, missions: this.missions,
         dispatch: (actor, command) => this.commands.run(actor, command as Parameters<CommandFunnel["run"]>[1]),
@@ -916,6 +919,8 @@ export class Brain {
       }
       case "runnerGroups.list":
         return this.envelope(q.queryType, runnerGroups(s, actor));
+      case "identity.oidc.get":
+        return this.envelope(q.queryType, oidcSettingsQuery(s, actor, process.env["BRAIN_BASE_URL"] ?? "http://localhost:3000"));
       case "platform.health":
         return this.envelope(q.queryType, platformHealth(s, this.memoryProbe));
       case "workspace.context": {
@@ -1045,6 +1050,10 @@ export class Brain {
       case "tools.list": case "tools.calls": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.capitalization.query(actor, q.queryType, q.workspaceId, limit, q.resourceId));
+      }
+      case "practices.list": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        return this.envelope(q.queryType, this.playProposals.practices(actor, q.workspaceId) as JsonValue);
       }
       case "playProposals.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");

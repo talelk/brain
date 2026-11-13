@@ -7,6 +7,7 @@
   },
   "spec": {
     "title": "Draft a customer support reply",
+    "practice": "support",
     "description": "Read a customer request and draft a polite, accurate reply for a person to review and send. The reply stays a draft: Brain sends nothing.",
     "intent": "Read the customer request in the brief and draft a polite, accurate reply that a support person can review and send.",
     "successCriteria": [

@@ -7590,7 +7590,10 @@
             "lessons.list",
             "effects.get",
             "runnerGroups.list",
-            "integrations.guide"
+            "integrations.guide",
+            "identity.oidc.get",
+            "quality.breakdown",
+            "practices.list"
           ]
         },
         "workspaceId": {
@@ -7674,7 +7677,10 @@
             "lessons.list",
             "effects.get",
             "runnerGroups.list",
-            "integrations.guide"
+            "integrations.guide",
+            "identity.oidc.get",
+            "quality.breakdown",
+            "practices.list"
           ]
         },
         "snapshot": {
@@ -11273,6 +11279,12 @@
         },
         {
           "$ref": "#/$defs/RunnerGroupSetCommand"
+        },
+        {
+          "$ref": "#/$defs/IdentityOidcSetCommand"
+        },
+        {
+          "$ref": "#/$defs/PlayProposeFromMissionsCommand"
         }
       ]
     },
@@ -18472,7 +18484,10 @@
         },
         "configurationSource": {
           "type": "string",
-          "const": "governor-runtime"
+          "enum": [
+            "governor-runtime",
+            "administration"
+          ]
         }
       },
       "required": [
@@ -23145,6 +23160,12 @@
         },
         "coordinatorWorkflow": {
           "$ref": "#/$defs/ConfigId"
+        },
+        "practice": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9-]*$"
         }
       },
       "required": [
@@ -24648,6 +24669,178 @@
             "groupId",
             "hostTools",
             "workspaceIds"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "IdentityOidcSetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "identity.oidc.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "issuer": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 512
+            },
+            "clientId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "secretRef": {
+              "type": "string",
+              "minLength": 6,
+              "maxLength": 512,
+              "pattern": "^(file:/|env:)[^\\s]+$"
+            },
+            "autoProvision": {
+              "type": "boolean"
+            },
+            "defaultRole": {
+              "type": "string",
+              "enum": [
+                "viewer",
+                "operator",
+                "workspace-lead",
+                "approver"
+              ]
+            },
+            "groupClaim": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.:/-]+$"
+            },
+            "groupRoles": {
+              "type": "array",
+              "maxItems": 50,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "group": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "viewer",
+                      "operator",
+                      "workspace-lead",
+                      "approver"
+                    ]
+                  }
+                },
+                "required": [
+                  "group",
+                  "role"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "workspaceIds": {
+              "type": "array",
+              "maxItems": 50,
+              "items": {
+                "$ref": "#/$defs/Id"
+              }
+            },
+            "allowedDomains": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 253,
+                "pattern": "^[a-z0-9.-]+$"
+              }
+            }
+          },
+          "required": [
+            "enabled",
+            "issuer",
+            "clientId",
+            "secretRef",
+            "autoProvision"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "PlayProposeFromMissionsCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "play.proposeFromMissions"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "practice": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9-]*$"
+            }
+          },
+          "required": [
+            "practice"
           ],
           "additionalProperties": false
         }

@@ -3,12 +3,13 @@ import { admin, bearer, genericOAuth, organization, twoFactor } from "better-aut
 import { passkey } from "@better-auth/passkey";
 import type { BetterAuthOptions } from "better-auth";
 import type { Db } from "../../infrastructure/persistence/open";
-import { oidcConfigFromEnv, type OidcConfig } from "./oidc";
+import { decideProvision, domainAllowed, OIDC_PROVIDER_ID, provisionUser, readOidcSettings, type Decision } from "./oidc";
 
 type BrainAuthOptions = BetterAuthOptions & { database: Db };
 
-export function authOptions(db: Db, opts: { secret: string; baseURL: string; oidc?: OidcConfig }): BrainAuthOptions {
-  const oidc = opts.oidc ?? oidcConfigFromEnv();
+export function authOptions(db: Db, opts: { secret: string; baseURL: string }): BrainAuthOptions {
+  // Decisions made when a new directory identity is validated, consumed when its user row is created (same request).
+  const decisions = new Map<string, { decision: Extract<Decision, { allowed: true }>; at: number }>();
   const origin = new URL(opts.baseURL).origin;
   const trustedProxies = process.env["BRAIN_AUTH_TRUSTED_PROXIES"]?.split(",").map((value) => value.trim()).filter(Boolean);
   return {
@@ -28,6 +29,33 @@ export function authOptions(db: Db, opts: { secret: string; baseURL: string; oid
         db.prepare("INSERT OR REPLACE INTO auth_email_outbox(id,kind,email,url,organization_id,state,attempt_count,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,'pending',0,?,?)")
           .run(`verify:${token}`, "verify-email", user.email, verificationUrl.href, invitation?.organizationId ?? null, Date.now(), Date.now());
       },
+    },
+    user: {
+      // The gate for the company directory: refuses a new or returning identity the setting does not allow, before any account exists.
+      validateUserInfo: ({ user, source }) => {
+        if (source.method !== "oauth" || source.oauth?.providerId !== OIDC_PROVIDER_ID) return;
+        const settings = readOidcSettings(db);
+        const profile = source.oauth.profile ?? {};
+        const email = typeof user["email"] === "string" ? user["email"].toLowerCase() : "";
+        const refuse = (error: string) => ({ error, errorDescription: "Single sign-on is not available for this account" });
+        if (!settings?.enabled) return refuse("sso_disabled");
+        if (profile["email_verified"] !== true || !email) return refuse("email_not_verified");
+        if (!domainAllowed(settings, email)) return refuse("domain_not_allowed");
+        if (source.action !== "create-user") return;
+        const decision = decideProvision(db, settings, profile);
+        if (!decision.allowed) return refuse(decision.reason);
+        for (const [key, entry] of decisions) if (Date.now() - entry.at > 30_000) decisions.delete(key);
+        decisions.set(email, { decision, at: Date.now() });
+      },
+    },
+    databaseHooks: {
+      user: { create: { after: async (user) => {
+        const email = user.email.toLowerCase();
+        const decision = decisions.get(email)?.decision;
+        decisions.delete(email);
+        const settings = readOidcSettings(db);
+        if (decision && settings) provisionUser(db, settings, { id: user.id, email }, decision);
+      } } },
     },
     session: { expiresIn: 12 * 3600, updateAge: 3600, freshAge: 300, cookieCache: { enabled: false } },
     rateLimit: {
@@ -70,18 +98,8 @@ export function authOptions(db: Db, opts: { secret: string; baseURL: string; oid
       bearer(),
       admin({ defaultRole: "user" }),
       passkey({ rpID: ["127.0.0.1", "localhost", "[::1]"].includes(new URL(origin).hostname) ? "localhost" : new URL(origin).hostname, rpName: "Keyrus Brain", origin, authenticatorSelection: { residentKey: "preferred", userVerification: "required" } }),
-      ...(oidc ? [genericOAuth({
-        config: [{
-          providerId: "brain-oidc",
-          clientId: oidc.clientId,
-          clientSecret: oidc.clientSecret,
-          discoveryUrl: oidc.discoveryUrl,
-          scopes: ["openid", "email", "profile"],
-          pkce: true,
-          disableSignUp: true,
-          requireEmailVerification: true,
-        }],
-      })] : []),
+      // The company directory provider is registered at runtime from the Administration setting (auth.ts applyOidc); the plugin starts empty.
+      genericOAuth({ config: [] }),
       organization({
         allowUserToCreateOrganization: false,
         disableOrganizationDeletion: true,
