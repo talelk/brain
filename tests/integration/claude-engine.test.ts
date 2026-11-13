@@ -102,6 +102,74 @@ describe("Claude SDK lifecycle mapping", () => {
   });
 });
 
+describe("a hosted-model route is per attempt, never process-global (ADR 0023, backlog 83)", () => {
+  const route = { baseUrl: "https://models.acme.example/anthropic", model: "acme-large" };
+  const answer = [{ type: "assistant", message: { content: [{ type: "text", text: "CHECKED" }] } }, { type: "result", subtype: "success", result: "CHECKED", total_cost_usd: 0.02, usage: { input_tokens: 10, output_tokens: 3 } }];
+
+  it("sends the attempt to the routed model with the runner's hosted key, leaves the process environment alone, and counts the cost", async () => {
+    const value = spec();
+    vi.stubEnv("BRAIN_HOSTED_MODEL_API_KEY", "hosted-key-for-tests");
+    vi.stubEnv("BRAIN_ANTHROPIC_BASE_URL", "http://localhost:8096/claude-code/default");
+    vi.stubEnv("ANTHROPIC_CUSTOM_HEADERS", "x-team-id: local-team");
+    messages(answer);
+    const { events } = await execute(new ClaudeEngine([], route), value);
+    const options = sdk.query.mock.calls[0]![0].options;
+    expect(options.model).toBe("acme-large");
+    expect(options.env).toMatchObject({ ANTHROPIC_BASE_URL: route.baseUrl, ANTHROPIC_API_KEY: "hosted-key-for-tests", ANTHROPIC_AUTH_TOKEN: "hosted-key-for-tests" });
+    // Nothing of the local gateway reaches the vendor, and the process keeps its own configuration for the next attempt.
+    expect(options.env.BRAIN_ANTHROPIC_BASE_URL).toBeUndefined();
+    expect(options.env.ANTHROPIC_CUSTOM_HEADERS).toBeUndefined();
+    expect(process.env["ANTHROPIC_API_KEY"]).toBe("test-credential");
+    expect(process.env["ANTHROPIC_BASE_URL"]).toBe("");
+    // A vendor is not free: its cost is counted (the local endpoint's is zero).
+    expect(events.find((event) => event.kind === "usage")?.payload).toMatchObject({ microUsd: 20000 });
+    expect(events.at(-1)).toMatchObject({ kind: "session.stopped", payload: { reason: "completed" } });
+  });
+
+  it("keeps two attempts at once apart: the routed one and a self-hosted one each get their own endpoint", async () => {
+    const value = spec();
+    vi.stubEnv("BRAIN_HOSTED_MODEL_API_KEY", "hosted-key-for-tests");
+    vi.stubEnv("BRAIN_ANTHROPIC_BASE_URL", "http://localhost:8096/claude-code/default");
+    // The routed attempt is still running when the self-hosted one starts (and sets up the process environment for itself).
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let started = 0;
+    sdk.query.mockImplementation(() => { const mine = ++started; return { close: sdk.close, async *[Symbol.asyncIterator]() { if (mine === 1) await gate; else release(); yield* answer; } }; });
+    const routed = execute(new ClaudeEngine([], route), value);
+    await vi.waitFor(() => expect(sdk.query).toHaveBeenCalledTimes(1));
+    await Promise.all([routed, execute(new ClaudeEngine(), value)]);
+    const envs = sdk.query.mock.calls.map((call) => call[0].options.env as Record<string, string>);
+    expect(envs.map((env) => env["ANTHROPIC_BASE_URL"]).sort()).toEqual([route.baseUrl, "http://localhost:8096/claude-code/default"].sort());
+    expect(envs.find((env) => env["ANTHROPIC_BASE_URL"] === route.baseUrl)!["ANTHROPIC_API_KEY"]).toBe("hosted-key-for-tests");
+    expect(envs.find((env) => env["ANTHROPIC_BASE_URL"] !== route.baseUrl)!["ANTHROPIC_API_KEY"]).toBe("test-credential");
+  });
+
+  it("refuses to send anything when the runner has no hosted key, or the route is not https", async () => {
+    const value = spec();
+    vi.stubEnv("BRAIN_HOSTED_MODEL_API_KEY", "");
+    messages(answer);
+    await expect(new ClaudeEngine([], route).start(value, new AbortController().signal)).rejects.toThrow(/BRAIN_HOSTED_MODEL_API_KEY/u);
+    vi.stubEnv("BRAIN_HOSTED_MODEL_API_KEY", "hosted-key-for-tests");
+    await expect(new ClaudeEngine([], { baseUrl: "http://models.acme.example/v1", model: "m" }).start(value, new AbortController().signal)).rejects.toThrow(/https/u);
+    expect(sdk.query).not.toHaveBeenCalled();
+  });
+
+  it("is chosen by the supervisor for a check or a second attempt only, and reaches the Claude engine through selectEngine", async () => {
+    const { hostedRouteOf } = await import("../../apps/runner/src/supervisor");
+    const { selectEngine } = await import("../../apps/runner/src/engines/run");
+    expect(hostedRouteOf({ tier: "hosted", role: "evaluator", baseUrl: route.baseUrl, model: route.model })).toEqual(route);
+    expect(hostedRouteOf({ tier: "hosted", role: "second-attempt", baseUrl: route.baseUrl, model: route.model })).toEqual(route);
+    expect(hostedRouteOf({ tier: "hosted", role: "planner", baseUrl: route.baseUrl, model: route.model })).toBeUndefined();
+    expect(hostedRouteOf({ tier: "local", role: "evaluator", baseUrl: route.baseUrl, model: route.model })).toBeUndefined();
+    expect(hostedRouteOf(undefined)).toBeUndefined();
+    const value = spec();
+    vi.stubEnv("BRAIN_HOSTED_MODEL_API_KEY", "hosted-key-for-tests");
+    messages(answer);
+    await execute(selectEngine("claude", [], route) as ClaudeEngine, value);
+    expect(sdk.query.mock.calls[0]![0].options.env.ANTHROPIC_BASE_URL).toBe(route.baseUrl);
+  });
+});
+
 describe("per-attempt cost cap rule shared by Claude and Pi (#79)", () => {
   it("enforces only a positive cap", () => {
     expect(overCostCap(5_000_000, 0)).toBe(false);

@@ -10,7 +10,7 @@ export function selectEngine(configured: string | undefined, toolBindings: reado
   switch (configured) {
     case "fixture": return new FixtureEngine(toolBindings);
     case "pi": return new PiEngine(toolBindings, route);
-    case "claude": return new ClaudeEngine(toolBindings);
+    case "claude": return new ClaudeEngine(toolBindings, route);
     case "acp": return new AcpEngine();
     case "opencode": return new OpenCodeEngine();
     default: return undefined;

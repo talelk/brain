@@ -12,7 +12,7 @@ import { setupWorld } from "../helpers";
 import { scaled } from "../support/timing";
 
 const tmp = process.env["TMPDIR"] ?? "/tmp";
-const keys = ["BRAIN_NOTIFY_WEBHOOK_URL", "BRAIN_NOTIFY_WEBHOOK_FORMAT", "BRAIN_NOTIFY_WEBHOOK_SECRET", "BRAIN_BASE_URL", "BRAIN_INBOUND_WEBHOOK_SECRET", "BRAIN_NOTIFY_SMTP_URL", "BRAIN_NOTIFY_FROM"] as const;
+const keys = ["BRAIN_NOTIFY_WEBHOOK_URL", "BRAIN_NOTIFY_WEBHOOK_FORMAT", "BRAIN_NOTIFY_WEBHOOK_SECRET", "BRAIN_BASE_URL", "BRAIN_INBOUND_WEBHOOK_SECRET", "BRAIN_INBOUND_TEAMS_TOKEN", "BRAIN_NOTIFY_SMTP_URL", "BRAIN_NOTIFY_FROM"] as const;
 const saved = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
 const servers: Server[] = [];
 const smtp: FakeSmtp[] = [];
@@ -90,7 +90,17 @@ describe("team chat in: a signed command that lists, denies and never approves",
       const response = await app.fetch(new Request("http://x/hooks/chat", { method: "POST", headers: { "content-type": "application/json", "x-brain-timestamp": String(timestamp), "x-brain-signature": signature }, body }));
       return { status: response.status, json: await response.json() as { text?: string; error?: string } };
     };
-    return { w, post, state: () => (store.control.prepare("SELECT state FROM approval_requests WHERE id='apr_hook1'").get() as { state: string }).state };
+    // A Teams outgoing webhook: an activity JSON, signed as `Authorization: HMAC <base64 of HMAC-SHA256(raw body, base64-decoded token)>`.
+    const teamsToken = Buffer.from("teams-outgoing-webhook-token-0123456789").toString("base64");
+    const teams = async (html: string, options: { token?: string; ageSeconds?: number; id?: string; tamper?: boolean; noTimestamp?: boolean; scheme?: string } = {}) => {
+      const activity: Record<string, unknown> = { type: "message", id: options.id ?? `teams-${Math.random()}`, text: html, from: { name: "Ana Owner" }, ...(options.noTimestamp ? {} : { timestamp: new Date(Date.now() - (options.ageSeconds ?? 0) * 1000).toISOString() }) };
+      const body = JSON.stringify(activity);
+      const signature = createHmac("sha256", Buffer.from(options.token ?? teamsToken, "base64")).update(body).digest("base64");
+      const sent = options.tamper ? body.replace("Ana Owner", "Eve Intruder") : body;
+      const response = await app.fetch(new Request("http://x/hooks/chat", { method: "POST", headers: { "content-type": "application/json", authorization: `${options.scheme ?? "HMAC"} ${signature}` }, body: sent }));
+      return { status: response.status, json: await response.json() as { text?: string; error?: string } };
+    };
+    return { w, post, teams, teamsToken, state: () => (store.control.prepare("SELECT state FROM approval_requests WHERE id='apr_hook1'").get() as { state: string }).state };
   }
 
   it("refuses a bad signature, a stale request and a server with no secret", async () => {
@@ -99,6 +109,30 @@ describe("team chat in: a signed command that lists, denies and never approves",
     expect((await post("approvals", { ageSeconds: 3600 })).status).toBe(401);
     delete process.env["BRAIN_INBOUND_WEBHOOK_SECRET"];
     expect((await post("approvals")).status).toBe(503);
+  }, scaled(60_000));
+
+  it("accepts a Teams outgoing webhook by its own HMAC signature, and refuses a wrong key, a changed body, a stale or undated activity and an unset token", async () => {
+    const { teams, teamsToken, state } = await hookWorld();
+    // Teams is not set up until its token is: the same well-formed request is refused, and the Brain secret never stands in for it.
+    expect((await teams("approvals")).status).toBe(401);
+    process.env["BRAIN_INBOUND_TEAMS_TOKEN"] = teamsToken;
+    try {
+      const listed = await teams("<at>Brain</at>&nbsp;approvals");
+      expect(listed.status).toBe(200);
+      expect(listed.json.text).toContain("Restart the container \"demo-app\" on the demos host: https://brain.example.test/approvals/apr_hook1");
+      const wrong = await teams("approvals", { token: Buffer.from("another-token-0123456789-abcdef").toString("base64") });
+      expect(wrong.status).toBe(401);
+      expect((await teams("approvals", { tamper: true })).status).toBe(401);
+      expect((await teams("approvals", { scheme: "Bearer" })).status).toBe(401);
+      expect((await teams("approvals", { ageSeconds: 3600 })).status).toBe(401);
+      expect((await teams("approvals", { noTimestamp: true })).status).toBe(401);
+      expect(state()).toBe("pending");
+      // A signed deny works, attributed to the person Teams names; a repeat of the same activity is acknowledged, not repeated.
+      const denied = await teams("<at>Brain</at> deny apr_hook1", { id: "teams-deny" });
+      expect(denied.json.text).toContain("Denied");
+      expect(state()).toBe("rejected");
+      expect((await teams("deny apr_hook1", { id: "teams-deny" })).json.text).toBe("Already handled.");
+    } finally { delete process.env["BRAIN_INBOUND_TEAMS_TOKEN"]; }
   }, scaled(60_000));
 
   it("lists what waits with a link to each decision, gives only a link for approve, and denies on request", async () => {

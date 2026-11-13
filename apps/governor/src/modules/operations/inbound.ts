@@ -10,6 +10,7 @@ import { absoluteLink } from "./channels";
  * answer with the link to that decision. It never approves: an approval needs a signed-in person and a fresh step-up, which a chat
  * message cannot give. Two signatures are accepted, both HMAC-SHA256 of the raw body with a timestamp inside a 5 minute window:
  * Brain's own (`x-brain-signature: sha256=<hex of "<timestamp>.<body>">`, `x-brain-timestamp`) and Slack's (`x-slack-signature: v0=...`).
+ * A Teams outgoing webhook is accepted too, with its own token (`BRAIN_INBOUND_TEAMS_TOKEN`, see verifyTeamsSignature).
  */
 export const INBOUND_WINDOW_MS = 5 * 60_000;
 
@@ -21,6 +22,23 @@ function equal(a: string, b: string): boolean {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
   return left.length === right.length && timingSafeEqual(left, right);
+}
+
+/**
+ * Teams outgoing webhooks sign differently: `Authorization: HMAC <base64>`, the HMAC-SHA256 of the raw body keyed with the base64-DECODED
+ * security token Teams showed when the webhook was created. There is no timestamp header, so the age comes from the activity's own
+ * `timestamp` field, which is inside the signed bytes.
+ */
+export function verifyTeamsSignature(token: string, headers: Headers, rawBody: string, nowMs: number): string | undefined {
+  const header = headers.get("authorization") ?? "";
+  if (!/^HMAC /u.test(header)) return "the request is not signed";
+  const key = Buffer.from(token, "base64");
+  const expected = createHmac("sha256", key).update(Buffer.from(rawBody, "utf8")).digest("base64");
+  if (!equal(header.slice(5).trim(), expected)) return "the signature does not match";
+  let sentAt = Number.NaN;
+  try { sentAt = Date.parse(String((JSON.parse(rawBody) as { timestamp?: unknown }).timestamp ?? "")); } catch { /* refused below */ }
+  if (!Number.isFinite(sentAt) || Math.abs(nowMs - sentAt) > INBOUND_WINDOW_MS) return "the request is too old or has no timestamp";
+  return undefined;
 }
 
 /** Checks the signature and the age of the request; returns the reason it was refused, or undefined. */
@@ -40,8 +58,11 @@ function parseCommand(headers: Headers, rawBody: string): { text: string; user: 
     return { text: (form.get("text") ?? "").trim(), user: form.get("user_name") ?? form.get("user_id") ?? "someone", eventId: form.get("trigger_id") ?? "" };
   }
   try {
-    const body = JSON.parse(rawBody) as { text?: unknown; user?: unknown; id?: unknown };
-    return { text: typeof body.text === "string" ? body.text.trim() : "", user: typeof body.user === "string" ? body.user : "someone", eventId: typeof body.id === "string" ? body.id : "" };
+    const body = JSON.parse(rawBody) as { text?: unknown; user?: unknown; id?: unknown; from?: { name?: unknown } };
+    // A Teams activity says who sent it in `from` and wraps the bot mention in <at> tags and HTML around the words.
+    const text = typeof body.text === "string" ? body.text.replace(/<at>.*?<\/at>/giu, " ").replace(/<[^>]*>/gu, " ").replaceAll("&nbsp;", " ").replace(/\s+/gu, " ").trim() : "";
+    const user = typeof body.user === "string" ? body.user : typeof body.from?.name === "string" ? body.from.name : "someone";
+    return { text, user, eventId: typeof body.id === "string" ? body.id : "" };
   } catch { return { text: "", user: "someone", eventId: "" }; }
 }
 
@@ -57,14 +78,19 @@ function organizationOf(store: Store, env: NodeJS.ProcessEnv): string | undefine
 /** Handles one inbound request. `rawBody` is the exact text that was signed. */
 export function handleInbound(store: Store, headers: Headers, rawBody: string, env: NodeJS.ProcessEnv = process.env): InboundReply {
   const secret = env["BRAIN_INBOUND_WEBHOOK_SECRET"];
-  if (!secret || secret.length < 16) return { status: 503, body: { error: "the inbound chat webhook is not configured on this server" } };
-  const refused = verifyInboundSignature(secret, headers, rawBody, store.now());
+  const teamsToken = env["BRAIN_INBOUND_TEAMS_TOKEN"];
+  const usable = (value: string | undefined): value is string => !!value && value.length >= 16;
+  if (!usable(secret) && !usable(teamsToken)) return { status: 503, body: { error: "the inbound chat webhook is not configured on this server" } };
+  // A request names its scheme by its headers; each scheme is checked only against its own secret, and one that is not set up is refused.
+  const teams = /^HMAC /u.test(headers.get("authorization") ?? "");
+  const refused = teams ? (usable(teamsToken) ? verifyTeamsSignature(teamsToken, headers, rawBody, store.now()) : "Teams signatures are not set up on this server")
+    : (usable(secret) ? verifyInboundSignature(secret, headers, rawBody, store.now()) : "this request's signature scheme is not set up on this server");
   if (refused) return { status: 401, body: { error: refused } };
   const organizationId = organizationOf(store, env);
   if (!organizationId) return { status: 503, body: { error: "name the organization with BRAIN_INBOUND_WEBHOOK_ORG" } };
   const { text, user, eventId } = parseCommand(headers, rawBody);
   // A signed request is handled once: a retry of the same event (or the same signature) is acknowledged, not repeated.
-  const key = eventId || createHash("sha256").update(headers.get("x-slack-signature") ?? headers.get("x-brain-signature") ?? rawBody).digest("hex");
+  const key = eventId || createHash("sha256").update(headers.get("x-slack-signature") ?? headers.get("x-brain-signature") ?? headers.get("authorization") ?? rawBody).digest("hex");
   const first = store.control.prepare("INSERT OR IGNORE INTO inbound_hook_events(remote_event_id, received_at_ms) VALUES (?,?)").run(key.slice(0, 200), store.now());
   if (first.changes !== 1) return reply(200, "Already handled.");
   store.control.prepare("DELETE FROM inbound_hook_events WHERE received_at_ms<?").run(store.now() - 24 * 3600_000);

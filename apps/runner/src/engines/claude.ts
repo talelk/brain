@@ -2,6 +2,7 @@ import { readFileSync, statSync } from "node:fs";
 import { sha256Digest } from "@brain/contracts";
 import type { EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
+import type { HostedRoute } from "./pi";
 import { overCostCap } from "./limits";
 import { GovernedToolCalls } from "./tool-calls";
 import { z } from "zod";
@@ -113,12 +114,38 @@ export class ClaudeEngine implements EngineAdapter {
   private nativeSessionId = "";
   private toolCalls: GovernedToolCalls | undefined;
   private toolSeq = 0;
-  constructor(private readonly toolBindings: readonly EngineToolBinding[] = []) {}
+  /**
+   * `route` is the hosted model the Governor chose for this one attempt (ADR 0023). It names a place and a model, never a key: the key is
+   * this runner's own BRAIN_HOSTED_MODEL_API_KEY. A routed engine never writes process.env (other slots run at the same time), it hands the
+   * SDK a private environment for this attempt alone.
+   */
+  constructor(private readonly toolBindings: readonly EngineToolBinding[] = [], private readonly route?: HostedRoute) {}
 
-  private baseUrl(): string | undefined { return process.env["BRAIN_ANTHROPIC_BASE_URL"] ?? process.env["ANTHROPIC_BASE_URL"]; }
-  private model(): string { return process.env["BRAIN_CLAUDE_MODEL"] ?? process.env["BRAIN_LOCAL_MODEL_ID"] ?? "qwen3.8-flash-next-a5b"; }
+  private baseUrl(): string | undefined { return this.route?.baseUrl ?? process.env["BRAIN_ANTHROPIC_BASE_URL"] ?? process.env["ANTHROPIC_BASE_URL"]; }
+  private model(): string { return this.route?.model ?? process.env["BRAIN_CLAUDE_MODEL"] ?? process.env["BRAIN_LOCAL_MODEL_ID"] ?? "qwen3.8-flash-next-a5b"; }
+
+  /** The environment of the SDK process for this attempt. Without a route it is the runner's own (set up by ensureEnv); with one it points at the hosted model only. */
+  private attemptEnv(): NodeJS.ProcessEnv {
+    if (!this.route) return { ...process.env };
+    const key = process.env["BRAIN_HOSTED_MODEL_API_KEY"];
+    if (!key) throw new Error("The hosted model needs its API key on this runner (BRAIN_HOSTED_MODEL_API_KEY); the attempt was not sent anywhere");
+    let parsed: URL;
+    try { parsed = new URL(this.route.baseUrl); } catch { throw new Error("the hosted model address is not a valid URL"); }
+    if (parsed.protocol !== "https:" && !isLocalAnthropicHost(parsed.hostname)) throw new Error("the hosted model must be reached over https");
+    const env: NodeJS.ProcessEnv = { ...process.env, ANTHROPIC_BASE_URL: this.route.baseUrl, ANTHROPIC_API_KEY: key, ANTHROPIC_AUTH_TOKEN: key };
+    // Settings of the local gateway (its own address, key file and routing headers) must never reach a vendor.
+    for (const name of ["BRAIN_ANTHROPIC_BASE_URL", "BRAIN_ANTHROPIC_API_KEY_FILE", "ANTHROPIC_CUSTOM_HEADERS"]) delete env[name];
+    return env;
+  }
+
+  /** True when the endpoint this attempt calls is the self-hosted one, whose tokens cost nothing. */
+  private localEndpoint(): boolean {
+    if (this.route) { try { return isLocalAnthropicHost(new URL(this.route.baseUrl).hostname); } catch { return false; } }
+    return resolveAnthropicEndpoint(process.env).local;
+  }
 
   private ensureEnv(): void {
+    if (this.route) { this.attemptEnv(); return; } // validates the route and the key; process.env is left alone
     const endpoint = resolveAnthropicEndpoint(process.env);
     if (endpoint.baseUrl) process.env["ANTHROPIC_BASE_URL"] = endpoint.baseUrl;
     const credential = endpoint.keySource === "local-placeholder" ? "local-no-key" : process.env["ANTHROPIC_API_KEY"];
@@ -137,7 +164,7 @@ export class ClaudeEngine implements EngineAdapter {
       this.ensureEnv();
       await import("@anthropic-ai/claude-agent-sdk");
       const base = this.baseUrl();
-      const credential = process.env["ANTHROPIC_AUTH_TOKEN"]!;
+      const credential = this.attemptEnv()["ANTHROPIC_AUTH_TOKEN"]!;
       const res = await fetch(`${base}/v1/models`, { headers: { authorization: `Bearer ${credential}`, "x-api-key": credential, "anthropic-version": "2023-06-01" }, signal: AbortSignal.timeout(5000) });
       version = res.ok ? "0.3.311-local" : "0.3.311-model-unreachable";
     } catch { version = "unavailable"; }
@@ -179,11 +206,11 @@ export class ClaudeEngine implements EngineAdapter {
       const execution = query({
         prompt: input as never,
         options: {
-          model: spec.modelId || this.model(), cwd: process.cwd(), maxTurns: spec.limits.maxTurns,
+          model: this.route ? this.route.model : spec.modelId || this.model(), cwd: process.cwd(), maxTurns: spec.limits.maxTurns,
           tools: [], allowedTools: calls.names().map((name) => `mcp__brain__${name}`), settingSources: [],
           ...(mcpServer ? { mcpServers: { brain: mcpServer } } : {}),
           ...(spec.limits.maxMicroUsd > 0 ? { maxBudgetUsd: spec.limits.maxMicroUsd / 1000000 } : {}),
-          env: { ...process.env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(spec.limits.maxTokens) },
+          env: { ...this.attemptEnv(), CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(spec.limits.maxTokens) },
           canUseTool: async (toolName: string, input: Record<string, unknown>) => calls.names().some((name) => toolName === `mcp__brain__${name}`)
             ? { behavior: "allow", updatedInput: input }
             : { behavior: "deny", message: "Only release-pinned Brain broker tools are allowed" },
@@ -207,7 +234,7 @@ export class ClaudeEngine implements EngineAdapter {
           input.close();
           if (m.subtype !== "success" || m.is_error) throw new Error(`Claude run did not succeed: ${m.subtype ?? "unknown result"}`);
           const inputTokens = (m.usage?.input_tokens ?? 0) + (m.usage?.cache_creation_input_tokens ?? 0), outputTokens = m.usage?.output_tokens ?? 0, cachedInputTokens = m.usage?.cache_read_input_tokens ?? 0;
-          const microUsd = resolveAnthropicEndpoint(process.env).local ? 0 : Math.ceil((m.total_cost_usd ?? 0)*1000000);
+          const microUsd = this.localEndpoint() ? 0 : Math.ceil((m.total_cost_usd ?? 0)*1000000);
           this.push("usage",{usageId:`claude-usage-${spec.attemptId}`,inputTokens,outputTokens,cachedInputTokens,microUsd,accounting:"final-total",estimated:false});
           if (inputTokens+outputTokens+cachedInputTokens > spec.limits.maxTokens || overCostCap(microUsd, spec.limits.maxMicroUsd)) throw new Error("Claude execution exceeded its pinned token/cost budget");
           completed = true;
