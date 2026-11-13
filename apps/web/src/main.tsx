@@ -4,7 +4,7 @@ import { App } from "./app";
 import "./ui/theme";
 import "./index.css";
 import { listenForInstall } from "./ui/install";
-import { locale, localeDirection } from "./i18n";
+import { loadLocale, locale, localeDirection } from "./i18n";
 
 listenForInstall();
 const root = document.getElementById("root");
@@ -26,10 +26,12 @@ function readingDirection(): "ltr" | "rtl" {
 const dir = readingDirection();
 document.documentElement.dir = dir;
 document.documentElement.lang = locale();
-const dispose = render(() => <UIProvider dir={dir}><App /></UIProvider>, root);
+// The chosen language's messages arrive before the first paint, so the page never flashes English first.
+let dispose = (): void => undefined;
+void loadLocale(locale()).catch(() => undefined).finally(() => { dispose = render(() => <UIProvider dir={dir}><App /></UIProvider>, root); });
 // Static-shell service worker; denied/failed registration is fine — the app
 // simply runs without offline shell caching.
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/sw.js").catch(() => { /* shell remains fully network-served */ });
 }
-if (import.meta.hot) import.meta.hot.dispose(dispose);
+if (import.meta.hot) import.meta.hot.dispose(() => dispose());

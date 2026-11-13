@@ -18,21 +18,21 @@ import { t } from "../../i18n";
 
 function triggerSummary(automation: Automation): string {
   if (automation.trigger.kind === "cron") return `${automation.trigger.cron} · ${automation.trigger.timezone}`;
-  if (automation.trigger.kind === "once") return `Once at ${formatDateTime(automation.trigger.scheduledAt)}`;
-  return "Manual (Run now)";
+  if (automation.trigger.kind === "once") return t("schedules.trigger.once", { when: formatDateTime(automation.trigger.scheduledAt) });
+  return t("schedules.trigger.manual");
 }
 
 /** The scheduler's recorded detail, in words a person can act on (#56). Unknown details are kept, never dropped. */
 export function plainReason(detail: string): string {
-  if (/previous occurrence is still running/i.test(detail)) return "Skipped: the previous run was still going.";
-  if (/still open/i.test(detail)) return "Skipped: the mission the previous run started is still open, so no second one was started.";
-  if (/missed under the skip/i.test(detail)) return "Skipped: Brain was not running at that time, and this schedule does not catch up.";
-  if (/personal host .* (offline|unavailable); offline policy fail/i.test(detail)) return "Failed: the personal computer this schedule is pinned to was offline, and the schedule is set to fail rather than wait.";
-  if (/personal host .* (offline|unavailable)/i.test(detail)) return "Waiting: the personal computer this schedule is pinned to is offline; the run starts when it is back.";
-  if (/is not in the active release/i.test(detail)) return "Could not start: the play this schedule repeats is no longer in the active release.";
-  if (/work item is /i.test(detail)) return `Skipped: ${detail.replace(/^work item is /i, "the task was already ")}.`;
-  if (/missions are not available/i.test(detail)) return "Could not start: missions are not available in this workspace.";
-  return `Could not start: ${detail}`;
+  if (/previous occurrence is still running/i.test(detail)) return t("schedules.reason.still-running");
+  if (/still open/i.test(detail)) return t("schedules.reason.mission-open");
+  if (/missed under the skip/i.test(detail)) return t("schedules.reason.missed");
+  if (/personal host .* (offline|unavailable); offline policy fail/i.test(detail)) return t("schedules.reason.host-failed");
+  if (/personal host .* (offline|unavailable)/i.test(detail)) return t("schedules.reason.host-waiting");
+  if (/is not in the active release/i.test(detail)) return t("schedules.reason.not-in-release");
+  if (/work item is /i.test(detail)) return t("schedules.reason.task-state", { detail: detail.replace(/^work item is /i, "the task was already ") });
+  if (/missions are not available/i.test(detail)) return t("schedules.reason.no-missions");
+  return t("schedules.reason.other", { detail });
 }
 
 const SCHEDULES_PAGE_SIZE = 25;

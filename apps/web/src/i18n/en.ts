@@ -1337,5 +1337,16 @@ export const en = {
   "adm.quarantined.15f4": "Quarantined",
   "adm.disabled.f4f4": "Disabled",
   "status.off": "Off",
+  "schedules.trigger.once": "Once at {when}",
+  "schedules.trigger.manual": "Manual (Run now)",
+  "schedules.reason.still-running": "Skipped: the previous run was still going.",
+  "schedules.reason.mission-open": "Skipped: the mission the previous run started is still open, so no second one was started.",
+  "schedules.reason.missed": "Skipped: Brain was not running at that time, and this schedule does not catch up.",
+  "schedules.reason.host-failed": "Failed: the personal computer this schedule is pinned to was offline, and the schedule is set to fail rather than wait.",
+  "schedules.reason.host-waiting": "Waiting: the personal computer this schedule is pinned to is offline; the run starts when it is back.",
+  "schedules.reason.not-in-release": "Could not start: the play this schedule repeats is no longer in the active release.",
+  "schedules.reason.task-state": "Skipped: {detail}.",
+  "schedules.reason.no-missions": "Could not start: missions are not available in this workspace.",
+  "schedules.reason.other": "Could not start: {detail}",
   // @@END
 } as const satisfies Record<string, string>;

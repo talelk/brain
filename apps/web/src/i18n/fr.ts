@@ -1339,5 +1339,16 @@ export const fr: Catalog = {
   "adm.quarantined.15f4": "En quarantaine",
   "adm.disabled.f4f4": "Désactivé",
   "status.off": "Désactivé",
+  "schedules.trigger.once": "Une fois le {when}",
+  "schedules.trigger.manual": "Manuel (Exécuter maintenant)",
+  "schedules.reason.still-running": "Ignorée : l'exécution précédente était encore en cours.",
+  "schedules.reason.mission-open": "Ignorée : la mission lancée par l'exécution précédente est encore ouverte, donc aucune seconde n'a été lancée.",
+  "schedules.reason.missed": "Ignorée : Brain ne tournait pas à ce moment-là et cette planification ne rattrape pas.",
+  "schedules.reason.host-failed": "Échec : l'ordinateur personnel auquel cette planification est liée était hors ligne, et elle est réglée pour échouer plutôt qu'attendre.",
+  "schedules.reason.host-waiting": "En attente : l'ordinateur personnel auquel cette planification est liée est hors ligne ; l'exécution démarre à son retour.",
+  "schedules.reason.not-in-release": "Démarrage impossible : le Play que cette planification répète n'est plus dans la version active.",
+  "schedules.reason.task-state": "Ignorée : {detail}.",
+  "schedules.reason.no-missions": "Démarrage impossible : les missions ne sont pas disponibles dans cet espace de travail.",
+  "schedules.reason.other": "Démarrage impossible : {detail}",
   // @@END
 };

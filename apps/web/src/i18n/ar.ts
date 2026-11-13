@@ -1376,5 +1376,16 @@ export const ar: Catalog = {
   "adm.quarantined.15f4": "في الحجر",
   "adm.disabled.f4f4": "معطّل",
   "status.off": "متوقف",
+  "schedules.trigger.once": "مرة واحدة في {when}",
+  "schedules.trigger.manual": "يدوي (التنفيذ الآن)",
+  "schedules.reason.still-running": "تم التخطي: كان التشغيل السابق ما زال جاريًا.",
+  "schedules.reason.mission-open": "تم التخطي: المهمة التي بدأها التشغيل السابق ما زالت مفتوحة، فلم تُبدأ مهمة ثانية.",
+  "schedules.reason.missed": "تم التخطي: لم يكن Brain يعمل في ذلك الوقت وهذا الجدول لا يعوّض ما فات.",
+  "schedules.reason.host-failed": "فشل: كان الحاسوب الشخصي المثبّت عليه هذا الجدول غير متصل، والجدول مضبوط على الفشل بدل الانتظار.",
+  "schedules.reason.host-waiting": "في الانتظار: الحاسوب الشخصي المثبّت عليه هذا الجدول غير متصل؛ يبدأ التشغيل عند عودته.",
+  "schedules.reason.not-in-release": "تعذّر البدء: لم يعد الـ Play الذي يكرره هذا الجدول في الإصدار النشط.",
+  "schedules.reason.task-state": "تم التخطي: {detail}.",
+  "schedules.reason.no-missions": "تعذّر البدء: المهام غير متاحة في مساحة العمل هذه.",
+  "schedules.reason.other": "تعذّر البدء: {detail}",
   // @@END
 };
