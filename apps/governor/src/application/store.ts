@@ -30,8 +30,10 @@ export class Store {
   private readonly workspaceOrganizations = new Map<string, string>();
   private readonly lru: string[] = [];
   // Bounded workspace-handle cache. Handles are fetched per operation and
-  // never held across awaits (audited), so eviction cannot strand a caller.
-  private readonly maxWorkspaces = Math.min(256, Math.max(4, Number(process.env["BRAIN_MAX_WORKSPACE_DBS"] ?? 16) || 16));
+  // never held across awaits (audited), so eviction cannot strand a caller. The default must exceed the number of workspaces in regular
+  // use: with fewer handles than active workspaces every operation reopens one (pragmas, identity and schema check) and closes another,
+  // which was the largest share of command time and of event-loop delay in the steady benchmark (25 workspaces against a cap of 16).
+  private readonly maxWorkspaces = Math.min(256, Math.max(4, Number(process.env["BRAIN_MAX_WORKSPACE_DBS"] ?? 64) || 64));
 
   // Workspaces whose event logs gained rows since the stream projector last
   // took them; the projector tails only these on its hot path.

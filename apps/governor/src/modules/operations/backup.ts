@@ -1,5 +1,7 @@
 import Database from "better-sqlite3";
 import { createHash, randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
+import { Worker } from "node:worker_threads";
 import { chmodSync, closeSync, constants, existsSync, fstatSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, realpathSync, renameSync, rmdirSync, rmSync, writeSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { z } from "zod";
@@ -84,6 +86,31 @@ function checkSqlite(path: string): void {
   } finally { db.close(); }
 }
 
+/**
+ * The same integrity check, run on a worker thread. `integrity_check` is one blocking SQLite call that takes seconds on a large
+ * database; run on the Governor's own thread (as the once-a-minute replica snapshot does) it froze every request for that long. The worker
+ * is plain JavaScript evaluated from a string, so it needs no TypeScript loader; it opens the copy read-only and answers once.
+ */
+const CHECK_WORKER = `
+const { parentPort, workerData } = require("node:worker_threads");
+const Database = require(workerData.sqlite);
+try {
+  const db = new Database(workerData.path, { readonly: true, fileMustExist: true });
+  try { parentPort.postMessage({ ok: db.pragma("integrity_check", { simple: true }) === "ok" && db.pragma("foreign_key_check").length === 0 }); } finally { db.close(); }
+} catch (error) { parentPort.postMessage({ ok: false, error: String(error && error.message || error) }); }
+`;
+const requireHere = createRequire(import.meta.url);
+
+function checkSqliteOffThread(path: string): Promise<void> {
+  return new Promise((resolvePromise, reject) => {
+    const worker = new Worker(CHECK_WORKER, { eval: true, workerData: { path, sqlite: requireHere.resolve("better-sqlite3") } });
+    let answered = false;
+    worker.once("message", (message: { ok: boolean }) => { answered = true; if (message.ok) resolvePromise(); else reject(new BrainDomainError("EVIDENCE_MISSING", "backup database failed integrity checks")); });
+    worker.once("error", (error) => { if (!answered) { answered = true; reject(error); } });
+    worker.once("exit", () => { if (!answered) reject(new BrainDomainError("EVIDENCE_MISSING", "backup database check ended without an answer")); });
+  });
+}
+
 function syncDirectory(path: string): void {
   const fd = openSync(path, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
   try { fsyncSync(fd); } finally { closeSync(fd); }
@@ -162,7 +189,7 @@ export async function createBackup(dataDir: string, outDir: string, opts: { live
         const db = new Database(join(source, path), { readonly: true, fileMustExist: true });
         try { await db.backup(dest); } finally { db.close(); }
         chmodSync(dest, 0o600);
-        checkSqlite(dest);
+        await checkSqliteOffThread(dest);
         const fd = openSync(dest, constants.O_RDONLY); try { fsyncSync(fd); } finally { closeSync(fd); }
       }
       const info = path.endsWith(".db") ? copyVerified(stage, path) : copyVerified(source, path, undefined, dest);

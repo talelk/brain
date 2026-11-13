@@ -141,6 +141,10 @@ CREATE TABLE jobs (
 ) STRICT;
 CREATE INDEX jobs_ready ON jobs(state, ready_at_ms, priority, created_at_ms, id);
 CREATE INDEX jobs_workspace ON jobs(workspace_id, created_at_ms, id);
+-- jobs.list counts a workspace's runs (optionally by state): covering this lets the count read the index only instead of one table row per run.
+CREATE INDEX jobs_scope_state ON jobs(organization_id, workspace_id, state);
+-- A run's jobs (job.get by run id, the run's engine events): without it each lookup scans every job of the organization.
+CREATE INDEX jobs_run ON jobs(organization_id, workflow_run_id, created_at_ms);
 CREATE TABLE job_attempts (
   id TEXT PRIMARY KEY, job_id TEXT NOT NULL REFERENCES jobs(id),
   runner_id TEXT NOT NULL REFERENCES runners(id), runner_epoch INTEGER NOT NULL CHECK(runner_epoch > 0),

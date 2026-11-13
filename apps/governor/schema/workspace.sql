@@ -207,6 +207,7 @@ CREATE TABLE execution_links (
   job_id TEXT, attempt_id TEXT, session_id TEXT, created_at_ms INTEGER NOT NULL,
   PRIMARY KEY(work_item_id,run_id)
 ) STRICT;
+CREATE INDEX execution_links_run ON execution_links(run_id);
 CREATE TABLE automations (
   id TEXT PRIMARY KEY, title TEXT NOT NULL,
   state TEXT NOT NULL CHECK(state IN ('active','paused','retired')),
@@ -326,6 +327,7 @@ CREATE TABLE evidence_bundles (
   attempt_id TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('assembling','submitted','verified','rejected','incomplete')),
   manifest_json TEXT NOT NULL CHECK(json_valid(manifest_json)), created_at_ms INTEGER NOT NULL
 ) STRICT;
+CREATE INDEX evidence_bundles_run ON evidence_bundles(json_extract(manifest_json,'$.workflowRunId'));
 CREATE TABLE verification_verdicts (
   id TEXT PRIMARY KEY, bundle_digest TEXT NOT NULL REFERENCES evidence_bundles(digest),
   evaluator_attempt_id TEXT NOT NULL, evaluator_digest TEXT NOT NULL,
@@ -480,6 +482,7 @@ CREATE TABLE task_drafts (
  command_id TEXT NOT NULL UNIQUE, conversation_id TEXT, state TEXT NOT NULL CHECK(state IN ('review','started')),
  run_id TEXT, created_at_ms INTEGER NOT NULL
 ) STRICT;
+CREATE INDEX task_drafts_run ON task_drafts(run_id);
 CREATE INDEX task_drafts_origin ON task_drafts(json_extract(origin_json,'$.kind'),json_extract(origin_json,'$.id'));
 CREATE TABLE conversations (id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, created_at_ms INTEGER NOT NULL) STRICT;
 CREATE TABLE conversation_messages (
