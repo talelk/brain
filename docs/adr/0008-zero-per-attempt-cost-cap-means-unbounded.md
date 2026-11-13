@@ -1,4 +1,4 @@
-# 6. A zero per-attempt cost cap means unbounded
+# 8. A zero per-attempt cost cap means unbounded
 
 Date: 2026-11-11
 Status: Accepted
@@ -12,7 +12,7 @@ when it is positive (`overCostCap`, shared by both adapters). For work inside a 
 bounded one level up: the mission budget with its per-attempt reserve, the optional mission token
 ceiling and the workspace spend cap all stop admission before a new attempt starts. An interactive
 run outside a mission is bounded only by its token limit, turn limit and timeout (it has no mission
-budget or ledger row, see ADR 0007); set a positive `maxMicroUsd` on an agent that interactive users
+budget or ledger row, see ADR 0009); set a positive `maxMicroUsd` on an agent that interactive users
 run against a paid endpoint. Token limits are unchanged: `maxTokens` always has a positive default
 and is always checked.
 

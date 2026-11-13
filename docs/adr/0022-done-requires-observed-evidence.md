@@ -11,5 +11,5 @@ On the live `sre-demos` workspace a mission whose tasks all reported "I could no
 4. Capitalization writes up only missions whose criteria rest on observed evidence.
 
 ## Consequences
-- A task that declares no required tools keeps today's check, which is how the Docker task slipped through. How tasks come to declare them is a separate decision.
+- A task that declares no required tools keeps today's check, which is how the Docker task slipped through. So tools are declared by the workspace's default way of working (the owner sets it; `sre-demos` gets `sre-task`), which the planner may override per task; a plan whose task needs a tool its way of working lacks is refused at plan time.
 - The Done rate falls at first: that is the honest number appearing.

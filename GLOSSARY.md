@@ -184,7 +184,7 @@ _Avoid_: error type
 
 **Way of working**:
 The kind of worker and independent check a task runs with, chosen from the active
-release; the engine calls it a workflow.
+release (a workspace has a default); the engine calls it a workflow.
 _Avoid_: recipe, template
 
 **Session**:
@@ -312,7 +312,7 @@ _Avoid_: proof, output, result
 
 **Observed evidence**:
 A successful recorded call of a tool the task declared it needs, decided by the Governor
-from the call record, never by a model (ADR 0022). The worker's own statement is not it.
+from the call record, never by a model (ADR 0022).
 _Avoid_: proof
 
 **Output**:

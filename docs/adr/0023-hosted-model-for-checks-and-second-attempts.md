@@ -11,5 +11,5 @@ Today every role (planning, work, checking) uses one self-hosted model server re
 4. The model and vendor are the owner's choice in Administration, not a release setting.
 
 ## Limits
-- Host output redaction is pattern based (ADR 0021): a workspace that reads production hosts, such as `sre-demos`, should not be the first to enable it.
+- Host output redaction is pattern based (ADR 0021): a workspace that reads production hosts, such as `sre-demos`, stays self-hosted. The first workspace to enable it is the demo workspace, which holds only documents and sample files.
 - When the hosted model is down, checks and second attempts wait, and Health must say so. Spend caps must cover its cost first.

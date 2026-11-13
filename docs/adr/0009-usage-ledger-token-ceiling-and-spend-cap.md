@@ -1,4 +1,4 @@
-# 7. Usage ledger, token ceiling and workspace spend cap
+# 9. Usage ledger, token ceiling and workspace spend cap
 
 Date: 2026-11-11
 Status: Accepted

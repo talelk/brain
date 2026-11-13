@@ -1,5 +1,5 @@
 /**
- * Per-attempt spend rule shared by every engine (ADR 0006): a cap of 0 means
+ * Per-attempt spend rule shared by every engine (ADR 0008): a cap of 0 means
  * "no per-attempt dollar cap" and the mission budget with its attempt reserve
  * bounds spend; only a positive cap is enforced.
  */
