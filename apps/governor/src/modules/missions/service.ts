@@ -1046,6 +1046,9 @@ export class MissionService {
   /** Why a failed run failed, in words: the agent's own error, or the checks an independent verdict did not pass. */
   private failureReason(db: ReturnType<Store["workspaceDb"]>, runId: string): string | undefined {
     try {
+      // The failed attempt's own reason (redacted and short, kept when the attempt ended) comes first: it is what the run page and Logs show too.
+      const attempt = this.store.control.prepare("SELECT a.failure_reason AS reason FROM job_attempts a JOIN jobs j ON j.id=a.job_id WHERE j.workflow_run_id=? AND a.failure_reason IS NOT NULL ORDER BY a.attempt_no DESC LIMIT 1").get(runId) as { reason: string } | undefined;
+      if (attempt?.reason) return attempt.reason;
       for (const row of db.prepare("SELECT o.output_json FROM step_outputs o JOIN workflow_steps s ON s.run_id=o.run_id AND s.step_id=o.step_id WHERE o.run_id=? AND s.state='failed'").all(runId) as Array<{ output_json: string }>) {
         const error = (JSON.parse(row.output_json) as { error?: unknown }).error;
         if (typeof error === "string" && error) return error.slice(0, 300);

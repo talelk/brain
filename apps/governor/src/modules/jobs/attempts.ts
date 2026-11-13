@@ -6,6 +6,7 @@ import { putBytes, readVerified, registerArtifact } from "../artifacts/index";
 import { endAttemptSession, recordAttemptProgress, recordAttemptSession } from "../sessions/index";
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
+import { failureCode, failureReasonOf } from "../../domain/failure-reason";
 import { evaluateRunner, type RunnerView } from "../../domain/placement";
 import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
@@ -526,6 +527,7 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
       transitionState(s.control, "attempt", attemptId, "failed", { set: { receipt_digest: receiptDigest, cleanup_confirmed: cleanup } });
       transitionState(s.control, "job", String(row["job_id"]), "failed", { bumpVersion: true });
       jobState = "failed";
+      recordAttemptFailure(s, attemptId, Number(row["last_event_seq"]), failureReasonOf(output));
     }
     if (cleanup === 1) releaseReservation(s, attemptId);
     endAttemptSession(s, { organizationId: String(row["organization_id"]), workspaceId, attemptId, failed: jobState === "failed" });
@@ -537,6 +539,18 @@ export function completeAttempt(s: Store, deps: { completeStep: (organizationId:
   // A held act job belongs to no workflow step: its outcome reaches the task through the job that proposed it.
   if (jobState === "failed" && !isAct) deps.completeStep(runner.organizationId, workspaceId, runId, stepId, output, false);
   return { attemptId, jobState, acceptedForVerification: jobState === "verifying" } as unknown as JsonValue;
+}
+
+/**
+ * Why the attempt failed, said once where people look: the redacted, short error of the failed step is kept on the attempt and written to
+ * the attempt's log as an error-level `attempt.failed` record (the run inspector, Logs and the failure class all read it from here).
+ */
+function recordAttemptFailure(s: Store, attemptId: string, lastSeq: number, reason: string | undefined): void {
+  if (!reason) return;
+  const seq = lastSeq + 1;
+  s.control.prepare("UPDATE job_attempts SET failure_reason=?, last_event_seq=? WHERE id=?").run(reason, seq, attemptId);
+  const event = { sequence: seq, kind: "failed", payload: { reason, code: failureCode(reason), occurredAt: s.nowIso() } };
+  s.control.prepare("INSERT OR IGNORE INTO attempt_events(attempt_id, seq, event_json) VALUES (?,?,?)").run(attemptId, seq, JSON.stringify(event));
 }
 
 export function releaseAttempt(s: Store, runner: { runnerId: string; epoch: number }, attemptId: string, body: Record<string, unknown>): JsonValue {

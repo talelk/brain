@@ -27,7 +27,7 @@ const GOVERNOR_PREFIXES: readonly string[] = [
  */
 export function emitterOf(source: StreamSource, eventType: string): StreamEmitter {
   if (eventType === "attempt.effect" || eventType.startsWith("tool.")) return "tool";
-  if (source === "attempt") return eventType === "attempt.progress" ? "governor" : "agent";
+  if (source === "attempt") return eventType === "attempt.progress" || eventType === "attempt.failed" ? "governor" : "agent";
   if (eventType.startsWith("session.")) return "agent";
   if (eventType.startsWith("runner.")) return "runner";
   if (eventType.startsWith("evidence.")) return "evaluator";
@@ -43,7 +43,7 @@ export function emitterOf(source: StreamSource, eventType: string): StreamEmitte
 export function severityOf(source: StreamSource, eventType: string, payload: Record<string, unknown> | null): StreamSeverity {
   void source;
   if (eventType === "operations.restored-authority-quarantined") return "critical";
-  if (eventType === "error") return "error";
+  if (eventType === "error" || eventType === "attempt.failed") return "error";
   if (eventType === "session.stopped") {
     const reason = String(payload?.["reason"] ?? "");
     return reason === "error" || reason === "budget" || reason === "timeout" ? "error" : "info";

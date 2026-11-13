@@ -5,6 +5,7 @@ import { evaluateRunner, rankRunners } from "../../domain/placement";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import type { QuerySnapshot } from "../../application/query";
+import { failureCode, type FailureCode } from "../../domain/failure-reason";
 import { isReadOnlyReasoningJob, runnerView } from "./attempts";
 import { jobNeedsYou, runContext, type RunContext } from "./run-context";
 
@@ -14,6 +15,9 @@ export interface JobAttemptView {
   runnerId: string;
   state: string;
   leaseExpiresAt?: string;
+  /** Why the attempt failed: the failed step's own error, redacted and short, and its kind (the interface words each kind). */
+  failureReason?: string;
+  failureCode?: FailureCode;
 }
 
 /** The job read model: one row joined to its attempts, run outputs and evidence. */
@@ -61,7 +65,7 @@ function isRestarting(store: Store, row: Record<string, unknown>): boolean {
  * without guessing session ids from attempt ids.
  */
 export function jobSnapshot(store: Store, row: Record<string, unknown>): JobSnapshotView {
-  const attempts = store.control.prepare("SELECT id, runner_id, attempt_no, state, lease_expires_at_ms FROM job_attempts WHERE job_id=? ORDER BY attempt_no").all(String(row["id"])) as Array<Record<string, unknown>>;
+  const attempts = store.control.prepare("SELECT id, runner_id, attempt_no, state, lease_expires_at_ms, failure_reason FROM job_attempts WHERE job_id=? ORDER BY attempt_no").all(String(row["id"])) as Array<Record<string, unknown>>;
   const ws = store.workspaceDb(String(row["workspace_id"]), String(row["organization_id"]));
   const boundSession = ws.prepare("SELECT id FROM sessions WHERE job_id=? ORDER BY updated_at_ms DESC LIMIT 1").get(String(row["id"])) as { id: string } | undefined;
   const runId = String(row["workflow_run_id"]);
@@ -88,6 +92,7 @@ export function jobSnapshot(store: Store, row: Record<string, unknown>): JobSnap
       runnerId: String(a["runner_id"]),
       state: String(a["state"]),
       ...(a["lease_expires_at_ms"] != null ? { leaseExpiresAt: iso(Number(a["lease_expires_at_ms"])) } : {}),
+      ...(typeof a["failure_reason"] === "string" && a["failure_reason"] ? { failureReason: a["failure_reason"], failureCode: failureCode(a["failure_reason"]) } : {}),
     })),
     configDigest: String(row["config_digest"]),
     createdAt: iso(Number(row["created_at_ms"])),

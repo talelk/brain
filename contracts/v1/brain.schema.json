@@ -15709,6 +15709,20 @@
         },
         "receiptDigest": {
           "$ref": "#/$defs/Digest"
+        },
+        "failureReason": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "failureCode": {
+          "type": "string",
+          "enum": [
+            "sandbox-image-missing",
+            "sandbox-unavailable",
+            "model-unreachable",
+            "timeout",
+            "other"
+          ]
         }
       },
       "required": [
