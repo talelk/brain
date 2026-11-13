@@ -47,7 +47,9 @@ test("web vitals: shell LCP, interaction latency, JS budget (E099 browser)", asy
   const vitals = await page.evaluate(() => {
     const w = window as unknown as { __vitals: Vitals };
     const resources = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
-    const jsBytes = resources.filter((r) => r.name.endsWith(".js")).reduce((n, r) => n + (r.encodedBodySize || r.transferSize || 0), 0);
+    const scripts = resources.filter((r) => r.name.endsWith(".js")).map((r) => ({ file: r.name.split("/").pop() ?? r.name, bytes: r.encodedBodySize || r.transferSize || 0 }));
+    const jsBytes = scripts.reduce((n, r) => n + r.bytes, 0);
+    w.__vitals.events.push(`largest scripts: ${scripts.sort((a, b) => b.bytes - a.bytes).slice(0, 6).map((r) => `${r.file} ${r.bytes}`).join(", ")}`);
     const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
     return { ...w.__vitals, jsBytes, domInteractive: nav ? nav.domInteractive : 0 };
   });
@@ -76,7 +78,9 @@ test("today vitals: authenticated LCP, interaction latency and initial JS budget
   const vitals = await page.evaluate(() => {
     const w = window as unknown as { __vitals: Vitals };
     const resources = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
-    const jsBytes = resources.filter((r) => r.name.endsWith(".js")).reduce((n, r) => n + (r.encodedBodySize || r.transferSize || 0), 0);
+    const scripts = resources.filter((r) => r.name.endsWith(".js")).map((r) => ({ file: r.name.split("/").pop() ?? r.name, bytes: r.encodedBodySize || r.transferSize || 0 }));
+    const jsBytes = scripts.reduce((n, r) => n + r.bytes, 0);
+    w.__vitals.events.push(`largest scripts: ${scripts.sort((a, b) => b.bytes - a.bytes).slice(0, 6).map((r) => `${r.file} ${r.bytes}`).join(", ")}`);
     const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
     return { ...w.__vitals, jsBytes, domInteractive: nav ? nav.domInteractive : 0 };
   });

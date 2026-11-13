@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ar } from "../../apps/web/src/i18n/ar";
 import { en } from "../../apps/web/src/i18n/en";
@@ -55,6 +55,45 @@ describe("message catalogue (phase 2)", () => {
       for (const match of text.matchAll(/\btn\(\s*"([a-zA-Z0-9_.-]+)"/gu)) if (!(`${match[1]!}_other` in english)) unknown.push(`${file.replace(SRC, "")}: ${match[1]} (plural)`);
     }
     expect(unknown).toEqual([]);
+  });
+
+  it("every message the first screen asks for is in the core catalogue (the rest loads with the other screens)", () => {
+    const importRe = /\bfrom\s+["']([^"']+)["']|\bimport\s+["']([^"']+)["']/gu;
+    const dynamicRe = /import\(\s*["']([^"']+)["']\s*\)/gu;
+    const resolve = (from: string, spec: string): string | undefined => {
+      if (!spec.startsWith(".")) return undefined;
+      const base = join(dirname(from), spec);
+      return [base, `${base}.ts`, `${base}.tsx`, join(base, "index.ts"), join(base, "index.tsx")].find((candidate) => existsSync(candidate) && statSync(candidate).isFile());
+    };
+    const reach = (entry: string, dynamic: boolean): Set<string> => {
+      const seen = new Set<string>();
+      const stack = [entry];
+      while (stack.length > 0) {
+        const file = stack.pop()!;
+        if (seen.has(file)) continue;
+        seen.add(file);
+        const text = readFileSync(file, "utf8");
+        const specs = [...text.matchAll(importRe)].map((match) => match[1] ?? match[2]!);
+        if (dynamic) specs.push(...[...text.matchAll(dynamicRe)].map((match) => match[1]!));
+        for (const spec of specs) { const target = resolve(file, spec); if (target && /\.tsx?$/u.test(target) && !target.includes(`${join(SRC, "i18n")}`)) stack.push(target); }
+      }
+      return seen;
+    };
+    // The first screen is the main bundle plus Today (and what Today pulls in later): the same rule scripts/i18n-add.py's note names.
+    const files = new Set([...reach(join(SRC, "main.tsx"), false), ...reach(join(SRC, "routes/pages/TodayPage.tsx"), true)]);
+    const coreText = readFileSync(join(SRC, "i18n/en-core.ts"), "utf8");
+    const core = new Set([...coreText.matchAll(/^ {2}"([^"]+)":/gmu)].map((match) => match[1]!));
+    const missing: string[] = [];
+    for (const file of files) {
+      const text = readFileSync(file, "utf8");
+      for (const match of text.matchAll(/"([a-z][\w.-]*\.[\w.-]+)"/gu)) {
+        for (const candidate of [match[1]!, `${match[1]!}_other`]) if (candidate in english && !core.has(candidate)) missing.push(`${file.replace(SRC, "")}: ${candidate}`);
+      }
+      for (const match of text.matchAll(/`([a-z][\w.-]*\.)\$\{/gu)) {
+        for (const key of Object.keys(english)) if (key.startsWith(match[1]!) && !core.has(key)) missing.push(`${file.replace(SRC, "")}: ${key} (computed)`);
+      }
+    }
+    expect([...new Set(missing)], "move these keys from en-extra.ts to en-core.ts").toEqual([]);
   });
 
   it("plural families have both one and other", () => {

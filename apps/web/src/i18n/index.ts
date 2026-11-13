@@ -1,5 +1,6 @@
 import { createSignal } from "solid-js";
-import { en } from "./en";
+import { enCore } from "./en-core";
+import type { en } from "./en";
 
 /**
  * The message catalogue (phase 2). Screens ask for a key, never for English text, so one
@@ -26,16 +27,28 @@ export const LOCALES: readonly { id: Locale; label: string; dir: "ltr" | "rtl" }
  * is in use, so the shell's first load does not carry three languages. A screen asks for a key; until the chosen language has arrived
  * it reads the English text, and it re-reads the moment the language lands.
  */
-const loaded: Partial<Record<Locale, Catalog>> = { en };
-const loaders: Readonly<Record<Locale, () => Promise<Catalog>>> = { en: async () => en, fr: async () => (await import("./fr")).fr, ar: async () => (await import("./ar")).ar };
+/** English as the app holds it: the first screen's messages at start, the rest once `loadEnglishRest` has run. */
+const english: Record<string, string> = { ...enCore };
+const loaded: Partial<Record<Locale, Catalog>> = { en: english as unknown as Catalog };
+const loaders: Readonly<Record<Locale, () => Promise<Catalog>>> = { en: async () => english as unknown as Catalog, fr: async () => (await import("./fr")).fr, ar: async () => (await import("./ar")).ar };
 const [loadedCount, setLoadedCount] = createSignal(1);
+let englishRest: Promise<void> | undefined;
+/**
+ * The English messages the first screen (Today) does not use, in their own chunk. A screen that loads lazily waits for this with its own
+ * code (app.tsx), so a key is always there before the screen asks for it; French and Arabic carry every key, so they never need it.
+ */
+export function loadEnglishRest(): Promise<void> {
+  englishRest ??= import("./en-extra").then((module) => { Object.assign(english, module.enExtra); setLoadedCount((count) => count + 1); });
+  return englishRest;
+}
+
 /** Fetch a language's messages; resolves when they are in place. */
 export async function loadLocale(next: Locale): Promise<void> {
   if (loaded[next]) return;
   loaded[next] = await loaders[next]();
   setLoadedCount((count) => count + 1);
 }
-const catalogOf = (current: Locale): Catalog => { loadedCount(); return loaded[current] ?? en; };
+const catalogOf = (current: Locale): Catalog => { loadedCount(); return loaded[current] ?? (english as unknown as Catalog); };
 const STORAGE_KEY = "brain.locale";
 
 function isLocale(value: string | null | undefined): value is Locale {
@@ -76,12 +89,12 @@ function fill(template: string, params?: Readonly<Record<string, string | number
 
 /** One message in the current language; falls back to English, never to a bare key. */
 export function t(key: MessageKey, params?: Readonly<Record<string, string | number>>): string {
-  return fill(catalogOf(locale())[key] ?? en[key], params);
+  return fill(catalogOf(locale())[key] ?? (english[key] as string), params);
 }
 
 /** A message looked up by a key built at run time (a status word, a service id); the fallback shows when the catalogue has no such key. */
 export function tOr(key: string, fallback: string): string {
-  return (catalogOf(locale()) as Readonly<Record<string, string>>)[key] ?? (en as Readonly<Record<string, string>>)[key] ?? fallback;
+  return (catalogOf(locale()) as Readonly<Record<string, string>>)[key] ?? (english as Readonly<Record<string, string>>)[key] ?? fallback;
 }
 
 /** A counted message: picks `<base>_<category>` by the language's own plural rules; `{n}` is the count. */
@@ -89,7 +102,7 @@ export function tn(base: PluralBase, count: number, params?: Readonly<Record<str
   const current = locale();
   const category = new Intl.PluralRules(intlLocale(current)).select(count);
   const catalog = catalogOf(current) as Readonly<Record<string, string>>;
-  const template = catalog[`${base}_${category}`] ?? catalog[`${base}_other`] ?? (en as Readonly<Record<string, string>>)[`${base}_other`] ?? base;
+  const template = catalog[`${base}_${category}`] ?? catalog[`${base}_other`] ?? (english as Readonly<Record<string, string>>)[`${base}_other`] ?? base;
   return fill(template, { n: count, ...params });
 }
 
