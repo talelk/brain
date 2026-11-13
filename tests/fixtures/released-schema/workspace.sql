@@ -159,6 +159,7 @@ CREATE TABLE plan_versions (
   created_at_ms INTEGER NOT NULL, confirmed_at_ms INTEGER,
   UNIQUE(mission_id,revision)
 ) STRICT;
+-- work_items.required_tools_json (ADR 0022): at least one must have a successful recorded call before Done. failure_class: latest failure as a code. token_cap overrides the default per-task spend cap. retry_after_ms holds a wait-and-retry.
 CREATE TABLE work_items (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id),
   plan_version_id TEXT NOT NULL REFERENCES plan_versions(id), plan_task_id TEXT NOT NULL,
@@ -169,12 +170,31 @@ CREATE TABLE work_items (
   scheduled_at_ms INTEGER, evidence_digest TEXT,
   failed_attempts INTEGER NOT NULL DEFAULT 0 CHECK(failed_attempts >= 0),
   parked INTEGER NOT NULL DEFAULT 0 CHECK(parked IN (0,1)), parked_diagnostic TEXT,
+  required_tools_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(required_tools_json)),
+  failure_class TEXT DEFAULT NULL CHECK(failure_class IS NULL OR failure_class IN ('missing-tool','unmeetable-criterion','model-slip','tool-outage','budget','unclassified')),
+  token_cap INTEGER DEFAULT NULL CHECK(token_cap IS NULL OR token_cap > 0), retry_after_ms INTEGER DEFAULT NULL,
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
   UNIQUE(plan_version_id,plan_task_id), CHECK(state != 'done' OR evidence_digest IS NOT NULL)
 ) STRICT;
 CREATE INDEX work_items_board ON work_items(state,updated_at_ms,id);
 CREATE INDEX work_items_mission ON work_items(mission_id,plan_version_id,plan_task_id);
+-- One row per failed run of a task: makes failure handling idempotent per run and is the source of lessons and the class counts.
+CREATE TABLE task_failures (
+  run_id TEXT NOT NULL, work_item_id TEXT NOT NULL REFERENCES work_items(id), mission_id TEXT NOT NULL,
+  failure_class TEXT NOT NULL CHECK(failure_class IN ('missing-tool','unmeetable-criterion','model-slip','tool-outage','budget','unclassified')),
+  remedy TEXT NOT NULL, diagnostic TEXT NOT NULL DEFAULT '', created_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(run_id,work_item_id)
+) STRICT;
+CREATE INDEX task_failures_item ON task_failures(work_item_id,created_at_ms);
+-- Lessons from healed or parked failures, given to the planner. Never knowledge assets: they carry no observed-evidence claim.
+CREATE TABLE lessons (
+  id TEXT PRIMARY KEY, work_item_id TEXT NOT NULL, mission_id TEXT NOT NULL,
+  failure_class TEXT NOT NULL CHECK(failure_class IN ('missing-tool','unmeetable-criterion','model-slip','tool-outage','budget','unclassified')),
+  outcome TEXT NOT NULL CHECK(outcome IN ('healed','parked')), task_title TEXT NOT NULL, lesson TEXT NOT NULL,
+  created_at_ms INTEGER NOT NULL, expires_at_ms INTEGER NOT NULL,
+  UNIQUE(work_item_id,outcome)
+) STRICT;
 CREATE TABLE work_item_dependencies (
   work_item_id TEXT NOT NULL REFERENCES work_items(id),
   depends_on_work_item_id TEXT NOT NULL REFERENCES work_items(id),
@@ -187,6 +207,7 @@ CREATE TABLE execution_links (
   job_id TEXT, attempt_id TEXT, session_id TEXT, created_at_ms INTEGER NOT NULL,
   PRIMARY KEY(work_item_id,run_id)
 ) STRICT;
+CREATE INDEX execution_links_run ON execution_links(run_id);
 CREATE TABLE automations (
   id TEXT PRIMARY KEY, title TEXT NOT NULL,
   state TEXT NOT NULL CHECK(state IN ('active','paused','retired')),
@@ -306,6 +327,7 @@ CREATE TABLE evidence_bundles (
   attempt_id TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('assembling','submitted','verified','rejected','incomplete')),
   manifest_json TEXT NOT NULL CHECK(json_valid(manifest_json)), created_at_ms INTEGER NOT NULL
 ) STRICT;
+CREATE INDEX evidence_bundles_run ON evidence_bundles(json_extract(manifest_json,'$.workflowRunId'));
 CREATE TABLE verification_verdicts (
   id TEXT PRIMARY KEY, bundle_digest TEXT NOT NULL REFERENCES evidence_bundles(digest),
   evaluator_attempt_id TEXT NOT NULL, evaluator_digest TEXT NOT NULL,
@@ -336,6 +358,7 @@ CREATE TABLE knowledge_assets (
   reviewed_by TEXT DEFAULT NULL, self_reviewed INTEGER NOT NULL DEFAULT 0 CHECK(self_reviewed IN (0,1)),
   reviewed_at_ms INTEGER DEFAULT NULL, rejection_reason TEXT DEFAULT NULL, content_digest TEXT DEFAULT NULL,
   superseded_by TEXT DEFAULT NULL, auto_published INTEGER NOT NULL DEFAULT 0 CHECK(auto_published IN (0,1)),
+  expires_at_ms INTEGER DEFAULT NULL,
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
 ) STRICT;
 -- Library settings (row 47): one row at most; no row means the defaults (auto-publish on).
@@ -459,6 +482,7 @@ CREATE TABLE task_drafts (
  command_id TEXT NOT NULL UNIQUE, conversation_id TEXT, state TEXT NOT NULL CHECK(state IN ('review','started')),
  run_id TEXT, created_at_ms INTEGER NOT NULL
 ) STRICT;
+CREATE INDEX task_drafts_run ON task_drafts(run_id);
 CREATE INDEX task_drafts_origin ON task_drafts(json_extract(origin_json,'$.kind'),json_extract(origin_json,'$.id'));
 CREATE TABLE conversations (id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, created_at_ms INTEGER NOT NULL) STRICT;
 CREATE TABLE conversation_messages (
@@ -521,9 +545,11 @@ CREATE TABLE result_challenges (
 CREATE UNIQUE INDEX result_challenges_open ON result_challenges(work_item_id) WHERE state IN ('requested','running');
 CREATE INDEX result_challenges_item ON result_challenges(work_item_id, created_at_ms);
 -- Play proposals (ADR 0015): a reviewable description of an achieved mission's confirmed plan, team and criteria. Approval opens a configuration draft.
+-- play_proposals.practice and source_missions_json (Phase 4): the practice tag and every source mission of a proposal built from a team's verified missions; NULL otherwise.
 CREATE TABLE play_proposals (
  id TEXT PRIMARY KEY, mission_id TEXT NOT NULL UNIQUE REFERENCES missions(id), state TEXT NOT NULL CHECK(state IN ('proposed','approved','rejected')),
  play_id TEXT NOT NULL, spec_json TEXT NOT NULL CHECK(json_valid(spec_json)), proposed_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
- reviewed_by TEXT, reviewed_at_ms INTEGER, reason TEXT, draft_id TEXT, self_reviewed INTEGER NOT NULL DEFAULT 0 CHECK(self_reviewed IN (0,1))
+ reviewed_by TEXT, reviewed_at_ms INTEGER, reason TEXT, draft_id TEXT, self_reviewed INTEGER NOT NULL DEFAULT 0 CHECK(self_reviewed IN (0,1)),
+ practice TEXT DEFAULT NULL, source_missions_json TEXT DEFAULT NULL
 ) STRICT;
 

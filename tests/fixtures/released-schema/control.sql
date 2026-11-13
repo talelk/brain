@@ -141,6 +141,10 @@ CREATE TABLE jobs (
 ) STRICT;
 CREATE INDEX jobs_ready ON jobs(state, ready_at_ms, priority, created_at_ms, id);
 CREATE INDEX jobs_workspace ON jobs(workspace_id, created_at_ms, id);
+-- jobs.list counts a workspace's runs (optionally by state): covering this lets the count read the index only instead of one table row per run.
+CREATE INDEX jobs_scope_state ON jobs(organization_id, workspace_id, state);
+-- A run's jobs (job.get by run id, the run's engine events): without it each lookup scans every job of the organization.
+CREATE INDEX jobs_run ON jobs(organization_id, workflow_run_id, created_at_ms);
 CREATE TABLE job_attempts (
   id TEXT PRIMARY KEY, job_id TEXT NOT NULL REFERENCES jobs(id),
   runner_id TEXT NOT NULL REFERENCES runners(id), runner_epoch INTEGER NOT NULL CHECK(runner_epoch > 0),
@@ -455,11 +459,31 @@ CREATE TABLE parked_auto_retries (
   work_item_id TEXT NOT NULL, release_digest TEXT NOT NULL, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, retried_at_ms INTEGER NOT NULL,
   PRIMARY KEY(work_item_id, release_digest)
 ) STRICT;
+-- The workspace's default way of working (ADR 0022): a workflow and the tools its tasks must observe; the planner may override per task.
+CREATE TABLE workspace_way_of_working (
+  workspace_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workflow_id TEXT NOT NULL,
+  required_tools_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(required_tools_json)), updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+-- Hosted model per workspace (ADR 0023): off by default; evaluator and second attempt only. The API key is never stored here (host environment of the runner).
+CREATE TABLE workspace_hosted_model (
+  workspace_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)),
+  vendor TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', base_url TEXT NOT NULL DEFAULT '', updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+-- Latest result of each periodic check (model endpoint, hosted model per workspace, disk): Health reads these rows; a check that goes bad is also alerted once.
+CREATE TABLE service_probes (
+  id TEXT PRIMARY KEY, status TEXT NOT NULL CHECK(status IN ('healthy','degraded','unavailable','disabled')), detail TEXT NOT NULL DEFAULT '',
+  checked_at_ms INTEGER NOT NULL, alerted_status TEXT NOT NULL DEFAULT 'healthy'
+) STRICT;
+-- Platform dispatch state: draining stops new attempts from being offered (deploys that do not interrupt work); running attempts finish.
+CREATE TABLE platform_state (
+  singleton INTEGER PRIMARY KEY CHECK(singleton = 1), draining INTEGER NOT NULL DEFAULT 0 CHECK(draining IN (0,1)), changed_by TEXT NOT NULL DEFAULT '', changed_at_ms INTEGER NOT NULL DEFAULT 0
+) STRICT;
 -- Test runs of one tool: a one-step workflow (tool-test:<id>) a person started to try a tool with their own input. Tagged apart from real calls, which tool_calls counts.
 CREATE TABLE tool_test_runs (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, tool_id TEXT NOT NULL,
   release_digest TEXT NOT NULL, run_id TEXT NOT NULL, input_json TEXT NOT NULL DEFAULT '{}',
-  requested_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL
+  requested_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'try' CHECK(kind IN ('try','selftest'))
 ) STRICT;
 CREATE INDEX tool_test_runs_tool ON tool_test_runs(organization_id, workspace_id, tool_id, created_at_ms);
 CREATE INDEX tool_test_runs_run ON tool_test_runs(run_id);
@@ -498,3 +522,53 @@ CREATE TABLE email_deliveries (
 ) STRICT;
 CREATE INDEX email_deliveries_person ON email_deliveries(organization_id, principal_id, at_ms);
 
+-- Effect tools and permits per call (ADR 0024). The owner's allow-list of what an effect tool may touch in this workspace, and how long a
+-- person has to answer an approval; an empty list means the tool refuses every call.
+CREATE TABLE workspace_effect_policy (
+  workspace_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL,
+  containers_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(containers_json)),
+  services_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(services_json)),
+  approval_minutes INTEGER NOT NULL DEFAULT 30 CHECK(approval_minutes BETWEEN 1 AND 1440),
+  updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+-- A runner group set aside for some workspaces (ADR 0024). A group with a row takes jobs of its listed workspaces only; host tools
+-- (host.*) run only on a group marked host_tools. A group with no row is open to every workspace and has no host tools.
+CREATE TABLE runner_groups (
+  group_id TEXT NOT NULL, organization_id TEXT NOT NULL,
+  host_tools INTEGER NOT NULL DEFAULT 0 CHECK(host_tools IN (0,1)),
+  workspaces_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(workspaces_json)),
+  updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(organization_id, group_id)
+) STRICT;
+-- One row per effect call an agent proposed: the exact call its approval names, so a permit is bound to it and to nothing else.
+-- ADR 0028: a proposal ends the proposing attempt. The call is held as an act job (blocked until the approval is decided) and the proposing
+-- job waits, blocked, until every call it proposed is settled. outcome: applied, absent, unknown, declined, expired, revoked, cancelled.
+CREATE TABLE effect_calls (
+  attempt_id TEXT NOT NULL REFERENCES job_attempts(id), proposal_id TEXT NOT NULL,
+  organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, approval_id TEXT NOT NULL REFERENCES approval_requests(id),
+  tool_id TEXT NOT NULL, input_digest TEXT NOT NULL, resource_key TEXT NOT NULL DEFAULT '', created_at_ms INTEGER NOT NULL,
+  parent_job_id TEXT NOT NULL DEFAULT '', act_job_id TEXT NOT NULL DEFAULT '', outcome TEXT DEFAULT NULL, settled_at_ms INTEGER DEFAULT NULL,
+  PRIMARY KEY(attempt_id, proposal_id)
+) STRICT;
+CREATE UNIQUE INDEX effect_calls_approval ON effect_calls(approval_id);
+CREATE INDEX effect_calls_parent ON effect_calls(parent_job_id, tool_id, input_digest);
+CREATE INDEX effect_calls_act ON effect_calls(act_job_id);
+CREATE INDEX effect_calls_open ON effect_calls(created_at_ms) WHERE settled_at_ms IS NULL;
+-- Inbound chat webhook requests already handled (ADR 0024): a retried signed request is acknowledged, never repeated.
+CREATE TABLE inbound_hook_events (
+  remote_event_id TEXT PRIMARY KEY, received_at_ms INTEGER NOT NULL
+) STRICT;
+-- Single sign-on (ADR 0026): one OpenID Connect provider per Governor. The secret is only a reference, never a value.
+CREATE TABLE identity_provider (
+  singleton INTEGER PRIMARY KEY CHECK(singleton=1), organization_id TEXT NOT NULL REFERENCES organizations(id),
+  enabled INTEGER NOT NULL CHECK(enabled IN (0,1)), issuer TEXT NOT NULL, client_id TEXT NOT NULL, secret_ref TEXT NOT NULL,
+  auto_provision INTEGER NOT NULL CHECK(auto_provision IN (0,1)),
+  default_role TEXT CHECK(default_role IN ('viewer','operator','workspace-lead','approver')),
+  group_claim TEXT NOT NULL, group_roles_json TEXT NOT NULL CHECK(json_valid(group_roles_json)),
+  workspace_ids_json TEXT NOT NULL CHECK(json_valid(workspace_ids_json)), allowed_domains_json TEXT NOT NULL CHECK(json_valid(allowed_domains_json)),
+  updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE TABLE identity_provisionings (
+  user_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id), email TEXT NOT NULL,
+  roles_json TEXT NOT NULL CHECK(json_valid(roles_json)), workspace_ids_json TEXT NOT NULL CHECK(json_valid(workspace_ids_json)), provisioned_at_ms INTEGER NOT NULL
+) STRICT;
