@@ -29,6 +29,8 @@ export interface AchievedOptions {
   handsOff?: boolean;
   /** Reuse items (`mission:<id>`) the mission keeps before it is planned. */
   reuse?: string[];
+  /** Whether a successful tool call backs the result (ADR 0022). Default true; false is the model's say-so alone, which is never written up. */
+  observed?: boolean;
 }
 
 const DEFAULT_BODY = "The work was done in full and checked against every criterion. The result names the findings, explains the evidence behind each one and lists what to do next, so a later mission can start from it instead of from nothing.";
@@ -57,6 +59,10 @@ export async function achievedMission(w: TestWorld, key: string, options: Achiev
     ws.prepare("INSERT INTO workflow_runs(id,execution_key,config_digest,workflow_digest,adapter_digest,engine_run_id,state,input_digest,created_at_ms) VALUES (?,?,?,?,?,?,'succeeded',?,?)")
       .run(runId, `exec-${key}`, `sha256:${"1".repeat(64)}`, `sha256:${"2".repeat(64)}`, `sha256:${"3".repeat(64)}`, `engine-${key}`, `sha256:${"4".repeat(64)}`, w.brain.store.now());
     ws.prepare("INSERT INTO execution_links(mission_id,work_item_id,run_id,created_at_ms) VALUES (?,?,?,?)").run(id, item.workItemId, runId, w.brain.store.now());
+    if (options.observed !== false) {
+      const at = new Date().toISOString();
+      w.brain.store.control.prepare("INSERT INTO tool_calls(attempt_id, proposal_id, organization_id, workspace_id, run_id, tool_id, proposed_at, failed, finished_at) VALUES (?,?,?,?,?,?,?,0,?)").run(`att-${key}`, `prop-${key}`, w.org, w.workspaceId, runId, "documents.read", at, at);
+    }
     ws.prepare("INSERT INTO step_outputs(run_id,step_id,output_json) VALUES (?,?,?)").run(runId, "respond", JSON.stringify({ criteria: [], assumptions: [], ...report }));
   }
   const evidence = `sha256:${"9".repeat(64)}`;

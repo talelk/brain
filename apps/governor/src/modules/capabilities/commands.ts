@@ -17,5 +17,6 @@ export function capitalizationCommands(capitalization: CapitalizationService): C
     "knowledge.review": { kind: "self", handle: ({ actor, cmd }) => ({ outcome: "applied", resourceId: capitalization.apply(actor, cmd as Parameters<CapitalizationService["apply"]>[1]) }) },
     "knowledge.approveVerified": { kind: "self", handle: ({ actor, cmd }) => ({ outcome: "applied", resourceId: capitalization.apply(actor, cmd as Parameters<CapitalizationService["apply"]>[1]) }) },
     "library.settings.set": handler("applied"),
+    "knowledge.withdrawUnobserved": { kind: "self", handle: ({ actor, cmd }) => ({ outcome: "applied", resourceId: capitalization.apply(actor, cmd as Parameters<CapitalizationService["apply"]>[1]) }) },
   };
 }

@@ -5,6 +5,18 @@
 export const FAILURE_CLASSES = ["missing-tool", "unmeetable-criterion", "model-slip", "tool-outage", "budget", "unclassified"] as const;
 export type FailureClass = (typeof FAILURE_CLASSES)[number];
 
+export const isFailureClass = (value: string): value is FailureClass => (FAILURE_CLASSES as readonly string[]).includes(value);
+
+/** What each class means in plain words (the Quality page and the work card). */
+export const FAILURE_LABEL: Readonly<Record<FailureClass, string>> = {
+  "missing-tool": "The task needed a tool its way of working lacks",
+  "unmeetable-criterion": "A criterion cannot be met as written",
+  "model-slip": "The model's answer did not hold up under check",
+  "tool-outage": "A tool was down",
+  budget: "The task used its token allowance",
+  unclassified: "No clear cause",
+};
+
 export type Remedy = "switch-way-of-working" | "stronger-model" | "ask-one-question" | "wait-and-retry" | "park-budget" | "retry";
 
 /** Exactly one remedy per class. */
@@ -41,7 +53,7 @@ export interface FailureSignals {
 }
 
 const OUTAGE_TEXT = /\b(timed? ?out|timeout|aborted|unreachable|unavailable|econn\w*|enotfound|socket|launcher|sandboxed execution failed|bad gateway|502|503|504|connection (?:refused|reset))\b/iu;
-const MISSING_TOOL_TEXT = /\btool\b[^.\n]{0,60}\b(?:is not|isn't|not) (?:available|installed|declared|found)\b|\bno such tool\b|\bunknown tool\b/iu;
+const MISSING_TOOL_TEXT = /\btool\b[^\n]{0,60}\b(?:is not|isn't|not) (?:available|installed|declared|found)\b|\bno such tool\b|\bunknown tool\b/iu;
 const MALFORMED_TEXT = /\b(malformed|unparsable|unparseable|invalid json|could not parse|not valid json)\b/iu;
 
 /** Whether a recorded tool failure message looks like the tool or its host being down rather than refusing the request. */

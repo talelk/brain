@@ -2,6 +2,7 @@ import type { ActorContext, QualitySummary } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
+import { FAILURE_LABEL, isFailureClass, type FailureClass } from "../../domain/failure";
 
 /** The trailing window every figure is computed over. */
 export const QUALITY_WINDOW_DAYS = 30;
@@ -22,7 +23,7 @@ export function qualitySummary(store: Store, actor: ActorContext): QualitySummar
   const from = to - QUALITY_WINDOW_DAYS * DAY_MS;
   const workspaces = (store.control.prepare("SELECT id FROM workspaces WHERE organization_id=? AND status='active' ORDER BY id").all(actor.organizationId) as Array<{ id: string }>).map((row) => row.id);
 
-  let verified = 0, verifiedAlone = 0, active = 0, stalled = 0, spend = 0;
+  let verified = 0, verifiedAlone = 0, active = 0, stalled = 0, spend = 0, parkedOpen = 0;
   let verifiedMissions = 0, reopened = 0;
   const firstResultMs: number[] = [];
   const reasons = new Map<string, number>();
@@ -36,6 +37,8 @@ export function qualitySummary(store: Store, actor: ActorContext): QualitySummar
     }
     active += (db.prepare("SELECT COUNT(*) AS n FROM work_items WHERE updated_at_ms>=? OR created_at_ms>=?").get(from, from) as { n: number }).n;
     stalled += (db.prepare("SELECT COUNT(DISTINCT aggregate_id) AS n FROM events WHERE event_type='workItem.parked' AND created_at_ms>=?").get(from) as { n: number }).n;
+    // A task that parked in the window and never reached Done is an unaided failure: it counts in the denominator, so parking can never raise the rate.
+    parkedOpen += (db.prepare("SELECT COUNT(DISTINCT e.aggregate_id) AS n FROM events e JOIN work_items w ON w.id=e.aggregate_id WHERE e.event_type='workItem.parked' AND e.created_at_ms>=? AND w.state NOT IN ('done','abandoned')").get(from) as { n: number }).n;
     spend += (db.prepare("SELECT COALESCE(SUM(settled_micro_usd),0) AS n FROM mission_spend WHERE settled_at_ms>=?").get(from) as { n: number }).n;
     for (const row of db.prepare(`SELECT m.created_at_ms AS mission_created, MIN(e.created_at_ms) AS first_done FROM events e JOIN work_items w ON w.id=e.aggregate_id JOIN missions m ON m.id=w.mission_id
       WHERE e.event_type='workItem.transitioned' AND json_extract(e.payload_json,'$.state')='done' GROUP BY w.mission_id HAVING first_done>=?`).all(from) as Array<{ mission_created: number; first_done: number }>) {
@@ -50,8 +53,9 @@ export function qualitySummary(store: Store, actor: ActorContext): QualitySummar
     }
     verifiedMissions += verifyingAt.size;
     reopened += returned.size;
-    for (const row of db.prepare("SELECT parked_diagnostic AS d FROM work_items WHERE parked_diagnostic IS NOT NULL AND updated_at_ms>=?").all(from) as Array<{ d: string }>) {
-      const reason = (row.d.split("\n")[0] ?? "").replace(/\d+/g, "N").trim().slice(0, 120);
+    for (const row of db.prepare("SELECT parked_diagnostic AS d, failure_class AS c FROM work_items WHERE parked_diagnostic IS NOT NULL AND updated_at_ms>=?").all(from) as Array<{ d: string; c: FailureClass | null }>) {
+      // A classified failure is counted by its class code; only a failure without one falls back to the first line of its diagnostic.
+      const reason = row.c ? row.c : (row.d.split("\n")[0] ?? "").replace(/\d+/g, "N").trim().slice(0, 120);
       if (reason) reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
     }
   }
@@ -61,8 +65,8 @@ export function qualitySummary(store: Store, actor: ActorContext): QualitySummar
   const middle = firstResultMs.length >> 1;
   const median = firstResultMs.length === 0 ? undefined : firstResultMs.length % 2 ? firstResultMs[middle]! : Math.round((firstResultMs[middle - 1]! + firstResultMs[middle]!) / 2);
   const metrics: Metric[] = [
-    { id: "verified-unaided", label: "Verified without human help", unit: "ratio", ...ratio(verifiedAlone, verified),
-      definition: "Tasks that reached Done in the window with the Governor writing the handoff from independently verified run evidence, divided by all tasks that reached Done in the window." },
+    { id: "verified-unaided", label: "Verified without human help", unit: "ratio", ...ratio(verifiedAlone, verified + parkedOpen),
+      definition: "Tasks that reached Done in the window with the Governor writing the handoff from independently verified run evidence, divided by all tasks that reached Done in the window plus tasks that parked in the window and never reached Done." },
     { id: "stall-rate", label: "Stall rate", unit: "ratio", ...ratio(stalled, active),
       definition: "Tasks parked after repeated failures in the window, divided by tasks created or changed in the window." },
     { id: "reopen-rate", label: "Re-open rate after Done", unit: "ratio", ...ratio(reopened, verifiedMissions),
@@ -76,8 +80,8 @@ export function qualitySummary(store: Store, actor: ActorContext): QualitySummar
     window: { from: iso(from), to: iso(to), days: QUALITY_WINDOW_DAYS },
     metrics,
     failureReasons: {
-      definition: "Diagnostics of tasks parked in the window, grouped by their first line with numbers masked; raw codes until a failure taxonomy exists.",
-      items: [...reasons].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 5).map(([reason, count]) => ({ reason, count })),
+      definition: "Tasks parked in the window, grouped by failure class (missing tool, criterion that cannot be met, model slip, tool outage, budget); a failure with no class is grouped by the first line of its diagnostic with numbers masked.",
+      items: [...reasons].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 5).map(([reason, count]) => (isFailureClass(reason) ? { reason: FAILURE_LABEL[reason], code: reason, count } : { reason, count })),
     },
   };
 }

@@ -15,7 +15,7 @@ import { orgWorkspaces, textMatcher } from "./query";
 import { executeOrganizationQuery, isOrganizationQuery, organizationCommandHandlers } from "./organization-admin";
 import { activateRelease, activeReleaseAssets, activeReleaseRecord, activeSourceDocuments, activeWorkflow, configurationCommands, inspectRelease, listReleases, stageRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "../modules/configuration/index";
 import { MastraWorkflowEngine, readRun, workflowCommands, type WorkflowEnginePort } from "../modules/workflows/index";
-import { knowledgeCommands, LOCAL_ONLY_SOURCE_TYPES, MemoryStore, ReuseService, TencentDbClient } from "../modules/knowledge/index";
+import { knowledgeCommands, knowledgeExpired, LOCAL_ONLY_SOURCE_TYPES, MemoryStore, ReuseService, TencentDbClient } from "../modules/knowledge/index";
 import { admitApprovalDecision, governanceCommands, StepUpService } from "../modules/governance/index";
 import { createBrainAuth, bootstrapIdentity, assertHumanIdentity, type BootstrapResult, type BrainAuth } from "../modules/identity/index";
 import { localRunnerSettingsCurrent, quarantineRestoredAuthority, loadOrCreateVapidKeys, sendPush, encryptSubscription, decryptSubscription, type VapidKeys } from "../modules/operations/index";
@@ -818,7 +818,13 @@ export class Brain {
   /** The unified memory search for words, in the actor's organization and the given workspace only (the caller has checked workspace read access). */
   knowledgeHits(actor: ActorContext, workspaceId: string, query: string, limit: number): Array<{ sourceId: string; content: string; status?: string }> {
     const found = this.memory.search({ contractVersion: "brain.memory/v1", queryId: this.store.id("kq"), scope: { organizationId: actor.organizationId, visibility: "workspace", workspaceId }, query, sourceTypes: ["chat", "skill", "wiki", "codegraph"], limit, maxChars: 600 }, { organizationId: actor.organizationId, workspaceId });
-    return found.results.map((hit) => ({ sourceId: hit.sourceId, content: hit.content, ...(hit.status ? { status: hit.status } : {}) }));
+    // Knowledge that expired is not offered to the planner, even if its memory entry has not been swept yet.
+    const db = this.store.workspaceDb(workspaceId, actor.organizationId);
+    const live = found.results.filter((hit) => {
+      const asset = db.prepare("SELECT id, created_at_ms, expires_at_ms FROM knowledge_assets WHERE id=?").get(hit.sourceId) as { id: string; created_at_ms: number; expires_at_ms: number | null } | undefined;
+      return !asset || !knowledgeExpired(db, asset, this.store.now());
+    });
+    return live.map((hit) => ({ sourceId: hit.sourceId, content: hit.content, ...(hit.status ? { status: hit.status } : {}) }));
   }
 
   async executeQuery(actor: ActorContext, raw: unknown, headers?: Headers): Promise<JsonValue> {

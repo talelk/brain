@@ -9,12 +9,12 @@ import { requireWorkspaceRead, scopesForPrincipal } from "../../application/auth
 import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
 import { iso } from "../../domain/clock";
-import { looksLikeSecret, type MemoryStore, type ReuseService } from "../knowledge/index";
+import { KNOWLEDGE_TTL_MS, knowledgeExpired, knowledgeLife, looksLikeSecret, type MemoryStore, type ReuseService } from "../knowledge/index";
 import { putBytes } from "../artifacts/index";
 import { readableSources, toolAvailability } from "../resources/index";
 import { buildWriteup, goalKey } from "./writeup";
 import { diagnoseToolFailure } from "./tool-diagnosis";
-import { workingMs } from "../missions/index";
+import { missionObserved, workingMs } from "../missions/index";
 
 const TOOL_RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 interface ToolUsage { calls: number; failures: number; recent: { calls: number; failures: number }; lastCallAt?: string; lastCallRunId?: string; lastFailureAt?: string; lastFailureRunId?: string; lastFailureMessage?: string }
@@ -52,7 +52,7 @@ type AssetRow = {
   classification: KnowledgeAsset["classification"]; content: string; source_count: number;
   title: string; mission_id: string | null; producer_id: string | null; provenance_json: string;
   reviewed_by: string | null; self_reviewed: number; reviewed_at_ms: number | null; rejection_reason: string | null; content_digest: string | null;
-  superseded_by: string | null; auto_published: number;
+  superseded_by: string | null; auto_published: number; expires_at_ms: number | null;
   created_at_ms: number; updated_at_ms: number;
 };
 type CandidateRow = {
@@ -97,6 +97,7 @@ export class CapitalizationService {
       case "tool.publish": return this.publish(actor, workspaceId, command.payload);
       case "knowledge.review": return this.reviewKnowledge(actor, workspaceId, command.payload);
       case "knowledge.approveVerified": return this.approveVerified(actor, workspaceId);
+      case "knowledge.withdrawUnobserved": return this.withdrawUnobserved(actor, workspaceId);
       case "library.settings.set": return this.setLibrarySettings(actor, workspaceId, command.payload);
       default: throw new BrainDomainError("INVALID_CONTRACT", `unsupported capitalization command ${command.commandType}`);
     }
@@ -194,9 +195,9 @@ export class CapitalizationService {
     const { mission, writeup, provenance, bundles } = prepared;
     const signature = domainDigest("brain:mission-knowledge:v1", { missionId });
     const id = digestId("knowledge", signature);
-    const inserted = db.prepare(`INSERT OR IGNORE INTO knowledge_assets(id,signature,operation_id,state,classification,content,source_count,title,mission_id,producer_id,provenance_json,created_at_ms,updated_at_ms)
-      VALUES (?,?, 'mission-knowledge', 'extracted', 'internal', ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(id, signature, writeup.content, Math.max(1, bundles), writeup.title, missionId, mission.owner_id, JSON.stringify(provenance), now, now);
+    const inserted = db.prepare(`INSERT OR IGNORE INTO knowledge_assets(id,signature,operation_id,state,classification,content,source_count,title,mission_id,producer_id,provenance_json,expires_at_ms,created_at_ms,updated_at_ms)
+      VALUES (?,?, 'mission-knowledge', 'extracted', 'internal', ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(id, signature, writeup.content, Math.max(1, bundles), writeup.title, missionId, mission.owner_id, JSON.stringify(provenance), now + KNOWLEDGE_TTL_MS, now, now);
     if (Number(inserted.changes) > 0) this.supersedeSameGoal(organizationId, workspaceId, db, id, mission.intent, now);
     return Number(inserted.changes);
   }
@@ -206,6 +207,8 @@ export class CapitalizationService {
     const mission = db.prepare("SELECT id, title, intent, success_criteria_json, owner_id, outcome, state FROM missions WHERE id=?").get(missionId) as
       | { id: string; title: string; intent: string; success_criteria_json: string; owner_id: string; outcome: string | null; state: string } | undefined;
     if (!mission || mission.state !== "closed" || mission.outcome !== "achieved") return undefined;
+    // ADR 0022: only work that observed something is written up; a result that rests on the model's say-so is never knowledge.
+    if (!missionObserved(this.store, db, missionId)) return undefined;
     const bundles = db.prepare("SELECT digest, state, findings_json, created_at_ms FROM mission_evidence_bundles WHERE mission_id=? AND state IN ('verified','rejected') ORDER BY created_at_ms, rowid").all(missionId) as Array<{ digest: string; state: "verified" | "rejected"; findings_json: string; created_at_ms: number }>;
     const verified = bundles.filter((bundle) => bundle.state === "verified").at(-1);
     if (!verified) return undefined;
@@ -271,6 +274,7 @@ export class CapitalizationService {
       // A finished run may have left a verified write-up that publishes itself (row 47); a crash between the two is repaired by the next pass.
       try { this.syncSavedDocuments(workspace.organization_id, workspace.id); } catch { /* the next pass tries again */ }
       try { this.autoPublishSweep(workspace.organization_id, workspace.id); } catch { /* the inbox keeps it */ }
+      try { this.expireSweep(workspace.organization_id, workspace.id); } catch { /* the next pass tries again */ }
     }
     return { processed, failed };
   }
@@ -432,6 +436,9 @@ export class CapitalizationService {
   /** Publication itself, shared by a person's approval and the automatic path: secret scan, content artifact, memory publication, asset state, reuse index. */
   private publishAsset(organizationId: string, workspaceId: string, asset: AssetRow, reviewerId: string, selfReviewed: boolean, auto: boolean): void {
     const db = this.store.workspaceDb(workspaceId, organizationId);
+    if (asset.mission_id && !missionObserved(this.store, db, asset.mission_id)) {
+      throw new BrainDomainError("EVIDENCE_MISSING", "this write-up rests on no observed evidence (no successful tool call backs it), so it is not published");
+    }
     if (looksLikeSecret(asset.content) || looksLikeSecret(asset.title)) {
       throw new BrainDomainError("INVALID_ARGUMENT", "this knowledge appears to contain a secret; it was not published");
     }
@@ -455,6 +462,38 @@ export class CapitalizationService {
     const people = this.store.control.prepare(`SELECT p.id FROM principals p JOIN workspace_memberships m ON m.principal_id=p.id AND m.workspace_id=? AND m.revoked_at_ms IS NULL
       WHERE p.organization_id=? AND p.kind='human' AND p.disabled_at_ms IS NULL`).all(workspaceId, organizationId) as Array<{ id: string }>;
     return people.map((row) => row.id).filter((id) => scopesForPrincipal(this.store, id, organizationId, workspaceId).includes("memory:publish"));
+  }
+
+  /**
+   * Withdraws every mission write-up that rests on no observation (ADR 0022): published ones leave search and reuse, waiting ones are
+   * set aside with the reason. Idempotent. This is how an entry published before the rule existed is withdrawn.
+   */
+  private withdrawUnobserved(actor: ActorContext, workspaceId: string): string {
+    if (actor.kind !== "human") throw new BrainDomainError("FORBIDDEN", "only a person withdraws knowledge");
+    const db = this.store.workspaceDb(workspaceId, actor.organizationId);
+    const now = this.store.now();
+    const rows = db.prepare("SELECT id, state, mission_id FROM knowledge_assets WHERE mission_id IS NOT NULL AND state IN ('extracted','reviewed','published')").all() as Array<{ id: string; state: string; mission_id: string }>;
+    for (const row of rows) {
+      if (missionObserved(this.store, db, row.mission_id)) continue;
+      if (row.state === "published") {
+        this.ports.memory.revoke(actor.organizationId, workspaceId, row.id);
+        db.prepare("UPDATE knowledge_assets SET state='revoked',rejection_reason='Withdrawn: nothing was observed (no successful tool call backs this result)',updated_at_ms=? WHERE id=?").run(now, row.id);
+        this.ports.reuse.unindex(actor.organizationId, workspaceId, `knowledge:${row.id}`);
+      } else db.prepare("UPDATE knowledge_assets SET rejection_reason='Not kept: nothing was observed (no successful tool call backs this result)',updated_at_ms=? WHERE id=?").run(now, row.id);
+    }
+    return workspaceId;
+  }
+
+  /** Published knowledge that nobody used for a whole period (see knowledgeLife) is withdrawn from search and reuse, with the reason. */
+  private expireSweep(organizationId: string, workspaceId: string): void {
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    const now = this.store.now();
+    for (const row of db.prepare("SELECT id, created_at_ms, expires_at_ms FROM knowledge_assets WHERE state='published'").all() as Array<{ id: string; created_at_ms: number; expires_at_ms: number | null }>) {
+      if (!knowledgeExpired(db, row, now)) continue;
+      this.ports.memory.revoke(organizationId, workspaceId, row.id);
+      db.prepare("UPDATE knowledge_assets SET state='revoked',rejection_reason='Expired: not used for a whole period',updated_at_ms=? WHERE id=?").run(now, row.id);
+      this.ports.reuse.unindex(organizationId, workspaceId, `knowledge:${row.id}`);
+    }
   }
 
   /** Whether verified write-ups publish themselves. On unless the workspace turned it off (library_settings has no row until then). */
@@ -506,6 +545,10 @@ export class CapitalizationService {
         // Earlier rows of this pass may have changed this one (superseded, set aside): read it again before acting.
         let asset = db.prepare("SELECT * FROM knowledge_assets WHERE id=?").get(listed.id) as AssetRow;
         if (asset.state !== "extracted" || asset.rejection_reason || asset.superseded_by) continue;
+        if (asset.mission_id && !missionObserved(this.store, db, asset.mission_id)) {
+          db.prepare("UPDATE knowledge_assets SET rejection_reason='Not kept: nothing was observed (no successful tool call backs this result)',updated_at_ms=? WHERE id=?").run(this.store.now(), asset.id);
+          continue;
+        }
         const newer = asset.operation_id === "mission-knowledge" ? this.newerSameGoal(db, asset) : undefined;
         if (newer) {
           db.prepare("UPDATE knowledge_assets SET superseded_by=?,rejection_reason='Replaced by a newer write-up of the same goal',updated_at_ms=? WHERE id=?").run(newer, this.store.now(), asset.id);
@@ -742,6 +785,7 @@ export class CapitalizationService {
       ...(row.producer_id ? { producedBy: row.producer_id } : {}), ...(row.reviewed_by ? { reviewedBy: row.reviewed_by } : {}),
       ...(row.reviewed_at_ms ? { reviewedAt: iso(row.reviewed_at_ms) } : {}), ...(row.self_reviewed ? { selfReviewed: true } : {}),
       ...(row.rejection_reason ? { rejectionReason: row.rejection_reason } : {}), ...(row.auto_published ? { autoPublished: true } : {}), ...(row.superseded_by ? { supersededBy: row.superseded_by } : {}), ...(row.content_digest ? { contentDigest: row.content_digest } : {}),
+      ...(row.state === "published" || row.state === "extracted" ? (() => { const life = knowledgeLife(db, row); return { expiresAt: iso(life.expiresAtMs), helpedCount: life.helpedCount }; })() : {}),
       createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
     };
   }

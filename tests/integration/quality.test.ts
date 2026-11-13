@@ -82,7 +82,8 @@ describe("Quality summary (#63)", () => {
     spend.run("att-old", m1, "r0", 5_000_000, 5_000_000, now - 60 * 86_400_000, now - 60 * 86_400_000);
 
     const summary = await quality(w, w.owner);
-    expect(metric(summary, "verified-unaided")).toMatchObject({ value: 3 / 4, numerator: 3, denominator: 4 });
+    // The two parked tasks count in the denominator: parking must never raise the rate.
+    expect(metric(summary, "verified-unaided")).toMatchObject({ value: 3 / 6, numerator: 3, denominator: 6 });
     expect(metric(summary, "stall-rate")).toMatchObject({ value: 2 / 6, numerator: 2, denominator: 6 });
     expect(metric(summary, "reopen-rate")).toMatchObject({ value: 1 / 2, numerator: 1, denominator: 2 });
     expect(metric(summary, "cost-per-verified-task")).toMatchObject({ value: 750_000, numerator: 3_000_000, denominator: 4 });

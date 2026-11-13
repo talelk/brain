@@ -6,6 +6,7 @@ import { iso } from "../../domain/clock";
 import { activeReleaseRecord } from "../configuration/index";
 import { readVerified } from "../artifacts/index";
 import { ftsOr, ftsTerms, looksLikeSecret } from "./memory";
+import { knowledgeExpired } from "./lifecycle";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 type Kind = ReuseItem["kind"];
@@ -163,6 +164,9 @@ export class ReuseService {
       case "knowledge": {
         const asset = db.prepare("SELECT state, mission_id, self_reviewed, provenance_json FROM knowledge_assets WHERE id=?").get(parsed.id) as { state: string; mission_id: string | null; self_reviewed: number; provenance_json: string } | undefined;
         if (!asset || asset.state !== "published") return undefined;
+        // Knowledge that nobody used for a whole period leaves reuse: it may be out of date.
+        const life = db.prepare("SELECT id, created_at_ms, expires_at_ms FROM knowledge_assets WHERE id=?").get(parsed.id) as { id: string; created_at_ms: number; expires_at_ms: number | null };
+        if (knowledgeExpired(db, life, this.store.now())) return undefined;
         const evidence = asset.mission_id ? this.evidenceOf(db, asset.mission_id) : { digests: [] as string[], verdictDigest: undefined };
         return { kind: "knowledge", title: row.title, summary, verifiedAtMs: row.verified_at_ms, selfReviewed: asset.self_reviewed === 1,
           provenance: { ...(asset.mission_id ? { missionId: asset.mission_id } : {}), ...(evidence.verdictDigest ? { verdictDigest: evidence.verdictDigest } : {}), evidenceDigests: evidence.digests, source: "Published knowledge" } };
