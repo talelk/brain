@@ -5,7 +5,7 @@ import { seedBrowserDemo } from "../support/browserDemo";
 /** On a phone the sidebar is a drawer behind a toggle. */
 async function openNav(page: Page): Promise<void> {
   const toggle = page.getByRole("button", { name: "Open application navigation", exact: true });
-  if ((await toggle.isVisible()) && (await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+  if ((await toggle.isVisible()) && (await page.locator('dialog[data-slot="app-shell-drawer"][open]').count()) === 0) await toggle.click();
 }
 
 /**

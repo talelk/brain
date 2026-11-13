@@ -55,7 +55,7 @@ test("approval decision: exact review, TOTP step-up, recorded decision (T35)", a
   await page.getByLabel(/^Decision note/).fill("reviewed exact subject");
   await page.getByLabel(/^Authenticator code/).fill(totpCode(secret, Date.now()));
   await page.getByRole("button", { name: "Verify identity and approve", exact: true }).click();
-  await expect(page.getByText(/Decision recorded/)).toBeVisible();
+  await expect(page.getByText(/Decision recorded/).first()).toBeVisible();
   await expect.poll(() => (brain.store.control.prepare("SELECT state FROM approval_requests WHERE id='apr-decide-1'").get() as { state: string }).state).toBe("approved");
   const decision = brain.store.control.prepare("SELECT decision FROM approval_decisions WHERE approval_id='apr-decide-1'").get() as { decision: string } | undefined;
   expect(decision?.decision).toBe("approve");

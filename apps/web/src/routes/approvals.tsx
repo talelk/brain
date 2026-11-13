@@ -115,7 +115,8 @@ export function ApprovalsScreen(props: {
   const pageCount = () => Math.max(1, Math.ceil(visible().length / INBOX_PAGE_SIZE));
   const currentPage = () => Math.min(page(), pageCount());
   const paged = () => visible().slice((currentPage() - 1) * INBOX_PAGE_SIZE, currentPage() * INBOX_PAGE_SIZE);
-  const current = () => visible().find((approval) => approval.approvalId === selected());
+  // A decided approval leaves the Pending list at once (the page re-reads when a command is sent), but the one being read stays open, so the person sees what was recorded.
+  const current = () => visible().find((approval) => approval.approvalId === selected()) ?? props.approvals.find((approval) => approval.approvalId === selected());
   return <BrainPage title="Approvals" description="Review one exact proposed effect at a time, with its target, evidence limits and expiry beside the decision."
    >
     <PageStack>
@@ -139,25 +140,27 @@ export function ApprovalsScreen(props: {
               <div class="flex items-center gap-1"><Pagination.PrevTrigger /><Pagination.Pages /><Pagination.NextTrigger /></div>
             </Pagination.Root></Show>
           </Show>
-        </WorkspaceSection></section>} end={<Show when={current()} keyed fallback={<EmptyState size="sm" icon="lucide-shield-check" title="Select a proposal to review" description="The action sentence, exact bounds, target and decision control will appear here." />}>{(approval) => {
-          const effect = effectParts(approval);
+        </WorkspaceSection></section>} end={<Show when={current()?.approvalId} keyed fallback={<EmptyState size="sm" icon="lucide-shield-check" title="Select a proposal to review" description="The action sentence, exact bounds, target and decision control will appear here." />}>{(_approvalId) => {
+          // The review keeps its place (and its dialog) while the approval is re-read; only another approval replaces it.
+          const approval = () => current()!;
+          const effect = () => effectParts(approval());
           return <div class="flex min-w-0 flex-col gap-4">
             <Button size="sm" variant="ghost" iconLeft="lucide-arrow-left" class="self-start lg:hidden" onClick={() => setSelected(undefined)}>Back to approvals</Button>
             <div class="min-w-0">
-              <div class="flex flex-wrap items-center gap-2"><StatusBadge kind="approval" status={approval.state} /></div>
-              <h2 class="mt-2 break-words [overflow-wrap:anywhere] text-section text-ink-gray-9">{plainSentence(approval)}</h2>
-              <div class="mt-1"><AskLine approval={approval} asOf={props.asOf} /></div>
+              <div class="flex flex-wrap items-center gap-2"><StatusBadge kind="approval" status={approval().state} /></div>
+              <h2 class="mt-2 break-words [overflow-wrap:anywhere] text-section text-ink-gray-9">{plainSentence(approval())}</h2>
+              <div class="mt-1"><AskLine approval={approval()} asOf={props.asOf} /></div>
             </div>
-            <div class="flex min-w-0 flex-wrap items-center gap-2"><ApprovalReview active={props.active} requireTwoFactor={props.requireTwoFactor} approvalId={approval.approvalId}
-              summary={dialogSummary(approval)} requestedBy={app.personName(approval.requestedBy)} expiresAt={approval.subject.expiresAt} asOf={props.asOf}
-              targetLabel={`${effect.operation} on ${effect.target}`} exactContent={exactJson(approval)} subjectDigest={approval.subjectDigest} version={approval.version}
-              fresh={props.state.canMutate && approval.state === "pending" && isFreshFromServer(approval.subject.expiresAt, props.state.asOf ?? props.asOf)}
+            <div class="flex min-w-0 flex-wrap items-center gap-2"><ApprovalReview active={props.active} requireTwoFactor={props.requireTwoFactor} approvalId={approval().approvalId}
+              summary={dialogSummary(approval())} requestedBy={app.personName(approval().requestedBy)} expiresAt={approval().subject.expiresAt} asOf={props.asOf}
+              targetLabel={`${effect().operation} on ${effect().target}`} exactContent={exactJson(approval())} subjectDigest={approval().subjectDigest} version={approval().version}
+              fresh={props.state.canMutate && approval().state === "pending" && isFreshFromServer(approval().subject.expiresAt, props.state.asOf ?? props.asOf)}
               createIdempotencyKey={() => `web-${crypto.randomUUID()}`} verifyIdentity={props.verifyIdentity} submitDecision={props.submitDecision} checkDecision={props.checkDecision} />
-              <Button variant="outline" iconRight="lucide-arrow-right" onClick={() => props.onOpen(approval.approvalId)}>Full review & history</Button></div>
+              <Button variant="outline" iconRight="lucide-arrow-right" onClick={() => props.onOpen(approval().approvalId)}>Full review & history</Button></div>
             <p class="text-interface text-ink-gray-7">Approving authorizes only this proposal, not its execution or independent verification.</p>
-            <ApprovalFacts approval={approval} asOf={props.asOf} />
-            <EffectBounds approval={approval} />
-            <TechnicalDetails label="Exact details"><DigestValue value={approval.subjectDigest} label="Subject digest" /><pre class="brain-readable mt-3 max-w-full min-w-0 overflow-auto whitespace-pre-wrap break-all text-caption">{exactJson(approval)}</pre></TechnicalDetails>
+            <ApprovalFacts approval={approval()} asOf={props.asOf} />
+            <EffectBounds approval={approval()} />
+            <TechnicalDetails label="Exact details"><DigestValue value={approval().subjectDigest} label="Subject digest" /><pre class="brain-readable mt-3 max-w-full min-w-0 overflow-auto whitespace-pre-wrap break-all text-caption">{exactJson(approval())}</pre></TechnicalDetails>
           </div>;
         }}</Show>} />
       </ScreenRegion>

@@ -30,6 +30,8 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
   await page.reload();
   await expect(page.getByRole("heading", { name: "Today", exact: true, level: 1 })).toBeVisible();
   const navToggle = page.getByRole("button", { name: "Open application navigation", exact: true });
+  /** Opens the phone drawer once; a drawer that is already open stays open. */
+  const openNav = async () => { if ((await navToggle.isVisible()) && (await page.locator('dialog[data-slot="app-shell-drawer"][open]').count()) === 0) await navToggle.click(); };
   if (await navToggle.isVisible()) await navToggle.click();
   await expect(page.getByText("Keyrus Brain", { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await page.getByRole("button", { name: "Approvals", exact: true }).click();
@@ -64,7 +66,7 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
   await expect(reviewButton).toBeFocused();
 
   // Four places: Today, Missions, Library, Administration. Live, Logs and Outputs are views, not places.
-  if (await navToggle.isVisible()) await navToggle.click();
+  await openNav();
   const nav = page.getByRole("navigation", { name: "Brain navigation" });
   for (const place of ["Today", "Missions", "Library", "Administration"]) await expect(nav.getByRole("button", { name: place, exact: true })).toBeVisible();
   for (const view of ["Live", "Logs", "Outputs"]) await expect(nav.getByRole("button", { name: view, exact: true })).toHaveCount(0);
@@ -73,15 +75,15 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
   await page.goto(`${governor.url}/w/ws-nav/live`);
   await expect(page.getByText("Nothing is running", { exact: true })).toBeVisible();
   // Results live under Missions; Logs live under Administration.
-  if (await navToggle.isVisible()) await navToggle.click();
+  await openNav();
   await nav.getByRole("button", { name: "Missions", exact: true }).click();
   await expect(page).toHaveURL(/\/w\/ws-nav\/missions/);
-  if (await navToggle.isVisible()) await navToggle.click();
+  await openNav();
   await expect(nav.getByRole("button", { name: "All results", exact: true })).toBeVisible();
   await expect(nav.getByRole("button", { name: "Schedules", exact: true })).toBeVisible();
-  if (await navToggle.isVisible()) await navToggle.click();
+  await openNav();
   await nav.getByRole("button", { name: "Administration", exact: true }).click();
-  if (await navToggle.isVisible()) await navToggle.click();
+  await openNav();
   await nav.getByRole("button", { name: "Logs", exact: true }).click();
   await expect(page).toHaveURL(/\/w\/ws-nav\/logs/);
   await page.getByRole("radio", { name: "Runs", exact: true }).click();

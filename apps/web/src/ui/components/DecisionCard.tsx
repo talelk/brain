@@ -52,7 +52,7 @@ export function DecisionCard(props: {
         <Show when={props.why}><p class="m-0 mt-0.5 break-words text-interface text-ink-gray-7"><span class="sr-only">{t("decision.why")}: </span>{props.why}</p></Show>
       </div>
     </div>
-    <div class="flex min-w-0 flex-col gap-2 ps-0 sm:ps-[3.25rem]">
+    <div class="brain-needs-actions flex min-w-0 flex-col gap-2 ps-0 sm:ps-[3.25rem]">
       {props.children}
       <Show when={props.recommended || props.alternatives}>
         <fieldset class="m-0 flex min-w-0 flex-wrap items-center gap-2 border-0 p-0">

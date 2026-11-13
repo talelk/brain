@@ -77,7 +77,8 @@ export function ApprovalReview(props: {
   const snapshot = () => ({ approvalId: props.approvalId, subjectDigest: props.subjectDigest, expectedVersion: props.version, targetLabel: props.targetLabel, exactContent: props.exactContent, summary: props.summary });
   const [reviewed, setReviewed] = createSignal(snapshot());
   const busy = () => verifying() || state().status === "submitting" || state().status === "checking";
-  createEffect(() => { if (!props.active && !busy()) setOpen(false); });
+  // The decision is recorded and the approval re-read at once, so a decided approval is no longer "active": the dialog stays open until the person closes it, showing what was recorded.
+  createEffect(() => { if (!props.active && !busy() && state().status === "review") setOpen(false); });
   createEffect(on(open, (isOpen, wasOpen) => { if (isOpen || wasOpen) props.onOpenChange?.(isOpen); }));
   const sameProposal = () => reviewed().approvalId === props.approvalId && reviewed().subjectDigest === props.subjectDigest && reviewed().expectedVersion === props.version;
   const canSubmit = () => state().status === "review" && props.fresh && sameProposal();

@@ -5,7 +5,7 @@ import { seedBrowserDemo } from "../support/browserDemo";
 /** On a phone the sidebar is a drawer behind a toggle. */
 async function openNav(page: Page): Promise<void> {
   const toggle = page.getByRole("button", { name: "Open application navigation", exact: true });
-  if ((await toggle.isVisible()) && (await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+  if ((await toggle.isVisible()) && (await page.locator('dialog[data-slot="app-shell-drawer"][open]').count()) === 0) await toggle.click();
 }
 
 /**
@@ -70,8 +70,8 @@ test.describe("language menu", () => {
     await page.getByTestId("account-menu").filter({ visible: true }).getByRole("button").first().click();
     await page.getByRole("option", { name: "Language: العربية" }).or(page.getByText("Language: العربية")).first().click();
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl", { timeout: 30_000 });
-    await openNav(page);
-    await expect(page.getByRole("navigation", { name: "التنقل في Brain" })).toBeVisible();
+    await expect(page.getByTestId("live-freshness")).toBeVisible({ timeout: 30_000 });
+    await expect(async () => { await openNav(page); await expect(page.getByRole("navigation", { name: "التنقل في Brain" })).toBeVisible({ timeout: 2000 }); }).toPass({ timeout: 20_000 });
     await page.reload();
     await expect(page.locator("html")).toHaveAttribute("lang", "ar");
     await page.goto(`${governor.url}/w/${demo.workspaceId}/today?lang=en&dir=ltr`);

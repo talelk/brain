@@ -14,6 +14,9 @@ test("administration pages open with a plain verdict, honest status and who-can-
 
   // The administration sidebar separates what is only this workspace, what is the whole instance, and what is the person's own account.
   await page.goto(`${governor.url}/settings?tab=members`);
+  // On a phone the sidebar is a drawer behind a toggle.
+  const toggle = page.getByRole("button", { name: "Open application navigation", exact: true });
+  if (await toggle.isVisible()) await toggle.click();
   const nav = page.getByRole("navigation");
   for (const heading of ["This workspace", "Whole instance", "My account"]) await expect(nav.getByText(heading, { exact: true })).toBeVisible();
   await expect(page.getByText("This workspace only.")).toBeVisible();
