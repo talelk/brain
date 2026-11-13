@@ -385,5 +385,8 @@ export const enCore = {
   "today.check.fail.answer": "The model answered, but not with the expected reply.",
   "today.check.fail.generic": "It stopped without a result.",
   "today.setup.done": "(done)",
+  "plan.estimate.taskCap": "Each task stops at {cap} tokens across all attempts; you can raise it for one task.",
+  "plan.estimate.costNoDollar": "Cost: unknown in dollars. No task sets a dollar cap; each task's token cap still applies.",
+  "plan.estimate.ceilingNone": "Mission limit: none set, so the only automatic stop is each task's own token cap.",
   // @@END
 } as const satisfies Record<string, string>;

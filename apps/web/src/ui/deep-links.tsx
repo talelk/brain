@@ -33,5 +33,5 @@ export function SettingsRoute(props: { children: JSX.Element }): JSX.Element {
 export function ToWorkspacePage(props: { page: string }): JSX.Element {
   const app = useApp();
   const location = useLocation();
-  return <Show when={app.workspaceId()}>{(id) => <Navigate href={`/w/${id()}/${props.page}${location.search}${location.hash}`} />}</Show>;
+  return <Show when={app.workspaceId()}>{(id) => <Navigate href={["/w", id(), props.page].join("/") + location.search + location.hash} />}</Show>;
 }

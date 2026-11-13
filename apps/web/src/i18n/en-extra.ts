@@ -1239,9 +1239,6 @@ export const enExtra = {
   "task.inputs.title": "Configure inputs",
   "task.inputs.description": "Fill in what this task needs.",
   "task.review.description": "This is exactly what will start.",
-  "plan.estimate.taskCap": "Each task stops at {cap} tokens across all attempts; you can raise it for one task.",
-  "plan.estimate.costNoDollar": "Cost: unknown in dollars. No task sets a dollar cap; each task's token cap still applies.",
-  "plan.estimate.ceilingNone": "Mission limit: none set, so the only automatic stop is each task's own token cap.",
   "mission.usage.taskCap": "Each task stops at {cap} tokens across all attempts; you can raise it for one task. This mission has used {used} tokens so far.",
   "mission.usage.noCeiling": "No mission-wide token ceiling is set.",
   // @@END
