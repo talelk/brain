@@ -229,7 +229,10 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   // Bulk Save as knowledge uploads each ticked file as a document and reports the outcome once.
   await selection.getByRole("button", { name: "Save as knowledge", exact: true }).click();
   await expect(page.getByText(/Saved to knowledge 2 items\./)).toBeVisible({ timeout: 30_000 });
-  // The bulk action cleared the ticks, so the files toggle folded again; open it to tick them once more.
+  // The bulk action clears the ticks, and the files toggle folds with them. Wait for that to have happened before opening it again, or the
+  // toggle is found still open, left alone, and then folds under the next tick.
+  await expect(selection).toBeHidden();
+  await expect(page.getByTestId("output-technical").first()).not.toHaveAttribute("open", "");
   await openTechnicalFiles(page);
   await page.getByRole("checkbox", { name: "Select art-out-v1.md" }).check();
   await page.getByRole("checkbox", { name: "Select art-out-v2.md" }).check();
