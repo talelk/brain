@@ -14,6 +14,8 @@ export interface ToolTestPorts {
 export interface ToolTestView {
   testId: string; runId: string; toolId: string; releaseDigest: string; input: JsonValue; requestedAt: string;
   state: "running" | "succeeded" | "failed"; output?: JsonValue; error?: string; diagnosis?: ToolDiagnosis;
+  /** try: the tool ran with an input a person typed. selftest: the tool's own test script ran in the sandbox. */
+  kind: "try" | "selftest";
 }
 
 /** The id of the one-step workflow a test runs as: the tag that keeps test runs apart from real calls. */
@@ -36,17 +38,39 @@ export class ToolTests {
     const tool = (record.release.manifest.tools ?? []).find((entry) => entry.id === toolId);
     if (!tool) throw new BrainDomainError("NOT_FOUND", `tool ${toolId} is not in this release`);
     // A write or privileged tool needs an effect permit for the exact call: a test never has one, so it is refused here instead of failing later.
-    if (tool.effectClass !== "read") throw new BrainDomainError("INVALID_ARGUMENT", `${toolId} is a ${tool.effectClass} tool; only read tools can be tested here`);
+    if (tool.effectClass !== "read") throw new BrainDomainError("INVALID_ARGUMENT", `${toolId} is a ${tool.effectClass} tool; it changes things and runs only for an approved call. Run its self-test instead`);
+    return this.start(actor, workspaceId, tool, record.digest, input, "try");
+  }
+
+  /**
+   * Runs the tool's own test script (`test.sh`, staged with the release) in the same sandbox the tool uses, offline, with no input and no
+   * authority: it changes nothing, so it is allowed for effect tools too. The result is the script's exit status and what it printed.
+   */
+  selfTest(actor: ActorContext, workspaceId: string, toolId: string, releaseDigest?: string): { testId: string; runId: string } {
+    requireWorkspaceRead(this.store, actor, workspaceId);
+    requireConfigurationAdmin(this.store, actor);
+    const record = releaseDigest ? releaseRecord(this.store, actor.organizationId, releaseDigest) : activeReleaseRecord(this.store, actor.organizationId);
+    if (!record) throw new BrainDomainError("NOT_FOUND", "release not found");
+    const tool = (record.release.manifest.tools ?? []).find((entry) => entry.id === toolId);
+    if (!tool) throw new BrainDomainError("NOT_FOUND", `tool ${toolId} is not in this release`);
+    if (!(tool as { testEntrypointDigest?: string }).testEntrypointDigest) throw new BrainDomainError("INVALID_ARGUMENT", `${toolId} has no test script in this release; add testEntrypoint to its definition and stage the script`);
+    return this.start(actor, workspaceId, tool, record.digest, {}, "selftest");
+  }
+
+  private start(actor: ActorContext, workspaceId: string, tool: { id: string; digest: string; inputSchemaRef: string; outputSchemaRef: string }, configDigest: string, input: Record<string, never> | JsonValue, kind: "try" | "selftest"): { testId: string; runId: string } {
     const bindings: Record<string, { source: "input"; pointer: string }> = {};
-    for (const key of Object.keys(input)) bindings[key] = { source: "input", pointer: `/${key.replaceAll("~", "~0").replaceAll("/", "~1")}` };
+    for (const key of Object.keys(input as Record<string, unknown>)) bindings[key] = { source: "input", pointer: `/${key.replaceAll("~", "~0").replaceAll("/", "~1")}` };
+    // A self-test names the staged test script (selftest.<tool>); the runner fetches both pinned scripts and runs the test one.
+    const uses = { type: "tool", release: { id: kind === "selftest" ? `selftest.${tool.id}` : tool.id, digest: tool.digest } };
     const workflow = {
-      apiVersion: "brain.keyrus/v1", kind: "Workflow", metadata: { id: toolTestWorkflowId(toolId), version: "1.0.0" },
+      apiVersion: "brain.keyrus/v1", kind: "Workflow", metadata: { id: toolTestWorkflowId(tool.id), version: "1.0.0" },
       spec: {
-        inputSchemaRef: tool.inputSchemaRef, outputSchemaRef: "tool-test/output",
+        // A self-test takes no input, so it names no input schema (the run is not checked against the tool's own).
+        inputSchemaRef: kind === "selftest" ? "tool-test/selftest-input" : tool.inputSchemaRef, outputSchemaRef: "tool-test/output",
         jobs: {
           test: {
-            kind: "dispatch", needs: [], input: bindings, outputSchemaRef: tool.outputSchemaRef, timeoutSeconds: 60,
-            uses: { type: "tool", release: { id: tool.id, digest: tool.digest } },
+            kind: "dispatch", needs: [], input: bindings, outputSchemaRef: kind === "selftest" ? "tool-test/selftest-output" : tool.outputSchemaRef, timeoutSeconds: 60,
+            uses,
             runsOn: { group: "agents", all: ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container"], resources: { cpuMillicores: 500, memoryMb: 256, diskMb: 256, slots: 1 }, isolation: "ephemeral-container" },
             effectClass: "read",
           },
@@ -56,11 +80,11 @@ export class ToolTests {
     } as unknown as Workflow;
     const testId = this.store.id("tooltest");
     const { runId } = this.ports.startRun({
-      organizationId: actor.organizationId, workspaceId, actorId: actor.actorId, workflowId: toolTestWorkflowId(toolId), workflow,
-      configDigest: record.digest, runInput: input, executionKey: testId,
+      organizationId: actor.organizationId, workspaceId, actorId: actor.actorId, workflowId: toolTestWorkflowId(tool.id), workflow,
+      configDigest, runInput: input as JsonValue, executionKey: testId,
     });
-    this.store.control.prepare("INSERT INTO tool_test_runs(id,organization_id,workspace_id,tool_id,release_digest,run_id,input_json,requested_by,created_at_ms) VALUES (?,?,?,?,?,?,?,?,?)")
-      .run(testId, actor.organizationId, workspaceId, toolId, record.digest, runId, JSON.stringify(input), actor.actorId, this.store.now());
+    this.store.control.prepare("INSERT INTO tool_test_runs(id,organization_id,workspace_id,tool_id,release_digest,run_id,input_json,requested_by,created_at_ms,kind) VALUES (?,?,?,?,?,?,?,?,?,?)")
+      .run(testId, actor.organizationId, workspaceId, tool.id, configDigest, runId, JSON.stringify(input), actor.actorId, this.store.now(), kind);
     return { testId, runId };
   }
 
@@ -71,8 +95,8 @@ export class ToolTests {
 
   list(actor: ActorContext, workspaceId: string, toolId: string, limit: number): ToolTestView[] {
     requireWorkspaceRead(this.store, actor, workspaceId);
-    const rows = this.store.control.prepare("SELECT id,run_id,tool_id,release_digest,input_json,created_at_ms FROM tool_test_runs WHERE organization_id=? AND workspace_id=? AND tool_id=? ORDER BY created_at_ms DESC, rowid DESC LIMIT ?")
-      .all(actor.organizationId, workspaceId, toolId, limit) as Array<{ id: string; run_id: string; tool_id: string; release_digest: string; input_json: string; created_at_ms: number }>;
+    const rows = this.store.control.prepare("SELECT id,run_id,tool_id,release_digest,input_json,created_at_ms,kind FROM tool_test_runs WHERE organization_id=? AND workspace_id=? AND tool_id=? ORDER BY created_at_ms DESC, rowid DESC LIMIT ?")
+      .all(actor.organizationId, workspaceId, toolId, limit) as Array<{ id: string; run_id: string; tool_id: string; release_digest: string; input_json: string; created_at_ms: number; kind: "try" | "selftest" }>;
     const db = this.store.workspaceDb(workspaceId, actor.organizationId);
     return rows.map((row) => {
       const run = db.prepare("SELECT state FROM workflow_runs WHERE id=?").get(row.run_id) as { state: string } | undefined;
@@ -83,7 +107,7 @@ export class ToolTests {
       const error = state === "failed" ? (typeof (output as { error?: unknown } | undefined)?.error === "string" ? String((output as { error: string }).error) : "The test run ended without a result.") : undefined;
       return {
         testId: row.id, runId: row.run_id, toolId: row.tool_id, releaseDigest: row.release_digest, input: JSON.parse(row.input_json) as JsonValue, requestedAt: iso(row.created_at_ms),
-        state, ...(state === "succeeded" && output !== undefined ? { output } : {}), ...(error ? { error, diagnosis: diagnoseToolFailure(error) } : {}),
+        kind: row.kind, state, ...(output !== undefined && (state === "succeeded" || row.kind === "selftest") ? { output } : {}), ...(error ? { error, diagnosis: diagnoseToolFailure(error) } : {}),
       };
     });
   }

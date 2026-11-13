@@ -73,6 +73,31 @@ export interface ToolExecution {
   validatePermit?: ((token: string, invocationId: string) => Promise<boolean>) | undefined;
 }
 
+/**
+ * Runs `test.sh` of a tool directory. In a sandbox when a launcher is configured (no network, read-only, the tool's own mounts only),
+ * otherwise on this host with an empty environment (development). The answer is the exit status and the text it printed.
+ */
+async function runSelfTest(dir: string, launcher: LauncherClient | undefined, signal: AbortSignal | undefined): Promise<{ ok: boolean; output: JsonValue }> {
+  const shape = (exitCode: number, stdout: string, stderr: string, timedOut: boolean) => ({
+    ok: exitCode === 0 && !timedOut,
+    output: { passed: exitCode === 0 && !timedOut, exitCode, output: stdout.slice(0, 8000), errorOutput: stderr.slice(0, 2000), timedOut } as unknown as JsonValue,
+  });
+  if (launcher) {
+    try {
+      const { sandboxId } = await launcher.createSandbox({ profile: "agent", requestId: `selftest-${Math.random().toString(36).slice(2, 10)}`, toolsDir: dir, network: "none" });
+      try {
+        const result = await launcher.exec(sandboxId, "/tools/test.sh", "", 60_000);
+        return shape(result.exitCode, result.stdout, result.stderr, result.timedOut);
+      } finally { await launcher.stop(sandboxId).catch(() => undefined); }
+    } catch (error) { return { ok: false, output: { error: `sandboxed self-test failed: ${error instanceof Error ? error.message : "launcher error"}` } as unknown as JsonValue }; }
+  }
+  const result = await execa("/bin/bash", [join(dir, "test.sh")], {
+    timeout: 60_000, maxBuffer: 1024 * 1024, extendEnv: false, shell: false, reject: false,
+    env: { PATH: "/usr/local/bin:/usr/bin:/bin", HOME: "/tmp", TMPDIR: "/tmp", LANG: "C.UTF-8" }, ...(signal ? { cancelSignal: signal } : {}),
+  });
+  return shape(result.exitCode ?? 1, String(result.stdout), String(result.stderr), result.timedOut === true);
+}
+
 export async function executeToolPayload(
   tool: ToolExecution,
 ): Promise<{ ok: boolean; output: JsonValue }> {
@@ -102,6 +127,7 @@ export async function executeToolPayload(
   const uses = step["uses"] as { release?: { id?: string } } | undefined;
   const evaluator = step["evaluator"] as { id?: string } | undefined;
   const toolId = uses?.release?.id ?? evaluator?.id ?? "";
+  const selfTest = toolId.startsWith("selftest.");
   const rel = TOOL_SCRIPTS[toolId] ?? `${toolId}/run.sh`;
   // T22: in a pinned world the tool executes only bytes fetched from the
   // release and verified against the offer's digest; an unpinned tool is
@@ -110,6 +136,24 @@ export async function executeToolPayload(
   let sandboxToolsDir: string | undefined;
   if (tool.toolPins && Object.keys(tool.toolPins).length > 0 && tool.fetchPinnedTool) {
     const pin = tool.toolPins[toolId];
+    if (selfTest) {
+      // Self-test mode (ADR 0024): the tool's own test script runs beside the tool's pinned script, as the tool would run, offline and with no input.
+      const realId = toolId.slice("selftest.".length);
+      const realPin = tool.toolPins[realId];
+      if (!pin || !realPin) return { ok: false, output: { error: `tool ${realId} has no staged test script in the job's release; nothing to run` } as unknown as JsonValue };
+      const dir = join(tool.toolCacheDir ?? join(cfg.stateDir, "tool-cache"), `selftest-${pin.slice(7, 19)}-${realPin.slice(7, 19)}`);
+      for (const [id, expected, name] of [[realId, realPin, "run.sh"], [toolId, pin, "test.sh"]] as const) {
+        const target = join(dir, name);
+        if (existsSync(target)) continue;
+        const fetched = await tool.fetchPinnedTool(id, expected);
+        if (sha256Digest(fetched.bytes) !== expected) return { ok: false, output: { error: `pinned script ${id} does not match the offer digest; refusing` } as unknown as JsonValue };
+        mkdirSync(dir, { recursive: true });
+        const partial = `${target}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+        writeFileSync(partial, fetched.bytes, { mode: 0o755 });
+        renameSync(partial, target);
+      }
+      return runSelfTest(dir, launcher, signal);
+    }
     if (!pin) {
       return { ok: false, output: { error: `tool ${toolId} is not pinned in the job's release; execution refused` } as unknown as JsonValue };
     }

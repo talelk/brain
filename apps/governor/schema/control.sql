@@ -478,7 +478,8 @@ CREATE TABLE platform_state (
 CREATE TABLE tool_test_runs (
   id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, tool_id TEXT NOT NULL,
   release_digest TEXT NOT NULL, run_id TEXT NOT NULL, input_json TEXT NOT NULL DEFAULT '{}',
-  requested_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL
+  requested_by TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'try' CHECK(kind IN ('try','selftest'))
 ) STRICT;
 CREATE INDEX tool_test_runs_tool ON tool_test_runs(organization_id, workspace_id, tool_id, created_at_ms);
 CREATE INDEX tool_test_runs_run ON tool_test_runs(run_id);

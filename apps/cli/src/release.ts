@@ -43,7 +43,7 @@ export function collectRelease(directory: string) {
   for (const doc of documents) {
     const parsed = parseDocument(doc.text, { uniqueKeys: true });
     if (parsed.errors.length) throw new Error(`${doc.path}: ${parsed.errors[0]?.message}`);
-    const value = parsed.toJS({ maxAliasCount: 0 }) as { kind?: string; metadata?: { id?: string }; spec?: { instructionsPath?: string; entrypoint?: string } };
+    const value = parsed.toJS({ maxAliasCount: 0 }) as { kind?: string; metadata?: { id?: string }; spec?: { instructionsPath?: string; entrypoint?: string; testEntrypoint?: string } };
     const findSchemas = (node: unknown): void => {
       if (!node || typeof node !== "object") return;
       for (const [key, val] of Object.entries(node)) {
@@ -61,6 +61,11 @@ export function collectRelease(directory: string) {
       const toolId = value.metadata?.id ?? "";
       const entrypoint = value.spec?.entrypoint ?? "";
       scripts.push({ toolId, entrypoint, bytesBase64: read(`tools/${toolId}/${entrypoint}`).toString("base64") });
+      // The tool's own test script is staged too (reserved id selftest.<tool>), so the product can run it in the sandbox (ADR 0024).
+      const testEntrypoint = value.spec?.testEntrypoint ?? "";
+      if (testEntrypoint && `selftest.${toolId}`.length <= 64) {
+        try { scripts.push({ toolId: `selftest.${toolId}`, entrypoint: testEntrypoint, bytesBase64: read(`tools/${toolId}/${testEntrypoint}`).toString("base64") }); } catch { /* a tool without a test file has no self-test */ }
+      }
     }
   }
   const bundle = { documents, scripts, instructions, schemas };

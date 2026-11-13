@@ -18,7 +18,7 @@ export interface CompiledRelease {
   readonly agents: Readonly<Record<string, Agent>>;
   readonly plays: Readonly<Record<string, Play>>;
   readonly evaluators: Readonly<Record<string, Evaluator>>;
-  readonly tools: readonly { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; description?: string; allowedHosts?: string[]; entrypoint?: string; entrypointDigest?: string }[];
+  readonly tools: readonly { id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments: string[]; testEntrypoint?: string; testEntrypointDigest?: string; description?: string; allowedHosts?: string[]; entrypoint?: string; entrypointDigest?: string }[];
   readonly documents: readonly { kind: string; id: string; digest: string }[];
 }
 
@@ -301,9 +301,12 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
       if (!["read", "write", "privileged"].includes(effectClass) || !inputSchemaRef || !outputSchemaRef) throw new BrainDomainError("INVALID_CONTRACT", `${path}: Tool spec.effectClass/inputSchemaRef/outputSchemaRef required`);
       // T22: when entrypoint scripts are staged with the release, each tool is
       // pinned to the exact script bytes (sha256 of the decoded file).
+      if (id.startsWith("selftest.")) throw new BrainDomainError("INVALID_CONTRACT", `${path}: tool ids starting with selftest. are reserved for tool self-tests`);
       const script = scripts?.find((s) => s.toolId === id);
+      const selftest = scripts?.find((s) => s.toolId === `selftest.${id}`);
       const pin = script
-        ? { entrypoint: script.entrypoint, entrypointDigest: sha256Digest(new Uint8Array(Buffer.from(script.bytesBase64, "base64"))) }
+        ? { entrypoint: script.entrypoint, entrypointDigest: sha256Digest(new Uint8Array(Buffer.from(script.bytesBase64, "base64"))),
+          ...(selftest ? { testEntrypoint: selftest.entrypoint, testEntrypointDigest: sha256Digest(new Uint8Array(Buffer.from(selftest.bytesBase64, "base64"))) } : {}) }
         : undefined;
       tools.push({ id, digest: docDigest, effectClass: effectClass as "read" | "write" | "privileged", inputSchemaRef, outputSchemaRef,
         allowedEnvironments: Array.isArray(spec?.["allowedEnvironments"]) ? (spec["allowedEnvironments"] as string[]) : [],
@@ -314,11 +317,14 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
   }
   const uniqueScripts = new Set<string>();
   for (const script of scripts ?? []) {
-    const tool = tools.find((candidate) => candidate.id === script.toolId);
+    const selftest = script.toolId.startsWith("selftest.");
+    const declaredId = selftest ? script.toolId.slice("selftest.".length) : script.toolId;
+    const tool = tools.find((candidate) => candidate.id === declaredId);
     if (!tool || uniqueScripts.has(script.toolId)) throw new BrainDomainError("INVALID_CONTRACT", "tool script must name one unique declared Tool");
     uniqueScripts.add(script.toolId);
-    const raw = docs.map((doc) => parseRestrictedYaml(doc.text, doc.path)).find((doc) => doc["kind"] === "Tool" && (doc["metadata"] as { id?: string })?.id === script.toolId);
-    if ((raw?.["spec"] as { entrypoint?: string } | undefined)?.entrypoint !== script.entrypoint) throw new BrainDomainError("INVALID_CONTRACT", "tool entrypoint does not match its declaration");
+    const raw = docs.map((doc) => parseRestrictedYaml(doc.text, doc.path)).find((doc) => doc["kind"] === "Tool" && (doc["metadata"] as { id?: string })?.id === declaredId);
+    const declared = (raw?.["spec"] as { entrypoint?: string; testEntrypoint?: string } | undefined)?.[selftest ? "testEntrypoint" : "entrypoint"];
+    if (declared !== script.entrypoint) throw new BrainDomainError("INVALID_CONTRACT", `tool ${selftest ? "test " : ""}entrypoint does not match its declaration`);
   }
   for (const instruction of instructions) {
     if (!agents[instruction.agentId]) throw new BrainDomainError("INVALID_CONTRACT", "instruction asset names an undeclared Agent");

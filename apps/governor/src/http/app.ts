@@ -318,6 +318,17 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     } catch (e) { return fail(c as never, e); }
   });
 
+  // Run the tool's own test script in the sandbox (allowed for effect tools too: it changes nothing).
+  app.post("/v1/config/tools/:toolId/selftest", async (c) => {
+    try {
+      const body = (await readJson(c)) as { workspaceId?: string; releaseDigest?: string };
+      const workspaceId = String(body.workspaceId ?? "");
+      const { actor } = await actorFor(c, workspaceId);
+      const scoped: ActorContext = { ...actor, scopes: scopesForPrincipal(brain.store, actor.actorId, actor.organizationId, workspaceId) };
+      return c.json(brain.toolTests.selfTest(scoped, workspaceId, c.req.param("toolId"), body.releaseDigest) as never, 202);
+    } catch (e) { return fail(c as never, e); }
+  });
+
   app.get("/v1/config/tools/:toolId/tests", async (c) => {
     try {
       const workspaceId = c.req.query("workspaceId") ?? "";

@@ -68,13 +68,14 @@ export function releaseToolPins(s: Store, releaseDigest: string): Record<string,
   if (!row) return {};
   try {
     const parsed = JSON.parse(row.manifest_json) as {
-      manifest?: { tools?: Array<{ id?: string; entrypointDigest?: string }> };
+      manifest?: { tools?: Array<{ id?: string; entrypointDigest?: string; testEntrypointDigest?: string }> };
       evaluators?: Record<string, { spec?: { tool?: { id?: string } } }>;
     };
     const pins: Record<string, string> = {};
     const tools = parsed.manifest?.tools ?? [];
     for (const tool of tools) {
       if (tool.id && tool.entrypointDigest) pins[tool.id] = tool.entrypointDigest;
+      if (tool.id && tool.testEntrypointDigest) pins[`selftest.${tool.id}`] = tool.testEntrypointDigest;
     }
     for (const [evaluatorId, evaluator] of Object.entries(parsed.evaluators ?? {})) {
       const toolId = evaluator.spec?.tool?.id;
