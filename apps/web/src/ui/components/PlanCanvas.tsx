@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, Show } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert } from "@talelk/newui-molecules";
@@ -6,6 +6,7 @@ import type { Mission, MissionPlanView, PlanTask, PlanVersion, ReuseItem } from 
 import { useApp } from "../app-context";
 import { governor, query } from "../../data/client";
 import { createScopedRead } from "../../data/screens";
+import { wantFastPulse } from "../../data/live";
 import { pickForPlan, reuseSearch } from "../../data/reuse";
 import { PastWorkUsed } from "./Reuse";
 import { ScreenRegion } from "../screen-region";
@@ -52,6 +53,8 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     },
     isEmpty: (view) => view === null,
   });
+  // The drafting stages (reading, drafting, checking) are progress that emits no events: while a draft runs the bus pulses faster.
+  createEffect(() => { if (proposal.state().data?.state === "running") onCleanup(wantFastPulse()); });
   /** A proposal opened by link (?proposal=) takes the place of the drafted strategy, with the confirmed plan beside it for the diff. */
   const linked = createScopedRead<{ proposal?: PlanVersion; confirmed?: PlanVersion }>({
     scope: app.scope, load: async (scope, signal) => {
@@ -193,13 +196,13 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
       </div>
       <Show when={!confirmedQuiet()} fallback={<DisclosureCard label={`See the confirmed plan's ${editedTasks().length} steps`}>
         <div class="flex flex-col gap-3">
-          <WorkRoadmap nodes={roadmap()} label="Confirmed plan steps by stage" renderNode={(node, critical) => <Show when={editedTasks().find((task) => task.id === node.id)}>{(task) => stepCard(task(), critical)}</Show>} />
+          <WorkRoadmap nodes={roadmap()} label="Confirmed plan steps by round" renderNode={(node, critical) => <Show when={editedTasks().find((task) => task.id === node.id)}>{(task) => stepCard(task(), critical)}</Show>} />
           <div class="flex flex-wrap items-center gap-2"><Button size="sm" variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => setEditOpen(true)}>Edit steps</Button>
             <span class="text-caption text-ink-gray-6">Edits become a new revision for you to confirm.</span></div>
-          <TechnicalDetails label="Plan version"><p class="break-all">{plan.planVersionId} · digest {plan.digest} · origin {plan.origin}</p></TechnicalDetails>
+          <TechnicalDetails label="Details"><p class="break-all">{plan.planVersionId} · digest {plan.digest} · origin {plan.origin}</p></TechnicalDetails>
         </div>
       </DisclosureCard>}>
-        <WorkRoadmap nodes={roadmap()} label="Plan steps by stage"
+        <WorkRoadmap nodes={roadmap()} label="Plan steps by round"
           renderNode={(node, critical) => <Show when={editedTasks().find((task) => task.id === node.id)}>{(task) => stepCard(task(), critical)}</Show>} />
       </Show>
       <FormSheet size="xl" open={editOpen()} onClose={() => setEditOpen(false)} title="Edit the plan steps" description="Edits become a new plan revision when you confirm. Nothing is tracked or executed before that." submit="Keep edits" icon="lucide-check" onSubmit={() => { setEditOpen(false); }}>
@@ -220,21 +223,21 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
       </section></Show>
       <ReasonDialog open={rejectOpen()} onClose={() => setRejectOpen(false)} title="Reject this proposal" description="The proposal is kept in history. The mission continues on its last confirmed plan." reason={rejectReason()} onReason={setRejectReason}
         reasonLabel="Rejection reason" confirmLabel="Reject proposal" tone="red" busy={busy()} onConfirm={() => void reject(plan.planVersionId)} />
-      <Show when={!confirmedQuiet()}><TechnicalDetails label="Plan version"><p class="break-all">{plan.planVersionId} · digest {plan.digest} · origin {plan.origin}</p></TechnicalDetails></Show>
+      <Show when={!confirmedQuiet()}><TechnicalDetails label="Details"><p class="break-all">{plan.planVersionId} · digest {plan.digest} · origin {plan.origin}</p></TechnicalDetails></Show>
     </section>;
   };
   const hasPlan = () => Boolean(shownPlan());
   /** The first draft starts by itself; the manual button only returns when that attempt failed (or a plan exists, for another strategy). */
   const retryable = () => Boolean(error()) || proposal.state().data?.state === "failed";
   return <WorkspaceSection title="Plan" description="The steps Brain will track as work once you confirm them."
-    actions={<Show when={app.canDispatch() && props.mission.state !== "closed" && !props.proposalId && (hasPlan() || retryable())}><Button variant={hasPlan() ? "ghost" : "solid"} theme="blue" iconLeft="lucide-sparkles" loading={busy()} disabled={busy()} onClick={() => void generate(hasPlan() ? [] : autoPicks().map((item) => item.itemRef))}>{hasPlan() ? "Generate another strategy" : "Try drafting again"}</Button></Show>}>
+    actions={<Show when={app.canDispatch() && props.mission.state !== "closed" && !props.proposalId && (hasPlan() || retryable())}><Button variant={hasPlan() ? "ghost" : "solid"} theme="blue" iconLeft="lucide-sparkles" loading={busy()} disabled={busy()} onClick={() => void generate(hasPlan() ? [] : autoPicks().map((item) => item.itemRef))}>{hasPlan() ? "Draft another plan" : "Try drafting again"}</Button></Show>}>
     <Show when={error()}><Alert theme="red" variant="outline" title="Planning action failed" description={error()} /></Show>
     <PastWorkUsed missionId={props.mission.missionId} workspaceId={props.mission.workspaceId} pending={busy() ? sent() : []} busy={busy()} canEdit={app.canDispatch() && props.mission.state !== "closed"} refreshKey={reuseKey()}
       onRedraft={(kept, dropped) => void generate(kept, dropped)} />
     <Show when={proposal.state().data?.state === "running"}><Alert theme="blue" variant="outline" title="Preparing a validated proposal" description={`${STAGE_LINES[proposal.state().data?.stage ?? "reading"]} The mission is saved; no task has been created and nothing has started.`} /></Show>
     <Show when={proposal.state().data?.state === "failed"}><Alert theme="amber" variant="outline" title="No validated proposal yet" description={proposal.state().data?.error} /></Show>
     <Show when={linked.state().data?.proposal ?? (proposal.state().data?.plan ? undefined : active.state().data ?? undefined)} keyed fallback={
-      <ScreenRegion state={proposal.state()} onRetry={() => void proposal.refresh()} emptyTitle="No plan yet" emptyDescription="Ask Brain to prepare a strategy. Nothing becomes tracked work or executes before you confirm it.">
+      <ScreenRegion state={proposal.state()} onRetry={() => void proposal.refresh()} emptyTitle="No plan yet" emptyDescription="Ask Brain to draft a plan. Nothing becomes tracked work or executes before you confirm it.">
         <Show when={proposal.state().data?.plan} keyed>{(plan) => planBody(plan)}</Show>
       </ScreenRegion>}>
       {(plan) => planBody(plan)}

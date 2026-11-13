@@ -100,10 +100,10 @@ export function SessionRail(props: {
     <div class="flex flex-col gap-2 border-b border-outline-gray-1 p-2.5">
       <div class="flex items-center justify-between gap-2">
         <h2 class="text-base-medium text-ink-gray-9">Sessions &amp; runs</h2>
-        <button type="button" aria-pressed={liveOnly()}
+        <button type="button" aria-pressed={liveOnly()} title="Show only the sessions that are working right now"
           class={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-caption focus-visible:focus-ring ${liveOnly() ? "border-outline-blue-3 bg-surface-blue-1 text-ink-blue-8" : "border-outline-gray-2 text-ink-gray-7 hover:bg-surface-gray-1"}`}
           onClick={() => setLiveOnly((value) => !value)}>
-          <span class={`size-1.5 rounded-full ${liveCount() > 0 ? "bg-surface-green-7" : "bg-surface-gray-5"}`} aria-hidden="true" />Live only ({liveCount()})
+          <span class={`size-1.5 rounded-full ${liveCount() > 0 ? "bg-surface-green-7" : "bg-surface-gray-5"}`} aria-hidden="true" />Running now ({liveCount()})
         </button>
       </div>
       <input type="search" class="w-full rounded-control border border-outline-gray-2 bg-surface-elevation-1 px-2 py-1 text-caption focus-visible:focus-ring"

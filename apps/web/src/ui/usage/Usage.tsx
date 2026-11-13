@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from "solid-js";
+import { t } from "../../i18n";
 import type { JSX } from "solid-js";
 import { Badge, Button, TextInput } from "@talelk/newui-atoms";
 import { Alert, Dialog } from "@talelk/newui-molecules";
@@ -33,12 +34,13 @@ export function useUsage(queryType: "usage.run" | "usage.task" | "usage.mission"
  * the cache-read share labelled. Local models cost no dollars, so tokens lead;
  * a limit, when set, gets a meter. Nothing is shown as zero when it is unknown.
  */
-export function UsageFigures(props: { label: string; usage: Figures; tokenLimit?: number; compact?: boolean }): JSX.Element {
+export function UsageFigures(props: { label: string; usage: Figures; tokenLimit?: number; compact?: boolean; /** A visible name for the line, when two sit together. */ titled?: string }): JSX.Element {
   const total = () => props.usage.inputTokens + props.usage.outputTokens + props.usage.cachedInputTokens;
   const cacheShare = () => (total() > 0 ? Math.round((props.usage.cachedInputTokens / total()) * 100) : 0);
   const running = () => props.usage.openAttempts ?? 0;
   const empty = () => total() === 0 && props.usage.settledMicroUsd === 0 && props.usage.reservedMicroUsd === 0 && props.usage.reservedTokens === 0;
   return <section class="flex min-w-0 flex-col gap-1" aria-label={`${props.label} usage`} data-testid="usage-figures">
+    <Show when={props.titled}><p class="m-0 text-caption font-medium text-ink-gray-7">{props.titled}</p></Show>
     <Show when={!empty()} fallback={<p class="text-interface text-ink-gray-7" data-testid="usage-none">{running() > 0 ? `${count(running(), "attempt")} running; usage is recorded when ${running() === 1 ? "it finishes" : "they finish"}.` : "No usage recorded yet."}</p>}>
       <p class="flex flex-wrap items-baseline gap-x-2 text-base-medium text-ink-gray-9">
         <span title={`${total().toLocaleString("en-GB")} tokens`} data-testid="usage-tokens">{formatTokens(total())} tokens</span>
@@ -112,9 +114,9 @@ export function WorkspaceUsage(props: { onChanged?: () => void }): JSX.Element {
       <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-gauge size-3.5" aria-hidden="true" />Usage in this workspace</p>
       <Button size="sm" variant="ghost" iconLeft="lucide-sliders-horizontal" onClick={() => open(view().spendCap)}>Spend cap</Button>
     </div>
-    <UsageFigures label="Workspace" usage={view().usage} compact />
+    <UsageFigures label="Workspace" usage={view().usage} compact titled={view().outsideMissions ? t("usage.workspaceTotal") : undefined} />
     <Show when={view().outsideMissions} fallback={null}>{(outside) => <div class="flex min-w-0 flex-col gap-1" data-testid="outside-missions-usage">
-      <UsageFigures label="Outside missions" usage={outside()} compact />
+      <UsageFigures label="Outside missions" usage={outside()} compact titled={t("usage.outside")} />
       <p class="text-caption text-ink-gray-6">Outside missions are task runs and conversations started on their own. They are part of the workspace total and count towards the spend cap.</p>
     </div>}</Show>
     <Show when={view().spendCap} fallback={null}>{(cap) => <div class="flex min-w-0 flex-col gap-1.5" data-testid="spend-cap">

@@ -251,6 +251,12 @@
         },
         "classification": {
           "$ref": "#/$defs/Classification"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
         }
       },
       "required": [
@@ -13271,6 +13277,23 @@
                 "confidential",
                 "restricted"
               ]
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "result",
+                "record"
+              ]
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
             }
           },
           "required": [
@@ -15056,6 +15079,11 @@
                     "$ref": "#/$defs/ArtifactRef"
                   },
                   "maxItems": 100
+                },
+                "totalEstimate": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
                 }
               },
               "required": [
@@ -19565,6 +19593,14 @@
         },
         "supersededBy": {
           "$ref": "#/$defs/Id"
+        },
+        "helpedCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "expiresAt": {
+          "$ref": "#/$defs/Timestamp"
         }
       },
       "required": [

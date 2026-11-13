@@ -1,7 +1,7 @@
 import { onCleanup, onMount } from "solid-js";
 import type { JSX } from "solid-js";
 import { Button } from "@talelk/newui-atoms";
-import { liveConnected, liveNow, liveUpdatedAt, refreshLiveNow, useClock } from "../../data/live";
+import { liveConnected, liveNow, liveUpdatedAt, liveUpdating, refreshLiveNow, useClock } from "../../data/live";
 import { t } from "../../i18n";
 
 /**
@@ -14,6 +14,7 @@ export function LiveFreshness(): JSX.Element {
   const clock = liveNow();
   const label = () => {
     if (!liveConnected()) return t("live.reconnecting");
+    if (liveUpdating()) return t("live.updating");
     const seconds = Math.max(0, Math.floor((clock() - liveUpdatedAt()) / 1000));
     if (seconds < 10) return t("live.updatedNow");
     return seconds < 90 ? t("live.updatedSeconds", { n: seconds }) : t("live.updatedMinutes", { n: Math.round(seconds / 60) });

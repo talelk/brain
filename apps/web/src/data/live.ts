@@ -19,16 +19,19 @@ const MIN_GAP_MS = 1200;
 const COALESCE_MS = 300;
 /** Re-read pulse while the stream is down. */
 const FALLBACK_MS = 10_000;
+/** A quiet safety re-read while the stream is up, for things that change without an event (a runner's heartbeat, a countdown reaching zero). */
+const HEARTBEAT_MS = 20_000;
 /** Re-read pulse while a screen declared progress that emits no events. */
 const FAST_MS = 2500;
 
-type Listener = () => void;
+type Listener = () => undefined | Promise<unknown>;
 
 const listeners = new Set<Listener>();
 const [connected, setConnected] = createSignal(false);
 const [updatedAt, setUpdatedAt] = createSignal(Date.now());
 const [now, setNow] = createSignal(Date.now());
 const [clockUsers, setClockUsers] = createSignal(0);
+const [slow, setSlow] = createSignal(false);
 
 let source: EventSource | undefined;
 let workspace = "";
@@ -39,14 +42,18 @@ let reconnect: ReturnType<typeof setTimeout> | undefined;
 let fallback: ReturnType<typeof setInterval> | undefined;
 let clock: ReturnType<typeof setInterval> | undefined;
 let fast: ReturnType<typeof setInterval> | undefined;
+let heartbeat: ReturnType<typeof setInterval> | undefined;
 let fastWanted = 0;
 let wasDown = false;
 
 function flush(): void {
   coalesce = undefined;
   lastFlush = Date.now();
-  setUpdatedAt(lastFlush);
-  for (const listener of [...listeners]) { try { listener(); } catch { /* one read failing never blocks the others */ } }
+  const pending: Promise<unknown>[] = [];
+  for (const listener of [...listeners]) { try { const result = listener(); if (result) pending.push(Promise.resolve(result).catch(() => undefined)); } catch { /* one read failing never blocks the others */ } }
+  // "Updated" is stamped when every read of this pass has landed, so the label never claims a time the screens do not show yet.
+  const showSlow = setTimeout(() => setSlow(true), 400);
+  void Promise.all(pending).then(() => { clearTimeout(showSlow); setSlow(false); setUpdatedAt(Date.now()); });
 }
 
 /** Ask every mounted read to re-load (coalesced). */
@@ -63,9 +70,13 @@ export function refreshLiveNow(): void { invalidateLive({ immediate: true }); }
 /** A read registers here instead of owning a timer; returns the unsubscribe. */
 export function subscribeLive(listener: Listener): () => void {
   listeners.add(listener);
+  if (!heartbeat && typeof window !== "undefined") heartbeat = setInterval(() => { if (listeners.size > 0 && navigator.onLine !== false) invalidateLive(); }, HEARTBEAT_MS);
   // Before the stream is open (a kiosk, the sign-in screens) the pulse keeps reads fresh.
   if (!source) startFallback();
-  return () => { listeners.delete(listener); };
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0 && heartbeat) { clearInterval(heartbeat); heartbeat = undefined; }
+  };
 }
 
 function startFallback(): void {
@@ -144,4 +155,6 @@ export function useClock(): () => void {
 }
 
 export const liveConnected: Accessor<boolean> = connected;
+/** True while a re-read pass is taking noticeably long (the label then says "Updating…"). */
+export const liveUpdating: Accessor<boolean> = slow;
 export const liveUpdatedAt: Accessor<number> = updatedAt;

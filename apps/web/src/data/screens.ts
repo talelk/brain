@@ -131,7 +131,7 @@ export function createScopedRead<T>(input: {
   }
 
   // No read owns a timer: every mounted read re-loads together on the live bus's one signal (data/live.ts).
-  const unsubscribe = input.live === false ? undefined : subscribeLive(() => { if (typeof navigator === "undefined" || navigator.onLine !== false) void load(); });
+  const unsubscribe = input.live === false ? undefined : subscribeLive(() => (typeof navigator === "undefined" || navigator.onLine !== false ? load() : undefined));
   const onOffline = () => { isOffline = true; };
   const onOnline = () => { if (isOffline) { isOffline = false; void load(); } };
   if (typeof window !== "undefined") {

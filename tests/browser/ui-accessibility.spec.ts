@@ -73,9 +73,11 @@ test("loading, no-access, stale, partial failure and retry states use real respo
       await route.continue();
     } else await route.continue();
   });
+  // One Refresh for the whole page: while a read is slow the freshness label says so, and the last good result stays on screen.
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Needs you" }).getByRole("status", { name: "Loading", exact: true })).toBeVisible();
+  await expect(page.getByTestId("live-freshness")).toContainText("Updating");
   await expect(today).toBeVisible();
+  await expect(page.getByTestId("live-freshness")).toContainText("Updated just now");
   await page.unroute("**/v1/query");
 
   await page.route("**/v1/query", (route) => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "Injected read failure" }) }));

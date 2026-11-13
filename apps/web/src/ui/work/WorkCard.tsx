@@ -4,6 +4,7 @@ import { Button } from "@talelk/newui-atoms";
 import type { WorkItem } from "@brain/contracts";
 import { statusLabel, statusTheme } from "../components/StatusBadge";
 import { StatusIcon } from "../viz/StatusIcon";
+import { t } from "../../i18n";
 import { TaskNowLine } from "./TaskNow";
 import { minutesText, nextActionOf, waitReason, type NextAction } from "./work-model";
 
@@ -18,7 +19,7 @@ const STATE_INK: Record<string, string> = {
  * One work item as a card, shared by the Board and the Timeline: state (icon,
  * colour edge and words), owner, dependencies, evidence and hand-off status,
  * why it waits, and its one next action. The title opens the item; the action
- * reuses the existing flow (Start dispatch, Review, Hand off, Unblock).
+ * reuses the existing flow (Start dispatch, Review, Hand off, Retry).
  */
 export function WorkCard(props: {
   item: WorkItem;
@@ -65,7 +66,8 @@ export function WorkCard(props: {
       <Show when={props.handoffRequired && props.item.state === "review"}><li class="inline-flex items-center gap-1 text-ink-amber-8"><span class="lucide-send size-3.5" aria-hidden="true" />Hand-off due</li></Show>
     </ul>
     <TaskNowLine item={props.item} {...(props.estimateMinutes !== undefined ? { estimateMinutes: props.estimateMinutes } : {})} />
-    <Show when={waitReason(props.item)}>{(reason) => <p class="flex items-start gap-1 text-caption text-ink-amber-8"><span class="lucide-hourglass mt-0.5 size-3 shrink-0" aria-hidden="true" />{reason()}</p>}</Show>
+    <Show when={waitReason(props.item)}>{(reason) => <p class="flex flex-wrap items-start gap-x-2 gap-y-0.5 text-caption text-ink-amber-8"><span class="lucide-hourglass mt-0.5 size-3 shrink-0" aria-hidden="true" /><span class="min-w-0 flex-1">{reason()}</span>
+      <Show when={props.item.state === "blocked"}><button type="button" class="rounded-control text-start font-medium text-ink-blue-link underline focus-visible:focus-ring" data-testid="blocked-link" aria-label={`${t("work.blocked.link")}: ${props.item.title}`} onClick={() => props.onOpen()}>{t("work.blocked.link")}</button></Show></p>}</Show>
     <Show when={action()}>{(next) => <div>
       <Button size="sm" variant={next().kind === "follow" ? "ghost" : "outline"} theme={next().kind === "follow" ? "gray" : "blue"} iconLeft={next().icon}
         aria-label={`${next().label} ${props.item.title}`} onClick={() => props.onAction(next())}>{next().label}</Button>

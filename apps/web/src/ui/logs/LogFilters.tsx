@@ -80,11 +80,11 @@ export function LogFilters(props: {
       onSearch={props.onSearch}>
       <Show when={!props.filters.session}>
         <span class="flex items-end gap-1">
-          <TextInput class="w-56" label="Session scope" value={sessionDraft()}
-            placeholder="Paste a session reference…"
+          <TextInput class="w-56" label="Only one session" value={sessionDraft()}
+            placeholder="Session ID, from a session or run page"
             onInput={(event) => setSessionDraft(event.currentTarget.value)}
             onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitSession(); } }} />
-          <Button size="sm" variant="outline" theme="gray" disabled={!sessionDraft().trim()} onClick={commitSession}>Scope</Button>
+          <Button size="sm" variant="outline" theme="gray" disabled={!sessionDraft().trim()} onClick={commitSession}>Show only this</Button>
         </span>
       </Show>
       <ModeToggle mode={props.mode} onMode={props.onMode} />

@@ -174,10 +174,10 @@ test("outputs (bulk): Request changes sends the task back, Accept explains the h
   // The finished task's output is a file waiting for review. Bulk Accept refuses to close work other
   // tasks depend on until it is handed off, and a file without an independent check is refused with its reason.
   await page.goto(`${governor.url}/w/ws-flow/outputs?folder=review`);
-  // One Result per task leads; run records and data files stay collapsed under "Technical files".
+  // One Result per task leads; run records and data files stay collapsed under "Attempts" and "Data files".
   await expect(page.getByRole("button", { name: "Preview Result: Inspect the sign-in flow" })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("output-technical")).toHaveCount(1);
-  await expect(page.getByTestId("output-technical").getByText(/^Technical files \(\d+\)/)).toBeVisible();
+  await expect(page.getByTestId("output-technical").getByText(/^(Attempts|Data files) \(\d+\)/)).toBeVisible();
   await page.getByRole("checkbox", { name: /^Select / }).first().check({ timeout: 30_000 });
   const selection = page.getByRole("region", { name: "Selection actions" });
   await expect(selection).toContainText("1 selected");

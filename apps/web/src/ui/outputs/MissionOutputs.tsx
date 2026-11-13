@@ -27,7 +27,9 @@ import { createTrust } from "./trust-read";
 import { OccurrenceChange } from "./OccurrenceChange";
 import { loadMissionFiles } from "./mission-results";
 import type { MissionFiles } from "./mission-results";
-import { groupByTask, resolveFiles, reviewStateOf } from "./output-files";
+import { groupByTask, isAttemptRecord, needsReview, resolveFiles, reviewStateOf } from "./output-files";
+import { execArtifactUrl } from "../exec/exec-filters";
+import { t, tn } from "../../i18n";
 import type { FileBadgeTheme, OutputFile, TaskResults } from "./output-files";
 
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
@@ -62,8 +64,41 @@ function DocumentCard(props: { output: Output; titles: ReadonlyMap<string, strin
   );
 }
 
+/** The records of the attempts a task made, folded away: a failed attempt is history, not a result. */
+function AttemptsFold(props: { task: TaskResults; total: number }): JSX.Element {
+  const navigate = useNavigate();
+  const records = () => props.task.technical.filter(isAttemptRecord);
+  return <Show when={props.total > 0}>
+    <details class="min-w-0 rounded-card border border-outline-gray-2 px-3 py-1.5" data-testid="attempts-fold">
+      <summary class="cursor-pointer text-caption text-ink-gray-7">{t("outputs.attempts", { n: props.total })}</summary>
+      <ul class="m-0 mt-2 flex list-none flex-col gap-1 p-0">
+        <For each={records()}>{(file, index) => <li>
+          <button type="button" class="brain-queue-row w-full" aria-label={t("outputs.attempt.open", { n: records().length - index() })} onClick={() => void navigate(execArtifactUrl(file.artifact.artifactId))}>
+            <span class="lucide-history size-4 shrink-0 text-ink-gray-6" aria-hidden="true" />
+            <span class="min-w-0 text-start"><span class="block text-interface text-ink-gray-9">{t("outputs.attempt.number", { n: records().length - index() })}</span>
+              <span class="block text-caption text-ink-gray-6">{file.artifact.createdAt ? formatRelative(file.artifact.createdAt) : ""}</span></span>
+          </button>
+        </li>}</For>
+      </ul>
+      <Show when={props.total > records().length}><p class="m-0 mt-1 text-caption text-ink-gray-6">{t("outputs.attempts.newest", { n: records().length, total: props.total })}</p></Show>
+    </details>
+  </Show>;
+}
+
+/** A task that made attempts but has no readable result: said plainly, with its attempts folded. */
+function NoResultCard(props: { task: TaskResults; total: number }): JSX.Element {
+  return <section class="flex min-w-0 flex-col gap-2 rounded-card border border-outline-gray-2 bg-surface-white px-4 py-3" aria-label={t("outputs.noResult.aria", { title: props.task.title ?? "" })} data-testid="mission-no-result">
+    <div class="flex min-w-0 items-center gap-3">
+      <span class="lucide-circle-dashed size-5 shrink-0 text-ink-gray-6" aria-hidden="true" />
+      <span class="min-w-0 flex-1"><span class="block truncate text-base-medium text-ink-gray-9">{props.task.title}</span>
+        <span class="block text-caption text-ink-gray-6">{t("outputs.noResult")}</span></span>
+    </div>
+    <AttemptsFold task={props.task} total={props.total} />
+  </section>;
+}
+
 /** One task's Result: title, status and trust up front; opened, the written result and the accept / request-changes bar. */
-function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; documents: readonly Output[]; titles: ReadonlyMap<string, string>; initiallyOpen: boolean; scrollTo: boolean; onToggle: (open: boolean) => void; onChanged: () => void }): JSX.Element {
+function ResultCard(props: { task: ResultTask; attemptTotal: number; label?: string; links: readonly ExecutionLink[]; documents: readonly Output[]; titles: ReadonlyMap<string, string>; initiallyOpen: boolean; scrollTo: boolean; onToggle: (open: boolean) => void; onChanged: () => void }): JSX.Element {
   const [open, setOpen] = createSignal(props.initiallyOpen);
   const toggle = () => {
     setOpen(!open());
@@ -95,7 +130,7 @@ function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; 
         root = element;
       }}
       class="flex min-w-0 flex-col rounded-card border border-outline-gray-2 bg-surface-white"
-      aria-label={`Result: ${title()}`}
+      aria-label={`${t("outputs.result")}: ${title()}`}
       data-testid="mission-result"
       data-open={open() ? "true" : "false"}
       id={`result-${props.task.item?.workItemId ?? props.task.result.artifact.artifactId}`}
@@ -127,6 +162,7 @@ function ResultCard(props: { task: ResultTask; links: readonly ExecutionLink[]; 
             }}
           />
           <Show when={shareable()}>{(version) => <ShareResult versionId={version().versionId} verified />}</Show>
+          <AttemptsFold task={props.task} total={props.attemptTotal} />
           <Show when={props.documents.length > 0}>
             <section class="flex min-w-0 flex-col gap-2" aria-label="Version history" data-testid="version-history">
               <h4 class="text-interface font-medium text-ink-gray-9">Version history</h4>
@@ -171,6 +207,28 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
       .sort((left, right) => Number(reviewStateOf(right.item) === "review") - Number(reviewStateOf(left.item) === "review"));
   });
   const taskKey = (task: ResultTask) => task.item?.workItemId ?? task.result.artifact.artifactId;
+  /** Tasks that made attempts but have no readable result (yet): said plainly, never hidden. */
+  const withoutResult = createMemo((): TaskResults[] => {
+    const loaded = files.state().data;
+    if (!loaded) return [];
+    return groupByTask(resolveFiles(loaded.artifacts, loaded.grouping)).filter((task) => task.result === undefined && task.item !== undefined && task.technical.some(isAttemptRecord));
+  });
+  const attemptTotal = (task: TaskResults) => files.state().data?.attemptTotals[task.item?.workItemId ?? ""] ?? task.technical.filter(isAttemptRecord).length;
+  /**
+   * The answer to the goal comes first: the result of the task nothing else builds on (the end of the plan), newest if several.
+   * Everything else follows as one result per task.
+   */
+  const answerId = createMemo(() => {
+    const all = tasks();
+    if (all.length === 0) return undefined;
+    const dependedOn = new Set((files.state().data?.grouping.workItems ?? []).flatMap((item) => item.dependsOn));
+    const leaves = all.filter((task) => task.item && !dependedOn.has(task.item.workItemId));
+    const pool = leaves.length > 0 ? leaves : all;
+    const newest = [...pool].sort((left, right) => (right.result.artifact.createdAt ?? "").localeCompare(left.result.artifact.createdAt ?? ""))[0];
+    return newest ? taskKey(newest) : undefined;
+  });
+  const otherIds = () => taskIds().filter((id) => id !== answerId());
+  const waitingCount = () => tasks().filter((task) => needsReview(task.result)).length;
   /** Cards are keyed by task id, so a refresh that rebuilds the task objects re-orders or updates cards but never remounts them. */
   const taskIds = createMemo(() => tasks().map(taskKey), [], { equals: (before, after) => before.length === after.length && before.every((id, index) => id === after[index]) });
   /** Work item id to task title, so version tiles read "Write recommendation", not the plan task id. */
@@ -183,7 +241,8 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
   let firstShown: Set<string> | undefined;
   const opensFirst = (id: string) => {
     firstShown ??= new Set(taskIds());
-    return wanted() ? id === wanted() : firstShown.has(id) && taskIds()[0] === id && taskIds().length <= 3;
+    if (wanted()) return id === wanted();
+    return answerId() === id || (!answerId() && firstShown.has(id) && taskIds()[0] === id && taskIds().length <= 3);
   };
   /** The open card is kept in the address (?result=<task id>) so a reload or a shared link lands on it; opening or closing never scrolls. */
   const remember = (id: string, open: boolean) => {
@@ -219,11 +278,11 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
   return (
     <ChallengeFeedProvider>
     <WorkspaceSection
-      title="Results"
-      description="What each task produced. Open one to read it, see how it was checked, then accept it or ask for changes."
+      title={t("outputs.title")}
+      description={t("outputs.description")}
       actions={
         <Button size="sm" variant="ghost" iconLeft="lucide-folder-open" onClick={() => void navigate(execOutputsUrl(props.mission.workspaceId))}>
-          Browse all outputs
+          {t("outputs.browseAll")}
         </Button>
       }
     >
@@ -237,14 +296,38 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
         state={regionState()}
         skeleton="cards"
         onRetry={refreshAll}
-        emptyTitle="No results yet"
-        emptyDescription="Each task's result appears here as soon as it finishes."
+        emptyTitle={t("outputs.empty.title")}
+        emptyDescription={t("outputs.empty.description")}
       >
+        <p class="m-0 mb-3 text-interface text-ink-gray-7" data-testid="results-summary">
+          {tn("outputs.summary", tasks().length)}{waitingCount() > 0 ? ` · ${tn("outputs.waiting", waitingCount())}` : ""}
+        </p>
         <div class="flex min-w-0 flex-col gap-3" data-testid="mission-results">
-          <For each={taskIds()}>
+          <Show when={answerId()}>{(id) => (
+            <section class="flex min-w-0 flex-col gap-2" aria-label={t("outputs.answer.title")} data-testid="mission-answer">
+              <h3 class="m-0 text-section text-ink-gray-9">{t("outputs.answer.title")}</h3>
+              <p class="m-0 text-interface text-ink-gray-7"><span class="font-medium text-ink-gray-9">{t("outputs.answer.goal")}</span> {props.mission.intent}</p>
+              <ResultCard
+                task={taskById().get(id())!}
+                attemptTotal={attemptTotal(taskById().get(id())!)}
+                links={files.state().data?.grouping.links ?? []}
+                documents={documentsOf(id())}
+                titles={titles()}
+                initiallyOpen={opensFirst(id())}
+                scrollTo={wanted() === id()}
+                onToggle={(open) => remember(id(), open)}
+                onChanged={refreshAll}
+              />
+            </section>
+          )}</Show>
+          <Show when={otherIds().length > 0 || withoutResult().length > 0}>
+            <h3 class="m-0 mt-2 text-section text-ink-gray-9">{answerId() ? t("outputs.each.title") : t("outputs.title")}</h3>
+          </Show>
+          <For each={otherIds()}>
             {(id) => (
               <ResultCard
                 task={taskById().get(id)!}
+                attemptTotal={attemptTotal(taskById().get(id)!)}
                 links={files.state().data?.grouping.links ?? []}
                 documents={documentsOf(id)}
                 titles={titles()}
@@ -255,6 +338,7 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
               />
             )}
           </For>
+          <For each={withoutResult()}>{(task) => <NoResultCard task={task} total={attemptTotal(task)} />}</For>
         </div>
       </ScreenRegion>
       <Show when={strays().length > 0}>

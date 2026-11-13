@@ -71,7 +71,7 @@ test("AppShell navigation: list to detail to decision dialog and Back with focus
 
   // Live is a view of what is running: the console still opens, and says so honestly when nothing runs.
   await page.goto(`${governor.url}/w/ws-nav/live`);
-  await expect(page.getByText("Nobody is working right now", { exact: true })).toBeVisible();
+  await expect(page.getByText("Nothing is running", { exact: true })).toBeVisible();
   // Results live under Missions; Logs live under Administration.
   if (await navToggle.isVisible()) await navToggle.click();
   await nav.getByRole("button", { name: "Missions", exact: true }).click();

@@ -164,9 +164,27 @@ describe("evidence module read surface", () => {
     w.brain.store.control.prepare("INSERT INTO artifact_associations(artifact_id,organization_id,workspace_id,digest,owner_kind,owner_id,classification,verified_at_ms) VALUES ('art-1',?,?,?,'job','job-1',?,?)")
       .run(w.org, w.workspaceId, digest, "internal", w.brain.store.now());
 
-    const listed = listArtifacts(w.brain.store, w.owner, w.workspaceId, {}) as { items: Array<Record<string, unknown>> };
+    const listed = listArtifacts(w.brain.store, w.owner, w.workspaceId, {}).snapshot as { items: Array<Record<string, unknown>>; totalEstimate: number };
     expect(listed.items).toHaveLength(1);
     expect(listed.items[0]!.digest).toBe(digest);
+    expect(listed.totalEstimate).toBe(1);
+
+    // True counts and paging: run records (exec- artifacts) never inflate the Result count, and a page cursor walks the rest.
+    for (let index = 0; index < 5; index += 1) {
+      ws.prepare("INSERT INTO artifacts(id,digest,bytes,media_type,classification,state,created_at_ms) VALUES (?,?,?,'text/plain','internal','verified',?)")
+        .run(`att-more-${index}`, digest, bytes.length, w.brain.store.now() - 10 - index);
+    }
+    ws.prepare("INSERT INTO artifacts(id,digest,bytes,media_type,classification,state,created_at_ms) VALUES ('exec-record-1',?,?,'application/json','internal','verified',?)").run(digest, bytes.length, w.brain.store.now());
+    const results = listArtifacts(w.brain.store, w.owner, w.workspaceId, { kind: "result", limit: 4 });
+    expect((results.snapshot as { totalEstimate: number }).totalEstimate).toBe(6);
+    expect((results.snapshot as { items: unknown[] }).items).toHaveLength(4);
+    expect(results.cursor).toBe("4");
+    const rest = listArtifacts(w.brain.store, w.owner, w.workspaceId, { kind: "result", limit: 4, cursor: results.cursor });
+    expect((rest.snapshot as { items: unknown[] }).items).toHaveLength(2);
+    expect(rest.cursor).toBe("");
+    const records = listArtifacts(w.brain.store, w.owner, w.workspaceId, { kind: "record" }).snapshot as { items: Array<{ artifactId: string }>; totalEstimate: number };
+    expect(records.items.map((item) => item.artifactId)).toEqual(["exec-record-1"]);
+    expect(records.totalEstimate).toBe(1);
 
     expect(Buffer.from(readArtifactBytes(w.brain.store, w.owner, "art-1"))).toEqual(bytes);
     const history = artifactHistory(w.brain.store, w.owner, { artifactId: "art-1" }) as Record<string, unknown>;

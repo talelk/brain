@@ -24,6 +24,9 @@ import { createTaskFacts } from "./task-estimate";
 import { steerSession } from "./steer";
 import { NO_ACTIVITY, type FeedActivity } from "./doing-now";
 import { EmptyState } from "@talelk/newui-molecules";
+import { formatRelative } from "../format";
+import { missionHref } from "../mission-links";
+import { t } from "../../i18n";
 
 /**
  * The Live console's three-pane desktop layout (plan §3): a resizable
@@ -111,7 +114,10 @@ export function ConsoleScreen(props: {
   const visible = () => (sessions.state().data ?? []).filter((session) => props.include?.(session) ?? true);
   // Selection: URL first, then the persisted fallback, then the most relevant
   // live session. Every change is written back through onSessionChange.
-  const selected = createMemo(() => props.requestedSession ?? lastSelectedSession(ws()) ?? "");
+  // The workspace-wide console never opens on an old, stopped session by itself: with nothing running it says so, with the latest outcome (below).
+  // A mission's own console (it passes `include`) still opens on that mission's newest session.
+  const anyLive = () => visible().some((session) => session.state === "running" || session.state === "starting" || session.state === "waiting");
+  const selected = createMemo(() => props.requestedSession ?? (props.include || anyLive() ? lastSelectedSession(ws()) : undefined) ?? "");
   // A person who picked a session (or arrived on one, from a Follow link) stays on it. Otherwise the console follows the work: when the
   // session on screen has ended and another one is running, it moves to the running one, so Live never sits on an old session.
   const [pinned, setPinned] = createSignal(Boolean(props.requestedSession));
@@ -135,12 +141,20 @@ export function ConsoleScreen(props: {
       rememberSelectedSession(ws(), here.sessionId);
       return;
     }
-    const preferred = runningNow ?? items[0]!;
+    const preferred = runningNow ?? (props.include ? items[0] : undefined);
+    if (!preferred) return;
     rememberSelectedSession(ws(), preferred.sessionId);
     autoChosen = preferred.sessionId;
     props.onSessionChange(preferred.sessionId);
   });
 
+  /** With nothing running: the most recent session, in one plain line (what it was, how it ended, when). */
+  const latest = () => {
+    const newest = [...visible()].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+    if (!newest) return undefined;
+    const outcome = newest.state === "failed" ? t("live.idle.failed") : t("live.idle.finished");
+    return { sessionId: newest.sessionId, line: t("live.idle.latest", { task: newest.task.length > 90 ? `${newest.task.slice(0, 89)}…` : newest.task, outcome, when: formatRelative(newest.updatedAt) }) };
+  };
   const rail = <SessionRail workspaceId={ws()} sessions={visible()} jobs={jobs.state().data ?? []}
     selected={selected() || undefined} onSelect={(sessionId) => { setPinned(true); props.onSessionChange(sessionId); }}
     onOpenRun={(jobId) => void navigate(`/runs/${jobId}`)}
@@ -152,8 +166,12 @@ export function ConsoleScreen(props: {
         emptyDescription="Sessions appear here the moment a run claims a runner. Dispatch declared work to start one."
         emptyAction={<Button variant="solid" theme="blue" onClick={() => void navigate(`/w/${ws()}/plays`)}>Start work</Button>}
         onRetry={() => void sessions.refresh({ force: true })}>
-        <EmptyState size="sm" icon="lucide-radio" title={props.idle?.title ?? "Nobody is working right now"}
-          description={props.idle?.description ?? "When an agent starts, you will see who it is, what it is doing and every step it takes, live."} />
+        <EmptyState size="sm" icon="lucide-radio" title={props.idle?.title ?? t("live.idle.title")}
+          description={props.idle?.description ?? latest()?.line ?? t("live.idle.description")}
+          action={<div class="flex flex-wrap items-center justify-center gap-2">
+            <Show when={latest()}>{(entry) => <Button variant="outline" onClick={() => { setPinned(true); props.onSessionChange(entry().sessionId); }}>{t("live.idle.openLatest")}</Button>}</Show>
+            <Button variant="solid" theme="blue" onClick={() => void navigate(`/w/${ws()}/missions/new`)}>{t("live.idle.start")}</Button>
+          </div>} />
       </ScreenRegion>}>
       {(sessionId) => <SessionConsole workspaceId={ws()} sessionId={sessionId} rail={rail}
         jobs={jobs.state().data ?? []} filters={props.filters} onFiltersChange={props.onFiltersChange}
@@ -294,7 +312,8 @@ function SessionConsole(props: {
       }} />
     <ConsoleNowLine session={detail()} activity={activity()} onReply={reply()} {...(facts().estimatedMinutes !== undefined ? { estimatedMinutes: facts().estimatedMinutes! } : {})} {...(facts().taskState ? { taskState: facts().taskState! } : {})} />
     <Show when={detail()} keyed>
-      {(current) => <InterruptionChooser session={current} canOperate={canOperate()}
+      {(current) => <InterruptionChooser session={current} canOperate={canOperate()} taskState={facts().taskState}
+        onDecide={facts().missionId ? () => void navigate(missionHref(props.workspaceId, facts().missionId!, "plan")) : undefined}
         onResume={async () => {
           try {
             const result = await app.run("session.create", resumePayload(current));
