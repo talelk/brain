@@ -1216,5 +1216,7 @@ export const enExtra = {
   "playproposal.sources_one": "Built from {n} verified mission of this team",
   "playproposal.sources_other": "Built from {n} verified missions of this team",
   "work.withdraw.needsLead": "Only a workspace lead can withdraw write-ups.",
+  "task.review.plain": "Nothing happens until you press Start task. Then you can follow its progress and read the result.",
+  "task.roles.description": "Who works on it.",
   // @@END
 } as const satisfies Record<string, string>;

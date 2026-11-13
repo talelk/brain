@@ -10,7 +10,9 @@ import { SchemaForm } from "./SchemaForm";
 import type { InputSchema } from "./SchemaForm";
 import { StructuredOutputView } from "./StructuredOutputView";
 import { ActionFeedback } from "./ActionFeedback";
-import { WorkspaceSection } from "./Domain";import { PageStack, TechnicalDetails } from "./PageLayout";
+import { WorkspaceSection } from "./Domain";
+import { t } from "../../i18n";
+import { PageStack, TechnicalDetails } from "./PageLayout";
 import { StatGrid } from "@talelk/newui-organisms";
 
 /**
@@ -76,8 +78,8 @@ export function TaskReview(props: { workflow: WorkflowCatalogEntry; initialInput
       <Show when={presentation()?.examples?.length}><div class="mb-4 flex flex-wrap gap-2"><For each={presentation()?.examples}>{(example, index) => <Button variant="outline" onClick={() => { setSeed(example); setRevision((value) => value + 1); }}>Use example {index() + 1}</Button>}</For></div></Show>
       <SchemaForm schema={(props.workflow.inputSchema ?? {}) as InputSchema} schemaKey={`${props.workflow.release.digest}:${revision()}`} initialInput={seed()} submitLabel="Review task" busy={busy()} disabled={!app.canDispatch()} error={error()} onSubmit={prepare} />
     </WorkspaceSection>}>{(review) => <WorkspaceSection title="Review before starting" description="This is the exact reviewed draft. Starting it once recovers the same run if the response is lost.">
-      <div class="border-y border-outline-gray-1 py-3"><StructuredOutputView value={review.input} /></div>
-      <Alert theme="blue" variant="outline" title="Queued does not mean complete" description="After durable acceptance you will open the actual run. Queue, placement, author output and independent verification remain separate states." />
+      <div class="border-y border-outline-gray-1 py-3"><StructuredOutputView value={review.input} plain /></div>
+      <p class="m-0 text-interface text-ink-gray-7">{t("task.review.plain")}</p>
       <ActionFeedback tone="error" message={error()} />
       <div class="flex flex-wrap gap-2"><Button disabled={!app.canDispatch() || busy()} loading={busy()} iconLeft="lucide-play" onClick={() => void start()}>Start task</Button><Button variant="outline" iconLeft="lucide-pencil" disabled={busy()} onClick={() => { setSeed(review.input); setDraft(undefined); setRevision((value) => value + 1); setError(""); }}>Edit inputs</Button></div>
     </WorkspaceSection>}</Show>
