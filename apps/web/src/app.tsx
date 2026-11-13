@@ -19,6 +19,7 @@ import { t, setLocale, LOCALES, localeDirection, locale, loadEnglishRest, type L
 import { LiveFreshness } from "./ui/components/LiveFreshness";
 import { PageHeaderProvider, usePageHeader } from "./ui/page-context";
 import { LandingRedirect } from "./ui/LandingRedirect";
+import { SettingsRoute, ToWorkspacePage, administrationLanding } from "./ui/deep-links";
 import { PRIMARY_NAVIGATION, AREA_NAVIGATION, ICONS, ROUTES } from "./routes/index.gen";
 
 const PAGE_LOADERS = {
@@ -73,6 +74,8 @@ const workspacePage = (key: PageKey) => {
   const Page = page(key);
   return () => <WorkspaceSync><Page /></WorkspaceSync>;
 };
+
+const SettingsPageWorkspace = workspacePage("SettingsPage");
 
 function routeForPath(pathname: string) {
   const path = pathname.split("?")[0] ?? pathname;
@@ -153,9 +156,7 @@ function Navigation(attentionCount: () => number): AppSidebarGroup[] {
   ];
 }
 
-function settingsRoute(app: ReturnType<typeof useApp>): string {
-  return app.identity()?.actor.scopes.includes("config:activate") ? "/settings?tab=setup" : app.canAdminister() ? "/settings?tab=members" : "/settings?tab=security";
-}
+const settingsRoute = administrationLanding;
 
 /** The interface language is a per-browser choice; it also sets the reading direction, and the page reloads so every layout picks it up. */
 function chooseLanguage(next: Locale): void {
@@ -320,11 +321,23 @@ export function App(): JSX.Element {
       <Route path="/outputs/:id/compare" component={page("OutputPage")} />
       <Route path="/tickets/:id" component={page("TicketDetailPage")} />
       <Route path="/incidents/:id" component={page("IncidentDetailPage")} />
-      <Route path="/settings" component={workspacePage("SettingsPage")} />
+      <Route path="/settings" component={() => <SettingsRoute><SettingsPageWorkspace /></SettingsRoute>} />
       <Route path="/quality" component={workspacePage("QualityPage")} />
       <Route path="/administration/integrations" component={workspacePage("IntegrationsPage")} />
       <Route path="/studio/:kind" component={workspacePage("StudioListPage")} />
       <Route path="/studio/:kind/:draftId" component={workspacePage("StudioEditorPage")} />
+      {/* An unscoped link to a workspace page (/library) opens that page in the current workspace; only a path nobody names falls back to Today. */}
+      <Route path="/today" component={() => <ToWorkspacePage page="today" />} />
+      <Route path="/missions" component={() => <ToWorkspacePage page="missions" />} />
+      <Route path="/missions/new" component={() => <ToWorkspacePage page="missions/new" />} />
+      <Route path="/library" component={() => <ToWorkspacePage page="library" />} />
+      <Route path="/plays" component={() => <ToWorkspacePage page="plays" />} />
+      <Route path="/schedules" component={() => <ToWorkspacePage page="schedules" />} />
+      <Route path="/live" component={() => <ToWorkspacePage page="live" />} />
+      <Route path="/logs" component={() => <ToWorkspacePage page="logs" />} />
+      <Route path="/outputs" component={() => <ToWorkspacePage page="outputs" />} />
+      <Route path="/knowledge" component={() => <ToWorkspacePage page="knowledge" />} />
+      <Route path="/knowledge/review" component={() => <ToWorkspacePage page="knowledge/review" />} />
       <Route path="*" component={() => <Navigate href="/" />} />
     </Route>
     </Router>
