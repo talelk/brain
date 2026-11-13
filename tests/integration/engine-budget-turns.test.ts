@@ -38,11 +38,11 @@ describe("what a task may spend in tool calls", () => {
     expect(criteriaIn("No criteria listed")).toBe(0);
     expect(criteriaIn("# Context\nAcceptance criteria:\n1. a\n2. b\n\n# Task\nAcceptance criteria:\n1. only one")).toBe(1);
   });
-  it("is 8 calls when no criteria are listed, else one per criterion and one to check (3 to 12), never above the agent's own turn limit", () => {
+  it("is 8 calls when no criteria are listed, else one per criterion (2 to 12), never above the agent's own turn limit", () => {
     expect(toolCallCeiling("Run docker.ps", 30)).toBe(8);
-    expect(toolCallCeiling(`x\nAcceptance criteria:\n${criteria(1)}`, 30)).toBe(3);
-    expect(toolCallCeiling(`x\nAcceptance criteria:\n${criteria(2)}`, 30)).toBe(3);
-    expect(toolCallCeiling(`x\nAcceptance criteria:\n${criteria(4)}`, 30)).toBe(5);
+    expect(toolCallCeiling(`x\nAcceptance criteria:\n${criteria(1)}`, 30)).toBe(2);
+    expect(toolCallCeiling(`x\nAcceptance criteria:\n${criteria(2)}`, 30)).toBe(2);
+    expect(toolCallCeiling(`x\nAcceptance criteria:\n${criteria(4)}`, 30)).toBe(4);
     expect(toolCallCeiling(`x\nAcceptance criteria:\n${criteria(20)}`, 30)).toBe(12);
     expect(toolCallCeiling("Run docker.ps", 5)).toBe(5);
   });
@@ -155,7 +155,7 @@ describe("the Pi engine ends tool use, tells the model what is left and keeps on
     expect(log.prompts).toHaveLength(1);
     expect(log.prompts[0]).not.toContain("THE INSTRUCTIONS");
     expect(log.prompts[0]).toContain('"situation":"Run docker.ps');
-    expect(log.prompts[0]).toMatch(/at most 3 tool calls and about 100,000 tokens/u);
+    expect(log.prompts[0]).toMatch(/at most 2 tool calls and about 100,000 tokens/u);
   });
 
   it("keeps the last message as the answer; what the model said while calling tools is diagnostic narration", () => {

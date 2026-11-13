@@ -6,7 +6,7 @@ Live, "Run docker.ps to enumerate running containers" used about 110k tokens per
 
 ## Decision
 1. The instructions are the session's system prompt and are sent once; the first message is the task (they were sent twice, about 2k tokens per turn).
-2. An attempt may make at most one tool call per acceptance criterion plus one (3 to 12; 8 when the task lists none), never more than the agent's turn limit. Refused and repeated calls count: they cost a turn.
+2. An attempt may make at most one tool call per acceptance criterion (2 to 12; 8 when the task lists none), never more than the agent's turn limit. Refused and repeated calls count: they cost a turn.
 3. The model is told its limits up front, and each tool answer ends with the calls and tokens used.
 4. A repeated read is told firmly that it already has the answer; the second repeat ends tool use.
 5. At the last call, at the repeat budget or at 80% of the allowance, the engine removes the tools and steers once with the exact tokens left, so the next turn can only be the answer; anything not shown by a tool is answered `met: false`.

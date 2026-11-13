@@ -41,7 +41,7 @@ export function overAllowanceReason(use: AttemptUse, limits: AttemptLimits): str
 
 /** Tool calls an attempt may make when its task lists no acceptance criteria; the agent's own turn limit is the upper bound. */
 export const DEFAULT_TOOL_CALLS = 8;
-const FEWEST_TOOL_CALLS = 3;
+const FEWEST_TOOL_CALLS = 2;
 const MOST_TOOL_CALLS = 12;
 /** Repeated identical reads an attempt may make before its tools are taken away: each one costs a whole turn and tells the model nothing new. */
 export const REPEAT_BUDGET = 2;
@@ -63,12 +63,12 @@ export function criteriaIn(task: string): number {
 
 /**
  * The most tool calls one attempt may make, from its task. Every call is a model turn that re-sends the whole prompt (about 6k tokens before
- * any work), so looking is paid for per call: one call for each criterion and one to check (3 to 12), 8 when the task lists no criteria, and
+ * any work), so looking is paid for per call: one call for each criterion (2 to 12), 8 when the task lists no criteria, and
  * never more than the agent's own turn limit.
  */
 export function toolCallCeiling(task: string, maxTurns: number): number {
   const criteria = criteriaIn(task);
-  const wanted = criteria === 0 ? DEFAULT_TOOL_CALLS : Math.min(MOST_TOOL_CALLS, Math.max(FEWEST_TOOL_CALLS, 1 + criteria));
+  const wanted = criteria === 0 ? DEFAULT_TOOL_CALLS : Math.min(MOST_TOOL_CALLS, Math.max(FEWEST_TOOL_CALLS, criteria));
   return maxTurns > 0 ? Math.min(maxTurns, wanted) : wanted;
 }
 
