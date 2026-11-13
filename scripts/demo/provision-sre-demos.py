@@ -103,6 +103,11 @@ st, res = api("POST", "/v1/setup/workspace", {"workspaceId": WS, "slug": "sre-de
     "tags": ["sre", "demos-server", "operations"]})
 print("workspace:", "created" if st == 201 else f"present ({st})")
 
+# ADR 0022: this workspace works the host with sre-task, and a task is Done only with a successful host.read or host.exec call on record.
+# (It stays self-hosted: a workspace with host tools cannot switch the hosted model on, ADR 0023.) Idempotent.
+cmd("workspace.wayOfWorking.set", {"workflowId": "sre-task", "requiredTools": ["host.exec", "host.read"]})
+print("way of working: sre-task, observed tools host.exec or host.read")
+
 have = {d.get("title"): d for d in query("documents.list", limit=100).get("items", [])}
 for title, name in DOCS.items():
     if title in have:

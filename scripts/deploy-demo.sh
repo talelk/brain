@@ -48,6 +48,18 @@ command -v rsync >/dev/null || { echo "rsync is required" >&2; exit 1; }
 : "${BRAIN_DEPLOY_SUDO_PASSWORD:?set BRAIN_DEPLOY_SUDO_PASSWORD to the sudo password of the deploy user}"
 SUDO="printf '%s\n' $(printf '%q' "$BRAIN_DEPLOY_SUDO_PASSWORD") | sudo -S -p ''"   # only for system-level actions
 
+# One exit handler: remove the private pre-check copy, and never leave the platform drained. If the deploy fails after drain began
+# (a failed roll, a Governor that is not ready), draining would stop all new work with nobody told, so the drain is ended here.
+PRECHECK_DIR=""; DRAINED=0
+cleanup() {
+  [ -n "$PRECHECK_DIR" ] && rm -rf "$PRECHECK_DIR"
+  if [ "$DRAINED" = 1 ]; then
+    echo "==> Ending drain after an unfinished deploy" >&2
+    $SSH "cd $REMOTE_DIR && docker compose run --rm --no-deps -T governor node - off" < scripts/drain-live.mjs >/dev/null 2>&1 || echo "!! Could not end drain: run scripts/drain-live.mjs off inside the governor container" >&2
+  fi
+}
+trap cleanup EXIT
+
 # ---- standing test gate (backlog row 78): a drop of more than 10 points of first-pass success blocks the deploy ----
 # Exit 0 passed, 3 skipped (no model reachable from here), anything else blocks. BRAIN_DEPLOY_SKIP_STANDING_TESTS=1 skips.
 if [ "${BRAIN_DEPLOY_SKIP_STANDING_TESTS:-0}" != 1 ]; then
@@ -64,7 +76,6 @@ if [ "${BRAIN_DEPLOY_SKIP_PRECHECK:-0}" != 1 ]; then
   if [ -n "$GOV_ID" ]; then
     echo "==> Pre-deploy check: repairing a copy of the live databases with this checkout's schema"
     PRECHECK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/brain-precheck-XXXXXX")"
-    trap 'rm -rf "$PRECHECK_DIR"' EXIT
     chmod 700 "$PRECHECK_DIR"
     # A consistent snapshot (VACUUM INTO inside the container), moved to the host, then pulled with rsync: resumable,
     # compressed and retried. A piped tar of 40+ MB over the VPN broke at random ("Error is not recoverable").
@@ -165,7 +176,6 @@ $SSH "cd $REMOTE_DIR && docker compose build governor"
 # finish in time the deploy stops here with nothing changed (BRAIN_DEPLOY_FORCE_DRAIN=1 rolls anyway; BRAIN_DEPLOY_SKIP_DRAIN=1 skips).
 # Drain stays on across the container swap and is ended after the new Governor is ready (below).
 DRAIN_GOV="$($SSH "cd $REMOTE_DIR && docker compose ps -q governor" 2>/dev/null || true)"
-DRAINED=0
 if [ -n "$DRAIN_GOV" ] && [ "${BRAIN_DEPLOY_SKIP_DRAIN:-0}" != 1 ]; then
   DRAIN_SECONDS="${BRAIN_DEPLOY_DRAIN_SECONDS:-900}"
   echo "==> Draining: no new attempts start; waiting up to ${DRAIN_SECONDS}s for running ones to finish"
@@ -202,7 +212,7 @@ for i in $(seq 1 30); do
     echo "==> Governor is healthy"
     if [ "$DRAINED" = 1 ]; then
       NEW_GOV="$($SSH "cd $REMOTE_DIR && docker compose ps -q governor")"
-      $SSH "docker exec -i $NEW_GOV node - off" < scripts/drain-live.mjs && echo "==> Drain ended: new attempts start again"
+      $SSH "docker exec -i $NEW_GOV node - off" < scripts/drain-live.mjs && DRAINED=0 && echo "==> Drain ended: new attempts start again"
     fi
     break
   fi

@@ -137,12 +137,13 @@ export function localRunnerSettingsCurrent(s: Store, organizationId: string, run
 }
 
 /** The model endpoint the Governor can check: the guided connection if one was saved, else the environment's. */
-export function modelEndpoint(s: Store): { url: string; apiKey?: string } | undefined {
+export function modelEndpoint(s: Store): { url: string; apiKey?: string } {
   try {
     const saved = readSaved(s);
     if (saved) return { url: saved.modelUrl, ...(saved.apiKey ? { apiKey: saved.apiKey } : {}) };
   } catch { /* an unreadable saved connection falls back to the environment */ }
-  const url = process.env["BRAIN_LOCAL_MODEL_URL"];
+  // The same default the independent check (packs/judge.ts) and the demo deploy use: the Governor container is not given the variable.
+  const url = process.env["BRAIN_LOCAL_MODEL_URL"] ?? "http://tntungx10:8000/v1";
   const apiKey = process.env["BRAIN_LOCAL_MODEL_API_KEY"];
-  return url ? { url: url.replace(/\/$/u, ""), ...(apiKey ? { apiKey } : {}) } : undefined;
+  return { url: url.replace(/\/$/u, ""), ...(apiKey ? { apiKey } : {}) };
 }

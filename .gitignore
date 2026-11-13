@@ -30,6 +30,7 @@ artifacts/runtime/**/raw/
 # Local agent/test state (session logs, checkpoints, caches)
 .pi-agent/
 .vitest/
+.cache/
 
 # OS / editor
 .DS_Store

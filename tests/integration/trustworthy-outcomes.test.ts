@@ -258,6 +258,23 @@ describe("a task stops at its token cap across all attempts (default 200k)", () 
     expect(item(w, id, "b").tokenCap).toBe(200_000);
   });
 
+  it("counts what the attempt reported, settled through the real ledger path, not a pre-settled row", async () => {
+    const w = world();
+    const id = await planned(w, "cap-real", [task("a")]);
+    const a = item(w, id, "a");
+    attempt(w, a.workItemId, "cap-real-1");
+    // An attempt that ended but whose ledger row is still open: its usage sits in the attempt's events until something settles it.
+    const control = w.brain.store.control;
+    control.exec("PRAGMA foreign_keys=OFF");
+    ws(w).prepare("INSERT INTO mission_spend(attempt_id,mission_id,run_id,reserved_micro_usd,reserved_tokens,created_at_ms) VALUES ('att-real',?,?,0,1000,?)").run(id, "cap-real-1", w.brain.store.now());
+    control.prepare("INSERT INTO capacity_reservations(attempt_id,runner_id,cpu,memory,disk,slots,released_at_ms) VALUES ('att-real','runner-x',1,1,1,1,?)").run(w.brain.store.now());
+    control.prepare("INSERT INTO attempt_events(attempt_id,seq,event_json) VALUES ('att-real',1,?)").run(JSON.stringify({ kind: "engine", payload: { kind: "usage", payload: { accounting: "final-total", inputTokens: 190_000, outputTokens: 30_000 } } }));
+    control.exec("PRAGMA foreign_keys=ON");
+    expect(ws(w).prepare("SELECT settled_at_ms FROM mission_spend WHERE attempt_id='att-real'").get()).toEqual({ settled_at_ms: null });
+    w.brain.missions.recordRunFailure(w.org, w.workspaceId, "cap-real-1", "the run failed");
+    expect(item(w, id, "a")).toMatchObject({ state: "blocked", parked: true, failureClass: "budget", tokensUsed: 220_000 });
+  });
+
   it("a ready task already over its cap is parked at dispatch, not started again", async () => {
     const w = world();
     const id = await planned(w, "cap2", [task("a")], { autoStart: true });
@@ -391,13 +408,48 @@ describe("drain mode stops new attempts and resumes", () => {
     expect((await status()).draining).toBe(false);
   });
 
-  it("offers no attempt to a runner while draining", async () => {
-    const w = world();
-    const { setDraining, drainStatus } = await import("../../apps/governor/src/modules/jobs/index");
-    setDraining(w.brain.store, "owner-1", true);
-    expect(drainStatus(w.brain.store)).toMatchObject({ draining: true });
-    setDraining(w.brain.store, "owner-1", false);
-    expect(drainStatus(w.brain.store).draining).toBe(false);
+  /** A queued job of the golden fixture workflow and a runner able to take it. */
+  async function queuedJob(key: string): Promise<{ w: World; runner: { runnerId: string; epoch: number; organizationId: string }; jobId: string }> {
+    const w = setupWorld();
+    worlds.push(w);
+    const digest = w.brain.activeRelease(w.org)!.digest;
+    const out = await w.brain.executeCommand(w.owner, { contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "workflow.dispatch", workspaceId: w.workspaceId, idempotencyKey: key, payload: { workflow: { id: "fixture-workflow", digest }, input: { message: key } } } as never, key);
+    const runId = String((out.receipt as { resourceId: string }).resourceId);
+    const jobId = (w.brain.store.control.prepare("SELECT id FROM jobs WHERE workflow_run_id=?").get(runId) as { id: string }).id;
+    const s = w.brain.store;
+    s.control.prepare(`INSERT INTO runners(id, organization_id, group_id, identity_key_digest, admin_state, health, config_digest, session_epoch, last_heartbeat_ms, cpu_capacity, memory_capacity, disk_capacity, slot_capacity)
+      VALUES ('runner-drain', ?, 'fixture-tools', 'k', 'enabled', 'healthy', ?, 1, ?, 4000, 8192, 20480, 2)`).run(w.org, DIGEST_A, s.now());
+    for (const cap of ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture"]) {
+      s.control.prepare("INSERT INTO runner_capabilities(runner_id, capability, verified, source, observed_at_ms, expires_at_ms) VALUES ('runner-drain', ?, 1, 'test', ?, ?)").run(cap, s.now(), s.now() + 3_600_000);
+    }
+    return { w, runner: { runnerId: "runner-drain", epoch: 1, organizationId: w.org }, jobId };
+  }
+
+  it("offers no attempt to a runner while draining, and offers it again after resume", async () => {
+    const { w, runner } = await queuedJob("drain-claim");
+    await run(w, "platform.drain.set", "drain-claim-on", { draining: true });
+    expect(w.brain.jobProtocol.claim(runner, "req-1")).toBeNull();
+    await run(w, "platform.drain.set", "drain-claim-off", { draining: false });
+    expect(w.brain.jobProtocol.claim(runner, "req-2")).toMatchObject({ attemptId: expect.any(String) });
+  });
+
+  it("holds a second attempt for a hosted model that is down, and offers it with the route once the model answers", async () => {
+    const { w, runner, jobId } = await queuedJob("hosted-hold");
+    await run(w, "workspace.hostedModel.set", "hold-on", { enabled: true, vendor: "Acme", model: "acme-large", baseUrl: "https://models.acme.example/v1" });
+    // The queued job belongs to a task whose first attempt failed as a model slip: this is its second attempt.
+    const id = await planned(w, "hold", [task("a")]);
+    const a = item(w, id, "a");
+    const runId = (w.brain.store.control.prepare("SELECT workflow_run_id AS id FROM jobs WHERE id=?").get(jobId) as { id: string }).id;
+    attempt(w, a.workItemId, runId);
+    ws(w).prepare("UPDATE work_items SET failed_attempts=1, failure_class='model-slip' WHERE id=?").run(a.workItemId);
+    recordProbe(w.brain.store, `hosted:${w.workspaceId}`, "unavailable", "down");
+    expect(w.brain.jobProtocol.claim(runner, "req-h1")).toBeNull();
+    recordProbe(w.brain.store, `hosted:${w.workspaceId}`, "healthy", "up");
+    expect(w.brain.jobProtocol.claim(runner, "req-h2")).toMatchObject({ attemptId: expect.any(String) });
+    // The route travels in the pinned execution payload: a place and a model, never a key.
+    const payload = w.brain.store.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(jobId) as { payload_json: string };
+    expect(JSON.parse(payload.payload_json).modelRoute).toEqual({ tier: "hosted", role: "second-attempt", vendor: "Acme", model: "acme-large", baseUrl: "https://models.acme.example/v1" });
+    expect(payload.payload_json).not.toMatch(/api[-_]?key|authorization|secret/iu);
   });
 });
 

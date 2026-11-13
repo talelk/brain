@@ -12,11 +12,11 @@ import { pathToFileURL } from "node:url";
  * A check must fail twice in a row before anything is restarted (one slow answer is not an outage), a thing is restarted at most three
  * times an hour (a restart loop is a problem to alert on, not to hide), and a launcher restart also restarts the runners that talk to it.
  */
-export type CheckKind = "unix-http" | "http" | "unit";
+export type CheckKind = "unix-http" | "http" | "unit" | "container";
 export interface CheckSpec {
   readonly name: string;
   readonly kind: CheckKind;
-  /** unix-http: socket path; http: URL; unit: systemd unit name. */
+  /** unix-http: socket path; http: URL; unit: systemd unit name; container: docker container name. */
   readonly target: string;
   /** unix-http only: the path to GET. */
   readonly path?: string;
@@ -40,7 +40,7 @@ export function defaultChecks(env: NodeJS.ProcessEnv = process.env): CheckSpec[]
     { name: "launcher", kind: "unix-http", target: env["BRAIN_LAUNCHER_SOCKET"] ?? `${runDir}/launcher.sock`, path: "/v1/health", restart: "unit:brain-launcher.service", alsoRestart: ["unit:brain-runner-agents.service", "unit:brain-runner-evaluators.service"] },
     { name: "runner-agents", kind: "unit", target: "brain-runner-agents.service", restart: "unit:brain-runner-agents.service" },
     { name: "runner-evaluators", kind: "unit", target: "brain-runner-evaluators.service", restart: "unit:brain-runner-evaluators.service" },
-    { name: "model-proxy", kind: "http", target: env["BRAIN_WATCHDOG_PROXY_URL"] ?? "http://127.0.0.1:8096/health", restart: "container:tdai-memory-proxy" },
+    { name: "model-proxy", kind: "container", target: env["BRAIN_WATCHDOG_PROXY_CONTAINER"] ?? "tdai-memory-proxy", restart: "container:tdai-memory-proxy" },
   ];
 }
 
@@ -81,10 +81,15 @@ function probeUnixHttp(socketPath: string, path: string): Promise<boolean> {
 const run = (file: string, args: readonly string[]): Promise<{ ok: boolean; out: string }> =>
   new Promise((resolve) => execFile(file, [...args], { timeout: 60_000 }, (error, stdout) => resolve({ ok: !error, out: String(stdout) })));
 
-/** The real probe: a socket answering 200, a URL answering 2xx, or a unit that is active. */
+/** The real probe: a socket answering 200, a URL answering 2xx, a unit that is active, or a container that is running. */
 export const hostProbe: Probe = async (spec) => {
   if (spec.kind === "unix-http") return existsSync(spec.target) && (await probeUnixHttp(spec.target, spec.path ?? "/"));
   if (spec.kind === "http") { try { return (await fetch(spec.target, { signal: AbortSignal.timeout(5000) })).ok; } catch { return false; } }
+  if (spec.kind === "container") {
+    // A container that does not exist on this host is not this watchdog's to restart: nothing listed means nothing to watch.
+    const result = await run("docker", ["ps", "-a", "--filter", `name=^/${spec.target}$`, "--format", "{{.State}}"]);
+    return result.ok && (result.out.trim() === "" || result.out.trim() === "running");
+  }
   return (await run("systemctl", ["is-active", "--quiet", spec.target])).ok;
 };
 /** The real restart: `systemctl restart` through sudo -n (a sudoers rule for exactly these units), or `docker restart`. */

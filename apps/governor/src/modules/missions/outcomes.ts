@@ -1,6 +1,7 @@
 import type { Store } from "../../application/store";
 import { DEFAULT_TASK_TOKEN_CAP, outageLike } from "../../domain/failure";
 import { activeReleaseRecord } from "../configuration/index";
+import { settle } from "./budget";
 import { taskUsage } from "./usage";
 
 type Db = ReturnType<Store["workspaceDb"]>;
@@ -48,7 +49,10 @@ export function missionObserved(store: Store, db: Db, missionId: string): boolea
 export const taskTokenCap = (row: { token_cap: number | null }): number => row.token_cap ?? DEFAULT_TASK_TOKEN_CAP;
 
 /** Tokens a task has used or reserved across all its attempts. */
-export function taskTokens(db: Db, workItemId: string): number {
+export function taskTokens(store: Store, db: Db, workItemId: string): number {
+  // The ledger settles lazily (when something reads it), so settle this task's mission first: an attempt that just ended must count.
+  const mission = db.prepare("SELECT mission_id FROM work_items WHERE id=?").get(workItemId) as { mission_id: string } | undefined;
+  if (mission) settle(store, db, mission.mission_id);
   const usage = taskUsage(db, workItemId);
   return usage.settledTokens + usage.reservedTokens;
 }

@@ -175,7 +175,7 @@ export class MissionService {
       failedAttempts: row.failed_attempts, parked: row.parked === 1,
       ...(JSON.parse(row.required_tools_json) as string[]).length > 0 ? { requiredTools: JSON.parse(row.required_tools_json) as string[] } : {},
       ...(row.failure_class ? { failureClass: row.failure_class, remedy: REMEDY[row.failure_class] } : {}),
-      tokenCap: taskTokenCap(row), tokensUsed: taskTokens(this.store.workspaceDb(workspaceId, actor.organizationId), row.id),
+      tokenCap: taskTokenCap(row), tokensUsed: taskTokens(this.store, this.store.workspaceDb(workspaceId, actor.organizationId), row.id),
       version: row.version, createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
     };
   }
@@ -939,7 +939,7 @@ export class MissionService {
       return;
     }
     const tools = JSON.parse(item.required_tools_json) as string[];
-    const used = taskTokens(db, item.id);
+    const used = taskTokens(this.store, db, item.id);
     const cap = taskTokenCap(item);
     const runWorkflow = (db.prepare("SELECT json_extract(workflow_json,'$.metadata.id') AS id FROM run_inputs WHERE run_id=?").get(runId) as { id: string | null } | undefined)?.id;
     const earlier = db.prepare("SELECT diagnostic FROM task_failures WHERE work_item_id=?").all(item.id) as Array<{ diagnostic: string }>;
@@ -1167,7 +1167,7 @@ export class MissionService {
       const now = this.store.now();
       // The spend cap holds at dispatch too: a task that has used its tokens across attempts stops here, parked as budget, never retried automatically.
       for (const candidate of db.prepare("SELECT * FROM work_items WHERE mission_id=? AND state='ready' AND parked=0").all(mission.id) as WorkItemRow[]) {
-        const used = taskTokens(db, candidate.id);
+        const used = taskTokens(this.store, db, candidate.id);
         if (used >= taskTokenCap(candidate) && (db.prepare("SELECT 1 FROM execution_links WHERE work_item_id=? LIMIT 1").get(candidate.id))) {
           this.store.inTx(db, () => {
             transitionState(db, "workItem", candidate.id, "blocked", { set: { parked: 1, parked_diagnostic: `The task used ${used} of ${taskTokenCap(candidate)} tokens across its attempts`, blocked_reason: `Parked: the task used its token allowance (${used} of ${taskTokenCap(candidate)} tokens)`, next_action: "Raise this task's token cap, split it or drop it", failure_class: "budget", updated_at_ms: now }, bumpVersion: true });
