@@ -1,5 +1,6 @@
 import type { EngineAdapter, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue, ReleaseRef } from "@brain/contracts";
 import { sha256Digest } from "@brain/contracts";
+import { engineFailureDetail } from "./failure-detail";
 import { FixtureEngine } from "./fixture";
 import { PiEngine, type HostedRoute } from "./pi";
 import { ClaudeEngine } from "./claude";
@@ -130,6 +131,8 @@ function brokenJson(text: string, output: JsonValue): boolean {
   return (head.startsWith("{") || head.slice(0, 20).toLowerCase().startsWith("```json") || head.startsWith("```")) && head.slice(0, 200).includes("{");
 }
 
+/** The Governor redacts and keeps at most 500 characters of an attempt's error; the runner never sends more than that. */
+const ERROR_CHARS = 500;
 const CORRECTION_CHARS = 30_000;
 function correctiveTask(previous: string): string {
   return `Your previous reply was meant to be one JSON object but it is not valid JSON, so it could not be used. Reply again with only the corrected JSON object: the same content, valid JSON, with every double quote and backslash inside a string escaped, and no text, code fence or comment around it.\n\nYour previous reply:\n${previous.trim().slice(0, CORRECTION_CHARS)}`;
@@ -164,6 +167,7 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
   let terminalConfirmed = false;
   let terminalOutput: { digest: string; bytes: number } | undefined;
   let engineError = false;
+  let engineDetail = "";
   let tokensReported = false;
   const cleanup = async (operation: () => Promise<unknown>): Promise<boolean> => {
     let cleanupTimer: ReturnType<typeof setTimeout> | undefined;
@@ -233,7 +237,7 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
         const result = await bounded(input.executeTool(event.payload));
         await bounded(engine.toolResult(sessionId, result));
       }
-      if (event.kind === "error") engineError = true;
+      if (event.kind === "error") { engineError = true; engineDetail ||= event.payload.error.detail.replace(/\s+/gu, " ").trim(); }
       if (event.kind === "text") outputText += event.payload.text;
       if (event.kind === "session.stopped") {
         terminalReason = event.payload.reason;
@@ -246,7 +250,9 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
       return { ok: false, output: { error: "agent execution aborted; outcome unknown" }, outputText };
     }
     if (engineError || !terminalConfirmed || terminalReason !== "completed") {
-      return { ok: false, output: { error: terminalReason ? `agent ended with ${terminalReason}` : "agent event stream ended without a terminal result" }, outputText };
+      // The engine said why (its error event); a bare "agent ended with error" tells nobody what to change.
+      const ended = terminalReason ? `agent ended with ${terminalReason}` : "agent event stream ended without a terminal result";
+      return { ok: false, output: { error: engineDetail ? `${ended}: ${engineDetail}`.slice(0, ERROR_CHARS) : ended }, outputText };
     }
     if (!outputText.trim()) return { ok: false, output: { error: "agent completed without output" }, outputText };
     const bytes = new TextEncoder().encode(outputText);
@@ -255,7 +261,7 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
     }
     return { ok: true, output: decodedOutput(outputText), outputText };
   } catch (e) {
-    return { ok: false, output: { error: e instanceof Error ? e.message : "engine execution failed" }, outputText };
+    return { ok: false, output: { error: engineFailureDetail(e instanceof Error ? e.message : "engine execution failed").slice(0, ERROR_CHARS) }, outputText };
   }
   };
   const result = await execute();

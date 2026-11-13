@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { sha256Digest } from "@brain/contracts";
 import type { ArtifactRef, Checkpoint, EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
-import { overCostCap } from "./limits";
+import { engineFailureDetail } from "./failure-detail";
+import { overAllowanceReason, wrapUpReason } from "./limits";
 import { GovernedToolCalls } from "./tool-calls";
 
 /**
@@ -12,10 +13,12 @@ import { GovernedToolCalls } from "./tool-calls";
  */
 export interface HostedRoute { readonly baseUrl: string; readonly model: string }
 
+type PiSession = { dispose: () => void; abort: () => Promise<void>; getSessionStats: () => { assistantMessages: number; tokens: { input: number; output: number; cacheRead: number; total: number }; cost: number }; prompt: (text: string) => Promise<void>; steer: (text: string) => Promise<unknown>; readonly isStreaming: boolean };
+
 export class PiEngine implements EngineAdapter {
   readonly id = "pi";
   get defaultModelId(): string { return this.route?.model ?? this.modelId(); }
-  private session: { dispose: () => void; abort: () => Promise<void>; getSessionStats: () => { assistantMessages: number; tokens: {input:number;output:number;cacheRead:number;total:number};cost:number }; prompt: (text: string) => Promise<void>; steer: (text: string) => Promise<unknown>; readonly isStreaming: boolean } | null = null;
+  private session: PiSession | null = null;
   private seq = 0;
   private sessionId = "";
   private sessionFile: string | undefined;
@@ -23,6 +26,8 @@ export class PiEngine implements EngineAdapter {
   private stream = new EngineEventStream();
   private output = "";
   private failure: string | undefined;
+  private tokensAtLastCheck = 0;
+  private wrappedUp = false;
   private toolCalls: GovernedToolCalls | undefined;
   constructor(private readonly toolBindings: readonly EngineToolBinding[] = [], private readonly route?: HostedRoute) {}
 
@@ -87,13 +92,17 @@ export class PiEngine implements EngineAdapter {
     const model = runtime.getModel(providerId as never, (spec.modelId || this.defaultModelId) as never);
     if (!model) throw Object.assign(new Error("Pi local model not found in models.json"), { code: "UNSUPPORTED_CAPABILITY" });
     if (spec.allowedTools.some((allowed) => !this.toolBindings.some((binding) => binding.release.id === allowed.id && binding.release.digest === allowed.digest))) throw new Error("Pi Agent tool definitions are incomplete; refusing execution");
-    const calls = new GovernedToolCalls(this.toolBindings, spec, (kind, payload) => this.push(kind, payload));
+    // The allowance is judged at every tool call (a turn boundary), not once at the end: a model left to run can use several times its allowance first.
+    const calls = new GovernedToolCalls(this.toolBindings, spec, (kind, payload) => this.push(kind, payload), {
+      maxCalls: spec.limits.maxTurns,
+      refuse: () => this.allowanceStop(spec),
+    });
     this.toolCalls = calls;
     const customTools = this.toolBindings.map((binding) => ({
       name: calls.names().find((name) => name === `brain_${binding.release.id.replace(/[^A-Za-z0-9_]/gu, "_")}`)!,
       label: binding.release.id, description: `Governed ${binding.effectClass} tool ${binding.release.id}; inputs are validated and execution is isolated by Brain.`,
       parameters: binding.inputSchema,
-      execute: async (toolCallId: string, params: unknown) => ({ content: [{ type: "text", text: JSON.stringify(await calls.execute(`brain_${binding.release.id.replace(/[^A-Za-z0-9_]/gu, "_")}`, toolCallId, params as JsonValue)) }] }),
+      execute: async (toolCallId: string, params: unknown) => ({ content: [{ type: "text", text: await calls.execute(`brain_${binding.release.id.replace(/[^A-Za-z0-9_]/gu, "_")}`, toolCallId, params as JsonValue) }] }),
     }));
     const { DefaultResourceLoader } = await import("@earendil-works/pi-coding-agent");
     const resourceLoader = new DefaultResourceLoader({
@@ -106,7 +115,7 @@ export class PiEngine implements EngineAdapter {
       sessionManager: manager, tools: calls.names(), ...(calls.names().length ? { customTools } : { noTools: "all" }), resourceLoader,
     } as never);
     this.session?.dispose();
-    this.session = session as unknown as { dispose: () => void; abort: () => Promise<void>; getSessionStats: () => { assistantMessages: number; tokens: {input:number;output:number;cacheRead:number;total:number};cost:number }; prompt: (text: string) => Promise<void>; steer: (text: string) => Promise<unknown>; readonly isStreaming: boolean };
+    this.session = session as unknown as PiSession;
     const mgr = manager as { getSessionId?: () => string; getSessionFile?: () => string | undefined };
     this.sessionId = mgr.getSessionId?.() ?? `pi-${Date.now().toString(36)}`;
     this.sessionFile = mgr.getSessionFile?.();
@@ -118,7 +127,8 @@ export class PiEngine implements EngineAdapter {
       }
       if (event.type === "message_end" && event.message?.role === "assistant") {
         const message = event.message;
-        if (message.stopReason === "error" || message.stopReason === "aborted") this.failure = message.errorMessage ?? `Pi stopped: ${message.stopReason}`;
+        // The first cause stands: an attempt stopped for its allowance ends with an "aborted" message that must not hide that reason.
+        if (message.stopReason === "error" || message.stopReason === "aborted") this.failure ??= message.errorMessage ?? `Pi stopped: ${message.stopReason}`;
         if (!this.output && message.content) {
           const text = message.content.filter((part) => part.type === "text").map((part) => part.text ?? "").join("");
           if (text) { this.output = text; this.push("text", { text, channel: "assistant", provisional: true }); }
@@ -130,17 +140,50 @@ export class PiEngine implements EngineAdapter {
     return { sessionId: this.sessionId };
   }
 
+  /** What this attempt has used so far, from the vendor session's own totals. */
+  private use(): { tokens: number; microUsd: number; turns: number; lastTurnTokens: number } {
+    const stats = this.session?.getSessionStats();
+    const tokens = stats?.tokens.total ?? 0;
+    // Called once per tool call, that is once per turn: the difference between two calls is what the turn in between cost.
+    const lastTurnTokens = tokens - this.tokensAtLastCheck;
+    this.tokensAtLastCheck = tokens;
+    return { tokens, microUsd: Math.ceil((stats?.cost ?? 0) * 1_000_000), turns: stats?.assistantMessages ?? 0, lastTurnTokens };
+  }
+
+  /**
+   * Asked before each tool call. Within the allowance: nothing. Nearly used up: the call is refused and the model told to write its answer.
+   * Past it while still calling tools: the session is stopped with the numbers as the reason (a finished answer is never stopped, see complete()).
+   */
+  private allowanceStop(spec: EngineSessionSpec): string | undefined {
+    if (this.failure) return "This attempt is ending. Do not call more tools.";
+    const use = this.use();
+    const over = overAllowanceReason(use, spec.limits);
+    if (over) {
+      this.failure = over;
+      void this.session?.abort().catch(() => undefined);
+      return "This attempt's allowance is used up. Do not call more tools.";
+    }
+    const wrapUp = wrapUpReason(use, spec.limits);
+    // A tool answer is easy to talk past; a message from the user is not. It reaches the model at the next turn boundary, once.
+    if (wrapUp && !this.wrappedUp) {
+      this.wrappedUp = true;
+      void this.session?.steer(wrapUp).catch(() => undefined);
+    }
+    return wrapUp;
+  }
+
   private async complete(spec: EngineSessionSpec): Promise<void> {
     try {
       if (!this.session) throw new Error("Pi session is unavailable");
       const prompt = `${spec.instructions.trim()}\n\nTask:\n${spec.task}`.trim();
       await this.session.prompt(prompt);
-      if (this.failure) throw new Error(this.failure);
+      // What was used is reported whether or not the attempt succeeded: a stopped attempt spent its tokens too.
       const usage = this.session.getSessionStats();
       this.push("usage", { usageId: `pi-usage-${spec.attemptId}`, inputTokens: usage.tokens.input,
         outputTokens: usage.tokens.output, cachedInputTokens: usage.tokens.cacheRead,
         microUsd: Math.ceil(usage.cost*1000000), accounting: "final-total", estimated: false });
-      if (usage.tokens.total > spec.limits.maxTokens || overCostCap(usage.cost*1000000, spec.limits.maxMicroUsd) || usage.assistantMessages > spec.limits.maxTurns) throw new Error("Pi execution exceeded its pinned token/cost/turn budget");
+      if (this.failure) throw new Error(this.failure);
+      // A finished answer is kept whatever it cost: the spend is reported above and charged, and throwing the answer away would only pay for it twice.
       const bytes = new TextEncoder().encode(this.output);
       const artifact = {
         artifactId: `pi-output-${spec.attemptId}`, digest: sha256Digest(bytes), bytes: bytes.length,
@@ -150,7 +193,7 @@ export class PiEngine implements EngineAdapter {
       this.push("session.stopped", { reason: "completed", terminationConfirmed: true, output: artifact });
     } catch (e) {
       this.push("error", {
-        error: { code: "DEPENDENCY_UNAVAILABLE", detail: e instanceof Error ? e.message : "Pi execution failed", retryable: true, correlationId: this.sessionId },
+        error: { code: "DEPENDENCY_UNAVAILABLE", detail: engineFailureDetail(e instanceof Error ? e.message : "Pi execution failed"), retryable: true, correlationId: this.sessionId },
         phase: "stream", retryClass: "new-attempt",
       });
       this.push("session.stopped", { reason: "error", terminationConfirmed: true });
@@ -164,6 +207,8 @@ export class PiEngine implements EngineAdapter {
     this.seq = 0;
     this.output = "";
     this.failure = undefined;
+    this.tokensAtLastCheck = 0;
+    this.wrappedUp = false;
     this.stream = new EngineEventStream();
     mkdirSync(this.sessionsDir(), { recursive: true });
     const { SessionManager } = (await import("@earendil-works/pi-coding-agent")) as typeof import("@earendil-works/pi-coding-agent");

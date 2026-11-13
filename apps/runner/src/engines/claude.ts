@@ -187,7 +187,7 @@ export class ClaudeEngine implements EngineAdapter {
       const { query, tool, createSdkMcpServer } = (await import("@anthropic-ai/claude-agent-sdk")) as typeof import("@anthropic-ai/claude-agent-sdk");
       const prompt = `${spec.instructions.trim()}\n\nTask:\n${spec.task}`.trim();
       if (spec.allowedTools.some((allowed) => !this.toolBindings.some((binding) => binding.release.id === allowed.id && binding.release.digest === allowed.digest))) throw new Error("Claude Agent tool definitions are incomplete; refusing execution");
-      const calls = new GovernedToolCalls(this.toolBindings, spec, (kind, payload) => this.push(kind, payload));
+      const calls = new GovernedToolCalls(this.toolBindings, spec, (kind, payload) => this.push(kind, payload), { maxCalls: spec.limits.maxTurns });
       this.toolCalls = calls;
       const tools = this.toolBindings.map((binding) => {
         const name = `brain_${binding.release.id.replace(/[^A-Za-z0-9_]/gu, "_")}`;
@@ -195,7 +195,7 @@ export class ClaudeEngine implements EngineAdapter {
         const required = new Set((binding.inputSchema["required"] as string[] | undefined) ?? []);
         const shape: Record<string, ZodTypeAny> = {};
         for (const [key, value] of Object.entries(properties)) shape[key] = required.has(key) ? schemaToZod(value) : schemaToZod(value).optional();
-        return tool(name, `Governed ${binding.effectClass} tool ${binding.release.id}; Brain validates and isolates every call.`, shape, async (args) => ({ content: [{ type: "text", text: JSON.stringify(await calls.execute(name, `claude-tool-${++this.toolSeq}`, args as JsonValue)) }] }));
+        return tool(name, `Governed ${binding.effectClass} tool ${binding.release.id}; Brain validates and isolates every call.`, shape, async (args) => ({ content: [{ type: "text", text: await calls.execute(name, `claude-tool-${++this.toolSeq}`, args as JsonValue) }] }));
       });
       const mcpServer = tools.length ? createSdkMcpServer({ name: "brain", version: "1", tools, alwaysLoad: true, timeout: Math.min(spec.limits.timeoutMs, 60_000) }) : undefined;
       let resultText = "";
