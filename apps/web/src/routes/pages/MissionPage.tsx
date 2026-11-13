@@ -126,7 +126,7 @@ function MissionSnapshot(props: { mission: Mission; items: WorkItem[]; tab: Miss
         <Show when={props.mission.taskTrust}>{(trust) => <p class="flex items-start gap-1.5 text-caption text-ink-gray-7" data-testid="mission-trust" data-model={trust().model}><span class={`${trust().model > 0 ? "lucide-circle-alert text-ink-amber-8" : "lucide-shield-check text-ink-green-8"} mt-0.5 size-3.5 shrink-0`} aria-hidden="true" />{trust().text}</p>}</Show></div>
       <Show when={props.tab !== "plan" ? props.mission.budget.maxMicroUsd : undefined}>{(limit) => <div class="flex min-w-0 flex-col gap-1"><p class="text-base-medium">{t("mp.budget.7aeb")}</p><Meter label={t("mp.mission-budget.8424")} settled={props.mission.usage.settledMicroUsd} reserved={props.mission.usage.reservedMicroUsd} limit={limit()} format={formatUsd} /></div>}</Show>
     </div>
-    <MissionUsage mission={props.mission} onAct={props.onAct} busy={props.busy} />
+    <MissionUsage mission={props.mission} taskTokenCap={props.items.reduce<number | undefined>((top, item) => (item.tokenCap === undefined ? top : Math.max(top ?? 0, item.tokenCap)), undefined)} onAct={props.onAct} busy={props.busy} />
   </div>;
 }
 

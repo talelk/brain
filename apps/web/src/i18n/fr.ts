@@ -1626,5 +1626,10 @@ export const fr: Catalog = {
   "task.inputs.title": "Renseigner les entrées",
   "task.inputs.description": "Renseignez ce dont cette tâche a besoin.",
   "task.review.description": "Voici exactement ce qui va démarrer.",
+  "plan.estimate.taskCap": "Chaque tâche s'arrête à {cap} jetons, tentatives cumulées ; vous pouvez le relever pour une seule tâche.",
+  "plan.estimate.costNoDollar": "Coût : inconnu en dollars. Aucune tâche ne fixe de plafond en dollars ; le plafond de jetons de chaque tâche s'applique.",
+  "plan.estimate.ceilingNone": "Limite de la mission : aucune, donc le seul arrêt automatique est le plafond de jetons de chaque tâche.",
+  "mission.usage.taskCap": "Chaque tâche s'arrête à {cap} jetons, tentatives cumulées ; vous pouvez le relever pour une seule tâche. Cette mission a utilisé {used} jetons jusqu'ici.",
+  "mission.usage.noCeiling": "Aucun plafond de jetons n'est fixé pour toute la mission.",
   // @@END
 };

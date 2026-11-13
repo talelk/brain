@@ -1,5 +1,6 @@
 import type { PlanEstimate, PlanTask, PlanVersion } from "@brain/contracts";
 import type { Store } from "../../application/store";
+import { DEFAULT_TASK_TOKEN_CAP } from "../../domain/failure";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 
@@ -44,6 +45,7 @@ export function planEstimate(plan: PlanVersion, db: Db): PlanEstimate {
     unknownMinutesTasks: tasks.length - withMinutes.length,
     ...(withCost.length > 0 ? { totalMicroUsd: withCost.reduce((sum, task) => sum + (task.maxMicroUsd ?? 0), 0) } : {}),
     unknownCostTasks: tasks.length - withCost.length,
+    taskTokenCap: DEFAULT_TASK_TOKEN_CAP,
     ...(mission?.budget_micro_usd != null ? { ceilingMicroUsd: Math.max(0, mission.budget_micro_usd - mission.final_allowance_micro_usd) } : {}),
     ...(mission?.budget_tokens != null ? { ceilingTokens: mission.budget_tokens } : {}),
     ...(wall.limitMs !== null ? { ceilingWallClockMs: wall.limitMs } : {}),

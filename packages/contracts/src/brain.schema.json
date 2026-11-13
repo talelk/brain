@@ -23618,6 +23618,11 @@
           "minimum": 0,
           "maximum": 9007199254740991
         },
+        "taskTokenCap": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
         "ceilingMicroUsd": {
           "type": "integer",
           "minimum": 0,
@@ -23642,7 +23647,8 @@
         "tasks",
         "taskCount",
         "unknownMinutesTasks",
-        "unknownCostTasks"
+        "unknownCostTasks",
+        "taskTokenCap"
       ],
       "additionalProperties": false
     },

@@ -300,7 +300,7 @@ describe("mission admission (T19)", () => {
     const id = (await run(w, "mission.create", "e-create", { title: "e", intent: "Estimate", successCriteria: ["done"], budget: { maxMicroUsd: 900, finalAllowanceMicroUsd: 100, maxTokens: 4000, memberCap: 2 } })).resourceId ?? "";
     const planId = (await run(w, "plan.propose", "e-plan", { missionId: id, origin: "manual", tasks: [{ ...task("a"), estimatedMinutes: 10, maxMicroUsd: 300 }, { ...task("b"), estimatedMinutes: 5 }, task("c")] })).resourceId ?? "";
     const estimate = ((await w.brain.executeQuery(w.owner, { queryType: "plans.estimate", workspaceId: w.workspaceId, resourceId: planId })) as unknown as { snapshot: Record<string, unknown> }).snapshot;
-    expect(estimate).toMatchObject({ taskCount: 3, totalEstimatedMinutes: 15, unknownMinutesTasks: 1, totalMicroUsd: 300, unknownCostTasks: 2, ceilingMicroUsd: 800, ceilingTokens: 4000 });
+    expect(estimate).toMatchObject({ taskCount: 3, totalEstimatedMinutes: 15, unknownMinutesTasks: 1, totalMicroUsd: 300, unknownCostTasks: 2, taskTokenCap: 200_000, ceilingMicroUsd: 800, ceilingTokens: 4000 });
     const bare = (await run(w, "mission.create", "e2-create", { title: "e2", intent: "Bare", successCriteria: ["done"] })).resourceId ?? "";
     const barePlan = (await run(w, "plan.propose", "e2-plan", { missionId: bare, origin: "manual", tasks: [task("a")] })).resourceId ?? "";
     const none = ((await w.brain.executeQuery(w.owner, { queryType: "plans.estimate", workspaceId: w.workspaceId, resourceId: barePlan })) as unknown as { snapshot: Record<string, unknown> }).snapshot;

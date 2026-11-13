@@ -147,7 +147,7 @@ export function WorkspaceUsage(props: { onChanged?: () => void }): JSX.Element {
  * and a dialog to change them. For a mission paused by budget the same dialog
  * raises the limits and resumes in one step, as an audited command pair.
  */
-export function MissionUsage(props: { mission: Mission; onAct: (fn: () => Promise<unknown>) => Promise<void>; busy: boolean }): JSX.Element {
+export function MissionUsage(props: { mission: Mission; /** The per-task token cap the tasks carry (the Governor sets it; absent before the plan has tasks). */ taskTokenCap?: number; onAct: (fn: () => Promise<unknown>) => Promise<void>; busy: boolean }): JSX.Element {
   const app = useApp();
   const [editing, setEditing] = createSignal(false);
   const [tokens, setTokens] = createSignal("");
@@ -182,7 +182,8 @@ export function MissionUsage(props: { mission: Mission; onAct: (fn: () => Promis
       <Show when={props.mission.state !== "closed"}><Button size="sm" variant="ghost" iconLeft="lucide-sliders-horizontal" disabled={props.busy} onClick={open}>{budgetPaused() ? "Raise limits" : "Change limits"}</Button></Show>
     </div>
     <UsageFigures label="Mission" usage={figuresOfMission(props.mission.usage)} {...(props.mission.budget.maxTokens !== undefined ? { tokenLimit: props.mission.budget.maxTokens } : {})} />
-    <Show when={props.mission.budget.maxTokens === undefined}><p class="text-caption text-ink-gray-6">No token ceiling is set.</p></Show>
+    <Show when={props.taskTokenCap}>{(cap) => <p class="text-caption text-ink-gray-6" data-testid="mission-task-cap">{t("mission.usage.taskCap", { cap: formatTokens(cap()), used: formatTokens(props.mission.usage.settledTokens) })}</p>}</Show>
+    <Show when={props.mission.budget.maxTokens === undefined}><p class="text-caption text-ink-gray-6">{t("mission.usage.noCeiling")}</p></Show>
     <Dialog.Root open={editing()} onOpenChange={(next) => { if (!next) setEditing(false); }}>
       <Dialog.Content size="md">
         <Dialog.Header><Dialog.Title>{budgetPaused() ? "Raise this mission's limits" : "Mission limits"}</Dialog.Title><Dialog.Description>{budgetPaused() ? "This mission paused because a limit was reached (its time limit, its dollar budget, its token ceiling or the workspace spend cap). Raise what was reached, then resume." : "Brain stops starting new work when these are reached. Leave a field empty for no limit."}</Dialog.Description></Dialog.Header>

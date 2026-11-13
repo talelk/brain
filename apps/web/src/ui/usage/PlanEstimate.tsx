@@ -5,6 +5,7 @@ import type { PlanEstimate as PlanEstimateView } from "@brain/contracts";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { useApp } from "../app-context";
+import { t } from "../../i18n";
 import { count, formatTokens, formatUsd } from "../format";
 
 type Envelope<T> = { snapshot: T; asOf: string; sourceWatermark: number };
@@ -51,15 +52,16 @@ export function PlanEstimate(props: { planVersionId: string; compact?: boolean }
           </Show>
         </li>
         <li data-testid="estimate-cost">
-          <Show when={plan().totalMicroUsd !== undefined} fallback="Cost: unknown. No task has a cost cap.">
+          <Show when={plan().totalMicroUsd !== undefined} fallback={t("plan.estimate.costNoDollar")}>
             Cost: up to {formatUsd(plan().totalMicroUsd)} across {count(known("cost"), "task")}{unknownNote(plan().unknownCostTasks)}.
           </Show>
         </li>
         <li data-testid="estimate-ceiling">
-          <Show when={plan().ceilingMicroUsd !== undefined || plan().ceilingTokens !== undefined || plan().ceilingWallClockMs !== undefined} fallback="Ceiling: this mission has no spending, token or time limit, so nothing stops this plan automatically.">
+          <Show when={plan().ceilingMicroUsd !== undefined || plan().ceilingTokens !== undefined || plan().ceilingWallClockMs !== undefined} fallback={t("plan.estimate.ceilingNone")}>
             This plan stops at {limits().join(" or ")}{limits().length > 1 ? ", whichever comes first" : ""} (the mission budget Brain enforces).
           </Show>
         </li>
+        <li data-testid="estimate-task-cap">{t("plan.estimate.taskCap", { cap: formatTokens(plan().taskTokenCap) })}</li>
       </ul>
       {warning}
       <details class="min-w-0"><summary class="cursor-pointer text-caption text-ink-gray-7">Estimate for each task</summary>
