@@ -155,6 +155,7 @@ CREATE TABLE job_attempts (
   last_event_seq INTEGER NOT NULL DEFAULT 0 CHECK(last_event_seq >= 0),
   receipt_digest TEXT, cleanup_confirmed INTEGER NOT NULL DEFAULT 0 CHECK(cleanup_confirmed IN (0,1)),
   interruption TEXT DEFAULT NULL CHECK(interruption IS NULL OR interruption IN ('platform')),
+  failure_reason TEXT DEFAULT NULL,
   UNIQUE(job_id, attempt_no), UNIQUE(job_id, job_fence)
 ) STRICT;
 CREATE UNIQUE INDEX one_active_attempt ON job_attempts(job_id)
