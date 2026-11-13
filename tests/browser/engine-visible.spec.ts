@@ -28,6 +28,7 @@ test("a stopped task says why in one sentence and offers the one fix; raising th
   await expect(card.locator("[data-task-failure-sentence]")).toHaveText("The task used up its spend allowance");
   await expect(card.locator("[data-task-failure-fix]")).toContainText("Raise this task's spend cap so it can finish.");
   await expect(card.getByRole("button", { name: "Raise the spend cap to 400,000 tokens" })).toBeVisible();
+  if (process.env["BRAIN_SHOTS"]) await card.screenshot({ path: `${process.env["BRAIN_SHOTS"]}/stopped-task-card.png` });
 
   // The task page: the same sentence, and the cap can be set to a number of your choice.
   await page.goto(`${governor.url}/missions/${demo.seed.missionIds.active}/plan`);
@@ -61,6 +62,7 @@ test("Quality names failures by cause and breaks the figures down by practice an
   await expect(practice.locator("[data-quality-trend]")).toHaveAttribute("aria-label", /Per day over the last 30 days: \d+ verified, \d+ stopped/);
   await expect(page.locator(`[data-quality-row="workspace:${demo.workspaceId}"]`)).toContainText("Operations");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  if (process.env["BRAIN_SHOTS"]) await page.screenshot({ path: `${process.env["BRAIN_SHOTS"]}/quality.png`, fullPage: true });
   expect(errors).toEqual([]);
 });
 
@@ -160,6 +162,7 @@ test("single sign-on is set with a reference to its secret, never the secret; th
     await expect(sso.getByRole("status")).toHaveText("Single sign-on was saved.");
     await expect(sso).toHaveAttribute("data-sso-state", "off");
     await expect(page.locator("[data-sso-secret]")).toHaveAttribute("data-sso-secret", "readable");
+    if (process.env["BRAIN_SHOTS"]) await sso.screenshot({ path: `${process.env["BRAIN_SHOTS"]}/sso.png` });
     const stored = governor.app.brain.store.control.prepare("SELECT secret_ref AS ref FROM identity_provider").get() as { ref: string } | undefined;
     expect(stored?.ref).toBe("env:BRAIN_OIDC_WEBTEST");
     expect(await page.content()).not.toContain("a-test-value-not-a-real-secret");
@@ -192,6 +195,7 @@ test("the Git connection checklist says what is missing; practices offer a Play 
   await expect(guide.locator('[data-guide-step="connect"]')).toContainText("Add a Git connection");
   await expect(guide.locator('[data-guide-step="connect"]')).toContainText("To do");
   await expect(page.locator("[data-git-guide-verdict]")).toHaveText("Not ready yet: finish the steps below.");
+  if (process.env["BRAIN_SHOTS"]) await guide.screenshot({ path: `${process.env["BRAIN_SHOTS"]}/checklist.png` });
 
   // Practices: the action exists, and says why it cannot run yet.
   await page.goto(`${governor.url}/w/${demo.workspaceId}/library`);
@@ -200,6 +204,7 @@ test("the Git connection checklist says what is missing; practices offer a Play 
   const first = practices.locator("[data-practice]").first();
   await expect(first.getByRole("button", { name: "Propose a Play from our verified missions", exact: true })).toBeDisabled();
   await expect(first).toContainText("Not enough verified missions yet.");
+  if (process.env["BRAIN_SHOTS"]) await practices.screenshot({ path: `${process.env["BRAIN_SHOTS"]}/practices.png` });
   expect(errors).toEqual([]);
 });
 
