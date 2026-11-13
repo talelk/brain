@@ -3,6 +3,9 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/browser",
   timeout: 60000,
+  // A shared or busy machine (another agent's tests, a build) can take several seconds to boot the app; an assertion waits for what it
+  // expects instead of failing at the first poll. A wrong page still fails, only later.
+  expect: { timeout: 15_000 },
   workers: 1,
   use: { trace: "off" },
   projects: [

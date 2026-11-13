@@ -129,7 +129,14 @@ test("an idle plan or live view does not re-render while it polls", async ({ pag
   await boardWorld(page, governor);
   for (const view of ["/missions/obj-kanban/plan", "/missions/obj-kanban/plan?view=board", "/missions/obj-kanban/plan?view=list", "/missions/obj-kanban/live", "/w/ws-kanban/live"]) {
     await page.goto(`${governor.url}${view}`);
-    await page.waitForTimeout(2500);
+    // "Idle" starts when the page has finished loading what it asked for: the document has not changed for 1.5 s. A fixed wait is not
+    // enough on a busy machine, where the first reads land late and would be counted as the page re-rendering by itself.
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      let timer = setTimeout(done, 1500);
+      const observer = new MutationObserver(() => { clearTimeout(timer); timer = setTimeout(done, 1500); });
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true });
+      function done(): void { observer.disconnect(); resolve(); }
+    }));
     await page.evaluate(() => {
       const seen: string[] = [];
       (window as unknown as { __mutations: string[] }).__mutations = seen;

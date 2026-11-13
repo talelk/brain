@@ -255,11 +255,13 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   await page.getByRole("button", { name: "Exit comparison", exact: true }).click();
   await expect(page).toHaveURL(/\/outputs\/output-dossier$/);
 
-  // (e) Steer is feature-gated: the non-steering session hides the control;
-  // the steer-capable session accepts a message and records session_controls.
+  // (e) Steer is feature-gated: a session whose engine cannot be redirected offers steering only as a note in the mission brief
+  // (its task belongs to a mission), never as a live message; the steer-capable session accepts a message and records session_controls.
+  // The mission link loads after the session does, so the spec waits for the control to settle instead of asserting at the first poll.
   await page.goto(`${governor.url}/w/ws-console/live?session=ses-report`);
   await expect(rail.locator('[data-session-id="ses-report"]')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole("button", { name: /^Steer/ })).toBeHidden();
+  await expect(page.getByText("Compiling the deployment dossier.")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: /^Steer/ })).toHaveAttribute("title", "Saved to the mission brief; applies from the next task", { timeout: 30_000 });
   await page.goto(`${governor.url}/w/ws-console/live?session=ses-plan`);
   await expect(page.getByText("Plan review notes: three risks accepted.")).toBeVisible({ timeout: 30_000 });
   const steer = page.getByRole("button", { name: /^Steer/ });
@@ -269,8 +271,8 @@ test("live console: three concurrent sessions, tool inspection, output diff, ste
   await page.getByRole("button", { name: "Send steering" }).click();
   // The steering message goes to the server as a session control, not into the
   // transcript; delivery to the runner is asserted at the integration level.
-  const steerRows = (ws.prepare("SELECT COUNT(*) AS c FROM session_controls WHERE session_id='ses-plan' AND kind='session.steer'").get() as { c: number }).c;
-  expect(steerRows, "steer control recorded for the runner to pick up").toBe(1);
+  await expect.poll(() => (ws.prepare("SELECT COUNT(*) AS c FROM session_controls WHERE session_id='ses-plan' AND kind='session.steer'").get() as { c: number }).c,
+    { message: "steer control recorded for the runner to pick up", timeout: 30_000 }).toBe(1);
 
   // A request for input surfaces inline in the transcript, with a reply that opens steering.
   insertWsEvent.run("evt-plan-ask", "session", "ses-plan", 2, "human.input.requested", JSON.stringify({ sessionId: "ses-plan", prompt: "Which quarter should I summarize?" }), DIGEST, Date.now());
