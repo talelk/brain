@@ -104,19 +104,20 @@ describe("a model that will not stop calling tools", () => {
 describe("the Pi engine ends tool use, tells the model what is left and keeps only the last message as the answer", () => {
   type Internals = {
     session: unknown; output: string; spec?: unknown; sessionId: string; stream: { values: Array<{ payload: { text: string; channel: string } }> };
-    endTools: (spec: EngineSessionSpec, why: string) => void; allowanceStop: (spec: EngineSessionSpec) => string | undefined;
+    endTools: (spec: EngineSessionSpec, why: string) => void; guardRequests: (session: unknown) => void; allowanceStop: (spec: EngineSessionSpec) => string | undefined;
     observe: (event: unknown) => void; complete: (spec: EngineSessionSpec) => Promise<void>;
   };
   const pinned = { attemptId: "att", instructions: "THE INSTRUCTIONS", task: '{"situation":"Run docker.ps\\nAcceptance criteria:\\n1. a\\n2. b"}', allowedTools: [release("host.exec")], limits: { timeoutMs: 1000, maxTokens: 100_000, maxMicroUsd: 0, maxTurns: 30 } } as unknown as EngineSessionSpec;
   function pi(tokens: number, bindings: EngineToolBinding[] = []) {
     const engine = new PiEngine(bindings) as unknown as Internals;
-    const log = { steered: [] as string[], toolSets: [] as string[][], prompts: [] as string[] };
+    const log = { steered: [] as string[], prompts: [] as string[] };
     engine.session = {
       getSessionStats: () => ({ assistantMessages: 3, tokens: { input: tokens, output: 0, cacheRead: 0, total: tokens }, cost: 0 }),
-      steer: async (text: string) => { log.steered.push(text); }, setActiveToolsByName: (names: string[]) => { log.toolSets.push(names); },
+      steer: async (text: string) => { log.steered.push(text); }, agent: {},
       prompt: async (text: string) => { log.prompts.push(text); }, abort: async () => undefined, dispose: () => undefined,
     };
     engine.spec = pinned; engine.sessionId = "s";
+    engine.guardRequests(engine.session);
     return { engine, log };
   }
 
@@ -124,7 +125,6 @@ describe("the Pi engine ends tool use, tells the model what is left and keeps on
     const { engine, log } = pi(84_568);
     engine.endTools(pinned, "That was your last tool call.");
     engine.endTools(pinned, "again");
-    expect(log.toolSets).toEqual([[]]);
     expect(log.steered).toHaveLength(1);
     expect(log.steered[0]).toContain("about 15,432 tokens left");
     expect(log.steered[0]).toMatch(/^That was your last tool call\. No tools are available/u);
@@ -134,9 +134,19 @@ describe("the Pi engine ends tool use, tells the model what is left and keeps on
     const { engine, log } = pi(81_000);
     expect(engine.allowanceStop(pinned)).toMatch(/tool-call budget is used up/u);
     expect(engine.allowanceStop(pinned)).toBeDefined();
-    expect(log.toolSets).toEqual([[]]);
     expect(log.steered).toHaveLength(1);
     expect(log.steered[0]).toContain("about 19,000 tokens left");
+  });
+
+  it("sends the model's requests without a tool list once tools have ended (a server rejects an empty one), and with it before", async () => {
+    const { engine } = pi(10_000);
+    const onPayload = (engine.session as { agent: { onPayload: (payload: unknown, model: unknown) => Promise<unknown> } }).agent.onPayload;
+    const request = { model: "m", messages: [{ role: "user" }], tools: [{ type: "function" }], tool_choice: "auto" };
+    expect(await onPayload(request, {})).toEqual(request);
+    engine.endTools(pinned, "That was your last tool call.");
+    const after = await onPayload(request, {}) as Record<string, unknown>;
+    expect(after).toEqual({ model: "m", messages: [{ role: "user" }] });
+    expect("tools" in after).toBe(false);
   });
 
   it("sends the task once as the message (the instructions are the system prompt) with the attempt's limits", async () => {

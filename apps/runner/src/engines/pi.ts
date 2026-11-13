@@ -14,7 +14,7 @@ import { GovernedToolCalls } from "./tool-calls";
  */
 export interface HostedRoute { readonly baseUrl: string; readonly model: string }
 
-type PiSession = { dispose: () => void; abort: () => Promise<void>; getSessionStats: () => { assistantMessages: number; tokens: { input: number; output: number; cacheRead: number; total: number }; cost: number }; prompt: (text: string) => Promise<void>; steer: (text: string) => Promise<unknown>; setActiveToolsByName: (names: string[]) => void; readonly isStreaming: boolean };
+type PiSession = { dispose: () => void; abort: () => Promise<void>; getSessionStats: () => { assistantMessages: number; tokens: { input: number; output: number; cacheRead: number; total: number }; cost: number }; prompt: (text: string) => Promise<void>; steer: (text: string) => Promise<unknown>; agent: { onPayload?: (payload: unknown, model: unknown) => Promise<unknown> | unknown }; readonly isStreaming: boolean };
 
 type SessionEvent = { type: string; message?: { role?: string; stopReason?: string; errorMessage?: string; content?: Array<{ type: string; text?: string }> } };
 
@@ -122,6 +122,7 @@ export class PiEngine implements EngineAdapter {
     } as never);
     this.session?.dispose();
     this.session = session as unknown as PiSession;
+    this.guardRequests(this.session);
     const mgr = manager as { getSessionId?: () => string; getSessionFile?: () => string | undefined };
     this.sessionId = mgr.getSessionId?.() ?? `pi-${Date.now().toString(36)}`;
     this.sessionFile = mgr.getSessionFile?.();
@@ -182,13 +183,27 @@ export class PiEngine implements EngineAdapter {
   private tokensUsed(): number { return this.session?.getSessionStats().tokens.total ?? 0; }
 
   /**
-   * Takes the tools away and tells the model, once, exactly how many tokens are left: the vendor session applies the change at its next turn,
-   * and the message reaches the model at that turn boundary. The model has nothing left to call, so its next turn is the final answer.
+   * Once tools have ended, every further request to the model goes out without a tool list. The vendor session would send an empty list (it
+   * does when a conversation holds tool calls and none is offered) and an OpenAI-compatible server such as vLLM rejects that: the field must be
+   * absent. Without tools the model cannot call one, and the prompt no longer carries their definitions.
+   */
+  private guardRequests(session: PiSession): void {
+    const inherited = session.agent.onPayload;
+    session.agent.onPayload = async (payload, model) => {
+      const base = (await inherited?.(payload, model)) ?? payload;
+      if (!this.toolsEnded || base === null || typeof base !== "object") return base;
+      const { tools: _tools, tool_choice: _choice, ...rest } = base as Record<string, unknown>;
+      return rest;
+    };
+  }
+
+  /**
+   * Takes the tools away and tells the model, once, exactly how many tokens are left: the next request carries no tools (see guardRequests) and
+   * the message reaches the model at that turn boundary. The model has nothing left to call, so its next turn is the final answer.
    */
   private endTools(spec: EngineSessionSpec, why: string): void {
     if (this.toolsEnded) return;
     this.toolsEnded = true;
-    try { this.session?.setActiveToolsByName([]); } catch { /* the refusal of any further call still holds */ }
     void this.session?.steer(finalTurnNotice(why, spec.limits.maxTokens - this.tokensUsed())).catch(() => undefined);
   }
 

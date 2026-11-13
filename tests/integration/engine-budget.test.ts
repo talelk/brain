@@ -4,7 +4,7 @@ import { engineFailureDetail } from "../../apps/runner/src/engines/failure-detai
 import { classifyFailure } from "../../apps/governor/src/domain/failure";
 import { holdsCompleteObject } from "../../apps/runner/src/engines/json-reply";
 import { PiEngine } from "../../apps/runner/src/engines/pi";
-import { attemptLimitsNotice, criteriaIn, finalTurnNotice, overAllowanceReason, REPEAT_BUDGET, toolCallCeiling, wrapUpReason } from "../../apps/runner/src/engines/limits";
+import { overAllowanceReason, wrapUpReason } from "../../apps/runner/src/engines/limits";
 import { runAgentExecution } from "../../apps/runner/src/engines/run";
 import { boundedToolText, GovernedToolCalls, TOOL_RESULT_CHARS } from "../../apps/runner/src/engines/tool-calls";
 
@@ -191,10 +191,10 @@ describe("the Pi engine judges its allowance at each tool call", () => {
   type Internals = { session: unknown; output: string; failure?: string; keepAnswer: boolean; allowanceStop: (spec: EngineSessionSpec) => string | undefined };
   function pi(totals: { tokens: number }, output = "") {
     const engine = new PiEngine([]) as unknown as Internals;
-    const log = { steered: [] as string[], aborted: 0, toolSets: [] as string[][] };
+    const log = { steered: [] as string[], aborted: 0 };
     engine.session = {
       getSessionStats: () => ({ assistantMessages: 3, tokens: { input: totals.tokens, output: 0, cacheRead: 0, total: totals.tokens }, cost: 0 }),
-      steer: async (text: string) => { log.steered.push(text); }, setActiveToolsByName: (names: string[]) => { log.toolSets.push(names); }, abort: async () => { log.aborted++; }, dispose: () => undefined,
+      steer: async (text: string) => { log.steered.push(text); }, abort: async () => { log.aborted++; }, dispose: () => undefined,
     };
     engine.output = output;
     return { engine, log };
@@ -207,7 +207,7 @@ describe("the Pi engine judges its allowance at each tool call", () => {
     expect(engine.allowanceStop(pinned)).toBeUndefined();
     totals.tokens = 65_000;
     expect(engine.allowanceStop(pinned)).toBeUndefined();
-    expect(log).toEqual({ steered: [], aborted: 0, toolSets: [] });
+    expect(log).toEqual({ steered: [], aborted: 0 });
   });
 
   it("at 80% refuses the call and steers the model to answer, once", () => {
