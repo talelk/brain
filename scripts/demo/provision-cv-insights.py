@@ -4,12 +4,14 @@
 Idempotent: re-running reuses the existing workspace/mission/plan and skips
 dispatches that already have a linked run.
 """
-import json, subprocess, sys, time, urllib.error, urllib.request, uuid
+import json, os, subprocess, sys, time, urllib.error, urllib.request, uuid
 
 BASE = "http://127.0.0.1:3100"
 WS = "ws-cvinsights"
 WSDB = f"/data/workspaces/{WS}.db"
-ADMIN = {"email": "admin@brain.local", "password": "92hXhRoNn9luCYlcAQ"}
+ADMIN = {"email": os.environ.get("BRAIN_ADMIN_EMAIL", "admin@brain.local"), "password": os.environ.get("BRAIN_ADMIN_PASSWORD", "")}
+if not ADMIN["password"]:
+    sys.exit("set BRAIN_ADMIN_PASSWORD (and optionally BRAIN_ADMIN_EMAIL) in the environment")
 WF = {}  # workflow id -> document digest, read from the active config release after login (never pinned here: digests change with every release)
 MISSION_TITLE = "Operate, evolve and support Keyrus CV Insights"
 TOKEN = ""

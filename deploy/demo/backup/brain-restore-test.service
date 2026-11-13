@@ -1,0 +1,5 @@
+[Unit]
+Description=Brain monthly restore rehearsal
+[Service]
+Type=oneshot
+ExecStart=/srv/demos/brain/src/deploy/demo/backup/restore-test.sh

@@ -61,10 +61,24 @@ cleanup() {
 trap cleanup EXIT
 
 # ---- standing test gate (backlog row 78): a drop of more than 10 points of first-pass success blocks the deploy ----
-# Exit 0 passed, 3 skipped (no model reachable from here), anything else blocks. BRAIN_DEPLOY_SKIP_STANDING_TESTS=1 skips.
-if [ "${BRAIN_DEPLOY_SKIP_STANDING_TESTS:-0}" != 1 ]; then
+# Exit 0 passed, 3 skipped (no model reachable from here), anything else blocks. BRAIN_DEPLOY_SKIP_STANDING_TESTS=1 skips; CI runs the gate as its own step.
+if [ "${BRAIN_DEPLOY_SKIP_STANDING_TESTS:-0}" != 1 ] && [ "${CI:-}" != true ]; then
   set +e; pnpm exec tsx scripts/standing-tests/gate.ts; GATE_RC=$?; set -e
   case "$GATE_RC" in 0|3) ;; *) echo "!! The standing test set blocked this deploy (exit $GATE_RC); nothing was changed." >&2; exit 1 ;; esac
+fi
+
+# ---- refuse while missions run: a deploy interrupts running attempts (BRAIN_DEPLOY_FORCE=1 overrides) ----
+# Normally the drain step below handles this: it stops new attempts and waits for the running ones. Without it (BRAIN_DEPLOY_SKIP_DRAIN=1)
+# the deploy refuses outright while attempts run.
+if [ "${BRAIN_DEPLOY_FORCE:-0}" != 1 ] && [ "${BRAIN_DEPLOY_SKIP_DRAIN:-0}" = 1 ]; then
+  RUN_GOV_ID="$($SSH "cd $REMOTE_DIR 2>/dev/null && docker compose ps -q governor 2>/dev/null" || true)"
+  if [ -n "$RUN_GOV_ID" ]; then
+    RUNNING="$($SSH "docker exec -i $RUN_GOV_ID node --input-type=module -" < scripts/live-running-count.mjs 2>/dev/null | tail -1 || true)"
+    if [ -n "$RUNNING" ] && [ "$RUNNING" != 0 ]; then
+      echo "!! $RUNNING attempt(s) are running on the server; a deploy would interrupt them. Wait, or set BRAIN_DEPLOY_FORCE=1." >&2
+      exit 1
+    fi
+  fi
 fi
 
 # ---- pre-deploy check: prove the live databases can be upgraded BEFORE anything on the server changes ----
@@ -176,7 +190,7 @@ $SSH "cd $REMOTE_DIR && docker compose build governor"
 # finish in time the deploy stops here with nothing changed (BRAIN_DEPLOY_FORCE_DRAIN=1 rolls anyway; BRAIN_DEPLOY_SKIP_DRAIN=1 skips).
 # Drain stays on across the container swap and is ended after the new Governor is ready (below).
 DRAIN_GOV="$($SSH "cd $REMOTE_DIR && docker compose ps -q governor" 2>/dev/null || true)"
-if [ -n "$DRAIN_GOV" ] && [ "${BRAIN_DEPLOY_SKIP_DRAIN:-0}" != 1 ]; then
+if [ -n "$DRAIN_GOV" ] && [ "${BRAIN_DEPLOY_SKIP_DRAIN:-0}" != 1 ] && [ "${BRAIN_DEPLOY_FORCE:-0}" != 1 ]; then
   DRAIN_SECONDS="${BRAIN_DEPLOY_DRAIN_SECONDS:-900}"
   echo "==> Draining: no new attempts start; waiting up to ${DRAIN_SECONDS}s for running ones to finish"
   if $SSH "docker exec -i $DRAIN_GOV node - wait $DRAIN_SECONDS" < scripts/drain-live.mjs; then
@@ -375,6 +389,14 @@ fi
 
 scripts/refresh-released-schema.sh || true   # the schema just deployed becomes the "previously released" fixture
 echo "    Commit tests/fixtures/released-schema so the next deploy is checked against what is live now."
+# ---- nightly encrypted backup + monthly restore rehearsal (needs $REMOTE_DIR/backup.env with BRAIN_BACKUP_HOST) ----
+if $SSH "test -r $REMOTE_DIR/backup.env"; then
+  echo "==> Installing the backup timers"
+  $SSH "$SUDO cp $REMOTE_DIR/src/deploy/demo/backup/brain-backup.service $REMOTE_DIR/src/deploy/demo/backup/brain-backup.timer $REMOTE_DIR/src/deploy/demo/backup/brain-restore-test.service $REMOTE_DIR/src/deploy/demo/backup/brain-restore-test.timer /etc/systemd/system/ && $SUDO systemctl daemon-reload && $SUDO systemctl enable --now brain-backup.timer brain-restore-test.timer >/dev/null 2>&1"
+else
+  echo "==> No $REMOTE_DIR/backup.env on the server: nightly backups are NOT scheduled (see docs/howto/backup-and-restore.md)"
+fi
+
 echo "==> Done. https://$DOMAIN"
 if [ "$FIRST_RUN" = 1 ]; then
   echo "    Sign in with the admin credentials printed above."
