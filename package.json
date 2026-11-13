@@ -41,7 +41,7 @@
     "@axe-core/playwright": "4.11.0",
     "@biomejs/biome": "2.6.4",
     "@earendil-works/pi-coding-agent": "1.4.0",
-    "@hono/node-server": "2.1.5",
+    "@hono/node-server": "2.1.6",
     "@mastra/core": "1.79.0",
     "@mastra/libsql": "1.27.0",
     "@playwright/test": "1.64.1",
