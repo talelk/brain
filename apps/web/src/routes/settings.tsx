@@ -71,7 +71,7 @@ export function SettingsScreen(props: {
   const auditPageCount = () => Math.max(1, Math.ceil(props.audit.length / SETTINGS_PAGE_SIZE));
   const currentAuditPage = () => Math.min(auditPage(), auditPageCount());
   const auditRows = () => props.audit.slice((currentAuditPage() - 1) * SETTINGS_PAGE_SIZE, currentAuditPage() * SETTINGS_PAGE_SIZE);
-  return <BrainPage title={page().title} description={page().description} actions={<Button variant="outline" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>Refresh</Button>}>
+  return <BrainPage title={page().title} description={page().description}>
     <PageStack>
       <Show when={tab() === "setup" && organizationAdmin()}><LocalModelSetup /></Show>
       <Show when={tab() === "security"}><SecurityPage /></Show>
@@ -86,7 +86,7 @@ export function SettingsScreen(props: {
             
           </ScreenRegion>
         </WorkspaceSection>
-        <WorkspaceSection title="Recent activity" description="Who did what and when, newest first. Entries cannot be edited or removed.">
+        <WorkspaceSection title="Recent activity in this workspace" description="Who did what and when in the workspace you are in, newest first. Switch workspace to read another one. Entries cannot be edited or removed.">
           <ScreenRegion state={props.state} skeleton="rows" emptyTitle="Nothing recorded yet" emptyDescription="Sign-ins, approvals, grants and releases appear here as they happen." onRetry={props.onRefresh}>
             <Show when={props.audit.length === 0}><p class="brain-empty-inline">Nothing recorded yet. Sign-ins, approvals, grants and releases appear here as they happen.</p></Show>
             <Timeline items={auditRows().map((entry) => ({ id: String(entry.cursor), title: <span class="block whitespace-normal break-words">{auditSentence(entry)}</span>, description: <span class="break-words" title={entry.resourceId}>By {app.personName(entry.actorId)}</span>, timestamp: <span class="whitespace-nowrap"><DateText value={entry.occurredAt} /></span>, icon: "lucide-history" }))} />

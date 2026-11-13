@@ -22,7 +22,7 @@ type RunBinding = { runId: string; jobId: string; sessionId?: string };
  */
 export function WorkItemTasks(props: { origin: TaskOrigin }) {
   const app = useApp(); const navigate = useNavigate();
-  const context = createScopedRead<TaskContext>({ scope: app.scope, load: async (scope, signal) => ({ snapshot: await governor<TaskContext>(`/v1/task-context?workspaceId=${encodeURIComponent(scope.workspaceId)}&kind=${props.origin.kind}&id=${encodeURIComponent(props.origin.id)}`, undefined, signal), asOf: new Date().toISOString(), sourceWatermark: 0 }), refreshMs: 5000 });
+  const context = createScopedRead<TaskContext>({ scope: app.scope, load: async (scope, signal) => ({ snapshot: await governor<TaskContext>(`/v1/task-context?workspaceId=${encodeURIComponent(scope.workspaceId)}&kind=${props.origin.kind}&id=${encodeURIComponent(props.origin.id)}`, undefined, signal), asOf: new Date().toISOString(), sourceWatermark: 0 }) });
   // One workspace read: jobs.list snapshots carry workflowRunId plus the
   // server-resolved session binding, so no per-run lookup is needed here.
   const bindings = createScopedRead<RunBinding[]>({ scope: app.scope,

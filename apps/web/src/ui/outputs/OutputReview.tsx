@@ -70,7 +70,7 @@ export function OutputReview(props: {
               <Badge size="sm" theme="amber" label="Needs review" />
             </Show>
             <Show when={reviewStateOf(item()) === "done"}>
-              <Badge size="sm" theme="green" label="Accepted" />
+              <Badge size="sm" theme="green" label="Done · verified" />
             </Show>
           </div>
           <Show when={!props.bulkSelected} fallback={<p class="text-caption text-ink-gray-7">{props.bulkSelected} {props.bulkSelected === 1 ? "file is" : "files are"} ticked. Use the selection bar to accept them or ask for changes.</p>}>

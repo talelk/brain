@@ -1,4 +1,5 @@
 import { Show } from "solid-js";
+import { friendlyReadError } from "./friendly-error";
 import type { JSX } from "solid-js";
 import { Badge } from "@talelk/newui-atoms";
 import { Alert, EmptyState, Timeline } from "@talelk/newui-molecules";
@@ -139,7 +140,7 @@ export function OutputHistory(props: { history: ArtifactHistory | undefined; loa
       <Show
         when={props.loading}
         fallback={
-          <Show when={!props.error} fallback={<Alert theme="amber" variant="outline" title="History unavailable" description={props.error} />}>
+          <Show when={!props.error} fallback={<Alert theme="amber" variant="outline" title="History unavailable" description={friendlyReadError(props.error)} />}>
             <Show
               when={props.history}
               fallback={

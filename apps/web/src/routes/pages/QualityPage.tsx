@@ -46,7 +46,6 @@ export default function QualityPage(): JSX.Element {
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     isEmpty: () => false,
-    refreshMs: 60_000,
   });
   return <BrainPage title="Quality" description="Whether Brain is getting better, counted from missions, tasks, handoffs and settled spend. No model computes these figures.">
     <PageStack>

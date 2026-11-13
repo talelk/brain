@@ -19,7 +19,6 @@ export function PlayProposals(): JSX.Element {
   const proposals = createScopedRead<PlayProposal[]>({
     scope: app.scope,
     load: async (scope, signal) => listPlayProposals(scope.workspaceId, signal),
-    refreshMs: 5000,
   });
   const canReview = () => app.identity()?.actor.scopes.includes("config:activate") ?? false;
   const items = () => proposals.state().data ?? [];

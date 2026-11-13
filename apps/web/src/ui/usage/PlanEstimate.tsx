@@ -24,7 +24,6 @@ export function PlanEstimate(props: { planVersionId: string; compact?: boolean }
       const response = await query<Envelope<PlanEstimateView>>({ queryType: "plans.estimate", workspaceId: scope.workspaceId, resourceId: props.planVersionId }, signal);
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
-    refreshMs: 15_000,
   });
   return <Show when={estimate.state().data}>{(plan) => {
     const known = (kind: "minutes" | "cost") => plan().taskCount - (kind === "minutes" ? plan().unknownMinutesTasks : plan().unknownCostTasks);

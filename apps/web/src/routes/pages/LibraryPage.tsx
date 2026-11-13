@@ -8,6 +8,7 @@ import { librarySummary, type LibrarySummary } from "../../data/library";
 import { ScreenRegion } from "../../ui/screen-region";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { WorkspaceSection } from "../../ui/components/Domain";
+import { t } from "../../i18n";
 import { LibraryTabs } from "../../ui/components/LibraryTabs";
 import { AddStarterPlays, AutoPublishSetting } from "../../ui/components/LibraryControls";
 
@@ -30,24 +31,23 @@ export default function LibraryPage(): JSX.Element {
   const summary = createScopedRead<LibrarySummary>({
     scope: app.scope,
     load: async (scope, signal) => librarySummary(scope.workspaceId, signal),
-    refreshMs: 10_000,
   });
   const base = () => `/w/${app.workspaceId()}`;
   const shelves = (): Array<{ id: string; label: string; count: (value: LibrarySummary) => number; description: string; icon: string; href: string; emphasis?: boolean }> => [
-    { id: "review", label: "Awaiting your review", count: (value) => value.awaitingReview, description: needsPersonNote(summary.state().data), icon: "lucide-list-checks", href: `${base()}/knowledge/review`, emphasis: true },
-    { id: "auto", label: "Published automatically", count: (value) => value.publishedAutomatically, description: "Verified write-ups Brain published itself, marked self-reviewed. Withdraw any of them at any time.", icon: "lucide-sparkles", href: `${base()}/knowledge/review` },
-    { id: "knowledge", label: "Published knowledge", count: (value) => value.publishedKnowledge, description: "Approved write-ups. Search and future plans use them, with their source.", icon: "lucide-brain", href: `${base()}/knowledge` },
-    { id: "documents", label: "Documents", count: (value) => value.documents, description: "Files you added or saved from a result. Searchable by agents as soon as they are read.", icon: "lucide-file-text", href: `${base()}/knowledge?tab=documents` },
-    { id: "plays", label: "Plays", count: (value) => value.plays, description: "Ready-made teams and plans you can start a mission from.", icon: "lucide-book-open-check", href: `${base()}/plays` },
-    { id: "tools", label: "Tools", count: (value) => value.tools, description: "The governed tools agents may use in this workspace.", icon: "lucide-wrench", href: `${base()}/knowledge?tab=tools` },
+    { id: "review", label: t("library.shelf.review"), count: (value) => value.awaitingReview, description: needsPersonNote(summary.state().data), icon: "lucide-list-checks", href: `${base()}/knowledge/review`, emphasis: true },
+    { id: "auto", label: t("library.shelf.auto"), count: (value) => value.publishedAutomatically, description: t("library.shelf.auto.note"), icon: "lucide-sparkles", href: `${base()}/knowledge/review` },
+    { id: "knowledge", label: t("library.shelf.knowledge"), count: (value) => value.publishedKnowledge, description: t("library.shelf.knowledge.note"), icon: "lucide-brain", href: `${base()}/knowledge` },
+    { id: "documents", label: t("library.shelf.documents"), count: (value) => value.documents, description: t("library.shelf.documents.note"), icon: "lucide-file-text", href: `${base()}/knowledge?tab=documents` },
+    { id: "plays", label: t("library.shelf.plays"), count: (value) => value.plays, description: t("library.shelf.plays.note"), icon: "lucide-book-open-check", href: `${base()}/plays` },
+    { id: "tools", label: t("library.shelf.tools"), count: (value) => value.tools, description: t("library.shelf.tools.note"), icon: "lucide-wrench", href: `${base()}/knowledge?tab=tools` },
   ];
   return <div class="flex min-w-0 flex-col gap-3">
     <LibraryTabs value="overview" />
-    <BrainPage title="Library" description="Everything Brain can reuse: documents, knowledge, Plays and tools. Each finished mission makes the next one easier."
-      actions={<Button variant="outline" iconLeft="lucide-file-plus" onClick={() => void navigate(`${base()}/knowledge?tab=documents&add=1`)}>Add a document</Button>}>
+    <BrainPage title={t("library.title")} description={t("library.description")}
+      actions={<Button variant="outline" iconLeft="lucide-file-plus" onClick={() => void navigate(`${base()}/knowledge?tab=documents&add=1`)}>{t("library.addDocument")}</Button>}>
       <PageStack>
-        <WorkspaceSection title="What is in the Library" description="Counts are exact. Open a shelf to read, search or review it.">
-          <ScreenRegion state={summary.state()} onRetry={() => void summary.refresh({ force: true })} emptyTitle="Nothing here yet" emptyDescription="Add a document or finish a mission and the Library starts to fill.">
+        <WorkspaceSection title={t("library.shelves.title")} description={t("library.shelves.description")}>
+          <ScreenRegion state={summary.state()} onRetry={() => void summary.refresh({ force: true })} emptyTitle={t("library.empty.title")} emptyDescription={t("library.empty.description")}>
             <div class="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="library-shelves">
               <For each={shelves()}>{(shelf) => <button type="button" data-testid={`library-shelf-${shelf.id}`} data-emphasis={shelf.emphasis ? "true" : "false"}
                 classList={{ "border-outline-blue-2": Boolean(shelf.emphasis && (summary.state().data ? shelf.count(summary.state().data!) : 0) > 0) }}
@@ -60,7 +60,7 @@ export default function LibraryPage(): JSX.Element {
             </div>
           </ScreenRegion>
         </WorkspaceSection>
-        <WorkspaceSection title="Hands-off" description="What Brain does for you without a click.">
+        <WorkspaceSection title={t("library.handsOff.title")} description={t("library.handsOff.description")}>
           <div class="flex min-w-0 flex-col gap-3">
             <AutoPublishSetting summary={summary.state().data} onChanged={() => void summary.refresh({ force: true })} />
             <Show when={(summary.state().data?.starterPlays.installable ?? 0) > 0}>
@@ -71,7 +71,7 @@ export default function LibraryPage(): JSX.Element {
             </Show>
           </div>
         </WorkspaceSection>
-        <p class="text-interface text-ink-gray-7">Reuse is on by default: Brain looks here before it plans, offers similar past work, and says on each result what it reused. Withdraw anything from search at any time.</p>
+        <p class="text-interface text-ink-gray-7">{t("library.reuse.note")}</p>
       </PageStack>
     </BrainPage>
   </div>;

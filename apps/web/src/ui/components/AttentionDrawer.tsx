@@ -2,6 +2,8 @@ import { createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { Badge, Button } from "@talelk/newui-atoms";
+import { KIND_ICON, TIER_TONE, kindLabel } from "./DecisionCard";
+import { t } from "../../i18n";
 import { Dialog } from "@talelk/newui-molecules";
 import type { AttentionItem, NotificationEntry } from "@brain/contracts";
 import { useApp } from "../app-context";
@@ -12,13 +14,6 @@ import { ScreenRegion } from "../screen-region";
 import { formatDateTime } from "../format";
 import { missionHref } from "../mission-links";
 import { QueueRow, WorkspaceSection } from "./Domain";
-export const TIER_TONE: Record<number, "red" | "amber" | "blue" | "green" | "gray"> = { 1: "red", 2: "amber", 3: "blue", 4: "green", 5: "gray", 6: "green" };
-export const KIND_ICON: Record<AttentionItem["kind"], string> = {
-  approval: "lucide-shield-check", "budget-pause": "lucide-wallet", "needs-attention": "lucide-octagon-alert",
-  "plan-proposal": "lucide-list-tree", parked: "lucide-circle-pause", "verdict-ready": "lucide-badge-check", routed: "lucide-message-square-warning",
-  "result-ready": "lucide-circle-check-big", "schedule-failed": "lucide-calendar-x", "outcome-unknown": "lucide-circle-help",
-};
-
 /** Where an attention item is acted on: the approval review or the mission view that owns it. */
 export function attentionHref(item: AttentionItem): string {
   if (item.kind === "approval") return `/approvals/${item.resourceId}`;
@@ -31,16 +26,12 @@ export function attentionHref(item: AttentionItem): string {
   return item.kind === "plan-proposal" ? `${href}&proposal=${encodeURIComponent(item.resourceId)}` : href;
 }
 
-/** What the row's primary action says: the verb for the thing waiting, not a generic "Open". */
+/** What the row's primary action says: two verbs for everything that needs a person (Decide, Retry), and See result for good news. */
 export function attentionAction(item: AttentionItem): string {
   switch (item.kind) {
-    case "approval": return "Approve review";
-    case "plan-proposal": return "Review plan";
-    case "verdict-ready": return "Review verdict";
-    case "result-ready": return "See result";
-    case "schedule-failed": return "See what happened";
-    case "outcome-unknown": return "Check this step";
-    default: return "Open";
+    case "result-ready": return t("decision.seeResult");
+    case "parked": case "outcome-unknown": case "schedule-failed": return t("decision.retry");
+    default: return t("decision.decide");
   }
 }
 
@@ -49,10 +40,10 @@ export const resultName = (title: string): string => title.replace(/^Result read
 
 /** Ranked attention rows (fixed tiers, longest wait first); the same rows on Missions and in the drawer. */
 export function AttentionRows(props: { items: readonly AttentionItem[]; onOpen: (item: AttentionItem) => void }): JSX.Element {
-  return <section class="brain-queue" aria-label="Attention strip"><For each={props.items}>{(item) =>
-    <QueueRow title={item.kind === "result-ready" ? resultName(item.title) : item.title} description={item.detail ?? (item.kind === "result-ready" ? `Finished ${formatDateTime(item.waitingSince)}` : `Waiting since ${formatDateTime(item.waitingSince)}`)} icon={KIND_ICON[item.kind]} tone={TIER_TONE[item.tier] ?? "gray"}
-      eyebrow={item.kind.replace("-", " ")} label={`${item.title}. Open`} trailing={<>
-        <Badge variant="outline" theme={TIER_TONE[item.tier] ?? "gray"} label={item.kind === "result-ready" ? "Result" : `Tier ${item.tier}`} />
+  return <section class="brain-queue" aria-label={t("decision.queue")}><For each={props.items}>{(item) =>
+    <QueueRow title={item.kind === "result-ready" ? resultName(item.title) : item.title} description={item.detail ?? (item.kind === "result-ready" ? t("decision.finished", { when: formatDateTime(item.waitingSince) }) : t("decision.waitingSince", { when: formatDateTime(item.waitingSince) }))} icon={KIND_ICON[item.kind]} tone={TIER_TONE[item.tier] ?? "gray"}
+      eyebrow={kindLabel(item.kind)} label={`${item.title}. ${t("decision.open")}`} trailing={<>
+        <Badge variant="outline" theme={TIER_TONE[item.tier] ?? "gray"} label={kindLabel(item.kind)} />
         <span class="inline-flex items-center gap-1 rounded-control bg-surface-blue-8 px-2.5 py-1 text-interface font-medium text-ink-base" aria-hidden="true">{attentionAction(item)}<span class="lucide-arrow-right size-3.5" /></span>
       </>}
       onClick={() => props.onOpen(item)} />}</For></section>;
@@ -81,23 +72,23 @@ export function AttentionDrawer(props: { attention: AttentionRead }): JSX.Elemen
   const go = (href: string) => { setOpen(false); void navigate(href); };
   const toggle = (next: boolean) => { setOpen(next); if (next) { void attention.refresh({ force: true }); void history.refresh({ force: true }); } };
   return <>
-    <Button variant="ghost" iconLeft="lucide-bell" aria-label={count() ? `Needs you: ${count()} items` : "Needs you: nothing waiting"} onClick={() => toggle(true)}>
+    <Button variant="ghost" iconLeft="lucide-bell" aria-label={count() ? t("decision.bell.count", { n: count() }) : t("decision.bell.none")} onClick={() => toggle(true)}>
       <Show when={count()}><span class="rounded-full bg-surface-red-2 px-1.5 text-caption font-medium tabular-nums text-ink-red-8">{count() > 99 ? "99+" : count()}</span></Show>
     </Button>
     <Dialog.Root open={open()} onOpenChange={toggle}>
       <Dialog.Content size="lg" position="top">
         <Dialog.Header class="mb-3">
-          <Dialog.Title>Needs you</Dialog.Title>
-          <Dialog.Description>In this workspace: approvals first, then stopped missions, proposals and parked work, verdicts ready to close and routed findings. Finished results come last and never block anything.</Dialog.Description>
+          <Dialog.Title>{t("decision.queue")}</Dialog.Title>
+          <Dialog.Description>{t("decision.bell.description")}</Dialog.Description>
         </Dialog.Header>
         <div class="flex max-h-[70dvh] flex-col gap-4 overflow-y-auto">
-          <ScreenRegion state={attention.state()} onRetry={() => void attention.refresh({ force: true })} emptyTitle="Nothing needs you" emptyDescription="Missions are moving on their own. Brain notifies you when a person is needed.">
+          <ScreenRegion state={attention.state()} onRetry={() => void attention.refresh({ force: true })} emptyTitle={t("decision.empty.title")} emptyDescription={t("decision.empty.description")}>
             <AttentionRows items={attention.state().data ?? []} onOpen={(item) => go(attentionHref(item))} />
           </ScreenRegion>
-          <WorkspaceSection title="Recent notifications" description="What Brain sent you, newest first.">
-            <ScreenRegion state={history.state()} onRetry={() => void history.refresh({ force: true })} emptyTitle="No notifications yet" emptyDescription="Only attention items notify you; progress never does.">
-              <div class="brain-queue"><For each={history.state().data ?? []}>{(entry) => <QueueRow title={entry.title} description={`Sent ${formatDateTime(entry.sentAt)}${entry.pushed ? " · pushed" : ""}`} icon="lucide-bell"
-                label={`${entry.title}. Open`} onClick={() => go(entry.missionId ? missionHref(entry.workspaceId, entry.missionId, "live") : `/w/${entry.workspaceId}/missions`)} />}</For></div>
+          <WorkspaceSection title={t("decision.notifications.title")} description={t("decision.notifications.description")}>
+            <ScreenRegion state={history.state()} onRetry={() => void history.refresh({ force: true })} emptyTitle={t("decision.notifications.emptyTitle")} emptyDescription={t("decision.notifications.emptyDescription")}>
+              <div class="brain-queue"><For each={history.state().data ?? []}>{(entry) => <QueueRow title={entry.title} description={`${t("decision.notifications.sent", { when: formatDateTime(entry.sentAt) })}${entry.pushed ? ` · ${t("decision.notifications.pushed")}` : ""}`} icon="lucide-bell"
+                label={`${entry.title}. ${t("decision.open")}`} onClick={() => go(entry.missionId ? missionHref(entry.workspaceId, entry.missionId, "live") : `/w/${entry.workspaceId}/missions`)} />}</For></div>
             </ScreenRegion>
           </WorkspaceSection>
         </div>

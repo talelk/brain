@@ -25,7 +25,6 @@ export default function SupportPage(): JSX.Element {
       };
     },
     isEmpty: (data) => data.tickets.length === 0,
-    refreshMs: 30_000,
   });
   return <SupportScreen tickets={support.state().data?.tickets ?? []} sla={support.state().data?.sla}
     state={support.state()} onRefresh={() => void support.refresh({ force: true })}

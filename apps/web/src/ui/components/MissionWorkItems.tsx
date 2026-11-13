@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createResource, createSignal, For, Match, Show, Switch, untrack } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, For, Match, on, Show, Switch, untrack } from "solid-js";
 import type { JSX } from "solid-js";
 import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
 import { useNavigate, useSearchParams } from "@solidjs/router";
@@ -69,7 +69,6 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
       return { snapshot: response.snapshot.items.filter((item) => item.missionId === missionId()), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     isEmpty: (list) => list.length === 0,
-    refreshMs: 5_000,
   });
   // Sessions let each active task row say what it is doing now (#61).
   const sessions = createScopedRead<BrainSession[]>({
@@ -78,7 +77,6 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
       const response = await query<Envelope<{ items: BrainSession[] }>>({ queryType: "sessions.list", workspaceId: scope.workspaceId }, signal);
       return { snapshot: [...response.snapshot.items], asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
-    refreshMs: 10_000,
   });
   // The confirmed plan names each task's estimate and the team that owns it.
   const plan = createScopedRead<PlanVersion | null>({
@@ -90,7 +88,8 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
   });
-  createEffect(() => { void missionId(); setSelectedId(""); void items.refresh({ force: true }); });
+  // Only a different mission clears the open task; a fresh read of the same mission (new object, same id) must not close what a person is working on.
+  createEffect(on(createMemo(missionId), () => { setSelectedId(""); void items.refresh({ force: true }); }));
   const live = createMemo(() => (items.state().data ?? []).filter((item) => item.state !== "abandoned"));
   const selected = () => items.state().data?.find((item) => item.workItemId === selectedId());
   const reset = () => { setMove(""); setReason(""); setEvidence(""); setComment(""); };
@@ -185,7 +184,7 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
         </div>
         <Switch>
           <Match when={view() === "timeline"}>
-            <WorkRoadmap nodes={roadmapNodes()} label="Mission work by stage"
+            <WorkRoadmap nodes={roadmapNodes()} label="Mission work by round"
               renderNode={(node) => <Show when={live().find((item) => item.workItemId === node.id)}>{(item) => card(item(), true)}</Show>} />
           </Match>
           <Match when={view() === "board"}>

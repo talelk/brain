@@ -54,10 +54,15 @@ export interface ArtifactListFilters {
   workItemId?: string;
   state?: string;
   classification?: string;
+  /** `result` leaves out run records (`exec-` artifacts), `record` lists only them: records never inflate a Result count or its paging. */
+  kind?: string;
+  /** The offset the previous page ended at (an opaque number to the client). */
+  cursor?: string;
+  limit?: number;
 }
 
 /** artifacts.list: verified artifacts in the workspace, optionally scoped to a job/run/work item. */
-export function listArtifacts(store: Store, actor: ActorContext, workspaceId: string, filters: ArtifactListFilters): JsonValue {
+export function listArtifacts(store: Store, actor: ActorContext, workspaceId: string, filters: ArtifactListFilters): { snapshot: JsonValue; cursor: string } {
   const ws = store.workspaceDb(workspaceId, actor.organizationId);
   const clauses: string[] = [];
   const parameters: Array<string | number> = [];
@@ -96,12 +101,53 @@ export function listArtifacts(store: Store, actor: ActorContext, workspaceId: st
     if (jobIds.size > 0) { ownerClauses.push(`(owner_kind='job' AND owner_id IN (${[...jobIds].map(() => "?").join(",")}))`); ownerParams.push(...jobIds); }
     const ids = ownerClauses.length === 0 ? [] : (store.control.prepare(`SELECT artifact_id FROM artifact_associations WHERE organization_id=? AND workspace_id=? AND (${ownerClauses.join(" OR ")})`).all(...ownerParams) as Array<{ artifact_id: string }>).map((r) => r.artifact_id);
     const boundedIds = ids.slice(0, 400);
-    if (boundedIds.length === 0) return { items: [] } as unknown as JsonValue;
+    if (boundedIds.length === 0) return { snapshot: { items: [], totalEstimate: 0 } as unknown as JsonValue, cursor: "" };
     clauses.push(`id IN (${boundedIds.map(() => "?").join(",")})`);
     parameters.push(...boundedIds);
   }
-  const rows = ws.prepare(`SELECT id,digest,bytes,media_type,classification,created_at_ms FROM artifacts WHERE ${clauses.join(" AND ")} ORDER BY created_at_ms DESC,id LIMIT 100`).all(...parameters) as { id: string; digest: string; bytes: number; media_type: string; classification: string; created_at_ms: number }[];
-  return { items: rows.map((row) => ({ artifactId: row.id, digest: row.digest, bytes: row.bytes, mediaType: row.media_type, classification: row.classification, createdAt: iso(row.created_at_ms) })) } as unknown as JsonValue;
+  if (filters.kind !== undefined) {
+    if (filters.kind !== "result" && filters.kind !== "record") throw new BrainDomainError("INVALID_ARGUMENT", "invalid artifact kind filter");
+    clauses.push(filters.kind === "record" ? "id LIKE 'exec-%'" : "id NOT LIKE 'exec-%'");
+  }
+  const where = clauses.join(" AND ");
+  const limit = Math.min(100, Math.max(1, Math.floor(filters.limit ?? 100)));
+  const offset = filters.cursor !== undefined && /^[0-9]{1,9}$/u.test(filters.cursor) ? Number(filters.cursor) : 0;
+  const total = (ws.prepare(`SELECT COUNT(*) AS c FROM artifacts WHERE ${where}`).get(...parameters) as { c: number }).c;
+  const rows = ws.prepare(`SELECT id,digest,bytes,media_type,classification,created_at_ms FROM artifacts WHERE ${where} ORDER BY created_at_ms DESC,id LIMIT ? OFFSET ?`).all(...parameters, limit, offset) as { id: string; digest: string; bytes: number; media_type: string; classification: string; created_at_ms: number }[];
+  const workItems = workItemsOf(store, actor, workspaceId, rows.map((row) => row.id));
+  return {
+    snapshot: { items: rows.map((row) => ({ artifactId: row.id, digest: row.digest, bytes: row.bytes, mediaType: row.media_type, classification: row.classification, createdAt: iso(row.created_at_ms), ...(workItems.get(row.id) ? { workItemId: workItems.get(row.id) } : {}) })), totalEstimate: total } as unknown as JsonValue,
+    cursor: offset + rows.length < total ? String(offset + rows.length) : "",
+  };
+}
+
+/** The work item each artifact belongs to: its producing attempt or job, through the execution link of that job or of its workflow run. */
+function workItemsOf(store: Store, actor: ActorContext, workspaceId: string, artifactIds: readonly string[]): Map<string, string> {
+  const result = new Map<string, string>();
+  if (artifactIds.length === 0) return result;
+  const marks = (count: number) => Array.from({ length: count }, () => "?").join(",");
+  const owners = store.control.prepare(`SELECT artifact_id, owner_kind, owner_id FROM artifact_associations WHERE organization_id=? AND workspace_id=? AND owner_kind IN ('attempt','job') AND artifact_id IN (${marks(artifactIds.length)})`)
+    .all(actor.organizationId, workspaceId, ...artifactIds) as Array<{ artifact_id: string; owner_kind: string; owner_id: string }>;
+  const attemptIds = [...new Set(owners.filter((owner) => owner.owner_kind === "attempt").map((owner) => owner.owner_id))];
+  const jobOfAttempt = new Map<string, string>();
+  if (attemptIds.length > 0) for (const row of store.control.prepare(`SELECT id, job_id FROM job_attempts WHERE id IN (${marks(attemptIds.length)})`).all(...attemptIds) as Array<{ id: string; job_id: string }>) jobOfAttempt.set(row.id, row.job_id);
+  const jobOf = (owner: { owner_kind: string; owner_id: string }) => (owner.owner_kind === "job" ? owner.owner_id : jobOfAttempt.get(owner.owner_id));
+  const jobIds = [...new Set(owners.map(jobOf).filter((id): id is string => Boolean(id)))];
+  if (jobIds.length === 0) return result;
+  const runOfJob = new Map<string, string>();
+  for (const row of store.control.prepare(`SELECT id, workflow_run_id FROM jobs WHERE organization_id=? AND id IN (${marks(jobIds.length)})`).all(actor.organizationId, ...jobIds) as Array<{ id: string; workflow_run_id: string }>) runOfJob.set(row.id, row.workflow_run_id);
+  const runIds = [...new Set(runOfJob.values())];
+  const links = store.workspaceDb(workspaceId, actor.organizationId).prepare(`SELECT job_id, run_id, work_item_id FROM execution_links WHERE job_id IN (${marks(jobIds.length)})${runIds.length ? ` OR run_id IN (${marks(runIds.length)})` : ""}`)
+    .all(...jobIds, ...runIds) as Array<{ job_id: string | null; run_id: string; work_item_id: string }>;
+  const byJob = new Map<string, string>();
+  const byRun = new Map<string, string>();
+  for (const link of links) { if (link.job_id && !byJob.has(link.job_id)) byJob.set(link.job_id, link.work_item_id); if (!byRun.has(link.run_id)) byRun.set(link.run_id, link.work_item_id); }
+  for (const owner of owners) {
+    const job = jobOf(owner);
+    const item = job ? (byJob.get(job) ?? byRun.get(runOfJob.get(job) ?? "")) : undefined;
+    if (item && !result.has(owner.artifact_id)) result.set(owner.artifact_id, item);
+  }
+  return result;
 }
 
 /** artifacts.history: the artifact, its producing attempt/job, and every bundle that pins it. */

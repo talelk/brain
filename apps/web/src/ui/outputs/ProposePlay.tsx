@@ -15,7 +15,7 @@ export function ProposePlay(props: { missionId: string; achieved: boolean }): JS
   const navigate = useNavigate();
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
-  const proposals = createScopedRead<PlayProposal[]>({ scope: app.scope, load: async (scope, signal) => listPlayProposals(scope.workspaceId, signal), refreshMs: 10_000 });
+  const proposals = createScopedRead<PlayProposal[]>({ scope: app.scope, load: async (scope, signal) => listPlayProposals(scope.workspaceId, signal) });
   const existing = () => (proposals.state().data ?? []).find((entry) => entry.missionId === props.missionId);
   async function propose(): Promise<void> {
     setBusy(true); setError("");

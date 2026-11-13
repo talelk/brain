@@ -4,7 +4,7 @@ import { Select } from "@talelk/newui-molecules";
 import type { BrainSession, Mission, WorkItem } from "@brain/contracts";
 import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
-import { A, useNavigate, useSearchParams } from "@solidjs/router";
+import { useNavigate, useSearchParams } from "@solidjs/router";
 import { useApp } from "../../ui/app-context";
 import { readExecFilters, writeExecFilters, type ExecLogFilters } from "../../ui/exec/exec-filters";
 import { ConsoleScreen } from "../../ui/console/ConsoleLayout";
@@ -37,15 +37,13 @@ export default function LivePage(): JSX.Element {
       ]);
       return { snapshot: { missions: missions.snapshot.items.filter((mission) => mission.state !== "closed"), items: [...items.snapshot.items] }, asOf: missions.asOf, sourceWatermark: missions.sourceWatermark };
     },
-    refreshMs: 15_000,
   });
   const include = (session: BrainSession) => !missionId() || (scope.state().data?.items ?? []).some((item) => item.missionId === missionId() && item.workItemId === session.workItemId);
-  return <BrainPage title="Live" description="Watch what your agents are doing right now, steer them, and open the full logs when you need detail."
-    actions={<A class="inline-flex items-center gap-1.5 rounded-control px-2 py-1 text-interface font-medium text-ink-blue-link hover:bg-surface-blue-1 focus-visible:focus-ring" href={`/w/${app.workspaceId()}/logs`}><span class="lucide-scroll-text size-4" aria-hidden="true" />View logs</A>}>
+  return <BrainPage title="Live" description="Watch what your agents are doing right now and steer them.">
   <div class="flex flex-col gap-3">
     <div class="max-w-sm"><Select label="Mission" value={missionId() || "all"} onValueChange={(value) => setSearchParams({ mission: value && value !== "all" ? value : undefined, session: undefined })}
       options={[{ value: "all", label: "All missions" }, ...(scope.state().data?.missions ?? []).map((mission) => ({ value: mission.missionId, label: mission.title }))]} /></div>
-    <ConsoleScreen workspaceId={app.workspaceId()} requestedSession={requestedSession()} include={include}
+    <ConsoleScreen workspaceId={app.workspaceId()} requestedSession={requestedSession()} {...(missionId() ? { include } : {})}
     filters={filters()} onFiltersChange={patchUrl}
     onSessionChange={(sessionId) => void navigate(`/w/${app.workspaceId()}/live?${new URLSearchParams({ ...(missionId() ? { mission: missionId() } : {}), ...(sessionId ? { session: sessionId } : {}) }).toString()}`)} />
   </div>

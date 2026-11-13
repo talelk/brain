@@ -17,7 +17,6 @@ export default function ToolsPage(): JSX.Element {
       return { ...loaded, snapshot: [...loaded.snapshot.items] };
     },
     isEmpty: (items) => items.length === 0,
-    refreshMs: 60_000,
   });
   const candidates = createScopedRead<ToolCandidateView[]>({
     scope: app.scope,

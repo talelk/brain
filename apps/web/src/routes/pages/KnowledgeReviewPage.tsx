@@ -29,9 +29,8 @@ export default function KnowledgeReviewPage(): JSX.Element {
       return { asOf: runs.asOf, sourceWatermark: runs.sourceWatermark, snapshot: { assets: [...assets.snapshot.items], candidates: [...candidates.snapshot.items], runs: [...runs.snapshot.items] } };
     },
     isEmpty: (snapshot) => snapshot.assets.length === 0 && snapshot.candidates.length === 0 && snapshot.runs.length === 0,
-    refreshMs: 3000,
   });
-  const library = createScopedRead<LibrarySummary>({ scope: app.scope, load: async (scope, signal) => librarySummary(scope.workspaceId, signal), refreshMs: 10_000 });
+  const library = createScopedRead<LibrarySummary>({ scope: app.scope, load: async (scope, signal) => librarySummary(scope.workspaceId, signal) });
   const [message, setMessage] = createSignal("");
   const emptyCapitalization = { assets: [], candidates: [], runs: [] } satisfies CapitalizationSnapshot;
   return <div class="flex min-w-0 flex-col gap-3">

@@ -65,4 +65,33 @@ describe("live SSE replay (T06)", () => {
       await app.close();
     }
   }, scaled(30_000));
+
+  it("wake mode sends one small changed frame per batch and starts at the head", async () => {
+    const app = await createApp({ dataDir: mkdtempSync(join(tmpdir(), "brain-sse-wake-")), allowTestActor: true });
+    try {
+      const brain = app.brain;
+      const w = setupWorld(brain);
+      const { token } = seedHuman(brain, w.org, "owner-1");
+      const headers = { authorization: `Bearer ${token}` };
+      const dispatch = (id: string) => brain.executeCommand(w.owner, {
+        contractVersion: "brain.command/v1", commandId: `cmd-${id}`, commandType: "workflow.dispatch",
+        workspaceId: w.workspaceId, idempotencyKey: id,
+        payload: { workflow: { id: "fixture-workflow", digest: brain.activeRelease(w.org)!.digest }, input: { message: id } },
+      }, `corr-${id}`);
+      // History before the connection must not be replayed.
+      await dispatch("wake-old");
+      const ctrl = new AbortController();
+      const res = await app.fetch(new Request(`http://127.0.0.1:3000/v1/events?live=1&wake=1&after=head&workspace=${w.workspaceId}`, { headers, signal: ctrl.signal }));
+      expect(res.status).toBe(200);
+      const reader = res.body!.getReader();
+      await dispatch("wake-new");
+      const seen = await readUntil(reader, "event: changed");
+      expect(seen).not.toContain("job.queued");
+      expect(seen).toContain("\"streamSeq\"");
+      ctrl.abort();
+      await reader.cancel().catch(() => undefined);
+    } finally {
+      await app.close();
+    }
+  }, scaled(30_000));
 });

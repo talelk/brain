@@ -1,4 +1,5 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
+import { t, tn } from "../../i18n";
 import type { JSX } from "solid-js";
 import { Badge, Button, Checkbox, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Card, EmptyState, FileCard, Select, ToggleGroup, Tree } from "@talelk/newui-molecules";
@@ -29,6 +30,7 @@ import {
   inFolder,
   matchesSearch,
   needsReview,
+  isAttemptRecord,
   previewKindLabel,
   resolveFiles,
 } from "./output-files";
@@ -67,6 +69,11 @@ export type OutputView = "grid" | "list";
 
 export function OutputBrowser(props: {
   artifacts: readonly OutputItem[];
+  /** The server's true number of results in this view (attempt records are not results and are counted apart). */
+  total: number;
+  recordsTotal: number;
+  /** Load the next page of results. */
+  onMore: () => void;
   state: ScreenState<unknown>;
   stateFilter: string;
   onStateFilter: (value: string) => void;
@@ -121,6 +128,9 @@ export function OutputBrowser(props: {
     return { current, count: keys.length, files: visible().filter((file) => onPage.has(taskKeyOf(file))) };
   };
   const groups = createMemo(() => groupByMission(paged().files));
+  /** Results, not attempt records: the number the page header counts. */
+  const loadedResults = () => files().filter((file) => !isAttemptRecord(file)).length;
+  const resultsShown = () => visible().filter((file) => !isAttemptRecord(file)).length;
   const previewed = () => files().find((file) => file.artifact.artifactId === props.selectedId);
 
   const checkedFiles = createMemo(() => files().filter((file) => checked().has(file.artifact.artifactId)));
@@ -210,9 +220,6 @@ export function OutputBrowser(props: {
           <ToggleGroup.Item value="grid" icon="lucide-layout-grid" aria-label="Grid" />
           <ToggleGroup.Item value="list" icon="lucide-list" aria-label="List" />
         </ToggleGroup.Root>
-        <Button size="sm" variant="ghost" iconLeft="lucide-refresh-cw" onClick={props.onRefresh}>
-          Refresh
-        </Button>
       </span>
       <ScopeChips scope={props.scope} onScopeChange={props.onScopeChange} />
     </Card>
@@ -222,8 +229,8 @@ export function OutputBrowser(props: {
     <section class="flex min-w-0 flex-col gap-3 lg:pe-3" aria-label="Files" data-testid="outputs-files">
       <header class="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h2 class="min-w-0 truncate text-section font-semibold text-ink-gray-9">{folderNode()?.label ?? "All outputs"}</h2>
-        <span class="text-caption tabular-nums text-ink-gray-6">
-          {visible().length} {visible().length === 1 ? "file" : "files"}
+        <span class="text-caption tabular-nums text-ink-gray-6" data-testid="output-count">
+          {loadedResults() < props.total && folder() === "all" && !props.search && !props.kind ? t("outputs.countOf", { n: resultsShown(), total: props.total }) : tn("outputs.count", resultsShown())}
         </span>
       </header>
       <Show when={props.stateFilter === "uploading"}>
@@ -342,7 +349,7 @@ export function OutputBrowser(props: {
                           <Show when={task.technical.length > 0}>
                             <details class="min-w-0 rounded-card border border-outline-gray-2 px-3 py-1.5" data-testid="output-technical" open={task.technical.some((file) => checked().has(file.artifact.artifactId) || props.selectedId === file.artifact.artifactId)}>
                               <summary class="cursor-pointer text-caption text-ink-gray-7">
-                                Technical files ({task.technical.length}): run records and data
+                                {[task.technical.some(isAttemptRecord) ? t("outputs.attempts", { n: task.technical.filter(isAttemptRecord).length }) : "", task.technical.some((file) => !isAttemptRecord(file)) ? t("outputs.dataFiles", { n: task.technical.filter((file) => !isAttemptRecord(file)).length }) : ""].filter(Boolean).join(" · ")}
                               </summary>
                               <div class={`mt-2 ${props.view === "grid" ? "grid min-w-0 grid-cols-[repeat(auto-fill,minmax(min(100%,15rem),1fr))] gap-2" : "flex min-w-0 flex-col gap-1.5"}`}>
                                 <For each={task.technical}>
@@ -368,7 +375,13 @@ export function OutputBrowser(props: {
               )}
             </For>
           </div>
-          <Show when={files().length >= 100}><p class="px-1 pt-2 text-caption text-ink-gray-6" data-testid="output-cap-note">Showing the 100 most recent files. Pick a mission or task folder to narrow the list.</p></Show>
+          <Show when={loadedResults() < props.total}>
+            <div class="flex flex-wrap items-center gap-3 px-1 pt-2" data-testid="output-more">
+              <p class="m-0 text-caption text-ink-gray-6">{t("outputs.showing", { n: loadedResults(), total: props.total })}</p>
+              <Button size="sm" variant="outline" onClick={props.onMore}>{t("outputs.more")}</Button>
+            </div>
+          </Show>
+          <Show when={props.recordsTotal > files().filter(isAttemptRecord).length}><p class="px-1 pt-1 text-caption text-ink-gray-6" data-testid="output-records-note">{t("outputs.recordsNote", { n: files().filter(isAttemptRecord).length, total: props.recordsTotal })}</p></Show>
           <Pager count={paged().count} page={paged().current} onPage={setPage} label="Output list pagination" />
         </Show>
       </ScreenRegion>
@@ -552,7 +565,6 @@ function FileTile(props: { file: OutputFile; heading?: string | undefined; view:
     const parts = [previewKindLabel(props.file.kind as ArtifactPreviewKind), formatBytes(props.file.artifact.bytes)];
     if (props.file.artifact.createdAt) parts.push(formatRelative(props.file.artifact.createdAt));
     if (props.view === "list" && props.file.item) parts.push(props.file.item.title);
-    if (props.file.link) parts.push(`from ${props.file.link.runId}`);
     if (props.view === "list" && props.file.item?.assignment) parts.push(`by ${props.file.item.assignment.id}`);
     return parts.join(" · ");
   };

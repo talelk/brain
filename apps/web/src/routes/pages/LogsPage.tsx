@@ -60,7 +60,6 @@ function RunIndex(): JSX.Element {
       return { asOf: loaded.asOf, sourceWatermark: loaded.sourceWatermark,
         snapshot: { jobs: [...loaded.snapshot.items], nextCursor: loaded.cursor ?? "", total: loaded.totalEstimate ?? loaded.snapshot.items.length } };
     },
-    refreshMs: 10_000,
   });
   // live.status drives the empty state: when sessions are live the index
   // points to the console instead of suggesting there is nothing running.

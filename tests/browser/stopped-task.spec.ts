@@ -6,11 +6,11 @@ import { scopesForPrincipal } from "../../apps/governor/src/application/authz";
 
 /**
  * Track U: a task whose agent was interrupted too often is never shown as running. It is stopped, says so in
- * plain words on the mission and on Today (Needs you), and one click, Try again, puts it back to work.
+ * plain words on the mission and on Today (Needs you), and one click, Retry, puts it back to work.
  */
 const shot = async (page: Page, name: string) => { if (process.env["TODAY_SHOTS"]) await page.screenshot({ path: `${process.env["TODAY_SHOTS"]}/${name}-${page.viewportSize()?.width}.png`, fullPage: true }); };
 
-test("a task stopped by repeated interruptions shows Stopped, appears in Needs you and Try again restarts it", async ({ page, governor }) => {
+test("a task stopped by repeated interruptions shows Stopped, appears in Needs you and Retry restarts it", async ({ page, governor }) => {
   test.setTimeout(120_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -29,13 +29,13 @@ test("a task stopped by repeated interruptions shows Stopped, appears in Needs y
   const item = db.prepare("SELECT id FROM work_items WHERE mission_id=?").get(missionId) as { id: string };
   db.prepare("UPDATE work_items SET state='blocked', parked=1, parked_diagnostic='The agent was interrupted 7 times; try again.', blocked_reason='Stopped: waiting for you to try again', next_action='A person tries again, reassigns, edits or drops this work' WHERE id=?").run(item.id);
 
-  // Today: Needs you names it and offers Try again.
+  // Today: Needs you names it and offers Retry.
   await page.goto(`${governor.url}/w/ws-stopped/today`);
   const row = page.getByTestId("needs-you").getByTestId("needs-you-item").filter({ hasText: "stopped: waiting for you to try again" });
   await expect(row).toBeVisible({ timeout: 30_000 });
   await expect(row).toContainText("The agent was interrupted 7 times; try again.");
-  await expect(row.getByRole("button", { name: "Try again", exact: true })).toBeVisible();
-  await expect(row.getByRole("button", { name: "Retry", exact: true })).toHaveCount(0);
+  await expect(row.getByRole("button", { name: "Retry", exact: true })).toBeVisible();
+  await expect(row.getByRole("button", { name: "Try again", exact: true })).toHaveCount(0);
   await shot(page, "stopped-today");
 
   // The mission never says the task is running.
@@ -49,7 +49,7 @@ test("a task stopped by repeated interruptions shows Stopped, appears in Needs y
   // One click puts it back to work.
   await page.goto(`${governor.url}/w/ws-stopped/today`);
   await expect(row).toBeVisible({ timeout: 30_000 });
-  await row.getByRole("button", { name: "Try again", exact: true }).click();
+  await row.getByRole("button", { name: "Retry", exact: true }).click();
   await expect(row).toHaveCount(0, { timeout: 15_000 });
   expect((db.prepare("SELECT parked FROM work_items WHERE id=?").get(item.id) as { parked: number }).parked).toBe(0);
   expect(errors).toEqual([]);

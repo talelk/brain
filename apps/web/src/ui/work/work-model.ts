@@ -55,9 +55,9 @@ export function isStoppedForRetry(item: Pick<WorkItem, "parked" | "blockedReason
 }
 
 export function waitReason(item: WorkItem): string | undefined {
-  if (isStoppedForRetry(item)) return "Stopped: waiting for you to try again. The agent was interrupted too often to carry on by itself. Next: press Try again.";
+  if (isStoppedForRetry(item)) return "Stopped: waiting for you to retry. The agent was interrupted too often to carry on by itself. Next: press Retry.";
   if (item.parked) return "Parked after repeated failures. It waits for a person; independent work carries on. Next: press Decide to retry, change or take over the task.";
-  if (item.state === "blocked") return `Blocked: ${item.blockedReason ?? "it is waiting on something outside the task"}. Next: sort that out, then press Unblock.`;
+  if (item.state === "blocked") return `Blocked: ${item.blockedReason ?? "it is waiting on something outside the task"}. Next: sort that out, then press Retry.`;
   if (item.state === "backlog" && item.dependsOn.length) return "Waiting for earlier tasks to be verified done.";
   if (item.state === "review") return "Finished; waiting for you to check the evidence.";
   if (item.failedAttempts > 0 && item.state !== "done") return `The last ${item.failedAttempts === 1 ? "attempt" : `${item.failedAttempts} attempts`} did not work. Next: Brain tries again; if it keeps failing, open this task's logs to see why.`;
@@ -68,7 +68,7 @@ export type NextAction =
   | { kind: "start"; label: "Start"; icon: string }
   | { kind: "handoff"; label: "Hand off"; icon: string }
   | { kind: "review"; label: "Review"; icon: string }
-  | { kind: "unblock"; label: "Unblock" | "Decide" | "Try again"; icon: string }
+  | { kind: "unblock"; label: "Retry" | "Decide"; icon: string }
   | { kind: "follow"; label: "Follow"; icon: string };
 
 /** The one action that moves an item forward, reusing the existing flows (dispatch, handoff, manage). */
@@ -76,7 +76,7 @@ export function nextActionOf(item: WorkItem, handoffRequired: boolean, canDispat
   switch (item.state) {
     case "ready": return canDispatch ? { kind: "start", label: "Start", icon: "lucide-play" } : undefined;
     case "review": return handoffRequired ? { kind: "handoff", label: "Hand off", icon: "lucide-send" } : { kind: "review", label: "Review", icon: "lucide-badge-check" };
-    case "blocked": return { kind: "unblock", label: item.parked ? (isStoppedForRetry(item) ? "Try again" : "Decide") : "Unblock", icon: "lucide-wrench" };
+    case "blocked": return { kind: "unblock", label: item.parked && !isStoppedForRetry(item) ? "Decide" : "Retry", icon: "lucide-wrench" };
     case "in-progress": return { kind: "follow", label: "Follow", icon: "lucide-radio" };
     default: return undefined;
   }

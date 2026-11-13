@@ -19,6 +19,7 @@ import { eventWords, formatDateTime, formatUsd } from "../../ui/format";
 import { FlowStepper, type FlowStep } from "../../ui/viz/FlowStepper";
 import { Meter } from "../../ui/viz/Meter";
 import { StateBar } from "../../ui/viz/StateBar";
+import { t, type MessageKey } from "../../i18n";
 import { missionHref, type MissionTab } from "../../ui/mission-links";
 import { ConsoleScreen } from "../../ui/console/ConsoleLayout";
 import { SessionTranscript } from "../../ui/console/SessionTranscript";
@@ -28,10 +29,11 @@ import { MissionUsage } from "../../ui/usage/Usage";
 import { PlanEstimate } from "../../ui/usage/PlanEstimate";
 import { ReusedInBrief } from "../../ui/components/Reuse";
 
-const TABS: readonly { id: MissionTab; label: string }[] = [
-  { id: "live", label: "Live" }, { id: "team", label: "Team" }, { id: "plan", label: "Plan" },
-  { id: "brief", label: "Brief" }, { id: "logs", label: "Logs" }, { id: "outputs", label: "Outputs" },
-];
+const TAB_KEYS: Readonly<Record<MissionTab, MessageKey>> = {
+  live: "mission.tab.live", team: "mission.tab.team", plan: "mission.tab.plan", brief: "mission.tab.brief", logs: "mission.tab.logs", outputs: "mission.tab.outputs",
+};
+const TABS: readonly { id: MissionTab }[] = (["live", "team", "plan", "brief", "logs", "outputs"] as const).map((id) => ({ id }));
+const tabLabel = (id: MissionTab): string => t(TAB_KEYS[id]);
 
 /** The views a person needs day to day; the rest sit under "More views". */
 const MAIN_TABS: readonly MissionTab[] = ["live", "plan", "outputs"];
@@ -72,7 +74,7 @@ function missionGuide(m: Mission, items: readonly WorkItem[], canStart: boolean)
   const ready = items.find((item) => item.state === "ready");
   if (ready && canStart) return { step: "confirm", tab: "plan", icon: "lucide-play", title: `${plural(n("ready"), "task is", "tasks are")} ready to start`, detail: "The plan is confirmed. Start a ready task to put an agent on it.", allDone, action: { label: `Start ${ready.title}`, start: ready } };
   if (ready) return { step: "confirm", tab: "plan", icon: "lucide-play", title: `${plural(n("ready"), "task is", "tasks are")} ready to start`, detail: "Someone with dispatch rights has to start them.", allDone };
-  if (allDone) return { step: "review", tab: "outputs", icon: "lucide-package", title: "All work is done", detail: "Review the outputs, then finish the mission.", allDone, action: { label: "Review outputs", tab: "outputs" } };
+  if (allDone) return { step: "review", tab: "outputs", icon: "lucide-package", title: "All work is done", detail: m.autoStart ? "Every task is verified by an independent check, so Brain closes this mission by itself. Read the results." : "Review the outputs, then finish the mission.", allDone, action: { label: "Review outputs", tab: "outputs" } };
   const stoppedItems = items.filter((item) => isStoppedForRetry(item));
   if (stoppedItems.length > 0 && n("review") === 0) return { step: "review", tab: "plan", icon: "lucide-circle-pause", title: "Stopped: waiting for you to try again", detail: `${plural(stoppedItems.length, "task was", "tasks were")} interrupted too often to carry on by itself. Press Try again on ${stoppedItems.length === 1 ? "it" : "each"}.`, allDone, action: { label: "Open the work", tab: "plan" } };
   if (n("review") > 0 || n("blocked") > 0) return { step: "review", tab: "plan", icon: "lucide-badge-check", title: n("review") > 0 ? "Work is waiting for your review" : "Some work is blocked", detail: `${n("review")} in review · ${n("blocked")} blocked. Done needs verified evidence.`, allDone, action: { label: "Open the work", tab: "plan" } };
@@ -154,7 +156,6 @@ export default function MissionPage(): JSX.Element {
       return { snapshot: pick(response.snapshot), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     ...(empty ? { isEmpty: empty } : {}),
-    refreshMs: 15_000,
   });
   const mission = read<Mission>("missions.get", (raw) => raw as Mission);
   const items = createScopedRead<WorkItem[]>({
@@ -163,7 +164,6 @@ export default function MissionPage(): JSX.Element {
       const response = await query<Envelope<{ items: WorkItem[] }>>({ queryType: "workItems.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
       return { snapshot: response.snapshot.items.filter((item) => item.missionId === missionId()), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
-    refreshMs: 2000,
   });
   const [error, setError] = createSignal("");
   const [busy, setBusy] = createSignal(false);
@@ -220,9 +220,9 @@ export default function MissionPage(): JSX.Element {
             </Dialog.Content>
           </Dialog.Root>
           <div class="flex flex-wrap items-center gap-2">
-            <TabButtons label="Mission views" value={tab()} wrap onValueChange={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}
-              options={TABS.filter((entry) => MAIN_TABS.includes(entry.id) || entry.id === tab()).map((entry) => ({ value: entry.id, label: entry.label }))} />
-            <Dropdown aria-label="More views" options={TABS.filter((entry) => !MAIN_TABS.includes(entry.id) && entry.id !== tab()).map((entry) => ({ value: entry.id, label: entry.label }))}
+            <TabButtons label={t("mission.tab.label")} value={tab()} wrap onValueChange={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}
+              options={TABS.filter((entry) => MAIN_TABS.includes(entry.id) || entry.id === tab()).map((entry) => ({ value: entry.id, label: tabLabel(entry.id) }))} />
+            <Dropdown aria-label={t("mission.tab.more")} options={TABS.filter((entry) => !MAIN_TABS.includes(entry.id) && entry.id !== tab()).map((entry) => ({ value: entry.id, label: tabLabel(entry.id) }))}
               onSelect={(value) => void navigate(missionHref(app.workspaceId(), m().missionId, value as MissionTab))}><span class="flex items-center gap-1.5"><span class="lucide-ellipsis size-4" aria-hidden="true" />More views</span></Dropdown>
           </div>
           <Switch>
@@ -248,7 +248,6 @@ function useMissionRead<T>(missionId: string, queryType: string, pick: (raw: unk
       return { snapshot: pick(response.snapshot), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
     ...(empty ? { isEmpty: empty } : {}),
-    refreshMs: 15_000,
   });
 }
 
@@ -280,7 +279,6 @@ function LiveTab(props: ActProps): JSX.Element {
       const ids = new Set(mine.map((item) => item.workItemId));
       return { snapshot: { members: [...(plan?.snapshot.team ?? [])], items: mine, sessions: sessions.snapshot.items.filter((session) => session.workItemId && ids.has(session.workItemId)) }, asOf: sessions.asOf, sourceWatermark: sessions.sourceWatermark };
     },
-    refreshMs: 10_000,
   });
   const member = () => (typeof search.member === "string" ? search.member : "");
   const memberOf = (session: BrainSession) => {
@@ -391,8 +389,7 @@ function LiveTab(props: ActProps): JSX.Element {
 function TeamTab(props: { mission: Mission }): JSX.Element {
   const app = useApp();
   const plan = createScopedRead<PlanVersion | null>({
-    scope: app.scope, refreshMs: 5000,
-    load: async (scope, signal) => {
+    scope: app.scope, load: async (scope, signal) => {
       if (!props.mission.activePlanVersionId) return { snapshot: null, asOf: new Date().toISOString(), sourceWatermark: 0 };
       const response = await query<Envelope<PlanVersion>>({ queryType: "plans.get", workspaceId: scope.workspaceId, resourceId: props.mission.activePlanVersionId }, signal);
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
@@ -416,7 +413,8 @@ function PlanTab(props: ActProps): JSX.Element {
   const proposalId = () => typeof search.proposal === "string" ? search.proposal : "";
   const estimated = () => proposalId() || props.mission.activePlanVersionId || "";
   return <PageStack>
-    <Show when={estimated()} keyed>{(id) => <PlanEstimate planVersionId={id} />}</Show>
+    {/* The estimate arrives after the page: its slot is reserved so nothing below it jumps when it appears. */}
+    <div class="min-h-14" data-testid="plan-estimate-slot"><Show when={estimated()} keyed>{(id) => <PlanEstimate planVersionId={id} />}</Show></div>
     <PlanCanvas mission={props.mission} proposalId={proposalId() || undefined} onChanged={() => props.onAct(async () => undefined)} />
     <MissionWorkItems mission={props.mission} />
     <MissionSchedules missionId={props.mission.missionId} />
@@ -500,8 +498,7 @@ function LogsTab(props: { mission: Mission; items: WorkItem[] }): JSX.Element {
   const app = useApp();
   const navigate = useNavigate();
   const links = createScopedRead<ExecutionLink[]>({
-    scope: app.scope, refreshMs: 5000,
-    load: async (scope, signal) => {
+    scope: app.scope, load: async (scope, signal) => {
       const response = await query<Envelope<{ items: ExecutionLink[] }>>({ queryType: "executionLinks.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
       return { snapshot: response.snapshot.items.filter((link) => link.missionId === props.mission.missionId), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },

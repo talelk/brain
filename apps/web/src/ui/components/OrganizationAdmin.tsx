@@ -57,7 +57,6 @@ export function OrganizationPeople(): JSX.Element {
     scope: app.scope,
     load: (_scope, signal) => organizationMembersQuery({ search: search().trim() || undefined, limit: 100 }, signal),
     isEmpty: (data) => data.members.length === 0,
-    refreshMs: 30_000,
   });
   const members = () => read.state().data?.members ?? [];
   const selected = () => members().find((member) => member.principalId === selectedId());
@@ -189,7 +188,7 @@ export function OrganizationInvitations(): JSX.Element {
   const [error, setError] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [invitationPage, setInvitationPage] = createSignal(1);
-  const read = createScopedRead<OrganizationDirectorySnapshot>({ scope: app.scope, load: (_scope, signal) => organizationInvitationsQuery({ search: search().trim() || undefined, limit: 100 }, signal), isEmpty: (data) => data.invitations.length === 0, refreshMs: 30_000 });
+  const read = createScopedRead<OrganizationDirectorySnapshot>({ scope: app.scope, load: (_scope, signal) => organizationInvitationsQuery({ search: search().trim() || undefined, limit: 100 }, signal), isEmpty: (data) => data.invitations.length === 0 });
   const invitations = () => read.state().data?.invitations ?? [];
   const invitationPageCount = () => Math.max(1, Math.ceil(invitations().length / INVITATION_PAGE_SIZE));
   const currentInvitationPage = () => Math.min(invitationPage(), invitationPageCount());

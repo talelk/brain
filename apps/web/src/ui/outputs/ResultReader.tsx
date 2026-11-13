@@ -3,6 +3,7 @@ import type { JSX } from "solid-js";
 import { Button } from "@talelk/newui-atoms";
 import { InlineMarkdown, Markdown } from "./Markdown";
 import { titleize } from "../format";
+import { t } from "../../i18n";
 import { markdownFileName, resultMarkdown } from "./result-model";
 import type { StructuredResult, TrustLine } from "./result-model";
 
@@ -84,16 +85,16 @@ export function ResultReader(props: { result: StructuredResult; title: string; t
         <Show when={props.trust?.rows?.length}><HowChecked rows={props.trust!.rows!} {...(props.trust!.evidenceHref ? { evidenceHref: props.trust!.evidenceHref } : {})} /></Show>
         <div class="flex min-w-0 flex-wrap items-center gap-2">
           <Button size="sm" variant="ghost" iconLeft={copied() ? "lucide-check" : "lucide-copy"} onClick={() => void copy()}>
-            {copied() ? "Copied" : "Copy as Markdown"}
+            {copied() ? t("result.copied") : t("result.copy")}
           </Button>
           <Button size="sm" variant="outline" iconLeft="lucide-download" onClick={download}>
-            Download .md
+            {t("result.download")}
           </Button>
         </div>
       </div>
       <Show when={props.result.summary.trim()}>
         <section class="min-w-0 rounded-card border border-outline-gray-2 bg-surface-gray-1 px-4 py-3" aria-label="Summary">
-          <p class="m-0 text-caption font-medium uppercase tracking-wide text-ink-gray-6">Summary</p>
+          <p class="m-0 text-caption font-medium uppercase tracking-wide text-ink-gray-6">{t("result.summary")}</p>
           <p class="m-0 mt-1 max-w-[72ch] text-base leading-relaxed text-ink-gray-9"><InlineMarkdown text={props.result.summary} /></p>
         </section>
       </Show>
@@ -101,13 +102,14 @@ export function ResultReader(props: { result: StructuredResult; title: string; t
       <Show when={props.result.criteria.length > 0}>
         <section class="flex min-w-0 flex-col gap-2 border-t border-outline-gray-2 pt-4" aria-label="Criteria">
           <h4 class="m-0 text-base-medium text-ink-gray-9">
-            Author's own checklist <span class="font-normal text-ink-gray-6">{met()} of {props.result.criteria.length} met</span>
+            {t("result.ownChecklist")} <span class="font-normal text-ink-gray-6">{t("result.ownChecklist.count", { met: met(), total: props.result.criteria.length })}</span>
           </h4>
+          <p class="m-0 max-w-[72ch] text-caption text-ink-gray-6">{t("result.ownChecklist.note")}</p>
           <ul class="m-0 flex list-none flex-col gap-2 p-0">
             <For each={props.result.criteria}>
               {(row) => (
                 <li class="flex min-w-0 items-start gap-2.5" data-met={row.met ? "true" : "false"}>
-                  <span class={`${row.met ? "lucide-circle-check text-ink-green-7" : "lucide-circle-x text-ink-red-7"} mt-1 size-4 shrink-0`} role="img" aria-label={row.met ? "Met" : "Not met"} />
+                  <span class={`${row.met ? "lucide-circle-check text-ink-green-7" : "lucide-circle-x text-ink-red-7"} mt-1 size-4 shrink-0`} role="img" aria-label={row.met ? t("result.met") : t("result.notMet")} />
                   <div class="min-w-0 max-w-[72ch]">
                     <p class="m-0 text-base text-ink-gray-9"><InlineMarkdown text={row.criterion} /></p>
                     <Show when={row.evidence}><p class="m-0 text-caption text-ink-gray-6"><InlineMarkdown text={row.evidence ?? ""} /></p></Show>
@@ -120,7 +122,7 @@ export function ResultReader(props: { result: StructuredResult; title: string; t
       </Show>
       <Show when={props.result.assumptions.length > 0}>
         <section class="flex min-w-0 flex-col gap-1.5" aria-label="Assumptions">
-          <h4 class="m-0 text-base-medium text-ink-gray-9">Assumptions made</h4>
+          <h4 class="m-0 text-base-medium text-ink-gray-9">{t("result.assumptions")}</h4>
           <ul class="m-0 flex max-w-[72ch] list-disc flex-col gap-1 ps-5 text-base text-ink-gray-7">
             <For each={props.result.assumptions}>{(row) => <li>{row}</li>}</For>
           </ul>

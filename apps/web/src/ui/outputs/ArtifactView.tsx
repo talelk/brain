@@ -1,4 +1,5 @@
 import { For, Match, Show, Switch, createEffect, createResource, createSignal, onCleanup } from "solid-js";
+import { friendlyReadError } from "./friendly-error";
 import type { JSX } from "solid-js";
 import { Button } from "@talelk/newui-atoms";
 import { Alert } from "@talelk/newui-molecules";
@@ -144,7 +145,7 @@ export function ArtifactView(props: { artifact?: ArtifactRef; title?: string; co
             <Show when={preview()} keyed>
               {(loaded) =>
                 loaded.error ? (
-                  <Alert theme="amber" variant="outline" title="Preview unavailable" description={loaded.error} />
+                  <Alert theme="amber" variant="outline" title="Preview unavailable" description={friendlyReadError(loaded.error)} />
                 ) : (
                   <Show when={loaded.result} fallback={<PreviewBody artifact={artifact()} preview={loaded} maxHeight={maxHeight()} />}>
                     {(result) => <ResultReader result={result()} title={props.resultTitle ?? heading()} trust={trust()} />}

@@ -30,14 +30,13 @@ export function previewKindLabel(kind: ArtifactPreviewKind): string {
   return { markdown: "Markdown", csv: "Table", json: "JSON", diff: "Diff", text: "Text", image: "Image", pdf: "PDF", none: "Download only" }[kind];
 }
 
-/** An artifact with the state it was listed under (the list itself carries no state). */
-export type OutputItem = ArtifactRef & { state: string; createdAt?: string };
+/** An artifact with the state it was listed under (the list itself carries no state). The server names the task (work item) that produced it. */
+export type OutputItem = ArtifactRef & { state: string };
 
 /** Where each artifact came from: its work item, that item's mission and the links that tie them together. */
 export interface OutputGrouping {
   workItems: readonly WorkItem[];
   missionTitles: Readonly<Record<string, string>>;
-  groupOf: Readonly<Record<string, string>>;
   links: readonly ExecutionLink[];
 }
 
@@ -73,11 +72,16 @@ export function fileNameOf(artifact: Pick<ArtifactRef, "artifactId" | "mediaType
  * two files of the same kind apart; downloads and the detail heading still use the
  * real file name.
  */
-export function readableNameOf(artifact: Pick<ArtifactRef, "artifactId" | "mediaType">): string {
+export function readableNameOf(artifact: Pick<ArtifactRef, "artifactId" | "mediaType">, taskTitle?: string): string {
   if (!/^(att|exec)-/u.test(artifact.artifactId)) return fileNameOf(artifact);
   const kind = previewKindOf(artifact.mediaType);
+  // Every output is named after its task: the title says what it is, a short word says which file of the task.
+  if (taskTitle) {
+    const part = artifact.artifactId.startsWith("exec-") ? " · attempt record" : kind === "markdown" || kind === "text" ? "" : kind === "json" ? " · data" : kind === "csv" ? " · table" : kind === "none" ? "" : ` · ${previewKindLabel(kind).toLowerCase()}`;
+    return `${taskTitle}${part}`;
+  }
   const tail = artifact.artifactId.replace(/\.[a-z0-9]{1,5}$/iu, "").slice(-4);
-  const base = artifact.artifactId.startsWith("exec-") ? "Run record" : kind === "markdown" || kind === "text" ? "Result" : kind === "json" ? "Data" : kind === "csv" ? "Table" : kind === "none" ? "" : previewKindLabel(kind);
+  const base = artifact.artifactId.startsWith("exec-") ? "Attempt record" : kind === "markdown" || kind === "text" ? "Result" : kind === "json" ? "Data" : kind === "csv" ? "Table" : kind === "none" ? "" : previewKindLabel(kind);
   return base ? `${base} ${tail}` : fileNameOf(artifact);
 }
 
@@ -136,11 +140,11 @@ export interface OutputFile {
 export function resolveFiles(artifacts: readonly OutputItem[], grouping: OutputGrouping): OutputFile[] {
   const items = new Map(grouping.workItems.map((item) => [item.workItemId, item]));
   return artifacts.map((artifact) => {
-    const itemId = grouping.groupOf[artifact.artifactId];
+    const itemId = artifact.workItemId;
     const item = itemId ? items.get(itemId) : undefined;
     return {
       artifact,
-      name: readableNameOf(artifact),
+      name: readableNameOf(artifact, item?.title),
       kind: previewKindOf(artifact.mediaType),
       item,
       missionId: item?.missionId,
@@ -151,7 +155,11 @@ export function resolveFiles(artifacts: readonly OutputItem[], grouping: OutputG
   });
 }
 
-export const needsReview = (file: OutputFile) => file.status.label === "Needs review";
+/** Waits for a person: review it, or it needs changes. One word of truth, so "Needs review 0" never sits beside a "Needs changes" result. */
+export const needsReview = (file: OutputFile) => file.status.label === "Needs review" || file.status.label === "Needs changes";
+
+/** An attempt record (the log of one run), not a result: it folds under "Attempts" and never counts as a result. */
+export const isAttemptRecord = (file: Pick<OutputFile, "artifact">): boolean => file.artifact.artifactId.startsWith("exec-");
 
 /** Folder tree: Needs review, All outputs, then missions → work items, then output outside any mission. */
 interface MissionBucket {

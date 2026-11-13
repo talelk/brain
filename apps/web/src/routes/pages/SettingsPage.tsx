@@ -24,7 +24,6 @@ export default function SettingsPage(): JSX.Element {
       };
     },
     isEmpty: (data) => data.members.length === 0 && data.audit.length === 0,
-    refreshMs: 30_000,
   });
   const context = createScopedRead<WorkspaceContext>({
     scope: app.scope,

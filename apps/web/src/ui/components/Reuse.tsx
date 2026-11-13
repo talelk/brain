@@ -37,8 +37,7 @@ function ItemLink(props: { item: Pick<ReuseItem, "itemRef" | "kind" | "provenanc
 export function PastWorkUsed(props: { missionId: string; workspaceId: string; /** Picks that are being sent with the first draft, shown until the attach records exist. */ pending: readonly ReuseItem[]; busy: boolean; canEdit: boolean; refreshKey: number; onRedraft: (kept: string[], dropped: string[]) => void }): JSX.Element {
   const app = useApp();
   const attached = createScopedRead<ReuseItem[]>({
-    scope: app.scope, refreshMs: 15_000,
-    resource: () => `${props.missionId}:${props.refreshKey}`,
+    scope: app.scope, resource: () => `${props.missionId}:${props.refreshKey}`,
     load: async (_scope, signal) => reusedByMission(props.workspaceId, props.missionId, signal),
   });
   const items = (): readonly ReuseItem[] => ((attached.state().data ?? []).length > 0 ? attached.state().data! : props.pending.map((item) => ({ ...item, decision: "kept" as const })));
@@ -80,8 +79,7 @@ export function ReusedLine(props: { missionId: string; workspaceId: string; canE
   const app = useApp();
   const [message, setMessage] = createSignal("");
   const reused = createScopedRead<ReuseItem[]>({
-    scope: app.scope, refreshMs: 15_000,
-    resource: () => props.missionId,
+    scope: app.scope, resource: () => props.missionId,
     load: async (_scope, signal) => reusedByMission(props.workspaceId, props.missionId, signal),
   });
   const kept = () => (reused.state().data ?? []).filter((item) => item.decision !== "dropped");
@@ -120,8 +118,7 @@ export function KnowledgeProposalNote(props: { missionId: string; workspaceId: s
   const app = useApp();
   const navigate = useNavigate();
   const assets = createScopedRead<KnowledgeAsset[]>({
-    scope: app.scope, refreshMs: 10_000,
-    resource: () => props.missionId,
+    scope: app.scope, resource: () => props.missionId,
     load: async (scope, signal) => {
       const response = await query<{ snapshot: { items: KnowledgeAsset[] }; asOf: string; sourceWatermark: number }>({ queryType: "knowledgeAssets.list", workspaceId: scope.workspaceId, limit: 100 }, signal);
       return { snapshot: response.snapshot.items.filter((asset) => asset.missionId === props.missionId), asOf: response.asOf, sourceWatermark: response.sourceWatermark };
@@ -140,8 +137,7 @@ export function KnowledgeProposalNote(props: { missionId: string; workspaceId: s
 export function ReusedInBrief(props: { missionId: string; workspaceId: string }): JSX.Element {
   const app = useApp();
   const reused = createScopedRead<ReuseItem[]>({
-    scope: app.scope, refreshMs: 15_000,
-    resource: () => props.missionId,
+    scope: app.scope, resource: () => props.missionId,
     load: async (_scope, signal) => reusedByMission(props.workspaceId, props.missionId, signal),
   });
   const who = (id: string | undefined) => (id === app.identity()?.actor.actorId ? "you" : "another person");

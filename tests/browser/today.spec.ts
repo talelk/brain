@@ -176,7 +176,7 @@ test("reuse entries: empty state, start from a previous mission via the reuse in
   await expect(page).toHaveURL(new RegExp(`/w/ws-today/schedules\\?repeat=${fromPlay}$`));
 });
 
-test("landing rule: Today when nothing is active or the queue is not empty, Live when work is active and nothing waits", async ({ page, governor }) => {
+test("landing: / always opens Today, even while work is running; deep links are never overridden", async ({ page, governor }) => {
   test.setTimeout(120_000);
   const w = await world(page, governor);
   const { brain, actor } = w;
@@ -191,7 +191,7 @@ test("landing rule: Today when nothing is active or the queue is not empty, Live
     VALUES ('job-today',?,?,?,?, 'step-respond','running',?, '{}', ?, 'read', ?, ?, ?)`)
     .run(org, "ws-today", "today-seed-1", "run-today", `sha256:${"d".repeat(64)}`, digest, now, now, now + 3_600_000);
   await page.goto(governor.url);
-  await expect(page).toHaveURL(/\/w\/ws-today\/live/);
+  await expect(page).toHaveURL(/\/w\/ws-today\/today$/);
 
   // A deep link is never overridden, even while the queue is non-empty.
   s.control.prepare(`INSERT INTO approval_requests(id, organization_id, workspace_id, requested_by, subject_digest, subject_json, state, expires_at_ms, created_at_ms)

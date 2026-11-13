@@ -1,3 +1,4 @@
+import { createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import type { ExecutionLink, Mission, WorkItem } from "@brain/contracts";
@@ -6,6 +7,7 @@ import { createScopedRead } from "../../data/screens";
 import { query } from "../../data/client";
 import { artifactsHistoryQuery, artifactsListQuery } from "../../data/exec-outputs";
 import type { ArtifactHistory, ArtifactState } from "../../data/exec-outputs";
+import { t } from "../../i18n";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { OutputBrowser } from "../../ui/outputs/OutputBrowser";
 import type { OutputGrouping, OutputItem, OutputScope, OutputView } from "../../ui/outputs/OutputBrowser";
@@ -34,31 +36,41 @@ export default function OutputsPage(): JSX.Element {
   const view = (): OutputView => (param("view") === "list" ? "list" : "grid");
 
   // "current" lists fresh (still-uploading) and final output together so new
-  // work is never hidden behind a "verified" default.
-  const artifacts = createScopedRead<OutputItem[]>({
+  // work is never hidden behind a "verified" default. Results and attempt records are listed apart: the Result
+  // count and its paging are the server's true total of results, and records never inflate either.
+  const [pages, setPages] = createSignal(1);
+  const artifacts = createScopedRead<{ items: OutputItem[]; total: number; recordsTotal: number }>({
     scope: app.scope,
     load: async (readScope, signal) => {
       const filter = stateFilter();
       const states: ArtifactState[] = filter === "current" ? ["uploading", "verified"] : [filter as ArtifactState];
-      const loaded = await Promise.all(
-        states.map(async (state) => ({
-          state,
-          response: await artifactsListQuery(
-            {
-              workspaceId: readScope.workspaceId,
-              ...(scope().jobId ? { jobId: scope().jobId } : {}),
-              ...(scope().runId ? { runId: scope().runId } : {}),
-              ...(scope().workItemId ? { workItemId: scope().workItemId } : {}),
-              state,
-            },
-            signal,
-          ),
-        })),
-      );
-      const first = loaded[0]!.response;
-      return { ...first, snapshot: loaded.flatMap(({ state, response }) => response.snapshot.items.map((item) => ({ ...item, state }))) };
+      const producer = {
+        ...(scope().jobId ? { jobId: scope().jobId } : {}),
+        ...(scope().runId ? { runId: scope().runId } : {}),
+        ...(scope().workItemId ? { workItemId: scope().workItemId } : {}),
+      };
+      const results = await Promise.all(states.map(async (state) => {
+        const items: OutputItem[] = [];
+        let cursor: string | undefined;
+        let total = 0;
+        let first: Awaited<ReturnType<typeof artifactsListQuery>> | undefined;
+        for (let page = 0; page < pages(); page += 1) {
+          const response = await artifactsListQuery({ workspaceId: readScope.workspaceId, ...producer, state, kind: "result", ...(cursor ? { cursor } : {}) }, signal);
+          first ??= response;
+          total = response.totalEstimate ?? response.snapshot.items.length;
+          items.push(...response.snapshot.items.map((item) => ({ ...item, state })));
+          cursor = response.cursor || undefined;
+          if (!cursor) break;
+        }
+        const records = await artifactsListQuery({ workspaceId: readScope.workspaceId, ...producer, state, kind: "record" }, signal);
+        return { first: first!, items: [...items, ...records.snapshot.items.map((item) => ({ ...item, state }))], total, recordsTotal: records.totalEstimate ?? records.snapshot.items.length };
+      }));
+      return {
+        asOf: results[0]!.first.asOf, sourceWatermark: results[0]!.first.sourceWatermark,
+        snapshot: { items: results.flatMap((result) => result.items), total: results.reduce((sum, result) => sum + result.total, 0), recordsTotal: results.reduce((sum, result) => sum + result.recordsTotal, 0) },
+      };
     },
-    isEmpty: (items) => items.length === 0,
+    isEmpty: (loaded) => loaded.items.length === 0,
   });
 
   // The full metadata strip (source, producer, verification, work-item link)
@@ -86,37 +98,16 @@ export default function OutputsPage(): JSX.Element {
         read<WorkItem>("workItems.list"),
         read<Mission>("missions.list"),
       ]);
-      // One producer per link: its job when the link names one (the artifact's
-      // direct owner), else the work item the index resolves server-side.
-      const producers = new Map<string, { workItemId: string; jobId?: string }>();
-      for (const link of links.snapshot.items) {
-        const key = link.jobId ? `job:${link.jobId}` : `item:${link.workItemId}`;
-        if (!producers.has(key)) producers.set(key, { workItemId: link.workItemId, ...(link.jobId ? { jobId: link.jobId } : {}) });
-      }
-      const groupOf: Record<string, string> = {};
-      await Promise.all(
-        [...producers.values()].slice(0, 24).map(async (producer) => {
-          for (const state of ["uploading", "verified"] as const) {
-            const found = await artifactsListQuery(
-              { workspaceId: readScope.workspaceId, state, ...(producer.jobId ? { jobId: producer.jobId } : { workItemId: producer.workItemId }) },
-              signal,
-            );
-            for (const artifact of found.snapshot.items) groupOf[artifact.artifactId] ??= producer.workItemId;
-          }
-        }),
-      );
       return {
         snapshot: {
           workItems: items.snapshot.items,
           missionTitles: Object.fromEntries(missions.snapshot.items.map((mission) => [mission.missionId, mission.title])),
-          groupOf,
           links: links.snapshot.items,
         },
         asOf: links.asOf,
         sourceWatermark: links.sourceWatermark,
       };
     },
-    refreshMs: 30_000,
   });
 
   const updateParams = (patch: Record<string, string | undefined>) => {
@@ -136,12 +127,15 @@ export default function OutputsPage(): JSX.Element {
 
   return (
     <BrainPage
-      title="Outputs"
+      title={t("nav.item.all-results")}
       description="Every file your missions produced. Review it, accept it or ask for changes."
     >
       <PageStack>
         <OutputBrowser
-          artifacts={artifacts.state().data ?? []}
+          artifacts={artifacts.state().data?.items ?? []}
+          total={artifacts.state().data?.total ?? 0}
+          recordsTotal={artifacts.state().data?.recordsTotal ?? 0}
+          onMore={() => { setPages(pages() + 1); void artifacts.refresh({ force: true }); }}
           state={artifacts.state()}
           stateFilter={stateFilter()}
           onStateFilter={(value) => {
@@ -165,8 +159,9 @@ export default function OutputsPage(): JSX.Element {
           onSelect={(artifactId) => updateParams({ artifact: artifactId })}
           onCompare={(leftId, rightId) => void navigate(execArtifactUrl(rightId, { leftId, rightId }))}
           detail={{ history: detail.state().data ?? undefined, loading: detail.state().status === "loading", error: detail.state().error ?? "" }}
-          grouping={grouping.state().data ?? { workItems: [], missionTitles: {}, groupOf: {}, links: [] }}
+          grouping={grouping.state().data ?? { workItems: [], missionTitles: {}, links: [] }}
           onRefresh={() => {
+            setPages(1);
             void artifacts.refresh({ force: true });
             void grouping.refresh({ force: true });
             void detail.refresh({ force: true });
