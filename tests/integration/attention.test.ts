@@ -43,6 +43,20 @@ describe("attention and since-last-visit (T59)", () => {
     w.brain.close();
   });
 
+  it("an abandoned parked task is not offered back: its card would say Retry for a state that cannot move", async () => {
+    const w = setupWorld();
+    const id = await mission(w, "abandoned", [task("a")]);
+    const a = (await workView(w)).items.find((item) => item.missionId === id)!;
+    for (const runId of ["r1", "r2", "r3"]) {
+      w.brain.missions.linkExecution(w.owner, w.workspaceId, a.workItemId, runId);
+      w.brain.missions.recordRunFailure(w.org, w.workspaceId, runId, `failed in ${runId}`);
+    }
+    expect((await query<{ items: AttentionItem[] }>(w, w.owner, "attention.list")).items.some((item) => item.kind === "parked")).toBe(true);
+    w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("UPDATE work_items SET state='abandoned' WHERE id=?").run(a.workItemId);
+    expect((await query<{ items: AttentionItem[] }>(w, w.owner, "attention.list")).items.some((item) => item.kind === "parked")).toBe(false);
+    w.brain.close();
+  });
+
   it("parks a task at once, with a one-click Try again, when its agent was interrupted too often", async () => {
     const w = setupWorld();
     const id = await mission(w, "interrupted", [task("a")]);

@@ -72,7 +72,7 @@ export function attentionItems(store: Store, organizationId: string, workspaceId
     }
     for (const row of db.prepare(`SELECT w.id, w.mission_id, w.title, w.updated_at_ms, w.parked_diagnostic, w.blocked_reason,
       (SELECT COUNT(*) FROM work_item_dependencies d JOIN work_items x ON x.id=d.work_item_id WHERE d.depends_on_work_item_id=w.id AND x.state NOT IN ('done','abandoned')) AS waiting
-      FROM work_items w JOIN missions m ON m.id=w.mission_id WHERE w.parked=1 AND m.state!='closed'`).all() as Array<{ id: string; mission_id: string; title: string; updated_at_ms: number; parked_diagnostic: string | null; blocked_reason: string | null; waiting: number }>) {
+      FROM work_items w JOIN missions m ON m.id=w.mission_id WHERE w.parked=1 AND w.state NOT IN ('done','abandoned') AND m.state!='closed'`).all() as Array<{ id: string; mission_id: string; title: string; updated_at_ms: number; parked_diagnostic: string | null; blocked_reason: string | null; waiting: number }>) {
       const stopped = row.blocked_reason === PARKED_INTERRUPTED_REASON;
       items.push({ id: `parked:${row.id}`, workspaceId, missionId: row.mission_id, kind: "parked", tier: 3, title: stopped ? `${row.title} stopped: waiting for you to try again` : `${row.title} is parked`, ...(row.parked_diagnostic ? { detail: `${row.parked_diagnostic}${row.waiting ? ` · ${row.waiting} dependent(s) waiting` : ""}`.slice(0, 1024) } : {}), resourceId: row.id, waitingSince: iso(row.updated_at_ms) });
     }
