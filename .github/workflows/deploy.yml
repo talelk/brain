@@ -1,6 +1,6 @@
 name: deploy
 # Manual: a person starts it. The runner joins the tailnet as an ephemeral node, deploys main to the demo server
-# and leaves. It refuses while missions run (scripts/deploy-demo.sh) unless `force` is ticked.
+# and leaves. scripts/deploy-demo.sh drains running attempts first (waits up to 15 min); `force` skips the drain.
 on:
   workflow_dispatch:
     inputs:
