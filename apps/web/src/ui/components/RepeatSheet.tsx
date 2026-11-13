@@ -7,6 +7,7 @@ import { useApp } from "../app-context";
 import { query } from "../../data/client";
 import { FormSheet } from "./BrainForm";
 import { formatOccurrence } from "../format";
+import { t } from "../../i18n";
 
 /** One preset as the server returns it: the cron and timezone are the server's, the browser only shows them. */
 interface PresetView { presetId: string; label: string; cron: string; timezone: string; nextOccurrences: string[] }
@@ -80,11 +81,11 @@ export function RepeatSheet(props: { mission: Mission; open: boolean; onClose: (
   }
 
   const cannotTarget = () => !props.mission.playId && workflows.state === "ready" && !target();
-  return <FormSheet centered size="lg" open={props.open} onClose={props.onClose} title="Repeat this" icon="lucide-repeat"
-    description={`Run "${props.mission.title}" again on a schedule.`} submit="Repeat on this schedule"
-    busy={busy()} disabled={!selected() || !target()} onSubmit={create} error={error()} errorTitle="The schedule was not created">
-    <fieldset class="m-0 flex min-w-0 flex-col gap-2 border-0 p-0"><legend class="sr-only">How often</legend>
-      <Show when={!preview.loading} fallback={<p class="text-interface text-ink-gray-6">Working out the next runs…</p>}>
+  return <FormSheet centered size="lg" open={props.open} onClose={props.onClose} title={t("sched.repeat-this.011e")} icon="lucide-repeat"
+    description={`Run "${props.mission.title}" again on a schedule.`} submit={t("sched.repeat-on-this-schedule.126e")}
+    busy={busy()} disabled={!selected() || !target()} onSubmit={create} error={error()} errorTitle={t("sched.the-schedule-was-not-created.a45e")}>
+    <fieldset class="m-0 flex min-w-0 flex-col gap-2 border-0 p-0"><legend class="sr-only">{t("sched.how-often.bd88")}</legend>
+      <Show when={!preview.loading} fallback={<p class="text-interface text-ink-gray-6">{t("sched.working-out-the-next-runs.9a07")}</p>}>
         <For each={presets()}>{(preset) => <label class={`flex min-w-0 cursor-pointer flex-col gap-1 rounded-control border px-3 py-2.5 focus-within:focus-ring ${chosen() === preset.presetId ? "border-outline-blue-3 bg-surface-blue-1" : "border-outline-gray-2 bg-surface-elevation-1 hover:bg-surface-gray-1"}`}>
           <input type="radio" name="repeat-preset" class="sr-only" value={preset.presetId} checked={chosen() === preset.presetId} onChange={() => setChosen(preset.presetId)} />
           <span class="text-base-medium text-ink-gray-9">{preset.label}</span>
@@ -97,10 +98,10 @@ export function RepeatSheet(props: { mission: Mission; open: boolean; onClose: (
       <Show when={preview()?.problem}><p class="text-interface text-ink-red-7" role="alert">{preview()?.problem}</p></Show>
     </fieldset>
     <div class="flex items-end gap-2">
-      <div class="min-w-0 flex-1"><TextInput label="Timezone" value={zoneDraft()} onInput={(event) => setZoneDraft(event.currentTarget.value)} onBlur={() => { if (zoneDraft().trim()) setTimezone(zoneDraft().trim()); }} description="A place name such as Europe/Paris; Brain handles daylight saving." /></div>
+      <div class="min-w-0 flex-1"><TextInput label={t("sched.timezone.d1f7")} value={zoneDraft()} onInput={(event) => setZoneDraft(event.currentTarget.value)} onBlur={() => { if (zoneDraft().trim()) setTimezone(zoneDraft().trim()); }} description={t("sched.a-place-name-such-as-europe-pari.56c9")} /></div>
     </div>
     <div class="flex min-w-0 flex-col gap-1 rounded-control border border-outline-gray-2 bg-surface-elevation-1 px-3 py-2.5" data-testid="repeat-autoconfirm">
-      <Checkbox checked={autoConfirm()} onCheckedChange={(checked) => setAutoConfirm(Boolean(checked))} label="Confirm the plan automatically each time" />
+      <Checkbox checked={autoConfirm()} onCheckedChange={(checked) => setAutoConfirm(Boolean(checked))} label={t("sched.confirm-the-plan-automatically-e.1786")} />
       <p class="m-0 text-caption text-ink-gray-6">
         {autoConfirm()
           ? "Brain starts each run with the plan you already confirmed, with no action from you, as long as that plan is unchanged, this mission was verified as achieved, no step writes or needs an approval, autonomy is standard or higher, there is budget left and you can still confirm plans; otherwise the run waits in Needs you with the reason."
@@ -109,8 +110,8 @@ export function RepeatSheet(props: { mission: Mission; open: boolean; onClose: (
     </div>
     <p class="text-caption text-ink-gray-6">
       Each run is a new mission with its own Results, so you can see what changed.{" "}
-      <Show when={props.mission.playId} fallback={<>If the previous run is still going, the next one is skipped.</>}>If the previous mission is still open, the next run is skipped.</Show> A run that fails appears in Needs you.
+      <Show when={props.mission.playId} fallback={<>{t("sched.if-the-previous-run-is-still-goi.d1fb")}</>}>{t("sched.if-the-previous-mission-is-still.5a00")}</Show> A run that fails appears in Needs you.
     </p>
-    <Show when={cannotTarget()}><p class="text-interface text-ink-amber-8" role="alert">This workspace has no task Brain can repeat a described mission with, so it cannot be scheduled yet.</p></Show>
+    <Show when={cannotTarget()}><p class="text-interface text-ink-amber-8" role="alert">{t("sched.this-workspace-has-no-task-brain.fa2a")}</p></Show>
   </FormSheet>;
 }

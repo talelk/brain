@@ -26,6 +26,7 @@ import { WorkCard } from "../work/WorkCard";
 import { TaskSessionsContext } from "../work/TaskNow";
 import { WorkRoadmap, type RoadmapNode } from "../work/WorkRoadmap";
 import { minutesText, workGraph, type BoardColumnId, type NextAction } from "../work/work-model";
+import { t } from "../../i18n";
 
 const STATES: readonly { id: WorkItemState; name: string }[] = [
   { id: "backlog", name: "Backlog" }, { id: "ready", name: "Ready" }, { id: "in-progress", name: "In Progress" },
@@ -171,20 +172,20 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
 
   const roadmapNodes = (): RoadmapNode[] => live().map((item) => ({ id: item.workItemId, title: item.title, deps: item.dependsOn, weight: estimateOf(item) ?? 1, done: item.state === "done" }));
 
-  return <TaskSessionsContext.Provider value={() => sessions.state().data ?? []}><WorkspaceSection title="Mission work" description="Confirmed work items of this mission. Done requires independently verified evidence for every criterion.">
-    <Show when={conflict() && sheet() !== "move"}><Alert theme="amber" variant="outline" title="This work changed; your intended move is preserved" description={conflict()} /></Show>
-    <ScreenRegion state={items.state()} onRetry={() => void items.refresh({ force: true })} emptyTitle="No confirmed work yet" emptyDescription="Confirm a plan version to create this mission's work items.">
+  return <TaskSessionsContext.Provider value={() => sessions.state().data ?? []}><WorkspaceSection title={t("plan.mission-work.3906")} description={t("plan.confirmed-work-items-of-this-mis.31bc")}>
+    <Show when={conflict() && sheet() !== "move"}><Alert theme="amber" variant="outline" title={t("plan.this-work-changed-your-intended.38ce")} description={conflict()} /></Show>
+    <ScreenRegion state={items.state()} onRetry={() => void items.refresh({ force: true })} emptyTitle={t("plan.no-confirmed-work-yet.02e4")} emptyDescription={t("plan.confirm-a-plan-version-to-create.ce4f")}>
       <Show when={selected()} keyed fallback={<div class="flex min-w-0 flex-col gap-4">
         <WorkOverview mission={props.mission} items={live()} criticalSteps={graph().critical.length}
           criticalMinutes={graph().critical.every((id) => estimateOf(live().find((item) => item.workItemId === id)!) !== undefined) ? graph().criticalWeight : undefined} />
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <TabButtons label="How to show the work" value={view()} onValueChange={(value) => setSearch({ view: value === "timeline" ? undefined : value }, { replace: true })}
+          <TabButtons label={t("plan.how-to-show-the-work.a24f")} value={view()} onValueChange={(value) => setSearch({ view: value === "timeline" ? undefined : value }, { replace: true })}
             options={VIEWS.map((entry) => ({ value: entry.value, label: entry.label, icon: entry.icon }))} />
-          <p class="flex items-center gap-1.5 text-caption text-ink-gray-6"><span class="inline-block h-0.5 w-5 rounded-full bg-surface-blue-7" aria-hidden="true" />Critical path: the longest chain of work still to do</p>
+          <p class="flex items-center gap-1.5 text-caption text-ink-gray-6"><span class="inline-block h-0.5 w-5 rounded-full bg-surface-blue-7" aria-hidden="true" />{t("plan.critical-path-the-longest-chain.7694")}</p>
         </div>
         <Switch>
           <Match when={view() === "timeline"}>
-            <WorkRoadmap nodes={roadmapNodes()} label="Mission work by round"
+            <WorkRoadmap nodes={roadmapNodes()} label={t("plan.mission-work-by-round.e4ba")}
               renderNode={(node) => <Show when={live().find((item) => item.workItemId === node.id)}>{(item) => card(item(), true)}</Show>} />
           </Match>
           <Match when={view() === "board"}>
@@ -192,7 +193,7 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
               critical={critical()} onOpen={(item) => open(item)} onAction={act} onMove={boardMove} />
           </Match>
           <Match when={view() === "list"}>
-            <ul class="flex flex-col divide-y divide-outline-gray-1 border-y border-outline-gray-1" aria-label="Work items">
+            <ul class="flex flex-col divide-y divide-outline-gray-1 border-y border-outline-gray-1" aria-label={t("plan.work-items.0448")}>
               <For each={live()}>{(item) => <li class="py-3">{card(item, true)}</li>}</For>
             </ul>
           </Match>
@@ -204,34 +205,34 @@ export function MissionWorkItems(props: { mission: Mission }): JSX.Element {
           const doneBlocked = () => move() === "done" && (!verified() || handoff.required());
           return <PageStack>
             <div class="flex flex-wrap items-center justify-between gap-2">
-              <div class="flex flex-wrap items-center gap-2"><h3 class="text-base-medium">{item.title}</h3><StatusBadge kind="workItem" status={item.state} /><Badge variant="outline" theme={item.evidenceDigest ? "green" : "gray"} label={item.evidenceDigest ? "Verified evidence bound" : "Evidence required for Done"} /></div>
-              <Button variant="ghost" iconLeft="lucide-arrow-left" onClick={() => setSelectedId("")}>Back to mission work</Button>
+              <div class="flex flex-wrap items-center gap-2"><h3 class="text-base-medium">{item.title}</h3><StatusBadge kind="workItem" status={item.state} /><Badge variant="outline" theme={item.evidenceDigest ? "green" : "gray"} label={item.evidenceDigest ? t("plan.verified-evidence-bound.85a3") : t("plan.evidence-required-for-done.cd0e")} /></div>
+              <Button variant="ghost" iconLeft="lucide-arrow-left" onClick={() => setSelectedId("")}>{t("plan.back-to-mission-work.9a1f")}</Button>
             </div>
             <Show when={item.parked}><ParkedActions item={item} onChanged={async () => { setSelectedId(""); await items.refresh({ force: true }); }} /></Show>
-            <div class="border-y border-outline-gray-1 py-3"><h4 class="text-base-medium">Next action</h4><p class="mt-1 text-interface text-ink-gray-7">{item.nextAction}</p><Show when={item.blockedReason}><Alert theme="amber" variant="outline" title="Blocked" description={item.blockedReason} /></Show></div>
-            <div><h4 class="text-base-medium">Acceptance criteria</h4><ul class="mt-2 list-disc ps-5 text-interface text-ink-gray-7"><For each={item.criteria}>{(criterion) => <li>{criterion}</li>}</For></ul></div>
+            <div class="border-y border-outline-gray-1 py-3"><h4 class="text-base-medium">{t("plan.next-action.d816")}</h4><p class="mt-1 text-interface text-ink-gray-7">{item.nextAction}</p><Show when={item.blockedReason}><Alert theme="amber" variant="outline" title={t("plan.blocked.9961")} description={item.blockedReason} /></Show></div>
+            <div><h4 class="text-base-medium">{t("plan.acceptance-criteria.133c")}</h4><ul class="mt-2 list-disc ps-5 text-interface text-ink-gray-7"><For each={item.criteria}>{(criterion) => <li>{criterion}</li>}</For></ul></div>
             <Show when={item.evidenceDigest}><EvidenceList bundleDigest={item.evidenceDigest} /></Show>
-            <Show when={handoff.required()}><Alert theme="amber" variant="outline" title="Other tasks are waiting on this one"
-              description="Before it can be Done, hand off what was done to the next tasks. Brain adds the verified facts itself.">
-              <Button variant="solid" theme="blue" iconLeft="lucide-send" onClick={() => setSheet("handoff")}>Hand off to the next tasks</Button>
+            <Show when={handoff.required()}><Alert theme="amber" variant="outline" title={t("plan.other-tasks-are-waiting-on-this.0743")}
+              description={t("plan.before-it-can-be-done-hand-off-w.0899")}>
+              <Button variant="solid" theme="blue" iconLeft="lucide-send" onClick={() => setSheet("handoff")}>{t("plan.hand-off-to-the-next-tasks.33d2")}</Button>
             </Alert></Show>
             <WorkItemTasks origin={{ kind: "work-item", id: item.workItemId }} />
             <div class="flex flex-wrap gap-2 border-t border-outline-gray-1 pt-3">
-              <Show when={item.state === "ready" && app.canDispatch()}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={() => void navigate(startHref(item))}>Start this task</Button></Show>
-              <Button variant="outline" iconLeft="lucide-arrow-right-left" onClick={() => { reset(); setSheet("move"); }}>Move work item</Button>
-              <Button variant="outline" iconLeft="lucide-message-square" onClick={() => { setComment(""); setSheet("comment"); }}>Add comment</Button>
+              <Show when={item.state === "ready" && app.canDispatch()}><Button variant="solid" theme="blue" iconLeft="lucide-play" onClick={() => void navigate(startHref(item))}>{t("plan.start-this-task.375b")}</Button></Show>
+              <Button variant="outline" iconLeft="lucide-arrow-right-left" onClick={() => { reset(); setSheet("move"); }}>{t("plan.move-work-item.7e73")}</Button>
+              <Button variant="outline" iconLeft="lucide-message-square" onClick={() => { setComment(""); setSheet("comment"); }}>{t("plan.add-comment.7d37")}</Button>
             </div>
-            <FormSheet open={sheet() === "move"} onClose={() => setSheet("")} title={`Update ${item.title}`} description="Done requires independently verified evidence for every criterion."
-              submit="Move work item" icon="lucide-arrow-right-left" error={conflict()} errorTitle="This work changed; your intended move is preserved" disabled={!move() || doneBlocked() || (move() === "blocked" && !reason().trim())} onSubmit={() => { if (move() && !doneBlocked()) return transition(item); }}>
+            <FormSheet open={sheet() === "move"} onClose={() => setSheet("")} title={`Update ${item.title}`} description={t("plan.done-requires-independently-veri.f78b")}
+              submit={t("plan.move-work-item.7e73")} icon="lucide-arrow-right-left" error={conflict()} errorTitle={t("plan.this-work-changed-your-intended.38ce")} disabled={!move() || doneBlocked() || (move() === "blocked" && !reason().trim())} onSubmit={() => { if (move() && !doneBlocked()) return transition(item); }}>
               <EvidenceBundleSelector label={`Verified evidence for ${item.title}`} workItemId={item.workItemId} onSelect={setEvidence} />
               <Select label={`Move ${item.title}`} value={move() || null} options={STATES.filter((state) => state.id !== item.state).map((state) => ({ value: state.id, label: state.name, disabled: state.id === "done" && !verified() }))} onValueChange={(state) => setMove(state ?? "")} />
-              <Show when={move() === "blocked"}><TextInput label="Blocking reason" value={reason()} onInput={(event) => setReason(event.currentTarget.value)} required /></Show>
-              <Show when={move() === "done" && handoff.required()}><Alert theme="amber" variant="outline" title="Hand off to the next tasks first" description="Other tasks depend on this one. Close this form and use Hand off to the next tasks on the work item." /></Show>
-              <Show when={move() === "done" && !verified()}><Alert theme="amber" variant="outline" title="Verified evidence is required" description="Choose an independently verified evidence bundle before selecting Done. Author output alone cannot complete this work." /></Show>
+              <Show when={move() === "blocked"}><TextInput label={t("plan.blocking-reason.7cee")} value={reason()} onInput={(event) => setReason(event.currentTarget.value)} required /></Show>
+              <Show when={move() === "done" && handoff.required()}><Alert theme="amber" variant="outline" title={t("plan.hand-off-to-the-next-tasks-first.3727")} description={t("plan.other-tasks-depend-on-this-one-c.cf5e")} /></Show>
+              <Show when={move() === "done" && !verified()}><Alert theme="amber" variant="outline" title={t("plan.verified-evidence-is-required.f5b1")} description={t("plan.choose-an-independently-verified.2099")} /></Show>
             </FormSheet>
             <HandoffSheet item={item} open={sheet() === "handoff"} onClose={() => setSheet("")} onSubmitted={async () => { setSheet(""); await handoff.refresh(); await items.refresh({ force: true }); }} />
-            <FormSheet open={sheet() === "comment"} onClose={() => setSheet("")} title="Add a comment" centered description="Comments are recorded on the work item's history." submit="Add comment" icon="lucide-message-square" disabled={!comment().trim()} onSubmit={() => addComment(item)}>
-              <Textarea label="Comment" required value={comment()} onInput={(event) => setComment(event.currentTarget.value)} />
+            <FormSheet open={sheet() === "comment"} onClose={() => setSheet("")} title={t("plan.add-a-comment.3e18")} centered description={t("plan.comments-are-recorded-on-the-wor.5f59")} submit={t("plan.add-comment.7d37")} icon="lucide-message-square" disabled={!comment().trim()} onSubmit={() => addComment(item)}>
+              <Textarea label={t("plan.comment.153d")} required value={comment()} onInput={(event) => setComment(event.currentTarget.value)} />
             </FormSheet>
           </PageStack>;
         }}
@@ -251,32 +252,32 @@ function WorkOverview(props: { mission: Mission; items: readonly WorkItem[]; cri
   const activeMinutes = () => props.mission.usage.activeMs / 60_000;
   const wallMinutes = () => (props.mission.budget.maxWallClockMs ?? 0) / 60_000;
   const timeShare = () => (wallMinutes() > 0 ? Math.min(100, Math.round((activeMinutes() / wallMinutes()) * 100)) : 0);
-  return <section class="grid grid-cols-2 gap-x-4 gap-y-4 rounded-card border border-outline-gray-1 bg-surface-gray-1 p-3 sm:gap-x-6 sm:p-4 xl:grid-cols-4" aria-label="Mission work at a glance">
+  return <section class="grid grid-cols-2 gap-x-4 gap-y-4 rounded-card border border-outline-gray-1 bg-surface-gray-1 p-3 sm:gap-x-6 sm:p-4 xl:grid-cols-4" aria-label={t("plan.mission-work-at-a-glance.4d92")}>
     <div class="col-span-2 flex min-w-0 flex-col gap-1.5 xl:col-span-1">
-      <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-circle-check size-3.5" aria-hidden="true" />Progress</p>
+      <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-circle-check size-3.5" aria-hidden="true" />{t("plan.progress.1b90")}</p>
       <p class="text-base-medium text-ink-gray-9">{done()} of {props.items.length} verified done</p>
-      <StateBar counts={counts()} label="Mission work" />
+      <StateBar counts={counts()} label={t("plan.mission-work.3906")} />
     </div>
     <div class="flex min-w-0 flex-col gap-1.5">
-      <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-route size-3.5" aria-hidden="true" />Critical path</p>
+      <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-route size-3.5" aria-hidden="true" />{t("plan.critical-path.c77e")}</p>
       <p class="text-base-medium text-ink-gray-9">{props.criticalSteps === 0 ? "Nothing left to do" : `${props.criticalSteps} ${props.criticalSteps === 1 ? "task" : "tasks"} in a row`}</p>
       <p class="text-caption text-ink-gray-6">{props.criticalSteps === 0 ? "Every task is verified done." : props.criticalMinutes !== undefined ? `About ${minutesText(props.criticalMinutes)} of estimated work on the longest chain.` : "The longest chain of work still to do sets the finish."}</p>
     </div>
     <div class="flex min-w-0 flex-col gap-1.5">
-      <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-timer size-3.5" aria-hidden="true" />Time</p>
+      <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-timer size-3.5" aria-hidden="true" />{t("plan.time.6c82")}</p>
       <p class="text-base-medium text-ink-gray-9">{minutesText(activeMinutes())} working{wallMinutes() > 0 ? ` of ${minutesText(wallMinutes())}` : ""}</p>
-      <Show when={wallMinutes() > 0} fallback={<p class="text-caption text-ink-gray-6">No time limit is set for this mission. Time counts only while work is running.</p>}>
-        <span role="progressbar" aria-label="Mission time used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={timeShare()} aria-valuetext={`${timeShare()}% of the time limit used`} class="flex h-2.5 w-full overflow-hidden rounded-full bg-surface-gray-3">
+      <Show when={wallMinutes() > 0} fallback={<p class="text-caption text-ink-gray-6">{t("plan.no-time-limit-is-set-for-this-mi.ef95")}</p>}>
+        <span role="progressbar" aria-label={t("plan.mission-time-used.2268")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={timeShare()} aria-valuetext={`${timeShare()}% of the time limit used`} class="flex h-2.5 w-full overflow-hidden rounded-full bg-surface-gray-3">
           <span class={`h-full ${timeShare() >= 90 ? "bg-surface-amber-6" : "bg-surface-blue-9"}`} style={{ width: `${timeShare()}%` }} />
         </span>
       </Show>
-      <Show when={props.mission.timeExtendedByBrain}><p class="text-caption text-ink-gray-7" data-testid="time-extended-note">Brain extended the time limit once.</p></Show>
+      <Show when={props.mission.timeExtendedByBrain}><p class="text-caption text-ink-gray-7" data-testid="time-extended-note">{t("plan.brain-extended-the-time-limit-on.e367")}</p></Show>
     </div>
     <div class="flex min-w-0 flex-col gap-1.5">
-      <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-wallet size-3.5" aria-hidden="true" />Budget</p>
-      <Show when={props.mission.budget.maxMicroUsd} fallback={<><p class="text-base-medium text-ink-gray-9">{formatUsd(props.mission.usage.settledMicroUsd + props.mission.usage.reservedMicroUsd)} spent</p><p class="text-caption text-ink-gray-6">No spending limit is set.</p></>}>
+      <p class="flex items-center gap-1.5 text-caption font-medium text-ink-gray-6"><span class="lucide-wallet size-3.5" aria-hidden="true" />{t("plan.budget.7aeb")}</p>
+      <Show when={props.mission.budget.maxMicroUsd} fallback={<><p class="text-base-medium text-ink-gray-9">{formatUsd(props.mission.usage.settledMicroUsd + props.mission.usage.reservedMicroUsd)} spent</p><p class="text-caption text-ink-gray-6">{t("plan.no-spending-limit-is-set.a56a")}</p></>}>
         {(limit) => <><p class="text-base-medium text-ink-gray-9">{formatUsd(props.mission.usage.settledMicroUsd + props.mission.usage.reservedMicroUsd)} of {formatUsd(limit())}</p>
-          <Meter label="Mission budget" settled={props.mission.usage.settledMicroUsd} reserved={props.mission.usage.reservedMicroUsd} limit={limit()} format={formatUsd} /></>}
+          <Meter label={t("plan.mission-budget.8424")} settled={props.mission.usage.settledMicroUsd} reserved={props.mission.usage.reservedMicroUsd} limit={limit()} format={formatUsd} /></>}
       </Show>
     </div>
   </section>;

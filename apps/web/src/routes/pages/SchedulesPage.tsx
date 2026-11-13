@@ -8,6 +8,7 @@ import { query } from "../../data/client";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { SchedulesPanel, type ScheduleTarget } from "../../ui/components/SchedulesPanel";
 import { RepeatSheet } from "../../ui/components/RepeatSheet";
+import { t } from "../../i18n";
 
 type Envelope<T> = { snapshot: { items: T[] }; asOf: string; sourceWatermark: number };
 
@@ -47,7 +48,7 @@ export default function SchedulesPage(): JSX.Element {
       return { snapshot: response.snapshot, asOf: response.asOf, sourceWatermark: response.sourceWatermark };
     },
   });
-  return <BrainPage title="Schedules" description="Every recurring, one-off and manual start in this workspace: what it starts, when it fires next, which host runs it and what happened.">
+  return <BrainPage title={t("sched.schedules.26d9")} description={t("sched.every-recurring-one-off-and-manu.4769")}>
     <PageStack>
       <Show when={repeating.state().data}>{(mission) => <RepeatSheet mission={mission()} open={!repeatClosed()} onClose={() => setRepeatClosed(true)} onCreated={() => setCreated((count) => count + 1)} />}</Show>
       <SchedulesPanel refreshKey={created()} targets={targets.state().data ?? []} focus={text("target")} create={text("create")} />

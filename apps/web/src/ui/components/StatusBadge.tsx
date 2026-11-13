@@ -83,7 +83,7 @@ const SEVERITY: StatusMap = {
 
 const HEALTH: StatusMap = {
   healthy: { theme: "green", label: "Healthy" }, degraded: { theme: "amber", label: "Degraded" },
-  unavailable: { theme: "red", label: "Unavailable" },
+  unavailable: { theme: "red", label: "Unavailable" }, disabled: { theme: "gray", label: "Off" },
 };
 
 const DECISION: StatusMap = {
