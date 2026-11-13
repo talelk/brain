@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
-import { mkdirSync, unlinkSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, unlinkSync, existsSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { execa } from "execa";
 import { loadHostCommands, resolveHostCommand, type HostCommandEffect } from "./host-commands";
@@ -81,6 +81,9 @@ export async function startLauncher(): Promise<void> {
   // Operator-owned allowlist of named host commands (ADR 0021): "name" -> fixed argv, never a caller-supplied command line.
   const hostCommands = loadHostCommands(process.env["BRAIN_LAUNCHER_HOST_COMMANDS"]);
   mkdirSync(dirname(socket), { recursive: true });
+  // The single-use ledger of privileged invocations survives a restart of the launcher.
+  const ledgerPath = `${socket}.effects`;
+  const usedInvocations = new Set<string>(existsSync(ledgerPath) ? readFileSync(ledgerPath, "utf8").split("\n").filter(Boolean) : []);
   if (existsSync(socket)) unlinkSync(socket);
   const server = createServer(async (req, res) => {
     try {
@@ -95,10 +98,19 @@ export async function startLauncher(): Promise<void> {
       if (!expectedToken || auth !== `Bearer ${expectedToken}`) { json(res, 401, { error: "launcher token required" }); return; }
       if (req.method === "POST" && url === "/v1/host-commands/run") {
         const b = await body(req);
-        for (const k of Object.keys(b)) if (!["command", "args", "allow"].includes(k)) { json(res, 422, { error: `field ${k} forbidden` }); return; }
+        for (const k of Object.keys(b)) if (!["command", "args", "allow", "invocationId"].includes(k)) { json(res, 422, { error: `field ${k} forbidden` }); return; }
         const allow: HostCommandEffect = b["allow"] === "privileged" ? "privileged" : "read";
         const resolved = resolveHostCommand(hostCommands, String(b["command"] ?? ""), b["args"], allow);
         if (!resolved.ok) { json(res, resolved.status, { error: resolved.error }); return; }
+        if (allow === "privileged") {
+          // A privileged command runs at most once per invocation (ADR 0024): the id of every run is written down before the command
+          // starts, so a replayed request, a retry after a crash, or a second runner asking again is refused here as well.
+          const invocationId = String(b["invocationId"] ?? "");
+          if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/u.test(invocationId)) { json(res, 422, { error: "a privileged command needs the invocationId of its permit" }); return; }
+          if (usedInvocations.has(invocationId)) { json(res, 409, { error: `invocation ${invocationId} already ran; a privileged command runs once` }); return; }
+          usedInvocations.add(invocationId);
+          appendFileSync(ledgerPath, `${invocationId}\n`, { mode: 0o600 });
+        }
         const [bin, ...rest] = resolved.argv as string[];
         const result = await execa(bin!, rest, {
           timeout: resolved.command.timeoutMs, maxBuffer: 256 * 1024, extendEnv: false, shell: false, reject: false,

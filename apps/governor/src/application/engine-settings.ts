@@ -4,6 +4,7 @@ import { activeReleaseRecord } from "../modules/configuration/index";
 import { drainStatus, hostedConfig, setDraining } from "../modules/jobs/index";
 import { wayOfWorking, workflowAgentTools } from "../modules/missions/index";
 import { readProbes } from "../modules/operations/index";
+import { effectAllowList } from "../modules/governance/index";
 import { requireWorkspaceRead } from "./authz";
 import type { CommandHandlers } from "./command-funnel";
 import type { Store } from "./store";
@@ -81,6 +82,40 @@ export function engineSettingsCommands(store: Store): CommandHandlers {
         return { resourceId: workspaceId };
       },
     },
+    "workspace.effects.set": {
+      kind: "control",
+      handle: ({ actor, cmd, workspaceId }) => {
+        requireAdmin(actor, "the effect allow-list");
+        if (!workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        const prior = effectAllowList(s, workspaceId);
+        const list = (key: string, fallback: readonly string[]): string[] => [...new Set(((cmd.payload[key] as string[] | undefined) ?? fallback).map((entry) => entry.trim()).filter(Boolean))].sort();
+        const containers = list("containers", prior.containers);
+        const services = list("services", prior.services);
+        const minutes = typeof cmd.payload["approvalMinutes"] === "number" ? cmd.payload["approvalMinutes"] : prior.approvalMinutes;
+        s.control.prepare(`INSERT INTO workspace_effect_policy(workspace_id,organization_id,containers_json,services_json,approval_minutes,updated_by,updated_at_ms) VALUES (?,?,?,?,?,?,?)
+          ON CONFLICT(workspace_id) DO UPDATE SET containers_json=excluded.containers_json,services_json=excluded.services_json,approval_minutes=excluded.approval_minutes,updated_by=excluded.updated_by,updated_at_ms=excluded.updated_at_ms`)
+          .run(workspaceId, actor.organizationId, JSON.stringify(containers), JSON.stringify(services), minutes, actor.actorId, s.now());
+        s.emit(s.control, { organizationId: actor.organizationId, workspaceId, aggregateType: "workspace", aggregateId: workspaceId, eventType: "workspace.effectsSet", payload: { workspaceId, containers, services, approvalMinutes: minutes } });
+        return { resourceId: workspaceId };
+      },
+    },
+    "runnerGroup.set": {
+      kind: "control",
+      handle: ({ actor, cmd }) => {
+        requireAdmin(actor, "a runner group's access");
+        const groupId = String(cmd.payload["groupId"]);
+        const workspaceIds = [...new Set(cmd.payload["workspaceIds"] as string[])].sort();
+        const hostTools = cmd.payload["hostTools"] === true;
+        for (const id of workspaceIds) if (!s.control.prepare("SELECT 1 FROM workspaces WHERE id=? AND organization_id=?").get(id, actor.organizationId)) throw new BrainDomainError("NOT_FOUND", `workspace ${id} not found`);
+        if (hostTools && workspaceIds.length === 0) throw new BrainDomainError("INVALID_ARGUMENT", "a group with host tools must name the workspaces that may use it");
+        if (workspaceIds.length === 0 && !hostTools) s.control.prepare("DELETE FROM runner_groups WHERE organization_id=? AND group_id=?").run(actor.organizationId, groupId);
+        else s.control.prepare(`INSERT INTO runner_groups(group_id,organization_id,host_tools,workspaces_json,updated_by,updated_at_ms) VALUES (?,?,?,?,?,?)
+          ON CONFLICT(organization_id,group_id) DO UPDATE SET host_tools=excluded.host_tools,workspaces_json=excluded.workspaces_json,updated_by=excluded.updated_by,updated_at_ms=excluded.updated_at_ms`)
+          .run(groupId, actor.organizationId, hostTools ? 1 : 0, JSON.stringify(workspaceIds), actor.actorId, s.now());
+        s.emit(s.control, { organizationId: actor.organizationId, aggregateType: "platform", aggregateId: groupId, eventType: "runnerGroup.set", payload: { groupId, hostTools, workspaceIds } });
+        return { resourceId: groupId };
+      },
+    },
     "platform.drain.set": {
       kind: "control",
       handle: ({ actor, cmd, workspaceId }) => {
@@ -109,4 +144,19 @@ export function engineSettings(store: Store, actor: ActorContext, workspaceId: s
     hostedModel: { enabled: hosted.enabled, vendor: hosted.vendor, model: hosted.model, baseUrl: hosted.baseUrl, status: !hosted.enabled ? "off" : probe ? (probe.status === "unavailable" ? "down" : "up") : "unknown", roles: ["evaluator", "second-attempt"] },
     drain: drainStatus(store),
   } as unknown as JsonValue;
+}
+
+/** effects.get: what this workspace's effect tools may touch and how long an approval waits. */
+export function effectSettings(store: Store, actor: ActorContext, workspaceId: string): JsonValue {
+  requireWorkspaceRead(store, actor, workspaceId);
+  const allow = effectAllowList(store, workspaceId);
+  const groups = (store.control.prepare("SELECT group_id, host_tools, workspaces_json FROM runner_groups WHERE organization_id=? ORDER BY group_id").all(actor.organizationId) as Array<{ group_id: string; host_tools: number; workspaces_json: string }>)
+    .filter((row) => (JSON.parse(row.workspaces_json) as string[]).includes(workspaceId));
+  return { workspaceId, containers: allow.containers, services: allow.services, approvalMinutes: allow.approvalMinutes, runnerGroups: groups.map((row) => ({ groupId: row.group_id, hostTools: row.host_tools === 1 })) } as unknown as JsonValue;
+}
+
+/** runnerGroups.list: the groups the owner set aside, with their workspaces and whether they carry host tools. */
+export function runnerGroups(store: Store, actor: ActorContext): JsonValue {
+  const rows = store.control.prepare("SELECT group_id, host_tools, workspaces_json FROM runner_groups WHERE organization_id=? ORDER BY group_id").all(actor.organizationId) as Array<{ group_id: string; host_tools: number; workspaces_json: string }>;
+  return { items: rows.map((row) => ({ groupId: row.group_id, hostTools: row.host_tools === 1, workspaceIds: JSON.parse(row.workspaces_json) as string[] })) } as unknown as JsonValue;
 }

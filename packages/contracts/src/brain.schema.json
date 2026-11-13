@@ -7587,7 +7587,10 @@
             "playProposals.list",
             "tools.calls",
             "engineSettings.get",
-            "lessons.list"
+            "lessons.list",
+            "effects.get",
+            "runnerGroups.list",
+            "integrations.guide"
           ]
         },
         "workspaceId": {
@@ -7668,7 +7671,10 @@
             "playProposals.list",
             "tools.calls",
             "engineSettings.get",
-            "lessons.list"
+            "lessons.list",
+            "effects.get",
+            "runnerGroups.list",
+            "integrations.guide"
           ]
         },
         "snapshot": {
@@ -11261,6 +11267,12 @@
         },
         {
           "$ref": "#/$defs/KnowledgeWithdrawUnobservedCommand"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceEffectsSetCommand"
+        },
+        {
+          "$ref": "#/$defs/RunnerGroupSetCommand"
         }
       ]
     },
@@ -24517,6 +24529,126 @@
           "type": "object",
           "properties": {},
           "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "WorkspaceEffectsSetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "workspace.effects.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "containers": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 63,
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$"
+              },
+              "maxItems": 100
+            },
+            "services": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80,
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.@-]{0,79}$"
+              },
+              "maxItems": 100
+            },
+            "approvalMinutes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1440
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "RunnerGroupSetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "runnerGroup.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "groupId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9.-]*$"
+            },
+            "hostTools": {
+              "type": "boolean"
+            },
+            "workspaceIds": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Id"
+              },
+              "maxItems": 50
+            }
+          },
+          "required": [
+            "groupId",
+            "hostTools",
+            "workspaceIds"
+          ],
           "additionalProperties": false
         }
       },

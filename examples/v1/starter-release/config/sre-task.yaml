@@ -24,11 +24,11 @@
           "type": "agent",
           "release": {
             "id": "sre-operator",
-            "digest": "sha256:e542fbcdfae77d383ee1d60bf20d3786e231558c02b78b60287020d9e424e87c"
+            "digest": "sha256:4052deaff8138ffa2250c188cc6c13359b1f3f5a20bc5daf596f55be1928afea"
           }
         },
         "runsOn": {
-          "group": "agents",
+          "group": "sre-host",
           "engine": {
             "anyOf": ["pi"],
             "features": ["sessions"]

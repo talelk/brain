@@ -785,6 +785,21 @@
       "scope": "workspace:read",
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
+    },
+    "effects.get": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
+    "runnerGroups.list": {
+      "scope": "platform:read",
+      "scopeMode": "organization",
+      "redactPrivilegedDetails": false
+    },
+    "integrations.guide": {
+      "scope": "platform:read",
+      "scopeMode": "organization",
+      "redactPrivilegedDetails": false
     }
   },
   "commandRecoveryRule": {

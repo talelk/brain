@@ -9,7 +9,7 @@ import { Store, type BrainOptions } from "./store";
 import { hasWorkspaceMembership, resolveActor, requireWorkspaceRead, scopesForPrincipal, type ResolvedActor } from "./authz";
 import { CommandFunnel } from "./command-funnel";
 import { workspaceAdminCommands } from "./workspace-admin";
-import { engineSettings, engineSettingsCommands } from "./engine-settings";
+import { effectSettings, engineSettings, engineSettingsCommands, runnerGroups } from "./engine-settings";
 import { completeUpload, completeUploadStream, initUpload, readVerified, readWorkspaceArtifactText, sweepStorage } from "../modules/artifacts/index";
 import { orgWorkspaces, textMatcher } from "./query";
 import { executeOrganizationQuery, isOrganizationQuery, organizationCommandHandlers } from "./organization-admin";
@@ -38,6 +38,9 @@ import { bridge } from "../modules/missions/index";
 import { searchSessions } from "../modules/sessions/index";
 import { jobCommands, JobProtocol, type CreateJobInput } from "../modules/jobs/index";
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
+import { beginGovernorRun, effectStatus, finishEffect, issueEffectPermit, requestEffect, startEffect, type EffectPorts } from "../modules/governance/index";
+import { connectorsFromEnv, type Connectors } from "../modules/operations/connectors";
+import { runGovernorEffect } from "./effect-broker";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
 import { MissionService, ShareService, missionCommands } from "../modules/missions/index";
 import { AutoStart, AUTO_START_TRIGGERS } from "./auto-start";
@@ -429,13 +432,16 @@ export class Brain {
     return preferencesView(this.store, actor.organizationId, actor.actorId);
   }
 
-  private notifyApprovers(input: { organizationId: string; workspaceId: string }): void {
+  private notifyApprovers(input: { organizationId: string; workspaceId: string; approvalId?: string; summary?: string }): void {
     const approvers = this.store.control.prepare(
       "SELECT DISTINCT principal_id FROM workspace_memberships WHERE workspace_id=? AND organization_id=? AND role IN ('approver','workspace-lead') AND revoked_at_ms IS NULL",
     ).all(input.workspaceId, input.organizationId) as Array<{ principal_id: string }>;
     // Approvals bypass the per-mission throttle and the summary; a person's channel switches still apply (ADR 0011). A message is a link: the decision happens after sign-in and step-up.
+    // An approval of one exact call links straight to that decision, so it can be answered from a phone (ADR 0024).
+    const url = input.approvalId ? `/approvals/${input.approvalId}` : "/approvals";
+    const body = input.summary ? `Waiting for your decision: ${input.summary}` : "A workflow gate is waiting for your review.";
     for (const a of approvers) {
-      void this.deliver(input.organizationId, a.principal_id, { title: "Approval requested", body: "A workflow gate is waiting for your review.", url: "/approvals", kind: "approval" }, channelsFor(this.store, input.organizationId, a.principal_id)).catch(() => undefined);
+      void this.deliver(input.organizationId, a.principal_id, { title: "Approval requested", body, url, kind: "approval" }, channelsFor(this.store, input.organizationId, a.principal_id)).catch(() => undefined);
     }
   }
 
@@ -504,6 +510,48 @@ export class Brain {
 
   validatePermit(token: string, invocationId: string): boolean {
     return governanceValidatePermit(this.store, { auth: this.auth }, token, invocationId);
+  }
+
+  /** Connectors tests and embedders may set; otherwise the server's own settings (ticketing and team chat) apply. */
+  connectorsOverride: Connectors | undefined;
+  connectors(): Connectors { return this.connectorsOverride ?? connectorsFromEnv(); }
+
+  private effectPorts(): EffectPorts {
+    return {
+      notifyApprovers: (input) => this.notifyApprovers(input),
+      unavailable: (toolId, context) => {
+        if (toolId === "ticket.create" && !this.connectors().tickets) return "no ticketing system is connected on this server (set BRAIN_TICKET_WEBHOOK_URL)";
+        if (toolId === "message.send" && !this.connectors().messages) return "no team chat is connected on this server (set BRAIN_NOTIFY_WEBHOOK_URL)";
+        if (toolId === "git.open-pr") return this.integrations.pullRequestTargetProblem(context.organizationId, context.workspaceId);
+        return undefined;
+      },
+    };
+  }
+
+  requestEffect(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, body: Record<string, unknown>): JsonValue {
+    return requestEffect(this.store, this.effectPorts(), runner, attemptId, body);
+  }
+
+  effectStatus(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, proposalId: string): JsonValue {
+    return effectStatus(this.store, runner, attemptId, proposalId);
+  }
+
+  issueEffectPermit(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, body: Record<string, unknown>): JsonValue {
+    return issueEffectPermit(this.store, { auth: this.auth }, runner, attemptId, body);
+  }
+
+  startEffect(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, body: Record<string, unknown>): JsonValue {
+    return startEffect(this.store, { auth: this.auth }, runner, attemptId, body);
+  }
+
+  finishEffect(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, body: Record<string, unknown>): JsonValue {
+    return finishEffect(this.store, runner, attemptId, body);
+  }
+
+  /** Performs an effect that needs the Governor's own credentials (ticket, message, pull request), once, for a started call. */
+  runEffect(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, body: Record<string, unknown>): Promise<JsonValue> {
+    const begun = beginGovernorRun(this.store, { auth: this.auth }, runner, attemptId, body);
+    return runGovernorEffect({ connectors: this.connectors(), integrations: this.integrations }, begun);
   }
 
   acceptAttemptArtifact(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, input: { digest: string; bytesBase64: string; mediaType?: string }): { artifactId: string; digest: string; bytes: number } {
@@ -848,6 +896,12 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, engineSettings(s, actor, q.workspaceId));
       }
+      case "effects.get": {
+        if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
+        return this.envelope(q.queryType, effectSettings(s, actor, q.workspaceId));
+      }
+      case "runnerGroups.list":
+        return this.envelope(q.queryType, runnerGroups(s, actor));
       case "platform.health":
         return this.envelope(q.queryType, platformHealth(s, this.memoryProbe));
       case "workspace.context": {
@@ -889,7 +943,7 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.drafts.query(actor, q.queryType, q.workspaceId, q.resourceId));
       }
-      case "integrations.list": case "integrations.repositories": {
+      case "integrations.list": case "integrations.repositories": case "integrations.guide": {
         return this.envelope(q.queryType, this.integrations.query(actor, q.queryType, q.resourceId));
       }
       case "documents.list": case "documents.get": case "documents.search": {

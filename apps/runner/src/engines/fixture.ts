@@ -62,7 +62,7 @@ export class FixtureEngine implements EngineAdapter {
             ],
           };
         }
-        if (typeof input["situation"] === "string" && spec.instructions.includes("General Task Worker")) {
+        if (typeof input["situation"] === "string" && (spec.instructions.includes("General Task Worker") || spec.instructions.includes("SRE Operator"))) {
           // The general task worker: a written deliverable that answers every acceptance criterion of the brief.
           const lines = input["situation"].split("\n");
           const criteria = lines.slice(lines.indexOf("Acceptance criteria:") + 1).map((line) => /^\d+\. (.+)$/u.exec(line)?.[1]).filter((line): line is string => line !== undefined && lines.includes("Acceptance criteria:"));
@@ -80,20 +80,21 @@ export class FixtureEngine implements EngineAdapter {
       } catch { /* Plain-text engine conformance tasks use the default response. */ }
       // Test hook for the governed tool broker: a situation holding `FIXTURE_CALL_TOOL {"id":"documents.read","input":{...}}` makes the fixture
       // propose that tool exactly as a model would, wait for the broker's result and quote it in its deliverable.
-      const requested = this.requestedTool(spec.task);
-      if (requested) {
+      // A situation may hold several such lines: the fixture proposes them one after the other, each waiting for its own answer.
+      let calls = 0;
+      for (const requested of this.requestedTools(spec.task)) {
         const binding = this.toolBindings.find((candidate) => candidate.release.id === requested.id);
-        if (binding) {
-          const proposalId = `fixture-call-${spec.attemptId}`;
-          const waited = new Promise<EngineToolExecutionResult>((resolve) => { this.pendingTool = resolve; });
-          this.push("tool.proposed", { proposalId, tool: binding.release, input: requested.input, target: binding.target, inputDigest: sha256Digest(new TextEncoder().encode(JSON.stringify(requested.input))) } as never);
-          const answered = await waited;
-          this.push("tool.result", { proposalId, invocationId: answered.invocationId, receipt: answered.receipt });
-          if (response && typeof response === "object" && typeof (response as { deliverable?: unknown }).deliverable === "string") {
-            const report = response as { summary: string; deliverable: string };
-            report.summary = `${report.summary} (used ${requested.id})`;
-            report.deliverable = `${report.deliverable}\n\nTool output (${requested.id}): ${JSON.stringify(answered.output).slice(0, 1500)}`;
-          }
+        if (!binding) continue;
+        calls += 1;
+        const proposalId = `fixture-call-${spec.attemptId}${calls > 1 ? `-${calls}` : ""}`;
+        const waited = new Promise<EngineToolExecutionResult>((resolve) => { this.pendingTool = resolve; });
+        this.push("tool.proposed", { proposalId, tool: binding.release, input: requested.input, target: binding.target, inputDigest: sha256Digest(new TextEncoder().encode(JSON.stringify(requested.input))) } as never);
+        const answered = await waited;
+        this.push("tool.result", { proposalId, invocationId: answered.invocationId, receipt: answered.receipt });
+        if (response && typeof response === "object" && typeof (response as { deliverable?: unknown }).deliverable === "string") {
+          const report = response as { summary: string; deliverable: string };
+          if (calls === 1) report.summary = `${report.summary} (used ${requested.id})`;
+          report.deliverable = `${report.deliverable}\n\nTool output (${requested.id}): ${JSON.stringify(answered.output).slice(0, 1500)}`;
         }
       }
       await fixtureGate.hold?.(spec.attemptId, signal);
@@ -112,12 +113,12 @@ export class FixtureEngine implements EngineAdapter {
     return { sessionId: this.sessionId };
   }
 
-  private requestedTool(task: string): { id: string; input: Record<string, unknown> } | undefined {
+  private requestedTools(task: string): Array<{ id: string; input: Record<string, unknown> }> {
     try {
       const body = JSON.parse(task.includes(TASK_MARK) ? task.slice(task.indexOf(TASK_MARK) + TASK_MARK.length) : task) as { situation?: unknown };
-      const match = typeof body.situation === "string" ? /FIXTURE_CALL_TOOL (\{.*\})/u.exec(body.situation) : null;
-      return match ? JSON.parse(match[1]!) as { id: string; input: Record<string, unknown> } : undefined;
-    } catch { return undefined; }
+      if (typeof body.situation !== "string") return [];
+      return [...body.situation.matchAll(/FIXTURE_CALL_TOOL (\{.*\})/gu)].map((match) => JSON.parse(match[1]!) as { id: string; input: Record<string, unknown> });
+    } catch { return []; }
   }
 
   async toolResult(_sessionId: string, result: EngineToolExecutionResult): Promise<void> {

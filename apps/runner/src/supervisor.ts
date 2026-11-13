@@ -7,6 +7,7 @@ import type { ArtifactRef, EvaluationAssignment, JsonValue, ReleaseRef, Verifica
 import Ajv2020 from "ajv/dist/2020.js";
 import { executeToolPayload, normalizeEvaluation } from "./tools/invoke";
 import { brokerRead } from "./tools/broker-read";
+import { effectGate, runEffect, type EffectCall, type EffectRun } from "./tools/effects";
 import { DurableEventSpool } from "./spool-durable";
 import { GovernorClient, GovernorProtocolError } from "./governor-client";
 import { LauncherClient } from "./launcher-client";
@@ -34,6 +35,10 @@ export interface RunnerConfig {
    * add a mount it was not given, and a tool sees only its own mounts.
    */
   readonly dataMounts?: ReadonlyMap<string, readonly string[]>;
+  /** Tests and embedders supply the trusted launcher directly; otherwise it is built from BRAIN_LAUNCHER_SOCKET. */
+  readonly launcher?: LauncherClient;
+  /** How often an effect call looks up whether a person decided it (milliseconds; 2000 when absent). */
+  readonly effectPollMs?: number;
 }
 
 /** "host.read=srv+logs,csv.query=cv-data" -> tool id -> mount names. Malformed entries are ignored, never widened. */
@@ -251,6 +256,9 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     let result: { ok: boolean; output: JsonValue; cleanupConfirmed?: boolean };
     const toolArtifacts: ArtifactRef[] = [];
     const nestedToolReleases: ReleaseRef[] = [];
+    // What approved effect calls did, for the evidence bundle: each effect with its reconciled receipt, and the approvals it consumed.
+    const nestedEffects: Array<{ invocationId: string; targetId: string; operation: string; outcome: "applied" | "absent" | "unknown"; receiptArtifact: ArtifactRef }> = [];
+    const nestedApprovalIds: string[] = [];
     if (offer.execution.kind === "agent") {
       const step = (payload.step ?? {}) as { task?: string; timeoutSeconds?: number; uses?: { release?: { id: string; digest: string } } };
       const ref = step.uses?.release;
@@ -271,7 +279,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       const engineProbe = await engine.probe();
       engineInfo = { id: engineProbe.id, adapterDigest: engineProbe.adapterDigest, features: [...engineProbe.features] };
       const task = promptWithContext(step.task ?? JSON.stringify(payload.input ?? {}), payload.contextPack);
-      const launcher = LauncherClient.configured() ? LauncherClient.fromEnv() : undefined;
+      const launcher = cfg.launcher ?? (LauncherClient.configured() ? LauncherClient.fromEnv() : undefined);
       const toolPins = (offer as { toolPins?: Record<string, string> }).toolPins;
       const ajv = new Ajv2020({ allErrors: true, strict: true });
       let invocationCount = 0;
@@ -303,7 +311,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
             ? (messageId, message) => handle.steer(messageId, message)
             : undefined;
         },
-        executeTool: async (proposal) => {
+        executeTool: async (proposal, hold) => {
           if (++invocationCount > asset.agent.spec.maxTurns) throw new Error("Agent tool-call budget exhausted");
           const binding = asset.toolBindings.find((candidate) => candidate.release.id === proposal.tool.id && candidate.release.digest === proposal.tool.digest);
           if (!binding || !asset.agent.spec.tools.some((allowed) => allowed.id === proposal.tool.id && allowed.digest === proposal.tool.digest)) throw new Error("Agent proposed an unauthorized tool or digest");
@@ -314,28 +322,47 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
           if (!valid(proposal.input)) throw new Error(`Agent tool input rejected: ${ajv.errorsText(valid.errors)}`);
           let invocationId = proposal.proposalId;
           let nestedPermit: { token: string; permitId: string } | undefined;
+          // An effect call stops here until a person decided it (ADR 0024): the approval names this exact call and yields one permit.
+          let effect: { call: EffectCall; gate: { token: string; invocationId: string; approvalId: string } } | undefined;
+          let gated: { ok: false; output: JsonValue } | undefined;
           if (binding.effectClass !== "read") {
-            const subjectDigest = domainDigest("brain:agent-tool:v1", { tool: proposal.tool, inputDigest: proposal.inputDigest, target: proposal.target, attemptId: offer.attemptId });
-            const granted = await client.permit(offer.attemptId, { invocationId, subjectDigest, resourceKeys: [`target:${binding.target.targetId}`] });
-            invocationId = granted.invocationId ?? invocationId;
-            nestedPermit = { token: granted.token, permitId: invocationId };
+            const call: EffectCall = { proposalId: proposal.proposalId, tool: proposal.tool, input: proposal.input as Record<string, unknown> };
+            const gate = await effectGate(client, offer.attemptId, call, {
+              pollMs: cfg.effectPollMs ?? 2000, hold: hold ?? ((work) => work), signal: controller.signal,
+              progress: (detail) => emit("progress", { phase: "waiting-for-approval", detail }),
+            });
+            if (gate.ok) { effect = { call, gate }; invocationId = gate.invocationId; nestedPermit = { token: gate.token, permitId: gate.invocationId }; }
+            else gated = { ok: false, output: { error: gate.error } as JsonValue };
           }
           const startedAt = new Date().toISOString();
           // Read tools that need data the sandboxed script cannot reach get it from a broker first; a refusal is a failed call with a
-          // receipt, never a script run on missing data.
-          const brokered = await brokerRead(binding, proposal.input as Record<string, unknown>, offer.attemptId, client, launcher);
-          const executed = brokered && !brokered.ok ? { ok: false as const, output: { error: brokered.error } as JsonValue } : await executeToolPayload({
+          // receipt, never a script run on missing data. An approved effect call is done by its broker (launcher or Governor) the same way.
+          let effectRun: EffectRun | undefined;
+          let brokered = gated || effect ? undefined : await brokerRead(binding, proposal.input as Record<string, unknown>, offer.attemptId, client, launcher);
+          if (effect) { effectRun = await runEffect(client, launcher, offer.attemptId, effect.call, effect.gate); brokered = effectRun.result; }
+          let executed = gated ?? (brokered && !brokered.ok ? { ok: false as const, output: { error: brokered.error } as JsonValue } : await executeToolPayload({
             offer: { payload: { input: brokered ? { ...(proposal.input as Record<string, unknown>), broker: brokered.data } : proposal.input as Record<string, unknown>, invocationId,
               step: { uses: { type: "tool", release: proposal.tool }, effectClass: binding.effectClass, target: binding.target } },
               execution: { kind: "tool" }, workspaceId: offer.workspaceId },
             cfg, signal: controller.signal, launcher, permit: nestedPermit, toolPins,
             validatePermit: (token, id) => client.validatePermit(token, id),
             fetchPinnedTool: (toolId, digest) => client.toolScript(offer.configDigest, toolId, digest),
-          });
+          }));
+          if (effectRun) {
+            // The call is only a success when the change was applied; a report that could not be shaped still says what ran.
+            if (effectRun.result.ok && !executed.ok) executed = { ok: true, output: { result: effectRun.result.data, note: "the change ran; its report could not be shaped" } as unknown as JsonValue };
+            if (effectRun.outcome !== "applied" && executed.ok) executed = { ok: false, output: { error: "the change did not complete", result: effectRun.result.ok ? effectRun.result.data : null } as unknown as JsonValue };
+          }
           const bytes = new TextEncoder().encode(JSON.stringify(executed.output));
           const uploaded = await client.uploadArtifact(offer.attemptId, bytes, "application/json");
           const artifact = { ...uploaded, mediaType: "application/json", classification: "internal" as const };
           if (!toolArtifacts.some((known) => known.artifactId === artifact.artifactId)) toolArtifacts.push(artifact);
+          if (effect && effectRun) {
+            // The permit's final state and the receipt the evidence bundle will carry (ADR 0024).
+            await client.effectFinish(offer.attemptId, { proposalId: proposal.proposalId, outcome: effectRun.outcome, receiptDigest: artifact.digest });
+            nestedEffects.push({ invocationId, targetId: binding.target.targetId, operation: `effect.${proposal.tool.id}`.slice(0, 64), outcome: effectRun.outcome, receiptArtifact: artifact });
+            nestedApprovalIds.push(effect.gate.approvalId);
+          }
           await emit("effect", { phase: "governed-tool-result", proposalId: proposal.proposalId, invocationId, artifact });
           return { proposalId: proposal.proposalId, invocationId,
             receipt: { invocationId, attemptId: offer.attemptId, jobFence: offer.jobFence, result: executed.ok ? "succeeded" : "failed", startedAt, finishedAt: new Date().toISOString(), stdout: artifact, effects: [] },
@@ -351,7 +378,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       result = agentResult;
       clearInterval(steerDrain);
     } else {
-    const launcher = LauncherClient.configured() ? LauncherClient.fromEnv() : undefined;
+    const launcher = cfg.launcher ?? (LauncherClient.configured() ? LauncherClient.fromEnv() : undefined);
     const toolPins = (offer as { toolPins?: Record<string, string> }).toolPins;
     // A direct tool step of a read tool whose data a broker supplies (a page, a document, a host command) gets it first, exactly as an agent's call does.
     const directTool = (payload.step as { uses?: { type?: string; release?: { id: string; digest: string } }; effectClass?: string } | undefined);
@@ -402,8 +429,8 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
         toolReleases: [...offer.authorEvidence.toolReleases, ...nestedToolReleases.filter((nested) => !offer.authorEvidence?.toolReleases.some((tool) => tool.id === nested.id && tool.digest === nested.digest))],
         artifacts: [{ ...artifact, mediaType: "application/json", classification: "internal" }, ...toolArtifacts.filter((known) => known.artifactId !== artifact.artifactId)],
         checks: offer.authorEvidence.claimedChecks,
-        approvalIds: [],
-        effects: [],
+        approvalIds: [...nestedApprovalIds],
+        effects: [...nestedEffects],
         createdAt: new Date().toISOString(),
       };
       const submitted = await client.submitEvidence(bundle);

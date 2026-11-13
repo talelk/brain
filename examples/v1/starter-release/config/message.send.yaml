@@ -1,0 +1,27 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Tool",
+  "metadata": {
+    "id": "message.send",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "effectClass": "write",
+    "inputSchemaRef": "schemas/message-send-input.json",
+    "outputSchemaRef": "schemas/message-send-output.json",
+    "requiredCapabilities": [
+      "tool:bash",
+      "tool:python3"
+    ],
+    "timeoutSeconds": 60,
+    "maxOutputBytes": 65536,
+    "allowedEnvironments": [
+      "local"
+    ],
+    "owner": "team_operations",
+    "license": "LicenseRef-Internal",
+    "description": "Sends ONE message to the team chat (Slack or Teams) connected to this server. Each call stops until the owner approves exactly that call.",
+    "entrypoint": "run.sh",
+    "testEntrypoint": "test.sh"
+  }
+}

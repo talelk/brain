@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "command": {
+      "type": "string"
+    },
+    "exitCode": {
+      "type": "integer"
+    },
+    "output": {
+      "type": "string"
+    },
+    "errorOutput": {
+      "type": "string"
+    },
+    "timedOut": {
+      "type": "boolean"
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "command",
+    "exitCode",
+    "output",
+    "errorOutput",
+    "timedOut",
+    "truncated"
+  ],
+  "additionalProperties": false
+}

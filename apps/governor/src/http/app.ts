@@ -763,6 +763,43 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       return c.json({ data: brain.jobProtocol.toolRead(runner, c.req.param("id"), { tool: { id: body.tool.id, digest: body.tool.digest }, input: body.input }) } as never);
     } catch (e) { return fail(c as never, e); }
   });
+  // Effect tools (ADR 0024): propose a call, learn its decision, take its one permit, start it, perform it, report how it ended.
+  app.post("/runner/v1/attempts/:id/effects", async (c) => {
+    try {
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      return c.json(brain.requestEffect(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
+    } catch (e) { return fail(c as never, e); }
+  });
+  app.get("/runner/v1/attempts/:id/effects/:proposalId", (c) => {
+    try {
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      return c.json(brain.effectStatus(runner, c.req.param("id"), c.req.param("proposalId")) as never);
+    } catch (e) { return fail(c as never, e); }
+  });
+  app.post("/runner/v1/attempts/:id/effects/permit", async (c) => {
+    try {
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      return c.json(brain.issueEffectPermit(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
+    } catch (e) { return fail(c as never, e); }
+  });
+  app.post("/runner/v1/attempts/:id/effects/start", async (c) => {
+    try {
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      return c.json(brain.startEffect(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
+    } catch (e) { return fail(c as never, e); }
+  });
+  app.post("/runner/v1/attempts/:id/effects/run", async (c) => {
+    try {
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      return c.json({ data: await brain.runEffect(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) } as never);
+    } catch (e) { return fail(c as never, e); }
+  });
+  app.post("/runner/v1/attempts/:id/effects/finish", async (c) => {
+    try {
+      const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
+      return c.json(brain.finishEffect(runner, c.req.param("id"), (await readJson(c)) as Record<string, unknown>) as never);
+    } catch (e) { return fail(c as never, e); }
+  });
   app.post("/runner/v1/attempts/:id/artifacts", async (c) => {
     try {
       const runner = brain.jobProtocol.authenticate(c.req.raw.headers);

@@ -101,8 +101,9 @@ export class EvidenceService {
     if (step.uses && !bundle.toolReleases.every((actual) => admitted.some((tool) => same(actual, tool)))) throw new BrainDomainError("FORBIDDEN", "bundle tool release does not match the admitted execution");
     for (const effect of bundle.effects) {
       const permit=this.s.control.prepare("SELECT 1 FROM effect_permits WHERE attempt_id=? AND invocation_id=?").get(author.id,effect.invocationId);
-      const receipt=this.s.control.prepare("SELECT 1 FROM domain_operation_receipts WHERE invocation_id=? AND target_key=? AND operation=? AND outcome=? AND receipt_digest=?").get(effect.invocationId,effect.targetId,effect.operation,effect.outcome,effect.receiptArtifact.digest);
-      if (author.effect_class === "read" || !permit || !receipt || !bundle.artifacts.some((a)=>same(a,effect.receiptArtifact))) throw new BrainDomainError("EVIDENCE_MISSING", "external effect is not backed by an authorized reconciled receipt");
+      const receipt=ws.prepare("SELECT 1 FROM domain_operation_receipts WHERE invocation_id=? AND target_key=? AND operation=? AND outcome=? AND receipt_digest=?").get(effect.invocationId,effect.targetId,effect.operation,effect.outcome,effect.receiptArtifact.digest);
+      // An agent step carries its approved effect calls inside a job of class read (ADR 0024); the permit and the receipt are what back the effect.
+      if (!permit || !receipt || !bundle.artifacts.some((a)=>same(a,effect.receiptArtifact))) throw new BrainDomainError("EVIDENCE_MISSING", "external effect is not backed by an authorized reconciled receipt");
     }
     for (const approvalId of bundle.approvalIds) if (!this.s.control.prepare("SELECT 1 FROM approval_consumptions WHERE approval_id=? AND attempt_id=?").get(approvalId, bundle.attemptId)) throw new BrainDomainError("FORBIDDEN", "bundle approval is not bound to the author attempt");
     this.verifyArtifacts(bundle);

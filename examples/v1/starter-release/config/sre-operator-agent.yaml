@@ -23,6 +23,26 @@
       {
         "id": "knowledge.search",
         "digest": "sha256:3994d2c88f1d2c2bc3c07637a7d95224b19a2c1fa4b1d89b8ef30867b2023bfb"
+      },
+      {
+        "id": "host.restart",
+        "digest": "sha256:5266a45042a5b8e4215d63638ea3eeb291d631d4c10f7c1637cf23ca889c8025"
+      },
+      {
+        "id": "host.reload",
+        "digest": "sha256:6f81f836239fbaef8c6e5a7354caf08887b1080041fd44213e178bfc6b03e229"
+      },
+      {
+        "id": "ticket.create",
+        "digest": "sha256:b2794fdae782d31335dd116921aa09289322f770e84fd24c11a25f3a0624d2dc"
+      },
+      {
+        "id": "message.send",
+        "digest": "sha256:932587608401b721120423c164bd69db226381812d952c076d27d1a8a33ebefc"
+      },
+      {
+        "id": "git.open-pr",
+        "digest": "sha256:38d3f39bdfdb9272cee6dfec5b7febd343e7a14d47586aff0b2c02b7eaa6f655"
       }
     ],
     "engine": {

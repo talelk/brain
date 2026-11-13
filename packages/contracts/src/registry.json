@@ -753,6 +753,24 @@
       "actors": [
         "human"
       ]
+    },
+    {
+      "type": "workspace.effects.set",
+      "schema": "WorkspaceEffectsSetCommand",
+      "scope": "config:activate",
+      "authority": "control",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "runnerGroup.set",
+      "schema": "RunnerGroupSetCommand",
+      "scope": "config:activate",
+      "authority": "control",
+      "actors": [
+        "human"
+      ]
     }
   ],
   "queries": [
@@ -850,7 +868,10 @@
     "playProposals.list",
     "tools.calls",
     "engineSettings.get",
-    "lessons.list"
+    "lessons.list",
+    "effects.get",
+    "runnerGroups.list",
+    "integrations.guide"
   ],
   "events": [
     {

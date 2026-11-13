@@ -5,6 +5,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { decryptGitCredentials, encryptGitCredentials } from "./crypto";
 import { protocolClient, type RemoteSnapshot } from "./providers";
+import { HostedPullRequestApi, pushProposalBranch, type ProposedFile, type PullRequestApi } from "./pull-request";
 
 export interface IntegrationCommand {
   readonly commandType: string;
@@ -51,6 +52,75 @@ export class IntegrationService {
   }
 
   constructor(private readonly store: Store) {}
+
+  private pullRequestApi: PullRequestApi = new HostedPullRequestApi();
+  /** Tests and embedders point the provider call somewhere else; production reads the provider from the remote's address. */
+  usePullRequestApi(api: PullRequestApi): void { this.pullRequestApi = api; }
+
+  /** The newest verified write binding of a project repository of this workspace: where a pull request may be opened. */
+  private pullRequestBinding(organizationId: string, workspaceId: string): (BindingRow & { base_url: string; encrypted_credentials: string; connection_id: string; repositories_json: string }) | undefined {
+    return this.store.control.prepare(`SELECT b.*, c.base_url, c.encrypted_credentials, c.repositories_json FROM repository_bindings b JOIN git_connections c ON c.id=b.connection_id
+      WHERE c.organization_id=? AND b.workspace_id=? AND b.kind='project' AND b.access='write' AND b.status='verified' AND c.status='verified' ORDER BY b.created_at_ms DESC LIMIT 1`).get(organizationId, workspaceId) as never;
+  }
+
+  /** A plain reason when this workspace cannot open pull requests yet, else undefined. */
+  pullRequestTargetProblem(organizationId: string, workspaceId: string): string | undefined {
+    return this.pullRequestBinding(organizationId, workspaceId) ? undefined : "this workspace has no verified Git repository it may write to (Administration > Integrations: connect a repository, then bind it to this workspace as a project with write access)";
+  }
+
+  /**
+   * Opens a pull request in the workspace's bound project repository: a new branch with the proposed files, then the provider's request.
+   * Runs only for an approved call (the caller holds a started permit). Returns the address; the token is never part of any result or error.
+   */
+  async openPullRequest(organizationId: string, workspaceId: string, input: { title: string; body: string; branch: string; files: readonly ProposedFile[] }): Promise<{ url: string; number: number; branch: string; commit: string }> {
+    const binding = this.pullRequestBinding(organizationId, workspaceId);
+    if (!binding) throw new BrainDomainError("FORBIDDEN", this.pullRequestTargetProblem(organizationId, workspaceId) ?? "no repository");
+    const credentials = decryptGitCredentials(this.store.pepper, organizationId, binding.connection_id, binding.encrypted_credentials);
+    const scrub = (message: string): string => (credentials.token ? message.split(credentials.token).join("[hidden]") : message);
+    const repositories = JSON.parse(binding.repositories_json) as IntegrationRepository[];
+    const base = repositories.find((repository) => repository.repositoryKey === binding.repository_key)?.defaultBranch ?? "main";
+    try {
+      const pushed = await pushProposalBranch(binding.repository_key, credentials, { base, head: input.branch, message: input.title, files: input.files });
+      const opened = await this.pullRequestApi.open({ remoteUrl: binding.repository_key, credentials, base, head: input.branch, title: input.title, body: input.body });
+      return { url: opened.url, number: opened.number, branch: input.branch, commit: pushed.commitOid };
+    } catch (error) {
+      throw new BrainDomainError("INTERNAL_ERROR", scrub(error instanceof Error ? error.message : "the pull request could not be opened").slice(0, 300));
+    }
+  }
+
+  /** Guided setup of a Git connection: what is done, what is next and why a step failed, in words an owner can act on. */
+  private guide(actor: ActorContext, connectionId: string | undefined): JsonValue {
+    type Step = { id: string; title: string; state: "done" | "todo" | "failed"; advice: string };
+    const steps: Step[] = [];
+    if (!connectionId) {
+      steps.push({ id: "connect", title: "Add a Git connection", state: "todo", advice: "Enter the repository address (https), a user name if your Git host asks for one, and an access token with permission to push branches and open pull requests. The token is stored encrypted and is never shown again." });
+      return { ready: false, steps } as unknown as JsonValue;
+    }
+    const connection = this.connection(actor, connectionId);
+    const repositories = JSON.parse(connection.repositories_json) as IntegrationRepository[];
+    const bindings = (this.store.control.prepare("SELECT b.* FROM repository_bindings b WHERE b.connection_id=?").all(connectionId) as BindingRow[]);
+    const verified = connection.status === "verified";
+    steps.push({ id: "connect", title: "Git connection added", state: "done", advice: `Connected to ${connection.base_url}.` });
+    steps.push({
+      id: "verify", title: "Brain can reach the repository and the token is accepted",
+      state: verified ? "done" : connection.status === "failed" ? "failed" : "todo",
+      advice: verified ? "The repository answered and accepted the token." : connection.status === "failed" ? `Verification failed: ${connection.detail ?? "no detail"}. Check the address, that the token has not expired, and that it can read and push this repository, then choose Verify again.` : "Verification is running; it takes a few seconds.",
+    });
+    const repository = repositories[0];
+    steps.push({
+      id: "write", title: "The token may push", state: !verified ? "todo" : repository?.permissions.write ? "done" : "failed",
+      advice: !verified ? "Waiting for verification." : repository?.permissions.write ? "The remote accepts pushes with this token." : "The token can read but not push. Create a token with write (repository contents) and pull request permission.",
+    });
+    const writeBinding = bindings.find((binding) => binding.kind === "project" && binding.access === "write");
+    steps.push({
+      id: "bind", title: "Repository bound to a workspace for pull requests",
+      state: writeBinding?.status === "verified" ? "done" : writeBinding?.status === "failed" ? "failed" : "todo",
+      advice: writeBinding?.status === "verified" ? "A workspace may open pull requests in this repository." : writeBinding ? `The binding is ${writeBinding.status}${writeBinding.detail ? `: ${writeBinding.detail}` : ""}.` : "Bind the repository to the workspace as a project with write access; that is what lets an approved call open a pull request.",
+    });
+    const hosted = /^https:\/\/(github\.com|[^/]*gitlab[^/]*)\//u.test(connection.base_url);
+    steps.push({ id: "provider", title: "Pull requests can be opened on this host", state: hosted ? "done" : "todo", advice: hosted ? "Brain recognises this host and opens the request through its API." : "Brain opens requests through the GitHub or GitLab API. For another Git host the branch is pushed but no request is opened." });
+    return { connectionId, ready: steps.every((step) => step.state === "done"), steps } as unknown as JsonValue;
+  }
 
   private assertOrgRead(actor: ActorContext): void {
     if (!actor.scopes.includes("platform:read")) throw new BrainDomainError("FORBIDDEN", "integration administration requires platform:read");
@@ -214,6 +284,7 @@ export class IntegrationService {
       }));
       return { connections, bindings, proposals } as unknown as JsonValue;
     }
+    if (queryType === "integrations.guide") return this.guide(actor, resourceId);
     if (queryType === "integrations.repositories") {
       const connection = this.connection(actor, String(resourceId ?? ""));
       return { items: JSON.parse(connection.repositories_json) as IntegrationRepository[], status: connection.status, ...(connection.detail ? { detail: connection.detail } : {}) } as unknown as JsonValue;

@@ -135,6 +135,30 @@
         "for h in brain cvinsights ps-insights health360 docus docus-zain newqlik newqlik-studio synthetic vue360 kiosrh teknova presence auto ai memory captree victoria mgcatalog demos; do printf \"%s \" \"$h\"; curl -s -o /dev/null -w \"%{http_code}\\n\" --max-time 6 \"https://$h.mykeyrus.tn/\" || echo down; done"
       ],
       "timeoutMs": 60000
+    },
+    "docker.restart": {
+      "effect": "privileged",
+      "argv": [
+        "docker",
+        "restart",
+        "{container}"
+      ],
+      "args": {
+        "container": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$"
+      },
+      "timeoutMs": 60000
+    },
+    "service.reload": {
+      "effect": "privileged",
+      "argv": [
+        "systemctl",
+        "reload",
+        "{service}.service"
+      ],
+      "args": {
+        "service": "^[a-zA-Z0-9][a-zA-Z0-9_@-]{0,79}$"
+      },
+      "timeoutMs": 30000
     }
   }
 }

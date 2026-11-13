@@ -31,6 +31,8 @@ export function issuePermit(s: Store, deps: { auth: BrainAuth }, runner: { runne
       const token = cred ? createHmac("sha256", s.pepper).update(`${prior.id}\n${cred.token_nonce}`).digest("base64url") : "";
       const owner = s.control.prepare("SELECT attempt_id FROM effect_permits WHERE id=?").get(prior.id) as { attempt_id: string };
       if (owner.attempt_id !== attemptId) throw new BrainDomainError("FORBIDDEN", "permit belongs to a different attempt");
+      // A permit is single use (ADR 0024): once the call started, asking again hands out nothing.
+      if (prior.state !== "issued") throw new BrainDomainError("CONFLICT", "this permit was already used; a call runs once");
       assertAttemptLive(s, runner, loadAttempt(s, attemptId));
       if (!validatePermit(s, deps, token, invocationId)) throw new BrainDomainError("APPROVAL_REQUIRED", "permit is no longer current; re-authorize before effect");
       out = { permitId: prior.id, invocationId, token, expiresAt: iso(prior.expires_at_ms), state: prior.state } as unknown as JsonValue;
@@ -39,6 +41,11 @@ export function issuePermit(s: Store, deps: { auth: BrainAuth }, runner: { runne
     const row = loadAttempt(s, attemptId);
     assertAttemptLive(s, runner, row);
     if (String(row["state"]) !== "running") throw new BrainDomainError("CONFLICT", "attempt not running");
+    // An agent never holds authority it was not given for this call: an agent step needs an approved, unconsumed approval of the exact call.
+    const step = s.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(String(row["job_id"])) as { payload_json: string } | undefined;
+    if (!approvalId && step && (JSON.parse(step.payload_json) as { step?: { uses?: { type?: string } } }).step?.uses?.type === "agent") {
+      throw new BrainDomainError("APPROVAL_REQUIRED", "an agent's effect call needs an approval of that exact call");
+    }
     // E046: a quarantined/disabled runner can never mint fresh effect authority.
     const runnerRow = s.control.prepare("SELECT admin_state FROM runners WHERE id=?").get(runner.runnerId) as { admin_state: string } | undefined;
     if (!runnerRow || runnerRow.admin_state === "quarantined" || runnerRow.admin_state === "disabled") {
@@ -102,7 +109,7 @@ export function validatePermit(s: Store, deps: { auth: BrainAuth }, token: strin
     JOIN organizations o ON o.id=r.organization_id
     WHERE c.token_digest=? AND p.invocation_id=? AND a.runner_epoch=r.session_epoch AND a.state='running' AND j.state='running' AND a.lease_expires_at_ms>?`).get(s.tokenDigest("permit", token), invocationId, s.now()) as
     | { expires_at_ms: number; state: string; revocation_generation: number; approval_id: string | null; subject_digest: string; organization_id: string; workspace_id: string; revoked_at_ms: number | null; org_generation: number; runner_state: string } | undefined;
-  return !!row && !row.revoked_at_ms && row.state === "issued" && row.expires_at_ms > s.now()
+  return !!row && !row.revoked_at_ms && (row.state === "issued" || row.state === "started") && row.expires_at_ms > s.now()
     && row.revocation_generation === row.org_generation
     && row.runner_state !== "quarantined" && row.runner_state !== "disabled"
     && (!row.approval_id || approvalCurrentlyUsable(s, deps.auth, { approvalId: row.approval_id, organizationId: row.organization_id, workspaceId: row.workspace_id, subjectDigest: row.subject_digest }));

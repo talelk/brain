@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "url": {
+      "type": "string"
+    },
+    "number": {
+      "type": "integer"
+    },
+    "branch": {
+      "type": "string"
+    },
+    "commit": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "url",
+    "number",
+    "branch",
+    "commit"
+  ],
+  "additionalProperties": false
+}

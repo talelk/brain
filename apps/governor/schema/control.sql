@@ -517,3 +517,29 @@ CREATE TABLE email_deliveries (
 ) STRICT;
 CREATE INDEX email_deliveries_person ON email_deliveries(organization_id, principal_id, at_ms);
 
+-- Effect tools and permits per call (ADR 0024). The owner's allow-list of what an effect tool may touch in this workspace, and how long a
+-- person has to answer an approval; an empty list means the tool refuses every call.
+CREATE TABLE workspace_effect_policy (
+  workspace_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL,
+  containers_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(containers_json)),
+  services_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(services_json)),
+  approval_minutes INTEGER NOT NULL DEFAULT 30 CHECK(approval_minutes BETWEEN 1 AND 1440),
+  updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
+) STRICT;
+-- A runner group set aside for some workspaces (ADR 0024). A group with a row takes jobs of its listed workspaces only; host tools
+-- (host.*) run only on a group marked host_tools. A group with no row is open to every workspace and has no host tools.
+CREATE TABLE runner_groups (
+  group_id TEXT NOT NULL, organization_id TEXT NOT NULL,
+  host_tools INTEGER NOT NULL DEFAULT 0 CHECK(host_tools IN (0,1)),
+  workspaces_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(workspaces_json)),
+  updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(organization_id, group_id)
+) STRICT;
+-- One row per effect call an agent proposed: the exact call its approval names, so a permit is bound to it and to nothing else.
+CREATE TABLE effect_calls (
+  attempt_id TEXT NOT NULL REFERENCES job_attempts(id), proposal_id TEXT NOT NULL,
+  organization_id TEXT NOT NULL, workspace_id TEXT NOT NULL, approval_id TEXT NOT NULL REFERENCES approval_requests(id),
+  tool_id TEXT NOT NULL, input_digest TEXT NOT NULL, resource_key TEXT NOT NULL DEFAULT '', created_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(attempt_id, proposal_id)
+) STRICT;
+CREATE UNIQUE INDEX effect_calls_approval ON effect_calls(approval_id);

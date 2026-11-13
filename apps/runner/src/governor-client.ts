@@ -241,6 +241,36 @@ export class GovernorClient {
     return (res.json as { data: unknown }).data;
   }
 
+  // --- effect tools (ADR 0024) -------------------------------------------
+
+  /** Proposes an effect call; the Governor records the approval of exactly this call and says where it stands. */
+  async effectRequest(attemptId: string, body: { proposalId: string; tool: { id: string; digest: string }; input: unknown }): Promise<{ approvalId: string; state: string; expiresAt: string; summary: string }> {
+    return this.expect("effect request", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/effects`, body), 200);
+  }
+
+  async effectStatus(attemptId: string, proposalId: string): Promise<{ approvalId: string; state: string; expiresAt: string; summary: string }> {
+    return this.expect("effect status", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/effects/${encodeURIComponent(proposalId)}`), 200);
+  }
+
+  async effectPermit(attemptId: string, body: { proposalId: string; tool: { id: string; digest: string }; input: unknown }): Promise<{ token: string; permitId: string; invocationId: string }> {
+    return this.expect("effect permit", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/effects/permit`, body), 200);
+  }
+
+  async effectStart(attemptId: string, body: { proposalId: string; tool: { id: string; digest: string }; input: unknown; token: string }): Promise<void> {
+    await this.expect("effect start", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/effects/start`, body), 200);
+  }
+
+  /** Asks the Governor to perform an approved effect that needs its credentials (ticket, message, pull request). */
+  async effectRun(attemptId: string, body: { proposalId: string; tool: { id: string; digest: string }; input: unknown; token: string }): Promise<unknown> {
+    const res = await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/effects/run`, body);
+    if (res.status !== 200) throw new GovernorProtocolError("effect run", res.status, res.json);
+    return (res.json as { data: unknown }).data;
+  }
+
+  async effectFinish(attemptId: string, body: { proposalId: string; outcome: "applied" | "absent" | "unknown"; receiptDigest: string }): Promise<void> {
+    await this.expect("effect finish", await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/effects/finish`, body), 200);
+  }
+
   // --- outputs -------------------------------------------------------------
 
   /** Uploads bytes as a CAS artifact; the digest is computed here so an

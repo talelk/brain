@@ -46,6 +46,32 @@ export function runnerView(s: Store, runnerId: string): RunnerView | undefined {
   };
 }
 
+/** A group with no row is open to every workspace; a group with one takes only the workspaces it lists. */
+function groupAdmits(groups: ReadonlyMap<string, readonly string[]>, groupId: string, workspaceId: string): boolean {
+  const allowed = groups.get(groupId);
+  return !allowed || allowed.includes(workspaceId);
+}
+
+function hostGroupFor(s: Store, organizationId: string, groupId: string, workspaceId: string): boolean {
+  const row = s.control.prepare("SELECT host_tools, workspaces_json FROM runner_groups WHERE organization_id=? AND group_id=?").get(organizationId, groupId) as { host_tools: number; workspaces_json: string } | undefined;
+  return !!row && row.host_tools === 1 && (JSON.parse(row.workspaces_json) as string[]).includes(workspaceId);
+}
+
+/** True when the job's agent lists a host tool: such a job is only ever offered to a host group. Cached per release and agent for one claim. */
+function jobUsesHostTools(s: Store, organizationId: string, job: Record<string, unknown>, cache: Map<string, boolean>): boolean {
+  const payload = s.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(String(job["id"])) as { payload_json: string } | undefined;
+  if (!payload) return false;
+  const uses = (JSON.parse(payload.payload_json) as { step?: { uses?: { type?: string; release?: { id: string } } } }).step?.uses;
+  if (uses?.type !== "agent" || !uses.release) return false;
+  const key = `${String(job["config_digest"])}\n${uses.release.id}`;
+  const known = cache.get(key);
+  if (known !== undefined) return known;
+  const agent = releaseRecord(s, organizationId, String(job["config_digest"]))?.release.agents?.[uses.release.id];
+  const found = (agent?.spec.tools ?? []).some((tool) => tool.id.startsWith("host."));
+  cache.set(key, found);
+  return found;
+}
+
 export function claim(s: Store, deps: {
   isEvaluatorEligible: (runnerId: string, jobId: string) => boolean; isRunnerCurrent?: (runnerId: string) => boolean;
   missionAdmission?: (workspaceId: string, runId: string) => import("./job-protocol").MissionAdmission;
@@ -69,6 +95,8 @@ export function claim(s: Store, deps: {
     // priority, and prefer the workspace with the fewest in-flight attempts
     // so one workspace cannot starve the others by inflating priority.
     const eligible: Array<Record<string, unknown>> = [];
+    const groups = new Map((s.control.prepare("SELECT group_id, workspaces_json FROM runner_groups WHERE organization_id=?").all(runner.organizationId) as Array<{ group_id: string; workspaces_json: string }>).map((row) => [row.group_id, JSON.parse(row.workspaces_json) as string[]] as const));
+    const hostJobs = new Map<string, boolean>();
     let afterPriority: number | null = null;
     let afterCreated: number | null = null;
     let afterId: string | null = null;
@@ -86,6 +114,10 @@ export function claim(s: Store, deps: {
       for (const job of rows) {
         const placement = JSON.parse(String(job["placement_json"])) as import("@brain/contracts").Placement;
         const demand = placement.resources ?? { cpuMillicores: 500, memoryMb: 512, diskMb: 512, slots: 1 };
+        // A runner group the owner set aside (ADR 0024) takes jobs of its own workspaces only; every other workspace never sees it.
+        if (!groupAdmits(groups, view.groupId, String(job["workspace_id"]))) continue;
+        // Host tools (host.*) run only on a runner group the owner marked for them and bound to this workspace (ADR 0024).
+        if (jobUsesHostTools(s, runner.organizationId, job, hostJobs) && !hostGroupFor(s, runner.organizationId, view.groupId, String(job["workspace_id"]))) continue;
         if (!evaluateRunner(placement, demand, view, s.now()).eligible || !deps.isEvaluatorEligible(runner.runnerId, String(job["id"]))) continue;
         // A check or second attempt that would run on a hosted model that is down waits for it (ADR 0023); nothing else is held.
         if (heldForHostedModel(s, runner.organizationId, String(job["workspace_id"]), String(job["workflow_run_id"]), () => (s.control.prepare("SELECT kind FROM job_payloads WHERE job_id=?").get(String(job["id"])) as { kind: string } | undefined)?.kind ?? "")) continue;

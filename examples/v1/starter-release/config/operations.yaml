@@ -15,7 +15,8 @@
     "repositories": [],
     "runnerGroups": [
       "agents",
-      "evaluators"
+      "evaluators",
+      "sre-host"
     ],
     "workflows": [
       {

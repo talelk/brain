@@ -1,0 +1,27 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Tool",
+  "metadata": {
+    "id": "git.open-pr",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "effectClass": "write",
+    "inputSchemaRef": "schemas/git-open-pr-input.json",
+    "outputSchemaRef": "schemas/git-open-pr-output.json",
+    "requiredCapabilities": [
+      "tool:bash",
+      "tool:python3"
+    ],
+    "timeoutSeconds": 60,
+    "maxOutputBytes": 65536,
+    "allowedEnvironments": [
+      "local"
+    ],
+    "owner": "team_operations",
+    "license": "LicenseRef-Internal",
+    "description": "Opens ONE pull request in the workspace's bound project repository: a new branch with the proposed files, then the request. Each call stops until the owner approves exactly that call. The Git credentials stay in the Governor.",
+    "entrypoint": "run.sh",
+    "testEntrypoint": "test.sh"
+  }
+}
