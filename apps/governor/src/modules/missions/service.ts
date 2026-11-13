@@ -1164,7 +1164,10 @@ export class MissionService {
    */
   autoStartPlan(organizationId: string, workspaceId: string): Array<{ defaultWorkflowId: string | null; wayOfWorkingId: string | null; missionId: string; ownerId: string; slots: number; memberCap: number; headroom: boolean; items: Array<{ workItemId: string; title: string; criteria: string[]; upstream: Array<{ title: string; summary: string; deliverable?: string }>; workflowId: string | null; failedAttempts: number; runs: number; nextAction: string; requiredTools: string[]; failureClass: FailureClass | null; secondAttempt: boolean }> }> {
     const db = this.store.workspaceDb(workspaceId, organizationId);
-    const missions = db.prepare("SELECT id, owner_id, member_cap FROM missions WHERE state='active' AND auto_start=1 AND coordinator_member_id IS NULL").all() as Array<{ id: string; owner_id: string; member_cap: number }>;
+    // Only missions with ready work can contribute: a workspace keeps every mission it ever ran, and walking all of them on each command
+    // (several prepared statements apiece) made every command slower as history grew (steady benchmark, trial over trial).
+    const missions = db.prepare(`SELECT id, owner_id, member_cap FROM missions WHERE state='active' AND auto_start=1 AND coordinator_member_id IS NULL
+      AND id IN (SELECT mission_id FROM work_items WHERE state='ready' AND parked=0) ORDER BY rowid`).all() as Array<{ id: string; owner_id: string; member_cap: number }>;
     const plan = [];
     for (const mission of missions) {
       const now = this.store.now();
