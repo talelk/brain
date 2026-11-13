@@ -40,7 +40,8 @@ export function PlanEstimate(props: { planVersionId: string; compact?: boolean }
     // With no estimate at all (neither time nor cost), a card of "unknown" lines says nothing: show only the limit that stops the plan.
     const noEstimates = () => plan().totalEstimatedMinutes === undefined && plan().totalMicroUsd === undefined;
     if (props.compact || noEstimates()) return <div class="flex min-w-0 flex-col gap-1" data-testid="plan-estimate">
-      <p class="m-0 text-caption text-ink-gray-7" data-testid="estimate-ceiling"><Show when={stops()} fallback="No spending, token or time limit is set.">This plan stops at {limits().join(" or ")}{limits().length > 1 ? ", whichever comes first" : ""}.</Show>{plan().totalEstimatedMinutes !== undefined ? ` Estimated: about ${minutesText(plan().totalEstimatedMinutes ?? 0)}.` : ""}</p>
+      <p class="m-0 text-caption text-ink-gray-7" data-testid="estimate-ceiling"><Show when={stops()} fallback={t("plan.estimate.ceilingNone")}>This plan stops at {limits().join(" or ")}{limits().length > 1 ? ", whichever comes first" : ""}.</Show>{plan().totalEstimatedMinutes !== undefined ? ` Estimated: about ${minutesText(plan().totalEstimatedMinutes ?? 0)}.` : ""}</p>
+      <p class="m-0 text-caption text-ink-gray-7" data-testid="estimate-task-cap">{t("plan.estimate.taskCap", { cap: formatTokens(plan().taskTokenCap) })}</p>
       {warning}
     </div>;
     return <section class="flex min-w-0 flex-col gap-2 rounded-card border border-outline-gray-1 bg-surface-gray-1 p-3" aria-label="Plan estimates" data-testid="plan-estimate">
