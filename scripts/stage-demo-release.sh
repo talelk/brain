@@ -3,7 +3,7 @@
 # then restart the launcher + runners so they fetch newly pinned tools.
 # Run AFTER scripts/deploy-demo.sh (the container must hold the checkout you want to stage).
 # Credentials: ~/.config/brain-dev/credentials.env (BRAIN_DEPLOY_SUDO_PASSWORD, BRAIN_DEPLOY_HOST, BRAIN_DEPLOY_PORT).
-# The demo admin sign-in comes from BRAIN_ADMIN_EMAIL / BRAIN_ADMIN_PASSWORD in the environment and is sent over stdin only.
+# The administrator sign-in is read inside the Governor container from its own environment; no password is passed from this machine.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 set -a; . "${BRAIN_DEV_CREDENTIALS:-$HOME/.config/brain-dev/credentials.env}"; set +a
@@ -12,9 +12,8 @@ ORIGIN="${BRAIN_PUBLIC_ORIGIN:-https://brain.mykeyrus.tn}"
 eval "$(ssh-agent -s)" >/dev/null; trap 'ssh-agent -k >/dev/null' EXIT
 ssh-add "${BRAIN_SSH_KEY:-$HOME/dev/keys/id_rsa}" 2>/dev/null
 {
-  # The admin sign-in comes from the environment of whoever runs this (never from a tracked file) and travels over stdin only.
-  : "${BRAIN_ADMIN_PASSWORD:?set BRAIN_ADMIN_PASSWORD (and optionally BRAIN_ADMIN_EMAIL) to the demo administrator sign-in}"
-  printf 'export BE=%q BP=%q\n' "${BRAIN_ADMIN_EMAIL:-admin@brain.local}" "$BRAIN_ADMIN_PASSWORD"
+  # The administrator sign-in is the one the Governor container already holds (BRAIN_ADMIN_EMAIL / BRAIN_ADMIN_PASSWORD): it is read there, inside the container, and never leaves the server.
+  printf 'export BE="$BRAIN_ADMIN_EMAIL" BP="$BRAIN_ADMIN_PASSWORD"\n'
   cat <<EOF2
 cd /app
 TOKEN=\$(node -e 'fetch("http://127.0.0.1:3100/api/auth/sign-in/email",{method:"POST",headers:{"content-type":"application/json",origin:"$ORIGIN"},body:JSON.stringify({email:process.env.BE,password:process.env.BP})}).then(r=>r.json()).then(j=>process.stdout.write(j.token||""))')
