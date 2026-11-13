@@ -229,18 +229,18 @@ export class Brain {
     const config = this.replica;
     if (!config) return Promise.resolve();
     const previous = this.replicating;
-    let run!: Promise<void>;
-    run = (async () => {
+    const current: { run?: Promise<void> } = {};
+    current.run = (async () => {
       await previous;
       try {
         await replicateOnce(this.store.dataDir, config, () => this.store.now());
         if (!this.closed) checkReplica(this.store, config);
       } catch (e) {
         if (!this.closed) recordProbe(this.store, "replica", "unavailable", `The latest replica snapshot failed: ${e instanceof Error ? e.message.slice(0, 200) : "unknown error"}`);
-      } finally { if (this.replicating === run) this.replicating = undefined; }
+      } finally { if (this.replicating === current.run) this.replicating = undefined; }
     })();
-    this.replicating = run;
-    return run;
+    this.replicating = current.run;
+    return current.run;
   }
 
   /**

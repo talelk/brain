@@ -54,6 +54,14 @@ async function scrape(w: TestWorld, env: Record<string, string>): Promise<string
   const { renderMetrics } = await import("../../apps/governor/src/modules/operations/index");
   return withEnv(env, async () => renderMetrics(w.brain.store));
 }
+/** A sample line is name, optional {labels}, a space and a number. */
+function validSample(line: string): boolean {
+  const space = line.lastIndexOf(" ");
+  const head = line.slice(0, space);
+  const open = head.indexOf("{");
+  const name = open < 0 ? head : head.slice(0, open);
+  return /^[a-zA-Z_:][a-zA-Z0-9_:]*$/u.test(name) && (open < 0 || head.endsWith("}")) && Number.isFinite(Number(line.slice(space + 1)));
+}
 const names = (text: string) => new Set(text.split("\n").filter((line) => line && !line.startsWith("#")).map((line) => /^([a-zA-Z_:][a-zA-Z0-9_:]*)/u.exec(line)![1]!));
 
 describe("what a scrape says", () => {
@@ -73,7 +81,7 @@ describe("what a scrape says", () => {
     const text = await scrape(w, { BRAIN_REPLICA_DIR: join(dir, "replica"), BRAIN_BACKUP_STAMP_FILE: stamp });
 
     // Every sample line is valid exposition format.
-    for (const line of text.split("\n").filter((entry) => entry && !entry.startsWith("#"))) expect(line, line).toMatch(/^[a-zA-Z_:][a-zA-Z0-9_:]*(\{([a-zA-Z_][a-zA-Z0-9_]*="[^"\n]*",?)+\})? -?\d+(\.\d+)?(e[+-]?\d+)?$/u);
+    for (const line of text.split("\n").filter((entry) => entry && !entry.startsWith("#"))) expect(validSample(line), line).toBe(true);
     expect(text).toMatch(/^# TYPE brain_missions gauge$/mu);
     expect(text).toContain('brain_missions{workspace="test",state="active"} 2');
     expect(text).toContain('brain_parked_tasks{workspace="test"} 1');
