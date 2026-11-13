@@ -127,7 +127,7 @@ export function TodaySetup(props: { readiness: ReturnType<typeof createReadiness
   };
   return <>
     <Show when={run().phase === "passed"}>
-      <section class="flex min-w-0 flex-wrap items-center gap-3 rounded-card border border-outline-green-2 bg-surface-green-1 p-4" aria-label={t("today.check.done.title")} data-testid="today-setup-done" role="status">
+      <section class="flex min-w-0 flex-wrap items-center gap-3 rounded-card border border-outline-green-2 bg-surface-green-1 p-4 max-sm:[&>[data-slot=button]]:basis-full" aria-label={t("today.check.done.title")} data-testid="today-setup-done" role="status">
         <IconTile icon="lucide-check" tone="green" />
         <div class="min-w-0 flex-1">
           <h2 class="m-0 text-base-medium text-ink-gray-9">{t("today.check.done.title")}</h2>
