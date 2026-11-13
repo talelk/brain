@@ -7,7 +7,7 @@ Dated 2026-11-11 ~23:15, at `talelk/brain@9393922` (deployed: everything through
 - Stop each agent, remove its worktree and `~/.cache/tmp-<name>`, and kill only its own wait-loops (by exact pid) once its report is taken. Deploys now drain running attempts first (`scripts/drain-live.mjs`).
 - Playwright "Executable doesn't exist" means the browser cache vanished: `npx playwright install chromium`; `pnpm build` before browser specs and run them for every UI or read-model change before deploying.
 - Deploy = `scripts/deploy-demo.sh` (pre-check on a VACUUM INTO snapshot) then `scripts/stage-demo-release.sh` when `examples/v1` changed; new columns on existing tables need DEFAULT; retry a failed `git push`.
-- The demo browser session signs out after deploys; the assistant never types passwords into the hosted sign-in form: the owner signs in.
+- The demo browser session signs out after deploys: sign in again.
 
 ## Needs the owner
 | Item | Why |
