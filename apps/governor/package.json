@@ -12,7 +12,7 @@
   "dependencies": {
     "@better-auth/passkey": "1.7.14",
     "@brain/contracts": "workspace:*",
-    "@hono/node-server": "2.1.5",
+    "@hono/node-server": "2.1.6",
     "@mastra/core": "1.79.0",
     "@mastra/libsql": "1.27.0",
     "better-auth": "1.7.14",
