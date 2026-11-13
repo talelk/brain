@@ -287,7 +287,8 @@ set_runner_env() { $SSH "f=$REMOTE_DIR/$1; [ -f \$f ] || exit 0; if grep -q '^$2
 echo "==> Host access for the SRE tools (read-only /srv, named diagnostic commands)"
 rsync -az -e "ssh -p $PORT -o ConnectTimeout=15" scripts/demo/host-commands.json "$USER_SSH@$HOST:$REMOTE_DIR/host-commands.json"
 $SSH "printf '[Service]\nEnvironment=BRAIN_LAUNCHER_DATA_MOUNTS=srv=/srv\nEnvironment=BRAIN_LAUNCHER_HOST_COMMANDS=$REMOTE_DIR/host-commands.json\n' > /tmp/brain-host-access.conf && $SUDO mkdir -p /etc/systemd/system/brain-launcher.service.d && $SUDO cp /tmp/brain-host-access.conf /etc/systemd/system/brain-launcher.service.d/host-access.conf && $SUDO systemctl daemon-reload"
-set_runner_env runner-agents.env BRAIN_TOOL_DATA_MOUNTS host.read=srv
+# host tools live only on the sre-host runner once it exists (scripts/enroll-sre-host-runner.sh); before that the agents runner keeps the mount
+if $SSH "test -f $REMOTE_DIR/runner-sre-host.env"; then set_runner_env runner-sre-host.env BRAIN_TOOL_DATA_MOUNTS host.read=srv; else set_runner_env runner-agents.env BRAIN_TOOL_DATA_MOUNTS host.read=srv; fi
 if ! $SSH "systemctl list-unit-files --type=service" 2>/dev/null | grep -q "brain-runner-agents.service"; then
   echo "==> First deploy: installing launcher + runner units and enrolling runners"
   # create the evaluator memory binding (user/team/agent + claude user key)
@@ -396,7 +397,7 @@ else
     set_runner_env runner-agents.env "BRAIN_RUNNER_$key" "$agents_value"
     set_runner_env runner-evaluators.env "BRAIN_RUNNER_$key" "$evaluators_value"
   done
-  $SSH "$SUDO systemctl restart brain-launcher brain-runner-agents brain-runner-evaluators"
+  $SSH "$SUDO systemctl restart brain-launcher brain-runner-agents brain-runner-evaluators; systemctl cat brain-runner-sre-host >/dev/null 2>&1 && $SUDO systemctl restart brain-runner-sre-host || true"
 fi
 
 scripts/refresh-released-schema.sh || true   # the schema just deployed becomes the "previously released" fixture
