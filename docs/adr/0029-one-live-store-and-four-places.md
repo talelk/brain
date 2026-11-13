@@ -1,4 +1,4 @@
-# 28. One live store, four places, one vocabulary
+# 29. One live store, four places, one vocabulary
 
 Date: 2026-11-13
 Status: Accepted (phase 2, "one simple surface")
