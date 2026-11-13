@@ -160,8 +160,8 @@ const first = trials[0];
 const growth = first ? trials.slice(1).map((t, i) => ({
   trial: i + 2,
   eventLoopP99: { first: first.eventLoopDelayMs.p99, now: t.eventLoopDelayMs.p99, limit: +(first.eventLoopDelayMs.p99 * 1.5 + 10).toFixed(1) },
-  commandP95: { first: first.command.p95, now: t.command.p95, limit: +(first.command.p95 * 1.5 + 10).toFixed(1) },
-  rssMaxMb: { first: first.rssMb.max, now: t.rssMb.max, limit: Math.round(first.rssMb.max * 1.25 + 64) },
+  commandP95: { first: first.command.p95, now: t.command.p95, limit: +(first.command.p95 * 1.5 + 5).toFixed(1) },
+  rssMaxMb: { first: first.rssMb.max, now: t.rssMb.max, limit: Math.round(first.rssMb.max * 1.2 + 32) },
 })) : [];
 const med = (k: (t: (typeof trials)[number]) => number) => +pct(trials.map(k), 0.5).toFixed(3);
 const result = {
@@ -177,7 +177,7 @@ const result = {
     throughputPerSec: med((t) => t.throughputPerSec),
   },
   budgets: { queryP95Ms: 150, queryP99Ms: 400, commandP95Ms: 200, commandP99Ms: 500, eventLoopP99Ms: 50, rssMb: 1024 },
-  growth: { allowance: "event-loop p99 and command p95 within 1.5x + 10 ms of trial 1; max RSS within 1.25x + 64 MB", trials: growth }, trials, trial10x: trial10, faultLoad: fault, at: new Date().toISOString(),
+  growth: { allowance: "event-loop p99 and command p95 within 1.5x + 5 ms (event-loop 1.5x + 10 ms) of trial 1; max RSS within 1.2x + 32 MB", trials: growth }, trials, trial10x: trial10, faultLoad: fault, at: new Date().toISOString(),
 };
 const outDir = process.env["BRAIN_BENCH_OUT"] ?? "artifacts/runtime/G08";
 mkdirSync(outDir, { recursive: true });
