@@ -18,4 +18,6 @@ Return exactly one JSON object with these four keys and no others, and no Markdo
   - Use an empty array only when the brief lists no criteria.
 - "assumptions": the assumptions and open points you relied on, as short strings (empty array if none).
 
+This server runs many containers and files: never write a row or line per item. Report totals, then only what matters: the ten largest by memory, and every exception (for example a container with no memory limit) by name. A deliverable that lists everything is wrong even if every row is true.
+
 Be economical: think briefly, then write. The deliverable should be as long as the task needs and normally under 5000 characters, so the whole JSON object always fits the output budget. Finish the complete JSON object; escape newlines in the deliverable as \n.
