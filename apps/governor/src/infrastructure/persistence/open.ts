@@ -43,9 +43,31 @@ export function engineHealth(db: Db): EngineHealth {
   return { version: row.v, compileOptions: opts, fts5: opts.includes("ENABLE_FTS5"), walSafe };
 }
 
+/** Statements kept per connection: the code base has a few hundred distinct statements; variable-length IN lists churn the oldest out. */
+const STATEMENT_CACHE_SIZE = 256;
+
+/**
+ * Compiling a statement is a large share of every read and command (a 50-row run list compiles 600 of them), so each connection keeps
+ * the statements it has compiled, least recently used first out. Nothing in the code base switches a statement to pluck/raw mode or
+ * iterates one, so a shared statement behaves exactly like a fresh one.
+ */
+function cacheStatements(db: Db): void {
+  const cache = new Map<string, Database.Statement>();
+  const prepare = db.prepare.bind(db) as (sql: string) => Database.Statement;
+  (db as { prepare: unknown }).prepare = (sql: string): Database.Statement => {
+    const hit = cache.get(sql);
+    if (hit) { cache.delete(sql); cache.set(sql, hit); return hit; }
+    const statement = prepare(sql);
+    if (cache.size >= STATEMENT_CACHE_SIZE) cache.delete(cache.keys().next().value as string);
+    cache.set(sql, statement);
+    return statement;
+  };
+}
+
 export function openDb(path: string): Db {
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
   const db = new Database(path);
+  cacheStatements(db);
   db.pragma("foreign_keys = ON");
   db.pragma("journal_mode = WAL");
   db.pragma("synchronous = FULL");

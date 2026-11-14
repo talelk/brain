@@ -156,9 +156,8 @@ export function listJobs(
       clauses.push("(created_at_ms<? OR (created_at_ms=? AND id<?))"); parameters.push(position.createdAt, position.createdAt, position.id);
     } catch { throw new BrainDomainError("INVALID_ARGUMENT", "invalid jobs cursor"); }
   }
-  const where = clauses.join(" AND ");
   if (filters.search?.trim()) return searchJobPage(store, baseClauses.join(" AND "), baseParameters, position, limit, filters.search.trim().toLowerCase());
-  const rows = store.control.prepare(`SELECT * FROM jobs WHERE ${where} ORDER BY created_at_ms DESC, id DESC LIMIT ?`).all(...parameters, limit + 1) as Array<Record<string, unknown>>;
+  const rows = newestJobs(store, actor.organizationId, workspaceIds, filters.states, position, limit + 1);
   const page = rows.slice(0, limit);
   const last = page.at(-1);
   const cursor = rows.length > limit && last ? Buffer.from(JSON.stringify({ createdAt: Number(last["created_at_ms"]), id: String(last["id"]) })).toString("base64url") : "";
@@ -167,6 +166,26 @@ export function listJobs(
     snapshot: { items: page.map((row) => jobSnapshot(store, row)), totalEstimate: total.count } as unknown as JsonValue,
     cursor,
   };
+}
+
+/**
+ * The newest `count` jobs of the allowed workspaces, after the cursor position. Each workspace is read in index order
+ * (jobs_scope_created) and stops after `count` rows, so the cost follows the page, not the workspace's run history;
+ * one query over `workspace_id IN (...)` would sort every run the workspaces ever had.
+ */
+function newestJobs(store: Store, organizationId: string, workspaceIds: readonly string[], states: readonly string[] | undefined, position: { createdAt: number; id: string } | undefined, count: number): Array<Record<string, unknown>> {
+  const clauses = ["organization_id=?", "workspace_id=?"];
+  if (states?.length) clauses.push(`state IN (${states.map(() => "?").join(",")})`);
+  if (position) clauses.push("(created_at_ms<? OR (created_at_ms=? AND id<?))");
+  const statement = store.control.prepare(`SELECT * FROM jobs WHERE ${clauses.join(" AND ")} ORDER BY created_at_ms DESC, id DESC LIMIT ?`);
+  const rows: Array<Record<string, unknown>> = [];
+  for (const workspaceId of workspaceIds) {
+    const parameters: Array<string | number> = [organizationId, workspaceId, ...(states ?? [])];
+    if (position) parameters.push(position.createdAt, position.createdAt, position.id);
+    rows.push(...statement.all(...parameters, count) as Array<Record<string, unknown>>);
+  }
+  if (workspaceIds.length > 1) rows.sort((a, b) => Number(b["created_at_ms"]) - Number(a["created_at_ms"]) || String(b["id"]).localeCompare(String(a["id"])));
+  return rows.slice(0, count);
 }
 
 /** How many of the newest jobs a text search looks through; titles live in the workspace databases, so the match is made in code. */

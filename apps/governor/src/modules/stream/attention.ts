@@ -40,14 +40,17 @@ export function attentionItems(store: Store, organizationId: string, workspaceId
         title: link ? `${link.title} may not have finished: check before going on` : "A step may not have finished: check before going on",
         detail: job.reason, resourceId: job.jobId, waitingSince: iso(job.since), safeToRetry: job.idempotent, version: job.version });
     }
+    // Only missions with parked open work can be stuck, and only verifying ones have a verdict to close: a workspace keeps every mission
+    // it ever ran, so the per-mission lookups below must not run for the common mission (steady benchmark, growth across trials).
+    const withParked = new Set((db.prepare("SELECT DISTINCT mission_id FROM work_items WHERE parked=1 AND state NOT IN ('done','abandoned')").all() as Array<{ mission_id: string }>).map((row) => row.mission_id));
     for (const m of db.prepare("SELECT id, title, state, pause_reason, updated_at_ms FROM missions WHERE state!='closed'").all() as Array<{ id: string; title: string; state: string; pause_reason: string | null; updated_at_ms: number }>) {
       if (m.state === "paused" && m.pause_reason === "budget") {
         const limits = reachedLimits(store, db, m.id);
         const wording = limits.length === 0 ? "a limit was reached" : `${limits.join(" and ")} ${limits.length === 1 && limits[0] !== "workspace cap" ? "limit" : "limits"} reached`;
         items.push({ id: `budget:${m.id}`, workspaceId, missionId: m.id, kind: "budget-pause", tier: 2, title: `${m.title} is paused: ${wording}`, ...(limits.length ? { limits } : {}), resourceId: m.id, waitingSince: iso(m.updated_at_ms) });
       }
-      if (m.state === "active" && needsAttention(db, m.id)) items.push({ id: `stuck:${m.id}`, workspaceId, missionId: m.id, kind: "needs-attention", tier: 2, title: `${m.title} needs attention: all remaining work is parked`, resourceId: m.id, waitingSince: iso(m.updated_at_ms) });
-      const latest = db.prepare("SELECT bundle.state, bundle.created_at_ms FROM mission_evidence_bundles bundle WHERE mission_id=? ORDER BY created_at_ms DESC LIMIT 1").get(m.id) as { state: string; created_at_ms: number } | undefined;
+      if (m.state === "active" && withParked.has(m.id) && needsAttention(db, m.id)) items.push({ id: `stuck:${m.id}`, workspaceId, missionId: m.id, kind: "needs-attention", tier: 2, title: `${m.title} needs attention: all remaining work is parked`, resourceId: m.id, waitingSince: iso(m.updated_at_ms) });
+      const latest = m.state !== "verifying" ? undefined : db.prepare("SELECT bundle.state, bundle.created_at_ms FROM mission_evidence_bundles bundle WHERE mission_id=? ORDER BY created_at_ms DESC LIMIT 1").get(m.id) as { state: string; created_at_ms: number } | undefined;
       if (m.state === "verifying" && latest?.state === "verified") items.push({ id: `verdict:${m.id}`, workspaceId, missionId: m.id, kind: "verdict-ready", tier: 4, title: `${m.title} is verified and ready to close`, resourceId: m.id, waitingSince: iso(latest.created_at_ms) });
     }
     for (const row of db.prepare(`SELECT p.id, p.mission_id, p.created_at_ms, m.title FROM plan_versions p JOIN missions m ON m.id=p.mission_id

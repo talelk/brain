@@ -282,6 +282,7 @@ CREATE TABLE sessions (
   version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0),
   created_at_ms INTEGER NOT NULL DEFAULT 0, updated_at_ms INTEGER NOT NULL DEFAULT 0
 ) STRICT;
+CREATE INDEX sessions_job ON sessions(job_id,updated_at_ms);
 CREATE INDEX sessions_work_item ON sessions(work_item_id,updated_at_ms,id);
 CREATE INDEX sessions_parent ON sessions(parent_session_id,state,id);
 CREATE TABLE delegations (
@@ -414,6 +415,7 @@ CREATE TABLE events (
   payload_digest TEXT NOT NULL, created_at_ms INTEGER NOT NULL,
   UNIQUE(aggregate_type,aggregate_id,aggregate_seq)
 ) STRICT;
+CREATE INDEX events_type ON events(event_type, created_at_ms);
 CREATE TABLE outbox_deliveries (
   event_id TEXT NOT NULL REFERENCES events(event_id), destination TEXT NOT NULL,
   state TEXT NOT NULL CHECK(state IN ('pending','processing','delivered','parked')),
