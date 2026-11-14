@@ -7,7 +7,7 @@ import { fixtureStarter } from "../support/starter";
 
 // Readiness separates capability (does an enabled, healthy, capable runner exist) from capacity (is a slot free
 // right now). A busy runner is ready ("busy: N of M slots in use"); only a missing runner is "missing".
-const CAPS = ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture", "engine-feature:fixture:sessions"];
+const CAPS = ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture", "engine-isolation:fixture:ephemeral-container", "engine-feature:fixture:sessions"];
 
 interface RunnerOptions { slots?: number; reserved?: number; adminState?: string; ageMs?: number; caps?: string[] }
 

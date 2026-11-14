@@ -1,11 +1,15 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import type { EngineAdapter, EngineEvent, EngineSessionSpec } from "@brain/contracts";
+import type { EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding } from "@brain/contracts";
+import { nativeToolName } from "./tool-calls";
 
 // ACP adapter over a stdio Agent Client Protocol agent (default:
 // `opencode acp`). Speaks line-delimited JSON-RPC 2.0: initialize,
-// session/new, session/prompt, session/cancel. The agent runs with no
-// client filesystem/terminal capabilities; all tool effects stay inside the
-// agent's own sandbox boundary managed by the launcher.
+// session/new, session/prompt, session/cancel.
+//
+// The agent reaches the host only through Brain broker tools (ADR 0035):
+// - the client declares no capabilities, and every agent request other than a permission request is refused (-32601);
+// - every permission request is refused unless it names exactly a broker tool this session may use, and then only allow_once is chosen;
+// - an agent that runs a native tool anyway (it never asked, or ignored the refusal) is stopped and the session ends in error.
 interface Pending {
   resolve: (v: Record<string, unknown>) => void;
   reject: (e: Error) => void;
@@ -15,7 +19,21 @@ export interface AcpEngineOptions {
   readonly id?: string;
   readonly commandEnv?: string;
   readonly defaultCommand?: string;
+  /** The broker tools of the agent's release; a session may use only those its spec allows. */
+  readonly toolBindings?: readonly EngineToolBinding[];
+  /** What the agent process gets on top of the runner's environment: the agent's own settings that turn its native tools off. */
+  readonly env?: Readonly<Record<string, string>>;
 }
+
+/** What this client declares at initialize: nothing the agent could use to read, write or run anything through the runner. */
+const ACP_CLIENT_CAPABILITIES = { fs: { readTextFile: false, writeTextFile: false }, terminal: false } as const;
+
+const METHOD_NOT_FOUND = -32601;
+/** Tool-call statuses in which an agent's tool is running or has run. */
+const RAN = new Set(["in_progress", "completed"]);
+
+interface AgentToolCall { name?: string; kind?: string }
+type PermissionOutcome = { outcome: "selected"; optionId: string } | { outcome: "cancelled" };
 
 export class AcpEngine implements EngineAdapter {
   readonly id: string;
@@ -30,6 +48,14 @@ export class AcpEngine implements EngineAdapter {
   private seq = 0;
   private readonly eventsBuffer: EngineEvent[] = [];
   private agentVersion = "unknown";
+  private readonly bindings: readonly EngineToolBinding[];
+  private readonly agentEnv: Readonly<Record<string, string>>;
+  /** The broker tool names this session may use: the release's tools that the session spec allows, by id and digest. Empty until start. */
+  private allowedNames = new Set<string>();
+  /** What the agent said about each tool call it made, by its call id, so an update that carries only the id and a status is still judged. */
+  private readonly toolCalls = new Map<string, AgentToolCall>();
+  /** Set when the agent ran a native tool: the reason the session was stopped. */
+  private violation = "";
   /** What the agent advertised at initialize; nothing beyond it is ever offered (#32). */
   private negotiated: { loadSession: boolean; resume: boolean; fork: boolean } = { loadSession: false, resume: false, fork: false };
 
@@ -37,6 +63,8 @@ export class AcpEngine implements EngineAdapter {
     this.id = options.id ?? "acp";
     this.commandEnv = options.commandEnv ?? "BRAIN_ACP_COMMAND";
     this.defaultCommand = options.defaultCommand ?? "opencode acp";
+    this.bindings = options.toolBindings ?? [];
+    this.agentEnv = options.env ?? {};
   }
 
   private command(): { file: string; args: string[] } {
@@ -48,7 +76,7 @@ export class AcpEngine implements EngineAdapter {
   private ensureProc(cwd: string): ChildProcess {
     if (this.proc) return this.proc;
     const { file, args } = this.command();
-    const proc = spawn(file, args, { cwd, stdio: ["pipe", "pipe", "pipe"] });
+    const proc = spawn(file, args, { cwd, stdio: ["pipe", "pipe", "ignore"], env: { ...process.env, ...this.agentEnv } });
     proc.stdout?.setEncoding("utf8");
     proc.stdout?.on("data", (chunk: string) => {
       this.buffer += chunk;
@@ -61,7 +89,7 @@ export class AcpEngine implements EngineAdapter {
       }
     });
     proc.on("exit", () => {
-      for (const p of this.pending.values()) p.reject(new Error("ACP agent exited"));
+      for (const p of this.pending.values()) p.reject(new Error(this.violation || "ACP agent exited"));
       this.pending.clear();
       this.proc = null;
     });
@@ -70,29 +98,96 @@ export class AcpEngine implements EngineAdapter {
   }
 
   private onLine(line: string): void {
+    if (this.violation) return;
     let msg: Record<string, unknown>;
     try { msg = JSON.parse(line) as Record<string, unknown>; } catch { return; }
-    if (typeof msg["id"] === "number") {
-      const p = this.pending.get(msg["id"]);
-      if (!p) return;
-      this.pending.delete(msg["id"]);
-      if (msg["error"]) p.reject(new Error(JSON.stringify(msg["error"])));
-      else p.resolve((msg["result"] ?? {}) as Record<string, unknown>);
+    const id = msg["id"];
+    // A message with a method is the agent speaking, whatever its id: its request ids are its own and may equal ours.
+    if (typeof msg["method"] === "string") {
+      const params = (msg["params"] ?? {}) as Record<string, unknown>;
+      if (typeof id === "number" || typeof id === "string") this.onAgentRequest(id, msg["method"], params);
+      else this.onNotification(msg["method"], params);
       return;
     }
-    if (msg["method"] === "session/update") {
-      const params = msg["params"] as { update?: { sessionUpdate?: string; content?: { type?: string; text?: string } } } | undefined;
-      const update = params?.update;
-      if (update?.sessionUpdate === "agent_message_chunk" && update.content?.type === "text") {
-        this.seq += 1;
-        this.eventsBuffer.push({
-          contractVersion: "brain.engine-event/v1", eventId: `acp-evt-${this.seq}`,
-          sessionId: this.sessionId, attemptId: this.attemptId, sequence: this.seq,
-          occurredAt: new Date().toISOString(), kind: "text",
-          payload: { text: update.content.text ?? "", channel: "assistant", provisional: true },
-        });
-      }
+    if (typeof id !== "number") return;
+    const p = this.pending.get(id);
+    if (!p) return;
+    this.pending.delete(id);
+    if (msg["error"]) p.reject(new Error(JSON.stringify(msg["error"])));
+    else p.resolve((msg["result"] ?? {}) as Record<string, unknown>);
+  }
+
+  private reply(id: number | string, body: { result: unknown } | { error: { code: number; message: string } }): void {
+    this.proc?.stdin?.write(`${JSON.stringify({ jsonrpc: "2.0", id, ...body })}\n`);
+  }
+
+  /** A request from the agent. A permission request is decided here; anything else needs a client capability this client does not declare. */
+  private onAgentRequest(id: number | string, method: string, params: Record<string, unknown>): void {
+    if (method === "session/request_permission") {
+      this.reply(id, { result: { outcome: this.decidePermission(params) } });
+      return;
     }
+    this.reply(id, { error: { code: METHOD_NOT_FOUND, message: `${method} is not supported: this client declares no capabilities` } });
+  }
+
+  /**
+   * Allow only a broker tool: the request names (toolCall.name) exactly the tool of a binding this session's spec allows, does not call itself
+   * a command, edit or fetch, and the agent offers allow_once (never allow_always). The title and the input, which the agent writes freely,
+   * decide nothing. Everything else is refused with the agent's own reject_once option, or cancelled when it offers none.
+   */
+  private decidePermission(params: Record<string, unknown>): PermissionOutcome {
+    const call = (params["toolCall"] ?? {}) as Record<string, unknown>;
+    const name = typeof call["name"] === "string" ? call["name"] : undefined;
+    const options = Array.isArray(params["options"]) ? params["options"] as Array<Record<string, unknown>> : [];
+    const optionOf = (kind: string) => options.find((option) => option["kind"] === kind && typeof option["optionId"] === "string")?.["optionId"] as string | undefined;
+    // The name is what the agent calls the tool; a broker tool is an MCP tool, which an agent reports as "other". A call the agent itself
+    // reports as running a command, editing or fetching is refused whatever it is named.
+    const broker = name !== undefined && this.allowedNames.has(name) && (call["kind"] === undefined || call["kind"] === "other");
+    if (typeof call["toolCallId"] === "string") this.toolCalls.set(call["toolCallId"], { ...(name !== undefined ? { name } : {}), ...(typeof call["kind"] === "string" ? { kind: call["kind"] } : {}) });
+    const allow = broker ? optionOf("allow_once") : undefined;
+    if (allow) return { outcome: "selected", optionId: allow };
+    if (!broker) this.note(`Refused a native tool: ${name ?? "unnamed"}${typeof call["kind"] === "string" ? ` (${call["kind"]})` : ""}. ACP engines may use Brain broker tools only.`);
+    const refusal = optionOf("reject_once");
+    return refusal ? { outcome: "selected", optionId: refusal } : { outcome: "cancelled" };
+  }
+
+  private onNotification(method: string, params: Record<string, unknown>): void {
+    if (method !== "session/update") return;
+    const update = params["update"] as Record<string, unknown> | undefined;
+    if (!update) return;
+    const kind = update["sessionUpdate"];
+    if (kind === "agent_message_chunk") {
+      const content = update["content"] as { type?: string; text?: string } | undefined;
+      if (content?.type === "text") this.push("text", { text: content.text ?? "", channel: "assistant", provisional: true });
+    } else if (kind === "tool_call" || kind === "tool_call_update") this.watchToolCall(update);
+  }
+
+  /** A native tool that is running or finished means the agent did what this client refuses: stop it. A refused attempt (pending, failed) is not that. */
+  private watchToolCall(update: Record<string, unknown>): void {
+    const callId = String(update["toolCallId"] ?? "");
+    const seen = this.toolCalls.get(callId) ?? {};
+    if (typeof update["name"] === "string") seen.name = update["name"];
+    if (typeof update["kind"] === "string") seen.kind = update["kind"];
+    this.toolCalls.set(callId, seen);
+    if (typeof update["status"] !== "string" || !RAN.has(update["status"])) return;
+    if (seen.name !== undefined && this.allowedNames.has(seen.name) && (seen.kind === undefined || seen.kind === "other")) return;
+    this.violation = `the ACP agent ran a native tool (${seen.name ?? "unnamed"}${seen.kind ? `, ${seen.kind}` : ""}); ACP engines may use Brain broker tools only, so the session was stopped`;
+    this.push("error", { error: { code: "POLICY_DENIED", detail: this.violation, retryable: false, correlationId: this.sessionId || this.id }, phase: "stream", retryClass: "never" });
+    this.push("session.stopped", { reason: "error", terminationConfirmed: true });
+    this.disposeSync();
+  }
+
+  private note(text: string): void {
+    this.push("text", { text, channel: "diagnostic", provisional: true });
+  }
+
+  private push(kind: EngineEvent["kind"], payload: EngineEvent["payload"]): void {
+    this.seq += 1;
+    this.eventsBuffer.push({
+      contractVersion: "brain.engine-event/v1", eventId: `acp-evt-${this.seq}`,
+      sessionId: this.sessionId, attemptId: this.attemptId, sequence: this.seq,
+      occurredAt: new Date().toISOString(), kind, payload,
+    } as EngineEvent);
   }
 
   private request(method: string, params: unknown, timeoutMs = 120_000): Promise<Record<string, unknown>> {
@@ -122,7 +217,7 @@ export class AcpEngine implements EngineAdapter {
       const init = await this.request("initialize", {
         protocolVersion: 1,
         clientInfo: { name: "brain-runner", version: "0.1.0" },
-        clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
+        clientCapabilities: ACP_CLIENT_CAPABILITIES,
       }, 20_000);
       const info = (init["agentInfo"] ?? {}) as { name?: string; version?: string };
       this.agentVersion = info.version ?? "acp-1";
@@ -149,6 +244,9 @@ export class AcpEngine implements EngineAdapter {
     this.sessionId = String(created["sessionId"] ?? "");
     if (!this.sessionId) throw Object.assign(new Error("ACP session/new returned no sessionId"), { code: "UNSUPPORTED_CAPABILITY" });
     this.attemptId = spec.attemptId;
+    this.allowedNames = new Set(this.bindings
+      .filter((binding) => spec.allowedTools.some((tool) => tool.id === binding.release.id && tool.digest === binding.release.digest))
+      .map((binding) => nativeToolName(binding.release.id)));
     return { sessionId: this.sessionId };
   }
 
