@@ -1697,5 +1697,6 @@ export const ar: Catalog = {
   "work.hosted.priceIn": "سعر الإدخال (دولار لكل مليون رمز)",
   "work.hosted.priceOut": "سعر الإخراج (دولار لكل مليون رمز)",
   "work.hosted.priceHint": "ما يتقاضاه المزوّد. السعران مطلوبان: تُحسب كل محاولة مستضافة بالدولار ضمن سقوف إنفاق المهمة ومساحة العمل.",
+  "health.activity.by-agent": "بواسطة وكيل يعمل لصالح {name}",
   // @@END
 };

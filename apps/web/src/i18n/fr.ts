@@ -1651,5 +1651,6 @@ export const fr: Catalog = {
   "work.hosted.priceIn": "Prix d'entrée (USD par million de jetons)",
   "work.hosted.priceOut": "Prix de sortie (USD par million de jetons)",
   "work.hosted.priceHint": "Ce que facture le fournisseur. Les deux prix sont obligatoires : chaque tentative hébergée est comptée en dollars dans les plafonds de dépense de la mission et de l'espace de travail.",
+  "health.activity.by-agent": "Par un agent travaillant pour {name}",
   // @@END
 };

@@ -1252,5 +1252,6 @@ export const enExtra = {
   "work.hosted.priceIn": "Input price (USD per million tokens)",
   "work.hosted.priceOut": "Output price (USD per million tokens)",
   "work.hosted.priceHint": "What the vendor charges. Both prices are required: every hosted attempt is counted in dollars against the mission and workspace spend caps.",
+  "health.activity.by-agent": "By an agent working for {name}",
   // @@END
 } as const satisfies Record<string, string>;
