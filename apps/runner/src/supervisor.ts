@@ -16,6 +16,7 @@ import { GovernorClient, GovernorProtocolError } from "./governor-client";
 import { LauncherClient } from "./launcher-client";
 import { payloadValidator } from "@brain/contracts/validate";
 import { promptWithContext, runAgentExecution, selectEngine } from "./engines/run";
+import type { HostedRoute } from "./engines/pi";
 
 /** The step's output schema, as sent with its job, turned into a check that lists the violations of a reply; a schema that cannot be compiled checks nothing. */
 function outputContractCheck(schema: unknown): ((output: JsonValue) => readonly string[]) | undefined {
@@ -165,8 +166,11 @@ export function settledEffectsNote(settled: ReadonlyArray<{ summary: string; out
 }
 
 /** The hosted model the Governor routed this attempt to (a check or a second attempt, ADR 0023), for every engine that can take one. */
-export function hostedRouteOf(route: { tier?: string; role?: string; baseUrl?: string; model?: string } | undefined): { baseUrl: string; model: string } | undefined {
-  return route?.tier === "hosted" && (route.role === "second-attempt" || route.role === "evaluator") && route.baseUrl && route.model ? { baseUrl: route.baseUrl, model: route.model } : undefined;
+export function hostedRouteOf(route: { tier?: string; role?: string; baseUrl?: string; model?: string; inputMicroUsdPerMTok?: number; outputMicroUsdPerMTok?: number } | undefined): HostedRoute | undefined {
+  // A route without both prices would run hosted spend for free; the Governor never sends one, and the runner does not accept one.
+  const priced = (price: number | undefined): price is number => typeof price === "number" && price >= 1;
+  return route?.tier === "hosted" && (route.role === "second-attempt" || route.role === "evaluator") && route.baseUrl && route.model && priced(route.inputMicroUsdPerMTok) && priced(route.outputMicroUsdPerMTok)
+    ? { baseUrl: route.baseUrl, model: route.model, inputMicroUsdPerMTok: route.inputMicroUsdPerMTok, outputMicroUsdPerMTok: route.outputMicroUsdPerMTok } : undefined;
 }
 
 export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => string), runnerEpoch = 1, controls: RunnerControls = newRunnerControls()): Promise<boolean> {
@@ -181,7 +185,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
   const ack = await client.ack(offer.attemptId, ackBody);
   // Execution input travels as a digest-pinned CAS artifact, never inline.
   const artifactBytes = await client.executionArtifact(offer.attemptId, offer.execution.artifact.digest, offer.execution.artifact.bytes);
-  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment; modelRoute?: { tier?: string; role?: string; baseUrl?: string; model?: string }; contextPack?: { text?: string; unavailableTools?: Array<{ id: string; reason?: string }> } };
+  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment; modelRoute?: Parameters<typeof hostedRouteOf>[0]; contextPack?: { text?: string; unavailableTools?: Array<{ id: string; reason?: string }> } };
   // The execution deadline is the lease: a monotonic clock (performance.now)
   // is armed from the ack's server lease expiry and refreshed by every
   // successful renewal, so wall-clock adjustments cannot extend the window.
