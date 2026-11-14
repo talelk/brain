@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { sha256Digest } from "@brain/contracts";
 import type { ArtifactRef, Checkpoint, EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
-import { engineFailureDetail } from "./failure-detail";
+import { engineFailureDetail, QUOTA_TEXT } from "./failure-detail";
 import { holdsCompleteObject } from "./json-reply";
 import { attemptLimitsNotice, finalTurnNotice, overAllowanceReason, REPEAT_BUDGET, toolCallCeiling, wrapUpReason } from "./limits";
 import { hostedMicroUsd, type HostedPrices } from "./pricing";
@@ -16,9 +16,9 @@ import { GovernedToolCalls } from "./tool-calls";
  */
 export interface HostedRoute extends HostedPrices { readonly baseUrl: string; readonly model: string }
 
-type PiSession = { dispose: () => void; abort: () => Promise<void>; getSessionStats: () => { assistantMessages: number; tokens: { input: number; output: number; cacheRead: number; total: number }; cost: number }; prompt: (text: string) => Promise<void>; steer: (text: string) => Promise<unknown>; agent: { onPayload?: (payload: unknown, model: unknown) => Promise<unknown> | unknown }; readonly isStreaming: boolean };
+type PiSession = { dispose: () => void; abort: () => Promise<void>; abortRetry: () => void; getSessionStats: () => { assistantMessages: number; tokens: { input: number; output: number; cacheRead: number; total: number }; cost: number }; prompt: (text: string) => Promise<void>; steer: (text: string) => Promise<unknown>; agent: { onPayload?: (payload: unknown, model: unknown) => Promise<unknown> | unknown }; readonly isStreaming: boolean };
 
-type SessionEvent = { type: string; message?: { role?: string; stopReason?: string; errorMessage?: string; content?: Array<{ type: string; text?: string }> } };
+type SessionEvent = { type: string; errorMessage?: string; message?: { role?: string; stopReason?: string; errorMessage?: string; content?: Array<{ type: string; text?: string }> } };
 
 export class PiEngine implements EngineAdapter {
   readonly id = "pi";
@@ -93,7 +93,11 @@ export class PiEngine implements EngineAdapter {
       },
     }, null, 2), { mode: 0o600 });
     process.env["PI_CODING_AGENT_DIR"] = agentDir;
-    const { createAgentSession, ModelRuntime } = (await import("@earendil-works/pi-coding-agent")) as typeof import("@earendil-works/pi-coding-agent");
+    const { createAgentSession, ModelRuntime, SettingsManager } = (await import("@earendil-works/pi-coding-agent")) as typeof import("@earendil-works/pi-coding-agent");
+    // A provider's Retry-After is read, not slept on: a delay above 1 ms fails the request at once with "Server requested Ns retry delay", so the
+    // wait is the Governor's to schedule (ADR 0033). A failure that named no delay gets the vendor's one quick retry.
+    const settings = SettingsManager.create(process.cwd(), agentDir);
+    settings.applyOverrides({ retry: { provider: { maxRetries: 1, maxRetryDelayMs: 1 } } });
     const runtime = await ModelRuntime.create(this.route ? { modelsPath: modelsFile } : undefined);
     const model = runtime.getModel(providerId as never, (spec.modelId || this.defaultModelId) as never);
     if (!model) throw Object.assign(new Error("Pi local model not found in models.json"), { code: "UNSUPPORTED_CAPABILITY" });
@@ -120,7 +124,7 @@ export class PiEngine implements EngineAdapter {
     await resourceLoader.reload();
     const { session } = await createAgentSession({
       model, thinkingLevel: "low", modelRuntime: runtime, cwd: process.cwd(), agentDir,
-      sessionManager: manager, tools: calls.names(), ...(calls.names().length ? { customTools } : { noTools: "all" }), resourceLoader,
+      sessionManager: manager, settingsManager: settings, tools: calls.names(), ...(calls.names().length ? { customTools } : { noTools: "all" }), resourceLoader,
     } as never);
     this.session?.dispose();
     this.session = session as unknown as PiSession;
@@ -134,6 +138,8 @@ export class PiEngine implements EngineAdapter {
 
   /** What the model said and how each of its messages ended, as the vendor session reports it. */
   private observe(event: SessionEvent): void {
+    // A quota or rate limit is not retried in place: the vendor session would send the same request again; the Governor waits for the reset.
+    if (event.type === "auto_retry_start" && QUOTA_TEXT.test(event.errorMessage ?? "")) queueMicrotask(() => this.session?.abortRetry());
     if (event.type !== "message_end" || event.message?.role !== "assistant") return;
     const message = event.message;
     // The first cause stands: an attempt stopped for its allowance ends with an "aborted" message that must not hide that reason.
