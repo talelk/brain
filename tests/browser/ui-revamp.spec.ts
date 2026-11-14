@@ -83,7 +83,7 @@ test("all 38 revamped screens have browser screenshots and page-level containmen
 
   const now = brain.store.now();
   const ws = brain.store.workspaceDb("operations", actor.organizationId);
-  ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-visual','Stabilize authentication','Investigate and verify the sign-in flow','[\"Independent evidence passes\"]',?,?,?)").run(actor.actorId, now, now);
+  ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-visual','Stabilize authentication','Investigate and verify the sign-in flow','[{\"id\":\"c1\",\"text\":\"Independent evidence passes\"}]',?,?,?)").run(actor.actorId, now, now);
   const tasks = [{ id: "inspect", title: "Inspect the current sign-in flow", criteria: ["Observations are attached"], dependsOn: [] }, { id: "verify", title: "Verify the correction independently", criteria: ["Independent verdict passes"], dependsOn: ["inspect"] }];
   ws.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-visual','obj-visual',1,?,'proposed','manual',?,?,?)").run(DIGEST, actor.actorId, JSON.stringify(tasks), now);
   ws.prepare("INSERT INTO planning_requests(mission_id,actor_id,run_id,state,plan_version_id,created_at_ms,updated_at_ms) VALUES ('obj-visual',?,'visual-plan','ready','plan-visual',?,?)").run(actor.actorId, now, now);

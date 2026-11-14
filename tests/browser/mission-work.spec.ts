@@ -20,7 +20,7 @@ async function missionWorld(page: Page, governor: GovernorFixture) {
   brain.createWorkspace(actor, { workspaceId: "ws-board", slug: "board" });
   const ws = brain.store.workspaceDb("ws-board", actor.organizationId);
   const now = Date.now();
-  ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-ui','Fixture mission','Fixture intent','[\"echo\"]','owner',?,?)").run(now, now);
+  ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-ui','Fixture mission','Fixture intent','[{\"id\":\"c1\",\"text\":\"echo\"}]','owner',?,?)").run(now, now);
   ws.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-ui','obj-ui',1,?,'confirmed','manual','owner','[]',?)").run(DIGEST_A, now);
   return { brain, actor, ws };
 }
@@ -55,7 +55,7 @@ test("mission work: items render with state, move applies, Done is disabled with
   brain.createWorkspace(actor, { workspaceId: "ws-board", slug: "board" });
   const ws = brain.store.workspaceDb("ws-board", actor.organizationId);
   const now = Date.now();
-  ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-ui','Fixture mission','Fixture intent','[\"echo\"]','owner',?,?)").run(now, now);
+  ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-ui','Fixture mission','Fixture intent','[{\"id\":\"c1\",\"text\":\"echo\"}]','owner',?,?)").run(now, now);
   ws.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-ui','obj-ui',1,?,'confirmed','manual','owner','[]',?)").run(DIGEST_A, now);
   seedWorkItem(ws, "work-ui-1", "Ship the fixture", "ready");
 

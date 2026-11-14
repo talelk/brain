@@ -52,14 +52,16 @@ export async function seedDemoWorkspace(brain: Brain, actor: ActorContext, works
   };
 
   // Missions: the paused and cancelled ones show the list in several states.
-  const active = await run("mission.create", { title: "Stabilize authentication", intent: "Investigate and verify the sign-in flow", successCriteria: ["Independent evidence passes"] });
+  const active = await run("mission.create", { title: "Stabilize authentication", intent: "Investigate and verify the sign-in flow", successCriteria: ["Independent evidence passes", "The correction is drafted and reviewed", "The rollout is announced", "Customers hear about the change"] });
   const paused = await run("mission.create", { title: "Prepare the quarterly review", intent: "Collect the numbers the review needs", successCriteria: ["Review pack is complete"] });
   const closed = await run("mission.create", { title: "Retire legacy webhooks", intent: "Remove the unused webhook endpoints", successCriteria: ["No traffic reaches the old endpoints"] });
   await run("mission.pause", { missionId: paused }, 1);
   await run("mission.close", { missionId: closed, outcome: "cancelled" }, 1);
 
   // A confirmed plan, then a revision that drops one unstarted task so it becomes abandoned.
-  const task = (id: string, title: string, dependsOn: string[] = []) => ({ id, title, criteria: [`${id}-verified`], dependsOn });
+  // The tasks name the success criteria they serve: c1 is covered, c2 and c3 wait on unfinished work, c4 has no task yet.
+  const serves: Record<string, string[]> = { done: ["c1"], review: ["c2"], ready: ["c3"], backlog: ["c3"] };
+  const task = (id: string, title: string, dependsOn: string[] = []) => ({ id, title, criteria: [`${id}-verified`], dependsOn, ...(serves[id] ? { criterionIds: serves[id] } : {}) });
   const everyTask = [task("done", "Audit sign-in sessions"), task("review", "Draft the correction"), task("progress", "Reproduce the latency regression"), task("blocked", "Collect production traces"), task("ready", "Write the rollout checklist"), task("backlog", "Announce the fix", ["ready"]), task("abandoned", "Rewrite the login page", ["ready"])];
   const first = await run("plan.propose", { missionId: active, origin: "manual", summary: "Audit, correct and verify the sign-in flow", tasks: everyTask });
   await run("plan.confirm", { planVersionId: first }, 1);

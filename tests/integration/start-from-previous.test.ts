@@ -33,7 +33,7 @@ function seedSource(w: Awaited<ReturnType<typeof world>>, missionId: string, kin
   const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
   const now = Date.now();
   db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,state,outcome,created_at_ms,updated_at_ms) VALUES (?,?,?,?,'owner-1',?,?,?,?)")
-    .run(missionId, "Vendor comparison", "Compare vendors", '["compared"]', kinds.closed === false ? "active" : "closed", kinds.closed === false ? null : "achieved", now, now);
+    .run(missionId, "Vendor comparison", "Compare vendors", '[{"id":"c1","text":"compared"}]', kinds.closed === false ? "active" : "closed", kinds.closed === false ? null : "achieved", now, now);
   db.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES (?,?,1,?,'confirmed','manual','owner-1','[]',?)").run(`plan-${missionId}`, missionId, `sha256:${"a".repeat(64)}`, now);
   db.prepare("INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,'review','[]','Review',?,?)").run(`work-${missionId}`, missionId, `plan-${missionId}`, "compare", "Compare", now, now);
   const verified: string[] = [];

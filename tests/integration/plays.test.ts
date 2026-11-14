@@ -47,6 +47,8 @@ describe("plays (T63)", () => {
     const w = setupWorld();
     expect(() => stage(w, [{ path: "config/plays/broken.yaml", text: play("broken").text.replace("{ memberId: lead, role: Coordinator, agentId: builder, engine: pi }", "{ memberId: lead, role: Coordinator, agentId: builder, engine: claude }") }])).toThrow(/does not run on engine claude/);
     expect(() => stage(w, [{ path: "config/plays/nolead.yaml", text: play("nolead").text.replace("coordinator: lead", "coordinator: ghost") }])).toThrow(/coordinator ghost is not on its team/);
+    // A Play's tasks may serve only the success criteria the Play lists (c1..cN, ADR 0034).
+    expect(() => stage(w, [{ path: "config/plays/unserved.yaml", text: play("unserved").text.replace("criteria: [audit-done], dependsOn: []", "criteria: [audit-done], dependsOn: [], criterionIds: [c2]") }])).toThrow(/serves unknown success criterion c2/);
     w.brain.activateRelease(w.owner, stage(w, [play("auth-stabilize")]).digest);
     const plays = await query<{ items: Array<{ playId: string; taskCount: number; autonomy: string }> }>(w, "plays.list");
     expect(plays.items).toEqual([expect.objectContaining({ playId: "auth-stabilize", taskCount: 2, autonomy: "autonomous" })]);
