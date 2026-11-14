@@ -161,7 +161,7 @@ export class MissionService {
   }
 
   private workItem(actor: ActorContext, workspaceId: string, row: WorkItemRow): WorkItem {
-    const dependsOn = (this.db(actor, workspaceId).prepare("SELECT depends_on_work_item_id AS id FROM work_item_dependencies WHERE work_item_id=? ORDER BY depends_on_work_item_id").all(row.id) as Array<{ id: string }>).map((entry) => entry.id);
+    const dependsOn = this.effectiveDependencies(this.db(actor, workspaceId), row.id).map((entry) => entry.id).sort();
     return {
       workItemId: row.id, missionId: row.mission_id, planVersionId: row.plan_version_id,
       planTaskId: row.plan_task_id, workspaceId, title: row.title, state: row.state,
@@ -361,15 +361,19 @@ export class MissionService {
         if (retained.has(item.id) || isStarted(item)) continue;
         transitionState(db, "workItem", item.id, "abandoned", { set: { next_action: `Superseded by plan revision ${plan.revision}`, updated_at_ms: now }, bumpVersion: true });
       }
+      // Every selected item's edges follow the items this plan selected. A retained task keeps its work item but not its old edges:
+      // a dependency that was replaced is a new item, and an edge left on the abandoned one would never be done.
       for (const task of tasks) {
         const workItemId = selected.get(task.id);
-        if (!workItemId || retained.has(workItemId)) continue;
+        if (!workItemId) continue;
+        if (retained.has(workItemId)) db.prepare("DELETE FROM work_item_dependencies WHERE work_item_id=?").run(workItemId);
         for (const dependency of task.dependsOn) {
           const dependencyId = selected.get(dependency);
           if (!dependencyId) throw new BrainDomainError("INTERNAL_ERROR", "confirmed plan dependency was not materialized");
           db.prepare("INSERT INTO work_item_dependencies(work_item_id,depends_on_work_item_id) VALUES (?,?)").run(workItemId, dependencyId);
         }
       }
+      this.releaseReadyItems(db, mission.id, ["backlog"]);
       transitionState(db, "planVersion", plan.id, "confirmed", { set: { confirmed_at_ms: now } });
       // A default time limit follows the plan it now has to fit (ADR 0016); a limit a person named stays as it is.
       const wall = planWallLimit(mission.budget_wall_ms, mission.budget_wall_explicit === 1, tasks);
@@ -461,8 +465,23 @@ export class MissionService {
     return item.id;
   }
 
+  /**
+   * What a work item waits for, in one place: the live item behind each edge. An edge left on an abandoned item (a replaced task, an old plan)
+   * follows that task to the item that took its place, and gates nothing when the plan dropped the task. Nothing waits on work nobody does.
+   */
+  private effectiveDependencies(db: ReturnType<Store["workspaceDb"]>, workItemId: string): Array<{ id: string; state: string }> {
+    const edges = db.prepare("SELECT w.id,w.state,w.mission_id,w.plan_task_id FROM work_item_dependencies d JOIN work_items w ON w.id=d.depends_on_work_item_id WHERE d.work_item_id=?").all(workItemId) as Array<{ id: string; state: string; mission_id: string; plan_task_id: string }>;
+    const live = new Map<string, { id: string; state: string }>();
+    for (const edge of edges) {
+      if (edge.state !== "abandoned") { live.set(edge.id, { id: edge.id, state: edge.state }); continue; }
+      const next = db.prepare("SELECT id,state FROM work_items WHERE mission_id=? AND plan_task_id=? AND state!='abandoned' ORDER BY created_at_ms DESC,id DESC LIMIT 1").get(edge.mission_id, edge.plan_task_id) as { id: string; state: string } | undefined;
+      if (next) live.set(next.id, next);
+    }
+    return [...live.values()];
+  }
+
   private assertDependenciesDone(db: ReturnType<Store["workspaceDb"]>, workItemId: string): void {
-    const pending = db.prepare("SELECT w.id,w.state FROM work_item_dependencies d JOIN work_items w ON w.id=d.depends_on_work_item_id WHERE d.work_item_id=? AND w.state!='done'").all(workItemId) as Array<{ id: string; state: string }>;
+    const pending = this.effectiveDependencies(db, workItemId).filter((entry) => entry.state !== "done");
     if (pending.length > 0) throw new BrainDomainError("CONFLICT", `work item dependencies are not complete: ${pending.map((entry) => entry.id).join(", ")}`);
   }
 
@@ -496,10 +515,10 @@ export class MissionService {
     return job?.workflow_run_id != null && links.some((link) => link.run_id === job.workflow_run_id);
   }
 
-  private releaseReadyItems(db: ReturnType<Store["workspaceDb"]>, missionId: string): void {
-    const candidates = db.prepare("SELECT id FROM work_items WHERE mission_id=? AND parked=0 AND state IN ('backlog','blocked')").all(missionId) as Array<{ id: string }>;
+  private releaseReadyItems(db: ReturnType<Store["workspaceDb"]>, missionId: string, states: readonly ("backlog" | "blocked")[] = ["backlog", "blocked"]): void {
+    const candidates = db.prepare(`SELECT id FROM work_items WHERE mission_id=? AND parked=0 AND state IN (${states.map(() => "?").join(",")})`).all(missionId, ...states) as Array<{ id: string }>;
     for (const candidate of candidates) {
-      const pending = db.prepare("SELECT 1 FROM work_item_dependencies d JOIN work_items w ON w.id=d.depends_on_work_item_id WHERE d.work_item_id=? AND w.state!='done' LIMIT 1").get(candidate.id);
+      const pending = this.effectiveDependencies(db, candidate.id).some((entry) => entry.state !== "done");
       if (!pending) transitionState(db, "workItem", candidate.id, "ready", { set: { blocked_reason: null, next_action: "Start this task", updated_at_ms: this.store.now() }, bumpVersion: true });
     }
   }
@@ -1095,6 +1114,9 @@ export class MissionService {
    */
   reconcileFinished(organizationId: string, workspaceId: string): void {
     const db = this.store.workspaceDb(workspaceId, organizationId);
+    // Backlog work whose every live dependency is Done is ready, whatever moved last: a replan or a restart never leaves a task waiting on nothing.
+    const waiting = db.prepare("SELECT DISTINCT w.mission_id AS id FROM work_items w JOIN missions m ON m.id=w.mission_id AND m.state='active' WHERE w.parked=0 AND w.state='backlog'").all() as Array<{ id: string }>;
+    for (const entry of waiting) this.store.inTx(db, () => this.releaseReadyItems(db, entry.id, ["backlog"]));
     const rows = db.prepare(`SELECT w.*, l.run_id AS link_run FROM work_items w
       JOIN missions m ON m.id=w.mission_id AND m.state='active' AND m.auto_start=1 AND m.coordinator_member_id IS NULL
       JOIN execution_links l ON l.work_item_id=w.id JOIN workflow_runs r ON r.id=l.run_id AND r.state='succeeded'

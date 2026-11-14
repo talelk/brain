@@ -126,6 +126,36 @@ describe("missions (T51)", () => {
     w.brain.close();
   });
 
+  it("a replanned dependency never strands a retained dependent: its edges follow the new item (P2)", async () => {
+    const w = setupWorld();
+    const id = await confirmedMission(w, "m-edges", [task("a"), task("b"), task("c", ["a", "b"])]);
+    const next = (await run(w, w.owner, "plan.propose", "m-edges-ok", { missionId: id, origin: "manual", tasks: [task("a"), task("b", [], { title: "Task b, revised" }), task("c", ["a", "b"])] })).resourceId ?? "";
+    await run(w, w.owner, "plan.confirm", "m-edges-reconfirm", { planVersionId: next }, (await mission(w, id)).version);
+    const items = (await workView(w)).items;
+    const c = items.find((item) => item.planTaskId === "c") as WorkItem;
+    const b = items.find((item) => item.planTaskId === "b") as WorkItem;
+    expect(b.title).toBe("Task b, revised");
+    const edges = w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("SELECT d.depends_on_work_item_id AS id, w.state FROM work_item_dependencies d JOIN work_items w ON w.id=d.depends_on_work_item_id WHERE d.work_item_id=? ORDER BY w.plan_task_id").all(c.workItemId) as Array<{ id: string; state: string }>;
+    expect(edges.map((edge) => edge.state)).not.toContain("abandoned");
+    expect(edges.map((edge) => edge.id)).toContain(b.workItemId);
+    w.brain.close();
+  });
+
+  it("an edge left on abandoned work gates nothing, and the sweep releases the waiting task (P2)", async () => {
+    const w = setupWorld();
+    await confirmedMission(w, "m-stale", [task("a"), task("b"), task("c", ["a", "b"])]);
+    const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
+    ws.prepare("UPDATE work_items SET state='abandoned' WHERE plan_task_id='b'").run();
+    ws.prepare("UPDATE work_items SET state='done', evidence_digest=? WHERE plan_task_id='a'").run(`sha256:${"e".repeat(64)}`);
+    const before = (await workView(w)).items.find((item) => item.planTaskId === "c") as WorkItem;
+    expect(before.state).toBe("backlog");
+    expect(before.dependsOn).toHaveLength(1);
+    w.brain.missions.reconcileFinished(w.org, w.workspaceId);
+    const after = (await workView(w)).items.find((item) => item.planTaskId === "c") as WorkItem;
+    expect(after.state).toBe("ready");
+    w.brain.close();
+  });
+
   it("parks work after three consecutive failed attempts across members; only a human unparks (E115)", async () => {
     const w = setupWorld();
     const id = await confirmedMission(w, "m-park", [task("a", [], { assignment: { kind: "agent", id: "pi", role: "specialist" } }), task("b")]);
