@@ -1,5 +1,6 @@
 import type { JsonValue } from "@brain/contracts";
 import type { Store } from "../../application/store";
+import { ensureAgentPrincipal } from "../identity/index";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 
@@ -29,8 +30,8 @@ export function wake(store: Store, db: Db, missionId: string, reason: WakeReason
 export function pump(store: Store, db: Db, organizationId: string, workspaceId: string, port: CoordinatorPort | undefined): number {
   if (!port) return 0;
   let started = 0;
-  const missions = db.prepare(`SELECT DISTINCT m.id, m.owner_id, m.coordinator_workflow, m.state FROM mission_wakes w JOIN missions m ON m.id=w.mission_id
-    WHERE w.consumed_by_run IS NULL AND m.coordinator_workflow IS NOT NULL`).all() as Array<{ id: string; owner_id: string; coordinator_workflow: string; state: string }>;
+  const missions = db.prepare(`SELECT DISTINCT m.id, m.owner_id, m.coordinator_member_id, m.coordinator_workflow, m.state FROM mission_wakes w JOIN missions m ON m.id=w.mission_id
+    WHERE w.consumed_by_run IS NULL AND m.coordinator_workflow IS NOT NULL`).all() as Array<{ id: string; owner_id: string; coordinator_member_id: string | null; coordinator_workflow: string; state: string }>;
   for (const mission of missions) {
     if (mission.state === "closed") continue;
     const live = db.prepare("SELECT r.state FROM mission_runs m JOIN workflow_runs r ON r.id=m.run_id WHERE m.mission_id=? ORDER BY m.created_at_ms DESC LIMIT 1").get(mission.id) as { state: string } | undefined;
@@ -40,7 +41,7 @@ export function pump(store: Store, db: Db, organizationId: string, workspaceId: 
     let runId: string;
     try {
       ({ runId } = port.startCoordinatorRun({
-        organizationId, workspaceId, actorId: mission.owner_id, workflowId: mission.coordinator_workflow, missionId: mission.id,
+        organizationId, workspaceId, actorId: ensureAgentPrincipal(store, { organizationId, workspaceId, missionId: mission.id, memberId: mission.coordinator_member_id, actingFor: mission.owner_id }).principalId, workflowId: mission.coordinator_workflow, missionId: mission.id,
         reasons: wakes.map((entry) => entry.detail ? `${entry.reason}: ${entry.detail}` : entry.reason), executionKey: `coordinator:${wakes[0]!.id}`,
       }));
     } catch (error) {
