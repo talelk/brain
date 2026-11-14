@@ -13,8 +13,8 @@ export function selectEngine(configured: string | undefined, toolBindings: reado
     case "fixture": return new FixtureEngine(toolBindings);
     case "pi": return new PiEngine(toolBindings, route);
     case "claude": return new ClaudeEngine(toolBindings, route);
-    case "acp": return new AcpEngine();
-    case "opencode": return new OpenCodeEngine();
+    case "acp": return new AcpEngine({ toolBindings });
+    case "opencode": return new OpenCodeEngine(toolBindings);
     default: return undefined;
   }
 }
