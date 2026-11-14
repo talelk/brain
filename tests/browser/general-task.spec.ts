@@ -197,7 +197,8 @@ test("a plain-words mission runs on the general task workflow and shows a readab
   await expect(reader.getByRole("listitem").filter({ hasText: /^A nested detail$/ })).toBeVisible();
   await expect(reader.getByRole("region", { name: "Summary" })).toContainText("Fixture result for: Inspect the sign-in flow");
   await expect(reader.getByRole("region", { name: "Criteria" })).toContainText("2 of 2 met");
-  await expect(reader.getByRole("region", { name: "Assumptions" })).toContainText("The brief is complete");
+  // Assumptions are reported up front, in the amber block that says what the result could not confirm.
+  await expect(reader.getByTestId("result-limits")).toContainText("The brief is complete");
   await expect(reader.getByTestId("trust-line")).toContainText("4 of 4 criteria checked by tests, files or hashes; 0 by human sign-off; 0 by model opinion");
   await expect(reader.getByText('"deliverable"')).toHaveCount(0);
   await expect(reader.getByRole("button", { name: "Download .md" })).toBeVisible();
