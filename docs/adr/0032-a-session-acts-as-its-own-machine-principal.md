@@ -1,0 +1,15 @@
+# 32. A session acts as its own machine principal, recorded as acting for the mission owner
+
+Status: accepted, 2026-11-15.
+
+Machine actions were recorded under the mission owner's name: auto-start and coordinator wakes ran as the owner, and an agent session had no identity of its own to act with.
+
+## Decision
+1. **Principal.** Each team member of a mission has one machine principal (kind `agent`, id `agent:<mission>:<member>`; `agent:<mission>` for work no member is named for), created when first needed. It is bound to one workspace and mission and recorded as acting for the mission owner, who is looked up again each time, so an owner transfer moves it.
+2. **Credential.** Each running attempt of an agent step gets a short-lived credential for that principal (`JobProtocol.sessionCredential`, runner-authenticated). It is checked against the attempt on every use: valid only while the attempt is running under the fence it was minted for, its lease and runner epoch current. Attempt end and lease loss also stamp it revoked; asking again replaces it. Principal per member, credential per attempt, so a replayed dispatch keeps its actor.
+3. **Scope.** Deny by default. A principal holds the `agent-session` role of the authorization matrix (read, `mission:write`, `workflow:dispatch`) in its one workspace, intersected with what the owner may do there now; it has no membership of its own and never shows among a workspace's people. The command funnel admits only commands that name its own mission, directly or through a work item, plan version or run. Verdicts, approvals and administration are not in the role.
+4. **Attribution.** A command run by a session credential writes a `session.acted` event naming principal and owner; the audit trail ("By an agent working for you") and Logs show it. Auto-start dispatches and coordinator runs use the assigned member's principal, not the owner.
+
+## Consequences
+- The owner no longer shares an actor with the agents that act for them: the requester of an effect on auto-started work is the agent, not the owner (ADR 0024 still needs a person's approval per effect).
+- Not covered: attempts outside any mission have no principal; schedule starts and the Governor's own mission completion keep their current actor until every event records its actor (#148). Nothing in the runner calls `sessionCredential` yet; the Brain tools (#107) will.
