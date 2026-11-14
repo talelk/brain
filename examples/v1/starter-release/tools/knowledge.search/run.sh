@@ -15,9 +15,12 @@ for hit in b["results"][:limit]:
  text = str(hit.get("content", ""))[:1500]
  if used + len(text) > 6000: break
  used += len(text)
- results.append({"sourceId": hit.get("sourceId"), "text": text, "updatedAt": hit.get("updatedAt"), "status": hit.get("status", "unverified"), "provenance": hit.get("provenance", [])})
+ row = {"sourceId": hit.get("sourceId"), "text": text, "updatedAt": hit.get("updatedAt"), "status": hit.get("status", "unverified"), "provenance": hit.get("provenance", []), "claim": True}
+ for key in ("sourceType", "title", "selfReviewed"):
+  if key in hit: row[key] = hit[key]
+ results.append(row)
 print(json.dumps({
  "query": b.get("query", v.get("query")), "results": results, "count": len(results),
- "note": "Hits are claims from stored knowledge. Only status reviewed has been checked by a person; treat the rest as leads and say where a fact came from.",
+ "note": "Hits are claims from stored knowledge and earlier missions, never evidence of this task. Only status reviewed has been checked by a person; treat the rest as leads, cite the source and its provenance, and do not present a hit as something you observed.",
 }))
 '

@@ -1,6 +1,6 @@
 import { readRuntimeConfig, type RuntimeConfig } from "../runtime-config";
 import { join } from "node:path";
-import type { ActorContext, CommandReceipt, HumanApprovalDecision, JsonValue, WorkflowCatalogEntry,
+import type { ActorContext, CommandReceipt, HumanApprovalDecision, JsonValue, MemoryResult, WorkflowCatalogEntry,
 } from "@brain/contracts";
 import { approvalSubjectDigest, domainDigest, isKnownQuery, sha256Digest } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
@@ -132,8 +132,11 @@ export class Brain {
           },
           // The unified search (memory.search); scope is the mission's workspace, fixed by the caller, never taken from the agent.
           knowledgeSearch: (organizationId, workspaceId, scope, input) => {
-            const found = this.memory.search({ contractVersion: "brain.memory/v1", queryId: this.store.id("kq"), scope: { organizationId, visibility: "workspace", workspaceId }, query: input.query, sourceTypes: ["chat", "skill", "wiki", "codegraph"], limit: input.limit, maxChars: 1500 }, { organizationId, workspaceId });
-            return { query: input.query, ...(scope.missionId ? { missionId: scope.missionId } : {}), results: found.results.map((hit) => ({ sourceId: hit.sourceId, content: hit.content, updatedAt: hit.updatedAt, status: hit.status, provenance: hit.provenance })) };
+            const hits = this.storedClaims(organizationId, workspaceId, input.query, input.limit, 1500);
+            return { query: input.query, ...(scope.missionId ? { missionId: scope.missionId } : {}), results: hits.map((hit) => ({
+              sourceId: hit.sourceId, content: hit.content, updatedAt: hit.updatedAt, status: hit.status, provenance: hit.provenance,
+              ...(hit.sourceType ? { sourceType: hit.sourceType } : {}), ...(hit.title ? { title: hit.title } : {}), ...(hit.selfReviewed ? { selfReviewed: true } : {}),
+            })) };
           },
           csvArtifact: (organizationId, workspaceId, artifactId) => {
             const artifact = readWorkspaceArtifactText(this.store, organizationId, workspaceId, artifactId, { maxBytes: 2 * 1024 * 1024, mediaTypes: ["text/csv", "text/plain", "application/csv"] });
@@ -913,22 +916,39 @@ export class Brain {
   }
 
   /**
+   * What the workspace stored that an agent or the planner may be handed for some words: published knowledge, wiki, chat, skills and
+   * code graph, in this organization and workspace only (documents are read by id with documents.read). Knowledge past its period is
+   * left out even when the sweep has not withdrawn it yet. Knowledge hits carry their provenance: the asset, its mission and the
+   * mission's verified evidence. Every hit is a claim from earlier work, never evidence of the work now under way.
+   */
+  private storedClaims(organizationId: string, workspaceId: string, query: string, limit: number, maxChars: number): Array<MemoryResult & { missionId?: string }> {
+    const found = this.memory.search({ contractVersion: "brain.memory/v1", queryId: this.store.id("kq"), scope: { organizationId, visibility: "workspace", workspaceId }, query, sourceTypes: ["chat", "skill", "wiki", "codegraph", "knowledge"], limit, maxChars }, { organizationId, workspaceId });
+    const db = this.store.workspaceDb(workspaceId, organizationId);
+    const now = this.store.now();
+    const live: Array<MemoryResult & { missionId?: string }> = [];
+    for (const hit of found.results) {
+      const asset = db.prepare("SELECT id, created_at_ms, expires_at_ms, mission_id, provenance_json FROM knowledge_assets WHERE id=?").get(hit.sourceId) as
+        | { id: string; created_at_ms: number; expires_at_ms: number | null; mission_id: string | null; provenance_json: string } | undefined;
+      if (!asset) { live.push(hit); continue; }
+      if (knowledgeExpired(db, asset, now)) continue;
+      const evidence = (JSON.parse(asset.provenance_json) as Array<{ evidenceDigest: string }>).slice(0, 3).map((entry) => entry.evidenceDigest);
+      live.push({ ...hit, provenance: [asset.id, ...(asset.mission_id ? [`mission:${asset.mission_id}`] : []), ...evidence], ...(asset.mission_id ? { missionId: asset.mission_id } : {}) });
+    }
+    return live;
+  }
+
+  /** Related stored knowledge for a plan draft, in the actor's organization and the given workspace (the caller has checked workspace read access). */
+  knowledgeHits(actor: ActorContext, workspaceId: string, query: string, limit: number): Array<{ sourceId: string; content: string; status?: string; title?: string; missionId?: string }> {
+    return this.storedClaims(actor.organizationId, workspaceId, query, limit, 600)
+      .map((hit) => ({ sourceId: hit.sourceId, content: hit.content, ...(hit.status ? { status: hit.status } : {}), ...(hit.title ? { title: hit.title } : {}), ...(hit.missionId ? { missionId: hit.missionId } : {}) }));
+  }
+
+
+  /**
    * The single query entry: contract validation, registry gating, limit clamps
    * and organization routing stay here; every read model is module-owned and
    * reached by a one-line dispatch.
    */
-  /** The unified memory search for words, in the actor's organization and the given workspace only (the caller has checked workspace read access). */
-  knowledgeHits(actor: ActorContext, workspaceId: string, query: string, limit: number): Array<{ sourceId: string; content: string; status?: string }> {
-    const found = this.memory.search({ contractVersion: "brain.memory/v1", queryId: this.store.id("kq"), scope: { organizationId: actor.organizationId, visibility: "workspace", workspaceId }, query, sourceTypes: ["chat", "skill", "wiki", "codegraph"], limit, maxChars: 600 }, { organizationId: actor.organizationId, workspaceId });
-    // Knowledge that expired is not offered to the planner, even if its memory entry has not been swept yet.
-    const db = this.store.workspaceDb(workspaceId, actor.organizationId);
-    const live = found.results.filter((hit) => {
-      const asset = db.prepare("SELECT id, created_at_ms, expires_at_ms FROM knowledge_assets WHERE id=?").get(hit.sourceId) as { id: string; created_at_ms: number; expires_at_ms: number | null } | undefined;
-      return !asset || !knowledgeExpired(db, asset, this.store.now());
-    });
-    return live.map((hit) => ({ sourceId: hit.sourceId, content: hit.content, ...(hit.status ? { status: hit.status } : {}) }));
-  }
-
   async executeQuery(actor: ActorContext, raw: unknown, headers?: Headers): Promise<JsonValue> {
     const s = this.store;
     const check = validate("QueryRequest", raw);

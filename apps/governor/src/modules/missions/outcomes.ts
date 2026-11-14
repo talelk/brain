@@ -29,7 +29,10 @@ export function observedCalls(store: Store, db: Db, workItemId: string, tools: r
   return total;
 }
 
-/** Whether a mission rests on observation: no Done task lacks the call it declared, and at least one successful tool call exists across its runs. */
+/** Tools that read stored claims (ADR 0022): reusing earlier knowledge is never observation of the world, so such a call alone never backs a result. */
+const CLAIM_READ_TOOLS: readonly string[] = ["knowledge.search"];
+
+/** Whether a mission rests on observation: no Done task lacks the call it declared, and at least one successful call of an observing tool exists across its runs. */
 export function missionObserved(store: Store, db: Db, missionId: string): boolean {
   const items = db.prepare("SELECT id, required_tools_json FROM work_items WHERE mission_id=? AND state='done'").all(missionId) as Array<{ id: string; required_tools_json: string }>;
   if (items.length === 0) return false;
@@ -39,7 +42,7 @@ export function missionObserved(store: Store, db: Db, missionId: string): boolea
     if (declared.length > 0 && observedCalls(store, db, item.id, declared).succeeded === 0) return false;
     if (!any) {
       const runs = (db.prepare("SELECT run_id FROM execution_links WHERE work_item_id=?").all(item.id) as Array<{ run_id: string }>).map((row) => row.run_id);
-      if (runs.length > 0 && (store.control.prepare(`SELECT 1 FROM tool_calls WHERE failed=0 AND finished_at IS NOT NULL AND run_id IN (${runs.map(() => "?").join(",")}) LIMIT 1`).get(...runs) !== undefined)) any = true;
+      if (runs.length > 0 && (store.control.prepare(`SELECT 1 FROM tool_calls WHERE failed=0 AND finished_at IS NOT NULL AND tool_id NOT IN (${CLAIM_READ_TOOLS.map(() => "?").join(",")}) AND run_id IN (${runs.map(() => "?").join(",")}) LIMIT 1`).get(...CLAIM_READ_TOOLS, ...runs) !== undefined)) any = true;
     }
   }
   return any;
