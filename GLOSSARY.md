@@ -392,7 +392,8 @@ _Avoid_: autonomy, objectivity
 A reusable, readable record extracted from verified past work (a closed achieved
 mission), with provenance to the mission's evidence bundles and a lifecycle of
 extracted, published or revoked. It needs observed evidence to be written up, and is a claim when reused: never evidence
-for a criterion. On a single-owner install a verified mission's asset publishes itself
+for a criterion. Published assets, never revoked or expired ones, reach agents (knowledge search) and the planner (related
+knowledge) labelled as claims with provenance; a knowledge search never counts as observation. On a single-owner install a verified mission's asset publishes itself
 (self-reviewed, ADR 0007); a newer asset of the same goal supersedes the older.
 _Avoid_: memory (unqualified), insight, learning
 

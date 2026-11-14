@@ -31,6 +31,8 @@ export interface AchievedOptions {
   reuse?: string[];
   /** Whether a successful tool call backs the result (ADR 0022). Default true; false is the model's say-so alone, which is never written up. */
   observed?: boolean;
+  /** Which tool made the one successful call that backs the result. Default documents.read; knowledge.search is a claim read, never observation. */
+  observedTool?: string;
 }
 
 const DEFAULT_BODY = "The work was done in full and checked against every criterion. The result names the findings, explains the evidence behind each one and lists what to do next, so a later mission can start from it instead of from nothing.";
@@ -61,7 +63,7 @@ export async function achievedMission(w: TestWorld, key: string, options: Achiev
     ws.prepare("INSERT INTO execution_links(mission_id,work_item_id,run_id,created_at_ms) VALUES (?,?,?,?)").run(id, item.workItemId, runId, w.brain.store.now());
     if (options.observed !== false) {
       const at = new Date().toISOString();
-      w.brain.store.control.prepare("INSERT INTO tool_calls(attempt_id, proposal_id, organization_id, workspace_id, run_id, tool_id, proposed_at, failed, finished_at) VALUES (?,?,?,?,?,?,?,0,?)").run(`att-${key}`, `prop-${key}`, w.org, w.workspaceId, runId, "documents.read", at, at);
+      w.brain.store.control.prepare("INSERT INTO tool_calls(attempt_id, proposal_id, organization_id, workspace_id, run_id, tool_id, proposed_at, failed, finished_at) VALUES (?,?,?,?,?,?,?,0,?)").run(`att-${key}`, `prop-${key}`, w.org, w.workspaceId, runId, options.observedTool ?? "documents.read", at, at);
     }
     ws.prepare("INSERT INTO step_outputs(run_id,step_id,output_json) VALUES (?,?,?)").run(runId, "respond", JSON.stringify({ criteria: [], assumptions: [], ...report }));
   }

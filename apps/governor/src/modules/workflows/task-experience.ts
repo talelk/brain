@@ -10,7 +10,7 @@ interface Host {
   /** The kept reuse items of a mission as the planner's `reused` input (claims with provenance); empty when nothing was kept. */
   reusePrompt?(actor: ActorContext, workspaceId: string, missionId: string): string;
   /** Ranked stored-knowledge hits for words, inside the workspace the actor may read; the planner gets them in its prompt instead of calling a search tool. */
-  knowledgeHits?(actor: ActorContext, workspaceId: string, query: string, limit: number): Array<{ sourceId: string; content: string; status?: string }>;
+  knowledgeHits?(actor: ActorContext, workspaceId: string, query: string, limit: number): Array<{ sourceId: string; content: string; status?: string; title?: string; missionId?: string }>;
   /** The earlier mission a mission was started from and what of it seeds the plan: reuse refs, and verified outputs to pin as typed inputs. */
   /** Lessons from earlier healed or parked failures (unexpired), as bounded plain lines for the planner. */
   lessons?(actor: ActorContext, workspaceId: string): string;
@@ -68,13 +68,15 @@ const RELATED_HITS = 4;
 const RELATED_HIT_CHARS = 600;
 const RELATED_CHARS = 3200;
 /** What the workspace already knows about an objective, as bounded labelled lines: claims with their review status, never evidence. */
-export function relatedKnowledgePrompt(hits: ReadonlyArray<{ sourceId: string; content: string; status?: string }>): string {
+export function relatedKnowledgePrompt(hits: ReadonlyArray<{ sourceId: string; content: string; status?: string; title?: string; missionId?: string }>): string {
   const lines: string[] = [];
   let used = 0;
   for (const hit of hits.slice(0, RELATED_HITS)) {
     const text = hit.content.replace(/\s+/g, " ").trim().slice(0, RELATED_HIT_CHARS);
     if (!text) continue;
-    const line = `- [${hit.status ?? "unverified"}] ${text} (source ${hit.sourceId.slice(0, 120)})`;
+    const title = hit.title ? `${hit.title.replace(/\s+/g, " ").trim().slice(0, 120)}: ` : "";
+    const from = hit.missionId ? `, mission ${hit.missionId.slice(0, 120)}` : "";
+    const line = `- [${hit.status ?? "unverified"}] ${title}${text} (source ${hit.sourceId.slice(0, 120)}${from})`;
     if (used + line.length > RELATED_CHARS) break;
     used += line.length; lines.push(line);
   }
