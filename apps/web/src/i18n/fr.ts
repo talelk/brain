@@ -1651,5 +1651,9 @@ export const fr: Catalog = {
   "work.hosted.priceIn": "Prix d'entrée (USD par million de jetons)",
   "work.hosted.priceOut": "Prix de sortie (USD par million de jetons)",
   "work.hosted.priceHint": "Ce que facture le fournisseur. Les deux prix sont obligatoires : chaque tentative hébergée est comptée en dollars dans les plafonds de dépense de la mission et de l'espace de travail.",
+  "failure.class.quota": "Le quota ou la limite de débit du fournisseur du modèle a été atteint",
+  "failure.remedy.wait-for-quota": "Rien à faire : Brain attend le délai indiqué par le fournisseur, puis réessaie.",
+  "run.fail.quota": "Le fournisseur du modèle a refusé la requête : son quota ou sa limite de débit a été atteint.",
+  "run.fail.quota.next": "rien à faire, Brain attend le délai indiqué par le fournisseur puis relance la tâche ; si cela se répète, augmentez l'offre ou le quota auprès du fournisseur.",
   // @@END
 };

@@ -44,6 +44,30 @@ test("a stopped task says why in one sentence and offers the one fix; raising th
   expect(errors).toEqual([]);
 });
 
+test("a task whose model provider ran out of quota says so, and asks nothing of the person while Brain waits (ADR 0033)", async ({ page, governor }) => {
+  test.setTimeout(120_000);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const demo = await seedBrowserDemo(page, governor);
+  const { brain, db, org } = ws(demo, governor);
+  const task = demo.seed.workItems["in-progress"];
+  // The attempt ends the way the runner reports a provider's 429: the failure the Governor classifies and waits out.
+  brain.missions.recordRunFailure(org, demo.workspaceId, "demo-run-progress", "agent ended with error: quota or rate limit (retry after 45s): 429: You exceeded your current quota, please check your plan and billing details.");
+  expect(db.prepare("SELECT state, failed_attempts AS n, failure_class AS c FROM work_items WHERE id=?").get(task)).toEqual({ state: "ready", n: 0, c: "quota" });
+
+  await page.goto(`${governor.url}/missions/${demo.seed.missionIds.active}/plan`);
+  await page.getByRole("button", { name: "Manage Reproduce the latency regression", exact: true }).click();
+  await expect(page.locator("[data-task-failure-sentence]")).toHaveText("The model provider's quota or rate limit was reached", { timeout: 30_000 });
+  await expect(page.locator("[data-task-failure-fix]")).toContainText("Nothing to do: Brain waits for the time the provider named, then tries again.");
+  await expect(page.getByText("trying again in 45 seconds")).toBeVisible();
+  // Nothing is asked of the person: no retry, no spend-cap button on a task that is only waiting.
+  await expect(page.locator("[data-spend-cap-raise]")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Retry", exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  if (process.env["BRAIN_SHOTS"]) await page.screenshot({ path: `${process.env["BRAIN_SHOTS"]}/quota-waiting.png`, fullPage: true });
+  expect(errors).toEqual([]);
+});
+
 test("Quality names failures by cause and breaks the figures down by practice and workspace", async ({ page, governor }) => {
   test.setTimeout(120_000);
   const errors: string[] = [];
