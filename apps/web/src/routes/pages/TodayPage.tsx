@@ -10,8 +10,8 @@ import { attentionHref, resultName } from "../../ui/components/AttentionDrawer";
 import { NeedsYouQueue } from "../../ui/components/NeedsYouQueue";
 import { WorkingNow, runningMissions } from "../../ui/components/WorkingNow";
 import { ATTENTION_CHANGED, blockingCount, createAttentionRead } from "../../ui/attention";
-import { missionHref } from "../../ui/mission-links";
-import { formatRelative } from "../../ui/format";
+import { missionHref, sameTitleHints } from "../../ui/mission-links";
+import { formatDateTime, formatRelative } from "../../ui/format";
 import { missionStateLabel, missionOutcomeLabel } from "../../ui/mission-words";
 import { PlainSummary } from "../../ui/viz/PlainSummary";
 import { createStartController, StartFields } from "../../ui/start/StartBox";
@@ -46,6 +46,7 @@ export default function TodayPage(): JSX.Element {
   const items = () => attention.state().data ?? [];
   const waitingItems = () => items().filter((item) => item.kind !== "result-ready");
   const readyItems = () => items().filter((item) => item.kind === "result-ready");
+  const hints = () => sameTitleHints(start.missions.state().data ?? [], formatDateTime);
   const recent = () => [...(start.missions.state().data ?? [])].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
   const running = () => runningMissions(start.missions.state().data ?? []).reduce((sum, mission) => sum + mission.usage.runningMembers, 0);
   const [showAllNeeds, setShowAllNeeds] = createSignal(false);
@@ -105,9 +106,9 @@ export default function TodayPage(): JSX.Element {
         <WorkspaceSection title={t("today.latest.title")} description={t("today.latest.description")}
           actions={<Button variant="ghost" iconRight="lucide-arrow-right" onClick={() => void navigate(`/w/${app.workspaceId()}/missions`)}>{t("today.latest.all")}</Button>}>
           <div class="brain-queue"><For each={recent()}>{(mission) =>
-            <QueueRow title={mission.title} description={mission.intent.trim().toLowerCase() === mission.title.trim().toLowerCase() ? "" : mission.intent.length > 140 ? `${mission.intent.slice(0, 137).trimEnd()}…` : mission.intent} icon="lucide-flag" tone={mission.state === "active" ? "blue" : mission.state === "paused" ? "amber" : "gray"}
+            <QueueRow title={hints().has(mission.missionId) ? `${mission.title} · ${t("missions.startedAt", { when: hints().get(mission.missionId)! })}` : mission.title} description={mission.intent.trim().toLowerCase() === mission.title.trim().toLowerCase() ? "" : mission.intent.length > 140 ? `${mission.intent.slice(0, 137).trimEnd()}…` : mission.intent} icon="lucide-flag" tone={mission.state === "active" ? "blue" : mission.state === "paused" ? "amber" : "gray"}
               label={t("missions.open", { title: mission.title })} meta={<span>{missionStateLabel(mission.state)}{mission.outcome ? ` · ${missionOutcomeLabel(mission.outcome)}` : ""} · {t("missions.updated", { when: formatRelative(mission.updatedAt) })}</span>}
-              onClick={() => void navigate(missionHref(app.workspaceId(), mission.missionId, "live"))} />}</For></div>
+              onClick={() => void navigate(missionHref(app.workspaceId(), mission.missionId))} />}</For></div>
         </WorkspaceSection>
       </Show>
       <div class="brain-dock-spacer" aria-hidden="true" />

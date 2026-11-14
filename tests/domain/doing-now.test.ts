@@ -54,7 +54,7 @@ describe("ETA band (#61)", () => {
   it("compares elapsed time with the estimate", () => {
     expect(etaBand({ estimatedMinutes: 10, startedAt: start, nowMs: at(4) })).toEqual({ kind: "within", label: "4 min of about 10 min · about 6 min left", fraction: 0.4 });
     expect(etaBand({ estimatedMinutes: 10, startedAt: start, nowMs: at(13) })).toEqual({ kind: "over", label: "3 min past the estimate of 10 min", fraction: 1 });
-    expect(etaBand({ estimatedMinutes: 10, startedAt: start, nowMs: at(60), endedAtMs: at(7), finished: true })).toMatchObject({ kind: "done", label: "Took 7 min; estimated 10 min" });
+    expect(etaBand({ estimatedMinutes: 10, startedAt: start, nowMs: at(60), endedAtMs: at(7), finished: true })).toMatchObject({ kind: "done", label: "The task took 7 min; estimated 10 min" });
     expect(etaBand({ estimatedMinutes: 90, nowMs: at(1) })).toEqual({ kind: "unknown", label: "Estimated about 1 h 30 min" });
   });
 });

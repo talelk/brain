@@ -298,7 +298,8 @@ export function App(): JSX.Element {
       <Route path="/w/:id/missions" component={workspacePage("MissionsPage")} />
       <Route path="/w/:id/missions/new" component={workspacePage("NewMissionPage")} />
       <Route path="/missions/:missionId/:tab" component={page("MissionPage")} />
-      <Route path="/missions/:missionId" component={() => <Navigate href={({ location }) => `${location.pathname}/live`} />} />
+      {/* No tab named: the mission page opens on the view that fits the mission's step (a closed mission opens on its results, running work on Live). */}
+      <Route path="/missions/:missionId" component={page("MissionPage")} />
       <Route path="/w/:id/library" component={workspacePage("LibraryPage")} />
       <Route path="/w/:id/plays" component={workspacePage("PlaysPage")} />
       <Route path="/w/:id/schedules" component={workspacePage("SchedulesPage")} />

@@ -19,6 +19,7 @@ import {
 import { ConsoleFeed, hydrateConsoleHistory } from "./ConsoleFeed";
 import { ConsoleInspection, ConsoleToolbar, InterruptionChooser } from "./ConsoleControls";
 import { SessionRail } from "./SessionRail";
+import { preferredSession } from "./session-kind";
 import { ConsoleNowLine } from "./NowLine";
 import { createTaskFacts } from "./task-estimate";
 import { steerSession } from "./steer";
@@ -89,6 +90,8 @@ export function ConsoleScreen(props: {
   onSessionChange: (sessionId: string | undefined) => void;
   /** Limits the console to some sessions, e.g. one mission's or one member's. */
   include?: (session: BrainSession) => boolean;
+  /** Limits the runs list to one mission's runs: the title finds them, the mission id keeps only its own (two missions may share a title). */
+  jobScope?: { missionId: string; search: string };
   /** What to say while no session is in scope: a mission that has work starting says so instead of "Nobody is working". */
   idle?: { title: string; description: string };
 }): JSX.Element {
@@ -106,8 +109,9 @@ export function ConsoleScreen(props: {
   const jobs = createScopedRead<JobSnapshot[]>({
     scope: app.scope,
     load: async (scope, signal) => {
-      const loaded = await jobsQuery({ workspaceId: scope.workspaceId, limit: 25 }, signal);
-      return { ...loaded, snapshot: [...loaded.snapshot.items] };
+      const scoped = props.jobScope;
+      const loaded = await jobsQuery({ workspaceId: scope.workspaceId, limit: scoped ? 100 : 25, ...(scoped ? { search: scoped.search.slice(0, 200) } : {}) }, signal);
+      return { ...loaded, snapshot: scoped ? loaded.snapshot.items.filter((job) => job.context?.missionId === scoped.missionId) : [...loaded.snapshot.items] };
     },
   });
 
@@ -141,7 +145,9 @@ export function ConsoleScreen(props: {
       rememberSelectedSession(ws(), here.sessionId);
       return;
     }
-    const preferred = runningNow ?? (props.include ? items[0] : undefined);
+    // A mission opens on its newest piece of work, not on the independent check that reviewed it; the jobs say which is which.
+    if (props.include && !runningNow && jobs.state().status === "loading") return;
+    const preferred = runningNow ?? (props.include ? preferredSession(items, jobs.state().data ?? []) : undefined);
     if (!preferred) return;
     rememberSelectedSession(ws(), preferred.sessionId);
     autoChosen = preferred.sessionId;

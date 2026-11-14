@@ -16,6 +16,9 @@ type Figures = Pick<UsageSummary, "settledMicroUsd" | "reservedMicroUsd" | "sett
 /** The mission snapshot already carries its totals; show them with the same component as every other level. */
 export const figuresOfMission = (usage: BudgetUsage, runningMembers = usage.runningMembers): Figures => ({ ...usage, attempts: undefined, openAttempts: runningMembers });
 
+/** Tokens were used and no model reported a cost (local models): a dollar budget says nothing there, so it is not shown. A mission that has used nothing yet keeps its budget. */
+export const reportsNoCost = (usage: Pick<BudgetUsage, "settledMicroUsd" | "settledTokens">): boolean => usage.settledMicroUsd === 0 && usage.settledTokens > 0;
+
 /** Reads one usage scope from the Governor; the browser only formats what the ledger totals say. */
 export function useUsage(queryType: "usage.run" | "usage.task" | "usage.mission" | "usage.workspace", resourceId: () => string | undefined) {
   const app = useApp();

@@ -5,6 +5,8 @@ import { StatusBadge, statusLabel } from "../components/StatusBadge";
 import { createNow } from "./NowLine";
 import { activityLine, elapsedText } from "./doing-now";
 import { formatRelative, runTitle } from "../format";
+import { isCheckSession } from "./session-kind";
+import { t } from "../../i18n";
 
 /**
  * The console's left pane (plan §3): who is working right now — each session
@@ -58,11 +60,11 @@ export function SessionRail(props: {
   });
   const liveCount = () => props.sessions.filter((session) => LIVE_STATES.includes(session.state)).length;
 
-  // Sessions of one task look alike (every attempt, and its independent check, carries the task's title): number them oldest first.
+  // Sessions of one task look alike (every attempt carries the task's title): number the work attempts oldest first; a check says what it is instead.
   const attemptOf = createMemo(() => {
     const byTask = new Map<string, BrainSession[]>();
     for (const session of props.sessions) {
-      if (!session.task) continue;
+      if (!session.task || isCheckSession(session, props.jobs)) continue;
       byTask.set(session.task, [...(byTask.get(session.task) ?? []), session]);
     }
     const out = new Map<string, { n: number; of: number }>();
@@ -84,8 +86,8 @@ export function SessionRail(props: {
         <span class={`absolute -end-0.5 -bottom-0.5 size-2.5 rounded-full ring-2 ring-surface-elevation-1 ${DOT[session.state] ?? DOT.stopped}`} />
       </span>
       <span class="min-w-0 flex-1">
-        <span class="block truncate text-caption font-medium text-ink-gray-9" title={session.task}>{session.task || `${session.agentId ?? "Agent"} session`}<Show when={(attemptOf().get(session.sessionId)?.of ?? 1) > 1}><span class="font-normal text-ink-gray-6"> · session {attemptOf().get(session.sessionId)?.n} of {attemptOf().get(session.sessionId)?.of}</span></Show></span>
-        <span class="block truncate text-caption text-ink-gray-6">{[session.agentId, session.engine.id].filter((part) => part && part !== "unknown").join(" · ")}</span>
+        <span class="block truncate text-caption font-medium text-ink-gray-9" title={session.task}>{session.task || `${session.agentId ?? "Agent"} session`}<Show when={isCheckSession(session, props.jobs)}><span class="font-normal text-ink-gray-6"> · {t("console.check")}</span></Show><Show when={(attemptOf().get(session.sessionId)?.of ?? 1) > 1}><span class="font-normal text-ink-gray-6"> · attempt {attemptOf().get(session.sessionId)?.n} of {attemptOf().get(session.sessionId)?.of}</span></Show></span>
+        <span class="block truncate text-caption text-ink-gray-6">{isCheckSession(session, props.jobs) ? t("console.check.note") : [session.agentId, session.engine.id].filter((part) => part && part !== "unknown").join(" · ")}</span>
         <span class="mt-0.5 flex items-center gap-1.5 text-caption">
           <span class={`font-medium ${STATE_INK[session.state] ?? "text-ink-gray-6"}`}>{session.state === "stopped" ? "Ended" : statusLabel(undefined, session.state)}</span>
           <Show when={elapsed()}><span class="tabular-nums text-ink-gray-6">· {live() ? "" : "ran "}{elapsed()}</span></Show>

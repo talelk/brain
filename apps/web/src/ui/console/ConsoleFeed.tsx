@@ -143,7 +143,12 @@ function argumentPreview(input: unknown): string {
   return streamSummaryText(values.join(" · "), 160);
 }
 
-const TITLECASE = (value: string) => value.replaceAll(".", " · ").replaceAll("-", " ");
+/** Event types in plain words. Anything not listed is spelled out as a sentence ("attempt.progress" is never shown as it is stored). */
+const EVENT_TITLES: Readonly<Record<string, string>> = {
+  "attempt.progress": "Progress update", "attempt.effect": "Result recorded", "attempt.started": "Work started", "attempt.finished": "Work finished",
+  "job.updated": "Run updated", "job.created": "Run created", "session.started": "Session started", "session.ended": "Session ended", "session.stopped": "Session stopped",
+};
+const TITLECASE = (value: string) => EVENT_TITLES[value] ?? value.replace(/[.\-_]+/gu, " ").replace(/^./u, (letter) => letter.toUpperCase());
 
 /** One row title/detail per exposed event kind — real content, never narration. */
 function describe(event: StreamEvent): { kind: FeedEntry["kind"]; title: string; detail: string } {

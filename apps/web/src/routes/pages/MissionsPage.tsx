@@ -10,14 +10,14 @@ import { ScreenRegion } from "../../ui/screen-region";
 import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";
 import { formatDateTime, formatUsd } from "../../ui/format";
-import { missionHref } from "../../ui/mission-links";
+import { missionHref, sameTitleHints } from "../../ui/mission-links";
 import { attentionHref, AttentionRows } from "../../ui/components/AttentionDrawer";
 import { NeedsYouQueue } from "../../ui/components/NeedsYouQueue";
 import { runningMissions } from "../../ui/components/WorkingNow";
 import { ATTENTION_CHANGED, blockingCount } from "../../ui/attention";
 import { missionOutcomeLabel, missionPauseLabel, missionStateLabel } from "../../ui/mission-words";
 import { Meter } from "../../ui/viz/Meter";
-import { WorkspaceUsage } from "../../ui/usage/Usage";
+import { WorkspaceUsage, reportsNoCost } from "../../ui/usage/Usage";
 import { PlainSummary } from "../../ui/viz/PlainSummary";
 import { t, tn } from "../../i18n";
 
@@ -50,7 +50,7 @@ export default function MissionsPage(): JSX.Element {
   const runningAll = () => runningMissions(allMissions());
   const showSearch = () => attentionCount() + allMissions().length >= SEARCH_FROM || filter() !== "";
   /** Spend across the open missions that carry a ceiling: one quiet bar, only where the data exists. */
-  const capped = () => openAll().filter((mission) => mission.budget.maxMicroUsd !== undefined);
+  const capped = () => openAll().filter((mission) => mission.budget.maxMicroUsd !== undefined && !reportsNoCost(mission.usage));
   const spend = () => ({
     settled: capped().reduce((sum, mission) => sum + mission.usage.settledMicroUsd, 0),
     reserved: capped().reduce((sum, mission) => sum + mission.usage.reservedMicroUsd, 0),
@@ -66,10 +66,11 @@ export default function MissionsPage(): JSX.Element {
   const waiting = () => attentionItems().filter((item) => item.kind !== "result-ready");
   const ready = () => attentionItems().filter((item) => item.kind === "result-ready");
   const changed = () => window.dispatchEvent(new Event(ATTENTION_CHANGED));
-  const row = (mission: Mission) => <QueueRow title={mission.title} description={mission.intent.trim().toLowerCase() === mission.title.trim().toLowerCase() ? "" : mission.intent} icon="lucide-flag" tone={mission.state === "active" ? "blue" : mission.state === "paused" ? "amber" : mission.state === "verifying" ? "green" : "gray"}
+  const hints = () => sameTitleHints(allMissions(), formatDateTime);
+  const row = (mission: Mission) => <QueueRow title={hints().has(mission.missionId) ? `${mission.title} · ${t("missions.startedAt", { when: hints().get(mission.missionId)! })}` : mission.title} description={mission.intent.trim().toLowerCase() === mission.title.trim().toLowerCase() ? "" : mission.intent} icon="lucide-flag" tone={mission.state === "active" ? "blue" : mission.state === "paused" ? "amber" : mission.state === "verifying" ? "green" : "gray"}
     label={t("missions.open", { title: mission.title })}
-    meta={<><span>{missionStateLabel(mission.state)}{mission.pauseReason ? ` · ${missionPauseLabel(mission.pauseReason)}` : ""}{mission.outcome ? ` · ${missionOutcomeLabel(mission.outcome)}` : ""}</span><span>{t("missions.runningCount", { n: mission.usage.runningMembers })}</span><Show when={mission.budget.maxMicroUsd !== undefined}><span>{t("missions.spent", { spent: formatUsd(mission.usage.settledMicroUsd + mission.usage.reservedMicroUsd), limit: formatUsd(mission.budget.maxMicroUsd) })}</span></Show><span>{t("missions.updated", { when: formatDateTime(mission.updatedAt) })}</span></>}
-    onClick={() => void navigate(missionHref(app.workspaceId(), mission.missionId, "live"))} />;
+    meta={<><span>{missionStateLabel(mission.state)}{mission.pauseReason ? ` · ${missionPauseLabel(mission.pauseReason)}` : ""}{mission.outcome ? ` · ${missionOutcomeLabel(mission.outcome)}` : ""}</span><span>{t("missions.runningCount", { n: mission.usage.runningMembers })}</span><Show when={mission.budget.maxMicroUsd !== undefined && !reportsNoCost(mission.usage)}><span>{t("missions.spent", { spent: formatUsd(mission.usage.settledMicroUsd + mission.usage.reservedMicroUsd), limit: formatUsd(mission.budget.maxMicroUsd) })}</span></Show><span>{t("missions.updated", { when: formatDateTime(mission.updatedAt) })}</span></>}
+    onClick={() => void navigate(missionHref(app.workspaceId(), mission.missionId))} />;
   const firstMission = <EmptyState icon="lucide-flag" title={t("missions.first.title")}
     description={t("missions.first.description")}
     action={<Button variant="solid" theme="blue" iconLeft="lucide-plus" onClick={newMission}>{t("missions.first.action")}</Button>} />;
@@ -78,7 +79,6 @@ export default function MissionsPage(): JSX.Element {
     <PageStack>
       <Show when={!noMissionsAtAll()} fallback={firstMission}>
         <PlainSummary icon={attentionCount() ? "lucide-bell-ring" : "lucide-circle-check"}>{summary()}</PlainSummary>
-        <WorkspaceUsage />
         <Show when={showSearch()}>
           <FilterBar resultCount={attentionItems().length + shown().length}
             query={{ value: filter(), placeholder: t("missions.search"), onInput: setFilter }}
@@ -114,6 +114,7 @@ export default function MissionsPage(): JSX.Element {
             <Show when={closed().length}><details class="mt-4"><summary class="cursor-pointer text-base-medium">{t("missions.closed", { n: closed().length })}</summary><div class="brain-queue mt-2"><For each={closed()}>{row}</For></div></details></Show>
           </ScreenRegion>
         </WorkspaceSection>
+        <WorkspaceUsage />
       </Show>
     </PageStack>
   </BrainPage>;

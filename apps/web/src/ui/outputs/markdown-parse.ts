@@ -129,3 +129,15 @@ export function markdownBlocks(text: string): Block[] {
   return blocks;
 }
 
+
+/** A heading's anchor: its position among the blocks keeps repeated headings apart, its words keep the address readable. */
+export function headingId(blockIndex: number, text: string): string {
+  const slug = text.toLowerCase().replace(/[`*_]+/gu, "").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/gu, "").slice(0, 48);
+  return `h-${blockIndex}${slug ? `-${slug}` : ""}`;
+}
+
+/** The headings a long document offers as its outline: top two levels, only worth showing once the document has several. */
+export function outlineOf(blocks: readonly Block[], minimum = 4): { id: string; text: string; level: number }[] {
+  const found = blocks.flatMap((block, index) => (block.kind === "heading" && block.level <= 2 ? [{ id: headingId(index, block.text), text: block.text.replace(/[`*_]+/gu, ""), level: block.level }] : []));
+  return found.length >= minimum ? found : [];
+}

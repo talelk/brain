@@ -128,7 +128,7 @@ export function etaBand(input: { estimatedMinutes?: number; startedAt?: string; 
   const elapsedMin = Number.isFinite(started) && started > 0 && end >= started ? (end - started) / 60_000 : undefined;
   if (!estimate || estimate <= 0 || !Number.isFinite(estimate)) return { kind: "unknown", label: "No time estimate for this task" };
   if (elapsedMin === undefined) return { kind: "unknown", label: `Estimated about ${minutesWords(estimate)}` };
-  if (input.finished) return { kind: "done", label: `Took ${minutesWords(elapsedMin)}; estimated ${minutesWords(estimate)}`, fraction: Math.min(1, elapsedMin / estimate) };
+  if (input.finished) return { kind: "done", label: `The task took ${minutesWords(elapsedMin)}; estimated ${minutesWords(estimate)}`, fraction: Math.min(1, elapsedMin / estimate) };
   if (elapsedMin >= estimate) return { kind: "over", label: `${minutesWords(elapsedMin - estimate)} past the estimate of ${minutesWords(estimate)}`, fraction: 1 };
   return { kind: "within", label: `${minutesWords(elapsedMin)} of about ${minutesWords(estimate)} · about ${minutesWords(estimate - elapsedMin)} left`, fraction: elapsedMin / estimate };
 }

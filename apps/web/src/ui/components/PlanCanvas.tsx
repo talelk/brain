@@ -85,7 +85,9 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     load: async (scope, signal) => reuseSearch(scope.workspaceId, props.mission.intent, props.mission.missionId, signal, 12),
   });
   const autoPicks = (): ReuseItem[] => (reuseHandled() ? [] : pickForPlan(suggestions.state().data ?? []));
-  const shownPlan = (): PlanVersion | undefined => linked.state().data?.proposal ?? proposal.state().data?.plan ?? active.state().data ?? undefined;
+  /** A drafted plan counts only while it is a live proposal: a superseded or rejected one is history, and the confirmed plan is what the mission runs. */
+  const draftedProposal = (): PlanVersion | undefined => { const drafted = proposal.state().data?.plan; return drafted?.state === "proposed" ? drafted : undefined; };
+  const shownPlan = (): PlanVersion | undefined => linked.state().data?.proposal ?? draftedProposal() ?? active.state().data ?? proposal.state().data?.plan ?? undefined;
   createEffect(() => {
     const plan = shownPlan();
     if (plan && !dirty()) setEditedTasks(plan.tasks.map((task) => ({ ...task, criteria: [...task.criteria], dependsOn: [...task.dependsOn] })));
@@ -183,7 +185,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     const estimate = () => editedTasks().reduce((sum, task) => sum + (task.estimatedMinutes ?? 0), 0);
     return <section aria-label={plan.state === "confirmed" ? t("plan.confirmed-plan.1210") : t("plan.plan-proposal.8f88")} class="flex flex-col gap-4">
       <PlainSummary icon={plan.state === "confirmed" ? "lucide-circle-check" : "lucide-list-checks"}>
-        {plan.state === "confirmed" ? (props.mission.state !== "closed" ? t("plan.this-plan-is-confirmed-and-its-t.e4cd") : t("plan.this-plan-was-confirmed-and-carr.acf5")) : "Read the steps below. Nothing runs and no work is tracked until you confirm."}
+        {plan.state === "confirmed" ? (props.mission.state !== "closed" ? t("plan.this-plan-is-confirmed-and-its-t.e4cd") : t("plan.this-plan-was-confirmed-and-carr.acf5")) : plan.state === "proposed" ? "Read the steps below. Nothing runs and no work is tracked until you confirm." : t("plan.not-running")}
       </PlainSummary>
       <div class="flex flex-col gap-1">
         <div class="flex flex-wrap items-center gap-2"><p class="text-base-medium">{label(plan)}</p><StatusBadge kind="plan" status={plan.state} /><Show when={dirty()}><Badge theme="amber" label={t("plan.unsaved-edits.0881")} /></Show></div>
@@ -213,7 +215,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
           <Textarea label={t("plan.acceptance-criteria.133c")} value={task.criteria.join("\n")} onInput={(event) => updateTask(index(), "criteria", event.currentTarget.value)} />
         </section>}</For>
       </FormSheet>
-      <Show when={!confirmedQuiet()}><section class="brain-plan-actions" aria-label={t("plan.plan-decision.6411")}>
+      <Show when={!confirmedQuiet() && (plan.state === "proposed" || dirty())}><section class="brain-plan-actions" aria-label={t("plan.plan-decision.6411")}>
         <p class="brain-plan-actions-hint"><span class="lucide-shield-check size-4 shrink-0" aria-hidden="true" /><span>{editedTasks().length} {editedTasks().length === 1 ? "step" : "steps"} · nothing runs until you confirm</span></p>
         <div class="brain-plan-actions-buttons">
           <Show when={canConfirm()}><Button class="brain-plan-primary" variant="solid" theme="blue" iconLeft="lucide-check-check" loading={busy()} disabled={busy() || !editedTasks().length} onClick={() => void confirm()}>{t("plan.confirm-this-plan.f61c")}</Button></Show>
@@ -237,10 +239,8 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
       onRedraft={(kept, dropped) => void generate(kept, dropped)} />
     <Show when={proposal.state().data?.state === "running"}><Alert theme="blue" variant="outline" title={t("plan.preparing-a-validated-proposal.5bc9")} description={`${stageLine(proposal.state().data?.stage ?? "reading")} ${t("plan.stage.saved")}`} /></Show>
     <Show when={proposal.state().data?.state === "failed"}><Alert theme="amber" variant="outline" title={t("plan.no-validated-proposal-yet.b7ae")} description={proposal.state().data?.error} /></Show>
-    <Show when={linked.state().data?.proposal ?? (proposal.state().data?.plan ? undefined : active.state().data ?? undefined)} keyed fallback={
-      <ScreenRegion state={proposal.state()} onRetry={() => void proposal.refresh()} emptyTitle={t("plan.no-plan-yet.5f3d")} emptyDescription={t("plan.ask-brain-to-draft-a-plan-nothin.d322")}>
-        <Show when={proposal.state().data?.plan} keyed>{(plan) => planBody(plan)}</Show>
-      </ScreenRegion>}>
+    <Show when={shownPlan()} keyed fallback={
+      <ScreenRegion state={proposal.state()} onRetry={() => void proposal.refresh()} emptyTitle={t("plan.no-plan-yet.5f3d")} emptyDescription={t("plan.ask-brain-to-draft-a-plan-nothin.d322")}><></></ScreenRegion>}>
       {(plan) => planBody(plan)}
     </Show>
   </WorkspaceSection>;

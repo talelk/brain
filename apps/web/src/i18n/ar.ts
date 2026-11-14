@@ -1685,5 +1685,14 @@ export const ar: Catalog = {
   "knowledge.approveAll": "الموافقة على كل ما تم التحقق منه",
   "knowledge.seeWhat": "عرض التفاصيل",
   "knowledge.end": ".",
+  "result.limits": "ما لم تستطع هذه النتيجة تأكيده",
+  "result.limits.note": "نجح الفحص المستقل، لكن الوكيل يذكر أن هذه الأجزاء مفترضة أو غير محققة. اعتبرها مفتوحة قبل الاعتماد على الإجابة.",
+  "plan.not-running": "هذه النسخة محفوظة في السجل. تنفذ المهمة خطتها المؤكدة.",
+  "console.check": "فحص مستقل",
+  "console.check.note": "مراجع مستقل يفحص النتيجة",
+  "missions.startedAt": "بدأت {when}",
+  "mp.waits-for": "«{task}» تنتظر {dependencies} حتى تنتهي ويتم فحصها بشكل مستقل.",
+  "mp.releasing": "لا شيء يمنع «{task}»: يبدأها Brain عند الفحص التالي.",
+  "result.outline": "في هذه الصفحة",
   // @@END
 };

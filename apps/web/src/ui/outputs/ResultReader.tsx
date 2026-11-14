@@ -2,9 +2,10 @@ import { For, Show, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { Button } from "@talelk/newui-atoms";
 import { InlineMarkdown, Markdown } from "./Markdown";
+import { markdownBlocks, outlineOf } from "./markdown-parse";
 import { titleize } from "../format";
 import { t } from "../../i18n";
-import { markdownFileName, resultMarkdown } from "./result-model";
+import { markdownFileName, reportedLimits, resultMarkdown, trustWithLimits } from "./result-model";
 import type { StructuredResult, TrustLine } from "./result-model";
 
 const TONE: Record<TrustLine["tone"], { box: string; icon: string }> = {
@@ -52,6 +53,27 @@ export function HowChecked(props: { rows: NonNullable<TrustLine["rows"]>; eviden
   );
 }
 
+/** What this result could not confirm, before the answer: its assumptions, any unmet criterion, and a note when the summary admits gaps. */
+function LimitsBlock(props: { limits: ReturnType<typeof reportedLimits> }): JSX.Element {
+  return (
+    <section class="flex min-w-0 flex-col gap-1.5 rounded-card border border-outline-amber-2 bg-surface-amber-1 px-4 py-3" aria-label={t("result.limits")} data-testid="result-limits">
+      <h4 class="m-0 flex items-center gap-2 text-base-medium text-ink-amber-9"><span class="lucide-circle-alert size-4 shrink-0" aria-hidden="true" />{t("result.limits")}</h4>
+      <p class="m-0 max-w-[72ch] text-caption text-ink-gray-7">{t("result.limits.note")}</p>
+      <Show when={props.limits.unmet.length > 0}>
+        <ul class="m-0 flex max-w-[72ch] list-disc flex-col gap-1 ps-5 text-base text-ink-gray-9">
+          <For each={props.limits.unmet}>{(row) => <li><InlineMarkdown text={row.criterion} /><Show when={row.evidence}><span class="text-ink-gray-7"> — <InlineMarkdown text={row.evidence} /></span></Show></li>}</For>
+        </ul>
+      </Show>
+      <Show when={props.limits.assumptions.length > 0}>
+        <p class="m-0 text-caption font-medium text-ink-gray-7">{t("result.assumptions")}</p>
+        <ul class="m-0 flex max-w-[72ch] list-disc flex-col gap-1 ps-5 text-base text-ink-gray-9">
+          <For each={props.limits.assumptions}>{(row) => <li><InlineMarkdown text={row} /></li>}</For>
+        </ul>
+      </Show>
+    </section>
+  );
+}
+
 /**
  * A task's result read as a document: summary first, the deliverable rendered
  * as Markdown, then the checklist of acceptance criteria and the assumptions.
@@ -78,10 +100,13 @@ export function ResultReader(props: { result: StructuredResult; title: string; t
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   const met = () => props.result.criteria.filter((row) => row.met).length;
+  const limits = () => reportedLimits(props.result);
+  const outline = () => outlineOf(markdownBlocks(props.result.deliverable));
+  const trust = () => trustWithLimits(props.trust, limits());
   return (
     <article class="flex min-w-0 flex-col gap-5" data-testid="result-reader" aria-label={`Result: ${props.title}`}>
       <div class="flex min-w-0 flex-col gap-2">
-        <Show when={props.trust}>{(trust) => <TrustNote trust={trust()} />}</Show>
+        <Show when={trust()}>{(line) => <TrustNote trust={line()} />}</Show>
         <Show when={props.trust?.rows?.length}><HowChecked rows={props.trust!.rows!} {...(props.trust!.evidenceHref ? { evidenceHref: props.trust!.evidenceHref } : {})} /></Show>
         <div class="flex min-w-0 flex-wrap items-center gap-2">
           <Button size="sm" variant="ghost" iconLeft={copied() ? "lucide-check" : "lucide-copy"} onClick={() => void copy()}>
@@ -97,6 +122,15 @@ export function ResultReader(props: { result: StructuredResult; title: string; t
           <p class="m-0 text-caption font-medium uppercase tracking-wide text-ink-gray-6">{t("result.summary")}</p>
           <p class="m-0 mt-1 max-w-[72ch] text-base leading-relaxed text-ink-gray-9"><InlineMarkdown text={props.result.summary} /></p>
         </section>
+      </Show>
+      <Show when={limits().any}><LimitsBlock limits={limits()} /></Show>
+      <Show when={outline().length > 0}>
+        <nav class="min-w-0 max-w-[72ch] rounded-card border border-outline-gray-2 px-4 py-3" aria-label={t("result.outline")} data-testid="result-outline">
+          <p class="m-0 text-caption font-medium uppercase tracking-wide text-ink-gray-6">{t("result.outline")}</p>
+          <ul class="m-0 mt-1 flex list-none flex-col gap-0.5 p-0 text-interface">
+            <For each={outline()}>{(entry) => <li class={entry.level > 1 ? "ps-4" : ""}><a class="text-ink-blue-link hover:underline focus-visible:focus-ring" href={`#${entry.id}`} onClick={(event) => { event.preventDefault(); document.getElementById(entry.id)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>{entry.text}</a></li>}</For>
+          </ul>
+        </nav>
       </Show>
       <Markdown text={props.result.deliverable} />
       <Show when={props.result.criteria.length > 0}>
@@ -117,14 +151,6 @@ export function ResultReader(props: { result: StructuredResult; title: string; t
                 </li>
               )}
             </For>
-          </ul>
-        </section>
-      </Show>
-      <Show when={props.result.assumptions.length > 0}>
-        <section class="flex min-w-0 flex-col gap-1.5" aria-label="Assumptions">
-          <h4 class="m-0 text-base-medium text-ink-gray-9">{t("result.assumptions")}</h4>
-          <ul class="m-0 flex max-w-[72ch] list-disc flex-col gap-1 ps-5 text-base text-ink-gray-7">
-            <For each={props.result.assumptions}>{(row) => <li>{row}</li>}</For>
           </ul>
         </section>
       </Show>

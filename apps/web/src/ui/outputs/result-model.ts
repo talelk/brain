@@ -37,6 +37,36 @@ export function parseStructuredResult(text: string): StructuredResult | undefine
   return { summary: record["summary"], deliverable: record["deliverable"], criteria, assumptions };
 }
 
+/** Words by which a summary admits that what it reports was not read or confirmed. */
+const ADMITS_GAPS = /\b(unverified|not verified|unknown|could not|cannot be (?:confirmed|verified|read)|inferred from|no (?:filesystem |host )?access|completeness is unverified)\b/iu;
+
+/**
+ * What the result itself says it could not confirm: the assumptions it lists, the criteria it marks unmet, and a summary that admits gaps.
+ * The independent check decides "Done"; this is the agent's own word on how far the answer can be relied on, shown before the answer.
+ */
+export interface ReportedLimits {
+  assumptions: readonly string[];
+  unmet: readonly { criterion: string; evidence: string }[];
+  summaryAdmits: boolean;
+  /** True when a reader should be warned before relying on the result. */
+  any: boolean;
+  count: number;
+}
+
+export function reportedLimits(result: StructuredResult): ReportedLimits {
+  const unmet = result.criteria.filter((row) => !row.met).map((row) => ({ criterion: row.criterion, evidence: row.evidence }));
+  const summaryAdmits = ADMITS_GAPS.test(result.summary);
+  const assumptions = result.assumptions;
+  const count = assumptions.length + unmet.length;
+  return { assumptions, unmet, summaryAdmits, any: count > 0 || summaryAdmits, count };
+}
+
+/** An independent check that passed does not make a result that admits gaps complete: keep the check, add the warning. */
+export function trustWithLimits(trust: TrustLine | undefined, limits: ReportedLimits): TrustLine | undefined {
+  if (!trust || !limits.any || trust.tone !== "green") return trust;
+  return { ...trust, tone: "amber", text: `${trust.text.replace(/\.+$/, "")}. The agent also reports what it could not confirm: read the limits below before relying on it.` };
+}
+
 /** The whole result as one Markdown document: what Copy and Download .md hand over. */
 export function resultMarkdown(result: StructuredResult): string {
   const parts = [result.summary.trim() ? `> ${result.summary.trim().replaceAll("\n", "\n> ")}` : "", result.deliverable.trim()];

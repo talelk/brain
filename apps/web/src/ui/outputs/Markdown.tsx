@@ -1,7 +1,7 @@
 import { For, Show } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import type { JSX } from "solid-js";
-import { markdownBlocks, parseInline } from "./markdown-parse";
+import { headingId, markdownBlocks, parseInline } from "./markdown-parse";
 import type { Block, ListNode } from "./markdown-parse";
 import "./prose.css";
 
@@ -19,8 +19,9 @@ export function InlineMarkdown(props: { text: string }): JSX.Element {
   return (
     <For each={parseInline(props.text)}>
       {(part) => {
-        if (part.kind === "strong") return <strong>{part.text}</strong>;
-        if (part.kind === "em") return <em>{part.text}</em>;
+        // Emphasis may wrap code or links ("*lives under `/srv`*"): its text is read as inline Markdown too, so no backtick shows.
+        if (part.kind === "strong") return <strong><InlineMarkdown text={part.text} /></strong>;
+        if (part.kind === "em") return <em><InlineMarkdown text={part.text} /></em>;
         if (part.kind === "code") return <code>{part.text}</code>;
         if (part.kind === "link") return <a href={part.href} target="_blank" rel="noreferrer noopener">{part.text}</a>;
         return part.text;
@@ -46,10 +47,10 @@ function ListView(props: { list: ListNode }): JSX.Element {
 /** The document's `#` is the h3 under the page's own headings; deeper levels step down from there. */
 const HEADING_TAGS = ["h3", "h4", "h5", "h6", "h6", "h6"] as const;
 
-function renderBlock(block: Block): JSX.Element {
+function renderBlock(block: Block, index: number): JSX.Element {
   switch (block.kind) {
     case "heading":
-      return <Dynamic component={HEADING_TAGS[Math.min(block.level, 6) - 1] ?? "h6"} data-level={block.level}><InlineMarkdown text={block.text} /></Dynamic>;
+      return <Dynamic component={HEADING_TAGS[Math.min(block.level, 6) - 1] ?? "h6"} data-level={block.level} id={headingId(index, block.text)}><InlineMarkdown text={block.text} /></Dynamic>;
     case "paragraph": return <p><InlineMarkdown text={block.text} /></p>;
     case "quote": return <blockquote><InlineMarkdown text={block.text} /></blockquote>;
     case "code": return <pre><code>{block.text}</code></pre>;
@@ -72,7 +73,7 @@ function renderBlock(block: Block): JSX.Element {
 export function Markdown(props: { text: string; class?: string }): JSX.Element {
   return (
     <div class={`brain-prose ${props.class ?? ""}`} data-testid="markdown">
-      <For each={markdownBlocks(props.text)}>{(block) => renderBlock(block)}</For>
+      <For each={markdownBlocks(props.text)}>{(block, index) => renderBlock(block, index())}</For>
     </div>
   );
 }

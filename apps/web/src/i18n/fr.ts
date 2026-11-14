@@ -1639,5 +1639,14 @@ export const fr: Catalog = {
   "knowledge.approveAll": "Tout approuver (vérifié)",
   "knowledge.seeWhat": "Voir lesquelles",
   "knowledge.end": ".",
+  "result.limits": "Ce que ce résultat n'a pas pu confirmer",
+  "result.limits.note": "La vérification indépendante a réussi, mais l'agent indique que ces points sont supposés ou non atteints. Considérez-les comme ouverts avant de vous fier à la réponse.",
+  "plan.not-running": "Cette version est conservée dans l'historique. La mission suit son plan confirmé.",
+  "console.check": "vérification indépendante",
+  "console.check.note": "Un relecteur distinct vérifie le résultat",
+  "missions.startedAt": "démarrée {when}",
+  "mp.waits-for": "« {task} » attend {dependencies}, qui doit être terminé et vérifié de façon indépendante.",
+  "mp.releasing": "Rien ne bloque « {task} » : Brain la démarre à sa prochaine vérification.",
+  "result.outline": "Sur cette page",
   // @@END
 };

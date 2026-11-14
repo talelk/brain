@@ -65,3 +65,18 @@ describe("structured task result", () => {
     expect(markdown).toContain("- Budget is fixed");
   });
 });
+
+import { headingId, outlineOf } from "../../apps/web/src/ui/outputs/markdown-parse";
+
+describe("outline of a long result (P9)", () => {
+  const doc = ["# Title", "intro", "## One", "text", "## Two", "text", "### Deep", "text", "## Three"].join("\n");
+  it("lists the top two heading levels once there are enough of them", () => {
+    const outline = outlineOf(markdownBlocks(doc));
+    expect(outline.map((entry) => entry.text)).toEqual(["Title", "One", "Two", "Three"]);
+    expect(outlineOf(markdownBlocks("# Only\ntext\n## Two"))).toEqual([]);
+  });
+  it("gives repeated headings distinct, readable anchors", () => {
+    expect(headingId(3, "Risk `limits`")).toBe("h-3-risk-limits");
+    expect(headingId(3, "Same")).not.toBe(headingId(7, "Same"));
+  });
+});

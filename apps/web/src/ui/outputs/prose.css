@@ -1,5 +1,7 @@
 /* Long-form Markdown (a task's written deliverable): calm, book-like reading rhythm. */
-.brain-prose { max-width: 72ch; color: var(--ink-gray-8); font-size: 1rem; line-height: 1.75; overflow-wrap: anywhere; }
+.brain-prose { max-width: 100%; color: var(--ink-gray-8); font-size: 1rem; line-height: 1.75; overflow-wrap: anywhere; }
+/* Prose keeps a comfortable measure; tables and code use the width the page gives them. */
+.brain-prose > :not(.brain-prose-table):not(pre) { max-width: 72ch; }
 .brain-prose > :first-child { margin-top: 0; }
 .brain-prose > :last-child { margin-bottom: 0; }
 .brain-prose p { margin: 0 0 1rem; }

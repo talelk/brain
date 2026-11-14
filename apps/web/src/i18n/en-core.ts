@@ -132,6 +132,7 @@ export const enCore = {
   "start.busyNote_other": "Brain is working on {n} things; yours queues and starts next.",
   "start.button": "Start",
   "start.footer.blocked": "Blocked until the setup below is done.",
+  "missions.startedAt": "started {when}",
   "start.footer.ready": "Nothing runs until you confirm the plan.",
   "today.description": "Say what you want done. Brain drafts a plan and waits for your OK before anything runs.",
   "today.latest.all": "All missions",

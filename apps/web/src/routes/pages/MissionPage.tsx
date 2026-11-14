@@ -25,7 +25,7 @@ import { ConsoleScreen } from "../../ui/console/ConsoleLayout";
 import { SessionTranscript } from "../../ui/console/SessionTranscript";
 import { readExecFilters, writeExecFilters } from "../../ui/exec/exec-filters";
 import { MissionOutputs } from "../../ui/outputs/MissionOutputs";
-import { MissionUsage } from "../../ui/usage/Usage";
+import { MissionUsage, reportsNoCost } from "../../ui/usage/Usage";
 import { PlanEstimate } from "../../ui/usage/PlanEstimate";
 import { ReusedInBrief } from "../../ui/components/Reuse";
 
@@ -78,7 +78,21 @@ function missionGuide(m: Mission, items: readonly WorkItem[], canStart: boolean)
   const stoppedItems = items.filter((item) => isStoppedForRetry(item));
   if (stoppedItems.length > 0 && n("review") === 0) return { step: "review", tab: "plan", icon: "lucide-circle-pause", title: t("mp.stopped-waiting-for-you-to-try-a.47a0"), detail: `${plural(stoppedItems.length, "task was", "tasks were")} interrupted too often to carry on by itself. Press Try again on ${stoppedItems.length === 1 ? "it" : "each"}.`, allDone, action: { label: t("mp.open-the-work.ae17"), tab: "plan" } };
   if (n("review") > 0 || n("blocked") > 0) return { step: "review", tab: "plan", icon: "lucide-badge-check", title: n("review") > 0 ? t("mp.work-is-waiting-for-your-review.0c74") : t("mp.some-work-is-blocked.1e92"), detail: `${n("review")} in review · ${n("blocked")} blocked. Done needs verified evidence.`, allDone, action: { label: t("mp.open-the-work.ae17"), tab: "plan" } };
-  return { step: "start", tab: "live", icon: "lucide-hourglass", title: t("mp.waiting-for-work-to-unlock.f2fd"), detail: t("mp.remaining-tasks-wait-for-earlier.8d28"), allDone };
+  return { step: "start", tab: "live", icon: "lucide-hourglass", title: t("mp.waiting-for-work-to-unlock.f2fd"), detail: waitingDetail(items), allDone };
+}
+
+/** Which task waits for which: the first waiting task and the unfinished work it depends on, in the task's own words. */
+function waitingDetail(items: readonly WorkItem[]): string {
+  const first = items.find((item) => item.state === "backlog");
+  if (!first) return t("mp.remaining-tasks-wait-for-earlier.8d28");
+  const unmet = first.dependsOn.map((id) => items.find((item) => item.workItemId === id)).filter((dependency): dependency is WorkItem => dependency !== undefined && dependency.state !== "done");
+  if (unmet.length === 0) return t("mp.releasing", { task: first.title });
+  return t("mp.waits-for", { task: first.title, dependencies: unmet.map((dependency) => `"${dependency.title}" (${stateWord(dependency)})`).join(", ") });
+}
+
+/** A work item's state in the words the plan uses, for "waits for" lines. */
+function stateWord(item: WorkItem): string {
+  return item.parked ? "needs a person" : item.state === "in-progress" ? "running" : item.state === "review" ? "being checked" : item.state === "backlog" ? "waiting" : item.state;
 }
 
 /** The mission at a glance: the flow stepper with one primary action for the current step, task states, completion and the budget against its cap. */
@@ -124,7 +138,7 @@ function MissionSnapshot(props: { mission: Mission; items: WorkItem[]; tab: Miss
     <div class="grid gap-4 md:grid-cols-2">
       <div class="flex min-w-0 flex-col gap-1"><p class="text-base-medium">{props.items.length ? `${percent()}% complete` : "No tasks yet"}</p><StateBar counts={counts()} />
         <Show when={props.mission.taskTrust}>{(trust) => <p class="flex items-start gap-1.5 text-caption text-ink-gray-7" data-testid="mission-trust" data-model={trust().model}><span class={`${trust().model > 0 ? "lucide-circle-alert text-ink-amber-8" : "lucide-shield-check text-ink-green-8"} mt-0.5 size-3.5 shrink-0`} aria-hidden="true" />{trust().text}</p>}</Show></div>
-      <Show when={props.tab !== "plan" ? props.mission.budget.maxMicroUsd : undefined}>{(limit) => <div class="flex min-w-0 flex-col gap-1"><p class="text-base-medium">{t("mp.budget.7aeb")}</p><Meter label={t("mp.mission-budget.8424")} settled={props.mission.usage.settledMicroUsd} reserved={props.mission.usage.reservedMicroUsd} limit={limit()} format={formatUsd} /></div>}</Show>
+      <Show when={props.tab !== "plan" && !reportsNoCost(props.mission.usage) ? props.mission.budget.maxMicroUsd : undefined}>{(limit) => <div class="flex min-w-0 flex-col gap-1"><p class="text-base-medium">{t("mp.budget.7aeb")}</p><Meter label={t("mp.mission-budget.8424")} settled={props.mission.usage.settledMicroUsd} reserved={props.mission.usage.reservedMicroUsd} limit={limit()} format={formatUsd} /></div>}</Show>
     </div>
     <MissionUsage mission={props.mission} taskTokenCap={props.items.reduce<number | undefined>((top, item) => (item.tokenCap === undefined ? top : Math.max(top ?? 0, item.tokenCap)), undefined)} onAct={props.onAct} busy={props.busy} />
   </div>;
@@ -341,7 +355,7 @@ function LiveTab(props: ActProps): JSX.Element {
         <span class="text-ink-gray-6">{running(entry.memberId) > 0 ? `${running(entry.memberId)} working` : `${sessionsOf(entry.memberId).length} sessions`}</span>
       </button>}</For>
     </fieldset>
-    <ConsoleScreen workspaceId={app.workspaceId()} include={inScope} idle={idle()} requestedSession={typeof search.session === "string" ? search.session : undefined}
+    <ConsoleScreen workspaceId={app.workspaceId()} include={inScope} jobScope={{ missionId: props.mission.missionId, search: props.mission.title }} idle={idle()} requestedSession={typeof search.session === "string" ? search.session : undefined}
       filters={filters()} onFiltersChange={(patch) => setSearch({ ...writeExecFilters({ ...filters(), ...patch }) })}
       onSessionChange={(sessionId) => setSearch({ session: sessionId }, { replace: true })} />
     <div class="grid min-w-0 gap-4 lg:grid-cols-2">

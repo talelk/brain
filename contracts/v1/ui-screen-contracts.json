@@ -967,6 +967,16 @@
     "label": "Approvals",
     "route": "/approvals",
     "icon": "lucide-shield-check"
+   },
+   {
+    "label": "Schedules",
+    "route": "/w/:id/schedules",
+    "icon": "lucide-calendar-clock"
+   },
+   {
+    "label": "All results",
+    "route": "/w/:id/outputs",
+    "icon": "lucide-package"
    }
   ],
   "missions": [

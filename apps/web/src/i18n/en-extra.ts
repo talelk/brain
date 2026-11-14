@@ -1241,5 +1241,13 @@ export const enExtra = {
   "task.review.description": "This is exactly what will start.",
   "mission.usage.taskCap": "Each task stops at {cap} tokens across all attempts; you can raise it for one task. This mission has used {used} tokens so far.",
   "mission.usage.noCeiling": "No mission-wide token ceiling is set.",
+  "result.limits": "What this result could not confirm",
+  "result.limits.note": "The independent check passed, but the agent says these parts are assumed or unmet. Treat them as open before you rely on the answer.",
+  "plan.not-running": "This version is kept for history. The mission runs its confirmed plan.",
+  "console.check": "independent check",
+  "console.check.note": "A separate reviewer checks the result",
+  "mp.waits-for": "\"{task}\" waits for {dependencies} to be done and independently checked.",
+  "mp.releasing": "Nothing blocks \"{task}\": Brain starts it on its next check.",
+  "result.outline": "On this page",
   // @@END
 } as const satisfies Record<string, string>;
