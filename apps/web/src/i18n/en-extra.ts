@@ -1263,7 +1263,6 @@ export const enExtra = {
   "work.hosted.priceIn": "Input price (USD per million tokens)",
   "work.hosted.priceOut": "Output price (USD per million tokens)",
   "work.hosted.priceHint": "What the vendor charges. Both prices are required: every hosted attempt is counted in dollars against the mission and workspace spend caps.",
-  "nav.item.eval-cases": "Eval cases",
   "evalcases.title": "Eval cases",
   "evalcases.description": "Results that were sent back from review or rejected at sign-off, kept as regression cases. Replay them by hand before a release.",
   "evalcases.empty.title": "No eval cases yet",

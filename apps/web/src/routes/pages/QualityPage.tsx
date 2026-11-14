@@ -128,9 +128,9 @@ export default function QualityPage(): JSX.Element {
           </WorkspaceSection>
         </>}</Show>
       </ScreenRegion>
-      <WorkspaceSection title={t("evalcases.title")} description={t("quality.evalcases.link")}>
-        <div><A class="text-interface text-ink-blue-link underline focus-visible:focus-ring" href={`/w/${encodeURIComponent(app.workspaceId())}/quality/cases`}>{t("quality.evalcases.open")}</A></div>
-      </WorkspaceSection>
+      <Show when={app.workspaceId()}>{(workspaceId) => <WorkspaceSection title={t("evalcases.title")} description={t("quality.evalcases.link")}>
+        <div><A class="text-interface text-ink-blue-link underline focus-visible:focus-ring" href={`/w/${encodeURIComponent(workspaceId())}/quality/cases`}>{t("quality.evalcases.open")}</A></div>
+      </WorkspaceSection>}</Show>
       <ScreenRegion state={breakdown.state()} onRetry={() => void breakdown.refresh({ force: true })} emptyTitle={t("quality.breakdown.title")} emptyDescription={t("quality.breakdown.empty")}>
         <Show when={breakdown.state().data}>{(data) => <WorkspaceSection title={t("quality.breakdown.title")} description={t("quality.breakdown.description", { days: data().window.days })}>
           <h3 class="m-0 text-interface font-medium text-ink-gray-8">{t("quality.breakdown.practices")}</h3>

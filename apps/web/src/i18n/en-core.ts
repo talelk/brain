@@ -29,6 +29,7 @@ export const enCore = {
   "nav.item.setup": "Setup",
   "nav.item.security": "Security",
   "nav.item.quality": "Quality",
+  "nav.item.eval-cases": "Eval cases",
   "nav.item.integrations": "Integrations",
   "nav.item.releases": "Releases",
   "nav.item.people": "People",
