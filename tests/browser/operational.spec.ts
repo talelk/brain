@@ -92,7 +92,7 @@ test("optional-factor operator inspects a release, activates it, dispatches both
   }
   const boardSeed = Date.now();
   const boardWs = brain.store.workspaceDb("operations",actor.organizationId);
-  boardWs.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-ui-design','Design review','Design intent','[\"evidence\"]',?, ?, ?)").run(actor.actorId,boardSeed,boardSeed);
+  boardWs.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-ui-design','Design review','Design intent','[{\"id\":\"c1\",\"text\":\"evidence\"}]',?, ?, ?)").run(actor.actorId,boardSeed,boardSeed);
   boardWs.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-ui-design','obj-ui-design',1,?,'confirmed','manual',?,'[]',?)").run(`sha256:${"c".repeat(64)}`,actor.actorId,boardSeed);
   boardWs.prepare("INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('work-ui-design','obj-ui-design','plan-ui-design','design','Design review card','ready','[\"evidence\"]','Start this task',?,?)").run(boardSeed,boardSeed);
   await page.goto(`${governor.url}/missions/obj-ui-design/plan`);

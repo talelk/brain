@@ -253,7 +253,9 @@ controls are attention hints and never replace sign-in and exact review.
    path as any agent work; an independent evaluator validates the proposal. The
    objective is durable from creation; **no work items exist and nothing runs** while
    the proposal is prepared (E101).
-3. The proposal is reviewed and edited in place: task titles, criteria, dependencies.
+3. The proposal is reviewed and edited in place: task titles, criteria, dependencies and
+   the success criteria each step serves (ADR 0034; the mission page lists every
+   success criterion as covered or not on all tabs).
    **Confirm this plan** materializes exactly one plan version into work items and
    dependencies in a transactional workspace write.
 4. Replanning proposes a new plan version. Confirmation retains unchanged work with

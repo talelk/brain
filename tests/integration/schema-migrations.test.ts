@@ -9,7 +9,7 @@ import { setupWorld } from "../helpers";
 function stoppedDirectory(): { dir: string; workspaceId: string } {
   const w = setupWorld();
   const ws = w.brain.store.workspaceDb(w.workspaceId, w.org);
-  ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,version,created_at_ms,updated_at_ms) VALUES ('m-1','Keep me','intent','[\"x\"]','owner-1',1,1,1)").run();
+  ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,version,created_at_ms,updated_at_ms) VALUES ('m-1','Keep me','intent','[{\"id\":\"c1\",\"text\":\"x\"}]','owner-1',1,1,1)").run();
   w.brain.close();
   return { dir: w.dir, workspaceId: w.workspaceId };
 }

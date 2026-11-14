@@ -1,3 +1,4 @@
+import { criteriaText } from "../../domain/criteria";
 import type { PlanTask } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { iso } from "../../domain/clock";
@@ -42,7 +43,7 @@ export function recordEvalCase(store: Store, db: Db, input: { workspaceId: strin
   const now = store.now();
   const body: EvalCase = {
     format: "brain.eval-case/v1", caseId: id, kind: input.kind, workspaceId: input.workspaceId, missionId: input.missionId,
-    missionTitle: cut(mission.title, 256), intent: cut(mission.intent, 4000), successCriteria: (JSON.parse(mission.success_criteria_json) as string[]).map((entry) => cut(String(entry), 500)),
+    missionTitle: cut(mission.title, 256), intent: cut(mission.intent, 4000), successCriteria: criteriaText(mission.success_criteria_json).map((entry) => cut(entry, 500)),
     tasks: tasks.map((task) => ({ id: task.id, title: cut(task.title, 256), criteria: task.criteria.map((entry) => cut(entry, 500)) })),
     findings: input.findings.slice(0, 20).map((entry) => cut(entry, 1000)), deliverableDigests: digests, recordedAt: iso(now),
   };

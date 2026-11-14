@@ -42,7 +42,7 @@ export const fromMissions = (missions: readonly Mission[], plays: readonly PlayV
     const verified = mission.outcome === "achieved";
     const play = mission.playId ? plays.find((candidate) => candidate.playId === mission.playId) : undefined;
     return {
-      id: mission.missionId, title: mission.title, intent: mission.intent, successCriteria: mission.successCriteria,
+      id: mission.missionId, title: mission.title, intent: mission.intent, successCriteria: mission.successCriteria.map((criterion) => criterion.text),
       provenance: mission.playId ? `From play ${play?.title ?? mission.playId}` : "Described by you",
       verified, ...(verified ? { lastVerifiedAt: mission.updatedAt } : {}), ...(mission.playId ? { playId: mission.playId } : {}),
     };

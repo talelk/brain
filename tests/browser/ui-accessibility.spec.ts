@@ -21,7 +21,7 @@ async function createWorkspace(page: import("@playwright/test").Page, governor: 
   // A workspace with no mission at all shows the first-mission invitation; these specs exercise the loaded screen, so seed one mission.
   const now = Date.now();
   governor.app.brain.store.workspaceDb(row.id, row.organization_id)
-    .prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-a11y','Accessibility mission','Fixture intent','[\"echo\"]','owner',?,?)").run(now, now);
+    .prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-a11y','Accessibility mission','Fixture intent','[{\"id\":\"c1\",\"text\":\"echo\"}]','owner',?,?)").run(now, now);
   await page.goto(`${governor.url}/w/${row.id}/missions`);
   await expect(page.getByRole("heading", { name: "Missions", exact: true, level: 1 })).toBeVisible();
   return row.id;

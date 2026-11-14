@@ -1,3 +1,4 @@
+import { criteriaText } from "../../domain/criteria";
 import { domainDigest } from "@brain/contracts";
 import type { ActorContext, BrainSession, ContextManifest, ContextPackView, Checkpoint, CheckpointInput, Delegation, JsonValue, MissionBrief, MissionMessage, SessionBudget, SessionContext, SessionScope } from "@brain/contracts";
 import { dependencyHandoffs } from "../evidence/index";
@@ -373,7 +374,7 @@ export class SessionService {
 
     const constraints = brief ? JSON.parse(brief.constraints_json) as string[] : [];
     const criteria = JSON.parse(item.criteria_json) as string[];
-    const missionCriteria = JSON.parse(mission.success_criteria_json) as string[];
+    const missionCriteria = criteriaText(mission.success_criteria_json);
     const decisions = (db.prepare("SELECT id, statement FROM accepted_decisions WHERE mission_id=? AND superseded_by IS NULL ORDER BY introduced_version, id").all(item.mission_id) as Array<{ id: string; statement: string }>);
     const handoffs = dependencyHandoffs(db, item.id);
     const titleOf = (workItemId: string): string => (db.prepare("SELECT title FROM work_items WHERE id=?").get(workItemId) as { title: string } | undefined)?.title ?? workItemId;
