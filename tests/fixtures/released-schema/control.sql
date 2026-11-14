@@ -143,6 +143,7 @@ CREATE INDEX jobs_ready ON jobs(state, ready_at_ms, priority, created_at_ms, id)
 CREATE INDEX jobs_workspace ON jobs(workspace_id, created_at_ms, id);
 -- jobs.list counts a workspace's runs (optionally by state): covering this lets the count read the index only instead of one table row per run.
 CREATE INDEX jobs_scope_state ON jobs(organization_id, workspace_id, state);
+CREATE INDEX jobs_scope_created ON jobs(organization_id, workspace_id, created_at_ms DESC, id DESC);
 -- A run's jobs (job.get by run id, the run's engine events): without it each lookup scans every job of the organization.
 CREATE INDEX jobs_run ON jobs(organization_id, workflow_run_id, created_at_ms);
 CREATE TABLE job_attempts (
@@ -193,6 +194,7 @@ CREATE TABLE approval_requests (
   FOREIGN KEY(workspace_id, organization_id) REFERENCES workspaces(id, organization_id)
 ) STRICT;
 CREATE INDEX approvals_pending ON approval_requests(organization_id,state,expires_at_ms);
+CREATE INDEX approvals_scope_expiry ON approval_requests(organization_id,workspace_id,expires_at_ms);
 CREATE TABLE approval_decisions (
   id TEXT PRIMARY KEY, approval_id TEXT NOT NULL REFERENCES approval_requests(id),
   expected_version INTEGER NOT NULL CHECK(expected_version > 0), actor_id TEXT NOT NULL,
