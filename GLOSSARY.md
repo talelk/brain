@@ -481,6 +481,12 @@ Making a published release the current one, re-checking the observed active dige
 concurrent activation fails.
 _Avoid_: publish, apply, promote
 
+**Git provider**:
+The hosting product a Git connection is declared to be (GitHub, GitHub Enterprise, GitLab or
+Gitea), chosen when the connection is set up. It decides which API opens a pull request; it is
+never inferred from the address, and any other provider is refused.
+_Avoid_: Git host (the host is only the address), vendor
+
 ### People and tenancy
 
 **Organization**:

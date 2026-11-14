@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { CommandReceipt, GitProposal, IntegrationRepository, RepositoryBinding } from "@brain/contracts";
+import type { CommandReceipt, GitConnection, GitProposal, IntegrationRepository, RepositoryBinding } from "@brain/contracts";
 import { createApp } from "../../apps/governor/src/http/app";
 import { setupWorld, type TestWorld } from "../helpers";
 import { createGitRemote } from "../support/git-fixture";
@@ -25,7 +25,7 @@ describe("TypeScript Git protocol integrations (T55, E108)", () => {
     const app = await createApp({ dataDir: dir, allowTestActor: true });
     cleanup.push(async () => { await app.close(); rmSync(dir, { recursive: true, force: true }); });
     const w = setupWorld(app.brain);
-    const connectionId = (await run(w, "integration.connect", "protocol-connect", { name: "Protocol remote", repositoryUrl: fixture.remote, username: "git-user", token: "protocol-secret-token" })).resourceId!;
+    const connectionId = (await run(w, "integration.connect", "protocol-connect", { provider: "gitea", name: "Protocol remote", repositoryUrl: fixture.remote, username: "git-user", token: "protocol-secret-token" })).resourceId!;
     expect((w.brain.store.control.prepare("SELECT status FROM git_connections WHERE id=?").get(connectionId) as { status: string }).status).toBe("pending");
     expect(await w.brain.integrations.verifyPending()).toEqual({ verified: 1, failed: 0 });
     const inventory = ((await w.brain.executeQuery(w.owner, { queryType: "integrations.repositories", resourceId: connectionId })) as { snapshot: { items: IntegrationRepository[] } }).snapshot.items;
@@ -67,9 +67,48 @@ describe("TypeScript Git protocol integrations (T55, E108)", () => {
     const app = await createApp({ dataDir: dir, allowTestActor: true });
     cleanup.push(async () => { await app.close(); rmSync(dir, { recursive: true, force: true }); });
     const w = setupWorld(app.brain);
-    const connectionId = (await run(w, "integration.connect", "missing-connect", { name: "Missing remote", repositoryUrl: "http://127.0.0.1:9/missing.git" })).resourceId!;
+    const connectionId = (await run(w, "integration.connect", "missing-connect", { provider: "gitea", name: "Missing remote", repositoryUrl: "http://127.0.0.1:9/missing.git" })).resourceId!;
     expect(await w.brain.integrations.verifyPending()).toEqual({ verified: 0, failed: 1 });
     expect((w.brain.store.control.prepare("SELECT status FROM git_connections WHERE id=?").get(connectionId) as { status: string }).status).toBe("failed");
     expect((w.brain.store.control.prepare("SELECT repositories_json FROM git_connections WHERE id=?").get(connectionId) as { repositories_json: string }).repositories_json).toBe("[]");
+  });
+});
+
+describe("the Git provider is chosen when the integration is set up (spec #90 story 89)", () => {
+  async function world() {
+    const dir = mkdtempSync(join(tmpdir(), "brain-git-provider-"));
+    const app = await createApp({ dataDir: dir, allowTestActor: true });
+    cleanup.push(async () => { await app.close(); rmSync(dir, { recursive: true, force: true }); });
+    return setupWorld(app.brain);
+  }
+  const attempt = async (w: TestWorld, key: string, payload: Record<string, unknown>) => await Promise.resolve().then(async () => await run(w, "integration.connect", key, payload));
+
+  it("keeps the chosen provider on the connection and shows it in the list", async () => {
+    const w = await world();
+    for (const [provider, host] of [["github", "https://github.com/acme/app.git"], ["github-enterprise", "https://git.acme.test/acme/app.git"], ["gitlab", "https://gitlab.acme.test/acme/app.git"], ["gitea", "https://gitea.acme.test/acme/app.git"]] as const) {
+      await run(w, "integration.connect", `provider-${provider}`, { name: `Remote ${provider}`, provider, repositoryUrl: host });
+    }
+    const connections = ((await w.brain.executeQuery(w.owner, { queryType: "integrations.list" })) as unknown as { snapshot: { connections: GitConnection[] } }).snapshot.connections;
+    expect(connections.map((connection) => [connection.name, connection.provider]).sort()).toEqual([
+      ["Remote gitea", "gitea"], ["Remote github", "github"], ["Remote github-enterprise", "github-enterprise"], ["Remote gitlab", "gitlab"],
+    ]);
+  });
+
+  it("refuses a connection that names no provider or one that is not supported, saying which are", async () => {
+    const w = await world();
+    const repositoryUrl = "https://git.acme.test/acme/app.git";
+    await expect(attempt(w, "no-provider", { name: "No provider", repositoryUrl })).rejects.toThrow(/provider/i);
+    for (const provider of ["bitbucket", "azure-devops", "GitHub", ""]) {
+      await expect(attempt(w, `bad-${provider || "empty"}`, { name: "Unsupported", provider, repositoryUrl })).rejects.toThrow(/Git provider .* is not supported.*GitHub, GitHub Enterprise, GitLab, Gitea/is);
+    }
+    expect(w.brain.store.control.prepare("SELECT COUNT(*) AS n FROM git_connections").get()).toEqual({ n: 0 });
+  });
+
+  it("does not guess the provider from the address: the chosen one must fit the host it is used with", async () => {
+    const w = await world();
+    await expect(attempt(w, "github-elsewhere", { name: "Wrong", provider: "github", repositoryUrl: "https://git.acme.test/acme/app.git" })).rejects.toThrow(/GitHub is github\.com.*GitHub Enterprise/is);
+    await expect(attempt(w, "ghe-on-github", { name: "Wrong", provider: "github-enterprise", repositoryUrl: "https://github.com/acme/app.git" })).rejects.toThrow(/github\.com is GitHub.*choose GitHub/is);
+    // A self-hosted GitLab or Gitea is not recognised by its name: any host works once the owner says what it is.
+    await run(w, "integration.connect", "plain-host", { name: "Plain host", provider: "gitlab", repositoryUrl: "https://code.acme.test/acme/app.git" });
   });
 });

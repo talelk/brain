@@ -26,12 +26,27 @@ test("integrations: connect a TypeScript Git remote, bind repository classes and
     await page.getByLabel(/^Remote repository URL/).fill(fixture.remote);
     await page.getByLabel("HTTP username (optional)", { exact: true }).fill("git-user");
     await page.getByLabel("HTTP token (optional)", { exact: true }).fill("browser-secret-token");
-    await page.getByRole("dialog").getByRole("button", { name: "Connect remote", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    // A first-time owner who forgets the provider is told to choose one; nothing is sent and nothing is guessed from the address.
+    await dialog.getByRole("button", { name: "Connect remote", exact: true }).click();
+    await expect(dialog.getByText("Choose the provider of this Git host.")).toBeVisible();
+    expect((brain.store.control.prepare("SELECT COUNT(*) AS n FROM git_connections").get() as { n: number }).n).toBe(0);
+    // GitHub means github.com: this address is another host, so the owner is told to choose GitHub Enterprise instead.
+    await dialog.getByLabel(/^Git provider/).click();
+    await page.getByRole("option", { name: "GitHub", exact: true }).click();
+    await dialog.getByRole("button", { name: "Connect remote", exact: true }).click();
+    await expect(dialog.getByText(/GitHub is github\.com; for a GitHub server of your own choose GitHub Enterprise/)).toBeVisible();
+    expect((brain.store.control.prepare("SELECT COUNT(*) AS n FROM git_connections").get() as { n: number }).n).toBe(0);
+    await dialog.getByLabel(/^Git provider/).click();
+    await page.getByRole("option", { name: "GitHub Enterprise", exact: true }).click();
+    await dialog.getByRole("button", { name: "Connect remote", exact: true }).click();
     await expect.poll(() => (brain.store.control.prepare("SELECT COUNT(*) AS n FROM git_connections").get() as { n: number }).n).toBe(1);
     const connectionId = (brain.store.control.prepare("SELECT id FROM git_connections").get() as { id: string }).id;
     expect(await brain.integrations.verifyPending()).toEqual({ verified: 1, failed: 0 });
     await page.getByRole("button", { name: "Refresh", exact: true }).click();
     await expect(page.getByText(/verified/i).first()).toBeVisible();
+    await expect(page.locator('[data-git-provider="github-enterprise"]')).toContainText("GitHub Enterprise ·");
+    expect((brain.store.control.prepare("SELECT provider FROM git_connections").get() as { provider: string }).provider).toBe("github-enterprise");
 
     await page.getByRole("button", { name: "Bind repository", exact: true }).first().click();
     await page.getByLabel("Repository", { exact: true }).click();

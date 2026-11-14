@@ -24,7 +24,7 @@ test("studio: edit spec.jobs, validate, publish exact commit and activate separa
       contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType,
       workspaceId: "ws-studio", idempotencyKey: key, payload,
     } as never, key)).receipt;
-    const connectionId = (await run("integration.connect", "browser-studio-connect", { name: "Studio remote", repositoryUrl: remote.remote })).resourceId!;
+    const connectionId = (await run("integration.connect", "browser-studio-connect", { provider: "gitea", name: "Studio remote", repositoryUrl: remote.remote })).resourceId!;
     expect(await brain.integrations.verifyPending()).toEqual({ verified: 1, failed: 0 });
     const bindingId = (await run("integration.bind", "browser-studio-bind", { connectionId, workspaceId: "ws-studio", kind: "configuration", repositoryKey: remote.remote, access: "write" })).resourceId!;
     expect(await brain.integrations.verifyPending()).toEqual({ verified: 1, failed: 0 });

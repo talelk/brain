@@ -374,7 +374,6 @@ export const enExtra = {
   "guide.step.verify": "Brain can reach the repository and the token is accepted",
   "guide.step.write": "The token may push",
   "guide.step.bind": "Repository bound to a workspace for pull requests",
-  "guide.step.provider": "Pull requests can be opened on this host",
   "guide.state.done": "Done",
   "guide.state.todo": "To do",
   "guide.state.failed": "Needs attention",
@@ -1263,5 +1262,10 @@ export const enExtra = {
   "work.hosted.priceIn": "Input price (USD per million tokens)",
   "work.hosted.priceOut": "Output price (USD per million tokens)",
   "work.hosted.priceHint": "What the vendor charges. Both prices are required: every hosted attempt is counted in dollars against the mission and workspace spend caps.",
+  "adm.git-provider.label": "Git provider",
+  "adm.git-provider.choose": "Choose a provider",
+  "adm.git-provider.hint": "Brain opens pull requests through this provider's API. It does not guess from the address.",
+  "adm.git-provider.required": "Choose the provider of this Git host.",
+  "adm.git-provider.first-step": "Choose Connect remote, pick the Git provider, then give the repository URL (and a token if it is private).",
   // @@END
 } as const satisfies Record<string, string>;

@@ -16,7 +16,7 @@ const THEME: Readonly<Record<GuideStep["state"], "green" | "amber" | "red">> = {
 const stepTitle = (step: GuideStep): string => step.id === "connect" ? t(step.state === "done" ? "guide.step.connect.done" : "guide.step.connect.todo") : tOr(`guide.step.${step.id}`, step.title);
 
 /**
- * The guided Git connection checklist (`integrations.guide`): connect, verify, may push, bound for pull requests, host recognised.
+ * The guided Git connection checklist (`integrations.guide`): connect, verify, may push, bound for pull requests.
  * Each step is done, to do or needs attention, with the one thing to do about it.
  */
 export function GitGuideChecklist(props: { connections: readonly GitConnection[] }): JSX.Element {

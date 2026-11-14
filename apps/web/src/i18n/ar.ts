@@ -702,7 +702,6 @@ export const ar: Catalog = {
   "guide.step.verify": "يستطيع Brain الوصول إلى المستودع ويُقبل الرمز",
   "guide.step.write": "يمكن للرمز الدفع",
   "guide.step.bind": "المستودع مرتبط بمساحة عمل لطلبات الدمج",
-  "guide.step.provider": "يمكن فتح طلبات الدمج على هذا المضيف",
   "guide.state.done": "تم",
   "guide.state.todo": "قيد الإنجاز",
   "guide.state.failed": "يحتاج إلى معالجة",
@@ -1712,5 +1711,10 @@ export const ar: Catalog = {
   "work.hosted.priceIn": "سعر الإدخال (دولار لكل مليون رمز)",
   "work.hosted.priceOut": "سعر الإخراج (دولار لكل مليون رمز)",
   "work.hosted.priceHint": "ما يتقاضاه المزوّد. السعران مطلوبان: تُحسب كل محاولة مستضافة بالدولار ضمن سقوف إنفاق المهمة ومساحة العمل.",
+  "adm.git-provider.label": "مزوّد Git",
+  "adm.git-provider.choose": "اختر مزوّدًا",
+  "adm.git-provider.hint": "يفتح Brain طلبات الدمج عبر واجهة برمجة هذا المزوّد ولا يخمّنه من العنوان.",
+  "adm.git-provider.required": "اختر مزوّد خادم Git هذا.",
+  "adm.git-provider.first-step": "اختر ربط مستودع بعيد، ثم حدّد مزوّد Git، ثم أدخل عنوان المستودع (ورمزًا إن كان خاصًا).",
   // @@END
 };
