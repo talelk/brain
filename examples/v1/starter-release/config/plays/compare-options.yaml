@@ -36,6 +36,9 @@
             "The comparison criteria are stated and justified"
           ],
           "dependsOn": [],
+          "criterionIds": [
+            "c1"
+          ],
           "assignment": {
             "kind": "agent",
             "id": "worker",
@@ -53,6 +56,10 @@
           ],
           "dependsOn": [
             "options"
+          ],
+          "criterionIds": [
+            "c2",
+            "c3"
           ],
           "assignment": {
             "kind": "agent",

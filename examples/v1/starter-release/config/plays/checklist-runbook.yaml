@@ -36,6 +36,10 @@
             "Each step has a way to check it worked"
           ],
           "dependsOn": [],
+          "criterionIds": [
+            "c1",
+            "c2"
+          ],
           "assignment": {
             "kind": "agent",
             "id": "worker",
@@ -52,6 +56,9 @@
           ],
           "dependsOn": [
             "draft"
+          ],
+          "criterionIds": [
+            "c3"
           ],
           "assignment": {
             "kind": "agent",

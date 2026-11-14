@@ -22,6 +22,12 @@
       "maxLength": 64,
       "pattern": "^[a-z][a-z0-9.-]*$"
     },
+    "CriterionId": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 8,
+      "pattern": "^c[1-9][0-9]{0,5}$"
+    },
     "Digest": {
       "type": "string",
       "minLength": 71,
@@ -6420,6 +6426,53 @@
       ],
       "additionalProperties": false
     },
+    "MissionCriterion": {
+      "type": "object",
+      "properties": {
+        "criterionId": {
+          "$ref": "#/$defs/CriterionId"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "covered",
+            "not-covered"
+          ]
+        },
+        "serving": {
+          "type": "object",
+          "properties": {
+            "total": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "done": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "total",
+            "done"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "criterionId",
+        "text",
+        "state",
+        "serving"
+      ],
+      "additionalProperties": false
+    },
     "Mission": {
       "type": "object",
       "properties": {
@@ -6442,9 +6495,7 @@
         "successCriteria": {
           "type": "array",
           "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 1024
+            "$ref": "#/$defs/MissionCriterion"
           },
           "minItems": 1,
           "maxItems": 100
@@ -6677,6 +6728,14 @@
             "$ref": "#/$defs/OutputInput"
           },
           "maxItems": 20
+        },
+        "criterionIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CriterionId"
+          },
+          "maxItems": 100,
+          "uniqueItems": true
         }
       },
       "required": [
