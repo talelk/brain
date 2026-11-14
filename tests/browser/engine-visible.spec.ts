@@ -94,9 +94,27 @@ test("How work runs: way of working, hosted model (off), tool allow-list, runner
   await hosted.getByRole("checkbox", { name: "Use a hosted model for this workspace" }).check();
   await hosted.getByRole("button", { name: "Save", exact: true }).click();
   await expect(hosted.getByRole("alert")).toContainText("Choose the vendor, the model and its address");
+  // Both token prices are asked for next to the model: without them its spend could not count against any dollar cap.
+  await expect(hosted.getByLabel("Input price (USD per million tokens)")).toBeVisible();
+  await hosted.getByLabel("Vendor", { exact: true }).fill("Acme");
+  await hosted.getByLabel("Model", { exact: true }).fill("acme-large");
+  await hosted.getByLabel("Address", { exact: true }).fill("https://models.acme.example/v1");
+  await hosted.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(hosted.getByRole("alert")).toContainText("input and output token prices");
+  await hosted.getByLabel("Input price (USD per million tokens)").fill("0.15");
+  await hosted.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(hosted.getByRole("alert")).toContainText("input and output token prices");
+  await hosted.getByLabel("Output price (USD per million tokens)").fill("0.6");
+  await hosted.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(hosted.getByRole("status")).toHaveText("The hosted model setting was saved.");
+  await expect(hosted).toContainText("Not checked yet");
+  await expect(hosted.getByLabel("Input price (USD per million tokens)")).toHaveValue("0.15");
+  await expect(hosted.getByLabel("Output price (USD per million tokens)")).toHaveValue("0.6");
+  expect(brain.store.control.prepare("SELECT enabled AS e, input_micro_usd_per_mtok AS i, output_micro_usd_per_mtok AS o FROM workspace_hosted_model WHERE workspace_id=?").get(demo.workspaceId)).toEqual({ e: 1, i: 150_000, o: 600_000 });
   await hosted.getByRole("checkbox", { name: "Use a hosted model for this workspace" }).uncheck();
   await hosted.getByRole("button", { name: "Save", exact: true }).click();
   await expect(hosted.getByRole("status")).toHaveText("The hosted model setting was saved.");
+  await expect(hosted).toContainText("Off");
 
   // What tools may touch.
   const effects = page.locator("[data-work-effects]");

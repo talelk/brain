@@ -1249,5 +1249,8 @@ export const enExtra = {
   "mp.waits-for": "\"{task}\" waits for {dependencies} to be done and independently checked.",
   "mp.releasing": "Nothing blocks \"{task}\": Brain starts it on its next check.",
   "result.outline": "On this page",
+  "work.hosted.priceIn": "Input price (USD per million tokens)",
+  "work.hosted.priceOut": "Output price (USD per million tokens)",
+  "work.hosted.priceHint": "What the vendor charges. Both prices are required: every hosted attempt is counted in dollars against the mission and workspace spend caps.",
   // @@END
 } as const satisfies Record<string, string>;

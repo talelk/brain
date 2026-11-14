@@ -1694,5 +1694,8 @@ export const ar: Catalog = {
   "mp.waits-for": "«{task}» تنتظر {dependencies} حتى تنتهي ويتم فحصها بشكل مستقل.",
   "mp.releasing": "لا شيء يمنع «{task}»: يبدأها Brain عند الفحص التالي.",
   "result.outline": "في هذه الصفحة",
+  "work.hosted.priceIn": "سعر الإدخال (دولار لكل مليون رمز)",
+  "work.hosted.priceOut": "سعر الإخراج (دولار لكل مليون رمز)",
+  "work.hosted.priceHint": "ما يتقاضاه المزوّد. السعران مطلوبان: تُحسب كل محاولة مستضافة بالدولار ضمن سقوف إنفاق المهمة ومساحة العمل.",
   // @@END
 };
