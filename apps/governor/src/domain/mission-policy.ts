@@ -23,6 +23,8 @@ export interface PlanDiff {
   readonly removed: readonly string[];
   readonly changed: readonly string[];
   readonly reassigned: readonly string[];
+  /** Tasks whose only change is which success criteria they serve: allowed on started work, and an agent needs `task.change` for it (ADR 0034). */
+  readonly relinked: readonly string[];
   /** Changed, added and removed tasks plus everything downstream of them in either version. */
   readonly affected: readonly string[];
   /** Operations a coordinator would need the autonomy policy to permit. */
@@ -54,14 +56,15 @@ export function diffPlan(confirmed: readonly PlanTask[], proposed: readonly Plan
   const after = new Map(proposed.map((task) => [task.id, task]));
   const added = proposed.filter((task) => !before.has(task.id)).map((task) => task.id).sort();
   const removed = confirmed.filter((task) => !after.has(task.id)).map((task) => task.id).sort();
-  const changed: string[] = []; const reassigned: string[] = [];
+  const changed: string[] = []; const reassigned: string[] = []; const relinked: string[] = [];
   for (const task of proposed) {
     const prior = before.get(task.id);
     if (!prior) continue;
     if (content(prior) !== content(task)) changed.push(task.id);
     else if (JSON.stringify(prior.assignment ?? null) !== JSON.stringify(task.assignment ?? null)) reassigned.push(task.id);
+    else if (JSON.stringify([...(prior.criterionIds ?? [])].sort()) !== JSON.stringify([...(task.criterionIds ?? [])].sort())) relinked.push(task.id);
   }
-  changed.sort(); reassigned.sort();
+  changed.sort(); reassigned.sort(); relinked.sort();
   const roots = new Set([...added, ...removed, ...changed]);
   const affected = new Set([...downstream(confirmed, roots), ...downstream(proposed, roots), ...reassigned]);
   // A started task downstream of a change implies its upstream is started too (dependencies finish first), so checking the roots suffices.
@@ -69,10 +72,10 @@ export function diffPlan(confirmed: readonly PlanTask[], proposed: readonly Plan
   if (touched.length > 0) throw new BrainDomainError("CONFLICT", `plan version changes started work: ${touched.sort().join(", ")}`);
   const operations = new Set<PlanOperation>();
   if (added.length > 0) operations.add("task.add");
-  if (changed.length > 0) operations.add("task.change");
+  if (changed.length > 0 || relinked.length > 0) operations.add("task.change");
   if (reassigned.length > 0) operations.add("task.reassign");
   for (const id of removed) operations.add(before.get(id)?.optional ? "task.remove" : "backlog.drop");
-  return { added, removed, changed, reassigned, affected: [...affected].sort(), operations: [...operations].sort() };
+  return { added, removed, changed, reassigned, relinked, affected: [...affected].sort(), operations: [...operations].sort() };
 }
 
 /** Operations a plan diff needs that the policy does not grant. */

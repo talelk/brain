@@ -173,15 +173,18 @@ export class TaskExperience {
     let title = request.title;
     let intent = request.intent;
     let successCriteria = request.successCriteria;
+    let criterionIds: string[] | undefined;
     if (missionId) {
-      const current = await this.host.query(actor, { queryType: "missions.get", workspaceId: request.workspaceId, resourceId: missionId }) as unknown as { snapshot: { title: string; intent: string; successCriteria: string[] } };
-      title = current.snapshot.title; intent = current.snapshot.intent; successCriteria = current.snapshot.successCriteria;
+      const current = await this.host.query(actor, { queryType: "missions.get", workspaceId: request.workspaceId, resourceId: missionId }) as unknown as { snapshot: { title: string; intent: string; successCriteria: Array<{ criterionId: string; text: string }> } };
+      title = current.snapshot.title; intent = current.snapshot.intent; successCriteria = current.snapshot.successCriteria.map((criterion) => criterion.text); criterionIds = current.snapshot.successCriteria.map((criterion) => criterion.criterionId);
     } else {
       if (!title || !intent || !successCriteria) throw new BrainDomainError("INVALID_ARGUMENT", "title, intent and successCriteria are required for a new mission");
       const created = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId: `mission-${request.requestId}`, commandType: "mission.create", workspaceId: request.workspaceId, idempotencyKey: `mission-${request.requestId}`, payload: { title, intent, successCriteria } })).receipt;
       missionId = created.resourceId;
     }
     if (!missionId || !title || !intent || !successCriteria) throw new BrainDomainError("CONFLICT", "mission could not be prepared");
+    // The planner reads each criterion with its id ("c1: ...") and names the ids a task serves (ADR 0034); a new mission's ids are positional.
+    const labelled = successCriteria.map((text, index) => `${criterionIds?.[index] ?? `c${index + 1}`}: ${text}`);
     const guide = (await this.catalog(actor, request.workspaceId)).find((entry) => entry.release.id === "plan-guide");
     if (!guide) throw new BrainDomainError("UNSUPPORTED_CAPABILITY", "this release has no governed plan assistant");
     const capabilities = JSON.stringify((await this.catalog(actor, request.workspaceId)).filter((entry) => !entry.definition.spec.presentation?.system).slice(0, 20).map((entry) => ({ id: entry.release.id, title: entry.definition.spec.presentation?.title, description: entry.definition.spec.presentation?.description })));
@@ -206,7 +209,7 @@ export class TaskExperience {
     // What went wrong before is part of what the planner knows (ADR 0022): lessons from healed and parked tasks, never evidence.
     try { const lessons = this.host.lessons?.(actor, request.workspaceId) ?? ""; if (lessons) related = [related, lessons].filter(Boolean).join("\n\n").slice(0, 3990); } catch { /* the plan goes ahead without lessons */ }
     const commandId = `plan-run-${request.requestId}`;
-    const started = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId, commandType: "workflow.dispatch", workspaceId: request.workspaceId, idempotencyKey: commandId, payload: { workflow: guide.release, input: { title, intent, successCriteria, capabilities, reused, related } } })).receipt;
+    const started = (await this.host.dispatch(actor, { contractVersion: "brain.command/v1", commandId, commandType: "workflow.dispatch", workspaceId: request.workspaceId, idempotencyKey: commandId, payload: { workflow: guide.release, input: { title, intent, successCriteria: labelled, capabilities, reused, related } } })).receipt;
     if (!started.accepted || !started.resourceId) throw new BrainDomainError("CONFLICT", "plan assistant could not be started");
     db.prepare("INSERT INTO planning_requests(mission_id,actor_id,run_id,state,created_at_ms,updated_at_ms) VALUES (?,?,?,'running',?,?) ON CONFLICT(mission_id) DO UPDATE SET run_id=excluded.run_id,state='running',plan_version_id=NULL,error=NULL,updated_at_ms=excluded.updated_at_ms")
       .run(missionId, actor.actorId, started.resourceId, this.s.now(), this.s.now());
