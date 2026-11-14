@@ -25,6 +25,7 @@ const SCREENS: Array<{ id: string; route: (demo: Awaited<ReturnType<typeof seedB
   { id: "approval-review", route: (d) => `/approvals/${d.seed.approvalId}`, heading: "Approval review" },
   { id: "runners", route: () => "/runners", heading: "Runners" },
   { id: "settings-setup", route: () => "/settings?tab=setup", heading: "Setup" },
+  { id: "settings-work", route: () => "/settings?tab=work", heading: "How work runs" },
   { id: "knowledge", route: () => "/w/operations/knowledge", heading: "Knowledge" },
 ];
 

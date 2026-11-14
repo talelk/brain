@@ -21,7 +21,7 @@ export interface EngineSettings {
   workspaceId: string;
   wayOfWorking?: { workflowId: string; requiredTools: string[] };
   workflows: { workflowId: string; tools: string[] }[];
-  hostedModel: { enabled: boolean; vendor: string; model: string; baseUrl: string; status: "off" | "down" | "up" | "unknown"; roles: string[] };
+  hostedModel: { enabled: boolean; vendor: string; model: string; baseUrl: string; inputMicroUsdPerMTok: number; outputMicroUsdPerMTok: number; status: "off" | "down" | "up" | "unknown"; roles: string[] };
   drain: { draining: boolean; runningAttempts: number; queuedJobs: number; since?: string };
 }
 export const engineSettingsRead = (workspaceId: string, signal?: AbortSignal) => read<EngineSettings>({ queryType: "engineSettings.get", workspaceId }, signal);

@@ -468,9 +468,11 @@ CREATE TABLE workspace_way_of_working (
   required_tools_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(required_tools_json)), updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
 ) STRICT;
 -- Hosted model per workspace (ADR 0023): off by default; evaluator and second attempt only. The API key is never stored here (host environment of the runner).
+-- The two prices (micro-USD per million tokens) are what makes hosted spend real: an enabled model always has both.
 CREATE TABLE workspace_hosted_model (
   workspace_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)),
-  vendor TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', base_url TEXT NOT NULL DEFAULT '', updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
+  vendor TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', base_url TEXT NOT NULL DEFAULT '', updated_by TEXT NOT NULL, updated_at_ms INTEGER NOT NULL,
+  input_micro_usd_per_mtok INTEGER NOT NULL DEFAULT 0, output_micro_usd_per_mtok INTEGER NOT NULL DEFAULT 0
 ) STRICT;
 -- Latest result of each periodic check (model endpoint, hosted model per workspace, disk): Health reads these rows; a check that goes bad is also alerted once.
 CREATE TABLE service_probes (
