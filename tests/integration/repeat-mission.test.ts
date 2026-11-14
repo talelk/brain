@@ -89,7 +89,7 @@ describe("a repeated described mission is a real mission occurrence (rows 30 and
     const brief = db(w).prepare("SELECT title, intent, success_criteria_json, state, started_by_occurrence AS occ FROM missions WHERE id=?").get(m1) as { title: string; intent: string; success_criteria_json: string; state: string; occ: string };
     expect(brief).toMatchObject({ intent: "Write the weekly report", state: "active", occ: first.occurrenceId });
     expect(brief.title.startsWith("Weekly report · ")).toBe(true);
-    expect(JSON.parse(brief.success_criteria_json)).toEqual(["delivered"]);
+    expect(JSON.parse(brief.success_criteria_json)).toEqual([{ id: "c1", text: "delivered" }]);
     expect((db(w).prepare("SELECT plan_task_id FROM work_items WHERE mission_id=? ORDER BY plan_task_id").all(m1) as Array<{ plan_task_id: string }>).map((row) => row.plan_task_id)).toEqual(["gather", "write"]);
     // No bare workflow run was started for the occurrence itself.
     expect(db(w).prepare("SELECT 1 FROM workflow_runs WHERE execution_key=?").get(first.occurrenceId)).toBeUndefined();

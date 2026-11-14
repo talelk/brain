@@ -55,6 +55,11 @@
           "dependsOn": [
             "understand"
           ],
+          "criterionIds": [
+            "c1",
+            "c2",
+            "c3"
+          ],
           "assignment": {
             "kind": "agent",
             "id": "worker",

@@ -36,6 +36,9 @@
             "Each fact names its source"
           ],
           "dependsOn": [],
+          "criterionIds": [
+            "c2"
+          ],
           "assignment": {
             "kind": "agent",
             "id": "worker",
@@ -53,6 +56,10 @@
           ],
           "dependsOn": [
             "gather"
+          ],
+          "criterionIds": [
+            "c1",
+            "c3"
           ],
           "assignment": {
             "kind": "agent",

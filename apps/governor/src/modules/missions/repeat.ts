@@ -61,6 +61,7 @@ export function describeDiff(diff: PlanDiff): string {
   const parts = [
     diff.added.length ? `added ${taskNames(diff.added)}` : "", diff.removed.length ? `removed ${taskNames(diff.removed)}` : "",
     diff.changed.length ? `changed ${taskNames(diff.changed)}` : "", diff.reassigned.length ? `reassigned ${taskNames(diff.reassigned)}` : "",
+    diff.relinked.length ? `changed the criteria served by ${taskNames(diff.relinked)}` : "",
   ].filter(Boolean);
   return parts.length ? parts.join("; ") : "the team or tools differ";
 }

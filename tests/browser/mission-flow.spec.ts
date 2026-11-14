@@ -63,7 +63,7 @@ async function createMission(page: Page, w: World, base: string, sentence: strin
 
 /** The planner ("ask Brain") step: a proposal the person then reads and confirms in the UI. */
 async function proposePlan(w: World, missionId: string, summary: string): Promise<void> {
-  const task = (id: string, title: string, dependsOn: string[] = []) => ({ id, title, criteria: ["structure", "safety"], dependsOn, workflowId: "operations-triage" });
+  const task = (id: string, title: string, dependsOn: string[] = []) => ({ id, title, criteria: ["structure", "safety"], dependsOn, workflowId: "operations-triage", criterionIds: ["c1"] });
   const key = `flow-plan-${missionId}`;
   const { receipt } = await w.brain.executeCommand(w.actor, {
     contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: "plan.propose", workspaceId: "ws-flow", idempotencyKey: key,
@@ -104,10 +104,13 @@ test("mission flow (auto): create, confirm, tasks start by themselves, run, veri
   await page.goto(`${governor.url}/missions/${encodeURIComponent(missionId)}/plan`);
   await expect(page.getByText("Inspect, then verify the correction", { exact: true })).toBeVisible();
   expect(Object.keys(states(w, missionId))).toHaveLength(0);
+  // The mission's one success criterion is on the page from the start, served by no confirmed work yet.
+  await expect(page.getByTestId("mission-criteria-summary")).toHaveText("0 of 1 success criterion covered");
   await page.getByRole("button", { name: "Confirm this plan", exact: true }).click();
 
   // Confirmation alone starts the ready task; the dependent waits in the backlog.
   await expect.poll(() => states(w, missionId)).toEqual({ inspect: "in-progress", verify: "backlog" });
+  await expect(page.getByTestId("mission-criterion").first()).toContainText("0 of 2 tasks serving it are done");
   const runs = linkedRuns(w, missionId, "inspect");
   expect(runs).toHaveLength(1);
   expect(linkedRuns(w, missionId, "verify")).toHaveLength(0);
@@ -115,6 +118,9 @@ test("mission flow (auto): create, confirm, tasks start by themselves, run, veri
   // The runners finish the run; the verified evidence completes the task by itself (handoff written by the Governor),
   // the dependent starts, finishes and completes the same way. No person touches evidence or handoffs.
   await driveRuns(w, () => states(w, missionId)["inspect"] === "done");
+  await page.reload();
+  await expect(page.getByTestId("mission-criterion").first()).toContainText("1 of 2 tasks serving it are done");
+  await expect(page.getByTestId("mission-criteria-summary")).toHaveText("0 of 1 success criterion covered");
   expect((w.ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(runs[0]) as { state: string }).state).toBe("succeeded");
   expect((w.ws.prepare("SELECT submitted_by FROM handoffs WHERE superseded_by IS NULL").get() as { submitted_by: string }).submitted_by).toBe("governor");
   await expect.poll(() => states(w, missionId)["verify"]).toBe("in-progress");
@@ -122,6 +128,9 @@ test("mission flow (auto): create, confirm, tasks start by themselves, run, veri
   await driveRuns(w, () => states(w, missionId)["verify"] === "done");
   // Nobody presses Finish: the Governor proposes completion, records the verdict over the complete bundle and closes as achieved.
   await expect.poll(() => w.ws.prepare("SELECT state, outcome FROM missions WHERE id=?").get(missionId), { timeout: 30_000 }).toEqual({ state: "closed", outcome: "achieved" });
+  await page.reload();
+  await expect(page.getByTestId("mission-criteria-summary")).toHaveText("1 of 1 success criterion covered");
+  await expect(page.getByTestId("mission-criterion").first()).toHaveAttribute("data-state", "covered");
   expect(errors).toEqual([]);
 });
 

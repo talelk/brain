@@ -1,3 +1,4 @@
+import { criteriaText } from "../../domain/criteria";
 import type { ActorContext, ReuseItem } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
@@ -62,7 +63,7 @@ export class ReuseService {
     if (!mission || mission.state !== "closed" || mission.outcome !== "achieved") return;
     const verified = this.verifiedBundle(db, missionId);
     const verifiedAt = verified?.created_at_ms ?? mission.updated_at_ms;
-    const criteria = JSON.parse(mission.success_criteria_json) as string[];
+    const criteria = criteriaText(mission.success_criteria_json);
     const decisions = (db.prepare("SELECT statement FROM accepted_decisions WHERE mission_id=? AND superseded_by IS NULL ORDER BY introduced_version, id").all(missionId) as Array<{ statement: string }>).map((row) => row.statement);
     this.store.inTx(db, () => {
       this.upsert(db, { ref: `mission:${missionId}`, kind: "mission", missionId, title: mission.title,
@@ -152,7 +153,7 @@ export class ReuseService {
         const evidence = this.evidenceOf(db, parsed.id);
         return { kind: "mission", title: mission.title, summary: clip(flat(mission.intent), SUMMARY_CHARS), verifiedAtMs: row.verified_at_ms,
           provenance: { missionId: parsed.id, ...(evidence.verdictDigest ? { verdictDigest: evidence.verdictDigest } : {}), evidenceDigests: evidence.digests, source: "Achieved mission" },
-          startFrom: { title: mission.title, intent: mission.intent, successCriteria: JSON.parse(mission.success_criteria_json) as string[] } };
+          startFrom: { title: mission.title, intent: mission.intent, successCriteria: criteriaText(mission.success_criteria_json) } };
       }
       case "output": {
         const version = db.prepare("SELECT v.artifact_digest, o.mission_id, m.state, m.outcome FROM output_versions v JOIN mission_outputs o ON o.id=v.output_id JOIN missions m ON m.id=o.mission_id WHERE v.id=? AND v.verified=1").get(parsed.id) as { artifact_digest: string; mission_id: string; state: string; outcome: string | null } | undefined;

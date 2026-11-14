@@ -1,3 +1,4 @@
+import { criteriaText as storedCriteriaText } from "../../domain/criteria";
 import type { Store } from "../../application/store";
 import { readVerified } from "../artifacts/index";
 import { looksLikeSecret } from "../knowledge/index";
@@ -115,7 +116,7 @@ export function buildWriteup(store: Store, db: Db, mission: { id: string; title:
   if (TRIVIAL_TITLE.test(mission.title.trim())) return { content: "", title: mission.title, skipped: "a sample or test mission" };
   if (substance < SUBSTANCE_MIN_CHARS) return { content: "", title: mission.title, skipped: `less than ${SUBSTANCE_MIN_CHARS} characters of result` };
 
-  const criteriaText = (JSON.parse(mission.success_criteria_json) as string[]);
+  const criteriaText = storedCriteriaText(mission.success_criteria_json);
   const reported = reports.flatMap((report) => report.criteria);
   const criteria = criteriaText.map((criterion) => {
     const row = reported.find((entry) => normalise(entry.criterion) === normalise(criterion));

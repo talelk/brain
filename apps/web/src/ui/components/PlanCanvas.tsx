@@ -1,6 +1,6 @@
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import type { JSX } from "solid-js";
-import { Badge, Button, Textarea, TextInput } from "@talelk/newui-atoms";
+import { Badge, Button, Checkbox, Textarea, TextInput } from "@talelk/newui-atoms";
 import { Alert } from "@talelk/newui-molecules";
 import type { Mission, MissionPlanView, PlanTask, PlanVersion, ReuseItem } from "@brain/contracts";
 import { useApp } from "../app-context";
@@ -127,6 +127,18 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
       ...(field === "title" ? { title: value } : field === "criteria" ? { criteria: value.split("\n").map((item) => item.trim()).filter(Boolean) } : { dependsOn: value.split(",").map((item) => item.trim()).filter(Boolean) }),
     } : task));
   }
+  /** A step names the success criteria it serves from the mission's own list, never as typed ids (ADR 0034). */
+  function toggleCriterion(index: number, criterionId: string, checked: boolean) {
+    setDirty(true);
+    setEditedTasks((tasks) => tasks.map((task, position) => {
+      if (position !== index) return task;
+      const kept = (task.criterionIds ?? []).filter((id) => id !== criterionId);
+      const next = checked ? props.mission.successCriteria.map((criterion) => criterion.criterionId).filter((id) => id === criterionId || kept.includes(id)) : kept;
+      const { criterionIds: _previous, ...rest } = task;
+      return next.length ? { ...rest, criterionIds: next } : rest;
+    }));
+  }
+  const serves = (task: PlanTask) => props.mission.successCriteria.filter((criterion) => task.criterionIds?.includes(criterion.criterionId));
   async function confirm() {
     const current = shownPlan();
     if (!current || busy()) return;
@@ -173,6 +185,7 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
     <p class="flex items-start gap-2"><span class="lucide-circle-dashed mt-0.5 size-4 shrink-0 text-ink-gray-6" aria-hidden="true" /><span class="min-w-0 break-words text-interface font-medium text-ink-gray-9"><InlineMarkdown text={task.title} /></span></p>
     <Show when={critical}><span class="inline-flex w-fit items-center gap-1 rounded-full bg-surface-blue-2 px-1.5 text-caption text-ink-blue-8"><span class="lucide-route size-3" aria-hidden="true" />{t("plan.critical-path.c77e")}</span></Show>
     <Show when={task.criteria.length}><ul class="flex flex-col gap-0.5 text-caption text-ink-gray-7" aria-label={t("plan.done-when.c84f")}><For each={task.criteria}>{(criterion) => <li class="flex items-start gap-1"><span class="lucide-check mt-0.5 size-3 shrink-0 text-ink-gray-6" aria-hidden="true" /><InlineMarkdown text={criterion} /></li>}</For></ul></Show>
+    <Show when={serves(task).length}><ul class="flex flex-col gap-0.5 text-caption text-ink-gray-7" aria-label={t("plan.serves.label")} data-testid="plan-step-serves"><For each={serves(task)}>{(criterion) => <li class="flex items-start gap-1" data-criterion-id={criterion.criterionId}><span class="lucide-target mt-0.5 size-3 shrink-0 text-ink-gray-6" aria-hidden="true" /><span class="min-w-0 break-words">{criterion.text}</span></li>}</For></ul></Show>
     <p class="flex flex-wrap gap-x-3 gap-y-1 text-caption text-ink-gray-6">
       <Show when={member(task)}>{(name) => <span class="inline-flex items-center gap-1"><span class="lucide-bot size-3.5" aria-hidden="true" />{name()}</span>}</Show>
       <Show when={task.estimatedMinutes}>{(minutes) => <span class="inline-flex items-center gap-1"><span class="lucide-clock size-3.5" aria-hidden="true" />{minutesText(minutes())}</span>}</Show>
@@ -213,6 +226,9 @@ export function PlanCanvas(props: { mission: Mission; proposalId?: string; onCha
           <div class="flex flex-col gap-3"><TextInput label={`Step ${index() + 1} expected outcome`} value={task.title} onInput={(event) => updateTask(index(), "title", event.currentTarget.value)} />
             <TextInput label={t("plan.depends-on.8bfa")} value={task.dependsOn.join(", ")} description={t("plan.comma-separated-task-ids-no-depe.46ab")} onInput={(event) => updateTask(index(), "dependsOn", event.currentTarget.value)} /></div>
           <Textarea label={t("plan.acceptance-criteria.133c")} value={task.criteria.join("\n")} onInput={(event) => updateTask(index(), "criteria", event.currentTarget.value)} />
+          <fieldset class="flex flex-col gap-1.5" data-testid="plan-step-criteria"><legend class="text-interface font-medium text-ink-gray-8">{t("plan.serves.legend")}</legend>
+            <For each={props.mission.successCriteria}>{(criterion) => <Checkbox checked={task.criterionIds?.includes(criterion.criterionId) ?? false} onCheckedChange={(checked) => toggleCriterion(index(), criterion.criterionId, Boolean(checked))} label={criterion.text} />}</For>
+          </fieldset>
         </section>}</For>
       </FormSheet>
       <Show when={!confirmedQuiet() && (plan.state === "proposed" || dirty())}><section class="brain-plan-actions" aria-label={t("plan.plan-decision.6411")}>

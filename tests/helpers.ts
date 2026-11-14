@@ -118,7 +118,7 @@ export function seedWorkItem(brain: Brain, organizationId: string, workspaceId: 
   const ws = brain.store.workspaceDb(workspaceId, organizationId);
   const now = brain.store.now();
   const missionId = `mission-${id}`, planId = `plan-${id}`;
-  ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,version,created_at_ms,updated_at_ms) VALUES (?,?,?,'[\"seeded\"]','seed-owner',1,?,?)")
+  ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,version,created_at_ms,updated_at_ms) VALUES (?,?,?,'[{\"id\":\"c1\",\"text\":\"seeded\"}]','seed-owner',1,?,?)")
     .run(missionId, `Mission for ${id}`, "seeded", now, now);
   ws.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms,confirmed_at_ms) VALUES (?,?,'1',?,'confirmed','manual','seed-owner','[]',?,?)")
     .run(planId, missionId, DIGEST_A, now, now);

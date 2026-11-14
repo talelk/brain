@@ -31,7 +31,7 @@ async function boardWorld(page: Page, governor: { url: string; credential: strin
     { id: "legal", title: "Clear the legal review", criteria: ["c"], dependsOn: [] },
     { id: "kickoff", title: "Kick off the release", criteria: ["c"], dependsOn: [] },
   ];
-  ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-kanban','Ship the release','Ship it','[\"c\"]','owner',?,?)").run(now, now);
+  ws.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-kanban','Ship the release','Ship it','[{\"id\":\"c1\",\"text\":\"c\"}]','owner',?,?)").run(now, now);
   ws.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,team_json,created_at_ms) VALUES ('plan-kanban','obj-kanban',1,?,'confirmed','manual','owner',?,?,?)")
     .run(DIGEST, JSON.stringify(tasks), JSON.stringify([{ memberId: "writer", role: "Release writer", agentId: "writer-agent", engine: "fixture" }]), now);
   ws.prepare("UPDATE missions SET active_plan_version_id='plan-kanban' WHERE id='obj-kanban'").run();
