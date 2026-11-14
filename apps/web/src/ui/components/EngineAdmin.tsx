@@ -36,6 +36,9 @@ function Outcome(props: { result?: { ok: boolean; text: string } | undefined }):
 
 /** A field only goes to the Governor when it has text: an empty vendor, model or address is "not chosen", not an empty choice. */
 const given = <K extends string>(key: K, value: string): Partial<Record<K, string>> => (value.trim() ? ({ [key]: value.trim() } as Record<K, string>) : {});
+/** Dollars per million tokens as typed, to the whole micro-dollars the command carries; nothing when it is empty or not a number. */
+const microPrice = (usd: string): number | undefined => { const value = usd.trim() === "" ? Number.NaN : Number(usd); return Number.isFinite(value) && value > 0 ? Math.round(value * 1_000_000) : undefined; };
+const usdPrice = (micro: number): string => (micro > 0 ? String(micro / 1_000_000) : "");
 const lines = (text: string): string[] => [...new Set(text.split(/[\n,]/u).map((entry) => entry.trim()).filter(Boolean))];
 
 /** The way of working a workspace starts its tasks with, and the tools each task must observe by default. */
@@ -78,7 +81,11 @@ function HostedModel(props: { settings: EngineSettings; reload: () => Promise<un
   const [vendor, setVendor] = createSignal<string | undefined>();
   const [model, setModel] = createSignal<string | undefined>();
   const [baseUrl, setBaseUrl] = createSignal<string | undefined>();
-  const saver = createSaver(async () => { setEnabled(undefined); setVendor(undefined); setModel(undefined); setBaseUrl(undefined); await props.reload(); });
+  const [priceIn, setPriceIn] = createSignal<string | undefined>();
+  const [priceOut, setPriceOut] = createSignal<string | undefined>();
+  const saver = createSaver(async () => { setEnabled(undefined); setVendor(undefined); setModel(undefined); setBaseUrl(undefined); setPriceIn(undefined); setPriceOut(undefined); await props.reload(); });
+  const inputPrice = () => microPrice(priceIn() ?? usdPrice(hosted().inputMicroUsdPerMTok));
+  const outputPrice = () => microPrice(priceOut() ?? usdPrice(hosted().outputMicroUsdPerMTok));
   const on = () => enabled() ?? hosted().enabled;
   return <WorkspaceSection title={t("work.hosted.title")} description={t("work.hosted.description")}>
     <div class="flex min-w-0 flex-col gap-3" data-work-hosted>
@@ -91,8 +98,13 @@ function HostedModel(props: { settings: EngineSettings; reload: () => Promise<un
         <TextInput label={t("work.hosted.model")} value={model() ?? hosted().model} onInput={(event) => setModel(event.currentTarget.value)} />
       </div>
       <TextInput label={t("work.hosted.address")} description={t("work.hosted.addressHint")} value={baseUrl() ?? hosted().baseUrl} placeholder="https://" onInput={(event) => setBaseUrl(event.currentTarget.value)} />
+      <div class="grid min-w-0 gap-3 sm:grid-cols-2">
+        <TextInput label={t("work.hosted.priceIn")} type="number" min={0} step="any" inputmode="decimal" value={priceIn() ?? usdPrice(hosted().inputMicroUsdPerMTok)} onInput={(event) => setPriceIn(event.currentTarget.value)} />
+        <TextInput label={t("work.hosted.priceOut")} type="number" min={0} step="any" inputmode="decimal" value={priceOut() ?? usdPrice(hosted().outputMicroUsdPerMTok)} onInput={(event) => setPriceOut(event.currentTarget.value)} />
+      </div>
+      <p class="m-0 text-caption text-ink-gray-6">{t("work.hosted.priceHint")}</p>
       <div><Button variant="solid" theme="blue" size="sm" loading={saver.busy()} disabled={saver.busy() || !app.canAdminister()}
-        onClick={() => void saver.save(() => app.run("workspace.hostedModel.set", { enabled: on(), ...given("vendor", vendor() ?? hosted().vendor), ...given("model", model() ?? hosted().model), ...given("baseUrl", baseUrl() ?? hosted().baseUrl) }), t("work.hosted.saved"))}>{t("work.save")}</Button></div>
+        onClick={() => void saver.save(() => app.run("workspace.hostedModel.set", { enabled: on(), ...given("vendor", vendor() ?? hosted().vendor), ...given("model", model() ?? hosted().model), ...given("baseUrl", baseUrl() ?? hosted().baseUrl), ...(inputPrice() ? { inputMicroUsdPerMTok: inputPrice()! } : {}), ...(outputPrice() ? { outputMicroUsdPerMTok: outputPrice()! } : {}) }), t("work.hosted.saved"))}>{t("work.save")}</Button></div>
       <Outcome result={saver.result()} />
     </div>
   </WorkspaceSection>;

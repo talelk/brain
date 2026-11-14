@@ -11,21 +11,33 @@ export interface ModelRoute {
   readonly vendor: string;
   readonly model: string;
   readonly baseUrl: string;
+  /** What the model costs, in micro-USD per million tokens: the runner prices the attempt's tokens with these, so the spend caps see real dollars. */
+  readonly inputMicroUsdPerMTok: number;
+  readonly outputMicroUsdPerMTok: number;
 }
 
-export interface HostedConfig { readonly enabled: boolean; readonly vendor: string; readonly model: string; readonly baseUrl: string }
+export interface HostedConfig {
+  readonly enabled: boolean; readonly vendor: string; readonly model: string; readonly baseUrl: string;
+  readonly inputMicroUsdPerMTok: number; readonly outputMicroUsdPerMTok: number;
+}
 
 /** The workspace's hosted model settings; off when never configured. */
 export function hostedConfig(s: Store, workspaceId: string): HostedConfig {
-  const row = s.control.prepare("SELECT enabled, vendor, model, base_url FROM workspace_hosted_model WHERE workspace_id=?").get(workspaceId) as { enabled: number; vendor: string; model: string; base_url: string } | undefined;
-  return row ? { enabled: row.enabled === 1, vendor: row.vendor, model: row.model, baseUrl: row.base_url } : { enabled: false, vendor: "", model: "", baseUrl: "" };
+  const row = s.control.prepare("SELECT enabled, vendor, model, base_url, input_micro_usd_per_mtok AS input, output_micro_usd_per_mtok AS output FROM workspace_hosted_model WHERE workspace_id=?").get(workspaceId) as
+    { enabled: number; vendor: string; model: string; base_url: string; input: number; output: number } | undefined;
+  return row
+    ? { enabled: row.enabled === 1, vendor: row.vendor, model: row.model, baseUrl: row.base_url, inputMicroUsdPerMTok: row.input, outputMicroUsdPerMTok: row.output }
+    : { enabled: false, vendor: "", model: "", baseUrl: "", inputMicroUsdPerMTok: 0, outputMicroUsdPerMTok: 0 };
 }
 
 /** The route for one job, or nothing (self-hosted). `kind` is the job payload kind: `eval` is the check, `dispatch` an agent step. */
 export function modelRouteFor(s: Store, organizationId: string, workspaceId: string, runId: string, kind: string): ModelRoute | undefined {
   const config = hostedConfig(s, workspaceId);
-  if (!config.enabled || !config.model || !config.baseUrl) return undefined;
-  const route = (role: ModelRoute["role"]): ModelRoute => ({ tier: "hosted", role, vendor: config.vendor, model: config.model, baseUrl: config.baseUrl });
+  if (!config.enabled || !config.model || !config.baseUrl || config.inputMicroUsdPerMTok < 1 || config.outputMicroUsdPerMTok < 1) return undefined;
+  const route = (role: ModelRoute["role"]): ModelRoute => ({
+    tier: "hosted", role, vendor: config.vendor, model: config.model, baseUrl: config.baseUrl,
+    inputMicroUsdPerMTok: config.inputMicroUsdPerMTok, outputMicroUsdPerMTok: config.outputMicroUsdPerMTok,
+  });
   if (kind === "eval") return route("evaluator");
   if (kind !== "dispatch") return undefined;
   try {

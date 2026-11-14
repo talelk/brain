@@ -24461,6 +24461,16 @@
               "type": "string",
               "minLength": 8,
               "maxLength": 512
+            },
+            "inputMicroUsdPerMTok": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000000
+            },
+            "outputMicroUsdPerMTok": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000000
             }
           },
           "required": [

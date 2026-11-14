@@ -70,15 +70,21 @@ export function engineSettingsCommands(store: Store): CommandHandlers {
         const vendor = String(p["vendor"] ?? prior.vendor).trim();
         const model = String(p["model"] ?? prior.model).trim();
         const baseUrl = p["baseUrl"] !== undefined ? hostedUrl(String(p["baseUrl"])) : prior.baseUrl;
+        const inputPrice = typeof p["inputMicroUsdPerMTok"] === "number" ? p["inputMicroUsdPerMTok"] : prior.inputMicroUsdPerMTok;
+        const outputPrice = typeof p["outputMicroUsdPerMTok"] === "number" ? p["outputMicroUsdPerMTok"] : prior.outputMicroUsdPerMTok;
         if (enabled) {
           if (!vendor || !model || !baseUrl) throw new BrainDomainError("INVALID_ARGUMENT", "Choose the vendor, the model and its address before switching the hosted model on");
           // ADR 0023 limit: redaction of host output is pattern based, so a workspace that reads production hosts stays self-hosted.
           if (usesHostTools(s, actor.organizationId, workspaceId)) throw new BrainDomainError("CONFLICT", "this workspace reads production hosts; it stays self-hosted");
         }
-        s.control.prepare(`INSERT INTO workspace_hosted_model(workspace_id,organization_id,enabled,vendor,model,base_url,updated_by,updated_at_ms) VALUES (?,?,?,?,?,?,?,?)
-          ON CONFLICT(workspace_id) DO UPDATE SET enabled=excluded.enabled,vendor=excluded.vendor,model=excluded.model,base_url=excluded.base_url,updated_by=excluded.updated_by,updated_at_ms=excluded.updated_at_ms`)
-          .run(workspaceId, actor.organizationId, enabled ? 1 : 0, vendor, model, baseUrl, actor.actorId, s.now());
-        s.emit(s.control, { organizationId: actor.organizationId, workspaceId, aggregateType: "workspace", aggregateId: workspaceId, eventType: "workspace.hostedModelSet", payload: { workspaceId, enabled, vendor, model } });
+        // A hosted model that is switched on or described is always priced: its spend must reach the mission and workspace dollar caps (ADR 0023).
+        // Switching one off by itself saves nothing new, so it never needs them.
+        const described = ["vendor", "model", "baseUrl"].some((key) => p[key] !== undefined);
+        if ((enabled || described) && (inputPrice < 1 || outputPrice < 1)) throw new BrainDomainError("INVALID_ARGUMENT", "Set the hosted model's input and output token prices (micro-USD per million tokens) so its spend counts against the dollar caps");
+        s.control.prepare(`INSERT INTO workspace_hosted_model(workspace_id,organization_id,enabled,vendor,model,base_url,input_micro_usd_per_mtok,output_micro_usd_per_mtok,updated_by,updated_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?)
+          ON CONFLICT(workspace_id) DO UPDATE SET enabled=excluded.enabled,vendor=excluded.vendor,model=excluded.model,base_url=excluded.base_url,input_micro_usd_per_mtok=excluded.input_micro_usd_per_mtok,output_micro_usd_per_mtok=excluded.output_micro_usd_per_mtok,updated_by=excluded.updated_by,updated_at_ms=excluded.updated_at_ms`)
+          .run(workspaceId, actor.organizationId, enabled ? 1 : 0, vendor, model, baseUrl, inputPrice, outputPrice, actor.actorId, s.now());
+        s.emit(s.control, { organizationId: actor.organizationId, workspaceId, aggregateType: "workspace", aggregateId: workspaceId, eventType: "workspace.hostedModelSet", payload: { workspaceId, enabled, vendor, model, inputMicroUsdPerMTok: inputPrice, outputMicroUsdPerMTok: outputPrice } });
         return { resourceId: workspaceId };
       },
     },
@@ -141,7 +147,7 @@ export function engineSettings(store: Store, actor: ActorContext, workspaceId: s
     ...(defaults ? { wayOfWorking: { workflowId: defaults.workflowId, requiredTools: defaults.requiredTools } } : {}),
     // Workflows an owner may choose as the default way of working, each with the tools its agents have.
     workflows: Object.keys(release?.workflows ?? {}).sort().map((id) => ({ workflowId: id, tools: workflowAgentTools(store, actor.organizationId, id) ?? [] })),
-    hostedModel: { enabled: hosted.enabled, vendor: hosted.vendor, model: hosted.model, baseUrl: hosted.baseUrl, status: !hosted.enabled ? "off" : probe ? (probe.status === "unavailable" ? "down" : "up") : "unknown", roles: ["evaluator", "second-attempt"] },
+    hostedModel: { enabled: hosted.enabled, vendor: hosted.vendor, model: hosted.model, baseUrl: hosted.baseUrl, inputMicroUsdPerMTok: hosted.inputMicroUsdPerMTok, outputMicroUsdPerMTok: hosted.outputMicroUsdPerMTok, status: !hosted.enabled ? "off" : probe ? (probe.status === "unavailable" ? "down" : "up") : "unknown", roles: ["evaluator", "second-attempt"] },
     drain: drainStatus(store),
   } as unknown as JsonValue;
 }

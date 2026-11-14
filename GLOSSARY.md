@@ -187,6 +187,13 @@ The kind of worker and independent check a task runs with, chosen from the activ
 release (a workspace has a default); the engine calls it a workflow.
 _Avoid_: recipe, template
 
+**Hosted model**:
+A workspace's optional vendor model for independent checks and second attempts only. It is
+always priced: input and output token prices (micro-USD per million tokens) travel with the
+route, and an attempt on it costs its tokens times those prices, so mission and workspace
+dollar caps bind it. The self-hosted model costs no dollars.
+_Avoid_: external model, cloud model
+
 **Session**:
 A governed agent conversation served by one team member and bound to a mission, a job
 and an attempt. Steering and stopping act on a session. A session may end while its

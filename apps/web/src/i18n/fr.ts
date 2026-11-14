@@ -1648,5 +1648,8 @@ export const fr: Catalog = {
   "mp.waits-for": "« {task} » attend {dependencies}, qui doit être terminé et vérifié de façon indépendante.",
   "mp.releasing": "Rien ne bloque « {task} » : Brain la démarre à sa prochaine vérification.",
   "result.outline": "Sur cette page",
+  "work.hosted.priceIn": "Prix d'entrée (USD par million de jetons)",
+  "work.hosted.priceOut": "Prix de sortie (USD par million de jetons)",
+  "work.hosted.priceHint": "Ce que facture le fournisseur. Les deux prix sont obligatoires : chaque tentative hébergée est comptée en dollars dans les plafonds de dépense de la mission et de l'espace de travail.",
   // @@END
 };
