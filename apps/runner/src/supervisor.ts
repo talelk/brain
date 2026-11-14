@@ -16,6 +16,7 @@ import { GovernorClient, GovernorProtocolError } from "./governor-client";
 import { LauncherClient } from "./launcher-client";
 import { payloadValidator } from "@brain/contracts/validate";
 import { promptWithContext, runAgentExecution, selectEngine } from "./engines/run";
+import { advertisedCapabilities, advertisedIsolationModes, engineIsolation } from "./engines/isolation";
 
 /** The step's output schema, as sent with its job, turned into a check that lists the violations of a reply; a schema that cannot be compiled checks nothing. */
 function outputContractCheck(schema: unknown): ((output: JsonValue) => readonly string[]) | undefined {
@@ -114,14 +115,14 @@ async function challengeHello(cfg: RunnerConfig, credential: string, bootNonce =
   const client = new GovernorClient(cfg);
   const { challengeId, nonce } = await client.challenge(cfg.runnerId, credential);
   const engines = await availableEngines(cfg);
-  const capabilities = [...new Set([...cfg.capabilities.filter((cap) => !/^engine(:|-feature:)/u.test(cap)), ...engines.map((engine) => `engine:${engine.id}`), ...engines.flatMap((engine) => engine.features.map((feature) => `engine-feature:${engine.id}:${feature}`))])];
+  const capabilities = advertisedCapabilities(cfg.capabilities, engines);
   const helloBody = {
     contractVersion: "brain.runner/v1", runnerId: cfg.runnerId, bootNonce, runtimeVersion: "brain-runner/0.1.0",
     configDigest: `sha256:${"0".repeat(64)}`,
     capabilities: capabilities.map((capability) => ({ capability, observedAt: new Date().toISOString(), source: "runner-probe", verified: true, expiresAt: new Date(Date.now() + 5 * 60_000).toISOString() })),
     engines,
     capacity: runnerCapacity(),
-    isolationModes: ["ephemeral-container"],
+    isolationModes: advertisedIsolationModes(engines),
   };
   const helloDigest = domainDigest("brain:runner-hello:v1", helloBody as unknown as JsonValue);
   const signed = JSON.stringify({ challengeId, nonce, runnerId: cfg.runnerId, bootNonce, helloDigest });
@@ -296,7 +297,10 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       const asset = await client.agentInstructions(offer.configDigest, ref.id, ref.digest);
       const instructions = asset.instructions;
       const configured = cfg.engines ?? [process.env["BRAIN_RUNNER_ENGINE"] ?? "fixture"];
-      const engineConfigured = asset.agent.spec.engine.anyOf.find((id) => configured.includes(id));
+      // The engine must be configured here and provide the isolation this step's placement requires (ADR 0035): an engine that cannot is never used,
+      // even when the runner also has one that can.
+      const required = offer.placement?.isolation ?? "none stated";
+      const engineConfigured = asset.agent.spec.engine.anyOf.find((id) => configured.includes(id) && engineIsolation(id) === required);
       // Tools the Governor found to have nothing to read for this task (no documents, no CSV files) are not offered to the model at all:
       // each call it would waste is a model round trip. The pinned allowlist above still bounds what could ever run.
       const withheld = new Set((payload.contextPack?.unavailableTools ?? []).map((tool) => tool.id));
@@ -305,7 +309,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       // A second attempt the Governor routed to the workspace's hosted model (ADR 0023); every other attempt stays on this runner's own model.
       const route = hostedRouteOf(payload.modelRoute);
       const engine = selectEngine(engineConfigured, offeredBindings, route);
-      if (!engine) throw new Error(`none of the required engines (${asset.agent.spec.engine.anyOf.join(", ")}) is configured on this runner`);
+      if (!engine) throw new Error(`none of the required engines (${asset.agent.spec.engine.anyOf.join(", ")}) is configured on this runner with the ${required} isolation this step requires`);
       const engineProbe = await engine.probe();
       engineInfo = { id: engineProbe.id, adapterDigest: engineProbe.adapterDigest, features: [...engineProbe.features] };
       const task = promptWithContext(step.task ?? JSON.stringify(payload.input ?? {}), payload.contextPack) + settledEffectsNote(settledEffects);
@@ -550,7 +554,7 @@ export async function startSupervisor(configurationChanged?: () => boolean): Pro
       },
       activeAttemptIds: [...controls.activeAttemptIds],
       observedAt: new Date().toISOString(),
-      capabilities: [...cfg.capabilities.filter((cap) => !/^engine(:|-feature:)/u.test(cap)), ...engines.map((engine) => `engine:${engine.id}`), ...engines.flatMap((engine) => engine.features.map((feature) => `engine-feature:${engine.id}:${feature}`))]
+      capabilities: advertisedCapabilities(cfg.capabilities, engines)
         .map((capability) => ({ capability, verified: true, source: "runner-probe", observedAt: new Date().toISOString(), expiresAt: new Date(Date.now()+300000).toISOString() })),
     })).then((ack) => {
       // At-most-once delivery: the Governor deleted the control rows when it

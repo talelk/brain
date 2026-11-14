@@ -6,7 +6,7 @@ A runner is a registered execution resource, not an agent definition, workspace 
 
 Persist administrative state (`enabled|draining|quarantined|disabled`), connectivity (`online|offline`) and allocated slots independently. Display priority is disabled/quarantined, offline, draining, busy, idle. A draining busy runner must remain visibly both draining and occupied. Health (`healthy|degraded|unhealthy`) and probe freshness are additional admission facts.
 
-Observed labels use a versioned taxonomy: `os:linux`, `arch:amd64`, `engine:pi`, `protocol:acp-v1`, `tool:kubectl`, `network:oci-prod`, `isolation:ephemeral-container`. Labels route work; trust claims require a verified binding/probe. Each capability has source, observed time, verification status and expiry. A connectivity probe proves a read path at an observation time, never broad production permission.
+Observed labels use a versioned taxonomy: `os:linux`, `arch:amd64`, `engine:pi`, `protocol:acp-v1`, `tool:kubectl`, `network:oci-prod`, `isolation:ephemeral-container`. Labels route work; trust claims require a verified binding/probe. Each capability has source, observed time, verification status and expiry. A connectivity probe proves a read path at an observation time, never broad production permission. Isolation is also stated per engine (`engine-isolation:<engine>:<mode>`, ADR 0035): a step is placed only on an engine that states the step's isolation, and ACP engines state `trusted-local`.
 
 ## Enrollment and epoch semantics
 

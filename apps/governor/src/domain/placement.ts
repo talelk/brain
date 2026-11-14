@@ -58,11 +58,14 @@ export function evaluateRunner(placement: Placement, demand: Resources, runner: 
     if (!any) reasons.push("no-anyof-capability");
   }
   if (placement.engine) {
-    const engineOk = placement.engine.anyOf.some((e) => runner.engines.includes(e) && placement.engine!.features.every((feature) => {
-      const capability = runner.capabilities.get(`engine-feature:${e}:${feature}`);
-      return capability?.verified && capability.expiresAtMs > nowMs;
-    }));
-    if (!engineOk) reasons.push("engine-mismatch");
+    const fresh = (capability: string): boolean => {
+      const seen = runner.capabilities.get(capability);
+      return seen?.verified === true && seen.expiresAtMs > nowMs;
+    };
+    const usable = placement.engine.anyOf.filter((e) => runner.engines.includes(e) && placement.engine!.features.every((feature) => fresh(`engine-feature:${e}:${feature}`)));
+    if (usable.length === 0) reasons.push("engine-mismatch");
+    // The runner states the isolation each engine really provides (ADR 0035); an engine that does not state the step's isolation, or states another, cannot take it.
+    else if (!usable.some((e) => fresh(`engine-isolation:${e}:${placement.isolation}`)) && !reasons.includes("isolation-mismatch")) reasons.push("isolation-mismatch");
   }
   if (!fits(demand, available(runner))) reasons.push("insufficient-capacity");
   return { eligible: reasons.length === 0, reasons };
