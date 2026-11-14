@@ -1659,5 +1659,8 @@ export const fr: Catalog = {
   "mission.criteria.tasks-percent": "{percent} % des tâches terminées",
   "plan.serves.label": "Sert les critères de réussite",
   "plan.serves.legend": "Critères de réussite servis par cette étape",
+  "work.hosted.priceIn": "Prix d'entrée (USD par million de jetons)",
+  "work.hosted.priceOut": "Prix de sortie (USD par million de jetons)",
+  "work.hosted.priceHint": "Ce que facture le fournisseur. Les deux prix sont obligatoires : chaque tentative hébergée est comptée en dollars dans les plafonds de dépense de la mission et de l'espace de travail.",
   // @@END
 };

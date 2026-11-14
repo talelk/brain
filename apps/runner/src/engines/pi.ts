@@ -6,13 +6,15 @@ import { EngineEventStream } from "./event-stream";
 import { engineFailureDetail } from "./failure-detail";
 import { holdsCompleteObject } from "./json-reply";
 import { attemptLimitsNotice, finalTurnNotice, overAllowanceReason, REPEAT_BUDGET, toolCallCeiling, wrapUpReason } from "./limits";
+import { hostedMicroUsd, type HostedPrices } from "./pricing";
 import { GovernedToolCalls } from "./tool-calls";
 
 /**
  * Where a hosted-model attempt calls (ADR 0023): the Governor names the place; the API key comes from this runner's own environment
- * and is never part of any job. Only an attempt the Governor routed (a second attempt after a model slip) carries one.
+ * and is never part of any job. Only an attempt the Governor routed (a check or a second attempt after a model slip) carries one, with the
+ * model's prices: the attempt's spend is its tokens times those prices, so it reaches the dollar caps.
  */
-export interface HostedRoute { readonly baseUrl: string; readonly model: string }
+export interface HostedRoute extends HostedPrices { readonly baseUrl: string; readonly model: string }
 
 type PiSession = { dispose: () => void; abort: () => Promise<void>; getSessionStats: () => { assistantMessages: number; tokens: { input: number; output: number; cacheRead: number; total: number }; cost: number }; prompt: (text: string) => Promise<void>; steer: (text: string) => Promise<unknown>; agent: { onPayload?: (payload: unknown, model: unknown) => Promise<unknown> | unknown }; readonly isStreaming: boolean };
 
@@ -145,6 +147,12 @@ export class PiEngine implements EngineAdapter {
     if (message.stopReason === "length" && !this.output.trim()) this.failure = "the model used its whole output limit before writing an answer";
   }
 
+  /** Micro-USD for the session's totals: tokens x the route's prices on the hosted route; the self-hosted model costs nothing. */
+  private microUsd(stats: { tokens: { input: number; output: number; cacheRead: number }; cost: number } | undefined): number {
+    if (!stats) return 0;
+    return this.route ? hostedMicroUsd(this.route, stats.tokens) : Math.ceil(stats.cost * 1_000_000);
+  }
+
   /** What this attempt has used so far, from the vendor session's own totals. */
   private use(): { tokens: number; microUsd: number; turns: number; lastTurnTokens: number } {
     const stats = this.session?.getSessionStats();
@@ -152,7 +160,7 @@ export class PiEngine implements EngineAdapter {
     // Called once per tool call, that is once per turn: the difference between two calls is what the turn in between cost.
     const lastTurnTokens = tokens - this.tokensAtLastCheck;
     this.tokensAtLastCheck = tokens;
-    return { tokens, microUsd: Math.ceil((stats?.cost ?? 0) * 1_000_000), turns: stats?.assistantMessages ?? 0, lastTurnTokens };
+    return { tokens, microUsd: this.microUsd(stats), turns: stats?.assistantMessages ?? 0, lastTurnTokens };
   }
 
   /**
@@ -217,7 +225,7 @@ export class PiEngine implements EngineAdapter {
       const usage = this.session.getSessionStats();
       this.push("usage", { usageId: `pi-usage-${spec.attemptId}`, inputTokens: usage.tokens.input,
         outputTokens: usage.tokens.output, cachedInputTokens: usage.tokens.cacheRead,
-        microUsd: Math.ceil(usage.cost*1000000), accounting: "final-total", estimated: false });
+        microUsd: this.microUsd(usage), accounting: "final-total", estimated: false });
       if (this.failure) throw new Error(this.failure);
       // A finished answer is kept whatever it cost: the spend is reported above and charged, and throwing the answer away would only pay for it twice.
       const bytes = new TextEncoder().encode(this.output);

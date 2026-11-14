@@ -20,7 +20,7 @@ test("schedules: personal-host offline wait, recovery and fail are explicit (T58
   brain.activateRelease(actor, release.digest);
   brain.store.control.prepare(`INSERT INTO runners(id,organization_id,group_id,identity_key_digest,admin_state,health,config_digest,session_epoch,last_heartbeat_ms,cpu_capacity,memory_capacity,disk_capacity,slot_capacity)
     VALUES ('personal-browser',?,'fixture-tools','key','enabled','healthy',?,1,?,4000,8192,20480,1)`).run(actor.organizationId, DIGEST_A, brain.store.now() - 60_000);
-  for (const capability of ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture"]) {
+  for (const capability of ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture", "engine-isolation:fixture:ephemeral-container"]) {
     brain.store.control.prepare("INSERT INTO runner_capabilities(runner_id,capability,verified,source,observed_at_ms,expires_at_ms) VALUES ('personal-browser',?,1,'fixture',?,?)")
       .run(capability, brain.store.now(), brain.store.now() + 3600_000);
   }

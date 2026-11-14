@@ -195,6 +195,13 @@ The kind of worker and independent check a task runs with, chosen from the activ
 release (a workspace has a default); the engine calls it a workflow.
 _Avoid_: recipe, template
 
+**Hosted model**:
+A workspace's optional vendor model for independent checks and second attempts only. It is
+always priced: input and output token prices (micro-USD per million tokens) travel with the
+route, and an attempt on it costs its tokens times those prices, so mission and workspace
+dollar caps bind it. The self-hosted model costs no dollars.
+_Avoid_: external model, cloud model
+
 **Session**:
 A governed agent conversation served by one team member and bound to a mission, a job
 and an attempt. Steering and stopping act on a session. A session may end while its
@@ -254,6 +261,18 @@ _Avoid_: sandbox, executor, container host
 **Engine**:
 A model-execution harness a runner adapts, pinned for the duration of an attempt.
 _Avoid_: model (a model is what the engine drives), provider
+
+**Broker tool**:
+A release-pinned tool as an engine offers it to a model; every call goes through the
+runner's broker, which validates it and runs it in a sandbox. An engine has no other
+tool: its own native shell, edit and fetch are refused (ADR 0035).
+_Avoid_: native tool (the engine's own, never allowed), plugin
+
+**Engine isolation**:
+The isolation an engine really provides on a runner, stated by the runner per engine
+(`engine-isolation:<engine>:<mode>`); a step is placed on an engine only if it states
+the step's isolation. ACP engines are `trusted-local` until engines run sandboxed.
+_Avoid_: runner isolation (what the runner's tool sandboxes provide)
 
 **Lease**:
 Time-boxed ownership of a resource by an attempt, carrying a fence. Lease expiry proves

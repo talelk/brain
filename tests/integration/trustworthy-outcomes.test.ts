@@ -288,7 +288,29 @@ describe("a task stops at its token cap across all attempts (default 200k)", () 
 });
 
 describe("a hosted model checks results and takes second attempts only, per workspace (ADR 0023)", () => {
-  const hosted = { enabled: true, vendor: "Acme", model: "acme-large", baseUrl: "https://models.acme.example/v1" };
+  const hosted = { enabled: true, vendor: "Acme", model: "acme-large", baseUrl: "https://models.acme.example/v1", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000 };
+  const priced = { inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000 };
+
+  it("cannot be saved without both token prices, and the saved prices are what the settings and the route carry", async () => {
+    const w = world();
+    const { inputMicroUsdPerMTok: _in, outputMicroUsdPerMTok: _out, ...unpriced } = hosted;
+    const settings = async () => ((await w.brain.executeQuery(w.owner, { queryType: "engineSettings.get", workspaceId: w.workspaceId })) as unknown as { snapshot: { hostedModel: Record<string, unknown> } }).snapshot.hostedModel;
+    await expect(run(w, "workspace.hostedModel.set", "pr-none", unpriced)).rejects.toThrow(/input and output token prices/);
+    await expect(run(w, "workspace.hostedModel.set", "pr-in", { ...unpriced, inputMicroUsdPerMTok: 150_000 })).rejects.toThrow(/input and output token prices/);
+    await expect(run(w, "workspace.hostedModel.set", "pr-out", { ...unpriced, outputMicroUsdPerMTok: 600_000 })).rejects.toThrow(/input and output token prices/);
+    // A hosted model that is only being described (switched off) is not saved half-priced either.
+    await expect(run(w, "workspace.hostedModel.set", "pr-off", { ...unpriced, enabled: false })).rejects.toThrow(/input and output token prices/);
+    await expect(run(w, "workspace.hostedModel.set", "pr-zero", { ...hosted, outputMicroUsdPerMTok: 0 })).rejects.toThrow();
+    expect(await settings()).toMatchObject({ enabled: false, model: "" });
+    await run(w, "workspace.hostedModel.set", "pr-ok", hosted);
+    expect(await settings()).toMatchObject({ enabled: true, ...priced });
+    expect(modelRouteFor(w.brain.store, w.org, w.workspaceId, "any-run", "eval")).toMatchObject(priced);
+    // Switching it off keeps what was saved, and switching it back on needs nothing new.
+    await run(w, "workspace.hostedModel.set", "pr-off2", { enabled: false });
+    expect(await settings()).toMatchObject({ enabled: false, ...priced });
+    await run(w, "workspace.hostedModel.set", "pr-on2", { enabled: true });
+    expect(await settings()).toMatchObject({ enabled: true, ...priced });
+  });
 
   it("is off by default and cannot carry a credential", async () => {
     const w = world();
@@ -307,7 +329,7 @@ describe("a hosted model checks results and takes second attempts only, per work
     await run(w, "workspace.hostedModel.set", "hm-on", hosted);
     const id = await planned(w, "hm", [task("a")]);
     const a = item(w, id, "a");
-    expect(modelRouteFor(w.brain.store, w.org, w.workspaceId, "hm-1", "eval")).toEqual({ tier: "hosted", role: "evaluator", vendor: "Acme", model: "acme-large", baseUrl: "https://models.acme.example/v1" });
+    expect(modelRouteFor(w.brain.store, w.org, w.workspaceId, "hm-1", "eval")).toEqual({ tier: "hosted", role: "evaluator", vendor: "Acme", model: "acme-large", baseUrl: "https://models.acme.example/v1", ...priced });
     // Planning and non-agent kinds stay self-hosted; so does a first attempt.
     attempt(w, a.workItemId, "hm-1");
     expect(modelRouteFor(w.brain.store, w.org, w.workspaceId, "hm-1", "dispatch")).toBeUndefined();
@@ -419,7 +441,7 @@ describe("drain mode stops new attempts and resumes", () => {
     const s = w.brain.store;
     s.control.prepare(`INSERT INTO runners(id, organization_id, group_id, identity_key_digest, admin_state, health, config_digest, session_epoch, last_heartbeat_ms, cpu_capacity, memory_capacity, disk_capacity, slot_capacity)
       VALUES ('runner-drain', ?, 'fixture-tools', 'k', 'enabled', 'healthy', ?, 1, ?, 4000, 8192, 20480, 2)`).run(w.org, DIGEST_A, s.now());
-    for (const cap of ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture"]) {
+    for (const cap of ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture", "engine-isolation:fixture:ephemeral-container"]) {
       s.control.prepare("INSERT INTO runner_capabilities(runner_id, capability, verified, source, observed_at_ms, expires_at_ms) VALUES ('runner-drain', ?, 1, 'test', ?, ?)").run(cap, s.now(), s.now() + 3_600_000);
     }
     return { w, runner: { runnerId: "runner-drain", epoch: 1, organizationId: w.org }, jobId };
@@ -435,7 +457,7 @@ describe("drain mode stops new attempts and resumes", () => {
 
   it("holds a second attempt for a hosted model that is down, and offers it with the route once the model answers", async () => {
     const { w, runner, jobId } = await queuedJob("hosted-hold");
-    await run(w, "workspace.hostedModel.set", "hold-on", { enabled: true, vendor: "Acme", model: "acme-large", baseUrl: "https://models.acme.example/v1" });
+    await run(w, "workspace.hostedModel.set", "hold-on", { enabled: true, vendor: "Acme", model: "acme-large", baseUrl: "https://models.acme.example/v1", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000 });
     // The queued job belongs to a task whose first attempt failed as a model slip: this is its second attempt.
     const id = await planned(w, "hold", [task("a")]);
     const a = item(w, id, "a");
@@ -448,7 +470,7 @@ describe("drain mode stops new attempts and resumes", () => {
     expect(w.brain.jobProtocol.claim(runner, "req-h2")).toMatchObject({ attemptId: expect.any(String) });
     // The route travels in the pinned execution payload: a place and a model, never a key.
     const payload = w.brain.store.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(jobId) as { payload_json: string };
-    expect(JSON.parse(payload.payload_json).modelRoute).toEqual({ tier: "hosted", role: "second-attempt", vendor: "Acme", model: "acme-large", baseUrl: "https://models.acme.example/v1" });
+    expect(JSON.parse(payload.payload_json).modelRoute).toEqual({ tier: "hosted", role: "second-attempt", vendor: "Acme", model: "acme-large", baseUrl: "https://models.acme.example/v1", inputMicroUsdPerMTok: 150_000, outputMicroUsdPerMTok: 600_000 });
     expect(payload.payload_json).not.toMatch(/api[-_]?key|authorization|secret/iu);
   });
 });

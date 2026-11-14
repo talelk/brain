@@ -43,7 +43,7 @@ export type PayloadFor<K extends CommandKind> =
     : K extends "workspace.spendCap.set" ? { dailyMicroUsd?: number; weeklyMicroUsd?: number }
     : K extends "workItem.spendCap.raise" ? { workItemId: string; maxTokens: number }
     : K extends "workspace.wayOfWorking.set" ? { workflowId: string; requiredTools?: string[] }
-    : K extends "workspace.hostedModel.set" ? { enabled: boolean; vendor?: string; model?: string; baseUrl?: string }
+    : K extends "workspace.hostedModel.set" ? { enabled: boolean; vendor?: string; model?: string; baseUrl?: string; inputMicroUsdPerMTok?: number; outputMicroUsdPerMTok?: number }
     : K extends "workspace.effects.set" ? { containers?: string[]; services?: string[]; approvalMinutes?: number }
     : K extends "platform.drain.set" ? { draining: boolean }
     : K extends "runnerGroup.set" ? { groupId: string; hostTools: boolean; workspaceIds: string[] }

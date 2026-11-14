@@ -40,7 +40,7 @@ function seedRunner(w: World, runnerId: string, slots = 4) {
   const s = w.brain.store;
   s.control.prepare(`INSERT INTO runners(id, organization_id, group_id, identity_key_digest, admin_state, health, config_digest, session_epoch, last_heartbeat_ms, cpu_capacity, memory_capacity, disk_capacity, slot_capacity)
     VALUES (?, ?, 'fixture-tools', 'k', 'enabled', 'healthy', ?, 1, ?, 16000, 32768, 40960, ?)`).run(runnerId, w.org, DIGEST_A, s.now(), slots);
-  for (const cap of ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture"]) {
+  for (const cap of ["os:linux", "tool:bash", "tool:python3", "isolation:ephemeral-container", "engine:fixture", "engine-isolation:fixture:ephemeral-container"]) {
     s.control.prepare("INSERT INTO runner_capabilities(runner_id, capability, verified, source, observed_at_ms, expires_at_ms) VALUES (?, ?, 1, 'test', ?, ?)").run(runnerId, cap, s.now(), s.now() + 3600000);
   }
   return { runnerId, epoch: 1, organizationId: w.org };
@@ -75,6 +75,33 @@ describe("mission admission (T19)", () => {
     await run(w, "mission.budget.set", "b-raise", { missionId: id, budget: { maxMicroUsd: 500, memberCap: 3, attemptReserveMicroUsd: 60 } }, paused.version);
     await run(w, "mission.resume", "b-resume", { missionId: id }, (await mission(w, id)).version);
     expect((w.brain.jobProtocol.claim(runner, "req-b-4") as unknown as Offer).jobId).toBe("job-b-b");
+    w.brain.close();
+  });
+
+  it("a mission dollar cap binds hosted spend: tokens x the saved prices settle as dollars and stop the next attempt", async () => {
+    const w = setupWorld();
+    await run(w, "workspace.hostedModel.set", "hosted-on", { enabled: true, vendor: "Acme", model: "acme-large", baseUrl: "https://models.acme.example/v1", inputMicroUsdPerMTok: 3_000_000, outputMicroUsdPerMTok: 15_000_000 });
+    // $0.10 for the mission; both tasks are on their second attempt after a model slip, which the hosted model takes.
+    const id = await missionWithJobs(w, "h", { maxMicroUsd: 100_000, memberCap: 1, attemptReserveMicroUsd: 0 }, ["a", "b"]);
+    w.brain.store.workspaceDb(w.workspaceId, w.org).prepare("UPDATE work_items SET failed_attempts=1, failure_class='model-slip' WHERE mission_id=?").run(id);
+    const runner = seedRunner(w, "runner-hosted");
+    const first = w.brain.jobProtocol.claim(runner, "req-h-1") as unknown as Offer;
+    const route = JSON.parse((w.brain.store.control.prepare("SELECT payload_json FROM job_payloads WHERE job_id=?").get(first.jobId) as { payload_json: string }).payload_json).modelRoute as { inputMicroUsdPerMTok: number; outputMicroUsdPerMTok: number };
+    expect(route).toMatchObject({ tier: "hosted", role: "second-attempt", inputMicroUsdPerMTok: 3_000_000, outputMicroUsdPerMTok: 15_000_000 });
+    // The runner prices what the model used with the route it was handed: 20,000 in x $3/M + 3,000 out x $15/M = $0.105.
+    const inputTokens = 20_000, outputTokens = 3_000;
+    const microUsd = Math.ceil((inputTokens * route.inputMicroUsdPerMTok + outputTokens * route.outputMicroUsdPerMTok) / 1_000_000);
+    expect(microUsd).toBe(105_000);
+    // It reports that usage through the runner protocol (events, then complete), exactly as a runner does at the end of an attempt.
+    const lease = { leaseId: (first as unknown as { leaseId: string }).leaseId, jobFence: (first as unknown as { jobFence: number }).jobFence };
+    w.brain.jobProtocol.ack(runner, first.attemptId, lease);
+    const usage = { contractVersion: "brain.engine-event/v1", eventId: "e1", sessionId: "s", attemptId: first.attemptId, sequence: 1, occurredAt: new Date().toISOString(), kind: "usage",
+      payload: { usageId: "u1", inputTokens, outputTokens, cachedInputTokens: 0, microUsd, accounting: "final-total", estimated: false } };
+    w.brain.jobProtocol.events(runner, first.attemptId, { ...lease, events: [{ sequence: 1, kind: "engine", payload: usage }] });
+    w.brain.jobProtocol.complete(runner, first.attemptId, { result: "failed", jobFence: lease.jobFence, cleanupConfirmed: true, output: { error: "the check did not finish" } });
+    // The second task is not offered: the hosted spend reached the cap, and the mission waits for a person to raise it.
+    expect(w.brain.jobProtocol.claim(runner, "req-h-2")).toBeNull();
+    expect(await mission(w, id)).toMatchObject({ state: "paused", pauseReason: "budget", usage: { settledMicroUsd: 105_000, inputTokens: 20_000, outputTokens: 3_000 } });
     w.brain.close();
   });
 

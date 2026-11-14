@@ -1709,5 +1709,8 @@ export const ar: Catalog = {
   "mission.criteria.tasks-percent": "{percent}% من المهام منجزة",
   "plan.serves.label": "يخدم معايير النجاح",
   "plan.serves.legend": "معايير النجاح التي تخدمها هذه الخطوة",
+  "work.hosted.priceIn": "سعر الإدخال (دولار لكل مليون رمز)",
+  "work.hosted.priceOut": "سعر الإخراج (دولار لكل مليون رمز)",
+  "work.hosted.priceHint": "ما يتقاضاه المزوّد. السعران مطلوبان: تُحسب كل محاولة مستضافة بالدولار ضمن سقوف إنفاق المهمة ومساحة العمل.",
   // @@END
 };

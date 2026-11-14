@@ -3,6 +3,7 @@ import { sha256Digest } from "@brain/contracts";
 import type { EngineAdapter, EngineEvent, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue } from "@brain/contracts";
 import { EngineEventStream } from "./event-stream";
 import type { HostedRoute } from "./pi";
+import { hostedMicroUsd } from "./pricing";
 import { overCostCap } from "./limits";
 import { GovernedToolCalls } from "./tool-calls";
 import { z } from "zod";
@@ -234,7 +235,8 @@ export class ClaudeEngine implements EngineAdapter {
           input.close();
           if (m.subtype !== "success" || m.is_error) throw new Error(`Claude run did not succeed: ${m.subtype ?? "unknown result"}`);
           const inputTokens = (m.usage?.input_tokens ?? 0) + (m.usage?.cache_creation_input_tokens ?? 0), outputTokens = m.usage?.output_tokens ?? 0, cachedInputTokens = m.usage?.cache_read_input_tokens ?? 0;
-          const microUsd = this.localEndpoint() ? 0 : Math.ceil((m.total_cost_usd ?? 0)*1000000);
+          // A hosted route is priced by the prices it carries (tokens x price); the vendor SDK's own estimate is not what the workspace agreed to pay.
+          const microUsd = this.route ? hostedMicroUsd(this.route, { input: inputTokens, cacheRead: cachedInputTokens, output: outputTokens }) : this.localEndpoint() ? 0 : Math.ceil((m.total_cost_usd ?? 0) * 1000000);
           this.push("usage",{usageId:`claude-usage-${spec.attemptId}`,inputTokens,outputTokens,cachedInputTokens,microUsd,accounting:"final-total",estimated:false});
           if (inputTokens+outputTokens+cachedInputTokens > spec.limits.maxTokens || overCostCap(microUsd, spec.limits.maxMicroUsd)) throw new Error("Claude execution exceeded its pinned token/cost budget");
           completed = true;

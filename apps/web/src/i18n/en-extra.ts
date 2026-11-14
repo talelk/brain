@@ -1260,5 +1260,8 @@ export const enExtra = {
   "mission.criteria.tasks-percent": "{percent}% of tasks done",
   "plan.serves.label": "Serves success criteria",
   "plan.serves.legend": "Success criteria this step serves",
+  "work.hosted.priceIn": "Input price (USD per million tokens)",
+  "work.hosted.priceOut": "Output price (USD per million tokens)",
+  "work.hosted.priceHint": "What the vendor charges. Both prices are required: every hosted attempt is counted in dollars against the mission and workspace spend caps.",
   // @@END
 } as const satisfies Record<string, string>;

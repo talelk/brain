@@ -43,7 +43,8 @@ export function runnerView(s: Store, runnerId: string): RunnerView | undefined {
     capacity: { cpuMillicores: Number(r["cpu_capacity"]), memoryMb: Number(r["memory_capacity"]), diskMb: Number(r["disk_capacity"]), slots: Number(r["slot_capacity"]) },
     reserved: { cpuMillicores: Number(r["cpu_reserved"]), memoryMb: Number(r["memory_reserved"]), diskMb: Number(r["disk_reserved"]), slots: Number(r["slots_reserved"]) },
     reserve: { cpuMillicores: 500, memoryMb: 1024, diskMb: 0, slots: 0 },
-    isolation: caps.has("isolation:ephemeral-container") ? "ephemeral-container" : "ephemeral-container",
+    // What the runner's tool sandboxes provide. What an engine provides is its own `engine-isolation:` capability, checked in placement.
+    isolation: "ephemeral-container",
     engines,
   };
 }
