@@ -1648,5 +1648,16 @@ export const fr: Catalog = {
   "mp.waits-for": "« {task} » attend {dependencies}, qui doit être terminé et vérifié de façon indépendante.",
   "mp.releasing": "Rien ne bloque « {task} » : Brain la démarre à sa prochaine vérification.",
   "result.outline": "Sur cette page",
+  "mission.criteria.title": "Critères de réussite",
+  "mission.criteria.summary_one": "{covered} critère de réussite couvert sur {n}",
+  "mission.criteria.summary_other": "{covered} critères de réussite couverts sur {n}",
+  "mission.criteria.covered": "Couvert",
+  "mission.criteria.not-covered": "Non couvert",
+  "mission.criteria.no-task": "Aucune tâche ne sert encore ce critère",
+  "mission.criteria.tasks-done_one": "{done} tâche sur {n} qui le sert est terminée",
+  "mission.criteria.tasks-done_other": "{done} tâches sur {n} qui le servent sont terminées",
+  "mission.criteria.tasks-percent": "{percent} % des tâches terminées",
+  "plan.serves.label": "Sert les critères de réussite",
+  "plan.serves.legend": "Critères de réussite servis par cette étape",
   // @@END
 };

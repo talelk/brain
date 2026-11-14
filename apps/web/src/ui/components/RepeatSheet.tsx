@@ -56,7 +56,7 @@ export function RepeatSheet(props: { mission: Mission; open: boolean; onClose: (
   const target = () => props.mission.playId
     ? { kind: "play" as const, id: props.mission.playId }
     : (workflows() ?? []).some((workflow) => workflow.release.id === DESCRIBED_WORK_WORKFLOW) ? { kind: "workflow" as const, id: DESCRIBED_WORK_WORKFLOW } : undefined;
-  const situation = () => [props.mission.intent, props.mission.successCriteria.length ? `Done when:\n${props.mission.successCriteria.map((criterion) => `- ${criterion}`).join("\n")}` : ""].filter(Boolean).join("\n\n").slice(0, 30000);
+  const situation = () => [props.mission.intent, props.mission.successCriteria.length ? `Done when:\n${props.mission.successCriteria.map((criterion) => `- ${criterion.text}`).join("\n")}` : ""].filter(Boolean).join("\n\n").slice(0, 30000);
 
   async function create(): Promise<void> {
     const preset = selected();
