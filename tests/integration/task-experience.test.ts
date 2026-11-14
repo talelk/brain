@@ -18,7 +18,7 @@ async function world() {
 }
 it("requires explicit start, recovers an accepted command and links the originating work item", async () => {
  const w = await world(); const db = w.brain.store.workspaceDb(w.workspaceId, w.org);
- db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('objective-context','Investigate latency','Diagnose latency','[\"latency-explained\"]','owner-1',?,?)").run(Date.now(), Date.now());
+ db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('objective-context','Investigate latency','Diagnose latency','[{\"id\":\"c1\",\"text\":\"latency-explained\"}]','owner-1',?,?)").run(Date.now(), Date.now());
  db.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms) VALUES ('plan-context','objective-context',1,?,'confirmed','manual','owner-1','[]',?)").run(DIGEST_A, Date.now());
  db.prepare("INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('card-context','objective-context','plan-context','investigate','Investigate latency','ready','[\"latency-explained\"]','Start this task',?,?)").run(Date.now(), Date.now());
  const origin = { kind: "work-item" as const, id: "card-context" };

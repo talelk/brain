@@ -47,7 +47,7 @@ test("live: doing-now sentence, ETA band, Pause, Steer recorded in the brief, St
 
   // A mission with a confirmed plan whose one task carries a 10 minute estimate, worked on by a session that started 4 minutes ago.
   const tasks = [{ id: "task-1", title: "Research the market", criteria: ["Names three competitors"], dependsOn: [], estimatedMinutes: 10 }];
-  ws.prepare("INSERT INTO missions(id, title, intent, success_criteria_json, owner_id, active_plan_version_id, created_at_ms, updated_at_ms) VALUES ('mis-live','Market scan','Scan the market','[\"A scan exists\"]',?,'pv-live',?,?)")
+  ws.prepare("INSERT INTO missions(id, title, intent, success_criteria_json, owner_id, active_plan_version_id, created_at_ms, updated_at_ms) VALUES ('mis-live','Market scan','Scan the market','[{\"id\":\"c1\",\"text\":\"A scan exists\"}]',?,'pv-live',?,?)")
     .run(actor.actorId, now, now);
   ws.prepare("INSERT INTO plan_versions(id, mission_id, revision, digest, state, origin, created_by, tasks_json, created_at_ms) VALUES ('pv-live','mis-live',1,?, 'confirmed','manual',?,?,?)")
     .run(`sha256:${"2".repeat(64)}`, actor.actorId, JSON.stringify(tasks), now);

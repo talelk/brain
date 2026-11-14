@@ -24,7 +24,7 @@ test("play views show tickets and incidents (T44)", async ({ page, governor }) =
   Object.assign(actor, scoped.actor);
   const seeded = Date.now();
   const wdb = brain.store.workspaceDb("ws-work", actor.organizationId);
-  wdb.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-work','Golden workflow','Prove the work screens','[\"c1\"]',?,?,?)").run(actor.actorId, seeded, seeded);
+  wdb.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,created_at_ms,updated_at_ms) VALUES ('obj-work','Golden workflow','Prove the work screens','[{\"id\":\"c1\",\"text\":\"c1\"}]',?,?,?)").run(actor.actorId, seeded, seeded);
   wdb.prepare("INSERT INTO plan_versions(id,mission_id,revision,digest,state,origin,created_by,tasks_json,created_at_ms,confirmed_at_ms) VALUES ('plan-work','obj-work',1,?,'confirmed','manual',?,?,?,?)")
     .run(`sha256:${"d".repeat(64)}`, actor.actorId, JSON.stringify([{ id: "golden", title: "Golden workflow", criteria: ["c1"], dependsOn: [] }]), seeded, seeded);
   wdb.prepare("INSERT INTO work_items(id,mission_id,plan_version_id,plan_task_id,title,state,criteria_json,next_action,created_at_ms,updated_at_ms) VALUES ('work-golden','obj-work','plan-work','golden','Golden workflow','review','[\"c1\"]','Review acceptance and evidence',?,?)").run(seeded, seeded);

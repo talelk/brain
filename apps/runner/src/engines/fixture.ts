@@ -53,12 +53,15 @@ export class FixtureEngine implements EngineAdapter {
           response = { reply: "Fixture proposal: review the task inputs before starting.", workflowId: selected?.id ?? null, input: selected ? support ? { title: "Support request", body: input["message"] } : { situation: input["message"] } : {}, questions: [] };
         }
         if (typeof input["intent"] === "string" && Array.isArray(input["successCriteria"])) {
+          // The planner reads each criterion as "c1: words" and names the ids a task serves (ADR 0034): the fixture's last two steps serve them all.
+          const served = (input["successCriteria"] as unknown[]).map((entry) => /^(c[1-9][0-9]*): /u.exec(String(entry))?.[1]).filter((id): id is string => id !== undefined);
+          const serves = served.length > 0 ? { criterionIds: served } : {};
           response = {
             summary: "Fixture strategy: inspect first, then make and verify a bounded change.",
             tasks: [
               { id: "investigate", title: `Investigate: ${String(input["title"])}`, criteria: ["investigation-complete"], dependsOn: [], assignment: { kind: "agent", id: "fixture", role: "specialist" } },
-              { id: "implement", title: "Implement the reviewed change", criteria: ["change-verified"], dependsOn: ["investigate"], workflowId: "operations-triage" },
-              { id: "review", title: "Independently review the outcome", criteria: ["outcome-accepted"], dependsOn: ["implement"], assignment: { kind: "agent", id: "fixture", role: "reviewer" } },
+              { id: "implement", title: "Implement the reviewed change", criteria: ["change-verified"], dependsOn: ["investigate"], workflowId: "operations-triage", ...serves },
+              { id: "review", title: "Independently review the outcome", criteria: ["outcome-accepted"], dependsOn: ["implement"], assignment: { kind: "agent", id: "fixture", role: "reviewer" }, ...serves },
             ],
           };
         }

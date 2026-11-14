@@ -15,6 +15,7 @@ function runner(over: Partial<RunnerView> = {}): RunnerView {
     capabilities: new Map([
       ["tool:bash", { verified: true, expiresAtMs: NOW + 60_000 }],
       ["tool:python3", { verified: true, expiresAtMs: NOW + 60_000 }],
+      ["engine-isolation:pi:container", { verified: true, expiresAtMs: NOW + 60_000 }],
     ]),
     capacity: { cpuMillicores: 4000, memoryMb: 8192, diskMb: 20480, slots: 4 },
     reserved: zero, reserve: zero, isolation: "container", engines: ["pi"],
@@ -51,6 +52,30 @@ describe("placement hard predicates (T16)", () => {
       // Reasons are redacted: stable codes and capability names only.
       for (const r of v.reasons) expect(r).not.toMatch(/sha256|token|secret|key/iu);
     }
+  });
+
+  it("an engine takes a step only when the runner states the step's isolation for that engine (ADR 0035)", () => {
+    const withEngine = { ...placement, engine: { anyOf: ["pi", "acp"], features: [] } } as unknown as Placement;
+    const claims = (...entries: Array<[string, { verified: boolean; expiresAtMs: number }]>) => new Map([["tool:bash", { verified: true, expiresAtMs: NOW + 60_000 }], ...entries]);
+    const ok = { verified: true, expiresAtMs: NOW + 60_000 };
+    expect(evaluateRunner(withEngine, demand, runner(), NOW)).toEqual({ eligible: true, reasons: [] });
+    // The engine that provides the isolation is chosen even when the runner also has an engine that does not.
+    const both = runner({ engines: ["acp", "pi"], capabilities: claims(["engine-isolation:acp:trusted-local", ok], ["engine-isolation:pi:container", ok]) });
+    expect(evaluateRunner(withEngine, demand, both, NOW).eligible).toBe(true);
+    const refused: Array<[string, Partial<RunnerView>]> = [
+      ["no claim for the engine", { capabilities: claims() }],
+      ["a claim of a weaker isolation", { engines: ["acp"], capabilities: claims(["engine-isolation:acp:trusted-local", ok]) }],
+      ["an unverified claim", { capabilities: claims(["engine-isolation:pi:container", { verified: false, expiresAtMs: NOW + 60_000 }]) }],
+      ["an expired claim", { capabilities: claims(["engine-isolation:pi:container", { verified: true, expiresAtMs: NOW - 1 }]) }],
+      ["a claim for another engine", { capabilities: claims(["engine-isolation:acp:container", ok]) }],
+    ];
+    for (const [label, over] of refused) {
+      const verdict = evaluateRunner(withEngine, demand, runner(over), NOW);
+      expect(verdict.eligible, label).toBe(false);
+      expect(verdict.reasons, label).toEqual(["isolation-mismatch"]);
+    }
+    // A step with no engine is not judged by engine claims.
+    expect(evaluateRunner(placement, demand, runner({ capabilities: claims() }), NOW).eligible).toBe(true);
   });
 
   it("anyOf capability and ranking are deterministic", () => {

@@ -1,3 +1,4 @@
+import { criteriaText } from "../domain/criteria";
 import { createHash } from "node:crypto";
 import type { ActorContext, AutonomyPolicy, PlanTask, PlaySpec, TeamMember } from "@brain/contracts";
 import { stringify } from "yaml";
@@ -72,6 +73,7 @@ function taskOf(task: PlanTask): PlanTask {
     ...(task.assignment ? { assignment: task.assignment } : {}), ...(task.workflowId ? { workflowId: task.workflowId } : {}),
     ...(task.estimatedMinutes !== undefined ? { estimatedMinutes: task.estimatedMinutes } : {}), ...(task.optional ? { optional: true } : {}),
     ...(task.requiredTools?.length ? { requiredTools: [...task.requiredTools] } : {}), ...(task.outputs?.length ? { outputs: [...task.outputs] } : {}),
+    ...(task.criterionIds?.length ? { criterionIds: [...task.criterionIds] } : {}),
   };
 }
 
@@ -190,7 +192,7 @@ export class PlayProposals {
     if (!plan) throw new BrainDomainError("EVIDENCE_MISSING", "the mission has no confirmed plan to build a Play from");
     const tasks = (JSON.parse(plan.tasks_json) as PlanTask[]).map(taskOf);
     const team = JSON.parse(plan.team_json) as TeamMember[];
-    const criteria = (JSON.parse(mission.success_criteria_json) as string[]).map((entry) => cut(String(entry), 1024));
+    const criteria = criteriaText(mission.success_criteria_json).map((entry) => cut(entry, 1024));
     const policy = JSON.parse(mission.policy_json) as AutonomyPolicy;
     return {
       title: cut(mission.title, 256), intent: cut(mission.intent, 8000), successCriteria: criteria.length ? criteria : ["The result is independently verified"],

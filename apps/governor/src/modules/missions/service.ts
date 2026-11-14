@@ -4,6 +4,7 @@ import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import { assertExpectedVersion, assertTransition, transitionState } from "../../domain/states";
 import { assertPlanTasks } from "../../domain/work-plan";
+import { assertServedCriteria, criteriaFromText, criteriaCoverage, parseCriteria } from "../../domain/criteria";
 import { AUTONOMY_PRESETS, assertTeamEligible, beyondPolicy, diffPlan, policyFor, teamOperations, withinCeiling, type AgentCapabilities } from "../../domain/mission-policy";
 import { activeReleaseRecord } from "../configuration/index";
 import { repeatGate, type RepeatPlan, type RepeatSchedule } from "./repeat";
@@ -141,13 +142,26 @@ export class MissionService {
       budget: budgetOf(row), usage: usageOf(this.store, db, row, this.store.now()),
       subjects: (db.prepare("SELECT pack, kind, subject_id FROM mission_subjects WHERE mission_id=? ORDER BY kind, subject_id").all(row.id) as Array<{ pack: "support" | "sre"; kind: "ticket" | "incident"; subject_id: string }>).map((entry) => ({ pack: entry.pack, kind: entry.kind, id: entry.subject_id })),
       missionId: row.id, workspaceId, title: row.title, intent: row.intent, ...(row.play_id ? { playId: row.play_id } : {}),
-      successCriteria: JSON.parse(row.success_criteria_json) as string[], ownerId: row.owner_id,
+      successCriteria: this.coverage(db, row), ownerId: row.owner_id,
       ...(row.active_plan_version_id ? { activePlanVersionId: row.active_plan_version_id } : {}),
       state: row.state, ...(row.pause_reason ? { pauseReason: row.pause_reason } : {}), ...(row.outcome ? { outcome: row.outcome } : {}),
       briefVersion: row.brief_version, autonomyPolicy: JSON.parse(row.policy_json) as AutonomyPolicy, parkingThreshold: row.parking_threshold, autoStart: row.auto_start === 1,
       ...(row.wall_extended === 1 ? { timeExtendedByBrain: true } : {}),
       version: row.version, createdAt: iso(row.created_at_ms), updatedAt: iso(row.updated_at_ms),
     };
+  }
+
+  /** Each success criterion with whether the work serving it is done, read from the confirmed plan and its latest live work item per task (ADR 0034). */
+  private coverage(db: ReturnType<Store["workspaceDb"]>, row: MissionRow): Mission["successCriteria"] {
+    const plan = row.active_plan_version_id ? db.prepare("SELECT tasks_json FROM plan_versions WHERE id=?").get(row.active_plan_version_id) as { tasks_json: string } | undefined : undefined;
+    const done = new Set<string>();
+    const seen = new Set<string>();
+    for (const item of db.prepare("SELECT plan_task_id, state FROM work_items WHERE mission_id=? AND state!='abandoned' ORDER BY created_at_ms DESC, id DESC").all(row.id) as Array<{ plan_task_id: string; state: WorkItemState }>) {
+      if (seen.has(item.plan_task_id)) continue;
+      seen.add(item.plan_task_id);
+      if (item.state === "done") done.add(item.plan_task_id);
+    }
+    return criteriaCoverage(parseCriteria(row.success_criteria_json), plan ? JSON.parse(plan.tasks_json) as PlanTask[] : [], done);
   }
 
   private plan(workspaceId: string, row: PlanRow): PlanVersion {
@@ -223,7 +237,7 @@ export class MissionService {
       const now = this.store.now();
       const budget = (payload["budget"] as { maxMicroUsd?: number; maxWallClockMs?: number; memberCap?: number; attemptReserveMicroUsd?: number; finalAllowanceMicroUsd?: number; maxTokens?: number; attemptReserveTokens?: number } | undefined) ?? play?.spec.budget ?? DEFAULT_MISSION_BUDGET;
       db.prepare("INSERT INTO missions(id,title,intent,success_criteria_json,owner_id,policy_json,parking_threshold,auto_start,budget_micro_usd,budget_wall_ms,member_cap,attempt_reserve_micro_usd,budget_wall_explicit,created_at_ms,updated_at_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-        .run(id, String(payload["title"]), intent, JSON.stringify(successCriteria), actor.actorId, JSON.stringify(policy), Number(payload["parkingThreshold"] ?? play?.spec.parkingThreshold ?? 3), payload["autoStart"] === false ? 0 : 1,
+        .run(id, String(payload["title"]), intent, JSON.stringify(criteriaFromText(successCriteria)), actor.actorId, JSON.stringify(policy), Number(payload["parkingThreshold"] ?? play?.spec.parkingThreshold ?? 3), payload["autoStart"] === false ? 0 : 1,
           budget.maxMicroUsd ?? null, budget.maxWallClockMs ?? null, budget.memberCap ?? 3, budget.attemptReserveMicroUsd ?? 0, payload["budget"] !== undefined && budget.maxWallClockMs !== undefined ? 1 : 0, now, now);
       if (budget.finalAllowanceMicroUsd) db.prepare("UPDATE missions SET final_allowance_micro_usd=? WHERE id=?").run(budget.finalAllowanceMicroUsd, id);
       db.prepare("UPDATE missions SET budget_tokens=?,attempt_reserve_tokens=? WHERE id=?").run(budget.maxTokens ?? null, budget.attemptReserveTokens ?? 0, id);
@@ -256,6 +270,7 @@ export class MissionService {
     const tasks = payload["tasks"] as unknown as PlanTask[];
     const team = (payload["team"] as TeamMember[] | undefined) ?? [];
     assertPlanTasks(tasks);
+    assertServedCriteria(tasks, new Set(parseCriteria(mission.success_criteria_json).map((criterion) => criterion.id)));
     assertTeamEligible(team, tasks, this.agentCapabilities(actor.organizationId));
     this.assertWayOfWorking(actor.organizationId, workspaceId, tasks);
     const gate = this.gate(actor, workspaceId, mission, tasks, team);
@@ -327,6 +342,7 @@ export class MissionService {
     if (plan.state !== "proposed") throw new BrainDomainError("CONFLICT", "only a proposed plan version can be confirmed");
     const tasks = JSON.parse(plan.tasks_json) as PlanTask[];
     assertPlanTasks(tasks);
+    assertServedCriteria(tasks, new Set(parseCriteria(mission.success_criteria_json).map((criterion) => criterion.id)));
     this.assertWayOfWorking(actor.organizationId, workspaceId, tasks);
     this.gate(actor, workspaceId, mission, tasks, JSON.parse(plan.team_json) as TeamMember[]);
     const db = this.db(actor, workspaceId);
@@ -575,8 +591,12 @@ export class MissionService {
     const described = describedWork(input.situation, input.title);
     const source = input.sourceMissionId ? db.prepare("SELECT p.tasks_json AS tasks, p.team_json AS team FROM missions m JOIN plan_versions p ON p.id=m.active_plan_version_id WHERE m.id=?").get(input.sourceMissionId) as { tasks: string; team: string } | undefined : undefined;
     const tasks: PlanTask[] = source
-      ? (JSON.parse(source.tasks) as PlanTask[]).map(({ inputs: _inputs, ...task }) => task)
-      : [{ id: "result", title: input.title.slice(0, 200), criteria: described.criteria, dependsOn: [] }];
+      ? (JSON.parse(source.tasks) as PlanTask[]).map(({ inputs: _inputs, criterionIds, ...task }) => {
+        // The occurrence's criteria are read back from its situation text: a task keeps only the criteria that still exist there.
+        const served = (criterionIds ?? []).filter((id) => Number(id.slice(1)) <= described.criteria.length);
+        return served.length > 0 ? { ...task, criterionIds: served } : task;
+      })
+      : [{ id: "result", title: input.title.slice(0, 200), criteria: described.criteria, dependsOn: [], criterionIds: described.criteria.map((_, index) => `c${index + 1}`) }];
     const team = source ? JSON.parse(source.team) as TeamMember[] : [];
     // One transaction: a crash between the mission, its plan decision and its occurrence marker must not leave a mission the retry would duplicate.
     return this.store.inTx(db, () => {

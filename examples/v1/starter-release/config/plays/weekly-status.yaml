@@ -36,6 +36,9 @@
             "Items are grouped as done, in progress or at risk"
           ],
           "dependsOn": [],
+          "criterionIds": [
+            "c3"
+          ],
           "assignment": {
             "kind": "agent",
             "id": "worker",
@@ -52,6 +55,10 @@
           ],
           "dependsOn": [
             "collect"
+          ],
+          "criterionIds": [
+            "c1",
+            "c2"
           ],
           "assignment": {
             "kind": "agent",

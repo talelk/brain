@@ -11,6 +11,7 @@
           "title": { "type": "string", "minLength": 1, "maxLength": 256 },
           "criteria": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 1024 }, "minItems": 1, "maxItems": 100 },
           "dependsOn": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-z0-9.-]*$" }, "uniqueItems": true },
+          "criterionIds": { "type": "array", "items": { "type": "string", "pattern": "^c[1-9][0-9]{0,5}$" }, "uniqueItems": true },
           "workflowId": { "type": "string", "pattern": "^[a-z][a-z0-9.-]*$" },
           "estimatedMinutes": { "type": "integer", "minimum": 1, "maximum": 10080 },
           "maxMicroUsd": { "type": "integer", "minimum": 0 },

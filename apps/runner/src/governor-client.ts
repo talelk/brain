@@ -57,6 +57,8 @@ export interface JobOffer {
   toolPins?: Record<string, string>;
   /** The hosts each tool of the job's release may reach, from the pinned tool definition. */
   toolAllowedHosts?: Record<string, string[]>;
+  /** Where the step must run; `isolation` is what an engine has to provide (ADR 0035). */
+  placement?: { isolation?: string };
   authorEvidence?: { toolReleases: { id: string; digest: string }[]; claimedChecks: unknown[] };
   execution: { kind: string; artifact: { artifactId: string; digest: string; bytes: number } };
 }

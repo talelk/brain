@@ -15,6 +15,14 @@ outlives any single run or session and may last minutes or weeks. It owns its pl
 versions, mission team, work items and outputs.
 _Avoid_: objective, goal, target, epic, project
 
+**Success criterion**:
+One outcome a mission must reach, with a stable id (`c1`, `c2`: by position at creation,
+never renumbered or reused) that plan versions and brief versions keep. Covered when at
+least one confirmed plan task serves it and every serving task is done; a criterion no
+task serves is shown as such, not as unfinished. Not a plan task's own acceptance
+criteria, which say when that task is done.
+_Avoid_: goal, objective, acceptance test
+
 **Mission state**:
 A mission's stored position: active, paused, verifying or closed. Working, waiting and
 needing attention are conditions derived from its work, never stored states.
@@ -116,7 +124,7 @@ _Avoid_: draft plan, suggested plan
 
 **Plan task**:
 One row of a plan version — a named unit of work with criteria and dependencies, which
-becomes a work item when the plan is confirmed.
+becomes a work item when the plan is confirmed. It names the success criteria it serves.
 _Avoid_: task (standalone), todo, subtask
 
 **Work item**:
@@ -258,6 +266,18 @@ _Avoid_: sandbox, executor, container host
 **Engine**:
 A model-execution harness a runner adapts, pinned for the duration of an attempt.
 _Avoid_: model (a model is what the engine drives), provider
+
+**Broker tool**:
+A release-pinned tool as an engine offers it to a model; every call goes through the
+runner's broker, which validates it and runs it in a sandbox. An engine has no other
+tool: its own native shell, edit and fetch are refused (ADR 0035).
+_Avoid_: native tool (the engine's own, never allowed), plugin
+
+**Engine isolation**:
+The isolation an engine really provides on a runner, stated by the runner per engine
+(`engine-isolation:<engine>:<mode>`); a step is placed on an engine only if it states
+the step's isolation. ACP engines are `trusted-local` until engines run sandboxed.
+_Avoid_: runner isolation (what the runner's tool sandboxes provide)
 
 **Lease**:
 Time-boxed ownership of a resource by an attempt, carrying a fence. Lease expiry proves

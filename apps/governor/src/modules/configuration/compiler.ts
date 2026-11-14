@@ -2,6 +2,7 @@ import { parseDocument, isAlias } from "yaml";
 import type { Agent, Evaluator, JsonValue, Workflow } from "@brain/contracts";
 import type { Play } from "@brain/contracts";
 import { assertPlanTasks } from "../../domain/work-plan";
+import { assertServedCriteria, criteriaFromText } from "../../domain/criteria";
 import { assertTeamEligible } from "../../domain/mission-policy";
 import { payloadValidator, validate } from "@brain/contracts/validate";
 import { domainDigest, sha256Digest } from "@brain/contracts";
@@ -384,6 +385,7 @@ export function compileRelease(docs: readonly SourceDoc[], sourceRevision: strin
     const capabilities = Object.fromEntries(Object.entries(agents).map(([agentId, agent]) => [agentId, { tools: agent.spec.tools.map((tool) => tool.id), engines: [...agent.spec.engine.anyOf], maxMicroUsd: agent.spec.maxMicroUsd }]));
     try {
       assertPlanTasks(play.spec.plan.tasks);
+      assertServedCriteria(play.spec.plan.tasks, new Set(criteriaFromText(play.spec.successCriteria).map((criterion) => criterion.id)));
       assertTeamEligible(play.spec.team, play.spec.plan.tasks, capabilities);
     } catch (error) {
       throw new BrainDomainError("INVALID_CONTRACT", `Play ${playId}: ${error instanceof Error ? error.message : String(error)}`);
