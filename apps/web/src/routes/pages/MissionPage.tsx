@@ -298,6 +298,10 @@ function LiveTab(props: ActProps): JSX.Element {
     },
   });
   const member = () => (typeof search.member === "string" ? search.member : "");
+  /** A team member by its role, as a person reads it; the id only when the plan no longer lists the member. */
+  const roleOfMember = (memberId: string | undefined): string => (team.state().data?.members ?? []).find((entry) => entry.memberId === memberId)?.role ?? memberId ?? "";
+  /** Who wrote a message: a person by name, a team member's session by its role, or Brain itself. A raw principal id is never shown. */
+  const senderName = (message: MissionMessage): string => (message.senderKind === "agent" ? t("plan.team-member-name.c101", { name: roleOfMember(message.senderMemberId) }) : message.senderKind === "system" ? "Brain" : app.personName(message.senderId));
   const memberOf = (session: BrainSession) => {
     const item = team.state().data?.items.find((entry) => entry.workItemId === session.workItemId);
     return item?.assignment?.kind === "agent" ? item.assignment.id : "";
@@ -383,7 +387,7 @@ function LiveTab(props: ActProps): JSX.Element {
         </FormSheet>
         <ScreenRegion state={messages.state()} onRetry={() => void messages.refresh({ force: true })} emptyTitle={t("mp.no-messages.6f77")} emptyDescription={t("mp.messages-you-send-appear-here-wi.c1d0")}>
           <ul class="mt-3 flex flex-col gap-2"><For each={(messages.state().data ?? []).slice(0, 5)}>{(message) => <li class="rounded-control border border-outline-gray-1 p-2">
-            <p class="break-words text-interface">{message.body}</p><p class="text-caption text-ink-gray-6">{message.recipient.kind === "member" ? `to ${message.recipient.memberId} · ` : ""}{message.senderId} · {message.delivery} · {formatDateTime(message.createdAt)}</p></li>}</For></ul>
+            <p class="break-words text-interface">{message.body}</p><p class="text-caption text-ink-gray-6">{message.recipient.kind === "member" ? `to ${roleOfMember(message.recipient.memberId)} · ` : ""}<span data-message-sender>{senderName(message)}</span> · {message.delivery} · {formatDateTime(message.createdAt)}</p></li>}</For></ul>
         </ScreenRegion>
       </WorkspaceSection>
     </div>

@@ -1,0 +1,27 @@
+{
+  "apiVersion": "brain.keyrus/v1",
+  "kind": "Tool",
+  "metadata": {
+    "id": "mission.propose-plan",
+    "version": "1.0.0"
+  },
+  "spec": {
+    "effectClass": "read",
+    "inputSchemaRef": "schemas/mission-propose-plan-input.json",
+    "outputSchemaRef": "schemas/mission-propose-plan-output.json",
+    "requiredCapabilities": [
+      "tool:bash",
+      "tool:python3"
+    ],
+    "timeoutSeconds": 20,
+    "maxOutputBytes": 65536,
+    "allowedEnvironments": [
+      "local"
+    ],
+    "owner": "team_operations",
+    "license": "LicenseRef-Internal",
+    "description": "Proposes a new plan version for the mission this session works on. Inside the mission's autonomy policy it is confirmed at once; outside it, or before the mission has a confirmed plan, it waits for a person. It changes Brain only and never touches started work, intent, constraints or budget.",
+    "entrypoint": "run.sh",
+    "testEntrypoint": "test.sh"
+  }
+}

@@ -23,6 +23,22 @@
       {
         "id": "knowledge.search",
         "digest": "sha256:3994d2c88f1d2c2bc3c07637a7d95224b19a2c1fa4b1d89b8ef30867b2023bfb"
+      },
+      {
+        "id": "mission.comment",
+        "digest": "sha256:b0fc12b6878e7f772d844361ac4fd70813abed4bb621a8357cf1c85e90ab5ea5"
+      },
+      {
+        "id": "mission.message-member",
+        "digest": "sha256:e613532d78b1ad5aaa8c64a9d428e8ea962fe5c4b375c471b8ead0fc427dcd84"
+      },
+      {
+        "id": "mission.submit-handoff",
+        "digest": "sha256:5f2d0d972ac776104e4bc731c934fee6d793eb79f49d6250c2ac270857f81b72"
+      },
+      {
+        "id": "mission.propose-plan",
+        "digest": "sha256:99f2e106e027d5b01e67eabfcd9ae2753b7decf62aff7f4a9279625302239fcd"
       }
     ],
     "engine": {
