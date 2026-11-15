@@ -53,6 +53,8 @@
    "route": "/w/:id/missions",
    "queries": [
     "usage.workspace",
+    "usage.series",
+    "usage.verifiedCost",
     "attention.list",
     "missions.list"
    ],
@@ -97,6 +99,7 @@
    "queries": [
     "usage.mission",
     "usage.workspace",
+    "usage.series",
     "plans.estimate",
     "missions.get",
     "missions.brief",

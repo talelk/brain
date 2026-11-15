@@ -123,6 +123,12 @@ Governor supplies member and agent; the runner reports engine and model; unrepor
 advisory judge's spend is its own source.
 _Avoid_: cost center, tagging
 
+**Spend series**:
+Settled spend per UTC day for the workspace, a mission or an agent, read from the usage ledger by the
+day each attempt settled; days without spend are zero (ADR 0053). Cost per verified task by agent and
+Play uses the Quality summary's definition.
+_Avoid_: trend, forecast
+
 **Team member**:
 A mission-scoped role (such as backend engineer or reviewer) bound to an agent
 definition and engine. A team member is served by many sessions over the mission's

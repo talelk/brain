@@ -933,6 +933,8 @@
     "usage.workspace",
     "usage.agent",
     "usage.member",
+    "usage.series",
+    "usage.verifiedCost",
     "plans.estimate",
     "reuse.search",
     "reuse.forMission",

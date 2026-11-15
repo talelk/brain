@@ -28,6 +28,7 @@ import { readExecFilters, writeExecFilters } from "../../ui/exec/exec-filters";
 import { MissionOutputs } from "../../ui/outputs/MissionOutputs";
 import { MissionUsage, reportsNoCost } from "../../ui/usage/Usage";
 import { UsageBreakdown } from "../../ui/usage/UsageBreakdown";
+import { SpendHistory } from "../../ui/usage/SpendHistory";
 import { PlanEstimate } from "../../ui/usage/PlanEstimate";
 import { ReusedInBrief } from "../../ui/components/Reuse";
 import { MissionTimeline } from "../../ui/timeline/MissionTimeline";
@@ -148,6 +149,7 @@ function MissionSnapshot(props: { mission: Mission; items: WorkItem[]; tab: Miss
     </div>
     <MissionUsage mission={props.mission} taskTokenCap={props.items.reduce<number | undefined>((top, item) => (item.tokenCap === undefined ? top : Math.max(top ?? 0, item.tokenCap)), undefined)} onAct={props.onAct} busy={props.busy} />
     <UsageBreakdown mission={props.mission} />
+    <SpendHistory resource={`mission:${props.mission.missionId}`} testId="mission-spend-history" />
   </div>;
 }
 
