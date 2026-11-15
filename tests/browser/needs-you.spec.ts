@@ -14,7 +14,7 @@ test.use({ requireTwoFactor: true });
 const DIGEST = `sha256:${"a".repeat(64)}`;
 const shot = async (page: Page, name: string) => { if (process.env["TODAY_SHOTS"]) await page.screenshot({ path: `${process.env["TODAY_SHOTS"]}/${name}-${page.viewportSize()?.width}.png`, fullPage: true }); };
 
-test("approve, reject a plan, confirm a plan, retry parked work and sign off a verdict, all from Today", async ({ page, governor }) => {
+test("approve, reject a plan, confirm a plan, retry parked work and sign off a finished mission, all from Today", async ({ page, governor }) => {
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -48,7 +48,7 @@ test("approve, reject a plan, confirm a plan, retry parked work and sign off a v
   const create = async (key: string, title: string) => (await cmd("mission.create", `${key}-create`, { title, intent: `${title} intent`, successCriteria: ["done"], autoStart: false })).resourceId ?? "";
   const propose = async (key: string, missionId: string, title: string) => (await cmd("plan.propose", `${key}-plan`, { missionId, origin: "manual", summary: `Plan for ${title}`, tasks: [task(`${title} task`)] })).resourceId ?? "";
 
-  // 1. An approval, 2. two plan proposals, 3. a parked task, 4. a verified mission waiting to be closed.
+  // 1. An approval, 2. two plan proposals, 3. a parked task, 4. a finished mission waiting for a person's sign-off.
   brain.ensurePrincipal(actor.organizationId, "requester-1", "human");
   const subject = { organizationId: actor.organizationId, workspaceId: "ws-queue", operation: "fixture.publish", tool: { id: "fixture.echo", digest: DIGEST }, inputDigest: DIGEST,
     target: { targetId: "t-queue", environmentId: "prod", preconditionDigest: DIGEST }, artifactDigest: DIGEST, policyDigest: DIGEST, configDigest: DIGEST,
@@ -74,8 +74,6 @@ test("approve, reject a plan, confirm a plan, retry parked work and sign off a v
   const verdictItem = db.prepare("SELECT id FROM work_items WHERE mission_id=?").get(verdictId) as { id: string };
   db.prepare("UPDATE work_items SET state='done', evidence_digest=? WHERE id=?").run(`sha256:${"9".repeat(64)}`, verdictItem.id);
   await cmd("mission.proposeCompletion", "verdict-propose", { missionId: verdictId }, (await mission(verdictId)).version);
-  const bundle = ((await brain.executeQuery(ws, { queryType: "missionBundles.latest", workspaceId: "ws-queue", resourceId: verdictId })) as unknown as { snapshot: { digest: string } }).snapshot;
-  await cmd("mission.verdict.record", "verdict-record", { missionId: verdictId, bundleDigest: bundle.digest, outcome: "verified" });
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`${governor.url}/w/ws-queue/today`);
@@ -86,11 +84,11 @@ test("approve, reject a plan, confirm a plan, retry parked work and sign off a v
   await expandQueue();
   // One problem is shown once: the mission whose only work is parked folds into the parked task's own card.
   await expect(queue.getByTestId("needs-you-item")).toHaveCount(5, { timeout: 30_000 });
-  // The order is the existing attention tiers: approval, then plans and parked work, then the verdict.
+  // The order is the existing attention tiers: approval, then plans and parked work, then the sign-off.
   const kinds = await queue.getByTestId("needs-you-item").evaluateAll((rows) => rows.map((row) => row.getAttribute("data-kind")));
   expect(kinds[0]).toBe("approval");
   expect(kinds.slice(1, 4).sort()).toEqual(["parked", "plan-proposal", "plan-proposal"]);
-  expect(kinds[4]).toBe("verdict-ready");
+  expect(kinds[4]).toBe("sign-off");
   await expect(queue.getByTestId("needs-you-item").filter({ hasText: "needs attention: all remaining work is parked" })).toHaveCount(0);
   await shot(page, "needs-you-queue");
   await page.setViewportSize({ width: 390, height: 844 });
@@ -156,10 +154,23 @@ test("approve, reject a plan, confirm a plan, retry parked work and sign off a v
   await expect(parkedRow).toHaveCount(0, { timeout: 15_000 });
   expect((db.prepare("SELECT parked FROM work_items WHERE id=?").get(parkedItem.id) as { parked: number }).parked).toBe(0);
 
-  // Sign off a verified mission inline (two steps: the close is final).
-  const verdictRow = queue.getByTestId("needs-you-item").filter({ hasText: "Quarterly note is verified and ready to close" });
+  // Sign off a finished mission: the item opens the mission's Outputs tab, where a person records the verdict. Nothing is recorded by an API call.
+  const signOffRow = queue.getByTestId("needs-you-item").filter({ hasText: "Quarterly note is ready for sign-off" });
   await shot(page, "needs-you-before-signoff");
-  await verdictRow.getByRole("button", { name: "Sign off and close", exact: true }).click();
+  await signOffRow.getByRole("button", { name: "Review and sign off", exact: true }).click();
+  await expect(page).toHaveURL(/\/missions\/[^/]+\/outputs/);
+  const signOff = page.getByTestId("mission-signoff");
+  await expect(signOff).toHaveAttribute("data-state", "waiting", { timeout: 30_000 });
+  await signOff.getByRole("button", { name: "Verify the mission", exact: true }).click();
+  await expect(signOff).toHaveAttribute("data-state", "verified");
+  expect(db.prepare("SELECT state, verdict_independence AS independence FROM mission_evidence_bundles WHERE mission_id=?").get(verdictId)).toEqual({ state: "verified", independence: "L3" });
+
+  // Back on Today the same mission now waits to be closed (two steps: the close is final).
+  await page.goto(`${governor.url}/w/ws-queue/today`);
+  const verdictRow = queue.getByTestId("needs-you-item").filter({ hasText: "Quarterly note is verified and ready to close" });
+  await expect(verdictRow).toBeVisible({ timeout: 30_000 });
+  await expect(queue.getByTestId("needs-you-item").filter({ hasText: "ready for sign-off" })).toHaveCount(0);
+  await verdictRow.getByRole("button", { name: "Close as achieved", exact: true }).click();
   await verdictRow.getByRole("button", { name: "Yes, the goal is achieved", exact: true }).click();
   await expect(verdictRow).toHaveCount(0, { timeout: 15_000 });
   expect(db.prepare("SELECT state, outcome FROM missions WHERE id=?").get(verdictId)).toEqual({ state: "closed", outcome: "achieved" });

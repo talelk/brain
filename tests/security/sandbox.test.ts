@@ -63,4 +63,27 @@ describe("launcher validation boundary (T21)", () => {
     const stop = await unixJson(socket, "POST", "/v1/sandboxes/nope/stop", { graceMs: 1 }, token);
     expect(stop.status).toBe(404);
   }, scaled(60_000));
+
+  it("a network is only the egress proxy's, only for named hosts, and never a privileged tool's (ADR 0037)", async () => {
+    const socket = join(tmpdir(), `brain-launcher-sec3-${Date.now()}`, "launcher.sock");
+    process.env["BRAIN_LAUNCHER_SOCKET"] = socket;
+    delete process.env["BRAIN_LAUNCHER_EGRESS_GRANTS_DIR"];
+    await startLauncher();
+    const token = readFileSync(`${socket}.token`, "utf8").trim();
+    const base = { profile: "agent", image: "brain-sandbox-agent", requestId: "sec-egress" };
+    const refused = async (body: Record<string, unknown>, status: number, message: RegExp) => {
+      const res = await unixJson(socket, "POST", "/v1/sandboxes", body, token);
+      expect(res.status, JSON.stringify(body)).toBe(status);
+      expect(String(res.json["error"])).toMatch(message);
+    };
+    for (const bad of ["https://example.com", "example.com/path", "*.example.com", "Example.COM", "example.com:", "-bad.example", "a b"]) {
+      await refused({ ...base, network: "internal", egressHosts: [bad] }, 422, /egressHosts must be/);
+    }
+    await refused({ ...base, network: "internal", egressHosts: Array.from({ length: 101 }, (_, i) => `h${i}.example`) }, 422, /egressHosts must be/);
+    await refused({ ...base, network: "internal" }, 422, /must name the egressHosts/);
+    await refused({ ...base, network: "none", egressHosts: ["example.com"] }, 422, /need network internal/);
+    await refused({ ...base, profile: "privileged-tool", image: "brain-sandbox-tool", network: "internal", egressHosts: ["example.com"] }, 422, /never gets a network/);
+    // Without an operator-declared grants directory there is no proxy to hold a grant: the launcher refuses rather than open a network.
+    await refused({ ...base, network: "internal", egressHosts: ["example.com", "api.example.com:8443"] }, 409, /egress proxy is not configured/);
+  }, scaled(60_000));
 });

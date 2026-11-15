@@ -21,6 +21,7 @@ import { resolveWorkItemLink } from "./OutputHistory";
 import { TrustNote } from "./ResultReader";
 import { ChallengeFeedProvider, ChallengeResult } from "./ChallengeResult";
 import { ShareResult } from "./ShareResult";
+import { MissionSignOff } from "./MissionSignOff";
 import { ProposePlay } from "./ProposePlay";
 import { trustLineOf } from "./result-model";
 import { createTrust } from "./trust-read";
@@ -277,6 +278,8 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
 
   return (
     <ChallengeFeedProvider>
+    <div class="flex min-w-0 flex-col gap-4">
+    <MissionSignOff mission={props.mission} onChanged={refreshAll} />
     <WorkspaceSection
       title={t("outputs.title")}
       description={t("outputs.description")}
@@ -353,6 +356,7 @@ export function MissionOutputs(props: { mission: Mission; onChanged?: () => void
         </div>
       </Show>
     </WorkspaceSection>
+    </div>
     </ChallengeFeedProvider>
   );
 }

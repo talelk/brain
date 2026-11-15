@@ -36,7 +36,7 @@ interface Policy {
   check(input: Input, allow: EffectAllowList): void;
 }
 
-export interface EffectAllowList { readonly containers: readonly string[]; readonly services: readonly string[]; readonly approvalMinutes: number }
+export interface EffectAllowList { readonly containers: readonly string[]; readonly services: readonly string[]; readonly approvalMinutes: number; readonly egressHosts: readonly string[] }
 
 const NAME = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$/u;
 const text = (value: unknown, max: number): string => (typeof value === "string" ? value.slice(0, max) : "");
@@ -94,8 +94,28 @@ export function effectInputDigest(input: Input): string {
 }
 
 export function effectAllowList(s: Store, workspaceId: string): EffectAllowList {
-  const row = s.control.prepare("SELECT containers_json, services_json, approval_minutes FROM workspace_effect_policy WHERE workspace_id=?").get(workspaceId) as { containers_json: string; services_json: string; approval_minutes: number } | undefined;
-  return row ? { containers: JSON.parse(row.containers_json) as string[], services: JSON.parse(row.services_json) as string[], approvalMinutes: row.approval_minutes } : { containers: [], services: [], approvalMinutes: 30 };
+  const row = s.control.prepare("SELECT containers_json, services_json, approval_minutes, egress_hosts_json FROM workspace_effect_policy WHERE workspace_id=?").get(workspaceId) as { containers_json: string; services_json: string; approval_minutes: number; egress_hosts_json: string } | undefined;
+  return row ? { containers: JSON.parse(row.containers_json) as string[], services: JSON.parse(row.services_json) as string[], approvalMinutes: row.approval_minutes, egressHosts: JSON.parse(row.egress_hosts_json) as string[] } : { containers: [], services: [], approvalMinutes: 30, egressHosts: [] };
+}
+
+/** The hosts a sandboxed tool of this workspace may reach through the egress proxy (ADR 0037); none means no network at all. */
+export function workspaceEgressHosts(s: Store, workspaceId: string): string[] { return [...effectAllowList(s, workspaceId).egressHosts]; }
+
+/**
+ * One egress entry as the proxy matches it: a lower-case DNS name or IPv4 address, optionally with a port. An entry without a port
+ * allows 80 and 443. Anything else (a scheme, a path, a wildcard, a bad port) is refused so the list says exactly what is reachable.
+ */
+export function normalizeEgressHost(raw: string): string {
+  const entry = raw.trim().toLowerCase();
+  const colon = entry.lastIndexOf(":");
+  const host = colon < 0 ? entry : entry.slice(0, colon);
+  const portText = colon < 0 ? undefined : entry.slice(colon + 1);
+  const port = portText === undefined ? undefined : Number(portText);
+  const nameOk = host.length >= 1 && host.length <= 253 && /^[a-z0-9.-]+$/u.test(host) && /^[a-z0-9]/u.test(host) && /[a-z0-9]$/u.test(host) && !/\.\.|\.-|-\./u.test(host);
+  if (!nameOk || (portText !== undefined && (!/^[0-9]{1,5}$/u.test(portText) || port! < 1 || port! > 65535))) {
+    throw new BrainDomainError("INVALID_ARGUMENT", `"${raw.trim()}" is not a host the proxy can allow: write a name or IPv4 address, optionally followed by :port (no scheme, path or wildcard)`);
+  }
+  return entry;
 }
 
 /** The runner groups the owner set aside, and whether this one may run host tools for this workspace. */

@@ -2805,6 +2805,15 @@
             "maxItems": 100
           }
         },
+        "egressHosts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 260
+          },
+          "maxItems": 100
+        },
         "grantRef": {
           "$ref": "#/$defs/Id"
         },
@@ -22365,6 +22374,12 @@
             "$ref": "#/$defs/MissionBundleCheck"
           },
           "maxItems": 200
+        },
+        "independence": {
+          "type": "string",
+          "enum": [
+            "L3"
+          ]
         }
       },
       "required": [
@@ -22957,6 +22972,7 @@
             "needs-attention",
             "plan-proposal",
             "parked",
+            "sign-off",
             "verdict-ready",
             "routed",
             "result-ready",
@@ -24902,6 +24918,16 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 1440
+            },
+            "egressHosts": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 260,
+                "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9.-]{0,251}[a-zA-Z0-9])?(:[0-9]{1,5})?$"
+              },
+              "maxItems": 100
             }
           },
           "additionalProperties": false
