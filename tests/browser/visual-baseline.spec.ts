@@ -155,10 +155,16 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   // Push: the offer on Needs you (this device could receive notifications and was never asked), then the settings control once it is on.
   // Where a mission's usage went (#111): it adds spend to the active mission, which the screens before it would show in their totals.
   { id: "mission-usage-breakdown", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication", prepare: seedAttributedUsage, after: async (page) => { await page.getByTestId("usage-breakdown").getByText("Where the usage went", { exact: true }).click(); await expect(page.getByTestId("usage-by-member")).toContainText("writer"); await page.getByTestId("usage-breakdown").evaluate((element) => element.scrollIntoView({ block: "center" })); } },
+  // Chat identities (ticket #123): who a signed chat message is from, linked to a member, under People.
+  { id: "settings-chat-identities", route: () => "/settings?tab=people", heading: "People", prepare: seedChatIdentities, after: async (page) => { const identities = page.locator("[data-chat-identities]"); await expect(identities).toBeVisible(); await expect(identities.locator("[data-chat-identity]")).toHaveCount(2); await identities.scrollIntoViewIfNeeded(); } },
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
 ];
 
+async function seedChatIdentities(governor: Parameters<typeof seedBrowserDemo>[1], _page: Page, demo: Demo): Promise<void> {
+  await command(governor.app.brain, demo.actor, demo.workspaceId, "chatIdentity.set", "vb-chat-slack", { provider: "slack", chatUserId: "U024BE7LH", principalId: demo.actor.actorId });
+  await command(governor.app.brain, demo.actor, demo.workspaceId, "chatIdentity.set", "vb-chat-teams", { provider: "teams", chatUserId: "7c1e2d0a-5f4b-4a53-9a31-0b2c7d6e8f90", principalId: demo.actor.actorId });
+}
 /** Health with a fresh backup and a passed restore test, recorded the way the host's jobs record them; `restoreBackupRecords` puts the environment back. */
 const BACKUP_ENV = ["BRAIN_BACKUP_STAMP_FILE", "BRAIN_RESTORE_TEST_FILE"] as const;
 const backupEnvBefore = Object.fromEntries(BACKUP_ENV.map((key) => [key, process.env[key]]));

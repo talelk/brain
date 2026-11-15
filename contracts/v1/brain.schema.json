@@ -7965,6 +7965,7 @@
             "runnerGroups.list",
             "integrations.guide",
             "identity.oidc.get",
+            "chatIdentities.list",
             "quality.breakdown",
             "practices.list"
           ]
@@ -8059,6 +8060,7 @@
             "runnerGroups.list",
             "integrations.guide",
             "identity.oidc.get",
+            "chatIdentities.list",
             "quality.breakdown",
             "practices.list"
           ]
@@ -11763,6 +11765,12 @@
         },
         {
           "$ref": "#/$defs/WorkspaceQueueLimitSetCommand"
+        },
+        {
+          "$ref": "#/$defs/ChatIdentitySetCommand"
+        },
+        {
+          "$ref": "#/$defs/ChatIdentityRemoveCommand"
         },
         {
           "$ref": "#/$defs/RunnerGroupSetCommand"
@@ -27197,6 +27205,118 @@
         "subjectDigest",
         "expiresAt",
         "method"
+      ],
+      "additionalProperties": false
+    },
+    "ChatIdentitySetCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "chatIdentity.set"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "enum": [
+                "slack",
+                "teams",
+                "brain"
+              ]
+            },
+            "chatUserId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "principalId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "provider",
+            "chatUserId",
+            "principalId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "ChatIdentityRemoveCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "chatIdentity.remove"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "enum": [
+                "slack",
+                "teams",
+                "brain"
+              ]
+            },
+            "chatUserId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "required": [
+            "provider",
+            "chatUserId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
       ],
       "additionalProperties": false
     }

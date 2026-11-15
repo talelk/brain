@@ -675,7 +675,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     try {
       const raw = await c.req.text();
       if (raw.length > 16 * 1024) throw new BrainDomainError("INVALID_ARGUMENT", "request too large");
-      const answer = brain.inboundChat(c.req.raw.headers, raw);
+      const answer = await brain.inboundChat(c.req.raw.headers, raw);
       return c.json(answer.body as never, answer.status as never);
     } catch (e) { return fail(c as never, e); }
   });

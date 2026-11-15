@@ -37,3 +37,6 @@ export function attentionLink(item: { kind: string; workspaceId: string; mission
     default: return at("brief");
   }
 }
+
+/** A mission opened on one of its tabs; the reply to a chat `start` links to its Plan tab, where the starting plan waits. */
+export const missionLink = (workspaceId: string, missionId: string, tab: "plan" | "live" | "outputs" | "brief"): string => `/missions/${missionId}/${tab}?w=${workspaceId}`;

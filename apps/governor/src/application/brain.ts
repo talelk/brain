@@ -11,6 +11,8 @@ import { CommandFunnel } from "./command-funnel";
 import { workspaceAdminCommands } from "./workspace-admin";
 import { effectSettings, engineSettings, engineSettingsCommands, runnerGroups } from "./engine-settings";
 import { oidcSettingsQuery, ssoCommands } from "./sso-admin";
+import { chatIdentitiesQuery, chatIdentityCommands } from "./chat-identity-admin";
+import { startFromChat } from "./chat-start";
 import { secretDirectories } from "../modules/identity/index";
 import { completeUpload, completeUploadStream, initUpload, readVerified, readWorkspaceArtifactText, sweepStorage } from "../modules/artifacts/index";
 import { orgWorkspaces, textMatcher } from "./query";
@@ -215,6 +217,7 @@ export class Brain {
         }),
         engineSettingsCommands(this.store),
         ssoCommands(this.store),
+        chatIdentityCommands(this.store),
         organizationCommandHandlers(this.store, this.auth),
       ], { afterCommit: () => { this.stream.project(); void this.auth.applyOidc().catch(() => undefined); } });
       this.autoStart = new AutoStart({
@@ -531,9 +534,9 @@ export class Brain {
     return { sent, reason: sent ? "" : last?.reason ?? "not sent" };
   }
 
-  /** The inbound chat webhook: signature, replay and the three things it may do are checked in `handleInbound`. */
-  inboundChat(headers: Headers, rawBody: string): { status: number; body: Record<string, unknown> } {
-    const answer = handleInbound(this.store, headers, rawBody);
+  /** The inbound chat webhook: signature, replay and the things it may do (list, deny, link, start) are checked in `handleInbound`. */
+  async inboundChat(headers: Headers, rawBody: string): Promise<{ status: number; body: Record<string, unknown> }> {
+    const answer = await handleInbound(this.store, headers, rawBody, process.env, { start: (input) => startFromChat({ store: this.store, run: (actor, command) => this.executeCommand(actor, command, "chat-start") }, input) });
     this.jobProtocol.settleEffects(); // a denial made from chat cancels the held change at once
     return answer;
   }
@@ -992,6 +995,8 @@ export class Brain {
       }
       case "runnerGroups.list":
         return this.envelope(q.queryType, runnerGroups(s, actor));
+      case "chatIdentities.list":
+        return this.envelope(q.queryType, chatIdentitiesQuery(s, actor));
       case "identity.oidc.get":
         return this.envelope(q.queryType, oidcSettingsQuery(s, actor, process.env["BRAIN_BASE_URL"] ?? "http://localhost:3000"));
       case "platform.health":
