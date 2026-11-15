@@ -24,6 +24,9 @@ export interface EngineSettings {
   hostedModel: { enabled: boolean; vendor: string; model: string; baseUrl: string; inputMicroUsdPerMTok: number; outputMicroUsdPerMTok: number; status: "off" | "down" | "up" | "unknown"; roles: string[] };
   drain: { draining: boolean; runningAttempts: number; queuedJobs: number; since?: string };
   queueLimit: { maxQueued: number; queued: number; isDefault: boolean };
+  autonomyCeiling: { preset: "supervised" | "standard" | "autonomous"; isDefault: boolean };
+  /** What "stop all sessions" would stop right now (running sessions, the missions that would pause, waiting work). */
+  liveWork: { sessions: number; standalone: number; waiting: number; missions: { missionId: string; title: string; sessions: number }[]; moreMissions: number };
 }
 export const engineSettingsRead = (workspaceId: string, signal?: AbortSignal) => read<EngineSettings>({ queryType: "engineSettings.get", workspaceId }, signal);
 

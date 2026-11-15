@@ -9,6 +9,7 @@ import { settleEffects } from "./effect-hold";
 import { resolveUnknownJob, type UnknownResolution } from "./unknown";
 import { runScheduledDispatch } from "./scheduler";
 import { AutomationService } from "./automation";
+import { stopWorkspaceWork, type StoppedWork } from "./stop-all";
 import { cancelJobsForRun, concludeAttempt, createJobForStep, reprioritizeQueuedJobs, resolveReconciliation, workspaceJobLoad, type CreateJobInput, type ReconciliationOutcome } from "./lifecycle";
 
 /**
@@ -221,6 +222,11 @@ export class JobProtocol {
   /** Cancels the run's jobs that no runner holds yet. */
   cancelForRun(runId: string): void {
     cancelJobsForRun(this.store, runId);
+  }
+
+  /** Fences and ends every attempt of the workspace, revokes their permits and session credentials, cancels the jobs nobody holds (ADR 0047). */
+  stopAll(input: { organizationId: string; workspaceId: string }): StoppedWork {
+    return stopWorkspaceWork(this.store, input);
   }
 
   /** Resolves an outcome_unknown job's reconciliation with target evidence. */

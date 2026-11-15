@@ -81,6 +81,11 @@ export function revokeSessionCredentials(store: Store, attemptId: string): void 
   store.control.prepare("UPDATE machine_sessions SET revoked_at_ms=? WHERE attempt_id=? AND revoked_at_ms IS NULL").run(store.now(), attemptId);
 }
 
+/** Ends every credential of the workspace's machine principals, whatever attempt it was minted for (stop all sessions, ADR 0047). */
+export function revokeWorkspaceSessionCredentials(store: Store, workspaceId: string): void {
+  store.control.prepare("UPDATE machine_sessions SET revoked_at_ms=? WHERE revoked_at_ms IS NULL AND principal_id IN (SELECT principal_id FROM agent_principals WHERE workspace_id=?)").run(store.now(), workspaceId);
+}
+
 interface CredentialRow { principal_id: string; organization_id: string; expires_at_ms: number; revoked_at_ms: number | null; attempt_id: string | null; job_fence: number | null }
 
 /**

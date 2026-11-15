@@ -551,6 +551,24 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
     } catch (e) { return fail(c as never, e); }
   });
 
+  app.post("/v1/step-up/commands", async (c) => {
+    try {
+      const body = (await readJson(c)) as { commandType: string; workspaceId: string; payload: JsonValue };
+      requireBody("CommandStepUpChallengeRequest", body);
+      const identity = await actorFor(c);
+      return c.json(brain.stepUp.createCommandChallenge(identity, body), 201);
+    } catch (e) { return fail(c as never, e); }
+  });
+
+  app.post("/v1/step-up/commands/verify", async (c) => {
+    try {
+      const body = (await readJson(c)) as { challengeId: string; code?: string };
+      requireBody("StepUpVerify", body);
+      const identity = await actorFor(c);
+      return c.json(await brain.stepUp.verifyCommand(identity, body.challengeId, body.code ?? "", c.req.raw.headers));
+    } catch (e) { return fail(c as never, e); }
+  });
+
   app.post("/v1/approvals/:id/decision", async (c) => {
     try {
       const body = (await readJson(c)) as HumanApprovalDecision;

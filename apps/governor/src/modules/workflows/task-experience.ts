@@ -247,9 +247,11 @@ export class TaskExperience {
       }
     }
     if (["failed", "cancelled", "partial", "blocked"].includes(run.snapshot.runState ?? "")) {
-      const retried = await this.retryPlanOnce(actor, workspaceId, missionId, row.run_id);
+      // An administrator's stop (ADR 0047) is not a failure to retry by itself: a drafting run it ended starts again only when a person asks, after the mission resumes.
+      const stopped = Boolean(db.prepare("SELECT 1 FROM missions WHERE id=? AND state='paused' AND stop_note IS NOT NULL").get(missionId));
+      const retried = stopped ? undefined : await this.retryPlanOnce(actor, workspaceId, missionId, row.run_id);
       if (retried) return retried;
-      const error = "Brain could not draft a validated plan after two tries. Try again, or add the tasks yourself.";
+      const error = stopped ? "Drafting the plan was stopped by an administrator. Resume the mission, then try again." : "Brain could not draft a validated plan after two tries. Try again, or add the tasks yourself.";
       db.prepare("UPDATE planning_requests SET state='failed',error=?,updated_at_ms=? WHERE mission_id=?").run(error, this.s.now(), missionId);
       return { missionId, runId: row.run_id, state: "failed", error };
     }

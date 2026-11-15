@@ -7,7 +7,7 @@ const STATE_KEYS: Readonly<Record<Mission["state"], MessageKey>> = {
 const OUTCOME_KEYS: Readonly<Record<NonNullable<Mission["outcome"]>, MessageKey>> = {
   achieved: "mission.outcome.achieved", ended: "mission.outcome.ended", cancelled: "mission.outcome.cancelled",
 };
-const PAUSE_KEYS: Readonly<Record<NonNullable<Mission["pauseReason"]>, MessageKey>> = { human: "mission.pause.human", budget: "mission.pause.budget" };
+const PAUSE_KEYS: Readonly<Record<NonNullable<Mission["pauseReason"]>, MessageKey>> = { human: "mission.pause.human", budget: "mission.pause.budget", stopped: "mission.pause.stopped" };
 
 /** A mission's state in the current language (one place, so a list row and a header never word it differently). */
 export const missionStateLabel = (state: Mission["state"]): string => t(STATE_KEYS[state]);

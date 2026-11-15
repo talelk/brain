@@ -1,13 +1,14 @@
 import { For, Show, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
 import { Badge, Button, Checkbox, Textarea, TextInput } from "@talelk/newui-atoms";
-import { Alert, Select } from "@talelk/newui-molecules";
+import { Alert, RadioGroup, Select } from "@talelk/newui-molecules";
 import { useApp } from "../app-context";
 import { createScopedRead } from "../../data/screens";
 import { workspaceChoices, effectSettingsRead, engineSettingsRead, lessonsRead, runnerGroupsRead, type EffectSettings, type EngineSettings, type Lesson, type RunnerGroupRow } from "../../data/engine";
 import { DateText, ScreenRegion } from "../screen-region";
 import { PageStack } from "./PageLayout";
 import { WorkspaceSection } from "./Domain";
+import { StepUpDialog } from "./StepUpDialog";
 import { failureSentence } from "./TaskFailure";
 import { t, type MessageKey } from "../../i18n";
 
@@ -225,6 +226,70 @@ function QueueLimit(props: { settings: EngineSettings; reload: () => Promise<unk
   </WorkspaceSection>;
 }
 
+type CeilingPreset = "supervised" | "standard" | "autonomous";
+const CEILING_PRESETS: readonly CeilingPreset[] = ["supervised", "standard", "autonomous"];
+const CEILING_LABEL: Readonly<Record<CeilingPreset, MessageKey>> = { supervised: "work.ceiling.supervised", standard: "work.ceiling.standard", autonomous: "work.ceiling.autonomous" };
+const CEILING_HINT: Readonly<Record<CeilingPreset, MessageKey>> = { supervised: "work.ceiling.supervised.hint", standard: "work.ceiling.standard.hint", autonomous: "work.ceiling.autonomous.hint" };
+
+/** The most autonomy any mission of this workspace may be given (the workspace autonomy ceiling): changing it needs a fresh step-up. */
+function AutonomyCeiling(props: { settings: EngineSettings; reload: () => Promise<unknown> }): JSX.Element {
+  const app = useApp();
+  const current = () => props.settings.autonomyCeiling;
+  const [chosen, setChosen] = createSignal<CeilingPreset | undefined>();
+  const [confirming, setConfirming] = createSignal(false);
+  const [done, setDone] = createSignal<string | undefined>();
+  const selected = (): CeilingPreset => chosen() ?? current().preset;
+  const changed = () => current().preset !== selected();
+  const mayChange = () => Boolean(app.identity()?.actor.scopes.includes("config:activate"));
+  return <WorkspaceSection title={t("work.ceiling.title")} description={t("work.ceiling.description")}>
+    <div class="flex min-w-0 flex-col gap-3" data-work-ceiling={current().preset}>
+      <p class="m-0 break-words text-interface text-ink-gray-8" data-work-ceiling-current>{current().isDefault ? t("work.ceiling.default") : t("work.ceiling.current", { preset: t(CEILING_LABEL[current().preset]) })}</p>
+      <RadioGroup label={t("work.ceiling.choose")} value={selected()} disabled={!mayChange()} onValueChange={(value) => { setChosen(value as CeilingPreset); setDone(undefined); }}
+        items={CEILING_PRESETS.map((preset) => ({ value: preset, label: t(CEILING_LABEL[preset]), description: t(CEILING_HINT[preset]) }))} />
+      <div><Button variant="solid" theme="blue" size="sm" disabled={!mayChange() || !changed()} onClick={() => setConfirming(true)}>{t("work.ceiling.change")}</Button></div>
+      <Show when={!mayChange()}><p class="m-0 text-caption text-ink-gray-6">{t("work.ceiling.needsAdmin")}</p></Show>
+      <Show when={done()}>{(text) => <p role="status" class="m-0 text-interface text-ink-green-8">{text()}</p>}</Show>
+    </div>
+    <StepUpDialog open={confirming()} onClose={() => setConfirming(false)} command="workspace.autonomyCeiling.set" change={() => ({ preset: selected() })}
+      title={t("work.ceiling.confirmTitle")} description={t("work.ceiling.confirmDescription", { preset: t(CEILING_LABEL[selected()]) })} confirmLabel={t("work.ceiling.confirm")}
+      onDone={async () => { const preset = t(CEILING_LABEL[selected()]); setConfirming(false); setChosen(undefined); await props.reload(); setDone(t("work.ceiling.saved", { preset })); }}>
+      <p class="m-0 break-words text-interface text-ink-gray-8">{t(CEILING_HINT[selected()])}</p>
+    </StepUpDialog>
+  </WorkspaceSection>;
+}
+
+/** The emergency stop: every running session of this workspace ends at once and every active mission pauses, with the reason. */
+function StopAll(props: { settings: EngineSettings; reload: () => Promise<unknown> }): JSX.Element {
+  const app = useApp();
+  const live = () => props.settings.liveWork;
+  const [confirming, setConfirming] = createSignal(false);
+  const [reason, setReason] = createSignal("");
+  const [done, setDone] = createSignal<string | undefined>();
+  const mayStop = () => app.myRoles().includes("workspace-lead");
+  return <WorkspaceSection title={t("work.stop.title")} description={t("work.stop.description")}>
+    <div class="flex min-w-0 flex-col gap-3" data-work-stop>
+      <p class="m-0 break-words text-interface text-ink-gray-8" data-work-stop-live>{live().sessions > 0 ? t("work.stop.live", { count: live().sessions }) : t("work.stop.idle")}</p>
+      <div><Button variant="outline" theme="red" size="sm" disabled={!mayStop()} onClick={() => { setDone(undefined); setConfirming(true); }}>{t("work.stop.start")}</Button></div>
+      <Show when={!mayStop()}><p class="m-0 text-caption text-ink-gray-6">{t("work.stop.needsAdmin")}</p></Show>
+      <Show when={done()}>{(text) => <p role="status" class="m-0 text-interface text-ink-green-8" data-work-stop-done>{text()}</p>}</Show>
+    </div>
+    <StepUpDialog open={confirming()} onClose={() => setConfirming(false)} command="workspace.sessions.stopAll" tone="red" ready={reason().trim().length > 0} change={() => ({ reason: reason().trim() })}
+      title={t("work.stop.confirmTitle")} description={t("work.stop.confirmDescription", { workspace: app.workspaceId() })} confirmLabel={t("work.stop.confirm")}
+      onDone={async () => { const sessions = live().sessions; setConfirming(false); setReason(""); await props.reload(); setDone(t("work.stop.done", { count: sessions })); }}>
+      <ul class="m-0 flex list-none flex-col gap-1 p-0 text-interface text-ink-gray-8" data-work-stop-names>
+        <li>{live().sessions > 0 ? t("work.stop.confirm.sessions", { count: live().sessions }) : t("work.stop.confirm.none")}</li>
+        <Show when={live().standalone > 0}><li>{t("work.stop.confirm.standalone", { count: live().standalone })}</li></Show>
+        <Show when={live().waiting > 0}><li>{t("work.stop.confirm.waiting", { count: live().waiting })}</li></Show>
+        <Show when={live().missions.length > 0}><li>{t("work.stop.confirm.missions")}
+          <ul class="m-0 mt-1 flex list-none flex-col gap-0.5 ps-3" data-work-stop-missions><For each={live().missions}>{(mission) => <li class="break-words" data-stop-mission={mission.missionId}>{mission.title}{mission.sessions > 0 ? ` · ${t("work.stop.confirm.running", { count: mission.sessions })}` : ""}</li>}</For>
+            <Show when={live().moreMissions > 0}><li>{t("work.stop.confirm.more", { count: live().moreMissions })}</li></Show></ul></li></Show>
+      </ul>
+      <p class="m-0 text-caption text-ink-gray-6">{t("work.stop.confirm.effects")}</p>
+      <Textarea label={t("work.stop.reason")} description={t("work.stop.reasonHint")} rows={3} value={reason()} onInput={(event) => setReason(event.currentTarget.value)} />
+    </StepUpDialog>
+  </WorkspaceSection>;
+}
+
 /** What Brain learned from failures, kept for a while and given to the planner. */
 function Lessons(props: { items: Lesson[] }): JSX.Element {
   return <WorkspaceSection title={t("work.lessons.title")} description={t("work.lessons.description")}>
@@ -277,6 +342,7 @@ export function WorkSettings(): JSX.Element {
       <Show when={settings.state().data}>{(data) => <>
         <WayOfWorking settings={data()} reload={reload} />
         <HostedModel settings={data()} reload={reload} />
+        <AutonomyCeiling settings={data()} reload={reload} />
       </>}</Show>
     </ScreenRegion>
     <ScreenRegion state={effects.state()} onRetry={() => void effects.refresh({ force: true })} emptyTitle={t("work.empty.title")} emptyDescription={t("work.empty.description")}>
@@ -285,7 +351,7 @@ export function WorkSettings(): JSX.Element {
     <ScreenRegion state={groups.state()} onRetry={() => void groups.refresh({ force: true })} emptyTitle={t("work.groups.title")} emptyDescription={t("work.groups.none")}>
       <Show when={groups.state().data}>{(data) => <RunnerGroups groups={data()} workspaces={workspaces.state().data ?? []} reload={reload} />}</Show>
     </ScreenRegion>
-    <Show when={settings.state().data}>{(data) => <><QueueLimit settings={data()} reload={reload} /><Drain settings={data()} reload={reload} /></>}</Show>
+    <Show when={settings.state().data}>{(data) => <><QueueLimit settings={data()} reload={reload} /><Drain settings={data()} reload={reload} /><StopAll settings={data()} reload={reload} /></>}</Show>
     <Withdraw />
     <ScreenRegion state={lessons.state()} onRetry={() => void lessons.refresh({ force: true })} emptyTitle={t("work.lessons.title")} emptyDescription={t("work.lessons.empty")}>
       <Lessons items={lessons.state().data ?? []} />

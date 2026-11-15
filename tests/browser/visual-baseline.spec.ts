@@ -90,6 +90,8 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "settings-work", route: () => "/settings?tab=work", heading: "How work runs" },
   { id: "settings-health", route: () => "/settings?tab=health", heading: "Health", prepare: seedBackupRecords },
   { id: "settings-egress", route: () => "/settings?tab=work", heading: "How work runs", after: async (page) => { const egress = page.locator("[data-work-egress]"); await expect(egress).toBeVisible(); await egress.scrollIntoViewIfNeeded(); } },
+  { id: "settings-ceiling", route: () => "/settings?tab=work", heading: "How work runs", after: async (page) => { const ceiling = page.locator("[data-work-ceiling]"); await expect(ceiling).toBeVisible(); await ceiling.scrollIntoViewIfNeeded(); } },
+  { id: "settings-stop-all", route: () => "/settings?tab=work", heading: "How work runs", after: async (page) => { await page.getByRole("button", { name: "Stop all sessions…", exact: true }).click(); await expect(page.getByRole("dialog").getByRole("heading", { name: "Stop all sessions?" })).toBeVisible(); } },
   { id: "knowledge", route: () => "/w/operations/knowledge", heading: "Knowledge" },
   { id: "integrations", route: () => "/administration/integrations", heading: "Integrations" },
   { id: "integrations-connect", route: () => "/administration/integrations", heading: "Integrations", after: async (page) => { await page.getByRole("button", { name: "Connect remote", exact: true }).first().click(); await expect(page.getByRole("dialog").getByLabel(/^Git provider/)).toBeVisible(); } },

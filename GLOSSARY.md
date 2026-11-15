@@ -137,6 +137,19 @@ operations (presets: supervised, standard, autonomous). It never covers effects,
 constraints, budget, started work or declaring a mission achieved.
 _Avoid_: autopilot, auto-approve (it never authorizes effects), autonomy level
 
+**Autonomy ceiling**:
+The most autonomy any mission of a workspace may be given, one of the autonomy presets,
+set by an organization administrator with a fresh step-up. A mission can be set lower,
+never higher; it applies to missions created or changed after it is set.
+_Avoid_: autonomy limit, cap
+
+**Stop all sessions**:
+A workspace administrator's emergency stop: every running attempt is fenced and ended, its
+permits and session credentials revoked, and every active mission paused with the reason
+(a stopped mission). Tasks return to ready; an effect already started is left for a person
+to check. The workspace stays active. Not workspace suspend.
+_Avoid_: kill switch, suspend, quarantine (that is a runner)
+
 **Mission budget**:
 The hard ceiling on a mission's spend, wall-clock time and concurrent team members.
 Spend counts settled cost plus open reservations; wall-clock time excludes paused time;
@@ -426,7 +439,9 @@ resource, and key reuse with a changed payload conflicts.
 _Avoid_: deduplication id, request id
 
 **Step-up**:
-A fresh authentication challenge required to exercise a high-consequence authority.
+A fresh authentication challenge required to exercise a high-consequence authority: an
+approval decision, or an administrative command (the autonomy ceiling, stop all sessions),
+bound to that exact change and spent once.
 _Avoid_: 2FA (2FA is the enrollment; step-up is the challenge), MFA
 
 ### Verification
