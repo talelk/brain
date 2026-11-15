@@ -10,7 +10,7 @@ import type { Store } from "../../application/store";
 const DEFAULT_QUEUE_LIMIT = 100;
 
 /** The commands with which a person starts new work that queues jobs. */
-const WORK_STARTING_COMMANDS: ReadonlySet<string> = new Set(["mission.create", "workflow.dispatch", "session.create", "result.challenge"]);
+const WORK_STARTING_COMMANDS: ReadonlySet<string> = new Set(["mission.create", "workflow.dispatch", "session.create", "session.resume", "result.challenge"]);
 
 interface QueueLimitView { readonly maxQueued: number; readonly queued: number; readonly isDefault: boolean }
 

@@ -1,4 +1,4 @@
-import type { EngineAdapter, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue, ReleaseRef } from "@brain/contracts";
+import type { ArtifactRef, Checkpoint, EngineAdapter, EngineSessionSpec, EngineToolBinding, EngineToolExecutionResult, JsonValue, ReleaseRef } from "@brain/contracts";
 import { sha256Digest } from "@brain/contracts";
 import { decodeModelJson } from "./json-reply";
 export { decodeModelJson, repairJsonStrings } from "./json-reply";
@@ -49,6 +49,8 @@ export interface AgentExecutionInput {
   instructions?: string;
   task: string;
   modelId?: string | undefined;
+  /** The saved engine state this attempt continues (a resumed session); an engine that cannot resume refuses it. */
+  resumeFrom?: ArtifactRef;
   timeoutMs: number;
   cleanupTimeoutMs?: number;
   maxTokens?: number;
@@ -75,6 +77,8 @@ export interface AgentExecutionResult {
   output: JsonValue;
   outputText: string;
   cleanupConfirmed?: boolean;
+  /** What an engine that can resume saved when the attempt did not succeed: held on this runner, offered to the Governor so a person can resume from it. */
+  checkpoint?: Checkpoint;
 }
 
 function decodedOutput(text: string): JsonValue {
@@ -126,6 +130,7 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
   let engineError = false;
   let engineDetail = "";
   let tokensReported = false;
+  let checkpointable = false;
   const cleanup = async (operation: () => Promise<unknown>): Promise<boolean> => {
     let cleanupTimer: ReturnType<typeof setTimeout> | undefined;
     try {
@@ -141,6 +146,10 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
   if (!probe.features.includes("sessions")) {
     return { ok: false, output: { error: `${engine.id} is unavailable or its model is unreachable` }, outputText: "" };
   }
+  if (input.resumeFrom && !probe.features.includes("resume")) {
+    return { ok: false, output: { error: `${engine.id} cannot resume a saved conversation, so the checkpoint was not used` }, outputText: "" };
+  }
+  checkpointable = probe.features.includes("checkpoint");
   const spec: EngineSessionSpec = {
     contractVersion: "brain.engine/v1",
     organizationId: input.organizationId, workspaceId: input.workspaceId,
@@ -150,6 +159,7 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
     instructions, instructionsDigest: sha256Digest(instructionsBytes), task: input.task,
     sourceRevision: input.sourceRevision ?? input.configDigest, worktreeId: input.worktreeId ?? `read-only:${input.workspaceId}`,
     configDigest: input.configDigest, allowedTools: input.allowedTools ?? [],
+    ...(input.resumeFrom ? { resumeFrom: input.resumeFrom } : {}),
     context: {
       artifactId: `ctx-${input.attemptId}`, digest: sha256Digest(taskBytes),
       bytes: taskBytes.length, mediaType: "text/plain", classification: "internal",
@@ -224,6 +234,10 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
   };
   const result = await execute();
   clearTimeout(timer);
+  // An attempt that did not finish leaves its engine's conversation behind, so a person can resume it instead of starting over. Best effort:
+  // an engine that cannot save one never changes how the attempt ended.
+  const saved: { checkpoint?: Checkpoint } = {};
+  if (sessionId && checkpointable && !result.ok) await cleanup(async () => { saved.checkpoint = await engine.checkpoint(sessionId); });
   // An endpoint that reports no usage must not leave the meter empty: charge a flagged estimate of 4 bytes per token.
   if (sessionId && !tokensReported) {
     const estimate = estimatedUsage(input.attemptId, sessionId, instructionsBytes.length + taskBytes.length, new TextEncoder().encode(outputText).length);
@@ -242,7 +256,7 @@ async function runAgentSession(input: AgentExecutionInput): Promise<AgentExecuti
     const disposed = await cleanup(() => engine.dispose(sessionId));
     cleanupConfirmed = terminationConfirmed && disposed;
   }
-  return { ...result, ok: result.ok && cleanupConfirmed, cleanupConfirmed };
+  return { ...result, ok: result.ok && cleanupConfirmed, cleanupConfirmed, ...(saved.checkpoint ? { checkpoint: saved.checkpoint } : {}) };
 }
 
 type UsageTotals = { inputTokens: number; outputTokens: number; cachedInputTokens: number; microUsd: number; estimated: boolean };
@@ -291,8 +305,10 @@ export async function runAgentExecution(input: AgentExecutionInput): Promise<Age
   const used = carried ? carried.inputTokens + carried.outputTokens + carried.cachedInputTokens : 0;
   const allowance = input.maxTokens !== undefined && input.maxTokens > 0 ? input.maxTokens : undefined;
   if (allowance !== undefined && used > allowance * 0.8) return first$;
+  // The corrective session is a fresh one about the reply just written: it never continues a saved conversation.
+  const { resumeFrom: _resumed, ...fresh } = input;
   const second = await runAgentSession({
-    ...input,
+    ...fresh,
     ...(allowance !== undefined ? { maxTokens: allowance - used } : {}),
     task: corrective,
     emit: async (kind, payload) => {

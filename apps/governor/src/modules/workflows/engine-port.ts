@@ -1,4 +1,17 @@
-import type { JsonValue, Workflow } from "@brain/contracts";
+import type { ArtifactRef, JsonValue, Workflow } from "@brain/contracts";
+
+/**
+ * A run started by resuming a session: the one step that continues the engine state a checkpoint saved. Only that step's job is pinned
+ * to the runner holding the state and carries it; every other step of the run is placed as usual (an independent evaluator must not
+ * be forced onto the author's runner).
+ */
+export interface RunResume {
+  readonly stepId: string;
+  readonly runnerId: string;
+  readonly engineId: string;
+  readonly engineState: ArtifactRef;
+  readonly fromSessionId: string;
+}
 
 // The workflow engine port: Brain owns authorization, jobs, approvals,
 // permits and evidence; an engine owns only run/step progression against the
@@ -10,6 +23,8 @@ export interface WorkflowEnginePort {
   startRun(input: {
     organizationId: string; workspaceId: string; actorId: string;
     workflowId: string; workflow: Workflow; configDigest: string; runInput: JsonValue; executionKey: string; runnerId?: string;
+    /** Set when the run resumes a session from its checkpoint: pins that step's job to the runner holding the saved state. */
+    resume?: RunResume;
     /** The job priority of the work the run serves (0 low .. 3 urgent); a run for no work item is normal. */
     priority?: number;
   }): { runId: string };
@@ -27,6 +42,8 @@ export interface WorkflowHost {
     payload: JsonValue;
     /** The runner the run was pinned to at dispatch, if any. */
     runnerId?: string | undefined;
+    /** The engine state this step continues, set only on the step a resumed run continues. */
+    resume?: RunResume | undefined;
     /** The priority of the work the run serves: written into the job so the claim can order by it. */
     priority: number;
   }): string;
