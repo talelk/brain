@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ActorContext, CommandReceipt, Mission, PlanTask, WorkItem } from "@brain/contracts";
 import { notifyAttention, type Sender } from "../../apps/governor/src/modules/operations/index";
 import { setupWorld, workView } from "../helpers";
+import { requestApproval } from "../support/approvals";
 
 type World = ReturnType<typeof setupWorld>;
 const worlds: World[] = [];
@@ -162,9 +163,9 @@ describe("notification channels, preferences and digest (#53, ADR 0011)", () => 
     const approver = await w.grantApprover("approver-1");
     w.brain.setNotificationPreferences(approver.actor, { webhook: true, push: false, digest: true });
     received.length = 0;
-    (w.brain as unknown as { notifyApprovers(input: { organizationId: string; workspaceId: string }): void }).notifyApprovers({ organizationId: w.org, workspaceId: w.workspaceId });
+    const approvalId = await requestApproval(w, "digest-approval");
     // Every approver with the webhook on (the workspace lead and this approver), digest or not.
     await until(() => received.length >= 2);
-    for (const call of received) expect(JSON.parse(call.body)).toMatchObject({ kind: "approval", link: "https://brain.example.test/approvals" });
+    for (const call of received) expect(JSON.parse(call.body)).toMatchObject({ kind: "approval", link: `https://brain.example.test/approvals/${approvalId}` });
   });
 });
