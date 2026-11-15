@@ -6,6 +6,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { reachedLimits, PARKED_INTERRUPTED_REASON } from "../missions/index";
 import { runContext, unknownJobsForWorkspace } from "../jobs/index";
+import { openAttestations } from "../evidence/index";
 
 type Db = ReturnType<Store["workspaceDb"]>;
 
@@ -29,7 +30,7 @@ export function pendingApprovalItems(store: Store, organizationId: string, works
 /**
  * Attention items (#40): what needs a human, derived from current state and
  * never stored. Fixed tiers — approvals (nearest expiry first), stopped
- * missions, plan proposals, parked work and agents' questions (tier 3), verdicts
+ * missions, plan proposals, parked work, agents' questions and evaluations waiting for a person (tier 3), verdicts
  * ready to close, routed findings, then the non-blocking result-ready items (ADR 0005) — then the
  * longest wait first. No model ranks anything.
  */
@@ -90,6 +91,11 @@ export function attentionItems(store: Store, organizationId: string, workspaceId
       const team = row.active_plan_version_id ? (db.prepare("SELECT team_json FROM plan_versions WHERE id=?").get(row.active_plan_version_id) as { team_json: string } | undefined) : undefined;
       const role = (team ? (JSON.parse(team.team_json) as Array<{ memberId: string; role: string }>) : []).find((member) => member.memberId === row.member_id)?.role ?? row.member_id;
       items.push({ id: `question:${row.id}`, workspaceId, missionId: row.mission_id, memberId: row.member_id, kind: "question", tier: 3, title: `${role} asks a question on ${row.title}`, detail: row.body.slice(0, 1024), resourceId: row.id, waitingSince: iso(row.created_at_ms) });
+    }
+    // An evaluation that needs a person to be its independent evaluator (ADR 0064) blocks its run until one records a verdict.
+    for (const open of openAttestations(store, db, organizationId, workspaceId)) {
+      items.push({ id: `attestation:${open.id}`, workspaceId, ...(open.missionId ? { missionId: open.missionId } : {}), kind: "attestation", tier: 3, title: `Attest the evidence for ${open.title}`.slice(0, 256),
+        detail: "Someone who did not start this work must review its evidence and record a verdict.", resourceId: open.id, waitingSince: iso(open.createdAtMs) });
     }
     for (const row of db.prepare(`SELECT w.id, w.mission_id, w.title, w.updated_at_ms, w.parked_diagnostic, w.blocked_reason,
       (SELECT COUNT(*) FROM work_item_dependencies d JOIN work_items x ON x.id=d.work_item_id WHERE d.depends_on_work_item_id=w.id AND x.state NOT IN ('done','abandoned')) AS waiting

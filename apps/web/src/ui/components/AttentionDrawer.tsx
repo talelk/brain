@@ -17,6 +17,8 @@ import { QueueRow, WorkspaceSection } from "./Domain";
 /** Where an attention item is acted on: the approval review or the mission view that owns it. */
 export function attentionHref(item: AttentionItem): string {
   if (item.kind === "approval") return `/approvals/${item.resourceId}`;
+  // An evaluation waiting for a person opens its attestation page, whether or not a mission is behind it.
+  if (item.kind === "attestation") return `/attestations/${encodeURIComponent(item.resourceId)}?w=${encodeURIComponent(item.workspaceId)}`;
   // "See result" opens the result: the mission's Outputs tab, which also links to the write-up in the Library. It used to open the Review inbox, scrolled into a long list.
   if (item.kind === "outcome-unknown" && !item.missionId) return `/runs/${encodeURIComponent(item.resourceId)}`;
   if (item.kind === "schedule-failed" && !item.missionId) return `/w/${encodeURIComponent(item.workspaceId)}/schedules`;
@@ -33,6 +35,7 @@ export function attentionAction(item: AttentionItem): string {
     case "result-ready": return t("decision.seeResult");
     case "sign-off": return t("decision.signOff.open");
     case "question": return t("decision.question.answer");
+    case "attestation": return t("decision.attestation.open");
     case "parked": case "outcome-unknown": case "schedule-failed": return t("decision.retry");
     default: return t("decision.decide");
   }

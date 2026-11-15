@@ -5,6 +5,7 @@ import { hasWorkspaceMembership, requireWorkspaceRead } from "../../application/
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { attentionItems, pendingApprovalItems } from "../stream/index";
+import { openAttestations } from "../evidence/index";
 import { preferencesOf, webhookTarget } from "./channels";
 import { attentionLink, digestLink } from "./notification-links";
 import { smtpTarget } from "./smtp";
@@ -63,6 +64,8 @@ function recipientsOf(store: Store, db: Db, organizationId: string, workspaceId:
   if (item.kind === "approval") {
     return (store.control.prepare("SELECT DISTINCT principal_id FROM workspace_memberships WHERE workspace_id=? AND organization_id=? AND role IN ('approver','workspace-lead') AND revoked_at_ms IS NULL").all(workspaceId, organizationId) as Array<{ principal_id: string }>).map((row) => row.principal_id);
   }
+  // An evaluation waiting for a person tells the people who may answer it, never the people whose work it is.
+  if (item.kind === "attestation") return openAttestations(store, db, organizationId, workspaceId).find((open) => `attestation:${open.id}` === item.id)?.attesters ?? [];
   const people = new Set<string>();
   if (item.missionId) {
     const owner = db.prepare("SELECT owner_id FROM missions WHERE id=?").get(item.missionId) as { owner_id: string } | undefined;

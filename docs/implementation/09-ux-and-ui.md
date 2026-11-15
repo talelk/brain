@@ -33,6 +33,7 @@ The following route index is generated from `contracts/v1/ui-screen-contracts.js
 | `/outputs/:id/compare` | outputs | Compare two versions of an output with their provenance | diff, provenance |
 | `/approvals` | missions | Review exact proposed effects and recover submitted decisions | action, workspace, target, expiry, evidence |
 | `/approvals/:id` | missions | Review exact proposed effects and recover submitted decisions | exactContent, precondition, subjectDigest, history |
+| `/attestations/:id` | missions | Review submitted evidence and attest it as the independent human evaluator | evidence, checks, independence, verdict |
 | `/runs/:id` | live | Inspect one run's state, attempts, evidence and links without duplicating the console, logs or outputs | state, attempts, tool-calls, blocker, evidence, context |
 | `/runners` | live | Inspect a run, its attempts, events and evidence | group, trust, health, capacity, freshness |
 | `/runners/:id` | live | Inspect a run, its attempts, events and evidence | capabilities, attempts, reservations |

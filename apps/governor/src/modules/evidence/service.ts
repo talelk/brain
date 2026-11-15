@@ -1,4 +1,4 @@
-import type { ArtifactRef, CheckResult, EvaluationAssignment, Evaluator, EvidenceBundle, JsonValue, VerificationVerdict, Workflow } from "@brain/contracts";
+import type { ActorContext, ArtifactRef, CheckResult, EvaluationAssignment, Evaluator, EvidenceBundle, JsonValue, VerificationVerdict, Workflow } from "@brain/contracts";
 import { domainDigest } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import type { Store } from "../../application/store";
@@ -6,6 +6,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { transitionState } from "../../domain/states";
 import { releaseRecord } from "../configuration/index";
 import { verifyStored } from "../artifacts/index";
+import { attestationRow, attesterProblem } from "./attestation";
 
 export interface EvidenceRunner { runnerId: string; epoch: number; organizationId: string }
 interface Attempt {
@@ -31,6 +32,11 @@ export function pinnedEvaluator(s: Store, organizationId: string, configDigest: 
 
 function same(a: unknown, b: unknown): boolean {
   return domainDigest("brain:evidence-value:v1", a as JsonValue) === domainDigest("brain:evidence-value:v1", b as JsonValue);
+}
+
+/** The one rule that keeps a verdict honest: verified needs every check passed, rejected one failed, incomplete one missing or inconclusive. A runner's and a person's verdict both answer to it. */
+export function outcomeContradictsChecks(outcome: VerificationVerdict["outcome"], statuses: readonly CheckResult["status"][]): boolean {
+  return (outcome === "verified" && statuses.some((v) => v !== "passed")) || (outcome === "rejected" && !statuses.includes("failed")) || (outcome === "incomplete" && !statuses.some((v) => v === "missing" || v === "inconclusive"));
 }
 
 export class EvidenceService {
@@ -85,6 +91,14 @@ export class EvidenceService {
     const bundle = JSON.parse(row.manifest_json) as EvidenceBundle;
     if (!validate("EvidenceBundle", bundle).ok || bundle.organizationId !== organizationId || bundle.workspaceId !== workspaceId || domainDigest("brain:evidence-bundle:v1", bundle as unknown as JsonValue) !== digest) throw new BrainDomainError("EVIDENCE_MISSING", "stored bundle manifest does not match its immutable digest");
     return bundle;
+  }
+
+  /** A verified verdict needs every external effect of the author reconciled by a readback, whoever the evaluator is. */
+  private assertEffectsReconciled(author: Attempt, bundle: EvidenceBundle): void {
+    const guards=this.s.control.prepare("SELECT 1 FROM resource_leases WHERE attempt_id=? AND unresolved_effect=1 LIMIT 1").get(author.id);
+    const attempts = this.effectAttemptIds(author.job_id, author.id);
+    const permits=this.s.control.prepare(`SELECT invocation_id,state FROM effect_permits WHERE attempt_id IN (${attempts.map(() => "?").join(",")})`).all(...attempts) as Array<{invocation_id:string;state:string}>;
+    if (guards || (author.effect_class !== "read" && permits.length === 0) || permits.some((p)=>!["applied","absent"].includes(p.state) || !bundle.effects.some((e)=>e.invocationId===p.invocation_id && e.outcome===p.state))) throw new BrainDomainError("EVIDENCE_MISSING", "external effects require independent reconciliation before success");
   }
 
   submit(runner: EvidenceRunner, raw: unknown): { digest: string } {
@@ -186,14 +200,8 @@ export class EvidenceService {
     const output = this.s.control.prepare("SELECT output_json FROM job_outputs WHERE job_id=?").get(evaluator.job_id) as { output_json: string } | undefined;
     const reported = output ? JSON.parse(output.output_json) as { checks?: CheckResult[] } : undefined;
     if (!reported?.checks || !same(reported.checks,verdict.checks)) throw new BrainDomainError("EVIDENCE_MISSING", "verdict checks do not match the evaluator's committed execution receipt");
-    const statuses = verdict.checks.map((c) => c.status);
-    if ((verdict.outcome === "verified" && statuses.some((v) => v !== "passed")) || (verdict.outcome === "rejected" && !statuses.includes("failed")) || (verdict.outcome === "incomplete" && !statuses.some((v) => v === "missing" || v === "inconclusive"))) throw new BrainDomainError("EVIDENCE_MISSING", "verdict outcome contradicts its checks");
-    if (verdict.outcome === "verified") {
-      const guards=this.s.control.prepare("SELECT 1 FROM resource_leases WHERE attempt_id=? AND unresolved_effect=1 LIMIT 1").get(author.id);
-      const attempts = this.effectAttemptIds(author.job_id, author.id);
-      const permits=this.s.control.prepare(`SELECT invocation_id,state FROM effect_permits WHERE attempt_id IN (${attempts.map(() => "?").join(",")})`).all(...attempts) as Array<{invocation_id:string;state:string}>;
-      if (guards || (author.effect_class !== "read" && permits.length === 0) || permits.some((p)=>!["applied","absent"].includes(p.state) || !bundle.effects.some((e)=>e.invocationId===p.invocation_id && e.outcome===p.state))) throw new BrainDomainError("EVIDENCE_MISSING", "external effects require independent reconciliation before success");
-    }
+    if (outcomeContradictsChecks(verdict.outcome, verdict.checks.map((c) => c.status))) throw new BrainDomainError("EVIDENCE_MISSING", "verdict outcome contradicts its checks");
+    if (verdict.outcome === "verified") this.assertEffectsReconciled(author, bundle);
     this.verifyArtifacts(bundle);
     const verdictId = this.s.id("verdict");
     this.s.inTx(ws,() => {
@@ -204,6 +212,112 @@ export class EvidenceService {
     // projection is retried from finalized_at_ms=NULL, without cross-WAL atomicity.
     this.finalize(runner.organizationId,workspaceId,verdictId);
     return { verdictId, outcome: verdict.outcome };
+  }
+
+  /**
+   * A person's attestation of an independence-L3 evaluation (ADR 0064). The same checks a runner's verdict answers to apply: every pinned
+   * check reported once against the criterion the assignment names, an outcome that its checks do not contradict, reconciled effects before
+   * verified, immutable artifacts. The person is the evaluator: the verdict is recorded under the request, accepted by them, at level L3,
+   * and a person who started or owns the work is refused.
+   */
+  attest(actor: ActorContext, workspaceId: string, input: { attestationId: string; bundleDigests: readonly string[]; outcome: VerificationVerdict["outcome"]; checks: ReadonlyArray<{ checkId: string; status: CheckResult["status"]; detail: string }> }): { verdictIds: string[]; outcome: VerificationVerdict["outcome"]; verified: string[] } {
+    const organizationId = actor.organizationId;
+    this.s.assertWorkspaceActive(workspaceId, organizationId);
+    const ws = this.s.workspaceDb(workspaceId, organizationId);
+    const row = attestationRow(ws, input.attestationId);
+    if (!row) throw new BrainDomainError("NOT_FOUND", "attestation request not found");
+    const assignment = JSON.parse(row.assignment_json) as EvaluationAssignment;
+    const existing = assignment.bundleDigests.map((digest) => ws.prepare("SELECT id,manifest_json FROM verification_verdicts WHERE bundle_digest=? ORDER BY created_at_ms LIMIT 1").get(digest) as { id: string; manifest_json: string } | undefined);
+    if (existing.some((v) => v !== undefined)) {
+      // A retry of the same attestation finishes it; anything else is a second verdict on an immutable one.
+      const prior = existing[0] && (JSON.parse(existing[0].manifest_json) as VerificationVerdict);
+      const retry = existing.every((v) => v !== undefined) && prior?.evaluatorAttemptId === row.id && prior.acceptedBy === actor.actorId && prior.outcome === input.outcome
+        && input.checks.length === prior.checks.length && prior.checks.every((c) => input.checks.some((i) => i.checkId === c.checkId && i.status === c.status && i.detail === c.detail));
+      if (!retry) throw new BrainDomainError("CONFLICT", "this evidence already has an immutable verdict");
+      for (const v of existing) this.finalize(organizationId, workspaceId, v!.id);
+      return { verdictIds: existing.map((v) => v!.id), outcome: prior!.outcome, verified: prior!.outcome === "verified" ? [...assignment.bundleDigests] : [] };
+    }
+    const problem = attesterProblem(this.s, ws, { organizationId, workspaceId, actor, row });
+    if (problem) throw new BrainDomainError("FORBIDDEN", problem);
+    const run = ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(row.run_id) as { state: string };
+    if (["cancelled", "failed", "succeeded", "partial"].includes(run.state)) throw new BrainDomainError("FORBIDDEN", "terminal workflow cannot accept a new verdict");
+    // The person reviewed these exact bundles; evidence that changed since is a different review.
+    if (!same([...input.bundleDigests].sort(), [...assignment.bundleDigests].sort())) throw new BrainDomainError("CONFLICT", "the evidence changed since you reviewed it; open the request again");
+    const bundles = assignment.bundleDigests.map((digest) => this.bundle(workspaceId, organizationId, digest));
+    const runInput = ws.prepare("SELECT workflow_json FROM run_inputs WHERE run_id=?").get(row.run_id) as { workflow_json: string };
+    const step = (JSON.parse(runInput.workflow_json) as Workflow).spec.jobs[row.step_id];
+    if (step?.kind !== "eval" || !same(step.evaluator, assignment.evaluatorRelease)) throw new BrainDomainError("POLICY_DENIED", "evaluator release or independence policy changed");
+    pinnedEvaluator(this.s, organizationId, bundles[0]!.configDigest, assignment.evaluatorRelease);
+    const reported = new Map(input.checks.map((c) => [c.checkId, c]));
+    if (reported.size !== input.checks.length || reported.size !== assignment.requiredChecks.length || assignment.requiredChecks.some((id) => !reported.has(id))) throw new BrainDomainError("EVIDENCE_MISSING", "an attestation must report every pinned check exactly once");
+    if (outcomeContradictsChecks(input.outcome, input.checks.map((c) => c.status))) throw new BrainDomainError("EVIDENCE_MISSING", "verdict outcome contradicts its checks");
+    const at = this.s.nowIso();
+    const verdicts = bundles.map((bundle, index): VerificationVerdict => {
+      const authored = new Map(bundle.checks.map((c) => [c.checkId, c]));
+      const checks = assignment.requiredChecks.map((checkId): CheckResult => {
+        const claim = authored.get(checkId);
+        if (!claim || claim.criterionId !== assignment.criteria[checkId]) throw new BrainDomainError("EVIDENCE_MISSING", "attested criterion does not match the submitted evidence");
+        const given = reported.get(checkId)!;
+        return { criterionId: claim.criterionId, checkId, status: given.status, oracleDigest: assignment.evaluatorRelease.digest, artifacts: claim.artifacts, detail: given.detail };
+      });
+      const verdict: VerificationVerdict = { contractVersion: "brain.verdict/v1", bundleDigest: assignment.bundleDigests[index]!, evaluatorAttemptId: row.id, evaluatorRelease: assignment.evaluatorRelease, independence: "L3", outcome: input.outcome, checks, acceptedBy: actor.actorId, createdAt: at };
+      const valid = validate("VerificationVerdict", verdict);
+      if (!valid.ok) throw new BrainDomainError("INVALID_CONTRACT", valid.errors.join("; "));
+      return verdict;
+    });
+    for (const bundle of bundles) {
+      const author = this.attempt(bundle.attemptId);
+      if (author.state !== "verifying" || author.job_state !== "verifying" || author.job_fence !== author.current_fence) throw new BrainDomainError("LEASE_LOST", "the author's work is no longer waiting for this verdict");
+      if (input.outcome === "verified") this.assertEffectsReconciled(author, bundle);
+      this.verifyArtifacts(bundle);
+    }
+    const verdictIds = verdicts.map(() => this.s.id("verdict"));
+    this.s.inTx(ws, () => {
+      verdicts.forEach((verdict, index) => {
+        ws.prepare("INSERT INTO verification_verdicts(id,bundle_digest,evaluator_attempt_id,evaluator_digest,outcome,manifest_json,created_at_ms) VALUES (?,?,?,?,?,?,?)").run(verdictIds[index],verdict.bundleDigest,row.id,verdict.evaluatorRelease.digest,verdict.outcome,JSON.stringify(verdict),this.s.now());
+        transitionState(ws, "evidence", verdict.bundleDigest, verdict.outcome);
+      });
+      this.s.emit(ws, { aggregateType: "evaluation", aggregateId: row.id, eventType: "evaluation.attested", payload: { resourceId: row.id, version: 1, state: input.outcome } });
+    });
+    for (const id of verdictIds) this.finalize(organizationId, workspaceId, id);
+    return { verdictIds, outcome: input.outcome, verified: input.outcome === "verified" ? [...assignment.bundleDigests] : [] };
+  }
+
+  /**
+   * The projection of a person's verdict. It matches a runner's: the author's attempt concludes succeeded on verified and failed otherwise,
+   * its step completes, and the eval step completes once every bundle has its verdict. An incomplete attestation counts as not verified
+   * (the verdict is immutable, so waiting for a better one would strand the run); the failure sends the work back like a rejection.
+   */
+  private finalizeAttested(organizationId: string, workspaceId: string, verdictId: string, verdict: VerificationVerdict): void {
+    const ws = this.s.workspaceDb(workspaceId, organizationId);
+    const attestation = attestationRow(ws, verdict.evaluatorAttemptId);
+    if (!attestation) throw new BrainDomainError("EVIDENCE_MISSING", "accepted attestation lost its request");
+    const assignment = JSON.parse(attestation.assignment_json) as EvaluationAssignment;
+    const bundle = this.bundle(workspaceId, organizationId, verdict.bundleDigest);
+    const author = this.attempt(bundle.attemptId);
+    const all = assignment.bundleDigests.map((digest) => ws.prepare("SELECT manifest_json FROM verification_verdicts WHERE bundle_digest=? AND evaluator_attempt_id=?").get(digest, attestation.id) as { manifest_json: string } | undefined);
+    const evaluationComplete = all.every((v) => v !== undefined);
+    const digest = domainDigest("brain:verdict:v1", verdict as unknown as JsonValue);
+    this.s.inTx(this.s.control, () => {
+      const prior = this.s.control.prepare("SELECT payload_digest FROM inbox WHERE source_id='evidence' AND event_id=?").get(verdictId) as { payload_digest: string } | undefined;
+      if (prior) { if (prior.payload_digest !== digest) throw new BrainDomainError("IDEMPOTENCY_CONFLICT", "verdict projection collision"); return; }
+      if (author.job_fence !== author.current_fence) throw new BrainDomainError("LEASE_LOST", "accepted verdict cannot finalize a newer attempt");
+      this.host.concludeAttempt({ jobId: author.job_id, attemptId: author.id, state: verdict.outcome === "verified" ? "succeeded" : "failed", jobFence: bundle.jobFence });
+      this.s.control.prepare("INSERT INTO inbox(source_id,event_id,payload_digest,applied_at_ms) VALUES ('evidence',?,?,?)").run(verdictId, digest, this.s.now());
+    });
+    // The person's answer wakes the run the request suspended, as a gate's decision does; a failure ends it from suspension.
+    const run = ws.prepare("SELECT state FROM workflow_runs WHERE id=?").get(attestation.run_id) as { state: string };
+    if (run.state === "suspended" && !ws.prepare("SELECT 1 FROM workflow_steps WHERE run_id=? AND state='waiting' AND step_id<>?").get(attestation.run_id, attestation.step_id)) transitionState(ws, "run", attestation.run_id, "running", { bumpVersion: true });
+    const authorOutput = this.s.control.prepare("SELECT output_json FROM job_outputs WHERE job_id=?").get(author.job_id) as { output_json: string };
+    this.host.completeStep(organizationId, workspaceId, author.workflow_run_id, author.step_id, JSON.parse(authorOutput.output_json) as JsonValue, verdict.outcome === "verified");
+    if (evaluationComplete) {
+      const verdicts = all.map((v) => JSON.parse(v!.manifest_json) as VerificationVerdict);
+      const ok = verdicts.every((v) => v.outcome === "verified");
+      this.host.completeStep(organizationId, workspaceId, attestation.run_id, attestation.step_id, { passed: ok, checks: verdicts[0]!.checks, independence: "L3", attestedBy: verdict.acceptedBy } as unknown as JsonValue, ok);
+      // The author's failure already ended the run, which completes nothing after it: the request's own step is settled here so it never reads as still waiting.
+      ws.prepare("UPDATE workflow_steps SET state='failed' WHERE run_id=? AND step_id=? AND state='waiting'").run(attestation.run_id, attestation.step_id);
+    }
+    ws.prepare("UPDATE verification_verdicts SET finalized_at_ms=? WHERE id=?").run(this.s.now(), verdictId);
   }
 
   finalize(organizationId: string, workspaceId: string, verdictId: string): void {
@@ -219,6 +333,7 @@ export class EvidenceService {
       ws.prepare("UPDATE verification_verdicts SET finalized_at_ms=? WHERE id=?").run(this.s.now(),verdictId);
       return;
     }
+    if (verdict.independence === "L3") { this.finalizeAttested(organizationId, workspaceId, verdictId, verdict); return; }
     const author = this.attempt(bundle.attemptId); const evaluator = this.attempt(verdict.evaluatorAttemptId);
     const assignment = this.assignment(evaluator.job_id);
     if (!assignment) throw new BrainDomainError("EVIDENCE_MISSING", "accepted verdict lost its pinned assignment");

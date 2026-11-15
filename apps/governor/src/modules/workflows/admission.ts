@@ -6,7 +6,7 @@ import { transitionState } from "../../domain/states";
 import { NORMAL_JOB_PRIORITY } from "../../domain/work-priority";
 import type { Db } from "../../infrastructure/persistence/open";
 import { compileWorkflowGraph, pointerGet, resolveBinding } from "../configuration/index";
-import { pinnedEvaluator } from "../evidence/index";
+import { pinnedEvaluator, requestAttestation } from "../evidence/index";
 import type { RunResume, WorkflowEnginePort, WorkflowHost } from "./engine-port";
 
 /**
@@ -18,6 +18,7 @@ import type { RunResume, WorkflowEnginePort, WorkflowHost } from "./engine-port"
  *
  * - dispatch: queues the step's job
  * - gate: requests the approval and suspends the run
+ * - eval at independence L3: raises an attestation request for a person and suspends the run
  * - subgraph: starts the child run and links it to the step
  * - steer: delivers the message and completes the step
  * - eval: nothing; evaluator jobs are admitted from submitted evidence
@@ -239,7 +240,6 @@ export function admitEvaluations(store: Store, host: WorkflowHost, run: Admissio
     const evaluator = pinnedEvaluator(s, organizationId, configDigest, step.evaluator);
     const levels = ["L1", "L2", "L3"] as const;
     const independence = levels[Math.max(levels.indexOf(step.independence), levels.indexOf(evaluator.spec.independence))]!;
-    if (independence === "L3") throw new BrainDomainError("UNSUPPORTED_CAPABILITY", "external L3 evaluator attestation is not installed");
     if (bundles.some((bundle) => evaluator.spec.requiredChecks.some((id) => !bundle.checks.some((c) => c.checkId === id)))) throw new BrainDomainError("EVIDENCE_MISSING", "submitted evidence omits a pinned evaluator check");
     const criteria: Record<string, string> = {};
     for (const bundle of bundles) for (const check of bundle.checks) {
@@ -248,6 +248,8 @@ export function admitEvaluations(store: Store, host: WorkflowHost, run: Admissio
       criteria[check.checkId] = check.criterionId;
     }
     const evaluation: EvaluationAssignment = { bundleDigests: digests, evaluatorRelease: step.evaluator, requiredChecks: evaluator.spec.requiredChecks, criteria, independence };
+    // An evaluator that is a person (ADR 0064): no job and no runner, the step waits for an attestation a human records.
+    if (independence === "L3") { requestAttestation(s, ws, { runId, stepId, assignment: evaluation, attesters: step.attesters, organizationId, workspaceId }); continue; }
     const bound = resolveBinding(step.input as unknown as Record<string, unknown>, run.input, outputs);
     const executionDigest = domainDigest("brain:step-exec:v1", { stepId, bound, evaluation } as unknown as JsonValue);
     const jobId = host.createJobForStep({
