@@ -8,6 +8,7 @@ import { BrainPage, PageStack } from "../../ui/components/PageLayout";
 import { QueueRow, WorkspaceSection } from "../../ui/components/Domain";
 import { attentionHref, resultName } from "../../ui/components/AttentionDrawer";
 import { NeedsYouQueue } from "../../ui/components/NeedsYouQueue";
+import { PushOffer } from "../../ui/components/PushDevice";
 import { WorkingNow, runningMissions } from "../../ui/components/WorkingNow";
 import { FleetOverviewPanel } from "../../ui/components/FleetOverviewPanel";
 import { ATTENTION_CHANGED, blockingCount, createAttentionRead } from "../../ui/attention";
@@ -72,6 +73,7 @@ export default function TodayPage(): JSX.Element {
       </Card>
       <Show when={waitingItems().length}>
         <WorkspaceSection title={t("decision.queue")} description={`${summary()} ${t("today.needsYou.hint")}`}>
+          <PushOffer />
           <NeedsYouQueue items={visibleNeeds()} missions={start.missions.state().data ?? []} onChanged={changed} />
           <Show when={waitingItems().length > NEEDS_YOU_VISIBLE}>
             <div class="mt-2"><Button variant="ghost" size="sm" iconRight={showAllNeeds() ? "lucide-chevron-up" : "lucide-chevron-down"} aria-expanded={showAllNeeds()} onClick={() => setShowAllNeeds(!showAllNeeds())}>{showAllNeeds() ? t("today.showFewer") : t("today.moreCount", { n: waitingItems().length - NEEDS_YOU_VISIBLE })}</Button></div>

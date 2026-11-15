@@ -14,6 +14,18 @@ type Db = ReturnType<Store["workspaceDb"]>;
 export const SCHEDULE_FAILURE_WINDOW_MS = 7 * 24 * 60 * 60_000;
 export const RESULT_READY_WINDOW_MS = 24 * 60 * 60_000;
 
+/** The pending approvals of one workspace, as attention items: what the queue shows and what an approver is notified about. */
+export function pendingApprovalItems(store: Store, organizationId: string, workspaceId: string): AttentionItem[] {
+  const items: AttentionItem[] = [];
+  for (const row of store.control.prepare("SELECT id, created_at_ms, expires_at_ms, subject_json FROM approval_requests WHERE organization_id=? AND workspace_id=? AND state='pending'").all(organizationId, workspaceId) as Array<{ id: string; created_at_ms: number; expires_at_ms: number; subject_json: string }>) {
+    // A call an agent proposed (ADR 0024) says in plain words what will happen, so it can be decided from a phone without opening it.
+    let summary = "";
+    try { const said = (JSON.parse(row.subject_json) as { effectBounds?: { summary?: unknown } }).effectBounds?.summary; if (typeof said === "string") summary = said.slice(0, 160); } catch { /* an unreadable subject keeps the generic title */ }
+    items.push({ id: `approval:${row.id}`, workspaceId, kind: "approval", tier: 1, title: summary ? `Approve or decline: ${summary}` : "Approval awaiting review", resourceId: row.id, waitingSince: iso(row.created_at_ms), expiresAt: iso(row.expires_at_ms) });
+  }
+  return items;
+}
+
 /**
  * Attention items (#40): what needs a human, derived from current state and
  * never stored. Fixed tiers — approvals (nearest expiry first), stopped
@@ -24,12 +36,7 @@ export const RESULT_READY_WINDOW_MS = 24 * 60 * 60_000;
 export function attentionItems(store: Store, organizationId: string, workspaceIds: readonly string[]): AttentionItem[] {
   const items: AttentionItem[] = [];
   for (const workspaceId of new Set(workspaceIds)) {
-    for (const row of store.control.prepare("SELECT id, created_at_ms, expires_at_ms, subject_json FROM approval_requests WHERE organization_id=? AND workspace_id=? AND state='pending'").all(organizationId, workspaceId) as Array<{ id: string; created_at_ms: number; expires_at_ms: number; subject_json: string }>) {
-      // A call an agent proposed (ADR 0024) says in plain words what will happen, so it can be decided from a phone without opening it.
-      let summary = "";
-      try { const said = (JSON.parse(row.subject_json) as { effectBounds?: { summary?: unknown } }).effectBounds?.summary; if (typeof said === "string") summary = said.slice(0, 160); } catch { /* an unreadable subject keeps the generic title */ }
-      items.push({ id: `approval:${row.id}`, workspaceId, kind: "approval", tier: 1, title: summary ? `Approve or decline: ${summary}` : "Approval awaiting review", resourceId: row.id, waitingSince: iso(row.created_at_ms), expiresAt: iso(row.expires_at_ms) });
-    }
+    items.push(...pendingApprovalItems(store, organizationId, workspaceId));
     const db = store.workspaceDb(workspaceId, organizationId);
     // A step left "outcome unknown" that Brain will not settle by itself: a person treats it as failed, or tries again when that is harmless.
     for (const job of unknownJobsForWorkspace(store, organizationId, workspaceId)) {

@@ -15,10 +15,24 @@ export const digestLink = (workspaceId: string): string => `/w/${workspaceId}/to
 /** The test email points at the page where the person switched email on. */
 export const securitySettingsLink = (): string => "/settings?tab=security";
 
-/** An attention item: a knowledge asset for review, a result or a sign-off on the mission's Results tab, or the mission's live view. */
-export function attentionLink(item: { kind: string; workspaceId: string; missionId: string; resourceId?: string; knowledgeAssetId?: string }): string {
-  if (item.kind === "result-ready" && item.knowledgeAssetId) return `/w/${item.workspaceId}/knowledge/review?asset=${item.knowledgeAssetId}`;
-  if (item.kind === "result-ready") return `/missions/${item.missionId}/outputs?w=${item.workspaceId}${item.resourceId === item.missionId ? "" : `&result=${item.resourceId}`}`;
-  if (item.kind === "sign-off") return `/missions/${item.missionId}/outputs?w=${item.workspaceId}`;
-  return `/missions/${item.missionId}/live?w=${item.workspaceId}`;
+/**
+ * An attention item opens where its row in Needs you opens (`attentionHref` in the web app): an approval its decision; a plan
+ * proposal, parked work or an unknown step the mission's Plan tab; a result, a sign-off or a verdict the Results tab (a result with a
+ * write-up opens that write-up); routed findings the live view; a paused mission its brief. Without a mission, an unknown step opens its
+ * run and a schedule that could not start opens Schedules.
+ */
+export function attentionLink(item: { kind: string; workspaceId: string; missionId?: string; resourceId?: string; knowledgeAssetId?: string }): string {
+  if (item.kind === "approval") return approvalLink(item.resourceId);
+  if (!item.missionId) return item.kind === "outcome-unknown" && item.resourceId ? `/runs/${encodeURIComponent(item.resourceId)}` : `/w/${item.workspaceId}/schedules`;
+  const at = (tab: string): string => `/missions/${item.missionId}/${tab}?w=${item.workspaceId}`;
+  switch (item.kind) {
+    case "result-ready":
+      if (item.knowledgeAssetId) return `/w/${item.workspaceId}/knowledge/review?asset=${item.knowledgeAssetId}`;
+      return `${at("outputs")}${item.resourceId === item.missionId ? "" : `&result=${item.resourceId}`}`;
+    case "sign-off": case "verdict-ready": return at("outputs");
+    case "plan-proposal": return `${at("plan")}&proposal=${item.resourceId}`;
+    case "parked": case "needs-attention": case "outcome-unknown": return at("plan");
+    case "routed": return at("live");
+    default: return at("brief");
+  }
 }

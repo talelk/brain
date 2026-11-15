@@ -28,12 +28,26 @@ async function signOffRoute(demo: Demo, governor: Fixture): Promise<string> {
     contractVersion: "brain.command/v1", commandId: `cmd-${key}`, commandType: type, workspaceId: demo.workspaceId, idempotencyKey: key, ...(expectedVersion ? { expectedVersion } : {}), payload,
   } as never, key)).receipt;
   const version = async (id: string) => ((await brain.executeQuery(demo.actor, { queryType: "missions.get", workspaceId: demo.workspaceId, resourceId: id })) as unknown as { snapshot: { version: number } }).snapshot.version;
-  const missionId = (await cmd("mission.create", "baseline-signoff-create", { title: "Compile the quarterly report", intent: "Compile the quarterly report", successCriteria: ["The report is complete"], autoStart: false })).resourceId ?? "";
-  const planId = (await cmd("plan.propose", "baseline-signoff-plan", { missionId, origin: "manual", tasks: [{ id: "compile", title: "Compile the figures", criteria: ["Figures compiled"], dependsOn: [] }] })).resourceId ?? "";
+  const missionId = (await cmd("mission.create", "baseline-signoff-create", { title: "Compile the quarterly report", intent: "Compile the quarterly report", successCriteria: ["The report is complete", "Every figure cites its source"], autoStart: false })).resourceId ?? "";
+  const planId = (await cmd("plan.propose", "baseline-signoff-plan", { missionId, origin: "manual", tasks: [{ id: "compile", title: "Compile the figures", criteria: ["Figures compiled"], dependsOn: [], criterionIds: ["c1"] }] })).resourceId ?? "";
   await cmd("plan.confirm", "baseline-signoff-confirm", { planVersionId: planId }, await version(missionId));
-  brain.store.workspaceDb(demo.workspaceId, demo.actor.organizationId).prepare("UPDATE work_items SET state='done', evidence_digest=? WHERE mission_id=?").run(`sha256:${"9".repeat(64)}`, missionId);
+  // The finished task's verified evidence has one check that names the first criterion; the second criterion is served by no task, so it shows as not linked.
+  const ws = brain.store.workspaceDb(demo.workspaceId, demo.actor.organizationId);
+  const evidence = `sha256:${"9".repeat(64)}`;
+  ws.prepare("INSERT INTO evidence_bundles(digest, bundle_id, job_id, attempt_id, state, manifest_json, created_at_ms) VALUES (?,?,?,?, 'verified', ?,?)")
+    .run(evidence, "bundle-baseline", "job-baseline", "att-baseline", JSON.stringify({ checks: [{ criterionId: "c1", checkId: "figures-reconcile", status: "passed" }] }), brain.store.now());
+  ws.prepare("UPDATE work_items SET state='done', evidence_digest=? WHERE mission_id=?").run(evidence, missionId);
   await cmd("mission.proposeCompletion", "baseline-signoff-finish", { missionId }, await version(missionId));
   return `/missions/${missionId}/outputs`;
+}
+
+/** A browser that can receive notifications (headless Chromium has permission denied and no push service): asked never, or turned on for this device. */
+async function pushDevice(page: Page, on: boolean): Promise<void> {
+  await page.addInitScript((subscribed) => {
+    Object.defineProperty(Notification, "permission", { configurable: true, get: () => (subscribed ? "granted" : "default") });
+    const device = { endpoint: "http://127.0.0.1:9/push/baseline", toJSON: () => ({}), unsubscribe: async () => true };
+    PushManager.prototype.getSubscription = async () => (subscribed ? (device as unknown as PushSubscription) : null);
+  }, on);
 }
 
 const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => string | Promise<string>; heading: string | RegExp; testid?: string; waitFor?: string; prepare?: (governor: Parameters<typeof seedBrowserDemo>[1], page: Page, demo: Demo) => Promise<void>; after?: (page: Page) => Promise<void> }> = [
@@ -63,6 +77,9 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "eval-cases", route: () => "/w/operations/quality/cases", heading: "Eval cases", prepare: seedEvalCases },
   // Last of all: the sign-off mission adds an attention item every earlier screen would count in its bell.
   { id: "mission-signoff", route: signOffRoute, heading: "Compile the quarterly report", waitFor: "mission-signoff" },
+  // Push: the offer on Needs you (this device could receive notifications and was never asked), then the settings control once it is on.
+  { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
+  { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
 ];
 
 /** Health with a fresh backup and a passed restore test, recorded the way the host's jobs record them; `restoreBackupRecords` puts the environment back. */

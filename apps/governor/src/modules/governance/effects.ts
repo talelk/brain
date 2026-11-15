@@ -18,7 +18,7 @@ import { issuePermit, validatePermit } from "./permits";
 
 export interface EffectPorts {
   /** Tells the people who can decide that an approval waits, with a deep link to that one decision. */
-  notifyApprovers(input: { organizationId: string; workspaceId: string; approvalId: string; summary: string }): void;
+  notifyApprovers(input: { organizationId: string; workspaceId: string }): void;
   /** A plain reason when the tool's connector is not set up on this server (ticketing, messages, pull requests); undefined when it is. */
   unavailable(toolId: string, context: { organizationId: string; workspaceId: string }): string | undefined;
 }
@@ -253,7 +253,7 @@ export function requestEffect(s: Store, ports: EffectPorts, runner: Runner, atte
       .run(attemptId, proposalId, context.organizationId, context.workspaceId, approvalId, tool.id, subject.inputDigest, resource, s.now(), parentJobId, actJobId);
     s.emit(s.control, { organizationId: context.organizationId, workspaceId: context.workspaceId, aggregateType: "approval", aggregateId: approvalId, eventType: "approval.requested", payload: { approvalId, subjectDigest: approvalDigest(subject), effect: tool.id } });
   });
-  ports.notifyApprovers({ organizationId: context.organizationId, workspaceId: context.workspaceId, approvalId, summary });
+  ports.notifyApprovers({ organizationId: context.organizationId, workspaceId: context.workspaceId });
   return { approvalId, state: "pending", expiresAt: subject.expiresAt, summary, held: true } as unknown as JsonValue;
 }
 
