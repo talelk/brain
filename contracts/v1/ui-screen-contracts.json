@@ -124,10 +124,12 @@
     "challenges.list",
     "playProposals.list",
     "agents.list",
-    "delegations.list"
+    "delegations.list",
+    "missionOwnerCandidates.list"
    ],
    "actions": [
     "mission.policy.set",
+    "mission.owner.transfer",
     "mission.pause",
     "mission.resume",
     "mission.proposeCompletion",

@@ -31,7 +31,7 @@ describe("session command classification", () => {
   });
 
   it("refuses every decision, verdict, closure, policy, brief, budget, confirmation and administration command", () => {
-    for (const type of ["workItem.transition", "mission.proposeCompletion", "decision.accept", "mission.verdict.record", "mission.close", "plan.confirm", "plan.reject", "mission.policy.set", "mission.brief.edit", "mission.budget.set", "approval.decision", "approval.request", "workspace.update", "member.grant", "config.activate"]) {
+    for (const type of ["workItem.transition", "mission.proposeCompletion", "decision.accept", "mission.verdict.record", "mission.close", "plan.confirm", "plan.reject", "mission.policy.set", "mission.brief.edit", "mission.budget.set", "mission.owner.transfer", "approval.decision", "approval.request", "workspace.update", "member.grant", "config.activate"]) {
       expect(SESSION_REFUSED_COMMANDS.has(type), type).toBe(true);
     }
   });

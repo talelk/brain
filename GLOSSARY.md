@@ -708,6 +708,12 @@ a credential for it that ends with the attempt or when its fence moves. The cred
 only the **session command allowlist**.
 _Avoid_: bot, service account, agent user
 
+**Owner transfer**:
+`mission.owner.transfer`: the mission's owner or a workspace administrator hands an open mission to an active
+member who holds what its sessions need (ADR 0054). Audited; attention and notifications follow; **session
+principals** act for the new owner at once, running attempts keep their fence. Sessions never run it.
+_Avoid_: reassign mission, change owner
+
 **Session command allowlist**:
 The commands a session credential may run: only those behind the Brain tools, not whatever its role's
 scopes admit (ADR 0032). The rest are refused; a test requires every command to be classified.

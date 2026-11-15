@@ -2158,5 +2158,13 @@ export const fr: Catalog = {
   "delegations.workitem.open": "Ouvrir le travail délégué",
   "delegations.workitem.review_one": "Examiner {n} résultat délégué",
   "delegations.workitem.review_other": "Examiner {n} résultats délégués",
+  "mp.handover.menu": "Confier cette mission à quelqu'un d'autre",
+  "mp.handover.title": "Confier cette mission",
+  "mp.handover.description": "Responsable actuel : {name}. Le nouveau responsable reçoit ses éléments d'attention et ses notifications, et les sessions de ses membres agissent pour lui dès maintenant. Le travail en cours n'est pas interrompu.",
+  "mp.handover.to": "Nouveau responsable",
+  "mp.handover.choose": "Choisissez un collègue",
+  "mp.handover.none": "Personne d'autre dans cet espace de travail ne peut encore travailler sur des missions.",
+  "mp.handover.confirm": "Confier",
+  "mp.handover.done": "Cette mission appartient maintenant à {name}.",
   // @@END
 };
