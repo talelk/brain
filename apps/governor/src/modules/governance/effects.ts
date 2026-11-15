@@ -10,6 +10,7 @@ import { payloadValidator } from "@brain/contracts/validate";
 import { assertAttemptLive, createActJob, effectResultFor, loadAttempt } from "../jobs/index";
 import { originOfRun } from "../missions/index";
 import { issuePermit, validatePermit } from "./permits";
+import { withRisk } from "./risk";
 
 /**
  * Effect tools and permits per call (ADR 0024). An agent that wants to change something outside Brain proposes the call; the call stops
@@ -256,7 +257,7 @@ export function requestEffect(s: Store, ports: EffectPorts, runner: Runner, atte
   const resource = policy.resource(input) ?? "";
   const approvalId = s.id("apr");
   const actJobId = s.id("job");
-  const subject: ActionSubject = {
+  const subject: ActionSubject = withRisk(s, {
     organizationId: context.organizationId, workspaceId: context.workspaceId, operation: `effect.${tool.id}`.slice(0, 64),
     tool, inputDigest: effectInputDigest(input), target: context.target,
     artifactDigest: tool.digest, policyDigest: domainDigest("brain:effect-policy:v1", { containers: allow.containers, services: allow.services } as unknown as JsonValue),
@@ -266,7 +267,7 @@ export function requestEffect(s: Store, ports: EffectPorts, runner: Runner, atte
     expiresAt: iso(expiresAtMs), nonce: proposalId.slice(0, 120),
     // Where the call was asked, bound with the rest (ADR 0049): the run of the proposing task and the work item and mission it serves.
     origin: originOfRun(s.workspaceDb(context.workspaceId, context.organizationId), String((s.control.prepare("SELECT workflow_run_id FROM jobs WHERE id=?").get(parentJobId) as { workflow_run_id: string }).workflow_run_id)),
-  };
+  }, { organizationId: context.organizationId, workspaceId: context.workspaceId });
   s.inTx(s.control, () => {
     // The requester is the platform, never the person who started the mission. Whether the owner may decide their own mission's call is the
     // release policy's separationOfDuties (ADR 0067): where a layer requires it, the owner and the person who started the run may not.

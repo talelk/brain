@@ -2476,5 +2476,16 @@ export const fr: Catalog = {
   "library.stale.failed": "Cela n'a pas été enregistré.",
   "library.stale.reconfirmedAt": "Reconfirmée {when}",
   "library.stale.reuse": "La source a changé depuis la rédaction : vérifiez avant de vous y fier.",
+  "approval.risk.title": "Risque",
+  "approval.risk.low": "Risque faible",
+  "approval.risk.elevated": "Risque élevé",
+  "approval.risk.high": "Risque important",
+  "approval.risk.critical": "Risque critique",
+  "approval.risk.stepup": "Demande votre code d'authentification pour approuver.",
+  "approval.risk.second": "Demande l'approbation de deux personnes différentes. Ni le propriétaire de la mission ni la personne qui a demandé ne peuvent en être.",
+  "approval.risk.first-done": "Approuvé une fois par {who}. En attente d'une seconde personne, différente.",
+  "approval.risk.you-approved": "Vous avez déjà approuvé. Une seconde personne, différente, doit approuver.",
+  "approval.risk.own-effect": "Chaque changement exige toujours sa propre approbation ; le niveau de risque n'en demande que plus.",
+  "approval.risk.reasons": "Pourquoi",
   // @@END
 };

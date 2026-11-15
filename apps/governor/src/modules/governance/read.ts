@@ -3,6 +3,7 @@ import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
 import { approvalContext, type ReleaseTools } from "./context";
+import { approversSoFar } from "./risk";
 
 export interface ApprovalView {
   approvalId: string;
@@ -17,6 +18,8 @@ export interface ApprovalView {
   expiresAt: string;
   /** Read beside the subject, never bound by it: the mission and task, the change as a diff and the rollback (ADR 0049). */
   context: ApprovalContext;
+  /** The people who have approved so far: a critical request stays pending until a second, different person does (ADR 0071). */
+  approvedBy: string[];
 }
 
 function approvalView(store: Store, r: Record<string, unknown>, organizationId: string, releases?: Map<string, ReleaseTools>): ApprovalView {
@@ -27,6 +30,7 @@ function approvalView(store: Store, r: Record<string, unknown>, organizationId: 
     state: String(r["state"]), version: Number(r["version"]), requestedBy: String(r["requested_by"]),
     createdAt: iso(Number(r["created_at_ms"])), expiresAt: iso(Number(r["expires_at_ms"])),
     context: approvalContext(store, organizationId, String(r["workspace_id"]), subject, releases),
+    approvedBy: approversSoFar(store, String(r["id"])),
   };
 }
 

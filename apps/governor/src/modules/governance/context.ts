@@ -47,8 +47,13 @@ export function proposedChange(toolId: string, args: JsonValue | undefined): Pro
 export function approvalContext(s: Store, organizationId: string, workspaceId: string, subject: ActionSubject, releases: Map<string, ReleaseTools> = new Map()): ApprovalContext {
   const origin = subject.origin ? describeOrigin(s.workspaceDb(workspaceId, organizationId), subject.origin) : undefined;
   const change = proposedChange(subject.tool.id, subject.effectBounds["arguments"]);
+  const declared = declaredTool(s, organizationId, subject, releases)?.compensatingAction;
+  return { ...(origin ?? {}), ...(change ? { change } : {}), rollback: declared ? { declared: true, action: declared } : { declared: false } };
+}
+
+/** The Tool document of the subject's pinned release that declares its tool (effect class, rollback); undefined when the release does not carry it. */
+export function declaredTool(s: Store, organizationId: string, subject: ActionSubject, releases: Map<string, ReleaseTools> = new Map()): NonNullable<ReleaseTools>[number] | undefined {
   // A list reads many approvals of the same release: its Tool documents are read once.
   if (!releases.has(subject.configDigest)) releases.set(subject.configDigest, releaseRecord(s, organizationId, subject.configDigest)?.release.manifest.tools);
-  const declared = releases.get(subject.configDigest)?.find((tool) => tool.id === subject.tool.id && tool.digest === subject.tool.digest)?.compensatingAction;
-  return { ...(origin ?? {}), ...(change ? { change } : {}), rollback: declared ? { declared: true, action: declared } : { declared: false } };
+  return releases.get(subject.configDigest)?.find((tool) => tool.id === subject.tool.id && tool.digest === subject.tool.digest);
 }

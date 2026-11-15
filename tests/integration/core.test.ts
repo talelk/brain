@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DIGEST_A, setupWorld, stepUp, workView } from "../helpers";
+import { DIGEST_A, setupWorld, stepUp, workView, storedDigest } from "../helpers";
 import { approvalSubjectDigest } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import type { JsonValue } from "@brain/contracts";
@@ -110,7 +110,7 @@ describe("core integration", () => {
       workspaceId: w.workspaceId, idempotencyKey: "ka-1", payload: { subject: subj },
     }, "c1");
     const approvalId = (req.receipt as { resourceId?: string }).resourceId ?? "";
-    const digest = approvalSubjectDigest(subj as unknown as JsonValue);
+    const digest = storedDigest(w.brain, approvalId);
     const evidenceId = await stepUp(w, approver, approvalId, digest);
     const decided = await w.brain.decideApproval(approver.identity, approvalId, {
       contractVersion: "brain.approval-decision/v1", idempotencyKey: "dec-1", decision: "approve",
@@ -120,8 +120,7 @@ describe("core integration", () => {
     const status = w.brain.decisionStatus(approver.actor, approvalId, "dec-1") as unknown as { status: string };
     expect(status.status).toBe("confirmed");
     // Changed subject requires a new approval.
-    const subj2 = { ...subj, nonce: "n-2" };
-    expect(approvalSubjectDigest(subj2 as unknown as JsonValue)).not.toBe(digest);
+    expect(approvalSubjectDigest({ ...(JSON.parse((w.brain.store.control.prepare("SELECT subject_json FROM approval_requests WHERE id=?").get(approvalId) as { subject_json: string }).subject_json) as Record<string, unknown>), nonce: "n-2" } as unknown as JsonValue)).not.toBe(digest);
     w.brain.close();
   });
 
@@ -133,7 +132,7 @@ describe("core integration", () => {
       workspaceId: w.workspaceId, idempotencyKey: "ka-9", payload: { subject: subj },
     }, "c1");
     const approvalId = (req.receipt as { resourceId?: string }).resourceId ?? "";
-    const digest = approvalSubjectDigest(subj as unknown as JsonValue);
+    const digest = storedDigest(w.brain, approvalId);
     const agentActor = { ...w.owner, kind: "agent" as const };
     await expect(w.brain.decideApproval({ actor: agentActor, principalId: agentActor.actorId, sessionDigest: "x", humanSession: null }, approvalId, {
       contractVersion: "brain.approval-decision/v1", idempotencyKey: "dec-9", decision: "approve",

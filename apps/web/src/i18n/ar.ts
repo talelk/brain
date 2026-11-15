@@ -2566,5 +2566,16 @@ export const ar: Catalog = {
   "library.stale.failed": "لم يُحفظ ذلك.",
   "library.stale.reconfirmedAt": "أُعيد التأكيد {when}",
   "library.stale.reuse": "تغيّر المصدر منذ كتابته: تحقّق منه قبل الاعتماد عليه.",
+  "approval.risk.title": "المخاطر",
+  "approval.risk.low": "مخاطر منخفضة",
+  "approval.risk.elevated": "مخاطر مرتفعة",
+  "approval.risk.high": "مخاطر عالية",
+  "approval.risk.critical": "مخاطر حرجة",
+  "approval.risk.stepup": "يلزم رمز المصادقة الخاص بك للموافقة.",
+  "approval.risk.second": "يلزم أن يوافق شخصان مختلفان. لا يجوز أن يكون أحدهما مالك المهمة الكبرى أو من طلب التغيير.",
+  "approval.risk.first-done": "وافق عليه {who} مرة واحدة. بانتظار شخص ثانٍ مختلف.",
+  "approval.risk.you-approved": "وافقتَ على هذا من قبل. يجب أن يوافق شخص ثانٍ مختلف.",
+  "approval.risk.own-effect": "يظل كل تغيير بحاجة إلى موافقته الخاصة؛ مستوى المخاطر يطلب المزيد فقط.",
+  "approval.risk.reasons": "السبب",
   // @@END
 };

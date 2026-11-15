@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { setupWorld, stepUp, DIGEST_A, goldenDocs } from "../helpers";
+import { setupWorld, stepUp, DIGEST_A, goldenDocs, storedDigest } from "../helpers";
 import { parseRestrictedYaml, compileRelease } from "../../apps/governor/src/modules/configuration/index";
-import { approvalSubjectDigest } from "@brain/contracts";
-import type { JsonValue } from "@brain/contracts";
 
 function seedRunner(w: ReturnType<typeof setupWorld>, runnerId: string, group = "fixture-tools") {
   const s = w.brain.store;
@@ -134,7 +132,7 @@ describe("scenario gaps (T50 batch 1)", () => {
       workspaceId: w.workspaceId, idempotencyKey: "permit-apr", payload: { subject },
     }, "c1");
     const approvalId = (req.receipt as { resourceId?: string }).resourceId ?? "";
-    const digest = approvalSubjectDigest(subject as unknown as JsonValue);
+    const digest = storedDigest(w.brain, approvalId);
     const evidenceId = await stepUp(w, approver, approvalId, digest);
     await w.brain.decideApproval(approver.identity, approvalId, {
       contractVersion: "brain.approval-decision/v1", idempotencyKey: "permit-dec", decision: "approve",
