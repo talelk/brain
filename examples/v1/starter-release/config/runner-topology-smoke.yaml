@@ -59,7 +59,7 @@
           }
         },
         "outputSchemaRef": "schemas/validation-output.json",
-        "timeoutSeconds": 30,
+        "timeoutSeconds": 300,
         "evaluator": {
           "id": "operations-validator",
           "digest": "sha256:874dd7a4cf56ca4d25dc9194b5767fb331251f1109061572aa75ce09c5a9ba0f"

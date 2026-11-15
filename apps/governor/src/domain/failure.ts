@@ -72,6 +72,8 @@ const MALFORMED_TEXT = /\b(malformed|unparsable|unparseable|invalid json|could n
  * provider named, as "(retry after 30s)"); the rest are the provider's own spellings for a step error that did not pass through an adapter.
  */
 const QUOTA_TEXT = /\bquota or rate limit\b|\binsufficient[_ ]quota\b|\b(?:status|http|error)[ :]*429\b|\b429[: ]+(?:too many|rate|\{)|\bresource[_ ]exhausted\b|\brate[_ -]limit(?:ed| exceeded| reached)\b/iu;
+/** Whether a failure's own words say the provider refused for quota or rate. */
+export const quotaLike = (errorText: string): boolean => QUOTA_TEXT.test(errorText);
 const QUOTA_HINT = /\(retry after (\d{1,7})s\)/iu;
 
 /** How long a quota failure waits: the provider's hint from the failure detail, bounded; the default when it named none. */

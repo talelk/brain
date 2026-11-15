@@ -1,7 +1,7 @@
 import type { JsonValue } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { authRunner, enrollRunner, heartbeat, issueEnrollment, operateRunner, runnerChallenge, runnerHello, type HeartbeatCommand } from "./protocol";
-import { ackAttempt, attemptEvents, claim, completeAttempt, expireLeases, readExecutionArtifact, releaseAttempt, releaseReservation, renewAttempt, sessionCredential, type ContextPackPort, type SessionCredential } from "./attempts";
+import { ackAttempt, attemptEvents, claim, completeAttempt, expireAttemptDeadlines, expireLeases, readExecutionArtifact, releaseAttempt, releaseReservation, renewAttempt, sessionCredential, type ContextPackPort, type SessionCredential } from "./attempts";
 import { brokerToolRead, type ToolReadPorts, type ToolReadRequest } from "./tool-reads";
 import { BrainDomainError } from "../../domain/errors";
 import { sweepStuckJobs } from "./watchdog";
@@ -174,6 +174,13 @@ export class JobProtocol {
 
   expireLeases(): number {
     return expireLeases(this.store);
+  }
+
+  /** Ends the running attempts that passed the deadline their step's timeout set (ADR 0046); idempotent. */
+  expireDeadlines(): number {
+    return expireAttemptDeadlines(this.store, {
+      completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.ports.completeStep(organizationId, workspaceId, runId, stepId, output, ok),
+    });
   }
 
   /** Settles decided effect proposals, releases or cancels their held act jobs and resumes jobs whose changes are all settled (ADR 0028); idempotent. */

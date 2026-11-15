@@ -739,6 +739,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       const runner = brain.jobProtocol.authenticate(c.req.raw.headers);
       const body = (await readJson(c)) as { requestId: string };
       brain.jobProtocol.expireLeases();
+      brain.jobProtocol.expireDeadlines();
       const offer = brain.jobProtocol.claim(runner, body.requestId);
       if (!offer) return new Response(null, { status: 204 });
       return c.json(offer as never);
@@ -983,7 +984,7 @@ export async function createApp(opts?: { dataDir?: string; allowTestActor?: bool
       process.on("SIGTERM", stop);
       process.on("SIGINT", stop);
       setInterval(() => {
-    try { brain.jobProtocol.expireLeases(); brain.jobProtocol.settleEffects(); brain.projectOutbox(); } catch { /* timers never authorize */ }
+    try { brain.jobProtocol.expireLeases(); brain.jobProtocol.expireDeadlines(); brain.jobProtocol.settleEffects(); brain.projectOutbox(); } catch { /* timers never authorize */ }
     // Stuck-run watchdog: a job nothing will move again is restarted or failed with a plain reason, never left running.
     try { brain.jobProtocol.sweepStuckJobs(); } catch { /* the watchdog must not break expiry */ }
     // Execution stream: backstop projection plus the throttled retention sweep.

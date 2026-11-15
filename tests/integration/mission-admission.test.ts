@@ -32,7 +32,7 @@ function insertJob(w: World, id: string, runId: string, createdOffsetMs = 0): vo
   const now = s.now() + createdOffsetMs;
   s.control.prepare(`INSERT INTO jobs(id, organization_id, workspace_id, execution_key, workflow_run_id, step_id, state, config_digest, placement_json, execution_digest, effect_class, queue_reason, priority, created_at_ms, ready_at_ms, deadline_ms)
     VALUES (?,?,?,?,?, 'echo', 'queued', ?, ?, ?, 'read', 'WAITING_FOR_RUNNER', 0, ?, ?, ?)`)
-    .run(id, w.org, w.workspaceId, `key-${id}`, runId, w.brain.activeRelease(w.org)!.digest, JSON.stringify(placement), DIGEST_A, now, now, now + 3600000);
+    .run(id, w.org, w.workspaceId, `key-${id}`, runId, w.brain.activeRelease(w.org)!.digest, JSON.stringify(placement), DIGEST_A, now, s.now(), now + 3600000);
   s.control.prepare("INSERT INTO job_payloads(job_id, kind, payload_json) VALUES (?,?,?)").run(id, "dispatch", "{}");
 }
 

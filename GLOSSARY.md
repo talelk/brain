@@ -238,6 +238,10 @@ _Avoid_: workflow state, workflow run state
 A node declared in a workflow definition — dispatch, gate, evaluation, steer, merge or
 subgraph. A step starts once every step it `needs` has succeeded, so steps with no need
 of each other run together up to the mission's member cap (ADR 0043); a job executes it.
+A step may declare a `when` condition (a pointer that exists or equals a value in an earlier
+step's output): false, it is skipped, not failed, and so is every step that needs it, and
+the run still succeeds (ADR 0046). A declared `retry` offers a failed attempt again as a new
+attempt of the same job; `timeoutSeconds` ends an attempt that runs past it.
 _Avoid_: job (when meaning a declared node), node, stage
 
 **Job**:

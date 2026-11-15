@@ -492,6 +492,25 @@
       ],
       "additionalProperties": false
     },
+    "StepCondition": {
+      "type": "object",
+      "properties": {
+        "step": {
+          "$ref": "#/$defs/ConfigId"
+        },
+        "pointer": {
+          "$ref": "#/$defs/Pointer"
+        },
+        "equals": {
+          "$ref": "#/$defs/JsonValue"
+        }
+      },
+      "required": [
+        "step",
+        "pointer"
+      ],
+      "additionalProperties": false
+    },
     "DispatchUse": {
       "type": "object",
       "properties": {
@@ -541,6 +560,9 @@
         },
         "retry": {
           "$ref": "#/$defs/RetryPolicy"
+        },
+        "when": {
+          "$ref": "#/$defs/StepCondition"
         },
         "uses": {
           "$ref": "#/$defs/DispatchUse"
@@ -599,6 +621,9 @@
         "retry": {
           "$ref": "#/$defs/RetryPolicy"
         },
+        "when": {
+          "$ref": "#/$defs/StepCondition"
+        },
         "approvalPolicy": {
           "$ref": "#/$defs/ReleaseRef"
         },
@@ -651,6 +676,9 @@
         },
         "retry": {
           "$ref": "#/$defs/RetryPolicy"
+        },
+        "when": {
+          "$ref": "#/$defs/StepCondition"
         },
         "evaluator": {
           "$ref": "#/$defs/ReleaseRef"
@@ -709,6 +737,9 @@
         "retry": {
           "$ref": "#/$defs/RetryPolicy"
         },
+        "when": {
+          "$ref": "#/$defs/StepCondition"
+        },
         "sessionFrom": {
           "$ref": "#/$defs/Binding"
         },
@@ -755,6 +786,9 @@
         },
         "retry": {
           "$ref": "#/$defs/RetryPolicy"
+        },
+        "when": {
+          "$ref": "#/$defs/StepCondition"
         },
         "tool": {
           "$ref": "#/$defs/ReleaseRef"
@@ -807,6 +841,9 @@
         },
         "retry": {
           "$ref": "#/$defs/RetryPolicy"
+        },
+        "when": {
+          "$ref": "#/$defs/StepCondition"
         },
         "workflow": {
           "$ref": "#/$defs/ReleaseRef"
