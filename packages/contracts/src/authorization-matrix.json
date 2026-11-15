@@ -90,8 +90,7 @@
     "agent-session": {
       "scopes": [
         "workspace:read",
-        "mission:write",
-        "workflow:dispatch"
+        "mission:write"
       ],
       "grantScope": "mission-session"
     }

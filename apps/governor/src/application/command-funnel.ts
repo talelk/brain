@@ -2,7 +2,7 @@ import { commandDef, domainDigest } from "@brain/contracts";
 import type { ActorContext, CommandEnvelope, CommandReceipt, JsonValue } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
 import { BrainDomainError } from "../domain/errors";
-import { authorizeCommand, requireWorkspaceRead, type ResolvedActor } from "./authz";
+import { assertSessionAdmits, authorizeCommand, requireWorkspaceRead, type ResolvedActor } from "./authz";
 import { assertQueueAdmits } from "../modules/jobs/index";
 import { missionsOfCommand } from "../modules/missions/index";
 import type { Store } from "./store";
@@ -111,6 +111,7 @@ export class CommandFunnel {
     const workspaceId = cmd.workspaceId;
     if (workspaceId) requireWorkspaceRead(this.store, actor, workspaceId);
     if (actor.missionId) this.assertWithinMission(actor, cmd);
+    assertSessionAdmits(actor, cmd.commandType);
     if (handler.kind === "workspace" && !workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
     const requestJson = JSON.stringify(cmd);
     const admitted: Admitted = { cmd, handler, requestJson, requestDigest: domainDigest("brain:command:v1", cmd as unknown as JsonValue), ...(workspaceId ? { workspaceId } : {}) };

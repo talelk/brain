@@ -1,12 +1,12 @@
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { AuditEntry, EngineToolBinding, MissionMessage, PlanTask, TeamMember, WorkItemComment } from "@brain/contracts";
+import { BRAIN_TOOL_COMMANDS, type AuditEntry, type EngineToolBinding, type MissionMessage, type PlanTask, type TeamMember, type WorkItemComment } from "@brain/contracts";
 import { createApp } from "../../apps/governor/src/http/app";
 import { readVerified } from "../../apps/governor/src/modules/artifacts/index";
 import { GovernorClient } from "../../apps/runner/src/governor-client";
 import { enrollAndHello, runOnce } from "../../apps/runner/src/supervisor";
-import { BRAIN_BROKERED, BRAIN_TOOL_COMMANDS, BrainSession } from "../../apps/runner/src/tools/brain-tools";
+import { BRAIN_BROKERED, BrainSession } from "../../apps/runner/src/tools/brain-tools";
 import { brokerRead } from "../../apps/runner/src/tools/broker-read";
 import { setupWorld } from "../helpers";
 import { confirmedMission, stageStarter, task, type World } from "../support/machine-session";

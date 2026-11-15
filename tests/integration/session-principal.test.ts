@@ -32,7 +32,7 @@ describe("a session acts as its own machine principal (ADR 0032)", () => {
     expect(principalId).toBe(`agent:${missionId}:pi`);
     const identity = await w.brain.resolveActor(bearer(credential), w.workspaceId);
     expect(identity.actor).toMatchObject({ kind: "agent", actorId: principalId, delegatedBy: w.owner.actorId, missionId, memberId: "pi", workspaceId: w.workspaceId, authMethod: "machine-credential" });
-    expect(identity.actor.scopes).toEqual(["mission:write", "workflow:dispatch", "workspace:read"]);
+    expect(identity.actor.scopes).toEqual(["mission:write", "workspace:read"]);
     // A machine is never taken for a person: no human session, no step-up, no approval.
     expect(identity.humanSession).toBeNull();
     expect(() => w.brain.stepUp.createChallenge(identity, "unknown", DIGEST_A)).toThrow(/human/u);
