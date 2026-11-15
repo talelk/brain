@@ -36,7 +36,7 @@ function seedJob(w: TestWorld, id: string, state = "queued", runId = `run-${id}`
 function seedApproval(w: TestWorld, id: string, state = "pending", expiresAtMs = w.brain.store.now() + 3_600_000) {
   w.brain.store.control.prepare(`INSERT INTO approval_requests(id,organization_id,workspace_id,requested_by,subject_digest,subject_json,state,expires_at_ms,created_at_ms)
     VALUES (?,?,?,'owner-1',?,?,'pending',?,?)`)
-    .run(id, w.org, w.workspaceId, `sha256:${"e".repeat(64)}`, JSON.stringify({ operation: "deploy", target: { targetId: "svc-x" } }), state === "pending" ? w.brain.store.now() + 3_600_000 : expiresAtMs, w.brain.store.now());
+    .run(id, w.org, w.workspaceId, `sha256:${"e".repeat(64)}`, JSON.stringify({ operation: "deploy", tool: { id: "svc.deploy", digest: `sha256:${"d".repeat(64)}` }, configDigest: `sha256:${"c".repeat(64)}`, effectBounds: {}, target: { targetId: "svc-x" } }), state === "pending" ? w.brain.store.now() + 3_600_000 : expiresAtMs, w.brain.store.now());
 }
 
 describe("jobs module read surface", () => {

@@ -90,7 +90,7 @@ describe("Plays per practice, built from the team's own achieved missions", () =
     const dir = "examples/v1/starter-release/config/plays";
     const tagged = readdirSync(dir).map((name) => JSON.parse(readFileSync(`${dir}/${name}`, "utf8")) as { metadata: { id: string }; spec: { practice?: string } });
     expect(Object.fromEntries(tagged.map((play) => [play.metadata.id, play.spec.practice]))).toEqual({
-      "checklist-runbook": "operations", "compare-options": "data", "incident-triage": "operations", "research-and-write": "data", "support-reply-draft": "support", "weekly-status": "operations",
+      "checklist-runbook": "operations", "compare-options": "data", "incident-triage": "operations", "research-and-write": "data", "research-with-coordinator": "data", "support-reply-draft": "support", "weekly-status": "operations",
     });
     expect((await practices(w)).practices.every((entry) => entry.plays.length === 0)).toBe(true);
   });
