@@ -668,6 +668,11 @@
       "scopeMode": "workspace",
       "redactPrivilegedDetails": false
     },
+    "pullRequests.list": {
+      "scope": "workspace:read",
+      "scopeMode": "workspace",
+      "redactPrivilegedDetails": false
+    },
     "handoffs.forWorkItem": {
       "scope": "workspace:read",
       "scopeMode": "workspace",

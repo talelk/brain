@@ -16,6 +16,7 @@ import { capReached, missionUsage, outsideMissionsUsage, runUsage, setSpendCap, 
 import { planEstimate, planWallLimit } from "./estimate";
 import { listEvalCases, recordEvalCase } from "./eval-cases";
 import { listComments, recordComment } from "./comments";
+import { listPullRequests } from "./pull-requests";
 import { listMessages, listOutputs, outputDetail, pinInputs, recordOutputVersion, recordTaskResult, sendMessage, taskOf, taskResult, verifyOutputs } from "./outputs";
 import { readVerified } from "../artifacts/index";
 import { assembleMissionBundle, type ServedCriterion, dependencyHandoffs, finalizeHandoff, latestMissionBundle, needsSignOff, recordMissionVerdict, submitHandoff, trustForBundle, workflowCovers } from "../evidence/index";
@@ -1445,7 +1446,20 @@ export class MissionService {
       WHERE id=? AND state='ready' AND next_action!=?`).run(text.slice(0, 500), workItemId, text.slice(0, 500));
   }
 
-  linkExecution(actor: ActorContext, workspaceId: string, workItemId: string, runId: string): void {
+  /**
+   * Why a task cannot take a run that resumes a session from its checkpoint now; undefined when it can. A resumed run takes the task over from
+   * whatever is waiting (a retry, or a person after repeated failures), so only a run already going, finished work or a stopped mission refuse it.
+   */
+  resumeBlocker(actor: ActorContext, workspaceId: string, workItemId: string): string | undefined {
+    const item = this.workItemRow(actor, workspaceId, workItemId);
+    const mission = this.missionRow(actor, workspaceId, item.mission_id);
+    if (mission.state !== "active") return `The mission is ${mission.state}, so no new work starts on it.`;
+    if (!["ready", "in-progress", "blocked"].includes(item.state)) return `The task is ${item.state === "review" ? "waiting for review" : item.state}, so it no longer needs this work.`;
+    const going = this.db(actor, workspaceId).prepare("SELECT 1 AS ok FROM execution_links l JOIN workflow_runs r ON r.id=l.run_id WHERE l.work_item_id=? AND r.state IN ('created','validated','ready','running','suspended')").get(item.id);
+    return going ? "A run for this task is already going, so it cannot also be resumed." : undefined;
+  }
+
+  linkExecution(actor: ActorContext, workspaceId: string, workItemId: string, runId: string, options: { resumed?: boolean } = {}): void {
     const item = this.workItemRow(actor, workspaceId, workItemId);
     const mission = this.missionRow(actor, workspaceId, item.mission_id);
     if (mission.state !== "active") throw new BrainDomainError("CONFLICT", `a ${mission.state} mission starts no new work sessions`);
@@ -1453,6 +1467,12 @@ export class MissionService {
     this.store.inTx(db, () => {
       pinInputs(db, item.id, runId);
       db.prepare("INSERT OR IGNORE INTO execution_links(mission_id,work_item_id,run_id,created_at_ms) VALUES (?,?,?,?)").run(item.mission_id, item.id, runId, this.store.now());
+      // A person resuming a stopped task releases it from the wait it was parked in; the run then starts it like any other.
+      if (options.resumed && item.state === "blocked") {
+        transitionState(db, "workItem", item.id, "ready", { set: { parked: 0, failed_attempts: 0, parked_diagnostic: null, blocked_reason: null, failure_class: null, next_action: "Resumed from a saved checkpoint", updated_at_ms: this.store.now() }, bumpVersion: true });
+        this.store.emit(db, { aggregateType: "workItem", aggregateId: item.id, eventType: "workItem.unparked", payload: { workItemId: item.id, state: "ready" } });
+        item.state = "ready";
+      }
       if (item.state === "ready") {
         this.assertDependenciesDone(db, item.id);
         transitionState(db, "workItem", item.id, "in-progress", { set: { next_action: "Complete and submit evidence", updated_at_ms: this.store.now() }, bumpVersion: true });
@@ -1469,6 +1489,10 @@ export class MissionService {
     if (queryType === "evalCases.list") return listEvalCases(db, limit) as unknown as JsonValue;
     if (queryType === "missionOutputs.get") return outputDetail(db, String(resourceId)) as unknown as JsonValue;
     if (queryType === "missionOutputs.list") return { items: listOutputs(db, this.missionRow(actor, workspaceId, String(resourceId)).id) } as unknown as JsonValue;
+    if (queryType === "pullRequests.list") {
+      if (!resourceId) throw new BrainDomainError("INVALID_ARGUMENT", "a work item or an approval is required");
+      return { items: listPullRequests(db, resourceId) } as unknown as JsonValue;
+    }
     if (queryType === "workItemComments.list") return { items: listComments(this.store, db, actor.organizationId, this.workItemRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
     if (queryType === "missionMessages.list") return { items: listMessages(this.store, db, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) } as unknown as JsonValue;
     if (queryType === "missions.timeline") return missionTimeline(this.store, db, actor.organizationId, workspaceId, this.missionRow(actor, workspaceId, String(resourceId)).id, limit) as unknown as JsonValue;

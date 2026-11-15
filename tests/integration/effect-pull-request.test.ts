@@ -116,6 +116,52 @@ describe("open a pull request (second effect tool, ADR 0024)", () => {
     expect(calls).toHaveLength(before);
   });
 
+  it("reads where a request stands from each provider's own API, and refuses an answer it does not know", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    let answer: Record<string, unknown> = {};
+    const api = new HostedPullRequestApi((async (url: string, init: RequestInit) => { calls.push({ url, init }); return new Response(JSON.stringify(answer), { status: 200 }); }) as unknown as typeof fetch);
+    const base = { credentials: { token: "t0ken-value-123" }, number: 7 };
+    const header = (name: string) => (calls.at(-1)!.init.headers as Record<string, string>)[name];
+
+    answer = { state: "open", merged: false };
+    expect(await api.state({ ...base, provider: "github", remoteUrl: "https://github.com/o/r.git" })).toBe("open");
+    expect(calls.at(-1)!.url).toBe("https://api.github.com/repos/o/r/pulls/7");
+    expect(calls.at(-1)!.init.method).toBe("GET");
+    expect(header("authorization")).toBe("Bearer t0ken-value-123");
+    answer = { state: "closed", merged: true };
+    expect(await api.state({ ...base, provider: "github-enterprise", remoteUrl: "https://ghe.example.test/o/r.git" })).toBe("merged");
+    expect(calls.at(-1)!.url).toBe("https://ghe.example.test/api/v3/repos/o/r/pulls/7");
+    answer = { state: "closed", merged: false };
+    expect(await api.state({ ...base, provider: "github", remoteUrl: "https://github.com/o/r.git" })).toBe("closed");
+
+    expect(await api.state({ ...base, provider: "gitea", remoteUrl: "https://gitea.example.test/o/r.git" })).toBe("closed");
+    expect(calls.at(-1)!.url).toBe("https://gitea.example.test/api/v1/repos/o/r/pulls/7");
+    expect(header("authorization")).toBe("token t0ken-value-123");
+    answer = { state: "closed", merged: true };
+    expect(await api.state({ ...base, provider: "gitea", remoteUrl: "https://gitea.example.test/o/r.git" })).toBe("merged");
+
+    answer = { state: "opened" };
+    expect(await api.state({ ...base, provider: "gitlab", remoteUrl: "https://gl.example.test/group/sub/r.git" })).toBe("open");
+    expect(calls.at(-1)!.url).toBe("https://gl.example.test/api/v4/projects/group%2Fsub%2Fr/merge_requests/7");
+    expect(header("private-token")).toBe("t0ken-value-123");
+    answer = { state: "merged" };
+    expect(await api.state({ ...base, provider: "gitlab", remoteUrl: "https://gl.example.test/o/r.git" })).toBe("merged");
+    answer = { state: "closed" };
+    expect(await api.state({ ...base, provider: "gitlab", remoteUrl: "https://gl.example.test/o/r.git" })).toBe("closed");
+    // Locked is a merge in progress: not merged yet.
+    answer = { state: "locked" };
+    expect(await api.state({ ...base, provider: "gitlab", remoteUrl: "https://gl.example.test/o/r.git" })).toBe("open");
+
+    answer = { state: "draft-ish" };
+    await expect(api.state({ ...base, provider: "gitlab", remoteUrl: "https://gl.example.test/o/r.git" })).rejects.toThrow(/does not know/u);
+    await expect(api.state({ ...base, provider: "bitbucket" as never, remoteUrl: "https://bitbucket.example.test/o/r.git" })).rejects.toThrow(/not supported for the Git provider "bitbucket"/);
+  });
+
+  it("does not take an answer without an address for an opened request", async () => {
+    const api = new HostedPullRequestApi((async () => new Response(JSON.stringify({ number: 3 }), { status: 201 })) as unknown as typeof fetch);
+    await expect(api.open({ provider: "github", remoteUrl: "https://github.com/o/r.git", credentials: { token: "t" }, base: "main", head: "b", title: "T", body: "B" })).rejects.toThrow(/did not return the address/u);
+  });
+
   it("refuses proposed paths outside the repository", () => {
     expect(() => checkProposedFiles([{ path: "../etc/passwd", content: "x" }])).toThrow(/outside the repository/);
     expect(() => checkProposedFiles([{ path: ".git/config", content: "x" }])).toThrow(/outside the repository/);

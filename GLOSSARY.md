@@ -307,10 +307,11 @@ none does); a session's own comment is only in the thread. A comment never autho
 _Avoid_: note, annotation
 
 **Checkpoint**:
-Durable state recorded by an attempt — a checkpoint commit on its branch, progress,
-consumed and produced outputs, and in-flight effects — from which a later attempt can
-resume. Resuming always creates a new attempt. A checkpoint is valid once the Governor
-has checked it; it is never "verified", which belongs to evidence.
+Durable state an attempt leaves — progress, consumed and produced outputs, in-flight
+effects and, for an engine that can resume, its saved conversation held on the runner that
+took it. Resuming starts a new session in a new run on that runner and the session shows the
+checkpoint it started from. A checkpoint is valid once the Governor has checked it; it is
+never "verified", which belongs to evidence.
 _Avoid_: snapshot, savepoint, resume point, verified checkpoint
 
 **Runner**:
@@ -596,6 +597,12 @@ The hosting product a Git connection is declared to be (GitHub, GitHub Enterpris
 Gitea), chosen when the connection is set up. It decides which API opens a pull request; it is
 never inferred from the address, and any other provider is refused.
 _Avoid_: Git host (the host is only the address), vendor
+
+**Pull request record**:
+The pull request an approved change opened, kept once on its work item and its approval: the
+address, the Git provider, and the state it had when opened. Never edited; where the request
+stands later is a new observation, read from the provider only when a person refreshes it.
+_Avoid_: PR status (a record has a history of states, not one mutable status)
 
 **Diagnostics bundle**:
 The redacted file an administrator downloads from Health for support: versions, runner

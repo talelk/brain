@@ -4477,6 +4477,10 @@
         "context": {
           "$ref": "#/$defs/ArtifactRef"
         },
+        "resumeFrom": {
+          "$ref": "#/$defs/ArtifactRef",
+          "description": "Engine state saved by an earlier session (a checkpoint's engineState): the engine starts from it instead of an empty conversation, or refuses when it does not hold it."
+        },
         "limits": {
           "type": "object",
           "properties": {
@@ -7731,6 +7735,7 @@
             "handoffs.forWorkItem",
             "missionMessages.list",
             "workItemComments.list",
+            "pullRequests.list",
             "missionOutputs.list",
             "missionOutputs.get",
             "plans.get",
@@ -7822,6 +7827,7 @@
             "handoffs.forWorkItem",
             "missionMessages.list",
             "workItemComments.list",
+            "pullRequests.list",
             "missionOutputs.list",
             "missionOutputs.get",
             "plans.get",
@@ -8177,6 +8183,27 @@
         "checkpoint": {
           "$ref": "#/$defs/Checkpoint"
         },
+        "resumedFrom": {
+          "type": "object",
+          "description": "The checkpoint a resumed session started from, and the runner that held it.",
+          "properties": {
+            "sessionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "checkpointDigest": {
+              "$ref": "#/$defs/Digest"
+            },
+            "runnerId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "sessionId",
+            "checkpointDigest",
+            "runnerId"
+          ],
+          "additionalProperties": false
+        },
         "activity": {
           "type": "object",
           "properties": {
@@ -8340,9 +8367,6 @@
         },
         "worktreeId": {
           "$ref": "#/$defs/Id"
-        },
-        "resumeFromSessionId": {
-          "$ref": "#/$defs/Id"
         }
       },
       "required": [
@@ -8381,6 +8405,56 @@
         },
         "payload": {
           "$ref": "#/$defs/SessionCreateInput"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "idempotencyKey",
+        "payload",
+        "workspaceId"
+      ],
+      "additionalProperties": false
+    },
+    "SessionResumeInput": {
+      "type": "object",
+      "description": "Resumes a session from the checkpoint it saved: a new session starts on the runner that holds the checkpoint. Nothing else is chosen by the caller; the source session fixes the work item, the workflow and its input.",
+      "properties": {
+        "sessionId": {
+          "$ref": "#/$defs/Id"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "additionalProperties": false
+    },
+    "SessionResumeCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "session.resume"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "expectedVersion": {
+          "$ref": "#/$defs/Counter"
+        },
+        "payload": {
+          "$ref": "#/$defs/SessionResumeInput"
         }
       },
       "required": [
@@ -11309,6 +11383,9 @@
           "$ref": "#/$defs/SessionCreateCommand"
         },
         {
+          "$ref": "#/$defs/SessionResumeCommand"
+        },
+        {
           "$ref": "#/$defs/SessionCheckpointCommand"
         },
         {
@@ -11490,6 +11567,9 @@
         },
         {
           "$ref": "#/$defs/WorkItemDetailsSetCommand"
+        },
+        {
+          "$ref": "#/$defs/PullRequestRefreshCommand"
         },
         {
           "$ref": "#/$defs/KnowledgeWithdrawUnobservedCommand"
@@ -12195,11 +12275,26 @@
         "reconnectable": {
           "type": "boolean"
         },
-        "resumable": {
-          "type": "boolean"
-        },
-        "continueNative": {
-          "type": "boolean"
+        "resume": {
+          "type": "object",
+          "description": "Whether the session can be resumed from its checkpoint. `possible` is true only when the engine can resume, the checkpoint is held by a runner that is online and the work still wants it; `reason` says plainly why not when a checkpoint exists but cannot be used, and is absent when there is nothing to resume.",
+          "properties": {
+            "possible": {
+              "type": "boolean"
+            },
+            "runnerId": {
+              "$ref": "#/$defs/Id"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          "required": [
+            "possible"
+          ],
+          "additionalProperties": false
         },
         "restartable": {
           "type": "boolean"
@@ -12210,8 +12305,7 @@
       },
       "required": [
         "reconnectable",
-        "resumable",
-        "continueNative",
+        "resume",
         "restartable",
         "reconcileRequired"
       ],
@@ -12308,6 +12402,27 @@
         },
         "checkpoint": {
           "$ref": "#/$defs/Checkpoint"
+        },
+        "resumedFrom": {
+          "type": "object",
+          "description": "The checkpoint a resumed session started from, and the runner that held it.",
+          "properties": {
+            "sessionId": {
+              "$ref": "#/$defs/Id"
+            },
+            "checkpointDigest": {
+              "$ref": "#/$defs/Digest"
+            },
+            "runnerId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "sessionId",
+            "checkpointDigest",
+            "runnerId"
+          ],
+          "additionalProperties": false
         },
         "version": {
           "$ref": "#/$defs/Counter"
@@ -26445,6 +26560,168 @@
         "runId",
         "items",
         "truncated"
+      ],
+      "additionalProperties": false
+    },
+    "PullRequestState": {
+      "type": "string",
+      "enum": [
+        "open",
+        "merged",
+        "closed"
+      ]
+    },
+    "PullRequestObservation": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/PullRequestState"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "opened",
+            "refresh"
+          ]
+        },
+        "observedBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "observedAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "state",
+        "source",
+        "observedAt"
+      ],
+      "additionalProperties": false
+    },
+    "PullRequest": {
+      "type": "object",
+      "properties": {
+        "pullRequestId": {
+          "$ref": "#/$defs/Id"
+        },
+        "approvalId": {
+          "$ref": "#/$defs/Id"
+        },
+        "workItemId": {
+          "$ref": "#/$defs/Id"
+        },
+        "missionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "runId": {
+          "$ref": "#/$defs/Id"
+        },
+        "provider": {
+          "$ref": "#/$defs/GitProvider"
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "number": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^https?://"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "base": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "openedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "state": {
+          "$ref": "#/$defs/PullRequestState"
+        },
+        "stateObservedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PullRequestObservation"
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "pullRequestId",
+        "approvalId",
+        "provider",
+        "repository",
+        "number",
+        "url",
+        "title",
+        "branch",
+        "base",
+        "openedAt",
+        "state",
+        "stateObservedAt",
+        "observations"
+      ],
+      "additionalProperties": false
+    },
+    "PullRequestRefreshCommand": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "brain.command/v1"
+        },
+        "commandId": {
+          "$ref": "#/$defs/Id"
+        },
+        "commandType": {
+          "type": "string",
+          "const": "pullRequest.refresh"
+        },
+        "workspaceId": {
+          "$ref": "#/$defs/Id"
+        },
+        "idempotencyKey": {
+          "$ref": "#/$defs/Id"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "pullRequestId": {
+              "$ref": "#/$defs/Id"
+            }
+          },
+          "required": [
+            "pullRequestId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "commandId",
+        "commandType",
+        "workspaceId",
+        "idempotencyKey",
+        "payload"
       ],
       "additionalProperties": false
     }

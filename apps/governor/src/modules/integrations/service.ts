@@ -1,5 +1,5 @@
 import { domainDigest } from "@brain/contracts";
-import type { ActorContext, GitConnection, GitProposal, GitProvider, IntegrationRepository, JsonValue, RepositoryBinding } from "@brain/contracts";
+import type { ActorContext, GitConnection, GitProposal, GitProvider, IntegrationRepository, JsonValue, PullRequestState, RepositoryBinding } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
@@ -7,6 +7,9 @@ import { decryptGitCredentials, encryptGitCredentials } from "./crypto";
 import { checkProviderFitsHost, gitProviderLabel, parseGitProvider } from "./git-provider";
 import { protocolClient, type RemoteSnapshot } from "./providers";
 import { HostedPullRequestApi, pushProposalBranch, type ProposedFile, type PullRequestApi } from "./pull-request";
+
+/** What a provider answered when a pull request was opened, with the connection and repository it was opened through. */
+export interface OpenedPullRequest { url: string; number: number; branch: string; base: string; commit: string; provider: GitProvider; connectionId: string; repositoryKey: string }
 
 export interface IntegrationCommand {
   readonly commandType: string;
@@ -73,7 +76,7 @@ export class IntegrationService {
    * Opens a pull request in the workspace's bound project repository: a new branch with the proposed files, then the provider's request.
    * Runs only for an approved call (the caller holds a started permit). Returns the address; the token is never part of any result or error.
    */
-  async openPullRequest(organizationId: string, workspaceId: string, input: { title: string; body: string; branch: string; files: readonly ProposedFile[] }): Promise<{ url: string; number: number; branch: string; commit: string }> {
+  async openPullRequest(organizationId: string, workspaceId: string, input: { title: string; body: string; branch: string; files: readonly ProposedFile[] }): Promise<OpenedPullRequest> {
     const binding = this.pullRequestBinding(organizationId, workspaceId);
     if (!binding) throw new BrainDomainError("FORBIDDEN", this.pullRequestTargetProblem(organizationId, workspaceId) ?? "no repository");
     const credentials = decryptGitCredentials(this.store.pepper, organizationId, binding.connection_id, binding.encrypted_credentials);
@@ -83,9 +86,26 @@ export class IntegrationService {
     try {
       const pushed = await pushProposalBranch(binding.repository_key, credentials, { base, head: input.branch, message: input.title, files: input.files });
       const opened = await this.pullRequestApi.open({ provider: binding.provider, remoteUrl: binding.repository_key, credentials, base, head: input.branch, title: input.title, body: input.body });
-      return { url: opened.url, number: opened.number, branch: input.branch, commit: pushed.commitOid };
+      return { url: opened.url, number: opened.number, branch: input.branch, base, commit: pushed.commitOid, provider: binding.provider, connectionId: binding.connection_id, repositoryKey: binding.repository_key };
     } catch (error) {
       throw new BrainDomainError("INTERNAL_ERROR", scrub(error instanceof Error ? error.message : "the pull request could not be opened").slice(0, 300));
+    }
+  }
+
+  /**
+   * Where a pull request this server opened stands at its provider now. Read through the connection it was opened over (not the newest
+   * binding), so a connection that was removed or no longer verifies is refused in plain words and nothing is recorded from a guess.
+   */
+  async pullRequestState(organizationId: string, ref: { connectionId: string; provider: GitProvider; repositoryKey: string; number: number }): Promise<PullRequestState> {
+    const connection = this.store.control.prepare("SELECT id, status, encrypted_credentials FROM git_connections WHERE id=? AND organization_id=?").get(ref.connectionId, organizationId) as { id: string; status: string; encrypted_credentials: string } | undefined;
+    if (!connection) throw new BrainDomainError("NOT_FOUND", "the Git connection this pull request was opened through no longer exists, so its state cannot be read from here");
+    if (connection.status !== "verified") throw new BrainDomainError("CONFLICT", "the Git connection this pull request was opened through is not verified; verify it in Administration > Integrations, then refresh again");
+    const credentials = decryptGitCredentials(this.store.pepper, organizationId, connection.id, connection.encrypted_credentials);
+    try {
+      return await this.pullRequestApi.state({ provider: ref.provider, remoteUrl: ref.repositoryKey, credentials, number: ref.number });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "the pull request could not be read";
+      throw new BrainDomainError("INTERNAL_ERROR", (credentials.token ? message.split(credentials.token).join("[hidden]") : message).slice(0, 300));
     }
   }
 

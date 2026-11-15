@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { cpus, freemem } from "node:os";
 import { join } from "node:path";
 import { domainDigest, sha256Digest } from "@brain/contracts";
-import type { ArtifactRef, EngineInfo, EvaluationAssignment, JsonValue, ReleaseRef, VerificationVerdict } from "@brain/contracts";
+import type { ArtifactRef, Checkpoint, EngineInfo, EvaluationAssignment, JsonValue, ReleaseRef, VerificationVerdict } from "@brain/contracts";
 import Ajv2020 from "ajv/dist/2020.js";
 import { executeToolPayload, normalizeEvaluation } from "./tools/invoke";
 import { brokerRead } from "./tools/broker-read";
@@ -174,6 +174,9 @@ export function settledEffectsNote(settled: ReadonlyArray<{ summary: string; out
   return `\n\n# Changes you proposed earlier in this task\nYou already investigated and proposed these. Do not propose them again. Write your final report now, saying plainly what became of each.\n${settled.map((entry, index) => `${index + 1}. ${entry.summary}: this change ${how[entry.outcome] ?? entry.outcome}.${entry.result ? ` It reported: ${entry.result}` : ""}`).join("\n")}`;
 }
 
+/** What a resumed attempt is told: the conversation before it is its own earlier work, not a new task. */
+export const RESUME_NOTE = "\n\n# Resuming earlier work\nThis conversation continues your own earlier attempt at this task, which stopped before it finished. Pick up from where it stopped; do not start over or repeat work you already did.";
+
 /** The hosted model the Governor routed this attempt to (a check or a second attempt, ADR 0023), for every engine that can take one. */
 export function hostedRouteOf(route: { tier?: string; role?: string; baseUrl?: string; model?: string; inputMicroUsdPerMTok?: number; outputMicroUsdPerMTok?: number } | undefined): HostedRoute | undefined {
   // A route without both prices would run hosted spend for free; the Governor never sends one, and the runner does not accept one.
@@ -194,7 +197,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
   const ack = await client.ack(offer.attemptId, ackBody);
   // Execution input travels as a digest-pinned CAS artifact, never inline.
   const artifactBytes = await client.executionArtifact(offer.attemptId, offer.execution.artifact.digest, offer.execution.artifact.bytes);
-  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment; modelRoute?: Parameters<typeof hostedRouteOf>[0]; contextPack?: { text?: string; unavailableTools?: Array<{ id: string; reason?: string }> }; skills?: Array<{ id: string; digest: string; text: string }> };
+  const payload = JSON.parse(new TextDecoder().decode(artifactBytes)) as { kind?: string; input?: Record<string, unknown>; step?: Record<string, unknown>; evaluation?: EvaluationAssignment; modelRoute?: Parameters<typeof hostedRouteOf>[0]; contextPack?: { text?: string; unavailableTools?: Array<{ id: string; reason?: string }> }; skills?: Array<{ id: string; digest: string; text: string }>; resume?: { engineState: ArtifactRef; fromSessionId: string } };
   // The execution deadline is the lease: a monotonic clock (performance.now)
   // is armed from the ack's server lease expiry and refreshed by every
   // successful renewal, so wall-clock adjustments cannot extend the window.
@@ -282,7 +285,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       permit = { token: granted.token, permitId: granted.invocationId ?? `inv-${offer.attemptId}` };
       (payload as { invocationId?: string }).invocationId = granted.invocationId ?? `inv-${offer.attemptId}`;
     }
-    let result: { ok: boolean; output: JsonValue; cleanupConfirmed?: boolean };
+    let result: { ok: boolean; output: JsonValue; cleanupConfirmed?: boolean; checkpoint?: Checkpoint };
     const toolArtifacts: ArtifactRef[] = [];
     // Files an agent writes with files.write live in this attempt's own folder until the attempt ends well (run-output.ts); removed in every case.
     const outputs = new RunOutputDir(cfg.stateDir, offer.attemptId);
@@ -332,7 +335,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       if (!engine) throw new Error(`none of the required engines (${asset.agent.spec.engine.anyOf.join(", ")}) is configured on this runner with the ${required} isolation this step requires`);
       const engineProbe = await engine.probe();
       engineInfo = { id: engineProbe.id, adapterDigest: engineProbe.adapterDigest, features: [...engineProbe.features] };
-      const task = promptWithContext(step.task ?? JSON.stringify(payload.input ?? {}), payload.contextPack) + settledEffectsNote(settledEffects);
+      const task = promptWithContext(step.task ?? JSON.stringify(payload.input ?? {}), payload.contextPack) + settledEffectsNote(settledEffects) + (payload.resume ? RESUME_NOTE : "");
       const launcher = cfg.launcher ?? (LauncherClient.configured() ? LauncherClient.fromEnv() : undefined);
       const toolPins = (offer as { toolPins?: Record<string, string> }).toolPins;
       const ajv = new Ajv2020({ allErrors: true, strict: true });
@@ -356,7 +359,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
         engine, attemptId: offer.attemptId, jobFence: offer.jobFence, leaseId: offer.leaseId,
         runnerId: cfg.runnerId, runnerEpoch, organizationId: offer.organizationId ?? "", workspaceId: offer.workspaceId,
         jobId: offer.jobId, configDigest: offer.configDigest, sourceRevision: offer.sourceRevision ?? offer.configDigest,
-        instructions, task, modelId: route?.model ?? process.env["BRAIN_LOCAL_MODEL_ID"], timeoutMs: (step.timeoutSeconds ?? 300) * 1000,
+        instructions, task, ...(payload.resume ? { resumeFrom: payload.resume.engineState } : {}), modelId: route?.model ?? process.env["BRAIN_LOCAL_MODEL_ID"], timeoutMs: (step.timeoutSeconds ?? 300) * 1000,
         maxTurns: asset.agent.spec.maxTurns, maxTokens: asset.agent.spec.maxTokens,
         outputCheck: outputContractCheck((payload as { outputSchema?: unknown }).outputSchema),
         maxMicroUsd: asset.agent.spec.maxMicroUsd, allowedTools: offeredTools,
@@ -465,6 +468,7 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
     await client.complete(offer.attemptId, {
       result: outcomeUnknown ? "unknown-outcome" : result.ok ? "succeeded" : "failed", output, jobFence: offer.jobFence, cleanupConfirmed: result.cleanupConfirmed ?? true,
       ...(held ? { held: true } : {}),
+      ...(result.checkpoint ? { checkpoint: result.checkpoint } : {}),
     });
     // A workflow with no evaluator (a tool test) claims no checks: there is nothing for a bundle to carry, and an empty one is refused.
     if (result.ok && !held && (payload as { kind?: string }).kind !== "act" && !assignment && offer.authorEvidence && offer.authorEvidence.claimedChecks.length > 0 && offer.workflowRunId && artifact) {

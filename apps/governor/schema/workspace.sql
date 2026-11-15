@@ -258,6 +258,26 @@ CREATE TABLE work_item_comments (
   created_at_ms INTEGER NOT NULL
 ) STRICT;
 CREATE INDEX work_item_comments_thread ON work_item_comments(work_item_id, created_at_ms, id);
+-- A pull request an approved git.open-pr call opened (#121, ADR 0044). Written once, from the answer the Governor itself got from the provider,
+-- and never edited: the provider and repository are copied here so a later change to the connection cannot rewrite what was opened. What
+-- a later look finds is a new pull_request_states row; the newest row is the current state. work_item_id/mission_id/run_id are empty for a
+-- run that serves no work item.
+CREATE TABLE pull_requests (
+  id TEXT PRIMARY KEY, approval_id TEXT NOT NULL UNIQUE, invocation_id TEXT NOT NULL, run_id TEXT, work_item_id TEXT REFERENCES work_items(id), mission_id TEXT,
+  connection_id TEXT NOT NULL, provider TEXT NOT NULL CHECK(provider IN ('github','github-enterprise','gitlab','gitea')), repository_key TEXT NOT NULL,
+  number INTEGER NOT NULL CHECK(number >= 0), url TEXT NOT NULL CHECK(url LIKE 'http://%' OR url LIKE 'https://%'), title TEXT NOT NULL, branch TEXT NOT NULL, base_branch TEXT NOT NULL,
+  commit_oid TEXT NOT NULL, opened_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX pull_requests_work_item ON pull_requests(work_item_id, opened_at_ms);
+CREATE TABLE pull_request_states (
+  id TEXT PRIMARY KEY, pull_request_id TEXT NOT NULL REFERENCES pull_requests(id), state TEXT NOT NULL CHECK(state IN ('open','merged','closed')),
+  source TEXT NOT NULL CHECK(source IN ('opened','refresh')), observed_by TEXT, observed_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX pull_request_states_latest ON pull_request_states(pull_request_id, observed_at_ms, id);
+CREATE TRIGGER pull_requests_never_edited BEFORE UPDATE ON pull_requests BEGIN SELECT RAISE(ABORT, 'a pull request record is never edited'); END;
+CREATE TRIGGER pull_requests_never_removed BEFORE DELETE ON pull_requests BEGIN SELECT RAISE(ABORT, 'a pull request record is never removed'); END;
+CREATE TRIGGER pull_request_states_never_edited BEFORE UPDATE ON pull_request_states BEGIN SELECT RAISE(ABORT, 'a pull request observation is never edited'); END;
+CREATE TRIGGER pull_request_states_never_removed BEFORE DELETE ON pull_request_states BEGIN SELECT RAISE(ABORT, 'a pull request observation is never removed'); END;
 CREATE TABLE workflow_runs (
   id TEXT PRIMARY KEY, execution_key TEXT NOT NULL UNIQUE, config_digest TEXT NOT NULL,
   workflow_digest TEXT NOT NULL, adapter_digest TEXT NOT NULL, engine_run_id TEXT NOT NULL UNIQUE,
@@ -277,6 +297,7 @@ CREATE TABLE job_projection (
   source_cursor INTEGER NOT NULL CHECK(source_cursor >= 0), state TEXT NOT NULL,
   queue_reason TEXT, updated_at_ms INTEGER NOT NULL
 ) STRICT;
+-- sessions.resumed_from_json: the checkpoint a resumed session started from and the runner that held it (a session's own checkpoint is checkpoint_digest and checkpoint_json).
 CREATE TABLE sessions (
   id TEXT PRIMARY KEY, job_id TEXT, attempt_id TEXT,
   mode TEXT NOT NULL DEFAULT 'native' CHECK(mode IN ('native','managed')),
@@ -286,6 +307,7 @@ CREATE TABLE sessions (
   engine_features TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(engine_features)),
   state TEXT NOT NULL CHECK(state IN ('starting','running','waiting','stopping','stopped','failed')),
   checkpoint_digest TEXT, checkpoint_json TEXT CHECK(checkpoint_json IS NULL OR json_valid(checkpoint_json)),
+  resumed_from_json TEXT DEFAULT NULL CHECK(resumed_from_json IS NULL OR json_valid(resumed_from_json)),
   event_sequence INTEGER NOT NULL DEFAULT 0 CHECK(event_sequence >= 0),
   delegation_depth INTEGER NOT NULL DEFAULT 0 CHECK(delegation_depth BETWEEN 0 AND 3),
   budget_json TEXT NOT NULL DEFAULT '{"maxTokens":100000,"maxMicroUsd":0,"maxTurns":10}' CHECK(json_valid(budget_json)),
@@ -512,9 +534,11 @@ CREATE TABLE session_controls (
  created_at_ms INTEGER NOT NULL
 ) STRICT;
 -- Workflow engine state: dispatch input, step outputs, child links, durable waits. run_inputs.priority (0 low .. 3 urgent) is that of the work item the run was dispatched for; every job of the run is created with it, and work with no item is normal (1).
+-- run_inputs.resume_json: set on a run started by resuming a session; the one step that continues the saved engine state is the only job pinned to the runner holding it.
 CREATE TABLE run_inputs (
  run_id TEXT PRIMARY KEY, input_json TEXT NOT NULL, workflow_json TEXT NOT NULL,
  actor_id TEXT NOT NULL, runner_id TEXT,
+ resume_json TEXT DEFAULT NULL CHECK(resume_json IS NULL OR json_valid(resume_json)),
  priority INTEGER NOT NULL DEFAULT 1 CHECK(priority BETWEEN 0 AND 3)
 ) STRICT;
 CREATE TABLE step_outputs (

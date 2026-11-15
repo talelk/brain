@@ -1,6 +1,6 @@
 import { readRuntimeConfig, type RuntimeConfig } from "../runtime-config";
 import { join } from "node:path";
-import type { ActorContext, CommandReceipt, RedactedDiagnostics, HumanApprovalDecision, JsonValue, MemoryResult, WorkflowCatalogEntry,
+import type { ActorContext, ArtifactRef, CommandReceipt, RedactedDiagnostics, HumanApprovalDecision, JsonValue, MemoryResult, Workflow, WorkflowCatalogEntry,
 } from "@brain/contracts";
 import { approvalSubjectDigest, domainDigest, isKnownQuery } from "@brain/contracts";
 import { validate } from "@brain/contracts/validate";
@@ -38,12 +38,13 @@ import { getPack, listPack, slaSummary } from "../modules/packs/index";
 import { artifactHistory, diffArtifacts, listArtifacts, readArtifactBytes, searchArtifacts } from "../modules/evidence/index";
 import { bridge } from "../modules/missions/index";
 import { searchSessions } from "../modules/sessions/index";
-import { jobCommands, JobProtocol, type CreateJobInput } from "../modules/jobs/index";
+import { jobCommands, JobProtocol, runnerResumeReadiness, type CreateJobInput } from "../modules/jobs/index";
 import { issuePermit as governanceIssuePermit, validatePermit as governanceValidatePermit } from "../modules/governance/index";
 import { beginGovernorRun, finishEffect, issueEffectPermit, requestEffect, startEffect, type EffectPorts } from "../modules/governance/index";
 import { runGovernorEffect } from "./effect-broker";
+import { pullRequestCommands } from "./pull-requests";
 import { revokeTrustDomain, verifyTrustDomain as governanceVerifyTrustDomain } from "../modules/governance/index";
-import { MissionService, ShareService, missionCommands } from "../modules/missions/index";
+import { MissionService, ShareService, missionCommands, recordPullRequest } from "../modules/missions/index";
 import { AutoStart, AUTO_START_TRIGGERS } from "./auto-start";
 import { Challenges } from "./challenges";
 import { BundleJudge } from "./bundle-judge";
@@ -52,10 +53,10 @@ import { StarterPlays } from "./starter-plays";
 import { attentionCommands, attentionQuery, qualityBreakdown, qualitySummary } from "../modules/stream/index";
 import { connectorsFromEnv, handleInbound, smtpTarget, type Connectors } from "../modules/operations/index";
 import { alertBadProbes, notifyApprovers, platformAlertLink, securitySettingsLink, checkBackups, checkDisk, diagnosticsBundle, checkHostedModels, checkModelEndpoint, checkReplica, replicaConfig, replicateOnce, recordProbe, absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
-import { SessionService, continuationFacts, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
+import { SessionService, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
-import { IntegrationService, integrationCommands } from "../modules/integrations/index";
+import { IntegrationService, integrationCommands, type OpenedPullRequest } from "../modules/integrations/index";
 import { ConfigurationDraftService } from "../modules/configuration/index";
 import { CapitalizationService, ToolTests, capitalizationCommands } from "../modules/capabilities/index";
 
@@ -109,7 +110,11 @@ export class Brain {
       }, { requestMissionRun: (organizationId, workspaceId, missionId) => this.capitalization.requestMissionRun(organizationId, workspaceId, missionId) }, {
         setRunPriority: (organizationId, workspaceId, runId, jobPriority) => { setRunPriority(this.store, organizationId, workspaceId, runId, jobPriority); this.jobProtocol.reprioritizeForRun(runId, jobPriority); },
       });
-      this.sessions = new SessionService(this.store, { brief: (actor, workspaceId, missionId) => this.missions.briefOf(actor, workspaceId, missionId) });
+      this.sessions = new SessionService(this.store, { brief: (actor, workspaceId, missionId) => this.missions.briefOf(actor, workspaceId, missionId) }, {
+        runnerReadiness: (runnerId, engineId) => runnerResumeReadiness(this.store, runnerId, engineId),
+        taskBlocker: (actor, workspaceId, workItemId) => this.missions.resumeBlocker(actor, workspaceId, workItemId),
+        startRun: (actor, workspaceId, input) => this.startResumedRun(actor, workspaceId, input),
+      });
       this.stream = createStreamService(this.store);
       this.documents = new DocumentService(this.store);
       this.integrations = new IntegrationService(this.store);
@@ -186,6 +191,7 @@ export class Brain {
         sessionCommands(this.sessions),
         documentCommands(this.documents),
         integrationCommands(this.integrations),
+        pullRequestCommands({ store: this.store, integrations: this.integrations }),
         configurationCommands(this.store, this.drafts),
         capitalizationCommands(this.capitalization),
         jobCommands(this.store, this.jobProtocol),
@@ -397,6 +403,30 @@ export class Brain {
     // The finished item frees a member slot: the next ready task may start.
     void this.autoStart.sweep(input.organizationId, input.workspaceId).catch(() => undefined);
   }
+  /**
+   * Resume (ADR 0045): a new run of the source run's workflow and input, its continuing step pinned to the runner holding the saved engine
+   * state, linked to the task. A run that cannot be linked is cancelled, never left queued for a runner.
+   */
+  private startResumedRun(actor: ActorContext, workspaceId: string, input: { sourceRunId: string; stepId: string; workItemId: string; executionKey: string; resume: { runnerId: string; engineId: string; engineState: ArtifactRef; fromSessionId: string } }): string {
+    const ws = this.store.workspaceDb(workspaceId, actor.organizationId);
+    const source = ws.prepare("SELECT r.config_digest AS configDigest, i.input_json AS inputJson, i.workflow_json AS workflowJson, i.priority AS priority FROM workflow_runs r JOIN run_inputs i ON i.run_id=r.id WHERE r.id=?")
+      .get(input.sourceRunId) as { configDigest: string; inputJson: string; workflowJson: string; priority: number } | undefined;
+    if (!source) throw new BrainDomainError("NOT_FOUND", "the run this session belonged to is gone");
+    const workflow = JSON.parse(source.workflowJson) as Workflow;
+    const { runId } = this.workflows.startRun({
+      organizationId: actor.organizationId, workspaceId, actorId: actor.actorId, workflowId: workflow.metadata.id, workflow, configDigest: source.configDigest,
+      runInput: JSON.parse(source.inputJson) as JsonValue, executionKey: input.executionKey, priority: source.priority, resume: { stepId: input.stepId, ...input.resume },
+    });
+    try {
+      this.missions.linkExecution(actor, workspaceId, input.workItemId, runId, { resumed: true });
+    } catch (cause) {
+      this.workflows.cancelRun(actor.organizationId, workspaceId, runId);
+      this.jobProtocol.cancelForRun(runId);
+      throw cause;
+    }
+    return runId;
+  }
+
   steerSession(input: { organizationId: string; workspaceId: string; sessionId: string; message: string }): void {
     enqueueSessionControl(this.store, { ...input, kind: "session.steer", payload: { sessionId: input.sessionId, message: input.message } });
   }
@@ -626,7 +656,12 @@ export class Brain {
   /** Performs an effect that needs the Governor's own credentials (ticket, message, pull request), once, for a started call. */
   runEffect(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, body: Record<string, unknown>): Promise<JsonValue> {
     const begun = beginGovernorRun(this.store, { auth: this.auth }, runner, attemptId, body);
-    return runGovernorEffect({ connectors: this.connectors(), integrations: this.integrations }, begun);
+    const pullRequestOpened = (opened: OpenedPullRequest, title: string): void => {
+      recordPullRequest(this.store, this.store.workspaceDb(begun.workspaceId, begun.organizationId), {
+        organizationId: begun.organizationId, workspaceId: begun.workspaceId, approvalId: begun.approvalId, invocationId: begun.invocationId, runId: begun.runId, opened, title,
+      });
+    };
+    return runGovernorEffect({ connectors: this.connectors(), integrations: this.integrations, pullRequestOpened }, begun);
   }
 
   acceptAttemptArtifact(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, input: { digest: string; bytesBase64: string; mediaType?: string }): { artifactId: string; digest: string; bytes: number } {
@@ -1006,7 +1041,7 @@ export class Brain {
         // operation from these facts and enables only commands that exist.
         this.stream.project();
         const sessionId = String(q.resourceId);
-        const continuation = continuationFacts(this.store, { organizationId: actor.organizationId, workspaceId: q.workspaceId, sessionId });
+        const continuation = this.sessions.continuation(actor, q.workspaceId, sessionId);
         const extended = { ...(snapshot as unknown as Record<string, JsonValue>), streamCursor: this.stream.headForSession(sessionId), continuation } as unknown as JsonValue;
         return this.envelope(q.queryType, extended);
       }
@@ -1018,7 +1053,7 @@ export class Brain {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.jobProtocol.automations.query(actor, q.queryType, q.workspaceId, q.resourceId, limit, (raw as { search?: string }).search));
       }
-      case "missions.list": case "missions.get": case "missions.timeline": case "missions.forSubject": case "missions.brief": case "handoffs.forWorkItem": case "missionBundles.latest": case "missionOutputs.list": case "missionOutputs.get": case "missionMessages.list": case "workItemComments.list": case "plans.get": case "workItems.list": case "workItems.get": case "executionLinks.list": case "usage.run": case "usage.task": case "usage.mission": case "usage.workspace": case "plans.estimate": case "evalCases.list": case "lessons.list": {
+      case "missions.list": case "missions.get": case "missions.timeline": case "missions.forSubject": case "missions.brief": case "handoffs.forWorkItem": case "missionBundles.latest": case "missionOutputs.list": case "missionOutputs.get": case "missionMessages.list": case "workItemComments.list": case "pullRequests.list": case "plans.get": case "workItems.list": case "workItems.get": case "executionLinks.list": case "usage.run": case "usage.task": case "usage.mission": case "usage.workspace": case "plans.estimate": case "evalCases.list": case "lessons.list": {
         if (!q.workspaceId) throw new BrainDomainError("INVALID_ARGUMENT", "workspaceId required");
         return this.envelope(q.queryType, this.missions.query(actor, q.queryType, q.workspaceId, q.resourceId, limit));
       }
