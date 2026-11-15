@@ -225,6 +225,12 @@ An open work item past its due date, flagged on its card and the board only. It 
 and never notifies.
 _Avoid_: late alert, deadline breach
 
+**Subtask**:
+A work item that belongs to a parent work item, named by a plan version (`parentId` on its plan task), one level deep. The
+parent shows how many subtasks are done and what they cost together, and is Done only when every live subtask is Done on its
+own evidence and it has its own (ADR 0052). Not a delegated child session, which is a run of the mission.
+_Avoid_: child task, sub-item, child run
+
 **Affected branch**:
 The plan tasks a new plan version changes, plus everything downstream of them. Every
 other task must stay identical across the two versions.

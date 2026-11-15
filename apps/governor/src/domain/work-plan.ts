@@ -10,17 +10,29 @@ export function assertPlanTasks(tasks: readonly PlanTask[]): readonly string[] {
     if (task.dependsOn.includes(task.id)) throw new BrainDomainError("INVALID_ARGUMENT", `plan task ${task.id} cannot depend on itself`);
     byId.set(task.id, task);
   }
+  // A subtask names a task of the same plan, one level deep: a parent is never itself a subtask (ADR 0052).
+  for (const task of tasks) {
+    if (task.parentId === undefined) continue;
+    const parent = byId.get(task.parentId);
+    if (!parent) throw new BrainDomainError("INVALID_ARGUMENT", `plan task ${task.id} is a subtask of unknown task ${task.parentId}`);
+    if (parent.id === task.id) throw new BrainDomainError("INVALID_ARGUMENT", `plan task ${task.id} cannot be its own parent`);
+    if (parent.parentId !== undefined) throw new BrainDomainError("INVALID_ARGUMENT", `plan task ${task.parentId} is itself a subtask, so ${task.id} cannot sit under it`);
+    // A parent is done only after its subtasks, so a subtask that waited for its parent (or the parent for it) could never finish.
+    if (task.dependsOn.includes(parent.id) || parent.dependsOn.includes(task.id)) throw new BrainDomainError("INVALID_ARGUMENT", `plan tasks ${parent.id} and ${task.id} are parent and subtask and cannot depend on each other`);
+  }
+  // A parent finishes after its subtasks, so they are implicit dependencies of it: a cycle through that edge is a deadlock too.
+  const waitsFor = (task: PlanTask): readonly string[] => [...task.dependsOn, ...tasks.filter((other) => other.parentId === task.id).map((other) => other.id)];
   const indegree = new Map<string, number>();
   const dependents = new Map<string, string[]>();
   for (const task of tasks) {
-    indegree.set(task.id, task.dependsOn.length);
+    indegree.set(task.id, waitsFor(task).length);
     dependents.set(task.id, []);
     for (const dependency of task.dependsOn) {
       if (!byId.has(dependency)) throw new BrainDomainError("INVALID_ARGUMENT", `plan task ${task.id} depends on unknown task ${dependency}`);
     }
   }
-  for (const task of tasks) for (const dependency of task.dependsOn) dependents.get(dependency)?.push(task.id);
-  const ready = tasks.filter((task) => task.dependsOn.length === 0).map((task) => task.id).sort();
+  for (const task of tasks) for (const dependency of waitsFor(task)) dependents.get(dependency)?.push(task.id);
+  const ready = tasks.filter((task) => waitsFor(task).length === 0).map((task) => task.id).sort();
   const order: string[] = [];
   while (ready.length > 0) {
     const id = ready.shift();

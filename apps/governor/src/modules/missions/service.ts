@@ -1,5 +1,5 @@
 import { domainDigest } from "@brain/contracts";
-import type { AcceptedDecision, ActorContext, AutonomyPolicy, AutonomyPreset, ExecutionLink, JsonValue, Mission, MissionBrief, MissionOutcome, OutputInput, PlanAssignment, PlanOperation, PlanTask, PlanVersion, TeamMember, WorkItem, WorkItemPriority, WorkItemState } from "@brain/contracts";
+import type { AcceptedDecision, ActorContext, AutonomyPolicy, AutonomyPreset, ExecutionLink, JsonValue, Mission, MissionBrief, MissionOutcome, OutputInput, PlanAssignment, PlanOperation, PlanTask, PlanVersion, TeamMember, WorkItem, WorkItemPriority, WorkItemState, WorkItemSubtasks } from "@brain/contracts";
 import type { Store } from "../../application/store";
 import { requireWorkspaceRead } from "../../application/authz";
 import { assertExpectedVersion, assertTransition, transitionState } from "../../domain/states";
@@ -85,7 +85,7 @@ type WorkItemRow = {
   next_action: string; blocked_reason: string | null; scheduled_at_ms: number | null; evidence_digest: string | null;
   failed_attempts: number; parked: number; parked_diagnostic: string | null;
   required_tools_json: string; failure_class: FailureClass | null; token_cap: number | null; retry_after_ms: number | null;
-  priority: WorkItemPriority; tags_json: string; due_at_ms: number | null;
+  priority: WorkItemPriority; tags_json: string; due_at_ms: number | null; parent_id: string | null;
   version: number; created_at_ms: number; updated_at_ms: number;
 };
 
@@ -226,6 +226,7 @@ export class MissionService {
       ...(row.failure_class ? { failureClass: row.failure_class, remedy: REMEDY[row.failure_class] } : {}),
       tokenCap: taskTokenCap(row), tokensUsed: taskTokens(this.store, this.store.workspaceDb(workspaceId, actor.organizationId), row.id),
       priority: row.priority, tags: JSON.parse(row.tags_json) as string[],
+      ...this.subtaskFacts(this.store.workspaceDb(workspaceId, actor.organizationId), row),
       ...(row.due_at_ms !== null ? { dueAt: iso(row.due_at_ms) } : {}),
       // A board flag derived on read, never stored: an open item past its due date. It raises no attention item and notifies nobody.
       ...(row.due_at_ms !== null && row.due_at_ms < this.store.now() && row.state !== "done" && row.state !== "abandoned" ? { overdue: true as const } : {}),
@@ -298,6 +299,25 @@ export class MissionService {
     return id;
   }
 
+  /** A subtask names its parent; a parent shows how many of its live subtasks are done and what they and it cost together (#131, ADR 0052). */
+  private subtaskFacts(db: ReturnType<Store["workspaceDb"]>, row: WorkItemRow): Pick<WorkItem, "parentId" | "parentTitle" | "subtasks"> {
+    const parent = row.parent_id ? db.prepare("SELECT id,title FROM work_items WHERE id=?").get(row.parent_id) as { id: string; title: string } | undefined : undefined;
+    const children = this.liveChildren(db, row.id);
+    const facts: { parentId?: string; parentTitle?: string; subtasks?: WorkItemSubtasks } = parent ? { parentId: parent.id, parentTitle: parent.title } : {};
+    if (children.length === 0) return facts;
+    settle(this.store, db, row.mission_id);
+    const spend = [row.id, ...children.map((child) => child.id)].map((id) => taskUsage(db, id));
+    const sum = (pick: (usage: (typeof spend)[number]) => number): number => spend.reduce((total, usage) => total + pick(usage), 0);
+    facts.subtasks = { total: children.length, done: children.filter((child) => child.state === "done").length,
+      tokensUsed: sum((usage) => usage.settledTokens + usage.reservedTokens), settledMicroUsd: sum((usage) => usage.settledMicroUsd), reservedMicroUsd: sum((usage) => usage.reservedMicroUsd) };
+    return facts;
+  }
+
+  /** The subtasks still part of the work: an abandoned (replaced or dropped) one is history. */
+  private liveChildren(db: ReturnType<Store["workspaceDb"]>, parentId: string): Array<{ id: string; title: string; state: WorkItemState }> {
+    return db.prepare("SELECT id,title,state FROM work_items WHERE parent_id=? AND state!='abandoned' ORDER BY created_at_ms,id").all(parentId) as Array<{ id: string; title: string; state: WorkItemState }>;
+  }
+
   /** The workspace's autonomy ceiling: no mission policy may grant more (#35). */
   private ceiling(workspaceId: string): readonly PlanOperation[] {
     const row = this.store.control.prepare("SELECT autonomy_ceiling_json FROM workspaces WHERE id=?").get(workspaceId) as { autonomy_ceiling_json: string | null } | undefined;
@@ -313,6 +333,7 @@ export class MissionService {
     const named = payload["team"] as TeamMember[] | undefined;
     const team = named ?? (actor.kind === "agent" && mission.active_plan_version_id ? JSON.parse(this.planRow(actor, workspaceId, mission.active_plan_version_id).team_json) as TeamMember[] : []);
     assertPlanTasks(tasks);
+    this.assertSubtasksFit(this.db(actor, workspaceId), mission.id, tasks);
     assertServedCriteria(tasks, new Set(parseCriteria(mission.success_criteria_json).map((criterion) => criterion.id)));
     assertTeamEligible(team, tasks, this.agentCapabilities(actor.organizationId));
     this.assertWayOfWorking(actor.organizationId, workspaceId, tasks);
@@ -386,6 +407,7 @@ export class MissionService {
     if (plan.state !== "proposed") throw new BrainDomainError("CONFLICT", "only a proposed plan version can be confirmed");
     const tasks = JSON.parse(plan.tasks_json) as PlanTask[];
     assertPlanTasks(tasks);
+    this.assertSubtasksFit(this.db(actor, workspaceId), mission.id, tasks);
     assertServedCriteria(tasks, new Set(parseCriteria(mission.success_criteria_json).map((criterion) => criterion.id)));
     const team = JSON.parse(plan.team_json) as TeamMember[];
     // The release may have changed since the version was proposed: eligibility holds at confirmation too.
@@ -440,6 +462,11 @@ export class MissionService {
           if (!dependencyId) throw new BrainDomainError("INTERNAL_ERROR", "confirmed plan dependency was not materialized");
           db.prepare("INSERT INTO work_item_dependencies(work_item_id,depends_on_work_item_id) VALUES (?,?)").run(workItemId, dependencyId);
         }
+      }
+      // A subtask follows its parent task to the parent's live item, a retained one included: a replaced parent is a new item.
+      for (const task of tasks) {
+        const workItemId = selected.get(task.id);
+        if (workItemId) db.prepare("UPDATE work_items SET parent_id=? WHERE id=?").run(task.parentId ? selected.get(task.parentId) ?? null : null, workItemId);
       }
       this.releaseReadyItems(db, mission.id, ["backlog"]);
       transitionState(db, "planVersion", plan.id, "confirmed", { set: { confirmed_at_ms: now } });
@@ -527,11 +554,27 @@ export class MissionService {
     return item.id;
   }
 
+  /** A task already Done on evidence takes no new subtask: its Done would no longer mean its children are (ADR 0052). */
+  private assertSubtasksFit(db: ReturnType<Store["workspaceDb"]>, missionId: string, tasks: readonly PlanTask[]): void {
+    const latest = new Map<string, WorkItemRow>();
+    for (const item of db.prepare("SELECT * FROM work_items WHERE mission_id=? AND state!='abandoned' ORDER BY created_at_ms DESC,id DESC").all(missionId) as WorkItemRow[]) if (!latest.has(item.plan_task_id)) latest.set(item.plan_task_id, item);
+    for (const task of tasks) {
+      if (!task.parentId) continue;
+      const parent = latest.get(task.parentId);
+      if (parent?.state !== "done") continue;
+      const prior = latest.get(task.id);
+      const wasUnder = prior?.parent_id ? latest.get(task.parentId)?.id === prior.parent_id : false;
+      if (!wasUnder) throw new BrainDomainError("CONFLICT", `${parent.title} is already done, so it takes no new subtask ${task.id}`);
+    }
+  }
+
   private sameTask(db: ReturnType<Store["workspaceDb"]>, prior: WorkItemRow, task: PlanTask, tools: readonly string[]): boolean {
     if (prior.title !== task.title || prior.workflow_id !== (task.workflowId ?? null)) return false;
     if (prior.required_tools_json !== JSON.stringify(tools)) return false;
     if (JSON.stringify(JSON.parse(prior.criteria_json)) !== JSON.stringify(task.criteria)) return false;
     if (JSON.stringify(prior.assignment_json ? JSON.parse(prior.assignment_json) : null) !== JSON.stringify(task.assignment ?? null)) return false;
+    const parentTask = prior.parent_id ? (db.prepare("SELECT plan_task_id FROM work_items WHERE id=?").get(prior.parent_id) as { plan_task_id: string } | undefined)?.plan_task_id : undefined;
+    if ((parentTask ?? null) !== (task.parentId ?? null)) return false;
     const dependencies = db.prepare("SELECT w.plan_task_id AS id FROM work_item_dependencies d JOIN work_items w ON w.id=d.depends_on_work_item_id WHERE d.work_item_id=? ORDER BY w.plan_task_id").all(prior.id) as Array<{ id: string }>;
     return JSON.stringify(dependencies.map((entry) => entry.id)) === JSON.stringify([...task.dependsOn].sort());
   }
@@ -545,7 +588,18 @@ export class MissionService {
     const db = this.db(actor, workspaceId);
     const reason = payload["reason"] ? String(payload["reason"]) : undefined;
     if (next === "blocked" && !reason) throw new BrainDomainError("INVALID_ARGUMENT", "a blocked work item needs a reason");
+    const cascade = payload["cascade"] === true;
+    if (cascade && next !== "abandoned") throw new BrainDomainError("INVALID_ARGUMENT", "only abandoning a work item can take its subtasks with it");
+    // A parent with open subtasks is never abandoned by accident: a person abandons them with it, and says why.
+    const open = next === "abandoned" ? this.liveChildren(db, item.id).filter((child) => child.state !== "done") : [];
+    if (open.length > 0 && !cascade) throw new BrainDomainError("CONFLICT", `${item.title} still has ${open.length} open ${open.length === 1 ? "subtask" : "subtasks"} (${open.map((child) => child.title).join(", ")}): abandon them with it, or finish them first`);
+    if (cascade && open.length > 0 && (actor.kind !== "human" || !reason)) throw new BrainDomainError(actor.kind !== "human" ? "FORBIDDEN" : "INVALID_ARGUMENT", actor.kind !== "human" ? "only a person abandons a work item together with its subtasks" : "abandoning subtasks with their parent needs a reason");
     this.store.inTx(db, () => {
+      if (next === "done") this.assertSubtasksDone(db, item);
+      for (const child of open) {
+        transitionState(db, "workItem", child.id, "abandoned", { set: { next_action: `Parent abandoned: ${reason}`, blocked_reason: null, updated_at_ms: this.store.now() }, bumpVersion: true });
+        this.store.emit(db, { aggregateType: "workItem", aggregateId: child.id, eventType: "workItem.transitioned", payload: { workItemId: child.id, state: "abandoned", parentId: item.id, reason: `Parent abandoned: ${reason}` } });
+      }
       if (next === "ready") this.assertDependenciesDone(db, item.id);
       const evidenceDigest = payload["evidenceDigest"] ? String(payload["evidenceDigest"]) : item.evidence_digest;
       const signedOff = next === "done" ? this.assertEvidence(db, item, evidenceDigest, actor) : false;
@@ -576,6 +630,12 @@ export class MissionService {
       if (next) live.set(next.id, next);
     }
     return [...live.values()];
+  }
+
+  /** A parent is Done only when every live subtask is Done on its own evidence; the parent still needs its own (ADR 0022, ADR 0052). */
+  private assertSubtasksDone(db: ReturnType<Store["workspaceDb"]>, item: WorkItemRow): void {
+    const pending = this.liveChildren(db, item.id).filter((child) => child.state !== "done");
+    if (pending.length > 0) throw new BrainDomainError("CONFLICT", `Done waits for ${pending.length === 1 ? "its subtask" : "its subtasks"}: ${pending.map((child) => child.title).join(", ")}`);
   }
 
   private assertDependenciesDone(db: ReturnType<Store["workspaceDb"]>, workItemId: string): void {

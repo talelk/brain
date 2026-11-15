@@ -1628,5 +1628,18 @@ export const enExtra = {
   "usage.run.engine": "engine {name}",
   "usage.run.model": "model {name}",
   "usage.breakdown.none": "No usage recorded yet, so there is nothing to split.",
+  "work.subtask-of": "Subtask of {title}",
+  "work.subtasks": "Subtasks",
+  "work.subtasks-progress": "{done} of {total} subtasks done",
+  "work.subtasks-hint": "This task is Done only when every subtask is Done on its own evidence, and it needs evidence of its own too.",
+  "work.subtasks-cost": "{amount} spent on this task and its subtasks together",
+  "work.part-of": "Part of",
+  "work.abandon-subtasks": "Also abandon its {count} open subtasks",
+  "work.abandon-subtasks-reason": "Why? Each subtask shows this reason.",
+  "plan.subtask-of": "Subtask of",
+  "plan.no-parent": "None, a step of its own",
+  "plan.add-subtask": "Add a subtask",
+  "plan.subtask-hint": "A subtask is a step inside another step. The outer step is Done only after its subtasks are.",
+  "plan.step-incomplete": "Every step needs an outcome and at least one way to tell it is done.",
   // @@END
 } as const satisfies Record<string, string>;

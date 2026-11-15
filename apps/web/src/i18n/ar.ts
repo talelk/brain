@@ -2166,5 +2166,18 @@ export const ar: Catalog = {
   "usage.run.engine": "المحرك {name}",
   "usage.run.model": "النموذج {name}",
   "usage.breakdown.none": "لا يوجد استخدام مسجّل بعد، لذلك لا شيء لتوزيعه.",
+  "work.subtask-of": "مهمة فرعية من {title}",
+  "work.subtasks": "المهام الفرعية",
+  "work.subtasks-progress": "اكتملت {done} من {total} مهام فرعية",
+  "work.subtasks-hint": "لا تكتمل هذه المهمة إلا عندما تكتمل كل مهمة فرعية بدليلها، وتحتاج أيضا إلى دليلها الخاص.",
+  "work.subtasks-cost": "{amount} أنفقت على هذه المهمة ومهامها الفرعية معا",
+  "work.part-of": "جزء من",
+  "work.abandon-subtasks": "تخلَّ أيضا عن مهامها الفرعية المفتوحة ({count})",
+  "work.abandon-subtasks-reason": "لماذا؟ تعرض كل مهمة فرعية هذا السبب.",
+  "plan.subtask-of": "مهمة فرعية من",
+  "plan.no-parent": "لا شيء، خطوة مستقلة",
+  "plan.add-subtask": "إضافة مهمة فرعية",
+  "plan.subtask-hint": "المهمة الفرعية خطوة داخل خطوة أخرى. لا تكتمل الخطوة الأم إلا بعد مهامها الفرعية.",
+  "plan.step-incomplete": "تحتاج كل خطوة إلى نتيجة ومعيار واحد على الأقل لإكمالها.",
   // @@END
 };

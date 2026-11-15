@@ -7009,6 +7009,9 @@
           },
           "maxItems": 100,
           "uniqueItems": true
+        },
+        "parentId": {
+          "$ref": "#/$defs/ConfigId"
         }
       },
       "required": [
@@ -7255,6 +7258,17 @@
         "overdue": {
           "type": "boolean",
           "const": true
+        },
+        "parentId": {
+          "$ref": "#/$defs/Id"
+        },
+        "parentTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "subtasks": {
+          "$ref": "#/$defs/WorkItemSubtasks"
         }
       },
       "required": [
@@ -7615,6 +7629,9 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 1024
+            },
+            "cascade": {
+              "type": "boolean"
             }
           },
           "required": [
@@ -27162,6 +27179,39 @@
         "subjectDigest",
         "expiresAt",
         "method"
+      ],
+      "additionalProperties": false
+    },
+    "WorkItemSubtasks": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensUsed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "settledMicroUsd": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reservedMicroUsd": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "total",
+        "done",
+        "tokensUsed",
+        "settledMicroUsd",
+        "reservedMicroUsd"
       ],
       "additionalProperties": false
     }

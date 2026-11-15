@@ -61,7 +61,9 @@ export async function seedDemoWorkspace(brain: Brain, actor: ActorContext, works
   // A confirmed plan, then a revision that drops one unstarted task so it becomes abandoned.
   // The tasks name the success criteria they serve: c1 is covered, c2 and c3 wait on unfinished work, c4 has no task yet.
   const serves: Record<string, string[]> = { done: ["c1"], review: ["c2"], ready: ["c3"], backlog: ["c3"] };
-  const task = (id: string, title: string, dependsOn: string[] = []) => ({ id, title, criteria: [`${id}-verified`], dependsOn, ...(serves[id] ? { criterionIds: serves[id] } : {}) });
+  // A subtask (#131): collecting production traces is part of reproducing the latency regression.
+  const subtaskOf: Record<string, string> = { blocked: "progress" };
+  const task = (id: string, title: string, dependsOn: string[] = []) => ({ id, title, criteria: [`${id}-verified`], dependsOn, ...(serves[id] ? { criterionIds: serves[id] } : {}), ...(subtaskOf[id] ? { parentId: subtaskOf[id] } : {}) });
   const everyTask = [task("done", "Audit sign-in sessions"), task("review", "Draft the correction"), task("progress", "Reproduce the latency regression"), task("blocked", "Collect production traces"), task("ready", "Write the rollout checklist"), task("backlog", "Announce the fix", ["ready"]), task("abandoned", "Rewrite the login page", ["ready"])];
   const first = await run("plan.propose", { missionId: active, origin: "manual", summary: "Audit, correct and verify the sign-in flow", tasks: everyTask });
   await run("plan.confirm", { planVersionId: first }, 1);

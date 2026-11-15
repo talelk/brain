@@ -2088,5 +2088,18 @@ export const fr: Catalog = {
   "usage.run.engine": "moteur {name}",
   "usage.run.model": "modèle {name}",
   "usage.breakdown.none": "Aucune utilisation enregistrée pour l'instant, rien à répartir.",
+  "work.subtask-of": "Sous-tâche de {title}",
+  "work.subtasks": "Sous-tâches",
+  "work.subtasks-progress": "{done} sous-tâches sur {total} terminées",
+  "work.subtasks-hint": "Cette tâche n'est terminée que lorsque chaque sous-tâche l'est, preuve à l'appui, et elle a aussi besoin de sa propre preuve.",
+  "work.subtasks-cost": "{amount} dépensés pour cette tâche et ses sous-tâches ensemble",
+  "work.part-of": "Fait partie de",
+  "work.abandon-subtasks": "Abandonner aussi ses {count} sous-tâches ouvertes",
+  "work.abandon-subtasks-reason": "Pourquoi ? Chaque sous-tâche affiche ce motif.",
+  "plan.subtask-of": "Sous-tâche de",
+  "plan.no-parent": "Aucune, une étape à part entière",
+  "plan.add-subtask": "Ajouter une sous-tâche",
+  "plan.subtask-hint": "Une sous-tâche est une étape à l'intérieur d'une autre. L'étape englobante n'est terminée qu'après ses sous-tâches.",
+  "plan.step-incomplete": "Chaque étape a besoin d'un résultat et d'au moins un critère d'achèvement.",
   // @@END
 };
