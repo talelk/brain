@@ -1,6 +1,7 @@
 import { COST_TIERS, costTierRank, isKeyReference, type CostTier } from "@brain/contracts";
 import { QUOTA_MAX_WAIT_MS, QUOTA_MIN_WAIT_MS, quotaWaitMs } from "../../domain/failure";
 import type { Store } from "../../application/store";
+import { recordChoice } from "./choice-reasons";
 
 /**
  * Model routes (ADR 0055, builds on ADR 0023). A workspace holds an ordered list of hosted model routes. A job uses them for exactly three
@@ -80,18 +81,33 @@ export function routesForPreference(routes: readonly ModelRouteConfig[], prefere
   ];
 }
 
+/** A configured route left out of an offer, and the reason: switched off, incomplete, dearer than the agent accepts, down, or out of quota until a time. */
+export interface RouteSkip { readonly routeId: string; readonly why: "off" | "incomplete" | "above-cost-tier" | "down" | "cooling"; readonly untilMs?: number }
+
 /**
  * The routes a role may call right now, in order: usable, accepted by the agent, not down and not out of quota. `blocked` says routes would
  * serve the role but every one of them is down or cooling, so the work waits for one instead of falling back to the self-hosted model.
+ * `skipped` names every configured route left out and why, as judged now: the facts a choice reason records.
  */
-export function eligibleRoutes(s: Store, workspaceId: string, role: ModelRouteRole, preference?: RoutePreference): { routes: ModelRoute[]; blocked: boolean; retryAtMs?: number } {
+export function eligibleRoutes(s: Store, workspaceId: string, role: ModelRouteRole, preference?: RoutePreference): { routes: ModelRoute[]; blocked: boolean; retryAtMs?: number; skipped: RouteSkip[] } {
   const candidates = routesForPreference(usableRoutes(s, workspaceId), preference);
   const available = candidates.filter((route) => !routeDown(s, workspaceId, route.routeId) && routeCooldownUntil(s, workspaceId, route.routeId) === undefined);
   const cooling = candidates.map((route) => routeCooldownUntil(s, workspaceId, route.routeId)).filter((until): until is number => until !== undefined);
+  const ceiling = preference?.costTier ? costTierRank(preference.costTier) : COST_TIERS.length;
+  const skipped: RouteSkip[] = [];
+  for (const route of modelRoutesOf(s, workspaceId)) {
+    const until = routeCooldownUntil(s, workspaceId, route.routeId);
+    if (!route.enabled) skipped.push({ routeId: route.routeId, why: "off" });
+    else if (!routeUsable(route)) skipped.push({ routeId: route.routeId, why: "incomplete" });
+    else if (costTierRank(route.costTier) > ceiling) skipped.push({ routeId: route.routeId, why: "above-cost-tier" });
+    else if (routeDown(s, workspaceId, route.routeId)) skipped.push({ routeId: route.routeId, why: "down" });
+    else if (until !== undefined) skipped.push({ routeId: route.routeId, why: "cooling", untilMs: until });
+  }
   return {
     routes: available.map((route) => ({ ...route, tier: "hosted", role })),
     blocked: candidates.length > 0 && available.length === 0,
     ...(available.length === 0 && cooling.length > 0 ? { retryAtMs: Math.min(...cooling) } : {}),
+    skipped,
   };
 }
 
@@ -145,6 +161,39 @@ export function settleRouteReport(s: Store, input: { attemptId: string; jobId: s
     if (entry.outcome === "quota") markRouteQuota(s, input.workspaceId, route.routeId, typeof entry.retryAfterMs === "number" && entry.retryAfterMs > 0 ? entry.retryAfterMs : undefined, "the provider refused for quota or rate");
   }
   recordRouteUses(s, input.attemptId, input.workspaceId, uses);
+  const organizationId = (s.control.prepare("SELECT organization_id FROM jobs WHERE id=?").get(input.jobId) as { organization_id: string } | undefined)?.organization_id;
+  const served = uses.find((use) => use.outcome === "served");
+  if (organizationId && uses.length > 0) {
+    // What the attempt did with the routes it was offered, as the runner reported it: which one answered and which it moved past, in order.
+    recordChoice(s, { organizationId, workspaceId: input.workspaceId }, { kind: "attempt", id: input.attemptId }, {
+      kind: "model-route", code: served ? (uses.length > 1 ? "served-after-failover" : "served") : "none-served",
+      facts: { tried: uses.map((use) => ({ routeId: use.routeId, model: use.model, outcome: use.outcome })), ...(served ? { servedBy: served.routeId, model: served.model } : {}) },
+    });
+  }
+}
+
+const skipFact = (skip: RouteSkip): Record<string, string> => ({ routeId: skip.routeId, why: skip.why, ...(skip.untilMs !== undefined ? { until: new Date(skip.untilMs).toISOString() } : {}) });
+
+/**
+ * Records why a job was offered the routes it was, at the moment it was first offered: the route tried first (its place in the owner's order,
+ * its cost tier), the ones behind it, and every configured route left out with its reason. A job that must wait for a route records that once.
+ */
+export function recordRouteOffer(s: Store, jobId: string, offer: RouteOffer): void {
+  const ctx = jobContext(s, jobId);
+  if (!ctx || !offer.role) return;
+  const skipped = offer.skipped.map(skipFact);
+  const scope = { organizationId: ctx.organizationId, workspaceId: ctx.workspaceId };
+  if (offer.routes.length === 0) {
+    if (offer.held) recordChoice(s, scope, { kind: "job", id: jobId }, { kind: "model-route", code: "held", facts: { role: offer.role, skipped, ...(offer.retryAtMs !== undefined ? { retryAt: new Date(offer.retryAtMs).toISOString() } : {}) } });
+    return;
+  }
+  const first = offer.routes[0]!;
+  const position = modelRoutesOf(s, ctx.workspaceId).findIndex((route) => route.routeId === first.routeId) + 1;
+  recordChoice(s, scope, { kind: "job", id: jobId }, { kind: "model-route", code: "first-route", facts: {
+    role: offer.role, routeId: first.routeId, model: first.model, costTier: first.costTier, position,
+    fallbacks: offer.routes.slice(1).map((route) => ({ routeId: route.routeId, model: route.model, costTier: route.costTier })), skipped,
+    ...(offer.preference?.routes?.length ? { agentPrefers: [...offer.preference.routes] } : {}), ...(offer.preference?.costTier ? { agentCostCeiling: offer.preference.costTier } : {}),
+  } });
 }
 
 /** What the agent definition of a release asks of the routes; nothing when the release or the agent does not say. */
@@ -170,21 +219,25 @@ function roleOf(s: Store, ctx: JobRouteContext): "evaluator" | "second-attempt" 
   } catch { return undefined; }
 }
 
+/** What a job is offered: the routes in order, whether it must wait, the role they serve and every configured route left out with its reason. */
+export interface RouteOffer { routes: ModelRoute[]; held: boolean; retryAtMs?: number; role?: ModelRouteRole; skipped: RouteSkip[]; preference?: RoutePreference }
+
 /** The routes a job of this kind is offered, in order, and whether it must wait. `kind` is the job payload kind: `eval` is the check, `dispatch` an agent step. */
-export function modelRoutesFor(s: Store, ctx: JobRouteContext): { routes: ModelRoute[]; held: boolean; retryAtMs?: number } {
-  const none = { routes: [] as ModelRoute[], held: false };
+export function modelRoutesFor(s: Store, ctx: JobRouteContext): RouteOffer {
+  const none: RouteOffer = { routes: [], held: false, skipped: [] };
   if (!modelRoutesUsable(s, ctx.workspaceId)) return none;
   const role = roleOf(s, ctx);
   if (!role) return none;
-  const eligible = eligibleRoutes(s, ctx.workspaceId, role, agentRoutePreference(s, ctx.configDigest, ctx.agentId));
-  return { routes: eligible.routes, held: eligible.blocked, ...(eligible.retryAtMs !== undefined ? { retryAtMs: eligible.retryAtMs } : {}) };
+  const preference = agentRoutePreference(s, ctx.configDigest, ctx.agentId);
+  const eligible = eligibleRoutes(s, ctx.workspaceId, role, preference);
+  return { routes: eligible.routes, held: eligible.blocked, role, skipped: eligible.skipped, ...(preference ? { preference } : {}), ...(eligible.retryAtMs !== undefined ? { retryAtMs: eligible.retryAtMs } : {}) };
 }
 
 /**
  * The routes one queued job is offered, in the order they are tried, and whether the job must wait because every route that would serve it is
  * down or out of quota. A job of no hosted role, or of a workspace with no usable route, runs self-hosted: no routes, not held.
  */
-export function modelRoutesForJob(s: Store, jobId: string): { routes: ModelRoute[]; held: boolean; retryAtMs?: number } {
+export function modelRoutesForJob(s: Store, jobId: string): RouteOffer {
   const ctx = jobContext(s, jobId);
-  return ctx ? modelRoutesFor(s, ctx) : { routes: [], held: false };
+  return ctx ? modelRoutesFor(s, ctx) : { routes: [], held: false, skipped: [] };
 }

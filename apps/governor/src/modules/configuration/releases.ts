@@ -7,6 +7,7 @@ import { iso } from "../../domain/clock";
 import { putBytes, readVerified } from "../artifacts/index";
 import { requireConfigurationAdmin } from "./activation";
 import type { CompiledSkill } from "./skills";
+import type { McpSpec } from "./mcp";
 import { compileRelease, type AgentInstruction, type SourceDoc, type ToolScript } from "./compiler";
 
 /**
@@ -21,7 +22,7 @@ import { compileRelease, type AgentInstruction, type SourceDoc, type ToolScript 
 export interface StoredRelease {
   manifest: {
     documents: Array<{ kind: string; id: string; digest: string }>;
-    tools?: Array<{ id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments?: string[]; description?: string; compensatingAction?: string; allowedHosts?: string[]; entrypoint?: string; entrypointDigest?: string }>;
+    tools?: Array<{ id: string; digest: string; effectClass: "read" | "write" | "privileged"; inputSchemaRef: string; outputSchemaRef: string; allowedEnvironments?: string[]; description?: string; compensatingAction?: string; allowedHosts?: string[]; mcp?: McpSpec; entrypoint?: string; entrypointDigest?: string }>;
     primitiveVersions?: Record<string, string>;
     compilerDigest?: string;
   } & Record<string, unknown>;

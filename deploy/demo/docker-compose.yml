@@ -25,6 +25,10 @@ services:
       # Metrics for Prometheus (/metrics): a token file the owner puts in the data volume; without one the endpoint does not exist.
       BRAIN_METRICS_TOKEN_FILE: ${BRAIN_METRICS_TOKEN_FILE:-}
       BRAIN_BACKUP_STAMP_FILE: /host-run/last-backup-ok
+      # Optional trace export (ADR 0066): off unless OTEL_TRACES_EXPORTER=otlp and an endpoint are set in .env.
+      OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
       # Health shows the monthly restore rehearsal's last result (restore-test.sh writes it).
       BRAIN_RESTORE_TEST_FILE: /host-run/last-restore-test.json
     extra_hosts:

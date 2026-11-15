@@ -36,7 +36,7 @@ plus TOTP; replaced or revoked sessions invalidate the evidence.
 
 **Live → Runners** (administrators, `/runners`) lists enrollment, group, capabilities,
 engine and heartbeat. Drain or quarantine from the runner detail page.
-`brain doctor --workspace <id>` checks release, catalog and placement. Runners that
+From a terminal: `brain mission list|show|create|pause|resume|owner transfer|verdict`, `brain session list|show|steer|stop|pause|continue` and `brain approval list|show|decide` (add `--json` for scripts; `decide` runs the same step-up as the app and asks for the authenticator code). `brain doctor --workspace <id>` checks release, catalog and placement. Runners that
 lose their lease stop making effects; their attempt outcomes are recorded as unknown
 until reconciled.
 

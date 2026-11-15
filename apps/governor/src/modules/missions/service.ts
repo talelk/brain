@@ -28,7 +28,8 @@ import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
 import { OUTAGE_MAX_WAITS, OUTAGE_WAIT_MS, QUOTA_MAX_WAITS, REMEDY, classifyFailure, lessonText, quotaWaitMs, waitWords, type FailureClass } from "../../domain/failure";
 import { GENERAL_TASK_WORKFLOW } from "../workflows/index";
-import { modelRoutesUsable } from "../jobs/index";
+import { modelRoutesUsable, recordChoice } from "../jobs/index";
+import { missionTraceId } from "../../domain/trace";
 import { missionTimeline } from "./timeline";
 import { observedCalls, taskTokenCap, taskTokens, wayOfWorking, workflowAgentTools, workflowsCovering } from "./outcomes";
 
@@ -180,7 +181,7 @@ export class MissionService {
       ...(taskTrust ? { taskTrust } : {}),
       budget: budgetOf(row), usage: usageOf(this.store, db, row, this.store.now()),
       subjects: (db.prepare("SELECT pack, kind, subject_id FROM mission_subjects WHERE mission_id=? ORDER BY kind, subject_id").all(row.id) as Array<{ pack: "support" | "sre"; kind: "ticket" | "incident"; subject_id: string }>).map((entry) => ({ pack: entry.pack, kind: entry.kind, id: entry.subject_id })),
-      missionId: row.id, workspaceId, title: row.title, intent: row.intent, ...(row.play_id ? { playId: row.play_id } : {}), ...(row.coordinator_member_id ? { coordinatorMemberId: row.coordinator_member_id } : {}),
+      missionId: row.id, traceId: missionTraceId(row.id), workspaceId, title: row.title, intent: row.intent, ...(row.play_id ? { playId: row.play_id } : {}), ...(row.coordinator_member_id ? { coordinatorMemberId: row.coordinator_member_id } : {}),
       successCriteria: this.coverage(db, row), ownerId: row.owner_id,
       ...(row.active_plan_version_id ? { activePlanVersionId: row.active_plan_version_id } : {}),
       ...(pending ? { pendingPlanVersionId: pending.id } : {}),
@@ -454,11 +455,12 @@ export class MissionService {
     assertServedCriteria(tasks, new Set(parseCriteria(mission.success_criteria_json).map((criterion) => criterion.id)));
     const team = JSON.parse(plan.team_json) as TeamMember[];
     // The release may have changed since the version was proposed: eligibility holds at confirmation too.
-    assertTeamEligible(team, tasks, this.agentCapabilities(actor.organizationId));
+    const eligibility = assertTeamEligible(team, tasks, this.agentCapabilities(actor.organizationId));
     this.assertWayOfWorking(actor.organizationId, workspaceId, tasks);
     this.gate(actor, workspaceId, mission, tasks, team);
     const db = this.db(actor, workspaceId);
     const defaults = wayOfWorking(this.store, workspaceId);
+    const created = new Map<string, string>();
     this.store.inTx(db, () => {
       const priorActive = mission.active_plan_version_id;
       if (priorActive) transitionState(db, "planVersion", priorActive, "superseded");
@@ -480,6 +482,7 @@ export class MissionService {
         }
         const id = this.store.id("work");
         selected.set(task.id, id);
+        created.set(task.id, id);
         const state: WorkItemState = task.dependsOn.length === 0 ? "ready" : "backlog";
         // Failed attempts follow the plan task across members: reassignment never resets the parking count.
         const carried = prior && prior.state !== "done" ? prior.failed_attempts : 0;
@@ -524,6 +527,12 @@ export class MissionService {
       this.store.emit(db, { aggregateType: "plan", aggregateId: plan.id, eventType: "plan.confirmed", payload: { missionId: mission.id, planVersionId: plan.id, digest: plan.digest } });
       if (!withinPolicy) wake(this.store, db, mission.id, "plan-resolved", `plan revision ${plan.revision} confirmed`);
     });
+    // The member a task was given to is chosen by this eligibility check: the facts it judged are written now, for the work item this confirmation made.
+    // A task kept from an earlier version keeps the reason written then (it is the same assignment).
+    for (const facts of eligibility) {
+      const workItemId = created.get(facts.taskId);
+      if (workItemId) recordChoice(this.store, { organizationId: actor.organizationId, workspaceId }, { kind: "work-item", id: workItemId }, { kind: "team-member", code: "member-eligible", facts: { ...facts } as unknown as Record<string, JsonValue> });
+    }
     return plan.id;
   }
 
@@ -1781,7 +1790,7 @@ export class MissionService {
     }
     if (queryType === "usage.verifiedCost") { settleAll(this.store, db); return verifiedCost(db, this.store.now(), 30) as unknown as JsonValue; }
     if (queryType === "usage.workspace") { settleAll(this.store, db); return { scope: "workspace", id: workspaceId, usage: workspaceUsage(db), outsideMissions: outsideMissionsUsage(db), spendCap: spendCapOf(db, this.store.now()) } as unknown as JsonValue; }
-    if (queryType === "plans.estimate") return planEstimate(this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))), db) as unknown as JsonValue;
+    if (queryType === "plans.estimate") return planEstimate(this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))), this.store, db, workspaceId) as unknown as JsonValue;
     if (queryType === "plans.get") return this.plan(workspaceId, this.planRow(actor, workspaceId, String(resourceId))) as unknown as JsonValue;
     if (queryType === "workItems.list") {
       // Every filter narrows in SQL before the page limit, so the board of a busy workspace never loses older matching work behind newer work.

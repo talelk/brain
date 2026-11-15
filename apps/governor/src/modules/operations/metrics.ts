@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import type { Store } from "../../application/store";
 import { qualityBreakdownFor } from "../stream/quality-breakdown";
 import { readProbes } from "./probes";
+import { traceStats } from "./tracing";
 import { replicaConfig, replicaLag } from "./replica";
 
 /**
@@ -134,6 +135,14 @@ export function renderMetrics(store: Store, env: NodeJS.ProcessEnv = process.env
     out.declare("brain_disk_total_bytes", "gauge", "Size of the data volume in bytes.");
     out.sample("brain_disk_total_bytes", {}, Number(stat.blocks) * Number(stat.bsize));
   } catch { /* an unreadable volume is reported by the disk probe */ }
+
+  const trace = traceStats(store);
+  if (trace) {
+    out.declare("brain_trace_spans_exported_total", "counter", "Trace spans the collector accepted.");
+    out.sample("brain_trace_spans_exported_total", {}, trace.exported);
+    out.declare("brain_trace_spans_dropped_total", "counter", "Trace spans dropped because the queue was full or the collector did not accept them.");
+    out.sample("brain_trace_spans_dropped_total", {}, trace.dropped);
+  }
 
   const stamp = env["BRAIN_BACKUP_STAMP_FILE"];
   if (stamp) {

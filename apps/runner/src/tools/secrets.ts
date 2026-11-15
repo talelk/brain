@@ -47,17 +47,25 @@ export function resolveSecretRefs(
     if (typeof rawName !== "string" || !SECRET_NAME.test(rawName) || rawName.includes("..")) {
       return { ok: false, error: "invalid secret reference name" };
     }
-    const path = join(root, workspaceId, rawName);
-    if (!existsSync(path)) return { ok: false, error: `secret reference not available in workspace scope: ${rawName}` };
-    const st = statSync(path);
-    if (!st.isFile() || st.size === 0 || st.size > MAX_SECRET_BYTES) return { ok: false, error: `secret reference unusable: ${rawName}` };
-    if ((st.mode & 0o077) !== 0) return { ok: false, error: `secret file permissions too open: ${rawName}` };
-    const value = readFileSync(path, "utf8").replace(/\n$/u, "");
-    if (!value) return { ok: false, error: `secret reference empty: ${rawName}` };
+    const read = readSecretFile(root, workspaceId, rawName);
+    if (!read.ok) return read;
+    const value = read.value;
     env[envName] = value;
     values.push(value);
   }
   return { ok: true, resolved: { env, values } };
+}
+
+/** One secret file of a workspace, with the store's checks (a plain file, 0600, bounded, not empty). */
+export function readSecretFile(root: string, workspaceId: string, name: string): { ok: true; value: string } | { ok: false; error: string } {
+  const path = join(root, workspaceId, name);
+  if (!existsSync(path)) return { ok: false, error: `secret reference not available in workspace scope: ${name}` };
+  const st = statSync(path);
+  if (!st.isFile() || st.size === 0 || st.size > MAX_SECRET_BYTES) return { ok: false, error: `secret reference unusable: ${name}` };
+  if ((st.mode & 0o077) !== 0) return { ok: false, error: `secret file permissions too open: ${name}` };
+  const value = readFileSync(path, "utf8").replace(/\n$/u, "");
+  if (!value) return { ok: false, error: `secret reference empty: ${name}` };
+  return { ok: true, value };
 }
 
 export function scrubSecrets(text: string, values: readonly string[]): string {

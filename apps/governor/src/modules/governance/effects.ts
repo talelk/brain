@@ -6,6 +6,7 @@ import { transitionState } from "../../domain/states";
 import type { Store } from "../../application/store";
 import type { BrainAuth } from "../identity/index";
 import { releaseRecord } from "../configuration/index";
+import { payloadValidator } from "@brain/contracts/validate";
 import { assertAttemptLive, createActJob, effectResultFor, loadAttempt } from "../jobs/index";
 import { originOfRun } from "../missions/index";
 import { issuePermit, validatePermit } from "./permits";
@@ -89,6 +90,23 @@ const POLICIES: Readonly<Record<string, Policy>> = {
 
 function isEffectTool(toolId: string): boolean { return toolId in POLICIES; }
 
+/**
+ * An external MCP tool's policy (ADR 0064) comes from its pinned declaration, not from operator code per tool: the admin declared the
+ * server host and the effect class, and the approval says exactly what will be sent. The arguments must satisfy the pinned input schema.
+ */
+function mcpPolicy(mcp: { host: string; tool: string }, inputSchema: object | undefined): Policy {
+  return {
+    host: false,
+    summary: (input) => `Call the external tool "${mcp.tool}" on ${mcp.host} with ${JSON.stringify(input).slice(0, 300)}`,
+    resource: () => `mcp:${mcp.host}:${mcp.tool}`,
+    check: (input) => {
+      if (!inputSchema) throw new BrainDomainError("FORBIDDEN", `the pinned input schema of ${mcp.tool} is missing, so the call cannot be checked`);
+      const checked = payloadValidator(inputSchema)(input);
+      if (!checked.ok) throw new BrainDomainError("INVALID_ARGUMENT", `the arguments do not match the tool's pinned input schema: ${checked.errors.slice(0, 3).join("; ")}`);
+    },
+  };
+}
+
 /** The digest of the arguments of a call; the runner computes the same value with the same function. */
 export function effectInputDigest(input: Input): string {
   return domainDigest("brain:effect-input:v1", input as unknown as JsonValue);
@@ -131,6 +149,8 @@ interface AttemptContext {
   /** The agent whose allowlist backs the call: the step's own agent, or (for an act job) the agent that proposed it. */
   readonly agent: { id: string; digest: string };
   readonly effectClass: string;
+  /** The pinned declaration of an external MCP tool, with its pinned input schema (ADR 0064). */
+  readonly mcp?: { host: string; tool: string; inputSchema: object | undefined };
   /** True for the attempt of a held act job (ADR 0028): the only attempt that may take a permit and run the call. */
   readonly isAct: boolean;
 }
@@ -158,8 +178,9 @@ function attemptContext(s: Store, runner: Runner, attemptId: string, tool: { id:
   if (!agentRef || !agent || !agent.spec.tools.some((allowed) => allowed.id === tool.id && allowed.digest === tool.digest)) throw new BrainDomainError("FORBIDDEN", `this attempt's agent does not allow ${tool.id} at that digest`);
   const declared = release?.manifest.tools?.find((candidate) => candidate.id === tool.id && candidate.digest === tool.digest);
   if (!declared || declared.effectClass === "read") throw new BrainDomainError("FORBIDDEN", `${tool.id} is not an effect tool of the pinned release`);
-  if (!isEffectTool(tool.id)) throw new BrainDomainError("FORBIDDEN", `${tool.id} has no effect policy on this server, so it cannot run`);
-  return { row, organizationId, workspaceId, configDigest, agent: agentRef, effectClass: declared.effectClass, isAct, target: { targetId: `tool:${declared.id}`, environmentId: declared.allowedEnvironments?.[0] ?? "local", preconditionDigest: declared.digest } };
+  if (!declared.mcp && !isEffectTool(tool.id)) throw new BrainDomainError("FORBIDDEN", `${tool.id} has no effect policy on this server, so it cannot run`);
+  const mcp = declared.mcp ? { host: declared.mcp.host, tool: declared.mcp.tool, inputSchema: release?.schemas?.[declared.inputSchemaRef] as object | undefined } : undefined;
+  return { row, ...(mcp ? { mcp } : {}), organizationId, workspaceId, configDigest, agent: agentRef, effectClass: declared.effectClass, isAct, target: { targetId: `tool:${declared.id}`, environmentId: declared.allowedEnvironments?.[0] ?? "local", preconditionDigest: declared.digest } };
 }
 
 /** How many changes one task may propose in all (a model that keeps asking is stopped; a person can start the task again). */
@@ -203,7 +224,7 @@ export function requestEffect(s: Store, ports: EffectPorts, runner: Runner, atte
     });
     throw new BrainDomainError(code, reason);
   };
-  const policy = POLICIES[tool.id]!;
+  const policy = context.mcp ? mcpPolicy(context.mcp, context.mcp.inputSchema) : POLICIES[tool.id]!;
   // A held change is made by its own act job, never by the attempt that proposed it: an act attempt cannot propose another change.
   if (context.isAct) return refuse("FORBIDDEN", "an approved change cannot propose further changes");
   const parentJobId = String(context.row["job_id"]);

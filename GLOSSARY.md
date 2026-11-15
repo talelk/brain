@@ -137,6 +137,14 @@ Governor supplies member and agent; the runner reports engine and model; unrepor
 advisory judge's spend is its own source.
 _Avoid_: cost center, tagging
 
+**Estimate basis**:
+Where a plan estimate's figure for time or cost comes from (ADR 0063): the median of past completed runs
+of the same Play task or workflow in the workspace (history; shown as "median of N runs", with the 25th to
+75th percentile range from four runs), what the planner declared, or unknown. Plain arithmetic over the
+ledger; no model computes it, and it never changes a mission budget. A suggested budget is only an offer
+a person may take.
+_Avoid_: forecast, prediction, AI estimate
+
 **Standing team**:
 A named set of roles bound to agent definitions and engines, optionally naming a coordinator, kept in the Library. A plan or a Play start copies its members into the plan version as the mission team; editing or archiving it never changes a confirmed plan or a running mission (ADR 0056).
 _Avoid_: shared team, team template
@@ -283,6 +291,12 @@ attempts and sessions that served it. It is the boundary between the work side a
 execution side.
 _Avoid_: execution (standalone — it names an area, not a thing), trace
 
+**Mission trace id**:
+The one 32-hex identifier of a mission, derived from its id, in every event payload and, when trace
+export is on, the trace id of every span of that mission. Shown copyable on the mission and run
+pages; never a metric label.
+_Avoid_: correlation id, span id
+
 ### Execution
 
 **Run**:
@@ -345,6 +359,13 @@ _Avoid_: price plan
 The kind of worker and independent check a task runs with, chosen from the active
 release (a workspace has a default); the engine calls it a workflow.
 _Avoid_: recipe, template
+
+**Choice reason**:
+A small immutable record, a code plus the facts judged, written when the Governor chooses a
+task's way of working, a team member or a model route; a later choice adds a record. The run's
+Why tab words it in plain sentences from the record, never from today's state, and a choice
+nobody made has none. No model writes it (ADR 0065).
+_Avoid_: explanation log, audit note
 
 **Model route**:
 One entry of a workspace's ordered list of hosted models: provider, model, address, key
@@ -436,6 +457,12 @@ The hosts an administrator lets a workspace's sandboxed tools reach (`host` or `
 The egress proxy gives each sandbox a grant of exactly those hosts; none means no network
 (ADR 0037). Not the per-tool `allowedHosts` of the fetch broker.
 _Avoid_: firewall, whitelist, network policy
+
+**External MCP tool**:
+A tool of a third-party MCP server, registered as a Tool document with `spec.mcp`: the admin declares its effect
+class (read or write, never inferred) and pins the digest of the server's tool list. The pinned client runs it in
+the sandbox with a grant for that one host; a changed tool list is refused until registered again (ADR 0064).
+_Avoid_: MCP connector, plugin, MCP proxy
 
 **Queue limit**:
 How many of a workspace's jobs may wait for a runner (default 100, set by an administrator).
@@ -768,6 +795,10 @@ plan proposal inside the autonomy policy is confirmed, outside it waits for a pe
 records a verdict, closes a mission, approves an effect or confirms beyond the policy.
 _Avoid_: agent API, MCP tool (that is another channel)
 
+**MCP server**:
+Brain's `/mcp` endpoint, a standard Model Context Protocol server over streamable HTTP. Every registered command and query is a tool (`command.<type>`, `query.<type>`) generated from the registry and `brain.schema.json`, called as the signed-in person or session principal with the same credentials, authorization matrix and idempotency as `/v1`. Approval decisions are not tools: they stay in the app.
+_Avoid_: agent API, MCP channel
+
 **Delegation**:
 A session handing one bounded sub-task to a child session of the same mission, at most three levels deep (ADR 0053). The child is a run of the mission, not of the task; its result returns to the task as a handoff that is the child's claim until a person who did not start the delegation accepts it.
 _Avoid_: subtask run, spawn
@@ -806,6 +837,12 @@ missions; **Logs** and **Runners** sit under Administration. Inside a mission th
 **Library** holds what Brain can reuse (documents, knowledge, Plays, tools, the Review inbox;
 ADR 0014). Screens use five words: **Mission**, **Plan**, **Task**, **Result** and **Check**; run, session, attempt and
 release appear under Details.
+
+**Route inventory** (`contracts/v1/api-routes.json`) is the one hand-kept list of Brain's public HTTP
+routes; the OpenAPI document (`contracts/v1/openapi.json`, served at `GET /v1/openapi.json` to any signed-in
+credential) is generated from it plus the schema, registry and authorization matrix. The `brain` CLI is a client
+of that HTTP API only: its `mission`, `session` and `approval` commands run the same commands and the same
+step-up as the app (an approval is decided only with fresh step-up evidence).
 
 **Build-process vocabulary is not domain vocabulary.** Task cards (`T01`–`T50`), gates
 (`G01`–`G08`), the implementation ledger and checkpoint and pack verifiers describe how

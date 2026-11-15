@@ -1,0 +1,3171 @@
+{
+ "contractVersion": "brain.api-routes/v1",
+ "purpose": "Route inventory: the single hand-maintained source of the public HTTP surface. scripts/generate_openapi.py joins it with brain.schema.json, registry.json and authorization-matrix.json into contracts/v1/openapi.json. $ref values are names of brain.schema.json $defs.",
+ "info": {
+  "title": "Keyrus Brain baseline transport",
+  "version": "1.0.0",
+  "description": "Current target transport. Better Auth (/api/auth/*) and the SPA fallback are not described here. Authentication: routes with an empty security list are public; every other route needs the stated credential. This document itself needs a signed-in credential. Command and query bodies are discriminated unions: see x-brain-commands and x-brain-queries."
+ },
+ "securitySchemes": {
+  "bearer": {
+   "type": "http",
+   "scheme": "bearer"
+  },
+  "humanSession": {
+   "type": "apiKey",
+   "in": "cookie",
+   "name": "__Secure-better-auth.session_token",
+   "description": "Better Auth cookie name/prefix is set by the pinned production configuration; HTTPS may use its secure-prefixed cookie name. Ingress reads the vendor session API, not a manually parsed cookie."
+  },
+  "runnerCredential": {
+   "type": "http",
+   "scheme": "bearer"
+  },
+  "runnerSession": {
+   "type": "http",
+   "scheme": "bearer"
+  },
+  "localSetup": {
+   "type": "apiKey",
+   "in": "header",
+   "name": "Authorization",
+   "description": "Setup <one-use credential from the private Governor setup.token file>; never a public default."
+  },
+  "chatSignature": {
+   "type": "apiKey",
+   "in": "header",
+   "name": "X-Brain-Signature",
+   "description": "Brain or Slack request signature inside a 5 minute window; never a session."
+  },
+  "metricsToken": {
+   "type": "http",
+   "scheme": "bearer",
+   "description": "BRAIN_METRICS_TOKEN_FILE token; the route does not exist when it is unset."
+  },
+  "modelGatewayToken": {
+   "type": "http",
+   "scheme": "bearer",
+   "description": "An attempt's model gateway token (ADR 0066): minted for one running attempt and its fence, shown once, revoked when the attempt ends."
+  }
+ },
+ "routes": [
+  {
+   "method": "POST",
+   "path": "/v1/commands",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "CommandEnvelope"
+      }
+     }
+    }
+   },
+   "responses": {
+    "202": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "CommandReceipt"
+       }
+      }
+     }
+    },
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "CommandReceipt"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/identity/sessions",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Current user's sessions without credential tokens",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "IdentitySessionList"
+       }
+      }
+     }
+    },
+    "401": {
+     "description": "Session required"
+    }
+   },
+   "errors": []
+  },
+  {
+   "method": "POST",
+   "path": "/v1/identity/sessions/revoke",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object",
+       "properties": {
+        "mode": {
+         "type": "string",
+         "enum": [
+          "one",
+          "others",
+          "all"
+         ]
+        },
+        "sessionId": {
+         "$ref": "Id"
+        }
+       },
+       "required": [
+        "mode"
+       ],
+       "additionalProperties": false
+      }
+     }
+    }
+   },
+   "responses": {
+    "204": {
+     "description": "Session revocation applied"
+    },
+    "401": {
+     "description": "Session required"
+    },
+    "404": {
+     "description": "Session not found"
+    }
+   },
+   "errors": []
+  },
+  {
+   "method": "POST",
+   "path": "/v1/query",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "QueryRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "QueryResponse"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/approvals/{id}/decision",
+   "auth": [
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "HumanApprovalDecision"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "ApprovalRequest"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/enroll",
+   "auth": [],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "RunnerEnrollRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "RunnerCredential"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/hello",
+   "auth": [
+    "runnerCredential"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "RunnerHello"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "RunnerSession"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/heartbeat",
+   "auth": [
+    "runnerCredential"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "RunnerHeartbeat"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "RunnerHeartbeatAck"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/claim",
+   "auth": [
+    "runnerCredential"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "ClaimRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "JobOffer"
+       }
+      }
+     }
+    },
+    "204": {
+     "description": "No eligible work before poll timeout"
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/ack",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "AttemptAck"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "AttemptLease"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/renew",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "AttemptRenew"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "AttemptLease"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/events",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "AttemptEventBatch"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "AttemptEventAck"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/permit",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "EffectPermitRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "ExecutionGrant"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/complete",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "JobReceipt"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "ReceiptAck"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/release",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "AttemptRelease"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "Ack"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/artifacts/init",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "UploadInit"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "UploadSession"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "PUT",
+   "path": "/v1/artifacts/{id}/content",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/octet-stream": {
+      "schema": {
+       "type": "string",
+       "format": "binary"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "ArtifactRef"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/artifacts/{id}/content",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Authorized byte stream",
+     "content": {
+      "application/octet-stream": {
+       "schema": {
+        "type": "string",
+        "format": "binary"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/events",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Authorized execution-stream frames: {streamSeq, eventId, type, severity, emitter, source, aggregateId, workspaceId?, at, correlation?, summary} on the default message channel; `reset` is the only named control frame",
+     "content": {
+      "text/event-stream": {
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ],
+   "parameters": [
+    {
+     "name": "after",
+     "in": "query",
+     "description": "execution_stream stream_seq cursor; the sole replay position",
+     "schema": {
+      "type": "integer",
+      "minimum": 1
+     }
+    },
+    {
+     "name": "live",
+     "in": "query",
+     "description": "1 subscribes to the live stream; any other value replays one bounded page",
+     "schema": {
+      "type": "string",
+      "enum": [
+       "1"
+      ]
+     }
+    },
+    {
+     "name": "workspace",
+     "in": "query",
+     "description": "workspace id filter, resolved in SQL before any page limit",
+     "schema": {
+      "$ref": "Id"
+     }
+    },
+    {
+     "name": "session",
+     "in": "query",
+     "schema": {
+      "$ref": "Id"
+     }
+    },
+    {
+     "name": "job",
+     "in": "query",
+     "schema": {
+      "$ref": "Id"
+     }
+    },
+    {
+     "name": "run",
+     "in": "query",
+     "schema": {
+      "$ref": "Id"
+     }
+    },
+    {
+     "name": "severity",
+     "in": "query",
+     "description": "comma-separated severities (max 5)",
+     "schema": {
+      "type": "string",
+      "maxLength": 64
+     }
+    },
+    {
+     "name": "emitter",
+     "in": "query",
+     "description": "comma-separated emitters (max 7)",
+     "schema": {
+      "type": "string",
+      "maxLength": 64
+     }
+    },
+    {
+     "name": "maxLag",
+     "in": "query",
+     "description": "live streams falling further behind than this receive a reset frame (default 5000)",
+     "schema": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 20000
+     }
+    },
+    {
+     "name": "Last-Event-ID",
+     "in": "header",
+     "schema": {
+      "type": "string",
+      "maxLength": 2048
+     }
+    }
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/stream/export",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Bounded sanitized NDJSON log segment as an attachment: one record per line with {streamSeq, eventId, emitter, eventType, severity, at, correlation?, summary}; payloads travel only as references. Authorization is identical to stream reads",
+     "content": {
+      "application/x-ndjson": {
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403"
+   ],
+   "parameters": [
+    {
+     "name": "workspaceId",
+     "in": "query",
+     "schema": {
+      "$ref": "Id"
+     }
+    },
+    {
+     "name": "sessionId",
+     "in": "query",
+     "schema": {
+      "$ref": "Id"
+     }
+    },
+    {
+     "name": "jobId",
+     "in": "query",
+     "schema": {
+      "$ref": "Id"
+     }
+    },
+    {
+     "name": "runId",
+     "in": "query",
+     "schema": {
+      "$ref": "Id"
+     }
+    },
+    {
+     "name": "attemptId",
+     "in": "query",
+     "schema": {
+      "$ref": "Id"
+     }
+    },
+    {
+     "name": "severity",
+     "in": "query",
+     "description": "comma-separated severities (max 5)",
+     "schema": {
+      "type": "string",
+      "maxLength": 64
+     }
+    },
+    {
+     "name": "emitter",
+     "in": "query",
+     "description": "comma-separated emitters (max 7)",
+     "schema": {
+      "type": "string",
+      "maxLength": 64
+     }
+    },
+    {
+     "name": "after",
+     "in": "query",
+     "description": "stream_seq lower bound (exclusive)",
+     "schema": {
+      "type": "integer",
+      "minimum": 1
+     }
+    },
+    {
+     "name": "limit",
+     "in": "query",
+     "description": "bounded sanitized segment size (max 10000)",
+     "schema": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000
+     }
+    }
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/challenges",
+   "auth": [
+    "runnerCredential"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "RunnerChallengeRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "RunnerChallenge"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/step-up/challenges",
+   "auth": [
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "StepUpChallengeRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "StepUpChallenge"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/step-up/verify",
+   "auth": [
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "StepUpVerify"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "StepUpEvidence"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/approvals/{id}/decision-status",
+   "auth": [
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "ApprovalDecisionStatusRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "ApprovalDecisionStatus"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/setup",
+   "auth": [
+    "localSetup"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "BootstrapRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "201": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "BootstrapResponse"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "default"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/setup/status",
+   "auth": [],
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "SetupStatus"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "default"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/identity",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "IdentityView"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "default"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/evidence",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "EvidenceBundle"
+      }
+     }
+    }
+   },
+   "responses": {
+    "201": {
+     "description": "Accepted immutable evidence",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "EvidenceSubmissionResult"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "default"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/verdicts",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "RunnerVerdictRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Accepted immutable evidence",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "VerificationReceipt"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "default"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/artifacts",
+   "summary": "Pin attempt output bytes into the organization CAS under the live attempt",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object",
+       "required": [
+        "digest",
+        "bytesBase64"
+       ],
+       "properties": {
+        "digest": {
+         "type": "string"
+        },
+        "bytesBase64": {
+         "type": "string"
+        },
+        "mediaType": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   },
+   "responses": {
+    "201": {
+     "description": "Artifact pinned",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "artifactId": {
+          "type": "string"
+         },
+         "digest": {
+          "type": "string"
+         },
+         "bytes": {
+          "type": "integer"
+         }
+        }
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "413",
+    "422",
+    "429",
+    "503"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/permits/validate",
+   "summary": "Validate an effect permit against current Governor authority (tool-broker boundary)",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object",
+       "required": [
+        "token",
+        "invocationId"
+       ],
+       "properties": {
+        "token": {
+         "type": "string"
+        },
+        "invocationId": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Validation verdict",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "valid": {
+          "type": "boolean"
+         }
+        }
+       }
+      }
+     }
+    }
+   },
+   "errors": []
+  },
+  {
+   "method": "GET",
+   "path": "/runner/v1/releases/{digest}/tools/{toolId}",
+   "summary": "Fetch the release-pinned entrypoint script for one tool",
+   "auth": [],
+   "responses": {
+    "200": {
+     "description": "Pinned tool script",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "entrypoint": {
+          "type": "string"
+         },
+         "entrypointDigest": {
+          "type": "string"
+         },
+         "bytesBase64": {
+          "type": "string"
+         }
+        }
+       }
+      }
+     }
+    }
+   },
+   "errors": []
+  },
+  {
+   "method": "POST",
+   "path": "/v1/runners/{id}/trust",
+   "summary": "Verify a runner trust domain (production L2 verifier)",
+   "auth": [],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object",
+       "required": [
+        "domain",
+        "reason"
+       ],
+       "properties": {
+        "domain": {
+         "type": "string"
+        },
+        "reason": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Verified capability",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "capability": {
+          "type": "string"
+         },
+         "expiresAtMs": {
+          "type": "integer"
+         }
+        }
+       }
+      }
+     }
+    }
+   },
+   "errors": []
+  },
+  {
+   "method": "DELETE",
+   "path": "/v1/runners/{id}/trust",
+   "summary": "Revoke a verified runner trust domain",
+   "auth": [],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object",
+       "required": [
+        "domain",
+        "reason"
+       ],
+       "properties": {
+        "domain": {
+         "type": "string"
+        },
+        "reason": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   },
+   "responses": {
+    "204": {
+     "description": "Revoked"
+    }
+   },
+   "errors": []
+  },
+  {
+   "method": "GET",
+   "path": "/v1/config/releases/{digest}",
+   "summary": "Inspect an immutable staged release and current activation precondition (organization administrator)",
+   "auth": [],
+   "responses": {
+    "200": {
+     "description": "Manifest, pinned definitions, schemas and expected active digest"
+    },
+    "403": {
+     "description": "Current organization administrator required"
+    },
+    "404": {
+     "description": "Release absent in this organization"
+    }
+   },
+   "errors": []
+  },
+  {
+   "method": "GET",
+   "path": "/runner/v1/releases/{digest}/agents/{agentId}/instructions",
+   "summary": "Fetch digest-pinned agent definition and Markdown instructions (authenticated runner in the release organization)",
+   "auth": [],
+   "responses": {
+    "200": {
+     "description": "Agent definition, document digest, instruction digest and base64 bytes"
+    },
+    "404": {
+     "description": "Release or agent absent"
+    },
+    "409": {
+     "description": "Pinned asset integrity failure"
+    }
+   },
+   "errors": []
+  },
+  {
+   "method": "GET",
+   "path": "/v1/doctor",
+   "summary": "Inspect actionable workspace release, runner, engine and smoke readiness",
+   "auth": [],
+   "responses": {
+    "200": {
+     "description": "Operational readiness",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "OperationalReadiness"
+       }
+      }
+     }
+    },
+    "403": {
+     "description": "Workspace access required"
+    }
+   },
+   "errors": [],
+   "parameters": [
+    {
+     "name": "workspaceId",
+     "in": "query",
+     "required": true,
+     "schema": {
+      "type": "string"
+     }
+    }
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/local-runtime",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Local model connection and observed runner state",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "LocalRuntimeStatus"
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "local-runtime.get"
+  },
+  {
+   "method": "POST",
+   "path": "/v1/local-runtime/connect",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "LocalModelConnectionRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Local model connection and observed runner state",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "LocalRuntimeStatus"
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "local-runtime.connect"
+  },
+  {
+   "method": "GET",
+   "path": "/v1/task-context",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Authorized task experience",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "TaskContext"
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "task.context"
+  },
+  {
+   "method": "POST",
+   "path": "/v1/tasks/drafts",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "TaskPrepareRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Authorized task experience",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "TaskDraft"
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "task.prepare"
+  },
+  {
+   "method": "GET",
+   "path": "/v1/tasks/drafts/{id}",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Authorized task experience",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "TaskDraft"
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "task.get"
+  },
+  {
+   "method": "POST",
+   "path": "/v1/tasks/drafts/{id}/start",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "WorkspaceRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Authorized task experience",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "TaskDraft"
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "task.start"
+  },
+  {
+   "method": "POST",
+   "path": "/v1/conversations",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "ConversationCreateRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Authorized task experience",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "ConversationView"
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "conversation.create"
+  },
+  {
+   "method": "GET",
+   "path": "/v1/conversations",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Current principal conversation history",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "array",
+        "items": {
+         "$ref": "ConversationSummary"
+        }
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "conversation.list"
+  },
+  {
+   "method": "GET",
+   "path": "/v1/conversations/{id}",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Authorized task experience",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "ConversationView"
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "conversation.get"
+  },
+  {
+   "method": "POST",
+   "path": "/v1/conversations/{id}/messages",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "ConversationMessageRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Authorized task experience",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "ConversationView"
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "conversation.message"
+  },
+  {
+   "method": "GET",
+   "path": "/v1/diagnostics",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Redacted diagnostics without credentials or private content",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "RedactedDiagnostics"
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "diagnostics.export"
+  },
+  {
+   "method": "POST",
+   "path": "/v1/plans",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "MissionPlanRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "202": {
+     "description": "Plan assistant started",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "MissionPlanView"
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "plan.prepare"
+  },
+  {
+   "method": "GET",
+   "path": "/v1/plans/{id}",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Current principal planning request",
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "MissionPlanView"
+       }
+      }
+     }
+    }
+   },
+   "errors": [],
+   "operation": "plan.get"
+  },
+  {
+   "method": "GET",
+   "path": "/health/live",
+   "summary": "process liveness probe",
+   "auth": [],
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "404"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/health/ready",
+   "summary": "readiness probe (store open, data dir locked)",
+   "auth": [],
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/setup/workspace",
+   "summary": "first-boot workspace bootstrap (unauthenticated only before any workspace exists)",
+   "auth": [
+    "localSetup",
+    "bearer"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/setup/config",
+   "summary": "first-boot active release bootstrap (same window as workspace setup)",
+   "auth": [
+    "localSetup",
+    "bearer"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/runner-tokens",
+   "summary": "mint short-lived runner enrollment token",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/runner/v1/attempts/{id}/artifact",
+   "summary": "runner fetches the digest-pinned execution artifact bound into its signed JobOffer",
+   "auth": [
+    "runnerSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/tool-read",
+   "summary": "runner asks for the data a governed read tool needs (documents, CSV artifacts, knowledge); the Governor rechecks the live attempt, the agent's tool allowlist and workspace scope, and audits refusals",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/session-credential",
+   "summary": "the runner holding a running agent attempt of a mission asks for that attempt's machine-principal credential and the ids it acts on (ADR 0032, 0041); asking again replaces it",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/model-gateway-token",
+   "summary": "the runner holding a running attempt whose model routes include one through the Governor's gateway asks for that attempt's gateway token (ADR 0066); asking again replaces it",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404",
+    "409"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/model-gateway/v1/routes/{routeId}/chat/completions",
+   "summary": "optional Governor model gateway (ADR 0066): an OpenAI-compatible chat completions endpoint authenticated only by an attempt's gateway token; forwards to the route's upstream with the key held on the Governor host and relays the answer or stream; stores counts and status, never request or response bodies",
+   "auth": [
+    "modelGatewayToken"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "The upstream answer, or its event stream",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      },
+      "text/event-stream": {
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "413",
+    "429",
+    "502"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/mcp",
+   "summary": "Model Context Protocol server (streamable HTTP, JSON-RPC: initialize, ping, tools/list, tools/call): every registered command and query is a tool, called as the signed-in principal with the same credentials and authorization as /v1; approval decisions are not offered",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/push/vapid-public-key",
+   "summary": "VAPID public key for browser push subscription",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/push/subscriptions",
+   "summary": "register an encrypted-at-rest browser push subscription for the signed-in human",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/push/subscriptions/delete",
+   "summary": "revoke a browser push subscription",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/evidence",
+   "summary": "list verified evidence bundles available for governed Board and delivery selection",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/config/releases",
+   "summary": "list staged immutable configuration releases for administrative inspection and activation",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/config/tools/{toolId}/test",
+   "summary": "try a read tool with a typed input as a one-step workflow tagged tool-test:<id> (organization administrator); the run is recorded apart from real tool calls",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/config/tools/{toolId}/tests",
+   "summary": "the recent test runs of one tool in a workspace, each with its output or a plain-words diagnosis of its failure",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/shares",
+   "summary": "create a read-only, expiring, revocable share link for one verified final result version (ADR 0013); the token is returned once",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/shares",
+   "summary": "list the share links of a workspace (own links, or all for a workspace admin); never returns a token",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/shares/revoke",
+   "summary": "revoke a share link at once (its creator or a workspace admin)",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/shared/{token}",
+   "summary": "public read of the one result a share link names; the token alone authorises it, no session is read; 404 unknown, 410 expired or revoked",
+   "auth": [],
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "404"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/notification-preferences",
+   "summary": "the signed-in person's notification channels (in-app always on; push; webhook; daily digest) and which channels the server offers (ADR 0011)",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/notification-preferences",
+   "summary": "set the signed-in person's push, webhook and digest preferences",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/config/tools/{toolId}/selftest",
+   "summary": "run the tool's own staged test script in the sandbox (ADR 0024); allowed for effect tools, it changes nothing",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/notification-preferences/email-test",
+   "summary": "send one test email to the signed-in person; the outcome feeds the Health email line",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/hooks/chat",
+   "summary": "inbound chat webhook, signed (Brain or Slack signature, 5 minute window): approvals, status, deny, the link to approve, and start <play> as the linked member (ADR 0011 amendment); never approves or confirms a plan (ADR 0024)",
+   "auth": [
+    "chatSignature"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/effects",
+   "summary": "runner proposes an effect call; the Governor records the approval of that exact call (ADR 0024)",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/effects/permit",
+   "summary": "the one permit of an approved call",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/effects/start",
+   "summary": "consume the permit just before the call runs; once only",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/effects/run",
+   "summary": "the Governor performs an approved call that needs its credentials (ticket, message, pull request)",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/runner/v1/attempts/{id}/effects/finish",
+   "summary": "report how the call ended (applied, absent, unknown) with its receipt digest",
+   "auth": [
+    "runnerSession"
+   ],
+   "request": {
+    "content": {
+     "application/json": {
+      "schema": {
+       "type": "object"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/metrics",
+   "summary": "Prometheus text metrics; exists only when BRAIN_METRICS_TOKEN_FILE is set, bearer token required (Phase 4)",
+   "auth": [
+    "metricsToken"
+   ],
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/auth/providers",
+   "summary": "public: which sign-in options are on (password always, company directory when set up in Administration; ADR 0026)",
+   "auth": [],
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "404"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/auth/sso/start",
+   "summary": "starts the company directory sign-in (authorization code with PKCE) and redirects to the directory; 404 when single sign-on is off",
+   "auth": [],
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/step-up/commands",
+   "summary": "a fresh step-up challenge for one administrative command (autonomy ceiling, stop all sessions), bound to the command's exact payload",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "CommandStepUpChallengeRequest"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "POST",
+   "path": "/v1/step-up/commands/verify",
+   "summary": "verifies the challenge of an administrative command; its evidence is spent by that one command",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "request": {
+    "required": true,
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "StepUpVerify"
+      }
+     }
+    }
+   },
+   "responses": {
+    "200": {
+     "description": "Success",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "400",
+    "401",
+    "403",
+    "404"
+   ]
+  },
+  {
+   "method": "GET",
+   "path": "/v1/openapi.json",
+   "summary": "This document: the OpenAPI description of every public route, generated from the contracts (any signed-in person or agent credential; not public)",
+   "auth": [
+    "bearer",
+    "humanSession"
+   ],
+   "responses": {
+    "200": {
+     "description": "OpenAPI 3.1 document",
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    }
+   },
+   "errors": [
+    "401"
+   ]
+  }
+ ],
+ "servers": [
+  {
+   "url": "/"
+  }
+ ]
+}

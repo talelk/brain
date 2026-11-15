@@ -1,6 +1,6 @@
 import type { JsonValue } from "@brain/contracts";
 import { domainDigest, sha256Digest } from "@brain/contracts";
-import { releaseRecord, releaseToolAllowedHosts, releaseToolPins } from "../configuration/index";
+import { releaseRecord, releaseToolAllowedHosts, releaseToolMcp, releaseToolPins } from "../configuration/index";
 import { workspaceEgressHosts } from "../governance/index";
 import { authorEvidenceFor, toolReleasesForPayload } from "../evidence/index";
 import { putBytes, readVerified, registerArtifact } from "../artifacts/index";
@@ -13,7 +13,7 @@ import { evaluateRunner, type RunnerView } from "../../domain/placement";
 import { iso } from "../../domain/clock";
 import type { Store } from "../../application/store";
 import { isDraining } from "./drain";
-import { modelRoutesForJob, settleRouteReport } from "./model-route";
+import { modelRoutesForJob, recordRouteOffer, settleRouteReport } from "./model-route";
 import { issueGatewayToken, revokeGatewayTokens } from "./gateway-token";
 import { effectOutcomesFor, executionArtifactId, HOLD_REASON } from "./effect-hold";
 import { ensureSkills, promptTaskText, skillTokens } from "./skill-selection";
@@ -132,7 +132,8 @@ export function claim(s: Store, deps: {
           if (jobUsesHostTools(s, runner.organizationId, job, hostJobs) && !hostGroupFor(s, runner.organizationId, view.groupId, String(job["workspace_id"]))) continue;
           if (!evaluateRunner(placement, demand, view, s.now()).eligible || !deps.isEvaluatorEligible(runner.runnerId, String(job["id"]))) continue;
           // A check or second attempt whose every route is down or out of quota waits for one (ADR 0023, ADR 0055); nothing else is held.
-          if (modelRoutesForJob(s, String(job["id"])).held) continue;
+          const routeOffer = modelRoutesForJob(s, String(job["id"]));
+          if (routeOffer.held) { recordRouteOffer(s, String(job["id"]), routeOffer); continue; }
           eligible.push(job);
           found++;
         }
@@ -370,7 +371,10 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
   let artifactText = payloadRow?.payload_json ?? "{}";
   // The model routes are decided once, when the job is first offered, and stored with the payload so every later offer pins the same bytes.
   if (!s.control.prepare("SELECT 1 FROM artifact_associations WHERE artifact_id=? AND organization_id=?").get(`exec-${String(row["job_id"])}`, String(row["organization_id"]))) {
-    const { routes } = modelRoutesForJob(s, String(row["job_id"]));
+    const offer = modelRoutesForJob(s, String(row["job_id"]));
+    const { routes } = offer;
+    // The reason is written now, with the route the job was handed first and every route left out, and never rebuilt later.
+    recordRouteOffer(s, String(row["job_id"]), offer);
     if (routes.length > 0) {
       // A route through the gateway names neither its upstream address nor its key reference: the runner learns only that it is reached through the Governor (ADR 0066).
       const offered = routes.map((route) => route.viaGateway ? (({ keyRef: _keyRef, baseUrl: _baseUrl, ...rest }) => rest)(route) : route);
@@ -402,7 +406,7 @@ export function offerJson(s: Store, attemptId: string): JsonValue {
     configDigest: String(row["config_digest"]), workflowDigest,
     placement: JSON.parse(String(row["placement_json"])),
     execution: { kind, artifact: { artifactId: artifact.artifactId, digest: artifact.digest, bytes: artifact.bytes, mediaType: "application/json", classification: "internal" } },
-    toolPins, toolAllowedHosts: releaseToolAllowedHosts(s, String(row["config_digest"])),
+    toolPins, toolAllowedHosts: releaseToolAllowedHosts(s, String(row["config_digest"])), toolMcp: releaseToolMcp(s, String(row["config_digest"])),
     egressHosts: workspaceEgressHosts(s, String(row["workspace_id"])),
     sourceRevision: authorEvidence.sourceRevision,
     primitiveVersions: authorEvidence.primitiveVersions,

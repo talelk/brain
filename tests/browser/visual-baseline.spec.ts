@@ -27,6 +27,7 @@ import { seedQuestion } from "../support/question-demo";
 import { seedAgentActivity } from "../support/agent-activity";
 import { delegationsOf, driveChildren, enrollChildRunners } from "../support/delegation-world";
 import { scopesForPrincipal } from "../../apps/governor/src/application/authz";
+import { seedWhyRun } from "../support/why-demo";
 
 type Demo = Awaited<ReturnType<typeof seedBrowserDemo>>;
 type Fixture = Parameters<typeof seedBrowserDemo>[1];
@@ -65,6 +66,16 @@ async function pushDevice(page: Page, on: boolean): Promise<void> {
     const device = { endpoint: "http://127.0.0.1:9/push/baseline", toJSON: () => ({}), unsubscribe: async () => true };
     PushManager.prototype.getSubscription = async () => (subscribed ? (device as unknown as PushSubscription) : null);
   }, on);
+}
+
+/** A run with a team member, a way of working and model routes behind it (ticket #144), made when its screen is reached: the run page open on its Why tab. */
+async function whyRoute(demo: Demo, governor: Fixture): Promise<string> {
+  // Its own workspace, so the runner below is offered this run's job and not one of the demo's queued jobs.
+  const brain = governor.app.brain;
+  brain.createWorkspace(demo.actor, { workspaceId: "why-baseline", slug: "why-baseline" });
+  const scoped = { ...demo.actor, workspaceId: "why-baseline", scopes: scopesForPrincipal(brain.store, demo.actor.actorId, demo.actor.organizationId, "why-baseline") };
+  const { jobId } = await seedWhyRun(governor as never, scoped, "why-baseline", "baseline-why");
+  return `/runs/${jobId}?tab=placement&w=why-baseline`;
 }
 
 /** A mission with a confirmed two-member team, made when its screen is reached; the screen is its plan editor open on the team and the first step. */
@@ -170,6 +181,8 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "mission-plan", route: (d) => `/missions/${d.seed.missionIds.active}/plan`, heading: "Stabilize authentication" },
   { id: "mission-board", route: (d) => `/missions/${d.seed.missionIds.active}/plan?view=board`, heading: "Stabilize authentication", waitFor: "work-board", after: async (page) => { await expect(page.getByTestId("work-board")).toBeVisible(); await expect(page.getByTestId("work-overdue")).toBeVisible(); } },
   { id: "mission-live", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication" },
+  // The Brief with its Trace id opened (ticket #143): the mission trace id a person copies to find the mission in a trace backend.
+  { id: "mission-brief-trace", route: (d) => `/missions/${d.seed.missionIds.active}/brief`, heading: "Stabilize authentication", after: async (page) => { await page.getByText("Trace id", { exact: true }).click(); await expect(page.getByRole("button", { name: "Copy full Trace id" })).toBeVisible(); } },
   { id: "plays", route: () => "/w/operations/plays?mode=catalog", heading: "Plays" },
   { id: "live", route: () => "/w/operations/live", heading: "Sessions & runs", testid: "console-rail" },
   { id: "logs", route: () => "/w/operations/logs", heading: "Logs" },
@@ -254,6 +267,8 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "console-session-paused", route: pausedSessionRoute, heading: "Sessions & runs", testid: "console-rail", after: async (page) => { await expect(page.getByTestId("continue-session")).toBeVisible(); await expect(page.getByTestId("pause-note")).toBeVisible(); } },
   // Who can read what Brain learned (#135): the review inbox with a record for the workspace, one kept private with a request for the team and one the team reads. It adds knowledge, so it comes after every screen that counts it.
   { id: "knowledge-scopes", route: () => "/w/operations/knowledge/review", heading: "Review inbox", prepare: seedKnowledgeScopes, waitFor: "knowledge-inbox", after: async (page) => { await expect(page.getByTestId("knowledge-inbox")).toContainText("Readable by: Only its author"); } },
+  // The run page's Why tab (ticket #144): it adds a mission, a run and a runner, so it comes after every screen that counts them and before the push screens (those stay last).
+  { id: "run-why", route: whyRoute, heading: "Run inspector", waitFor: "why-choices" },
   { id: "today-push-offer", route: () => "/w/operations/today", heading: "Today", prepare: async (_governor, page) => pushDevice(page, false), after: async (page) => { const offer = page.getByTestId("push-offer"); await expect(offer).toBeVisible(); await offer.scrollIntoViewIfNeeded(); } },
   { id: "settings-push-device", route: () => "/settings?tab=security", heading: "Security", prepare: async (_governor, page) => pushDevice(page, true), after: async (page) => { const control = page.getByTestId("push-device"); await expect(control).toContainText("Notifications are on for this device."); await control.scrollIntoViewIfNeeded(); } },
 ];
