@@ -35,8 +35,8 @@ export interface MemoryPublicationInput {
 
 function scopeLabel(scope: MemoryScope): string {
   if (scope.visibility === "global-approved") return "Approved organization-wide";
-  if (scope.visibility === "team") return `Team ${scope.teamId}`;
-  if (scope.visibility === "private") return `Private · ${scope.ownerId}`;
+  if (scope.visibility === "team") return "Mission team";
+  if (scope.visibility === "private") return "Private · only you";
   return `Workspace · ${scope.workspaceId}`;
 }
 
@@ -191,7 +191,7 @@ export function KnowledgeScreen(props: {
                         <Show when={result.sourceType}><Badge size="sm" variant="outline" theme="gray" label={result.sourceType === "document" ? "Saved document" : result.sourceType === "knowledge" ? "Approved knowledge" : result.sourceType!} /></Show>
                         <Show when={result.selfReviewed}><Badge size="sm" variant="outline" theme="amber" label={t("tools.self-reviewed.85cc")} /></Show>
                         <Badge size="sm" variant="outline" theme="blue" label={result.classification} />
-                        <Badge size="sm" variant="outline" theme="gray" label={scopeLabel(result.scope)} />
+                        <Badge size="sm" variant="outline" theme={result.scope.visibility === "team" || result.scope.visibility === "private" ? "blue" : "gray"} label={scopeLabel(result.scope)} />
                       </div>
                       <p class="brain-prose mt-2 whitespace-pre-wrap break-words text-interface text-ink-gray-8">{result.content}</p>
                       <div class="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-caption text-ink-gray-6">

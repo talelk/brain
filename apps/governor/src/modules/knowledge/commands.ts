@@ -4,12 +4,34 @@ import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { activeRelease } from "../configuration/index";
 import { readVerified } from "../artifacts/index";
-import type { MemoryStore } from "./memory";
+import type { MemoryScope } from "@brain/contracts";
+import type { MemoryPublishInput, MemoryStore } from "./memory";
+import type { ScopeKind } from "./scope";
 import type { ReuseService } from "./reuse";
 
 export interface KnowledgeCommandPorts {
-  markKnowledgePublished(organizationId: string, workspaceId: string, sourceId: string): void;
+  markKnowledgePublished(organizationId: string, workspaceId: string, sourceId: string, scope: ScopeKind): void;
   markKnowledgeRevoked(organizationId: string, workspaceId: string, sourceId: string): void;
+}
+
+/**
+ * Where a reviewed publication lands (#135, ADR 0056). A team scope names a mission of the source workspace; a private scope names the
+ * publisher, so nobody plants private memory in someone else's view. When the candidate is a knowledge asset, the scope must be the one
+ * its own record gives (its mission's team, its author), so the Knowledge page and the memory store never disagree.
+ */
+function publicationTarget(s: Store, actor: { actorId: string; organizationId: string }, scope: MemoryScope, sourceWorkspaceId: string, candidateId: string): Pick<MemoryPublishInput, "workspaceId" | "visibility" | "teamId" | "ownerId"> {
+  if (scope.visibility === "global-approved") return { workspaceId: null, visibility: "global-approved" };
+  if (scope.visibility === "workspace") return { workspaceId: scope.workspaceId, visibility: "workspace" };
+  const db = s.workspaceDb(sourceWorkspaceId, actor.organizationId);
+  const asset = db.prepare("SELECT mission_id, producer_id FROM knowledge_assets WHERE id=?").get(candidateId) as { mission_id: string | null; producer_id: string | null } | undefined;
+  if (scope.visibility === "team") {
+    if (!db.prepare("SELECT 1 FROM missions WHERE id=?").get(scope.teamId)) throw new BrainDomainError("NOT_FOUND", "the team's mission is not in the source workspace");
+    if (asset && asset.mission_id !== scope.teamId) throw new BrainDomainError("CONFLICT", "a knowledge asset is shared with the team of its own mission");
+    return { workspaceId: sourceWorkspaceId, visibility: "team", teamId: scope.teamId };
+  }
+  if (scope.ownerId !== actor.actorId) throw new BrainDomainError("FORBIDDEN", "private memory is published for yourself only");
+  if (asset && asset.producer_id !== scope.ownerId) throw new BrainDomainError("CONFLICT", "a knowledge asset is private to its author");
+  return { workspaceId: scope.workspaceId, visibility: "private", ownerId: scope.ownerId };
 }
 
 /** Memory publication commands. Memory assets live in control.db. */
@@ -46,16 +68,15 @@ export function knowledgeCommands(store: Store, memory: MemoryStore, reuse: Reus
         }
         const casBytes = Buffer.from(readVerified(s, content.digest));
         if (casBytes.length > 256 * 1024) throw new BrainDomainError("PAYLOAD_TOO_LARGE", "memory content exceeds 256 KiB");
-        const scope = p["targetScope"] as { visibility: string; workspaceId?: string };
-        const targetWorkspaceId = scope.visibility === "global-approved" ? null
-          : scope.visibility === "workspace" ? String(scope.workspaceId)
-          : (() => { throw new BrainDomainError("UNSUPPORTED_CAPABILITY", `memory target scope ${scope.visibility} is not supported by the local store`); })();
-        if (targetWorkspaceId) requireWorkspaceRead(s, actor, targetWorkspaceId);
+        const scope = p["targetScope"] as MemoryScope;
+        const candidateId = String(p["candidateId"]);
+        const target = publicationTarget(s, actor, scope, sourceWorkspaceId, candidateId);
+        if (target.workspaceId) requireWorkspaceRead(s, actor, target.workspaceId);
         const id = memory.publish({
-          organizationId: actor.organizationId, workspaceId: targetWorkspaceId,
-          sourceId: String(p["candidateId"]), text: casBytes.toString("utf8"),
+          organizationId: actor.organizationId, ...target,
+          sourceId: candidateId, text: casBytes.toString("utf8"),
         });
-        ports.markKnowledgePublished(actor.organizationId, sourceWorkspaceId, String(p["candidateId"]));
+        ports.markKnowledgePublished(actor.organizationId, sourceWorkspaceId, candidateId, scope.visibility === "team" || scope.visibility === "private" ? scope.visibility : "workspace");
         return { resourceId: id };
       },
     },

@@ -575,7 +575,7 @@ _Avoid_: memory (unqualified), insight, learning
 The governed promotion of vetted knowledge into a broader scope, requiring an approver
 who is not the producer of the knowledge. A single owner with no other reviewer may
 approve their own knowledge; it is then marked self-reviewed (ADR 0007). Approving
-publishes in the same action; it is the only mechanism.
+publishes in the same action, at the scope the approver chooses; it is the only mechanism, and republishing at another scope is refused.
 _Avoid_: memory entry, promotion (there is no separate promotion step)
 
 **Capability candidate**:
@@ -609,7 +609,11 @@ little result (reuse spec threshold) is not written up.
 _Avoid_: learning run, consolidation
 
 **Memory scope**:
-How widely a memory is readable: global-approved, team, workspace or private.
+How widely a memory is readable: global-approved, team, workspace or private. Private is the author's alone; team is the
+mission team of the mission it came from (its owner, watchers and sessions), keyed on the mission until standing teams
+exist. Every read filters by it, a session never reads private memory, and a scope never widens without a review: the
+author asks, a different person with the review scope decides, or a sole reviewer does and it is marked self-reviewed
+(ADR 0056). Narrowing is immediate.
 _Avoid_: namespace, visibility
 
 ### Configuration

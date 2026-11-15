@@ -49,6 +49,24 @@
       ]
     },
     {
+      "type": "knowledge.scope.request",
+      "schema": "KnowledgeScopeRequestCommand",
+      "scope": "workspace:read",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
+      "type": "knowledge.scope.set",
+      "schema": "KnowledgeScopeSetCommand",
+      "scope": "memory:publish",
+      "authority": "workspace",
+      "actors": [
+        "human"
+      ]
+    },
+    {
       "type": "mission.reuse.decide",
       "schema": "MissionReuseDecideCommand",
       "scope": "mission:write",

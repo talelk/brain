@@ -424,6 +424,9 @@ CREATE TABLE knowledge_assets (
   reviewed_at_ms INTEGER DEFAULT NULL, rejection_reason TEXT DEFAULT NULL, content_digest TEXT DEFAULT NULL,
   superseded_by TEXT DEFAULT NULL, auto_published INTEGER NOT NULL DEFAULT 0 CHECK(auto_published IN (0,1)),
   expires_at_ms INTEGER DEFAULT NULL,
+  -- Memory scope (#135): who may read a published asset (team = the team of mission_id, private = producer_id), and the wider scope its author asked a reviewer for.
+  scope TEXT NOT NULL DEFAULT 'workspace' CHECK(scope IN ('private','team','workspace')),
+  scope_requested TEXT DEFAULT NULL CHECK(scope_requested IS NULL OR scope_requested IN ('team','workspace')),
   created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL
 ) STRICT;
 -- Library settings (row 47): one row at most; no row means the defaults (auto-publish on).
