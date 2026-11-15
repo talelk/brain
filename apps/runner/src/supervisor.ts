@@ -483,6 +483,8 @@ export async function runOnce(cfg: RunnerConfig, sessionToken: string | (() => s
       cfg, signal: controller.signal, launcher, permit, toolPins, egressHosts: offer.egressHosts,
       validatePermit: (token, invocationId) => client.validatePermit(token, invocationId),
       fetchPinnedTool: (toolId, digest) => client.toolScript(offer.configDigest, toolId, digest),
+      // The secrets this attempt's own tool declared arrive as short-lived credentials from the Governor, never from a runner-local store (ADR 0065).
+      secrets: { mint: () => client.secretCredentials(offer.attemptId), validate: (ids) => client.validateSecretCredentials(offer.attemptId, ids) },
     });
     }
     const assignment = payload.evaluation;

@@ -41,6 +41,8 @@ const SENTENCES: Record<string, (what: string | undefined) => string> = {
   "share.viewed": () => "A share link was opened",
   "challenge.requested": () => "A second look at a result was requested",
   "challenge.completed": () => "A second look at a result finished",
+  "secret.minted": () => "A short-lived credential was issued for a task's tool",
+  "secret.refused": () => "A short-lived credential was refused",
   "runner.trust.verified": () => "A runner was verified",
   "runner.trust.revoked": () => "A runner was no longer trusted",
 };

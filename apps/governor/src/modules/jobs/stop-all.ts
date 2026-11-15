@@ -1,5 +1,6 @@
 import { transitionState } from "../../domain/states";
 import type { Store } from "../../application/store";
+import { revokeAttemptSecrets, revokeWorkspaceSecrets } from "../secret-leases/index";
 import { revokeSessionCredentials, revokeWorkspaceSessionCredentials } from "../identity/index";
 import { endAttemptSession } from "../sessions/index";
 import { markPlatformInterruption, releaseReservation } from "./attempts";
@@ -49,6 +50,7 @@ export function stopWorkspaceWork(s: Store, input: { organizationId: string; wor
       }
       s.control.prepare("UPDATE permit_credentials SET revoked_at_ms=? WHERE revoked_at_ms IS NULL AND permit_id IN (SELECT id FROM effect_permits WHERE attempt_id=?)").run(now, row.attempt_id);
       revokeSessionCredentials(s, row.attempt_id);
+      revokeAttemptSecrets(s, row.attempt_id, "stop-all");
       releaseReservation(s, row.attempt_id);
       endAttemptSession(s, { organizationId: input.organizationId, workspaceId: input.workspaceId, attemptId: row.attempt_id, failed: false });
       s.emit(s.control, { organizationId: input.organizationId, workspaceId: input.workspaceId, aggregateType: "job", aggregateId: row.job_id, eventType: "job.updated", payload: { attemptId: row.attempt_id, jobState: unknown ? "outcome_unknown" : "cancelled", stopped: true }, destinations: [`workspace:${input.workspaceId}`] });
@@ -63,6 +65,7 @@ export function stopWorkspaceWork(s: Store, input: { organizationId: string; wor
     }
     // Credentials of this workspace's machine principals that no live attempt carries any more (a replaced or half-ended session) end as well.
     revokeWorkspaceSessionCredentials(s, input.workspaceId);
+    revokeWorkspaceSecrets(s, input.workspaceId, "stop-all");
     return { attempts, runIds: [...runIds].sort(), waitingJobs: waiting.length };
   });
 }

@@ -91,6 +91,7 @@ Governor module folders share this one deployment:
 | capabilities | `apps/governor/src/modules/capabilities` | Capability discovery, private candidates, packaging, tests and governed publication |
 | resources | `apps/governor/src/modules/resources` | Documents, immutable versions, preview, associations, classification and storage lifecycle |
 | integrations | `apps/governor/src/modules/integrations` | GitHub/GitLab connections, secret references, repository bindings, webhooks and change proposals |
+| secret-leases | `apps/governor/src/modules/secret-leases` | The secrets adapter port, its built-in adapters and the broker that leases short-lived, attempt-bound secret credentials |
 | packs | `apps/governor/src/modules/packs` | Compiled onboarding/support/SRE/delivery/eval modules and connector adapters |
 | operations | `apps/governor/src/modules/operations` | Health, bounded timers, backup/restore, audit and notifications |
 | stream | `apps/governor/src/modules/stream` | Unified Execution Stream read model: watermark-guarded projection over the authoritative source logs, permission-scoped reads, FTS search, correlation context, attempt comparison, retention sweep and bounded sanitized export; attention items, seen cursors and since-last-visit summaries |

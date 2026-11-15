@@ -97,17 +97,26 @@ export function resolveSessionCredential(store: Store, digest: string): { bindin
   if (!row) return undefined;
   const revoked = (): never => { throw new BrainDomainError("UNAUTHENTICATED", "session credential revoked: its attempt ended or its fence moved"); };
   if (row.revoked_at_ms !== null || row.expires_at_ms <= store.now() || row.attempt_id === null || row.job_fence === null) return revoked();
-  const live = store.control.prepare(`SELECT a.state AS attempt_state, a.job_fence AS attempt_fence, a.lease_expires_at_ms AS lease, a.runner_epoch AS epoch, j.state AS job_state, j.job_fence AS job_fence,
-    j.workflow_run_id AS run_id, r.session_epoch AS session_epoch, r.admin_state AS admin_state
-    FROM job_attempts a JOIN jobs j ON j.id=a.job_id JOIN runners r ON r.id=a.runner_id WHERE a.id=?`).get(row.attempt_id) as
-    | { attempt_state: string; attempt_fence: number; lease: number; epoch: number; job_state: string; job_fence: number; run_id: string; session_epoch: number; admin_state: string } | undefined;
-  const holds = live && live.attempt_state === "running" && live.job_state === "running" && live.attempt_fence === row.job_fence && live.job_fence === row.job_fence
-    && live.lease > store.now() && live.epoch === live.session_epoch && !["quarantined", "disabled"].includes(live.admin_state);
-  if (!holds) {
+  const live = attemptHoldsFence(store, row.attempt_id, row.job_fence);
+  if (!live) {
     revokeSessionCredentials(store, row.attempt_id);
     return revoked();
   }
   const binding = agentBinding(store, row.principal_id);
   if (!binding || binding.organizationId !== row.organization_id) return revoked();
-  return { binding, attemptId: row.attempt_id, runId: live.run_id };
+  return { binding, attemptId: row.attempt_id, runId: live.runId };
+}
+
+/**
+ * Whether the attempt is still running under the fence a credential was minted for, on the runner epoch that holds its lease and with
+ * that runner neither quarantined nor disabled. The one predicate every attempt-bound credential (session or secret) is checked against.
+ */
+export function attemptHoldsFence(store: Store, attemptId: string, fence: number): { runId: string; deadlineMs: number | null } | undefined {
+  const live = store.control.prepare(`SELECT a.state AS attempt_state, a.job_fence AS attempt_fence, a.lease_expires_at_ms AS lease, a.runner_epoch AS epoch, a.deadline_ms AS deadline, j.state AS job_state, j.job_fence AS job_fence,
+    j.workflow_run_id AS run_id, r.session_epoch AS session_epoch, r.admin_state AS admin_state
+    FROM job_attempts a JOIN jobs j ON j.id=a.job_id JOIN runners r ON r.id=a.runner_id WHERE a.id=?`).get(attemptId) as
+    | { attempt_state: string; attempt_fence: number; lease: number; epoch: number; deadline: number | null; job_state: string; job_fence: number; run_id: string; session_epoch: number; admin_state: string } | undefined;
+  const holds = live && live.attempt_state === "running" && live.job_state === "running" && live.attempt_fence === fence && live.job_fence === fence
+    && live.lease > store.now() && live.epoch === live.session_epoch && !["quarantined", "disabled"].includes(live.admin_state);
+  return holds ? { runId: live.run_id, deadlineMs: live.deadline } : undefined;
 }

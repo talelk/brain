@@ -256,6 +256,19 @@ export class GovernorClient {
     return (res.json as { data: unknown }).data;
   }
 
+  /** Short-lived credentials for the secrets the attempt's own privileged tool declared (ADR 0065). The values are never logged or put in an error. */
+  async secretCredentials(attemptId: string): Promise<Array<{ id: string; envName: string; value: string; expiresAt: string }>> {
+    const res = await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/secret-credentials`, {});
+    if (res.status !== 200) throw new GovernorProtocolError("secret credentials", res.status, res.json);
+    return (res.json as { credentials: Array<{ id: string; envName: string; value: string; expiresAt: string }> }).credentials;
+  }
+
+  /** Immediately before use: the Governor refuses (and audits) a credential that expired, was revoked or lost its attempt's fence. */
+  async validateSecretCredentials(attemptId: string, ids: readonly string[]): Promise<void> {
+    const res = await this.request(`/runner/v1/attempts/${encodeURIComponent(attemptId)}/secret-credentials/validate`, { ids });
+    if (res.status !== 200) throw new GovernorProtocolError("secret credential check", res.status, res.json);
+  }
+
   // --- Brain tools (ADR 0042) -------------------------------------------
 
   /** The credential this running attempt acts with as its team member's machine principal, and the ids it acts on. Asking again replaces it. */

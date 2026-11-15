@@ -77,8 +77,9 @@ export class LauncherClient {
     return { sandboxId: String(r.json["sandboxId"]) };
   }
 
-  async exec(sandboxId: string, script: string, input: string, timeoutMs: number): Promise<{ exitCode: number; stdout: string; stderr: string; timedOut: boolean }> {
-    const r = await this.call("POST", `/v1/sandboxes/${encodeURIComponent(sandboxId)}/exec`, { argv: ["/bin/bash"], script, input, timeoutMs });
+  /** `secretEnv` (privileged-tool sandboxes only, enforced by the launcher) carries a call's short-lived secret values as environment for that one exec. */
+  async exec(sandboxId: string, script: string, input: string, timeoutMs: number, secretEnv?: Readonly<Record<string, string>>): Promise<{ exitCode: number; stdout: string; stderr: string; timedOut: boolean }> {
+    const r = await this.call("POST", `/v1/sandboxes/${encodeURIComponent(sandboxId)}/exec`, { argv: ["/bin/bash"], script, input, timeoutMs, ...(secretEnv && Object.keys(secretEnv).length > 0 ? { secretEnv } : {}) });
     if (r.status !== 200) throw new Error(`sandbox exec failed ${r.status}: ${String(r.json["error"] ?? "")}`);
     return { exitCode: Number(r.json["exitCode"]), stdout: String(r.json["stdout"] ?? ""), stderr: String(r.json["stderr"] ?? ""), timedOut: r.json["timedOut"] === true };
   }

@@ -44,6 +44,16 @@
     },
     {
       "method": "POST",
+      "path": "/runner/v1/attempts/{id}/secret-credentials",
+      "purpose": "the runner holding a running attempt of a privileged tool asks for short-lived credentials for the secrets that tool declared, minted through the secrets adapter port and bound to the attempt and its fence (ADR 0065)"
+    },
+    {
+      "method": "POST",
+      "path": "/runner/v1/attempts/{id}/secret-credentials/validate",
+      "purpose": "the runner re-checks, immediately before use, that its minted secret credentials are unexpired, unrevoked and still bound to the attempt's fence; a refusal is audited (ADR 0065)"
+    },
+    {
+      "method": "POST",
       "path": "/mcp",
       "purpose": "Brain knowledge/session tools exposed over MCP to agent runtimes"
     },

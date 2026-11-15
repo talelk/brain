@@ -3,7 +3,7 @@ import type { ActorContext, GitConnection, GitProposal, GitProvider, Integration
 import type { Store } from "../../application/store";
 import { BrainDomainError } from "../../domain/errors";
 import { iso } from "../../domain/clock";
-import { decryptGitCredentials, encryptGitCredentials } from "./crypto";
+import { decryptGitCredentials, encryptGitCredentials, type GitCredentialMaterial } from "./crypto";
 import { checkProviderFitsHost, gitProviderLabel, parseGitProvider } from "./git-provider";
 import { protocolClient, type RemoteSnapshot } from "./providers";
 import { HostedPullRequestApi, pushProposalBranch, type ProposedFile, type PullRequestApi } from "./pull-request";
@@ -76,10 +76,11 @@ export class IntegrationService {
    * Opens a pull request in the workspace's bound project repository: a new branch with the proposed files, then the provider's request.
    * Runs only for an approved call (the caller holds a started permit). Returns the address; the token is never part of any result or error.
    */
-  async openPullRequest(organizationId: string, workspaceId: string, input: { title: string; body: string; branch: string; files: readonly ProposedFile[] }): Promise<OpenedPullRequest> {
+  async openPullRequest(organizationId: string, workspaceId: string, input: { title: string; body: string; branch: string; files: readonly ProposedFile[] }, leaseCredentials: (connectionId: string) => GitCredentialMaterial): Promise<OpenedPullRequest> {
     const binding = this.pullRequestBinding(organizationId, workspaceId);
     if (!binding) throw new BrainDomainError("FORBIDDEN", this.pullRequestTargetProblem(organizationId, workspaceId) ?? "no repository");
-    const credentials = decryptGitCredentials(this.store.pepper, organizationId, binding.connection_id, binding.encrypted_credentials);
+    // The credential is a short-lived lease of the secrets port, bound to the calling attempt (ADR 0065); the stored token is not read here.
+    const credentials = leaseCredentials(binding.connection_id);
     const scrub = (message: string): string => (credentials.token ? message.split(credentials.token).join("[hidden]") : message);
     const repositories = JSON.parse(binding.repositories_json) as IntegrationRepository[];
     const base = repositories.find((repository) => repository.repositoryKey === binding.repository_key)?.defaultBranch ?? "main";

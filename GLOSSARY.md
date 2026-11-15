@@ -790,6 +790,14 @@ The commands a session credential may run: only those behind the Brain tools, no
 scopes admit (ADR 0032). The rest are refused; a test requires every command to be classified.
 _Avoid_: session scope, agent permissions
 
+**Secrets adapter**:
+The port through which the Governor reaches wherever a secret really lives (its encrypted store, a file on its host, a deployment's vault); it only turns a reference into material for one workspace (ADR 0065). The built-in adapters need no vendor SDK; replacing one never weakens the **secret credential** rules.
+_Avoid_: vault, secret manager
+
+**Secret credential**:
+A lease on one secret reference for one running attempt, minted by the Governor through the **secrets adapter** for the secrets a privileged tool declared. Bound to the attempt and its fence, ends at the attempt's deadline plus a short grace (never beyond an hour), and earlier when the attempt ends, its fence moves, all sessions are stopped or its runner is quarantined. Use after that is refused and audited. The value is never stored, shown or logged.
+_Avoid_: token, API key, secret file
+
 ### Surfaces
 
 **Fleet overview**:

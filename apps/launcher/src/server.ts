@@ -215,9 +215,23 @@ export async function startLauncher(): Promise<void> {
         const stdin = String(b["input"] ?? "");
         if (Buffer.byteLength(stdin, "utf8") > 64 * 1024) { json(res, 413, { error: "stdin too large" }); return; }
         const timeoutMs = Math.min(300_000, Math.max(1000, Number(b["timeoutMs"] ?? 60_000)));
-        const result = await execa("docker", ["exec", "-i", sb.containerId, "/bin/bash", script], {
+        // Short-lived secret values (ADR 0065) go to a privileged-tool sandbox only, as environment for this one exec: named on the docker
+        // command line, valued in the docker client's own environment, so they are never on an argv another process can read.
+        const secretEnv = b["secretEnv"];
+        const secretNames: string[] = [];
+        const secretValues: Record<string, string> = {};
+        if (secretEnv !== undefined) {
+          if (sb.profile !== "privileged-tool") { json(res, 422, { error: "secrets are delivered to privileged-tool sandboxes only" }); return; }
+          if (!secretEnv || typeof secretEnv !== "object" || Array.isArray(secretEnv) || Object.keys(secretEnv).length > 16) { json(res, 422, { error: "secretEnv must be an object of at most 16 values" }); return; }
+          for (const [name, value] of Object.entries(secretEnv as Record<string, unknown>)) {
+            if (!/^[A-Z][A-Z0-9_]{0,63}$/u.test(name) || typeof value !== "string" || value.length === 0 || Buffer.byteLength(value, "utf8") > 8192) { json(res, 422, { error: `secretEnv ${name} is invalid` }); return; }
+            secretNames.push("-e", name);
+            secretValues[name] = value;
+          }
+        }
+        const result = await execa("docker", ["exec", "-i", ...secretNames, sb.containerId, "/bin/bash", script], {
           input: stdin, timeout: timeoutMs, maxBuffer: 1024 * 1024, extendEnv: false,
-          env: { PATH: "/usr/local/bin:/usr/bin:/bin", HOME: "/tmp", TMPDIR: "/tmp", LANG: "C.UTF-8" },
+          env: { PATH: "/usr/local/bin:/usr/bin:/bin", HOME: "/tmp", TMPDIR: "/tmp", LANG: "C.UTF-8", ...secretValues },
           reject: false,
         });
         json(res, 200, {

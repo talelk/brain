@@ -59,7 +59,8 @@ import { alertBadProbes, notifyApprovers, platformAlertLink, securitySettingsLin
 import { SessionService, delegatedRunEnded, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
-import { IntegrationService, integrationCommands, type OpenedPullRequest } from "../modules/integrations/index";
+import { IntegrationService, integrationCommands, type GitCredentialMaterial, type OpenedPullRequest } from "../modules/integrations/index";
+import { EncryptedStoreAdapter, HostFileAdapter, SecretBroker, gitReference, revokeAttemptSecrets } from "../modules/secret-leases/index";
 import { ConfigurationDraftService } from "../modules/configuration/index";
 import { CapitalizationService, ToolTests, capitalizationCommands } from "../modules/capabilities/index";
 
@@ -75,6 +76,8 @@ export class Brain {
   readonly stream: StreamService;
   readonly documents: DocumentService;
   readonly integrations: IntegrationService;
+  /** The secrets adapter port's broker (ADR 0065): short-lived, attempt-bound credentials for the secrets a job's tools need. */
+  readonly secrets: SecretBroker;
   readonly drafts: ConfigurationDraftService;
   readonly toolTests: ToolTests;
   readonly jobProtocol: JobProtocol;
@@ -123,6 +126,7 @@ export class Brain {
       this.stream = createStreamService(this.store);
       this.documents = new DocumentService(this.store);
       this.integrations = new IntegrationService(this.store);
+      this.secrets = new SecretBroker(this.store, [new EncryptedStoreAdapter(this.store), new HostFileAdapter(process.env["BRAIN_TOOL_SECRETS_DIR"])]);
       this.drafts = new ConfigurationDraftService(this.store, {
         activeDocuments: (organizationId) => activeSourceDocuments(this.store, organizationId),
         activeAssets: (organizationId) => activeReleaseAssets(this.store, organizationId),
@@ -132,6 +136,7 @@ export class Brain {
       this.workflows = new MastraWorkflowEngine(this.store, this, join(this.store.dataDir, "mastra"));
       this.toolTests = new ToolTests(this.store, { startRun: (input) => this.workflows.startRun(input) });
       this.jobProtocol = new JobProtocol(this.store, {
+        secrets: this.secrets,
         completeStep: (organizationId, workspaceId, runId, stepId, output, ok) => this.workflows.completeStep(organizationId, workspaceId, runId, stepId, output, ok),
         evaluatorEligible: (runnerId, jobId) => this.evidence.evaluatorEligible(runnerId, jobId),
         runnerCurrent: (organizationId, runnerId) => localRunnerSettingsCurrent(this.store, organizationId, runnerId),
@@ -688,7 +693,13 @@ export class Brain {
         organizationId: begun.organizationId, workspaceId: begun.workspaceId, approvalId: begun.approvalId, invocationId: begun.invocationId, runId: begun.runId, opened, title,
       });
     };
-    return runGovernorEffect({ connectors: this.connectors(), integrations: this.integrations, pullRequestOpened }, begun);
+    // The push goes out on a short-lived credential minted for this attempt through the secrets port, never on the stored token itself (ADR 0065).
+    const gitCredentials = (connectionId: string): GitCredentialMaterial => {
+      const [minted] = this.secrets.mint({ organizationId: begun.organizationId, workspaceId: begun.workspaceId, attemptId, refs: { GIT_CREDENTIALS: gitReference(connectionId) }, toolId: begun.toolId });
+      return JSON.parse(minted!.value) as GitCredentialMaterial;
+    };
+    return runGovernorEffect({ connectors: this.connectors(), integrations: this.integrations, pullRequestOpened, gitCredentials }, begun)
+      .finally(() => revokeAttemptSecrets(this.store, attemptId, "call-finished"));
   }
 
   acceptAttemptArtifact(runner: { runnerId: string; epoch: number; organizationId: string }, attemptId: string, input: { digest: string; bytesBase64: string; mediaType?: string }): { artifactId: string; digest: string; bytes: number } {
