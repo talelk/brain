@@ -28,6 +28,7 @@ import { iso } from "../../domain/clock";
 import { OUTAGE_MAX_WAITS, OUTAGE_WAIT_MS, QUOTA_MAX_WAITS, REMEDY, classifyFailure, lessonText, quotaWaitMs, waitWords, type FailureClass } from "../../domain/failure";
 import { GENERAL_TASK_WORKFLOW } from "../workflows/index";
 import { modelRoutesUsable } from "../jobs/index";
+import { missionTraceId } from "../../domain/trace";
 import { missionTimeline } from "./timeline";
 import { observedCalls, taskTokenCap, taskTokens, wayOfWorking, workflowAgentTools, workflowsCovering } from "./outcomes";
 
@@ -179,7 +180,7 @@ export class MissionService {
       ...(taskTrust ? { taskTrust } : {}),
       budget: budgetOf(row), usage: usageOf(this.store, db, row, this.store.now()),
       subjects: (db.prepare("SELECT pack, kind, subject_id FROM mission_subjects WHERE mission_id=? ORDER BY kind, subject_id").all(row.id) as Array<{ pack: "support" | "sre"; kind: "ticket" | "incident"; subject_id: string }>).map((entry) => ({ pack: entry.pack, kind: entry.kind, id: entry.subject_id })),
-      missionId: row.id, workspaceId, title: row.title, intent: row.intent, ...(row.play_id ? { playId: row.play_id } : {}), ...(row.coordinator_member_id ? { coordinatorMemberId: row.coordinator_member_id } : {}),
+      missionId: row.id, traceId: missionTraceId(row.id), workspaceId, title: row.title, intent: row.intent, ...(row.play_id ? { playId: row.play_id } : {}), ...(row.coordinator_member_id ? { coordinatorMemberId: row.coordinator_member_id } : {}),
       successCriteria: this.coverage(db, row), ownerId: row.owner_id,
       ...(row.active_plan_version_id ? { activePlanVersionId: row.active_plan_version_id } : {}),
       ...(pending ? { pendingPlanVersionId: pending.id } : {}),

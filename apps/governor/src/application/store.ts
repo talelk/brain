@@ -19,6 +19,9 @@ export interface BrainOptions {
   readonly allowTestActor?: boolean;
 }
 
+/** One recorded event as the trace export sees it: ids and the payload, never read back from the database. */
+export interface EmittedEvent { eventId: string; organizationId?: string; workspaceId?: string; aggregateType: string; aggregateId: string; eventType: string; payload: JsonValue; atMs: number }
+
 export class Store {
   readonly control: Db;
   readonly clock: Clock;
@@ -122,6 +125,9 @@ export class Store {
     } finally { this.releaseDirectory(); }
   }
 
+  /** Told about every event once it is recorded (the optional trace export); it must not throw or wait. */
+  eventObserver?: (event: EmittedEvent) => void;
+
   emit(db: Db, input: {
     organizationId?: string; workspaceId?: string | null;
     aggregateType: string; aggregateId: string; eventType: string;
@@ -149,6 +155,9 @@ export class Store {
     for (const dest of input.destinations ?? []) {
       db.prepare("INSERT INTO outbox_deliveries(event_id, destination, state, next_attempt_at_ms) VALUES (?,?, 'pending', ?)")
         .run(eventId, dest, this.now());
+    }
+    if (this.eventObserver) {
+      try { this.eventObserver({ eventId, ...(input.organizationId ? { organizationId: input.organizationId } : {}), ...(input.workspaceId ? { workspaceId: input.workspaceId } : changed ? { workspaceId: changed } : {}), aggregateType: input.aggregateType, aggregateId: input.aggregateId, eventType: input.eventType, payload, atMs: this.now() }); } catch { /* observers are best-effort */ }
     }
     return eventId;
   }

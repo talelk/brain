@@ -53,7 +53,7 @@ import { PlayProposals } from "./play-proposals";
 import { StarterPlays } from "./starter-plays";
 import { attentionCommands, attentionQuery, qualityBreakdown, qualitySummary } from "../modules/stream/index";
 import { connectorsFromEnv, handleInbound, smtpTarget, type Connectors } from "../modules/operations/index";
-import { alertBadProbes, notifyApprovers, platformAlertLink, securitySettingsLink, checkBackups, checkDisk, diagnosticsBundle, checkHostedModels, checkModelEndpoint, checkReplica, replicaConfig, replicateOnce, recordProbe, absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
+import { startTraceExport, alertBadProbes, notifyApprovers, platformAlertLink, securitySettingsLink, checkBackups, checkDisk, diagnosticsBundle, checkHostedModels, checkModelEndpoint, checkReplica, replicaConfig, replicateOnce, recordProbe, absoluteLink, channelsFor, sendEmail, notificationsFor, notifyAttention, preferencesView, sendDigests, sendWebhook, setNotificationPreferences, watchCommands, webhookBody, webhookTarget, type Sender } from "../modules/operations/index";
 import { SessionService, delegatedRunEnded, enqueueSessionControl, sessionCommands } from "../modules/sessions/index";
 import { createStreamService, frameOf, type StreamFilters, type StreamService } from "../modules/stream/index";
 import { DocumentService, documentCommands } from "../modules/resources/index";
@@ -94,9 +94,13 @@ export class Brain {
   readonly starterPlays: StarterPlays;
   readonly shares: ShareService;
 
+  /** The optional OpenTelemetry export (off unless OTEL_TRACES_EXPORTER=otlp and an endpoint are set). */
+  readonly traceExport: ReturnType<typeof startTraceExport>;
+
   constructor(opts: BrainOptions & { runtime?: RuntimeConfig }) {
     this.runtime = opts.runtime ?? readRuntimeConfig();
     this.store = new Store(opts);
+    this.traceExport = startTraceExport(this.store);
     try {
       const authSecret = process.env["BRAIN_AUTH_SECRET"] ?? Buffer.from(this.store.pepper).toString("hex");
       this.auth = createBrainAuth(this.store.control, { secretDirs: secretDirectories(this.store.dataDir), initialPasswordFile: join(this.store.dataDir, "initial-admin-password"), secret: authSecret, baseURL: process.env["BRAIN_BASE_URL"] ?? "http://localhost:3000", requireTwoFactor: this.runtime.requireTwoFactor });
@@ -302,6 +306,7 @@ export class Brain {
   close(): void {
     clearInterval(this.memoryProbeTimer);
     clearInterval(this.engineProbeTimer);
+    this.traceExport?.close();
     if (this.replicaTimer) clearInterval(this.replicaTimer);
     this.closed = true;
     this.store.close();

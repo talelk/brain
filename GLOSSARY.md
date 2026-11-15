@@ -270,6 +270,12 @@ attempts and sessions that served it. It is the boundary between the work side a
 execution side.
 _Avoid_: execution (standalone — it names an area, not a thing), trace
 
+**Mission trace id**:
+The one 32-hex identifier of a mission, derived from its id, in every event payload and, when trace
+export is on, the trace id of every span of that mission. Shown copyable on the mission and run
+pages; never a metric label.
+_Avoid_: correlation id, span id
+
 ### Execution
 
 **Run**:

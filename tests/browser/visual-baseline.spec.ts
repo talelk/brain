@@ -165,6 +165,8 @@ const SCREENS: Array<{ id: string; route: (demo: Demo, governor: Fixture) => str
   { id: "mission-plan", route: (d) => `/missions/${d.seed.missionIds.active}/plan`, heading: "Stabilize authentication" },
   { id: "mission-board", route: (d) => `/missions/${d.seed.missionIds.active}/plan?view=board`, heading: "Stabilize authentication", waitFor: "work-board", after: async (page) => { await expect(page.getByTestId("work-board")).toBeVisible(); await expect(page.getByTestId("work-overdue")).toBeVisible(); } },
   { id: "mission-live", route: (d) => `/missions/${d.seed.missionIds.active}/live`, heading: "Stabilize authentication" },
+  // The Brief with its Trace id opened (ticket #143): the mission trace id a person copies to find the mission in a trace backend.
+  { id: "mission-brief-trace", route: (d) => `/missions/${d.seed.missionIds.active}/brief`, heading: "Stabilize authentication", after: async (page) => { await page.getByText("Trace id", { exact: true }).click(); await expect(page.getByRole("button", { name: "Copy full Trace id" })).toBeVisible(); } },
   { id: "plays", route: () => "/w/operations/plays?mode=catalog", heading: "Plays" },
   { id: "live", route: () => "/w/operations/live", heading: "Sessions & runs", testid: "console-rail" },
   { id: "logs", route: () => "/w/operations/logs", heading: "Logs" },

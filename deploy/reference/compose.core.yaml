@@ -22,6 +22,11 @@ services:
       BRAIN_WEB_DIST_DIR: /app/web
       # The public origin people reach Brain at: sign-in cookies and every link in a notification use it.
       BRAIN_BASE_URL: ${BRAIN_BASE_URL:?https-origin-required}
+      # Optional trace export (ADR 0063): off unless OTEL_TRACES_EXPORTER=otlp and an endpoint are set (OTLP/HTTP JSON).
+      OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-brain-governor}
     volumes:
       - brain_state:/data
     tmpfs: ['/tmp:size=128m,mode=1770,uid=10001,gid=10001']

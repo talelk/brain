@@ -1,7 +1,7 @@
 # Prometheus alert rules for Keyrus Brain (Phase 4). Load with `rule_files:` in prometheus.yml (see prometheus.yml here).
 # Every metric below is exposed by the Governor's /metrics endpoint; tests/integration/metrics.test.ts fails if a rule names a metric the
 # endpoint does not emit. Thresholds follow the plan's targets: stall rate under 2 percent, restore and backup rehearsed, replica lag under
-# 15 minutes. Routing and paging are Alertmanager's job (backlog), not these rules'.
+# 15 minutes. Platform alerts also reach each owner inside Brain (in-app, webhook, email) without this file. Routing and paging of these rules is Alertmanager's job and optional: point Prometheus `alerting:` at an Alertmanager and add a route and receiver (pager, Slack, email) there.
 groups:
   - name: brain-work
     rules:
