@@ -22,8 +22,8 @@ const WIDENING_KEYS = new Set(["tools", "allowedtools", "disallowedtools", "perm
 const WIDENING_LINE_KEYS = new Set(["allowedtools", "effectclass", "allowedhosts", "permissions"]);
 const BYPASS: readonly RegExp[] = [
   /(?<!(?:\bnot|\bnever|n\x27t)\s+)\b(?:ignore|bypass|override|disable|skip|circumvent|turn off|get around)\b[^.\n]{0,60}\b(?:approvals?|gates?|allow-?lists?|allowed tools|permissions?|polic(?:y|ies)|sandbox|guardrails?|effect class(?:es)?|restrictions?)\b/iu,
-  /\b(?:you (?:may|can|are (?:allowed|free) to)|feel free to)\b[^.\n]{0,40}\b(?:any|every|all|other|unlisted|additional)\b[^.\n]{0,20}\btools?\b/iu,
-  /(?<!(?:\bnot|\bnever|n\x27t)\s+)\bgrant (?:yourself|the agent)\b|\bescalate (?:your )?(?:privileges|permissions)\b|--dangerously-skip-permissions|\bwithout (?:asking for )?approval\b/iu,
+  /\b(?:you (?:may|can|are (?:allowed|free) to)|feel free to)(?!\x27t\b|\s+(?:not|never)\b)\b[^.\n]{0,40}\b(?:any|every|all|other|unlisted|additional)\b[^.\n]{0,20}\btools?\b/iu,
+  /(?<!(?:\bnot|\bnever|n\x27t)\s+)\b(?:grant (?:yourself|the agent)|escalate (?:your )?(?:privileges|permissions))\b|--dangerously-skip-permissions/iu,
 ];
 
 function widenError(id: string, reason: string): BrainDomainError {

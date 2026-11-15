@@ -1,7 +1,8 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { sha256Digest } from "@brain/contracts";
+import { collectRelease } from "../../apps/cli/src/release";
 import { createApp } from "../../apps/governor/src/http/app";
 import { compileRelease } from "../../apps/governor/src/modules/configuration/compiler";
 import { readReleaseAgentInstructions } from "../../apps/governor/src/modules/configuration/index";
@@ -114,7 +115,27 @@ describe("skills in a release (#134)", () => {
   });
 
   it("a skill that tells the agent to keep to its limits is not mistaken for one that breaks them", () => {
-    expect(() => compile(withSkills({ "invoice-checks": { ...INVOICE, text: "Never skip the approval step: if a change is needed, propose it and wait.\nDo not bypass the allowlist.\n" } }))).not.toThrow();
+    expect(() => compile(withSkills({ "invoice-checks": { ...INVOICE, text: "Never skip the approval step: if a change is needed, propose it and wait.\nDo not bypass the allowlist.\nNever make a change without approval.\nDo not escalate your privileges.\nYou may not use any tool that is not on your list.\nYou can't call other tools.\n" } }))).not.toThrow();
+  });
+
+  it("a skill written by hand as YAML with a block scalar is collected from a release folder and compiled with its text intact", () => {
+    const root = mkdtempSync(join(tmp, "brain-skills-yaml-"));
+    try {
+      const dir = join(root, "release");
+      cpSync("examples/v1/starter-release", dir, { recursive: true });
+      mkdirSync(join(dir, "config", "skills"), { recursive: true });
+      const file = [
+        "apiVersion: brain.keyrus/v1", "kind: Skill", "metadata:", "  id: ledger-notes", "  version: 1.0.0", "spec:",
+        "  description: How to read the ledger export", "  triggers: [ledger, general ledger]", "  text: |",
+        "    # Reading the ledger", "", "    - The export's first row is a header; don't count it.", "    - Amounts are in cents: divide by 100 before you quote one.", "",
+      ].join("\n");
+      writeFileSync(join(dir, "config", "skills", "ledger-notes.yaml"), file);
+      const release = compile(collectRelease(dir));
+      expect(release.skills["ledger-notes"]).toEqual({
+        digest: digestOf(file), description: "How to read the ledger export", triggers: ["ledger", "general ledger"],
+        text: "# Reading the ledger\n\n- The export's first row is a header; don't count it.\n- Amounts are in cents: divide by 100 before you quote one.\n",
+      });
+    } finally { rmSync(root, { recursive: true, force: true }); }
   });
 
   it("an unreferenced skill and an agent without skills both compile; the skill-less starter is unchanged", () => {
