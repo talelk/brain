@@ -1,6 +1,6 @@
 export * from "./compiler";
 export * from "./policy-floor";
-export { allowedRuntime, operationAdmissionRefusal, policyForRelease, stepAdmissionRefusal, stepOperations } from "./policy-enforcement";
+export { allowedRuntime, operationAdmissionRefusal, policyForRelease, stepAdmissionRefusal } from "./policy-enforcement";
 export * from "./loader";
 export { readReleaseAgentInstructions, readReleaseToolScript, releaseToolAllowedHosts, releaseToolPins } from "./tools";
 export { ConfigurationDraftService, releaseAssets } from "./drafts";

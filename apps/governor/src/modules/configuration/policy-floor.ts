@@ -176,5 +176,6 @@ export function policyOf(release: { manifest?: Record<string, unknown> } | undef
 
 /** True for an environment the policy treats as production: `production` or `prod`, alone or with a suffix such as `production-eu`. */
 export function isProductionEnvironment(environmentId: string): boolean {
-  return /^(production|prod)([-_.:].*)?$/iu.test(environmentId);
+  const name = environmentId.toLowerCase();
+  return ["production", "prod"].some((base) => name === base || (name.startsWith(base) && "-_.:".includes(name.charAt(base.length))));
 }
